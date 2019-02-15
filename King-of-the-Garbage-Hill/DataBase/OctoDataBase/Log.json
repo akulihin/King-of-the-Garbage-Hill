@@ -1,0 +1,37 @@
+
+2:33:35 PM - Singleton added count: 13 (0:00.0086s.)
+2:33:35 PM - Transient added count: 1 (0:00.0003s.)
+2:33:38 PM - Singleton Initialized count: 13 (0:03.4323s.)
+2:33:38 PM - Transient Initialized count: 1 (0:00.0002s.)
+2:33:38 PM - Discord.Net v2.0.2-dev-01059 (API v6)
+2:33:41 PM - GET voice/regions: 2771.61 ms
+2:33:41 PM - Connecting
+2:33:41 PM - GET gateway: 161.27 ms
+2:33:42 PM - Connected to OctoBot
+2:33:42 PM - Connected to ZBS MAKING
+2:33:42 PM - Connected to OctoGameEmoji
+2:33:42 PM - Connected to OctoGame
+2:33:43 PM - Ready
+2:33:47 PM - Connected
+2:34:03 PM - POST channels/436071383836000256/messages: 427.04 ms
+2:34:03 PM - Command [*octo] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.7272s.
+2:34:11 PM - Command [*uptime] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.1333s.
+2:34:14 PM - POST channels/436071383836000256/messages: 3320.35 ms
+2:34:50 PM - Command [*uptime] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.1047s.
+2:34:50 PM - POST channels/436071383836000256/messages: 306.26 ms
+3:02:50 PM - Singleton added count: 13 (0:00.0040s.)
+3:02:50 PM - Transient added count: 1 (0:00.0003s.)
+3:02:53 PM - Singleton Initialized count: 13 (0:02.9867s.)
+3:02:53 PM - Transient Initialized count: 1 (0:00.0003s.)
+3:02:53 PM - Discord.Net v2.0.2-dev-01059 (API v6)
+3:02:58 PM - GET voice/regions: 4805.46 ms
+3:02:58 PM - Connecting
+3:02:58 PM - GET gateway: 188.45 ms
+3:02:59 PM - Connected to OctoBot
+3:02:59 PM - Connected to ZBS MAKING
+3:02:59 PM - Connected to OctoGame
+3:02:59 PM - Connected to OctoGameEmoji
+3:02:59 PM - Ready
+3:03:02 PM - Command [*t] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.1444s.
+3:03:04 PM - Connected
+3:03:08 PM - Command [*t] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.0316s.

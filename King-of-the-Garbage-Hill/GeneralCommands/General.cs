@@ -43,6 +43,12 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
+        [Command("t")]
+        public async Task TTTT()
+        {
+           var acc =  _accounts.GetAccount(Context.User);
+               _accounts.SaveAccounts(acc.DiscordId);
+        }
 
 
         [Command("updMaxRam")]
