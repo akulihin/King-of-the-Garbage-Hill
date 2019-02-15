@@ -3,9 +3,9 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
-using King_of_the_Garbage_Hill.DiscordFramework;
+
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
-using King_of_the_Garbage_Hill.DiscordFramework.Language;
+
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -17,27 +17,27 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 #pragma warning disable CS1998 // This async method lacks 'await' operators and will run synchronously. Consider using the 'await' operator to await non-blocking API calls, or 'await Task.Run(...)' to do CPU-bound work on a background thread.
 
    
-        private readonly ILocalization _lang;
+    
         private readonly UserAccounts _accounts;
         private readonly SecureRandom _secureRandom;
         private readonly OctoPicPull _octoPicPull;
         private readonly OctoNamePull _octoNmaNamePull;
         private readonly HelperFunctions _helperFunctions;
-        private readonly AudioService _service;
+  
         private readonly CommandsInMemory _commandsInMemory;
         private readonly Global _global;
 
   
-        public General(ILocalization lang, UserAccounts accounts, SecureRandom secureRandom, OctoPicPull octoPicPull, OctoNamePull octoNmaNamePull, HelperFunctions helperFunctions, AudioService service, CommandsInMemory commandsInMemory, Global global) 
+        public General( UserAccounts accounts, SecureRandom secureRandom, OctoPicPull octoPicPull, OctoNamePull octoNmaNamePull, HelperFunctions helperFunctions,  CommandsInMemory commandsInMemory, Global global) 
         {
-            _lang = lang;
+           
             _accounts = accounts;
 
             _secureRandom = secureRandom;
             _octoPicPull = octoPicPull;
             _octoNmaNamePull = octoNmaNamePull;
             _helperFunctions = helperFunctions;
-            _service = service;
+     
             _commandsInMemory = commandsInMemory;
             _global = global;
         }
@@ -119,27 +119,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
        
         
-
-        [Command("join", RunMode = RunMode.Async)]
-        [Summary("Joins a voice channel")]
-        public async Task JoinCmd()
-        {
-            await _service.JoinAudio(Context.Guild, (Context.User as IVoiceState)?.VoiceChannel);
-        }
-
-        [Command("leave", RunMode = RunMode.Async)]
-        [Summary("leaves a voice channel")]
-        public async Task LeaveCmd()
-        {
-           await _service.LeaveAudio(Context.Guild);
-        }
-    
-        [Command("play", RunMode = RunMode.Async)]
-        [Summary("plays only 1 song. for now. Just because.")]
-        public async Task PlayCmd([Remainder] string song = "nothing")
-        {
-            await _service.SendAudioAsync(Context.Guild, Context.Channel, song);
-        }
 
         [Command("myPrefix")]
         [Summary("Shows or sets YOUR OWN prefix for the bot")]
@@ -227,12 +206,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        [Command("test")]
-        [Summary("just a test of a multiple language shit")]
-        public async Task TestLanguges([Remainder] string rem)
-        {
-            var kek = _lang.Resolve($"{Context.User.Mention}\n[PRIVACY_DATA_REPORT_TEMPLATE(@DATA)]");
-            SendMessAsync( $"{kek}");
-        }
+
     }
 }
