@@ -91,7 +91,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
                     return;
                 _global.TotalCommandsChanged++;
                 var account = _accounts.GetAccount(messageAfter.Author);
-                var context = new SocketCommandContextCustom(_client, message,  _commandsInMemory, "edit", account.MyLanguage);
+                var context = new SocketCommandContextCustom(_client, message,  _commandsInMemory, "edit", "ru");
                 var argPos = 0;
 
 
@@ -149,7 +149,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
             var message = msg as SocketUserMessage;
             if (message == null) return;
             var account = _accounts.GetAccount(msg.Author);
-            var context = new SocketCommandContextCustom(_client, message, _commandsInMemory, null, account.MyLanguage);
+            var context = new SocketCommandContextCustom(_client, message, _commandsInMemory, null, "ru");
             var argPos = 0;
 
             if (message.Author is SocketGuildUser userCheck && userCheck.IsMuted)

@@ -92,9 +92,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             var newAccount = new AccountSettings
             {
                 DiscordId = user.Id,
-                DiscordUserName = user.Username,
-                MyLanguage = "en",
-                OctoLvL = 1
+                DiscordUserName = user.Username
             };
 
             accounts.Add(newAccount);

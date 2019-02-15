@@ -43,23 +43,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        [Command("tt")]
-        [Summary("doing absolutely nothing. That's right - NOTHING")]
-        public async Task Ttest([Remainder]string st = null)
-        {
-            var acc = _accounts.GetAccount(Context.User);
-            acc.Attack_Tree = st; 
-            _accounts.SaveAccounts(Context.User);
-
- 
-
-
-            
-
-            SendMessAsync($"updated");
-            // Context.User.GetAvatarUrl()
-
-        }
 
 
         [Command("updMaxRam")]
