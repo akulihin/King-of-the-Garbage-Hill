@@ -35,18 +35,17 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithColor(Color.DarkOrange);
             embed.AddField("Правила Игры", "TODO");
             embed.AddField("Твой Персонаж", "TODO");
-            
+
 
             await user.SendMessageAsync("", false, embed.Build());
         }
 
         public async Task WaitMess(ulong userId)
         {
-
             var globalAccount = _global.Client.GetUser(userId);
             var account = _accounts.GetAccount(globalAccount);
 
-            await  ShowRulesAndChar(globalAccount);
+            await ShowRulesAndChar(globalAccount);
 
             var mainPage = new EmbedBuilder();
             mainPage.WithAuthor(globalAccount);
@@ -63,7 +62,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 await socketMsg.RemoveAllReactionsAsync();
 
             await socketMsg.AddReactionAsync(new Emoji("🛡"));
-         //   await socketMsg.AddReactionAsync(new Emoji("➡"));
+            //   await socketMsg.AddReactionAsync(new Emoji("➡"));
             await socketMsg.AddReactionAsync(new Emoji("📖"));
 
             await socketMsg.AddReactionAsync(new Emoji("1⃣"));
@@ -72,8 +71,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             await socketMsg.AddReactionAsync(new Emoji("4⃣"));
             await socketMsg.AddReactionAsync(new Emoji("5⃣"));
             await socketMsg.AddReactionAsync(new Emoji("6⃣"));
-            await socketMsg.AddReactionAsync(new Emoji("⬆"));
-           
+            //   await socketMsg.AddReactionAsync(new Emoji("⬆"));
+
             //   await socketMsg.AddReactionAsync(new Emoji("8⃣"));
             //   await socketMsg.AddReactionAsync(new Emoji("9⃣"));
             //    await socketMsg.AddReactionAsync(new Emoji("🐙"));
@@ -116,15 +115,13 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 if (account.DiscordId == game.PlayersList[i].DiscordId) players += $" - {game.PlayersList[i].Score}\n";
                 else players += "\n";
             }
-      
+
             return players;
         }
 
 
         public async Task Logs(SocketReaction reaction, IUserMessage socketMsg)
         {
-
-
             var account = _accounts.GetAccount(reaction.User.Value.Id);
 
             if (account.MoveListPage == 2)
@@ -142,7 +139,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithTitle("Логи");
             embed.WithDescription("TODO");
             embed.WithColor(Color.Green);
-           
 
 
             await socketMsg.ModifyAsync(message => { message.Embed = embed.Build(); });
@@ -151,19 +147,15 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public async Task EndGame(SocketReaction reaction, IUserMessage socketMsg)
         {
+            var response = await _awaitForUser.FinishTheGameQuestion(reaction);
+            if (!response) return;
 
-            var response = await  _awaitForUser.FinishTheGameQuestion(reaction);
-            if (!response)
-            {
-                return;
-            }
-     
             var globalAccount = _global.Client.GetUser(reaction.UserId);
             var account = _accounts.GetAccount(globalAccount);
             account.IsPlaying = false;
             _accounts.SaveAccounts(account.DiscordId);
             await socketMsg.DeleteAsync();
-            await globalAccount.SendMessageAsync("Thank you for playing!");     
+            await globalAccount.SendMessageAsync("Thank you for playing!");
         }
 
 
@@ -183,11 +175,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 $"**Скорость:** {account.CharacterStats.Speed}\n" +
                 $"**Психика:** {account.CharacterStats.Psyche}\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                     $"*Справедливость: {account.CharacterStats.Justice}*\n" +
+                $"*Справедливость: {account.CharacterStats.Justice}*\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                 $"{leaders}");
-         
-          
 
 
             if (account.CharacterStats.Avatar != null)

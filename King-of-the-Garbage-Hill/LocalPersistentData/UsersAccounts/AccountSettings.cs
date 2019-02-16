@@ -22,5 +22,8 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
         public ulong MsgFromBotId { get; set; }
 
         public int Score { get; set; }
+        public bool IsBlock { get; set; }
+        public bool IsAbleToTurn { get; set; }
+        public uint PlaceAtLeaderBoard { get; set; }
     }
 }
