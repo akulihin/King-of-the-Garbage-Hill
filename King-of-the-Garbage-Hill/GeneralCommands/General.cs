@@ -8,6 +8,8 @@ using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 using King_of_the_Garbage_Hill.Game;
 using King_of_the_Garbage_Hill.Game.Characters;
+using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -28,14 +30,14 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
   
         private readonly CommandsInMemory _commandsInMemory;
         private readonly Global _global;
-        private readonly OctoGameUpdateMess _upd;
+        private readonly GameUpdateMess _upd;
 
       
         
 
   
         public General( UserAccounts accounts, SecureRandom secureRandom, OctoPicPull octoPicPull, 
-            OctoNamePull octoNmaNamePull, HelperFunctions helperFunctions,  CommandsInMemory commandsInMemory, Global global, OctoGameUpdateMess upd) 
+            OctoNamePull octoNmaNamePull, HelperFunctions helperFunctions,  CommandsInMemory commandsInMemory, Global global, GameUpdateMess upd) 
         {   
             _accounts = accounts;
             _secureRandom = secureRandom;
@@ -61,25 +63,49 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
         //playter 1 and 2 are humans
         [Command("game")]
-        public async Task StartGame(SocketUser user2 , SocketUser user3 = null, SocketUser user4 = null, SocketUser user5 = null, SocketUser user6 = null)
+        public async Task StartGame(SocketUser user2 = null , SocketUser user3 = null, SocketUser user4 = null, SocketUser user5 = null, SocketUser user6 = null)
         {
+            var rawList = new List<SocketUser>
+            {
+                Context.User,
+                user2,
+                user3,
+                user4,
+                user5,
+                user6        
+            };
             var playersList = new List<AccountSettings>();
 
-            var account1 = _accounts.GetAccount(Context.User.Id);
-            account1.CharacterStats = new CharacterClass(2, 4, 5, 6, 7, new List<Passive>());
-            _upd.WaitMess(account1.DiscordId);
 
-            var account2 = _accounts.GetAccount(user2.Id);
-            account2.CharacterStats = new CharacterClass(2, 4, 5, 6, 4, new List<Passive>());
+            for (var i = 0; i < rawList.Count; i++)
+            {
+                var t = rawList[i];
+                if (t != null)
+                {
+                    var account = _accounts.GetAccount(t.Id);
+                    //TODO get new character
+                    account.CharacterStats = new CharacterClass(2, 4, 5, 6, 7, new List<Passive>());
+                    _upd.WaitMess(t.Id);
+                    playersList.Add(account);
+                }
+                else
+                {
+                    //TODO: add a bot
 
-            playersList.Add(account1);
-            playersList.Add(account2);
+                    var account = _accounts.GetAccount((ulong)i);
+                    //TODO get new character
+                    account.CharacterStats = new CharacterClass(2, 4, 5, 6, 7, new List<Passive>());
+      
+                    playersList.Add(account);
+                }
+            }
+
 
             var game = new GameClass(playersList);
-
             _global.GamesList.Add(game);
-            var gg = 2;
         }
+
+
 
         [Command("updMaxRam")]
         [RequireOwner]

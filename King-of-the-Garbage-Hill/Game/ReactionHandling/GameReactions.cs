@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
+using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Helpers;
 using  King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -16,18 +17,18 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         private readonly UserAccounts _accounts;
 
         private readonly Global _global;
-        private readonly AwaitForUserMessage _awaitForUserMessage;
-        private readonly OctoGameUpdateMess _upd;
+
+        private readonly GameUpdateMess _upd;
 
 
         public GameReaction(UserAccounts accounts, 
             Global global,
-            AwaitForUserMessage awaitForUserMessage, OctoGameUpdateMess upd)
+          GameUpdateMess upd)
         {
             _accounts = accounts;
          
             _global = global;
-            _awaitForUserMessage = awaitForUserMessage;
+       
             _upd = upd;
         }
 
@@ -46,34 +47,26 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                     switch (reaction.Emote.Name)
                     {
-                        case "🐙":
-
-                          //  await _gameFramework.UpdateTurn(account, enemy);
-                     
-                            break;
-                        case "⬅":
-                            await _upd.MainPage(reaction.UserId, reaction.Message.Value);
-                            break;
-                        case "➡":
-                            await _upd.Leaderboard(reaction, reaction.Message.Value);
+                         case "🛡":
+                           // TODO 
+                           var f = true;
                             break;
                         case "📖":
                             await _upd.Logs(reaction, reaction.Message.Value);
                             break;
+                    case "⬆":
+                        //TODO
+                        break;
                         case "❌":
-                          //  if (await _awaitForUserMessage.FinishTheGame(reaction))
-                          //      await _octoGameUpdateMess.EndGame(reaction,
-                        //            reaction.Message.Value);
+                          
+                             await _upd.EndGame(reaction,reaction.Message.Value);
                             break;
                         case "1⃣":
                         {
                             if (account.IsPlaying)
                             {
-
                                 break;
                             }
-
-     
 
                             break;
                         }
@@ -82,7 +75,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         {
                             if (account.IsPlaying )
                             {
-          
                                 break;
                             }
 
@@ -93,7 +85,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         {
                             if (account.IsPlaying)
                             {
- 
                                 break;
                             }
 
@@ -116,24 +107,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         }
 
                         case "6⃣":
-                        {
-                           {}
-                            break;
-                        }
-
-                        case "7⃣":
-                        {
-                           {}
-                            break;
-                        }
-
-                        case "8⃣":
-                        {
-                           {}
-                            break;
-                        }
-
-                        case "9⃣":
                         {
                            {}
                             break;

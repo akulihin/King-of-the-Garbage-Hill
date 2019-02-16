@@ -1,5 +1,6 @@
 ﻿
 using King_of_the_Garbage_Hill.Game.Characters;
+using King_of_the_Garbage_Hill.Game.Classes;
 
 namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 {
@@ -19,5 +20,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
          */
        
         public ulong MsgFromBotId { get; set; }
+
+        public int Score { get; set; }
     }
 }

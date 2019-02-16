@@ -46,14 +46,14 @@ namespace King_of_the_Garbage_Hill.Helpers
             }
         }
 
-        public async Task<bool> FinishTheGame(SocketReaction reaction)
+        public async Task<bool> FinishTheGameQuestion(SocketReaction reaction)
         {
             var mess = await reaction.Channel.SendMessageAsync("Are you sure, you want to **end** the game? say `y`");
-            var res = await AwaitMessage(reaction.UserId, reaction.Channel.Id, 60000);
+            var res = await AwaitMessage(reaction.UserId, reaction.Channel.Id, 5000);
             var response = res.Content.ToLower();
 
             await mess.DeleteAsync();
-            await res.DeleteAsync();
+          
 
             return (response == "yes" || response == "ye" || response == "y");
         }
