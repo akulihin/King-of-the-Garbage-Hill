@@ -35,3 +35,375 @@
 3:03:02 PM - Command [*t] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.1444s.
 3:03:04 PM - Connected
 3:03:08 PM - Command [*t] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.0316s.
+22:00:48 - Singleton added count: 13 (0:00.0025s.)
+22:00:48 - Transient added count: 1 (0:00.0002s.)
+22:00:50 - Singleton Initialized count: 13 (0:02.0781s.)
+22:00:50 - Transient Initialized count: 1 (0:00.0001s.)
+22:00:50 - Discord.Net v2.0.2-dev-01059 (API v6)
+22:00:54 - GET voice/regions: 3928,44 ms
+22:00:54 - Connecting
+22:00:54 - GET gateway: 84,54 ms
+22:00:55 - Connected to ZBS MAKING
+22:00:55 - Connected to OctoGame
+22:00:55 - Connected to OctoBot
+22:00:55 - Connected to OctoGameEmoji
+22:00:55 - Ready
+22:01:00 - Connected
+22:01:06 - Command [t] by [mylorik#2828] [DM] after 0:00.0596s.
+22:53:31 - Singleton added count: 14 (0:00.0025s.)
+22:53:31 - Transient added count: 1 (0:00.0002s.)
+22:53:33 - Singleton Initialized count: 14 (0:01.7746s.)
+22:53:33 - Transient Initialized count: 1 (0:00.0001s.)
+22:53:33 - Discord.Net v2.0.2-dev-01059 (API v6)
+22:53:48 - Singleton added count: 14 (0:00.0025s.)
+22:53:48 - Transient added count: 1 (0:00.0002s.)
+22:53:50 - Singleton Initialized count: 14 (0:01.8390s.)
+22:53:50 - Transient Initialized count: 1 (0:00.0001s.)
+22:53:50 - Discord.Net v2.0.2-dev-01059 (API v6)
+22:53:51 - GET voice/regions: 1245,09 ms
+22:53:51 - Connecting
+22:53:51 - GET gateway: 62,5 ms
+22:53:52 - Connected to ZBS MAKING
+22:53:52 - Connected to OctoBot
+22:53:52 - Connected to OctoGameEmoji
+22:53:52 - Connected to OctoGame
+22:53:52 - Ready
+22:53:57 - Connected
+22:54:00 - Command [*t] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.0898s.
+22:57:18 - Singleton added count: 14 (0:00.0026s.)
+22:57:18 - Transient added count: 1 (0:00.0002s.)
+22:57:20 - Singleton Initialized count: 14 (0:01.6336s.)
+22:57:20 - Transient Initialized count: 1 (0:00.0001s.)
+22:57:20 - Discord.Net v2.0.2-dev-01059 (API v6)
+22:57:21 - GET voice/regions: 1178,84 ms
+22:57:21 - Connecting
+22:57:21 - GET gateway: 56,67 ms
+22:57:22 - Connected to OctoGameEmoji
+22:57:22 - Connected to OctoGame
+22:57:22 - Connected to ZBS MAKING
+22:57:22 - Connected to OctoBot
+22:57:22 - Ready
+22:57:27 - Connected
+22:57:34 - POST users/@me/channels: 296,45 ms
+22:57:35 - Command [*game <@435872678914686976>] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.3808s.
+22:57:35 - Reason: Object reference not set to an instance of an object.
+22:57:35 - Object reference not set to an instance of an object.
+22:57:35 - POST channels/436071383836000256/messages: 131,64 ms
+22:57:35 - POST channels/528843734519906315/messages: 285,49 ms
+22:57:36 - PUT channels/528843734519906315/messages/546178300733554688/reactions/⬅/@me: 863,36 ms
+22:57:36 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:57:36 - PUT channels/528843734519906315/messages/546178300733554688/reactions/➡/@me: 426,38 ms
+22:57:36 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:57:37 - PUT channels/528843734519906315/messages/546178300733554688/reactions/📖/@me: 412,07 ms
+22:57:37 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:57:37 - PUT channels/528843734519906315/messages/546178300733554688/reactions/1⃣/@me: 367,1 ms
+22:57:37 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:57:37 - PUT channels/528843734519906315/messages/546178300733554688/reactions/2⃣/@me: 375,12 ms
+22:57:37 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:57:38 - PUT channels/528843734519906315/messages/546178300733554688/reactions/3⃣/@me: 392,24 ms
+22:57:38 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:57:38 - PUT channels/528843734519906315/messages/546178300733554688/reactions/4⃣/@me: 396,95 ms
+22:57:38 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:57:38 - PUT channels/528843734519906315/messages/546178300733554688/reactions/5⃣/@me: 370,35 ms
+22:57:38 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:57:39 - PUT channels/528843734519906315/messages/546178300733554688/reactions/6⃣/@me: 380,91 ms
+22:57:39 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:57:39 - PUT channels/528843734519906315/messages/546178300733554688/reactions/7⃣/@me: 367,1 ms
+22:57:39 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:57:40 - PUT channels/528843734519906315/messages/546178300733554688/reactions/8⃣/@me: 379,62 ms
+22:57:40 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:57:40 - PUT channels/528843734519906315/messages/546178300733554688/reactions/9⃣/@me: 453,48 ms
+22:57:40 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:57:40 - PUT channels/528843734519906315/messages/546178300733554688/reactions/🐙/@me: 415,5 ms
+22:57:40 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:57:41 - PUT channels/528843734519906315/messages/546178300733554688/reactions/❌/@me: 385,53 ms
+22:58:44 - Command [*game <@435872678914686976>] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.1104s.
+22:58:44 - Reason: Object reference not set to an instance of an object.
+22:58:44 - Object reference not set to an instance of an object.
+22:58:44 - POST channels/528843734519906315/messages: 161,6 ms
+22:58:44 - POST channels/436071383836000256/messages: 114,67 ms
+22:58:44 - PUT channels/528843734519906315/messages/546178589100343318/reactions/⬅/@me: 180,59 ms
+22:58:44 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:58:44 - PUT channels/528843734519906315/messages/546178589100343318/reactions/➡/@me: 375,68 ms
+22:58:44 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:58:45 - PUT channels/528843734519906315/messages/546178589100343318/reactions/📖/@me: 390,76 ms
+22:58:45 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:58:45 - PUT channels/528843734519906315/messages/546178589100343318/reactions/1⃣/@me: 360,06 ms
+22:58:45 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:58:45 - PUT channels/528843734519906315/messages/546178589100343318/reactions/2⃣/@me: 368,32 ms
+22:58:45 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:58:46 - PUT channels/528843734519906315/messages/546178589100343318/reactions/3⃣/@me: 388,95 ms
+22:58:46 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:58:46 - PUT channels/528843734519906315/messages/546178589100343318/reactions/4⃣/@me: 402,69 ms
+22:58:46 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:58:47 - PUT channels/528843734519906315/messages/546178589100343318/reactions/5⃣/@me: 362,46 ms
+22:58:47 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:58:47 - PUT channels/528843734519906315/messages/546178589100343318/reactions/6⃣/@me: 399,92 ms
+22:58:47 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:58:47 - PUT channels/528843734519906315/messages/546178589100343318/reactions/7⃣/@me: 389,93 ms
+22:58:47 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:58:48 - PUT channels/528843734519906315/messages/546178589100343318/reactions/8⃣/@me: 368,04 ms
+22:58:48 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:58:48 - PUT channels/528843734519906315/messages/546178589100343318/reactions/9⃣/@me: 396,15 ms
+22:58:48 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:58:48 - PUT channels/528843734519906315/messages/546178589100343318/reactions/🐙/@me: 363,34 ms
+22:58:48 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+22:58:49 - PUT channels/528843734519906315/messages/546178589100343318/reactions/❌/@me: 393,24 ms
+22:59:53 - Singleton added count: 14 (0:00.0026s.)
+22:59:53 - Transient added count: 1 (0:00.0002s.)
+22:59:55 - Singleton Initialized count: 14 (0:01.7393s.)
+22:59:55 - Transient Initialized count: 1 (0:00.0001s.)
+22:59:55 - Discord.Net v2.0.2-dev-01059 (API v6)
+22:59:56 - GET voice/regions: 1166,24 ms
+22:59:56 - Connecting
+22:59:57 - GET gateway: 63,12 ms
+22:59:57 - Connected to ZBS MAKING
+22:59:57 - Connected to OctoBot
+22:59:57 - Connected to OctoGameEmoji
+22:59:57 - Connected to OctoGame
+22:59:58 - Ready
+23:00:02 - Connected
+23:00:14 - Command [*t <@435872678914686976>] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.0427s.
+23:00:14 - Reason: The input text has too many parameters.
+23:00:14 - The input text has too many parameters.
+23:00:14 - POST channels/436071383836000256/messages: 132,54 ms
+23:00:37 - POST users/@me/channels: 226,71 ms
+23:00:37 - Command [*game <@435872678914686976>] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.2730s.
+23:00:37 - Reason: Object reference not set to an instance of an object.
+23:00:37 - Object reference not set to an instance of an object.
+23:00:37 - POST channels/436071383836000256/messages: 144,62 ms
+23:00:38 - POST channels/528843734519906315/messages: 438,03 ms
+23:00:38 - PUT channels/528843734519906315/messages/546179067708309534/reactions/⬅/@me: 162,95 ms
+23:00:38 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:00:38 - PUT channels/528843734519906315/messages/546179067708309534/reactions/➡/@me: 371,58 ms
+23:00:38 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:00:39 - PUT channels/528843734519906315/messages/546179067708309534/reactions/📖/@me: 355,9 ms
+23:00:39 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:00:39 - PUT channels/528843734519906315/messages/546179067708309534/reactions/1⃣/@me: 368,47 ms
+23:00:39 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:00:39 - PUT channels/528843734519906315/messages/546179067708309534/reactions/2⃣/@me: 350,97 ms
+23:00:39 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:00:40 - PUT channels/528843734519906315/messages/546179067708309534/reactions/3⃣/@me: 370,29 ms
+23:00:40 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:00:40 - PUT channels/528843734519906315/messages/546179067708309534/reactions/4⃣/@me: 363,07 ms
+23:00:40 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:00:41 - PUT channels/528843734519906315/messages/546179067708309534/reactions/5⃣/@me: 412,5 ms
+23:00:41 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:00:41 - PUT channels/528843734519906315/messages/546179067708309534/reactions/6⃣/@me: 365,31 ms
+23:00:41 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:00:41 - PUT channels/528843734519906315/messages/546179067708309534/reactions/7⃣/@me: 364,28 ms
+23:00:41 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:00:42 - PUT channels/528843734519906315/messages/546179067708309534/reactions/8⃣/@me: 380,39 ms
+23:00:42 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:00:42 - PUT channels/528843734519906315/messages/546179067708309534/reactions/9⃣/@me: 373,35 ms
+23:00:42 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:00:42 - PUT channels/528843734519906315/messages/546179067708309534/reactions/🐙/@me: 358,45 ms
+23:00:42 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:00:43 - PUT channels/528843734519906315/messages/546179067708309534/reactions/❌/@me: 355,77 ms
+23:00:43 - PATCH channels/528843734519906315/messages/546179067708309534: 188,97 ms
+23:01:03 - A ReactionAdded handler is blocking the gateway task.
+23:02:06 - A ReactionAdded handler is blocking the gateway task.
+23:03:11 - Command [*game <@435872678914686976>] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:26.2417s.
+23:03:15 - Reason: Object reference not set to an instance of an object.
+23:03:15 - Object reference not set to an instance of an object.
+23:03:15 - A MessageReceived handler is blocking the gateway task.
+23:03:15 - POST channels/436071383836000256/messages: 187,58 ms
+23:03:48 - Command [*uptime] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.0481s.
+23:03:48 - POST channels/436071383836000256/messages: 169,5 ms
+23:04:25 - Singleton added count: 14 (0:00.0026s.)
+23:04:25 - Transient added count: 1 (0:00.0002s.)
+23:04:26 - Singleton Initialized count: 14 (0:01.5669s.)
+23:04:26 - Transient Initialized count: 1 (0:00.0001s.)
+23:04:26 - Discord.Net v2.0.2-dev-01059 (API v6)
+23:04:27 - GET voice/regions: 1173,68 ms
+23:04:27 - Connecting
+23:04:28 - GET gateway: 55,53 ms
+23:04:28 - Connected to OctoBot
+23:04:28 - Connected to ZBS MAKING
+23:04:28 - Connected to OctoGameEmoji
+23:04:28 - Connected to OctoGame
+23:04:28 - Ready
+23:04:33 - Connected
+23:04:36 - POST users/@me/channels: 217 ms
+23:04:36 - Command [*game <@435872678914686976>] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.3015s.
+23:04:36 - Reason: Object reference not set to an instance of an object.
+23:04:36 - Object reference not set to an instance of an object.
+23:04:36 - POST channels/436071383836000256/messages: 122,96 ms
+23:04:36 - POST channels/528843734519906315/messages: 269,96 ms
+23:04:37 - PUT channels/528843734519906315/messages/546180068335157269/reactions/⬅/@me: 291,68 ms
+23:04:37 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:04:37 - PUT channels/528843734519906315/messages/546180068335157269/reactions/➡/@me: 352,82 ms
+23:04:37 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:04:37 - PUT channels/528843734519906315/messages/546180068335157269/reactions/📖/@me: 378,66 ms
+23:04:37 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:04:38 - PUT channels/528843734519906315/messages/546180068335157269/reactions/1⃣/@me: 361,35 ms
+23:04:38 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:04:38 - PUT channels/528843734519906315/messages/546180068335157269/reactions/2⃣/@me: 387,59 ms
+23:04:38 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:04:39 - PUT channels/528843734519906315/messages/546180068335157269/reactions/3⃣/@me: 364,8 ms
+23:04:39 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:04:39 - PUT channels/528843734519906315/messages/546180068335157269/reactions/4⃣/@me: 361,41 ms
+23:04:39 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:04:39 - PUT channels/528843734519906315/messages/546180068335157269/reactions/5⃣/@me: 371,21 ms
+23:04:39 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:04:40 - PUT channels/528843734519906315/messages/546180068335157269/reactions/6⃣/@me: 367,88 ms
+23:04:40 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:04:40 - PUT channels/528843734519906315/messages/546180068335157269/reactions/7⃣/@me: 354,4 ms
+23:04:40 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:04:40 - PUT channels/528843734519906315/messages/546180068335157269/reactions/8⃣/@me: 374,01 ms
+23:04:40 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:04:41 - PUT channels/528843734519906315/messages/546180068335157269/reactions/9⃣/@me: 369,3 ms
+23:04:41 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:04:41 - PUT channels/528843734519906315/messages/546180068335157269/reactions/🐙/@me: 360,49 ms
+23:04:41 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:04:42 - PUT channels/528843734519906315/messages/546180068335157269/reactions/❌/@me: 404,28 ms
+23:04:42 - PATCH channels/528843734519906315/messages/546180068335157269: 185,58 ms
+23:06:40 - Singleton added count: 14 (0:00.0026s.)
+23:06:40 - Transient added count: 1 (0:00.0002s.)
+23:06:42 - Singleton Initialized count: 14 (0:01.5255s.)
+23:06:42 - Transient Initialized count: 1 (0:00.0001s.)
+23:06:42 - Discord.Net v2.0.2-dev-01059 (API v6)
+23:06:43 - GET voice/regions: 1174,59 ms
+23:06:43 - Connecting
+23:06:43 - GET gateway: 56,25 ms
+23:06:44 - Connected to OctoBot
+23:06:44 - Connected to ZBS MAKING
+23:06:44 - Connected to OctoGameEmoji
+23:06:44 - Connected to OctoGame
+23:06:44 - Ready
+23:06:49 - Connected
+23:07:10 - A MessageReceived handler is blocking the gateway task.
+23:07:10 - POST users/@me/channels: 8739,14 ms
+23:07:10 - Command [*game <@435872678914686976>] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:08.8200s.
+23:07:11 - POST channels/528843734519906315/messages: 373,79 ms
+23:07:11 - PUT channels/528843734519906315/messages/546180715683774474/reactions/⬅/@me: 161,89 ms
+23:07:11 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:07:11 - PUT channels/528843734519906315/messages/546180715683774474/reactions/➡/@me: 353,19 ms
+23:07:11 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:07:12 - PUT channels/528843734519906315/messages/546180715683774474/reactions/📖/@me: 354,91 ms
+23:07:12 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:07:12 - PUT channels/528843734519906315/messages/546180715683774474/reactions/1⃣/@me: 413,45 ms
+23:07:12 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:07:13 - PUT channels/528843734519906315/messages/546180715683774474/reactions/2⃣/@me: 375,41 ms
+23:07:13 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:07:13 - PUT channels/528843734519906315/messages/546180715683774474/reactions/3⃣/@me: 345,16 ms
+23:07:13 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:07:13 - PUT channels/528843734519906315/messages/546180715683774474/reactions/4⃣/@me: 350,91 ms
+23:07:13 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:07:14 - PUT channels/528843734519906315/messages/546180715683774474/reactions/5⃣/@me: 350,64 ms
+23:07:14 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:07:14 - PUT channels/528843734519906315/messages/546180715683774474/reactions/6⃣/@me: 358,93 ms
+23:07:14 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:07:14 - PUT channels/528843734519906315/messages/546180715683774474/reactions/7⃣/@me: 348,99 ms
+23:07:14 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:07:15 - PUT channels/528843734519906315/messages/546180715683774474/reactions/8⃣/@me: 351,05 ms
+23:07:15 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:07:15 - PUT channels/528843734519906315/messages/546180715683774474/reactions/9⃣/@me: 364,49 ms
+23:07:15 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:07:15 - PUT channels/528843734519906315/messages/546180715683774474/reactions/🐙/@me: 361,58 ms
+23:07:15 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:07:16 - PUT channels/528843734519906315/messages/546180715683774474/reactions/❌/@me: 359,01 ms
+23:07:16 - PATCH channels/528843734519906315/messages/546180715683774474: 266,18 ms
+23:07:28 - A ReactionAdded handler is blocking the gateway task.
+23:09:32 - Singleton added count: 14 (0:00.0026s.)
+23:09:32 - Transient added count: 1 (0:00.0002s.)
+23:09:33 - Singleton Initialized count: 14 (0:01.6125s.)
+23:09:33 - Transient Initialized count: 1 (0:00.0001s.)
+23:09:33 - Discord.Net v2.0.2-dev-01059 (API v6)
+23:09:35 - GET voice/regions: 1227,85 ms
+23:09:35 - Connecting
+23:09:35 - GET gateway: 67,82 ms
+23:09:35 - Connected to OctoBot
+23:09:35 - Connected to ZBS MAKING
+23:09:35 - Connected to OctoGameEmoji
+23:09:35 - Connected to OctoGame
+23:09:36 - Ready
+23:09:40 - Connected
+23:09:42 - Command [*game <@435872678914686976> 2] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.0601s.
+23:09:42 - Reason: User not found.
+23:09:42 - User not found.
+23:09:42 - POST channels/436071383836000256/messages: 145,58 ms
+23:09:56 - Command [*game <@435872678914686976>] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.0994s.
+23:09:56 - POST users/@me/channels: 161,78 ms
+23:09:56 - POST channels/528843734519906315/messages: 146,55 ms
+23:09:56 - PUT channels/528843734519906315/messages/546181409610661888/reactions/⬅/@me: 127,28 ms
+23:09:56 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:09:57 - PUT channels/528843734519906315/messages/546181409610661888/reactions/➡/@me: 362,29 ms
+23:09:57 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:09:57 - PUT channels/528843734519906315/messages/546181409610661888/reactions/📖/@me: 390,57 ms
+23:09:57 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:09:57 - PUT channels/528843734519906315/messages/546181409610661888/reactions/1⃣/@me: 365,48 ms
+23:09:57 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:09:58 - PUT channels/528843734519906315/messages/546181409610661888/reactions/2⃣/@me: 352,34 ms
+23:09:58 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:09:58 - PUT channels/528843734519906315/messages/546181409610661888/reactions/3⃣/@me: 348,85 ms
+23:09:58 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:09:58 - PUT channels/528843734519906315/messages/546181409610661888/reactions/4⃣/@me: 364,88 ms
+23:09:58 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:09:59 - PUT channels/528843734519906315/messages/546181409610661888/reactions/5⃣/@me: 352,28 ms
+23:09:59 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:09:59 - PUT channels/528843734519906315/messages/546181409610661888/reactions/6⃣/@me: 372,29 ms
+23:09:59 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:10:00 - PUT channels/528843734519906315/messages/546181409610661888/reactions/7⃣/@me: 387,64 ms
+23:10:00 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:10:00 - PUT channels/528843734519906315/messages/546181409610661888/reactions/8⃣/@me: 385,22 ms
+23:10:00 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:10:00 - PUT channels/528843734519906315/messages/546181409610661888/reactions/9⃣/@me: 369,37 ms
+23:10:00 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:10:01 - PUT channels/528843734519906315/messages/546181409610661888/reactions/🐙/@me: 363,25 ms
+23:10:01 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:10:01 - PUT channels/528843734519906315/messages/546181409610661888/reactions/❌/@me: 399,27 ms
+23:10:01 - PATCH channels/528843734519906315/messages/546181409610661888: 133,62 ms
+23:10:17 - A ReactionAdded handler is blocking the gateway task.
+23:20:17 - Singleton added count: 14 (0:00.0026s.)
+23:20:17 - Transient added count: 1 (0:00.0002s.)
+23:20:19 - Singleton Initialized count: 14 (0:01.7335s.)
+23:20:19 - Transient Initialized count: 1 (0:00.0001s.)
+23:20:19 - Discord.Net v2.0.2-dev-01059 (API v6)
+23:20:21 - GET voice/regions: 1304,78 ms
+23:20:21 - Connecting
+23:20:21 - GET gateway: 82,98 ms
+23:20:21 - Connected to OctoBot
+23:20:21 - Connected to ZBS MAKING
+23:20:21 - Connected to OctoGameEmoji
+23:20:21 - Connected to OctoGame
+23:20:22 - Ready
+23:20:26 - Connected
+23:20:31 - Command [*game <@435872678914686976>] by [mylorik#2828] [OctoBot(375104801018609665)] after 0:00.1655s.
+23:20:31 - POST users/@me/channels: 180,91 ms
+23:20:31 - POST channels/528843734519906315/messages: 174,61 ms
+23:20:31 - PUT channels/528843734519906315/messages/546184073597681694/reactions/⬅/@me: 176,3 ms
+23:20:31 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:20:32 - PUT channels/528843734519906315/messages/546184073597681694/reactions/➡/@me: 375,51 ms
+23:20:32 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:20:32 - PUT channels/528843734519906315/messages/546184073597681694/reactions/📖/@me: 411,02 ms
+23:20:32 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:20:33 - PUT channels/528843734519906315/messages/546184073597681694/reactions/1⃣/@me: 386,33 ms
+23:20:33 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:20:34 - PUT channels/528843734519906315/messages/546184073597681694/reactions/2⃣/@me: 1036,04 ms
+23:20:34 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:20:34 - PUT channels/528843734519906315/messages/546184073597681694/reactions/3⃣/@me: 376,81 ms
+23:20:34 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:20:34 - PUT channels/528843734519906315/messages/546184073597681694/reactions/4⃣/@me: 378,95 ms
+23:20:34 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:20:35 - PUT channels/528843734519906315/messages/546184073597681694/reactions/5⃣/@me: 388,75 ms
+23:20:35 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:20:35 - PUT channels/528843734519906315/messages/546184073597681694/reactions/6⃣/@me: 380,84 ms
+23:20:35 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:20:36 - PUT channels/528843734519906315/messages/546184073597681694/reactions/7⃣/@me: 381,91 ms
+23:20:36 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:20:36 - PUT channels/528843734519906315/messages/546184073597681694/reactions/8⃣/@me: 388,72 ms
+23:20:36 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:20:36 - PUT channels/528843734519906315/messages/546184073597681694/reactions/9⃣/@me: 366,18 ms
+23:20:36 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:20:37 - PUT channels/528843734519906315/messages/546184073597681694/reactions/🐙/@me: 362,6 ms
+23:20:37 - Preemptive Rate limit triggered: channels/528843734519906315/messages/reactions
+23:20:37 - PUT channels/528843734519906315/messages/546184073597681694/reactions/❌/@me: 395,12 ms
+23:20:37 - PATCH channels/528843734519906315/messages/546184073597681694: 200,07 ms
+23:20:39 - PATCH channels/528843734519906315/messages/546184073597681694: 207,64 ms
+23:20:41 - PATCH channels/528843734519906315/messages/546184073597681694: 138,56 ms
+23:20:44 - PATCH channels/528843734519906315/messages/546184073597681694: 144,49 ms
+23:20:46 - PATCH channels/528843734519906315/messages/546184073597681694: 161,99 ms
+23:20:53 - PATCH channels/528843734519906315/messages/546184073597681694: 145,94 ms
+23:20:55 - PATCH channels/528843734519906315/messages/546184073597681694: 132,56 ms
+23:20:56 - PATCH channels/528843734519906315/messages/546184073597681694: 161,6 ms

@@ -1,11 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
-
+using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
-
+using King_of_the_Garbage_Hill.Game;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -26,30 +28,58 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
   
         private readonly CommandsInMemory _commandsInMemory;
         private readonly Global _global;
+        private readonly OctoGameUpdateMess _upd;
+
+      
+        
 
   
-        public General( UserAccounts accounts, SecureRandom secureRandom, OctoPicPull octoPicPull, OctoNamePull octoNmaNamePull, HelperFunctions helperFunctions,  CommandsInMemory commandsInMemory, Global global) 
-        {
-           
+        public General( UserAccounts accounts, SecureRandom secureRandom, OctoPicPull octoPicPull, 
+            OctoNamePull octoNmaNamePull, HelperFunctions helperFunctions,  CommandsInMemory commandsInMemory, Global global, OctoGameUpdateMess upd) 
+        {   
             _accounts = accounts;
-
             _secureRandom = secureRandom;
             _octoPicPull = octoPicPull;
             _octoNmaNamePull = octoNmaNamePull;
-            _helperFunctions = helperFunctions;
-     
+            _helperFunctions = helperFunctions;  
             _commandsInMemory = commandsInMemory;
             _global = global;
+            _upd = upd;
         }
 
 
         [Command("t")]
         public async Task TTTT()
         {
-           var acc =  _accounts.GetAccount(Context.User);
-               _accounts.SaveAccounts(acc.DiscordId);
+            for (ulong i = 1; i < 15; i++)
+            {
+                var acc =  _accounts.GetAccount(i);
+                _accounts.SaveAccounts(i);
+            }
+        
         }
 
+        //playter 1 and 2 are humans
+        [Command("game")]
+        public async Task StartGame(SocketUser user2 , SocketUser user3 = null, SocketUser user4 = null, SocketUser user5 = null, SocketUser user6 = null)
+        {
+            var playersList = new List<AccountSettings>();
+
+            var account1 = _accounts.GetAccount(Context.User.Id);
+            account1.CharacterStats = new CharacterClass(2, 4, 5, 6, 7, new List<Passive>());
+            _upd.WaitMess(account1.DiscordId);
+
+            var account2 = _accounts.GetAccount(user2.Id);
+            account2.CharacterStats = new CharacterClass(2, 4, 5, 6, 4, new List<Passive>());
+
+            playersList.Add(account1);
+            playersList.Add(account2);
+
+            var game = new GameClass(playersList);
+
+            _global.GamesList.Add(game);
+            var gg = 2;
+        }
 
         [Command("updMaxRam")]
         [RequireOwner]

@@ -7,7 +7,7 @@ using Discord.WebSocket;
 
 namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 {
-    public sealed class UserAccounts :  IServiceSingleton
+    public sealed class UserAccounts :  IServiceSingleton, IUserAccounts
     {
         private static readonly ConcurrentDictionary<ulong, List<AccountSettings>> UserAccountsDictionary =
             new ConcurrentDictionary<ulong, List<AccountSettings>>();

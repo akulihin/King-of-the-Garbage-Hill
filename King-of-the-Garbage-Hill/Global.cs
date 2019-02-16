@@ -3,67 +3,39 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using Discord;
 using Discord.WebSocket;
+using King_of_the_Garbage_Hill.Game.Characters;
 
 namespace King_of_the_Garbage_Hill
 {
     public sealed class Global : IServiceSingleton
     {
         public Task InitializeAsync()
-            => Task.CompletedTask;
+        {
+            return Task.CompletedTask;
+        }
 
         public Global(DiscordShardedClient client)
         {
             Client = client;
             TimeBotStarted = DateTime.Now;
+            OctoGamePlaying = 0;
+            TotalCommandsIssued = 0;
+            TotalCommandsDeleted = 0;
+            TotalCommandsChanged = 0;
+            TimeSpendOnLastMessage = new ConcurrentDictionary<ulong, Stopwatch>();
+            GamesList = new List<GameClass>();
         }
+
         public readonly DiscordShardedClient Client;
         public readonly DateTime TimeBotStarted;
-        public uint OctoGamePlaying { get; set; }
-        public uint TotalCommandsIssued { get; set; }
-        public uint TotalCommandsDeleted { get; set; }
-        public uint TotalCommandsChanged { get; set; }
-        public ConcurrentDictionary<ulong, Stopwatch> TimeSpendOnLastMessage  = new ConcurrentDictionary<ulong, Stopwatch>();
+        public uint OctoGamePlaying;
+        public uint TotalCommandsIssued;
+        public uint TotalCommandsDeleted;
+        public uint TotalCommandsChanged;
+        public ConcurrentDictionary<ulong, Stopwatch> TimeSpendOnLastMessage;
 
 
-        public  List<List<OctoGameMessAndUserTrack>> OctopusGameMessIdList { get; internal set; } =
-            new List<List<OctoGameMessAndUserTrack>>();
-
-
-
-
-        //not data
-   
-
-        public struct OctoGameMessAndUserTrack
-        {           
-            public IUserMessage GamingWindowFromBot;
-            public IUser PlayerDiscordAccount;
-
-
-            public OctoGameMessAndUserTrack(
-                IUserMessage gamingWindowFromBot, IUser playerDiscordAccount)
-            {
-
-                GamingWindowFromBot = gamingWindowFromBot;
-                PlayerDiscordAccount = playerDiscordAccount;
-
-            }
-        }
-
-        public List<OctoGameMessAndUserTrack> CreateNewGame(IUserMessage gamingWindowFromBot1, IUserMessage gamingWindowFromBot2, IUser playerDiscordAccount1, IUser playerDiscordAccount2)
-        {
-
-            var gameDataList = new List<OctoGameMessAndUserTrack>
-            {
-                new OctoGameMessAndUserTrack(gamingWindowFromBot1, playerDiscordAccount1),
-                new OctoGameMessAndUserTrack(gamingWindowFromBot2, playerDiscordAccount2)
-            };
-
-            return gameDataList;
-        }
-
+        public List<GameClass> GamesList;
     }
-
 }

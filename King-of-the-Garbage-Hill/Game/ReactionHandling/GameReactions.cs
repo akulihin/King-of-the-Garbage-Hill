@@ -17,27 +17,27 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
         private readonly Global _global;
         private readonly AwaitForUserMessage _awaitForUserMessage;
-     //   private readonly GameFramework _gameFramework;
+        private readonly OctoGameUpdateMess _upd;
 
 
         public GameReaction(UserAccounts accounts, 
             Global global,
-            AwaitForUserMessage awaitForUserMessage)
+            AwaitForUserMessage awaitForUserMessage, OctoGameUpdateMess upd)
         {
             _accounts = accounts;
          
             _global = global;
             _awaitForUserMessage = awaitForUserMessage;
-     
+            _upd = upd;
         }
 
         public async Task ReactionAddedForOctoGameAsync(Cacheable<IUserMessage, ulong> cash,
             ISocketMessageChannel channel, SocketReaction reaction)
         {
-                for (var i = 0; i < _global.OctopusGameMessIdList.Count; i++)
+                for (var i = 0; i < _global.GamesList.Count; i++)
                 {
 
-                    if(!_global.OctopusGameMessIdList[i].Any( x => x.PlayerDiscordAccount.Id == reaction.UserId && x.GamingWindowFromBot.Id == reaction.MessageId))
+                    if(!_global.GamesList[i].PlayersList.Any( x => x.DiscordId == reaction.UserId && x.MsgFromBotId == reaction.MessageId))
                         continue;
 
                     var globalAccount = _global.Client.GetUser(reaction.UserId);
@@ -52,19 +52,13 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                      
                             break;
                         case "⬅":
-                         //   await _octoGameUpdateMess.SkillPageLeft(reaction,
-                         //       reaction.Message.Value);
+                            await _upd.MainPage(reaction.UserId, reaction.Message.Value);
                             break;
                         case "➡":
-                         //   await _octoGameUpdateMess.SkillPageRight(reaction,
-                         //       reaction.Message.Value);
+                            await _upd.Leaderboard(reaction, reaction.Message.Value);
                             break;
                         case "📖":
-                            //  await _octoGameUpdateMess.OctoGameLogs(reaction,
-                            //       _global.OctopusGameMessIdList[i].bot_gaming_msg_1);
-                          //  account.MoveListPage = 5;
-                         //   await _octoGameUpdateMess.MainPage(reaction.UserId,
-                         //       reaction.Message.Value);
+                            await _upd.Logs(reaction, reaction.Message.Value);
                             break;
                         case "❌":
                           //  if (await _awaitForUserMessage.FinishTheGame(reaction))
@@ -73,40 +67,37 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             break;
                         case "1⃣":
                         {
-                            if (account.PlayingStatus == 1)
+                            if (account.IsPlaying)
                             {
 
                                 break;
                             }
 
-                            if (account.PlayingStatus == 2)
-                               {}
+     
 
                             break;
                         }
 
                         case "2⃣":
                         {
-                            if (account.PlayingStatus == 1)
+                            if (account.IsPlaying )
                             {
           
                                 break;
                             }
 
-                            if (account.PlayingStatus == 2)
-                               {}
                             break;
                         }
 
                         case "3⃣":
                         {
-                            if (account.PlayingStatus == 1)
+                            if (account.IsPlaying)
                             {
  
                                 break;
                             }
 
-                            if (account.PlayingStatus == 2)
+                            if (account.IsPlaying)
                                {}
 
                             break;
