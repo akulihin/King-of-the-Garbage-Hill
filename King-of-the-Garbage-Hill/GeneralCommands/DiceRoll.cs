@@ -1,5 +1,4 @@
-﻿
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
@@ -77,9 +76,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 await SendMessAsync(embed);
   
         }
-
-
-
 
         [Command("roll")]
         [Alias("Роллл", "Ролл")]
