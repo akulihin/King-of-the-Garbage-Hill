@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Discord.WebSocket;
-using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 
 namespace King_of_the_Garbage_Hill
@@ -20,17 +19,18 @@ namespace King_of_the_Garbage_Hill
         {
             Client = client;
             TimeBotStarted = DateTime.Now;
-            OctoGamePlaying = 0;
+            GamePlayingAndId = 0;
             TotalCommandsIssued = 0;
             TotalCommandsDeleted = 0;
             TotalCommandsChanged = 0;
             TimeSpendOnLastMessage = new ConcurrentDictionary<ulong, Stopwatch>();
             GamesList = new List<GameClass>();
+            
         }
 
         public readonly DiscordShardedClient Client;
         public readonly DateTime TimeBotStarted;
-        public uint OctoGamePlaying;
+        public uint GamePlayingAndId;
         public uint TotalCommandsIssued;
         public uint TotalCommandsDeleted;
         public uint TotalCommandsChanged;

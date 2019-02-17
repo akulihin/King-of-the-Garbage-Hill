@@ -61,7 +61,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         
         }
 
-        //playter 1 and 2 are humans
+        
         [Command("game")]
         public async Task StartGame(SocketUser user2 = null , SocketUser user3 = null, SocketUser user4 = null, SocketUser user5 = null, SocketUser user6 = null)
         {
@@ -74,7 +74,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 user5,
                 user6        
             };
-            var playersList = new List<AccountSettings>();
+            var playersList = new List<MainAccountClass>();
 
 
             for (var i = 0; i < rawList.Count; i++)
@@ -83,9 +83,13 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 if (t != null)
                 {
                     var account = _accounts.GetAccount(t.Id);
+
                     //TODO get new character
                     account.CharacterStats = new CharacterClass(2, 4, 5, 6, 7, new List<Passive>());
-                    _upd.WaitMess(t.Id);
+                    account.GameId = _global.GamePlayingAndId;
+                    _accounts.SaveAccounts(account);
+
+                  //  _upd.WaitMess(t.Id);
                     playersList.Add(account);
                 }
                 else
@@ -100,9 +104,18 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 }
             }
 
-
-            var game = new GameClass(playersList);
+           
+            var game = new GameClass(playersList,  _global.GamePlayingAndId);
+            _global.GamePlayingAndId++;
             _global.GamesList.Add(game);
+
+            foreach (var t in playersList)
+            {
+                if(t.DiscordId > 1000)
+                _upd.WaitMess(t.DiscordId);
+            }
+
+            game.TimePassed.Start();
         }
 
 
@@ -145,7 +158,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 .WithFooter("Version: 0.0a | Thank you for using me!")
                 .AddField("Numbers:", "" +
                                       $"Working for: {time.Days}d {time.Hours}h {time.Minutes}m and {time:ss\\.fff}s\n" +
-                                      $"Total Games Started: {_global.OctoGamePlaying}\n" +
+                                      $"Total Games Started: {_global.GamePlayingAndId}\n" +
                                       $"Total Commands issued while running: {_global.TotalCommandsIssued}\n" +
                                       $"Total Commands changed: {_global.TotalCommandsChanged}\n" +
                                       $"Total Commands deleted: {_global.TotalCommandsDeleted}\n" +

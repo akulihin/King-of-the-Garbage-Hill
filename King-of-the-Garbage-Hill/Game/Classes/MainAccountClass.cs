@@ -1,10 +1,6 @@
-﻿
-using King_of_the_Garbage_Hill.Game.Characters;
-using King_of_the_Garbage_Hill.Game.Classes;
-
-namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
+﻿namespace King_of_the_Garbage_Hill.Game.Classes
 {
-    public class AccountSettings
+    public class MainAccountClass
     {
         public string DiscordUserName { get; set; }
         public ulong DiscordId { get; set; }
@@ -14,9 +10,8 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 
         public int MoveListPage { get; set; }
         /*
-         * 1 = main page ( your character only
-         * 2 = leader board
-         * 3 = lvlUp
+         * 1 = main page ( your character + leaderboard)
+         * 2 = lvlUp     (what stat to update)
          */
        
         public ulong MsgFromBotId { get; set; }
@@ -24,6 +19,11 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
         public int Score { get; set; }
         public bool IsBlock { get; set; }
         public bool IsAbleToTurn { get; set; }
-        public uint PlaceAtLeaderBoard { get; set; }
+        public ulong PlaceAtLeaderBoard { get; set; }
+
+        public ulong WhoToAttackThisTurn { get; set; }
+        public ulong GameId { get; set; }
+
+        public bool IsReady { get; set; }
     }
 }

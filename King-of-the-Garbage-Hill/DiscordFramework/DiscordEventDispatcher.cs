@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
+using King_of_the_Garbage_Hill.Game;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 
 namespace King_of_the_Garbage_Hill.DiscordFramework
@@ -16,6 +17,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
         private readonly GameReaction _gameReaction;
         private readonly LoginFromConsole _log;
         private readonly Global _global;
+
  
 
         public DiscordEventDispatcher(DiscordShardedClient client, CommandHandling commandHandler, GameReaction gameReaction, LoginFromConsole log, Global global)
@@ -25,10 +27,12 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
             _gameReaction = gameReaction;
             _log = log;
             _global = global;
+          
         }
 
         public Task InitializeAsync()
         {
+            
             _client.ChannelCreated += ChannelCreated;
             _client.ChannelDestroyed += ChannelDestroyed;
             _client.ChannelUpdated += ChannelUpdated;

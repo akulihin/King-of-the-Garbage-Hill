@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
+using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -105,14 +106,14 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
 
-        public string Leaderboard(AccountSettings account)
+        public string Leaderboard(MainAccountClass mainAccount)
         {
-            var game = _global.GamesList.Find(x => x.PlayersList.Any(b => b.DiscordId == account.DiscordId));
+            var game = _global.GamesList.Find(x => x.PlayersList.Any(b => b.DiscordId == mainAccount.DiscordId));
             var players = "";
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
                 players += $"{i + 1}. {game.PlayersList[i].DiscordUserName}";
-                if (account.DiscordId == game.PlayersList[i].DiscordId) players += $" - {game.PlayersList[i].Score}\n";
+                if (mainAccount.DiscordId == game.PlayersList[i].DiscordId) players += $" - {game.PlayersList[i].Score}\n";
                 else players += "\n";
             }
 
@@ -159,30 +160,30 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
 
-        public EmbedBuilder FightPage(SocketUser globalAccount, AccountSettings account)
+        public EmbedBuilder FightPage(SocketUser globalAccount, MainAccountClass mainAccount)
         {
-            var leaders = Leaderboard(account);
+            var leaders = Leaderboard(mainAccount);
             var mainPage = new EmbedBuilder();
-            account.CharacterStats.Avatar = globalAccount.GetAvatarUrl();
-            _accounts.SaveAccounts(account.DiscordId);
+            mainAccount.CharacterStats.Avatar = globalAccount.GetAvatarUrl();
+            _accounts.SaveAccounts(mainAccount.DiscordId);
 
             mainPage.WithColor(Color.Blue);
             mainPage.WithTitle("Царь Мусорной Горы");
             mainPage.WithDescription(
-                $"**Name:** {account.DiscordUserName}\n" +
-                $"**Интеллект:** {account.CharacterStats.Intelligence}\n" +
-                $"**Сила:** {account.CharacterStats.Strength}\n" +
-                $"**Скорость:** {account.CharacterStats.Speed}\n" +
-                $"**Психика:** {account.CharacterStats.Psyche}\n" +
+                $"**Name:** {mainAccount.DiscordUserName}\n" +
+                $"**Интеллект:** {mainAccount.CharacterStats.Intelligence}\n" +
+                $"**Сила:** {mainAccount.CharacterStats.Strength}\n" +
+                $"**Скорость:** {mainAccount.CharacterStats.Speed}\n" +
+                $"**Психика:** {mainAccount.CharacterStats.Psyche}\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                $"*Справедливость: {account.CharacterStats.Justice}*\n" +
+                $"*Справедливость: {mainAccount.CharacterStats.Justice}*\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                 $"{leaders}");
 
 
-            if (account.CharacterStats.Avatar != null)
-                if (IsImageUrl(account.CharacterStats.Avatar))
-                    mainPage.WithThumbnailUrl(account.CharacterStats.Avatar);
+            if (mainAccount.CharacterStats.Avatar != null)
+                if (IsImageUrl(mainAccount.CharacterStats.Avatar))
+                    mainPage.WithThumbnailUrl(mainAccount.CharacterStats.Avatar);
 
             return mainPage;
         }
