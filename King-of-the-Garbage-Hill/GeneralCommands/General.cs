@@ -25,6 +25,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         private readonly SecureRandom _secureRandom;
         private readonly OctoPicPull _octoPicPull;
         private readonly OctoNamePull _octoNmaNamePull;
+        private readonly CharactersPull _charactersPull;
         private readonly HelperFunctions _helperFunctions;
   
         private readonly CommandsInMemory _commandsInMemory;
@@ -36,7 +37,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
   
         public General( UserAccounts accounts, SecureRandom secureRandom, OctoPicPull octoPicPull, 
-            OctoNamePull octoNmaNamePull, HelperFunctions helperFunctions,  CommandsInMemory commandsInMemory, Global global, GameUpdateMess upd) 
+            OctoNamePull octoNmaNamePull, HelperFunctions helperFunctions,  CommandsInMemory commandsInMemory, Global global, GameUpdateMess upd, CharactersPull charactersPull) 
         {   
             _accounts = accounts;
             _secureRandom = secureRandom;
@@ -46,6 +47,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _commandsInMemory = commandsInMemory;
             _global = global;
             _upd = upd;
+            _charactersPull = charactersPull;
         }
 
 
@@ -64,6 +66,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 user6        
             };
             var playersList = new List<GameBridgeClass>();
+            var availableChamps = _charactersPull.AllCharacters;
 
 
             for (var i = 0; i < rawList.Count; i++)
@@ -78,7 +81,11 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     account.IsPlaying = true;
                     _accounts.SaveAccounts(account.DiscordId);
 
-                    var character = new CharacterClass(2, 4, 5, 6, 7, new List<Passive>());
+                    var randomIndex = _secureRandom.Random(0, availableChamps.Count - 1);
+                    var character = availableChamps[randomIndex];
+                    availableChamps.RemoveAt(randomIndex);
+
+
                     var status = new InGameStatus();
 
                     var bridge = new GameBridgeClass {Account = account, Character = character, Status = status};
@@ -94,12 +101,15 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     account.IsPlaying = true;
                     _accounts.SaveAccounts(account.DiscordId);
 
-                    var character = new CharacterClass(2, 4, 5, 6, 7, new List<Passive>());
+                    var randomIndex = _secureRandom.Random(0, availableChamps.Count - 1);
+                    var character = availableChamps[randomIndex];
+                    availableChamps.RemoveAt(randomIndex);
+
                     var status = new InGameStatus( );
 
                     var bridge = new GameBridgeClass {Account = account, Character = character, Status = status};
 
-                    playersList.Add(bridge);
+                        //playersList.Add(bridge);
                 }
             }
 

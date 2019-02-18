@@ -45,11 +45,10 @@ namespace King_of_the_Garbage_Hill.Game
             {
                 var game = games[i];
 
-
-
                 var players = _global.GamesList[i].PlayersList;
                 var readyTargetCount = players.Count;
                 var readyCount = 0;
+
                 for (var k = 0; k < players.Count; k++)
                 {
               
@@ -69,21 +68,14 @@ namespace King_of_the_Garbage_Hill.Game
                     }
                 }
 
-
-                if ( (readyCount == readyTargetCount || game.TimePassed.Elapsed.TotalSeconds >=  game.TurnLengthInSecond) &&  game.GameStatus == 1)
+                if ((readyCount == readyTargetCount || game.TimePassed.Elapsed.TotalSeconds >=  game.TurnLengthInSecond) &&  game.GameStatus == 1)
                 {
                     _isTimerToCheckEnabled = false;
-             
-                    //START COUNTING SHIT
-                  
-                    _stage2.DeepListMind(game);
+                  await  _stage2.DeepListMind(game);
+                    _isTimerToCheckEnabled = true;
 
-                    //END COUNTING SHIT
                 }
-
-              
             }
-
             await Task.CompletedTask;
         }
 

@@ -25,13 +25,14 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public bool IsReady { get; set; }
 
 
+
         public InGameStatus()
         {
             MoveListPage = 1;
             SocketMessageFromBot = null;
             Score = 0;
             IsBlock = false;
-            IsAbleToTurn = false;
+            IsAbleToTurn = true;
             PlaceAtLeaderBoard = 0;
             WhoToAttackThisTurn = 0;
         

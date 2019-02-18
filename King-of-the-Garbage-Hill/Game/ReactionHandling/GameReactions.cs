@@ -110,6 +110,14 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                                 _global.GamesList.Find(x => x.GameId == account.GameId).PlayersList
                                     .Find(x => x.Status.PlaceAtLeaderBoard == emoteNum).Account.DiscordId;
 
+                            if (status.WhoToAttackThisTurn == account.DiscordId)
+                            {
+                                status.WhoToAttackThisTurn = 0;
+                                var mess = await reaction.Channel.SendMessageAsync($"нельзя нападать на себя!");
+                                await _help.DeleteMessOverTime(mess, 6);
+                                return;
+                            }
+
                             status.IsAbleToTurn = false;
                             status.IsReady = true;
                             status.IsBlock = false;

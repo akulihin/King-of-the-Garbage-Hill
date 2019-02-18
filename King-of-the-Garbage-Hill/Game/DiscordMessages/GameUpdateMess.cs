@@ -31,17 +31,18 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public async Task ShowRulesAndChar(SocketUser user)
         {
-            var gameRules = "" +
-                            "Правила игры: Всем выпадает рандомная карта с персонажем. Игрокам не известно против кого они играют. Каждый ход игрок может напасть на кого-то, либо обороняться. В случае нападения игрок либо побеждает, получая очко, либо проигрывает, приносят очко врагу. В случае обороны, напавшие на игрока враги не могут его победить и уходят ни с чем.\n" +
+            var gameRules = "**Правила игры:**\n" +
+                            "Всем выпадает рандомная карта с персонажем. Игрокам не известно против кого они играют. Каждый ход игрок может напасть на кого-то, либо обороняться. В случае нападения игрок либо побеждает, получая очко, либо проигрывает, приносят очко врагу. В случае обороны, напавшие на игрока враги не могут его победить и уходят ни с чем.\n" +
                             "\n" +
+                            "**Бой:**\n" +
                             "У всех персонажей есть 4 стата, чтобы победить в бою нужно выиграть по двум из трех пунктов:\n" +
                             "1) статы \n" +
                             "2) справедливость\n" +
                             "3) случайность \n" +
                             "\n" +
                             "1 - В битве статов наибольшую роль играет Контр - превосходящий стат (если ваш персонаж превосходит врага например в интеллекте, то ваш персонаж умнее). Умный персонаж побеждает Быстрого, Быстрый Сильного, а Сильный Умного.\n" +
-                            "Второстепенную роль играет разница в сумме общих статов. Разница в Психике дополнительно дает небольшое преимущество.\n" +
-                            "2 - Проигрывая, персонажи получют +1 справедливости (максимум 5), при победи они полностью ее теряют. Во втором пункте побеждает тот, у кого больше справедливости на момент сражения.\n" +
+                            "Второстепенную роль играет разница в общей сумме статов. Разница в Психике дополнительно дает небольшое преимущество.\n" +
+                            "2 - Проигрывая, персонажи получют +1 справедливости (максимум 5), при победе они полностью ее теряют. Во втором пункте побеждает тот, у кого больше справедливости на момент сражения.\n" +
                             "3 - Обычный рандом, который чуть больше уважает СЛИШКОМ превосходящих игроков по первому пункту." +
                             "\n" +
                             "После каждого хода обновляется таблица лидеров, побеждает лучший игрок после 10и ходов.\n" +
@@ -50,8 +51,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var embed = new EmbedBuilder();
             embed.WithColor(Color.DarkOrange);    
-            embed.AddField("Твой Персонаж", "TODO");
-            embed.WithDescription("*Правила Игры:**\n"+ gameRules);
+            embed.AddField("Твой Персонаж:", "TODO");
+            embed.WithDescription(gameRules);
 
 
             await user.SendMessageAsync("", false, embed.Build());
@@ -106,7 +107,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
 
                 if (account.DiscordId == playersList[i].Account.DiscordId)
-                    players += $" - {playersList[i].Status.Score}\n";
+                    players += $" = {playersList[i].Status.Score}\n";
                 else players += "\n";
             }
 
@@ -140,13 +141,13 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithTitle("Царь Мусорной Горы");
             embed.WithFooter($"{GetTimeLeft(account)}");
             embed.WithDescription(
-                $"**Name:** {account.DiscordUserName}\n" +
+                $"**Name:** {character.Name}\n" +
                 $"**Интеллект:** {character.Intelligence}\n" +
                 $"**Сила:** {character.Strength}\n" +
                 $"**Скорость:** {character.Speed}\n" +
                 $"**Психика:** {character.Psyche}\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                $"*Справедливость: {character.Justice}*\n" +
+                $"*Справедливость: {character.Justice.JusticeNow}*\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                 $"{LeaderBoard(account)}");
 
@@ -224,7 +225,14 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     break;
             }
 
-            await gameBridge.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
+            try
+            {
+                await gameBridge.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
+            }
+            catch
+            {
+                //
+            }
         }
 
         public async Task UpdateMessage(GameBridgeClass gameBridge, EmbedBuilder embed)
@@ -239,10 +247,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             if (game.GameStatus == 1)
             {
                 return "Времени осталось: " + (int) (game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds) +
-                       "сек.";
+                       $"сек. • ход #{game.RoundNo}";
             }
 
-            return "Ведется подсчёт...";
+            return $"Ведется подсчёт... • ход #{game.RoundNo}";
         }
 
         private bool IsImageUrl(string url)
