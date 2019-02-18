@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
@@ -50,6 +51,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
         
         [Command("s")]
+        [RequireOwner]
         public async Task StartGame(SocketUser user2 = null , SocketUser user3 = null, SocketUser user4 = null, SocketUser user5 = null, SocketUser user6 = null)
         {
             var rawList = new List<SocketUser>
@@ -101,10 +103,11 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 }
             }
 
-           
+            //randomize order
+            playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
+            for (var i = 0; i < playersList.Count; i++){playersList[i].Status.PlaceAtLeaderBoard = i + 1;}
+
             var game = new GameClass(playersList,  _global.GamePlayingAndId);
-            _global.GamePlayingAndId++;
-            _global.GamesList.Add(game);
 
             foreach (var t in playersList)
             {
@@ -112,10 +115,22 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 _upd.WaitMess(t);
             }
 
+       
             game.TimePassed.Start();
+            _global.GamePlayingAndId++;
+            _global.GamesList.Add(game);
         }
-
-
+       
+       [Command("cc")]
+       [RequireOwner]
+       public async Task CheckSomething()
+       {
+           var game = _global.GamesList[0];
+           var player =                    
+               game.PlayersList.Find(x => x.Account.DiscordId == Context.User.Id);
+           player.Status.Score++;
+           var ff = 0;
+       }
 
         [Command("updMaxRam")]
         [RequireOwner]
@@ -135,8 +150,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _commandsInMemory.CommandList.Clear();
             SendMessAsync($"I have deleted {toBeDeleted} commands");
         }
-
-      
 
         [Command("uptime")]
         [Summary("showing general info about the bot")]
@@ -170,10 +183,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
             // Context.User.GetAvatarUrl()
         }
-
-
-       
-        
 
         [Command("myPrefix")]
         [Summary("Shows or sets YOUR OWN prefix for the bot")]
@@ -213,7 +222,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
         [Command("octo")]
         [Alias("окто", "octopus", "Осьминог", "Осьминожка", "Осьминога", "o", "oct", "о")]
-        [Summary("Show a random oct. The pull contains only my own pictures.")]
+        [Summary("Куда же без осьминожек")]
         public async Task OctopusPicture()
         {
             var octoIndex = _secureRandom.Random(0, _octoPicPull.OctoPics.Length-1);
@@ -259,8 +268,5 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     }
             }
         }
-
-
-
     }
 }

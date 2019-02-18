@@ -95,23 +95,23 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         //    await MainPage(userId, socketMsg);
         }
 
-
-
         public string LeaderBoard(AccountSettings account)
         {
-            var game = _global.GamesList.Find(x => x.GameId ==account.GameId);
+            var game = _global.GamesList.Find(x => x.GameId == account.GameId);
             var players = "";
-            for (var i = 0; i < game.PlayersList.Count; i++)
+            var playersList = game.PlayersList;
+            for (var i = 0; i < playersList.Count; i++)
             {
-                players += $"{i + 1}. {game.PlayersList[i].Account.DiscordUserName}";
-                if (account.DiscordId == game.PlayersList[i].Account.DiscordId)
-                    players += $" - {game.PlayersList[i].Status.Score}\n";
+                players += $"{i + 1}. {playersList[i].Account.DiscordUserName}";
+
+
+                if (account.DiscordId == playersList[i].Account.DiscordId)
+                    players += $" - {playersList[i].Status.Score}\n";
                 else players += "\n";
             }
 
             return players;
         }
-
 
         public async Task EndGame(SocketReaction reaction, IUserMessage socketMsg)
         {
@@ -119,9 +119,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             if (!response) return;
 
             var globalAccount = _global.Client.GetUser(reaction.UserId);
+
             var account = _accounts.GetAccount(globalAccount);
             account.IsPlaying = false;
             _accounts.SaveAccounts(account.DiscordId);
+
             await socketMsg.DeleteAsync();
             await globalAccount.SendMessageAsync("Thank you for playing!");
         }
@@ -133,13 +135,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
     //        gameBridge.Status.MoveListPage = 1;
             var character = gameBridge.Character;
 
-         
- 
-
             var embed = new EmbedBuilder();
             embed.WithColor(Color.Blue);
             embed.WithTitle("Царь Мусорной Горы");
-            embed.WithFooter($"Время осталось: {GetTimeLeft(account)}");
+            embed.WithFooter($"{GetTimeLeft(account)}");
             embed.WithDescription(
                 $"**Name:** {account.DiscordUserName}\n" +
                 $"**Интеллект:** {character.Intelligence}\n" +
@@ -174,7 +173,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithTitle("Логи");
             embed.WithDescription("TODO");
             embed.WithColor(Color.Green);
-            embed.WithFooter($"Время осталось: {GetTimeLeft(account)}");
+            embed.WithFooter($"{GetTimeLeft(account)}");
 
 
             return embed;
@@ -190,12 +189,12 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var character = gameBridge.Character;
 
          //   status.MoveListPage = 3;
-            _accounts.SaveAccounts(account.DiscordId);
+        //    _accounts.SaveAccounts(account.DiscordId);
 
             var embed= new EmbedBuilder();
             embed.WithColor(Color.Blue);
             embed.WithTitle("Подними один из статов");
-            embed.WithFooter($"Время осталось: {GetTimeLeft(account)}");
+            embed.WithFooter($"{GetTimeLeft(account)}");
             embed.WithDescription(
                 $"1. **Интеллект:** {character.Intelligence}\n" +
                 $"2. **Сила:** {character.Strength}\n" +
@@ -237,8 +236,13 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         public string GetTimeLeft(AccountSettings account)
         {
             var game = _global.GamesList.Find(x => x.GameId == account.GameId);
+            if (game.GameStatus == 1)
+            {
+                return "Времени осталось: " + (int) (game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds) +
+                       "сек.";
+            }
 
-            return (int)(game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds)  + "сек.";
+            return "Ведется подсчёт...";
         }
 
         private bool IsImageUrl(string url)

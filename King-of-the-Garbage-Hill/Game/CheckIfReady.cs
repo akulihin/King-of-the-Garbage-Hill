@@ -73,15 +73,12 @@ namespace King_of_the_Garbage_Hill.Game
                 if ( (readyCount == readyTargetCount || game.TimePassed.Elapsed.TotalSeconds >=  game.TurnLengthInSecond) &&  game.GameStatus == 1)
                 {
                     _isTimerToCheckEnabled = false;
-                    game.GameStatus = 2;
-                    _stage2.DeepListMind(game);
+             
                     //START COUNTING SHIT
                   
-                    game.TimePassed.Stop();
-                    game.TimePassed.Reset();
-                    game.TimePassed.Start();
+                    _stage2.DeepListMind(game);
+
                     //END COUNTING SHIT
-              
                 }
 
               

@@ -17,7 +17,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public int Score { get; set; }
         public bool IsBlock { get; set; }
         public bool IsAbleToTurn { get; set; }
-        public ulong PlaceAtLeaderBoard { get; set; }
+        public int PlaceAtLeaderBoard { get; set; }
 
         public ulong WhoToAttackThisTurn { get; set; }
     

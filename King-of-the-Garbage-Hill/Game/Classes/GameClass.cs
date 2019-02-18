@@ -18,7 +18,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
          */
 
 
-        public GameClass(List<GameBridgeClass> playersList, uint gameId, int turnLengthInSecond = 10)
+        public GameClass(List<GameBridgeClass> playersList, uint gameId, int turnLengthInSecond = 120)
         {
             RoundNo = 1;
             PlayersList = playersList;

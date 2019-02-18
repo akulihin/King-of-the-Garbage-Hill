@@ -54,6 +54,10 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                 switch (reaction.Emote.Name)
                 {
+                    case "❌":
+                        await _upd.EndGame(reaction, reaction.Message.Value);
+                        break;
+
                     case "📖":
 
                         if (gameBridge.Status.MoveListPage == 1)
@@ -68,9 +72,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     await    _upd.UpdateMessage(gameBridge);
                         break;
 
-                    case "❌":
-                        await _upd.EndGame(reaction, reaction.Message.Value);
-                        break;
+
 
 
                     case "🛡" when status.IsAbleToTurn:
@@ -80,6 +82,13 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         break;
 
                     default:
+                        if (!status.IsAbleToTurn)
+                        {
+                            var mess = await reaction.Channel.SendMessageAsync($"Ходить нельзя, пока идет подсчёт.");
+                            await _help.DeleteMessOverTime(mess, 6);
+                            return;
+                        }
+
                         var emoteNum = GetNumberFromEmote(reaction);
 
                         if (status.MoveListPage == 3)
@@ -104,25 +113,18 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             status.IsAbleToTurn = false;
                             status.IsReady = true;
                             status.IsBlock = false;
-                          
                         }
-
                         break;
                 }
             }
-
-
-            if (!(channel is IDMChannel))
-                await reaction.Message.Value.RemoveReactionAsync(reaction.Emote,
-                    reaction.User.Value, RequestOptions.Default);
         }
 
 
 
-        public async Task GetLvlUp(GameBridgeClass gameBridge, ulong skillNumber)
+        public async Task GetLvlUp(GameBridgeClass gameBridge, int skillNumber)
         {
             //TODO:
-            switch ((int)skillNumber)
+            switch (skillNumber)
             {
                 case 1:
                     break;
@@ -139,7 +141,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             await _upd.UpdateMessage(gameBridge);
         }
 
-        public ulong GetNumberFromEmote(SocketReaction reaction)
+        public int GetNumberFromEmote(SocketReaction reaction)
         {
             switch (reaction.Emote.Name)
             {
