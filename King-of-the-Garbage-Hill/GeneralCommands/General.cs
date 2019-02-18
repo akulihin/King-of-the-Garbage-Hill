@@ -6,8 +6,6 @@ using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
-using King_of_the_Garbage_Hill.Game;
-using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Helpers;
@@ -50,19 +48,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        [Command("t")]
-        public async Task TTTT()
-        {
-            for (ulong i = 1; i < 15; i++)
-            {
-                var acc =  _accounts.GetAccount(i);
-                _accounts.SaveAccounts(i);
-            }
         
-        }
-
-        
-        [Command("game")]
+        [Command("s")]
         public async Task StartGame(SocketUser user2 = null , SocketUser user3 = null, SocketUser user4 = null, SocketUser user5 = null, SocketUser user6 = null)
         {
             var rawList = new List<SocketUser>
@@ -74,7 +61,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 user5,
                 user6        
             };
-            var playersList = new List<MainAccountClass>();
+            var playersList = new List<GameBridgeClass>();
 
 
             for (var i = 0; i < rawList.Count; i++)
@@ -82,25 +69,35 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 var t = rawList[i];
                 if (t != null)
                 {
-                    var account = _accounts.GetAccount(t.Id);
-
                     //TODO get new character
-                    account.CharacterStats = new CharacterClass(2, 4, 5, 6, 7, new List<Passive>());
-                    account.GameId = _global.GamePlayingAndId;
-                    _accounts.SaveAccounts(account);
 
-                  //  _upd.WaitMess(t.Id);
-                    playersList.Add(account);
+                    var account = _accounts.GetAccount(t.Id);
+                    account.GameId = _global.GamePlayingAndId;
+                    account.IsPlaying = true;
+                    _accounts.SaveAccounts(account.DiscordId);
+
+                    var character = new CharacterClass(2, 4, 5, 6, 7, new List<Passive>());
+                    var status = new InGameStatus();
+
+                    var bridge = new GameBridgeClass {Account = account, Character = character, Status = status};
+
+                    playersList.Add(bridge);
                 }
                 else
                 {
                     //TODO: add a bot
 
                     var account = _accounts.GetAccount((ulong)i);
-                    //TODO get new character
-                    account.CharacterStats = new CharacterClass(2, 4, 5, 6, 7, new List<Passive>());
-      
-                    playersList.Add(account);
+                    account.GameId = _global.GamePlayingAndId;
+                    account.IsPlaying = true;
+                    _accounts.SaveAccounts(account.DiscordId);
+
+                    var character = new CharacterClass(2, 4, 5, 6, 7, new List<Passive>());
+                    var status = new InGameStatus( );
+
+                    var bridge = new GameBridgeClass {Account = account, Character = character, Status = status};
+
+                    playersList.Add(bridge);
                 }
             }
 
@@ -111,8 +108,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
             foreach (var t in playersList)
             {
-                if(t.DiscordId > 1000)
-                _upd.WaitMess(t.DiscordId);
+                if(t.Account.DiscordId > 1000)
+                _upd.WaitMess(t);
             }
 
             game.TimePassed.Start();

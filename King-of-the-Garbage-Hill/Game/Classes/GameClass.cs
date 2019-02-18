@@ -6,7 +6,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
     public class GameClass
     {
         public int RoundNo;
-        public List<MainAccountClass> PlayersList;
+        public List<GameBridgeClass> PlayersList;
         public ulong GameId;
         public double TurnLengthInSecond;
         public Stopwatch TimePassed;
@@ -18,7 +18,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
          */
 
 
-        public GameClass(List<MainAccountClass> playersList, uint gameId, int turnLengthInSecond = 60)
+        public GameClass(List<GameBridgeClass> playersList, uint gameId, int turnLengthInSecond = 10)
         {
             RoundNo = 1;
             PlayersList = playersList;

@@ -42,19 +42,30 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             for (var i = 0; i < _global.GamesList.Count; i++)
             {
                 if (!_global.GamesList[i].PlayersList
-                    .Any(x => x.DiscordId == reaction.UserId && x.MsgFromBotId == reaction.MessageId))
+                    .Any(x => x.Account.DiscordId == reaction.UserId && x.Status.SocketMessageFromBot.Id == reaction.MessageId))
                     continue;
 
 
                 var account = _accounts.GetAccount(reaction.UserId);
-
+                var gameBridge = _global.GetGameAccount(reaction.UserId, account.GameId);
+                var status = gameBridge.Status;
 
                 // if (!account.IsAbleToTurn){return;}
 
                 switch (reaction.Emote.Name)
                 {
                     case "📖":
-                        await _upd.Logs(reaction, reaction.Message.Value);
+
+                        if (gameBridge.Status.MoveListPage == 1)
+                        {
+                            gameBridge.Status.MoveListPage = 2;
+                        }
+                        else if (gameBridge.Status.MoveListPage == 2)
+                        {
+                            gameBridge.Status.MoveListPage = 1;
+                        }
+
+                    await    _upd.UpdateMessage(gameBridge);
                         break;
 
                     case "❌":
@@ -62,39 +73,38 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         break;
 
 
-                    case "🛡" when account.IsAbleToTurn:
-                        account.IsBlock = true;
-                        account.IsAbleToTurn = false;
-                        account.IsReady = true;
-                        _accounts.SaveAccounts(account);
+                    case "🛡" when status.IsAbleToTurn:
+                        status.IsBlock = true;
+                        status.IsAbleToTurn = false;
+                        status.IsReady = true;
                         break;
 
                     default:
                         var emoteNum = GetNumberFromEmote(reaction);
 
-                        if (account.MoveListPage == 3)
+                        if (status.MoveListPage == 3)
                         {
-                            await GetLvlUp(account, emoteNum, reaction.Message.Value);
+                            await GetLvlUp(gameBridge, emoteNum);
                             break;
                         }
 
-                        if (account.MoveListPage == 2)
+                        if (status.MoveListPage == 2)
                         {
                            var mess = await reaction.Channel.SendMessageAsync($"Нажми на {new Emoji("📖")}, чтобы вернуться в основное меню.");
                            await _help.DeleteMessOverTime(mess, 6);
                             break;
                         }
 
-                        if (account.MoveListPage == 1)
+                        if (status.MoveListPage == 1)
                         {
-                            account.WhoToAttackThisTurn =
+                            status.WhoToAttackThisTurn =
                                 _global.GamesList.Find(x => x.GameId == account.GameId).PlayersList
-                                    .Find(x => x.PlaceAtLeaderBoard == emoteNum).DiscordId;
+                                    .Find(x => x.Status.PlaceAtLeaderBoard == emoteNum).Account.DiscordId;
 
-                            account.IsAbleToTurn = false;
-                            account.IsReady = true;
-                            account.IsBlock = false;
-                            _accounts.SaveAccounts(account);
+                            status.IsAbleToTurn = false;
+                            status.IsReady = true;
+                            status.IsBlock = false;
+                          
                         }
 
                         break;
@@ -109,8 +119,9 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
 
 
-        public async Task GetLvlUp(MainAccountClass account, ulong skillNumber, IUserMessage socketMsg)
+        public async Task GetLvlUp(GameBridgeClass gameBridge, ulong skillNumber)
         {
+            //TODO:
             switch ((int)skillNumber)
             {
                 case 1:
@@ -125,7 +136,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     return;
             }
 
-            await _upd.MainPage(account.DiscordId, socketMsg);
+            await _upd.UpdateMessage(gameBridge);
         }
 
         public ulong GetNumberFromEmote(SocketReaction reaction)

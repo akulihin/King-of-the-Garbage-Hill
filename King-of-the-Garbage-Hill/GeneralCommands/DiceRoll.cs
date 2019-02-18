@@ -11,7 +11,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
     {
         private readonly SecureRandom _secureRandom;
 
-
         public DiceRollCommands(SecureRandom secureRandom)
         {
             _secureRandom = secureRandom;

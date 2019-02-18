@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Discord;
@@ -32,19 +31,36 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public async Task ShowRulesAndChar(SocketUser user)
         {
+            var gameRules = "" +
+                            "Правила игры: Всем выпадает рандомная карта с персонажем. Игрокам не известно против кого они играют. Каждый ход игрок может напасть на кого-то, либо обороняться. В случае нападения игрок либо побеждает, получая очко, либо проигрывает, приносят очко врагу. В случае обороны, напавшие на игрока враги не могут его победить и уходят ни с чем.\n" +
+                            "\n" +
+                            "У всех персонажей есть 4 стата, чтобы победить в бою нужно выиграть по двум из трех пунктов:\n" +
+                            "1) статы \n" +
+                            "2) справедливость\n" +
+                            "3) случайность \n" +
+                            "\n" +
+                            "1 - В битве статов наибольшую роль играет Контр - превосходящий стат (если ваш персонаж превосходит врага например в интеллекте, то ваш персонаж умнее). Умный персонаж побеждает Быстрого, Быстрый Сильного, а Сильный Умного.\n" +
+                            "Второстепенную роль играет разница в сумме общих статов. Разница в Психике дополнительно дает небольшое преимущество.\n" +
+                            "2 - Проигрывая, персонажи получют +1 справедливости (максимум 5), при победи они полностью ее теряют. Во втором пункте побеждает тот, у кого больше справедливости на момент сражения.\n" +
+                            "3 - Обычный рандом, который чуть больше уважает СЛИШКОМ превосходящих игроков по первому пункту." +
+                            "\n" +
+                            "После каждого хода обновляется таблица лидеров, побеждает лучший игрок после 10и ходов.\n" +
+                            "После каждого второго хода игрок может улучшить один из статов на +1.\n" +
+                            "У каждого персонажа есть особые пассивки, используйте их как надо!";
+
             var embed = new EmbedBuilder();
-            embed.WithColor(Color.DarkOrange);
-            embed.AddField("Правила Игры", "TODO");
+            embed.WithColor(Color.DarkOrange);    
             embed.AddField("Твой Персонаж", "TODO");
+            embed.WithDescription("*Правила Игры:**\n"+ gameRules);
 
 
             await user.SendMessageAsync("", false, embed.Build());
         }
 
-        public async Task WaitMess(ulong userId)
+        public async Task WaitMess(GameBridgeClass gameBridge)
         {
-            var globalAccount = _global.Client.GetUser(userId);
-            var account = _accounts.GetAccount(globalAccount);
+            var globalAccount = _global.Client.GetUser(gameBridge.Account.DiscordId);
+  
 
             await ShowRulesAndChar(globalAccount);
 
@@ -57,15 +73,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var socketMsg = await globalAccount.SendMessageAsync("", false, mainPage.Build());
 
-            account.MsgFromBotId = socketMsg.Id;
-
-            if (!(socketMsg.Channel is IDMChannel))
-                await socketMsg.RemoveAllReactionsAsync();
+            gameBridge.Status.SocketMessageFromBot = socketMsg;
 
             await socketMsg.AddReactionAsync(new Emoji("🛡"));
             //   await socketMsg.AddReactionAsync(new Emoji("➡"));
             await socketMsg.AddReactionAsync(new Emoji("📖"));
-
             await socketMsg.AddReactionAsync(new Emoji("1⃣"));
             await socketMsg.AddReactionAsync(new Emoji("2⃣"));
             await socketMsg.AddReactionAsync(new Emoji("3⃣"));
@@ -73,76 +85,31 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             await socketMsg.AddReactionAsync(new Emoji("5⃣"));
             await socketMsg.AddReactionAsync(new Emoji("6⃣"));
             //   await socketMsg.AddReactionAsync(new Emoji("⬆"));
-
             //   await socketMsg.AddReactionAsync(new Emoji("8⃣"));
             //   await socketMsg.AddReactionAsync(new Emoji("9⃣"));
-            //    await socketMsg.AddReactionAsync(new Emoji("🐙"));
-
+            //   await socketMsg.AddReactionAsync(new Emoji("🐙"));
             await socketMsg.AddReactionAsync(new Emoji("❌"));
 
 
-            account.IsPlaying = true;
-            _accounts.SaveAccounts(userId);
 
-            await MainPage(userId, socketMsg);
+        //    await MainPage(userId, socketMsg);
         }
 
 
-        public async Task MainPage(ulong userId, IUserMessage socketMsg)
+
+        public string LeaderBoard(AccountSettings account)
         {
-            var globalAccount = _global.Client.GetUser(userId);
-            var account = _accounts.GetAccount(globalAccount);
-
-            account.MoveListPage = 1;
-            _accounts.SaveAccounts(account.DiscordId);
-
-            var mainPage = FightPage(globalAccount, account);
-
-            await socketMsg.ModifyAsync(message =>
-            {
-                message.Embed = null;
-                message.Embed = mainPage.Build();
-            });
-        }
-
-
-        public string Leaderboard(MainAccountClass mainAccount)
-        {
-            var game = _global.GamesList.Find(x => x.PlayersList.Any(b => b.DiscordId == mainAccount.DiscordId));
+            var game = _global.GamesList.Find(x => x.GameId ==account.GameId);
             var players = "";
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
-                players += $"{i + 1}. {game.PlayersList[i].DiscordUserName}";
-                if (mainAccount.DiscordId == game.PlayersList[i].DiscordId) players += $" - {game.PlayersList[i].Score}\n";
+                players += $"{i + 1}. {game.PlayersList[i].Account.DiscordUserName}";
+                if (account.DiscordId == game.PlayersList[i].Account.DiscordId)
+                    players += $" - {game.PlayersList[i].Status.Score}\n";
                 else players += "\n";
             }
 
             return players;
-        }
-
-
-        public async Task Logs(SocketReaction reaction, IUserMessage socketMsg)
-        {
-            var account = _accounts.GetAccount(reaction.User.Value.Id);
-
-            if (account.MoveListPage == 2)
-            {
-                await MainPage(reaction.UserId, socketMsg);
-                return;
-            }
-
-            account.MoveListPage = 2;
-            _accounts.SaveAccounts(account.DiscordId);
-
-            var game = _global.GamesList.Find(x => x.PlayersList.Any(b => b.DiscordId == account.DiscordId));
-
-            var embed = new EmbedBuilder();
-            embed.WithTitle("Логи");
-            embed.WithDescription("TODO");
-            embed.WithColor(Color.Green);
-
-
-            await socketMsg.ModifyAsync(message => { message.Embed = embed.Build(); });
         }
 
 
@@ -159,33 +126,119 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             await globalAccount.SendMessageAsync("Thank you for playing!");
         }
 
-
-        public EmbedBuilder FightPage(SocketUser globalAccount, MainAccountClass mainAccount)
+        //Page 1
+        public EmbedBuilder FightPage(GameBridgeClass gameBridge)
         {
-            var leaders = Leaderboard(mainAccount);
-            var mainPage = new EmbedBuilder();
-            mainAccount.CharacterStats.Avatar = globalAccount.GetAvatarUrl();
-            _accounts.SaveAccounts(mainAccount.DiscordId);
+            var account = gameBridge.Account;
+    //        gameBridge.Status.MoveListPage = 1;
+            var character = gameBridge.Character;
 
-            mainPage.WithColor(Color.Blue);
-            mainPage.WithTitle("Царь Мусорной Горы");
-            mainPage.WithDescription(
-                $"**Name:** {mainAccount.DiscordUserName}\n" +
-                $"**Интеллект:** {mainAccount.CharacterStats.Intelligence}\n" +
-                $"**Сила:** {mainAccount.CharacterStats.Strength}\n" +
-                $"**Скорость:** {mainAccount.CharacterStats.Speed}\n" +
-                $"**Психика:** {mainAccount.CharacterStats.Psyche}\n" +
+         
+ 
+
+            var embed = new EmbedBuilder();
+            embed.WithColor(Color.Blue);
+            embed.WithTitle("Царь Мусорной Горы");
+            embed.WithFooter($"Время осталось: {GetTimeLeft(account)}");
+            embed.WithDescription(
+                $"**Name:** {account.DiscordUserName}\n" +
+                $"**Интеллект:** {character.Intelligence}\n" +
+                $"**Сила:** {character.Strength}\n" +
+                $"**Скорость:** {character.Speed}\n" +
+                $"**Психика:** {character.Psyche}\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                $"*Справедливость: {mainAccount.CharacterStats.Justice}*\n" +
+                $"*Справедливость: {character.Justice}*\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                $"{leaders}");
+                $"{LeaderBoard(account)}");
 
 
-            if (mainAccount.CharacterStats.Avatar != null)
-                if (IsImageUrl(mainAccount.CharacterStats.Avatar))
-                    mainPage.WithThumbnailUrl(mainAccount.CharacterStats.Avatar);
+            if (character.Avatar != null)
+                if (IsImageUrl(character.Avatar))
+                    embed.WithThumbnailUrl(character.Avatar);
 
-            return mainPage;
+            return embed;
+        }
+
+        //Page 2
+        public EmbedBuilder LogsPage(GameBridgeClass gameBridge)
+        {
+//            var status = gameBridge.Status;
+            var account = gameBridge.Account;
+
+    //        status.MoveListPage = 2;
+          
+
+        //    var game = _global.GamesList.Find(x => x.GameId == account.GameId);
+
+            var embed = new EmbedBuilder();
+            embed.WithTitle("Логи");
+            embed.WithDescription("TODO");
+            embed.WithColor(Color.Green);
+            embed.WithFooter($"Время осталось: {GetTimeLeft(account)}");
+
+
+            return embed;
+
+        //    await socketMsg.ModifyAsync(message => { message.Embed = embed.Build(); });
+        }
+
+        //Page 3
+        public EmbedBuilder LvlUpPage(GameBridgeClass gameBridge)
+        {
+        //    var status = gameBridge.Status;
+            var account = gameBridge.Account;
+            var character = gameBridge.Character;
+
+         //   status.MoveListPage = 3;
+            _accounts.SaveAccounts(account.DiscordId);
+
+            var embed= new EmbedBuilder();
+            embed.WithColor(Color.Blue);
+            embed.WithTitle("Подними один из статов");
+            embed.WithFooter($"Время осталось: {GetTimeLeft(account)}");
+            embed.WithDescription(
+                $"1. **Интеллект:** {character.Intelligence}\n" +
+                $"2. **Сила:** {character.Strength}\n" +
+                $"3. **Скорость:** {character.Speed}\n" +
+                $"4. **Психика:** {character.Psyche}\n");    
+
+            if (character.Avatar != null)
+                if (IsImageUrl(character.Avatar))
+                    embed.WithThumbnailUrl(character.Avatar);
+
+            return embed;
+        }
+
+        public async Task UpdateMessage(GameBridgeClass gameBridge)
+        {
+            var embed = FightPage(gameBridge);
+            switch (gameBridge.Status.MoveListPage)
+            {
+                case 1:
+                   // embed = LogsPage(gameBridge);
+                    break;
+                case 2:
+                    embed = LogsPage(gameBridge);
+                    break;
+                case 3:
+                    embed = LvlUpPage(gameBridge);
+                    break;
+            }
+
+            await gameBridge.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
+        }
+
+        public async Task UpdateMessage(GameBridgeClass gameBridge, EmbedBuilder embed)
+        {
+            await gameBridge.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
+        }
+
+
+        public string GetTimeLeft(AccountSettings account)
+        {
+            var game = _global.GamesList.Find(x => x.GameId == account.GameId);
+
+            return (int)(game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds)  + "сек.";
         }
 
         private bool IsImageUrl(string url)
