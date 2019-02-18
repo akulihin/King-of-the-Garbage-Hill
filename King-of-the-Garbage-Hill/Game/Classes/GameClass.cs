@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
+using King_of_the_Garbage_Hill.LocalPersistentData.LoggingSystemJson;
 
 namespace King_of_the_Garbage_Hill.Game.Classes
 {
@@ -16,7 +17,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
          * 2 - Counting
          * 3 - End
          */
-
+        public List<GameLogsClass> GameLogs;
 
         public GameClass(List<GameBridgeClass> playersList, uint gameId, int turnLengthInSecond = 320)
         {
