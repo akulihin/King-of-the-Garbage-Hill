@@ -109,13 +109,14 @@ namespace King_of_the_Garbage_Hill.Game
                 //end round 2
 
                 //round 3 (Random)
-
-                var randomNumber = _rand.Random(1, 100);
-                if (randomNumber <= randomForTooGood)
+                if (pointsWined < 2)
                 {
-                    pointsWined++;
+                    var randomNumber = _rand.Random(1, 100);
+                    if (randomNumber <= randomForTooGood)
+                    {
+                        pointsWined++;
+                    }
                 }
-
                 //end round 3
 
                 //CheckIfWin to remove Justice
@@ -141,7 +142,6 @@ namespace King_of_the_Garbage_Hill.Game
                 game.TurnLengthInSecond -= 10;
 
             if (game.RoundNo == 1) game.TurnLengthInSecond -= 75;
-
 
             var orderedPlayersList = game.PlayersList.OrderByDescending(x => x.Status.Score);
             game.PlayersList = orderedPlayersList.ToList();
