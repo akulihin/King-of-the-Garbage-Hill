@@ -92,58 +92,19 @@ namespace King_of_the_Garbage_Hill.Game
                     strangeNumber += 5;
                 else if (whoIsBetter == playerAttacked) strangeNumber -= 5;
 
-
                 if (strangeNumber >= 14) randomForTooGood = 63;
                 if (strangeNumber <= -14) randomForTooGood = 37;
 
                 if (strangeNumber > 0)
-                {
-               
+                {      
                     pointsWined++;
                 }
-                else if (strangeNumber < 0)
-                {
-        
-                }
-                else
-                {
-                    var randomNumber2 = _rand.Random(1, 100);
-                    if (randomNumber2 <= 50)
-                    {
-          
-                        pointsWined++;
-                    }
-                    else
-                    {
-                 
-                    }
-                }
-
                 //end round 1
 
                 //round 2 (Justice)
-                if (player.Character.Justice.JusticeNow > playerAttacked.Character.Justice.JusticeNow)
+                if (player.Character.Justice.JusticeNow > playerAttacked.Character.Justice.JusticeNow || player.Character.Justice == playerAttacked.Character.Justice)
                 {
                     pointsWined++;
-                }
-                else if (player.Character.Justice.JusticeNow < playerAttacked.Character.Justice.JusticeNow)
-                {
-
-                }
-                else if (player.Character.Justice == playerAttacked.Character.Justice)
-                {
-                    // if 1-50 = player.Score++;
-                    // if 51-100 = playerAttacked.Score++;
-                    var randomNumber2 = _rand.Random(1, 100);
-                    if (randomNumber2 <= 50)
-                    {
-                    
-                        pointsWined++;
-                    }
-                    else
-                    {
-                        playerAttacked.Status.Score++;
-                    }
                 }
                 //end round 2
 
@@ -152,13 +113,9 @@ namespace King_of_the_Garbage_Hill.Game
                 var randomNumber = _rand.Random(1, 100);
                 if (randomNumber <= randomForTooGood)
                 {
- 
                     pointsWined++;
                 }
-                else
-                {
-              
-                }
+
                 //end round 3
 
                 //CheckIfWin to remove Justice
