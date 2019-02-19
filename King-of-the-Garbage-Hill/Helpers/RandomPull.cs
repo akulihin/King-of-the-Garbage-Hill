@@ -229,33 +229,33 @@ namespace King_of_the_Garbage_Hill.Helpers
         public List<CharacterClass> AllCharacters = new List<CharacterClass>
         {
             //DeepList
-            new CharacterClass(10, 5, 7, 0, null, "DeepList"),
+            new CharacterClass(10, 5, 7, 0,  "DeepList"),
             //mylorik 
-            new CharacterClass(4, 8, 9, 3, null, "mylorik"),
+            new CharacterClass(4, 8, 9, 3,  "mylorik"),
             //gleb
-            new CharacterClass(7, 6, 2, 8, null, "Глеб"),
+            new CharacterClass(7, 6, 2, 8,  "Глеб"),
             //LeCrisp
-            new CharacterClass(5, 4, 5, 6, null, "LeCrisp"),
+            new CharacterClass(5, 4, 5, 6,  "LeCrisp"),
             //Tolya
-            new CharacterClass(8, 5, 1, 2, null, "Толя"),
+            new CharacterClass(8, 5, 1, 2,  "Толя"),
             //HardKitty
-            new CharacterClass(3, 5, 5, 6, null, "HardKitty"),
+            new CharacterClass(3, 5, 5, 6,  "HardKitty"),
             //Sirinoks
-            new CharacterClass(5, 2, 5, 5, null, "Sirinoks"),
+            new CharacterClass(5, 2, 5, 5,  "Sirinoks"),
             //Mitsuki
-            new CharacterClass(9, 9, 9, 9, null, "Mitsuki"),
+            new CharacterClass(9, 9, 9, 9,  "Mitsuki"),
             //AWDKA
-            new CharacterClass(4, 1, 5, 7, null, "AWDKA"),
+            new CharacterClass(4, 1, 5, 7,  "AWDKA"),
             //Октопус
-            new CharacterClass(1, 1, 8, 10, null, "Осьминожка"),
+            new CharacterClass(1, 1, 8, 10,  "Осьминожка"),
             //Даркси
-            new CharacterClass(6, 7, 8, 4, null, "Darksi"),
+            new CharacterClass(6, 7, 8, 4,  "Darksi"),
             //Тигр
-            new CharacterClass(1, 9, 9, 1, null, "Тигр"),
+            new CharacterClass(1, 9, 9, 1,  "Тигр"),
             //братишка
-            new CharacterClass(0, 0, 0, 10, null, "Братишка"),
+            new CharacterClass(0, 0, 0, 10,  "Братишка"),
             //bug
-            new CharacterClass(6, 6, 6, 0, null, "????")
+            new CharacterClass(6, 6, 6, 0,  "????")
         };
     }
 }

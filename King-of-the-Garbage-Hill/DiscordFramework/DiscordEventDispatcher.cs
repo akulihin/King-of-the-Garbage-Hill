@@ -173,7 +173,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
             SocketReaction reaction)
         {
             if (reaction.User.Value.IsBot) return;
-            _gameReaction.ReactionAddedForOctoGameAsync(cacheMessage, channel, reaction);
+            _gameReaction.ReactionAddedGameWindow(cacheMessage, channel, reaction);
         }
 
         private async Task ReactionRemoved(Cacheable<IUserMessage, ulong> cacheMessage, ISocketMessageChannel channel,

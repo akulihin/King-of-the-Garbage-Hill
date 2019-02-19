@@ -36,14 +36,21 @@ namespace King_of_the_Garbage_Hill.Game
             
             game.TimePassed.Stop();
             game.GameStatus = 2;
-
+            game.GameLogs += $"__**Раунд #{game.RoundNo}**__\n";
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
                 var pointsWined = 0;
                 var whereWonP1 = "(";
                 var whereWonP2 = "(";
                 var player = game.PlayersList[i];
-                _characterPassives.HandleCharacter(player);
+
+              await _characterPassives.HandleCharacterBeforeCalculations(player, game);
+
+                if (!player.Status.IsAbleToWin)
+                {
+                    pointsWined = -5;
+                }
+
                 if (player.Status.WhoToAttackThisTurn == 0 && player.Status.IsBlock == false)
                 {
                     player.Status.IsBlock = true;
@@ -64,11 +71,11 @@ namespace King_of_the_Garbage_Hill.Game
                     playerAttacked.Status.IsBlock = true;
                 }
 
-                game.GameLogs += $"{player.DiscordAccount.DiscordUserName} сражается с {playerAttacked.DiscordAccount.DiscordUserName}\n";
+                game.GameLogs += $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerAttacked.DiscordAccount.DiscordUserName}**\n";
                 //if block => no one gets points
                 if (playerAttacked.Status.IsBlock)
                 {
-                    game.GameLogs += "Бой не состоялся\n";
+                    game.GameLogs += "*Бой не состоялся...*\n";
                     continue;
                 }
 
@@ -119,11 +126,11 @@ namespace King_of_the_Garbage_Hill.Game
                 if (player.Character.Justice.JusticeNow > playerAttacked.Character.Justice.JusticeNow || player.Character.Justice == playerAttacked.Character.Justice)
                 {
                     pointsWined++;
-                    whereWonP1 += " ,2";
+                    whereWonP1 += " 2";
                 }
                 else
                 {
-                    whereWonP2 += " ,2";
+                    whereWonP2 += " 2";
                 }
                 //end round 2
 
@@ -134,11 +141,11 @@ namespace King_of_the_Garbage_Hill.Game
                     if (randomNumber <= randomForTooGood)
                     {
                         pointsWined++;
-                        whereWonP1 += " ,3";
+                        whereWonP1 += " 3";
                     }
                     else
                     {
-                        whereWonP2 += " ,3";
+                        whereWonP2 += " 3";
                     }
                 }
                 //end round 3
@@ -149,16 +156,18 @@ namespace King_of_the_Garbage_Hill.Game
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 2)
                 {
-                    game.GameLogs += $"{player.DiscordAccount.DiscordUserName} победил ${whereWonP1}\n";
+                    game.GameLogs += $"**{player.DiscordAccount.DiscordUserName}** победил {whereWonP1}\n";
                     player.Status.Score++;
+                    player.Status.WonTimes++;
                     player.Character.Justice.IsWonThisRound = true;
 
                     playerAttacked.Character.Justice.JusticeForNextRound++;
                 }
                 else
                 {
-                    game.GameLogs += $"{playerAttacked.DiscordAccount.DiscordUserName} победил ${whereWonP2}\n";
+                    game.GameLogs += $"**{playerAttacked.DiscordAccount.DiscordUserName}** победил {whereWonP2}\n";
                     playerAttacked.Status.Score++;
+                    player.Status.WonTimes++;
                     playerAttacked.Character.Justice.IsWonThisRound = true;
 
                     player.Character.Justice.JusticeForNextRound++;

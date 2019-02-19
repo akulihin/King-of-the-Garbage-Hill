@@ -17,12 +17,14 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public int Score { get; set; }
         public bool IsBlock { get; set; }
         public bool IsAbleToTurn { get; set; }
+        public bool IsAbleToWin{ get; set; }
         public int PlaceAtLeaderBoard { get; set; }
 
         public ulong WhoToAttackThisTurn { get; set; }
     
 
         public bool IsReady { get; set; }
+        public int WonTimes { get; set; }
 
 
 
@@ -37,6 +39,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             WhoToAttackThisTurn = 0;
         
             IsReady = false;
+            IsAbleToWin = true;
+            WonTimes = 0;
 
         }
 

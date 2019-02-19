@@ -11,24 +11,19 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public int Speed;
         public int Strength;
         public JusticeClass Justice;
-        public List<Passive> PassiveSet;
         public string Avatar;
 
 
 
-        public CharacterClass(int intelligence, int strength, int speed, int psyche, List<Passive> passiveSet, string name)
+        public CharacterClass(int intelligence, int strength, int speed, int psyche, string name)
         {
             Intelligence = intelligence;
             Strength = strength;
             Speed = speed;
             Psyche = psyche;
-            PassiveSet = passiveSet;
             Justice = new JusticeClass();
             Name = name;
         }
-
-
-
     }
 
     public class Passive

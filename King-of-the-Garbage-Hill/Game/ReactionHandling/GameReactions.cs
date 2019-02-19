@@ -36,7 +36,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             _help = help;
         }
 
-        public async Task ReactionAddedForOctoGameAsync(Cacheable<IUserMessage, ulong> cash,
+        public async Task ReactionAddedGameWindow(Cacheable<IUserMessage, ulong> cash,
             ISocketMessageChannel channel, SocketReaction reaction)
         {
             for (var i = 0; i < _global.GamesList.Count; i++)
@@ -79,6 +79,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         status.IsBlock = true;
                         status.IsAbleToTurn = false;
                         status.IsReady = true;
+                        var mess1 = await reaction.Channel.SendMessageAsync($"Принято");
+                        await _help.DeleteMessOverTime(mess1, 6);
                         break;
 
                     default:
@@ -89,6 +91,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             return;
                         }
 
+ 
                         var emoteNum = GetNumberFromEmote(reaction);
 
                         if (status.MoveListPage == 3)
@@ -113,7 +116,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             if (status.WhoToAttackThisTurn == account.DiscordId)
                             {
                                 status.WhoToAttackThisTurn = 0;
-                                var mess = await reaction.Channel.SendMessageAsync($"нельзя нападать на себя!");
+                                var mess = await reaction.Channel.SendMessageAsync($"Зачем ты себя бьешь?");
                                 await _help.DeleteMessOverTime(mess, 6);
                                 return;
                             }
@@ -121,6 +124,9 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             status.IsAbleToTurn = false;
                             status.IsReady = true;
                             status.IsBlock = false;
+
+                            var mess2 = await reaction.Channel.SendMessageAsync($"Принято");
+                            await _help.DeleteMessOverTime(mess2, 6);
                         }
                         break;
                 }

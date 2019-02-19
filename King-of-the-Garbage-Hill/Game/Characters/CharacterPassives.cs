@@ -1,10 +1,7 @@
-﻿
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
@@ -12,13 +9,19 @@ namespace King_of_the_Garbage_Hill.Game.Characters
     {
         public Task InitializeAsync() => Task.CompletedTask;
 
-        public void HandleCharacterBeforeCalculations(GameBridgeClass player)
+        private readonly SecureRandom _rand;
+        public CharacterPassives(SecureRandom rand)
+        {
+            _rand = rand;
+        }
+
+        public async Task HandleCharacterBeforeCalculations(GameBridgeClass player, GameClass game)
         {
             var characterName = player.Character.Name;
             switch (characterName)
             {
                 case "DeepList":
-                    HandleDeepList(player);
+                     await HandleDeepList(player, game);
                     break;
                 case "mylorik":
                     HandleMylorik(player);
@@ -61,13 +64,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     break;
             }
         }
-        public void HandleCharacterAfterCalculations(GameBridgeClass player)
+        public async Task HandleCharacterAfterCalculations(GameBridgeClass player, GameClass game)
         {
             var characterName = player.Character.Name;
             switch (characterName)
             {
                 case "DeepList":
-                    HandleDeepListAfter(player);
+                    HandleDeepListAfter(player, game);
                     break;
                 case "mylorik":
                     HandleMylorikAfter(player);
@@ -109,23 +112,70 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     HandleDeepList2After(player);
                     break;
             }
+
+            await Task.CompletedTask;
         }
 
         //  private static readonly ConcurrentDictionary<ulong, ulong> DoubtfulTactic = new ConcurrentDictionary<ulong, ulong>();
         private static List<ulong> DoubtfulTactic = new List<ulong>();
-        private void HandleDeepList(GameBridgeClass player)
+
+
+
+        private async Task HandleDeepList(GameBridgeClass player, GameClass game)
         {
             //Doubtful tactic
             if (DoubtfulTactic.Contains(player.Status.WhoToAttackThisTurn))
             {
+                player.Character.Strength++;
                 //continiue
             }
             else
             {
                 DoubtfulTactic.Add(player.Status.WhoToAttackThisTurn);
-
+                player.Character.Strength++;
+                player.Status.IsAbleToWin = false;
             }
             //end Doubtful tactic
+
+            //MADNESS
+            if (player.Status.IsAbleToWin)
+            {
+                var rand = _rand.Random(-10000, -10000);
+
+                if (rand > -228 && rand < 228)
+                {
+                    var randStr = _rand.Random(0, 15);
+                    var randSpeed = _rand.Random(0, 15);
+                    var randInt = _rand.Random(0, 15);
+
+                    player.Character.Strength = randStr;
+                    player.Character.Speed = randSpeed;
+                    player.Character.Intelligence = randInt;
+                  await  player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Ты сошел с ума...");
+                }
+            }
+            //end MADNESS
+
+            //Сверхразум
+            if (player.Status.IsAbleToWin)
+            {
+                var rand = _rand.Random(-10000, 10000);
+
+                if (rand > -228 && rand < 228)
+                {
+                    var randPlayer = _rand.Random(0, game.PlayersList.Count - 1);
+                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync($"хм... {player.DiscordAccount.DiscordUserName} это {player.Character.Name}!\n" +
+                                                                                      $"Его статы: Cила {player.Character.Strength}, Скорость {player.Character.Speed}" +
+                                                                                      $", Ум {player.Character.Intelligence}");
+                }
+            }
+            //end Сверхразум
+
+            //Стёб
+
+            //only after
+
+            //end Стёб
         }
 
         private void HandleMylorik(GameBridgeClass player)
@@ -195,8 +245,34 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         //after
 
-        private void HandleDeepListAfter(GameBridgeClass player)
+
+        private static int WonTimesLastTime = 0;
+        private void HandleDeepListAfter(GameBridgeClass player, GameClass game)
         {
+            //Doubtful tactic
+            player.Status.IsAbleToWin = true;
+            if (DoubtfulTactic.Contains(player.Status.WhoToAttackThisTurn))
+            {
+                //continiue
+                player.Character.Strength--;
+            }
+            //end Doubtful tactic
+
+            //Стёб
+            if (player.Status.WonTimes % 2 == 0 && player.Status.WonTimes != WonTimesLastTime)
+            {
+                WonTimesLastTime = player.Status.WonTimes;
+                var player2 =
+                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.WhoToAttackThisTurn);
+
+                player2.Character.Psyche--;
+
+                if (player2.Character.Psyche < 4)
+                {
+                    player2.Character.Justice.JusticeForNextRound--;
+                }
+            }
+            //end Стёб
         }
 
         private void HandleMylorikAfter(GameBridgeClass player)
