@@ -162,17 +162,15 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         //Page 2
         public EmbedBuilder LogsPage(GameBridgeClass gameBridge)
         {
-//            var status = gameBridge.Status;
+
             var account = gameBridge.DiscordAccount;
 
-    //        status.MoveListPage = 2;
-          
 
-        //    var game = _global.GamesList.Find(x => x.GameId == discordAccount.GameId);
+            var game = _global.GamesList.Find(x => x.GameId == account.GameId);
 
             var embed = new EmbedBuilder();
             embed.WithTitle("Логи");
-            embed.WithDescription("TODO");
+            embed.WithDescription(game.GameLogs);
             embed.WithColor(Color.Green);
             embed.WithFooter($"{GetTimeLeft(account)}");
 

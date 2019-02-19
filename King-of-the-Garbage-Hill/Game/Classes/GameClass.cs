@@ -16,7 +16,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
          * 2 - Counting
          * 3 - End
          */
-        public GameLogsSubClass GameLogs ;
+        public string GameLogs ;
 
         public GameClass(List<GameBridgeClass> playersList, uint gameId, int turnLengthInSecond = 320)
         {
@@ -26,7 +26,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             TurnLengthInSecond = turnLengthInSecond;
             TimePassed = new Stopwatch();
             GameStatus = 1;
-            GameLogs = new GameLogsSubClass();
+            GameLogs = "";
         }
     }
 }

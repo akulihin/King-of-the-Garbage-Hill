@@ -12,7 +12,6 @@
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
-RandomPull.cs
 
 # Build results
 [Dd]ebug/

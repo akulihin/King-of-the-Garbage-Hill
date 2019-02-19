@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 
 namespace King_of_the_Garbage_Hill.Game.Classes
 {
+    //unUsed.
     public class GameLogsClass
     {
         public ulong  GameId { get; set; }
@@ -24,11 +24,14 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public int NewPlaceAtLeaderBoard{ get; set; }
         public int ReceivedRandomStage3{ get; set; }
 
-        public GameLogsClass(ulong id, string name)
+        public GameLogsClass(ulong gameId, ulong playerId, string playerName)
         {
-            PlayerId = id;
-            PlayerName = name;
+            GameId = gameId;
+            PlayerId = playerId;
+            PlayerName = playerName;
         }
+
+
     }
 
     public class GameLogsSubClass

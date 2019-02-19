@@ -36,12 +36,9 @@ namespace King_of_the_Garbage_Hill.Game
 
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
-                
-
                 var pointsWined = 0;
                 var player = game.PlayersList[i];
-           
-
+    
                 if (player.Status.WhoToAttackThisTurn == 0 && player.Status.IsBlock == false)
                 {
                     player.Status.IsBlock = true;
@@ -52,6 +49,9 @@ namespace King_of_the_Garbage_Hill.Game
                 //if block => no one gets points, and no redundant playerAttacked variable
                 if (player.Status.IsBlock)
                 {
+                
+  
+
                     continue;
                 }
 
@@ -62,8 +62,13 @@ namespace King_of_the_Garbage_Hill.Game
                     playerAttacked.Status.IsBlock = true;
                 }
 
+                game.GameLogs += $"{playerAttacked.DiscordAccount.DiscordUserName} сражается с {playerAttacked.DiscordAccount.DiscordUserName}\n";
                 //if block => no one gets points
-                if (playerAttacked.Status.IsBlock) continue;
+                if (playerAttacked.Status.IsBlock)
+                {
+                    game.GameLogs += "Бой не состоялся";
+                    continue;
+                }
 
                 //round 1 (contr)
 
@@ -124,6 +129,7 @@ namespace King_of_the_Garbage_Hill.Game
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 2)
                 {
+                    game.GameLogs += $"{player.DiscordAccount.DiscordUserName} победил";
                     player.Status.Score++;
                     player.Character.Justice.IsWonThisRound = true;
 
@@ -136,6 +142,11 @@ namespace King_of_the_Garbage_Hill.Game
 
                     player.Character.Justice.JusticeForNextRound++;
                 }
+
+
+
+
+
             }
 
             if (game.RoundNo % 2 == 0)
@@ -150,14 +161,7 @@ namespace King_of_the_Garbage_Hill.Game
 
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
-
-
                 var player = game.PlayersList[i];
-                game.GameLogs.PlayersLogs.Add(new GameLogsClass(player.DiscordAccount.DiscordId,player.DiscordAccount.DiscordUserName));
-                var logs = game.GameLogs.PlayersLogs.Find(x => x.PlayerId == player.DiscordAccount.DiscordId);
-
-                logs = getPlayersStats(logs, player);
-
 
                 player.Status.PlaceAtLeaderBoard = i + 1;
                 player.Status.IsBlock = false;
@@ -259,6 +263,7 @@ namespace King_of_the_Garbage_Hill.Game
                 Number = number;
             }
         }
+
 
 
     }
