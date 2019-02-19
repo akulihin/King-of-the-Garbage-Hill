@@ -95,6 +95,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 else
                 {
                     //TODO: add a bot
+                    continue;
 
                     var account = _accounts.GetAccount((ulong)i);
                     account.GameId = _global.GamePlayingAndId;

@@ -247,13 +247,13 @@ namespace King_of_the_Garbage_Hill.Helpers
             //AWDKA
             new CharacterClass(4, 1, 5, 7, null, "AWDKA"),
             //Октопус
-            new CharacterClass(1, 1, 8, 10, null, "Октопус"),
+            new CharacterClass(1, 1, 8, 10, null, "Осьминожка"),
             //Даркси
-            new CharacterClass(6, 7, 8, 4, null, "Даркси"),
+            new CharacterClass(6, 7, 8, 4, null, "Darksi"),
             //Тигр
             new CharacterClass(1, 9, 9, 1, null, "Тигр"),
             //братишка
-            new CharacterClass(0, 0, 0, 10, null, "братишка"),
+            new CharacterClass(0, 0, 0, 10, null, "Братишка"),
             //bug
             new CharacterClass(6, 6, 6, 0, null, "????")
         };

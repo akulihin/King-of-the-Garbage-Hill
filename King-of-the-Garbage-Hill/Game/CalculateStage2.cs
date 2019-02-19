@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Helpers;
@@ -18,11 +19,13 @@ namespace King_of_the_Garbage_Hill.Game
 
         private readonly GameUpdateMess _upd;
         private readonly SecureRandom _rand;
+        private readonly CharacterPassives _characterPassives;
 
-        public CalculateStage2(GameUpdateMess upd, SecureRandom rand)
+        public CalculateStage2(GameUpdateMess upd, SecureRandom rand, CharacterPassives characterPassives)
         {
             _upd = upd;
             _rand = rand;
+            _characterPassives = characterPassives;
         }
 
         public async Task DeepListMind(GameClass game)
@@ -37,8 +40,10 @@ namespace King_of_the_Garbage_Hill.Game
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
                 var pointsWined = 0;
+                var whereWonP1 = "(";
+                var whereWonP2 = "(";
                 var player = game.PlayersList[i];
-    
+                _characterPassives.HandleCharacter(player);
                 if (player.Status.WhoToAttackThisTurn == 0 && player.Status.IsBlock == false)
                 {
                     player.Status.IsBlock = true;
@@ -49,9 +54,6 @@ namespace King_of_the_Garbage_Hill.Game
                 //if block => no one gets points, and no redundant playerAttacked variable
                 if (player.Status.IsBlock)
                 {
-                
-  
-
                     continue;
                 }
 
@@ -62,11 +64,11 @@ namespace King_of_the_Garbage_Hill.Game
                     playerAttacked.Status.IsBlock = true;
                 }
 
-                game.GameLogs += $"{playerAttacked.DiscordAccount.DiscordUserName} сражается с {playerAttacked.DiscordAccount.DiscordUserName}\n";
+                game.GameLogs += $"{player.DiscordAccount.DiscordUserName} сражается с {playerAttacked.DiscordAccount.DiscordUserName}\n";
                 //if block => no one gets points
                 if (playerAttacked.Status.IsBlock)
                 {
-                    game.GameLogs += "Бой не состоялся";
+                    game.GameLogs += "Бой не состоялся\n";
                     continue;
                 }
 
@@ -105,6 +107,11 @@ namespace King_of_the_Garbage_Hill.Game
                 if (strangeNumber > 0)
                 {      
                     pointsWined++;
+                    whereWonP1 += "1";
+                }
+                else
+                {
+                    whereWonP2 += "1";
                 }
                 //end round 1
 
@@ -112,6 +119,11 @@ namespace King_of_the_Garbage_Hill.Game
                 if (player.Character.Justice.JusticeNow > playerAttacked.Character.Justice.JusticeNow || player.Character.Justice == playerAttacked.Character.Justice)
                 {
                     pointsWined++;
+                    whereWonP1 += " ,2";
+                }
+                else
+                {
+                    whereWonP2 += " ,2";
                 }
                 //end round 2
 
@@ -122,14 +134,22 @@ namespace King_of_the_Garbage_Hill.Game
                     if (randomNumber <= randomForTooGood)
                     {
                         pointsWined++;
+                        whereWonP1 += " ,3";
+                    }
+                    else
+                    {
+                        whereWonP2 += " ,3";
                     }
                 }
                 //end round 3
 
+                whereWonP1 += ")";
+                whereWonP2 += ")";
+
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 2)
                 {
-                    game.GameLogs += $"{player.DiscordAccount.DiscordUserName} победил";
+                    game.GameLogs += $"{player.DiscordAccount.DiscordUserName} победил ${whereWonP1}\n";
                     player.Status.Score++;
                     player.Character.Justice.IsWonThisRound = true;
 
@@ -137,6 +157,7 @@ namespace King_of_the_Garbage_Hill.Game
                 }
                 else
                 {
+                    game.GameLogs += $"{playerAttacked.DiscordAccount.DiscordUserName} победил ${whereWonP2}\n";
                     playerAttacked.Status.Score++;
                     playerAttacked.Character.Justice.IsWonThisRound = true;
 
