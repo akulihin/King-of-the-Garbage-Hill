@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using King_of_the_Garbage_Hill.Game.Classes;
 
 namespace King_of_the_Garbage_Hill.LocalPersistentData.LoggingSystemJson
 {

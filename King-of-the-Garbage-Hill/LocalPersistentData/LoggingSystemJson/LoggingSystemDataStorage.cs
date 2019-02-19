@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
+using King_of_the_Garbage_Hill.Game.Classes;
 using Newtonsoft.Json;
 
 namespace King_of_the_Garbage_Hill.LocalPersistentData.LoggingSystemJson
 {
     public sealed class LoggingSystemDataStorage : IServiceSingleton
     {
-        //Save all AccountSettings
+        //Save all DiscordAccountClass
 
         private readonly LoginFromConsole _log;
 
@@ -44,7 +45,6 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.LoggingSystemJson
             catch (Exception e)
             {
                 _log.Critical($"Failed To WRITE (SaveLogs) (2 params) : {e.Message}");
-
             }
         }
 
@@ -65,12 +65,12 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.LoggingSystemJson
             }
             catch (Exception e)
             {
-                _log.Critical($"Failed To WRRITE (CompleteSaveLogs) (3 params) : {e.Message}");
+                _log.Critical($"Failed To WRITE (CompleteSaveLogs) (3 params) : {e.Message}");
 
             }
         }
 
-        //Get AccountSettings
+        //Get DiscordAccountClass
 
         public IEnumerable<GameLogsClass> LoadLogs(string keyString)
         {

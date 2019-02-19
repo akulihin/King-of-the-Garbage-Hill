@@ -16,13 +16,11 @@ namespace King_of_the_Garbage_Hill.Game
             await Task.CompletedTask;
         }
 
-        private readonly Global _global;
         private readonly GameUpdateMess _upd;
         private readonly SecureRandom _rand;
 
-        public CalculateStage2(Global global, GameUpdateMess upd, SecureRandom rand)
+        public CalculateStage2(GameUpdateMess upd, SecureRandom rand)
         {
-            _global = global;
             _upd = upd;
             _rand = rand;
         }
@@ -30,10 +28,9 @@ namespace King_of_the_Garbage_Hill.Game
         public async Task DeepListMind(GameClass game)
         {
             Console.WriteLine($"calculating game #{game.GameId}...");
-
             var watch = new Stopwatch() ;
             watch.Start();
-
+            
             game.TimePassed.Stop();
             game.GameStatus = 2;
 
@@ -43,6 +40,8 @@ namespace King_of_the_Garbage_Hill.Game
 
                 var pointsWined = 0;
                 var player = game.PlayersList[i];
+           
+
                 if (player.Status.WhoToAttackThisTurn == 0 && player.Status.IsBlock == false)
                 {
                     player.Status.IsBlock = true;
@@ -51,10 +50,13 @@ namespace King_of_the_Garbage_Hill.Game
                 var randomForTooGood = 50;
 
                 //if block => no one gets points, and no redundant playerAttacked variable
-                if (player.Status.IsBlock) continue;
+                if (player.Status.IsBlock)
+                {
+                    continue;
+                }
 
                 var playerAttacked =
-                    game.PlayersList.Find(x => x.Account.DiscordId == player.Status.WhoToAttackThisTurn);
+                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.WhoToAttackThisTurn);
                 if (playerAttacked.Status.WhoToAttackThisTurn == 0 && playerAttacked.Status.IsBlock == false)
                 {
                     playerAttacked.Status.IsBlock = true;
@@ -69,15 +71,15 @@ namespace King_of_the_Garbage_Hill.Game
                 var whoIsBetter = WhoIsBetter(player, playerAttacked);
 
                 //main formula:
-                var A = player.Character;
-                var B = playerAttacked.Character;
+                var a = player.Character;
+                var b = playerAttacked.Character;
 
-                var strangeNumber = A.Intelligence - B.Intelligence
-                                    + A.Strength - B.Strength
-                                    + A.Speed - B.Speed
-                                    + A.Psyche - B.Psyche;
+                var strangeNumber = a.Intelligence - b.Intelligence
+                                    + a.Strength - b.Strength
+                                    + a.Speed - b.Speed
+                                    + a.Psyche - b.Psyche;
 
-                var pd = A.Psyche - B.Psyche;
+                var pd = a.Psyche - b.Psyche;
 
                 if (pd > 0 && pd < 4)
                     strangeNumber += 1;
@@ -148,7 +150,14 @@ namespace King_of_the_Garbage_Hill.Game
 
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
+
+
                 var player = game.PlayersList[i];
+                game.GameLogs.PlayersLogs.Add(new GameLogsClass(player.DiscordAccount.DiscordId,player.DiscordAccount.DiscordUserName));
+                var logs = game.GameLogs.PlayersLogs.Find(x => x.PlayerId == player.DiscordAccount.DiscordId);
+
+                logs = getPlayersStats(logs, player);
+
 
                 player.Status.PlaceAtLeaderBoard = i + 1;
                 player.Status.IsBlock = false;
@@ -250,5 +259,7 @@ namespace King_of_the_Garbage_Hill.Game
                 Number = number;
             }
         }
+
+
     }
 }

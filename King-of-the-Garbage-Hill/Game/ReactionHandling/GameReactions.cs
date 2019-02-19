@@ -42,7 +42,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             for (var i = 0; i < _global.GamesList.Count; i++)
             {
                 if (!_global.GamesList[i].PlayersList
-                    .Any(x => x.Account.DiscordId == reaction.UserId && x.Status.SocketMessageFromBot.Id == reaction.MessageId))
+                    .Any(x => x.DiscordAccount.DiscordId == reaction.UserId && x.Status.SocketMessageFromBot.Id == reaction.MessageId))
                     continue;
 
 
@@ -50,7 +50,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 var gameBridge = _global.GetGameAccount(reaction.UserId, account.GameId);
                 var status = gameBridge.Status;
 
-                // if (!account.IsAbleToTurn){return;}
+                // if (!discordAccount.IsAbleToTurn){return;}
 
                 switch (reaction.Emote.Name)
                 {
@@ -108,7 +108,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         {
                             status.WhoToAttackThisTurn =
                                 _global.GamesList.Find(x => x.GameId == account.GameId).PlayersList
-                                    .Find(x => x.Status.PlaceAtLeaderBoard == emoteNum).Account.DiscordId;
+                                    .Find(x => x.Status.PlaceAtLeaderBoard == emoteNum).DiscordAccount.DiscordId;
 
                             if (status.WhoToAttackThisTurn == account.DiscordId)
                             {

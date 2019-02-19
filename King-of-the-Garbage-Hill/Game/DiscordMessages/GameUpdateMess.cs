@@ -60,7 +60,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public async Task WaitMess(GameBridgeClass gameBridge)
         {
-            var globalAccount = _global.Client.GetUser(gameBridge.Account.DiscordId);
+            var globalAccount = _global.Client.GetUser(gameBridge.DiscordAccount.DiscordId);
   
 
             await ShowRulesAndChar(globalAccount);
@@ -96,17 +96,17 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         //    await MainPage(userId, socketMsg);
         }
 
-        public string LeaderBoard(AccountSettings account)
+        public string LeaderBoard(DiscordAccountClass discordAccount)
         {
-            var game = _global.GamesList.Find(x => x.GameId == account.GameId);
+            var game = _global.GamesList.Find(x => x.GameId == discordAccount.GameId);
             var players = "";
             var playersList = game.PlayersList;
             for (var i = 0; i < playersList.Count; i++)
             {
-                players += $"{i + 1}. {playersList[i].Account.DiscordUserName}";
+                players += $"{i + 1}. {playersList[i].DiscordAccount.DiscordUserName}";
 
 
-                if (account.DiscordId == playersList[i].Account.DiscordId)
+                if (discordAccount.DiscordId == playersList[i].DiscordAccount.DiscordId)
                     players += $" = {playersList[i].Status.Score}\n";
                 else players += "\n";
             }
@@ -132,7 +132,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         //Page 1
         public EmbedBuilder FightPage(GameBridgeClass gameBridge)
         {
-            var account = gameBridge.Account;
+            var account = gameBridge.DiscordAccount;
     //        gameBridge.Status.MoveListPage = 1;
             var character = gameBridge.Character;
 
@@ -163,12 +163,12 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         public EmbedBuilder LogsPage(GameBridgeClass gameBridge)
         {
 //            var status = gameBridge.Status;
-            var account = gameBridge.Account;
+            var account = gameBridge.DiscordAccount;
 
     //        status.MoveListPage = 2;
           
 
-        //    var game = _global.GamesList.Find(x => x.GameId == account.GameId);
+        //    var game = _global.GamesList.Find(x => x.GameId == discordAccount.GameId);
 
             var embed = new EmbedBuilder();
             embed.WithTitle("Логи");
@@ -186,11 +186,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         public EmbedBuilder LvlUpPage(GameBridgeClass gameBridge)
         {
         //    var status = gameBridge.Status;
-            var account = gameBridge.Account;
+            var account = gameBridge.DiscordAccount;
             var character = gameBridge.Character;
 
          //   status.MoveListPage = 3;
-        //    _accounts.SaveAccounts(account.DiscordId);
+        //    _accounts.SaveAccounts(discordAccount.DiscordId);
 
             var embed= new EmbedBuilder();
             embed.WithColor(Color.Blue);
@@ -241,9 +241,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
 
-        public string GetTimeLeft(AccountSettings account)
+        public string GetTimeLeft(DiscordAccountClass discordAccount)
         {
-            var game = _global.GamesList.Find(x => x.GameId == account.GameId);
+            var game = _global.GamesList.Find(x => x.GameId == discordAccount.GameId);
             if (game.GameStatus == 1)
             {
                 return "Времени осталось: " + (int) (game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds) +

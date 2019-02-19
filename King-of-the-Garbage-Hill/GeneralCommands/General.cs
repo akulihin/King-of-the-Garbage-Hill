@@ -88,7 +88,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
                     var status = new InGameStatus();
 
-                    var bridge = new GameBridgeClass {Account = account, Character = character, Status = status};
+                    var bridge = new GameBridgeClass {DiscordAccount = account, Character = character, Status = status};
 
                     playersList.Add(bridge);
                 }
@@ -107,7 +107,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
                     var status = new InGameStatus( );
 
-                    var bridge = new GameBridgeClass {Account = account, Character = character, Status = status};
+                    var bridge = new GameBridgeClass {DiscordAccount = account, Character = character, Status = status};
 
                         //playersList.Add(bridge);
                 }
@@ -117,11 +117,12 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
             for (var i = 0; i < playersList.Count; i++){playersList[i].Status.PlaceAtLeaderBoard = i + 1;}
 
+         
             var game = new GameClass(playersList,  _global.GamePlayingAndId);
 
             foreach (var t in playersList)
             {
-                if(t.Account.DiscordId > 1000)
+                if(t.DiscordAccount.DiscordId > 1000)
                 _upd.WaitMess(t);
             }
 
@@ -137,7 +138,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
        {
            var game = _global.GamesList[0];
            var player =                    
-               game.PlayersList.Find(x => x.Account.DiscordId == Context.User.Id);
+               game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id);
            player.Status.Score++;
            var ff = 0;
        }

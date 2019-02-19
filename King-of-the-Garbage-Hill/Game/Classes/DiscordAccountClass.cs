@@ -1,6 +1,6 @@
-﻿namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
+﻿namespace King_of_the_Garbage_Hill.Game.Classes
 {
-   public class AccountSettings
+   public class DiscordAccountClass
     {
         public string DiscordUserName { get; set; }
         public ulong DiscordId { get; set; }

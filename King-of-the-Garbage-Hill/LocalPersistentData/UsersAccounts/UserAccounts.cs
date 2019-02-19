@@ -4,14 +4,15 @@ using System.Linq;
 using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
+using King_of_the_Garbage_Hill.Game.Classes;
 
 
 namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 {
     public sealed class UserAccounts : IServiceSingleton
     {
-        private static readonly ConcurrentDictionary<ulong, List<AccountSettings>> UserAccountsDictionary =
-            new ConcurrentDictionary<ulong, List<AccountSettings>>();
+        private static readonly ConcurrentDictionary<ulong, List<DiscordAccountClass>> UserAccountsDictionary =
+            new ConcurrentDictionary<ulong, List<DiscordAccountClass>>();
 
         private readonly DiscordShardedClient _client;
         private readonly UsersDataStorage _usersDataStorage;
@@ -28,17 +29,17 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
         }
 
 
-        public List<AccountSettings> GetOrAddUserAccountsForGuild(ulong userId)
+        public List<DiscordAccountClass> GetOrAddUserAccountsForGuild(ulong userId)
         {
             return UserAccountsDictionary.GetOrAdd(userId, x => _usersDataStorage.LoadAccountSettings(userId).ToList());
         }
 
-        public AccountSettings GetAccount(IUser user)
+        public DiscordAccountClass GetAccount(IUser user)
         {
             return GetOrCreateAccount(user);
         }
 
-        public AccountSettings GetAccount(ulong userId)
+        public DiscordAccountClass GetAccount(ulong userId)
         {
             if (userId > 1000)
                 return GetOrCreateAccount(_client.GetUser(userId));
@@ -50,12 +51,12 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 
 
         /*
-        public AccountSettings GetBotAccount(ulong botId)
+        public DiscordAccountClass GetBotAccount(ulong botId)
         {
             return UserAccountsDictionary.GetOrAdd(botId, x => UsersDataStorage.LoadAccountSettings(botId).ToList()).FirstOrDefault();
         }
         */
-        public AccountSettings GetOrCreateAccount(IUser user)
+        public DiscordAccountClass GetOrCreateAccount(IUser user)
         {
             var accounts = GetOrAddUserAccountsForGuild(user.Id);
             var account = accounts.FirstOrDefault() ?? CreateUserAccount(user);
@@ -75,25 +76,25 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             _usersDataStorage.SaveAccountSettings(accounts, user.Id);
         }
 
-        public void SaveAccounts(AccountSettings user)
+        public void SaveAccounts(DiscordAccountClass user)
         {
             var accounts = GetOrAddUserAccountsForGuild(user.DiscordId);
             _usersDataStorage.SaveAccountSettings(accounts, user.DiscordId);
         }
 
 
-        public List<AccountSettings> GetAllAccount()
+        public List<DiscordAccountClass> GetAllAccount()
         {
-            var accounts = new List<AccountSettings>();
+            var accounts = new List<DiscordAccountClass>();
             foreach (var values in UserAccountsDictionary.Values) accounts.AddRange(values);
             return accounts;
         }
 
-        public AccountSettings CreateUserAccount(IUser user)
+        public DiscordAccountClass CreateUserAccount(IUser user)
         {
             var accounts = GetOrAddUserAccountsForGuild(user.Id);
 
-            var newAccount = new AccountSettings
+            var newAccount = new DiscordAccountClass
             {
                 DiscordId = user.Id,
                 DiscordUserName = user.Username
