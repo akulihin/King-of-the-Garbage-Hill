@@ -159,8 +159,8 @@ namespace King_of_the_Garbage_Hill.Game
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 2)
                 {
-                    game.GameLogs += $" | **{player.DiscordAccount.DiscordUserName}** победил {whereWonP1}\n";
-                    game.PreviousGameLogs += $" | **{player.DiscordAccount.DiscordUserName}** победил {whereWonP1}\n";
+                    game.GameLogs += $" | ***{player.DiscordAccount.DiscordUserName}** победил {whereWonP1}*\n";
+                    game.PreviousGameLogs += $" | ***{player.DiscordAccount.DiscordUserName}** победил {whereWonP1}*\n";
                     player.Status.Score++;
                     player.Status.WonTimes++;
                     player.Character.Justice.IsWonThisRound = true;
@@ -169,8 +169,8 @@ namespace King_of_the_Garbage_Hill.Game
                 }
                 else
                 {
-                    game.GameLogs += $" | **{playerAttacked.DiscordAccount.DiscordUserName}** победил {whereWonP2}\n";
-                    game.PreviousGameLogs += $" | **{playerAttacked.DiscordAccount.DiscordUserName}** победил {whereWonP2}\n";
+                    game.GameLogs += $" | ***{playerAttacked.DiscordAccount.DiscordUserName}** победил {whereWonP2}*\n";
+                    game.PreviousGameLogs += $" | ***{playerAttacked.DiscordAccount.DiscordUserName}** победил {whereWonP2}*\n";
                     playerAttacked.Status.Score++;
                     player.Status.WonTimes++;
                     playerAttacked.Character.Justice.IsWonThisRound = true;
