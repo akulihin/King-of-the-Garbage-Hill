@@ -17,7 +17,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
          * 3 - End
          */
         public string GameLogs ;
-
+        public string PreviousGameLogs ;
         public GameClass(List<GameBridgeClass> playersList, uint gameId, int turnLengthInSecond = 320)
         {
             RoundNo = 1;
@@ -27,6 +27,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             TimePassed = new Stopwatch();
             GameStatus = 1;
             GameLogs = "";
+            PreviousGameLogs = "";
         }
     }
 }

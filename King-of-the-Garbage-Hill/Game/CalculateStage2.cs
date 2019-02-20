@@ -36,7 +36,8 @@ namespace King_of_the_Garbage_Hill.Game
             
             game.TimePassed.Stop();
             game.GameStatus = 2;
-            game.GameLogs += $"__**Раунд #{game.RoundNo}**__\n";
+            game.GameLogs += $"\n__**Раунд #{game.RoundNo}**__\n";
+            game.PreviousGameLogs = $"\n__**Раунд #{game.RoundNo}**__\n";
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
                 var pointsWined = 0;
@@ -71,11 +72,13 @@ namespace King_of_the_Garbage_Hill.Game
                     playerAttacked.Status.IsBlock = true;
                 }
 
-                game.GameLogs += $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerAttacked.DiscordAccount.DiscordUserName}**\n";
+                game.GameLogs += $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerAttacked.DiscordAccount.DiscordUserName}**";
+                game.PreviousGameLogs += $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerAttacked.DiscordAccount.DiscordUserName}**";
                 //if block => no one gets points
                 if (playerAttacked.Status.IsBlock)
                 {
-                    game.GameLogs += "*Бой не состоялся...*\n";
+                    game.GameLogs += " | *Бой не состоялся...*\n";
+                    game.PreviousGameLogs += " | *Бой не состоялся...*\n";
                     continue;
                 }
 
@@ -135,7 +138,7 @@ namespace King_of_the_Garbage_Hill.Game
                 //end round 2
 
                 //round 3 (Random)
-                if (pointsWined < 2)
+                if (pointsWined == 1 )
                 {
                     var randomNumber = _rand.Random(1, 100);
                     if (randomNumber <= randomForTooGood)
@@ -156,7 +159,8 @@ namespace King_of_the_Garbage_Hill.Game
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 2)
                 {
-                    game.GameLogs += $"**{player.DiscordAccount.DiscordUserName}** победил {whereWonP1}\n";
+                    game.GameLogs += $" | **{player.DiscordAccount.DiscordUserName}** победил {whereWonP1}\n";
+                    game.PreviousGameLogs += $" | **{player.DiscordAccount.DiscordUserName}** победил {whereWonP1}\n";
                     player.Status.Score++;
                     player.Status.WonTimes++;
                     player.Character.Justice.IsWonThisRound = true;
@@ -165,7 +169,8 @@ namespace King_of_the_Garbage_Hill.Game
                 }
                 else
                 {
-                    game.GameLogs += $"**{playerAttacked.DiscordAccount.DiscordUserName}** победил {whereWonP2}\n";
+                    game.GameLogs += $" | **{playerAttacked.DiscordAccount.DiscordUserName}** победил {whereWonP2}\n";
+                    game.PreviousGameLogs += $" | **{playerAttacked.DiscordAccount.DiscordUserName}** победил {whereWonP2}\n";
                     playerAttacked.Status.Score++;
                     player.Status.WonTimes++;
                     playerAttacked.Character.Justice.IsWonThisRound = true;

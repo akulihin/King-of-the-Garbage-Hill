@@ -78,7 +78,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             await socketMsg.AddReactionAsync(new Emoji("🛡"));
             //   await socketMsg.AddReactionAsync(new Emoji("➡"));
-            await socketMsg.AddReactionAsync(new Emoji("📖"));
+           // await socketMsg.AddReactionAsync(new Emoji("📖"));
             await socketMsg.AddReactionAsync(new Emoji("1⃣"));
             await socketMsg.AddReactionAsync(new Emoji("2⃣"));
             await socketMsg.AddReactionAsync(new Emoji("3⃣"));
@@ -138,9 +138,12 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var embed = new EmbedBuilder();
             embed.WithColor(Color.Blue);
-            embed.WithTitle("Царь Мусорной Горы");
+
             embed.WithFooter($"{GetTimeLeft(account)}");
-            embed.WithDescription(
+            embed.WithDescription(_global.GamesList.Find(x => x.GameId == account.GameId).PreviousGameLogs);
+
+            embed.WithTitle("Царь Мусорной Горы");
+            embed.AddField( "____",
                 $"**Name:** {character.Name}\n" +
                 $"**Интеллект:** {character.Intelligence}\n" +
                 $"**Сила:** {character.Strength}\n" +
