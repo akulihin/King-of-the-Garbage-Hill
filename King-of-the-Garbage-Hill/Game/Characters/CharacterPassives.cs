@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Helpers;
@@ -7,9 +8,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class CharacterPassives : IServiceSingleton
     {
-        public Task InitializeAsync() => Task.CompletedTask;
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
 
         private readonly SecureRandom _rand;
+
         public CharacterPassives(SecureRandom rand)
         {
             _rand = rand;
@@ -21,7 +26,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             switch (characterName)
             {
                 case "DeepList":
-                     await HandleDeepList(player, game);
+                    await HandleDeepList(player, game);
                     break;
                 case "mylorik":
                     HandleMylorik(player);
@@ -64,6 +69,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     break;
             }
         }
+
         public async Task HandleCharacterAfterCalculations(GameBridgeClass player, GameClass game)
         {
             var characterName = player.Character.Name;
@@ -116,9 +122,24 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             await Task.CompletedTask;
         }
 
-        //  private static readonly ConcurrentDictionary<ulong, ulong> DoubtfulTactic = new ConcurrentDictionary<ulong, ulong>();
-        private static List<ulong> DoubtfulTactic = new List<ulong>();
+        public class WhenToTriggerClass
+        {
+            public ulong DiscordId;
+            public ulong GameId;
+            public List<int> WhenToTrigger;
 
+            public WhenToTriggerClass(ulong discordId, ulong gameId)
+            {
+                DiscordId = discordId;
+                WhenToTrigger = new List<int>();
+                GameId = gameId;
+            }
+        }
+
+        private static readonly List<WhenToTriggerClass> DeepListMadnessTriggeredWhen = new List<WhenToTriggerClass>();
+
+
+        private static readonly List<ulong> DoubtfulTactic = new List<ulong>();
 
 
         private async Task HandleDeepList(GameBridgeClass player, GameClass game)
@@ -138,22 +159,48 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //end Doubtful tactic
 
             //MADNESS
-            if (player.Status.IsAbleToWin)
+
+            if (DeepListMadnessTriggeredWhen.Any(x =>
+                x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId))
             {
-                var rand = _rand.Random(-10000, -10000);
+                if (player.Status.IsAbleToWin)
+                    if (DeepListMadnessTriggeredWhen.Find(x => x.DiscordId == player.DiscordAccount.DiscordId)
+                        .WhenToTrigger.Any(x => x == game.RoundNo))
+                    {
+                        var randStr = _rand.Random(0, 10);
+                        var randSpeed = _rand.Random(0, 10);
+                     //   var randInt = _rand.Random(0, 10);
+                        var randPs= _rand.Random(0, 10);
 
-                if (rand > -228 && rand < 228)
-                {
-                    var randStr = _rand.Random(0, 15);
-                    var randSpeed = _rand.Random(0, 15);
-                    var randInt = _rand.Random(0, 15);
+                        player.Character.Strength = randStr;
+                        player.Character.Speed = randSpeed;
+                        //   player.Character.Intelligence = randInt;
+                        player.Character.Psyche = randPs;
+                        await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Ты сошел с ума...");
+                    }
+            }
+            else
+            {
+                DeepListMadnessTriggeredWhen.Add(new WhenToTriggerClass(player.DiscordAccount.DiscordId,
+                    game.GameId));
+                var rand = _rand.Random(1, 8);
+                if (rand == 1 || rand == 2)
+                {  
+                    do
+                    {
+                        var when = _rand.Random(1, 10);
 
-                    player.Character.Strength = randStr;
-                    player.Character.Speed = randSpeed;
-                    player.Character.Intelligence = randInt;
-                  await  player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Ты сошел с ума...");
+                        if (DeepListMadnessTriggeredWhen
+                            .Find(x => x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId)
+                            .WhenToTrigger.All(b => b != when))
+                            DeepListMadnessTriggeredWhen.Find(x => x.DiscordId == player.DiscordAccount.DiscordId)
+                                .WhenToTrigger.Add(when);
+                    } while (DeepListMadnessTriggeredWhen.Find(x => x.DiscordId == player.DiscordAccount.DiscordId)
+                                 .WhenToTrigger.Count < rand);
                 }
             }
+
+
             //end MADNESS
 
             //Сверхразум
@@ -164,9 +211,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 if (rand > -228 && rand < 228)
                 {
                     var randPlayer = _rand.Random(0, game.PlayersList.Count - 1);
-                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync($"хм... {player.DiscordAccount.DiscordUserName} это {player.Character.Name}!\n" +
-                                                                                      $"Его статы: Cила {player.Character.Strength}, Скорость {player.Character.Speed}" +
-                                                                                      $", Ум {player.Character.Intelligence}");
+                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                        $"хм... {player.DiscordAccount.DiscordUserName} это {player.Character.Name}!\n" +
+                        $"Его статы: Cила {player.Character.Strength}, Скорость {player.Character.Speed}" +
+                        $", Ум {player.Character.Intelligence}");
                 }
             }
             //end Сверхразум
@@ -180,82 +228,66 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         private void HandleMylorik(GameBridgeClass player)
         {
-
         }
 
         private void HandleGleb(GameBridgeClass player)
         {
-
         }
 
         private void HandleLeCrisp(GameBridgeClass player)
         {
-
         }
 
         private void HandleTolya(GameBridgeClass player)
         {
-
         }
 
         private void HandleHardKitty(GameBridgeClass player)
         {
-
         }
 
         private void HandleSirinoks(GameBridgeClass player)
         {
-
         }
 
         private void HandleMitsuki(GameBridgeClass player)
         {
-
         }
 
         private void HandleAWDKA(GameBridgeClass player)
         {
-
         }
 
         private void HandleOctopus(GameBridgeClass player)
         {
-
         }
 
         private void HandleDarksi(GameBridgeClass player)
         {
-
         }
 
         private void HandleTigr(GameBridgeClass player)
         {
-
         }
 
         private void HandleShark(GameBridgeClass player)
         {
-
         }
 
         private void HandleDeepList2(GameBridgeClass player)
         {
-
         }
 
         //after
 
 
-        private static int WonTimesLastTime = 0;
+        private static int WonTimesLastTime;
+
         private void HandleDeepListAfter(GameBridgeClass player, GameClass game)
         {
             //Doubtful tactic
             player.Status.IsAbleToWin = true;
-            if (DoubtfulTactic.Contains(player.Status.WhoToAttackThisTurn))
-            {
-                //continiue
-                player.Character.Strength--;
-            }
+            if (DoubtfulTactic.Contains(player.Status.WhoToAttackThisTurn)) player.Character.Strength--;
             //end Doubtful tactic
 
             //Стёб
@@ -267,77 +299,62 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                 player2.Character.Psyche--;
 
-                if (player2.Character.Psyche < 4)
-                {
-                    player2.Character.Justice.JusticeForNextRound--;
-                }
+                if (player2.Character.Psyche < 4) player2.Character.Justice.JusticeForNextRound--;
             }
+
             //end Стёб
         }
 
         private void HandleMylorikAfter(GameBridgeClass player)
         {
-
         }
 
         private void HandleGlebAfter(GameBridgeClass player)
         {
-
         }
 
         private void HandleLeCrispAfter(GameBridgeClass player)
         {
-
         }
 
         private void HandleTolyaAfter(GameBridgeClass player)
         {
-
         }
 
         private void HandleHardKittyAfter(GameBridgeClass player)
         {
-
         }
 
         private void HandleSirinoksAfter(GameBridgeClass player)
         {
-
         }
 
         private void HandleMitsukiAfter(GameBridgeClass player)
         {
-
         }
 
         private void HandleAWDKAAfter(GameBridgeClass player)
         {
-
         }
 
         private void HandleOctopusAfter(GameBridgeClass player)
         {
-
         }
 
         private void HandleDarksiAfter(GameBridgeClass player)
         {
-
         }
 
         private void HandleTigrAfter(GameBridgeClass player)
         {
-
         }
 
         private void HandleSharkAfter(GameBridgeClass player)
         {
-
         }
 
         private void HandleDeepList2After(GameBridgeClass player)
         {
-
         }
     }
-} 
+}

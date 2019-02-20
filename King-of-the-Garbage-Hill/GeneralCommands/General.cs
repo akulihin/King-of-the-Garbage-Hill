@@ -7,6 +7,7 @@ using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Helpers;
@@ -27,7 +28,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         private readonly OctoNamePull _octoNmaNamePull;
         private readonly CharactersPull _charactersPull;
         private readonly HelperFunctions _helperFunctions;
-  
+        private readonly CharacterPassives _characterPassives;
+
         private readonly CommandsInMemory _commandsInMemory;
         private readonly Global _global;
         private readonly GameUpdateMess _upd;
@@ -37,7 +39,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
   
         public General( UserAccounts accounts, SecureRandom secureRandom, OctoPicPull octoPicPull, 
-            OctoNamePull octoNmaNamePull, HelperFunctions helperFunctions,  CommandsInMemory commandsInMemory, Global global, GameUpdateMess upd, CharactersPull charactersPull) 
+            OctoNamePull octoNmaNamePull, HelperFunctions helperFunctions,  CommandsInMemory commandsInMemory, Global global, GameUpdateMess upd, CharactersPull charactersPull, CharacterPassives characterPassives) 
         {   
             _accounts = accounts;
             _secureRandom = secureRandom;
@@ -48,6 +50,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _global = global;
             _upd = upd;
             _charactersPull = charactersPull;
+            _characterPassives = characterPassives;
         }
 
 
@@ -82,8 +85,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     _accounts.SaveAccounts(account.DiscordId);
 
                     var randomIndex = _secureRandom.Random(0, availableChamps.Count - 1);
-                    var character = availableChamps[randomIndex];
-                    availableChamps.RemoveAt(randomIndex);
+                    var character = availableChamps[0];//randomIndex
+                                                       // availableChamps.RemoveAt(randomIndex);
 
 
                     var status = new InGameStatus();
@@ -123,7 +126,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
             foreach (var t in playersList)
             {
-                if(t.DiscordAccount.DiscordId > 1000)
+                _characterPassives.HandleCharacterBeforeCalculations(t, game);
+                if (t.DiscordAccount.DiscordId > 1000)
                 _upd.WaitMess(t);
             }
 

@@ -42,7 +42,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             for (var i = 0; i < _global.GamesList.Count; i++)
             {
                 if (!_global.GamesList[i].PlayersList
-                    .Any(x => x.DiscordAccount.DiscordId == reaction.UserId && x.Status.SocketMessageFromBot.Id == reaction.MessageId))
+                    .Any(x => x.DiscordAccount.DiscordId == reaction.UserId &&
+                              x.Status.SocketMessageFromBot.Id == reaction.MessageId))
                     continue;
 
 
@@ -61,37 +62,37 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     case "📖":
 
                         if (gameBridge.Status.MoveListPage == 1)
-                        {
                             gameBridge.Status.MoveListPage = 2;
-                        }
-                        else if (gameBridge.Status.MoveListPage == 2)
-                        {
-                            gameBridge.Status.MoveListPage = 1;
-                        }
+                        else if (gameBridge.Status.MoveListPage == 2) gameBridge.Status.MoveListPage = 1;
 
-                    await    _upd.UpdateMessage(gameBridge);
+                        await _upd.UpdateMessage(gameBridge);
                         break;
 
 
-
-
                     case "🛡" when status.IsAbleToTurn:
+                        if (status.MoveListPage == 3)
+                        {
+                            var mess = await reaction.Channel.SendMessageAsync("Ходить нельзя, Апни лвл!");
+                            await _help.DeleteMessOverTime(mess, 6);
+                            return;
+                        }
+
                         status.IsBlock = true;
                         status.IsAbleToTurn = false;
                         status.IsReady = true;
-                        var mess1 = await reaction.Channel.SendMessageAsync($"Принято");
+                        var mess1 = await reaction.Channel.SendMessageAsync("Принято");
                         await _help.DeleteMessOverTime(mess1, 6);
                         break;
 
                     default:
                         if (!status.IsAbleToTurn)
                         {
-                            var mess = await reaction.Channel.SendMessageAsync($"Ходить нельзя, пока идет подсчёт.");
+                            var mess = await reaction.Channel.SendMessageAsync("Ходить нельзя, пока идет подсчёт.");
                             await _help.DeleteMessOverTime(mess, 6);
                             return;
                         }
 
- 
+
                         var emoteNum = GetNumberFromEmote(reaction);
 
                         if (status.MoveListPage == 3)
@@ -102,8 +103,9 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                         if (status.MoveListPage == 2)
                         {
-                           var mess = await reaction.Channel.SendMessageAsync($"Нажми на {new Emoji("📖")}, чтобы вернуться в основное меню.");
-                           await _help.DeleteMessOverTime(mess, 6);
+                            var mess = await reaction.Channel.SendMessageAsync(
+                                $"Нажми на {new Emoji("📖")}, чтобы вернуться в основное меню.");
+                            await _help.DeleteMessOverTime(mess, 6);
                             break;
                         }
 
@@ -116,7 +118,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             if (status.WhoToAttackThisTurn == account.DiscordId)
                             {
                                 status.WhoToAttackThisTurn = 0;
-                                var mess = await reaction.Channel.SendMessageAsync($"Зачем ты себя бьешь?");
+                                var mess = await reaction.Channel.SendMessageAsync("Зачем ты себя бьешь?");
                                 await _help.DeleteMessOverTime(mess, 6);
                                 return;
                             }
@@ -125,14 +127,14 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             status.IsReady = true;
                             status.IsBlock = false;
 
-                            var mess2 = await reaction.Channel.SendMessageAsync($"Принято");
+                            var mess2 = await reaction.Channel.SendMessageAsync("Принято");
                             await _help.DeleteMessOverTime(mess2, 6);
                         }
+
                         break;
                 }
             }
         }
-
 
 
         public async Task GetLvlUp(GameBridgeClass gameBridge, int skillNumber)
@@ -142,15 +144,55 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             {
                 case 1:
                     gameBridge.Character.Intelligence++;
+                    if (gameBridge.Character.Intelligence > 10)
+                    {
+                        gameBridge.Character.Intelligence = 10;
+                        var mess2 =
+                            await gameBridge.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                                "10 максимум, выбери другой");
+                        await _help.DeleteMessOverTime(mess2, 6);
+                        return;
+                    }
+
                     break;
                 case 2:
                     gameBridge.Character.Strength++;
+                    if (gameBridge.Character.Strength > 10)
+                    {
+                        gameBridge.Character.Strength = 10;
+                        var mess2 =
+                            await gameBridge.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                                "10 максимум, выбери другой");
+                        await _help.DeleteMessOverTime(mess2, 6);
+                        return;
+                    }
+
                     break;
                 case 3:
                     gameBridge.Character.Speed++;
+                    if (gameBridge.Character.Speed > 10)
+                    {
+                        gameBridge.Character.Speed = 10;
+                        var mess2 =
+                            await gameBridge.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                                "10 максимум, выбери другой");
+                        await _help.DeleteMessOverTime(mess2, 6);
+                        return;
+                    }
+
                     break;
                 case 4:
                     gameBridge.Character.Psyche++;
+                    if (gameBridge.Character.Psyche > 10)
+                    {
+                        gameBridge.Character.Psyche = 10;
+                        var mess2 =
+                            await gameBridge.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                                "10 максимум, выбери другой");
+                        await _help.DeleteMessOverTime(mess2, 6);
+                        return;
+                    }
+
                     break;
                 default:
                     return;
