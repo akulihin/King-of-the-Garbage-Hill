@@ -186,10 +186,10 @@ Int: 6
 str: 6 
 spd: 6 
 psc: «WrongNumber» 
-admin: Drops 1 point from top1 enemy player for every turn after the second. 
-mechanics: Sees the results of the random on each of the enemies in advance. + or - 
-program code: Attacking the enemy discovers one of his random stats. 
-balancer: Receives a random passive from the last defeated enemy.
+admin: //Drops 1 point from top1 enemy player for every turn after the second. 
+mechanics: //Sees the results of the random on each of the enemies in advance. + or - 
+program code: //Attacking the enemy discovers one of his random stats. 
+balancer: //Receives a random passive from the last defeated enemy.
 (в логах: Get skill id#006 "Еврей" "Забирает себе очки победы при нападение на одного и того же игрока вместе с кем-то.")
 
 
