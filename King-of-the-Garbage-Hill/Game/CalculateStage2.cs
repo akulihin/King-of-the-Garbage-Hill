@@ -224,8 +224,16 @@ namespace King_of_the_Garbage_Hill.Game
             game.GameStatus = 1;
             game.RoundNo++;
 
+
+
+
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
+                if (game.RoundNo == 3 || game.RoundNo == 5 || game.RoundNo == 7 || game.RoundNo == 9)
+                {
+                    game.PlayersList[i].Status.MoveListPage = 3;
+                }
+
               await _upd.UpdateMessage(game.PlayersList[i]);
             }
 

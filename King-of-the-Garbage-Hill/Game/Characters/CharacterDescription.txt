@@ -175,3 +175,17 @@ mechanics: Sees the results of the random on each of the enemies in advance. + o
 program code: Attacking the enemy discovers one of his random stats. 
 balancer: Receives a random passive from the last defeated enemy.
 (в логах: Get skill id#006 "Еврей" "Забирает себе очки победы при нападение на одного и того же игрока вместе с кем-то.")
+
+
+
+DeepList - Безумие (меняет на на один ход) -   0 обязательных + 1-2/8
+DeepList - Сверхразум -  1 обязательный + 1/7
+
+mylorik - Буль -  0 + 1-2/10
+mylorik - Испанец -  1/2  НА КАЖДОМ ПОРАЖЕНИЕ
+
+Глеб - Спящее хуйло - 0+ 1-3/8
+Глеб - Претендент -  1 + 1-2/12 (если сон выпадает на ход претендента, то сон не работает)
+Глеб - Я щас приду -   1/8  НА КАЖДОМ НАПАДЕНИЕ НА ГЛЕБА
+Глеб - Я за чаем -   1/10 НА КАЖДОЙ АТАКЕ ГЛЕБА
+Толя - Великий Комментатор -  0+1/10

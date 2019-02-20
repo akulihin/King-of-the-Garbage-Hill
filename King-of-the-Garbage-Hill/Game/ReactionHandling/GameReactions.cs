@@ -141,17 +141,22 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             switch (skillNumber)
             {
                 case 1:
+                    gameBridge.Character.Intelligence++;
                     break;
                 case 2:
+                    gameBridge.Character.Strength++;
                     break;
                 case 3:
+                    gameBridge.Character.Speed++;
                     break;
                 case 4:
+                    gameBridge.Character.Psyche++;
                     break;
                 default:
                     return;
             }
 
+            gameBridge.Status.MoveListPage = 1;
             await _upd.UpdateMessage(gameBridge);
         }
 

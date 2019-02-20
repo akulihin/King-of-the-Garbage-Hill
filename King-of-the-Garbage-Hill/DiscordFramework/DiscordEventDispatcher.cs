@@ -180,8 +180,8 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
             SocketReaction reaction)
         {
             if (reaction.User.Value.IsBot)
-            {
-            }
+      return;
+            _gameReaction.ReactionAddedGameWindow(cacheMessage, channel, reaction);
         }
 
         private async Task ReactionsCleared(Cacheable<IUserMessage, ulong> cacheMessage, ISocketMessageChannel channel)

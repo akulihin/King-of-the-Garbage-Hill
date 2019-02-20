@@ -223,8 +223,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     break;
                 case 3:
                     embed = LvlUpPage(gameBridge);
+
+
                     break;
             }
+
 
             try
             {
