@@ -166,6 +166,11 @@ namespace King_of_the_Garbage_Hill.Game
                     player.Character.Justice.IsWonThisRound = true;
 
                     playerAttacked.Character.Justice.JusticeForNextRound++;
+
+                    if (player.Character.Name == "DeepList")
+                    {
+                        _characterPassives.HandleMockery(player, playerAttacked, game);
+                    }
                 }
                 else
                 {
@@ -176,6 +181,11 @@ namespace King_of_the_Garbage_Hill.Game
                     playerAttacked.Character.Justice.IsWonThisRound = true;
 
                     player.Character.Justice.JusticeForNextRound++;
+
+                    if (player.Character.Name == "DeepList")
+                    {
+                        _characterPassives.HandleMockery(playerAttacked, player, game);
+                    }
                 }
 
 

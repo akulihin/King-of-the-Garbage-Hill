@@ -137,7 +137,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         }
 
         private static readonly List<WhenToTriggerClass> DeepListMadnessTriggeredWhen = new List<WhenToTriggerClass>();
-
+        private static readonly List<WhenToTriggerClass> DeepListSupermindTriggeredWhen = new List<WhenToTriggerClass>();
 
         private static readonly List<ulong> DoubtfulTactic = new List<ulong>();
 
@@ -188,7 +188,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 {  
                     do
                     {
-                        var when = _rand.Random(1, 10);
+                        var when = _rand.Random(1, 7);
 
                         if (DeepListMadnessTriggeredWhen
                             .Find(x => x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId)
@@ -204,18 +204,50 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //end MADNESS
 
             //Сверхразум
-            if (player.Status.IsAbleToWin)
-            {
-                var rand = _rand.Random(-10000, 10000);
+            var currentDeepList = DeepListSupermindTriggeredWhen.Find(x =>
+                x.DiscordId == player.DiscordAccount.DiscordId && game.GameId == x.GameId);
 
-                if (rand > -228 && rand < 228)
+            if (currentDeepList != null)
+            {
+
+                if (currentDeepList.WhenToTrigger.Any(x => x == game.RoundNo))
                 {
-                    var randPlayer = _rand.Random(0, game.PlayersList.Count - 1);
+                    var randPlayer =  game.PlayersList[_rand.Random(0, game.PlayersList.Count - 1)];
+                   
                     await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                        $"хм... {player.DiscordAccount.DiscordUserName} это {player.Character.Name}!\n" +
-                        $"Его статы: Cила {player.Character.Strength}, Скорость {player.Character.Speed}" +
-                        $", Ум {player.Character.Intelligence}");
+                        $"хм... {randPlayer.DiscordAccount.DiscordUserName} это {randPlayer.Character.Name}!\n" +
+                        $"Его статы: Cила {randPlayer.Character.Strength}, Скорость {randPlayer.Character.Speed}" +
+                        $", Ум {randPlayer.Character.Intelligence}");
                 }
+
+            }
+            else
+            {
+
+                currentDeepList = new WhenToTriggerClass(player.DiscordAccount.DiscordId, game.GameId);
+
+                //1 mandatory
+                var when = _rand.Random(1, 10);
+                currentDeepList.WhenToTrigger.Add(when);
+
+                //1 if random
+                var rand = _rand.Random(1, 7);
+                if (rand == 1)
+                {
+
+                    while (currentDeepList.WhenToTrigger.Count < rand)
+                    {
+                        when = _rand.Random(1, 10);
+
+                        if (currentDeepList.WhenToTrigger.All(x => x != when))
+                        {
+                            currentDeepList.WhenToTrigger.Add(when);
+                        }
+                    }
+   
+                }
+
+                DeepListSupermindTriggeredWhen.Add(currentDeepList);
             }
             //end Сверхразум
 
@@ -281,7 +313,73 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         //after
 
 
-        private static int WonTimesLastTime;
+        public class Mockery
+        {
+            public ulong DiscordId;
+            public ulong GameId;
+            public List<MockerySub> WhoWonTimes;
+
+            public Mockery(List<MockerySub> whoWonTimes, ulong gameId, ulong discordId)
+            {
+                WhoWonTimes = whoWonTimes;
+                GameId = gameId;
+                DiscordId = discordId;
+            }
+        }
+
+        public class MockerySub
+        {
+            public ulong DiscordId;
+            public  int Times;
+
+            public MockerySub(ulong discordId, int times)
+            {
+                DiscordId = discordId;
+                Times = times;
+            }
+        }
+
+        private static readonly List<Mockery> MockeryList = new List<Mockery>();
+
+        public void HandleMockery(GameBridgeClass player, GameBridgeClass player2, GameClass game)
+        {
+
+            //Стёб
+            var currentDeepList =
+                MockeryList.Find(x => x.DiscordId == player.DiscordAccount.DiscordId && game.GameId == x.GameId);
+
+            if (currentDeepList != null)
+            {
+                var currentDeepList2 =
+                    currentDeepList.WhoWonTimes.Find(x => x.DiscordId == player2.DiscordAccount.DiscordId);
+
+                if (currentDeepList2 != null)
+                {
+                    currentDeepList2.Times++;
+
+                    if (currentDeepList2.Times % 2 != 0 && currentDeepList2.Times != 1)
+                    {
+                        player2.Character.Psyche--;
+                        if (player2.Character.Psyche < 4)
+                        {
+                            player2.Character.Justice.JusticeForNextRound--;
+                        }
+                    }
+                }
+                else
+                {
+                    var toAdd = new Mockery(new List<MockerySub> {new MockerySub(player2.DiscordAccount.DiscordId, 1)}, game.GameId, player.DiscordAccount.DiscordId);
+                    MockeryList.Add(toAdd);
+                }
+            }
+            else
+            {
+   
+                var toAdd = new Mockery(new List<MockerySub> {new MockerySub(player2.DiscordAccount.DiscordId, 1)}, game.GameId, player.DiscordAccount.DiscordId);
+                MockeryList.Add(toAdd);
+            }
+            //end Стёб
+        }
 
         private void HandleDeepListAfter(GameBridgeClass player, GameClass game)
         {
@@ -290,19 +388,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             if (DoubtfulTactic.Contains(player.Status.WhoToAttackThisTurn)) player.Character.Strength--;
             //end Doubtful tactic
 
-            //Стёб
-            if (player.Status.WonTimes % 2 == 0 && player.Status.WonTimes != WonTimesLastTime)
-            {
-                WonTimesLastTime = player.Status.WonTimes;
-                var player2 =
-                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.WhoToAttackThisTurn);
-
-                player2.Character.Psyche--;
-
-                if (player2.Character.Psyche < 4) player2.Character.Justice.JusticeForNextRound--;
-            }
-
-            //end Стёб
+ 
         }
 
         private void HandleMylorikAfter(GameBridgeClass player)
