@@ -160,46 +160,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
             //MADNESS
 
-            if (DeepListMadnessTriggeredWhen.Any(x =>
-                x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId))
-            {
-                if (player.Status.IsAbleToWin)
-                    if (DeepListMadnessTriggeredWhen.Find(x => x.DiscordId == player.DiscordAccount.DiscordId)
-                        .WhenToTrigger.Any(x => x == game.RoundNo))
-                    {
-                        var randStr = _rand.Random(0, 10);
-                        var randSpeed = _rand.Random(0, 10);
-                     //   var randInt = _rand.Random(0, 10);
-                        var randPs= _rand.Random(0, 10);
-
-                        player.Character.Strength = randStr;
-                        player.Character.Speed = randSpeed;
-                        //   player.Character.Intelligence = randInt;
-                        player.Character.Psyche = randPs;
-                        await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Ты сошел с ума...");
-                    }
-            }
-            else
-            {
-                DeepListMadnessTriggeredWhen.Add(new WhenToTriggerClass(player.DiscordAccount.DiscordId,
-                    game.GameId));
-                var rand = _rand.Random(1, 8);
-                if (rand == 1 || rand == 2)
-                {  
-                    do
-                    {
-                        var when = _rand.Random(1, 7);
-
-                        if (DeepListMadnessTriggeredWhen
-                            .Find(x => x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId)
-                            .WhenToTrigger.All(b => b != when))
-                            DeepListMadnessTriggeredWhen.Find(x => x.DiscordId == player.DiscordAccount.DiscordId)
-                                .WhenToTrigger.Add(when);
-                    } while (DeepListMadnessTriggeredWhen.Find(x => x.DiscordId == player.DiscordAccount.DiscordId)
-                                 .WhenToTrigger.Count < rand);
-                }
-            }
-
+            //TODO: new balance 
 
             //end MADNESS
 
@@ -387,8 +348,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             player.Status.IsAbleToWin = true;
             if (DoubtfulTactic.Contains(player.Status.WhoToAttackThisTurn)) player.Character.Strength--;
             //end Doubtful tactic
-
- 
         }
 
         private void HandleMylorikAfter(GameBridgeClass player)
