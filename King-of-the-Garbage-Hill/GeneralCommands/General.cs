@@ -126,11 +126,11 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
             foreach (var t in playersList)
             {
-                _characterPassives.HandleCharacterBeforeCalculations(t, game);
+            
                 if (t.DiscordAccount.DiscordId > 1000)
                 _upd.WaitMess(t);
             }
-
+            _characterPassives.CalculatePassiveChances(game);
        
             game.TimePassed.Start();
             _global.GamePlayingAndId++;

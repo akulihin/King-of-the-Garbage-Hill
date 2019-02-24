@@ -191,7 +191,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var character = gameBridge.Character;
 
          //   status.MoveListPage = 3;
-        //    _accounts.SaveAccounts(discordAccount.DiscordId);
+        //    _accounts.SaveAccounts(discordAccount.PlayerDiscordId);
 
             var embed= new EmbedBuilder();
             embed.WithColor(Color.Blue);

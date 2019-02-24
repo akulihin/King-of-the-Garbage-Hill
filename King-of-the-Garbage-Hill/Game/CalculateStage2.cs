@@ -12,14 +12,10 @@ namespace King_of_the_Garbage_Hill.Game
 {
     public class CalculateStage2 : IServiceSingleton
     {
-        public async Task InitializeAsync()
-        {
-            await Task.CompletedTask;
-        }
+        private readonly CharacterPassives _characterPassives;
+        private readonly SecureRandom _rand;
 
         private readonly GameUpdateMess _upd;
-        private readonly SecureRandom _rand;
-        private readonly CharacterPassives _characterPassives;
 
         public CalculateStage2(GameUpdateMess upd, SecureRandom rand, CharacterPassives characterPassives)
         {
@@ -28,12 +24,17 @@ namespace King_of_the_Garbage_Hill.Game
             _characterPassives = characterPassives;
         }
 
+        public async Task InitializeAsync()
+        {
+            await Task.CompletedTask;
+        }
+
         public async Task DeepListMind(GameClass game)
         {
             Console.WriteLine($"calculating game #{game.GameId}...");
-            var watch = new Stopwatch() ;
+            var watch = new Stopwatch();
             watch.Start();
-            
+
             game.TimePassed.Stop();
             game.GameStatus = 2;
             game.GameLogs += $"\n__**Раунд #{game.RoundNo}**__\n";
@@ -45,46 +46,39 @@ namespace King_of_the_Garbage_Hill.Game
                 var whereWonP2 = "(";
                 var player = game.PlayersList[i];
 
-              await _characterPassives.HandleCharacterBeforeCalculations(player, game);
+                await _characterPassives.HandleCharacterBeforeCalculations(player, game);
 
-                if (!player.Status.IsAbleToWin)
-                {
-                    pointsWined = -5;
-                }
+                if (!player.Status.IsAbleToWin) pointsWined = -5;
+               
 
                 if (player.Status.WhoToAttackThisTurn == 0 && player.Status.IsBlock == false)
-                {
                     player.Status.IsBlock = true;
-                }
 
                 var randomForTooGood = 50;
 
                 //if block => no one gets points, and no redundant playerAttacked variable
-                if (player.Status.IsBlock)
-                {
-                    continue;
-                }
+                if (player.Status.IsBlock) continue;
 
                 var playerAttacked =
                     game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.WhoToAttackThisTurn);
-                if (playerAttacked.Status.WhoToAttackThisTurn == 0 && playerAttacked.Status.IsBlock == false)
-                {
-                    playerAttacked.Status.IsBlock = true;
-                }
 
-                game.GameLogs += $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerAttacked.DiscordAccount.DiscordUserName}**";
-                game.PreviousGameLogs += $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerAttacked.DiscordAccount.DiscordUserName}**";
+                await _characterPassives.HandleCharacterBeforeCalculations(playerAttacked, game);
+                if (playerAttacked.Status.WhoToAttackThisTurn == 0 && playerAttacked.Status.IsBlock == false)
+                    playerAttacked.Status.IsBlock = true;
+                if (!playerAttacked.Status.IsAbleToWin) pointsWined = 5;
+
+                game.GameLogs +=
+                    $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerAttacked.DiscordAccount.DiscordUserName}**";
+                game.PreviousGameLogs +=
+                    $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerAttacked.DiscordAccount.DiscordUserName}**";
                 //if block => no one gets points
-         
+
                 if (playerAttacked.Status.IsBlock)
                 {
                     game.GameLogs += " | *Бой не состоялся...*\n";
                     game.PreviousGameLogs += " | *Бой не состоялся...*\n";
 
-                    if (!playerAttacked.Status.IsSkip)
-                    {
-                        player.Character.Justice.JusticeForNextRound--;
-                    }
+                    if (!playerAttacked.Status.IsSkip) player.Character.Justice.JusticeForNextRound--;
 
                     continue;
                 }
@@ -122,7 +116,7 @@ namespace King_of_the_Garbage_Hill.Game
                 if (strangeNumber <= -14) randomForTooGood = 37;
 
                 if (strangeNumber > 0)
-                {      
+                {
                     pointsWined++;
                     whereWonP1 += "1";
                 }
@@ -133,7 +127,8 @@ namespace King_of_the_Garbage_Hill.Game
                 //end round 1
 
                 //round 2 (Justice)
-                if (player.Character.Justice.JusticeNow > playerAttacked.Character.Justice.JusticeNow || player.Character.Justice == playerAttacked.Character.Justice)
+                if (player.Character.Justice.JusticeNow > playerAttacked.Character.Justice.JusticeNow ||
+                    player.Character.Justice == playerAttacked.Character.Justice)
                 {
                     pointsWined++;
                     whereWonP1 += " 2";
@@ -145,7 +140,7 @@ namespace King_of_the_Garbage_Hill.Game
                 //end round 2
 
                 //round 3 (Random)
-                if (pointsWined == 1 )
+                if (pointsWined == 1)
                 {
                     var randomNumber = _rand.Random(1, 100);
                     if (randomNumber <= randomForTooGood)
@@ -173,34 +168,33 @@ namespace King_of_the_Garbage_Hill.Game
                     player.Character.Justice.IsWonThisRound = true;
 
                     playerAttacked.Character.Justice.JusticeForNextRound++;
+                    player.Status.IsWonLastTime = playerAttacked.DiscordAccount.DiscordId;
 
-                    if (player.Character.Name == "DeepList")
-                    {
-                        _characterPassives.HandleMockery(player, playerAttacked, game);
-                    }
+
                 }
                 else
                 {
                     game.GameLogs += $" | ***{playerAttacked.DiscordAccount.DiscordUserName}** победил {whereWonP2}*\n";
-                    game.PreviousGameLogs += $" | ***{playerAttacked.DiscordAccount.DiscordUserName}** победил {whereWonP2}*\n";
+                    game.PreviousGameLogs +=
+                        $" | ***{playerAttacked.DiscordAccount.DiscordUserName}** победил {whereWonP2}*\n";
                     playerAttacked.Status.Score++;
                     player.Status.WonTimes++;
                     playerAttacked.Character.Justice.IsWonThisRound = true;
 
                     player.Character.Justice.JusticeForNextRound++;
+              
+                    playerAttacked.Status.IsWonLastTime = player.DiscordAccount.DiscordId;
 
-                    if (player.Character.Name == "DeepList")
-                    {
-                        _characterPassives.HandleMockery(playerAttacked, player, game);
-                    }
                 }
 
 
                 await _characterPassives.HandleCharacterAfterCalculations(player, game);
+                await _characterPassives.HandleCharacterAfterCalculations(playerAttacked, game);
 
-
+                player.Status.IsWonLastTime = 0;
+                playerAttacked.Status.IsWonLastTime = 0;
             }
-
+            await _characterPassives.HandleEndOfRound(game);
             if (game.RoundNo % 2 == 0)
                 game.TurnLengthInSecond += 10;
             else
@@ -217,6 +211,8 @@ namespace King_of_the_Garbage_Hill.Game
 
                 player.Status.PlaceAtLeaderBoard = i + 1;
                 player.Status.IsBlock = false;
+                player.Status.IsAbleToWin = true;
+                player.Status.IsSkip = false;
                 player.Status.IsAbleToTurn = true;
                 player.Status.IsReady = false;
                 player.Status.WhoToAttackThisTurn = 0;
@@ -231,27 +227,21 @@ namespace King_of_the_Garbage_Hill.Game
                 player.Character.Justice.JusticeNow += player.Character.Justice.JusticeForNextRound;
                 player.Character.Justice.JusticeForNextRound = 0;
 
-                if (player.Character.Justice.JusticeNow > 5)
-                {
-                    player.Character.Justice.JusticeNow = 5;
-                }
+                if (player.Character.Justice.JusticeNow > 5) player.Character.Justice.JusticeNow = 5;
             }
 
 
             game.GameStatus = 1;
             game.RoundNo++;
-
-
+            await _characterPassives.HandleNextRound(game);
 
 
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
                 if (game.RoundNo == 3 || game.RoundNo == 5 || game.RoundNo == 7 || game.RoundNo == 9)
-                {
                     game.PlayersList[i].Status.MoveListPage = 3;
-                }
 
-              await _upd.UpdateMessage(game.PlayersList[i]);
+                await _upd.UpdateMessage(game.PlayersList[i]);
             }
 
             game.TimePassed.Reset();
@@ -323,8 +313,5 @@ namespace King_of_the_Garbage_Hill.Game
                 Number = number;
             }
         }
-
-
-
     }
 }
