@@ -2,7 +2,6 @@
 using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
-using King_of_the_Garbage_Hill.Game;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 
 namespace King_of_the_Garbage_Hill.DiscordFramework

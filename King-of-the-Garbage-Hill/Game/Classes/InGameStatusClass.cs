@@ -1,5 +1,4 @@
 ﻿using Discord;
-using Discord.WebSocket;
 
 namespace King_of_the_Garbage_Hill.Game.Classes
 {
@@ -16,6 +15,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public int Score { get; set; }
         public bool IsBlock { get; set; }
+        public bool IsSkip { get; set; }
         public bool IsAbleToTurn { get; set; }
         public bool IsAbleToWin{ get; set; }
         public int PlaceAtLeaderBoard { get; set; }
@@ -42,6 +42,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             IsAbleToWin = true;
             WonTimes = 0;
             WonLastTime = 0;
+            IsSkip = false;
         }
 
     }

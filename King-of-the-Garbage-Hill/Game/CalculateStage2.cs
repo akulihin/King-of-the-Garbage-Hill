@@ -75,10 +75,17 @@ namespace King_of_the_Garbage_Hill.Game
                 game.GameLogs += $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerAttacked.DiscordAccount.DiscordUserName}**";
                 game.PreviousGameLogs += $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerAttacked.DiscordAccount.DiscordUserName}**";
                 //if block => no one gets points
+         
                 if (playerAttacked.Status.IsBlock)
                 {
                     game.GameLogs += " | *Бой не состоялся...*\n";
                     game.PreviousGameLogs += " | *Бой не состоялся...*\n";
+
+                    if (!playerAttacked.Status.IsSkip)
+                    {
+                        player.Character.Justice.JusticeForNextRound--;
+                    }
+
                     continue;
                 }
 
