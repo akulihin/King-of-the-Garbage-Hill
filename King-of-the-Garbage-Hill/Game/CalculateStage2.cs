@@ -63,6 +63,8 @@ namespace King_of_the_Garbage_Hill.Game
                     game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.WhoToAttackThisTurn);
 
                 await _characterPassives.HandleCharacterBeforeCalculations(playerAttacked, game);
+                await _characterPassives.HandleEveryAttack(playerAttacked, game);
+                await _characterPassives.HandleEveryAttackFromMe(player, game);
                 if (playerAttacked.Status.WhoToAttackThisTurn == 0 && playerAttacked.Status.IsBlock == false)
                     playerAttacked.Status.IsBlock = true;
                 if (!playerAttacked.Status.IsAbleToWin) pointsWined = 5;

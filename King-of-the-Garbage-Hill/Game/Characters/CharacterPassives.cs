@@ -20,6 +20,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
 
         private static readonly List<WhenToTriggerClass>
+           AllSkipTriggeredWhen = new List<WhenToTriggerClass>();
+
+        private static readonly List<WhenToTriggerClass>
             GlebSleepingTriggeredWhen = new List<WhenToTriggerClass>();
 
         private static readonly List<WhenToTriggerClass>
@@ -39,16 +42,62 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
 
         private readonly SecureRandom _rand;
+        private readonly HelperFunctions _help; 
 
-        public CharacterPassives(SecureRandom rand)
+        public CharacterPassives(SecureRandom rand, HelperFunctions help)
         {
             _rand = rand;
+            _help = help;
         }
 
         public Task InitializeAsync()
         {
             return Task.CompletedTask;
         }
+
+        public async Task HandleEveryAttack(GameBridgeClass player, GameClass game)
+        {
+         
+                var characterName = player.Character.Name;
+        
+                switch (characterName)
+                {
+                    case "Глеб":
+                        var rand = _rand.Random(1, 8);
+                        if (rand == 1)
+                        {
+                            GlebSleepingTriggeredWhen.Find(x =>
+                                x.DiscordId == player.DiscordAccount.DiscordId && game.GameId == x.GameId).WhenToTrigger.Add(game.RoundNo + 1);
+                        }
+                        break;
+                        
+                }
+
+                await Task.CompletedTask;
+        }
+
+        public async Task HandleEveryAttackFromMe(GameBridgeClass player, GameClass game)
+        {
+         
+            var characterName = player.Character.Name;
+        
+            switch (characterName)
+            {
+                case "Глеб":
+                    var rand = _rand.Random(1, 10);
+                    if (rand == 1)
+                    {
+                        AllSkipTriggeredWhen.Add(new WhenToTriggerClass(player.Status.WhoToAttackThisTurn, game.GameId, game.RoundNo + 1));
+                    }
+                    break;
+                        
+            }
+
+            await Task.CompletedTask;
+        }
+
+
+
 
         public async Task HandleCharacterBeforeCalculations(GameBridgeClass player, GameClass game)
         {
@@ -288,7 +337,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                 player.Status.IsAbleToTurn = false;
                                 player.Status.IsReady = true;
                                 player.Status.WhoToAttackThisTurn = 0;
-                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Ты буль.");
+                              var mess =  await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Ты буль.");
+                              await _help.DeleteMessOverTime(mess, 15);
                             }
 
                         break;
@@ -304,7 +354,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                 player.Status.IsAbleToTurn = false;
                                 player.Status.IsReady = true;
                                 player.Status.WhoToAttackThisTurn = 0;
-                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Ты уснул.");
+                             var   mess =  await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Ты уснул.");
+                                await _help.DeleteMessOverTime(mess, 15);
                             }
 
 
@@ -318,8 +369,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                 player.Character.Speed += 9;
                                 player.Character.Strength += 9;
                                 player.Character.Psyche += 9;
-                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                                var   mess =    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
                                     "Ты ведь претендент русского сервера!");
+
+                                await _help.DeleteMessOverTime(mess, 15);
                             }
 
                         break;
@@ -335,10 +388,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             {
                                 var randPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Count - 1)];
 
-                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                             var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
                                     $"хм... {randPlayer.DiscordAccount.DiscordUserName} это {randPlayer.Character.Name}!\n" +
                                     $"Его статы: Cила {randPlayer.Character.Strength}, Скорость {randPlayer.Character.Speed}" +
                                     $", Ум {randPlayer.Character.Intelligence}");
+                                await _help.DeleteMessOverTime(mess, 45);
                             }
                         }
                         else
@@ -351,6 +405,21 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
 
                         break;
+                }
+
+                var isSkip = AllSkipTriggeredWhen.Find(x =>
+                    x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId && x.WhenToTrigger.Contains(game.RoundNo));
+
+                if (isSkip != null)
+                {
+                    player.Status.IsSkip = true;
+                    player.Status.IsBlock = true;
+                    player.Status.IsAbleToTurn = false;
+                    player.Status.IsReady = true;
+                    player.Status.WhoToAttackThisTurn = 0;
+                  var mess =  await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Хм... ТЫ пропустишь этот ход....");
+                    await _help.DeleteMessOverTime(mess, 15);
+                    
                 }
             }
 
@@ -635,6 +704,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             {
                 DiscordId = discordId;
                 WhenToTrigger = new List<int>();
+                GameId = gameId;
+            }
+            public WhenToTriggerClass(ulong discordId, ulong gameId, int when)
+            {
+                DiscordId = discordId;
+                WhenToTrigger = new List<int> {when};
                 GameId = gameId;
             }
         }
