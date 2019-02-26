@@ -151,7 +151,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             {
                 case 1:
                     gameBridge.Character.Intelligence++;
-                    if (gameBridge.Character.Intelligence > 10)
+                    if (gameBridge.Character.Intelligence > 10 && gameBridge.Character.Psyche <= 9 && gameBridge.Character.Strength <= 9 && gameBridge.Character.Speed <= 9 )
                     {
                         gameBridge.Character.Intelligence = 10;
                         var mess2 =
@@ -164,7 +164,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     break;
                 case 2:
                     gameBridge.Character.Strength++;
-                    if (gameBridge.Character.Strength > 10)
+                    if (gameBridge.Character.Strength > 10 && gameBridge.Character.Psyche <= 9 && gameBridge.Character.Intelligence <= 9 && gameBridge.Character.Speed <= 9 )
                     {
                         gameBridge.Character.Strength = 10;
                         var mess2 =
@@ -177,7 +177,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     break;
                 case 3:
                     gameBridge.Character.Speed++;
-                    if (gameBridge.Character.Speed > 10)
+                    if (gameBridge.Character.Speed > 10 && gameBridge.Character.Psyche <= 9 && gameBridge.Character.Strength <= 9 && gameBridge.Character.Intelligence <= 9 )
                     {
                         gameBridge.Character.Speed = 10;
                         var mess2 =
@@ -190,7 +190,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     break;
                 case 4:
                     gameBridge.Character.Psyche++;
-                    if (gameBridge.Character.Psyche > 10)
+                    if (gameBridge.Character.Psyche > 10 && gameBridge.Character.Intelligence <= 9 && gameBridge.Character.Strength <= 9 && gameBridge.Character.Speed <= 9 )
                     {
                         gameBridge.Character.Psyche = 10;
                         var mess2 =

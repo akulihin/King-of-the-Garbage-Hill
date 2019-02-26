@@ -219,7 +219,7 @@ namespace King_of_the_Garbage_Hill.Helpers
         };
     }
 
-    public class CharactersPull : IServiceSingleton
+    public class CharactersPull : IServiceTransient
     {
         public async Task InitializeAsync()
         {
