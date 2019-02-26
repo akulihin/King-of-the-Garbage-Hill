@@ -236,7 +236,22 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 var characterName = player.Character.Name;
                 switch (characterName)
                 {
-                    case "DeepList":
+                    case "mylorik":
+                        var acc = MylorikBooleTriggeredWhen.Find(x =>
+                            x.DiscordId == player.DiscordAccount.DiscordId && player.DiscordAccount.GameId == x.GameId);
+
+                        if (acc != null)
+                        {
+                            if (acc.WhenToTrigger.Contains(game.RoundNo))
+                            {
+                                player.Status.IsSkip = true;
+                                player.Status.IsBlock = true;
+                                player.Status.IsAbleToTurn = false;
+                                player.Status.IsReady = true;
+                                player.Status.WhoToAttackThisTurn = 0;
+                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Ты буль.");
+                            }
+                        }
                         break;
                 }
             }
@@ -346,22 +361,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             //Boole
 
-            var acc = MylorikBooleTriggeredWhen.Find(x =>
-                x.DiscordId == player.DiscordAccount.DiscordId && player.DiscordAccount.GameId == x.GameId);
-
-            if (acc != null)
-            {
-                if (acc.WhenToTrigger.Contains(game.RoundNo))
-                {
-                    player.Status.IsSkip = true;
-                    player.Status.IsBlock = true;
-                 await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Ты буль.");
-                }
-            }
-            else
-            {
-             // unhandled 
-            }
+ 
+  
 
             await Task.CompletedTask;
             //end Boole
