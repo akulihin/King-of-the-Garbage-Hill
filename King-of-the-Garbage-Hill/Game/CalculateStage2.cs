@@ -49,7 +49,7 @@ namespace King_of_the_Garbage_Hill.Game
                 await _characterPassives.HandleCharacterBeforeCalculations(player, game);
 
                 if (!player.Status.IsAbleToWin) pointsWined = -5;
-               
+
 
                 if (player.Status.WhoToAttackThisTurn == 0 && player.Status.IsBlock == false)
                     player.Status.IsBlock = true;
@@ -171,8 +171,6 @@ namespace King_of_the_Garbage_Hill.Game
 
                     playerAttacked.Character.Justice.JusticeForNextRound++;
                     player.Status.IsWonLastTime = playerAttacked.DiscordAccount.DiscordId;
-
-
                 }
                 else
                 {
@@ -184,9 +182,8 @@ namespace King_of_the_Garbage_Hill.Game
                     playerAttacked.Character.Justice.IsWonThisRound = true;
 
                     player.Character.Justice.JusticeForNextRound++;
-              
-                    playerAttacked.Status.IsWonLastTime = player.DiscordAccount.DiscordId;
 
+                    playerAttacked.Status.IsWonLastTime = player.DiscordAccount.DiscordId;
                 }
 
 
@@ -196,6 +193,7 @@ namespace King_of_the_Garbage_Hill.Game
                 player.Status.IsWonLastTime = 0;
                 playerAttacked.Status.IsWonLastTime = 0;
             }
+
             await _characterPassives.HandleEndOfRound(game);
             if (game.RoundNo % 2 == 0)
                 game.TurnLengthInSecond += 10;
