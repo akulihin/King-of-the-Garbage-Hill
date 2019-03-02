@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -110,22 +109,18 @@ namespace King_of_the_Garbage_Hill.Game
                 else if (pd < 0 && pd <= -4)
                     strangeNumber -= 2;
 
-                if (whoIsBetter == player)
+                if (whoIsBetter == 1)
                     strangeNumber += 5;
-                else if (whoIsBetter == playerAttacked)
+                else if (whoIsBetter == 2)
                     strangeNumber -= 5;
 
-                if (strangeNumber >= 14) randomForTooGood = 63;
-                if (strangeNumber <= -14) randomForTooGood = 37;
+                if (strangeNumber >= 14) randomForTooGood = 68;
+                if (strangeNumber <= -14) randomForTooGood = 32;
 
                 if (strangeNumber > 0)
                 {
                     pointsWined++;
                     whereWonP1 += "1";
-                }
-                else
-                {
-                    whereWonP2 += "1";
                 }
                 //end round 1
 
@@ -135,10 +130,6 @@ namespace King_of_the_Garbage_Hill.Game
                 {
                     pointsWined++;
                     whereWonP1 += " 2";
-                }
-                else
-                {
-                    whereWonP2 += " 2";
                 }
                 //end round 2
 
@@ -250,77 +241,45 @@ namespace King_of_the_Garbage_Hill.Game
             Console.WriteLine($"Finished calculating game #{game.GameId}. || {watch.Elapsed.TotalSeconds}s");
         }
 
-        public GameBridgeClass WhoIsBetter(GameBridgeClass player1, GameBridgeClass player2)
+        public int WhoIsBetter(GameBridgeClass player1, GameBridgeClass player2)
         {
-            //TODO: this is not correct due to our design
-            var toReturn = 0;
-            var c1 = player1.Character;
-            var c2 = player1.Character;
+            var p1 = player1.Character;
+            var p2 = player2.Character;
 
-            var sup1 = GetSuperiorStat(c1);
-            var sup2 = GetSuperiorStat(c2);
+            int intel = 0, speed = 0, str = 0;
 
-            /*
-    Интеллект: 1
-    Сила: 2 
-    Скорость: 3
- */
-            //true = player 1
+            if (p1.Intelligence - p2.Intelligence > 0)
+                intel = 1;
+            if (p1.Intelligence - p2.Intelligence < 0)
+                intel = -1;
 
-            switch (sup1.Index)
-            {
-                //если ты Умный и он НЕ Сильный, ты победил
-                case 1 when sup2.Index != 2:
-                    toReturn = 1;
-                    break;
-                //если Сильный и он НЕ Быстрый
-                case 2 when sup2.Index != 3:
-                    toReturn = 1;
-                    break;
-                //если Быстрый и он НЕ Умный
-                case 3 when sup2.Index != 1:
-                    toReturn = 1;
-                    break;
-            }
+            if (p1.Speed - p2.Speed > 0)
+                speed = 1;
+            if (p1.Speed - p2.Speed < 0)
+                speed = -1;
+
+            if (p1.Strength - p2.Strength > 0)
+                str = 1;
+            if (p1.Strength - p2.Strength < 0)
+                str = -1;
 
 
-            if (toReturn == 1)
-                return player1;
-            if (toReturn == 2)
-                return player2;
+            if(intel + speed + str >= 2 )
+                return 1;
+            if(intel + speed + str <= -2 )
+                return 2;
+            if(intel + speed + str == 0 )
+                return 0;
 
-            return null;
-        }
 
-        public List<SuperiorStat> GetSuperiorStat(CharacterClass c)
-        {
-            var allStatsList = new List<SuperiorStat>
-            {
-                new SuperiorStat(1, c.Intelligence),
-                new SuperiorStat(2, c.Strength),
-                new SuperiorStat(3, c.Speed)
-            };
-
-            var sortedList = allStatsList.OrderByDescending(x => x.Number).ToList();
-            return sortedList;
-        }
-
-        public struct SuperiorStat
-        {
-            public int Index;
-
-            public int Number;
-
-            /*
-                Интеллект: 1
-                Сила: 2
-                Скорость: 3
-             */
-            public SuperiorStat(int index, int number)
-            {
-                Index = index;
-                Number = number;
-            }
+            if (intel == 1 && str != -1)
+                return 1;
+            if (str == 1 && speed != -1)
+                return 1;
+            if (speed == 1 && intel != -1)
+                return 1;
+     
+            return 2;
         }
     }
 }

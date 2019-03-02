@@ -70,7 +70,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var globalAccount = _global.Client.GetUser(gameBridge.DiscordAccount.DiscordId);
   
 
-            await ShowRulesAndChar(gameBridge);
+            await ShowRulesAndChar(globalAccount, gameBridge);
 
             var mainPage = new EmbedBuilder();
             mainPage.WithAuthor(globalAccount);
