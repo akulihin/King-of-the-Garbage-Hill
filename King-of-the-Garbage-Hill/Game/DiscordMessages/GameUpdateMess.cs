@@ -29,7 +29,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
 
-        public async Task ShowRulesAndChar(SocketUser user)
+        public async Task ShowRulesAndChar(SocketUser user, GameBridgeClass game)
         {
             var gameRules = "**Правила игры:**\n" +
                             "Всем выпадает рандомная карта с персонажем. Игрокам не известно против кого они играют. Каждый ход игрок может напасть на кого-то, либо обороняться. " +
@@ -52,7 +52,13 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var embed = new EmbedBuilder();
             embed.WithColor(Color.DarkOrange);    
-            embed.AddField("Твой Персонаж:", "TODO");
+            embed.AddField("Твой Персонаж:", $"Name: ${game.Character.Name}\n" +
+                                             $"Сила: {game.Character.Strength}\n" +
+                                             $"Скорость: {game.Character.Speed}\n" +
+                                             $"Интеллект: {game.Character.Intelligence}\n" +
+                                             $"Психика: {game.Character.Psyche}\n" +
+                                             $"____________________________________\n" +
+                                             $"Passives: TODO");
             embed.WithDescription(gameRules);
 
 
@@ -64,7 +70,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var globalAccount = _global.Client.GetUser(gameBridge.DiscordAccount.DiscordId);
   
 
-            await ShowRulesAndChar(globalAccount);
+            await ShowRulesAndChar(gameBridge);
 
             var mainPage = new EmbedBuilder();
             mainPage.WithAuthor(globalAccount);
