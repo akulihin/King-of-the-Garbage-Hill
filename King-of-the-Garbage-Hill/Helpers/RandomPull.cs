@@ -249,7 +249,7 @@ namespace King_of_the_Garbage_Hill.Helpers
             //Октопус
             new CharacterClass(1, 1, 8, 10,  "Осьминожка"),
             //Даркси
-            new CharacterClass(6, 7, 8, 4,  "Darksi"),
+            new CharacterClass(6, 7, 8, 4,  "Darksci"),
             //Тигр
             new CharacterClass(1, 9, 9, 1,  "Тигр"),
             //братишка
