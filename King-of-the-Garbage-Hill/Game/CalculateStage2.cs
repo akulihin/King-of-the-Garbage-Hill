@@ -87,7 +87,7 @@ namespace King_of_the_Garbage_Hill.Game
 
                 //round 1 (contr)
 
-                //TODO: whoIsBetter
+
                 var whoIsBetter = WhoIsBetter(player, playerAttacked);
 
                 //main formula:
@@ -112,7 +112,8 @@ namespace King_of_the_Garbage_Hill.Game
 
                 if (whoIsBetter == player)
                     strangeNumber += 5;
-                else if (whoIsBetter == playerAttacked) strangeNumber -= 5;
+                else if (whoIsBetter == playerAttacked)
+                    strangeNumber -= 5;
 
                 if (strangeNumber >= 14) randomForTooGood = 63;
                 if (strangeNumber <= -14) randomForTooGood = 37;
@@ -251,39 +252,47 @@ namespace King_of_the_Garbage_Hill.Game
 
         public GameBridgeClass WhoIsBetter(GameBridgeClass player1, GameBridgeClass player2)
         {
-            bool toReturn;
+            //TODO: this is not correct due to our design
+            var toReturn = 0;
             var c1 = player1.Character;
             var c2 = player1.Character;
 
             var sup1 = GetSuperiorStat(c1);
             var sup2 = GetSuperiorStat(c2);
 
+            /*
+    Интеллект: 1
+    Сила: 2 
+    Скорость: 3
+ */
+            //true = player 1
+
             switch (sup1.Index)
             {
                 //если ты Умный и он НЕ Сильный, ты победил
                 case 1 when sup2.Index != 2:
-                    toReturn = true;
+                    toReturn = 1;
                     break;
                 //если Сильный и он НЕ Быстрый
                 case 2 when sup2.Index != 3:
-                    toReturn = true;
+                    toReturn = 1;
                     break;
                 //если Быстрый и он НЕ Умный
                 case 3 when sup2.Index != 1:
-                    toReturn = true;
-                    break;
-                default:
-                    // if 1-50 = player1
-                    // if 51-100 = player2
-                    var randomNumber2 = _rand.Random(1, 100);
-                    toReturn = randomNumber2 <= 50;
+                    toReturn = 1;
                     break;
             }
 
-            return toReturn ? player1 : player2;
+
+            if (toReturn == 1)
+                return player1;
+            if (toReturn == 2)
+                return player2;
+
+            return null;
         }
 
-        public SuperiorStat GetSuperiorStat(CharacterClass c)
+        public List<SuperiorStat> GetSuperiorStat(CharacterClass c)
         {
             var allStatsList = new List<SuperiorStat>
             {
@@ -293,7 +302,7 @@ namespace King_of_the_Garbage_Hill.Game
             };
 
             var sortedList = allStatsList.OrderByDescending(x => x.Number).ToList();
-            return sortedList[0];
+            return sortedList;
         }
 
         public struct SuperiorStat
