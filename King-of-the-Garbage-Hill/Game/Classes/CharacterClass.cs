@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace King_of_the_Garbage_Hill.Game.Classes
 {
     public class CharacterClass
@@ -10,7 +12,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public int Strength;
         public JusticeClass Justice;
         public string Avatar;
-
+        public List<Passive> Passive;
 
 
         public CharacterClass(int intelligence, int strength, int speed, int psyche, string name)

@@ -1,16 +1,13 @@
 ﻿using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
+using Newtonsoft.Json;
 
 namespace King_of_the_Garbage_Hill.Helpers
 {
     public sealed class OctoPicPull : IServiceSingleton
     {
-        public Task InitializeAsync()
-        {
-            return Task.CompletedTask;
-        }
-
         public string[] OctoPics =
         {
             //индекс осьминога -1 к его номеру
@@ -158,15 +155,15 @@ namespace King_of_the_Garbage_Hill.Helpers
             "https://media.discordapp.net/attachments/370950995133464587/442770492798009355/IMG_20180505_115640.jpg?width=936&height=702",
             "https://media.discordapp.net/attachments/370950995133464587/445467032176295947/IMG_20180506_121914.jpg?width=1872&height=1404"
         };
-    }
 
-    public sealed class OctoNamePull : IServiceSingleton
-    {
         public Task InitializeAsync()
         {
             return Task.CompletedTask;
         }
+    }
 
+    public sealed class OctoNamePull : IServiceSingleton
+    {
         public string[] OctoNameRu =
         {
             "[Фиолетовый дракон](https://i.imgur.com/jAnjdX0.jpg)",
@@ -217,45 +214,28 @@ namespace King_of_the_Garbage_Hill.Helpers
             "[Радужный](https://i.imgur.com/1x10cI1.jpg)"
             // "[]()"
         };
+
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
     }
 
     public class CharactersPull : IServiceTransient
     {
+        public List<CharacterClass> AllCharacters;
+
+
+        public CharactersPull()
+        {
+            var filePath = $@"DataBase/OctoDataBase/characters.json";
+            var json = File.ReadAllText(filePath);
+            AllCharacters = JsonConvert.DeserializeObject<List<CharacterClass>>(json);
+        }
+
         public async Task InitializeAsync()
         {
             await Task.CompletedTask;
         }
-
-        public List<CharacterClass> AllCharacters = new List<CharacterClass>
-        {
-            //DeepList
-            new CharacterClass(10, 5, 7, 0,  "DeepList"),
-            //mylorik 
-            new CharacterClass(4, 8, 9, 3,  "mylorik"),
-            //gleb
-            new CharacterClass(7, 6, 2, 8,  "Глеб"),
-            //LeCrisp
-            new CharacterClass(5, 4, 5, 6,  "LeCrisp"),
-            //Tolya
-            new CharacterClass(8, 5, 1, 2,  "Толя"),
-            //HardKitty
-            new CharacterClass(3, 5, 5, 6,  "HardKitty"),
-            //Sirinoks
-            new CharacterClass(5, 2, 5, 5,  "Sirinoks"),
-            //Mitsuki
-            new CharacterClass(9, 9, 9, 9,  "Mitsuki"),
-            //AWDKA
-            new CharacterClass(4, 1, 5, 7,  "AWDKA"),
-            //Октопус
-            new CharacterClass(1, 1, 8, 10,  "Осьминожка"),
-            //Даркси
-            new CharacterClass(6, 7, 8, 4,  "Darksci"),
-            //Тигр
-            new CharacterClass(1, 9, 9, 1,  "Тигр"),
-            //братишка
-            new CharacterClass(0, 0, 0, 10,  "Братишка"),
-            //bug
-            new CharacterClass(6, 6, 6, 0,  "????")
-        };
     }
 }

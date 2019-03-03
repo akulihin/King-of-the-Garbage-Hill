@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
@@ -12,6 +13,7 @@ using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
+using Newtonsoft.Json;
 
 namespace King_of_the_Garbage_Hill.GeneralCommands
 {
@@ -53,6 +55,68 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _characterPassives = characterPassives;
         }
 
+        //yes, this is my shit.
+        [Command("es")]
+        [RequireOwner]
+        public async Task Asdasd()
+        {
+         List<CharacterClass> allcha = new List<CharacterClass>();
+            int cc = 0;  
+            string ll;
+            string at = "";
+
+                var file = new System.IO.StreamReader(@"DataBase/OctoDataBase/esy.txt");  
+                while((ll = file.ReadLine()) != null)
+                {
+                    at += ll;
+                    cc++;  
+                }
+
+                var c = at.Split("||");
+
+                for (var i = 0; i < c.Length; i++)
+                {
+                    var parts = c[i].Split("WW");
+                    var part1 = parts[0];
+                    var part2 = parts[1];
+
+                    var p = part1.Split("UU");
+                    var name = p[0];
+                    var t = p[1].Replace("Интеллект", " ");
+                    t = t.Replace("Сила", " ");
+                    t = t.Replace("Скорость", " ");
+                    t = t.Replace("Психика", " ");
+                    var hh = t.Split(" ");
+                    int[] oo = new int[4];
+                    var ind = 0;
+                    for (var mm = 0; mm < hh.Length; mm++)
+                    {
+                        if (hh[mm] != "")
+                        {
+                            oo[ind] = int.Parse(hh[mm]);
+                            ind++;
+                        }
+                    }
+
+                    var intel = oo[0];
+                    var str = oo[1];
+      
+                    var pe = oo[2];
+                    var psy = oo[3];
+                    allcha.Add(new CharacterClass(intel, str, pe, psy, name));
+                    var pass = new List<Passive>();
+                    var passives = part2.Split(":");
+                    for (var k = 0; k < passives.Length-1; k++)
+                    {
+                        pass.Add(new Passive(passives[k], passives[k+1]));
+                    }
+                    allcha[allcha.Count-1].Passive = pass;
+                }
+
+    
+                string json = JsonConvert.SerializeObject(allcha.ToArray());
+                System.IO.File.WriteAllText(@"D:\characters.json", json);
+        }
 
         
         [Command("s")]
