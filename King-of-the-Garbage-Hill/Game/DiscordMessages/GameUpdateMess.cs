@@ -31,6 +31,15 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public async Task ShowRulesAndChar(SocketUser user, GameBridgeClass game)
         {
+            var pass = "";
+            var passList = game.Character.Passive;
+            for (var i = 0; i < passList.Count; i++)
+            {
+                pass += $"__**{passList[i].PassiveName}**__" ;
+                pass += ": ";
+                pass += passList[i].PassiveDescription;
+                pass += "\n";
+            }
             var gameRules = "**Правила игры:**\n" +
                             "Всем выпадает рандомная карта с персонажем. Игрокам не известно против кого они играют. Каждый ход игрок может напасть на кого-то, либо обороняться. " +
                             "В случае нападения игрок либо побеждает, получая очко, либо проигрывает, приносят очко врагу. В случае нападения на обороняющегося игрока, бой не состоится и нападающий уйдет ни с чем, потеряв  1 Справедливости.\n" +
@@ -52,13 +61,12 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var embed = new EmbedBuilder();
             embed.WithColor(Color.DarkOrange);    
-            embed.AddField("Твой Персонаж:", $"Name: ${game.Character.Name}\n" +
+            embed.AddField("Твой Персонаж:", $"Name: {game.Character.Name}\n" +
                                              $"Сила: {game.Character.Strength}\n" +
                                              $"Скорость: {game.Character.Speed}\n" +
                                              $"Интеллект: {game.Character.Intelligence}\n" +
-                                             $"Психика: {game.Character.Psyche}\n" +
-                                             $"____________________________________\n" +
-                                             $"Passives: TODO");
+                                             $"Психика: {game.Character.Psyche}\n");
+            embed.AddField("Пассивки", $"{pass}");
             embed.WithDescription(gameRules);
 
 

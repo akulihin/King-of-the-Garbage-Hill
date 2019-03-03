@@ -109,6 +109,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     for (var k = 0; k < passives.Length-1; k++)
                     {
                         pass.Add(new Passive(passives[k], passives[k+1]));
+                        k++;
                     }
                     allcha[allcha.Count-1].Passive = pass;
                 }
