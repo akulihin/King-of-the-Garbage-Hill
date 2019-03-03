@@ -7,9 +7,7 @@ using King_of_the_Garbage_Hill.Helpers;
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class DeepList : IServiceSingleton
-    {
-
-        
+    { 
         private readonly SecureRandom _rand;
         private readonly GameUpdateMess _upd;
         private readonly InGameGlobal _gameGlobal;
@@ -38,20 +36,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 player.Character.Strength++;
                 player.Status.IsAbleToWin = false;
             }
-            //end Doubtful tactic
-
-            //MADNESS
-
-            //TODO: new balance 
-
-            //end MADNESS
-
-
-            //Стёб
-
-            //only after
-
-            //end Стёб
         }
 
         public void HandleDeepListAfter(GameBridgeClass player, GameClass game)
