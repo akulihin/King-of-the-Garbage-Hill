@@ -12,6 +12,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         private readonly HelperFunctions _help;
         private readonly SecureRandom _rand;
         private readonly InGameGlobal _gameGlobal;
+
+        private readonly CharactersUniquePhrase _phrase;
         //end helpers
 
         //chars
@@ -33,7 +35,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         
         public CharacterPassives(SecureRandom rand, HelperFunctions help, Awdka awdka, DeepList deepList,
             DeepList2 deepList2, Gleb gleb, HardKitty hardKitty, Mitsuki mitsuki, LeCrisp leCrisp, Mylorik mylorik,
-            Octopus octopus, Shark shark, Sirinoks sirinoks, Tigr tigr, Tolya tolya, InGameGlobal gameGlobal, Darksci darksci)
+            Octopus octopus, Shark shark, Sirinoks sirinoks, Tigr tigr, Tolya tolya, InGameGlobal gameGlobal, Darksci darksci, CharactersUniquePhrase phrase)
         {
             _rand = rand;
             _help = help;
@@ -52,6 +54,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             _tolya = tolya;
             _gameGlobal = gameGlobal;
             _darksci = darksci;
+            _phrase = phrase;
         }
 
         public Task InitializeAsync() => Task.CompletedTask;
@@ -208,6 +211,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                         when = _gameGlobal.GetWhenToTrigger(player, true, 7, 1);
                         _gameGlobal.DeepListSupermindTriggeredWhen.Add(when);
+                       when = _gameGlobal.GetWhenToTrigger(player, false, 10, 2);
+                        _gameGlobal.DeepListMadnessTriggeredWhen.Add(when);
 
                         break;
                     case "mylorik":
@@ -225,8 +230,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             temp[1] = when.WhenToTrigger[1];
                         if (when.WhenToTrigger.Count >= 3)
                             temp[2] = when.WhenToTrigger[2];
-
-
                         do
                         {
                             when = _gameGlobal.GetWhenToTrigger(player, true, 12, 2);
@@ -310,12 +313,44 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                         {
                             if (currentDeepList.WhenToTrigger.Any(x => x == game.RoundNo))
                             {
-                                var randPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Count - 1)];
+                                GameBridgeClass randPlayer;
+
+
+                                do
+                                {
+                                    randPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Count - 1)];
+                                    var check1 = _gameGlobal.DeepListSupermindKnown.Find(x =>
+                                        x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+                                    if (check1 != null)
+                                    {
+                                        if (check1.KnownPlayers.Contains(randPlayer.DiscordAccount.DiscordId))
+                                        {
+                                            randPlayer = player;
+                                        }
+                                    }
+                                    
+                                } while (randPlayer.DiscordAccount.DiscordId != player.DiscordAccount.DiscordId);
+
+                                var check = _gameGlobal.DeepListSupermindKnown.Find(x =>
+                                    x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+                                if (check == null)
+                                {
+                                    _gameGlobal.DeepListSupermindKnown.Add(new DeepList.SuperMindKnown(player.DiscordAccount.DiscordId, game.GameId,randPlayer.DiscordAccount.DiscordId));
+                                }
+                                else
+                                {
+                                    check.KnownPlayers.Add(randPlayer.DiscordAccount.DiscordId);
+                                }
+
+                                var customMess =
+                                    _phrase.DeepListSuperMindPhrase[
+                                        _rand.Random(0, _phrase.DeepListSuperMindPhrase.Capacity - 1)];
 
                                 var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                                    $"хм... {randPlayer.DiscordAccount.DiscordUserName} это {randPlayer.Character.Name}!\n" +
+                                    $"{customMess} {randPlayer.DiscordAccount.DiscordUserName} - {randPlayer.Character.Name}!\n" +
                                     $"Его статы: Cила {randPlayer.Character.Strength}, Скорость {randPlayer.Character.Speed}" +
                                     $", Ум {randPlayer.Character.Intelligence}");
+
                                 await _help.DeleteMessOverTime(mess, 45);
                             }
                         }

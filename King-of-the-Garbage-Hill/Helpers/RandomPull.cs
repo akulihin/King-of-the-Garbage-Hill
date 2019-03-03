@@ -238,4 +238,22 @@ namespace King_of_the_Garbage_Hill.Helpers
             await Task.CompletedTask;
         }
     }
+
+
+    public class CharactersUniquePhrase : IServiceSingleton
+    {
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
+
+        public List<string> DeepListSuperMindPhrase = new List<string>();
+       
+        public CharactersUniquePhrase()
+        {
+            DeepListSuperMindPhrase.Add("Поделив энтропию на ноль, вы поняли, что ");
+            DeepListSuperMindPhrase.Add("Используя свою дедукцию, вы поняли, что ");
+            DeepListSuperMindPhrase.Add("Сложив 2+2, вы каким-то чудом догадались, что ");
+        }
+    }
 }

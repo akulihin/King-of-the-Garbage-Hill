@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
@@ -20,12 +21,14 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         private readonly UserAccounts _accounts;
         private readonly Global _global;
         private readonly AwaitForUserMessage _awaitForUser;
+        private readonly InGameGlobal _gameGlobal;
 
-        public GameUpdateMess(UserAccounts accounts, Global global, AwaitForUserMessage awaitForUser)
+        public GameUpdateMess(UserAccounts accounts, Global global, AwaitForUserMessage awaitForUser, InGameGlobal gameGlobal)
         {
             _accounts = accounts;
             _global = global;
             _awaitForUser = awaitForUser;
+            _gameGlobal = gameGlobal;
         }
 
 
@@ -111,7 +114,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         //    await MainPage(userId, socketMsg);
         }
 
-        public string LeaderBoard(DiscordAccountClass discordAccount)
+        public string LeaderBoard(DiscordAccountClass discordAccount, CharacterClass character)
         {
             var game = _global.GamesList.Find(x => x.GameId == discordAccount.GameId);
             var players = "";
@@ -120,13 +123,41 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             {
                 players += $"{i + 1}. {playersList[i].DiscordAccount.DiscordUserName}";
 
+                players += CustomLeaderBoard(discordAccount, character, playersList[i]);
 
                 if (discordAccount.DiscordId == playersList[i].DiscordAccount.DiscordId)
+                {
                     players += $" = {playersList[i].Status.Score}\n";
-                else players += "\n";
+                }
+                else
+                {
+                    players += "\n";
+                }
             }
 
             return players;
+        }
+
+        public string CustomLeaderBoard(DiscordAccountClass player1Account, CharacterClass player1Char, GameBridgeClass player2)
+        {
+            var customString = "";
+            switch (player1Char.Name)
+            {
+                case "DeepList":
+                    var currentList = _gameGlobal.DeepListSupermindKnown.Find(x =>
+                        x.DiscordId == player1Account.DiscordId && x.GameId == player1Account.GameId);
+                    if (currentList != null)
+                    {
+                        if (currentList.KnownPlayers.Contains(player2.DiscordAccount.DiscordId))
+                        {
+                            customString +=
+                                $" ({player2.Character.Intelligence}, {player2.Character.Strength}, {player2.Character.Speed}, {player2.Character.Psyche}, {player2.Character.Justice.JusticeForNextRound})";
+                        }
+                    }
+                    break;
+            }
+
+            return customString;
         }
 
         public async Task EndGame(SocketReaction reaction, IUserMessage socketMsg)
@@ -167,7 +198,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                 $"*Справедливость: {character.Justice.JusticeNow}*\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                $"{LeaderBoard(account)}");
+                $"{LeaderBoard(account, character)}");
 
 
             if (character.Avatar != null)
@@ -192,10 +223,24 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithColor(Color.Green);
             embed.WithFooter($"{GetTimeLeft(account)}");
 
-
+            embed = CustomLogsPage(gameBridge, embed);
             return embed;
 
         //    await socketMsg.ModifyAsync(message => { message.Embed = embed.Build(); });
+        }
+
+
+        public EmbedBuilder CustomLogsPage(GameBridgeClass gameBridge, EmbedBuilder embed)
+        {
+            
+            switch (gameBridge.Character.Name)
+            {
+                case "DeepList":
+                    break;
+            }
+            
+
+            return embed;
         }
 
         //Page 3

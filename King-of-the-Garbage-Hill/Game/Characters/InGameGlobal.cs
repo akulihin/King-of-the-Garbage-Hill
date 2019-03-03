@@ -23,6 +23,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public readonly List<WhenToTriggerClass>
             DeepListSupermindTriggeredWhen = new List<WhenToTriggerClass>();
+        public readonly List<DeepList.SuperMindKnown>
+            DeepListSupermindKnown = new List<DeepList.SuperMindKnown>();
 
         public readonly List<WhenToTriggerClass>
             GlebChallengerTriggeredWhen = new List<WhenToTriggerClass>();

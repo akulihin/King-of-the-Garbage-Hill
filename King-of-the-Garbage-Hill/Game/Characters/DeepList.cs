@@ -42,7 +42,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             //Doubtful tactic
             player.Status.IsAbleToWin = true;
-            if (_gameGlobal.DeepListDoubtfulTactic.Contains(player.Status.WhoToAttackThisTurn)) player.Character.Strength--;
+            if (_gameGlobal.DeepListDoubtfulTactic.Contains(player.Status.WhoToAttackThisTurn))
+            {
+                player.Character.Strength--;
+                if (player.Status.IsWonLastTime != 0)
+                {
+                    player.Status.Score++;
+                }
+            }
             //end Doubtful tactic
 
             // Стёб
@@ -75,7 +82,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     if (currentDeepList2.Times % 2 != 0 && currentDeepList2.Times != 1)
                     {
                         player2.Character.Psyche--;
-                        if (player2.Character.Psyche < 4) player2.Character.Justice.JusticeForNextRound--;
+                        player.Status.Score++;
+                        if (player2.Character.Psyche < 4)
+                        {
+                            player2.Character.Justice.JusticeForNextRound--;
+                        }
                     }
                 }
                 else
@@ -119,6 +130,20 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             {
                 EnemyDiscordId = enemyDiscordId;
                 Times = times;
+            }
+        }
+
+        public class SuperMindKnown
+        {
+            public ulong DiscordId;
+            public ulong GameId;
+            public List<ulong> KnownPlayers = new List<ulong>();
+
+            public SuperMindKnown(ulong discordId, ulong gameId, ulong player2Id)
+            {
+                DiscordId = discordId;
+                GameId = gameId;
+                KnownPlayers.Add(player2Id);
             }
         }
     }
