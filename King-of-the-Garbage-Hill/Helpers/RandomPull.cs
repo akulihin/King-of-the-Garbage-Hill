@@ -250,9 +250,12 @@ namespace King_of_the_Garbage_Hill.Helpers
 
         public List<string> DeepListSuperMindPhrase = new List<string>();
         public List<string> MylorikPhrase = new List<string>();
-        public List<string> GlebPhrase = new List<string>();
-        public List<string> LeCrispPhrase = new List<string>();
-        public List<string> TolyaPhrase = new List<string>();
+        public List<string> GlebChallengerRUServerPhrase = new List<string>();
+        public List<string> LeCrispJewPhrase = new List<string>();
+        public List<string> LeCrispAssassinsPhrase = new List<string>();
+        public List<string> LeCrispImpactPhrase = new List<string>();
+        public List<string> TolyaJewPhrase = new List<string>();
+        public List<string> TolyaCountPhrase = new List<string>();
 
         public CharactersUniquePhrase()
         {
@@ -263,20 +266,20 @@ namespace King_of_the_Garbage_Hill.Helpers
 
             MylorikPhrase.Add("Буль");
 
-            GlebPhrase.Add("А? БАРОН?!");
-            GlebPhrase.Add("Ща я покажу как надо");
-            GlebPhrase.Add("Глебка залетает!");
-            GlebPhrase.Add("В Претендентмобиль!");
-            GlebPhrase.Add("ЛИИИИРОЙ ДЖЕНКИНС");
+            GlebChallengerRUServerPhrase.Add("А? БАРОН?!");
+            GlebChallengerRUServerPhrase.Add("Ща я покажу как надо");
+            GlebChallengerRUServerPhrase.Add("Глебка залетает!");
+            GlebChallengerRUServerPhrase.Add("В Претендентмобиль!");
+            GlebChallengerRUServerPhrase.Add("ЛИИИИРОЙ ДЖЕНКИНС");
 
-            LeCrispPhrase.Add("Я жру деньги!");
-            LeCrispPhrase.Add("Гребанные ассассины");
-            LeCrispPhrase.Add("Импакт!");
-            LeCrispPhrase.Add("шпещьмен");
+            LeCrispJewPhrase.Add("Я жру деньги!");
+            LeCrispAssassinsPhrase.Add("Гребанные ассассины");
+            LeCrispImpactPhrase.Add("Импакт!");
+            LeCrispImpactPhrase.Add("шпещьмен");
 
-            TolyaPhrase.Add("Easy money");
-            TolyaPhrase.Add("Worth");
-            TolyaPhrase.Add("Ха! Подстчет!");
+            TolyaJewPhrase.Add("Easy money");
+            TolyaJewPhrase.Add("Worth");
+            TolyaCountPhrase.Add("Ха! Подстчет!");
 
 
         }
