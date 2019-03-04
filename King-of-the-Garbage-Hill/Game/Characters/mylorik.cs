@@ -31,26 +31,32 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 x.GameId == gameId && x.PlayerDiscordId == player1.DiscordAccount.DiscordId);
 
 
-            if (mylorik == null)
+            //check if very first lost
+            if (mylorik == null && player1.Status.IsLostLastTime != 0)
             {
                 _gameGlobal.MylorikRevenge.Add(new MylorikRevengeClass(player1.DiscordAccount.DiscordId, gameId,
-                    player2Id));
+                    player1.Status.IsLostLastTime));
+                return;
             }
-            else
+
+            //check if first lost to unique player
+            if (mylorik != null)
             {
                 if (mylorik.EnemyListDiscordId.All(x => x.EnemyDiscordId != player2Id))
                 {
                     mylorik.EnemyListDiscordId.Add(new MylorikRevengeClassSub(player2Id));
                     return;
                 }
+            }
 
-                var find = mylorik.EnemyListDiscordId.Find(x =>
-                    x.EnemyDiscordId == player2Id && x.IsUnique);
-                if (find != null)
-                {
-                    player1.Status.Score++;
-                    find.IsUnique = false;
-                }
+            //check if won to revenge
+            var find = mylorik?.EnemyListDiscordId.Find(x =>
+                x.EnemyDiscordId == player2Id && x.IsUnique);
+
+            if (find != null)
+            {
+                player1.Status.Score += 2;
+                find.IsUnique = false;
             }
         }
         public async Task HandleMylorik(GameBridgeClass player, GameClass game)
@@ -66,12 +72,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public void HandleMylorikAfter(GameBridgeClass player)
         {
             //Revenge
-            if (player.Status.IsWonLastTime != 0)
+     
                 HandleMylorikRevenge(player, player.Status.IsWonLastTime, player.DiscordAccount.GameId);
             //end Revenge
 
             //Spanish
-            if (player.Status.IsWonLastTime == 0)
+            if (player.Status.IsLostLastTime != 0)
             {
                 var rand = _rand.Random(1, 2);
 

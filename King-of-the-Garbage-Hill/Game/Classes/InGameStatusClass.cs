@@ -26,7 +26,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public bool IsReady { get; set; }
         public int WonTimes { get; set; }
         public ulong IsWonLastTime { get; set; }
-
+        public ulong IsLostLastTime { get; set; }
 
         public InGameStatus()
         {
@@ -42,6 +42,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             IsAbleToWin = true;
             WonTimes = 0;
             IsWonLastTime = 0;
+            IsLostLastTime = 0;
             IsSkip = false;
         }
 

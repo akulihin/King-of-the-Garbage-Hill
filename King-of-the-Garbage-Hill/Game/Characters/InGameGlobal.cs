@@ -18,7 +18,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public readonly List<WhenToTriggerClass>
             DeepListMadnessTriggeredWhen = new List<WhenToTriggerClass>();
+
         public readonly  List<DeepList.Madness> DeepListMadnessList = new List<DeepList.Madness>();
+
+        public readonly List<DeepList.Madness> GlebChallengerList = new List<DeepList.Madness>();
+        public  readonly  List<Gleb.GlebSkipClass> GlebSkipList = new List<Gleb.GlebSkipClass>();
 
         public readonly List<DeepList.Mockery> DeepListMockeryList = new List<DeepList.Mockery>();
 
@@ -55,15 +59,25 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         }
 
         public WhenToTriggerClass GetWhenToTrigger(GameBridgeClass player, bool isMandatory, int maxRandomNumber,
-            int maxTimes)
+            int maxTimes, bool isMandatory2 = false)
         {
             var toTriggerClass = new WhenToTriggerClass(player.DiscordAccount.DiscordId, player.DiscordAccount.GameId);
             int when;
 
-
+            var check = 0;
             if (isMandatory)
             {
                 when = _rand.Random(1, 10);
+                check = when;
+                toTriggerClass.WhenToTrigger.Add(when);
+            }
+
+            if (isMandatory2)
+            {
+                do
+                {
+                    when = _rand.Random(1, 10);
+                } while (check == when);
                 toTriggerClass.WhenToTrigger.Add(when);
             }
 

@@ -56,14 +56,23 @@ namespace King_of_the_Garbage_Hill.Game
                 var randomForTooGood = 50;
 
                 //if block => no one gets points, and no redundant playerAttacked variable
-                if (player.Status.IsBlock) continue;
+                if (player.Status.IsBlock)
+                {
+                    await _characterPassives.HandleCharacterAfterCalculations(player, game);
+                    player.Status.IsWonLastTime = 0;
+                    player.Status.IsLostLastTime = 0;
+                    continue;
+                }
 
                 var playerAttacked =
                     game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.WhoToAttackThisTurn);
 
                 await _characterPassives.HandleCharacterBeforeCalculations(playerAttacked, game);
-                await _characterPassives.HandleEveryAttackOnMe(playerAttacked, game);
-                await _characterPassives.HandleEveryAttackFromMe(player, game);
+
+                //player = gleb
+                await _characterPassives.HandleEveryAttackOnMe(player , playerAttacked, game);
+                await _characterPassives.HandleEveryAttackFromMe(player, playerAttacked, game);
+
                 if (playerAttacked.Status.WhoToAttackThisTurn == 0 && playerAttacked.Status.IsBlock == false)
                     playerAttacked.Status.IsBlock = true;
                 if (!playerAttacked.Status.IsAbleToWin) pointsWined = 5;
@@ -79,7 +88,31 @@ namespace King_of_the_Garbage_Hill.Game
                     game.GameLogs += " | *Бой не состоялся...*\n";
                     game.PreviousGameLogs += " | *Бой не состоялся...*\n";
 
-                    if (!playerAttacked.Status.IsSkip) player.Character.Justice.JusticeForNextRound--;
+                    await _characterPassives.HandleCharacterAfterCalculations(player, game);
+                    await _characterPassives.HandleCharacterAfterCalculations(playerAttacked, game);
+
+                    player.Status.IsWonLastTime = 0;
+                    player.Status.IsLostLastTime = 0;
+                    playerAttacked.Status.IsWonLastTime = 0;
+                    playerAttacked.Status.IsLostLastTime = 0;
+
+                    continue;
+                }
+
+                if (playerAttacked.Status.IsSkip)
+                {
+                    game.GameLogs += " | *Бой не состоялся...*\n";
+                    game.PreviousGameLogs += " | *Бой не состоялся...*\n";
+
+                    player.Character.Justice.JusticeForNextRound--;
+
+                    await _characterPassives.HandleCharacterAfterCalculations(player, game);
+                    await _characterPassives.HandleCharacterAfterCalculations(playerAttacked, game);
+
+                    player.Status.IsWonLastTime = 0;
+                    player.Status.IsLostLastTime = 0;
+                    playerAttacked.Status.IsWonLastTime = 0;
+                    playerAttacked.Status.IsLostLastTime = 0;
 
                     continue;
                 }
@@ -162,7 +195,9 @@ namespace King_of_the_Garbage_Hill.Game
                     player.Character.Justice.IsWonThisRound = true;
 
                     playerAttacked.Character.Justice.JusticeForNextRound++;
+
                     player.Status.IsWonLastTime = playerAttacked.DiscordAccount.DiscordId;
+                    playerAttacked.Status.IsLostLastTime = player.DiscordAccount.DiscordId;
                 }
                 else
                 {
@@ -176,6 +211,7 @@ namespace King_of_the_Garbage_Hill.Game
                     player.Character.Justice.JusticeForNextRound++;
 
                     playerAttacked.Status.IsWonLastTime = player.DiscordAccount.DiscordId;
+                    player.Status.IsLostLastTime = playerAttacked.DiscordAccount.DiscordId;
                 }
 
 
@@ -183,7 +219,9 @@ namespace King_of_the_Garbage_Hill.Game
                 await _characterPassives.HandleCharacterAfterCalculations(playerAttacked, game);
 
                 player.Status.IsWonLastTime = 0;
+                player.Status.IsLostLastTime = 0;
                 playerAttacked.Status.IsWonLastTime = 0;
+                playerAttacked.Status.IsLostLastTime = 0;
             }
 
             await _characterPassives.HandleEndOfRound(game);

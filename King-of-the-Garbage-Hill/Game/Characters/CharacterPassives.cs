@@ -60,35 +60,56 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public Task InitializeAsync() => Task.CompletedTask;
 
         //общее говно
-        public async Task HandleEveryAttackOnMe(GameBridgeClass player, GameClass game)
+        public async Task HandleEveryAttackOnMe(GameBridgeClass player1, GameBridgeClass player2, GameClass game)
         {
-            var characterName = player.Character.Name;
+            var characterName = player1.Character.Name;
 
             switch (characterName)
             {
                 case "Глеб":
                     var rand = _rand.Random(1, 8);
                     if (rand == 1)
-                        _gameGlobal.GlebSleepingTriggeredWhen.Find(x =>
-                                x.DiscordId == player.DiscordAccount.DiscordId && game.GameId == x.GameId).WhenToTrigger
-                            .Add(game.RoundNo + 1);
-                    break;
-            }
+                    {
+                        var acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
+                            x.DiscordId == player1.DiscordAccount.DiscordId && player1.DiscordAccount.GameId == x.GameId);
 
+                        if (acc != null)
+                        {
+                            if (acc.WhenToTrigger.Contains(game.RoundNo))
+                            {
+                                return;
+                            }
+                        }
+
+                        if (!player1.Status.IsSkip)
+                        {
+                            player1.Status.IsSkip = true;
+                            _gameGlobal.GlebSkipList.Add(new Gleb.GlebSkipClass(player1.DiscordAccount.DiscordId, game.GameId));
+
+                        }
+                        
+                    }
+                    break;
+
+            }
             await Task.CompletedTask;
         }
 
-        public async Task HandleEveryAttackFromMe(GameBridgeClass player, GameClass game)
+        public async Task HandleEveryAttackFromMe(GameBridgeClass player1, GameBridgeClass player2, GameClass game)
         {
-            var characterName = player.Character.Name;
+            var characterName = player1.Character.Name;
 
             switch (characterName)
             {
                 case "Глеб":
                     var rand = _rand.Random(1, 10);
                     if (rand == 1)
-                        _gameGlobal.AllSkipTriggeredWhen.Add(new WhenToTriggerClass(player.Status.WhoToAttackThisTurn, game.GameId,
+                    {
+                        _gameGlobal.AllSkipTriggeredWhen.Add(new WhenToTriggerClass(player1.Status.WhoToAttackThisTurn, game.GameId,
                             game.RoundNo + 1));
+                        player1.Status.Score++;
+                        
+                    }
                     break;
             }
 
@@ -221,8 +242,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                         break;
 
                     case "Глеб":
-                        when = _gameGlobal.GetWhenToTrigger(player, false, 8, 3);
+                        //Спящее хуйло chance
+                        when = _gameGlobal.GetWhenToTrigger(player, true, 4, 3);
                         _gameGlobal.GlebSleepingTriggeredWhen.Add(when);
+
+                        //challenger when
                         int[] temp = {-1, -1, -1};
                         if (when.WhenToTrigger.Count >= 1)
                             temp[0] = when.WhenToTrigger[0];
@@ -232,7 +256,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             temp[2] = when.WhenToTrigger[2];
                         do
                         {
-                            when = _gameGlobal.GetWhenToTrigger(player, true, 12, 2);
+                            when = _gameGlobal.GetWhenToTrigger(player, true, 12, 3, true);
                         } while (when.WhenToTrigger.All(x => x == temp[0] || x == temp[1] || x == temp[2]));
 
                         _gameGlobal.GlebChallengerTriggeredWhen.Add(when);
@@ -258,7 +282,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             if (acc.WhenToTrigger.Contains(game.RoundNo))
                             {
                                 player.Status.IsSkip = true;
-                                player.Status.IsBlock = true;
+                                player.Status.IsBlock = false;
                                 player.Status.IsAbleToTurn = false;
                                 player.Status.IsReady = true;
                                 player.Status.WhoToAttackThisTurn = 0;
@@ -269,6 +293,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                         break;
                     case "Глеб":
+                        //Спящее хуйло:
                         acc = _gameGlobal.GlebSleepingTriggeredWhen.Find(x =>
                             x.DiscordId == player.DiscordAccount.DiscordId && player.DiscordAccount.GameId == x.GameId);
 
@@ -276,7 +301,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             if (acc.WhenToTrigger.Contains(game.RoundNo))
                             {
                                 player.Status.IsSkip = true;
-                                player.Status.IsBlock = true;
+                                player.Status.IsBlock = false;
                                 player.Status.IsAbleToTurn = false;
                                 player.Status.IsReady = true;
                                 player.Status.WhoToAttackThisTurn = 0;
@@ -285,19 +310,47 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                 await _help.DeleteMessOverTime(mess, 15);
                             }
 
-
+                        //Претендент русского сервера: 
                         acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
                             x.DiscordId == player.DiscordAccount.DiscordId && player.DiscordAccount.GameId == x.GameId);
 
                         if (acc != null)
                             if (acc.WhenToTrigger.Contains(game.RoundNo))
                             {
-                                player.Character.Intelligence += 9;
-                                player.Character.Speed += 9;
-                                player.Character.Strength += 9;
-                                player.Character.Psyche += 9;
+
+                                var curr = _gameGlobal.GlebChallengerList.Find(x =>
+                                    x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+                                //just check
+                                if (curr != null)
+                                {
+                                    _gameGlobal.GlebChallengerList.Remove(curr);
+                                }
+
+                                _gameGlobal.GlebChallengerList.Add(new DeepList.Madness(player.DiscordAccount.DiscordId, game.GameId, game.RoundNo));
+                                curr = _gameGlobal.GlebChallengerList.Find(x => x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+                                curr.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.Intelligence, player.Character.Strength, player.Character.Speed, player.Character.Psyche));
+
+                                //  var randomNumber =  _rand.Random(1, 100);
+                               
+                                var intel = player.Character.Intelligence >= 10 ? 10 : 9;
+                                var str = player.Character.Strength >= 10 ? 10 : 9;
+                                var speed = player.Character.Speed >= 10 ? 10 : 9;
+                                var pshy = player.Character.Psyche >= 10 ? 10 : 9;
+
+
+                                player.Character.Intelligence = intel;
+                                player.Character.Strength = str;
+                                player.Character.Speed = speed;
+                                player.Character.Psyche = pshy;
+
+
+                                curr.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
+
+                                var customMess =
+                                    _phrase.GlebChallengerPhrase[
+                                        _rand.Random(0, _phrase.GlebChallengerPhrase.Count - 1)];
                                 var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                                    "Ты ведь претендент русского сервера!");
+                                    customMess);
 
                                 await _help.DeleteMessOverTime(mess, 15);
                             }
@@ -409,12 +462,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 if (isSkip != null)
                 {
                     player.Status.IsSkip = true;
-                    player.Status.IsBlock = true;
+                    player.Status.IsBlock = false;
                     player.Status.IsAbleToTurn = false;
                     player.Status.IsReady = true;
                     player.Status.WhoToAttackThisTurn = 0;
                     var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                        "Хм... ТЫ пропустишь этот ход....");
+                        "Тебя заставили пропустить этот ход");
                     await _help.DeleteMessOverTime(mess, 15);
                 }
             }
@@ -429,22 +482,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 var characterName = player.Character.Name;
                 switch (characterName)
                 {
-                    case "Глеб":
-                        var acc = _gameGlobal. GlebChallengerTriggeredWhen.Find(x =>
-                            x.DiscordId == player.DiscordAccount.DiscordId && player.DiscordAccount.GameId == x.GameId);
-
-                        if (acc != null)
-                            if (acc.WhenToTrigger.Contains(game.RoundNo))
-                            {
-                                player.Character.Intelligence -= 9;
-                                player.Character.Speed -= 9;
-                                player.Character.Strength -= 9;
-                                player.Character.Psyche -= 9;
-                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Был.");
-                            }
-
-
-                        break;
                     case "DeepList":
                         
                         //madness
@@ -470,6 +507,30 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             _gameGlobal.DeepListMadnessList.Remove(madd);
                         }
                         // end madness 
+                        break;
+                    case "Глеб":
+                        //challenger
+                         madd = _gameGlobal.GlebChallengerList.Find(x =>
+                            x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId && x.RoundItTriggered == game.RoundNo);
+
+                        if (madd != null)
+                        {
+                            var regularStats = madd.MadnessList.Find(x => x.Index == 1);
+                            var madStats = madd.MadnessList.Find(x => x.Index == 2);
+
+
+                            var intel = player.Character.Intelligence - madStats.Intel;
+                            var str = player.Character.Strength - madStats.Str;
+                            var speed = player.Character.Speed - madStats.Speed;
+                            var psy = player.Character.Psyche - madStats.Psyche;
+
+
+                            player.Character.Intelligence = regularStats.Intel + intel;
+                            player.Character.Strength = regularStats.Str + str;
+                            player.Character.Speed = regularStats.Speed + speed;
+                            player.Character.Psyche = regularStats.Psyche + psy;
+                            _gameGlobal.GlebChallengerList.Remove(madd);
+                        }
                         break;
                 }
             }
