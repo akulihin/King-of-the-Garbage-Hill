@@ -383,15 +383,20 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                              curr = _gameGlobal.DeepListMadnessList.Find(x => x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
                              curr.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.Intelligence, player.Character.Strength, player.Character.Speed, player.Character.Psyche));
 
+
+                          //  var randomNumber =  _rand.Random(1, 100);
                              var intel = 0;
                              var str = 0;
                              var speed = 0;
                              var pshy = 0;
 
+
+
+
+
                              curr.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
                             }
                         }
-
                         //end madness
 
                         break;
