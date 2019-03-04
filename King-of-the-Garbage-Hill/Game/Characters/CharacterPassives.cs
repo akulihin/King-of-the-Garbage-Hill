@@ -358,10 +358,41 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                         {
                             Console.WriteLine("DEEP LIST SUPERMIND PASSIVE ERRORR!!!!!!!!!!!!!!!!!");
                         }
-
-
                         //end Сверхразум
 
+                        //Madness
+
+                        var madd = _gameGlobal.DeepListMadnessTriggeredWhen.Find(x =>
+                            x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+
+                        if (madd != null)
+                        {
+                            if (madd.WhenToTrigger.Contains(game.RoundNo))
+                            {
+                                //trigger maddness
+
+                             var curr = _gameGlobal.DeepListMadnessList.Find(x =>
+                                    x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+                             //just check
+                             if (curr != null)
+                             {
+                                 _gameGlobal.DeepListMadnessList.Remove(curr);
+                             }
+
+                             _gameGlobal.DeepListMadnessList.Add(new DeepList.Madness(player.DiscordAccount.DiscordId, game.GameId, game.RoundNo));
+                             curr = _gameGlobal.DeepListMadnessList.Find(x => x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+                             curr.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.Intelligence, player.Character.Strength, player.Character.Speed, player.Character.Psyche));
+
+                             var intel = 0;
+                             var str = 0;
+                             var speed = 0;
+                             var pshy = 0;
+
+                             curr.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
+                            }
+                        }
+
+                        //end madness
 
                         break;
                 }
@@ -408,6 +439,32 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             }
 
 
+                        break;
+                    case "DeepList":
+                        
+                        //madness
+                        var madd = _gameGlobal.DeepListMadnessList.Find(x =>
+                            x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId && x.RoundItTriggered == game.RoundNo);
+
+                        if (madd != null)
+                        {
+                            var regularStats = madd.MadnessList.Find(x => x.Index == 1);
+                            var madStats = madd.MadnessList.Find(x => x.Index == 2);
+
+                                   
+                            var intel =  player.Character.Intelligence - madStats.Intel;
+                            var str = player.Character.Strength -  madStats.Str ;
+                            var speed = player.Character.Speed -  madStats.Speed ;
+                            var psy =  player.Character.Psyche - madStats.Psyche ;
+
+                                                                 
+                            player.Character.Intelligence = regularStats.Intel + intel;
+                            player.Character.Strength = regularStats.Str + str;
+                            player.Character.Speed = regularStats.Speed + speed;
+                            player.Character.Psyche = regularStats.Psyche + psy;
+                            _gameGlobal.DeepListMadnessList.Remove(madd);
+                        }
+                        // end madness 
                         break;
                 }
             }

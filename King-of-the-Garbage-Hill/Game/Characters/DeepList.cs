@@ -146,5 +146,42 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 KnownPlayers.Add(player2Id);
             }
         }
+
+        public class Madness
+        {
+            public ulong DiscordId;
+            public ulong GameId;
+            public int RoundItTriggered;
+            public List<MadnessSub> MadnessList;
+            public Madness(ulong discordId, ulong gameId, int roundItTriggered)
+            {
+                DiscordId = discordId;
+                GameId = gameId;
+                RoundItTriggered = roundItTriggered;
+            }
+
+            public Madness()
+            {
+
+            }
+        }
+
+        public class MadnessSub
+        {
+            public int Index;
+            public int Intel;
+            public int Str;
+            public int Speed;
+            public int Psyche;
+
+            public MadnessSub(int index, int intel, int str, int speed, int psyche)
+            {
+                Index = index;
+                Intel = intel;
+                Str = str;
+                Speed = speed;
+                Psyche = psyche;
+            }
+        }
     }
 }

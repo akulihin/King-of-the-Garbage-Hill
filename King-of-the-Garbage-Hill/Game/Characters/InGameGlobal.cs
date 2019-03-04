@@ -18,6 +18,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public readonly List<WhenToTriggerClass>
             DeepListMadnessTriggeredWhen = new List<WhenToTriggerClass>();
+        public readonly  List<DeepList.Madness> DeepListMadnessList = new List<DeepList.Madness>();
 
         public readonly List<DeepList.Mockery> DeepListMockeryList = new List<DeepList.Mockery>();
 
