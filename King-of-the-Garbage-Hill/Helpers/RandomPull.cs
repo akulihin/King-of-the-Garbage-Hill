@@ -247,13 +247,38 @@ namespace King_of_the_Garbage_Hill.Helpers
             return Task.CompletedTask;
         }
 
+
         public List<string> DeepListSuperMindPhrase = new List<string>();
-       
+        public List<string> MylorikPhrase = new List<string>();
+        public List<string> GlebPhrase = new List<string>();
+        public List<string> LeCrispPhrase = new List<string>();
+        public List<string> TolyaPhrase = new List<string>();
+
         public CharactersUniquePhrase()
         {
+     
             DeepListSuperMindPhrase.Add("Поделив энтропию на ноль, вы поняли, что ");
             DeepListSuperMindPhrase.Add("Используя свою дедукцию, вы поняли, что ");
             DeepListSuperMindPhrase.Add("Сложив 2+2, вы каким-то чудом догадались, что ");
+
+            MylorikPhrase.Add("Буль");
+
+            GlebPhrase.Add("А? БАРОН?!");
+            GlebPhrase.Add("Ща я покажу как надо");
+            GlebPhrase.Add("Глебка залетает!");
+            GlebPhrase.Add("В Претендентмобиль!");
+            GlebPhrase.Add("ЛИИИИРОЙ ДЖЕНКИНС");
+
+            LeCrispPhrase.Add("Я жру деньги!");
+            LeCrispPhrase.Add("Гребанные ассассины");
+            LeCrispPhrase.Add("Импакт!");
+            LeCrispPhrase.Add("шпещьмен");
+
+            TolyaPhrase.Add("Easy money");
+            TolyaPhrase.Add("Worth");
+            TolyaPhrase.Add("Ха! Подстчет!");
+
+
         }
     }
 }
