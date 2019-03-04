@@ -250,7 +250,7 @@ namespace King_of_the_Garbage_Hill.Helpers
 
         public List<string> DeepListSuperMindPhrase = new List<string>();
         public List<string> MylorikPhrase = new List<string>();
-        public List<string> GlebChallengerRUServerPhrase = new List<string>();
+        public List<string> GlebChallengerPhrase = new List<string>();
         public List<string> LeCrispJewPhrase = new List<string>();
         public List<string> LeCrispAssassinsPhrase = new List<string>();
         public List<string> LeCrispImpactPhrase = new List<string>();
@@ -266,11 +266,11 @@ namespace King_of_the_Garbage_Hill.Helpers
 
             MylorikPhrase.Add("Буль");
 
-            GlebChallengerRUServerPhrase.Add("А? БАРОН?!");
-            GlebChallengerRUServerPhrase.Add("Ща я покажу как надо");
-            GlebChallengerRUServerPhrase.Add("Глебка залетает!");
-            GlebChallengerRUServerPhrase.Add("В Претендентмобиль!");
-            GlebChallengerRUServerPhrase.Add("ЛИИИИРОЙ ДЖЕНКИНС");
+            GlebChallengerPhrase.Add("А? БАРОН?!");
+            GlebChallengerPhrase.Add("Ща я покажу как надо");
+            GlebChallengerPhrase.Add("Глебка залетает!");
+            GlebChallengerPhrase.Add("В Претендентмобиль!");
+            GlebChallengerPhrase.Add("ЛИИИИРОЙ ДЖЕНКИНС");
 
             LeCrispJewPhrase.Add("Я жру деньги!");
             LeCrispAssassinsPhrase.Add("Гребанные ассассины");
