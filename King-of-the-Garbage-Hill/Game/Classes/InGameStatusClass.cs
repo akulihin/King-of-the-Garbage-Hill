@@ -13,7 +13,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
        
         public IUserMessage SocketMessageFromBot { get; set; }
 
-        public int Score { get; set; }
+        private int Score { get; set; }
         public bool IsBlock { get; set; }
         public bool IsSkip { get; set; }
         public bool IsAbleToTurn { get; set; }
@@ -27,6 +27,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public int WonTimes { get; set; }
         public ulong IsWonLastTime { get; set; }
         public ulong IsLostLastTime { get; set; }
+        private int ScoresToGiveAtEndOfRound { get; set; }
 
         public InGameStatus()
         {
@@ -44,7 +45,48 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             IsWonLastTime = 0;
             IsLostLastTime = 0;
             IsSkip = false;
+            ScoresToGiveAtEndOfRound = 0;
         }
 
+        public void SetScoresToGiveAtEndOfRound(int score)
+        {
+            ScoresToGiveAtEndOfRound = score;
+        }
+
+        public void AddRegularPoints(int regularPoints)
+        {
+            ScoresToGiveAtEndOfRound += regularPoints;
+        }
+
+        public void AddBonusPoints(int bonusPoints)
+        {
+            ScoresToGiveAtEndOfRound += bonusPoints;
+        }
+
+        public int GetScoresToGiveAtEndOfRound()
+        {
+            return ScoresToGiveAtEndOfRound;
+        }
+
+        public void CombineRoundScoreAndGameScore()
+        {
+            AddScore(GetScoresToGiveAtEndOfRound());
+            SetScoresToGiveAtEndOfRound(0);
+        }
+
+        private void AddScore(int score)
+        {
+            Score += score;
+        }
+
+        public void SetScoreToThisNumber(int score)
+        {
+            Score = score;
+        }
+
+        public int GetScore()
+        {
+            return Score;
+        }
     }
 }

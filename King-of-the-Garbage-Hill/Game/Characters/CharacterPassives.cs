@@ -96,7 +96,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     {
                         player1.Status.IsAbleToWin = false;
                         var customMessage =
-                            _phrase.LeCrispJewPhrase[_rand.Random(0, _phrase.LeCrispAssassinsPhrase.Count - 1)];
+                            _phrase.LeCrispAssassinsPhrase[_rand.Random(0, _phrase.LeCrispAssassinsPhrase.Count - 1)];
                         await player1.Status.SocketMessageFromBot.Channel.SendMessageAsync(customMessage);
                     }
                     //end гребанные ассасисны
@@ -123,14 +123,16 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             switch (characterName)
             {
                 case "Глеб":
+                    // Я за чаем:
                     var rand = _rand.Random(1, 10);
                     if (rand == 1)
                     {
                         _gameGlobal.AllSkipTriggeredWhen.Add(new WhenToTriggerClass(player1.Status.WhoToAttackThisTurn, game.GameId,
                             game.RoundNo + 1));
-                        player1.Status.Score++;
+                        player1.Status.AddRegularPoints(1);
                         
                     }
+                    //end  Я за чаем:
                     break;
                 case "LeCrisp":
                     //Еврей
@@ -143,7 +145,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             if (player.Character.Name != "DeepList")
                             {
                                 //TODO, он забирает не все, а чуть чуть....
-                                player1.Status.Score++;
+                                player1.Status.AddRegularPoints(1);
 
                                 var customMessage =
                                     _phrase.LeCrispJewPhrase[_rand.Random(0, _phrase.LeCrispJewPhrase.Count - 1)];
@@ -586,7 +588,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                         }
                         else
                         {
-                            player.Status.Score++;
+                            player.Status.AddBonusPoints(1);
                         }
                         
                         //end impact

@@ -206,11 +206,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
        [RequireOwner]
        public async Task CheckSomething()
        {
-           var game = _global.GamesList[0];
-           var player =                    
-               game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id);
-           player.Status.Score++;
-           var ff = 0;
+    
        }
 
         [Command("updMaxRam")]

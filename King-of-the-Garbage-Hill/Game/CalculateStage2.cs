@@ -40,7 +40,7 @@ namespace King_of_the_Garbage_Hill.Game
             game.PreviousGameLogs = $"\n__**Раунд #{game.RoundNo}**__\n";
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
-                var pointsWined = 0;
+                var pointsWined = 0; 
                 var whereWonP1 = "(";
                 var whereWonP2 = "(";
                 var player = game.PlayersList[i];
@@ -190,7 +190,7 @@ namespace King_of_the_Garbage_Hill.Game
                 {
                     game.GameLogs += $" | ***{player.DiscordAccount.DiscordUserName}** победил {whereWonP1}*\n";
                     game.PreviousGameLogs += $" | ***{player.DiscordAccount.DiscordUserName}** победил {whereWonP1}*\n";
-                    player.Status.Score++;
+                    player.Status.AddRegularPoints(1);
                     player.Status.WonTimes++;
                     player.Character.Justice.IsWonThisRound = true;
 
@@ -204,7 +204,7 @@ namespace King_of_the_Garbage_Hill.Game
                     game.GameLogs += $" | ***{playerAttacked.DiscordAccount.DiscordUserName}** победил {whereWonP2}*\n";
                     game.PreviousGameLogs +=
                         $" | ***{playerAttacked.DiscordAccount.DiscordUserName}** победил {whereWonP2}*\n";
-                    playerAttacked.Status.Score++;
+                    playerAttacked.Status.AddRegularPoints(1);
                     player.Status.WonTimes++;
                     playerAttacked.Character.Justice.IsWonThisRound = true;
 
@@ -232,9 +232,6 @@ namespace King_of_the_Garbage_Hill.Game
 
             if (game.RoundNo == 1) game.TurnLengthInSecond -= 75;
 
-            var orderedPlayersList = game.PlayersList.OrderByDescending(x => x.Status.Score);
-            game.PlayersList = orderedPlayersList.ToList();
-
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
                 var player = game.PlayersList[i];
@@ -246,6 +243,9 @@ namespace King_of_the_Garbage_Hill.Game
                 player.Status.IsAbleToTurn = true;
                 player.Status.IsReady = false;
                 player.Status.WhoToAttackThisTurn = 0;
+                player.Status.CombineRoundScoreAndGameScore();
+
+
                 player.Status.MoveListPage = 1;
 
                 if (player.Character.Justice.IsWonThisRound)
@@ -265,6 +265,9 @@ namespace King_of_the_Garbage_Hill.Game
             game.RoundNo++;
             await _characterPassives.HandleNextRound(game);
 
+            
+            var orderedPlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore());
+            game.PlayersList = orderedPlayersList.ToList();
 
             for (var i = 0; i < game.PlayersList.Count; i++)
             {

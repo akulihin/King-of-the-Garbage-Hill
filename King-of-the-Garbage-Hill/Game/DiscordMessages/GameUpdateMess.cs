@@ -127,7 +127,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                 if (discordAccount.DiscordId == playersList[i].DiscordAccount.DiscordId)
                 {
-                    players += $" = {playersList[i].Status.Score}\n";
+                    players += $" = {playersList[i].Status.GetScore()}\n";
                 }
                 else
                 {

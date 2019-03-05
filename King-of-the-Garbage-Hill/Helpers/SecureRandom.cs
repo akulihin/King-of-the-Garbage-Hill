@@ -19,6 +19,11 @@ namespace King_of_the_Garbage_Hill.Helpers
 
         public int Random(int minValue, int maxExclusiveValue)
         {
+            if (minValue == maxExclusiveValue)
+            {
+                return minValue;
+            }
+
             if (minValue >= maxExclusiveValue)
                 throw new ArgumentOutOfRangeException("minValue must be lower than maxExclusiveValue");
             maxExclusiveValue += 1;

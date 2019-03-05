@@ -47,7 +47,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 player.Character.Strength--;
                 if (player.Status.IsWonLastTime != 0)
                 {
-                    player.Status.Score++;
+                    player.Status.AddRegularPoints(1);
                 }
             }
             //end Doubtful tactic
@@ -82,7 +82,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     if (currentDeepList2.Times % 2 != 0 && currentDeepList2.Times != 1)
                     {
                         player2.Character.Psyche--;
-                        player.Status.Score++;
+                        player.Status.AddRegularPoints(1);
                         if (player2.Character.Psyche < 4)
                         {
                             player2.Character.Justice.JusticeForNextRound--;
