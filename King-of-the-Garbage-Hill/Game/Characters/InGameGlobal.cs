@@ -10,6 +10,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
     {
         private readonly SecureRandom _rand;
 
+        public readonly List<LeCrisp.LeCrispImpactClass> LeCrispImpact = new List<LeCrisp.LeCrispImpactClass>();
 
         public readonly List<WhenToTriggerClass>
             AllSkipTriggeredWhen = new List<WhenToTriggerClass>();

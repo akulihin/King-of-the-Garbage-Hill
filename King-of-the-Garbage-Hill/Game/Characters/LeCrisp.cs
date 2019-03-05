@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Security.Cryptography.X509Certificates;
+using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Helpers;
@@ -22,12 +23,26 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public void HandleLeCrisp(GameBridgeClass player)
         {
-            throw new System.NotImplementedException();
+          //  throw new System.NotImplementedException();
         }
 
         public void HandleLeCrispAfter(GameBridgeClass player)
         {
-            throw new System.NotImplementedException();
+         //   throw new System.NotImplementedException();
+        }
+
+        public class LeCrispImpactClass
+        {
+            public ulong DiscordId;
+            public ulong GameId;
+            public int RoundNo;
+
+            public LeCrispImpactClass(ulong discordId, ulong gameId, int roundNo)
+            {
+                DiscordId = discordId;
+                GameId = gameId;
+                RoundNo = roundNo;
+            }
         }
     }
 }

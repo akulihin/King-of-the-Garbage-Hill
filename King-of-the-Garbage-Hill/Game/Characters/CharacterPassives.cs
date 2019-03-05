@@ -90,6 +90,27 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                         
                     }
                     break;
+                case "LeCrisp":
+                    //гребанные ассасисны
+                    if (player2.Character.Strength - player1.Character.Strength >= 2)
+                    {
+                        player1.Status.IsAbleToWin = false;
+                        var customMessage =
+                            _phrase.LeCrispJewPhrase[_rand.Random(0, _phrase.LeCrispAssassinsPhrase.Count - 1)];
+                        await player1.Status.SocketMessageFromBot.Channel.SendMessageAsync(customMessage);
+                    }
+                    //end гребанные ассасисны
+
+                    //Импакт: 
+                    var lePuska = _gameGlobal.LeCrispImpact.Find(x =>
+                        x.DiscordId == player1.DiscordAccount.DiscordId && x.GameId == game.GameId);
+
+                    if (lePuska == null)
+                    {
+                        _gameGlobal.LeCrispImpact.Add(new LeCrisp.LeCrispImpactClass(player1.DiscordAccount.DiscordId, game.GameId, game.RoundNo));
+                    }
+                    // end Импакт: 
+                    break;
 
             }
             await Task.CompletedTask;
@@ -110,6 +131,28 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                         player1.Status.Score++;
                         
                     }
+                    break;
+                case "LeCrisp":
+                    //Еврей
+                    foreach (var player in game.PlayersList)
+                    {
+                        if (player.Status.WhoToAttackThisTurn == player2.DiscordAccount.DiscordId &&
+                            player.DiscordAccount.DiscordId != player1.DiscordAccount.DiscordId)
+                        {
+                          
+                            if (player.Character.Name != "DeepList")
+                            {
+                                //TODO, он забирает не все, а чуть чуть....
+                                player1.Status.Score++;
+
+                                var customMessage =
+                                    _phrase.LeCrispJewPhrase[_rand.Random(0, _phrase.LeCrispJewPhrase.Count - 1)];
+                                await player1.Status.SocketMessageFromBot.Channel.SendMessageAsync(customMessage);
+                            }
+
+                        } 
+                    }
+                    //end Еврей
                     break;
             }
 
@@ -531,6 +574,23 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             player.Character.Psyche = regularStats.Psyche + psy;
                             _gameGlobal.GlebChallengerList.Remove(madd);
                         }
+                        break;
+                    case "LeCrisp":
+                        //impact
+
+                        var leImpact = _gameGlobal.LeCrispImpact.Find(x =>
+                            x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+                        if (leImpact != null)
+                        {
+                            _gameGlobal.LeCrispImpact.Remove(leImpact);
+                        }
+                        else
+                        {
+                            player.Status.Score++;
+                        }
+                        
+                        //end impact
+
                         break;
                 }
             }
