@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
+using King_of_the_Garbage_Hill.BotFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Helpers;
 
@@ -12,7 +13,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         private readonly HelperFunctions _help;
         private readonly SecureRandom _rand;
         private readonly InGameGlobal _gameGlobal;
-
+        private readonly LoginFromConsole _log;
         private readonly CharactersUniquePhrase _phrase;
         //end helpers
 
@@ -35,7 +36,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         
         public CharacterPassives(SecureRandom rand, HelperFunctions help, Awdka awdka, DeepList deepList,
             DeepList2 deepList2, Gleb gleb, HardKitty hardKitty, Mitsuki mitsuki, LeCrisp leCrisp, Mylorik mylorik,
-            Octopus octopus, Shark shark, Sirinoks sirinoks, Tigr tigr, Tolya tolya, InGameGlobal gameGlobal, Darksci darksci, CharactersUniquePhrase phrase)
+            Octopus octopus, Shark shark, Sirinoks sirinoks, Tigr tigr, Tolya tolya, InGameGlobal gameGlobal, Darksci darksci, CharactersUniquePhrase phrase, LoginFromConsole log)
         {
             _rand = rand;
             _help = help;
@@ -55,6 +56,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             _gameGlobal = gameGlobal;
             _darksci = darksci;
             _phrase = phrase;
+            _log = log;
         }
 
         public Task InitializeAsync() => Task.CompletedTask;
@@ -155,6 +157,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                         } 
                     }
                     //end Еврей
+
+
                     break;
             }
 
@@ -517,13 +521,17 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 }
             }
 
-            await Task.CompletedTask;
+     
         }
 
         public async Task HandleEndOfRound(GameClass game)
         {
             foreach (var player in game.PlayersList)
             {
+                if (player == null)
+                {
+                    _log.Critical("HandleEndOfRound - player == null");
+                }
                 var characterName = player.Character.Name;
                 switch (characterName)
                 {

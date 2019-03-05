@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Linq;
 
-namespace King_of_the_Garbage_Hill.DiscordFramework.Extensions
+namespace King_of_the_Garbage_Hill.BotFramework.Extensions
 {
     public enum PluralRules
     {

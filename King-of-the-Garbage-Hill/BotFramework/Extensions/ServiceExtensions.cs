@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace King_of_the_Garbage_Hill.DiscordFramework.Extensions
+namespace King_of_the_Garbage_Hill.BotFramework.Extensions
 {
     public static class ServiceExtensions
     {

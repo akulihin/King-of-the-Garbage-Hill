@@ -28,7 +28,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public void HandleLeCrispAfter(GameBridgeClass player)
         {
-         //   throw new System.NotImplementedException();
+            player.Status.IsAbleToWin = true;
         }
 
         public class LeCrispImpactClass

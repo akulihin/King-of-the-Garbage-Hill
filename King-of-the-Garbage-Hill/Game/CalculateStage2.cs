@@ -69,13 +69,13 @@ namespace King_of_the_Garbage_Hill.Game
 
                 await _characterPassives.HandleCharacterBeforeCalculations(playerAttacked, game);
 
-                //player = gleb
+                                                            //player = LeCrisp
                 await _characterPassives.HandleEveryAttackOnMe(player , playerAttacked, game);
                 await _characterPassives.HandleEveryAttackFromMe(player, playerAttacked, game);
 
                 if (playerAttacked.Status.WhoToAttackThisTurn == 0 && playerAttacked.Status.IsBlock == false)
                     playerAttacked.Status.IsBlock = true;
-                if (!playerAttacked.Status.IsAbleToWin) pointsWined = 5;
+                if (!playerAttacked.Status.IsAbleToWin) pointsWined = 50;
 
                 game.GameLogs +=
                     $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerAttacked.DiscordAccount.DiscordUserName}**";
@@ -232,18 +232,20 @@ namespace King_of_the_Garbage_Hill.Game
 
             if (game.RoundNo == 1) game.TurnLengthInSecond -= 75;
 
+
+
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
                 var player = game.PlayersList[i];
 
-                player.Status.PlaceAtLeaderBoard = i + 1;
+       
                 player.Status.IsBlock = false;
                 player.Status.IsAbleToWin = true;
                 player.Status.IsSkip = false;
                 player.Status.IsAbleToTurn = true;
                 player.Status.IsReady = false;
                 player.Status.WhoToAttackThisTurn = 0;
-                player.Status.CombineRoundScoreAndGameScore();
+                player.Status.CombineRoundScoreAndGameScore(game.RoundNo);
 
 
                 player.Status.MoveListPage = 1;
@@ -266,14 +268,18 @@ namespace King_of_the_Garbage_Hill.Game
             await _characterPassives.HandleNextRound(game);
 
             
-            var orderedPlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore());
-            game.PlayersList = orderedPlayersList.ToList();
+            game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+
 
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
                 if (game.RoundNo == 3 || game.RoundNo == 5 || game.RoundNo == 7 || game.RoundNo == 9)
+                {
                     game.PlayersList[i].Status.MoveListPage = 3;
+                }
+           
 
+                game.PlayersList[i].Status.PlaceAtLeaderBoard = i + 1;
                 await _upd.UpdateMessage(game.PlayersList[i]);
             }
 

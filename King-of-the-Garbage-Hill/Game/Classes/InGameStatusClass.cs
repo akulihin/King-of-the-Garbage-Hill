@@ -4,31 +4,6 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 {
     public class InGameStatus
     {
-        public int MoveListPage { get; set; }
-        /*
-         * 1 = main page ( your character + leaderboard)
-         * 2 = Log   
-         * 3 = lvlUp     (what stat to update)
-         */
-       
-        public IUserMessage SocketMessageFromBot { get; set; }
-
-        private int Score { get; set; }
-        public bool IsBlock { get; set; }
-        public bool IsSkip { get; set; }
-        public bool IsAbleToTurn { get; set; }
-        public bool IsAbleToWin{ get; set; }
-        public int PlaceAtLeaderBoard { get; set; }
-
-        public ulong WhoToAttackThisTurn { get; set; }
-    
-
-        public bool IsReady { get; set; }
-        public int WonTimes { get; set; }
-        public ulong IsWonLastTime { get; set; }
-        public ulong IsLostLastTime { get; set; }
-        private int ScoresToGiveAtEndOfRound { get; set; }
-
         public InGameStatus()
         {
             MoveListPage = 1;
@@ -38,7 +13,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             IsAbleToTurn = true;
             PlaceAtLeaderBoard = 0;
             WhoToAttackThisTurn = 0;
-        
+
             IsReady = false;
             IsAbleToWin = true;
             WonTimes = 0;
@@ -47,6 +22,31 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             IsSkip = false;
             ScoresToGiveAtEndOfRound = 0;
         }
+
+        public int MoveListPage { get; set; }
+        /*
+         * 1 = main page ( your character + leaderboard)
+         * 2 = Log   
+         * 3 = lvlUp     (what stat to update)
+         */
+
+        public IUserMessage SocketMessageFromBot { get; set; }
+
+        private int Score { get; set; }
+        public bool IsBlock { get; set; }
+        public bool IsSkip { get; set; }
+        public bool IsAbleToTurn { get; set; }
+        public bool IsAbleToWin { get; set; }
+        public int PlaceAtLeaderBoard { get; set; }
+
+        public ulong WhoToAttackThisTurn { get; set; }
+
+
+        public bool IsReady { get; set; }
+        public int WonTimes { get; set; }
+        public ulong IsWonLastTime { get; set; }
+        public ulong IsLostLastTime { get; set; }
+        private int ScoresToGiveAtEndOfRound { get; set; }
 
         public void SetScoresToGiveAtEndOfRound(int score)
         {
@@ -68,14 +68,26 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             return ScoresToGiveAtEndOfRound;
         }
 
-        public void CombineRoundScoreAndGameScore()
+        public void CombineRoundScoreAndGameScore(int roundNumber)
         {
-            AddScore(GetScoresToGiveAtEndOfRound());
+            AddScore(GetScoresToGiveAtEndOfRound(), roundNumber);
             SetScoresToGiveAtEndOfRound(0);
         }
 
-        private void AddScore(int score)
+        private void AddScore(int score, int roundNumber)
         {
+            /*
+            1-4 х1
+            5-9 х2
+            10 х4
+            */
+            if (roundNumber <= 4)
+                score = score * 1; // Why????????????????????????
+            else if (roundNumber <= 9)
+                score = score * 2;
+            else if (roundNumber == 10) 
+                score = score * 4;
+
             Score += score;
         }
 

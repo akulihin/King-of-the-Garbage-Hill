@@ -152,7 +152,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             public ulong DiscordId;
             public ulong GameId;
             public int RoundItTriggered;
-            public List<MadnessSub> MadnessList;
+            public List<MadnessSub> MadnessList = new List<MadnessSub>();
             public Madness(ulong discordId, ulong gameId, int roundItTriggered)
             {
                 DiscordId = discordId;

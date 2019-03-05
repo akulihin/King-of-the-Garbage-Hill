@@ -2,7 +2,7 @@
 using Discord;
 using Discord.Commands;
 
-namespace King_of_the_Garbage_Hill.DiscordFramework.Extensions
+namespace King_of_the_Garbage_Hill.BotFramework.Extensions
 {
    public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
    {

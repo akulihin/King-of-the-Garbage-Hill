@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
-using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
+using King_of_the_Garbage_Hill.BotFramework.Extensions;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
@@ -188,6 +188,9 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
          
             var game = new GameClass(playersList,  _global.GamePlayingAndId);
+
+            await _characterPassives.HandleNextRound(game);
+    
 
             foreach (var t in playersList)
             {

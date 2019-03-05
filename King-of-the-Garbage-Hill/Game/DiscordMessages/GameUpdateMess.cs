@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Discord;
@@ -119,6 +120,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var game = _global.GamesList.Find(x => x.GameId == discordAccount.GameId);
             var players = "";
             var playersList = game.PlayersList;
+
             for (var i = 0; i < playersList.Count; i++)
             {
                 players += $"{i + 1}. {playersList[i].DiscordAccount.DiscordUserName}";
