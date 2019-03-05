@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.BotFramework.Extensions;
+using King_of_the_Garbage_Hill.Game;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
@@ -203,6 +203,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             game.TimePassed.Start();
             _global.GamePlayingAndId++;
             _global.GamesList.Add(game);
+            _global.IsTimerToCheckEnabled.Add(new CheckIfReady.IsTimerToCheckEnabledClass(game.GameId));
         }
        
        [Command("cc")]

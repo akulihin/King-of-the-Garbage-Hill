@@ -92,12 +92,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         break;
 
                     default:
-                        if (!status.IsAbleToTurn)
-                        {
-                            var mess = await reaction.Channel.SendMessageAsync("Ходить нельзя, пока идет подсчёт.");
-                            await _help.DeleteMessOverTime(mess, 6);
-                            return;
-                        }
+
 
 
                         var emoteNum = GetNumberFromEmote(reaction);
@@ -106,6 +101,13 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         {
                             await GetLvlUp(gameBridge, emoteNum);
                             break;
+                        }
+else
+                        if (!status.IsAbleToTurn)
+                        {
+                            var mess = await reaction.Channel.SendMessageAsync("Ходить нельзя, пока идет подсчёт.");
+                            await _help.DeleteMessOverTime(mess, 6);
+                            return;
                         }
 
                         if (status.MoveListPage == 2)

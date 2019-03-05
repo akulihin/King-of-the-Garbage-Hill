@@ -62,9 +62,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public Task InitializeAsync() => Task.CompletedTask;
 
         //общее говно
-        public async Task HandleEveryAttackOnMe(GameBridgeClass player1, GameBridgeClass player2, GameClass game)
+        public async Task HandleEveryAttackOnHim(GameBridgeClass playerGotAttack, GameBridgeClass playerAttackFrom, GameClass game)
         {
-            var characterName = player1.Character.Name;
+            var characterName = playerGotAttack.Character.Name;
 
             switch (characterName)
             {
@@ -73,7 +73,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     if (rand == 1)
                     {
                         var acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
-                            x.DiscordId == player1.DiscordAccount.DiscordId && player1.DiscordAccount.GameId == x.GameId);
+                            x.DiscordId == playerGotAttack.DiscordAccount.DiscordId && playerGotAttack.DiscordAccount.GameId == x.GameId);
 
                         if (acc != null)
                         {
@@ -83,10 +83,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             }
                         }
 
-                        if (!player1.Status.IsSkip)
+                        if (!playerGotAttack.Status.IsSkip)
                         {
-                            player1.Status.IsSkip = true;
-                            _gameGlobal.GlebSkipList.Add(new Gleb.GlebSkipClass(player1.DiscordAccount.DiscordId, game.GameId));
+                            playerGotAttack.Status.IsSkip = true;
+                            _gameGlobal.GlebSkipList.Add(new Gleb.GlebSkipClass(playerGotAttack.DiscordAccount.DiscordId, game.GameId));
 
                         }
                         
@@ -94,22 +94,23 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     break;
                 case "LeCrisp":
                     //гребанные ассасисны
-                    if (player2.Character.Strength - player1.Character.Strength >= 2)
+                    if (playerAttackFrom.Character.Strength - playerGotAttack.Character.Strength >= 2)
                     {
-                        player1.Status.IsAbleToWin = false;
+                        playerGotAttack.Status.IsAbleToWin = false;
                         var customMessage =
                             _phrase.LeCrispAssassinsPhrase[_rand.Random(0, _phrase.LeCrispAssassinsPhrase.Count - 1)];
-                        await player1.Status.SocketMessageFromBot.Channel.SendMessageAsync(customMessage);
+                     var mess  =   await playerGotAttack.Status.SocketMessageFromBot.Channel.SendMessageAsync(customMessage);
+                     _help.DeleteMessOverTime(mess, 10);
                     }
                     //end гребанные ассасисны
 
                     //Импакт: 
                     var lePuska = _gameGlobal.LeCrispImpact.Find(x =>
-                        x.DiscordId == player1.DiscordAccount.DiscordId && x.GameId == game.GameId);
+                        x.DiscordId == playerGotAttack.DiscordAccount.DiscordId && x.GameId == game.GameId);
 
                     if (lePuska == null)
                     {
-                        _gameGlobal.LeCrispImpact.Add(new LeCrisp.LeCrispImpactClass(player1.DiscordAccount.DiscordId, game.GameId, game.RoundNo));
+                        _gameGlobal.LeCrispImpact.Add(new LeCrisp.LeCrispImpactClass(playerGotAttack.DiscordAccount.DiscordId, game.GameId, game.RoundNo));
                     }
                     // end Импакт: 
                     break;
@@ -135,6 +136,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                         
                     }
                     //end  Я за чаем:
+
+
+
                     break;
                 case "LeCrisp":
                     //Еврей
@@ -337,7 +341,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                 player.Status.WhoToAttackThisTurn = 0;
                                 var mess = await player.Status.SocketMessageFromBot.Channel
                                     .SendMessageAsync("Ты буль.");
-                                await _help.DeleteMessOverTime(mess, 15);
+                                 _help.DeleteMessOverTime(mess, 15);
                             }
 
                         break;
@@ -356,7 +360,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                 player.Status.WhoToAttackThisTurn = 0;
                                 var mess =
                                     await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Ты уснул.");
-                                await _help.DeleteMessOverTime(mess, 15);
+                                 _help.DeleteMessOverTime(mess, 15);
                             }
 
                         //Претендент русского сервера: 
@@ -401,7 +405,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                 var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
                                     customMess);
 
-                                await _help.DeleteMessOverTime(mess, 15);
+                                 _help.DeleteMessOverTime(mess, 15);
                             }
 
                         break;
@@ -453,7 +457,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                     $"Его статы: Cила {randPlayer.Character.Strength}, Скорость {randPlayer.Character.Speed}" +
                                     $", Ум {randPlayer.Character.Intelligence}");
 
-                                await _help.DeleteMessOverTime(mess, 45);
+                                 _help.DeleteMessOverTime(mess, 45);
                             }
                         }
                         else
@@ -517,7 +521,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     player.Status.WhoToAttackThisTurn = 0;
                     var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
                         "Тебя заставили пропустить этот ход");
-                    await _help.DeleteMessOverTime(mess, 15);
+                     _help.DeleteMessOverTime(mess, 15);
                 }
             }
 

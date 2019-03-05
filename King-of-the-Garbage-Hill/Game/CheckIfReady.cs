@@ -10,7 +10,7 @@ namespace King_of_the_Garbage_Hill.Game
         private readonly Global _global;
         private readonly GameUpdateMess _upd;
         private readonly CalculateStage2 _stage2;
-        private bool _isTimerToCheckEnabled = true;
+       
 
         public CheckIfReady(Global global, GameUpdateMess upd, CalculateStage2 stage2)
         {
@@ -36,14 +36,17 @@ namespace King_of_the_Garbage_Hill.Game
             return Task.CompletedTask;
         }
 
-        public async void CheckIfEveryoneIsReady(object sender, ElapsedEventArgs e)
+        private async void CheckIfEveryoneIsReady(object sender, ElapsedEventArgs e)
         {
-            if (!_isTimerToCheckEnabled){return;}
+       
 
             var games = _global.GamesList;
             for (var i = 0; i < games.Count; i++)
             {
                 var game = games[i];
+                var isTimerToCheckEnabled = _global.IsTimerToCheckEnabled.Find(x => x.GameId == game.GameId)
+                    .IsTimerToCheckEnabled;
+                if (!isTimerToCheckEnabled){return;}
 
                 var players = _global.GamesList[i].PlayersList;
                 var readyTargetCount = players.Count;
@@ -70,16 +73,43 @@ namespace King_of_the_Garbage_Hill.Game
 
                 if ((readyCount == readyTargetCount || game.TimePassed.Elapsed.TotalSeconds >=  game.TurnLengthInSecond) &&  game.GameStatus == 1)
                 {
-                    _isTimerToCheckEnabled = false;
-                  await  _stage2.DeepListMind(game);
-                    _isTimerToCheckEnabled = true;
+                    _global.IsTimerToCheckEnabled.Find(x => x.GameId == game.GameId)
+                        .IsTimerToCheckEnabled = false;
+
+
+                    for (var k = 0; k < players.Count; k++)
+                    {
+              
+     
+                        if (players[k].Status.SocketMessageFromBot != null)
+                        {
+                                await _upd.UpdateMessage(players[k]);
+                        }
+                    }
+
+
+
+                   await  _stage2.DeepListMind(game);
+                   _global.IsTimerToCheckEnabled.Find(x => x.GameId == game.GameId)
+                       .IsTimerToCheckEnabled = true;
 
                 }
             }
-            await Task.CompletedTask;
         }
 
         public Task InitializeAsync()
             => Task.CompletedTask;
+
+        public class IsTimerToCheckEnabledClass
+        {
+            public bool IsTimerToCheckEnabled;
+            public ulong GameId;
+
+            public IsTimerToCheckEnabledClass(ulong gameId)
+            {
+                IsTimerToCheckEnabled = true;
+                GameId = gameId;
+            }
+        }
     }
 }

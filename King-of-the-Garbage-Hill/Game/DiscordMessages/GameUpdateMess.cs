@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Discord;
@@ -23,6 +22,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         private readonly Global _global;
         private readonly AwaitForUserMessage _awaitForUser;
         private readonly InGameGlobal _gameGlobal;
+  
 
         public GameUpdateMess(UserAccounts accounts, Global global, AwaitForUserMessage awaitForUser, InGameGlobal gameGlobal)
         {
@@ -30,6 +30,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             _global = global;
             _awaitForUser = awaitForUser;
             _gameGlobal = gameGlobal;
+          
         }
 
 
@@ -310,13 +311,20 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         public string GetTimeLeft(DiscordAccountClass discordAccount)
         {
             var game = _global.GamesList.Find(x => x.GameId == discordAccount.GameId);
+
+            if (!_global.IsTimerToCheckEnabled.Find( x => x.GameId == game.GameId).IsTimerToCheckEnabled)
+            {
+                return $"Ведется подсчёт, пожалуйста подожди... • ход #{game.RoundNo}";
+            }
+
+          
             if (game.GameStatus == 1)
             {
                 return "Времени осталось: " + (int) (game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds) +
                        $"сек. • ход #{game.RoundNo}";
             }
 
-            return $"Ведется подсчёт... • ход #{game.RoundNo}";
+            return $"Ведется подсчёт, пожалуйста подожди... • ход #{game.RoundNo}";
         }
 
         private bool IsImageUrl(string url)

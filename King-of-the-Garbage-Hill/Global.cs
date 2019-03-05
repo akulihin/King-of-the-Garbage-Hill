@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Discord.WebSocket;
+using King_of_the_Garbage_Hill.Game;
 using King_of_the_Garbage_Hill.Game.Classes;
 
 namespace King_of_the_Garbage_Hill
@@ -38,6 +39,7 @@ namespace King_of_the_Garbage_Hill
 
 
         public List<GameClass> GamesList;
+        public List<CheckIfReady.IsTimerToCheckEnabledClass> IsTimerToCheckEnabled = new List<CheckIfReady.IsTimerToCheckEnabledClass>();
 
 
         public GameBridgeClass GetGameAccount(ulong userId, ulong gameId)
