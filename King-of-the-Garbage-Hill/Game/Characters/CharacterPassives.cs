@@ -300,13 +300,17 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                         _gameGlobal.GlebSleepingTriggeredWhen.Add(when);
 
                         //challenger when
-                        int[] temp = {-1, -1, -1};
+                        int[] temp = {-1, -1, -1, -1, -1};
                         if (when.WhenToTrigger.Count >= 1)
                             temp[0] = when.WhenToTrigger[0];
                         if (when.WhenToTrigger.Count >= 2)
                             temp[1] = when.WhenToTrigger[1];
                         if (when.WhenToTrigger.Count >= 3)
                             temp[2] = when.WhenToTrigger[2];
+                        if (when.WhenToTrigger.Count >= 4)
+                            temp[3] = when.WhenToTrigger[3];
+                        if (when.WhenToTrigger.Count >= 5)
+                            temp[4] = when.WhenToTrigger[4];
                         do
                         {
                             when = _gameGlobal.GetWhenToTrigger(player, true, 12, 3, true);
