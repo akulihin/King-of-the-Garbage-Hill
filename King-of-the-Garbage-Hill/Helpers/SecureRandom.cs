@@ -25,6 +25,7 @@ namespace King_of_the_Garbage_Hill.Helpers
             }
 
             if (minValue >= maxExclusiveValue)
+                // ReSharper disable once NotResolvedInText its ok.
                 throw new ArgumentOutOfRangeException("minValue must be lower than maxExclusiveValue");
             maxExclusiveValue += 1;
             var diff = (long)maxExclusiveValue - minValue;

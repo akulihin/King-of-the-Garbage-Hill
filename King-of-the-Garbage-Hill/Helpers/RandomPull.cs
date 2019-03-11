@@ -256,6 +256,7 @@ namespace King_of_the_Garbage_Hill.Helpers
         public List<string> LeCrispImpactPhrase = new List<string>();
         public List<string> TolyaJewPhrase = new List<string>();
         public List<string> TolyaCountPhrase = new List<string>();
+        public List<string> TolyaRammusPhrase = new List<string>();
 
         public CharactersUniquePhrase()
         {
@@ -280,8 +281,9 @@ namespace King_of_the_Garbage_Hill.Helpers
             TolyaJewPhrase.Add("Easy money");
             TolyaJewPhrase.Add("Worth");
             TolyaCountPhrase.Add("Ха! Подстчет!");
-
-
+            TolyaRammusPhrase.Add("Okay.");
+            TolyaRammusPhrase.Add("Hm.");
+            TolyaRammusPhrase.Add("Я живу и горю");
         }
     }
 }

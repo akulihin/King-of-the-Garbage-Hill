@@ -47,7 +47,7 @@ namespace King_of_the_Garbage_Hill.Game
 
                 await _characterPassives.HandleCharacterBeforeCalculations(player, game);
 
-                if (!player.Status.IsAbleToWin) pointsWined = -5;
+                
 
 
                 if (player.Status.WhoToAttackThisTurn == 0 && player.Status.IsBlock == false)
@@ -76,6 +76,7 @@ namespace King_of_the_Garbage_Hill.Game
                     //т.е. я его аттакую, какие у меня бонусы на это
                 await _characterPassives.HandleEveryAttackFromMe(player, playerIamAttacking, game);
 
+                if (!player.Status.IsAbleToWin) pointsWined = -50;
                 if (playerIamAttacking.Status.WhoToAttackThisTurn == 0 && playerIamAttacking.Status.IsBlock == false)
                     playerIamAttacking.Status.IsBlock = true;
                 if (!playerIamAttacking.Status.IsAbleToWin) pointsWined = 50;
@@ -88,9 +89,14 @@ namespace King_of_the_Garbage_Hill.Game
 
                 if (playerIamAttacking.Status.IsBlock)
                 {
-                    game.GameLogs += " | *Бой не состоялся...*\n";
-                    game.PreviousGameLogs += " | *Бой не состоялся...*\n";
+                  // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
+               
+                     var  logMess = " | *Бой не состоялся...*\n";
+                  
+                    game.GameLogs += logMess;
+                    game.PreviousGameLogs += logMess;
 
+                    
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
                     await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
 
@@ -193,7 +199,13 @@ namespace King_of_the_Garbage_Hill.Game
                 {
                     game.GameLogs += $" | ***{player.DiscordAccount.DiscordUserName}** победил {whereWonP1}*\n";
                     game.PreviousGameLogs += $" | ***{player.DiscordAccount.DiscordUserName}** победил {whereWonP1}*\n";
-                    player.Status.AddRegularPoints(1);
+
+                    //еврей
+                    var point = _characterPassives.HandleJewPassive(player, game);
+                    //end еврей
+
+                    player.Status.AddRegularPoints(point.Result);
+
                     player.Status.WonTimes++;
                     player.Character.Justice.IsWonThisRound = true;
 

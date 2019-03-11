@@ -62,9 +62,15 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public Task InitializeAsync() => Task.CompletedTask;
 
         //общее говно
-        public async Task HandleEveryAttackOnHim(GameBridgeClass playerGotAttack, GameBridgeClass playerAttackFrom, GameClass game)
+        public async Task HandleEveryAttackOnHim(GameBridgeClass playerIamAttacking, GameBridgeClass playerAttackFrom, GameClass game)
         {
-            var characterName = playerGotAttack.Character.Name;
+            var characterName = playerIamAttacking.Character.Name;
+
+            //еврей
+
+           //end еврей
+
+
 
             switch (characterName)
             {
@@ -73,7 +79,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     if (rand == 1)
                     {
                         var acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
-                            x.DiscordId == playerGotAttack.DiscordAccount.DiscordId && playerGotAttack.DiscordAccount.GameId == x.GameId);
+                            x.DiscordId == playerIamAttacking.DiscordAccount.DiscordId && playerIamAttacking.DiscordAccount.GameId == x.GameId);
 
                         if (acc != null)
                         {
@@ -83,10 +89,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             }
                         }
 
-                        if (!playerGotAttack.Status.IsSkip)
+                        if (!playerIamAttacking.Status.IsSkip)
                         {
-                            playerGotAttack.Status.IsSkip = true;
-                            _gameGlobal.GlebSkipList.Add(new Gleb.GlebSkipClass(playerGotAttack.DiscordAccount.DiscordId, game.GameId));
+                            playerIamAttacking.Status.IsSkip = true;
+                            _gameGlobal.GlebSkipList.Add(new Gleb.GlebSkipClass(playerIamAttacking.DiscordAccount.DiscordId, game.GameId));
 
                         }
                         
@@ -94,25 +100,41 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     break;
                 case "LeCrisp":
                     //гребанные ассасисны
-                    if (playerAttackFrom.Character.Strength - playerGotAttack.Character.Strength >= 2)
+                    if (playerAttackFrom.Character.Strength - playerIamAttacking.Character.Strength >= 2)
                     {
-                        playerGotAttack.Status.IsAbleToWin = false;
+                        playerIamAttacking.Status.IsAbleToWin = false;
                         var customMessage =
                             _phrase.LeCrispAssassinsPhrase[_rand.Random(0, _phrase.LeCrispAssassinsPhrase.Count - 1)];
-                     var mess  =   await playerGotAttack.Status.SocketMessageFromBot.Channel.SendMessageAsync(customMessage);
+                     var mess  =   await playerIamAttacking.Status.SocketMessageFromBot.Channel.SendMessageAsync(customMessage);
+#pragma warning disable 4014
                      _help.DeleteMessOverTime(mess, 10);
+#pragma warning restore 4014
                     }
                     //end гребанные ассасисны
 
                     //Импакт: 
                     var lePuska = _gameGlobal.LeCrispImpact.Find(x =>
-                        x.DiscordId == playerGotAttack.DiscordAccount.DiscordId && x.GameId == game.GameId);
+                        x.DiscordId == playerIamAttacking.DiscordAccount.DiscordId && x.GameId == game.GameId);
 
                     if (lePuska == null)
                     {
-                        _gameGlobal.LeCrispImpact.Add(new LeCrisp.LeCrispImpactClass(playerGotAttack.DiscordAccount.DiscordId, game.GameId, game.RoundNo));
+                        _gameGlobal.LeCrispImpact.Add(new LeCrisp.LeCrispImpactClass(playerIamAttacking.DiscordAccount.DiscordId, game.GameId, game.RoundNo));
                     }
                     // end Импакт: 
+                    break;
+
+                case "Толя":
+                    if (playerIamAttacking.Status.IsBlock)
+                    {
+                        playerIamAttacking.Status.IsBlock = false;
+                        playerAttackFrom.Status.IsAbleToWin = false;
+
+                        var  messs = await playerIamAttacking.Status.SocketMessageFromBot.Channel.SendMessageAsync(_phrase.TolyaRammusPhrase[_rand.Random(0, _phrase.TolyaRammusPhrase.Count-1)]);
+#pragma warning disable 4014
+                        _help.DeleteMessOverTime(messs, 10);
+#pragma warning restore 4014
+                    }
+
                     break;
 
             }
@@ -137,30 +159,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     }
                     //end  Я за чаем:
 
-
-
-                    break;
-                case "LeCrisp":
-                    //Еврей
-                    foreach (var player in game.PlayersList)
-                    {
-                        if (player.Status.WhoToAttackThisTurn == player2.DiscordAccount.DiscordId &&
-                            player.DiscordAccount.DiscordId != player1.DiscordAccount.DiscordId)
-                        {
-                          
-                            if (player.Character.Name != "DeepList")
-                            {
-                                //TODO, он забирает не все, а чуть чуть....
-                                player1.Status.AddRegularPoints(1);
-
-                                var customMessage =
-                                    _phrase.LeCrispJewPhrase[_rand.Random(0, _phrase.LeCrispJewPhrase.Count - 1)];
-                                await player1.Status.SocketMessageFromBot.Channel.SendMessageAsync(customMessage);
-                            }
-
-                        } 
-                    }
-                    //end Еврей
 
 
                     break;
@@ -409,7 +407,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                 var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
                                     customMess);
 
-                                 _help.DeleteMessOverTime(mess, 15);
+#pragma warning disable 4014
+                                _help.DeleteMessOverTime(mess, 15);
+#pragma warning restore 4014
                             }
 
                         break;
@@ -461,7 +461,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                     $"Его статы: Cила {randPlayer.Character.Strength}, Скорость {randPlayer.Character.Speed}" +
                                     $", Ум {randPlayer.Character.Intelligence}");
 
-                                 _help.DeleteMessOverTime(mess, 45);
+#pragma warning disable 4014
+                                _help.DeleteMessOverTime(mess, 45);
+#pragma warning restore 4014
                             }
                         }
                         else
@@ -610,6 +612,18 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                         //end impact
 
                         break;
+
+                    case "Толя":
+                        if (game.RoundNo >= 3 && game.RoundNo <= 6)
+                        {
+                            var randNum = _rand.Random(1, 5);
+                            if (randNum == 1)
+                            {
+                                var randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
+                                game.GameLogs += $"Толя запизделся и спалил, что {randomPlayer.DiscordAccount.DiscordUserName} - {randomPlayer.Character.Name}";
+                            }
+                        }
+                        break;
                 }
             }
 
@@ -617,5 +631,86 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         }
 
         //end общие говно
+
+        public async Task<int> HandleJewPassive(GameBridgeClass player, GameClass game)
+        {
+
+            if (game.PlayersList.Any(x => x.Character.Name == "LeCrisp" || x.Character.Name == "Толя"))
+            {
+                if (player.Character.Name == "LeCrisp" || player.Character.Name == "Толя")
+                {
+                    return 1;
+                }
+
+                var leCrisp = game.PlayersList.Find(x => x.Character.Name == "LeCrisp");
+                var tolya = game.PlayersList.Find(x => x.Character.Name == "Толя");
+
+
+                if (leCrisp != null && tolya != null)
+                {
+                    if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn && tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
+                    {
+                        if (game.RoundNo > 4)
+                        {
+                            leCrisp.Status.AddRegularPoints(0.5);
+                            tolya.Status.AddRegularPoints(0.5);
+                            var mess =
+                                await leCrisp.Status.SocketMessageFromBot.Channel.SendMessageAsync("МЫ жрём деньги!");
+#pragma warning disable 4014
+                            _help.DeleteMessOverTime(mess, 10);
+#pragma warning restore 4014
+                            mess =
+                                await tolya.Status.SocketMessageFromBot.Channel.SendMessageAsync("МЫ жрём деньги!");
+#pragma warning disable 4014
+                             _help.DeleteMessOverTime(mess, 10);
+#pragma warning restore 4014
+                             return 0;
+                        }
+                            return 1;
+                    }
+                }
+
+                if (leCrisp != null)
+                {
+                    if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
+                    {
+                        leCrisp.Status.AddRegularPoints(1);
+                        var mess = await leCrisp.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                            _phrase.LeCrispJewPhrase[_rand.Random(0, _phrase.LeCrispJewPhrase.Count - 1)]);
+#pragma warning disable 4014
+                        _help.DeleteMessOverTime(mess, 10);
+#pragma warning restore 4014
+                        return 0;
+                    }
+                }
+
+                if (tolya != null)
+                {
+                    if (tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
+                    {
+                        tolya.Status.AddRegularPoints(1);
+                        var mess = await tolya.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                            _phrase.TolyaJewPhrase[_rand.Random(0, _phrase.TolyaJewPhrase.Count - 1)]);
+#pragma warning disable 4014
+                        _help.DeleteMessOverTime(mess, 10);
+#pragma warning restore 4014
+                        return 0;
+                    }
+                }
+            }
+
+            return 1;
+        }
+
+        /*
+        public async Task<string> HandleBlock(GameBridgeClass player, GameBridgeClass playerIamAttacking, GameClass game)
+        {
+            switch (playerIamAttacking.Character.Name)
+            {
+             case "Толя":
+                 break;
+            }
+        }
+        */
     }
 }

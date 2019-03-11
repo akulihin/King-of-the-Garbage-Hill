@@ -46,11 +46,16 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public int WonTimes { get; set; }
         public ulong IsWonLastTime { get; set; }
         public ulong IsLostLastTime { get; set; }
-        private int ScoresToGiveAtEndOfRound { get; set; }
+        private double ScoresToGiveAtEndOfRound { get; set; }
 
         public void SetScoresToGiveAtEndOfRound(int score)
         {
             ScoresToGiveAtEndOfRound = score;
+        }
+
+        public void AddRegularPoints(double regularPoints)
+        {
+            ScoresToGiveAtEndOfRound += regularPoints;
         }
 
         public void AddRegularPoints(int regularPoints)
@@ -63,7 +68,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             ScoresToGiveAtEndOfRound += bonusPoints;
         }
 
-        public int GetScoresToGiveAtEndOfRound()
+        public double GetScoresToGiveAtEndOfRound()
         {
             return ScoresToGiveAtEndOfRound;
         }
@@ -74,7 +79,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             SetScoresToGiveAtEndOfRound(0);
         }
 
-        private void AddScore(int score, int roundNumber)
+        private void AddScore(double score, int roundNumber)
         {
             /*
             1-4 х1
@@ -88,7 +93,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             else if (roundNumber == 10) 
                 score = score * 4;
 
-            Score += score;
+            Score += (int)score;
         }
 
         public void SetScoreToThisNumber(int score)
