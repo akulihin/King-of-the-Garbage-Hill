@@ -55,8 +55,156 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _characterPassives = characterPassives;
         }
 
-        //yes, this is my shit.
+        [Command("show logs names")]
+        [Alias("sln", "sin")]
+        [Summary("default is \'true\'. Если \'true\' Ты видишь название пассивок под сообщением с логами. Заюзай эту команду чтобы поменять на \'false\' и обратно\n" +
+                 "Логи это уникальные фразы при активации определенной пасивки персонажа")]
+        public async Task ChangeLogsState()
+        {
+            var account = _accounts.GetAccount(Context.User);
+            if (account.IsLogs)
+            {
+                account.IsLogs = false;
+                SendMessAsync("Ты больше не увидишь название пассивок под сообщением с логами. Заюзай жту команду еще раз, чтобы их видить. Пример - https://i.imgur.com/R4JkRZR.png");
+
+            }
+            else
+            {
+                account.IsLogs = true;
+                SendMessAsync("Ты видишь название пассивок под сообщением с логами.  Заюзай жту команду еще раз, чтобы их **НЕ** видить. Пример - https://i.imgur.com/eFvjRf5.png");
+
+            }
+        }
+
+
+        [Command("runtime")]
+        [Alias("uptime")]
+        [Summary("Статистика бота")]
+        public async Task UpTime()
+        {
+            _global.TimeSpendOnLastMessage.TryGetValue(Context.User.Id, out var watch);
+
+            var time = DateTime.Now -_global.TimeBotStarted;
+            var ramUsage = Process.GetCurrentProcess().WorkingSet64 / (1024 * 1024);
+
+            var embed = new EmbedBuilder()
+               // .WithAuthor(Context.Client.CurrentUser)
+               // .WithTitle("My internal statistics")
+                .WithColor(Color.DarkGreen)
+                .WithCurrentTimestamp()
+                .WithFooter("Version: 0.0a | Thank you for using me!")
+                .AddField("Numbers:", "" +
+                                      $"Working for: {time.Days}d {time.Hours}h {time.Minutes}m and {time:ss\\.fff}s\n" +
+                                      $"Total Games Started: {_global.GamePlayingAndId}\n" +
+                                      $"Total Commands issued while running: {_global.TotalCommandsIssued}\n" +
+                                      $"Total Commands changed: {_global.TotalCommandsChanged}\n" +
+                                      $"Total Commands deleted: {_global.TotalCommandsDeleted}\n" +
+                                      $"Total Commands in memory: {_commandsInMemory.CommandList.Count} (max {_commandsInMemory.MaximumCommandsInRam})\n" +
+                                      $"Client Latency: {_global.Client.Latency}\n" +
+                                      $"Time I spend processing your command: {watch?.Elapsed:m\\:ss\\.ffff}s\n" +
+                                      $"This time counts from from the moment he receives this command.\n" +
+                                      $"Memory Used: {ramUsage}");
+
+
+            SendMessAsync(embed);
+
+            // Context.User.GetAvatarUrl()
+        }
+
+        [Command("myPrefix")]
+        [Summary("Показывает или меняет твой личный префикс этому боту.")]
+        public async Task SetMyPrefix([Remainder] string prefix = null)
+        {
+            var account = _accounts.GetAccount(Context.User);
+
+            if (prefix == null)
+            {
+                var myAccountPrefix = account.MyPrefix ?? "You don't have own prefix yet";
+
+                await SendMessAsync(
+                    $"Your prefix: **{myAccountPrefix}**");
+                return;
+            }
+
+            if (prefix.Length < 100)
+            {
+                account.MyPrefix = prefix;
+                if (prefix.Contains("everyone") || prefix.Contains("here"))
+                {
+                    await SendMessAsync(
+                        "No `here` or `everyone` prefix allowed.");
+                    return;
+                }
+
+                _accounts.SaveAccounts(Context.User);
+                await SendMessAsync(
+                    $"Your own prefix is now **{prefix}**");
+            }
+            else
+            {
+                await SendMessAsync(
+                    "Prefix have to be less than 100 characters");
+            }
+        }
+
+        [Command("octo")]
+        [Alias("окто", "octopus", "Осьминог", "Осьминожка", "Осьминога", "o", "oct", "о")]
+        [Summary("Куда же без осьминожек")]
+        public async Task OctopusPicture()
+        {
+            var octoIndex = _secureRandom.Random(0, _octoPicPull.OctoPics.Length-1);
+            var octoToPost = _octoPicPull.OctoPics[octoIndex];
+
+
+            var color1Index = _secureRandom.Random(0, 255);
+            var color2Index = _secureRandom.Random(0, 255);
+            var color3Index = _secureRandom.Random(0, 255);
+
+            var randomIndex = _secureRandom.Random(0, _octoNmaNamePull.OctoNameRu.Length-1);
+            var randomOcto = _octoNmaNamePull.OctoNameRu[randomIndex];
+
+            var embed = new EmbedBuilder();
+            embed.WithDescription($"{randomOcto} found:");
+            embed.WithFooter("lil octo notebook");
+            embed.WithColor(color1Index, color2Index, color3Index);
+            embed.WithAuthor(Context.User);
+            embed.WithImageUrl("" + octoToPost);
+
+            await SendMessAsync( embed);
+
+            switch (octoIndex)
+            {
+                case 19:
+                    {
+                        var lll = await Context.Channel.SendMessageAsync("Ooooo, it was I who just passed Dark Souls!");
+                        _helperFunctions.DeleteMessOverTime(lll, 6);
+                        break;
+                    }
+                case 9:
+                    {
+                        var lll = await Context.Channel.SendMessageAsync("I'm drawing an octopus :3");
+                        _helperFunctions.DeleteMessOverTime(lll, 6);
+                        break;
+                    }
+                case 26:
+                    {
+                        var lll = await Context.Channel.SendMessageAsync(
+                            "Oh, this is New Year! time to gift turtles!!");
+                        _helperFunctions.DeleteMessOverTime(lll, 6);
+                        break;
+                    }
+            }
+        }
+
+
+
+
+        // OWNER COMMANDS:
+
+
+                //yes, this is my shit.
         [Command("es")]
+        [Summary("CAREFUL! Better not to use it, ever.")]
         [RequireOwner]
         public async Task Asdasd()
         {
@@ -206,13 +354,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _global.IsTimerToCheckEnabled.Add(new CheckIfReady.IsTimerToCheckEnabledClass(game.GameId));
         }
        
-       [Command("cc")]
-       [RequireOwner]
-       public async Task CheckSomething()
-       {
-    
-       }
-
         [Command("updMaxRam")]
         [RequireOwner]
         [Summary("updates maximum number of commands bot will save in memory (default 1000 every time you launch this app)")]
@@ -230,124 +371,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             var toBeDeleted = _commandsInMemory.CommandList.Count;
             _commandsInMemory.CommandList.Clear();
             SendMessAsync($"I have deleted {toBeDeleted} commands");
-        }
-
-        [Command("uptime")]
-        [Summary("showing general info about the bot")]
-        public async Task UpTime()
-        {
-            _global.TimeSpendOnLastMessage.TryGetValue(Context.User.Id, out var watch);
-
-            var time = DateTime.Now -_global.TimeBotStarted;
-            var ramUsage = Process.GetCurrentProcess().WorkingSet64 / (1024 * 1024);
-
-            var embed = new EmbedBuilder()
-               // .WithAuthor(Context.Client.CurrentUser)
-               // .WithTitle("My internal statistics")
-                .WithColor(Color.DarkGreen)
-                .WithCurrentTimestamp()
-                .WithFooter("Version: 0.0a | Thank you for using me!")
-                .AddField("Numbers:", "" +
-                                      $"Working for: {time.Days}d {time.Hours}h {time.Minutes}m and {time:ss\\.fff}s\n" +
-                                      $"Total Games Started: {_global.GamePlayingAndId}\n" +
-                                      $"Total Commands issued while running: {_global.TotalCommandsIssued}\n" +
-                                      $"Total Commands changed: {_global.TotalCommandsChanged}\n" +
-                                      $"Total Commands deleted: {_global.TotalCommandsDeleted}\n" +
-                                      $"Total Commands in memory: {_commandsInMemory.CommandList.Count} (max {_commandsInMemory.MaximumCommandsInRam})\n" +
-                                      $"Client Latency: {_global.Client.Latency}\n" +
-                                      $"Time I spend processing your command: {watch?.Elapsed:m\\:ss\\.ffff}s\n" +
-                                      $"This time counts from from the moment he receives this command.\n" +
-                                      $"Memory Used: {ramUsage}");
-
-
-            SendMessAsync(embed);
-
-            // Context.User.GetAvatarUrl()
-        }
-
-        [Command("myPrefix")]
-        [Summary("Shows or sets YOUR OWN prefix for the bot")]
-        public async Task SetMyPrefix([Remainder] string prefix = null)
-        {
-            var account = _accounts.GetAccount(Context.User);
-
-            if (prefix == null)
-            {
-                var myAccountPrefix = account.MyPrefix ?? "You don't have own prefix yet";
-
-                await SendMessAsync(
-                    $"Your prefix: **{myAccountPrefix}**");
-                return;
-            }
-
-            if (prefix.Length < 100)
-            {
-                account.MyPrefix = prefix;
-                if (prefix.Contains("everyone") || prefix.Contains("here"))
-                {
-                    await SendMessAsync(
-                        "No `here` or `everyone` prefix allowed.");
-                    return;
-                }
-
-                _accounts.SaveAccounts(Context.User);
-                await SendMessAsync(
-                    $"Booole~, your own prefix is now **{prefix}**");
-            }
-            else
-            {
-                await SendMessAsync(
-                    "Booooo! Prefix have to be less than 100 characters");
-            }
-        }
-
-        [Command("octo")]
-        [Alias("окто", "octopus", "Осьминог", "Осьминожка", "Осьминога", "o", "oct", "о")]
-        [Summary("Куда же без осьминожек")]
-        public async Task OctopusPicture()
-        {
-            var octoIndex = _secureRandom.Random(0, _octoPicPull.OctoPics.Length-1);
-            var octoToPost = _octoPicPull.OctoPics[octoIndex];
-
-
-            var color1Index = _secureRandom.Random(0, 255);
-            var color2Index = _secureRandom.Random(0, 255);
-            var color3Index = _secureRandom.Random(0, 255);
-
-            var randomIndex = _secureRandom.Random(0, _octoNmaNamePull.OctoNameRu.Length-1);
-            var randomOcto = _octoNmaNamePull.OctoNameRu[randomIndex];
-
-            var embed = new EmbedBuilder();
-            embed.WithDescription($"{randomOcto} found:");
-            embed.WithFooter("lil octo notebook");
-            embed.WithColor(color1Index, color2Index, color3Index);
-            embed.WithAuthor(Context.User);
-            embed.WithImageUrl("" + octoToPost);
-
-            await SendMessAsync( embed);
-
-            switch (octoIndex)
-            {
-                case 19:
-                    {
-                        var lll = await Context.Channel.SendMessageAsync("Ooooo, it was I who just passed Dark Souls!");
-                        _helperFunctions.DeleteMessOverTime(lll, 6);
-                        break;
-                    }
-                case 9:
-                    {
-                        var lll = await Context.Channel.SendMessageAsync("I'm drawing an octopus :3");
-                        _helperFunctions.DeleteMessOverTime(lll, 6);
-                        break;
-                    }
-                case 26:
-                    {
-                        var lll = await Context.Channel.SendMessageAsync(
-                            "Oh, this is New Year! time to gift turtles!!");
-                        _helperFunctions.DeleteMessOverTime(lll, 6);
-                        break;
-                    }
-            }
         }
     }
 }
