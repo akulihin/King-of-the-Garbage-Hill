@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Discord;
@@ -243,8 +244,6 @@ namespace King_of_the_Garbage_Hill.Helpers
 
     public class CharactersUniquePhrase : IServiceSingleton
     {
-        private static  HelperFunctions Help;
-        private static  SecureRandom Rand;
         //initialize variables 
         public PhraseClass DeepListSuperMindPhrase;
         public PhraseClass GlebChallengerPhrase;
@@ -258,11 +257,8 @@ namespace King_of_the_Garbage_Hill.Helpers
         public PhraseClass TolyaRammusPhrase;
         //end
 
-        public CharactersUniquePhrase(SecureRandom rand, HelperFunctions help)
+        public CharactersUniquePhrase()
         {
-            Help = help;
-            Rand = rand;
-
             //add values
             DeepListSuperMindPhrase = new PhraseClass("Сверхразум");
             MylorikPhrase = new PhraseClass("Буль" );
@@ -312,36 +308,43 @@ namespace King_of_the_Garbage_Hill.Helpers
         //class needed to send unique logs.
         public class PhraseClass
         {
-
             public List<string> PassiveLogEng = new List<string>();
             public List<string> PassiveLogRus = new List<string>();
             public string PassiveNameEng;
-
-
             public string PassiveNameRus;
+
 
             public PhraseClass(string passiveNameRus)
             {
                 PassiveNameRus = passiveNameRus;
-
             }
 
             public async Task SendLog(GameBridgeClass player)
             {
                 if (player.DiscordAccount.IsPlaying)
                 {
+                    var random = new Random();
+
                     var embed = new EmbedBuilder();
-                    embed.WithDescription(PassiveLogRus[Rand.Random(0, PassiveLogRus.Count - 1)]);
+                    embed.WithDescription(PassiveLogRus[random.Next(0, PassiveLogRus.Count - 1)]);
                     if (player.DiscordAccount.IsLogs) embed.WithFooter(PassiveNameRus);
-                    embed.WithColor(Rand.Random(0, 255), Rand.Random(0, 255), Rand.Random(0, 255));
+                    embed.WithColor(random.Next(0, 255), random.Next(0, 255), random.Next(0, 255));
 
                     var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync( "", false, embed.Build());
 #pragma warning disable 4014
-                    Help.DeleteMessOverTime(mess, 10);
+                   DeleteMessOverTime(mess, 10);
 #pragma warning restore 4014
                 }
             }
+
+            private async Task DeleteMessOverTime(IUserMessage message, int timeInSeconds)
+            {
+                var seconds = timeInSeconds * 1000;
+                await Task.Delay(seconds);
+                await message.DeleteAsync();
+            }
         }
+
 
 
         public Task InitializeAsync() => Task.CompletedTask;
