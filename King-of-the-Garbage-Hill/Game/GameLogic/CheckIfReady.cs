@@ -2,7 +2,7 @@
 using System.Timers;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 
-namespace King_of_the_Garbage_Hill.Game
+namespace King_of_the_Garbage_Hill.Game.GameLogic
 {
     public class CheckIfReady : IServiceSingleton
     {

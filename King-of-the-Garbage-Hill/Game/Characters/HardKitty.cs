@@ -1,7 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Helpers;
+using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
@@ -22,10 +23,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
          //   throw new System.NotImplementedException();
         }
 
-        public async Task HandleHardKittyAfter(GameBridgeClass player, GameClass game)
+        public void HandleHardKittyAfter(GameBridgeClass player, GameClass game)
         {
+          //
 
-           
         }
 
         public class DoebatsyaClass

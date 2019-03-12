@@ -2,12 +2,11 @@
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Helpers;
 
-namespace King_of_the_Garbage_Hill.Game
+namespace King_of_the_Garbage_Hill.Game.GameLogic
 {
     public class CalculateStage2 : IServiceSingleton
     {

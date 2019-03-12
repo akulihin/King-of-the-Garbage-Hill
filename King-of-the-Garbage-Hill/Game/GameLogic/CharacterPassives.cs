@@ -2,10 +2,13 @@
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.BotFramework;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 
-namespace King_of_the_Garbage_Hill.Game.Characters
+namespace King_of_the_Garbage_Hill.Game.GameLogic
 {
     public class CharacterPassives : IServiceSingleton
     {
@@ -258,7 +261,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     _tolya.HandleTolyaAfter(player);
                     break;
                 case "HardKitty":
-                    await _hardKitty.HandleHardKittyAfter(player, game);
+                     _hardKitty.HandleHardKittyAfter(player, game);
                     break;
                 case "Sirinoks":
                     _sirinoks.HandleSirinoksAfter(player);
