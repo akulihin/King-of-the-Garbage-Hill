@@ -247,7 +247,6 @@ namespace King_of_the_Garbage_Hill.Helpers
         //initialize variables 
         public PhraseClass DeepListSuperMindPhrase;
         public PhraseClass GlebChallengerPhrase;
-        public PhraseClass HardKittyLonelyPhrase;
         public PhraseClass LeCrispAssassinsPhrase;
         public PhraseClass LeCrispImpactPhrase;
         public PhraseClass LeCrispJewPhrase;
@@ -255,6 +254,9 @@ namespace King_of_the_Garbage_Hill.Helpers
         public PhraseClass TolyaCountPhrase;
         public PhraseClass TolyaJewPhrase;
         public PhraseClass TolyaRammusPhrase;
+        public PhraseClass HardKittyLonelyPhrase;
+        public PhraseClass HardKittyDoebatsyaPhrase;
+        public PhraseClass HardKittyMutedPhrase;
         //end
 
         public CharactersUniquePhrase()
@@ -270,6 +272,8 @@ namespace King_of_the_Garbage_Hill.Helpers
             TolyaCountPhrase = new PhraseClass("Подсчет" );
             TolyaRammusPhrase = new PhraseClass(" Раммус мейн" );
             HardKittyLonelyPhrase = new PhraseClass("Одиночество" );
+            HardKittyDoebatsyaPhrase = new PhraseClass("Доебаться");
+            HardKittyMutedPhrase = new  PhraseClass("Muted");
             //end
 
             //add  as many phrases as you wany
@@ -301,6 +305,11 @@ namespace King_of_the_Garbage_Hill.Helpers
             HardKittyLonelyPhrase.PassiveLogRus.Add("Мне сегодня снилось, как...");
             HardKittyLonelyPhrase.PassiveLogRus.Add("Что делаешь?");
             HardKittyLonelyPhrase.PassiveLogRus.Add("Как дела?");
+            HardKittyDoebatsyaPhrase.PassiveLogRus.Add("У вас продают молоко в пакетах?");
+            HardKittyDoebatsyaPhrase.PassiveLogRus.Add("Какой у тебя Windows?");
+            HardKittyDoebatsyaPhrase.PassiveLogRus.Add("Что лучше взять на MF?");
+            HardKittyDoebatsyaPhrase.PassiveLogRus.Add("Эй, э-эй...");
+            HardKittyMutedPhrase.PassiveLogRus.Add("Muted");
             //end
         }
 
@@ -314,9 +323,10 @@ namespace King_of_the_Garbage_Hill.Helpers
             public string PassiveNameRus;
 
 
-            public PhraseClass(string passiveNameRus)
+            public PhraseClass(string passiveNameRus, string passiveNameEng = "")
             {
                 PassiveNameRus = passiveNameRus;
+                PassiveNameEng = passiveNameEng;
             }
 
             public async Task SendLog(GameBridgeClass player)

@@ -49,6 +49,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public readonly List<Mylorik.MylorikRevengeClass> MylorikRevenge = new List<Mylorik.MylorikRevengeClass>();
         public readonly List<Tolya.TolyaCountClass> TolyaCount = new List<Tolya.TolyaCountClass>();
+        public readonly  List<HardKitty.DoebatsyaClass> HardKittyDoebatsya = new List<HardKitty.DoebatsyaClass>();
+        public readonly List<HardKitty.MuteClass>  HardKittyMute = new List<HardKitty.MuteClass>();
 
         public InGameGlobal(SecureRandom rand)
         {

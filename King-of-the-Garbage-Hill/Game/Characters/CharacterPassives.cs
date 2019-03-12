@@ -258,7 +258,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     _tolya.HandleTolyaAfter(player);
                     break;
                 case "HardKitty":
-                    _hardKitty.HandleHardKittyAfter(player);
+                    await _hardKitty.HandleHardKittyAfter(player, game);
                     break;
                 case "Sirinoks":
                     _sirinoks.HandleSirinoksAfter(player);
@@ -715,5 +715,93 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             }
         }
         */
+        public async Task HandleEveryAttackOnHimAfterCalculations(GameBridgeClass playerIamAttacking, GameBridgeClass player, GameClass game)
+        {
+            var characterName = playerIamAttacking.Character.Name;
+
+
+            switch (characterName)
+            {
+                case "HardKitty":
+                    //Muted passive
+                    if (playerIamAttacking.Status.IsLostLastTime != 0)
+                    {
+                        var hardKitty = _gameGlobal.HardKittyMute.Find(x =>
+                            x.PlayerDiscordId == playerIamAttacking.DiscordAccount.DiscordId && x.GameId == game.GameId);
+                        if (hardKitty == null)
+                        {
+                            _gameGlobal.HardKittyMute.Add(new HardKitty.MuteClass( playerIamAttacking.DiscordAccount.DiscordId, game.GameId, player.DiscordAccount.DiscordId));
+                            player.Status.AddRegularPoints();
+                            await _phrase.HardKittyMutedPhrase.SendLog(player);
+                        }
+                        else
+                        {
+                            if (!hardKitty.UniquePlayers.Contains(player.DiscordAccount.DiscordId))
+                            {
+                                hardKitty.UniquePlayers.Add(player.DiscordAccount.DiscordId);
+                                player.Status.AddRegularPoints();
+                                await _phrase.HardKittyMutedPhrase.SendLog(player);
+                            }
+                        }
+                    }
+                    //Muted passive end
+                    break;
+            }
+
+            await Task.CompletedTask;
+        }
+
+        public async Task HandleEveryAttackFromMeAfterCalculations(GameBridgeClass player, GameBridgeClass playerIamAttacking, GameClass game)
+        {
+            var characterName = player.Character.Name;
+
+
+            switch (characterName)
+            {
+                case "HardKitty":
+                    //Doebatsya
+                    var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
+                        x.GameId == player.DiscordAccount.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+                    //can be null
+
+                    if (player.Status.IsLostLastTime != 0)
+                    {
+                        if (hardKitty == null)
+                        {
+                            _gameGlobal.HardKittyDoebatsya.Add(new HardKitty.DoebatsyaClass(player.DiscordAccount.DiscordId, player.DiscordAccount.GameId, player.Status.IsLostLastTime));
+                        }
+                        else
+                        {
+                            var exists = hardKitty.LostSeries.Find(x => x.EnemyId == player.Status.IsLostLastTime);
+                            if (exists == null)
+                            {
+                                hardKitty.LostSeries.Add(new HardKitty.DoebatsyaSubClass(player.Status.IsLostLastTime));
+                            }
+                            else
+                            {
+                                exists.Series++;
+                            }
+                        }
+                        return;
+                    }
+
+                    var wonPlayer = hardKitty?.LostSeries.Find(x => x.EnemyId == player.Status.IsWonLastTime);
+                    if (wonPlayer != null)
+                    {
+
+                        player.Status.AddRegularPoints(wonPlayer.Series);
+                        if (wonPlayer.Series >= 2)
+                        {
+                            var player2 = game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonLastTime);
+                            player2.Character.Psyche--;
+                        }
+                        wonPlayer.Series = 0;
+                        await _phrase.HardKittyDoebatsyaPhrase.SendLog(player);
+                    }
+                    // end Doebatsya
+                    break;
+            }
+            await Task.CompletedTask;
+        }
     }
 }

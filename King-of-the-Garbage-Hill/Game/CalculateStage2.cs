@@ -69,6 +69,10 @@ namespace King_of_the_Garbage_Hill.Game
 
                 await _characterPassives.HandleCharacterBeforeCalculations(playerIamAttacking, game);
 
+                if (playerIamAttacking.Status.WhoToAttackThisTurn == 0 && playerIamAttacking.Status.IsBlock == false)
+                {
+                    playerIamAttacking.Status.IsBlock = true;
+                }
 
                 //т.е. он получил урон, какие у него дебаффы на этот счет 
                 await _characterPassives.HandleEveryAttackOnHim(playerIamAttacking , player, game);
@@ -76,10 +80,15 @@ namespace King_of_the_Garbage_Hill.Game
                     //т.е. я его аттакую, какие у меня бонусы на это
                 await _characterPassives.HandleEveryAttackFromMe(player, playerIamAttacking, game);
 
-                if (!player.Status.IsAbleToWin) pointsWined = -50;
-                if (playerIamAttacking.Status.WhoToAttackThisTurn == 0 && playerIamAttacking.Status.IsBlock == false)
-                    playerIamAttacking.Status.IsBlock = true;
-                if (!playerIamAttacking.Status.IsAbleToWin) pointsWined = 50;
+                if (!player.Status.IsAbleToWin)
+                {
+                    pointsWined = -50;
+                }
+
+                if (!playerIamAttacking.Status.IsAbleToWin)
+                {
+                    pointsWined = 50;
+                }
 
                 game.GameLogs +=
                     $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerIamAttacking.DiscordAccount.DiscordUserName}**";
@@ -229,7 +238,10 @@ namespace King_of_the_Garbage_Hill.Game
                     player.Status.IsLostLastTime = playerIamAttacking.DiscordAccount.DiscordId;
                 }
 
-
+                //т.е. он получил урон, какие у него дебаффы на этот счет 
+                await _characterPassives.HandleEveryAttackOnHimAfterCalculations(playerIamAttacking , player, game);
+                //т.е. я его аттакую, какие у меня бонусы на это
+                await _characterPassives.HandleEveryAttackFromMeAfterCalculations(player, playerIamAttacking, game);
                 await _characterPassives.HandleCharacterAfterCalculations(player, game);
                 await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
 
