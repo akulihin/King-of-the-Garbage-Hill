@@ -24,12 +24,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public void HandleDarksci(GameBridgeClass player)
         {
-            throw new System.NotImplementedException();
+          //  throw new System.NotImplementedException();
         }
 
         public void HandleDarksiAfter(GameBridgeClass player)
         {
-            throw new System.NotImplementedException();
+         //   throw new System.NotImplementedException();
         }
     }
 }

@@ -150,7 +150,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     _accounts.SaveAccounts(account.DiscordId);
 
                     var randomIndex = _secureRandom.Random(0, availableChamps.Count - 1);
-                    var character = availableChamps[2];//randomIndex
+                    var character = availableChamps[4];//randomIndex
                                                         availableChamps.RemoveAt(2);//randomIndex
 
 

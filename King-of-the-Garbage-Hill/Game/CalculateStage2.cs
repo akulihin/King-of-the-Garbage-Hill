@@ -219,7 +219,7 @@ namespace King_of_the_Garbage_Hill.Game
                     game.GameLogs += $" | ***{playerIamAttacking.DiscordAccount.DiscordUserName}** победил {whereWonP2}*\n";
                     game.PreviousGameLogs +=
                         $" | ***{playerIamAttacking.DiscordAccount.DiscordUserName}** победил {whereWonP2}*\n";
-                    playerIamAttacking.Status.AddRegularPoints(1);
+                    playerIamAttacking.Status.AddRegularPoints();
                     player.Status.WonTimes++;
                     playerIamAttacking.Character.Justice.IsWonThisRound = true;
 
@@ -285,6 +285,18 @@ namespace King_of_the_Garbage_Hill.Game
             
             game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
 
+            if (game.PlayersList.Any(x => x.Character.Name == "HardKitty"))
+            {
+                var tempHard = game.PlayersList.Find(x => x.Character.Name == "HardKitty");
+                var hardIndex = game.PlayersList.IndexOf(tempHard);
+
+                for (var i = hardIndex; i < game.PlayersList.Count - 1; i++)
+                {
+                    game.PlayersList[i] = game.PlayersList[i + 1];
+                }
+
+                game.PlayersList[game.PlayersList.Count - 1] = tempHard;
+            }
 
             for (var i = 0; i < game.PlayersList.Count; i++)
             {

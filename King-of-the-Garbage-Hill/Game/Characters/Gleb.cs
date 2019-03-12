@@ -1,21 +1,15 @@
 ﻿using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.DiscordMessages;
-using King_of_the_Garbage_Hill.Helpers;
+
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class Gleb : IServiceSingleton
     {
-       
-        private readonly SecureRandom _rand;
         private readonly InGameGlobal _gameGlobal;
-        private readonly GameUpdateMess _upd;
 
-        public Gleb(GameUpdateMess upd, SecureRandom rand, InGameGlobal gameGlobal)
+        public Gleb( InGameGlobal gameGlobal)
         {
-            _upd = upd;
-            _rand = rand;
             _gameGlobal = gameGlobal;
         }
         public Task InitializeAsync() => Task.CompletedTask;

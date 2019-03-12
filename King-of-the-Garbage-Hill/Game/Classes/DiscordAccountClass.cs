@@ -6,7 +6,7 @@
         public ulong DiscordId { get; set; }
         public string MyPrefix { get; set; }
         public bool IsPlaying { get; set; }
-
+        public bool IsLogs { get; set; }
         public ulong GameId { get; set; }
 
     }

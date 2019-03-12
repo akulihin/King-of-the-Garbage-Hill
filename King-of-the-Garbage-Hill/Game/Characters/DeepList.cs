@@ -1,21 +1,15 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.DiscordMessages;
-using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class DeepList : IServiceSingleton
-    { 
-        private readonly SecureRandom _rand;
-        private readonly GameUpdateMess _upd;
+    {
         private readonly InGameGlobal _gameGlobal;
 
-        public DeepList(GameUpdateMess upd, SecureRandom rand, InGameGlobal gameGlobal)
+        public DeepList( InGameGlobal gameGlobal)
         {
-            _upd = upd;
-            _rand = rand;
             _gameGlobal = gameGlobal;
         }
 
@@ -47,7 +41,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 player.Character.Strength--;
                 if (player.Status.IsWonLastTime != 0)
                 {
-                    player.Status.AddRegularPoints(1);
+                    player.Status.AddRegularPoints();
                 }
             }
             //end Doubtful tactic
@@ -82,7 +76,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     if (currentDeepList2.Times % 2 != 0 && currentDeepList2.Times != 1)
                     {
                         player2.Character.Psyche--;
-                        player.Status.AddRegularPoints(1);
+                        player.Status.AddRegularPoints();
                         if (player2.Character.Psyche < 4)
                         {
                             player2.Character.Justice.JusticeForNextRound--;

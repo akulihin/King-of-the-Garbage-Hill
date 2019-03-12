@@ -23,12 +23,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public void HandleSirinoks(GameBridgeClass player)
         {
-            throw new System.NotImplementedException();
+            //   throw new System.NotImplementedException();
         }
 
         public void HandleSirinoksAfter(GameBridgeClass player)
         {
-            throw new System.NotImplementedException();
+        //    throw new System.NotImplementedException();
         }
     }
 }

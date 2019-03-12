@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
@@ -12,12 +11,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
      
         private readonly SecureRandom _rand;
 
-        private readonly GameUpdateMess _upd;
         private readonly InGameGlobal _gameGlobal;
 
-        public Mylorik(GameUpdateMess upd, SecureRandom rand, InGameGlobal gameGlobal)
+        public Mylorik(SecureRandom rand, InGameGlobal gameGlobal)
         {
-            _upd = upd;
             _rand = rand;
             _gameGlobal = gameGlobal;
         }
@@ -93,11 +90,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             public ulong GameId;
             public ulong PlayerDiscordId;
 
-            public MylorikRevengeClass(ulong playerDiscordId, ulong gameID, ulong firstLost)
+            public MylorikRevengeClass(ulong playerDiscordId, ulong gameId, ulong firstLost)
             {
                 PlayerDiscordId = playerDiscordId;
                 EnemyListDiscordId = new List<MylorikRevengeClassSub> {new MylorikRevengeClassSub(firstLost)};
-                GameId = gameID;
+                GameId = gameId;
             }
         }
 

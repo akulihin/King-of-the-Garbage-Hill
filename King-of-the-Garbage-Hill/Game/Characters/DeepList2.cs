@@ -23,12 +23,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public void HandleDeepList2(GameBridgeClass player)
         {
-            throw new System.NotImplementedException();
+         //   throw new System.NotImplementedException();
         }
 
         public void HandleDeepList2After(GameBridgeClass player)
         {
-            throw new System.NotImplementedException();
+       //     throw new System.NotImplementedException();
         }
     }
 }

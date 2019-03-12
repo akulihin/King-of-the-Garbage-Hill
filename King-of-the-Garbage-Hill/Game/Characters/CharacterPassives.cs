@@ -103,12 +103,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     if (playerAttackFrom.Character.Strength - playerIamAttacking.Character.Strength >= 2)
                     {
                         playerIamAttacking.Status.IsAbleToWin = false;
-                        var customMessage =
-                            _phrase.LeCrispAssassinsPhrase[_rand.Random(0, _phrase.LeCrispAssassinsPhrase.Count - 1)];
-                     var mess  =   await playerIamAttacking.Status.SocketMessageFromBot.Channel.SendMessageAsync(customMessage);
-#pragma warning disable 4014
-                     _help.DeleteMessOverTime(mess, 10);
-#pragma warning restore 4014
+                 await _phrase.LeCrispAssassinsPhrase.SendLog(playerIamAttacking);
                     }
                     //end гребанные ассасисны
 
@@ -129,12 +124,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                         playerIamAttacking.Status.IsBlock = false;
                         playerAttackFrom.Status.IsAbleToWin = false;
 
-                        var  messs = await playerIamAttacking.Status.SocketMessageFromBot.Channel.SendMessageAsync(_phrase.TolyaRammusPhrase[_rand.Random(0, _phrase.TolyaRammusPhrase.Count-1)]);
-#pragma warning disable 4014
-                        _help.DeleteMessOverTime(messs, 10);
-#pragma warning restore 4014
+                     await   _phrase.TolyaRammusPhrase.SendLog(playerIamAttacking);
                     }
 
+                    break;
+
+                case "HardKitty":
+                    playerIamAttacking.Status.AddRegularPoints();
+                    await _phrase.HardKittyLonelyPhrase.SendLog(playerIamAttacking);
                     break;
 
             }
@@ -154,7 +151,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     {
                         _gameGlobal.AllSkipTriggeredWhen.Add(new WhenToTriggerClass(player1.Status.WhoToAttackThisTurn, game.GameId,
                             game.RoundNo + 1));
-                        player1.Status.AddRegularPoints(1);
+                        player1.Status.AddRegularPoints();
                         
                     }
                     //end  Я за чаем:
@@ -222,6 +219,27 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public async Task HandleCharacterAfterCalculations(GameBridgeClass player, GameClass game)
         {
             var characterName = player.Character.Name;
+
+            //tolya count
+
+            if (player.Status.IsWonLastTime != 0 &&  player.Character.Name != "Толя" && game.PlayersList.Any(x => x.Character.Name == "Толя"))
+            {
+                var tolya = _gameGlobal.TolyaCount.Find(x =>
+                    x.PlayerDiscordId == player.DiscordAccount.DiscordId && x.GameId == player.DiscordAccount.GameId);
+
+                if (tolya != null)
+                    if (player.Status.IsWonLastTime == tolya.WhoToLostLastTime)
+                    {
+                        var tolyaAcc = game.PlayersList.Find(x =>
+                            x.DiscordAccount.DiscordId == player.DiscordAccount.DiscordId &&
+                            x.DiscordAccount.GameId == player.DiscordAccount.GameId);
+                        tolyaAcc.Status.AddRegularPoints();
+                        await _phrase.TolyaCountPhrase.SendLog(player);
+                    }
+            }
+
+            //tolya count end
+
             switch (characterName)
             {
                 case "DeepList":
@@ -343,7 +361,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                 player.Status.WhoToAttackThisTurn = 0;
                                 var mess = await player.Status.SocketMessageFromBot.Channel
                                     .SendMessageAsync("Ты буль.");
-                                 _help.DeleteMessOverTime(mess, 15);
+#pragma warning disable 4014
+                                _help.DeleteMessOverTime(mess, 15);
+#pragma warning restore 4014
                             }
 
                         break;
@@ -362,7 +382,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                 player.Status.WhoToAttackThisTurn = 0;
                                 var mess =
                                     await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Ты уснул.");
-                                 _help.DeleteMessOverTime(mess, 15);
+#pragma warning disable 4014
+                                _help.DeleteMessOverTime(mess, 15);
+#pragma warning restore 4014
                             }
 
                         //Претендент русского сервера: 
@@ -401,15 +423,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                                 curr.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
 
-                                var customMess =
-                                    _phrase.GlebChallengerPhrase[
-                                        _rand.Random(0, _phrase.GlebChallengerPhrase.Count - 1)];
-                                var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                                    customMess);
-
-#pragma warning disable 4014
-                                _help.DeleteMessOverTime(mess, 15);
-#pragma warning restore 4014
+                                await _phrase.GlebChallengerPhrase.SendLog(player);
                             }
 
                         break;
@@ -452,18 +466,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                     check.KnownPlayers.Add(randPlayer.DiscordAccount.DiscordId);
                                 }
 
-                                var customMess =
-                                    _phrase.DeepListSuperMindPhrase[
-                                        _rand.Random(0, _phrase.DeepListSuperMindPhrase.Capacity - 1)];
-
-                                var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                                    $"{customMess} {randPlayer.DiscordAccount.DiscordUserName} - {randPlayer.Character.Name}!\n" +
-                                    $"Его статы: Cила {randPlayer.Character.Strength}, Скорость {randPlayer.Character.Speed}" +
-                                    $", Ум {randPlayer.Character.Intelligence}");
-
-#pragma warning disable 4014
-                                _help.DeleteMessOverTime(mess, 45);
-#pragma warning restore 4014
+                                await _phrase.DeepListSuperMindPhrase.SendLog(player);
                             }
                         }
                         else
@@ -527,7 +530,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     player.Status.WhoToAttackThisTurn = 0;
                     var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
                         "Тебя заставили пропустить этот ход");
-                     _help.DeleteMessOverTime(mess, 15);
+#pragma warning disable 4014
+                    _help.DeleteMessOverTime(mess, 15);
+#pragma warning restore 4014
                 }
             }
 
@@ -542,7 +547,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 {
                     _log.Critical("HandleEndOfRound - player == null");
                 }
-                var characterName = player.Character.Name;
+
+                var characterName = player?.Character.Name;
+                if (characterName == null)
+                {
+                    return;
+                }
+
                 switch (characterName)
                 {
                     case "DeepList":
@@ -674,12 +685,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 {
                     if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
                     {
-                        leCrisp.Status.AddRegularPoints(1);
-                        var mess = await leCrisp.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                            _phrase.LeCrispJewPhrase[_rand.Random(0, _phrase.LeCrispJewPhrase.Count - 1)]);
-#pragma warning disable 4014
-                        _help.DeleteMessOverTime(mess, 10);
-#pragma warning restore 4014
+                        leCrisp.Status.AddRegularPoints();
+                        await _phrase.LeCrispJewPhrase.SendLog(player);
                         return 0;
                     }
                 }
@@ -688,12 +695,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 {
                     if (tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
                     {
-                        tolya.Status.AddRegularPoints(1);
-                        var mess = await tolya.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                            _phrase.TolyaJewPhrase[_rand.Random(0, _phrase.TolyaJewPhrase.Count - 1)]);
-#pragma warning disable 4014
-                        _help.DeleteMessOverTime(mess, 10);
-#pragma warning restore 4014
+                        tolya.Status.AddRegularPoints();
+                        await _phrase.TolyaJewPhrase.SendLog(player);
                         return 0;
                     }
                 }

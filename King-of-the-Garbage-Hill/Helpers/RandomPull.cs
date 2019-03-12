@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using Discord;
 using King_of_the_Garbage_Hill.Game.Classes;
 using Newtonsoft.Json;
 
@@ -228,7 +229,7 @@ namespace King_of_the_Garbage_Hill.Helpers
 
         public CharactersPull()
         {
-            var filePath = $@"DataBase/OctoDataBase/characters.json";
+            var filePath = @"DataBase/OctoDataBase/characters.json";
             var json = File.ReadAllText(filePath);
             AllCharacters = JsonConvert.DeserializeObject<List<CharacterClass>>(json);
         }
@@ -242,48 +243,107 @@ namespace King_of_the_Garbage_Hill.Helpers
 
     public class CharactersUniquePhrase : IServiceSingleton
     {
-        public Task InitializeAsync()
+        private static  HelperFunctions Help;
+        private static  SecureRandom Rand;
+        //initialize variables 
+        public PhraseClass DeepListSuperMindPhrase;
+        public PhraseClass GlebChallengerPhrase;
+        public PhraseClass HardKittyLonelyPhrase;
+        public PhraseClass LeCrispAssassinsPhrase;
+        public PhraseClass LeCrispImpactPhrase;
+        public PhraseClass LeCrispJewPhrase;
+        public PhraseClass MylorikPhrase;
+        public PhraseClass TolyaCountPhrase;
+        public PhraseClass TolyaJewPhrase;
+        public PhraseClass TolyaRammusPhrase;
+        //end
+
+        public CharactersUniquePhrase(SecureRandom rand, HelperFunctions help)
         {
-            return Task.CompletedTask;
+            Help = help;
+            Rand = rand;
+
+            //add values
+            DeepListSuperMindPhrase = new PhraseClass("Сверхразум");
+            MylorikPhrase = new PhraseClass("Буль" );
+            GlebChallengerPhrase = new PhraseClass("Претендент русского сервера" );
+            LeCrispJewPhrase = new PhraseClass("Еврей" );
+            LeCrispAssassinsPhrase = new PhraseClass("Гребанные ассассины" );
+            LeCrispImpactPhrase = new PhraseClass("Импакт" );
+            TolyaJewPhrase = new PhraseClass("Еврей" );
+            TolyaCountPhrase = new PhraseClass("Подсчет" );
+            TolyaRammusPhrase = new PhraseClass(" Раммус мейн" );
+            HardKittyLonelyPhrase = new PhraseClass("Одиночество" );
+            //end
+
+            //add  as many phrases as you wany
+            DeepListSuperMindPhrase.PassiveLogRus.Add("Поделив энтропию на ноль, вы поняли, что ");
+            DeepListSuperMindPhrase.PassiveLogRus.Add("Используя свою дедукцию, вы поняли, что ");
+            DeepListSuperMindPhrase.PassiveLogRus.Add("Сложив 2+2, вы каким-то чудом догадались, что ");
+
+            MylorikPhrase.PassiveLogRus.Add("Буль");
+
+            GlebChallengerPhrase.PassiveLogRus.Add("А? БАРОН?!");
+            GlebChallengerPhrase.PassiveLogRus.Add("Ща я покажу как надо");
+            GlebChallengerPhrase.PassiveLogRus.Add("Глебка залетает!");
+            GlebChallengerPhrase.PassiveLogRus.Add("В Претендентмобиль!");
+            GlebChallengerPhrase.PassiveLogRus.Add("ЛИИИИРОЙ ДЖЕНКИНС");
+
+            LeCrispJewPhrase.PassiveLogRus.Add("Я жру деньги!");
+            LeCrispAssassinsPhrase.PassiveLogRus.Add("Гребанные ассассины");
+            LeCrispImpactPhrase.PassiveLogRus.Add("Импакт!");
+            LeCrispImpactPhrase.PassiveLogRus.Add("шпещьмен");
+
+            TolyaJewPhrase.PassiveLogRus.Add("Easy money");
+            TolyaJewPhrase.PassiveLogRus.Add("Worth");
+            TolyaCountPhrase.PassiveLogRus.Add("Ха! Подстчет!");
+            TolyaRammusPhrase.PassiveLogRus.Add("Okay.");
+            TolyaRammusPhrase.PassiveLogRus.Add("Hm.");
+            TolyaRammusPhrase.PassiveLogRus.Add("Я живу и горю");
+
+            HardKittyLonelyPhrase.PassiveLogRus.Add("Привет");
+            HardKittyLonelyPhrase.PassiveLogRus.Add("Мне сегодня снилось, как...");
+            HardKittyLonelyPhrase.PassiveLogRus.Add("Что делаешь?");
+            HardKittyLonelyPhrase.PassiveLogRus.Add("Как дела?");
+            //end
         }
 
 
-        public List<string> DeepListSuperMindPhrase = new List<string>();
-        public List<string> MylorikPhrase = new List<string>();
-        public List<string> GlebChallengerPhrase = new List<string>();
-        public List<string> LeCrispJewPhrase = new List<string>();
-        public List<string> LeCrispAssassinsPhrase = new List<string>();
-        public List<string> LeCrispImpactPhrase = new List<string>();
-        public List<string> TolyaJewPhrase = new List<string>();
-        public List<string> TolyaCountPhrase = new List<string>();
-        public List<string> TolyaRammusPhrase = new List<string>();
-
-        public CharactersUniquePhrase()
+        //class needed to send unique logs.
+        public class PhraseClass
         {
-     
-            DeepListSuperMindPhrase.Add("Поделив энтропию на ноль, вы поняли, что ");
-            DeepListSuperMindPhrase.Add("Используя свою дедукцию, вы поняли, что ");
-            DeepListSuperMindPhrase.Add("Сложив 2+2, вы каким-то чудом догадались, что ");
 
-            MylorikPhrase.Add("Буль");
+            public List<string> PassiveLogEng = new List<string>();
+            public List<string> PassiveLogRus = new List<string>();
+            public string PassiveNameEng;
 
-            GlebChallengerPhrase.Add("А? БАРОН?!");
-            GlebChallengerPhrase.Add("Ща я покажу как надо");
-            GlebChallengerPhrase.Add("Глебка залетает!");
-            GlebChallengerPhrase.Add("В Претендентмобиль!");
-            GlebChallengerPhrase.Add("ЛИИИИРОЙ ДЖЕНКИНС");
 
-            LeCrispJewPhrase.Add("Я жру деньги!");
-            LeCrispAssassinsPhrase.Add("Гребанные ассассины");
-            LeCrispImpactPhrase.Add("Импакт!");
-            LeCrispImpactPhrase.Add("шпещьмен");
+            public string PassiveNameRus;
 
-            TolyaJewPhrase.Add("Easy money");
-            TolyaJewPhrase.Add("Worth");
-            TolyaCountPhrase.Add("Ха! Подстчет!");
-            TolyaRammusPhrase.Add("Okay.");
-            TolyaRammusPhrase.Add("Hm.");
-            TolyaRammusPhrase.Add("Я живу и горю");
+            public PhraseClass(string passiveNameRus)
+            {
+                PassiveNameRus = passiveNameRus;
+
+            }
+
+            public async Task SendLog(GameBridgeClass player)
+            {
+                if (player.DiscordAccount.IsPlaying)
+                {
+                    var embed = new EmbedBuilder();
+                    embed.WithDescription(PassiveLogRus[Rand.Random(0, PassiveLogRus.Count - 1)]);
+                    if (player.DiscordAccount.IsLogs) embed.WithFooter(PassiveNameRus);
+                    embed.WithColor(Rand.Random(0, 255), Rand.Random(0, 255), Rand.Random(0, 255));
+
+                    var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync( "", false, embed.Build());
+#pragma warning disable 4014
+                    Help.DeleteMessOverTime(mess, 10);
+#pragma warning restore 4014
+                }
+            }
         }
+
+
+        public Task InitializeAsync() => Task.CompletedTask;
     }
 }

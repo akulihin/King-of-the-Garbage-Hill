@@ -48,6 +48,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             MylorikBooleTriggeredWhen = new List<WhenToTriggerClass>();
 
         public readonly List<Mylorik.MylorikRevengeClass> MylorikRevenge = new List<Mylorik.MylorikRevengeClass>();
+        public readonly List<Tolya.TolyaCountClass> TolyaCount = new List<Tolya.TolyaCountClass>();
 
         public InGameGlobal(SecureRandom rand)
         {
