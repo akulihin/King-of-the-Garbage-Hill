@@ -75,6 +75,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 SendMessAsync("Ты видишь название пассивок под сообщением с логами.  Заюзай жту команду еще раз, чтобы их **НЕ** видить. Пример - https://i.imgur.com/eFvjRf5.png");
 
             }
+            _accounts.SaveAccounts(Context.User);
         }
 
 
@@ -200,10 +201,10 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
 
 
-        // OWNER COMMANDS:
+       
                 
         [Command("s")]
-        [RequireOwner]
+        [Summary("запуск игры")]
         public async Task StartGame(SocketUser user2 = null , SocketUser user3 = null, SocketUser user4 = null, SocketUser user5 = null, SocketUser user6 = null)
         {
             var rawList = new List<SocketUser>
@@ -244,8 +245,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 }
                 else
                 {
-                    //TODO: add a bot
-                    continue;
 
                     var account = _accounts.GetAccount((ulong)i);
                     account.GameId = _global.GamePlayingAndId;
@@ -260,7 +259,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
                     var bridge = new GameBridgeClass {DiscordAccount = account, Character = character, Status = status};
 
-                        //playersList.Add(bridge);
+                    playersList.Add(bridge);
                 }
             }
 
@@ -288,8 +287,20 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _global.IsTimerToCheckEnabled.Add(new CheckIfReady.IsTimerToCheckEnabledClass(game.GameId));
         }
        
+        // OWNER COMMANDS:
+        [Command("ss")]
+        [RequireOwner]
+        public async Task ffff()
+        {
+            for (var i = 0; i < 11; i++)
+            {
+                _accounts.CreateBotAccount((ulong)i);
+            }
+        }
 
-                //yes, this is my shit.
+
+
+        //yes, this is my shit.
         [Command("es")]
         [Summary("CAREFUL! Better not to use it, ever.")]
         [RequireOwner]

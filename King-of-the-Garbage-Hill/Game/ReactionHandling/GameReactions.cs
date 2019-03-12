@@ -11,18 +11,13 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 {
     public sealed class GameReaction : IServiceSingleton
     {
-        public Task InitializeAsync()
-        {
-            return Task.CompletedTask;
-        }
-
         private readonly UserAccounts _accounts;
 
         private readonly Global _global;
 
-        private readonly GameUpdateMess _upd;
-
         private readonly HelperFunctions _help;
+
+        private readonly GameUpdateMess _upd;
 
         public GameReaction(UserAccounts accounts,
             Global global,
@@ -34,6 +29,11 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
             _upd = upd;
             _help = help;
+        }
+
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
         }
 
         public async Task ReactionAddedGameWindow(Cacheable<IUserMessage, ulong> cash,
@@ -73,132 +73,200 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         if (status.MoveListPage == 3)
                         {
                             var mess = await reaction.Channel.SendMessageAsync("Ходить нельзя, Апни лвл!");
-                            await _help.DeleteMessOverTime(mess, 6);
+#pragma warning disable 4014
+                            _help.DeleteMessOverTime(mess, 6);
+#pragma warning restore 4014
                             return;
                         }
 
                         if (gameBridge.Character.Name == "mylorik")
                         {
                             var mess = await reaction.Channel.SendMessageAsync("Спартанцы не капитулируют!!");
-                            await _help.DeleteMessOverTime(mess, 6);
+#pragma warning disable 4014
+                            _help.DeleteMessOverTime(mess, 6);
+#pragma warning restore 4014
                             return;
                         }
 
                         status.IsBlock = true;
                         status.IsAbleToTurn = false;
                         status.IsReady = true;
+
                         var mess1 = await reaction.Channel.SendMessageAsync("Принято");
-                        await _help.DeleteMessOverTime(mess1, 6);
+#pragma warning disable 4014
+                        _help.DeleteMessOverTime(mess1, 6);
+#pragma warning restore 4014
                         break;
 
                     default:
 
 
-
-                        var emoteNum = GetNumberFromEmote(reaction);
-
-                        if (status.MoveListPage == 3)
-                        {
-                            await GetLvlUp(gameBridge, emoteNum);
-                            break;
-                        }
-else
-                        if (!status.IsAbleToTurn)
-                        {
-                            var mess = await reaction.Channel.SendMessageAsync("Ходить нельзя, пока идет подсчёт.");
-                            await _help.DeleteMessOverTime(mess, 6);
-                            return;
-                        }
-
-                        if (status.MoveListPage == 2)
-                        {
-                            var mess = await reaction.Channel.SendMessageAsync(
-                                $"Нажми на {new Emoji("📖")}, чтобы вернуться в основное меню.");
-                            await _help.DeleteMessOverTime(mess, 6);
-                            break;
-                        }
-
-                        if (status.MoveListPage == 1)
-                        {
-                            status.WhoToAttackThisTurn =
-                                _global.GamesList.Find(x => x.GameId == account.GameId).PlayersList
-                                    .Find(x => x.Status.PlaceAtLeaderBoard == emoteNum).DiscordAccount.DiscordId;
-
-                            if (status.WhoToAttackThisTurn == account.DiscordId)
-                            {
-                                status.WhoToAttackThisTurn = 0;
-                                var mess = await reaction.Channel.SendMessageAsync("Зачем ты себя бьешь?");
-                                await _help.DeleteMessOverTime(mess, 6);
-                                return;
-                            }
-
-                            status.IsAbleToTurn = false;
-                            status.IsReady = true;
-                            status.IsBlock = false;
-
-                            var mess2 = await reaction.Channel.SendMessageAsync("Принято");
-                            await _help.DeleteMessOverTime(mess2, 6);
-                        }
+                        await HandleAttackOrLvlUp(gameBridge, reaction);
 
                         break;
                 }
             }
         }
 
-
-        public async Task GetLvlUp(GameBridgeClass gameBridge, int skillNumber)
+        public async Task HandleAttackOrLvlUp(GameBridgeClass player, SocketReaction reaction, int botChoice = -1)
         {
-            //TODO:
+            var status = player.Status;
+            var account = player.DiscordAccount;
+
+            var emoteNum = !player.IsBot() ? GetNumberFromEmote(reaction) : botChoice;
+
+            if (status.MoveListPage == 3)
+            {
+                await GetLvlUp(player, emoteNum);
+                return;
+            }
+
+            if (!status.IsAbleToTurn)
+            {
+                if (!player.IsBot())
+                {
+                    var mess = await reaction.Channel.SendMessageAsync("Ходить нельзя, пока идет подсчёт.");
+#pragma warning disable 4014
+                    _help.DeleteMessOverTime(mess, 6);
+#pragma warning restore 4014
+                }
+
+                return;
+            }
+
+            if (status.MoveListPage == 2)
+            {
+                if (!player.IsBot())
+                {
+                    var mess = await reaction.Channel.SendMessageAsync(
+                        $"Нажми на {new Emoji("📖")}, чтобы вернуться в основное меню.");
+#pragma warning disable 4014
+                    _help.DeleteMessOverTime(mess, 6);
+#pragma warning restore 4014
+                }
+
+
+                return;
+            }
+
+            if (status.MoveListPage == 1)
+            {
+                status.WhoToAttackThisTurn =
+                    _global.GamesList.Find(x => x.GameId == account.GameId).PlayersList
+                        .Find(x => x.Status.PlaceAtLeaderBoard == emoteNum).DiscordAccount.DiscordId;
+
+                if (status.WhoToAttackThisTurn == account.DiscordId)
+                {
+                    status.WhoToAttackThisTurn = 0;
+                    if (!player.IsBot())
+                    {
+                        var mess = await reaction.Channel.SendMessageAsync("Зачем ты себя бьешь?");
+#pragma warning disable 4014
+                        _help.DeleteMessOverTime(mess, 6);
+#pragma warning restore 4014
+                    }
+
+                    return;
+                }
+
+                status.IsAbleToTurn = false;
+                status.IsReady = true;
+                status.IsBlock = false;
+                if (!player.IsBot())
+                {
+                    var mess2 = await reaction.Channel.SendMessageAsync("Принято");
+#pragma warning disable 4014
+                    _help.DeleteMessOverTime(mess2, 6);
+#pragma warning restore 4014
+                }
+            }
+        }
+
+
+        private async Task GetLvlUp(GameBridgeClass player, int skillNumber)
+        {
+    
             switch (skillNumber)
             {
                 case 1:
-                    gameBridge.Character.Intelligence++;
-                    if (gameBridge.Character.Intelligence > 10 && gameBridge.Character.Psyche <= 9 && gameBridge.Character.Strength <= 9 && gameBridge.Character.Speed <= 9 )
+                    player.Character.Intelligence++;
+                    if (player.Character.Intelligence > 10 && player.Character.Psyche <= 9 &&
+                        player.Character.Strength <= 9 && player.Character.Speed <= 9)
                     {
-                        gameBridge.Character.Intelligence = 10;
-                        var mess2 =
-                            await gameBridge.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                                "10 максимум, выбери другой");
-                        await _help.DeleteMessOverTime(mess2, 6);
+                        player.Character.Intelligence = 10;
+                        if (!player.IsBot())
+                        {
+                            var mess2 =
+                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                                    "10 максимум, выбери другой");
+#pragma warning disable 4014
+                            _help.DeleteMessOverTime(mess2, 6);
+#pragma warning restore 4014
+                        }
+
                         return;
                     }
 
                     break;
                 case 2:
-                    gameBridge.Character.Strength++;
-                    if (gameBridge.Character.Strength > 10 && gameBridge.Character.Psyche <= 9 && gameBridge.Character.Intelligence <= 9 && gameBridge.Character.Speed <= 9 )
+                    player.Character.Strength++;
+                    if (player.Character.Strength > 10 && player.Character.Psyche <= 9 &&
+                        player.Character.Intelligence <= 9 && player.Character.Speed <= 9)
                     {
-                        gameBridge.Character.Strength = 10;
-                        var mess2 =
-                            await gameBridge.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                                "10 максимум, выбери другой");
-                        await _help.DeleteMessOverTime(mess2, 6);
+                        player.Character.Strength = 10;
+                        if (!player.IsBot())
+                        {
+                            var mess2 =
+                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                                    "10 максимум, выбери другой");
+#pragma warning disable 4014
+                            _help.DeleteMessOverTime(mess2, 6);
+#pragma warning restore 4014
+                        }
+
+
                         return;
                     }
 
                     break;
                 case 3:
-                    gameBridge.Character.Speed++;
-                    if (gameBridge.Character.Speed > 10 && gameBridge.Character.Psyche <= 9 && gameBridge.Character.Strength <= 9 && gameBridge.Character.Intelligence <= 9 )
+                    player.Character.Speed++;
+                    if (player.Character.Speed > 10 && player.Character.Psyche <= 9 &&
+                        player.Character.Strength <= 9 && player.Character.Intelligence <= 9)
                     {
-                        gameBridge.Character.Speed = 10;
-                        var mess2 =
-                            await gameBridge.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                                "10 максимум, выбери другой");
-                        await _help.DeleteMessOverTime(mess2, 6);
+                        player.Character.Speed = 10;
+                        if (!player.IsBot())
+                        {
+                            var mess2 =
+                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                                    "10 максимум, выбери другой");
+#pragma warning disable 4014
+                            _help.DeleteMessOverTime(mess2, 6);
+#pragma warning restore 4014
+                        }
+
+
                         return;
                     }
 
                     break;
                 case 4:
-                    gameBridge.Character.Psyche++;
-                    if (gameBridge.Character.Psyche > 10 && gameBridge.Character.Intelligence <= 9 && gameBridge.Character.Strength <= 9 && gameBridge.Character.Speed <= 9 )
+                    player.Character.Psyche++;
+                    if (player.Character.Psyche > 10 && player.Character.Intelligence <= 9 &&
+                        player.Character.Strength <= 9 && player.Character.Speed <= 9)
                     {
-                        gameBridge.Character.Psyche = 10;
-                        var mess2 =
-                            await gameBridge.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                                "10 максимум, выбери другой");
-                        await _help.DeleteMessOverTime(mess2, 6);
+                        player.Character.Psyche = 10;
+                        if (!player.IsBot())
+                        {
+                            var mess2 =
+                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                                    "10 максимум, выбери другой");
+#pragma warning disable 4014
+                            _help.DeleteMessOverTime(mess2, 6);
+#pragma warning restore 4014
+                        }
+
+
                         return;
                     }
 
@@ -207,11 +275,11 @@ else
                     return;
             }
 
-            gameBridge.Status.MoveListPage = 1;
-            await _upd.UpdateMessage(gameBridge);
+            player.Status.MoveListPage = 1;
+            await _upd.UpdateMessage(player);
         }
 
-        public int GetNumberFromEmote(SocketReaction reaction)
+        private int GetNumberFromEmote(SocketReaction reaction)
         {
             switch (reaction.Emote.Name)
             {

@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
-using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Helpers;
@@ -14,38 +13,41 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 {
     public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceSingleton
     {
-        public Task InitializeAsync()
-        {
-            return Task.CompletedTask;
-        }
-
         private readonly UserAccounts _accounts;
-        private readonly Global _global;
         private readonly AwaitForUserMessage _awaitForUser;
         private readonly InGameGlobal _gameGlobal;
-  
+        private readonly Global _global;
 
-        public GameUpdateMess(UserAccounts accounts, Global global, AwaitForUserMessage awaitForUser, InGameGlobal gameGlobal)
+
+        public GameUpdateMess(UserAccounts accounts, Global global, AwaitForUserMessage awaitForUser,
+            InGameGlobal gameGlobal)
         {
             _accounts = accounts;
             _global = global;
             _awaitForUser = awaitForUser;
             _gameGlobal = gameGlobal;
-          
+        }
+
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
         }
 
 
-        public async Task ShowRulesAndChar(SocketUser user, GameBridgeClass game)
+        public async Task ShowRulesAndChar(SocketUser user, GameBridgeClass player)
         {
+            if (player.IsBot()) return;
+
             var pass = "";
-            var passList = game.Character.Passive;
+            var passList = player.Character.Passive;
             for (var i = 0; i < passList.Count; i++)
             {
-                pass += $"__**{passList[i].PassiveName}**__" ;
+                pass += $"__**{passList[i].PassiveName}**__";
                 pass += ": ";
                 pass += passList[i].PassiveDescription;
                 pass += "\n";
             }
+
             var gameRules = "**Правила игры:**\n" +
                             "Всем выпадает рандомная карта с персонажем. Игрокам не известно против кого они играют. Каждый ход игрок может напасть на кого-то, либо обороняться. " +
                             "В случае нападения игрок либо побеждает, получая очко, либо проигрывает, приносят очко врагу. В случае нападения на обороняющегося игрока, бой не состоится и нападающий уйдет ни с чем, потеряв  1 Справедливости.\n" +
@@ -66,12 +68,12 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                             "У каждого персонажа есть особые пассивки, используйте их как надо!";
 
             var embed = new EmbedBuilder();
-            embed.WithColor(Color.DarkOrange);    
-            embed.AddField("Твой Персонаж:", $"Name: {game.Character.Name}\n" +
-                                             $"Сила: {game.Character.Strength}\n" +
-                                             $"Скорость: {game.Character.Speed}\n" +
-                                             $"Интеллект: {game.Character.Intelligence}\n" +
-                                             $"Психика: {game.Character.Psyche}\n");
+            embed.WithColor(Color.DarkOrange);
+            embed.AddField("Твой Персонаж:", $"Name: {player.Character.Name}\n" +
+                                             $"Сила: {player.Character.Strength}\n" +
+                                             $"Скорость: {player.Character.Speed}\n" +
+                                             $"Интеллект: {player.Character.Intelligence}\n" +
+                                             $"Психика: {player.Character.Psyche}\n");
             embed.AddField("Пассивки", $"{pass}");
             embed.WithDescription(gameRules);
 
@@ -79,12 +81,14 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             await user.SendMessageAsync("", false, embed.Build());
         }
 
-        public async Task WaitMess(GameBridgeClass gameBridge)
+        public async Task WaitMess(GameBridgeClass player)
         {
-            var globalAccount = _global.Client.GetUser(gameBridge.DiscordAccount.DiscordId);
-  
+            if (player.IsBot()) return;
 
-            await ShowRulesAndChar(globalAccount, gameBridge);
+            var globalAccount = _global.Client.GetUser(player.DiscordAccount.DiscordId);
+
+
+            await ShowRulesAndChar(globalAccount, player);
 
             var mainPage = new EmbedBuilder();
             mainPage.WithAuthor(globalAccount);
@@ -95,11 +99,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var socketMsg = await globalAccount.SendMessageAsync("", false, mainPage.Build());
 
-            gameBridge.Status.SocketMessageFromBot = socketMsg;
+            player.Status.SocketMessageFromBot = socketMsg;
 
             await socketMsg.AddReactionAsync(new Emoji("🛡"));
             //   await socketMsg.AddReactionAsync(new Emoji("➡"));
-           // await socketMsg.AddReactionAsync(new Emoji("📖"));
+            // await socketMsg.AddReactionAsync(new Emoji("📖"));
             await socketMsg.AddReactionAsync(new Emoji("1⃣"));
             await socketMsg.AddReactionAsync(new Emoji("2⃣"));
             await socketMsg.AddReactionAsync(new Emoji("3⃣"));
@@ -113,8 +117,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             await socketMsg.AddReactionAsync(new Emoji("❌"));
 
 
-
-        //    await MainPage(userId, socketMsg);
+            //    await MainPage(userId, socketMsg);
         }
 
         public string LeaderBoard(DiscordAccountClass discordAccount, CharacterClass character)
@@ -130,19 +133,16 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 players += CustomLeaderBoard(discordAccount, character, playersList[i]);
 
                 if (discordAccount.DiscordId == playersList[i].DiscordAccount.DiscordId)
-                {
                     players += $" = {playersList[i].Status.GetScore()}\n";
-                }
                 else
-                {
                     players += "\n";
-                }
             }
 
             return players;
         }
 
-        public string CustomLeaderBoard(DiscordAccountClass player1Account, CharacterClass player1Char, GameBridgeClass player2)
+        public string CustomLeaderBoard(DiscordAccountClass player1Account, CharacterClass player1Char,
+            GameBridgeClass player2)
         {
             var customString = "";
             switch (player1Char.Name)
@@ -151,13 +151,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     var currentList = _gameGlobal.DeepListSupermindKnown.Find(x =>
                         x.DiscordId == player1Account.DiscordId && x.GameId == player1Account.GameId);
                     if (currentList != null)
-                    {
                         if (currentList.KnownPlayers.Contains(player2.DiscordAccount.DiscordId))
-                        {
                             customString +=
                                 $" ({player2.Character.Intelligence}, {player2.Character.Strength}, {player2.Character.Speed}, {player2.Character.Psyche}, {player2.Character.Justice.JusticeForNextRound})";
-                        }
-                    }
                     break;
             }
 
@@ -183,7 +179,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         public EmbedBuilder FightPage(GameBridgeClass gameBridge)
         {
             var account = gameBridge.DiscordAccount;
-    //        gameBridge.Status.MoveListPage = 1;
+            //        player.Status.MoveListPage = 1;
             var character = gameBridge.Character;
 
             var embed = new EmbedBuilder();
@@ -193,7 +189,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithDescription(_global.GamesList.Find(x => x.GameId == account.GameId).PreviousGameLogs);
 
             embed.WithTitle("Царь Мусорной Горы");
-            embed.AddField( "____",
+            embed.AddField("____",
                 $"**Name:** {character.Name}\n" +
                 $"**Интеллект:** {character.Intelligence}\n" +
                 $"**Сила:** {character.Strength}\n" +
@@ -215,7 +211,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         //Page 2
         public EmbedBuilder LogsPage(GameBridgeClass gameBridge)
         {
-
             var account = gameBridge.DiscordAccount;
 
 
@@ -230,19 +225,18 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed = CustomLogsPage(gameBridge, embed);
             return embed;
 
-        //    await socketMsg.ModifyAsync(message => { message.Embed = embed.Build(); });
+            //    await socketMsg.ModifyAsync(message => { message.Embed = embed.Build(); });
         }
 
 
         public EmbedBuilder CustomLogsPage(GameBridgeClass gameBridge, EmbedBuilder embed)
         {
-            
             switch (gameBridge.Character.Name)
             {
                 case "DeepList":
                     break;
             }
-            
+
 
             return embed;
         }
@@ -250,14 +244,14 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         //Page 3
         public EmbedBuilder LvlUpPage(GameBridgeClass gameBridge)
         {
-        //    var status = gameBridge.Status;
+            //    var status = player.Status;
             var account = gameBridge.DiscordAccount;
             var character = gameBridge.Character;
 
-         //   status.MoveListPage = 3;
-        //    _accounts.SaveAccounts(discordAccount.PlayerDiscordId);
+            //   status.MoveListPage = 3;
+            //    _accounts.SaveAccounts(discordAccount.PlayerDiscordId);
 
-            var embed= new EmbedBuilder();
+            var embed = new EmbedBuilder();
             embed.WithColor(Color.Blue);
             embed.WithTitle("Подними один из статов");
             embed.WithFooter($"{GetTimeLeft(account)}");
@@ -265,7 +259,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 $"1. **Интеллект:** {character.Intelligence}\n" +
                 $"2. **Сила:** {character.Strength}\n" +
                 $"3. **Скорость:** {character.Speed}\n" +
-                $"4. **Психика:** {character.Psyche}\n");    
+                $"4. **Психика:** {character.Psyche}\n");
 
             if (character.Avatar != null)
                 if (IsImageUrl(character.Avatar))
@@ -274,19 +268,19 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             return embed;
         }
 
-        public async Task UpdateMessage(GameBridgeClass gameBridge)
+        public async Task UpdateMessage(GameBridgeClass player)
         {
-            var embed = FightPage(gameBridge);
-            switch (gameBridge.Status.MoveListPage)
+            var embed = FightPage(player);
+            switch (player.Status.MoveListPage)
             {
                 case 1:
-                   // embed = LogsPage(gameBridge);
+                    // embed = LogsPage(player);
                     break;
                 case 2:
-                    embed = LogsPage(gameBridge);
+                    embed = LogsPage(player);
                     break;
                 case 3:
-                    embed = LvlUpPage(gameBridge);
+                    embed = LvlUpPage(player);
 
 
                     break;
@@ -295,7 +289,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             try
             {
-                await gameBridge.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
+                if (!player.IsBot())
+                    await player.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
             }
             catch
             {
@@ -303,9 +298,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             }
         }
 
-        public async Task UpdateMessage(GameBridgeClass gameBridge, EmbedBuilder embed)
+        public async Task UpdateMessage(GameBridgeClass player, EmbedBuilder embed)
         {
-            await gameBridge.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
+            if (!player.IsBot())
+                await player.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
         }
 
 
@@ -313,17 +309,13 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         {
             var game = _global.GamesList.Find(x => x.GameId == discordAccount.GameId);
 
-            if (!_global.IsTimerToCheckEnabled.Find( x => x.GameId == game.GameId).IsTimerToCheckEnabled)
-            {
+            if (!_global.IsTimerToCheckEnabled.Find(x => x.GameId == game.GameId).IsTimerToCheckEnabled)
                 return $"Ведется подсчёт, пожалуйста подожди... • ход #{game.RoundNo}";
-            }
 
-          
+
             if (game.GameStatus == 1)
-            {
                 return "Времени осталось: " + (int) (game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds) +
                        $"сек. • ход #{game.RoundNo}";
-            }
 
             return $"Ведется подсчёт, пожалуйста подожди... • ход #{game.RoundNo}";
         }

@@ -105,5 +105,21 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             SaveAccounts(user);
             return newAccount;
         }
+
+        public DiscordAccountClass CreateBotAccount(ulong botId)
+        {
+            var accounts = GetOrAddUserAccountsForGuild(botId);
+
+            var newAccount = new DiscordAccountClass
+            {
+                DiscordId = botId,
+                DiscordUserName = "BOT",
+                IsLogs = false
+            };
+
+            accounts.Add(newAccount);
+            SaveAccounts(botId);
+            return newAccount;
+        }
     }
 }

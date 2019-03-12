@@ -8,5 +8,9 @@ namespace King_of_the_Garbage_Hill.Game.Classes
       public CharacterClass Character { get; set; }
 
       public InGameStatus Status { get; set; }
+      public bool IsBot()
+      {
+          return DiscordAccount.DiscordId <= 1000;
+      }
   }
 }

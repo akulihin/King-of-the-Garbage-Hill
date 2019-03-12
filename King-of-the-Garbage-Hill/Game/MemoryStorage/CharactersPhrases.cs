@@ -101,14 +101,17 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                     var random = new Random();
 
                     var embed = new EmbedBuilder();
-                    embed.WithDescription(PassiveLogRus[random.Next(0, PassiveLogRus.Count - 1)]);
+                    embed.WithDescription(PassiveLogRus[random.Next(0, PassiveLogRus.Count)]);
                     if (player.DiscordAccount.IsLogs) embed.WithFooter(PassiveNameRus);
                     embed.WithColor(random.Next(0, 255), random.Next(0, 255), random.Next(0, 255));
 
-                    var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync( "", false, embed.Build());
+                    if (!player.IsBot())
+                    {
+                        var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync( "", false, embed.Build());
 #pragma warning disable 4014
-                   DeleteMessOverTime(mess, 10);
+                        DeleteMessOverTime(mess, 10);
 #pragma warning restore 4014
+                    }
                 }
             }
 

@@ -1,27 +1,40 @@
 ﻿using System.Threading.Tasks;
 using System.Timers;
+using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.ReactionHandling;
+using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic
 {
     public class CheckIfReady : IServiceSingleton
     {
-        public Timer LoopingTimer;
         private readonly Global _global;
-        private readonly GameUpdateMess _upd;
         private readonly CalculateStage2 _stage2;
-       
+        private readonly GameUpdateMess _upd;
+        private readonly GameReaction _gameReaction;
+        private readonly SecureRandom _rand;
+        public Timer LoopingTimer;
 
-        public CheckIfReady(Global global, GameUpdateMess upd, CalculateStage2 stage2)
+
+        public CheckIfReady(Global global, GameUpdateMess upd, CalculateStage2 stage2, GameReaction gameReaction, SecureRandom rand)
         {
             _global = global;
             _upd = upd;
             _stage2 = stage2;
+            _gameReaction = gameReaction;
+            _rand = rand;
             CheckTimer();
         }
 
 
-        public  Task CheckTimer()
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
+
+
+        public Task CheckTimer()
         {
             LoopingTimer = new Timer
             {
@@ -38,15 +51,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         private async void CheckIfEveryoneIsReady(object sender, ElapsedEventArgs e)
         {
-       
-
             var games = _global.GamesList;
             for (var i = 0; i < games.Count; i++)
             {
                 var game = games[i];
                 var isTimerToCheckEnabled = _global.IsTimerToCheckEnabled.Find(x => x.GameId == game.GameId)
                     .IsTimerToCheckEnabled;
-                if (!isTimerToCheckEnabled){return;}
+                if (!isTimerToCheckEnabled) return;
 
                 var players = _global.GamesList[i].PlayersList;
                 var readyTargetCount = players.Count;
@@ -54,57 +65,95 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 for (var k = 0; k < players.Count; k++)
                 {
-              
-              
+                 await HandleBotBehavior(players[k], game);
 
-                    if (players[k].Status.IsReady)
-                    {
-                        readyCount++;
-                    }
+                    if (players[k].Status.IsReady) readyCount++;
 
                     if (players[k].Status.SocketMessageFromBot != null)
-                    {
                         if (game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds >= -6)
-                        {
                             await _upd.UpdateMessage(players[k]);
-                        }
-                    }
                 }
 
-                if ((readyCount == readyTargetCount || game.TimePassed.Elapsed.TotalSeconds >=  game.TurnLengthInSecond) &&  game.GameStatus == 1)
+                if ((readyCount == readyTargetCount ||
+                     game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond) && game.GameStatus == 1)
                 {
                     _global.IsTimerToCheckEnabled.Find(x => x.GameId == game.GameId)
                         .IsTimerToCheckEnabled = false;
 
 
                     for (var k = 0; k < players.Count; k++)
-                    {
-              
-     
                         if (players[k].Status.SocketMessageFromBot != null)
-                        {
-                                await _upd.UpdateMessage(players[k]);
-                        }
-                    }
+                            await _upd.UpdateMessage(players[k]);
 
 
+                    await _stage2.DeepListMind(game);
 
-                   await  _stage2.DeepListMind(game);
-                  
-                   _global.IsTimerToCheckEnabled.Find(x => x.GameId == game.GameId)
-                       .IsTimerToCheckEnabled = true;
-
+                    _global.IsTimerToCheckEnabled.Find(x => x.GameId == game.GameId)
+                        .IsTimerToCheckEnabled = true;
                 }
             }
         }
 
-        public Task InitializeAsync()
-            => Task.CompletedTask;
+        /*
+1) нападает на случайного врага, у которого меньше справедливости, чем у него.  (если нет таких, то на того, у кого равная справедливость с ним)
+
+2) если у нескольких игроков справедливости больше, а меньше нет ни у кого, дальше идет такая формула:
+ролишь рандом от 1 до 5
+rand = 3
+если (rand)  -   (кол-во врагов с равной справедливостью)  < 0
+то атакует рандомного врага с равной справедливостью
+если (rand)  -   (кол-во врагов с равной справедливостью)  >= 0
+то ставит блок
+        */
+        private async Task HandleBotBehavior(GameBridgeClass player, GameClass game)
+        {
+            if (!player.IsBot()) return;
+            if (player.Status.MoveListPage == 1)
+            {
+                var playerToAttack =
+                    game.PlayersList.Find(x => x.Character.Justice.JusticeNow < player.Character.Justice.JusticeNow);
+
+                if (playerToAttack != null)
+                {
+                    await _gameReaction.HandleAttackOrLvlUp(player, null, playerToAttack.Status.PlaceAtLeaderBoard);
+                }
+
+                playerToAttack =
+                    game.PlayersList.Find(x => x.Character.Justice.JusticeNow == player.Character.Justice.JusticeNow);
+
+                if (playerToAttack != null)
+                {
+                    await _gameReaction.HandleAttackOrLvlUp(player, null, playerToAttack.Status.PlaceAtLeaderBoard);
+                }
+            
+                int randomPlayer;
+
+                do
+                {
+                    randomPlayer = _rand.Random(1, 6);
+                } while (randomPlayer ==  player.Status.PlaceAtLeaderBoard);
+
+                await _gameReaction.HandleAttackOrLvlUp(player, null, randomPlayer);
+            }
+
+            if (player.Status.MoveListPage == 3)
+            {
+                if(player.Character.Intelligence < 10)
+                    await _gameReaction.HandleAttackOrLvlUp(player, null, 1);
+                else if(player.Character.Strength < 10)
+                    await _gameReaction.HandleAttackOrLvlUp(player, null, 2);
+                else if(player.Character.Speed < 10)
+                    await _gameReaction.HandleAttackOrLvlUp(player, null, 3);
+                else if(player.Character.Psyche < 10)
+                    await _gameReaction.HandleAttackOrLvlUp(player, null, 4);
+            }
+            
+        }
 
         public class IsTimerToCheckEnabledClass
         {
-            public bool IsTimerToCheckEnabled;
             public ulong GameId;
+            public bool IsTimerToCheckEnabled;
 
             public IsTimerToCheckEnabledClass(ulong gameId)
             {
