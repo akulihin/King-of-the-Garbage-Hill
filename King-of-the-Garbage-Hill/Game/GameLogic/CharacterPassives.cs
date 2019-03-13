@@ -554,11 +554,21 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                             player.Status.AddBonusPoints(10);
 
+                            var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
+                                x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
 
-                            for (var i = player.Status.PlaceAtLeaderBoard; i < 6; i++)
+                            if (siri != null)
                             {
-                                game.
+                                for (var i = player.Status.PlaceAtLeaderBoard+1; i < 7; i++)
+                                {
+                                    var player2 = game.PlayersList[i-1];
+                                    if (siri.FriendList.Contains(player2.DiscordAccount.DiscordId))
+                                    {
+                                        player.Status.AddBonusPoints(-1);
+                                    }
+                                }
                             }
+
 
                            await _phrase.SirinoksFriendsPhrase.SendLog(player);
                         }
