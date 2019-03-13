@@ -249,9 +249,9 @@
     },
     {  
        "Name":"AWDKA",
-       "Intelligence":4,
-       "Psyche":7,
-       "Speed":6,
+       "Intelligence":3,
+       "Psyche":6,
+       "Speed":4,
        "Strength":1,
        "Justice":{  
           "JusticeNow":0,
