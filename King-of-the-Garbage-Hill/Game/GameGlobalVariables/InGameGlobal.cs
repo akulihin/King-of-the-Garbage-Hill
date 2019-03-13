@@ -54,6 +54,9 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public readonly List<HardKitty.MuteClass>  HardKittyMute = new List<HardKitty.MuteClass>();
         public readonly  List<Sirinoks.TrainingClass> SirinoksTraining = new List<Sirinoks.TrainingClass>();
         public readonly List<Sirinoks.FriendsClass> SirinoksFriendsList = new List<Sirinoks.FriendsClass>();
+        public readonly  List<Mitsuki.GarbageClass> MitsukiGarbageList = new List<Mitsuki.GarbageClass>();
+        public readonly List<WhenToTriggerClass>
+            MitsukiNoPCTriggeredWhen = new List<WhenToTriggerClass>();
 
         public InGameGlobal(SecureRandom rand)
         {
@@ -70,8 +73,16 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         {
             var toTriggerClass = new WhenToTriggerClass(player.DiscordAccount.DiscordId, player.DiscordAccount.GameId);
             int when;
-
             var check = 0;
+
+            if (maxRandomNumber == 0)
+            {              
+                when = _rand.Random(2, 10);
+                toTriggerClass.WhenToTrigger.Add(when);
+                return toTriggerClass;
+            }
+
+
             if (isMandatory)
             {
                 when = _rand.Random(1, 10);
@@ -87,6 +98,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
                 } while (check == when);
                 toTriggerClass.WhenToTrigger.Add(when);
             }
+
 
 
             var rand = _rand.Random(1, maxRandomNumber);

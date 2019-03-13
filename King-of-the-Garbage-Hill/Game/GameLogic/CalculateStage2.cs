@@ -320,6 +320,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 game.PlayersList[i].Status.PlaceAtLeaderBoard = i + 1;
                 await _upd.UpdateMessage(game.PlayersList[i]);
             }
+            await _characterPassives.HandleNextRoundAfterSorting(game);
 
             game.TimePassed.Reset();
             game.TimePassed.Start();

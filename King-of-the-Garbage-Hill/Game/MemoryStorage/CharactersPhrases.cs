@@ -29,6 +29,10 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public PhraseClass HardKittyMutedPhrase;
         public PhraseClass SirinoksFriendsPhrase;
         public PhraseClass SirinoksDragonPhrase;
+        public PhraseClass MitsukiCheekyBriki;   
+        public PhraseClass MitsukiTooMuchFucking;
+        public PhraseClass MitsukiGarbageSmell;
+        public PhraseClass MitsukiSchoolboy;
         //end
 
         public CharactersUniquePhrase()
@@ -53,6 +57,10 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             HardKittyMutedPhrase = new  PhraseClass("Muted");
             SirinoksFriendsPhrase = new PhraseClass("Заводить друзей");
             SirinoksDragonPhrase = new PhraseClass("Дракон");
+            MitsukiCheekyBriki = new PhraseClass("Дерзкая школота");
+            MitsukiTooMuchFucking = new PhraseClass("Много выебывается");
+            MitsukiGarbageSmell= new PhraseClass("Запах мусора");
+            MitsukiSchoolboy = new PhraseClass("Школьник");
             //end
 
             //add  as many phrases as you wany
@@ -119,6 +127,16 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             SirinoksFriendsPhrase.PassiveLogRus.Add("М/Ж?");
               // SirinoksFriendsPhrase.PassiveLogRus.Add("");
             SirinoksDragonPhrase.PassiveLogRus.Add("РООАР!");
+
+            MitsukiCheekyBriki.PassiveLogRus.Add("Ну чё, ёпта, поиграем?");
+            MitsukiTooMuchFucking.PassiveLogRus.Add("Алмаз!");
+            MitsukiTooMuchFucking.PassiveLogRus.Add("Ну так-то всё правильно");
+            MitsukiTooMuchFucking.PassiveLogRus.Add("Сука ня");
+            MitsukiTooMuchFucking.PassiveLogRus.Add("Чё пацаны, аниме?");
+            MitsukiTooMuchFucking.PassiveLogRus.Add("Наслаждайтесь жижей!");
+            MitsukiGarbageSmell.PassiveLogRus.Add("Во что это я вляпался?");
+            MitsukiGarbageSmell.PassiveLogRus.Add("Запахло мусором...");
+            MitsukiSchoolboy.PassiveLogRus.Add("Да блять, своего компьютера-то нету");
             //end
         }
 

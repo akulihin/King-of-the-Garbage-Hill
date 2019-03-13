@@ -139,6 +139,23 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     playerIamAttacking.Status.AddRegularPoints();
                     await _phrase.HardKittyLonelyPhrase.SendLog(playerIamAttacking);
                     break;
+
+                case "Mitsuki":
+                    var mitsuki = _gameGlobal.MitsukiGarbageList.Find(x =>
+                        x.GameId == game.GameId && x.PlayerDiscordId == playerIamAttacking.DiscordAccount.DiscordId);
+
+                    if (mitsuki == null)
+                    {
+                        _gameGlobal.MitsukiGarbageList.Add(new Mitsuki.GarbageClass(playerIamAttacking.DiscordAccount.DiscordId, game.GameId, playerAttackFrom.DiscordAccount.DiscordId));
+                    }
+                    else
+                    {
+                        if (!mitsuki.Training.Contains(playerAttackFrom.DiscordAccount.DiscordId))
+                        {
+                            mitsuki.Training.Add(playerAttackFrom.DiscordAccount.DiscordId);
+                        }
+                    }
+                    break;
             }
 
             await Task.CompletedTask;
@@ -350,6 +367,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         _gameGlobal.MylorikBooleTriggeredWhen.Add(when);
                         break;
 
+                    case "Mitsuki":
+                        when = _gameGlobal.GetWhenToTrigger(player, true, 0, 0);
+                        _gameGlobal.MitsukiNoPCTriggeredWhen.Add(when);
+                        break;
+
                     case "Глеб":
                         //Спящее хуйло chance
                         when = _gameGlobal.GetWhenToTrigger(player, true, 4, 3);
@@ -407,6 +429,25 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             }
 
                         break;
+
+                    case "Mitsuki":
+                         acc = _gameGlobal.MitsukiNoPCTriggeredWhen.Find(x =>
+                            x.DiscordId == player.DiscordAccount.DiscordId && player.DiscordAccount.GameId == x.GameId);
+
+                        if (acc != null)
+                            if (acc.WhenToTrigger.Contains(game.RoundNo))
+                            {
+                                player.Status.IsSkip = true;
+                                player.Status.IsBlock = false;
+                                player.Status.IsAbleToTurn = false;
+                                player.Status.IsReady = true;
+                                player.Status.WhoToAttackThisTurn = 0;
+
+                             await   _phrase.MitsukiSchoolboy.SendLog(player);
+                            }
+
+                        break;
+
                     case "Глеб":
                         //Спящее хуйло:
                         acc = _gameGlobal.GlebSleepingTriggeredWhen.Find(x =>
@@ -721,6 +762,55 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         //end training
                         break;
+
+                    case "Mitsuki":
+
+                        //Дерзкая школота:
+                        if (game.RoundNo == 1)
+                        {
+                          await  _phrase.MitsukiCheekyBriki.SendLog(player);
+                        }
+
+                        var randStat1 = _rand.Random(1, 4);
+                        var randStat2 = _rand.Random(1, 4);
+                        switch (randStat1)
+                        {
+                            case 1:
+                                player.Character.Intelligence--;
+                                break;
+                            case 2:
+                                player.Character.Strength--;
+                                break;
+                            case 3:
+                                player.Character.Speed--;
+                                break;
+                            case 4:
+                                player.Character.Psyche--;
+                                break;
+                        }
+                        switch (randStat2)
+                        {
+                            case 1:
+                                player.Character.Intelligence--;
+                                break;
+                            case 2:
+                                player.Character.Strength--;
+                                break;
+                            case 3:
+                                player.Character.Speed--;
+                                break;
+                            case 4:
+                                player.Character.Psyche--;
+                                break;
+                        }
+
+                        //end  Дерзкая школота:
+
+                        //Много выебывается:
+                       
+                        //end Много выебывается:
+
+                        break;
                 }
             }
 
@@ -889,6 +979,59 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
 
             await Task.CompletedTask;
+        }
+
+        public async Task HandleNextRoundAfterSorting(GameClass game)
+        {
+            foreach (var player in game.PlayersList)
+            {
+                if (player == null) _log.Critical("HandleNextRoundAfterSorting - player == null");
+
+                var characterName = player?.Character.Name;
+                if (characterName == null) return;
+
+                switch (characterName)
+                {
+                    case "Mitsuki":
+                        //Много выебывается:
+                        if (player.Status.PlaceAtLeaderBoard == 1)
+                        {
+                            player.Status.AddRegularPoints();
+                         await   _phrase.MitsukiTooMuchFucking.SendLog(player);
+                        }
+                        //end Много выебывается:
+
+                        //Запах мусора:
+
+                        if (game.RoundNo > 10)
+                        {
+                            var mitsuki = _gameGlobal.MitsukiGarbageList.Find(x =>
+                                x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+                            if (mitsuki != null)
+                            {
+                                for (var i = 0; i < mitsuki.Training.Count; i++)
+                                {
+                                    var player2 = game.PlayersList.Find(x =>
+                                        x.DiscordAccount.DiscordId == mitsuki.Training[i]);
+                                    if (player2 != null)
+                                    {
+                                        player2.Status.AddBonusPoints(-1);
+                                      await  _phrase.MitsukiGarbageSmell.SendLog(player2);
+                                    }
+                                }
+                            }
+                        }
+
+                        //end Запах мусора:
+                        break;
+                }
+
+            }
+
+            if (game.RoundNo > 10)
+            {
+                //TODO: implement end of the game, after turn 10.
+            }
         }
     }
 }
