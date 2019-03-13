@@ -10,12 +10,17 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
     public class CharactersUniquePhrase : IServiceSingleton
     {
         //initialize variables 
+        public PhraseClass DeepListMadnessPhrase;
+        public PhraseClass DeepListDoubtfulTacticPhrase;
         public PhraseClass DeepListSuperMindPhrase;
         public PhraseClass GlebChallengerPhrase;
         public PhraseClass LeCrispAssassinsPhrase;
         public PhraseClass LeCrispImpactPhrase;
         public PhraseClass LeCrispJewPhrase;
+        public PhraseClass MylorikRevengeLostPhrase;
+        public PhraseClass MylorikRevengeVictoryPhrase;
         public PhraseClass MylorikPhrase;
+        public PhraseClass MylorikSpanishPhrase;
         public PhraseClass TolyaCountPhrase;
         public PhraseClass TolyaJewPhrase;
         public PhraseClass TolyaRammusPhrase;
@@ -29,8 +34,13 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public CharactersUniquePhrase()
         {
             //add values
+            DeepListMadnessPhrase = new PharesClass("Безумие");
+            DeepListDoubtfulTacticPhrase = new PhraseClass("Сомнительная тактика");
             DeepListSuperMindPhrase = new PhraseClass("Сверхразум");
+            MylorikRevengeLostPhrase = new PhraseClass("Месть");
+            MylorikRevengeVictoryPhrase = new PhraseClass("Месть");
             MylorikPhrase = new PhraseClass("Буль" );
+            MylorikSpanishPhrase = new PhraseClass("Испанец")
             GlebChallengerPhrase = new PhraseClass("Претендент русского сервера" );
             LeCrispJewPhrase = new PhraseClass("Еврей||" );
             LeCrispAssassinsPhrase = new PhraseClass("Гребанные ассассины" );
@@ -46,9 +56,34 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             //end
 
             //add  as many phrases as you wany
+            DeepListMadnessPhrase.PassiveLogRus.Add("Хаха. Ха. || АХАХАХАХАХАХАХ!");
+            DeepListMadnessPhrase.PassiveLogRus.Add("Стоп, кто... я?");
+            DeepListMadnessPhrase.PassiveLogRus.Add("Заткнитесь!");
+
+            DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Everything is going according to my plan");
+            DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("My superior tactic will win");
+            DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Я всё рассчитал, это работает.");
+            DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Napoleon Wonnafcuk");
+            DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Техника скрытого Листа - Гамбит");
+
             DeepListSuperMindPhrase.PassiveLogRus.Add("Поделив энтропию на ноль, вы поняли, что ");
             DeepListSuperMindPhrase.PassiveLogRus.Add("Используя свою дедукцию, вы поняли, что ");
             DeepListSuperMindPhrase.PassiveLogRus.Add("Сложив 2+2, вы каким-то чудом догадались, что ");
+
+            MylorikRevengeLostPhrase.PassiveLogRus.Add("Ах вы суки блять!");
+            MylorikRevengeLostPhrase.PassiveLogRus.Add("МММХ!");
+            MylorikRevengeLostPhrase.PassiveLogRus.Add("ПРРРРРРУ");
+            MylorikRevengeLostPhrase.PassiveLogRus.Add("Понерфайте!");
+            MylorikRevengeLostPhrase.PassiveLogRus.Add("РАААЗЪЫБУ!");
+            MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Вот так!");
+            MylorikRevengeVictoryPhrase.PassiveLogRus.Add("ЭТО СПАРТА");
+            MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Показал как надо");
+            MylorikRevengeVictoryPhrase.PassiveLogRus.Add("ММ!");
+            MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Слабый персонаж!");
+
+            MylorikSpanishPhrase.PassiveLogRus.Add("Ааарива!");
+            MylorikSpanishPhrase.PassiveLogRus.Add("Буэнос ночес!");
+            MylorikSpanishPhrase.PassiveLogRus.Add("Ale handro!");
 
             MylorikPhrase.PassiveLogRus.Add("Буль");
 
