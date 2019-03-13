@@ -5,8 +5,10 @@ using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.BotFramework;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
+using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic
@@ -18,7 +20,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly SecureRandom _rand;
         private readonly InGameGlobal _gameGlobal;
         private readonly LoginFromConsole _log;
-
+        private readonly GameUpdateMess _gameUpdateMess;
         private readonly CharactersUniquePhrase _phrase;
         //end helpers
 
@@ -43,7 +45,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         public CharacterPassives(SecureRandom rand, HelperFunctions help, Awdka awdka, DeepList deepList,
             DeepList2 deepList2, Gleb gleb, HardKitty hardKitty, Mitsuki mitsuki, LeCrisp leCrisp, Mylorik mylorik,
             Octopus octopus, Shark shark, Sirinoks sirinoks, Tigr tigr, Tolya tolya, InGameGlobal gameGlobal,
-            Darksci darksci, CharactersUniquePhrase phrase, LoginFromConsole log)
+            Darksci darksci, CharactersUniquePhrase phrase, LoginFromConsole log, GameUpdateMess gameUpdateMess)
         {
             _rand = rand;
             _help = help;
@@ -64,6 +66,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             _darksci = darksci;
             _phrase = phrase;
             _log = log;
+            _gameUpdateMess = gameUpdateMess;
         }
 
         public Task InitializeAsync()
@@ -476,13 +479,32 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             }
 
                         break;
-
-
-
-
-
-
                     case "AWDKA":
+
+                        var awdkaa = _gameGlobal.AwdkaTryingList.Find(x =>
+                            x.GameId == player.DiscordAccount.GameId && x. PlayerDiscordId == player.DiscordAccount.DiscordId);
+
+                        if(awdkaa != null)
+                        {
+                         
+                            foreach (var enemy in  awdkaa.TryingList)
+                            {
+                                if (enemy != null)
+                                {
+                                    if (enemy.Times >= 2 && enemy.IsUnique == false)
+                                    {
+                                        player.Status.MoveListPage += 4;
+                                      await  _gameUpdateMess.UpdateMessage(player);
+                                        enemy.IsUnique = true;
+                                        await  _phrase.AwdkaTrying.SendLog(player);
+                                    }
+                                }
+                            }
+ 
+                        }
+  
+
+
                         //Научите играть 
                         var awdkaTempStats = _gameGlobal.AwdkaTeachToPlayTempStats.Find(x =>
                             x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
@@ -1093,6 +1115,28 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     }
 
                     // end Doebatsya
+                    break;
+
+                case "AWDKA":
+                    //Произошел троллинг:
+                    if (player.Status.IsWonLastTime != 0)
+                    {
+                        var player2 =
+                            game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonLastTime);
+
+                        if (player2.Status.PlaceAtLeaderBoard == 1)
+                        {
+                            int pointsToGet = player2.Status.GetScore() / 4;
+                            if (pointsToGet < 1)
+                            {
+                                pointsToGet = 1;
+                            }
+
+                            player.Status.AddBonusPoints(pointsToGet);
+                           await _phrase.AwdkaTrolling.SendLog(player);
+                        }
+                    }
+                    //end Произошел троллинг:
                     break;
             }
 

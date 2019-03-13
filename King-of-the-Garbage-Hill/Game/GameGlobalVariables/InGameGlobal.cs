@@ -59,6 +59,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public readonly List<WhenToTriggerClass>
             MitsukiNoPcTriggeredWhen = new List<WhenToTriggerClass>();
         public readonly  List<Sirinoks.TrainingClass> AwdkaTeachToPlay = new List<Sirinoks.TrainingClass>();
+        public readonly  List<Awdka.TryingClass> AwdkaTryingList = new List<Awdka.TryingClass>();
 
         public InGameGlobal(SecureRandom rand)
         {

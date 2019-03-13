@@ -279,7 +279,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 case 2:
                     embed = LogsPage(player);
                     break;
-                case 3:
+                case int n when (n >= 3):
                     embed = LvlUpPage(player);
 
 

@@ -115,7 +115,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
             var emoteNum = !player.IsBot() ? GetNumberFromEmote(reaction) : botChoice;
 
-            if (status.MoveListPage == 3)
+            if (status.MoveListPage >= 3)
             {
                 await GetLvlUp(player, emoteNum);
                 return;
@@ -275,7 +275,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     return;
             }
 
-            player.Status.MoveListPage = 1;
+            player.Status.MoveListPage -= 2;
             await _upd.UpdateMessage(player);
         }
 

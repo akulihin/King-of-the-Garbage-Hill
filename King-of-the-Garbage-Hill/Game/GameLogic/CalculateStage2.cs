@@ -241,6 +241,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 await _characterPassives.HandleEveryAttackOnHimAfterCalculations(playerIamAttacking , player, game);
                 //т.е. я его аттакую, какие у меня бонусы на это
                 await _characterPassives.HandleEveryAttackFromMeAfterCalculations(player, playerIamAttacking, game);
+
+                //TODO: merge top 2 methods and 2 below... they are the same...
+
                 await _characterPassives.HandleCharacterAfterCalculations(player, game);
                 await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
 
@@ -313,7 +316,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             {
                 if (game.RoundNo == 3 || game.RoundNo == 5 || game.RoundNo == 7 || game.RoundNo == 9)
                 {
-                    game.PlayersList[i].Status.MoveListPage = 3;
+                    game.PlayersList[i].Status.MoveListPage += 2;
                 }
            
 
