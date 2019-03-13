@@ -1,5 +1,12 @@
 # King of the Garbage Hill
 
+King of The Garbage Hill is a turn-based card game for up to six people. Your card is a random character which will help you to score the most points by the end of the game. The main gameplay of the game is in deduction - to know the enemy card is the primary key to victory! 
+
+There are only two actions available in the game: to defend or attack. However, do not let this simplicity to fool you! The goal is only one - to score the most points, but the methods may be very different depending on your character card!
+
+
+________________________________________________________________________________________________________________________________________
+
 Правила:
 Всем выпадает рандомная карта с персонажем. Игрокам не известно против кого они играют. Каждый ход игрок может напасть на кого-то, либо обороняться. В случае нападения игрок либо побеждает, получая очко, либо проигрывает, приносят очко врагу. В случае обороны, напавшие на игрока враги не могут его победить и уходят ни с чем.
 
