@@ -34,13 +34,13 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public CharactersUniquePhrase()
         {
             //add values
-            DeepListMadnessPhrase = new PharesClass("Безумие");
+            DeepListMadnessPhrase = new PhraseClass("Безумие");
             DeepListDoubtfulTacticPhrase = new PhraseClass("Сомнительная тактика");
             DeepListSuperMindPhrase = new PhraseClass("Сверхразум");
             MylorikRevengeLostPhrase = new PhraseClass("Месть");
             MylorikRevengeVictoryPhrase = new PhraseClass("Месть");
             MylorikPhrase = new PhraseClass("Буль" );
-            MylorikSpanishPhrase = new PhraseClass("Испанец")
+            MylorikSpanishPhrase = new PhraseClass("Испанец");
             GlebChallengerPhrase = new PhraseClass("Претендент русского сервера" );
             LeCrispJewPhrase = new PhraseClass("Еврей||" );
             LeCrispAssassinsPhrase = new PhraseClass("Гребанные ассассины" );
