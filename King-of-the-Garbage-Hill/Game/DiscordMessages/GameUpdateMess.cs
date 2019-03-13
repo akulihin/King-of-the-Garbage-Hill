@@ -281,21 +281,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     break;
                 case int n when (n >= 3):
                     embed = LvlUpPage(player);
-
-
                     break;
             }
 
-
-            try
-            {
                 if (!player.IsBot())
                     await player.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
-            }
-            catch
-            {
-                //
-            }
         }
 
         public async Task UpdateMessage(GameBridgeClass player, EmbedBuilder embed)

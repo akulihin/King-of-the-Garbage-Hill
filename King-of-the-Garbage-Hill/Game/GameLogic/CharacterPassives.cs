@@ -398,6 +398,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         when = _gameGlobal.GetWhenToTrigger(player, false, 10, 2);
                         _gameGlobal.MylorikBooleTriggeredWhen.Add(when);
                         break;
+                    case "AWDKA":
+                        when = _gameGlobal.GetWhenToTrigger(player, false, 10, 1);
+                        _gameGlobal.AwdkaAfkTriggeredWhen.Add(when);
+                        break;
 
                     case "Mitsuki":
                         when = _gameGlobal.GetWhenToTrigger(player, true, 0, 0);
@@ -481,8 +485,29 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
                     case "AWDKA":
 
+                        //АФКА
+                        
+                        var awdkaaa = _gameGlobal.AwdkaAfkTriggeredWhen.Find(x =>
+                            x.GameId == player.DiscordAccount.GameId && x.DiscordId == player.DiscordAccount.DiscordId);
+
+                        if (awdkaaa != null)
+                        {
+                            if (awdkaaa.WhenToTrigger.Contains(game.RoundNo))
+                            {
+                                player.Status.IsSkip = true;
+                                player.Status.IsBlock = false;
+                                player.Status.IsAbleToTurn = false;
+                                player.Status.IsReady = true;
+                                player.Status.WhoToAttackThisTurn = 0;
+
+                                await   _phrase.AwdkaAfk.SendLog(player);
+                            }
+                        }
+                        //end АФКА
+
+                        //Я пытаюсь!:
                         var awdkaa = _gameGlobal.AwdkaTryingList.Find(x =>
-                            x.GameId == player.DiscordAccount.GameId && x. PlayerDiscordId == player.DiscordAccount.DiscordId);
+                            x.GameId == player.DiscordAccount.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
 
                         if(awdkaa != null)
                         {
@@ -502,7 +527,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             }
  
                         }
-  
+  //end Я пытаюсь!:
 
 
                         //Научите играть 
