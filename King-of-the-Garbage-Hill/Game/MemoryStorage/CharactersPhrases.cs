@@ -32,7 +32,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             DeepListSuperMindPhrase = new PhraseClass("Сверхразум");
             MylorikPhrase = new PhraseClass("Буль" );
             GlebChallengerPhrase = new PhraseClass("Претендент русского сервера" );
-            LeCrispJewPhrase = new PhraseClass("Еврей" );
+            LeCrispJewPhrase = new PhraseClass("Еврей||" );
             LeCrispAssassinsPhrase = new PhraseClass("Гребанные ассассины" );
             LeCrispImpactPhrase = new PhraseClass("Импакт" );
             TolyaJewPhrase = new PhraseClass("Еврей" );
@@ -108,9 +108,25 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                 if (player.DiscordAccount.IsPlaying)
                 {
                     var random = new Random();
-
                     var embed = new EmbedBuilder();
-                    embed.WithDescription(PassiveLogRus[random.Next(0, PassiveLogRus.Count)]);
+                    var description = PassiveLogRus[random.Next(0, PassiveLogRus.Count)];
+
+                    if (description.Contains("||"))
+                    {
+                        var twoPhrases = description.Split("||");
+                        var embed2 = new EmbedBuilder();
+                        embed2.WithColor(random.Next(0, 255), random.Next(0, 255), random.Next(0, 255));
+                        embed.WithDescription(twoPhrases[0]);
+                        var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync( "", false, embed2.Build());
+#pragma warning disable 4014
+                        DeleteMessOverTime(mess2, 10);
+#pragma warning restore 4014
+                        await Task.Delay(2000);
+                        description = twoPhrases[1];
+                    }
+
+                    embed.WithDescription(description);
+
                     if (player.DiscordAccount.IsLogs) embed.WithFooter(PassiveNameRus);
                     embed.WithColor(random.Next(0, 255), random.Next(0, 255), random.Next(0, 255));
 
