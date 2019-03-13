@@ -22,8 +22,9 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
             DeepListMadnessTriggeredWhen = new List<WhenToTriggerClass>();
 
         public readonly  List<DeepList.Madness> DeepListMadnessList = new List<DeepList.Madness>();
-
         public readonly List<DeepList.Madness> GlebChallengerList = new List<DeepList.Madness>();
+        public readonly List<DeepList.Madness> AwdkaTeachToPlayTempStats = new List<DeepList.Madness>();
+
         public  readonly  List<Gleb.GlebSkipClass> GlebSkipList = new List<Gleb.GlebSkipClass>();
 
         public readonly List<DeepList.Mockery> DeepListMockeryList = new List<DeepList.Mockery>();
@@ -56,7 +57,8 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public readonly List<Sirinoks.FriendsClass> SirinoksFriendsList = new List<Sirinoks.FriendsClass>();
         public readonly  List<Mitsuki.GarbageClass> MitsukiGarbageList = new List<Mitsuki.GarbageClass>();
         public readonly List<WhenToTriggerClass>
-            MitsukiNoPCTriggeredWhen = new List<WhenToTriggerClass>();
+            MitsukiNoPcTriggeredWhen = new List<WhenToTriggerClass>();
+        public readonly  List<Sirinoks.TrainingClass> AwdkaTeachToPlay = new List<Sirinoks.TrainingClass>();
 
         public InGameGlobal(SecureRandom rand)
         {

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.BotFramework;
@@ -210,6 +211,34 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     }
                     //Friends end
                     break;
+
+                case "AWDKA":
+
+                    //Научите играть
+                    var awdka = _gameGlobal.AwdkaTeachToPlay.Find(x =>
+                        x.GameId == game.GameId && x.PlayerDiscordId == player1.DiscordAccount.DiscordId);
+
+                    var player2Stats = new List<Sirinoks.TrainingSubClass>
+                    {
+                        new Sirinoks.TrainingSubClass(1, playerIamAttacking.Character.Intelligence),
+                        new Sirinoks.TrainingSubClass(2, playerIamAttacking.Character.Strength),
+                        new Sirinoks.TrainingSubClass(3, playerIamAttacking.Character.Speed),
+                        new Sirinoks.TrainingSubClass(4, playerIamAttacking.Character.Psyche)
+                    };
+                    var sup = player2Stats.OrderByDescending(x => x.StatNumber).ToList()[0];
+                    if (awdka == null)
+                    {
+         
+                    _gameGlobal.AwdkaTeachToPlay.Add(new Sirinoks.TrainingClass(player1.DiscordAccount.DiscordId, game.GameId, sup.StatIndex, sup.StatNumber));
+                    }
+                    else
+                    {
+                        awdka.Training.Add(new Sirinoks.TrainingSubClass(sup.StatIndex, sup.StatNumber));
+                    }
+
+                    //end Научите играть
+
+                    break;
             }
 
             await Task.CompletedTask;
@@ -369,7 +398,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     case "Mitsuki":
                         when = _gameGlobal.GetWhenToTrigger(player, true, 0, 0);
-                        _gameGlobal.MitsukiNoPCTriggeredWhen.Add(when);
+                        _gameGlobal.MitsukiNoPcTriggeredWhen.Add(when);
                         break;
 
                     case "Глеб":
@@ -431,7 +460,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
 
                     case "Mitsuki":
-                         acc = _gameGlobal.MitsukiNoPCTriggeredWhen.Find(x =>
+                         acc = _gameGlobal.MitsukiNoPcTriggeredWhen.Find(x =>
                             x.DiscordId == player.DiscordAccount.DiscordId && player.DiscordAccount.GameId == x.GameId);
 
                         if (acc != null)
@@ -446,6 +475,95 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                              await   _phrase.MitsukiSchoolboy.SendLog(player);
                             }
 
+                        break;
+
+
+
+
+
+
+                    case "AWDKA":
+                        //Научите играть 
+                        var awdkaTempStats = _gameGlobal.AwdkaTeachToPlayTempStats.Find(x =>
+                            x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+                        var awdka = _gameGlobal.AwdkaTeachToPlay.Find(x =>
+                            x.PlayerDiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+                       
+                        //remove stats from previos time
+                        if (awdkaTempStats != null)
+                        {
+                            var regularStats = awdkaTempStats.MadnessList.Find(x => x.Index == 1);
+                            var madStats = awdkaTempStats.MadnessList.Find(x => x.Index == 2);
+
+                            var intel = player.Character.Intelligence - madStats.Intel;
+                            var str = player.Character.Strength - madStats.Str;
+                            var speed = player.Character.Speed - madStats.Speed;
+                            var psy = player.Character.Psyche - madStats.Psyche;
+
+                            player.Character.Intelligence = regularStats.Intel + intel;
+                            player.Character.Strength = regularStats.Str + str;
+                            player.Character.Speed = regularStats.Speed + speed;
+                            player.Character.Psyche = regularStats.Psyche + psy;
+
+                            _gameGlobal.AwdkaTeachToPlayTempStats.Remove(awdkaTempStats);
+                      
+                        }
+                        //end remove stats
+
+                        //if there is no one have been attacked from awdka
+                        if (awdka == null)
+                        {
+                            return;
+                        }
+                        //end if there..
+
+                        //crazy shit
+                        _gameGlobal.AwdkaTeachToPlayTempStats.Add(new DeepList.Madness(player.DiscordAccount.DiscordId,
+                            game.GameId, game.RoundNo));
+                        awdkaTempStats = _gameGlobal.AwdkaTeachToPlayTempStats.Find(x =>
+                            x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+                        awdkaTempStats.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.Intelligence,
+                            player.Character.Strength, player.Character.Speed, player.Character.Psyche));
+                        //end crazy shit
+
+                            //find out  the biggest stat
+                        var bestSkill = awdka.Training.OrderByDescending(x => x.StatNumber).ToList()[0];
+
+                        var intel1 = player.Character.Intelligence;
+                        var str1 = player.Character.Strength;
+                        var speed1 = player.Character.Speed;
+                        var pshy1 = player.Character.Psyche;
+
+                        switch (bestSkill.StatIndex)
+                        {
+                            case 1 :
+                                intel1 = bestSkill.StatNumber;
+                                break;
+                            case 2 :
+                                str1 = bestSkill.StatNumber;
+                                break;
+                            case 3 :
+                                speed1 = bestSkill.StatNumber;
+                                break;
+                            case 4 :
+                                pshy1 = bestSkill.StatNumber;
+                                break;
+                        }
+
+                        player.Character.Intelligence = intel1;
+                        player.Character.Strength = str1;
+                        player.Character.Speed = speed1;
+                        player.Character.Psyche = pshy1;
+                        //end find out  the biggest stat
+
+                        //crazy shit 2
+                        awdkaTempStats.MadnessList.Add(new DeepList.MadnessSub(2, intel1, str1, speed1, pshy1));
+                        _gameGlobal.AwdkaTeachToPlay.Remove(awdka);
+                        //end crazy shit 2
+
+                        await _phrase.AwdkaTeachToPlay.SendLog(player);
+
+                        //end Научите играть: 
                         break;
 
                     case "Глеб":
@@ -475,16 +593,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (acc != null)
                             if (acc.WhenToTrigger.Contains(game.RoundNo))
                             {
-                                var curr = _gameGlobal.GlebChallengerList.Find(x =>
+                                var gleb = _gameGlobal.GlebChallengerList.Find(x =>
                                     x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
                                 //just check
-                                if (curr != null) _gameGlobal.GlebChallengerList.Remove(curr);
+                                if (gleb != null) _gameGlobal.GlebChallengerList.Remove(gleb);
 
                                 _gameGlobal.GlebChallengerList.Add(new DeepList.Madness(player.DiscordAccount.DiscordId,
                                     game.GameId, game.RoundNo));
-                                curr = _gameGlobal.GlebChallengerList.Find(x =>
+                                gleb = _gameGlobal.GlebChallengerList.Find(x =>
                                     x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
-                                curr.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.Intelligence,
+                                gleb.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.Intelligence,
                                     player.Character.Strength, player.Character.Speed, player.Character.Psyche));
 
                                 //  var randomNumber =  _rand.Random(1, 100);
@@ -501,7 +619,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 player.Character.Psyche = pshy;
 
 
-                                curr.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
+                                gleb.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
 
                                 await _phrase.GlebChallengerPhrase.SendLog(player);
                             }

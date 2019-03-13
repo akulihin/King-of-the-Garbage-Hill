@@ -233,7 +233,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     _accounts.SaveAccounts(account.DiscordId);
 
                     var randomIndex = _secureRandom.Random(0, availableChamps.Count - 1);
-                    var character = availableChamps[4];//randomIndex
+                    var character = availableChamps[8];//randomIndex
                                                         availableChamps.RemoveAt(2);//randomIndex
 
 
@@ -245,7 +245,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 }
                 else
                 {
-
+                    continue;
+                    
                     var account = _accounts.GetAccount((ulong)i);
                     account.GameId = _global.GamePlayingAndId;
                     account.IsPlaying = true;
