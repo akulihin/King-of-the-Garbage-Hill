@@ -1,6 +1,9 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
@@ -9,14 +12,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
     {
      
         private readonly SecureRandom _rand;
-
+        private readonly InGameGlobal _gameGlobal;
         private readonly GameUpdateMess _upd;
 
-        public Sirinoks(GameUpdateMess upd, SecureRandom rand)
+        public Sirinoks(GameUpdateMess upd, SecureRandom rand, InGameGlobal gameGlobal)
         {
             _upd = upd;
             _rand = rand;
-
+            _gameGlobal = gameGlobal;
         }
 
         public Task InitializeAsync() => Task.CompletedTask;
@@ -26,9 +29,91 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //   throw new System.NotImplementedException();
         }
 
-        public void HandleSirinoksAfter(GameBridgeClass player)
+        public void HandleSirinoksAfter(GameBridgeClass player, GameClass game)
         {
-        //    throw new System.NotImplementedException();
+            //обучение
+            if (player.Status.IsLostLastTime != 0)
+            {
+                var playerSheLostLastTime = game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsLostLastTime);
+                var intel = new List<StatsClass>
+                {
+                    new StatsClass(1, playerSheLostLastTime.Character.Intelligence),
+                    new StatsClass(2, playerSheLostLastTime.Character.Strength),
+                    new StatsClass(3, playerSheLostLastTime.Character.Speed),
+                    new StatsClass(4, playerSheLostLastTime.Character.Psyche)
+                };
+                var best = intel.OrderByDescending(x => x.Number).ToList()[0];
+
+                var siri = _gameGlobal.SirinoksTraining.Find(x =>
+                    x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+
+                if (siri == null)
+                {
+                    _gameGlobal.SirinoksTraining.Add(new TrainingClass(player.DiscordAccount.DiscordId, game.GameId, best.Index, best.Number));
+                }
+                else
+                {
+                    siri.Training.Add(new TrainingSubClass(best.Index, best.Number));
+                }
+            }
+            //обучение end
+        }
+
+        public class StatsClass
+        {
+            public int Index;
+            public int Number;
+
+            public StatsClass(int index, int number)
+            {
+                Index = index;
+                Number = number;
+            }
+        }
+
+        public class FriendsClass
+        {
+            public ulong GameId;
+            public ulong PlayerDiscordId;
+            public List<ulong> FriendList = new List<ulong>();
+
+            public FriendsClass(ulong playerDiscordId, ulong gameId, ulong enemyId)
+            {
+                PlayerDiscordId = playerDiscordId;
+                GameId = gameId;
+                FriendList.Add(enemyId);
+            }
+
+            
+        }
+
+
+        public class TrainingClass
+        {
+            public ulong GameId;
+            public ulong PlayerDiscordId;
+            public List<TrainingSubClass> Training = new List<TrainingSubClass>();
+
+            public TrainingClass(ulong playerDiscordId, ulong gameId, int index, int number)
+            {
+                PlayerDiscordId = playerDiscordId;
+                GameId = gameId;
+                Training.Add(new TrainingSubClass(index, number));
+            }
+        }
+
+        public class TrainingSubClass
+        {
+            public int StatIndex;
+            public int StatNumber;
+          
+
+            public TrainingSubClass(int statIndex, int statNumber)
+            {
+                StatIndex = statIndex;
+                StatNumber = statNumber;
+               
+            }
         }
     }
 }

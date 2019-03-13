@@ -52,6 +52,8 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public readonly List<Tolya.TolyaCountClass> TolyaCount = new List<Tolya.TolyaCountClass>();
         public readonly  List<HardKitty.DoebatsyaClass> HardKittyDoebatsya = new List<HardKitty.DoebatsyaClass>();
         public readonly List<HardKitty.MuteClass>  HardKittyMute = new List<HardKitty.MuteClass>();
+        public readonly  List<Sirinoks.TrainingClass> SirinoksTraining = new List<Sirinoks.TrainingClass>();
+        public readonly List<Sirinoks.FriendsClass> SirinoksFriendsList = new List<Sirinoks.FriendsClass>();
 
         public InGameGlobal(SecureRandom rand)
         {

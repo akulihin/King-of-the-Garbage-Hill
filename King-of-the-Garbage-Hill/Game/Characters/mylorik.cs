@@ -77,7 +77,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //Spanish
             if (player.Status.IsLostLastTime != 0)
             {
-                var rand = _rand.Random(1, 2);
+                var rand = _rand.Random(1, 3);
 
                 if (rand == 1) player.Character.Justice.JusticeForNextRound--;
             }

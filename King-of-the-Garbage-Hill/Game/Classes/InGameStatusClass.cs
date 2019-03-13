@@ -65,7 +65,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public void AddBonusPoints(int bonusPoints)
         {
-            ScoresToGiveAtEndOfRound += bonusPoints;
+            Score += bonusPoints;
         }
 
         public double GetScoresToGiveAtEndOfRound()
