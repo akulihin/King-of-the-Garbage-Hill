@@ -96,8 +96,8 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             DarksciNotLucky.PassiveLogRus.Add("И вот так каждое промо...");
             DarksciNotLucky.PassiveLogRus.Add("Что они творят?");
             DarksciNotLucky.PassiveLogRus.Add("Я тилтед");
-
             DarksciLucky.PassiveLogRus.Add("Золотой");
+            DarksciLucky.PassiveLogRus.Add("Наконец-то!");
             DarksciFuckThisGame.PassiveLogRus.Add("Нахуй эту игру");
             DarksciDysmoral.PassiveLogRus.Add("Всё, у меня горит!");
 

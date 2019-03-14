@@ -1252,7 +1252,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         if (darscsi.TouchedPlayers.Count == game.PlayersList.Count - 1)
                         {
-                          player.Status.AddBonusPoints(player.Status.GetScore()*2);
+                          player.Status.AddBonusPoints(player.Status.GetScore()*3);
+                          player.Character.Psyche += 2;
+                          if (player.Character.Psyche > 10)
+                          {
+                              player.Character.Psyche = 10;
+                          }
                          await _phrase.DarksciLucky.SendLog(player);
                         }
                       
