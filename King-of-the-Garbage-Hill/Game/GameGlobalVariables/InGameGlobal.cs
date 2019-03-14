@@ -20,19 +20,21 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
 
         public readonly List<WhenToTriggerClass>
             DeepListMadnessTriggeredWhen = new List<WhenToTriggerClass>();
-        public readonly List<WhenToTriggerClass>
-           AwdkaAfkTriggeredWhen = new List<WhenToTriggerClass>();
 
-        public readonly  List<DeepList.Madness> DeepListMadnessList = new List<DeepList.Madness>();
+        public readonly List<WhenToTriggerClass>
+            AwdkaAfkTriggeredWhen = new List<WhenToTriggerClass>();
+
+        public readonly List<DeepList.Madness> DeepListMadnessList = new List<DeepList.Madness>();
         public readonly List<DeepList.Madness> GlebChallengerList = new List<DeepList.Madness>();
         public readonly List<DeepList.Madness> AwdkaTeachToPlayTempStats = new List<DeepList.Madness>();
 
-        public  readonly  List<Gleb.GlebSkipClass> GlebSkipList = new List<Gleb.GlebSkipClass>();
+        public readonly List<Gleb.GlebSkipClass> GlebSkipList = new List<Gleb.GlebSkipClass>();
 
         public readonly List<DeepList.Mockery> DeepListMockeryList = new List<DeepList.Mockery>();
 
         public readonly List<WhenToTriggerClass>
             DeepListSupermindTriggeredWhen = new List<WhenToTriggerClass>();
+
         public readonly List<DeepList.SuperMindKnown>
             DeepListSupermindKnown = new List<DeepList.SuperMindKnown>();
 
@@ -53,15 +55,22 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
 
         public readonly List<Mylorik.MylorikRevengeClass> MylorikRevenge = new List<Mylorik.MylorikRevengeClass>();
         public readonly List<Tolya.TolyaCountClass> TolyaCount = new List<Tolya.TolyaCountClass>();
-        public readonly  List<HardKitty.DoebatsyaClass> HardKittyDoebatsya = new List<HardKitty.DoebatsyaClass>();
-        public readonly List<HardKitty.MuteClass>  HardKittyMute = new List<HardKitty.MuteClass>();
-        public readonly  List<Sirinoks.TrainingClass> SirinoksTraining = new List<Sirinoks.TrainingClass>();
+        public readonly List<HardKitty.DoebatsyaClass> HardKittyDoebatsya = new List<HardKitty.DoebatsyaClass>();
+        public readonly List<HardKitty.MuteClass> HardKittyMute = new List<HardKitty.MuteClass>();
+        public readonly List<Sirinoks.TrainingClass> SirinoksTraining = new List<Sirinoks.TrainingClass>();
         public readonly List<Sirinoks.FriendsClass> SirinoksFriendsList = new List<Sirinoks.FriendsClass>();
-        public readonly  List<Mitsuki.GarbageClass> MitsukiGarbageList = new List<Mitsuki.GarbageClass>();
+        public readonly List<Mitsuki.GarbageClass> MitsukiGarbageList = new List<Mitsuki.GarbageClass>();
+
         public readonly List<WhenToTriggerClass>
             MitsukiNoPcTriggeredWhen = new List<WhenToTriggerClass>();
-        public readonly  List<Sirinoks.TrainingClass> AwdkaTeachToPlay = new List<Sirinoks.TrainingClass>();
-        public readonly  List<Awdka.TryingClass> AwdkaTryingList = new List<Awdka.TryingClass>();
+
+        public readonly List<Sirinoks.TrainingClass> AwdkaTeachToPlay = new List<Sirinoks.TrainingClass>();
+        public readonly List<Awdka.TryingClass> AwdkaTryingList = new List<Awdka.TryingClass>();
+        public readonly List<Octopus.TentaclesClass> OctopusTentaclesList = new List<Octopus.TentaclesClass>();
+        public readonly List<Octopus.InkClass> OctopusInkList = new List<Octopus.InkClass>();
+
+        public readonly List<Octopus.InvulnerabilityClass> OctopusInvulnerabilityList =
+            new List<Octopus.InvulnerabilityClass>();
 
         public InGameGlobal(SecureRandom rand)
         {
@@ -81,7 +90,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
             var check = 0;
 
             if (maxRandomNumber == 0)
-            {              
+            {
                 when = _rand.Random(2, 10);
                 toTriggerClass.WhenToTrigger.Add(when);
                 return toTriggerClass;
@@ -101,9 +110,9 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
                 {
                     when = _rand.Random(1, 10);
                 } while (check == when);
+
                 toTriggerClass.WhenToTrigger.Add(when);
             }
-
 
 
             var rand = _rand.Random(1, maxRandomNumber);
@@ -160,8 +169,5 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
 
             return toTriggerClass;
         }
-
-
-      
     }
 }

@@ -22,6 +22,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly LoginFromConsole _log;
         private readonly GameUpdateMess _gameUpdateMess;
         private readonly CharactersUniquePhrase _phrase;
+
+        private readonly Global _global;
         //end helpers
 
         //chars
@@ -45,7 +47,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         public CharacterPassives(SecureRandom rand, HelperFunctions help, Awdka awdka, DeepList deepList,
             DeepList2 deepList2, Gleb gleb, HardKitty hardKitty, Mitsuki mitsuki, LeCrisp leCrisp, Mylorik mylorik,
             Octopus octopus, Shark shark, Sirinoks sirinoks, Tigr tigr, Tolya tolya, InGameGlobal gameGlobal,
-            Darksci darksci, CharactersUniquePhrase phrase, LoginFromConsole log, GameUpdateMess gameUpdateMess)
+            Darksci darksci, CharactersUniquePhrase phrase, LoginFromConsole log, GameUpdateMess gameUpdateMess, Global global)
         {
             _rand = rand;
             _help = help;
@@ -67,6 +69,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             _phrase = phrase;
             _log = log;
             _gameUpdateMess = gameUpdateMess;
+            _global = global;
         }
 
         public Task InitializeAsync()
@@ -806,7 +809,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         {
             foreach (var player in game.PlayersList)
             {
-                if (player == null) _log.Critical("HandleEndOfRound - player == null");
+                if (player == null) _log.Critical("HandleEndOfRound - octopusPlayer == null");
 
                 var characterName = player?.Character.Name;
                 if (characterName == null) return;
@@ -893,6 +896,25 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             }
                         }
 
+                        break;
+
+                    case "Осьминожка":
+                        var octo = _gameGlobal.OctopusTentaclesList.Find(x =>
+                            x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+
+                        if (octo != null)
+                        {
+                            for (var i = 0; i < octo.UniqePlacesList.Count; i++)
+                            {
+                                var uni = octo.UniqePlacesList[i];
+
+                                if (!uni.IsActivated)
+                                {
+                                    player.Status.AddRegularPoints();
+                                    uni.IsActivated = true;
+                                }
+                            }
+                        }
                         break;
 
                     case "Sirinoks":
@@ -1039,7 +1061,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         }
 
         /*
-        public async Task<string> HandleBlock(GameBridgeClass player, GameBridgeClass playerIamAttacking, GameClass game)
+        public async Task<string> HandleBlock(GameBridgeClass octopusPlayer, GameBridgeClass playerIamAttacking, GameClass game)
         {
             switch (playerIamAttacking.Character.Name)
             {
@@ -1084,6 +1106,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     //Muted passive end
                     break;
+
+
             }
 
             await Task.CompletedTask;
@@ -1163,6 +1187,24 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     }
                     //end Произошел троллинг:
                     break;
+
+                case "Осьминожка":
+                    if (player.Status.IsLostLastTime != 0)
+                    {
+                        var octo = _gameGlobal.OctopusInvulnerabilityList.Find(x =>
+                            x.GameId == player.DiscordAccount.GameId &&
+                            x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+
+                        if (octo == null)
+                        {
+                            _gameGlobal.OctopusInvulnerabilityList.Add(new Octopus.InvulnerabilityClass(player.DiscordAccount.DiscordId, game.GameId));
+                        }
+                        else
+                        {
+                            octo.Count++;
+                        }
+                    }
+                    break;
             }
 
             await Task.CompletedTask;
@@ -1172,7 +1214,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         {
             foreach (var player in game.PlayersList)
             {
-                if (player == null) _log.Critical("HandleNextRoundAfterSorting - player == null");
+                if (player == null) _log.Critical("HandleNextRoundAfterSorting - octopusPlayer == null");
 
                 var characterName = player?.Character.Name;
                 if (characterName == null) return;
@@ -1211,6 +1253,23 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         //end Запах мусора:
                         break;
+
+                    case "Осьминожка" :
+                        var octo = _gameGlobal.OctopusTentaclesList.Find(x =>
+                            x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+
+                        if (octo == null)
+                        {
+                            _gameGlobal.OctopusTentaclesList.Add(new Octopus.TentaclesClass( player.DiscordAccount.DiscordId, game.GameId, player.Status.PlaceAtLeaderBoard));
+                        }
+                        else
+                        {
+                            if (octo.UniqePlacesList.All(x => x.LeaderboardPlace != player.Status.PlaceAtLeaderBoard))
+                            {
+                                octo.UniqePlacesList.Add(new Octopus.TentaclesSubClass(player.Status.PlaceAtLeaderBoard));
+                            }
+                        }
+                        break;
                 }
 
             }
@@ -1218,7 +1277,102 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             if (game.RoundNo > 10)
             {
                 //TODO: implement end of the game, after turn 10.
+
+              
+                var ll = 0;
+
+            //handle Octo
+            var octopusInk = _gameGlobal.OctopusInkList.Find(x => x.GameId == game.GameId);
+            var octopusInv = _gameGlobal.OctopusInvulnerabilityList.Find(x => x.GameId == game.GameId);
+
+            if (octopusInk != null)
+            {
+                foreach (var t in octopusInk.RealScoreList)
+                {
+                    var pl = game.PlayersList.Find(x => x.DiscordAccount.DiscordId == t.PlayerId);
+                    pl?.Status.AddBonusPoints(t.RealScore);
+                }
             }
+
+            if (octopusInv != null)
+            {
+                var octoPlayer = game.PlayersList.Find(x => x.DiscordAccount.DiscordId == octopusInv.PlayerDiscordId);
+                octoPlayer.Status.AddBonusPoints(octopusInv.Count);
+            }
+
+            //end handle Octo
+
+            foreach (var play in game.PlayersList)
+            {
+                play.DiscordAccount.IsPlaying = false;
+                await _gameUpdateMess.UpdateMessage(play);
+                await play.Status.SocketMessageFromBot.Channel.SendMessageAsync("gg wp ");
+            }
+
+            _global.GamesList.Remove(game);
+            Console.WriteLine("____________________________");
+            }
+        }
+
+        public bool HandleOctopus(GameBridgeClass octopusPlayer, GameBridgeClass playerAttackedOctopus, GameClass game)
+        {
+
+            if (octopusPlayer.Character.Name != "Осьминожка")
+            {
+                return true;
+            }
+         
+
+            game.GameLogs += $" ⟶ **{playerAttackedOctopus.DiscordAccount.DiscordUserName}** победил \n";
+            game.PreviousGameLogs += $" ⟶ **{playerAttackedOctopus.DiscordAccount.DiscordUserName}** победил \n";
+
+            //еврей
+            var point = HandleJewPassive(playerAttackedOctopus, game);
+            //end еврей
+
+            playerAttackedOctopus.Status.AddRegularPoints(point.Result);
+
+            playerAttackedOctopus.Status.WonTimes++;
+            playerAttackedOctopus.Character.Justice.IsWonThisRound = true;
+
+            octopusPlayer.Character.Justice.JusticeForNextRound++;
+
+            playerAttackedOctopus.Status.IsWonLastTime = octopusPlayer.DiscordAccount.DiscordId;
+            octopusPlayer.Status.IsLostLastTime = playerAttackedOctopus.DiscordAccount.DiscordId;
+
+
+
+                var octo = _gameGlobal.OctopusInkList.Find(x =>
+                    x.PlayerDiscordId == octopusPlayer.DiscordAccount.DiscordId &&
+                    x.GameId == game.GameId);
+
+                if (octo == null)
+                {
+                    _gameGlobal.OctopusInkList.Add(new Octopus.InkClass(octopusPlayer.DiscordAccount.DiscordId, game, playerAttackedOctopus.DiscordAccount.DiscordId));
+
+                }
+                else
+                {
+                    var enemyRealScore = octo.RealScoreList.Find(x => x.PlayerId == playerAttackedOctopus.DiscordAccount.DiscordId);
+                    var octoRealScore = octo.RealScoreList.Find(x => x.PlayerId == octopusPlayer.DiscordAccount.DiscordId);
+
+                    if (enemyRealScore == null)
+                    {
+                        octo.RealScoreList.Add(new Octopus.InkSubClass( playerAttackedOctopus.DiscordAccount.DiscordId, game.RoundNo, -1));
+                        octoRealScore.AddRealScore(game.RoundNo);
+                    }
+                    else
+                    {
+                        enemyRealScore.AddRealScore(game.RoundNo, -1);
+                        octoRealScore.AddRealScore(game.RoundNo);
+                    }
+                }
+
+                octopusPlayer.Status.AddRegularPoints();
+                playerAttackedOctopus.Status.AddRegularPoints(-1);
+
+
+            return false;
         }
     }
 }

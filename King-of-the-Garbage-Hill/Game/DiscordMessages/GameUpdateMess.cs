@@ -176,11 +176,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
         //Page 1
-        public EmbedBuilder FightPage(GameBridgeClass gameBridge)
+        public EmbedBuilder FightPage(GameBridgeClass player)
         {
-            var account = gameBridge.DiscordAccount;
+            var account = player.DiscordAccount;
             //        player.Status.MoveListPage = 1;
-            var character = gameBridge.Character;
+            var character = player.Character;
 
             var embed = new EmbedBuilder();
             embed.WithColor(Color.Blue);

@@ -205,8 +205,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 2)
                 {
-                    game.GameLogs += $" | ***{player.DiscordAccount.DiscordUserName}** победил {whereWonP1}*\n";
-                    game.PreviousGameLogs += $" | ***{player.DiscordAccount.DiscordUserName}** победил {whereWonP1}*\n";
+                    game.GameLogs += $" ⟶ **{player.DiscordAccount.DiscordUserName}** победил\n";
+                    game.PreviousGameLogs += $" ⟶ **{player.DiscordAccount.DiscordUserName}** победил\n";
 
                     //еврей
                     var point = _characterPassives.HandleJewPassive(player, game);
@@ -224,17 +224,24 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
                 else
                 {
-                    game.GameLogs += $" | ***{playerIamAttacking.DiscordAccount.DiscordUserName}** победил {whereWonP2}*\n";
-                    game.PreviousGameLogs +=
-                        $" | ***{playerIamAttacking.DiscordAccount.DiscordUserName}** победил {whereWonP2}*\n";
-                    playerIamAttacking.Status.AddRegularPoints();
-                    player.Status.WonTimes++;
-                    playerIamAttacking.Character.Justice.IsWonThisRound = true;
+                    //octopus  // playerIamAttacking is octopus
+                   var check =  _characterPassives.HandleOctopus(playerIamAttacking, player, game);
+                    //end octopus
 
-                    player.Character.Justice.JusticeForNextRound++;
+                    if (check)
+                    {
+                        game.GameLogs += $" ⟶ **{playerIamAttacking.DiscordAccount.DiscordUserName}** победил\n";
+                        game.PreviousGameLogs +=
+                            $" ⟶ **{playerIamAttacking.DiscordAccount.DiscordUserName}** победил\n";
+                        playerIamAttacking.Status.AddRegularPoints();
+                        player.Status.WonTimes++;
+                        playerIamAttacking.Character.Justice.IsWonThisRound = true;
 
-                    playerIamAttacking.Status.IsWonLastTime = player.DiscordAccount.DiscordId;
-                    player.Status.IsLostLastTime = playerIamAttacking.DiscordAccount.DiscordId;
+                        player.Character.Justice.JusticeForNextRound++;
+
+                        playerIamAttacking.Status.IsWonLastTime = player.DiscordAccount.DiscordId;
+                        player.Status.IsLostLastTime = playerIamAttacking.DiscordAccount.DiscordId;
+                    }
                 }
 
                 //т.е. он получил урон, какие у него дебаффы на этот счет 
