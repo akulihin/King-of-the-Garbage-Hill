@@ -37,7 +37,15 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 else
                 {
                     var enemy = awdka.TryingList.Find(x => x.EnemyId == player.Status.IsLostLastTime);
-                    enemy.Times++;
+                    if (enemy == null)
+                    {
+                        awdka.TryingList.Add(new TryingSubClass(player.Status.IsLostLastTime));
+                    }
+                    else
+                    {
+                        enemy.Times++;
+                    }
+                 
                 }
             }
             
