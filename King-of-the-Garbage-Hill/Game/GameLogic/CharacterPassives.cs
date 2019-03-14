@@ -657,7 +657,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 player.Status.IsReady = true;
                                 player.Status.WhoToAttackThisTurn = 0;
                                 var mess =
-                                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Ты уснул.");
+                                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Zzz");
 #pragma warning disable 4014
                                 _help.DeleteMessOverTime(mess, 15);
 #pragma warning restore 4014
