@@ -1,22 +1,15 @@
 ﻿using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
-using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class Tolya : IServiceSingleton
     {
-
-        private readonly SecureRandom _rand;
         private readonly InGameGlobal _inGameGlobal;
-        private readonly GameUpdateMess _upd;
 
-        public Tolya(GameUpdateMess upd, SecureRandom rand, InGameGlobal inGameGlobal)
+        public Tolya(InGameGlobal inGameGlobal)
         {
-            _upd = upd;
-            _rand = rand;
             _inGameGlobal = inGameGlobal;
         }
 

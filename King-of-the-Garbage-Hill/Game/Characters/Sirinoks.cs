@@ -2,23 +2,17 @@
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
-using King_of_the_Garbage_Hill.Helpers;
+
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class Sirinoks : IServiceSingleton
     {
-     
-        private readonly SecureRandom _rand;
         private readonly InGameGlobal _gameGlobal;
-        private readonly GameUpdateMess _upd;
 
-        public Sirinoks(GameUpdateMess upd, SecureRandom rand, InGameGlobal gameGlobal)
+        public Sirinoks(InGameGlobal gameGlobal)
         {
-            _upd = upd;
-            _rand = rand;
             _gameGlobal = gameGlobal;
         }
 

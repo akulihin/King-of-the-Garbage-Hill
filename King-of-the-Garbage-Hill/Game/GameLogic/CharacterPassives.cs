@@ -280,7 +280,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     _mitsuki.HandleMitsuki(player);
                     break;
                 case "AWDKA":
-                    _awdka.HandleAWDKA(player);
+                    _awdka.HandleAwdka(player);
                     break;
                 case "Осьминожка":
                     _octopus.HandleOctopus(player);
@@ -354,13 +354,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     _mitsuki.HandleMitsukiAfter(player);
                     break;
                 case "AWDKA":
-                    _awdka.HandleAWDKAAfter(player);
+                    _awdka.HandleAwdkaAfter(player);
                     break;
                 case "Осьминожка":
                     _octopus.HandleOctopusAfter(player);
                     break;
                 case "Darksci":
-                    _darksci.HandleDarksiAfter(player);
+                 await   _darksci.HandleDarksiAfter(player, game);
                     break;
                 case "Тигр":
                     _tigr.HandleTigrAfter(player);
@@ -467,6 +467,33 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 #pragma warning restore 4014
                             }
 
+                        break;
+
+                    case"Даркси":
+                        //Да всё нахуй эту игру:
+                        if (player.Character.Psyche <= 0)
+                        {
+                            player.Status.IsSkip = true;
+                            player.Status.IsBlock = false;
+                            player.Status.IsAbleToTurn = false;
+                            player.Status.IsReady = true;
+                            player.Status.WhoToAttackThisTurn = 0;
+                        await  _phrase.DarksciFuckThisGame.SendLog(player);
+
+                        if (game.RoundNo >= 9)
+                        {
+                            game.GameLogs += $"**{player.DiscordAccount.DiscordUserName}:** Нахуй эту игру...";
+                        }
+                        }
+                        //end Да всё нахуй эту игру:
+
+                        //Дизмораль
+                        if (game.RoundNo == 9)
+                        {
+                            player.Character.Psyche -= 4;
+                            await  _phrase.DarksciDysmoral.SendLog(player);
+                        }
+                        //end Дизмораль
                         break;
 
                     case "Mitsuki":
@@ -1204,6 +1231,33 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             octo.Count++;
                         }
                     }
+                    break;
+
+                case "Даркси":
+                    var darscsi = _gameGlobal.DarksciLuckyList.Find(x =>
+                        x.GameId == player.DiscordAccount.GameId &&
+                        x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+
+                    if (darscsi == null)
+                    {
+                        _gameGlobal.DarksciLuckyList.Add(new Darksci.LuckyClass(player.DiscordAccount.DiscordId, game.GameId, playerIamAttacking.DiscordAccount.DiscordId));
+                    }
+                    else
+                    {
+
+                        if (!darscsi.TouchedPlayers.Contains(playerIamAttacking.DiscordAccount.DiscordId))
+                        {
+                            darscsi.TouchedPlayers.Add(playerIamAttacking.DiscordAccount.DiscordId);
+                        }
+
+                        if (darscsi.TouchedPlayers.Count == game.PlayersList.Count - 1)
+                        {
+                          player.Status.AddBonusPoints(player.Status.GetScore()*2);
+                         await _phrase.DarksciLucky.SendLog(player);
+                        }
+                      
+                    }
+
                     break;
             }
 

@@ -1,7 +1,9 @@
 ﻿
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
@@ -10,14 +12,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
     {
         
         private readonly SecureRandom _rand;
-
+        private readonly CharactersUniquePhrase _phrase;
         private readonly GameUpdateMess _upd;
 
-        public Darksci(GameUpdateMess upd, SecureRandom rand)
+        public Darksci(GameUpdateMess upd, SecureRandom rand, CharactersUniquePhrase phrase)
         {
             _upd = upd;
             _rand = rand;
-
+            _phrase = phrase;
         }
 
         public Task InitializeAsync() => Task.CompletedTask;
@@ -27,9 +29,31 @@ namespace King_of_the_Garbage_Hill.Game.Characters
           //  throw new System.NotImplementedException();
         }
 
-        public void HandleDarksiAfter(GameBridgeClass player)
+        public async Task HandleDarksiAfter(GameBridgeClass player, GameClass game)
         {
-         //   throw new System.NotImplementedException();
+            if (player.Status.IsLostLastTime != 0)
+            {
+                //Не повезло
+                player.Character.Psyche--;
+              await  _phrase.DarksciNotLucky.SendLog(player);
+                //end Не повезло
+            }
+
+        }
+
+
+        public class LuckyClass
+        {
+            public ulong GameId;
+            public ulong PlayerDiscordId;
+            public List<ulong> TouchedPlayers = new List<ulong>();
+
+            public LuckyClass(ulong playerDiscordId, ulong gameId, ulong enemyId)
+            {
+                PlayerDiscordId = playerDiscordId;
+                GameId = gameId;
+                TouchedPlayers.Add(enemyId);
+            }
         }
     }
 }

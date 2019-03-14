@@ -1,21 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
-using King_of_the_Garbage_Hill.Game.MemoryStorage;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class HardKitty : IServiceSingleton
     {
-        private readonly InGameGlobal _inGameGlobal;
-        private readonly CharactersUniquePhrase _phrase;
 
-        public HardKitty(InGameGlobal inGameGlobal, CharactersUniquePhrase phrase)
-        {
-            _inGameGlobal = inGameGlobal;
-            _phrase = phrase;
-        }
         public Task InitializeAsync() => Task.CompletedTask;
 
         public void HandleHardKitty(GameBridgeClass player)

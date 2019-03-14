@@ -6,38 +6,43 @@ using King_of_the_Garbage_Hill.Game.Classes;
 
 namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 {
-
     public class CharactersUniquePhrase : IServiceSingleton
     {
-        //initialize variables 
-        public PhraseClass DeepListMadnessPhrase;
-        public PhraseClass DeepListDoubtfulTacticPhrase;
-        public PhraseClass DeepListSuperMindPhrase;
-        public PhraseClass GlebChallengerPhrase;
-        public PhraseClass LeCrispAssassinsPhrase;
-        public PhraseClass LeCrispImpactPhrase;
-        public PhraseClass LeCrispJewPhrase;
-        public PhraseClass MylorikRevengeLostPhrase;
-        public PhraseClass MylorikRevengeVictoryPhrase;
-        public PhraseClass MylorikPhrase;
-        public PhraseClass MylorikSpanishPhrase;
-        public PhraseClass TolyaCountPhrase;
-        public PhraseClass TolyaJewPhrase;
-        public PhraseClass TolyaRammusPhrase;
-        public PhraseClass HardKittyLonelyPhrase;
-        public PhraseClass HardKittyDoebatsyaPhrase;
-        public PhraseClass HardKittyMutedPhrase;
-        public PhraseClass SirinoksFriendsPhrase;
-        public PhraseClass SirinoksDragonPhrase;
-        public PhraseClass MitsukiCheekyBriki;   
-        public PhraseClass MitsukiTooMuchFucking;
-        public PhraseClass MitsukiGarbageSmell;
-        public PhraseClass MitsukiSchoolboy;
-
+        public PhraseClass AwdkaAfk;
         public PhraseClass AwdkaTeachToPlay;
         public PhraseClass AwdkaTrolling;
         public PhraseClass AwdkaTrying;
-        public PhraseClass AwdkaAfk;
+        public PhraseClass DarksciDysmoral;
+        public PhraseClass DarksciFuckThisGame;
+        public PhraseClass DarksciLucky;
+        public PhraseClass DarksciNotLucky;
+
+        public PhraseClass DeepListDoubtfulTacticPhrase;
+
+        //initialize variables 
+        public PhraseClass DeepListMadnessPhrase;
+        public PhraseClass DeepListSuperMindPhrase;
+        public PhraseClass GlebChallengerPhrase;
+        public PhraseClass HardKittyDoebatsyaPhrase;
+        public PhraseClass HardKittyLonelyPhrase;
+        public PhraseClass HardKittyMutedPhrase;
+        public PhraseClass LeCrispAssassinsPhrase;
+        public PhraseClass LeCrispImpactPhrase;
+        public PhraseClass LeCrispJewPhrase;
+        public PhraseClass MitsukiCheekyBriki;
+        public PhraseClass MitsukiGarbageSmell;
+        public PhraseClass MitsukiSchoolboy;
+        public PhraseClass MitsukiTooMuchFucking;
+        public PhraseClass MylorikPhrase;
+        public PhraseClass MylorikRevengeLostPhrase;
+        public PhraseClass MylorikRevengeVictoryPhrase;
+        public PhraseClass MylorikSpanishPhrase;
+        public PhraseClass SirinoksDragonPhrase;
+        public PhraseClass SirinoksFriendsPhrase;
+        public PhraseClass TolyaCountPhrase;
+        public PhraseClass TolyaJewPhrase;
+
+        public PhraseClass TolyaRammusPhrase;
         //end
 
         public CharactersUniquePhrase()
@@ -49,38 +54,53 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
             MylorikRevengeLostPhrase = new PhraseClass("Месть");
             MylorikRevengeVictoryPhrase = new PhraseClass("Месть");
-            MylorikPhrase = new PhraseClass("Буль" );
+            MylorikPhrase = new PhraseClass("Буль");
             MylorikSpanishPhrase = new PhraseClass("Испанец");
 
-            GlebChallengerPhrase = new PhraseClass("Претендент русского сервера" );
+            GlebChallengerPhrase = new PhraseClass("Претендент русского сервера");
 
-            LeCrispJewPhrase = new PhraseClass("Еврей||" );
-            LeCrispAssassinsPhrase = new PhraseClass("Гребанные ассассины" );
-            LeCrispImpactPhrase = new PhraseClass("Импакт" );
+            LeCrispJewPhrase = new PhraseClass("Еврей||");
+            LeCrispAssassinsPhrase = new PhraseClass("Гребанные ассассины");
+            LeCrispImpactPhrase = new PhraseClass("Импакт");
 
-            TolyaJewPhrase = new PhraseClass("Еврей" );
-            TolyaCountPhrase = new PhraseClass("Подсчет" );
-            TolyaRammusPhrase = new PhraseClass(" Раммус мейн" );
+            TolyaJewPhrase = new PhraseClass("Еврей");
+            TolyaCountPhrase = new PhraseClass("Подсчет");
+            TolyaRammusPhrase = new PhraseClass(" Раммус мейн");
 
-            HardKittyLonelyPhrase = new PhraseClass("Одиночество" );
+            HardKittyLonelyPhrase = new PhraseClass("Одиночество");
             HardKittyDoebatsyaPhrase = new PhraseClass("Доебаться");
-            HardKittyMutedPhrase = new  PhraseClass("Muted");
+            HardKittyMutedPhrase = new PhraseClass("Muted");
 
             SirinoksFriendsPhrase = new PhraseClass("Заводить друзей");
             SirinoksDragonPhrase = new PhraseClass("Дракон");
 
             MitsukiCheekyBriki = new PhraseClass("Дерзкая школота");
             MitsukiTooMuchFucking = new PhraseClass("Много выебывается");
-            MitsukiGarbageSmell= new PhraseClass("Запах мусора");
+            MitsukiGarbageSmell = new PhraseClass("Запах мусора");
             MitsukiSchoolboy = new PhraseClass("Школьник");
 
             AwdkaTeachToPlay = new PhraseClass("Научите играть");
             AwdkaTrolling = new PhraseClass("Произошел троллинг");
             AwdkaTrying = new PhraseClass("Я пытаюсь!");
             AwdkaAfk = new PhraseClass("АФКА");
+
+            DarksciNotLucky = new PhraseClass("Не повезло");
+            DarksciLucky = new PhraseClass("Повезло");
+            DarksciFuckThisGame = new PhraseClass("Да всё нахуй эту игру");
+            DarksciDysmoral = new PhraseClass("Дизмораль");
             //end
 
             //add  as many phrases as you wany
+
+            DarksciNotLucky.PassiveLogRus.Add("Сука, не везет с командой!");
+            DarksciNotLucky.PassiveLogRus.Add("И вот так каждое промо...");
+            DarksciNotLucky.PassiveLogRus.Add("Что они творят?");
+            DarksciNotLucky.PassiveLogRus.Add("Я тилтед");
+
+            DarksciLucky.PassiveLogRus.Add("Золотой");
+            DarksciFuckThisGame.PassiveLogRus.Add("Нахуй эту игру");
+            DarksciDysmoral.PassiveLogRus.Add("Всё, у меня горит!");
+
             DeepListMadnessPhrase.PassiveLogRus.Add("Хаха. Ха. || АХАХАХАХАХАХАХ!");
             DeepListMadnessPhrase.PassiveLogRus.Add("Стоп, кто... я?");
             DeepListMadnessPhrase.PassiveLogRus.Add("Заткнитесь!");
@@ -108,7 +128,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             MylorikSpanishPhrase.PassiveLogRus.Add("Буэнос ночес!");
             MylorikSpanishPhrase.PassiveLogRus.Add("Ale handro!");
             MylorikPhrase.PassiveLogRus.Add("Буль");
-            
+
 
             GlebChallengerPhrase.PassiveLogRus.Add("А? БАРОН?!");
             GlebChallengerPhrase.PassiveLogRus.Add("Ща я покажу как надо");
@@ -144,7 +164,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
             SirinoksFriendsPhrase.PassiveLogRus.Add("Го в пати");
             SirinoksFriendsPhrase.PassiveLogRus.Add("М/Ж?");
-              // SirinoksFriendsPhrase.PassiveLogRus.Add("");
+            // SirinoksFriendsPhrase.PassiveLogRus.Add("");
             SirinoksDragonPhrase.PassiveLogRus.Add("РООАР!");
 
 
@@ -181,6 +201,12 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         }
 
 
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
+
+
         //class needed to send unique logs.
         public class PhraseClass
         {
@@ -210,7 +236,8 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                         var embed2 = new EmbedBuilder();
                         embed2.WithColor(random.Next(0, 255), random.Next(0, 255), random.Next(0, 255));
                         embed.WithDescription(twoPhrases[0]);
-                        var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync( "", false, embed2.Build());
+                        var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("", false,
+                            embed2.Build());
 #pragma warning disable 4014
                         DeleteMessOverTime(mess2, 10);
 #pragma warning restore 4014
@@ -225,7 +252,8 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
                     if (!player.IsBot())
                     {
-                        var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync( "", false, embed.Build());
+                        var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("", false,
+                            embed.Build());
 #pragma warning disable 4014
                         DeleteMessOverTime(mess, 10);
 #pragma warning restore 4014
@@ -240,10 +268,5 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                 await message.DeleteAsync();
             }
         }
-
-
-
-        public Task InitializeAsync() => Task.CompletedTask;
     }
-
 }
