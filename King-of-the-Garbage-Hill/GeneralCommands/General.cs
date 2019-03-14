@@ -201,11 +201,9 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
 
 
-       
-                
         [Command("s")]
         [Summary("запуск игры")]
-        public async Task StartGame(SocketUser user2 = null , SocketUser user3 = null, SocketUser user4 = null, SocketUser user5 = null, SocketUser user6 = null)
+        public async Task StartGame(SocketUser user2 = null, SocketUser user3 = null, SocketUser user4 = null, SocketUser user5 = null, SocketUser user6 = null)
         {
             var rawList = new List<SocketUser>
             {
@@ -214,7 +212,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 user3,
                 user4,
                 user5,
-                user6        
+                user6
             };
             var playersList = new List<GameBridgeClass>();
             var availableChamps = _charactersPull.AllCharacters;
@@ -234,19 +232,19 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
                     var randomIndex = _secureRandom.Random(0, availableChamps.Count - 1);
                     var character = availableChamps[9];//randomIndex
-                                                        availableChamps.RemoveAt(2);//randomIndex
+                    availableChamps.RemoveAt(2);//randomIndex
 
 
                     var status = new InGameStatus();
 
-                    var bridge = new GameBridgeClass {DiscordAccount = account, Character = character, Status = status};
+                    var bridge = new GameBridgeClass { DiscordAccount = account, Character = character, Status = status };
 
                     playersList.Add(bridge);
                 }
                 else
                 {
                     continue;
-                    
+
                     var account = _accounts.GetAccount((ulong)i);
                     account.GameId = _global.GamePlayingAndId;
                     account.IsPlaying = true;
@@ -256,8 +254,111 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     var character = availableChamps[randomIndex];
                     availableChamps.RemoveAt(randomIndex);
 
-                    var status = new InGameStatus( );
+                    var status = new InGameStatus();
 
+                    var bridge = new GameBridgeClass { DiscordAccount = account, Character = character, Status = status };
+
+                    playersList.Add(bridge);
+                }
+            }
+
+            //randomize order
+            playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
+            for (var i = 0; i < playersList.Count; i++) { playersList[i].Status.PlaceAtLeaderBoard = i + 1; }
+
+
+            var game = new GameClass(playersList, _global.GamePlayingAndId);
+
+            await _characterPassives.HandleNextRound(game);
+
+
+            foreach (var t in playersList)
+            {
+
+                if (t.DiscordAccount.DiscordId > 1000)
+                    _upd.WaitMess(t);
+            }
+            _characterPassives.CalculatePassiveChances(game);
+
+            game.TimePassed.Start();
+            _global.GamePlayingAndId++;
+            _global.GamesList.Add(game);
+            _global.IsTimerToCheckEnabled.Add(new CheckIfReady.IsTimerToCheckEnabledClass(game.GameId));
+        }
+
+
+
+
+
+        [Command("sе")]
+        [Summary("запуск игры")]
+        public async Task StartGameTest(int charIndex1, SocketUser tolya = null, int charIndex2 = 0)
+        {
+            var rawList = new List<SocketUser>
+            {
+                null,
+                null,
+                null,
+                null
+            };
+            var playersList = new List<GameBridgeClass>();
+            var availableChamps = _charactersPull.AllCharacters;
+
+
+
+
+
+            var accountDeep = _accounts.GetAccount(Context.User);
+            accountDeep.GameId = _global.GamePlayingAndId;
+            accountDeep.IsPlaying = true;
+            _accounts.SaveAccounts(accountDeep.DiscordId);
+            var characterDeep = availableChamps[charIndex1];//randomIndex
+            availableChamps.RemoveAt(charIndex1);//randomIndex
+           var statuss = new InGameStatus();
+            var bridgee = new GameBridgeClass { DiscordAccount = accountDeep, Character = characterDeep, Status = statuss };
+            playersList.Add(bridgee);
+
+            if (tolya != null)
+            {
+                 accountDeep = _accounts.GetAccount(tolya);
+                accountDeep.GameId = _global.GamePlayingAndId;
+                accountDeep.IsPlaying = true;
+                _accounts.SaveAccounts(accountDeep.DiscordId);
+                 characterDeep = availableChamps[charIndex2];//randomIndex
+                availableChamps.RemoveAt(charIndex1);//randomIndex
+                 statuss = new InGameStatus();
+                 bridgee = new GameBridgeClass { DiscordAccount = accountDeep, Character = characterDeep, Status = statuss };
+                playersList.Add(bridgee);
+            }
+
+
+
+
+
+
+
+
+            for (var i = 0; i < rawList.Count; i++)
+            {
+                var t = rawList[i];
+                if (t == null)
+                {
+                    
+                    
+
+                    var randomIndex = _secureRandom.Random(0, availableChamps.Count - 1);
+                    var character = availableChamps[randomIndex];
+
+                    var account = _accounts.GetAccount((ulong)i);
+                    account.DiscordUserName = character.Name + " - BOT";
+                    account.GameId = _global.GamePlayingAndId;
+                    account.IsPlaying = true;
+                    _accounts.SaveAccounts(account.DiscordId);
+
+
+                    availableChamps.RemoveAt(randomIndex);
+
+                    var status = new InGameStatus( );
                     var bridge = new GameBridgeClass {DiscordAccount = account, Character = character, Status = status};
 
                     playersList.Add(bridge);
@@ -289,7 +390,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
        
         // OWNER COMMANDS:
-        [Command("ss")]
+        [Command("ssss")]
         [RequireOwner]
         public async Task ffff()
         {
