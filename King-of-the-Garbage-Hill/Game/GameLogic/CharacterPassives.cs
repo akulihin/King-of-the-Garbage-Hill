@@ -460,11 +460,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 player.Status.IsAbleToTurn = false;
                                 player.Status.IsReady = true;
                                 player.Status.WhoToAttackThisTurn = 0;
-                                var mess = await player.Status.SocketMessageFromBot.Channel
-                                    .SendMessageAsync("Ты буль.");
+                                if (!player.IsBot())
+                                {
+                                    var mess = await player.Status.SocketMessageFromBot.Channel
+                                        .SendMessageAsync("Ты буль.");
 #pragma warning disable 4014
-                                _help.DeleteMessOverTime(mess, 15);
+                                    _help.DeleteMessOverTime(mess, 15);
 #pragma warning restore 4014
+                                }
+
                             }
 
                         break;
@@ -828,11 +832,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     player.Status.IsAbleToTurn = false;
                     player.Status.IsReady = true;
                     player.Status.WhoToAttackThisTurn = 0;
-                    var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                        "Тебя заставили пропустить этот ход");
+                    if (!player.IsBot())
+                    {
+                        var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                            "Тебя заставили пропустить этот ход");
 #pragma warning disable 4014
-                    _help.DeleteMessOverTime(mess, 15);
+                        _help.DeleteMessOverTime(mess, 15);
 #pragma warning restore 4014
+                    }
+
                 }
             }
         }
@@ -1056,16 +1064,24 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             leCrisp.Status.AddRegularPoints(0.5);
                             tolya.Status.AddRegularPoints(0.5);
-                            var mess =
-                                await leCrisp.Status.SocketMessageFromBot.Channel.SendMessageAsync("МЫ жрём деньги!");
+                            if (!leCrisp.IsBot())
+                            {
+                                var mess =
+                                    await leCrisp.Status.SocketMessageFromBot.Channel.SendMessageAsync("МЫ жрём деньги!");
 #pragma warning disable 4014
-                            _help.DeleteMessOverTime(mess, 10);
+                                _help.DeleteMessOverTime(mess, 10);
 #pragma warning restore 4014
-                            mess =
-                                await tolya.Status.SocketMessageFromBot.Channel.SendMessageAsync("МЫ жрём деньги!");
+                            }
+                            if (!tolya.IsBot())
+                            {
+                              var  mess =
+                                    await tolya.Status.SocketMessageFromBot.Channel.SendMessageAsync("МЫ жрём деньги!");
 #pragma warning disable 4014
-                            _help.DeleteMessOverTime(mess, 10);
+                                _help.DeleteMessOverTime(mess, 10);
 #pragma warning restore 4014
+                            }
+
+
                             return 0;
                         }
 
@@ -1370,7 +1386,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             {
                 play.DiscordAccount.IsPlaying = false;
                 await _gameUpdateMess.UpdateMessage(play);
-                await play.Status.SocketMessageFromBot.Channel.SendMessageAsync("gg wp ");
+                if (!play.IsBot())
+                {
+                    await play.Status.SocketMessageFromBot.Channel.SendMessageAsync("gg wp ");
+                }
+
             }
 
             _global.GamesList.Remove(game);
