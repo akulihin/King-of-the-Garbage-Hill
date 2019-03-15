@@ -1274,11 +1274,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (darscsi.TouchedPlayers.Count == game.PlayersList.Count - 1)
                         {
                           player.Status.AddBonusPoints(player.Status.GetScore()*3);
+
                           player.Character.Psyche += 2;
                           if (player.Character.Psyche > 10)
                           {
                               player.Character.Psyche = 10;
                           }
+                          darscsi.TouchedPlayers.Clear();
                          await _phrase.DarksciLucky.SendLog(player);
                         }
                       
@@ -1388,7 +1390,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 await _gameUpdateMess.UpdateMessage(play);
                 if (!play.IsBot())
                 {
-                    await play.Status.SocketMessageFromBot.Channel.SendMessageAsync("gg wp ");
+                    await play.Status.SocketMessageFromBot.Channel.SendMessageAsync("ты кончил.");
                 }
 
             }

@@ -164,6 +164,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public async Task EndGame(SocketReaction reaction, IUserMessage socketMsg)
         {
+            await _global.Client.GetUser(reaction.UserId).SendMessageAsync("does not work. thx. bye");
+
+            return;
             var response = await _awaitForUser.FinishTheGameQuestion(reaction);
             if (!response) return;
 
@@ -188,7 +191,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithColor(Color.Blue);
 
             embed.WithFooter($"{GetTimeLeft(account)}");
-            embed.WithDescription(_global.GamesList.Find(x => x.GameId == account.GameId).PreviousGameLogs);
+
+            var desc = _global.GamesList.Find(x => x.GameId == account.GameId).PreviousGameLogs;
+            if (desc == null)
+                return null;
+            embed.WithDescription(desc);
 
             embed.WithTitle("Царь Мусорной Горы");
             embed.AddField("____",
@@ -273,6 +280,12 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         public async Task UpdateMessage(GameBridgeClass player)
         {
             var embed = FightPage(player);
+
+            if (embed == null)
+            {
+                return;
+            }
+
             switch (player.Status.MoveListPage)
             {
                 case 1:

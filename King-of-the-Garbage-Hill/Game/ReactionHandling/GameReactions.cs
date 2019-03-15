@@ -42,7 +42,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             foreach (var t in _global.GamesList)
                 if (t.PlayersList.Any(x =>
                     x.DiscordAccount.DiscordId == reaction.UserId &&
-                    x.Status.SocketMessageFromBot.Id != reaction.MessageId))
+                    x.Status.SocketMessageFromBot.Id == reaction.MessageId))
                 {
                     var account = _accounts.GetAccount(reaction.UserId);
                     var gameBridge = _global.GetGameAccount(reaction.UserId, account.GameId);
