@@ -804,7 +804,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                             if (siri != null)
                             {
-                                for (var i = player.Status.PlaceAtLeaderBoard+1; i < 7; i++)
+                                for (var i = player.Status.PlaceAtLeaderBoard+1; i < game.PlayersList.Count+1; i++)
                                 {
                                     var player2 = game.PlayersList[i-1];
                                     if (siri.FriendList.Contains(player2.DiscordAccount.DiscordId))

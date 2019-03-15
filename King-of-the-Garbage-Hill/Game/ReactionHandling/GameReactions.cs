@@ -39,73 +39,72 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         public async Task ReactionAddedGameWindow(Cacheable<IUserMessage, ulong> cash,
             ISocketMessageChannel channel, SocketReaction reaction)
         {
-            for (var i = 0; i < _global.GamesList.Count; i++)
-            {
-                if (!_global.GamesList[i].PlayersList
-                    .Any(x => x.DiscordAccount.DiscordId == reaction.UserId &&
-                              x.Status.SocketMessageFromBot.Id == reaction.MessageId))
-                    continue;
-
-
-                var account = _accounts.GetAccount(reaction.UserId);
-                var gameBridge = _global.GetGameAccount(reaction.UserId, account.GameId);
-                var status = gameBridge.Status;
-
-                // if (!discordAccount.IsAbleToTurn){return;}
-
-                switch (reaction.Emote.Name)
+            foreach (var t in _global.GamesList)
+                if (t.PlayersList.Any(x =>
+                    x.DiscordAccount.DiscordId == reaction.UserId &&
+                    x.Status.SocketMessageFromBot.Id != reaction.MessageId))
                 {
-                    case "❌":
-                        await _upd.EndGame(reaction, reaction.Message.Value);
-                        break;
+                    var account = _accounts.GetAccount(reaction.UserId);
+                    var gameBridge = _global.GetGameAccount(reaction.UserId, account.GameId);
+                    var status = gameBridge.Status;
 
-                    case "📖":
+                    // if (!discordAccount.IsAbleToTurn){return;}
 
-                        if (gameBridge.Status.MoveListPage == 1)
-                            gameBridge.Status.MoveListPage = 2;
-                        else if (gameBridge.Status.MoveListPage == 2) gameBridge.Status.MoveListPage = 1;
+                    switch (reaction.Emote.Name)
+                    {
+                        case "❌":
+                            await _upd.EndGame(reaction, reaction.Message.Value);
+                            break;
 
-                        await _upd.UpdateMessage(gameBridge);
-                        break;
+                        case "📖":
+
+                            if (gameBridge.Status.MoveListPage == 1)
+                                gameBridge.Status.MoveListPage = 2;
+                            else if (gameBridge.Status.MoveListPage == 2) gameBridge.Status.MoveListPage = 1;
+
+                            await _upd.UpdateMessage(gameBridge);
+                            break;
 
 
-                    case "🛡" when status.IsAbleToTurn:
-                        if (status.MoveListPage == 3)
-                        {
-                            var mess = await reaction.Channel.SendMessageAsync("Ходить нельзя, Апни лвл!");
+                        case "🛡" when status.IsAbleToTurn:
+                            if (status.MoveListPage == 3)
+                            {
+                                var mess = await reaction.Channel.SendMessageAsync("Ходить нельзя, Апни лвл!");
 #pragma warning disable 4014
-                            _help.DeleteMessOverTime(mess, 6);
+                                _help.DeleteMessOverTime(mess, 6);
 #pragma warning restore 4014
-                            return;
-                        }
+                                return;
+                            }
 
-                        if (gameBridge.Character.Name == "mylorik")
-                        {
-                            var mess = await reaction.Channel.SendMessageAsync("Спартанцы не капитулируют!!");
+                            if (gameBridge.Character.Name == "mylorik")
+                            {
+                                var mess = await reaction.Channel.SendMessageAsync("Спартанцы не капитулируют!!");
 #pragma warning disable 4014
-                            _help.DeleteMessOverTime(mess, 6);
+                                _help.DeleteMessOverTime(mess, 6);
 #pragma warning restore 4014
-                            return;
-                        }
+                                return;
+                            }
 
-                        status.IsBlock = true;
-                        status.IsAbleToTurn = false;
-                        status.IsReady = true;
+                            status.IsBlock = true;
+                            status.IsAbleToTurn = false;
+                            status.IsReady = true;
 
-                        var mess1 = await reaction.Channel.SendMessageAsync("Принято");
+                            var mess1 = await reaction.Channel.SendMessageAsync("Принято");
 #pragma warning disable 4014
-                        _help.DeleteMessOverTime(mess1, 6);
+                            _help.DeleteMessOverTime(mess1, 6);
 #pragma warning restore 4014
-                        break;
+                            break;
 
-                    default:
+                        default:
 
 
-                        await HandleAttackOrLvlUp(gameBridge, reaction);
+                            await HandleAttackOrLvlUp(gameBridge, reaction);
 
-                        break;
+                            break;
+                    }
+
+                    return;
                 }
-            }
         }
 
         public async Task HandleAttackOrLvlUp(GameBridgeClass player, SocketReaction reaction, int botChoice = -1)
@@ -185,7 +184,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
         private async Task GetLvlUp(GameBridgeClass player, int skillNumber)
         {
-    
             switch (skillNumber)
             {
                 case 1:

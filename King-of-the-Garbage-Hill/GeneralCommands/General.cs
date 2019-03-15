@@ -290,12 +290,13 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
 
 
-        [Command("sе")]
+        [Command("st")]
         [Summary("запуск игры")]
         public async Task StartGameTest(int charIndex1, SocketUser tolya = null, int charIndex2 = 0)
         {
             var rawList = new List<SocketUser>
             {
+                null,
                 null,
                 null,
                 null,
@@ -337,8 +338,12 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
 
 
-
-            for (var i = 0; i < rawList.Count; i++)
+            var count = rawList.Count;
+            if (tolya != null)
+            {
+                count--;
+            }
+            for (var i = 0; i < count; i++)
             {
                 var t = rawList[i];
                 if (t == null)
@@ -349,7 +354,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     var randomIndex = _secureRandom.Random(0, availableChamps.Count - 1);
                     var character = availableChamps[randomIndex];
 
-                    var account = _accounts.GetAccount((ulong)i);
+                    var account = _accounts.GetAccount((ulong)i+1);
                     account.DiscordUserName = character.Name + " - BOT";
                     account.GameId = _global.GamePlayingAndId;
                     account.IsPlaying = true;
@@ -394,7 +399,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         [RequireOwner]
         public async Task ffff()
         {
-            for (var i = 0; i < 11; i++)
+            for (var i = 1; i < 12; i++)
             {
                 _accounts.CreateBotAccount((ulong)i);
             }

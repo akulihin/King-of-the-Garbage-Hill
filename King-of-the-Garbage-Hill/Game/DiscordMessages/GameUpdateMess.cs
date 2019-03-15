@@ -301,6 +301,13 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         {
             var game = _global.GamesList.Find(x => x.GameId == discordAccount.GameId);
 
+            if (game == null)
+            {
+                discordAccount.IsPlaying = false;
+                _accounts.SaveAccounts(discordAccount);
+                return "END";
+            }
+
             if (!_global.IsTimerToCheckEnabled.Find(x => x.GameId == game.GameId).IsTimerToCheckEnabled)
                 return $"Ведется подсчёт, пожалуйста подожди... • ход #{game.RoundNo}";
 
