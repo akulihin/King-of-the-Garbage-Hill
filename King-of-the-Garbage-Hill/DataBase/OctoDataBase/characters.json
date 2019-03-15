@@ -65,7 +65,7 @@
        "Name":"Глеб",
        "Intelligence":7,
        "Psyche":8,
-       "Speed":2,
+       "Speed":1,
        "Strength":6,
        "Justice":{  
           "JusticeNow":0,
@@ -127,7 +127,7 @@
        "Name":"Толя",
        "Intelligence":8,
        "Psyche":2,
-       "Speed":1,
+       "Speed":2,
        "Strength":5,
        "Justice":{  
           "JusticeNow":0,
