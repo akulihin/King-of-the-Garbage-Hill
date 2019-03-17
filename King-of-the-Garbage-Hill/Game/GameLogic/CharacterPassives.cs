@@ -1091,7 +1091,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
                     {
                         leCrisp.Status.AddRegularPoints();
-                        await _phrase.LeCrispJewPhrase.SendLog(player);
+                        await _phrase.LeCrispJewPhrase.SendLog(leCrisp);
                         return 0;
                     }
 
@@ -1099,7 +1099,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
                     {
                         tolya.Status.AddRegularPoints();
-                        await _phrase.TolyaJewPhrase.SendLog(player);
+                        await _phrase.TolyaJewPhrase.SendLog(tolya);
                         return 0;
                     }
             }

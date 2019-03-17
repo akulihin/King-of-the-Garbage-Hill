@@ -135,7 +135,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                 //TODO: REMOVE || discordAccount.DiscordId < 1000
                 if (discordAccount.DiscordId == playersList[i].DiscordAccount.DiscordId || playersList[i].IsBot())
-                    players += $" = {playersList[i].Status.GetScore()}\n";
+                    players += $" = {playersList[i].Status.GetScore()} (I: {playersList[i].Character.Intelligence}, St: {playersList[i].Character.Strength}, SP: {playersList[i].Character.Speed}, Psy: {playersList[i].Character.Psyche}, J: {playersList[i].Character.Justice.JusticeForNextRound})\n";
                 else
                     players += "\n";
             }
@@ -155,7 +155,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     if (currentList != null)
                         if (currentList.KnownPlayers.Contains(player2.DiscordAccount.DiscordId))
                             customString +=
-                                $" ({player2.Character.Intelligence}, {player2.Character.Strength}, {player2.Character.Speed}, {player2.Character.Psyche}, {player2.Character.Justice.JusticeForNextRound})";
+                                $" PS: ({player2.Character.Intelligence}, {player2.Character.Strength}, {player2.Character.Speed}, {player2.Character.Psyche}, {player2.Character.Justice.JusticeForNextRound})";
                     break;
             }
 

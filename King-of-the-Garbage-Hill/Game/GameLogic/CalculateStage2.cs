@@ -90,6 +90,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
 
                 //left side > right side depending on score board place
+
                 if (player.Status.PlaceAtLeaderBoard > playerIamAttacking.Status.PlaceAtLeaderBoard)
                 {
                     game.GameLogs +=
