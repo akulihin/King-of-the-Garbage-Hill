@@ -188,7 +188,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 //round 2 (Justice)
                 if (player.Character.Justice.JusticeNow > playerIamAttacking.Character.Justice.JusticeNow ||
-                    player.Character.Justice == playerIamAttacking.Character.Justice)
+                    player.Character.Justice.JusticeNow == playerIamAttacking.Character.Justice.JusticeNow)
                 {
                     pointsWined++;
                     whereWonP1 += " 2";
