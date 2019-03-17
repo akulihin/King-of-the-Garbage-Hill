@@ -89,10 +89,21 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     pointsWined = 50;
                 }
 
-                game.GameLogs +=
-                    $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerIamAttacking.DiscordAccount.DiscordUserName}**";
-                game.PreviousGameLogs +=
-                    $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerIamAttacking.DiscordAccount.DiscordUserName}**";
+                //left side > right side depending on score board place
+                if (player.Status.PlaceAtLeaderBoard > playerIamAttacking.Status.PlaceAtLeaderBoard)
+                {
+                    game.GameLogs +=
+                        $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerIamAttacking.DiscordAccount.DiscordUserName}**";
+                    game.PreviousGameLogs +=
+                        $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerIamAttacking.DiscordAccount.DiscordUserName}**";
+                }
+                else
+                {
+                    game.GameLogs +=
+                        $"**{playerIamAttacking.DiscordAccount.DiscordUserName}** сражается с **{player.DiscordAccount.DiscordUserName}**";
+                    game.PreviousGameLogs +=
+                        $"**{playerIamAttacking.DiscordAccount.DiscordUserName}** сражается с **{player.DiscordAccount.DiscordUserName}**";
+                }
                 //if block => no one gets points
 
                 if (playerIamAttacking.Status.IsBlock)
@@ -205,8 +216,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 2)
                 {
-                    game.GameLogs += $" ⟶ **{player.DiscordAccount.DiscordUserName}** победил\n";
-                    game.PreviousGameLogs += $" ⟶ **{player.DiscordAccount.DiscordUserName}** победил\n";
+                    game.GameLogs += $" ⟶ победил **{player.DiscordAccount.DiscordUserName}**\n";
+                    game.PreviousGameLogs += $" ⟶ победил **{player.DiscordAccount.DiscordUserName}**\n";
 
                     //еврей
                     var point = _characterPassives.HandleJewPassive(player, game);
@@ -230,9 +241,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     if (check)
                     {
-                        game.GameLogs += $" ⟶ **{playerIamAttacking.DiscordAccount.DiscordUserName}** победил\n";
+                        game.GameLogs += $" ⟶ победил **{playerIamAttacking.DiscordAccount.DiscordUserName}**\n";
                         game.PreviousGameLogs +=
-                            $" ⟶ **{playerIamAttacking.DiscordAccount.DiscordUserName}** победил\n";
+                            $" ⟶ победил **{playerIamAttacking.DiscordAccount.DiscordUserName}**\n";
                         playerIamAttacking.Status.AddRegularPoints();
                         player.Status.WonTimes++;
                         playerIamAttacking.Character.Justice.IsWonThisRound = true;

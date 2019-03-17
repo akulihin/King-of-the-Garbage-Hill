@@ -8,7 +8,6 @@ using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
-using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic
@@ -431,7 +430,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         do
                         {
                             when = _gameGlobal.GetWhenToTrigger(player, true, 12, 3, true);
-                        } while (when.WhenToTrigger.All(x => x == temp[0] || x == temp[1] || x == temp[2]));
+                        } while (when.WhenToTrigger.All(x => x == temp[0] || x == temp[1] || x == temp[2] || x == temp[3] || x == temp[4]));
 
                         _gameGlobal.GlebChallengerTriggeredWhen.Add(when);
 
@@ -1305,7 +1304,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     case "Mitsuki":
                         //Много выебывается:
-                        if (player.Status.PlaceAtLeaderBoard == 1)
+                        if (player.Status.PlaceAtLeaderBoard == 1 && game.RoundNo > 1)
                         {
                             player.Status.AddRegularPoints();
                          await   _phrase.MitsukiTooMuchFucking.SendLog(player);
@@ -1409,8 +1408,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
          
 
-            game.GameLogs += $" ⟶ **{playerAttackedOctopus.DiscordAccount.DiscordUserName}** победил \n";
-            game.PreviousGameLogs += $" ⟶ **{playerAttackedOctopus.DiscordAccount.DiscordUserName}** победил \n";
+            game.GameLogs += $" ⟶ победил **{playerAttackedOctopus.DiscordAccount.DiscordUserName}**\n";
+            game.PreviousGameLogs += $" ⟶ победил **{playerAttackedOctopus.DiscordAccount.DiscordUserName}**\n";
 
             //еврей
             var point = HandleJewPassive(playerAttackedOctopus, game);

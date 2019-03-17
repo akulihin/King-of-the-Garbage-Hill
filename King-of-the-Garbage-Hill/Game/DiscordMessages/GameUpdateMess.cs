@@ -261,10 +261,16 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             //    _accounts.SaveAccounts(discordAccount.PlayerDiscordId);
 
             var embed = new EmbedBuilder();
+
+            var desc = _global.GamesList.Find(x => x.GameId == account.GameId).PreviousGameLogs;
+            if (desc == null)
+                return null;
+            embed.WithDescription(desc);
+
             embed.WithColor(Color.Blue);
             embed.WithTitle("Подними один из статов");
             embed.WithFooter($"{GetTimeLeft(account)}");
-            embed.WithDescription(
+            embed.AddField("____",
                 $"1. **Интеллект:** {character.Intelligence}\n" +
                 $"2. **Сила:** {character.Strength}\n" +
                 $"3. **Скорость:** {character.Speed}\n" +

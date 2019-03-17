@@ -27,7 +27,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             TimePassed = new Stopwatch();
             GameStatus = 1;
             GameLogs = "";
-            PreviousGameLogs = "";
+            PreviousGameLogs = "Здесь будут показаны логи игры. \nВыберите цель для нападения по номеру в таблице, используя emoji";
         }
     }
 }
