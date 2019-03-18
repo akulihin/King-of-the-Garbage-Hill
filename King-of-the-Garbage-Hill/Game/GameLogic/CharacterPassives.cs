@@ -407,6 +407,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     case "AWDKA":
                         when = _gameGlobal.GetWhenToTrigger(player, false, 10, 1);
                         _gameGlobal.AwdkaAfkTriggeredWhen.Add(when);
+                        _gameGlobal.AwdkaTrollingList.Add(new Awdka.TrollingClass(player.DiscordAccount.DiscordId, game.GameId));
                         break;
 
                     case "Mitsuki":
@@ -1233,23 +1234,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonLastTime);
 
                         if (player2.Status.PlaceAtLeaderBoard == 1)
-                        {
-
-                            if (awdka == null)
-                            {
-                                _gameGlobal.AwdkaTrollingList.Add(new Awdka.TrollingClass(player.DiscordAccount.DiscordId, game.GameId));
-                                int pointsToGet = player2.Status.GetScore() / 4;
-                                if (pointsToGet < 1)
-                                {
-                                    pointsToGet = 1;
-                                }
-                                player.Status.AddBonusPoints(pointsToGet);
-                                await _phrase.AwdkaTrolling.SendLog(player);   
-                            }
-                            else
-                            {
-                             
-
+                        { 
                                 if (awdka.Cooldown <= -1)
                                 {
                                     int pointsToGet = player2.Status.GetScore() / 4;
@@ -1261,9 +1246,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                     awdka.Cooldown = 2;
                                     await _phrase.AwdkaTrolling.SendLog(player);   
                                 }
-                            }
-
-     
                         }
                     }
                     //end Произошел троллинг:

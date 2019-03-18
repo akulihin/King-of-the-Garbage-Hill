@@ -110,23 +110,27 @@ rand = 3
             if (!player.IsBot()) return;
             if (player.Status.MoveListPage == 1)
             {
+                int randomPlayer;
                 var playerToAttack =
-                    game.PlayersList.Find(x => x.Character.Justice.JusticeNow < player.Character.Justice.JusticeNow);
+                    game.PlayersList.FindAll(x => x.Character.Justice.JusticeNow == player.Character.Justice.JusticeNow && x.Character.Name != player.Character.Name);
 
-                if (playerToAttack != null)
+                var randomCheck = _rand.Random(0, playerToAttack.Count);
+                
+                if (playerToAttack.Count >= 1 && randomCheck - playerToAttack.Count <= 0)
                 {
-                    await _gameReaction.HandleAttackOrLvlUp(player, null, playerToAttack.Status.PlaceAtLeaderBoard);
+                    randomPlayer = _rand.Random(0, playerToAttack.Count-1);
+                    var userToAttack = playerToAttack[randomPlayer];
+                    await _gameReaction.HandleAttackOrLvlUp(player, null, userToAttack.Status.PlaceAtLeaderBoard);
+                    return;
                 }
 
-                playerToAttack =
-                    game.PlayersList.Find(x => x.Character.Justice.JusticeNow == player.Character.Justice.JusticeNow);
-
-                if (playerToAttack != null)
+                if (playerToAttack.Count >= 1 && randomCheck - playerToAttack.Count > 0)
                 {
-                    await _gameReaction.HandleAttackOrLvlUp(player, null, playerToAttack.Status.PlaceAtLeaderBoard);
+                    await _gameReaction.HandleAttackOrLvlUp(player, null, -10);
+                    return;
                 }
             
-                int randomPlayer;
+       
 
                 do
                 {

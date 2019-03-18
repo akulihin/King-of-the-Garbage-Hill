@@ -7,7 +7,6 @@ using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.BotFramework.Extensions;
-using King_of_the_Garbage_Hill.Game;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameLogic;
