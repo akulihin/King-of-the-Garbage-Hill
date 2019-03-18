@@ -1221,21 +1221,49 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 case "AWDKA":
                     //Произошел троллинг:
+
+
                     if (player.Status.IsWonLastTime != 0)
                     {
+                        var awdka = _gameGlobal.AwdkaTrollingList.Find(x =>
+                            x.GameId == player.DiscordAccount.GameId &&
+                            x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+
                         var player2 =
                             game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonLastTime);
 
                         if (player2.Status.PlaceAtLeaderBoard == 1)
                         {
-                            int pointsToGet = player2.Status.GetScore() / 4;
-                            if (pointsToGet < 1)
+
+                            if (awdka == null)
                             {
-                                pointsToGet = 1;
+                                _gameGlobal.AwdkaTrollingList.Add(new Awdka.TrollingClass(player.DiscordAccount.DiscordId, game.GameId));
+                                int pointsToGet = player2.Status.GetScore() / 4;
+                                if (pointsToGet < 1)
+                                {
+                                    pointsToGet = 1;
+                                }
+                                player.Status.AddBonusPoints(pointsToGet);
+                                await _phrase.AwdkaTrolling.SendLog(player);   
+                            }
+                            else
+                            {
+                             
+
+                                if (awdka.Cooldown <= -1)
+                                {
+                                    int pointsToGet = player2.Status.GetScore() / 4;
+                                    if (pointsToGet < 1)
+                                    {
+                                        pointsToGet = 1;
+                                    }
+                                    player.Status.AddBonusPoints(pointsToGet);
+                                    awdka.Cooldown = 2;
+                                    await _phrase.AwdkaTrolling.SendLog(player);   
+                                }
                             }
 
-                            player.Status.AddBonusPoints(pointsToGet);
-                           await _phrase.AwdkaTrolling.SendLog(player);
+     
                         }
                     }
                     //end Произошел троллинг:
@@ -1356,6 +1384,20 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 octo.UniqePlacesList.Add(new Octopus.TentaclesSubClass(player.Status.PlaceAtLeaderBoard));
                             }
                         }
+                        break;
+                    case "AWDKA":
+                        var awdka = _gameGlobal.AwdkaTrollingList.Find(x =>
+                            x.GameId == player.DiscordAccount.GameId &&
+                            x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+                        if (awdka != null)
+                        {
+                            awdka.Cooldown--;
+                            if (awdka.Cooldown <= -1)
+                            {
+                               await _phrase.AwdkaTrollingReady.SendLog(player);
+                            }
+                        }
+                       
                         break;
                 }
 

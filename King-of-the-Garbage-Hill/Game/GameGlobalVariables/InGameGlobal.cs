@@ -72,6 +72,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public readonly List<Octopus.InvulnerabilityClass> OctopusInvulnerabilityList =
             new List<Octopus.InvulnerabilityClass>();
         public readonly  List<Darksci.LuckyClass> DarksciLuckyList = new List<Darksci.LuckyClass>();
+        public readonly List<Awdka.TrollingClass> AwdkaTrollingList = new List<Awdka.TrollingClass>();
 
         public InGameGlobal(SecureRandom rand)
         {

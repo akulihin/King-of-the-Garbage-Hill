@@ -51,6 +51,22 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             
         }
 
+        public class TrollingClass
+        {
+            public ulong GameId;
+            public ulong PlayerDiscordId;
+            public int Cooldown;
+
+            public TrollingClass(ulong playerDiscordId, ulong gameId )
+            {
+                PlayerDiscordId = playerDiscordId;
+                GameId = gameId;
+                Cooldown = 2;
+            }
+        }
+
+
+
         public class TryingClass
         {
             public ulong GameId;

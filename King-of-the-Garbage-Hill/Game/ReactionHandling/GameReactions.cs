@@ -117,18 +117,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             if (status.MoveListPage == 3)
             {
                 await GetLvlUp(player, emoteNum);
-                //awdka only:
-                if (player.Status.LvlUpPoints == 3)
-                {
-                    await GetLvlUp(player, emoteNum);
-                    player.Status.LvlUpPoints--;
-                }
-                if (player.Status.LvlUpPoints == 2)
-                {
-                    await GetLvlUp(player, emoteNum);
-                    player.Status.LvlUpPoints--;
-                }
-                //end awdka only
                 return;
             }
 
@@ -284,8 +272,18 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 default:
                     return;
             }
+            
+            //awdka only:
+            if (player.Status.LvlUpPoints == 3 || player.Status.LvlUpPoints == 2)
+            {
+                player.Status.LvlUpPoints--;
+            }
+            else
+            {
+                //end awdka only
+                player.Status.MoveListPage = 1;
+            }
 
-            player.Status.MoveListPage = 1;
             await _upd.UpdateMessage(player);
         }
 

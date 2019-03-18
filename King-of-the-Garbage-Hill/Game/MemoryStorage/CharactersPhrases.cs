@@ -12,6 +12,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public PhraseClass AwdkaTeachToPlay;
         public PhraseClass AwdkaTrolling;
         public PhraseClass AwdkaTrying;
+        public PhraseClass AwdkaTrollingReady;
         public PhraseClass DarksciDysmoral;
         public PhraseClass DarksciFuckThisGame;
         public PhraseClass DarksciLucky;
@@ -83,6 +84,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             AwdkaTrolling = new PhraseClass("Произошел троллинг");
             AwdkaTrying = new PhraseClass("Я пытаюсь!");
             AwdkaAfk = new PhraseClass("АФКА");
+            AwdkaTrollingReady  = new PhraseClass("Произошел троллинг");
 
             DarksciNotLucky = new PhraseClass("Не повезло");
             DarksciLucky = new PhraseClass("Повезло");
@@ -198,6 +200,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             AwdkaTrying.PassiveLogRus.Add("Почти...");
             AwdkaTrying.PassiveLogRus.Add("В киберспорт!");
             AwdkaAfk.PassiveLogRus.Add("AFKA");
+            AwdkaTrollingReady.PassiveLogRus.Add("троллинг готов к использованию");
             //end
         }
 
