@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Discord;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Helpers;
@@ -94,16 +95,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard)
                 {
                     game.GameLogs +=
-                        $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerIamAttacking.DiscordAccount.DiscordUserName}**";
+                        $"**{player.DiscordAccount.DiscordUserName}** {new Emoji("<:war:557070460324675584>")} с **{playerIamAttacking.DiscordAccount.DiscordUserName}**";
                     game.PreviousGameLogs +=
-                        $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerIamAttacking.DiscordAccount.DiscordUserName}**";
+                        $"**{player.DiscordAccount.DiscordUserName}** {new Emoji("<:war:557070460324675584>")} с **{playerIamAttacking.DiscordAccount.DiscordUserName}**";
                 }
                 else
                 {
                     game.GameLogs +=
-                        $"**{playerIamAttacking.DiscordAccount.DiscordUserName}** сражается с **{player.DiscordAccount.DiscordUserName}**";
+                        $"**{playerIamAttacking.DiscordAccount.DiscordUserName}** {new Emoji("<:war:557070460324675584>")} с **{player.DiscordAccount.DiscordUserName}**";
                     game.PreviousGameLogs +=
-                        $"**{playerIamAttacking.DiscordAccount.DiscordUserName}** сражается с **{player.DiscordAccount.DiscordUserName}**";
+                        $"**{playerIamAttacking.DiscordAccount.DiscordUserName}** {new Emoji("<:war:557070460324675584>")} с **{player.DiscordAccount.DiscordUserName}**";
                 }
                 //if block => no one gets points
 

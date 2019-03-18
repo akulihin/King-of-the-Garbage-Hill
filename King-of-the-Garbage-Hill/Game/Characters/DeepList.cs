@@ -22,13 +22,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //Doubtful tactic
             if (_gameGlobal.DeepListDoubtfulTactic.Contains(player.Status.WhoToAttackThisTurn))
             {
-                player.Character.Strength++;
+                player.Character.Psyche++;
                 //continiue
             }
             else
             {
                 _gameGlobal.DeepListDoubtfulTactic.Add(player.Status.WhoToAttackThisTurn);
-                player.Character.Strength++;
+                player.Character.Psyche++;
                 player.Status.IsAbleToWin = false;
             }
         }
@@ -39,7 +39,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             player.Status.IsAbleToWin = true;
             if (_gameGlobal.DeepListDoubtfulTactic.Contains(player.Status.WhoToAttackThisTurn))
             {
-                player.Character.Strength--;
+                player.Character.Psyche--;
                 if (player.Status.IsWonLastTime != 0)
                 {
                     player.Status.AddRegularPoints();
