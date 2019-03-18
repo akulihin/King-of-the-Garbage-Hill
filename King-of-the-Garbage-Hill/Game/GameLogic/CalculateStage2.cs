@@ -91,7 +91,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 //left side > right side depending on score board place
 
-                if (player.Status.PlaceAtLeaderBoard > playerIamAttacking.Status.PlaceAtLeaderBoard)
+                if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard)
                 {
                     game.GameLogs +=
                         $"**{player.DiscordAccount.DiscordUserName}** сражается с **{playerIamAttacking.DiscordAccount.DiscordUserName}**";
@@ -111,7 +111,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                   // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
                
-                     var  logMess = " | *Бой не состоялся...*\n";
+                     var  logMess = " ⟶ *Бой не состоялся...*\n";
                   
                     game.GameLogs += logMess;
                     game.PreviousGameLogs += logMess;
@@ -130,8 +130,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 if (playerIamAttacking.Status.IsSkip)
                 {
-                    game.GameLogs += " | *Бой не состоялся...*\n";
-                    game.PreviousGameLogs += " | *Бой не состоялся...*\n";
+                    game.GameLogs += " ⟶ *Бой не состоялся...*\n";
+                    game.PreviousGameLogs += " ⟶ *Бой не состоялся...*\n";
 
                     player.Character.Justice.JusticeForNextRound--;
 
@@ -301,9 +301,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (player.Character.Justice.IsWonThisRound)
                 {
                     player.Character.Justice.JusticeNow = 0;
-                    player.Character.Justice.IsWonThisRound = false;
                 }
 
+                player.Character.Justice.IsWonThisRound = false;
                 player.Character.Justice.JusticeNow += player.Character.Justice.JusticeForNextRound;
                 player.Character.Justice.JusticeForNextRound = 0;
 

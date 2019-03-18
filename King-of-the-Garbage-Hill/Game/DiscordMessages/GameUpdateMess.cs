@@ -71,9 +71,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var embed = new EmbedBuilder();
             embed.WithColor(Color.DarkOrange);
             embed.AddField("Твой Персонаж:", $"Name: {player.Character.Name}\n" +
+                                             $"Интеллект: {player.Character.Intelligence}\n" +
                                              $"Сила: {player.Character.Strength}\n" +
                                              $"Скорость: {player.Character.Speed}\n" +
-                                             $"Интеллект: {player.Character.Intelligence}\n" +
                                              $"Психика: {player.Character.Psyche}\n");
             embed.AddField("Пассивки", $"{pass}");
             embed.WithDescription(gameRules);
@@ -196,6 +196,12 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             if (desc == null)
                 return null;
             embed.WithDescription(desc);
+
+            if (desc.Length >= 2048 )
+            {
+                _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
+                    .SendMessageAsync("PreviousGameLogs >= 2048");
+            }
 
             embed.WithTitle("Царь Мусорной Горы");
             embed.AddField("____",
