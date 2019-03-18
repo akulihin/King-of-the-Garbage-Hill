@@ -752,7 +752,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                     check.KnownPlayers.Add(randPlayer.DiscordAccount.DiscordId);
                                 }
 
-                                await _phrase.DeepListSuperMindPhrase.SendLog(player);
+                                await _phrase.DeepListSuperMindPhrase.SendLog(player, randPlayer);
                             }
                         }
                         //end Сверхразум

@@ -109,6 +109,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Я всё рассчитал, это работает.");
             DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Napoleon Wonnafcuk");
             DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Техника скрытого Листа - Гамбит");
+
             DeepListSuperMindPhrase.PassiveLogRus.Add("Поделив энтропию на ноль, вы поняли, что ");
             DeepListSuperMindPhrase.PassiveLogRus.Add("Используя свою дедукцию, вы поняли, что ");
             DeepListSuperMindPhrase.PassiveLogRus.Add("Сложив 2+2, вы каким-то чудом догадались, что ");
@@ -259,6 +260,34 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 #pragma warning restore 4014
                     }
                 }
+            }
+
+            public async Task SendLog(GameBridgeClass player, GameBridgeClass player2)
+            {
+                if (player.Character.Name == "DeepList")
+                {
+                    if (player.DiscordAccount.IsPlaying)
+                    {
+                        var random = new Random();
+                        var embed = new EmbedBuilder();
+                        var description = PassiveLogRus[random.Next(0, PassiveLogRus.Count)];
+                        description += $"{player2.DiscordAccount.DiscordUserName} - {player2.Character.Name}";
+                        embed.WithDescription(description);
+
+                        if (player.DiscordAccount.IsLogs) embed.WithFooter(PassiveNameRus);
+                        embed.WithColor(random.Next(0, 255), random.Next(0, 255), random.Next(0, 255));
+
+                        if (!player.IsBot())
+                        {
+                            var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("", false,
+                                embed.Build());
+#pragma warning disable 4014
+                            DeleteMessOverTime(mess, 10);
+#pragma warning restore 4014
+                        }
+                    }
+                }
+    
             }
 
             private async Task DeleteMessOverTime(IUserMessage message, int timeInSeconds)
