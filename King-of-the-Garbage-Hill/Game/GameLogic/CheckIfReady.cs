@@ -142,14 +142,36 @@ rand = 3
 
             if (player.Status.MoveListPage == 3)
             {
-                if(player.Character.Intelligence < 10)
-                    await _gameReaction.HandleAttackOrLvlUp(player, null, 1);
-                else if(player.Character.Strength < 10)
-                    await _gameReaction.HandleAttackOrLvlUp(player, null, 2);
-                else if(player.Character.Speed < 10)
-                    await _gameReaction.HandleAttackOrLvlUp(player, null, 3);
-                else if(player.Character.Psyche < 10)
-                    await _gameReaction.HandleAttackOrLvlUp(player, null, 4);
+                var skillNu = 1;
+
+                var intel = player.Character.Intelligence;
+                var str = player.Character.Strength;
+                var speed = player.Character.Speed;
+                var psy  = player.Character.Psyche;
+
+                if (intel > str && intel > speed && intel > psy && intel < 10)
+                {
+                     skillNu = 1;
+                }
+               else if (str > intel && str > speed && str > psy && str < 10)
+                {
+                    skillNu = 2;
+                }
+                else if (speed > intel && speed > str && speed > psy && speed < 10)
+                {
+                    skillNu = 3;
+                }
+                else if (psy > intel && psy > str && psy > speed && psy < 10)
+                {
+                     skillNu = 4;
+                }
+
+                if (player.Character.Name == "HardKitty" && str < 10)
+                {
+                    skillNu = 2;
+                }
+
+                    await _gameReaction.HandleAttackOrLvlUp(player, null, skillNu);
             }
             
         }
