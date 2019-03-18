@@ -336,7 +336,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             {
                 if (game.RoundNo == 3 || game.RoundNo == 5 || game.RoundNo == 7 || game.RoundNo == 9)
                 {
-                    game.PlayersList[i].Status.MoveListPage += 2;
+                    game.PlayersList[i].Status.MoveListPage = 3;
                 }
            
 

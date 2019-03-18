@@ -7,6 +7,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public InGameStatus()
         {
             MoveListPage = 1;
+            LvlUpPoints = 1;
             SocketMessageFromBot = null;
             Score = 0;
             IsBlock = false;
@@ -47,6 +48,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public ulong IsWonLastTime { get; set; }
         public ulong IsLostLastTime { get; set; }
         private double ScoresToGiveAtEndOfRound { get; set; }
+        public int LvlUpPoints { get; set; }
 
         public void SetScoresToGiveAtEndOfRound(int score)
         {

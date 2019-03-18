@@ -176,6 +176,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 case "Глеб":
                     // Я за чаем:
                     var rand = _rand.Random(1, 10);
+                    if (player1.Character.Intelligence >= 9 && player1.Character.Strength >= 9 && player1.Character.Speed >= 9 && player1.Character.Psyche >= 9)
+                    {
+                         rand = _rand.Random(1, 9);
+                    }
                     if (rand == 1)
                     {
                         _gameGlobal.AllSkipTriggeredWhen.Add(new WhenToTriggerClass(player1.Status.WhoToAttackThisTurn,
@@ -551,7 +555,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 {
                                     if (enemy.Times >= 2 && enemy.IsUnique == false)
                                     {
-                                        player.Status.MoveListPage += 4;
+                                        player.Status.LvlUpPoints = 3;
                                       await  _gameUpdateMess.UpdateMessage(player);
                                         enemy.IsUnique = true;
                                         await  _phrase.AwdkaTrying.SendLog(player);
@@ -726,28 +730,30 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 do
                                 {
                                     randPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Count - 1)];
+
                                     var check1 = _gameGlobal.DeepListSupermindKnown.Find(x =>
                                         x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+
                                     if (check1 != null)
                                         if (check1.KnownPlayers.Contains(randPlayer.DiscordAccount.DiscordId))
                                             randPlayer = player;
-                                } while (randPlayer.DiscordAccount.DiscordId != player.DiscordAccount.DiscordId);
+                                } while (randPlayer.DiscordAccount.DiscordId == player.DiscordAccount.DiscordId);
 
                                 var check = _gameGlobal.DeepListSupermindKnown.Find(x =>
                                     x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+
                                 if (check == null)
+                                {
                                     _gameGlobal.DeepListSupermindKnown.Add(new DeepList.SuperMindKnown(
                                         player.DiscordAccount.DiscordId, game.GameId,
-                                        randPlayer.DiscordAccount.DiscordId));
+                                        randPlayer.DiscordAccount.DiscordId));}
                                 else
+                                {
                                     check.KnownPlayers.Add(randPlayer.DiscordAccount.DiscordId);
+                                }
 
                                 await _phrase.DeepListSuperMindPhrase.SendLog(player);
                             }
-                        }
-                        else
-                        {
-                            Console.WriteLine("DEEP LIST SUPERMIND PASSIVE ERRORR!!!!!!!!!!!!!!!!!");
                         }
                         //end Сверхразум
 
