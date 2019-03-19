@@ -1,4 +1,7 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Timers;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
@@ -74,6 +77,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             await _upd.UpdateMessage(players[k]);
                 }
 
+                Console.WriteLine("readyCount = " + readyCount);
+
                 if ((readyCount == readyTargetCount ||
                      game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond) && game.GameStatus == 1)
                 {
@@ -107,7 +112,11 @@ rand = 3
         */
         private async Task HandleBotBehavior(GameBridgeClass player, GameClass game)
         {
-            if (!player.IsBot()) return;
+            if (!player.IsBot() || player.Status.IsReady) return;
+            if (!player.Status.IsReady)
+            {
+                var hh = 0;
+            }
             if (player.Status.MoveListPage == 1)
             {
                 int randomPlayer;
@@ -129,12 +138,14 @@ rand = 3
                     await _gameReaction.HandleAttackOrLvlUp(player, null, -10);
                     return;
                 }
-            
-       
 
+
+                int hm = 0;
                 do
                 {
                     randomPlayer = _rand.Random(1, 6);
+                    Console.Write("hm: "+ hm);
+                    hm++;
                 } while (randomPlayer ==  player.Status.PlaceAtLeaderBoard);
 
                 await _gameReaction.HandleAttackOrLvlUp(player, null, randomPlayer);
@@ -149,21 +160,31 @@ rand = 3
                 var speed = player.Character.Speed;
                 var psy  = player.Character.Psyche;
 
-                if (intel > str && intel > speed && intel > psy && intel < 10)
+                var stats = new List<BiggestStatClass>
                 {
-                     skillNu = 1;
+                    new BiggestStatClass(1, intel),
+                    new BiggestStatClass(2, str),
+                    new BiggestStatClass(3, speed),
+                    new BiggestStatClass(4, psy)
+                };
+
+                stats = stats.OrderByDescending(x => x.StatCount).ToList();
+
+                if (stats[0].StatCount < 10)
+                {
+                    skillNu = stats[0].StatIndex;
                 }
-               else if (str > intel && str > speed && str > psy && str < 10)
+               else if (stats[1].StatCount < 10)
                 {
-                    skillNu = 2;
+                    skillNu = stats[1].StatIndex;
                 }
-                else if (speed > intel && speed > str && speed > psy && speed < 10)
+                else if (stats[2].StatCount < 10)
                 {
-                    skillNu = 3;
+                    skillNu = stats[2].StatIndex;
                 }
-                else if (psy > intel && psy > str && psy > speed && psy < 10)
+                else if (stats[3].StatCount < 10)
                 {
-                     skillNu = 4;
+                     skillNu = stats[3].StatIndex;
                 }
 
                 if (player.Character.Name == "HardKitty" && str < 10)
@@ -172,9 +193,24 @@ rand = 3
                 }
 
                     await _gameReaction.HandleAttackOrLvlUp(player, null, skillNu);
+                    player.Status.MoveListPage = 1;
             }
             
         }
+
+        public class BiggestStatClass
+        {
+            public int StatIndex;
+            public int StatCount;
+
+            public BiggestStatClass(int statIndex, int statCount)
+            {
+                StatIndex = statIndex;
+                StatCount = statCount;
+            }
+        }
+
+
 
         public class IsTimerToCheckEnabledClass
         {
