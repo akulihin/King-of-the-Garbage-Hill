@@ -99,23 +99,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
         }
 
-        /*
-1) нападает на случайного врага, у которого меньше справедливости, чем у него.  (если нет таких, то на того, у кого равная справедливость с ним)
-
-2) если у нескольких игроков справедливости больше, а меньше нет ни у кого, дальше идет такая формула:
-ролишь рандом от 1 до 5
-rand = 3
-если (rand)  -   (кол-во врагов с равной справедливостью)  < 0
-то атакует рандомного врага с равной справедливостью
-если (rand)  -   (кол-во врагов с равной справедливостью)  >= 0
-то ставит блок
-        */
         private async Task HandleBotBehavior(GameBridgeClass player, GameClass game)
         {
             if (!player.IsBot() || player.Status.IsReady) return;
             if (player.Status.MoveListPage == 1)
             {
                 int randomPlayer;
+
                 var playerToAttack =
                     game.PlayersList.FindAll(x => x.Character.Justice.JusticeNow == player.Character.Justice.JusticeNow && x.Character.Name != player.Character.Name);
 
@@ -135,13 +125,9 @@ rand = 3
                     return;
                 }
 
-
-                int hm = 0;
                 do
                 {
                     randomPlayer = _rand.Random(1, 6);
-                    Console.Write("hm: "+ hm);
-                    hm++;
                 } while (randomPlayer ==  player.Status.PlaceAtLeaderBoard);
 
                 await _gameReaction.HandleAttackOrLvlUp(player, null, randomPlayer);
@@ -181,6 +167,11 @@ rand = 3
                 else if (stats[3].StatCount < 10)
                 {
                      skillNu = stats[3].StatIndex;
+                }
+                else
+                {
+                    player.Status.MoveListPage = 1;
+                    return;
                 }
 
                 if (player.Character.Name == "HardKitty" && str < 10)

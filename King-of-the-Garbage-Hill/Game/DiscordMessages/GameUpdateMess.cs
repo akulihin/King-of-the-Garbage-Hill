@@ -134,7 +134,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 players += CustomLeaderBoard(discordAccount, character, playersList[i]);
 
                 //TODO: REMOVE || playersList[i].IsBot()
-                if (discordAccount.DiscordId == playersList[i].DiscordAccount.DiscordId )
+                if (discordAccount.DiscordId == playersList[i].DiscordAccount.DiscordId || playersList[i].IsBot())
                     players += $" = {playersList[i].Status.GetScore()} (I: {playersList[i].Character.Intelligence}, St: {playersList[i].Character.Strength}, SP: {playersList[i].Character.Speed}, Psy: {playersList[i].Character.Psyche}, J: {playersList[i].Character.Justice.JusticeForNextRound})\n";
                 else
                     players += "\n";
