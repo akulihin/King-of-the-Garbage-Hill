@@ -133,8 +133,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                 players += CustomLeaderBoard(discordAccount, character, playersList[i]);
 
-                //TODO: REMOVE || discordAccount.DiscordId < 1000
-                if (discordAccount.DiscordId == playersList[i].DiscordAccount.DiscordId || playersList[i].IsBot())
+                //TODO: REMOVE || playersList[i].IsBot()
+                if (discordAccount.DiscordId == playersList[i].DiscordAccount.DiscordId )
                     players += $" = {playersList[i].Status.GetScore()} (I: {playersList[i].Character.Intelligence}, St: {playersList[i].Character.Strength}, SP: {playersList[i].Character.Speed}, Psy: {playersList[i].Character.Psyche}, J: {playersList[i].Character.Justice.JusticeForNextRound})\n";
                 else
                     players += "\n";
@@ -156,6 +156,18 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                         if (currentList.KnownPlayers.Contains(player2.DiscordAccount.DiscordId))
                             customString +=
                                 $" PS: - {player2.Character.Name} ({player2.Character.Intelligence}, {player2.Character.Strength}, {player2.Character.Speed}, {player2.Character.Psyche}, {player2.Character.Justice.JusticeForNextRound})";
+                    break;
+
+                case "mylorik":
+                    var mylorik = _gameGlobal.MylorikRevenge.Find(x =>
+                        x.GameId == player1Account.GameId && x.PlayerDiscordId == player1Account.DiscordId);
+                    var find = mylorik?.EnemyListDiscordId.Find(x =>
+                        x.EnemyDiscordId == player2.DiscordAccount.DiscordId && x.IsUnique);
+
+                    if (find != null)
+                    {
+                        customString += $" {new Emoji("<:sparta:557781305178325002>")}";
+                    }
                     break;
             }
 

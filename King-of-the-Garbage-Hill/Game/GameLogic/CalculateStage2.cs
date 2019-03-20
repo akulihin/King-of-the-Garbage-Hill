@@ -89,16 +89,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard)
                 {
                     game.GameLogs +=
-                        $"**{player.DiscordAccount.DiscordUserName}** {new Emoji("<:war:557070460324675584>")} с **{playerIamAttacking.DiscordAccount.DiscordUserName}**";
+                        $"**{player.DiscordAccount.DiscordUserName}** {new Emoji("<:war:557070460324675584>")} **{playerIamAttacking.DiscordAccount.DiscordUserName}**";
                     game.PreviousGameLogs +=
-                        $"**{player.DiscordAccount.DiscordUserName}** {new Emoji("<:war:557070460324675584>")} с **{playerIamAttacking.DiscordAccount.DiscordUserName}**";
+                        $"**{player.DiscordAccount.DiscordUserName}** {new Emoji("<:war:557070460324675584>")} **{playerIamAttacking.DiscordAccount.DiscordUserName}**";
                 }
                 else
                 {
                     game.GameLogs +=
-                        $"**{playerIamAttacking.DiscordAccount.DiscordUserName}** {new Emoji("<:war:557070460324675584>")} с **{player.DiscordAccount.DiscordUserName}**";
+                        $"**{playerIamAttacking.DiscordAccount.DiscordUserName}** {new Emoji("<:war:557070460324675584>")} **{player.DiscordAccount.DiscordUserName}**";
                     game.PreviousGameLogs +=
-                        $"**{playerIamAttacking.DiscordAccount.DiscordUserName}** {new Emoji("<:war:557070460324675584>")} с **{player.DiscordAccount.DiscordUserName}**";
+                        $"**{playerIamAttacking.DiscordAccount.DiscordUserName}** {new Emoji("<:war:557070460324675584>")} **{player.DiscordAccount.DiscordUserName}**";
                 }
                 //if block => no one gets points
 
