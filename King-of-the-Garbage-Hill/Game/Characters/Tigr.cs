@@ -91,6 +91,21 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //end 3-0 обоссан: 
         }
 
+
+        public class TigrTopClass
+        {
+            public ulong GameId;
+            public ulong PlayerDiscordId;
+            public int TimeCount;
+
+            public TigrTopClass(ulong playerDiscordId, ulong gameId)
+            {
+                PlayerDiscordId = playerDiscordId;
+                GameId = gameId;
+                TimeCount = 2;
+            }
+        }
+
         public class ThreeZeroClass
         {
             public ulong GameId;

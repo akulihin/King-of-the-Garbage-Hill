@@ -440,6 +440,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         when = _gameGlobal.GetWhenToTrigger(player, false, 10, 2);
                         _gameGlobal.MylorikBooleTriggeredWhen.Add(when);
                         break;
+                    case "Тигр":
+                        when = _gameGlobal.GetWhenToTrigger(player, true, 10, 1);
+                        _gameGlobal.TigrTopWhen.Add(when);
+                        break;
                     case "AWDKA":
                         when = _gameGlobal.GetWhenToTrigger(player, false, 10, 1);
                         _gameGlobal.AwdkaAfkTriggeredWhen.Add(when);
@@ -537,7 +541,23 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         //Тигр топ, а ты холоп:
 
-                        //TODO:
+                        var tigr = _gameGlobal.TigrTopWhen.Find(x => x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId && x.WhenToTrigger.Contains(game.RoundNo));
+
+                        if (tigr != null)
+                        {
+                            var tigr2 = _gameGlobal.TigrTop.Find(x =>
+                                x.PlayerDiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+
+                            if (tigr2 == null)
+                            {
+                                _gameGlobal.TigrTop.Add(new Tigr.TigrTopClass(player.DiscordAccount.DiscordId, game.GameId));
+                            }
+                            else
+                            {
+                                _gameGlobal.TigrTop.Remove(tigr2);
+                                _gameGlobal.TigrTop.Add(new Tigr.TigrTopClass(player.DiscordAccount.DiscordId, game.GameId));
+                            }
+                        }
 
                         //end Тигр топ, а ты холоп:
 

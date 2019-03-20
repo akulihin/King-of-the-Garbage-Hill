@@ -158,9 +158,18 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
             if (status.MoveListPage == 1)
             {
-                status.WhoToAttackThisTurn =
-                    _global.GamesList.Find(x => x.GameId == account.GameId).PlayersList
-                        .Find(x => x.Status.PlaceAtLeaderBoard == emoteNum).DiscordAccount.DiscordId;
+
+                var game = _global.GamesList.Find(x => x.GameId == account.GameId);
+                status.WhoToAttackThisTurn =game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum).DiscordAccount.DiscordId;
+
+                if (game.PlayersList.Any(x => x.Character.Name == "Тигр") && game.RoundNo == 10)
+                {
+                    var mess = await reaction.Channel.SendMessageAsync("На этого игрока нельзя нападать, почему-то...");
+#pragma warning disable 4014
+                    _help.DeleteMessOverTime(mess, 6);
+#pragma warning restore 4014
+                }
+
 
                 if (status.WhoToAttackThisTurn == account.DiscordId)
                 {

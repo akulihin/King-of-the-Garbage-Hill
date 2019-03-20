@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Discord;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic
@@ -12,15 +14,19 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
     public class CalculateStage2 : IServiceSingleton
     {
         private readonly CharacterPassives _characterPassives;
+        private readonly InGameGlobal _gameGlobal;
         private readonly SecureRandom _rand;
-
         private readonly GameUpdateMess _upd;
+        private readonly CharactersUniquePhrase _phrase;
 
-        public CalculateStage2(GameUpdateMess upd, SecureRandom rand, CharacterPassives characterPassives)
+        public CalculateStage2(GameUpdateMess upd, SecureRandom rand, CharacterPassives characterPassives,
+            InGameGlobal gameGlobal, CharactersUniquePhrase phrase)
         {
             _upd = upd;
             _rand = rand;
             _characterPassives = characterPassives;
+            _gameGlobal = gameGlobal;
+            _phrase = phrase;
         }
 
         public async Task InitializeAsync()
@@ -45,8 +51,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 await _characterPassives.HandleCharacterBeforeCalculations(player, game);
 
-                
-
 
                 if (player.Status.WhoToAttackThisTurn == 0 && player.Status.IsBlock == false)
                     player.Status.IsBlock = true;
@@ -68,25 +72,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 await _characterPassives.HandleCharacterBeforeCalculations(playerIamAttacking, game);
 
                 if (playerIamAttacking.Status.WhoToAttackThisTurn == 0 && playerIamAttacking.Status.IsBlock == false)
-                {
                     playerIamAttacking.Status.IsBlock = true;
-                }
 
                 //т.е. он получил урон, какие у него дебаффы на этот счет 
-                await _characterPassives.HandleEveryAttackOnHim(playerIamAttacking , player, game);
+                await _characterPassives.HandleEveryAttackOnHim(playerIamAttacking, player, game);
 
-                    //т.е. я его аттакую, какие у меня бонусы на это
+                //т.е. я его аттакую, какие у меня бонусы на это
                 await _characterPassives.HandleEveryAttackFromMe(player, playerIamAttacking, game);
 
-                if (!player.Status.IsAbleToWin)
-                {
-                    pointsWined = -50;
-                }
+                if (!player.Status.IsAbleToWin) pointsWined = -50;
 
-                if (!playerIamAttacking.Status.IsAbleToWin)
-                {
-                    pointsWined = 50;
-                }
+                if (!playerIamAttacking.Status.IsAbleToWin) pointsWined = 50;
 
                 //left side > right side depending on score board place
 
@@ -108,14 +104,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 if (playerIamAttacking.Status.IsBlock)
                 {
-                  // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
-               
-                     var  logMess = " ⟶ *Бой не состоялся...*\n";
-                  
+                    // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
+
+                    var logMess = " ⟶ *Бой не состоялся...*\n";
+
                     game.GameLogs += logMess;
                     game.PreviousGameLogs += logMess;
 
-                    
+
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
                     await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
 
@@ -178,31 +174,20 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (strangeNumber >= 14) randomForTooGood = 68;
                 if (strangeNumber <= -14) randomForTooGood = 32;
 
-                if (strangeNumber > 0)
-                {
-                    pointsWined++;
-                }
+                if (strangeNumber > 0) pointsWined++;
                 //end round 1
 
                 //round 2 (Justice)
                 if (player.Character.Justice.JusticeNow > playerIamAttacking.Character.Justice.JusticeNow ||
                     player.Character.Justice.JusticeNow == playerIamAttacking.Character.Justice.JusticeNow)
-                {
                     pointsWined++;
-                }
                 //end round 2
 
                 //round 3 (Random)
                 if (pointsWined == 1)
                 {
                     var randomNumber = _rand.Random(1, 100);
-                    if (randomNumber <= randomForTooGood)
-                    {
-                        pointsWined++;
-                    }
-                    else
-                    {
-                    }
+                    if (randomNumber <= randomForTooGood) pointsWined++;
                 }
                 //end round 3
 
@@ -229,7 +214,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 else
                 {
                     //octopus  // playerIamAttacking is octopus
-                   var check =  _characterPassives.HandleOctopus(playerIamAttacking, player, game);
+                    var check = _characterPassives.HandleOctopus(playerIamAttacking, player, game);
                     //end octopus
 
                     if (check)
@@ -249,7 +234,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
 
                 //т.е. он получил урон, какие у него дебаффы на этот счет 
-                await _characterPassives.HandleEveryAttackOnHimAfterCalculations(playerIamAttacking , player, game);
+                await _characterPassives.HandleEveryAttackOnHimAfterCalculations(playerIamAttacking, player, game);
                 //т.е. я его аттакую, какие у меня бонусы на это
                 await _characterPassives.HandleEveryAttackFromMeAfterCalculations(player, playerIamAttacking, game);
 
@@ -273,12 +258,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             if (game.RoundNo == 1) game.TurnLengthInSecond -= 75;
 
 
-
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
                 var player = game.PlayersList[i];
 
-       
+
                 player.Status.IsBlock = false;
                 player.Status.IsAbleToWin = true;
                 player.Status.IsSkip = false;
@@ -290,10 +274,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 player.Status.MoveListPage = 1;
 
-                if (player.Character.Justice.IsWonThisRound)
-                {
-                    player.Character.Justice.JusticeNow = 0;
-                }
+                if (player.Character.Justice.IsWonThisRound) player.Character.Justice.JusticeNow = 0;
 
                 player.Character.Justice.IsWonThisRound = false;
                 player.Character.Justice.JusticeNow += player.Character.Justice.JusticeForNextRound;
@@ -307,38 +288,61 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             game.RoundNo++;
             await _characterPassives.HandleNextRound(game);
 
-            
+
             game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
 
+            //HardKitty unique
             if (game.PlayersList.Any(x => x.Character.Name == "HardKitty"))
             {
                 var tempHard = game.PlayersList.Find(x => x.Character.Name == "HardKitty");
                 var hardIndex = game.PlayersList.IndexOf(tempHard);
 
                 for (var i = hardIndex; i < game.PlayersList.Count - 1; i++)
-                {
                     game.PlayersList[i] = game.PlayersList[i + 1];
-                }
 
                 game.PlayersList[game.PlayersList.Count - 1] = tempHard;
             }
+            //end //HardKitty unique
+
+
+            //Tigr Unique
+            if (game.PlayersList.Any(x => x.Character.Name == "Тигр"))
+            {
+                var tigrTemp = game.PlayersList.Find(x => x.Character.Name == "Тигр");
+
+                var tigr = _gameGlobal.TigrTop.Find(x =>
+                    x.GameId == game.GameId && x.PlayerDiscordId == tigrTemp.DiscordAccount.DiscordId);
+
+                if (tigr != null && tigr.TimeCount > 0)
+                {
+                    var tigrIndex = game.PlayersList.IndexOf(tigrTemp);
+
+                    game.PlayersList[tigrIndex] = game.PlayersList[0];
+                    game.PlayersList[0] = tigrTemp;
+                    tigr.TimeCount--;
+                    await _phrase.TigrTop.SendLog(tigrTemp);
+                }
+            }
+            //end Tigr Unique
+
+
 
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
                 if (game.RoundNo == 3 || game.RoundNo == 5 || game.RoundNo == 7 || game.RoundNo == 9)
-                {
                     game.PlayersList[i].Status.MoveListPage = 3;
-                }
-           
+
 
                 game.PlayersList[i].Status.PlaceAtLeaderBoard = i + 1;
                 await _upd.UpdateMessage(game.PlayersList[i]);
             }
+
             await _characterPassives.HandleNextRoundAfterSorting(game);
 
             game.TimePassed.Reset();
             game.TimePassed.Start();
-            Console.WriteLine($"Finished calculating game #{game.GameId}. || {watch.Elapsed.TotalSeconds}s");
+            Console.WriteLine(
+                $"Finished calculating game #{game.GameId} (round# {game.RoundNo}). || {watch.Elapsed.TotalSeconds}s");
         }
 
         public int WhoIsBetter(GameBridgeClass player1, GameBridgeClass player2)
@@ -364,11 +368,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 str = -1;
 
 
-            if(intel + speed + str >= 2 )
+            if (intel + speed + str >= 2)
                 return 1;
-            if(intel + speed + str <= -2 )
+            if (intel + speed + str <= -2)
                 return 2;
-            if(intel + speed + str == 0 )
+            if (intel + speed + str == 0)
                 return 0;
 
 
@@ -378,7 +382,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 return 1;
             if (speed == 1 && intel != -1)
                 return 1;
-     
+
             return 2;
         }
     }
