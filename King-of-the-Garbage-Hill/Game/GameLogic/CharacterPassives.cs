@@ -89,6 +89,27 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             switch (characterName)
             {
+                case "Братишка":
+                    //Ничего не понимает: 
+                    var shark = _gameGlobal.SharkBoole.Find(x =>
+                        x.PlayerDiscordId == playerIamAttacking.DiscordAccount.DiscordId &&
+                        playerIamAttacking.DiscordAccount.GameId == x.GameId);
+                    if (shark == null)
+                    {
+                        _gameGlobal.SharkBoole.Add(new Sirinoks.FriendsClass(playerIamAttacking.DiscordAccount.DiscordId, game.GameId, playerAttackFrom.DiscordAccount.DiscordId));
+                        playerAttackFrom.Character.Intelligence--;
+                    }
+                    else
+                    {
+                        if (!shark.FriendList.Contains(playerAttackFrom.DiscordAccount.DiscordId))
+                        {
+                            shark.FriendList.Add(playerAttackFrom.DiscordAccount.DiscordId);
+                            playerAttackFrom.Character.Intelligence--;
+                        }
+                    }
+                    //end Ничего не понимает: 
+                    break;
+
                 case "Глеб":
                     var rand = _rand.Random(1, 8);
                     if (rand == 1)
@@ -307,10 +328,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         public async Task HandleCharacterAfterCalculations(GameBridgeClass player, GameClass game)
         {
-            var characterName = player.Character.Name;
-
             //tolya count
-
             if (player.Status.IsWonLastTime != 0 && player.Character.Name != "Толя" &&
                 game.PlayersList.Any(x => x.Character.Name == "Толя"))
             {
@@ -327,9 +345,29 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         await _phrase.TolyaCountPhrase.SendLog(player);
                     }
             }
-
             //tolya count end
 
+
+            //shark Лежит на дне:
+            if (game.PlayersList.Any(x => x.Character.Name == "Братишка"))
+            {
+                var shark = game.PlayersList.Find(x => x.Character.Name == "Братишка");
+
+                var enemyTop =  game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard-1 == shark.Status.PlaceAtLeaderBoard);
+                var enemyBottom = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard+1 == shark.Status.PlaceAtLeaderBoard);
+                if (enemyTop != null && enemyTop.Status.IsLostLastTime != 0)
+                {
+                    player.Status.AddRegularPoints();
+                }
+                if (enemyBottom != null && enemyBottom.Status.IsLostLastTime != 0)
+                {
+                    player.Status.AddRegularPoints();
+                }
+            }
+            //end Лежит на дне:
+
+
+            var characterName = player.Character.Name;
             switch (characterName)
             {
                 case "DeepList":
@@ -369,19 +407,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                    await _tigr.HandleTigrAfter(player, game);
                     break;
                 case "Братишка":
-                    _shark.HandleSharkAfter(player);
+                    _shark.HandleSharkAfter(player, game);
                     break;
                 case "????":
                     _deepList2.HandleDeepList2After(player);
                     break;
             }
 
-
             if (player.Status.WhoToAttackThisTurn == 0 && player.Status.IsBlock == false)
             {
                 player.Status.IsBlock = true;
             }
-            await Task.CompletedTask;
         }
 
         public void CalculatePassiveChances(GameClass game)
@@ -498,6 +534,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             game.GameLogs += $"\n**{player.DiscordAccount.DiscordUserName}:** ЕБАНЫЕ БАНЫ НА 10 ЛЕТ";
                         }
                         //end Стримснайпят и банят и банят и банят:
+
+                        //Тигр топ, а ты холоп:
+
+                        //TODO:
+
+                        //end Тигр топ, а ты холоп:
+
                     break;
                     
 
@@ -529,6 +572,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                         break;
+
+ 
 
                     case "Mitsuki":
                          acc = _gameGlobal.MitsukiNoPcTriggeredWhen.Find(x =>
@@ -1376,6 +1421,42 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 switch (characterName)
                 {
+                    case "Братишка":
+                        //Булькает:
+                        if (player.Status.PlaceAtLeaderBoard != 1)
+                        {
+                            player.Character.Justice.JusticeNow++;
+                        }
+                        //end Булькает:
+
+                        //Челюсти:
+                        if ( game.RoundNo > 1)
+                        {
+                          var shark =   _gameGlobal.SharkJawsLeader.Find(x =>
+                              x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+
+                          if (shark == null)
+                          {
+                              _gameGlobal.SharkJawsLeader.Add(new Sirinoks.FriendsClass(player.DiscordAccount.DiscordId, game.GameId, (ulong)game.RoundNo));
+                              player.Character.Speed++;
+                          }
+                          else
+                          {
+                              if (!shark.FriendList.Contains((ulong) game.RoundNo))
+                              {
+                                  shark.FriendList.Add((ulong) game.RoundNo);
+                                  player.Character.Speed++;
+                              }
+                          }
+
+                          if (player.Character.Speed > 10)
+                          {
+                              player.Character.Speed = 10;
+                          }
+                        }
+                        //end Челюсти:
+                        break;
+
                     case "Тигр":
                         //Тигр топ, а ты холоп: 
                         if (player.Status.PlaceAtLeaderBoard == 1 && game.RoundNo > 1)
