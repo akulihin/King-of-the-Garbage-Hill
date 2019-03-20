@@ -398,7 +398,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
             foreach (var player in game.PlayersList)
-            {
                 for (var i = 0; i < logsSplit.Count; i++)
                     if (logsSplit[i].Contains($"{player.DiscordAccount.DiscordUserName}"))
                     {
@@ -407,7 +406,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         var fightLineSplit = fightLine.Split("⟶");
 
                         var fightLineSplitSplit = fightLineSplit[0].Split("<:war:557070460324675584>");
-                        //Осьминожка - BOT :war: mylorik
                         fightLine = fightLineSplitSplit[0].Contains($"{player.DiscordAccount.DiscordUserName}")
                             ? $"**{fightLineSplitSplit[0]}** {new Emoji("<:war:557070460324675584>")} **{fightLineSplitSplit[1]}**"
                             : $"**{fightLineSplitSplit[1]}** {new Emoji("<:war:557070460324675584>")} **{fightLineSplitSplit[0]}**";
@@ -418,8 +416,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         logsSplit.RemoveAt(i);
                         i--;
                     }
-            }
-
 
             game.PreviousGameLogs = sortedGameLogs;
         }
