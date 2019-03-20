@@ -42,13 +42,22 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public PhraseClass SirinoksFriendsPhrase;
         public PhraseClass TolyaCountPhrase;
         public PhraseClass TolyaJewPhrase;
-
         public PhraseClass TolyaRammusPhrase;
+
+        public PhraseClass TigrTwoBetter;
+        public PhraseClass TigrThreeZero;
+        public PhraseClass TigrTop;
+        public PhraseClass TigrSnipe;
         //end
 
         public CharactersUniquePhrase()
         {
             //add values
+            TigrTwoBetter = new PhraseClass("Лучше с двумя, чем с адекватными");
+            TigrThreeZero = new PhraseClass("3-0 обоссан");
+            TigrTop = new PhraseClass("Тигр топ, а ты холоп");
+            TigrSnipe = new PhraseClass("Стримснайпят и банят и банят и банят");
+
             DeepListMadnessPhrase = new PhraseClass("Безумие");
             DeepListDoubtfulTacticPhrase = new PhraseClass("Сомнительная тактика");
             DeepListSuperMindPhrase = new PhraseClass("Сверхразум");
@@ -93,6 +102,15 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             //end
 
             //add  as many phrases as you wany
+
+            TigrTwoBetter.PassiveLogRus.Add("Лучше с двумя, чем с адекватными");
+            TigrTwoBetter.PassiveLogRus.Add("Добро пожаловать в мой клан!");
+            TigrThreeZero.PassiveLogRus.Add("Го 1v1");
+            TigrThreeZero.PassiveLogRus.Add("2:0");
+            TigrThreeZero.PassiveLogRus.Add("Изи 3-0, обоссан");
+            TigrTop.PassiveLogRus.Add("Тигр топ, а ты холоп!");
+            TigrTop.PassiveLogRus.Add("Я - ТОП1 БЕРСЕРК НА СЕРВЕРЕ!!!");
+            TigrSnipe.PassiveLogRus.Add("ЕБАНЫЕ БАНЫ НА 10 ЛЕТ");
 
             DarksciNotLucky.PassiveLogRus.Add("Сука, не везет с командой!");
             DarksciNotLucky.PassiveLogRus.Add("И вот так каждое промо...");

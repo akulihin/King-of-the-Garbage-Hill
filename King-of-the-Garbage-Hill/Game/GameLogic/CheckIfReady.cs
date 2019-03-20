@@ -70,7 +70,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                  await HandleBotBehavior(players[k], game);
 
-                    if (players[k].Status.IsReady) readyCount++;
+                    if (players[k].Status.IsReady && players[k].Status.MoveListPage != 3 &&  game.TimePassed.Elapsed.TotalSeconds > 10) readyCount++;
 
                     if (players[k].Status.SocketMessageFromBot != null)
                         if (game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds >= -6)

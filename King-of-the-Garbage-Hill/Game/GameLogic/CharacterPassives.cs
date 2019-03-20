@@ -366,7 +366,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                  await   _darksci.HandleDarksiAfter(player, game);
                     break;
                 case "Тигр":
-                    _tigr.HandleTigrAfter(player);
+                   await _tigr.HandleTigrAfter(player, game);
                     break;
                 case "Братишка":
                     _shark.HandleSharkAfter(player);
@@ -421,21 +421,26 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         _gameGlobal.GlebSleepingTriggeredWhen.Add(when);
 
                         //challenger when
-                        int[] temp = {-1, -1, -1, -1, -1};
-                        if (when.WhenToTrigger.Count >= 1)
-                            temp[0] = when.WhenToTrigger[0];
-                        if (when.WhenToTrigger.Count >= 2)
-                            temp[1] = when.WhenToTrigger[1];
-                        if (when.WhenToTrigger.Count >= 3)
-                            temp[2] = when.WhenToTrigger[2];
-                        if (when.WhenToTrigger.Count >= 4)
-                            temp[3] = when.WhenToTrigger[3];
-                        if (when.WhenToTrigger.Count >= 5)
-                            temp[4] = when.WhenToTrigger[4];
+                        var li = new List<int>();
+
+                        foreach (var t in when.WhenToTrigger)
+                        {
+                            li.Add(t);
+                        }
+      
+                        bool flag;
                         do
                         {
-                            when = _gameGlobal.GetWhenToTrigger(player, true, 12, 3, true);
-                        } while (when.WhenToTrigger.All(x => x == temp[0] || x == temp[1] || x == temp[2] || x == temp[3] || x == temp[4]));
+                            when =  _gameGlobal.GetWhenToTrigger(player, true, 12, 3, true);
+                            flag = false;
+                            for (var i = 0; i < li.Count; i++)
+                            {
+                                if (when.WhenToTrigger.Contains(li[i]))
+                                {
+                                    flag = true;
+                                }
+                            }
+                        } while (flag);
 
                         _gameGlobal.GlebChallengerTriggeredWhen.Add(when);
 
@@ -477,7 +482,34 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         break;
 
+                    case "Тигр":
+
+                        //Стримснайпят и банят и банят и банят:
+                        if (game.RoundNo == 10)
+                        {
+                            player.Status.IsSkip = true;
+                            player.Status.IsBlock = false;
+                            player.Status.IsAbleToTurn = false;
+                            player.Status.IsReady = true;
+                            player.Status.WhoToAttackThisTurn = 0;
+                            player.Character.Psyche = 0;
+                            player.Character.Intelligence = 0;
+
+                            game.GameLogs += $"\n**{player.DiscordAccount.DiscordUserName}:** ЕБАНЫЕ БАНЫ НА 10 ЛЕТ";
+                        }
+                        //end Стримснайпят и банят и банят и банят:
+                    break;
+                    
+
                     case"Даркси":
+                        //Дизмораль
+                        if (game.RoundNo == 9)
+                        {
+                            player.Character.Psyche -= 4;
+                            await  _phrase.DarksciDysmoral.SendLog(player);
+                        }
+                        //end Дизмораль
+
                         //Да всё нахуй эту игру:
                         if (player.Character.Psyche <= 0)
                         {
@@ -495,13 +527,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         }
                         //end Да всё нахуй эту игру:
 
-                        //Дизмораль
-                        if (game.RoundNo == 9)
-                        {
-                            player.Character.Psyche -= 4;
-                            await  _phrase.DarksciDysmoral.SendLog(player);
-                        }
-                        //end Дизмораль
+
                         break;
 
                     case "Mitsuki":
@@ -862,6 +888,38 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 switch (characterName)
                 {
+                    case "Тигр":
+                        //Лучше с двумя, чем с адекватными:
+
+
+                        for (var i = 0; i < game.PlayersList.Count; i++)
+                        {
+                            var t = game.PlayersList[i];
+                            if (t.Character.Intelligence == player.Character.Intelligence || t.Character.Psyche == player.Character.Psyche )
+                            {
+                                var tigr = _gameGlobal.TigrTwoBetterList.Find(x =>
+                                    x.PlayerDiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+                                if (tigr == null)
+                                {
+                                    _gameGlobal.TigrTwoBetterList.Add(new Sirinoks.FriendsClass(player.DiscordAccount.DiscordId, game.GameId, t.DiscordAccount.DiscordId));
+                                    player.Status.AddRegularPoints();
+                                   await _phrase.TigrTwoBetter.SendLog(player);
+                                }
+                                else
+                                {
+                                    if (!tigr.FriendList.Contains(t.DiscordAccount.DiscordId))
+                                    {
+                                        tigr.FriendList.Add(t.DiscordAccount.DiscordId);
+                                        player.Status.AddRegularPoints();
+                                        await _phrase.TigrTwoBetter.SendLog(player);
+                                    }
+                                }
+                            }
+                        }
+
+                        //end Лучше с двумя, чем с адекватными:
+                        break;
+
                     case "DeepList":
 
                         //madness
@@ -1318,6 +1376,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 switch (characterName)
                 {
+                    case "Тигр":
+                        //Тигр топ, а ты холоп: 
+                        if (player.Status.PlaceAtLeaderBoard == 1 && game.RoundNo > 1)
+                        {
+                            player.Character.Psyche++;
+                            await  _phrase.TigrTop.SendLog(player);
+                        }
+                        //end Тигр топ, а ты холоп: 
+                        break;
+
                     case "Mitsuki":
                         //Много выебывается:
                         if (player.Status.PlaceAtLeaderBoard == 1 && game.RoundNo > 1)

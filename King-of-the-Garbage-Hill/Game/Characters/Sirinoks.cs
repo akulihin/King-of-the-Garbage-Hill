@@ -77,8 +77,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 GameId = gameId;
                 FriendList.Add(enemyId);
             }
-
-            
         }
 
 

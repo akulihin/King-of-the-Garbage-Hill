@@ -40,9 +40,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             game.PreviousGameLogs = $"\n__**Раунд #{game.RoundNo}**__\n";
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
-                var pointsWined = 0; 
-                var whereWonP1 = "(";
-                var whereWonP2 = "(";
+                var pointsWined = 0;
                 var player = game.PlayersList[i];
 
                 await _characterPassives.HandleCharacterBeforeCalculations(player, game);
@@ -183,7 +181,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (strangeNumber > 0)
                 {
                     pointsWined++;
-                    whereWonP1 += "1";
                 }
                 //end round 1
 
@@ -192,7 +189,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     player.Character.Justice.JusticeNow == playerIamAttacking.Character.Justice.JusticeNow)
                 {
                     pointsWined++;
-                    whereWonP1 += " 2";
                 }
                 //end round 2
 
@@ -203,17 +199,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (randomNumber <= randomForTooGood)
                     {
                         pointsWined++;
-                        whereWonP1 += " 3";
                     }
                     else
                     {
-                        whereWonP2 += " 3";
                     }
                 }
                 //end round 3
-
-                whereWonP1 += ")";
-                whereWonP2 += ")";
 
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 2)
@@ -262,7 +253,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //т.е. я его аттакую, какие у меня бонусы на это
                 await _characterPassives.HandleEveryAttackFromMeAfterCalculations(player, playerIamAttacking, game);
 
-                //TODO: merge top 2 methods and 2 below... they are the same...
+                //TODO: merge top 2 methods and 2 below... they are the same... or no?
 
                 await _characterPassives.HandleCharacterAfterCalculations(player, game);
                 await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
