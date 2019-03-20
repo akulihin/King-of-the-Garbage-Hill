@@ -1457,8 +1457,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             {
                 //TODO: implement end of the game, after turn 10.
 
-              
-                var ll = 0;
+             
 
             //handle Octo
             var octopusInk = _gameGlobal.OctopusInkList.Find(x => x.GameId == game.GameId);

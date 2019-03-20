@@ -113,10 +113,6 @@ rand = 3
         private async Task HandleBotBehavior(GameBridgeClass player, GameClass game)
         {
             if (!player.IsBot() || player.Status.IsReady) return;
-            if (!player.Status.IsReady)
-            {
-                var hh = 0;
-            }
             if (player.Status.MoveListPage == 1)
             {
                 int randomPlayer;
