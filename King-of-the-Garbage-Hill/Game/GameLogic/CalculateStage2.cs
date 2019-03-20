@@ -15,9 +15,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
     {
         private readonly CharacterPassives _characterPassives;
         private readonly InGameGlobal _gameGlobal;
+        private readonly CharactersUniquePhrase _phrase;
         private readonly SecureRandom _rand;
         private readonly GameUpdateMess _upd;
-        private readonly CharactersUniquePhrase _phrase;
 
         public CalculateStage2(GameUpdateMess upd, SecureRandom rand, CharacterPassives characterPassives,
             InGameGlobal gameGlobal, CharactersUniquePhrase phrase)
@@ -89,16 +89,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard)
                 {
                     game.GameLogs +=
-                        $"**{player.DiscordAccount.DiscordUserName}** {new Emoji("<:war:557070460324675584>")} **{playerIamAttacking.DiscordAccount.DiscordUserName}**";
+                        $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:557070460324675584>")} {playerIamAttacking.DiscordAccount.DiscordUserName}";
                     game.PreviousGameLogs +=
-                        $"**{player.DiscordAccount.DiscordUserName}** {new Emoji("<:war:557070460324675584>")} **{playerIamAttacking.DiscordAccount.DiscordUserName}**";
+                        $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:557070460324675584>")} {playerIamAttacking.DiscordAccount.DiscordUserName}";
                 }
                 else
                 {
                     game.GameLogs +=
-                        $"**{playerIamAttacking.DiscordAccount.DiscordUserName}** {new Emoji("<:war:557070460324675584>")} **{player.DiscordAccount.DiscordUserName}**";
+                        $"{playerIamAttacking.DiscordAccount.DiscordUserName} {new Emoji("<:war:557070460324675584>")} {player.DiscordAccount.DiscordUserName}";
                     game.PreviousGameLogs +=
-                        $"**{playerIamAttacking.DiscordAccount.DiscordUserName}** {new Emoji("<:war:557070460324675584>")} **{player.DiscordAccount.DiscordUserName}**";
+                        $"{playerIamAttacking.DiscordAccount.DiscordUserName} {new Emoji("<:war:557070460324675584>")} {player.DiscordAccount.DiscordUserName}";
                 }
                 //if block => no one gets points
 
@@ -219,9 +219,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     if (check)
                     {
-                        game.GameLogs += $" ⟶ победил **{playerIamAttacking.DiscordAccount.DiscordUserName}**\n";
+                        game.GameLogs += $" ⟶ победил {playerIamAttacking.DiscordAccount.DiscordUserName}\n";
                         game.PreviousGameLogs +=
-                            $" ⟶ победил **{playerIamAttacking.DiscordAccount.DiscordUserName}**\n";
+                            $" ⟶ победил {playerIamAttacking.DiscordAccount.DiscordUserName}\n";
                         playerIamAttacking.Status.AddRegularPoints();
                         player.Status.WonTimes++;
                         playerIamAttacking.Character.Justice.IsWonThisRound = true;
@@ -325,24 +325,25 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
             //end Tigr Unique
 
-
-
+            //sort
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
                 if (game.RoundNo == 3 || game.RoundNo == 5 || game.RoundNo == 7 || game.RoundNo == 9)
                     game.PlayersList[i].Status.MoveListPage = 3;
-
-
                 game.PlayersList[i].Status.PlaceAtLeaderBoard = i + 1;
-                await _upd.UpdateMessage(game.PlayersList[i]);
             }
+            //end sorting
 
+            SortGameLogs(game);
             await _characterPassives.HandleNextRoundAfterSorting(game);
+
+            foreach (var t in game.PlayersList) await _upd.UpdateMessage(t);
 
             game.TimePassed.Reset();
             game.TimePassed.Start();
             Console.WriteLine(
                 $"Finished calculating game #{game.GameId} (round# {game.RoundNo}). || {watch.Elapsed.TotalSeconds}s");
+            watch.Stop();
         }
 
         public int WhoIsBetter(GameBridgeClass player1, GameBridgeClass player2)
@@ -384,6 +385,43 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 return 1;
 
             return 2;
+        }
+
+        public void SortGameLogs(GameClass game)
+        {
+            var sortedGameLogs = "";
+            var logsSplit = game.PreviousGameLogs.Split("\n").ToList();
+            logsSplit.RemoveAt(0);
+            logsSplit.RemoveAt(logsSplit.Count - 1);
+            sortedGameLogs += $"{logsSplit[0]}\n";
+            logsSplit.RemoveAt(0);
+
+
+            foreach (var player in game.PlayersList)
+            {
+                for (var i = 0; i < logsSplit.Count; i++)
+                    if (logsSplit[i].Contains($"{player.DiscordAccount.DiscordUserName}"))
+                    {
+                        var fightLine = logsSplit[i];
+
+                        var fightLineSplit = fightLine.Split("⟶");
+
+                        var fightLineSplitSplit = fightLineSplit[0].Split("<:war:557070460324675584>");
+                        //Осьминожка - BOT :war: mylorik
+                        fightLine = fightLineSplitSplit[0].Contains($"{player.DiscordAccount.DiscordUserName}")
+                            ? $"**{fightLineSplitSplit[0]}** {new Emoji("<:war:557070460324675584>")} **{fightLineSplitSplit[1]}**"
+                            : $"**{fightLineSplitSplit[1]}** {new Emoji("<:war:557070460324675584>")} **{fightLineSplitSplit[0]}**";
+
+                        fightLine += $" ⟶ {fightLineSplit[1]}";
+
+                        sortedGameLogs += $"{fightLine}\n";
+                        logsSplit.RemoveAt(i);
+                        i--;
+                    }
+            }
+
+
+            game.PreviousGameLogs = sortedGameLogs;
         }
     }
 }

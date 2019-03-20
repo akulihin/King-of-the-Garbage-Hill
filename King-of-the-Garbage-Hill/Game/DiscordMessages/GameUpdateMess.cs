@@ -204,9 +204,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             embed.WithFooter($"{GetTimeLeft(account)}");
 
-            var desc = _global.GamesList.Find(x => x.GameId == account.GameId).PreviousGameLogs;
-            if (desc == null)
-                return null;
+            var desc = _global.GamesList.Find(x => x.GameId == account.GameId).PreviousGameLogs ?? "null";
             embed.WithDescription(desc);
 
             if (desc.Length >= 2048 )
