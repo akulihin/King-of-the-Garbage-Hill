@@ -93,7 +93,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //Ничего не понимает: 
                     var shark = _gameGlobal.SharkBoole.Find(x =>
                         x.PlayerDiscordId == playerIamAttacking.DiscordAccount.DiscordId &&
-                        playerIamAttacking.DiscordAccount.GameId == x.GameId);
+                        game.GameId == x.GameId);
+
                     if (shark == null)
                     {
                         _gameGlobal.SharkBoole.Add(new Sirinoks.FriendsClass(playerIamAttacking.DiscordAccount.DiscordId, game.GameId, playerAttackFrom.DiscordAccount.DiscordId));
@@ -357,11 +358,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var enemyBottom = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard+1 == shark.Status.PlaceAtLeaderBoard);
                 if (enemyTop != null && enemyTop.Status.IsLostLastTime != 0)
                 {
-                    player.Status.AddRegularPoints();
+                    shark.Status.AddRegularPoints();
                 }
                 if (enemyBottom != null && enemyBottom.Status.IsLostLastTime != 0)
                 {
-                    player.Status.AddRegularPoints();
+                    shark.Status.AddRegularPoints();
                 }
             }
             //end Лежит на дне:
@@ -1457,14 +1458,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                           if (shark == null)
                           {
-                              _gameGlobal.SharkJawsLeader.Add(new Sirinoks.FriendsClass(player.DiscordAccount.DiscordId, game.GameId, (ulong)game.RoundNo));
+                              _gameGlobal.SharkJawsLeader.Add(new Sirinoks.FriendsClass(player.DiscordAccount.DiscordId, game.GameId, (ulong) player.Status.PlaceAtLeaderBoard));
                               player.Character.Speed++;
                           }
                           else
                           {
-                              if (!shark.FriendList.Contains((ulong) game.RoundNo))
+                              if (!shark.FriendList.Contains((ulong) player.Status.PlaceAtLeaderBoard))
                               {
-                                  shark.FriendList.Add((ulong) game.RoundNo);
+                                  shark.FriendList.Add((ulong) player.Status.PlaceAtLeaderBoard);
                                   player.Character.Speed++;
                               }
                           }

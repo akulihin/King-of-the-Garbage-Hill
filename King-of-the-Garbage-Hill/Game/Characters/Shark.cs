@@ -37,6 +37,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             {
                 var shark = _gameGlobal.SharkJawsWin.Find(x =>
                     x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+
                 if (shark == null)
                 {
                     _gameGlobal.SharkJawsWin.Add(new Sirinoks.FriendsClass(player.DiscordAccount.DiscordId, game.GameId,
