@@ -23,38 +23,40 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public Task InitializeAsync() => Task.CompletedTask;
 
         
-        public void HandleMylorikRevenge(GameBridgeClass player1, ulong player2Id, ulong gameId)
+        public void HandleMylorikRevenge(GameBridgeClass player, ulong enemyIdLostTo, ulong gameId)
         {
+            //enemyIdLostTo may be 0
+
             var mylorik = _gameGlobal.MylorikRevenge.Find(x =>
-                x.GameId == gameId && x.PlayerDiscordId == player1.DiscordAccount.DiscordId);
+                x.GameId == gameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
 
-
-            //check if very first lost
-            if (mylorik == null && player1.Status.IsLostLastTime != 0)
+            if (enemyIdLostTo != 0)
             {
-                _gameGlobal.MylorikRevenge.Add(new MylorikRevengeClass(player1.DiscordAccount.DiscordId, gameId,
-                    player1.Status.IsLostLastTime));
-                return;
-            }
-
-            //check if first lost to unique player
-            if (mylorik != null)
-            {
-                if (mylorik.EnemyListDiscordId.All(x => x.EnemyDiscordId != player2Id))
+                //check if very first lost
+                if (mylorik == null)
                 {
-                    mylorik.EnemyListDiscordId.Add(new MylorikRevengeClassSub(player2Id));
-                    return;
+                    _gameGlobal.MylorikRevenge.Add(new MylorikRevengeClass(player.DiscordAccount.DiscordId, gameId,
+                        enemyIdLostTo));
+       
+                }
+                else
+                {
+                    if (mylorik.EnemyListDiscordId.All(x => x.EnemyDiscordId != enemyIdLostTo))
+                    {
+                        mylorik.EnemyListDiscordId.Add(new MylorikRevengeClassSub(enemyIdLostTo));
+                    }
                 }
             }
-
-            //check if won to revenge
-            var find = mylorik?.EnemyListDiscordId.Find(x =>
-                x.EnemyDiscordId == player2Id && x.IsUnique);
-
-            if (find != null)
+            else
             {
-                player1.Status.AddRegularPoints(2);
-                find.IsUnique = false;
+                var find = mylorik?.EnemyListDiscordId.Find(x =>
+                    x.EnemyDiscordId == player.Status.IsWonLastTime && x.IsUnique);
+
+                if (find != null)
+                {
+                    player.Status.AddRegularPoints(2);
+                    find.IsUnique = false;
+                }
             }
         }
 
@@ -72,7 +74,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             //Revenge
      
-                HandleMylorikRevenge(player, player.Status.IsWonLastTime, player.DiscordAccount.GameId);
+                HandleMylorikRevenge(player, player.Status.IsLostLastTime, player.DiscordAccount.GameId);
             //end Revenge
 
             //Spanish
@@ -80,7 +82,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             {
                 var rand = _rand.Random(1, 3);
 
-                if (rand == 1) player.Character.Justice.JusticeForNextRound--;
+                if (rand == 1) player.Character.Psyche--;
             }
 
             //end Spanish
