@@ -84,6 +84,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public readonly List<Sirinoks.FriendsClass> SharkJawsLeader = new List<Sirinoks.FriendsClass>();
         public readonly List<Sirinoks.FriendsClass> PanthShame = new List<Sirinoks.FriendsClass>();
         public readonly List<Sirinoks.FriendsClass> PanthFirstBlood = new List<Sirinoks.FriendsClass>();
+        public readonly List<Sirinoks.FriendsClass> PanthMark = new List<Sirinoks.FriendsClass>();
 
         public InGameGlobal(SecureRandom rand)
         {

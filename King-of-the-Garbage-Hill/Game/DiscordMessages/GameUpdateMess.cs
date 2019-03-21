@@ -63,7 +63,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                             "2 - Проигрывая, персонажи получют +1 справедливости (максимум 5), при победе они полностью ее теряют. Во втором пункте побеждает тот, у кого больше справедливости на момент сражения.\n" +
                             "3 - Обычный рандом, который чуть больше уважает СЛИШКОМ превосходящих игроков по первому пункту." +
                             "\n" +
-                            "Очки напрямую влияют на место в таблице. Начиная с 5го хода,  все  получаемые очки, кроме __бонусных__, умножаются на 2, на 10ом ходу очки умножаются на 4.\n"+
+                            "Очки напрямую влияют на место в таблице. Начиная с 5го хода,  все  получаемые очки, кроме __бонусных__, умножаются на 2, на 10ом ходу очки умножаются на 4.\n" +
                             "После каждого хода обновляется таблица лидеров, побеждает лучший игрок после 10и ходов.\n" +
                             "После каждого второго хода игрок может улучшить один из статов на +1.\n" +
                             "У каждого персонажа есть особые пассивки, используйте их как надо!";
@@ -135,7 +135,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                 //TODO: REMOVE || playersList[i].IsBot()
                 if (discordAccount.DiscordId == playersList[i].DiscordAccount.DiscordId || playersList[i].IsBot())
-                    players += $" = {playersList[i].Status.GetScore()} (I: {playersList[i].Character.Intelligence}, St: {playersList[i].Character.Strength}, SP: {playersList[i].Character.Speed}, Psy: {playersList[i].Character.Psyche}, J: {playersList[i].Character.Justice.JusticeForNextRound})\n";
+                    players +=
+                        $" = {playersList[i].Status.GetScore()} (I: {playersList[i].Character.Intelligence}, St: {playersList[i].Character.Strength}, SP: {playersList[i].Character.Speed}, Psy: {playersList[i].Character.Psyche}, J: {playersList[i].Character.Justice.JusticeForNextRound})\n";
                 else
                     players += "\n";
             }
@@ -149,39 +150,38 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var customString = "";
             switch (player1Char.Name)
             {
+                case "Загадочный Спартанец в маске":
+                    var panth = _gameGlobal.PanthMark.Find(x =>
+                        x.GameId == player1Account.GameId && x.PlayerDiscordId == player1Account.DiscordId);
+
+                    if (panth.FriendList.Contains(player2.DiscordAccount.DiscordId))
+                        customString += $" {new Emoji("<:sparta:557781305178325002>")}";
+                    break;
+
+
                 case "DeepList":
 
                     //tactic
                     var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                         x.PlayerDiscordId == player1Account.DiscordId && player1Account.GameId == x.GameId);
                     if (deep != null)
-                    {
                         if (deep.FriendList.Contains(player2.DiscordAccount.DiscordId))
-                        {
                             customString += $" {new Emoji("<:Yo:558079094386851861>")}";
-                        }
-                    }
                     //end tactic
 
                     //сверхразум
                     var currentList = _gameGlobal.DeepListSupermindKnown.Find(x =>
                         x.DiscordId == player1Account.DiscordId && x.GameId == player1Account.GameId);
                     if (currentList != null)
-                    {
                         if (currentList.KnownPlayers.Contains(player2.DiscordAccount.DiscordId))
-                        {
                             customString +=
                                 $" PS: - {player2.Character.Name} ({player2.Character.Intelligence}, " +
                                 $"{player2.Character.Strength}, {player2.Character.Speed}, " +
                                 $"{player2.Character.Psyche}, {player2.Character.Justice.JusticeForNextRound})";
-
-                        }
-
-                    }
                     //end сверхразум
 
 
-              break;
+                    break;
 
                 case "mylorik":
                     var mylorik = _gameGlobal.MylorikRevenge.Find(x =>
@@ -189,10 +189,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     var find = mylorik?.EnemyListDiscordId.Find(x =>
                         x.EnemyDiscordId == player2.DiscordAccount.DiscordId && x.IsUnique);
 
-                    if (find != null)
-                    {
-                        customString += $" {new Emoji("<:sparta:557781305178325002>")}";
-                    }
+                    if (find != null) customString += $" {new Emoji("<:sparta:557781305178325002>")}";
                     break;
                 case "Тигр":
 
@@ -204,19 +201,12 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     if (enemy != null)
                     {
                         if (enemy.WinsSeries == 1)
-                        {
                             customString += " 1:0";
-                        }
                         else if (enemy.WinsSeries == 2)
-                        {
                             customString += " 2:0";
-                        }
-                        else if (enemy.WinsSeries == 3)
-                        {
-                            customString += " 3:0, обоссан";
-                        }
+                        else if (enemy.WinsSeries == 3) customString += " 3:0, обоссан";
                     }
-                   
+
                     break;
             }
 
@@ -256,11 +246,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var desc = _global.GamesList.Find(x => x.GameId == account.GameId).PreviousGameLogs ?? "null";
             embed.WithDescription(desc);
 
-            if (desc.Length >= 2048 )
-            {
+            if (desc.Length >= 2048)
                 _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
                     .SendMessageAsync("PreviousGameLogs >= 2048");
-            }
 
             embed.WithTitle("Царь Мусорной Горы");
             embed.AddField("____",
@@ -352,10 +340,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         {
             var embed = FightPage(player);
 
-            if (embed == null)
-            {
-                return;
-            }
+            if (embed == null) return;
 
             switch (player.Status.MoveListPage)
             {
@@ -365,13 +350,13 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 case 2:
                     embed = LogsPage(player);
                     break;
-                case int n when (n >= 3):
+                case int n when n >= 3:
                     embed = LvlUpPage(player);
                     break;
             }
 
-                if (!player.IsBot())
-                    await player.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
+            if (!player.IsBot())
+                await player.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
         }
 
         public async Task UpdateMessage(GameBridgeClass player, EmbedBuilder embed)

@@ -295,11 +295,11 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         {
             var rawList = new List<SocketUser>
             {
-                null//,
-             //    null,
-             //   null,
-             //   null,
-             //    null
+                null,
+                 null,
+                null,
+                null,
+                 null
             };
             var playersList = new List<GameBridgeClass>();
             var availableChamps = _charactersPull.AllCharacters;

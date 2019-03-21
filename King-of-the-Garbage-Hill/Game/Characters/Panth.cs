@@ -56,6 +56,17 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     .Justice.JusticeForNextRound++;
             }
             //end Это привилегия
+
+            //Им это не понравится: 
+             panth = _gameGlobal.PanthMark.Find(x =>
+                x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+
+             if (panth.FriendList.Contains(player.Status.IsWonLastTime))
+             {
+                player.Status.AddRegularPoints();
+             }
+
+             //end Им это не понравится: 
         }
     }
 }
