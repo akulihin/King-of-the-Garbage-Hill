@@ -295,11 +295,11 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         {
             var rawList = new List<SocketUser>
             {
-                null,
-                null,
-                null,
-                null,
-                null
+                null//,
+             //    null,
+             //   null,
+             //   null,
+             //    null
             };
             var playersList = new List<GameBridgeClass>();
             var availableChamps = _charactersPull.AllCharacters;
@@ -332,11 +332,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             }
 
 
-
-
-
-
-
             var count = rawList.Count;
             if (tolya != null)
             {
@@ -347,12 +342,9 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 var t = rawList[i];
                 if (t == null)
                 {
-                    
-                    
-
                     var randomIndex = _secureRandom.Random(0, availableChamps.Count - 1);
-                    var character = availableChamps[randomIndex];
-
+                    var character = availableChamps[i];
+          
                     var account = _accounts.GetAccount((ulong)i+1);
                     account.DiscordUserName = character.Name + " - BOT";
                     account.GameId = _global.GamePlayingAndId;

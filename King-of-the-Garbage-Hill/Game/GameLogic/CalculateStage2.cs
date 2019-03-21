@@ -95,22 +95,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 if (!playerIamAttacking.Status.IsAbleToWin) pointsWined = 50;
 
-                //left side > right side depending on score board place
+   
 
-                if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard)
-                {
                     game.GameLogs +=
                         $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:557070460324675584>")} {playerIamAttacking.DiscordAccount.DiscordUserName}";
                     game.PreviousGameLogs +=
                         $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:557070460324675584>")} {playerIamAttacking.DiscordAccount.DiscordUserName}";
-                }
-                else
-                {
-                    game.GameLogs +=
-                        $"{playerIamAttacking.DiscordAccount.DiscordUserName} {new Emoji("<:war:557070460324675584>")} {player.DiscordAccount.DiscordUserName}";
-                    game.PreviousGameLogs +=
-                        $"{playerIamAttacking.DiscordAccount.DiscordUserName} {new Emoji("<:war:557070460324675584>")} {player.DiscordAccount.DiscordUserName}";
-                }
+
                 //if block => no one gets points
 
                 if (playerIamAttacking.Status.IsBlock)
@@ -189,12 +180,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (strangeNumber >= 14) randomForTooGood = 68;
                 if (strangeNumber <= -14) randomForTooGood = 32;
 
-                if (strangeNumber > 0) pointsWined++;
+                if (strangeNumber >= 0) pointsWined++;
                 //end round 1
 
+             //   var ggg = $"{player.Character.Name} vs {playerIamAttacking.Character.Name} = {strangeNumber}";
+             //   Console.WriteLine(ggg);
+             
+
                 //round 2 (Justice)
-                if (player.Character.Justice.JusticeNow > playerIamAttacking.Character.Justice.JusticeNow ||
-                    player.Character.Justice.JusticeNow == playerIamAttacking.Character.Justice.JusticeNow)
+                if (player.Character.Justice.JusticeNow > playerIamAttacking.Character.Justice.JusticeNow)
                     pointsWined++;
                 //end round 2
 

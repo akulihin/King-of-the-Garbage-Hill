@@ -41,12 +41,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly Tolya _tolya;
 
         private readonly Darksci _darksci;
+        private readonly Panth _panth;
         //end chars
 
         public CharacterPassives(SecureRandom rand, HelperFunctions help, Awdka awdka, DeepList deepList,
             DeepList2 deepList2, Gleb gleb, HardKitty hardKitty, Mitsuki mitsuki, LeCrisp leCrisp, Mylorik mylorik,
             Octopus octopus, Shark shark, Sirinoks sirinoks, Tigr tigr, Tolya tolya, InGameGlobal gameGlobal,
-            Darksci darksci, CharactersUniquePhrase phrase, LoginFromConsole log, GameUpdateMess gameUpdateMess, Global global)
+            Darksci darksci, CharactersUniquePhrase phrase, LoginFromConsole log, GameUpdateMess gameUpdateMess, Global global, Panth panth)
         {
             _rand = rand;
             _help = help;
@@ -69,6 +70,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             _log = log;
             _gameUpdateMess = gameUpdateMess;
             _global = global;
+            _panth = panth;
         }
 
         public Task InitializeAsync()
@@ -195,6 +197,40 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             switch (characterName)
             {
+                case "Загадочный Спартанец в маске":
+
+                    //Первая кровь: 
+                    var panth = _gameGlobal.PanthFirstBlood.Find(x =>
+                        x.GameId == game.GameId && x.PlayerDiscordId == player1.DiscordAccount.DiscordId);
+
+                    if (panth == null)
+                    {
+                        _gameGlobal.PanthFirstBlood.Add(new Sirinoks.FriendsClass(player1.DiscordAccount.DiscordId, game.GameId, playerIamAttacking.DiscordAccount.DiscordId));
+
+                    }
+                    //end Первая кровь: 
+
+                    //Они позорят военное искусство:
+                     panth = _gameGlobal.PanthShame.Find(x =>
+                        x.GameId == game.GameId && x.PlayerDiscordId == player1.DiscordAccount.DiscordId);
+
+                    if (panth == null)
+                    {
+                        _gameGlobal.PanthShame.Add(new Sirinoks.FriendsClass(player1.DiscordAccount.DiscordId, game.GameId, playerIamAttacking.DiscordAccount.DiscordId));
+                        playerIamAttacking.Character.Strength--;
+                    }
+                    else
+                    {
+                        if (!panth.FriendList.Contains(playerIamAttacking.DiscordAccount.DiscordId))
+                        {
+                            panth.FriendList.Add(playerIamAttacking.DiscordAccount.DiscordId);
+                            playerIamAttacking.Character.Strength--;
+                        }
+                    }
+                    //end Они позорят военное искусство:
+                    break;
+
+
                 case "Глеб":
                     // Я за чаем:
                     var rand = _rand.Random(1, 10);
@@ -413,6 +449,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 case "????":
                     _deepList2.HandleDeepList2After(player);
                     break;
+                case "Загадочный Спартанец в маске":
+                    _panth.HandlePanthAfter(player, game);
+                    break;
             }
 
             if (player.Status.WhoToAttackThisTurn == 0 && player.Status.IsBlock == false)
@@ -498,6 +537,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var characterName = player.Character.Name;
                 switch (characterName)
                 {
+                    case "Загадочный Спартанец в маске":
+                        if (game.RoundNo == 10)
+                        {
+                            player.Character.Strength = 0;
+                        }
+
+                        break;
+
                     case "mylorik":
                         var acc = _gameGlobal.MylorikBooleTriggeredWhen.Find(x =>
                             x.DiscordId == player.DiscordAccount.DiscordId && player.DiscordAccount.GameId == x.GameId);
