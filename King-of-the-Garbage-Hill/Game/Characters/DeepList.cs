@@ -56,15 +56,19 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                 x.PlayerDiscordId == player.DiscordAccount.DiscordId && player.DiscordAccount.GameId == x.GameId);
 
-            player.Status.IsAbleToWin = true;
-            if (deep.FriendList.Contains(player.Status.IsFighting))
+            if (deep != null)
             {
-                player.Character.Psyche--;
-                if (player.Status.IsWonLastTime != 0)
+                player.Status.IsAbleToWin = true;
+                if (deep.FriendList.Contains(player.Status.IsFighting))
                 {
-                    player.Status.AddRegularPoints();
+                    player.Character.Psyche--;
+                    if (player.Status.IsWonLastTime != 0)
+                    {
+                        player.Status.AddRegularPoints();
+                    }
                 }
             }
+
             //end Doubtful tactic
 
             // Стёб

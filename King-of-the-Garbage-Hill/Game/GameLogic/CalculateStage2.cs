@@ -76,6 +76,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 player.Status.IsFighting = playerIamAttacking.DiscordAccount.DiscordId;
 
                 await _characterPassives.HandleCharacterWithKnownEnemyBeforeCalculations(player, game);
+                await _characterPassives.HandleCharacterWithKnownEnemyBeforeCalculations(playerIamAttacking, game);
 
                 await _characterPassives.HandleCharacterBeforeCalculations(playerIamAttacking, game);
 
@@ -233,9 +234,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     if (check)
                     {
-                        game.GameLogs += $" ⟶ победил {playerIamAttacking.DiscordAccount.DiscordUserName}\n";
+                        game.GameLogs += $" ⟶ победил **{playerIamAttacking.DiscordAccount.DiscordUserName}**\n";
                         game.PreviousGameLogs +=
-                            $" ⟶ победил {playerIamAttacking.DiscordAccount.DiscordUserName}\n";
+                            $" ⟶ победил **{playerIamAttacking.DiscordAccount.DiscordUserName}**\n";
                         playerIamAttacking.Status.AddRegularPoints();
                         player.Status.WonTimes++;
                         playerIamAttacking.Character.Justice.IsWonThisRound = true;
