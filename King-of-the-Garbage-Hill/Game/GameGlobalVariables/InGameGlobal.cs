@@ -16,7 +16,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public readonly List<WhenToTriggerClass>
             AllSkipTriggeredWhen = new List<WhenToTriggerClass>();
 
-        public readonly List<ulong> DeepListDoubtfulTactic = new List<ulong>();
+        public readonly List<Sirinoks.FriendsClass> DeepListDoubtfulTactic = new List<Sirinoks.FriendsClass>();
 
         public readonly List<WhenToTriggerClass>
             DeepListMadnessTriggeredWhen = new List<WhenToTriggerClass>();

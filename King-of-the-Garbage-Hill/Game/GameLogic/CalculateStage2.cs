@@ -63,11 +63,19 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
                     player.Status.IsWonLastTime = 0;
                     player.Status.IsLostLastTime = 0;
+                    player.Status.IsFighting = 0;
                     continue;
                 }
 
                 var playerIamAttacking =
                     game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.WhoToAttackThisTurn);
+
+               
+
+                playerIamAttacking.Status.IsFighting = player.DiscordAccount.DiscordId;
+                player.Status.IsFighting = playerIamAttacking.DiscordAccount.DiscordId;
+
+                await _characterPassives.HandleCharacterWithKnownEnemyBeforeCalculations(player, game);
 
                 await _characterPassives.HandleCharacterBeforeCalculations(playerIamAttacking, game);
 
@@ -79,6 +87,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 //т.е. я его аттакую, какие у меня бонусы на это
                 await _characterPassives.HandleEveryAttackFromMe(player, playerIamAttacking, game);
+
+
 
                 if (!player.Status.IsAbleToWin) pointsWined = -50;
 
@@ -119,6 +129,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     player.Status.IsLostLastTime = 0;
                     playerIamAttacking.Status.IsWonLastTime = 0;
                     playerIamAttacking.Status.IsLostLastTime = 0;
+                    playerIamAttacking.Status.IsFighting = 0;
+                    player.Status.IsFighting = 0;
 
                     continue;
                 }
@@ -137,6 +149,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     player.Status.IsLostLastTime = 0;
                     playerIamAttacking.Status.IsWonLastTime = 0;
                     playerIamAttacking.Status.IsLostLastTime = 0;
+                    playerIamAttacking.Status.IsFighting = 0;
+                    player.Status.IsFighting = 0;
 
                     continue;
                 }
@@ -247,6 +261,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 player.Status.IsLostLastTime = 0;
                 playerIamAttacking.Status.IsWonLastTime = 0;
                 playerIamAttacking.Status.IsLostLastTime = 0;
+                playerIamAttacking.Status.IsFighting = 0;
+                player.Status.IsFighting = 0;
             }
 
             await _characterPassives.HandleEndOfRound(game);

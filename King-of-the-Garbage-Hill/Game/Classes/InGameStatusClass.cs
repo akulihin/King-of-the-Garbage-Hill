@@ -20,6 +20,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             WonTimes = 0;
             IsWonLastTime = 0;
             IsLostLastTime = 0;
+            IsFighting = 0;
             IsSkip = false;
             ScoresToGiveAtEndOfRound = 0;
         }
@@ -47,6 +48,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public int WonTimes { get; set; }
         public ulong IsWonLastTime { get; set; }
         public ulong IsLostLastTime { get; set; }
+        public ulong IsFighting { get; set; }
         private double ScoresToGiveAtEndOfRound { get; set; }
         public int LvlUpPoints { get; set; }
 

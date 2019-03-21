@@ -19,25 +19,45 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         
         public void HandleDeepList(GameBridgeClass player)
         {
+
+        }
+
+        public void HandleDeepListTactics(GameBridgeClass player)
+        {
             //Doubtful tactic
-            if (_gameGlobal.DeepListDoubtfulTactic.Contains(player.Status.WhoToAttackThisTurn))
+            var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
+                x.PlayerDiscordId == player.DiscordAccount.DiscordId && player.DiscordAccount.GameId == x.GameId);
+
+            if (deep == null)
             {
-                player.Character.Psyche++;
-                //continiue
-            }
-            else
-            {
-                _gameGlobal.DeepListDoubtfulTactic.Add(player.Status.WhoToAttackThisTurn);
+                _gameGlobal.DeepListDoubtfulTactic.Add(new Sirinoks.FriendsClass(player.DiscordAccount.DiscordId, player.DiscordAccount.GameId, player.Status.IsFighting));
                 player.Character.Psyche++;
                 player.Status.IsAbleToWin = false;
             }
+            else
+            {
+                if (deep.FriendList.Contains(player.Status.IsFighting))
+                {
+                    player.Character.Psyche++;
+                }
+                else
+                {
+                    deep.FriendList.Add(player.Status.IsFighting);
+                    player.Character.Psyche++;
+                    player.Status.IsAbleToWin = false;
+                }
+            }
+            //end Doubtful tactic
         }
 
         public void HandleDeepListAfter(GameBridgeClass player, GameClass game)
         {
             //Doubtful tactic
+            var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
+                x.PlayerDiscordId == player.DiscordAccount.DiscordId && player.DiscordAccount.GameId == x.GameId);
+
             player.Status.IsAbleToWin = true;
-            if (_gameGlobal.DeepListDoubtfulTactic.Contains(player.Status.WhoToAttackThisTurn))
+            if (deep.FriendList.Contains(player.Status.IsFighting))
             {
                 player.Character.Psyche--;
                 if (player.Status.IsWonLastTime != 0)
@@ -178,5 +198,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 Psyche = psyche;
             }
         }
+
+
     }
 }

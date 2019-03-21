@@ -65,17 +65,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                 enemyAcc.Character.Psyche--;
                                 enemy.IsUnique = false;
                             }
-                            else
-                            {
-                                await _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
-                                    .SendMessageAsync("TIGR - enemy == null");
-                            }
                         }
                     }
                     else
                     {
-                        await _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
-                            .SendMessageAsync("TIGR - enemy == null");
+                           tigr.FriendList.Add(new ThreeZeroSubClass(player.Status.IsWonLastTime));
                     }
                 }
             }

@@ -150,13 +150,38 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             switch (player1Char.Name)
             {
                 case "DeepList":
+
+                    //tactic
+                    var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
+                        x.PlayerDiscordId == player1Account.DiscordId && player1Account.GameId == x.GameId);
+                    if (deep != null)
+                    {
+                        if (deep.FriendList.Contains(player2.DiscordAccount.DiscordId))
+                        {
+                            customString += $" {new Emoji("<:Yo:558079094386851861>")}";
+                        }
+                    }
+                    //end tactic
+
+                    //сверхразум
                     var currentList = _gameGlobal.DeepListSupermindKnown.Find(x =>
                         x.DiscordId == player1Account.DiscordId && x.GameId == player1Account.GameId);
                     if (currentList != null)
+                    {
                         if (currentList.KnownPlayers.Contains(player2.DiscordAccount.DiscordId))
+                        {
                             customString +=
-                                $" PS: - {player2.Character.Name} ({player2.Character.Intelligence}, {player2.Character.Strength}, {player2.Character.Speed}, {player2.Character.Psyche}, {player2.Character.Justice.JusticeForNextRound})";
-                    break;
+                                $" PS: - {player2.Character.Name} ({player2.Character.Intelligence}, " +
+                                $"{player2.Character.Strength}, {player2.Character.Speed}, " +
+                                $"{player2.Character.Psyche}, {player2.Character.Justice.JusticeForNextRound})";
+
+                        }
+
+                    }
+                    //end сверхразум
+
+
+              break;
 
                 case "mylorik":
                     var mylorik = _gameGlobal.MylorikRevenge.Find(x =>
@@ -168,6 +193,30 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     {
                         customString += $" {new Emoji("<:sparta:557781305178325002>")}";
                     }
+                    break;
+                case "Тигр":
+
+                    var tigr = _gameGlobal.TigrThreeZeroList.Find(x =>
+                        x.GameId == player1Account.GameId && x.PlayerDiscordId == player1Account.DiscordId);
+
+                    var enemy = tigr?.FriendList.Find(x => x.EnemyId == player2.DiscordAccount.DiscordId);
+
+                    if (enemy != null)
+                    {
+                        if (enemy.WinsSeries == 1)
+                        {
+                            customString += " 1:0";
+                        }
+                        else if (enemy.WinsSeries == 2)
+                        {
+                            customString += " 2:0";
+                        }
+                        else if (enemy.WinsSeries == 3)
+                        {
+                            customString += " 3:0, обоссан";
+                        }
+                    }
+                   
                     break;
             }
 

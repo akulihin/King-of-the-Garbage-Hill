@@ -1239,9 +1239,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         }
 
         /*
-        public async Task<string> HandleBlock(GameBridgeClass octopusPlayer, GameBridgeClass playerIamAttacking, GameClass game)
+        public async Task<string> HandleBlock(GameBridgeClass octopusPlayer, GameBridgeClass player2, GameClass game)
         {
-            switch (playerIamAttacking.Character.Name)
+            switch (player2.Character.Name)
             {
              case "Толя":
                  break;
@@ -1657,6 +1657,21 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
             return false;
+        }
+
+
+        public async Task HandleCharacterWithKnownEnemyBeforeCalculations(GameBridgeClass player, GameClass game)
+        {
+            var characterName = player.Character.Name;
+            switch (characterName)
+            {
+                case "DeepList":
+                    _deepList.HandleDeepListTactics(player);
+                    break;
+            }
+
+
+            await Task.CompletedTask;
         }
     }
 }
