@@ -18,6 +18,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
          */
         public string GameLogs ;
         public string PreviousGameLogs ;
+        public ulong WhoWon;
         public GameClass(List<GameBridgeClass> playersList, uint gameId, int turnLengthInSecond = 200)
         {
             RoundNo = 1;
@@ -28,6 +29,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             GameStatus = 1;
             GameLogs = "";
             PreviousGameLogs = "Здесь будут показаны логи игры. \nВыберите цель для нападения по номеру в таблице, используя emoji";
+            WhoWon = 228;
         }
     }
 }

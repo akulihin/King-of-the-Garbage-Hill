@@ -1,42 +1,49 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace King_of_the_Garbage_Hill.Game.Classes
 {
     //unUsed.
     public class GameLogsClass
     {
-        public ulong  GameId { get; set; }
-        public int RoundNumber { get; set; }
-        public string PlayerName { get; set; }
-        public ulong PlayerId{ get; set; }
-        public ulong PlayerIdHeAttacked{ get; set; }
-        public bool IsBlock{ get; set; }
-        public bool IsWin{ get; set; }
-        public bool IsSpecialStatus{ get; set; }
-        public string SpecialStatus{ get; set; }
+        public ulong GameId { get; set; }
+        public ulong WhoWon { get; set; }
+        public List<GameLogsPlayer> PlayerList { get; set; }
+        public DateTime Date { get; set; }
+        public String GameLogs { get; set; }
 
-        public int ReceivedJusticeThisRound{ get; set; }
-        public int LostJusticeThisRound{ get; set; }
-
-        public int ReceivedPointsThisRound{ get; set; }
-
-        public int PreviousPlaceAtLeaderBoard{ get; set; }
-        public int NewPlaceAtLeaderBoard{ get; set; }
-        public int ReceivedRandomStage3{ get; set; }
-
-        public GameLogsClass(ulong gameId, ulong playerId, string playerName)
+        public GameLogsClass(ulong gameId, ulong whoWon, List<GameLogsPlayer> playerList, string gameLogs)
         {
             GameId = gameId;
-            PlayerId = playerId;
-            PlayerName = playerName;
+            WhoWon = whoWon;
+            PlayerList = playerList;
+            Date = DateTime.Now;
+            GameLogs = gameLogs;
         }
-
-
     }
 
-    public class GameLogsSubClass
+    public class GameLogsPlayer
     {
-        public List<GameLogsClass> PlayersLogs;
-        public string MainLogString;
+        public ulong PlayerId;
+        public string PlayerUserName;
+        public string Character;
+        public int Score; 
+        public int Intelligence; 
+        public int Psyche;
+        public int Speed;
+        public int Strength;
+
+
+        public GameLogsPlayer(ulong playerId, string playerName, string charName, int score, int intelligence, int strength, int speed, int psyche)
+        {
+            PlayerId = playerId;
+            PlayerUserName = playerName;
+            Character = charName;
+            Score = score;
+            Intelligence = intelligence;
+            Strength = strength;
+            Speed = speed;
+            Psyche = psyche;
+        }
     }
 }

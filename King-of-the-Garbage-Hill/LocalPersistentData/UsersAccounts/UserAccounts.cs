@@ -15,9 +15,9 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             new ConcurrentDictionary<ulong, List<DiscordAccountClass>>();
 
         private readonly DiscordShardedClient _client;
-        private readonly UsersDataStorage _usersDataStorage;
+        private readonly UserAccountsDataStorage _usersDataStorage;
 
-        public UserAccounts(DiscordShardedClient client, UsersDataStorage usersDataStorage)
+        public UserAccounts(DiscordShardedClient client, UserAccountsDataStorage usersDataStorage)
         {
             _client = client;
             _usersDataStorage = usersDataStorage;
@@ -100,6 +100,21 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 DiscordUserName = user.Username,
                 IsLogs = true
             };
+
+            if (newAccount.DiscordUserName.Contains("<:war:557070460324675584>"))
+            {
+                newAccount.DiscordUserName =   newAccount.DiscordUserName.Replace("<:war:557070460324675584>", "404-228-1448");
+            }
+
+            if (newAccount.DiscordUserName.Contains("⟶"))
+            {
+                newAccount.DiscordUserName = newAccount.DiscordUserName.Replace("⟶", "404-228-1448");
+            }
+
+            if (newAccount.DiscordUserName.Contains("\n"))
+            {
+                newAccount.DiscordUserName =  newAccount.DiscordUserName.Replace("\n", "404-228-1448");
+            }
 
             accounts.Add(newAccount);
             SaveAccounts(user);

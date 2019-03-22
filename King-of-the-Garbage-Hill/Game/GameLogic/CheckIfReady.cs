@@ -70,7 +70,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                  await HandleBotBehavior(players[k], game);
 
-                    if (players[k].Status.IsReady && players[k].Status.MoveListPage != 3 &&  game.TimePassed.Elapsed.TotalSeconds > 10) readyCount++;
+                    if (players[k].Status.IsReady && players[k].Status.MoveListPage != 3 &&  game.TimePassed.Elapsed.TotalSeconds > 20) readyCount++;
+                    else
+                    {
+                        Console.WriteLine("NOT READY: = " + players[k].DiscordAccount.DiscordUserName);
+                    }
 
                     if (players[k].Status.SocketMessageFromBot != null)
                         if (game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds >= -6)
@@ -101,7 +105,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         private async Task HandleBotBehavior(GameBridgeClass player, GameClass game)
         {
-            if (!player.IsBot() || player.Status.IsReady) return;
+            if (!player.IsBot() ||( player.Status.IsReady && player.Status.MoveListPage != 3 )) return;
             if (player.Status.MoveListPage == 1)
             {
                 int randomPlayer;

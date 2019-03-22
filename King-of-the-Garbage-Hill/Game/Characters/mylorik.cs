@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
@@ -11,19 +12,20 @@ namespace King_of_the_Garbage_Hill.Game.Characters
     {
      
         private readonly SecureRandom _rand;
-
+        private readonly CharactersUniquePhrase _phrase;
         private readonly InGameGlobal _gameGlobal;
 
-        public Mylorik(SecureRandom rand, InGameGlobal gameGlobal)
+        public Mylorik(SecureRandom rand, InGameGlobal gameGlobal, CharactersUniquePhrase phrase)
         {
             _rand = rand;
             _gameGlobal = gameGlobal;
+            _phrase = phrase;
         }
 
         public Task InitializeAsync() => Task.CompletedTask;
 
         
-        public void HandleMylorikRevenge(GameBridgeClass player, ulong enemyIdLostTo, ulong gameId)
+        public async Task HandleMylorikRevenge(GameBridgeClass player, ulong enemyIdLostTo, ulong gameId)
         {
             //enemyIdLostTo may be 0
 
@@ -37,15 +39,17 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 {
                     _gameGlobal.MylorikRevenge.Add(new MylorikRevengeClass(player.DiscordAccount.DiscordId, gameId,
                         enemyIdLostTo));
-       
+                    await _phrase.MylorikRevengeLostPhrase.SendLog(player);
                 }
                 else
                 {
                     if (mylorik.EnemyListDiscordId.All(x => x.EnemyDiscordId != enemyIdLostTo))
                     {
                         mylorik.EnemyListDiscordId.Add(new MylorikRevengeClassSub(enemyIdLostTo));
+                        await _phrase.MylorikRevengeLostPhrase.SendLog(player);
                     }
                 }
+          
             }
             else
             {
@@ -56,6 +60,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 {
                     player.Status.AddRegularPoints(2);
                     find.IsUnique = false;
+                    await _phrase.MylorikRevengeVictoryPhrase.SendLog(player);
                 }
             }
         }
@@ -70,11 +75,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         }
 
 
-        public void HandleMylorikAfter(GameBridgeClass player)
+        public async Task HandleMylorikAfter(GameBridgeClass player)
         {
             //Revenge
      
-                HandleMylorikRevenge(player, player.Status.IsLostLastTime, player.DiscordAccount.GameId);
+              await  HandleMylorikRevenge(player, player.Status.IsLostLastTime, player.DiscordAccount.GameId);
             //end Revenge
 
             //Spanish
@@ -83,6 +88,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 var rand = _rand.Random(1, 3);
 
                 if (rand == 1) player.Character.Psyche--;
+               await _phrase.MylorikSpanishPhrase.SendLog(player);
             }
 
             //end Spanish

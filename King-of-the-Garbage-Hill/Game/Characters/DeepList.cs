@@ -2,16 +2,18 @@
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class DeepList : IServiceSingleton
     {
         private readonly InGameGlobal _gameGlobal;
-
-        public DeepList( InGameGlobal gameGlobal)
+        private readonly CharactersUniquePhrase _phrase;
+        public DeepList( InGameGlobal gameGlobal, CharactersUniquePhrase phrase)
         {
             _gameGlobal = gameGlobal;
+            _phrase = phrase;
         }
 
         public Task InitializeAsync() => Task.CompletedTask;
@@ -22,7 +24,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         }
 
-        public void HandleDeepListTactics(GameBridgeClass player)
+        public async Task HandleDeepListTactics(GameBridgeClass player)
         {
             //Doubtful tactic
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
@@ -33,11 +35,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 _gameGlobal.DeepListDoubtfulTactic.Add(new Sirinoks.FriendsClass(player.DiscordAccount.DiscordId, player.DiscordAccount.GameId, player.Status.IsFighting));
                 player.Character.Psyche++;
                 player.Status.IsAbleToWin = false;
+     
             }
             else
             {
                 if (deep.FriendList.Contains(player.Status.IsFighting))
-                {
+                { 
                     player.Character.Psyche++;
                 }
                 else
@@ -45,12 +48,16 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     deep.FriendList.Add(player.Status.IsFighting);
                     player.Character.Psyche++;
                     player.Status.IsAbleToWin = false;
+
                 }
+
             }
+    
             //end Doubtful tactic
+
         }
 
-        public void HandleDeepListAfter(GameBridgeClass player, GameClass game)
+        public async Task HandleDeepListAfter(GameBridgeClass player, GameClass game)
         {
             //Doubtful tactic
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
@@ -65,6 +72,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     if (player.Status.IsWonLastTime != 0)
                     {
                         player.Status.AddRegularPoints();
+                        await _phrase.DeepListDoubtfulTacticPhrase.SendLog(player);
                     }
                 }
             }

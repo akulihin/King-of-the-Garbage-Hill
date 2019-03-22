@@ -77,6 +77,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 GameId = gameId;
                 FriendList.Add(enemyId);
             }
+            public FriendsClass(ulong playerDiscordId, ulong gameId)
+            {
+                PlayerDiscordId = playerDiscordId;
+                GameId = gameId;
+            }
         }
 
 

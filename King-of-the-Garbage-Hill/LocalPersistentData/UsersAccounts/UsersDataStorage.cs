@@ -8,13 +8,13 @@ using Newtonsoft.Json;
 
 namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 {
-       public sealed class UsersDataStorage : IServiceSingleton
+       public sealed class UserAccountsDataStorage : IServiceSingleton
     {
         //Save all DiscordAccountClass
 
         private readonly LoginFromConsole _log;
 
-        public UsersDataStorage(LoginFromConsole log)
+        public UserAccountsDataStorage(LoginFromConsole log)
         {
             _log = log;
         }

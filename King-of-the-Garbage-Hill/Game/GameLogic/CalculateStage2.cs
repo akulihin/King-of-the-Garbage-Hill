@@ -70,7 +70,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var playerIamAttacking =
                     game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.WhoToAttackThisTurn);
 
-               
 
                 playerIamAttacking.Status.IsFighting = player.DiscordAccount.DiscordId;
                 player.Status.IsFighting = playerIamAttacking.DiscordAccount.DiscordId;
@@ -90,21 +89,19 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 await _characterPassives.HandleEveryAttackFromMe(player, playerIamAttacking, game);
 
 
-
                 if (!player.Status.IsAbleToWin) pointsWined = -50;
 
                 if (!playerIamAttacking.Status.IsAbleToWin) pointsWined = 50;
 
-   
 
-                    game.GameLogs +=
-                        $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:557070460324675584>")} {playerIamAttacking.DiscordAccount.DiscordUserName}";
-                    game.PreviousGameLogs +=
-                        $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:557070460324675584>")} {playerIamAttacking.DiscordAccount.DiscordUserName}";
+                game.GameLogs +=
+                    $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:557070460324675584>")} {playerIamAttacking.DiscordAccount.DiscordUserName}";
+                game.PreviousGameLogs +=
+                    $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:557070460324675584>")} {playerIamAttacking.DiscordAccount.DiscordUserName}";
 
                 //if block => no one gets points
 
-                if (playerIamAttacking.Status.IsBlock)
+                if (playerIamAttacking.Status.IsBlock && player.Status.IsAbleToWin)
                 {
                     // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
 
@@ -180,20 +177,24 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (strangeNumber >= 14) randomForTooGood = 68;
                 if (strangeNumber <= -14) randomForTooGood = 32;
 
-                if (strangeNumber >= 0) pointsWined++;
+                if (strangeNumber > 0) pointsWined++;
+                if (strangeNumber < 0) pointsWined--;
                 //end round 1
 
-             //   var ggg = $"{player.Character.Name} vs {playerIamAttacking.Character.Name} = {strangeNumber}";
-             //   Console.WriteLine(ggg);
-             
+
+                //   var ggg = $"{player.Character.Name} vs {playerIamAttacking.Character.Name} = {strangeNumber}";
+                //   Console.WriteLine(ggg);
+
 
                 //round 2 (Justice)
                 if (player.Character.Justice.JusticeNow > playerIamAttacking.Character.Justice.JusticeNow)
                     pointsWined++;
+                if (player.Character.Justice.JusticeNow < playerIamAttacking.Character.Justice.JusticeNow)
+                    pointsWined--;
                 //end round 2
 
                 //round 3 (Random)
-                if (pointsWined == 1)
+                if (pointsWined == 0)
                 {
                     var randomNumber = _rand.Random(1, 100);
                     if (randomNumber <= randomForTooGood) pointsWined++;
@@ -201,7 +202,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //end round 3
 
                 //CheckIfWin to remove Justice
-                if (pointsWined >= 2)
+                if (pointsWined > 1)
                 {
                     game.GameLogs += $" ⟶ победил **{player.DiscordAccount.DiscordUserName}**\n";
                     game.PreviousGameLogs += $" ⟶ победил **{player.DiscordAccount.DiscordUserName}**\n";
@@ -335,7 +336,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
             }
             //end Tigr Unique
-
+ 
             //sort
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
@@ -402,10 +403,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         {
             var sortedGameLogs = "";
             var logsSplit = game.PreviousGameLogs.Split("\n").ToList();
-            logsSplit.RemoveAt(0);
-            logsSplit.RemoveAt(logsSplit.Count - 1);
+            logsSplit.RemoveAll(x => x.Length <= 2);
             sortedGameLogs += $"{logsSplit[0]}\n";
             logsSplit.RemoveAt(0);
+
+            for (var i = 0; i < logsSplit.Count; i++)
+            {
+                if (logsSplit[i].Contains("⟶")) continue;
+                sortedGameLogs += $"{logsSplit[i]}\n";
+                logsSplit.RemoveAt(i);
+            }
 
 
             foreach (var player in game.PlayersList)
