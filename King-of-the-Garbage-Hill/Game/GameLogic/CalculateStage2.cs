@@ -1,4 +1,4 @@
-﻿using System;
+﻿0using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -202,7 +202,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //end round 3
 
                 //CheckIfWin to remove Justice
-                if (pointsWined > 1)
+                if (pointsWined >= 1)
                 {
                     game.GameLogs += $" ⟶ победил **{player.DiscordAccount.DiscordUserName}**\n";
                     game.PreviousGameLogs += $" ⟶ победил **{player.DiscordAccount.DiscordUserName}**\n";
