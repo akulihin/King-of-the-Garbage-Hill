@@ -12,5 +12,10 @@ namespace King_of_the_Garbage_Hill.Game.Classes
       {
           return DiscordAccount.DiscordId <= 1000;
       }
+
+      public void MinusPsycheLog(GameClass game)
+      {
+          game.PreviousGameLogs += $"{DiscordAccount.DiscordUserName} психанул";
+      }
   }
 }

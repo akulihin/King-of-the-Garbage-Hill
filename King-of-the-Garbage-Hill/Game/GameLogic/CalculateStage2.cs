@@ -402,6 +402,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         public void SortGameLogs(GameClass game)
         {
             var sortedGameLogs = "";
+            var extraGameLogs = "\n";
             var logsSplit = game.PreviousGameLogs.Split("\n").ToList();
             logsSplit.RemoveAll(x => x.Length <= 2);
             sortedGameLogs += $"{logsSplit[0]}\n";
@@ -410,7 +411,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             for (var i = 0; i < logsSplit.Count; i++)
             {
                 if (logsSplit[i].Contains("⟶")) continue;
-                sortedGameLogs += $"{logsSplit[i]}\n";
+                extraGameLogs += $"{logsSplit[i]}\n";
                 logsSplit.RemoveAt(i);
             }
 
@@ -435,6 +436,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         i--;
                     }
 
+            sortedGameLogs += extraGameLogs;
             game.PreviousGameLogs = sortedGameLogs;
         }
     }

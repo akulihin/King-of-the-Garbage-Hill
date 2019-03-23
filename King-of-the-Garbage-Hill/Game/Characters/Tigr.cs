@@ -63,6 +63,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             {
                                 enemyAcc.Character.Intelligence--;
                                 enemyAcc.Character.Psyche--;
+                                enemyAcc.MinusPsycheLog(game);
                                 enemy.IsUnique = false;
                             }
                         }

@@ -79,7 +79,9 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             MylorikSpanishPhrase = new PhraseClass("Испанец");
 
             GlebChallengerPhrase = new PhraseClass("Претендент русского сервера");
+
             GlebSleepyPhrase  = new PhraseClass("Спящее хуйло");
+
             GlebComeBackPhrase  = new PhraseClass("Я щас приду");
             GlebTeaPhrase  = new PhraseClass("Я за чаем");
 
@@ -294,7 +296,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                         var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("", false,
                             embed2.Build());
 #pragma warning disable 4014
-                        DeleteMessOverTime(mess2, 10);
+                        DeleteMessOverTime(mess2, 13);
 #pragma warning restore 4014
                         await Task.Delay(2000);
                         description = twoPhrases[1];
@@ -310,7 +312,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                         var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("", false,
                             embed.Build());
 #pragma warning disable 4014
-                        DeleteMessOverTime(mess, 10);
+                        DeleteMessOverTime(mess, 13);
 #pragma warning restore 4014
                     }
                 }
@@ -336,7 +338,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                             var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("", false,
                                 embed.Build());
 #pragma warning disable 4014
-                            DeleteMessOverTime(mess, 10);
+                            DeleteMessOverTime(mess, 13);
 #pragma warning restore 4014
                         }
                     }

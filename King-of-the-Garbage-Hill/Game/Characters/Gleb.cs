@@ -25,7 +25,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //skip check
            var skip = _gameGlobal.GlebSkipList.Find(x =>
                 x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == player.DiscordAccount.GameId);
-           if (skip != null)
+           if (skip != null && player.Status.WhoToAttackThisTurn != 0)
            {
                player.Status.IsSkip = false;
                _gameGlobal.GlebSkipList.Remove(skip);

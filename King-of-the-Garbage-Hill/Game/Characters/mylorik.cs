@@ -75,7 +75,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         }
 
 
-        public async Task HandleMylorikAfter(GameBridgeClass player)
+        public async Task HandleMylorikAfter(GameBridgeClass player, GameClass game)
         {
             //Revenge
      
@@ -87,8 +87,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             {
                 var rand = _rand.Random(1, 3);
 
-                if (rand == 1) player.Character.Psyche--;
-               await _phrase.MylorikSpanishPhrase.SendLog(player);
+                if (rand == 1)
+                {
+                    player.Character.Psyche--;
+                    player.MinusPsycheLog(game);
+                    await _phrase.MylorikSpanishPhrase.SendLog(player);
+                }
+             
             }
 
             //end Spanish

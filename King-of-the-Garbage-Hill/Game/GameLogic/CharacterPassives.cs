@@ -47,13 +47,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         private readonly Tolya _tolya;
         //end chars
-        private readonly FinishedGameLog finishedGameLog;
+      
 
         public CharacterPassives(SecureRandom rand, HelperFunctions help, Awdka awdka, DeepList deepList,
             DeepList2 deepList2, Gleb gleb, HardKitty hardKitty, Mitsuki mitsuki, LeCrisp leCrisp, Mylorik mylorik,
             Octopus octopus, Shark shark, Sirinoks sirinoks, Tigr tigr, Tolya tolya, InGameGlobal gameGlobal,
             Darksci darksci, CharactersUniquePhrase phrase, LoginFromConsole log, GameUpdateMess gameUpdateMess,
-            Global global, Panth panth, FinishedGameLog finishedGameLog)
+            Global global, Panth panth)
         {
             _rand = rand;
             _help = help;
@@ -77,7 +77,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             _gameUpdateMess = gameUpdateMess;
             _global = global;
             _panth = panth;
-            this.finishedGameLog = finishedGameLog;
+           
         }
 
         public Task InitializeAsync()
@@ -421,7 +421,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     await _deepList.HandleDeepListAfter(player, game);
                     break;
                 case "mylorik":
-                    await _mylorik.HandleMylorikAfter(player);
+                    await _mylorik.HandleMylorikAfter(player, game);
                     break;
                 case "Глеб":
                     _gleb.HandleGlebAfter(player);
@@ -644,6 +644,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Character.Psyche -= 4;
                             await _phrase.DarksciDysmoral.SendLog(player);
                             game.PreviousGameLogs += "Всё, у меня горит!\n";
+
                         }
                         //end Дизмораль
 
@@ -1450,6 +1451,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             var player2 = game.PlayersList.Find(x =>
                                 x.DiscordAccount.DiscordId == player.Status.IsWonLastTime);
                             player2.Character.Psyche--;
+                            player2.MinusPsycheLog(game);
                         }
 
                         wonPlayer.Series = 0;
@@ -1698,19 +1700,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
                 //end sorting
 
-                game.WhoWon = game.PlayersList[0].DiscordAccount.DiscordId;
-                game.PreviousGameLogs += $"\n\n**{game.PlayersList[0].DiscordAccount.DiscordUserName}** победил играя за **{game.PlayersList[0].Character.Name}**";
-                finishedGameLog.CreateNewLog(game);
 
-                foreach (var player in game.PlayersList)
-                {
-                    player.DiscordAccount.IsPlaying = false;
-                    await _gameUpdateMess.UpdateMessage(player);
-                    if (!player.IsBot()) await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("ты кончил.");
-                }
-
-                _global.GamesList.Remove(game);
-                Console.WriteLine("____________________________");
             }
         }
 

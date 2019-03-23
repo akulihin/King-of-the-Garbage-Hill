@@ -109,6 +109,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     if (currentDeepList2.Times % 2 != 0 && currentDeepList2.Times != 1)
                     {
                         player2.Character.Psyche--;
+                        player2.MinusPsycheLog(game);
+
                         player.Status.AddRegularPoints();
                         if (player2.Character.Psyche < 4)
                         {

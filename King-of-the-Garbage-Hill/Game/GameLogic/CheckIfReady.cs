@@ -7,6 +7,7 @@ using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
+using King_of_the_Garbage_Hill.LocalPersistentData.FinishedGameLog;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic
 {
@@ -18,15 +19,18 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly GameReaction _gameReaction;
         private readonly SecureRandom _rand;
         public Timer LoopingTimer;
+        private readonly FinishedGameLog _finishedGameLog;
+        private readonly GameUpdateMess _gameUpdateMess;
 
-
-        public CheckIfReady(Global global, GameUpdateMess upd, CalculateStage2 stage2, GameReaction gameReaction, SecureRandom rand)
+        public CheckIfReady(Global global, GameUpdateMess upd, CalculateStage2 stage2, GameReaction gameReaction, SecureRandom rand, FinishedGameLog finishedGameLog, GameUpdateMess gameUpdateMess)
         {
             _global = global;
             _upd = upd;
             _stage2 = stage2;
             _gameReaction = gameReaction;
             _rand = rand;
+            _finishedGameLog = finishedGameLog;
+            _gameUpdateMess = gameUpdateMess;
             CheckTimer();
         }
 
@@ -58,8 +62,33 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             for (var i = 0; i < games.Count; i++)
             {
                 var game = games[i];
-                var isTimerToCheckEnabled = _global.IsTimerToCheckEnabled.Find(x => x.GameId == game.GameId)
-                    .IsTimerToCheckEnabled;
+
+
+
+
+                var timer = _global.IsTimerToCheckEnabled.Find(x => x.GameId == game.GameId);
+                var isTimerToCheckEnabled = timer.IsTimerToCheckEnabled;
+
+                if (game.RoundNo > 10)
+                {
+                    game.WhoWon = game.PlayersList[0].DiscordAccount.DiscordId;
+                    game.PreviousGameLogs += $"\n\n**{game.PlayersList[0].DiscordAccount.DiscordUserName}** победил играя за **{game.PlayersList[0].Character.Name}**";
+                    _finishedGameLog.CreateNewLog(game);
+
+                    foreach (var player in game.PlayersList)
+                    {
+                        player.DiscordAccount.IsPlaying = false;
+                        await _gameUpdateMess.UpdateMessage(player);
+                        if (!player.IsBot()) await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("ты кончил.");
+                    }
+
+                    _global.IsTimerToCheckEnabled.Remove(timer);
+                    _global.GamesList.Remove(game);
+              
+                    Console.WriteLine("____________________________");
+                    return;
+                }
+
                 if (!isTimerToCheckEnabled) return;
 
                 var players = _global.GamesList[i].PlayersList;
@@ -70,7 +99,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                  await HandleBotBehavior(players[k], game);
 
-                    if (players[k].Status.IsReady && players[k].Status.MoveListPage != 3 &&  game.TimePassed.Elapsed.TotalSeconds > 20) readyCount++;
+                    if (players[k].Status.IsReady && players[k].Status.MoveListPage != 3 &&  game.TimePassed.Elapsed.TotalSeconds > 13) readyCount++;
                     else
                     {
                         Console.WriteLine("NOT READY: = " + players[k].DiscordAccount.DiscordUserName);
@@ -94,7 +123,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (players[k].Status.SocketMessageFromBot != null)
                             await _upd.UpdateMessage(players[k]);
 
-
+                
                     await _stage2.DeepListMind(game);
 
                     _global.IsTimerToCheckEnabled.Find(x => x.GameId == game.GameId)
