@@ -269,9 +269,14 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 $"{LeaderBoard(account, character)}");
 
 
+            var splitted = player.Status.InGamePersonalLogsAll.Split("|||");
+            if (game != null && (splitted.Length > 1 && splitted[splitted.Length-2].Length > 3 && game.RoundNo > 1))
+            {
+                embed.AddField("События прошлого раунда:", $"{splitted[splitted.Length-2]}");
+            }
             if (player.Status.GetInGamePersonalLogs().Length >= 2)
             {
-                embed.AddField("События:", $"{player.Status.GetInGamePersonalLogs()}");
+                embed.AddField("События этого раунда:", $"{player.Status.GetInGamePersonalLogs()}");
             }
 
 

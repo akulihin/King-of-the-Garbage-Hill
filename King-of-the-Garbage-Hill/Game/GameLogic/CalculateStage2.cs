@@ -287,10 +287,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 player.Status.IsAbleToTurn = true;
                 player.Status.IsReady = false;
                 player.Status.WhoToAttackThisTurn = 0;
-                player.Status.ClearInGamePersonalLogs();
-                player.Status.InGamePersonalLogsAll += "|||\n";
                 player.Status.CombineRoundScoreAndGameScore(game.RoundNo);
-
+                player.Status.ClearInGamePersonalLogs();
+                player.Status.InGamePersonalLogsAll += "|||";
 
                 player.Status.MoveListPage = 1;
 

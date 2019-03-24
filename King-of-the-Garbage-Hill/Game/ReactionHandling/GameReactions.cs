@@ -193,7 +193,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 status.IsAbleToTurn = false;
                 status.IsReady = true;
                 status.IsBlock = false;
-                player.Status.AddInGamePersonalLogs($"Ты напал на игрока {whoToAttack.DiscordAccount.DiscordUserName}");
+                player.Status.AddInGamePersonalLogs($"Ты напал на игрока {whoToAttack.DiscordAccount.DiscordUserName}\n");
                 if (!player.IsBot())
                 {
                     var mess2 = await reaction.Channel.SendMessageAsync("Принято");

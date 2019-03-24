@@ -33,7 +33,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             }
             else if (howMuchToAdd < 0 && isLog)
             {
-                status.AddInGamePersonalLogs($"-{howMuchToAdd} интеллект\n");
+                status.AddInGamePersonalLogs($"-{howMuchToAdd * -1} интеллект\n");
             }
 
             if (Intelligence < 10)
@@ -60,7 +60,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             }
             else if (howMuchToAdd < 0 && isLog)
             {
-                status.AddInGamePersonalLogs($"-{howMuchToAdd} психика\n");
+                status.AddInGamePersonalLogs($"-{howMuchToAdd * -1} психика\n");
             }
 
             if (Psyche < 10)
@@ -88,7 +88,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             }
             else if (howMuchToAdd < 0 && isLog)
             {
-                status.AddInGamePersonalLogs($"-{howMuchToAdd} скорость\n");
+                status.AddInGamePersonalLogs($"-{howMuchToAdd * -1} скорость\n");
             }
 
             if (Speed < 10)
@@ -115,7 +115,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             }
             else if (howMuchToAdd < 0 && isLog)
             {
-                status.AddInGamePersonalLogs($"-{howMuchToAdd} сила\n");
+                status.AddInGamePersonalLogs($"-{howMuchToAdd * -1} сила\n");
             }
 
             if (Strength < 10)
