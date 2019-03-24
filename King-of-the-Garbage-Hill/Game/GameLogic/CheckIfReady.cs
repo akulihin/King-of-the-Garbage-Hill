@@ -179,17 +179,29 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     new BiggestStatClass(1, intel),
                     new BiggestStatClass(2, str),
-                    new BiggestStatClass(3, speed),
-                    new BiggestStatClass(4, psy)
+                    new BiggestStatClass(3, speed)//,
+                   // new BiggestStatClass(4, psy)
                 };
 
                 stats = stats.OrderByDescending(x => x.StatCount).ToList();
 
-                if (stats[0].StatCount < 10)
+                if (stats[0].StatCount < 7)
                 {
                     skillNu = stats[0].StatIndex;
                 }
-               else if (stats[1].StatCount < 10)
+               else if (stats[1].StatCount < 7)
+                {
+                    skillNu = stats[1].StatIndex;
+                }
+                else if (stats[2].StatCount < 7)
+                {
+                    skillNu = stats[2].StatIndex;
+                }
+                else  if (stats[0].StatCount < 10)
+                {
+                    skillNu = stats[0].StatIndex;
+                }
+                else if (stats[1].StatCount < 10)
                 {
                     skillNu = stats[1].StatIndex;
                 }
@@ -197,17 +209,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     skillNu = stats[2].StatIndex;
                 }
-                else if (stats[3].StatCount < 10)
-                {
-                     skillNu = stats[3].StatIndex;
-                }
                 else
                 {
                     player.Status.MoveListPage = 1;
                     return;
                 }
 
-                if (player.Character.Name == "HardKitty" && str < 10)
+                if (player.Character.Name == "LeCrisp" && str < 10)
                 {
                     skillNu = 2;
                 }

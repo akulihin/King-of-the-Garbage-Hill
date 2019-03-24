@@ -110,8 +110,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     game.GameLogs += logMess;
                     game.PreviousGameLogs += logMess;
 
-                    player.Character.Justice.AddJusticeForNextRound(-1);
-                    playerIamAttacking.Character.Justice.AddJusticeForNextRound();
+                        //Спарта - никогда не теряет справедливость, атакуя в блок.
+                        if (player.Character.Name != "mylorik")
+                        {
+                        //end Спарта
+                            player.Character.Justice.AddJusticeForNextRound(-1);
+                            playerIamAttacking.Character.Justice.AddJusticeForNextRound();
+                        }
+      
 
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
                     await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);

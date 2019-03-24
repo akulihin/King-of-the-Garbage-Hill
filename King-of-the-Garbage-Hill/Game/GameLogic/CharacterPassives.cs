@@ -1385,7 +1385,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             {
                                 hardKitty.UniquePlayers.Add(player.DiscordAccount.DiscordId);
                                 player.Status.AddRegularPoints();
-                                await _phrase.HardKittyMutedPhrase.SendLog(player);
+                                await _phrase.HardKittyMutedPhrase.SendLog(playerIamAttacking);
                             }
                         }
                     }
