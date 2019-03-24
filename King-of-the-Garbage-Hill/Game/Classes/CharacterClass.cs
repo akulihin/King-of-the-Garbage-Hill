@@ -29,11 +29,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         {
             if (howMuchToAdd > 0 && isLog)
             {
-                status.AddInGamePersonalLogs($"+{howMuchToAdd} интеллект\n");
+                status.AddInGamePersonalLogs($"+{howMuchToAdd} РёРЅС‚РµР»Р»РµРєС‚\n");
             }
             else if (howMuchToAdd < 0 && isLog)
             {
-                status.AddInGamePersonalLogs($"-{howMuchToAdd * -1} интеллект\n");
+                status.AddInGamePersonalLogs($"-{howMuchToAdd * -1} РёРЅС‚РµР»Р»РµРєС‚\n");
             }
 
             if (Intelligence < 10)
@@ -56,11 +56,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         {
             if (howMuchToAdd > 0 && isLog)
             {
-                status.AddInGamePersonalLogs($"+{howMuchToAdd} психика\n");
+                status.AddInGamePersonalLogs($"+{howMuchToAdd} РїСЃРёС…РёРєР°\n");
             }
             else if (howMuchToAdd < 0 && isLog)
             {
-                status.AddInGamePersonalLogs($"-{howMuchToAdd * -1} психика\n");
+                status.AddInGamePersonalLogs($"-{howMuchToAdd * -1} РїСЃРёС…РёРєР°\n");
             }
 
             if (Psyche < 10)
@@ -84,11 +84,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         {
             if (howMuchToAdd > 0 && isLog)
             {
-                status.AddInGamePersonalLogs($"+{howMuchToAdd} скорость\n");
+                status.AddInGamePersonalLogs($"+{howMuchToAdd} СЃРєРѕСЂРѕСЃС‚СЊ\n");
             }
             else if (howMuchToAdd < 0 && isLog)
             {
-                status.AddInGamePersonalLogs($"-{howMuchToAdd * -1} скорость\n");
+                status.AddInGamePersonalLogs($"-{howMuchToAdd * -1} СЃРєРѕСЂРѕСЃС‚СЊ\n");
             }
 
             if (Speed < 10)
@@ -111,11 +111,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         {
             if (howMuchToAdd > 0 && isLog)
             {
-                status.AddInGamePersonalLogs($"+{howMuchToAdd} сила\n");
+                status.AddInGamePersonalLogs($"+{howMuchToAdd} СЃРёР»Р°\n");
             }
             else if (howMuchToAdd < 0 && isLog)
             {
-                status.AddInGamePersonalLogs($"-{howMuchToAdd * -1} сила\n");
+                status.AddInGamePersonalLogs($"-{howMuchToAdd * -1} СЃРёР»Р°\n");
             }
 
             if (Strength < 10)
