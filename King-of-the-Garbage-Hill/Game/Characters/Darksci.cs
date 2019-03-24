@@ -34,7 +34,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             if (player.Status.IsLostLastTime != 0)
             {
                 //Не повезло
-                player.Character.AddPsyche(-1);
+                player.Character.AddPsyche(player.Status, -1);
                 player.MinusPsycheLog(game);
               await  _phrase.DarksciNotLucky.SendLog(player);
                 //end Не повезло
