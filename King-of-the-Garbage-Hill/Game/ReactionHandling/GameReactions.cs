@@ -224,7 +224,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             {
                 case 1:
                    
-                    if (player.Character.GetIntelligence() > 10 && player.Character.GetPsyche() <= 9 &&
+                    if (player.Character.GetIntelligence() >= 10 && player.Character.GetPsyche() <= 9 &&
                         player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
                     {
                         await LvlUp10(player);
@@ -248,7 +248,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     break;
                 case 3:
 
-                    if (player.Character.GetSpeed() > 10 && player.Character.GetPsyche() <= 9 &&
+                    if (player.Character.GetSpeed() >= 10 && player.Character.GetPsyche() <= 9 &&
                         player.Character.GetStrength() <= 9 && player.Character.GetIntelligence() <= 9)
                     {
                         await LvlUp10(player);
@@ -261,7 +261,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     break;
                 case 4:
 
-                    if (player.Character.GetPsyche() > 10 && player.Character.GetIntelligence() <= 9 &&
+                    if (player.Character.GetPsyche() >= 10 && player.Character.GetIntelligence() <= 9 &&
                         player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
                     {
                         await LvlUp10(player);
