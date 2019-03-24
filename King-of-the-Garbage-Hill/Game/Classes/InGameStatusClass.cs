@@ -23,6 +23,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             IsFighting = 0;
             IsSkip = false;
             ScoresToGiveAtEndOfRound = 0;
+            InGamePersonalLogs = "";
+            InGamePersonalLogsAll = "";
         }
 
         public int MoveListPage { get; set; }
@@ -43,6 +45,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public ulong WhoToAttackThisTurn { get; set; }
 
+      
 
         public bool IsReady { get; set; }
         public int WonTimes { get; set; }
@@ -51,6 +54,26 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public ulong IsFighting { get; set; }
         private double ScoresToGiveAtEndOfRound { get; set; }
         public int LvlUpPoints { get; set; }
+        private string InGamePersonalLogs { get; set; }
+        public string InGamePersonalLogsAll { get; set; }
+
+        public void AddInGamePersonalLogs(string str)
+        {
+            InGamePersonalLogs += str;
+            InGamePersonalLogsAll += str;
+        }
+
+        public void ClearInGamePersonalLogs()
+        {
+            InGamePersonalLogs = "";
+        }
+
+        public string GetInGamePersonalLogs()
+        {
+            return InGamePersonalLogs;
+        }
+
+
 
         public void SetScoresToGiveAtEndOfRound(int score)
         {
@@ -69,6 +92,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public void AddBonusPoints(int bonusPoints)
         {
+            InGamePersonalLogs += $"+{bonusPoints} **бонусных** очков\n";
             Score += bonusPoints;
         }
 
@@ -97,6 +121,14 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             else if (roundNumber == 10) 
                 score = score * 4;
 
+            if ((int) score > 0)
+            {
+                InGamePersonalLogs += $"+{(int) score} **обычных** очков\n";
+            }
+            else if ((int) score < 0)
+            {
+                InGamePersonalLogs += $"-{(int) score} очков...\n";
+            }
             Score += (int)score;
         }
 

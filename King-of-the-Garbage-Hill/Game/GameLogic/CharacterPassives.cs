@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.BotFramework;
@@ -9,7 +8,6 @@ using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
-using King_of_the_Garbage_Hill.LocalPersistentData.FinishedGameLog;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic
 {
@@ -27,7 +25,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly GameUpdateMess _gameUpdateMess;
         private readonly Gleb _gleb;
 
-        private readonly Global _global;
+
 
         private readonly HardKitty _hardKitty;
 
@@ -53,7 +51,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             DeepList2 deepList2, Gleb gleb, HardKitty hardKitty, Mitsuki mitsuki, LeCrisp leCrisp, Mylorik mylorik,
             Octopus octopus, Shark shark, Sirinoks sirinoks, Tigr tigr, Tolya tolya, InGameGlobal gameGlobal,
             Darksci darksci, CharactersUniquePhrase phrase, LoginFromConsole log, GameUpdateMess gameUpdateMess,
-            Global global, Panth panth)
+            Panth panth)
         {
             _rand = rand;
             _help = help;
@@ -75,7 +73,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             _phrase = phrase;
             _log = log;
             _gameUpdateMess = gameUpdateMess;
-            _global = global;
             _panth = panth;
            
         }
@@ -109,14 +106,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         _gameGlobal.SharkBoole.Add(new Sirinoks.FriendsClass(
                             playerIamAttacking.DiscordAccount.DiscordId, game.GameId,
                             playerAttackFrom.DiscordAccount.DiscordId));
-                        playerAttackFrom.Character.Intelligence--;
+                        playerAttackFrom.Character.AddIntelligence(-1);
                     }
                     else
                     {
                         if (!shark.FriendList.Contains(playerAttackFrom.DiscordAccount.DiscordId))
                         {
                             shark.FriendList.Add(playerAttackFrom.DiscordAccount.DiscordId);
-                            playerAttackFrom.Character.Intelligence--;
+                            playerAttackFrom.Character.AddIntelligence(-1);
                         }
                     }
 
@@ -136,9 +133,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             if (acc.WhenToTrigger.Contains(game.RoundNo))
                                 return;
 
-                        if (!playerIamAttacking.Status.IsSkip && playerIamAttacking.Character.Strength < 9 
-                                                              && playerIamAttacking.Character.Speed < 9 
-                                                              && playerIamAttacking.Character.Intelligence < 9)
+                        if (!playerIamAttacking.Status.IsSkip && playerIamAttacking.Character.GetStrength() < 9 
+                                                              && playerIamAttacking.Character.GetSpeed() < 9 
+                                                              && playerIamAttacking.Character.GetIntelligence() < 9)
                         {
                             playerIamAttacking.Status.IsSkip = true;
                             _gameGlobal.GlebSkipList.Add(
@@ -150,7 +147,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     break;
                 case "LeCrisp":
                     //гребанные ассасисны
-                    if (playerAttackFrom.Character.Strength - playerIamAttacking.Character.Strength >= 2)
+                    if (playerAttackFrom.Character.GetStrength() - playerIamAttacking.Character.GetStrength() >= 2)
                     {
                         playerIamAttacking.Status.IsAbleToWin = false;
                         await _phrase.LeCrispAssassinsPhrase.SendLog(playerIamAttacking);
@@ -236,14 +233,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     {
                         _gameGlobal.PanthShame.Add(new Sirinoks.FriendsClass(player1.DiscordAccount.DiscordId,
                             game.GameId, playerIamAttacking.DiscordAccount.DiscordId));
-                        playerIamAttacking.Character.Strength--;
+                        playerIamAttacking.Character.AddStrength(-1);
                     }
                     else
                     {
                         if (!panth.FriendList.Contains(playerIamAttacking.DiscordAccount.DiscordId))
                         {
                             panth.FriendList.Add(playerIamAttacking.DiscordAccount.DiscordId);
-                            playerIamAttacking.Character.Strength--;
+                            playerIamAttacking.Character.AddStrength(-1);
                         }
                     }
 
@@ -254,8 +251,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 case "Глеб":
                     // Я за чаем:
                     var rand = _rand.Random(1, 10);
-                    if (player1.Character.Intelligence >= 9 && player1.Character.Strength >= 9 &&
-                        player1.Character.Speed >= 9 && player1.Character.Psyche >= 9) rand = _rand.Random(1, 9);
+                    if (player1.Character.GetIntelligence() >= 9 && player1.Character.GetStrength() >= 9 &&
+                        player1.Character.GetSpeed() >= 9 && player1.Character.GetPsyche() >= 9) rand = _rand.Random(1, 9);
                     if (rand == 1)
                     {
                         _gameGlobal.AllSkipTriggeredWhen.Add(new WhenToTriggerClass(player1.Status.WhoToAttackThisTurn,
@@ -304,10 +301,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     var player2Stats = new List<Sirinoks.TrainingSubClass>
                     {
-                        new Sirinoks.TrainingSubClass(1, playerIamAttacking.Character.Intelligence),
-                        new Sirinoks.TrainingSubClass(2, playerIamAttacking.Character.Strength),
-                        new Sirinoks.TrainingSubClass(3, playerIamAttacking.Character.Speed),
-                        new Sirinoks.TrainingSubClass(4, playerIamAttacking.Character.Psyche)
+                        new Sirinoks.TrainingSubClass(1, playerIamAttacking.Character.GetIntelligence()),
+                        new Sirinoks.TrainingSubClass(2, playerIamAttacking.Character.GetStrength()),
+                        new Sirinoks.TrainingSubClass(3, playerIamAttacking.Character.GetSpeed()),
+                        new Sirinoks.TrainingSubClass(4, playerIamAttacking.Character.GetPsyche())
                     };
                     var sup = player2Stats.OrderByDescending(x => x.StatNumber).ToList()[0];
                     if (awdka == null)
@@ -568,7 +565,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 switch (characterName)
                 {
                     case "Загадочный Спартанец в маске":
-                        if (game.RoundNo == 10) player.Character.Strength = 0;
+                        if (game.RoundNo == 10) player.Character.SetStrength(0);
 
                         break;
 
@@ -601,10 +598,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Status.IsAbleToTurn = false;
                             player.Status.IsReady = true;
                             player.Status.WhoToAttackThisTurn = 0;
-                            player.Character.Psyche = 0;
-                            player.Character.Intelligence = 0;
-
-                            game.PreviousGameLogs += $"\n**{player.DiscordAccount.DiscordUserName}:** ЕБАНЫЕ БАНЫ НА 10 ЛЕТ\n";
+                            player.Character.SetPsyche(0);
+                            player.Character.SetIntelligence(0);
+                            player.Character.SetStrength(10);
+                            game.PreviousGameLogs += $"\n**{player.DiscordAccount.DiscordUserName}:** ЕБАННЫЕ БАНЫ НА 10 ЛЕТ\n";
                         }
                         //end Стримснайпят и банят и банят и банят:
 
@@ -641,7 +638,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //Дизмораль
                         if (game.RoundNo == 9)
                         {
-                            player.Character.Psyche -= 4;
+                            player.Character.AddPsyche(-4); 
                             await _phrase.DarksciDysmoral.SendLog(player);
                             game.PreviousGameLogs += "Всё, у меня горит!\n";
 
@@ -649,7 +646,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //end Дизмораль
 
                         //Да всё нахуй эту игру:
-                        if (player.Character.Psyche <= 0)
+                        if (player.Character.GetPsyche() <= 0)
                         {
                             player.Status.IsSkip = true;
                             player.Status.IsBlock = false;
@@ -734,15 +731,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             var regularStats = awdkaTempStats.MadnessList.Find(x => x.Index == 1);
                             var madStats = awdkaTempStats.MadnessList.Find(x => x.Index == 2);
 
-                            var intel = player.Character.Intelligence - madStats.Intel;
-                            var str = player.Character.Strength - madStats.Str;
-                            var speed = player.Character.Speed - madStats.Speed;
-                            var psy = player.Character.Psyche - madStats.Psyche;
+                            var intel = player.Character.GetIntelligence() - madStats.Intel;
+                            var str = player.Character.GetStrength() - madStats.Str;
+                            var speed = player.Character.GetSpeed() - madStats.Speed;
+                            var psy = player.Character.GetPsyche() - madStats.Psyche;
 
-                            player.Character.Intelligence = regularStats.Intel + intel;
-                            player.Character.Strength = regularStats.Str + str;
-                            player.Character.Speed = regularStats.Speed + speed;
-                            player.Character.Psyche = regularStats.Psyche + psy;
+                            player.Character.SetIntelligence(regularStats.Intel + intel);
+                            player.Character.SetStrength(regularStats.Str + str);
+                            player.Character.SetSpeed(regularStats.Speed + speed);
+                            player.Character.SetPsyche(regularStats.Psyche + psy);
 
                             _gameGlobal.AwdkaTeachToPlayTempStats.Remove(awdkaTempStats);
                         }
@@ -757,17 +754,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             game.GameId, game.RoundNo));
                         awdkaTempStats = _gameGlobal.AwdkaTeachToPlayTempStats.Find(x =>
                             x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
-                        awdkaTempStats.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.Intelligence,
-                            player.Character.Strength, player.Character.Speed, player.Character.Psyche));
+                        awdkaTempStats.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.GetIntelligence(),
+                            player.Character.GetStrength(), player.Character.GetSpeed(), player.Character.GetPsyche()));
                         //end crazy shit
 
                         //find out  the biggest stat
                         var bestSkill = awdka.Training.OrderByDescending(x => x.StatNumber).ToList()[0];
 
-                        var intel1 = player.Character.Intelligence;
-                        var str1 = player.Character.Strength;
-                        var speed1 = player.Character.Speed;
-                        var pshy1 = player.Character.Psyche;
+                        var intel1 = player.Character.GetIntelligence();
+                        var str1 = player.Character.GetStrength();
+                        var speed1 = player.Character.GetSpeed();
+                        var pshy1 = player.Character.GetPsyche();
 
                         switch (bestSkill.StatIndex)
                         {
@@ -785,10 +782,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 break;
                         }
 
-                        player.Character.Intelligence = intel1;
-                        player.Character.Strength = str1;
-                        player.Character.Speed = speed1;
-                        player.Character.Psyche = pshy1;
+                        player.Character.SetIntelligence(intel1);
+                        player.Character.SetStrength(str1);
+                        player.Character.SetSpeed(speed1);
+                        player.Character.SetPsyche(pshy1);
                         //end find out  the biggest stat
 
                         //crazy shit 2
@@ -834,21 +831,21 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                     game.GameId, game.RoundNo));
                                 gleb = _gameGlobal.GlebChallengerList.Find(x =>
                                     x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
-                                gleb.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.Intelligence,
-                                    player.Character.Strength, player.Character.Speed, player.Character.Psyche));
+                                gleb.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.GetIntelligence(),
+                                    player.Character.GetStrength(), player.Character.GetSpeed(), player.Character.GetPsyche()));
 
                                 //  var randomNumber =  _rand.Random(1, 100);
 
-                                var intel = player.Character.Intelligence >= 10 ? 10 : 9;
-                                var str = player.Character.Strength >= 10 ? 10 : 9;
-                                var speed = player.Character.Speed >= 10 ? 10 : 9;
-                                var pshy = player.Character.Psyche >= 10 ? 10 : 9;
+                                var intel = player.Character.GetIntelligence() >= 10 ? 10 : 9;
+                                var str = player.Character.GetStrength() >= 10 ? 10 : 9;
+                                var speed = player.Character.GetSpeed() >= 10 ? 10 : 9;
+                                var pshy = player.Character.GetPsyche() >= 10 ? 10 : 9;
 
 
-                                player.Character.Intelligence = intel;
-                                player.Character.Strength = str;
-                                player.Character.Speed = speed;
-                                player.Character.Psyche = pshy;
+                                player.Character.SetIntelligence(intel); 
+                                player.Character.SetStrength(str); 
+                                player.Character.SetSpeed(speed); 
+                                player.Character.SetPsyche(pshy); 
 
 
                                 gleb.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
@@ -913,8 +910,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                     new DeepList.Madness(player.DiscordAccount.DiscordId, game.GameId, game.RoundNo));
                                 curr = _gameGlobal.DeepListMadnessList.Find(x =>
                                     x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
-                                curr.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.Intelligence,
-                                    player.Character.Strength, player.Character.Speed, player.Character.Psyche));
+                                curr.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.GetIntelligence(),
+                                    player.Character.GetStrength(), player.Character.GetSpeed(), player.Character.GetPsyche()));
 
 
                                 var intel = 0;
@@ -969,10 +966,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                     else if (i == 3) pshy = statNumber;
                                 }
 
-                                player.Character.Intelligence = intel;
-                                player.Character.Strength = str;
-                                player.Character.Speed = speed;
-                                player.Character.Psyche = pshy;
+                                player.Character.SetIntelligence(intel);  
+                                player.Character.SetStrength(str);  
+                                player.Character.SetSpeed(speed);  
+                                player.Character.SetPsyche(pshy);  
 
                                 await _phrase.DeepListMadnessPhrase.SendLog(player);
                                 curr.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
@@ -985,10 +982,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         if (game.RoundNo == 10)
                         {
-                            player.Character.Intelligence = 10;
-                            player.Character.Strength = 10;
-                            player.Character.Speed = 10;
-                            player.Character.Psyche = 10;
+                            player.Character.SetIntelligence(10);
+                            player.Character.SetStrength(10);
+                            player.Character.SetSpeed(10);
+                            player.Character.SetPsyche(11);
 
                             player.Status.AddBonusPoints(10);
 
@@ -1021,14 +1018,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     player.Status.IsAbleToTurn = false;
                     player.Status.IsReady = true;
                     player.Status.WhoToAttackThisTurn = 0;
-                    if (!player.IsBot())
-                    {
-                        var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                            "Тебя заставили пропустить этот ход");
-#pragma warning disable 4014
-                        _help.DeleteMessOverTime(mess, 15);
-#pragma warning restore 4014
-                    }
+                    player.Status.AddInGamePersonalLogs("Тебя убаюкали...");
                 }
             }
         }
@@ -1051,8 +1041,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         for (var i = 0; i < game.PlayersList.Count; i++)
                         {
                             var t = game.PlayersList[i];
-                            if (t.Character.Intelligence == player.Character.Intelligence ||
-                                t.Character.Psyche == player.Character.Psyche)
+                            if (t.Character.GetIntelligence() == player.Character.GetIntelligence() ||
+                                t.Character.GetPsyche() == player.Character.GetPsyche())
                             {
                                 var tigr = _gameGlobal.TigrTwoBetterList.Find(x =>
                                     x.PlayerDiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
@@ -1091,16 +1081,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             var madStats = madd.MadnessList.Find(x => x.Index == 2);
 
 
-                            var intel = player.Character.Intelligence - madStats.Intel;
-                            var str = player.Character.Strength - madStats.Str;
-                            var speed = player.Character.Speed - madStats.Speed;
-                            var psy = player.Character.Psyche - madStats.Psyche;
+                            var intel = player.Character.GetIntelligence() - madStats.Intel;
+                            var str = player.Character.GetStrength() - madStats.Str;
+                            var speed = player.Character.GetSpeed() - madStats.Speed;
+                            var psy = player.Character.GetPsyche() - madStats.Psyche;
 
 
-                            player.Character.Intelligence = regularStats.Intel + intel;
-                            player.Character.Strength = regularStats.Str + str;
-                            player.Character.Speed = regularStats.Speed + speed;
-                            player.Character.Psyche = regularStats.Psyche + psy;
+                            player.Character.SetIntelligence(regularStats.Intel + intel);  
+                            player.Character.SetStrength(regularStats.Str + str);  
+                            player.Character.SetSpeed(regularStats.Speed + speed);  
+                            player.Character.SetPsyche(regularStats.Psyche + psy);  
                             _gameGlobal.DeepListMadnessList.Remove(madd);
                         }
 
@@ -1118,16 +1108,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             var madStats = madd.MadnessList.Find(x => x.Index == 2);
 
 
-                            var intel = player.Character.Intelligence - madStats.Intel;
-                            var str = player.Character.Strength - madStats.Str;
-                            var speed = player.Character.Speed - madStats.Speed;
-                            var psy = player.Character.Psyche - madStats.Psyche;
+                            var intel = player.Character.GetIntelligence() - madStats.Intel;
+                            var str = player.Character.GetStrength() - madStats.Str;
+                            var speed = player.Character.GetSpeed() - madStats.Speed;
+                            var psy = player.Character.GetPsyche() - madStats.Psyche;
 
 
-                            player.Character.Intelligence = regularStats.Intel + intel;
-                            player.Character.Strength = regularStats.Str + str;
-                            player.Character.Speed = regularStats.Speed + speed;
-                            player.Character.Psyche = regularStats.Psyche + psy;
+                            player.Character.SetIntelligence(regularStats.Intel + intel);  
+                            player.Character.SetStrength(regularStats.Str + str);  
+                            player.Character.SetSpeed(regularStats.Speed + speed);  
+                            player.Character.SetPsyche(regularStats.Psyche + psy);  
                             _gameGlobal.GlebChallengerList.Remove(madd);
                         }
 
@@ -1218,16 +1208,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             switch (stats.StatIndex)
                             {
                                 case 1:
-                                    player.Character.Intelligence++;
+                                    player.Character.AddIntelligence();
                                     break;
                                 case 2:
-                                    player.Character.Strength++;
+                                    player.Character.AddStrength();
                                     break;
                                 case 3:
-                                    player.Character.Speed++;
+                                    player.Character.AddSpeed();
                                     break;
                                 case 4:
-                                    player.Character.Psyche++;
+                                    player.Character.AddPsyche();
                                     break;
                             }
 
@@ -1248,32 +1238,32 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         switch (randStat1)
                         {
                             case 1:
-                                player.Character.Intelligence--;
+                                player.Character.AddIntelligence(-1);
                                 break;
                             case 2:
-                                player.Character.Strength--;
+                                player.Character.AddStrength(-1);
                                 break;
                             case 3:
-                                player.Character.Speed--;
+                                player.Character.AddSpeed(-1);
                                 break;
                             case 4:
-                                player.Character.Psyche--;
+                                player.Character.AddPsyche(-1);
                                 break;
                         }
 
                         switch (randStat2)
                         {
                             case 1:
-                                player.Character.Intelligence--;
+                                player.Character.AddIntelligence(-1);
                                 break;
                             case 2:
-                                player.Character.Strength--;
+                                player.Character.AddStrength(-1);
                                 break;
                             case 3:
-                                player.Character.Speed--;
+                                player.Character.AddSpeed(-1);
                                 break;
                             case 4:
-                                player.Character.Psyche--;
+                                player.Character.AddPsyche(-1);
                                 break;
                         }
 
@@ -1450,7 +1440,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             var player2 = game.PlayersList.Find(x =>
                                 x.DiscordAccount.DiscordId == player.Status.IsWonLastTime);
-                            player2.Character.Psyche--;
+                            player2.Character.AddPsyche(-1);
                             player2.MinusPsycheLog(game);
                         }
 
@@ -1523,8 +1513,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             player.Status.AddBonusPoints(player.Status.GetScore() * 3);
 
-                            player.Character.Psyche += 2;
-                            if (player.Character.Psyche > 10) player.Character.Psyche = 10;
+                            player.Character.AddPsyche(2);
                             darscsi.TouchedPlayers.Clear();
                             await _phrase.DarksciLucky.SendLog(player);
                         }
@@ -1549,7 +1538,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     case "Братишка":
                         //Булькает:
-                        if (player.Status.PlaceAtLeaderBoard != 1) player.Character.Justice.JusticeNow++;
+                        if (player.Status.PlaceAtLeaderBoard != 1) player.Character.Justice.AddJusticeNow();
                         //end Булькает:
 
                         //Челюсти:
@@ -1563,18 +1552,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 _gameGlobal.SharkJawsLeader.Add(new Sirinoks.FriendsClass(
                                     player.DiscordAccount.DiscordId, game.GameId,
                                     (ulong) player.Status.PlaceAtLeaderBoard));
-                                player.Character.Speed++;
+                                player.Character.AddSpeed();
                             }
                             else
                             {
                                 if (!shark.FriendList.Contains((ulong) player.Status.PlaceAtLeaderBoard))
                                 {
                                     shark.FriendList.Add((ulong) player.Status.PlaceAtLeaderBoard);
-                                    player.Character.Speed++;
+                                    player.Character.AddSpeed();
                                 }
                             }
 
-                            if (player.Character.Speed > 10) player.Character.Speed = 10;
                         }
 
                         //end Челюсти:
@@ -1584,7 +1572,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //Тигр топ, а ты холоп: 
                         if (player.Status.PlaceAtLeaderBoard == 1 && game.RoundNo > 1)
                         {
-                            player.Character.Psyche++;
+                            player.Character.AddPsyche();
                             await _phrase.TigrTop.SendLog(player);
                         }
 
@@ -1721,7 +1709,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             playerAttackedOctopus.Status.WonTimes++;
             playerAttackedOctopus.Character.Justice.IsWonThisRound = true;
 
-            octopusPlayer.Character.Justice.JusticeForNextRound++;
+            octopusPlayer.Character.Justice.AddJusticeForNextRound();
 
             playerAttackedOctopus.Status.IsWonLastTime = octopusPlayer.DiscordAccount.DiscordId;
             octopusPlayer.Status.IsLostLastTime = playerAttackedOctopus.DiscordAccount.DiscordId;

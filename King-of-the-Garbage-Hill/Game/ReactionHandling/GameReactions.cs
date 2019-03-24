@@ -158,16 +158,21 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
             if (status.MoveListPage == 1)
             {
-
                 var game = _global.GamesList.Find(x => x.GameId == account.GameId);
-                status.WhoToAttackThisTurn =game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum).DiscordAccount.DiscordId;
+                var whoToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum);
+                status.WhoToAttackThisTurn = whoToAttack.DiscordAccount.DiscordId;
 
-                if (game.PlayersList.Any(x => x.Character.Name == "Тигр") && game.RoundNo == 10)
+                if (game.PlayersList.Any(x => x.Character.Name == "Тигр" && x.Status.PlaceAtLeaderBoard == emoteNum) && game.RoundNo == 10)
                 {
-                    var mess = await reaction.Channel.SendMessageAsync("На этого игрока нельзя нападать, почему-то...");
+                    status.WhoToAttackThisTurn = 0;
+                    if (!player.IsBot())
+                    {
+                        var mess = await reaction.Channel.SendMessageAsync("На этого игрока нельзя нападать, почему-то...");
 #pragma warning disable 4014
-                    _help.DeleteMessOverTime(mess, 6);
+                        _help.DeleteMessOverTime(mess, 6);
 #pragma warning restore 4014
+                    }
+                    return;
                 }
 
 
@@ -188,6 +193,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 status.IsAbleToTurn = false;
                 status.IsReady = true;
                 status.IsBlock = false;
+                player.Status.AddInGamePersonalLogs($"Ты напал на игрока {whoToAttack.DiscordAccount.DiscordUserName}");
                 if (!player.IsBot())
                 {
                     var mess2 = await reaction.Channel.SendMessageAsync("Принято");
@@ -198,108 +204,83 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             }
         }
 
+        //for GetLvlUp ONLY!
+        public async Task LvlUp10(GameBridgeClass player)
+        {
+            if (!player.IsBot())
+            {
+                var mess2 =
+                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                        "10 максимум, выбери другой стат");
+#pragma warning disable 4014
+                _help.DeleteMessOverTime(mess2, 6);
+#pragma warning restore 4014
+            }
+        }
 
         private async Task GetLvlUp(GameBridgeClass player, int skillNumber)
         {
             switch (skillNumber)
             {
                 case 1:
-                    player.Character.Intelligence++;
-                    if (player.Character.Intelligence > 10 && player.Character.Psyche <= 9 &&
-                        player.Character.Strength <= 9 && player.Character.Speed <= 9)
+                   
+                    if (player.Character.GetIntelligence() > 10 && player.Character.GetPsyche() <= 9 &&
+                        player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
                     {
-                        player.Character.Intelligence = 10;
-                        if (!player.IsBot())
-                        {
-                            var mess2 =
-                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                                    "10 максимум, выбери другой");
-#pragma warning disable 4014
-                            _help.DeleteMessOverTime(mess2, 6);
-#pragma warning restore 4014
-                        }
-
+                        await LvlUp10(player);
                         return;
                     }
-
+                    player.Character.AddIntelligence();
+                    player.Status.AddInGamePersonalLogs($"Ты улучшил интеллект до {player.Character.GetIntelligence()}");
                     break;
                 case 2:
-                    player.Character.Strength++;
-                    if (player.Character.Strength > 10 && player.Character.Psyche <= 9 &&
-                        player.Character.Intelligence <= 9 && player.Character.Speed <= 9)
+
+                    if (player.Character.GetStrength() >= 10 && player.Character.GetPsyche() <= 9 &&
+                        player.Character.GetIntelligence() <= 9 && player.Character.GetSpeed() <= 9)
                     {
-                        player.Character.Strength = 10;
-                        if (!player.IsBot())
-                        {
-                            var mess2 =
-                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                                    "10 максимум, выбери другой");
-#pragma warning disable 4014
-                            _help.DeleteMessOverTime(mess2, 6);
-#pragma warning restore 4014
-                        }
-
-
+                        await LvlUp10(player);
                         return;
                     }
+
+                    player.Character.AddStrength();
+                    player.Status.AddInGamePersonalLogs($"Ты улучшил силу до {player.Character.GetStrength()}");
 
                     break;
                 case 3:
-                    player.Character.Speed++;
-                    if (player.Character.Speed > 10 && player.Character.Psyche <= 9 &&
-                        player.Character.Strength <= 9 && player.Character.Intelligence <= 9)
+
+                    if (player.Character.GetSpeed() > 10 && player.Character.GetPsyche() <= 9 &&
+                        player.Character.GetStrength() <= 9 && player.Character.GetIntelligence() <= 9)
                     {
-                        player.Character.Speed = 10;
-                        if (!player.IsBot())
-                        {
-                            var mess2 =
-                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                                    "10 максимум, выбери другой");
-#pragma warning disable 4014
-                            _help.DeleteMessOverTime(mess2, 6);
-#pragma warning restore 4014
-                        }
-
-
+                        await LvlUp10(player);
                         return;
                     }
+
+                    player.Character.AddSpeed();
+                    player.Status.AddInGamePersonalLogs($"Ты улучшил скорость до {player.Character.GetSpeed()}");
 
                     break;
                 case 4:
-                    player.Character.Psyche++;
-                    if (player.Character.Psyche > 10 && player.Character.Intelligence <= 9 &&
-                        player.Character.Strength <= 9 && player.Character.Speed <= 9)
+
+                    if (player.Character.GetPsyche() > 10 && player.Character.GetIntelligence() <= 9 &&
+                        player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
                     {
-                        player.Character.Psyche = 10;
-                        if (!player.IsBot())
-                        {
-                            var mess2 =
-                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                                    "10 максимум, выбери другой");
-#pragma warning disable 4014
-                            _help.DeleteMessOverTime(mess2, 6);
-#pragma warning restore 4014
-                        }
-
-
+                        await LvlUp10(player);
                         return;
                     }
+
+                    player.Character.AddPsyche();
+                    player.Status.AddInGamePersonalLogs( $"Ты улучшил психику до {player.Character.GetPsyche()}");
 
                     break;
                 default:
                     return;
             }
-            
+
             //awdka only:
             if (player.Status.LvlUpPoints == 3 || player.Status.LvlUpPoints == 2)
-            {
                 player.Status.LvlUpPoints--;
-            }
             else
-            {
-                //end awdka only
                 player.Status.MoveListPage = 1;
-            }
 
             await _upd.UpdateMessage(player);
         }

@@ -32,9 +32,10 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public int Psyche;
         public int Speed;
         public int Strength;
+        public string InGamePersonalLogsAll;
 
 
-        public GameLogsPlayer(ulong playerId, string playerName, string charName, int score, int intelligence, int strength, int speed, int psyche)
+        public GameLogsPlayer(ulong playerId, string playerName, string charName, int score, int  intelligence, int strength, int speed, int psyche, string inGamePersonalLogsAll)
         {
             PlayerId = playerId;
             PlayerUserName = playerName;
@@ -44,6 +45,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             Strength = strength;
             Speed = speed;
             Psyche = psyche;
+            InGamePersonalLogsAll = inGamePersonalLogsAll;
         }
     }
 }

@@ -9,14 +9,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
     public class Tigr : IServiceSingleton
     {
         private readonly InGameGlobal _gameGlobal;
-        private readonly Global _global;
+
         private readonly CharactersUniquePhrase _phrase;
 
-        public Tigr(InGameGlobal gameGlobal, Global global,
+        public Tigr(InGameGlobal gameGlobal, 
             CharactersUniquePhrase phrase)
         {
             _gameGlobal = gameGlobal;
-            _global = global;
+
             _phrase = phrase;
         }
 
@@ -61,8 +61,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                             if (enemyAcc != null)
                             {
-                                enemyAcc.Character.Intelligence--;
-                                enemyAcc.Character.Psyche--;
+                                enemyAcc.Character.AddIntelligence(-1);
+                                enemyAcc.Character.AddPsyche(-1);
                                 enemyAcc.MinusPsycheLog(game);
                                 enemy.IsUnique = false;
                             }

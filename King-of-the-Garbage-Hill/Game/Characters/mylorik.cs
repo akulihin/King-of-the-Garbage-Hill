@@ -89,7 +89,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                 if (rand == 1)
                 {
-                    player.Character.Psyche--;
+                    player.Character.AddPsyche(-1);
                     player.MinusPsycheLog(game);
                     await _phrase.MylorikSpanishPhrase.SendLog(player);
                 }

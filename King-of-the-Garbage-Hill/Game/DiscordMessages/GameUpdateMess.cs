@@ -6,7 +6,6 @@ using Discord.Commands;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
-using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
 namespace King_of_the_Garbage_Hill.Game.DiscordMessages
@@ -14,17 +13,15 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
     public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceSingleton
     {
         private readonly UserAccounts _accounts;
-        private readonly AwaitForUserMessage _awaitForUser;
+       // private readonly AwaitForUserMessage _awaitForUser;
         private readonly InGameGlobal _gameGlobal;
         private readonly Global _global;
 
 
-        public GameUpdateMess(UserAccounts accounts, Global global, AwaitForUserMessage awaitForUser,
-            InGameGlobal gameGlobal)
+        public GameUpdateMess(UserAccounts accounts, Global global, InGameGlobal gameGlobal)
         {
             _accounts = accounts;
             _global = global;
-            _awaitForUser = awaitForUser;
             _gameGlobal = gameGlobal;
         }
 
@@ -71,10 +68,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var embed = new EmbedBuilder();
             embed.WithColor(Color.DarkOrange);
             embed.AddField("Твой Персонаж:", $"Name: {player.Character.Name}\n" +
-                                             $"Интеллект: {player.Character.Intelligence}\n" +
-                                             $"Сила: {player.Character.Strength}\n" +
-                                             $"Скорость: {player.Character.Speed}\n" +
-                                             $"Психика: {player.Character.Psyche}\n");
+                                             $"Интеллект: {player.Character.GetIntelligence()}\n" +
+                                             $"Сила: {player.Character.GetStrength()}\n" +
+                                             $"Скорость: {player.Character.GetSpeed()}\n" +
+                                             $"Психика: {player.Character.GetPsyche()}\n");
             embed.AddField("Пассивки", $"{pass}");
             embed.WithDescription(gameRules);
 
@@ -136,7 +133,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 //TODO: REMOVE || playersList[i].IsBot()
                 if (discordAccount.DiscordId == playersList[i].DiscordAccount.DiscordId || playersList[i].IsBot())
                     players +=
-                        $" = {playersList[i].Status.GetScore()} (I: {playersList[i].Character.Intelligence}, St: {playersList[i].Character.Strength}, SP: {playersList[i].Character.Speed}, Psy: {playersList[i].Character.Psyche}, J: {playersList[i].Character.Justice.JusticeForNextRound})\n";
+                        $" = {playersList[i].Status.GetScore()} (I: {playersList[i].Character.GetIntelligence()}, St: {playersList[i].Character.GetStrength()}, SP: {playersList[i].Character.GetSpeed()}, Psy: {playersList[i].Character.GetPsyche()}, J: {playersList[i].Character.Justice.GetJusticeNow()})\n";
                 else
                     players += "\n";
             }
@@ -175,9 +172,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     if (currentList != null)
                         if (currentList.KnownPlayers.Contains(player2.DiscordAccount.DiscordId))
                             customString +=
-                                $" PS: - {player2.Character.Name} ({player2.Character.Intelligence}, " +
-                                $"{player2.Character.Strength}, {player2.Character.Speed}, " +
-                                $"{player2.Character.Psyche}, {player2.Character.Justice.JusticeForNextRound})";
+                                $" PS: - {player2.Character.Name} ({player2.Character.GetIntelligence()}, " +
+                                $"{player2.Character.GetStrength()}, {player2.Character.GetSpeed()}, " +
+                                $"{player2.Character.GetPsyche()}, {player2.Character.Justice.GetJusticeNow()})";
                     //end сверхразум
 
 
@@ -217,7 +214,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         {
             await _global.Client.GetUser(reaction.UserId).SendMessageAsync("does not work. thx. bye");
 
-            return;
+          
+            /*
             var response = await _awaitForUser.FinishTheGameQuestion(reaction);
             if (!response) return;
 
@@ -229,6 +227,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             await socketMsg.DeleteAsync();
             await globalAccount.SendMessageAsync("Thank you for playing!");
+            */
         }
 
         //Page 1
@@ -260,14 +259,20 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithTitle("Царь Мусорной Горы");
             embed.AddField("____",
                 $"**Name:** {character.Name}\n" +
-                $"**Интеллект:** {character.Intelligence}\n" +
-                $"**Сила:** {character.Strength}\n" +
-                $"**Скорость:** {character.Speed}\n" +
-                $"**Психика:** {character.Psyche}\n" +
+                $"**Интеллект:** {character.GetIntelligence()}\n" +
+                $"**Сила:** {character.GetStrength()}\n" +
+                $"**Скорость:** {character.GetSpeed()}\n" +
+                $"**Психика:** {character.GetPsyche()}\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                $"*Справедливость: {character.Justice.JusticeNow}*\n" +
+                $"*Справедливость: {character.Justice.GetJusticeNow()}*\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                 $"{LeaderBoard(account, character)}");
+
+
+            if (player.Status.GetInGamePersonalLogs().Length >= 2)
+            {
+                embed.AddField("События:", $"{player.Status.GetInGamePersonalLogs()}");
+            }
 
 
             if (character.Avatar != null)
@@ -331,10 +336,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithTitle("Подними один из статов");
             embed.WithFooter($"{GetTimeLeft(account)}");
             embed.AddField("____",
-                $"1. **Интеллект:** {character.Intelligence}\n" +
-                $"2. **Сила:** {character.Strength}\n" +
-                $"3. **Скорость:** {character.Speed}\n" +
-                $"4. **Психика:** {character.Psyche}\n");
+                $"1. **Интеллект:** {character.GetIntelligence()}\n" +
+                $"2. **Сила:** {character.GetStrength()}\n" +
+                $"3. **Скорость:** {character.GetSpeed()}\n" +
+                $"4. **Психика:** {character.GetPsyche()}\n");
 
             if (character.Avatar != null)
                 if (IsImageUrl(character.Avatar))

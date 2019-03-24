@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Discord;
 using King_of_the_Garbage_Hill.Game.Classes;
+//using Discord;
 
 namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 {
@@ -11,8 +11,8 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public PhraseClass AwdkaAfk;
         public PhraseClass AwdkaTeachToPlay;
         public PhraseClass AwdkaTrolling;
-        public PhraseClass AwdkaTrying;
         public PhraseClass AwdkaTrollingReady;
+        public PhraseClass AwdkaTrying;
         public PhraseClass DarksciDysmoral;
         public PhraseClass DarksciFuckThisGame;
         public PhraseClass DarksciLucky;
@@ -25,8 +25,8 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public PhraseClass DeepListSuperMindPhrase;
 
         public PhraseClass GlebChallengerPhrase;
-        public PhraseClass GlebSleepyPhrase;
         public PhraseClass GlebComeBackPhrase;
+        public PhraseClass GlebSleepyPhrase;
         public PhraseClass GlebTeaPhrase;
 
         public PhraseClass HardKittyDoebatsyaPhrase;
@@ -45,20 +45,21 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public PhraseClass MylorikSpanishPhrase;
         public PhraseClass SirinoksDragonPhrase;
         public PhraseClass SirinoksFriendsPhrase;
+        public PhraseClass TigrSnipe;
+        public PhraseClass TigrThreeZero;
+        public PhraseClass TigrTop;
+
+        public PhraseClass TigrTwoBetter;
         public PhraseClass TolyaCountPhrase;
+
+        public PhraseClass TolyaCountReadyPhrase;
         public PhraseClass TolyaJewPhrase;
-        public PhraseClass TolyaRammusPhrase;
         public PhraseClass TolyaRammus2Phrase;
         public PhraseClass TolyaRammus3Phrase;
         public PhraseClass TolyaRammus4Phrase;
         public PhraseClass TolyaRammus5Phrase;
 
-        public PhraseClass TigrTwoBetter;
-        public PhraseClass TigrThreeZero;
-        public PhraseClass TigrTop;
-        public PhraseClass TigrSnipe;
-
-        public PhraseClass TolyaCountReadyPhrase;
+        public PhraseClass TolyaRammusPhrase;
         //end
 
         public CharactersUniquePhrase()
@@ -80,10 +81,10 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
             GlebChallengerPhrase = new PhraseClass("Претендент русского сервера");
 
-            GlebSleepyPhrase  = new PhraseClass("Спящее хуйло");
+            GlebSleepyPhrase = new PhraseClass("Спящее хуйло");
 
-            GlebComeBackPhrase  = new PhraseClass("Я щас приду");
-            GlebTeaPhrase  = new PhraseClass("Я за чаем");
+            GlebComeBackPhrase = new PhraseClass("Я щас приду");
+            GlebTeaPhrase = new PhraseClass("Я за чаем");
 
             LeCrispJewPhrase = new PhraseClass("Еврей");
             LeCrispAssassinsPhrase = new PhraseClass("Гребанные ассассины");
@@ -114,7 +115,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             AwdkaTrolling = new PhraseClass("Произошел троллинг");
             AwdkaTrying = new PhraseClass("Я пытаюсь!");
             AwdkaAfk = new PhraseClass("АФКА");
-            AwdkaTrollingReady  = new PhraseClass("Произошел троллинг");
+            AwdkaTrollingReady = new PhraseClass("Произошел троллинг");
 
             DarksciNotLucky = new PhraseClass("Не повезло");
             DarksciLucky = new PhraseClass("Повезло");
@@ -204,7 +205,6 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             TolyaRammus3Phrase.PassiveLogRus.Add("Изи разбайтил");
             TolyaRammus4Phrase.PassiveLogRus.Add("Посмотри сколько я поднял за раз!");
             TolyaRammus5Phrase.PassiveLogRus.Add("Оу, ну всё. ГГ.");
-       
 
 
             HardKittyLonelyPhrase.PassiveLogRus.Add("Привет");
@@ -279,9 +279,10 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                 PassiveNameEng = passiveNameEng;
             }
 
+            /*
             public async Task SendLog(GameBridgeClass player)
             {
-                if (player.DiscordAccount.IsPlaying)
+                if (player.DiscordAccount.IsPlaying && !player.IsBot())
                 {
                     var random = new Random();
                     var embed = new EmbedBuilder();
@@ -293,8 +294,10 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                         var embed2 = new EmbedBuilder();
                         embed2.WithColor(random.Next(0, 255), random.Next(0, 255), random.Next(0, 255));
                         embed2.WithDescription(twoPhrases[0]);
+
                         var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("", false,
                             embed2.Build());
+
 #pragma warning disable 4014
                         DeleteMessOverTime(mess2, 13);
 #pragma warning restore 4014
@@ -320,6 +323,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
             public async Task SendLog(GameBridgeClass player, GameBridgeClass player2)
             {
+                if(player.IsBot())return;
                 if (player.Character.Name == "DeepList")
                 {
                     if (player.DiscordAccount.IsPlaying)
@@ -345,12 +349,49 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                 }
     
             }
-
+           
             private async Task DeleteMessOverTime(IUserMessage message, int timeInSeconds)
             {
                 var seconds = timeInSeconds * 1000;
                 await Task.Delay(seconds);
                 await message.DeleteAsync();
+            }
+             */
+
+            public async Task SendLog(GameBridgeClass player)
+            {
+                var random = new Random();
+                var description = PassiveLogRus[random.Next(0, PassiveLogRus.Count)];
+
+
+                if (player.DiscordAccount.IsLogs)
+                    player.Status.AddInGamePersonalLogs($"{PassiveNameRus}: ");
+                else
+                    player.Status.InGamePersonalLogsAll += $"{PassiveNameRus}: ";
+
+                player.Status.AddInGamePersonalLogs($"{description}\n");
+                await Task.CompletedTask;
+            }
+
+            public async Task SendLog(GameBridgeClass player, GameBridgeClass player2)
+            {
+                if (player.Character.Name == "DeepList")
+                {
+                    var random = new Random();
+
+                    var description = PassiveLogRus[random.Next(0, PassiveLogRus.Count)];
+
+                    description += $"{player2.DiscordAccount.DiscordUserName} - {player2.Character.Name}";
+
+                    if (player.DiscordAccount.IsLogs)
+                        player.Status.AddInGamePersonalLogs($"{PassiveNameRus}: ");
+                    else
+                        player.Status.InGamePersonalLogsAll += $"{PassiveNameRus}: ";
+
+                    player.Status.AddInGamePersonalLogs($"{description}\n");
+                }
+
+                await Task.CompletedTask;
             }
         }
     }

@@ -33,7 +33,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             if (deep == null)
             {
                 _gameGlobal.DeepListDoubtfulTactic.Add(new Sirinoks.FriendsClass(player.DiscordAccount.DiscordId, player.DiscordAccount.GameId, player.Status.IsFighting));
-                player.Character.Psyche++;
+                player.Character.AddPsyche();
                 player.Status.IsAbleToWin = false;
      
             }
@@ -41,12 +41,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             {
                 if (deep.FriendList.Contains(player.Status.IsFighting))
                 { 
-                    player.Character.Psyche++;
+                    player.Character.AddPsyche();
                 }
                 else
                 {
                     deep.FriendList.Add(player.Status.IsFighting);
-                    player.Character.Psyche++;
+                    player.Character.AddPsyche();
                     player.Status.IsAbleToWin = false;
 
                 }
@@ -54,7 +54,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             }
     
             //end Doubtful tactic
-
+            await Task.CompletedTask;
         }
 
         public async Task HandleDeepListAfter(GameBridgeClass player, GameClass game)
@@ -68,7 +68,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 player.Status.IsAbleToWin = true;
                 if (deep.FriendList.Contains(player.Status.IsFighting))
                 {
-                    player.Character.Psyche--;
+                    player.Character.AddPsyche(-1);
                     if (player.Status.IsWonLastTime != 0)
                     {
                         player.Status.AddRegularPoints();
@@ -108,13 +108,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                     if (currentDeepList2.Times % 2 != 0 && currentDeepList2.Times != 1)
                     {
-                        player2.Character.Psyche--;
+                        player2.Character.AddPsyche(-1);
                         player2.MinusPsycheLog(game);
 
                         player.Status.AddRegularPoints();
-                        if (player2.Character.Psyche < 4)
+                        if (player2.Character.GetPsyche() < 4)
                         {
-                            player2.Character.Justice.JusticeForNextRound--;
+                            player2.Character.Justice.AddJusticeForNextRound(-1);
                         }
                     }
                 }

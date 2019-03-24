@@ -1,22 +1,15 @@
 ﻿using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
-using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class Panth : IServiceSingleton
     {
-        
-        private readonly SecureRandom _rand;
         private readonly InGameGlobal _gameGlobal;
-        private readonly GameUpdateMess _upd;
 
-        public Panth(GameUpdateMess upd, SecureRandom rand, InGameGlobal gameGlobal)
+        public Panth( InGameGlobal gameGlobal)
         {
-            _upd = upd;
-            _rand = rand;
             _gameGlobal = gameGlobal;
         }
 
@@ -37,13 +30,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             {
                 if (panth.FriendList.Contains(player.Status.IsWonLastTime))
                 {
-                    player.Character.Speed++;
+                    player.Character.AddSpeed();
                     panth.FriendList.Clear();
                 }
                 else if (panth.FriendList.Contains(player.Status.IsLostLastTime))
                 {
                     game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsLostLastTime).Character
-                        .Speed++;
+                        .AddSpeed();
                     panth.FriendList.Clear();
                 }
             }
@@ -53,7 +46,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             if (player.Status.IsWonLastTime != 0)
             {
                 game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonLastTime).Character
-                    .Justice.JusticeForNextRound++;
+                    .Justice.AddJusticeForNextRound();
             }
             //end Это привилегия
 

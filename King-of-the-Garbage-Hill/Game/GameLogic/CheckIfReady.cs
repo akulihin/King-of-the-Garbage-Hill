@@ -140,7 +140,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 int randomPlayer;
 
                 var playerToAttack =
-                    game.PlayersList.FindAll(x => x.Character.Justice.JusticeNow == player.Character.Justice.JusticeNow && x.Character.Name != player.Character.Name);
+                    game.PlayersList.FindAll(x => x.Character.Justice.GetJusticeNow() == player.Character.Justice.GetJusticeNow() && x.Character.Name != player.Character.Name);
 
                 var randomCheck = _rand.Random(0, playerToAttack.Count);
                 
@@ -170,10 +170,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             {
                 var skillNu = 1;
 
-                var intel = player.Character.Intelligence;
-                var str = player.Character.Strength;
-                var speed = player.Character.Speed;
-                var psy  = player.Character.Psyche;
+                var intel = player.Character.GetIntelligence();
+                var str = player.Character.GetStrength() ;
+                var speed = player.Character.GetSpeed();
+                var psy  = player.Character.GetPsyche();
 
                 var stats = new List<BiggestStatClass>
                 {

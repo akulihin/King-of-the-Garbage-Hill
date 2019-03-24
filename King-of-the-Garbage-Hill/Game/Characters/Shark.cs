@@ -1,8 +1,8 @@
 ﻿using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.DiscordMessages;
+
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
-using King_of_the_Garbage_Hill.Helpers;
+
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
@@ -10,13 +10,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
     {
         private readonly InGameGlobal _gameGlobal;
 
-        private readonly SecureRandom _rand;
-        private readonly GameUpdateMess _upd;
 
-        public Shark(GameUpdateMess upd, SecureRandom rand, InGameGlobal gameGlobal)
+
+        public Shark( InGameGlobal gameGlobal)
         {
-            _upd = upd;
-            _rand = rand;
+
             _gameGlobal = gameGlobal;
         }
 
@@ -42,18 +40,17 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 {
                     _gameGlobal.SharkJawsWin.Add(new Sirinoks.FriendsClass(player.DiscordAccount.DiscordId, game.GameId,
                         player.Status.IsWonLastTime));
-                    player.Character.Speed++;
+                    player.Character.AddSpeed();
                 }
                 else
                 {
                     if (!shark.FriendList.Contains(player.Status.IsWonLastTime))
                     {
                         shark.FriendList.Add(player.Status.IsWonLastTime);
-                        player.Character.Speed++;
+                        player.Character.AddSpeed();
                     }
                 }
 
-                if (player.Character.Speed > 10) player.Character.Speed = 10;
             }
 
             //end Челюсти: 

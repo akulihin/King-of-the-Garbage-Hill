@@ -40,7 +40,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.FinishedGameLog
             foreach (var player in game.PlayersList)
             {
                 playerList.Add(new GameLogsPlayer(player.DiscordAccount.DiscordId, player.DiscordAccount.DiscordUserName, player.Character.Name,
-                    player.Status.GetScore(), player.Character.Intelligence, player.Character.Strength, player.Character.Speed, player.Character.Psyche));
+                    player.Status.GetScore(), player.Character.GetIntelligence(), player.Character.GetStrength(), player.Character.GetSpeed(), player.Character.GetPsyche(), player.Status.InGamePersonalLogsAll));
             }
 
             var log = new GameLogsClass(game.GameId, game.WhoWon, playerList, game.GameLogs);

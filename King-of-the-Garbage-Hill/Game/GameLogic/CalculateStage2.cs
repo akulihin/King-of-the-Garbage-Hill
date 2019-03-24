@@ -129,7 +129,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     game.GameLogs += " ⟶ *Бой не состоялся...*\n";
                     game.PreviousGameLogs += " ⟶ *Бой не состоялся...*\n";
 
-                    player.Character.Justice.JusticeForNextRound--;
+                    player.Character.Justice.AddJusticeForNextRound(-1);
 
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
                     await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
@@ -153,12 +153,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var a = player.Character;
                 var b = playerIamAttacking.Character;
 
-                var strangeNumber = a.Intelligence - b.Intelligence
-                                    + a.Strength - b.Strength
-                                    + a.Speed - b.Speed
-                                    + a.Psyche - b.Psyche;
+                var strangeNumber = a.GetIntelligence() - b.GetIntelligence()
+                                    + a.GetStrength() - b.GetStrength() 
+                                    + a.GetSpeed() - b.GetSpeed()
+                                    + a.GetPsyche() - b.GetPsyche();
 
-                var pd = a.Psyche - b.Psyche;
+                var pd = a.GetPsyche() - b.GetPsyche();
 
                 if (pd > 0 && pd < 4)
                     strangeNumber += 1;
@@ -187,9 +187,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                 //round 2 (Justice)
-                if (player.Character.Justice.JusticeNow > playerIamAttacking.Character.Justice.JusticeNow)
+                if (player.Character.Justice.GetJusticeNow() > playerIamAttacking.Character.Justice.GetJusticeNow())
                     pointsWined++;
-                if (player.Character.Justice.JusticeNow < playerIamAttacking.Character.Justice.JusticeNow)
+                if (player.Character.Justice.GetJusticeNow() < playerIamAttacking.Character.Justice.GetJusticeNow())
                     pointsWined--;
                 //end round 2
 
@@ -216,7 +216,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     player.Status.WonTimes++;
                     player.Character.Justice.IsWonThisRound = true;
 
-                    playerIamAttacking.Character.Justice.JusticeForNextRound++;
+                    playerIamAttacking.Character.Justice.AddJusticeForNextRound();
 
                     player.Status.IsWonLastTime = playerIamAttacking.DiscordAccount.DiscordId;
                     playerIamAttacking.Status.IsLostLastTime = player.DiscordAccount.DiscordId;
@@ -236,7 +236,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         player.Status.WonTimes++;
                         playerIamAttacking.Character.Justice.IsWonThisRound = true;
 
-                        player.Character.Justice.JusticeForNextRound++;
+                        player.Character.Justice.AddJusticeForNextRound();
 
                         playerIamAttacking.Status.IsWonLastTime = player.DiscordAccount.DiscordId;
                         player.Status.IsLostLastTime = playerIamAttacking.DiscordAccount.DiscordId;
@@ -281,18 +281,19 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 player.Status.IsAbleToTurn = true;
                 player.Status.IsReady = false;
                 player.Status.WhoToAttackThisTurn = 0;
+                player.Status.ClearInGamePersonalLogs();
+                player.Status.InGamePersonalLogsAll += "|||\n";
                 player.Status.CombineRoundScoreAndGameScore(game.RoundNo);
 
 
                 player.Status.MoveListPage = 1;
 
-                if (player.Character.Justice.IsWonThisRound) player.Character.Justice.JusticeNow = 0;
+                if (player.Character.Justice.IsWonThisRound) player.Character.Justice.SetJusticeNow(0); 
 
                 player.Character.Justice.IsWonThisRound = false;
-                player.Character.Justice.JusticeNow += player.Character.Justice.JusticeForNextRound;
-                player.Character.Justice.JusticeForNextRound = 0;
+                player.Character.Justice.AddJusticeNow(player.Character.Justice.GetJusticeForNextRound());
+                player.Character.Justice.SetJusticeForNextRound(0);
 
-                if (player.Character.Justice.JusticeNow > 5) player.Character.Justice.JusticeNow = 5;
             }
 
 
@@ -365,19 +366,19 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             int intel = 0, speed = 0, str = 0;
 
-            if (p1.Intelligence - p2.Intelligence > 0)
+            if (p1.GetIntelligence() - p2.GetIntelligence()  > 0)
                 intel = 1;
-            if (p1.Intelligence - p2.Intelligence < 0)
+            if (p1.GetIntelligence()  - p2.GetIntelligence()  < 0)
                 intel = -1;
 
-            if (p1.Speed - p2.Speed > 0)
+            if (p1.GetSpeed() - p2.GetSpeed() > 0)
                 speed = 1;
-            if (p1.Speed - p2.Speed < 0)
+            if (p1.GetSpeed() - p2.GetSpeed() < 0)
                 speed = -1;
 
-            if (p1.Strength - p2.Strength > 0)
+            if (p1.GetStrength() - p2.GetStrength()  > 0)
                 str = 1;
-            if (p1.Strength - p2.Strength < 0)
+            if (p1.GetStrength()  - p2.GetStrength()  < 0)
                 str = -1;
 
 
