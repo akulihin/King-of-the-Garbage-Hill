@@ -123,11 +123,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
             if ((int) score > 0)
             {
-                InGamePersonalLogs += $"+{(int) score} **обычных** очков\n";
+                AddInGamePersonalLogs($"+{(int) score} **обычных** очков\n");
             }
             else if ((int) score < 0)
             {
-                InGamePersonalLogs += $"-{(int) score * -1} очков...\n";
+                AddInGamePersonalLogs($"-{(int) score * -1} очков...\n");
             }
             Score += (int)score;
         }
