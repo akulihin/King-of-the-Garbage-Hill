@@ -1,7 +1,7 @@
 [  
     {  
        "Name":"DeepList",
-       " ":10,
+       "Intelligence":10,
        "Psyche":0,
        "Speed":7,
        "Strength":5,
@@ -32,7 +32,7 @@
     },
     {  
        "Name":"mylorik",
-       " ":4,
+       "Intelligence":4,
        "Psyche":3,
        "Speed":9,
        "Strength":8,
@@ -63,7 +63,7 @@
     },
     {  
        "Name":"Глеб",
-       " ":7,
+       "Intelligence":7,
        "Psyche":8,
        "Speed":1,
        "Strength":6,
@@ -94,7 +94,7 @@
     },
     {  
        "Name":"LeCrisp",
-       " ":5,
+       "Intelligence":5,
        "Psyche":6,
        "Speed":5,
        "Strength":4,
@@ -125,7 +125,7 @@
     },
     {  
        "Name":"Толя",
-       " ":8,
+       "Intelligence":8,
        "Psyche":2,
        "Speed":2,
        "Strength":5,
@@ -156,7 +156,7 @@
     },
     {  
        "Name":"HardKitty",
-       " ":3,
+       "Intelligence":3,
        "Psyche":6,
        "Speed":5,
        "Strength":5,
@@ -187,7 +187,7 @@
     },
     {  
        "Name":"Sirinoks",
-       " ":5,
+       "Intelligence":5,
        "Psyche":5,
        "Speed":5,
        "Strength":2,
@@ -218,7 +218,7 @@
     },
     {  
        "Name":"Mitsuki",
-       " ":9,
+       "Intelligence":9,
        "Psyche":9,
        "Speed":9,
        "Strength":9,
@@ -249,7 +249,7 @@
     },
     {  
        "Name":"AWDKA",
-       " ":3,
+       "Intelligence":3,
        "Psyche":6,
        "Speed":4,
        "Strength":1,
@@ -280,7 +280,7 @@
     },
     {  
        "Name":"Осьминожка",
-       " ":1,
+       "Intelligence":1,
        "Psyche":10,
        "Speed":8,
        "Strength":1,
@@ -307,7 +307,7 @@
     },
     {  
        "Name":"Даркси",
-       " ":6,
+       "Intelligence":6,
        "Psyche":4,
        "Speed":8,
        "Strength":7,
@@ -338,7 +338,7 @@
     },
     {  
        "Name":"Тигр",
-       " ":1,
+       "Intelligence":1,
        "Psyche":1,
        "Speed":9,
        "Strength":9,
@@ -369,7 +369,7 @@
     },
     {  
        "Name":"Братишка",
-       " ":0,
+       "Intelligence":0,
        "Psyche":10,
        "Speed":0,
        "Strength":0,
@@ -400,7 +400,7 @@
     },
     {  
        "Name":"Загадочный Спартанец в маске",
-       " ":1,
+       "Intelligence":1,
        "Psyche":1,
        "Speed":5,
        "Strength":10,
@@ -431,7 +431,7 @@
     },
     {  
        "Name":"Бог ЛоЛа",
-       " ":7,
+       "Intelligence":7,
        "Psyche":7,
        "Speed":7,
        "Strength":7,
@@ -462,7 +462,7 @@
     },
     {  
        "Name":"Баг",
-       " ":6,
+       "Intelligence":6,
        "Psyche":0,
        "Speed":6,
        "Strength":6,
