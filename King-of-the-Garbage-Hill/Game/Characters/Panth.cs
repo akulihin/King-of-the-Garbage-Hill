@@ -30,13 +30,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             {
                 if (panth.FriendList.Contains(player.Status.IsWonLastTime))
                 {
-                    player.Character.AddSpeed();
+                    player.Character.AddSpeed(player.Status);
                     panth.FriendList.Clear();
                 }
                 else if (panth.FriendList.Contains(player.Status.IsLostLastTime))
                 {
-                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsLostLastTime).Character
-                        .AddSpeed();
+                    var ene =  game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsLostLastTime);
+                    ene.Character.AddSpeed(ene.Status);
                     panth.FriendList.Clear();
                 }
             }

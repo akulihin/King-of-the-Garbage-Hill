@@ -61,8 +61,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                             if (enemyAcc != null)
                             {
-                                enemyAcc.Character.AddIntelligence(-1);
-                                enemyAcc.Character.AddPsyche(-1);
+                                enemyAcc.Character.AddIntelligence(enemyAcc.Status, -1);
+                                enemyAcc.Character.AddPsyche(enemyAcc.Status,-1);
                                 enemyAcc.MinusPsycheLog(game);
                                 enemy.IsUnique = false;
                             }

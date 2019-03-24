@@ -40,14 +40,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 {
                     _gameGlobal.SharkJawsWin.Add(new Sirinoks.FriendsClass(player.DiscordAccount.DiscordId, game.GameId,
                         player.Status.IsWonLastTime));
-                    player.Character.AddSpeed();
+                    player.Character.AddSpeed(player.Status);
                 }
                 else
                 {
                     if (!shark.FriendList.Contains(player.Status.IsWonLastTime))
                     {
                         shark.FriendList.Add(player.Status.IsWonLastTime);
-                        player.Character.AddSpeed();
+                        player.Character.AddSpeed(player.Status);
                     }
                 }
 

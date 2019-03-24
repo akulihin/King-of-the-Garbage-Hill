@@ -33,7 +33,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             if (deep == null)
             {
                 _gameGlobal.DeepListDoubtfulTactic.Add(new Sirinoks.FriendsClass(player.DiscordAccount.DiscordId, player.DiscordAccount.GameId, player.Status.IsFighting));
-                player.Character.AddPsyche();
+                player.Character.AddPsyche(player.Status);
                 player.Status.IsAbleToWin = false;
      
             }
@@ -41,12 +41,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             {
                 if (deep.FriendList.Contains(player.Status.IsFighting))
                 { 
-                    player.Character.AddPsyche();
+                    player.Character.AddPsyche(player.Status);
                 }
                 else
                 {
                     deep.FriendList.Add(player.Status.IsFighting);
-                    player.Character.AddPsyche();
+                    player.Character.AddPsyche(player.Status);
                     player.Status.IsAbleToWin = false;
 
                 }
@@ -68,7 +68,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 player.Status.IsAbleToWin = true;
                 if (deep.FriendList.Contains(player.Status.IsFighting))
                 {
-                    player.Character.AddPsyche(-1);
+                    player.Character.AddPsyche(player.Status, -1);
                     if (player.Status.IsWonLastTime != 0)
                     {
                         player.Status.AddRegularPoints();
@@ -108,7 +108,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                     if (currentDeepList2.Times % 2 != 0 && currentDeepList2.Times != 1)
                     {
-                        player2.Character.AddPsyche(-1);
+                        player2.Character.AddPsyche(player2.Status, -1);
                         player2.MinusPsycheLog(game);
 
                         player.Status.AddRegularPoints();

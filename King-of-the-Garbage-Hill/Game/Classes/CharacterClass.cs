@@ -25,8 +25,17 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             Name = name;
         }
 
-        public void AddIntelligence(int howMuchToAdd = 1)
+        public void AddIntelligence(InGameStatus status, int howMuchToAdd = 1, bool isLog = true)
         {
+            if (howMuchToAdd > 0 && isLog)
+            {
+                status.AddInGamePersonalLogs($"+{howMuchToAdd} интеллект\n");
+            }
+            else if (howMuchToAdd < 0 && isLog)
+            {
+                status.AddInGamePersonalLogs($"-{howMuchToAdd} интеллект\n");
+            }
+
             if (Intelligence < 10)
                 Intelligence += howMuchToAdd;
             if (Intelligence < 0)
@@ -43,8 +52,17 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             Intelligence = newIntelligence;
         }
 
-        public void AddPsyche(int howMuchToAdd = 1)
+        public void AddPsyche(InGameStatus status, int howMuchToAdd = 1, bool isLog = true)
         {
+            if (howMuchToAdd > 0 && isLog)
+            {
+                status.AddInGamePersonalLogs($"+{howMuchToAdd} психика\n");
+            }
+            else if (howMuchToAdd < 0 && isLog)
+            {
+                status.AddInGamePersonalLogs($"-{howMuchToAdd} психика\n");
+            }
+
             if (Psyche < 10)
                 Psyche += howMuchToAdd;
 
@@ -62,8 +80,17 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             Psyche = newPsyche;
         }
 
-        public void AddSpeed(int howMuchToAdd = 1)
+        public void AddSpeed(InGameStatus status, int howMuchToAdd = 1, bool isLog = true)
         {
+            if (howMuchToAdd > 0 && isLog)
+            {
+                status.AddInGamePersonalLogs($"+{howMuchToAdd} скорость\n");
+            }
+            else if (howMuchToAdd < 0 && isLog)
+            {
+                status.AddInGamePersonalLogs($"-{howMuchToAdd} скорость\n");
+            }
+
             if (Speed < 10)
                 Speed += howMuchToAdd;
             if (Speed < 0)
@@ -80,8 +107,17 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             Speed = newSpeed;
         }
 
-        public void AddStrength(int howMuchToAdd = 1)
+        public void AddStrength(InGameStatus status, int howMuchToAdd = 1, bool isLog = true)
         {
+            if (howMuchToAdd > 0 && isLog)
+            {
+                status.AddInGamePersonalLogs($"+{howMuchToAdd} сила\n");
+            }
+            else if (howMuchToAdd < 0 && isLog)
+            {
+                status.AddInGamePersonalLogs($"-{howMuchToAdd} сила\n");
+            }
+
             if (Strength < 10)
                 Strength += howMuchToAdd;
             if (Strength < 0)

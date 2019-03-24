@@ -230,8 +230,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         await LvlUp10(player);
                         return;
                     }
-                    player.Character.AddIntelligence();
-                    player.Status.AddInGamePersonalLogs($"Ты улучшил интеллект до {player.Character.GetIntelligence()}");
+                    player.Character.AddIntelligence(player.Status, 1, false);
+                    player.Status.AddInGamePersonalLogs($"Ты улучшил интеллект до {player.Character.GetIntelligence()}\n");
                     break;
                 case 2:
 
@@ -242,8 +242,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         return;
                     }
 
-                    player.Character.AddStrength();
-                    player.Status.AddInGamePersonalLogs($"Ты улучшил силу до {player.Character.GetStrength()}");
+                    player.Character.AddStrength(player.Status, 1, false);
+                    player.Status.AddInGamePersonalLogs($"Ты улучшил силу до {player.Character.GetStrength()}\n");
 
                     break;
                 case 3:
@@ -255,8 +255,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         return;
                     }
 
-                    player.Character.AddSpeed();
-                    player.Status.AddInGamePersonalLogs($"Ты улучшил скорость до {player.Character.GetSpeed()}");
+                    player.Character.AddSpeed(player.Status, 1, false);
+                    player.Status.AddInGamePersonalLogs($"Ты улучшил скорость до {player.Character.GetSpeed()}\n");
 
                     break;
                 case 4:
@@ -268,8 +268,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         return;
                     }
 
-                    player.Character.AddPsyche();
-                    player.Status.AddInGamePersonalLogs( $"Ты улучшил психику до {player.Character.GetPsyche()}");
+                    player.Character.AddPsyche(player.Status, 1, false);
+                    player.Status.AddInGamePersonalLogs( $"Ты улучшил психику до {player.Character.GetPsyche()}\n");
 
                     break;
                 default:

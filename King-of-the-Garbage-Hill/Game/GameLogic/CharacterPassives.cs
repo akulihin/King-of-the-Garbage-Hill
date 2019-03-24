@@ -106,14 +106,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         _gameGlobal.SharkBoole.Add(new Sirinoks.FriendsClass(
                             playerIamAttacking.DiscordAccount.DiscordId, game.GameId,
                             playerAttackFrom.DiscordAccount.DiscordId));
-                        playerAttackFrom.Character.AddIntelligence(-1);
+                        playerAttackFrom.Character.AddIntelligence(playerAttackFrom.Status, -1);
                     }
                     else
                     {
                         if (!shark.FriendList.Contains(playerAttackFrom.DiscordAccount.DiscordId))
                         {
                             shark.FriendList.Add(playerAttackFrom.DiscordAccount.DiscordId);
-                            playerAttackFrom.Character.AddIntelligence(-1);
+                            playerAttackFrom.Character.AddIntelligence(playerAttackFrom.Status, -1);
                         }
                     }
 
@@ -233,14 +233,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     {
                         _gameGlobal.PanthShame.Add(new Sirinoks.FriendsClass(player1.DiscordAccount.DiscordId,
                             game.GameId, playerIamAttacking.DiscordAccount.DiscordId));
-                        playerIamAttacking.Character.AddStrength(-1);
+                        playerIamAttacking.Character.AddStrength(playerIamAttacking.Status,-1);
                     }
                     else
                     {
                         if (!panth.FriendList.Contains(playerIamAttacking.DiscordAccount.DiscordId))
                         {
                             panth.FriendList.Add(playerIamAttacking.DiscordAccount.DiscordId);
-                            playerIamAttacking.Character.AddStrength(-1);
+                            playerIamAttacking.Character.AddStrength(playerIamAttacking.Status, -1);
                         }
                     }
 
@@ -638,7 +638,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //Дизмораль
                         if (game.RoundNo == 9)
                         {
-                            player.Character.AddPsyche(-4); 
+                            player.Character.AddPsyche(player.Status, -4); 
                             await _phrase.DarksciDysmoral.SendLog(player);
                             game.PreviousGameLogs += "Всё, у меня горит!\n";
 
@@ -1208,16 +1208,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             switch (stats.StatIndex)
                             {
                                 case 1:
-                                    player.Character.AddIntelligence();
+                                    player.Character.AddIntelligence(player.Status);
                                     break;
                                 case 2:
-                                    player.Character.AddStrength();
+                                    player.Character.AddStrength(player.Status);
                                     break;
                                 case 3:
-                                    player.Character.AddSpeed();
+                                    player.Character.AddSpeed(player.Status);
                                     break;
                                 case 4:
-                                    player.Character.AddPsyche();
+                                    player.Character.AddPsyche(player.Status);
                                     break;
                             }
 
@@ -1238,32 +1238,32 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         switch (randStat1)
                         {
                             case 1:
-                                player.Character.AddIntelligence(-1);
+                                player.Character.AddIntelligence(player.Status, -1);
                                 break;
                             case 2:
-                                player.Character.AddStrength(-1);
+                                player.Character.AddStrength(player.Status, -1);
                                 break;
                             case 3:
-                                player.Character.AddSpeed(-1);
+                                player.Character.AddSpeed(player.Status, -1);
                                 break;
                             case 4:
-                                player.Character.AddPsyche(-1);
+                                player.Character.AddPsyche(player.Status, -1);
                                 break;
                         }
 
                         switch (randStat2)
                         {
                             case 1:
-                                player.Character.AddIntelligence(-1);
+                                player.Character.AddIntelligence(player.Status, -1);
                                 break;
                             case 2:
-                                player.Character.AddStrength(-1);
+                                player.Character.AddStrength(player.Status, -1);
                                 break;
                             case 3:
-                                player.Character.AddSpeed(-1);
+                                player.Character.AddSpeed(player.Status, -1);
                                 break;
                             case 4:
-                                player.Character.AddPsyche(-1);
+                                player.Character.AddPsyche(player.Status, -1);
                                 break;
                         }
 
@@ -1440,7 +1440,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             var player2 = game.PlayersList.Find(x =>
                                 x.DiscordAccount.DiscordId == player.Status.IsWonLastTime);
-                            player2.Character.AddPsyche(-1);
+                            player2.Character.AddPsyche(player2.Status, -1);
                             player2.MinusPsycheLog(game);
                         }
 
@@ -1513,7 +1513,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             player.Status.AddBonusPoints(player.Status.GetScore() * 3);
 
-                            player.Character.AddPsyche(2);
+                            player.Character.AddPsyche(player.Status, 2);
                             darscsi.TouchedPlayers.Clear();
                             await _phrase.DarksciLucky.SendLog(player);
                         }
@@ -1552,14 +1552,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 _gameGlobal.SharkJawsLeader.Add(new Sirinoks.FriendsClass(
                                     player.DiscordAccount.DiscordId, game.GameId,
                                     (ulong) player.Status.PlaceAtLeaderBoard));
-                                player.Character.AddSpeed();
+                                player.Character.AddSpeed(player.Status );
                             }
                             else
                             {
                                 if (!shark.FriendList.Contains((ulong) player.Status.PlaceAtLeaderBoard))
                                 {
                                     shark.FriendList.Add((ulong) player.Status.PlaceAtLeaderBoard);
-                                    player.Character.AddSpeed();
+                                    player.Character.AddSpeed(player.Status);
                                 }
                             }
 
@@ -1572,7 +1572,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //Тигр топ, а ты холоп: 
                         if (player.Status.PlaceAtLeaderBoard == 1 && game.RoundNo > 1)
                         {
-                            player.Character.AddPsyche();
+                            player.Character.AddPsyche(player.Status);
                             await _phrase.TigrTop.SendLog(player);
                         }
 
