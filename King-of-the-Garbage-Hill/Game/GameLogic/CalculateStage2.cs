@@ -110,6 +110,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     game.GameLogs += logMess;
                     game.PreviousGameLogs += logMess;
 
+                    player.Character.Justice.AddJusticeForNextRound(-1);
+                    playerIamAttacking.Character.Justice.AddJusticeForNextRound();
 
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
                     await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
@@ -128,8 +130,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     game.GameLogs += " ⟶ *Бой не состоялся...*\n";
                     game.PreviousGameLogs += " ⟶ *Бой не состоялся...*\n";
-
-                    player.Character.Justice.AddJusticeForNextRound(-1);
 
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
                     await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
