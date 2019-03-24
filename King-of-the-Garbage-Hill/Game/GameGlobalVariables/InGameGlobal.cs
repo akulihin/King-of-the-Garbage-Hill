@@ -98,15 +98,16 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         }
 
         public WhenToTriggerClass GetWhenToTrigger(GameBridgeClass player, bool isMandatory, int maxRandomNumber,
-            int maxTimes, bool isMandatory2 = false)
+            int maxTimes, bool isMandatory2 = false, int lastRound = 10)
         {
             var toTriggerClass = new WhenToTriggerClass(player.DiscordAccount.DiscordId, player.DiscordAccount.GameId);
             int when;
             var check = 0;
 
+            //I folgot why I used "maxRandomNumber = ="...
             if (maxRandomNumber == 0)
             {
-                when = _rand.Random(2, 10);
+                when = _rand.Random(2, lastRound);
                 toTriggerClass.WhenToTrigger.Add(when);
                 return toTriggerClass;
             }
@@ -114,7 +115,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
 
             if (isMandatory)
             {
-                when = _rand.Random(1, 10);
+                when = _rand.Random(1, lastRound);
                 check = when;
                 toTriggerClass.WhenToTrigger.Add(when);
             }
@@ -123,7 +124,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
             {
                 do
                 {
-                    when = _rand.Random(1, 10);
+                    when = _rand.Random(1, lastRound);
                 } while (check == when);
 
                 toTriggerClass.WhenToTrigger.Add(when);
@@ -139,7 +140,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
                 {
                     while (times < rand)
                     {
-                        when = _rand.Random(1, 10);
+                        when = _rand.Random(1, lastRound);
 
                         if (toTriggerClass.WhenToTrigger.All(x => x != when))
                         {
@@ -154,7 +155,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
                 {
                     while (times < rand)
                     {
-                        when = _rand.Random(1, 10);
+                        when = _rand.Random(1, lastRound);
 
                         if (toTriggerClass.WhenToTrigger.All(x => x != when))
                         {
@@ -169,7 +170,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
                 {
                     while (times < rand)
                     {
-                        when = _rand.Random(1, 10);
+                        when = _rand.Random(1, lastRound);
 
                         if (toTriggerClass.WhenToTrigger.All(x => x != when))
                         {

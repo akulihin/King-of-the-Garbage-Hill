@@ -498,8 +498,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
                     case "DeepList":
 
-                        when = _gameGlobal.GetWhenToTrigger(player, true, 7, 1);
+                        when = _gameGlobal.GetWhenToTrigger(player, true, 6, 2, false, 6);
                         _gameGlobal.DeepListSupermindTriggeredWhen.Add(when);
+
                         when = _gameGlobal.GetWhenToTrigger(player, false, 10, 2);
                         _gameGlobal.DeepListMadnessTriggeredWhen.Add(when);
 
