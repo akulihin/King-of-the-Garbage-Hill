@@ -402,7 +402,7 @@
        "Name":"Загадочный Спартанец в маске",
        "Intelligence":1,
        "Psyche":1,
-       "Speed":5,
+       "Speed":6,
        "Strength":10,
        "Justice":{  
           "JusticeNow":0,
