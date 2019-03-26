@@ -215,7 +215,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     //еврей
                     var point = _characterPassives.HandleJewPassive(player, game);
+
+                    if (point.Result == 0)
+                    {
+                        player.Status.AddInGamePersonalLogs("Евреи...\n");
+                    }
                     //end еврей
+
+                    
 
                     player.Status.AddRegularPoints(point.Result);
 
