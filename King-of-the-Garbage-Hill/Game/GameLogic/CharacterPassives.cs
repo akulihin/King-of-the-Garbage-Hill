@@ -1167,27 +1167,30 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         var tolya = _gameGlobal.TolyaRammusTimes.Find(x =>
                             x.GameId == player.DiscordAccount.GameId &&
                             x.PlayerDiscordId == player.DiscordAccount.DiscordId);
-
-                        switch (tolya.FriendList.Count)
+                        if(tolya != null)
                         {
-                            case 1:
-                                await _phrase.TolyaRammusPhrase.SendLog(player);
-                                break;
-                            case 2:
-                                await _phrase.TolyaRammus2Phrase.SendLog(player);
-                                break;
-                            case 3:
-                                await _phrase.TolyaRammus3Phrase.SendLog(player);
-                                break;
-                            case 4:
-                                await _phrase.TolyaRammus4Phrase.SendLog(player);
-                                break;
-                            case 5:
-                                await _phrase.TolyaRammus5Phrase.SendLog(player);
-                                break;
+                            switch (tolya.FriendList.Count)
+                            {
+                                case 1:
+                                    await _phrase.TolyaRammusPhrase.SendLog(player);
+                                    break;
+                                case 2:
+                                    await _phrase.TolyaRammus2Phrase.SendLog(player);
+                                    break;
+                                case 3:
+                                    await _phrase.TolyaRammus3Phrase.SendLog(player);
+                                    break;
+                                case 4:
+                                    await _phrase.TolyaRammus4Phrase.SendLog(player);
+                                    break;
+                                case 5:
+                                    await _phrase.TolyaRammus5Phrase.SendLog(player);
+                                    break;
+                            }
+
+                            tolya.FriendList.Clear();
                         }
-                       
-                        tolya.FriendList.Clear();
+
                         break;
 
                     case "Осьминожка":
