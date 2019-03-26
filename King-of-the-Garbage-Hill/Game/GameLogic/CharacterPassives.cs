@@ -714,7 +714,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (awdkaa != null)
                             foreach (var enemy in awdkaa.TryingList)
                                 if (enemy != null)
-                                    if (enemy.Times >= 2 && enemy.IsUnique == false)
+                                    if (enemy.Times >= 2 && enemy.IsUnique == false && player.Status.LvlUpPoints != 3)
                                     {
                                         player.Status.LvlUpPoints = 3;
                                         await _gameUpdateMess.UpdateMessage(player);
@@ -1153,9 +1153,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             var randNum = _rand.Random(1, 5);
                             if (randNum == 1)
                             {
-                                var randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
-                                game.PreviousGameLogs +=
-                                    $"Толя запизделся и спалил, что {randomPlayer.DiscordAccount.DiscordUserName} - {randomPlayer.Character.Name}\n";
+                                var count = game.GameLogs.Split(" ").Count(x => x == "запизделся");
+                                if (count < 2)
+                                {
+                                    var randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
+                                    game.PreviousGameLogs +=
+                                        $"Толя запизделся и спалил, что {randomPlayer.DiscordAccount.DiscordUserName} - {randomPlayer.Character.Name}\n";
+                                }
+
                             }
                         }
 
@@ -1473,7 +1478,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonLastTime);
 
                         if (player2.Status.PlaceAtLeaderBoard == 1)
-                            if (awdka.Cooldown <= -1)
+                            if (awdka.Cooldown <= 0)
                             {
                                 var pointsToGet = player2.Status.GetScore() / 4;
                                 if (pointsToGet < 1) pointsToGet = 1;
@@ -1649,7 +1654,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (awdka != null)
                         {
                             awdka.Cooldown--;
-                            if (awdka.Cooldown <= -1) await _phrase.AwdkaTrollingReady.SendLog(player);
+                            if (awdka.Cooldown == 0) await _phrase.AwdkaTrollingReady.SendLog(player);
                         }
 
                         break;

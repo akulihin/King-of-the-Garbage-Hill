@@ -147,6 +147,19 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var customString = "";
             switch (player1Char.Name)
             {
+                case "Sirinoks":
+                    var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
+                        x.GameId == player1Account.GameId && x.PlayerDiscordId == player1Account.DiscordId);
+
+                    if (siri != null)
+                    {
+                        if (siri.FriendList.Contains(player2.DiscordAccount.DiscordId))
+                        {
+                            customString += $" {new Emoji("<:sparta:557781305178325002>")}";
+                        }
+                    }
+
+                    break;
                 case "Загадочный Спартанец в маске":
                     var panth = _gameGlobal.PanthMark.Find(x =>
                         x.GameId == player1Account.GameId && x.PlayerDiscordId == player1Account.DiscordId);
