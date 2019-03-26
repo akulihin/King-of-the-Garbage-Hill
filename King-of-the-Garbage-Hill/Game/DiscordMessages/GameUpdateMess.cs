@@ -147,6 +147,17 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var customString = "";
             switch (player1Char.Name)
             {
+
+                case "asd":
+                    var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
+                        x.GameId == player1Account.GameId &&
+                        x.PlayerDiscordId == player1Account.DiscordId);
+                    var lostSeries = hardKitty?.LostSeries.Find(x => x.EnemyId == player2.DiscordAccount.DiscordId);
+                    if (lostSeries != null)
+                    {
+                        customString += $" {new Emoji("<:sparta:557781305178325002>")} - {lostSeries.Series}";
+                    }
+                    break;
                 case "Sirinoks":
                     var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
                         x.GameId == player1Account.GameId && x.PlayerDiscordId == player1Account.DiscordId);
