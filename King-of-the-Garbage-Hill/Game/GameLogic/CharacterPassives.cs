@@ -1654,7 +1654,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (awdka != null)
                         {
                             awdka.Cooldown--;
-                            if (awdka.Cooldown == 0) await _phrase.AwdkaTrollingReady.SendLog(player);
+                            if (awdka.Cooldown <= 0 ) await _phrase.AwdkaTrollingReady.SendLog(player);
                         }
 
                         break;
