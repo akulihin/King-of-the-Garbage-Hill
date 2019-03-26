@@ -46,7 +46,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             LoopingTimer = new Timer
             {
                 AutoReset = true,
-                Interval = 5000,
+                Interval = 3000,
                 Enabled = true
             };
 
