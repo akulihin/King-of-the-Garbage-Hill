@@ -18,15 +18,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly CharactersUniquePhrase _phrase;
         private readonly SecureRandom _rand;
         private readonly GameUpdateMess _upd;
+        private readonly Global _global;
 
         public CalculateStage2(GameUpdateMess upd, SecureRandom rand, CharacterPassives characterPassives,
-            InGameGlobal gameGlobal, CharactersUniquePhrase phrase)
+            InGameGlobal gameGlobal, CharactersUniquePhrase phrase, Global gobal)
         {
             _upd = upd;
             _rand = rand;
             _characterPassives = characterPassives;
             _gameGlobal = gameGlobal;
             _phrase = phrase;
+            _global = gobal;
         }
 
         public async Task InitializeAsync()
@@ -70,7 +72,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var playerIamAttacking =
                     game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.WhoToAttackThisTurn);
 
-
+                if (playerIamAttacking == null) 
+                {
+                   await _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
+                        .SendMessageAsync($"/CalculateStage2.cs:line 74 - ERROR\n" +
+                                          $"player.Status.WhoToAttackThisTurn = {player.Status.WhoToAttackThisTurn}");
+                    return;
+                }
                 playerIamAttacking.Status.IsFighting = player.DiscordAccount.DiscordId;
                 player.Status.IsFighting = playerIamAttacking.DiscordAccount.DiscordId;
 
