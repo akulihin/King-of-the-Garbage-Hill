@@ -33,7 +33,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             }
             else if (howMuchToAdd < 0 && isLog)
             {
-                status.AddInGamePersonalLogs($"-{howMuchToAdd * -1} интеллект\n");
+                status.AddInGamePersonalLogs($"{howMuchToAdd} интеллект\n");
             }
 
             if (Intelligence < 10)
@@ -60,7 +60,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             }
             else if (howMuchToAdd < 0 && isLog)
             {
-                status.AddInGamePersonalLogs($"-{howMuchToAdd * -1} психика\n");
+                status.AddInGamePersonalLogs($"{howMuchToAdd} психика\n");
             }
 
             if (Psyche < 10)
@@ -88,7 +88,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             }
             else if (howMuchToAdd < 0 && isLog)
             {
-                status.AddInGamePersonalLogs($"-{howMuchToAdd * -1} скорость\n");
+                status.AddInGamePersonalLogs($"{howMuchToAdd} скорость\n");
             }
 
             if (Speed < 10)
@@ -115,7 +115,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             }
             else if (howMuchToAdd < 0 && isLog)
             {
-                status.AddInGamePersonalLogs($"-{howMuchToAdd * -1} сила\n");
+                status.AddInGamePersonalLogs($"{howMuchToAdd} сила\n");
             }
 
             if (Strength < 10)
@@ -169,10 +169,13 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public void AddJusticeNow(int howMuchToAdd = 1)
         {
-            if (JusticeNow < 5)
+            
                 JusticeNow += howMuchToAdd;
+
             if (JusticeNow < 0)
                 JusticeNow = 0;
+            if (JusticeNow > 5)
+                JusticeNow = 5;
         }
 
         public int GetJusticeNow()
@@ -187,11 +190,14 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
        public void AddJusticeForNextRound(int howMuchToAdd = 1)
         {
-            if (JusticeForNextRound < 10)
+            
                 JusticeForNextRound += howMuchToAdd;
 
             if (JusticeForNextRound < 0)
                 JusticeForNextRound = 0;
+
+            if (JusticeForNextRound > 10)
+                JusticeForNextRound = 10;
         }
 
         public int GetJusticeForNextRound()

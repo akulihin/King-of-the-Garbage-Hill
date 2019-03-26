@@ -23,13 +23,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             public ulong DiscordId;
             public ulong GameId;
-            public int RoundNo;
+            public bool IsTriggered;
 
-            public LeCrispImpactClass(ulong discordId, ulong gameId, int roundNo)
+            public LeCrispImpactClass(ulong discordId, ulong gameId)
             {
                 DiscordId = discordId;
                 GameId = gameId;
-                RoundNo = roundNo;
+                IsTriggered = true;
             }
         }
     }

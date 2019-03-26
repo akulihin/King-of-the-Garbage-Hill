@@ -159,9 +159,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         x.DiscordId == playerIamAttacking.DiscordAccount.DiscordId && x.GameId == game.GameId);
 
                     if (lePuska == null)
-                        _gameGlobal.LeCrispImpact.Add(
-                            new LeCrisp.LeCrispImpactClass(playerIamAttacking.DiscordAccount.DiscordId, game.GameId,
-                                game.RoundNo));
+                    {
+                        _gameGlobal.LeCrispImpact.Add(new LeCrisp.LeCrispImpactClass(playerIamAttacking.DiscordAccount.DiscordId, game.GameId));
+                    }
+                    else
+                    {
+                        lePuska.IsTriggered = true;
+                    }
                     // end Импакт: 
                     break;
 
@@ -1019,7 +1023,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     player.Status.IsAbleToTurn = false;
                     player.Status.IsReady = true;
                     player.Status.WhoToAttackThisTurn = 0;
-                    player.Status.AddInGamePersonalLogs("Тебя убаюкали...");
+                    player.Status.AddInGamePersonalLogs("Тебя усыпили...\n");
                 }
             }
         }
@@ -1128,12 +1132,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         var leImpact = _gameGlobal.LeCrispImpact.Find(x =>
                             x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
-                        if (leImpact != null)
-                            _gameGlobal.LeCrispImpact.Remove(leImpact);
-                        else
+
+                        if (leImpact == null || !leImpact.IsTriggered)
                         {
                             player.Status.AddBonusPoints(1);
-                         await  _phrase.LeCrispImpactPhrase.SendLog(player);
+                            await _phrase.LeCrispImpactPhrase.SendLog(player);
+                        }
+                        else if (leImpact != null)
+                        {
+                            leImpact.IsTriggered = false;
                         }
 
                         //end impact
@@ -1596,17 +1603,23 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             var mitsuki = _gameGlobal.MitsukiGarbageList.Find(x =>
                                 x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
                             if (mitsuki != null)
-                                for (var i = 0; i < mitsuki.Training.Count; i++)
+                            {
+                                var count = 0;
+                                foreach (var t in mitsuki.Training)
                                 {
-                                    var i1 = i;
                                     var player2 = game.PlayersList.Find(x =>
-                                        x.DiscordAccount.DiscordId == mitsuki.Training[i1]);
+                                        x.DiscordAccount.DiscordId == t);
                                     if (player2 != null)
                                     {
-                                        player2.Status.AddBonusPoints(-1);
+                                        player2.Status.AddBonusPoints(-2);
+                                        //  player.Status.AddBonusPoints(2);
                                         await _phrase.MitsukiGarbageSmell.SendLog(player2);
+                                        count++;
                                     }
                                 }
+
+                                game.PreviousGameLogs += $"Mitsuki отнял в общей сумме {count*2} очков.";
+                            }
                         }
 
                         //end Запах мусора:
@@ -1649,7 +1662,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (tolya != null)
                         {
                             tolya.Cooldown--;
-                            if (tolya.Cooldown <= -1) await _phrase.TolyaCountReadyPhrase.SendLog(player);
+                            if (tolya.Cooldown <= 0) await _phrase.TolyaCountReadyPhrase.SendLog(player);
                         }
                         break;
                 }

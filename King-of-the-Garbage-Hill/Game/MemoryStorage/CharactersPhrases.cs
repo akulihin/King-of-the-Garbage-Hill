@@ -143,7 +143,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             DarksciFuckThisGame.PassiveLogRus.Add("Нахуй эту игру");
             DarksciDysmoral.PassiveLogRus.Add("Всё, у меня горит!");
 
-            DeepListMadnessPhrase.PassiveLogRus.Add("Хаха. Ха. || АХАХАХАХАХАХАХ!");
+            DeepListMadnessPhrase.PassiveLogRus.Add("Хаха. Ха. АХАХАХАХАХАХАХ!");
             DeepListMadnessPhrase.PassiveLogRus.Add("Стоп, кто... я?");
             DeepListMadnessPhrase.PassiveLogRus.Add("Заткнитесь!");
             DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Everything is going according to my plan");
@@ -179,7 +179,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             GlebChallengerPhrase.PassiveLogRus.Add("В Претендентмобиль!");
             GlebChallengerPhrase.PassiveLogRus.Add("ЛИИИИРОЙ ДЖЕНКИНС");
             GlebSleepyPhrase.PassiveLogRus.Add("Zzzz...");
-            GlebSleepyPhrase.PassiveLogRus.Add("Я... || Я тут...");
+            GlebSleepyPhrase.PassiveLogRus.Add("Я... Я тут...");
             GlebSleepyPhrase.PassiveLogRus.Add("Только не делайте ремейк *Зевнул*");
             GlebComeBackPhrase.PassiveLogRus.Add("5 минут");
             GlebComeBackPhrase.PassiveLogRus.Add("Я щас приду");
@@ -220,7 +220,6 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
             SirinoksFriendsPhrase.PassiveLogRus.Add("Го в пати");
             SirinoksFriendsPhrase.PassiveLogRus.Add("М/Ж?");
-            // SirinoksFriendsPhrase.PassiveLogRus.Add("");
             SirinoksDragonPhrase.PassiveLogRus.Add("РООАР!");
 
 
@@ -278,85 +277,6 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                 PassiveNameRus = passiveNameRus;
                 PassiveNameEng = passiveNameEng;
             }
-
-            /*
-            public async Task SendLog(GameBridgeClass player)
-            {
-                if (player.DiscordAccount.IsPlaying && !player.IsBot())
-                {
-                    var random = new Random();
-                    var embed = new EmbedBuilder();
-                    var description = PassiveLogRus[random.Next(0, PassiveLogRus.Count)];
-
-                    if (description.Contains("||"))
-                    {
-                        var twoPhrases = description.Split("||");
-                        var embed2 = new EmbedBuilder();
-                        embed2.WithColor(random.Next(0, 255), random.Next(0, 255), random.Next(0, 255));
-                        embed2.WithDescription(twoPhrases[0]);
-
-                        var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("", false,
-                            embed2.Build());
-
-#pragma warning disable 4014
-                        DeleteMessOverTime(mess2, 13);
-#pragma warning restore 4014
-                        await Task.Delay(2000);
-                        description = twoPhrases[1];
-                    }
-
-                    embed.WithDescription(description);
-
-                    if (player.DiscordAccount.IsLogs) embed.WithFooter(PassiveNameRus);
-                    embed.WithColor(random.Next(0, 255), random.Next(0, 255), random.Next(0, 255));
-
-                    if (!player.IsBot())
-                    {
-                        var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("", false,
-                            embed.Build());
-#pragma warning disable 4014
-                        DeleteMessOverTime(mess, 13);
-#pragma warning restore 4014
-                    }
-                }
-            }
-
-            public async Task SendLog(GameBridgeClass player, GameBridgeClass player2)
-            {
-                if(player.IsBot())return;
-                if (player.Character.Name == "DeepList")
-                {
-                    if (player.DiscordAccount.IsPlaying)
-                    {
-                        var random = new Random();
-                        var embed = new EmbedBuilder();
-                        var description = PassiveLogRus[random.Next(0, PassiveLogRus.Count)];
-                        description += $"{player2.DiscordAccount.DiscordUserName} - {player2.Character.Name}";
-                        embed.WithDescription(description);
-
-                        if (player.DiscordAccount.IsLogs) embed.WithFooter(PassiveNameRus);
-                        embed.WithColor(random.Next(0, 255), random.Next(0, 255), random.Next(0, 255));
-
-                        if (!player.IsBot())
-                        {
-                            var mess = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("", false,
-                                embed.Build());
-#pragma warning disable 4014
-                            DeleteMessOverTime(mess, 13);
-#pragma warning restore 4014
-                        }
-                    }
-                }
-    
-            }
-           
-            private async Task DeleteMessOverTime(IUserMessage message, int timeInSeconds)
-            {
-                var seconds = timeInSeconds * 1000;
-                await Task.Delay(seconds);
-                await message.DeleteAsync();
-            }
-             */
 
             public async Task SendLog(GameBridgeClass player)
             {
