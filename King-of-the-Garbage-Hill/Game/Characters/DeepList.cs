@@ -52,6 +52,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 }
 
             }
+
             player.Character.SetPsyche(player.Character.GetPsyche()+1);
             //end Doubtful tactic
             await Task.CompletedTask;

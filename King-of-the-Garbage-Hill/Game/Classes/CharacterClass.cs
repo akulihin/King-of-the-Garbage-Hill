@@ -40,6 +40,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 Intelligence += howMuchToAdd;
             if (Intelligence < 0)
                 Intelligence = 0;
+            if (Intelligence > 10)
+                Intelligence = 10;
         }
 
         public int GetIntelligence()
@@ -68,6 +70,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
             if (Psyche < 0)
                 Psyche = 0;
+            if (Psyche > 10)
+                Psyche = 10;
         }
 
         public int GetPsyche()
@@ -95,6 +99,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 Speed += howMuchToAdd;
             if (Speed < 0)
                 Speed = 0;
+            if (Speed > 10)
+                Speed = 10;
         }
 
         public int GetSpeed()
@@ -122,6 +128,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 Strength += howMuchToAdd;
             if (Strength < 0)
                 Strength = 0;
+            if (Strength > 10)
+                Strength = 10;
         }
 
         public int GetStrength()

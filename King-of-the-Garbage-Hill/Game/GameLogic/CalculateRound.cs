@@ -178,7 +178,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 if (pd > 0 && pd < 4)
                     strangeNumber += 1;
-                else if (pd > 0 && pd >= 4)
+                else if (pd >= 4)
                     strangeNumber += 2;
                 else if (pd < 0 && pd > -4)
                     strangeNumber -= 1;

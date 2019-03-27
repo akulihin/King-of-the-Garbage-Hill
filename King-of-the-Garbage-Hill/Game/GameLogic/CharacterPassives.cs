@@ -741,7 +741,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             var speed = player.Character.GetSpeed() - madStats.Speed;
                             var psy = player.Character.GetPsyche() - madStats.Psyche;
 
-                            player.Character.SetIntelligence(regularStats.Intel + intel);
+                            var intelToGive = regularStats.Intel + intel;
+                            if (intelToGive > 10)
+                                intelToGive = 10;
+                            player.Character.SetIntelligence(intelToGive);
                             player.Character.SetStrength(regularStats.Str + str);
                             player.Character.SetSpeed(regularStats.Speed + speed);
                             player.Character.SetPsyche(regularStats.Psyche + psy);

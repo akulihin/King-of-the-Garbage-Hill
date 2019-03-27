@@ -264,9 +264,20 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             //randomize order
             playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
             for (var i = 0; i < playersList.Count; i++) { playersList[i].Status.PlaceAtLeaderBoard = i + 1; }
-
-
             var game = new GameClass(playersList, _global.GamePlayingAndId);
+
+            //HardKitty unique
+            if (game.PlayersList.Any(x => x.Character.Name == "HardKitty"))
+            {
+                var tempHard = game.PlayersList.Find(x => x.Character.Name == "HardKitty");
+                var hardIndex = game.PlayersList.IndexOf(tempHard);
+
+                for (var i = hardIndex; i < game.PlayersList.Count - 1; i++)
+                    game.PlayersList[i] = game.PlayersList[i + 1];
+
+                game.PlayersList[game.PlayersList.Count - 1] = tempHard;
+            }
+            //end //HardKitty unique
 
             await _characterPassives.HandleNextRound(game);
 
@@ -368,6 +379,19 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
          
             var game = new GameClass(playersList,  _global.GamePlayingAndId);
+
+            //HardKitty unique
+            if (game.PlayersList.Any(x => x.Character.Name == "HardKitty"))
+            {
+                var tempHard = game.PlayersList.Find(x => x.Character.Name == "HardKitty");
+                var hardIndex = game.PlayersList.IndexOf(tempHard);
+
+                for (var i = hardIndex; i < game.PlayersList.Count - 1; i++)
+                    game.PlayersList[i] = game.PlayersList[i + 1];
+
+                game.PlayersList[game.PlayersList.Count - 1] = tempHard;
+            }
+            //end //HardKitty unique
 
             await _characterPassives.HandleNextRound(game);
     
