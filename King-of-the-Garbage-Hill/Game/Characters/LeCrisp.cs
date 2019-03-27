@@ -1,11 +1,18 @@
 ﻿using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class LeCrisp : IServiceSingleton
     {
+        private readonly InGameGlobal _gameGlobal;
+
+        public LeCrisp(InGameGlobal global)
+        {
+            _gameGlobal = global;
+        }
 
         public Task InitializeAsync() => Task.CompletedTask;
 
@@ -14,9 +21,21 @@ namespace King_of_the_Garbage_Hill.Game.Characters
           //  throw new System.NotImplementedException();
         }
 
-        public void HandleLeCrispAfter(GameBridgeClass player)
+        public void HandleLeCrispAfter(GameBridgeClass player, GameClass game)
         {
             player.Status.IsAbleToWin = true;
+
+            if (player.Status.IsLostLastTime != 0)
+            {
+                var lePuska = _gameGlobal.LeCrispImpact.Find(x =>
+                    x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+
+                if (lePuska != null)
+                {
+                    lePuska.IsTriggered = true;
+
+                }
+            }
         }
 
         public class LeCrispImpactClass
@@ -29,7 +48,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             {
                 DiscordId = discordId;
                 GameId = gameId;
-                IsTriggered = true;
+                IsTriggered = false;
             }
         }
     }

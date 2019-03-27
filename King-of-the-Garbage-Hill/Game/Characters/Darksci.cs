@@ -36,8 +36,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 //Не повезло
                 player.Character.AddPsyche(player.Status, -1);
                 player.MinusPsycheLog(game);
-              await  _phrase.DarksciNotLucky.SendLog(player);
+                await  _phrase.DarksciNotLucky.SendLog(player);
                 //end Не повезло
+                var l = 0;
             }
 
         }

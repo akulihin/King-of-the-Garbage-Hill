@@ -53,7 +53,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
             }
 
-            player.Character.SetPsyche(player.Character.GetPsyche()+1);
+
             //end Doubtful tactic
             await Task.CompletedTask;
         }
@@ -69,7 +69,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 player.Status.IsAbleToWin = true;
                 if (deep.FriendList.Contains(player.Status.IsFighting))
                 {
-                    player.Character.SetPsyche( player.Character.GetPsyche()-1);
+                  
                     if (player.Status.IsWonLastTime != 0)
                     {
                         player.Status.AddRegularPoints();

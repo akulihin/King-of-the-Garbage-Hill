@@ -66,29 +66,21 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var intel = player.Character.GetIntelligence();
                 var str = player.Character.GetStrength();
                 var speed = player.Character.GetSpeed();
-           //     var psy = player.Character.GetPsyche();
+                var psy = player.Character.GetPsyche();
 
                 var stats = new List<BiggestStatClass>
                 {
                     new BiggestStatClass(1, intel),
                     new BiggestStatClass(2, str),
-                    new BiggestStatClass(3, speed) //,
-                    // new BiggestStatClass(4, psy)
+                    new BiggestStatClass(3, speed) ,
+                     new BiggestStatClass(4, psy)
                 };
 
                 stats = stats.OrderByDescending(x => x.StatCount).ToList();
 
-                if (stats[0].StatCount < 7)
-                {
-                    skillNu = stats[0].StatIndex;
-                }
-                else if (stats[1].StatCount < 7)
+                if (stats[1].StatCount < 7)
                 {
                     skillNu = stats[1].StatIndex;
-                }
-                else if (stats[2].StatCount < 7)
-                {
-                    skillNu = stats[2].StatIndex;
                 }
                 else if (stats[0].StatCount < 10)
                 {
@@ -102,6 +94,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     skillNu = stats[2].StatIndex;
                 }
+                else if (stats[3].StatCount < 10)
+                {
+                    skillNu = stats[3].StatIndex;
+                }
                 else
                 {
                     player.Status.MoveListPage = 1;
@@ -109,6 +105,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
 
                 if (player.Character.Name == "LeCrisp" && str < 10) skillNu = 2;
+                if (player.Character.Name == "Даркси" && psy < 10) skillNu = 4;
+                if (player.Character.Name == "Тигр" && psy < 10 && game.RoundNo <= 6) skillNu = 4;
 
                 await _gameReaction.HandleAttackOrLvlUp(player, null, skillNu);
                 player.Status.MoveListPage = 1;

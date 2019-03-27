@@ -147,7 +147,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     break;
                 case "LeCrisp":
                     //гребанные ассасисны
-                    if (playerAttackFrom.Character.GetStrength() - playerIamAttacking.Character.GetStrength() >= 2)
+                    if (playerAttackFrom.Character.GetStrength() - playerIamAttacking.Character.GetStrength() >= 2 
+                        && !playerIamAttacking.Status.IsBlock
+                        && !playerIamAttacking.Status.IsSkip)
                     {
                         playerIamAttacking.Status.IsAbleToWin = false;
                         await _phrase.LeCrispAssassinsPhrase.SendLog(playerIamAttacking);
@@ -161,10 +163,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (lePuska == null)
                     {
                         _gameGlobal.LeCrispImpact.Add(new LeCrisp.LeCrispImpactClass(playerIamAttacking.DiscordAccount.DiscordId, game.GameId));
-                    }
-                    else
-                    {
-                        lePuska.IsTriggered = true;
                     }
                     // end Импакт: 
                     break;
@@ -428,7 +426,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     _gleb.HandleGlebAfter(player);
                     break;
                 case "LeCrisp":
-                    _leCrisp.HandleLeCrispAfter(player);
+                    _leCrisp.HandleLeCrispAfter(player, game);
                     break;
                 case "Толя":
                     _tolya.HandleTolyaAfter(player, game);
@@ -448,7 +446,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 case "Осьминожка":
                     _octopus.HandleOctopusAfter(player);
                     break;
-                case "Darksci":
+                case "Даркси":
                     await _darksci.HandleDarksiAfter(player, game);
                     break;
                 case "Тигр":
