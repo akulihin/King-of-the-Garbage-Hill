@@ -46,5 +46,7 @@ namespace King_of_the_Garbage_Hill
         {
             return GamesList.Find(x => x.GameId == gameId).PlayersList.Find(x => x.DiscordAccount.DiscordId == userId);
         }
+
+
     }
 }

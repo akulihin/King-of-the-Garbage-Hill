@@ -11,7 +11,7 @@ using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic
 {
-    public class CalculateStage2 : IServiceSingleton
+    public class CalculateRound : IServiceSingleton
     {
         private readonly CharacterPassives _characterPassives;
         private readonly InGameGlobal _gameGlobal;
@@ -20,15 +20,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly GameUpdateMess _upd;
         private readonly Global _global;
 
-        public CalculateStage2(GameUpdateMess upd, SecureRandom rand, CharacterPassives characterPassives,
-            InGameGlobal gameGlobal, CharactersUniquePhrase phrase, Global gobal)
+        public CalculateRound(GameUpdateMess upd, SecureRandom rand, CharacterPassives characterPassives,
+            InGameGlobal gameGlobal, CharactersUniquePhrase phrase, Global global)
         {
             _upd = upd;
             _rand = rand;
             _characterPassives = characterPassives;
             _gameGlobal = gameGlobal;
             _phrase = phrase;
-            _global = gobal;
+            _global = global;
         }
 
         public async Task InitializeAsync()
@@ -75,9 +75,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (playerIamAttacking == null) 
                 {
                    await _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
-                        .SendMessageAsync($"/CalculateStage2.cs:line 74 - ERROR\n" +
-                                          $"player.Status.WhoToAttackThisTurn = {player.Status.WhoToAttackThisTurn}");
-                    return;
+                        .SendMessageAsync($"/CalculateRound.cs:line 74 - ERROR\n" +
+                                          $"player.Status.WhoToAttackThisTurn = {player.Status.WhoToAttackThisTurn}\n" +
+                                          $"player.Character.Name =  {player.Character.Name}\n" +
+                                          $"player.DiscordUserName = {player.DiscordAccount.DiscordUserName}");
+                   continue;
                 }
                 playerIamAttacking.Status.IsFighting = player.DiscordAccount.DiscordId;
                 player.Status.IsFighting = playerIamAttacking.DiscordAccount.DiscordId;
@@ -377,6 +379,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             Console.WriteLine(
                 $"Finished calculating game #{game.GameId} (round# {game.RoundNo}). || {watch.Elapsed.TotalSeconds}s");
             watch.Stop();
+            await Task.CompletedTask;
         }
 
         public int WhoIsBetter(GameBridgeClass player1, GameBridgeClass player2)

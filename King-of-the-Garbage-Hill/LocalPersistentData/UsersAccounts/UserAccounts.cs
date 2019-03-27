@@ -43,8 +43,15 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
         {
             if (userId > 1000)
                 return GetOrCreateAccount(_client.GetUser(userId));
-            return UserAccountsDictionary.GetOrAdd(userId, x => _usersDataStorage.LoadAccountSettings(userId).ToList())
+
+            var toRet = UserAccountsDictionary.GetOrAdd(userId, x => _usersDataStorage.LoadAccountSettings(userId).ToList())
                 .FirstOrDefault();
+
+            if (toRet == null && userId < 1000)
+            {
+                return CreateBotAccount(userId);
+            }
+            return toRet;
         }
 
 

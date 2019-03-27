@@ -6,6 +6,7 @@ using Discord.Commands;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
+using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
 namespace King_of_the_Garbage_Hill.Game.DiscordMessages
@@ -13,16 +14,19 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
     public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceSingleton
     {
         private readonly UserAccounts _accounts;
-       // private readonly AwaitForUserMessage _awaitForUser;
+        private readonly AwaitForUserMessage _awaitForUser;
+        private readonly HelperFunctions _helperFunctions;
         private readonly InGameGlobal _gameGlobal;
         private readonly Global _global;
 
 
-        public GameUpdateMess(UserAccounts accounts, Global global, InGameGlobal gameGlobal)
+        public GameUpdateMess(UserAccounts accounts, Global global, InGameGlobal gameGlobal, AwaitForUserMessage awaitForUser, HelperFunctions helperFunctions)
         {
             _accounts = accounts;
             _global = global;
             _gameGlobal = gameGlobal;
+            _awaitForUser = awaitForUser;
+            _helperFunctions = helperFunctions;
         }
 
         public Task InitializeAsync()
@@ -148,7 +152,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             switch (player1Char.Name)
             {
 
-                case "asd":
+                case "HardKitty":
                     var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
                         x.GameId == player1Account.GameId &&
                         x.PlayerDiscordId == player1Account.DiscordId);
@@ -236,22 +240,22 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public async Task EndGame(SocketReaction reaction, IUserMessage socketMsg)
         {
-            await _global.Client.GetUser(reaction.UserId).SendMessageAsync("does not work. thx. bye");
 
           
-            /*
             var response = await _awaitForUser.FinishTheGameQuestion(reaction);
             if (!response) return;
+            _helperFunctions.SubstituteUserWithBot(reaction.User.Value.Id);
 
             var globalAccount = _global.Client.GetUser(reaction.UserId);
-
             var account = _accounts.GetAccount(globalAccount);
             account.IsPlaying = false;
+            
             _accounts.SaveAccounts(account.DiscordId);
 
-            await socketMsg.DeleteAsync();
+          //  await socketMsg.DeleteAsync();
             await globalAccount.SendMessageAsync("Thank you for playing!");
-            */
+
+            
         }
 
         //Page 1
@@ -396,11 +400,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     break;
             }
 
-            if (!player.IsBot())
-                await player.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
+            await UpdateMessageWithEmbed(player, embed);
         }
 
-        public async Task UpdateMessage(GameBridgeClass player, EmbedBuilder embed)
+        public async Task UpdateMessageWithEmbed(GameBridgeClass player, EmbedBuilder embed)
         {
             if (!player.IsBot())
                 await player.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
