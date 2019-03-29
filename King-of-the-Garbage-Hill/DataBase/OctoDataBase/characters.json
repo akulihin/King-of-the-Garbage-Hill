@@ -61,37 +61,37 @@
           }
        ]
     },
-    {  
-       "Name":"Глеб",
-       "Intelligence":7,
-       "Psyche":8,
-       "Speed":1,
-       "Strength":6,
-       "Justice":{  
-          "JusticeNow":0,
-          "JusticeForNextRound":0,
-          "IsWonThisRound":false
-       },
-       "Avatar":null,
-       "Passive":[  
-          {  
-             "PassiveDescription":"Большой шанс заснуть и пропустить ход.",
-             "PassiveName":"Спящее хуйло"
-          },
-          {  
-             "PassiveDescription":" Иногда вспоминает кто он и увеличивает свои параметры до 9 на один ход. На этом ходу Глебу не хочется спать и он получает утроенные очки.",
-             "PassiveName":"Претендент русского сервера"
-          },
-          {  
-             "PassiveDescription":" Небольшой шанс, что Глеб может не придти на поле боя и нападавший на него ничего не получит.",
-             "PassiveName":"Я щас приду"
-          },
-          {  
-             "PassiveDescription":"Очень маленький шанс того, что Глеб угостит атакуемого врага чаем и тот пропустит свой следующий ход, а Глеб получит очко. Потому что мир прекрасен Z-z-z",
-             "PassiveName":"Я за чаем"
-          }
-       ]
+  {
+    "Name": "Глеб",
+    "Intelligence": 7,
+    "Psyche": 8,
+    "Speed": 1,
+    "Strength": 6,
+    "Justice": {
+      "JusticeNow": 0,
+      "JusticeForNextRound": 0,
+      "IsWonThisRound": false
     },
+    "Avatar": "https://i.imgur.com/lzghKB9.png",
+    "Passive": [
+      {
+        "PassiveDescription": "Большой шанс заснуть и пропустить ход.",
+        "PassiveName": "Спящее хуйло"
+      },
+      {
+        "PassiveDescription": " Иногда вспоминает кто он и увеличивает свои параметры до 9 на один ход. На этом ходу Глебу не хочется спать и он получает утроенные очки.",
+        "PassiveName": "Претендент русского сервера"
+      },
+      {
+        "PassiveDescription": " Небольшой шанс, что Глеб может не придти на поле боя и нападавший на него ничего не получит.",
+        "PassiveName": "Я щас приду"
+      },
+      {
+        "PassiveDescription": "Очень маленький шанс того, что Глеб угостит атакуемого врага чаем и тот пропустит свой следующий ход, а Глеб получит очко. Потому что мир прекрасен Z-z-z",
+        "PassiveName": "Я за чаем"
+      }
+    ]
+  },
     {  
        "Name":"LeCrisp",
        "Intelligence":5,
@@ -123,37 +123,37 @@
           }
        ]
     },
-    {  
-       "Name":"Толя",
-       "Intelligence":8,
-       "Psyche":2,
-       "Speed":2,
-       "Strength":5,
-       "Justice":{  
-          "JusticeNow":0,
-          "JusticeForNextRound":0,
-          "IsWonThisRound":false
-       },
-       "Avatar":null,
-       "Passive":[  
-          {  
-             "PassiveDescription":"Забирает себе все очки победы при нападение на одного и того же игрока вместе с кем-то.",
-             "PassiveName":"Еврей"
-          },
-          {  
-             "PassiveDescription":" Побеждает всех, кто атакует его в блок.",
-             "PassiveName":"Раммус мейн"
-          },
-          {  
-             "PassiveDescription":" Получает очко каждый раз, когда проигрывает враг, которого Толя атаковал на прошлом ходу. (Заряжается 1 ход)",
-             "PassiveName":"Подсчет"
-          },
-          {  
-             "PassiveDescription":" Маленький шанс, того что Толя может запиздеться и раскрыть всем в логах роль одного из игроков.",
-             "PassiveName":"Великий Комментатор"
-          }
-       ]
+  {
+    "Name": "Толя",
+    "Intelligence": 8,
+    "Psyche": 2,
+    "Speed": 2,
+    "Strength": 5,
+    "Justice": {
+      "JusticeNow": 0,
+      "JusticeForNextRound": 0,
+      "IsWonThisRound": false
     },
+    "Avatar": "https://i.imgur.com/SovUuW9.png",
+    "Passive": [
+      {
+        "PassiveDescription": "Забирает себе все очки победы при нападение на одного и того же игрока вместе с кем-то.",
+        "PassiveName": "Еврей"
+      },
+      {
+        "PassiveDescription": " Побеждает всех, кто атакует его в блок.",
+        "PassiveName": "Раммус мейн"
+      },
+      {
+        "PassiveDescription": " Получает очко каждый раз, когда проигрывает враг, которого Толя атаковал на прошлом ходу. (Заряжается 1 ход)",
+        "PassiveName": "Подсчет"
+      },
+      {
+        "PassiveDescription": " Маленький шанс, того что Толя может запиздеться и раскрыть всем в логах роль одного из игроков.",
+        "PassiveName": "Великий Комментатор"
+      }
+    ]
+  },
     {  
        "Name":"HardKitty",
        "Intelligence":3,
@@ -216,37 +216,37 @@
           }
        ]
     },
-    {  
-       "Name":"Mitsuki",
-       "Intelligence":9,
-       "Psyche":9,
-       "Speed":9,
-       "Strength":9,
-       "Justice":{  
-          "JusticeNow":0,
-          "JusticeForNextRound":0,
-          "IsWonThisRound":false
-       },
-       "Avatar":null,
-       "Passive":[  
-          {  
-             "PassiveDescription":"Начинает игру со всеми статами на 9, но теряет 2 рандомных после каждого хода.",
-             "PassiveName":"Дерзкая школота"
-          },
-          {  
-             "PassiveDescription":"Получает очко после каждого хода, если он топ 1.",
-             "PassiveName":"Много выебывается"
-          },
-          {  
-             "PassiveDescription":"В конце игры отнимает 2 __бонусных__ очка у всех, кто нападал на него.",
-             "PassiveName":"Запах мусора"
-          },
-          {  
-             "PassiveDescription":"Один раз за игру брат может забрать у него компьютер и тот пропустит случайный ход. (кроме первого)",
-             "PassiveName":"Школьник"
-          }
-       ]
+  {
+    "Name": "Mitsuki",
+    "Intelligence": 9,
+    "Psyche": 9,
+    "Speed": 9,
+    "Strength": 9,
+    "Justice": {
+      "JusticeNow": 0,
+      "JusticeForNextRound": 0,
+      "IsWonThisRound": false
     },
+    "Avatar": "https://i.imgur.com/pVeod0p.png",
+    "Passive": [
+      {
+        "PassiveDescription": "Начинает игру со всеми статами на 9, но теряет 2 рандомных после каждого хода.",
+        "PassiveName": "Дерзкая школота"
+      },
+      {
+        "PassiveDescription": "Получает очко после каждого хода, если он топ 1.",
+        "PassiveName": "Много выебывается"
+      },
+      {
+        "PassiveDescription": "В конце игры отнимает 2 __бонусных__ очка у всех, кто нападал на него.",
+        "PassiveName": "Запах мусора"
+      },
+      {
+        "PassiveDescription": "Один раз за игру брат может забрать у него компьютер и тот пропустит случайный ход. (кроме первого)",
+        "PassiveName": "Школьник"
+      }
+    ]
+  },
     {  
        "Name":"AWDKA",
        "Intelligence":3,
@@ -278,33 +278,33 @@
           }
        ]
     },
-    {  
-       "Name":"Осьминожка",
-       "Intelligence":1,
-       "Psyche":10,
-       "Speed":8,
-       "Strength":1,
-       "Justice":{  
-          "JusticeNow":0,
-          "JusticeForNextRound":0,
-          "IsWonThisRound":false
-       },
-       "Avatar":null,
-       "Passive":[  
-          {  
-             "PassiveDescription":"Получает очко за каждое уникальное место в таблице, на которое он переходит.",
-             "PassiveName":"Раскинуть щупальца"
-          },
-          {  
-             "PassiveDescription":"При победе над атакующим врагом делает вид, что проигрывает, отдавая очки врагу. В конце игры восстанавливает всем настоящее количество очков.",
-             "PassiveName":"Чернильная завеса"
-          },
-        {
-          "PassiveDescription": "Получает __бонусное__ очко в конце игры за каждое поражение от атакуемого врага.",
-          "PassiveName": "Неуязвимость"
-        }
-       ]
+  {
+    "Name": "Осьминожка",
+    "Intelligence": 1,
+    "Psyche": 10,
+    "Speed": 8,
+    "Strength": 1,
+    "Justice": {
+      "JusticeNow": 0,
+      "JusticeForNextRound": 0,
+      "IsWonThisRound": false
     },
+    "Avatar": "https://i.imgur.com/EKjMkk6.png",
+    "Passive": [
+      {
+        "PassiveDescription": "Получает очко за каждое уникальное место в таблице, на которое он переходит.",
+        "PassiveName": "Раскинуть щупальца"
+      },
+      {
+        "PassiveDescription": "При победе над атакующим врагом делает вид, что проигрывает, отдавая очки врагу. В конце игры восстанавливает всем настоящее количество очков.",
+        "PassiveName": "Чернильная завеса"
+      },
+      {
+        "PassiveDescription": "Получает __бонусное__ очко в конце игры за каждое поражение от атакуемого врага.",
+        "PassiveName": "Неуязвимость"
+      }
+    ]
+  },
     {  
        "Name":"Даркси",
        "Intelligence":6,
@@ -336,99 +336,99 @@
           }
        ]
     },
-    {  
-       "Name":"Тигр",
-       "Intelligence":1,
-       "Psyche":1,
-       "Speed":9,
-       "Strength":9,
-       "Justice":{  
-          "JusticeNow":0,
-          "JusticeForNextRound":0,
-          "IsWonThisRound":false
-       },
-       "Avatar":null,
-       "Passive":[  
-          {  
-             "PassiveDescription":"Тигр получает очко за каждого уникального игрока, сравнявшегося с его уровнем интеллекта или психики.",
-             "PassiveName":"Лучше с двумя, чем с адекватными"
-          },
-          {  
-             "PassiveDescription":"Три победы подряд над уникальным врагом отнимают у него 1 интеллекта и психики. Тигр получает дополнительно 2 очка за эту победу.",
-             "PassiveName":"3-0 обоссан"
-          },
-          {  
-             "PassiveDescription":"В случайный момент матча Тигр меняется местами с топ1 на следующие 2 хода. Находясь в топ1 чсв тигра растет, прибавляя ему 1 психики за каждый ход в топ1.",
-             "PassiveName":"Тигр топ, а ты холоп"
-          },
-          {  
-             "PassiveDescription":"В последний ход Тигр не может действовать и на него нельзя нападать, потому что его забанили. Довыёбывался.",
-             "PassiveName":"Стримснайпят и банят и банят и банят"
-          }
-       ]
+  {
+    "Name": "Тигр",
+    "Intelligence": 1,
+    "Psyche": 1,
+    "Speed": 9,
+    "Strength": 9,
+    "Justice": {
+      "JusticeNow": 0,
+      "JusticeForNextRound": 0,
+      "IsWonThisRound": false
     },
-    {  
-       "Name":"Братишка",
-       "Intelligence":0,
-       "Psyche":10,
-       "Speed":0,
-       "Strength":0,
-       "Justice":{  
-          "JusticeNow":0,
-          "JusticeForNextRound":0,
-          "IsWonThisRound":false
-       },
-       "Avatar":null,
-       "Passive":[  
-          {  
-             "PassiveDescription":"Каждый кто свяжется с Братишкой потеряет 1 интеллекта при первом нападение на него.",
-             "PassiveName":"Ничего не понимает"
-          },
-          {  
-             "PassiveDescription":"Получает +1 справедливости каждый ход, когда не топ1.",
-             "PassiveName":"Булькает"
-          },
-          {  
-             "PassiveDescription":"Получает очки каждый раз, когда проигрывает кто-то рядом с ним по таблице.",
-             "PassiveName":"Лежит на дне"
-          },
-          {  
-             "PassiveDescription":"Получает 1 скорость за победу над каждым уникальным врагом. Так же получает +1 скорости за каждое уникальное место, приближаясь к топ1.",
-             "PassiveName":"Челюсти"
-          }
-       ]
+    "Avatar": "https://i.imgur.com/KXmjFZj.png",
+    "Passive": [
+      {
+        "PassiveDescription": "Тигр получает очко за каждого уникального игрока, сравнявшегося с его уровнем интеллекта или психики.",
+        "PassiveName": "Лучше с двумя, чем с адекватными"
+      },
+      {
+        "PassiveDescription": "Три победы подряд над уникальным врагом отнимают у него 1 интеллекта и психики. Тигр получает дополнительно 2 очка за эту победу.",
+        "PassiveName": "3-0 обоссан"
+      },
+      {
+        "PassiveDescription": "В случайный момент матча Тигр меняется местами с топ1 на следующие 2 хода. Находясь в топ1 чсв тигра растет, прибавляя ему 1 психики за каждый ход в топ1.",
+        "PassiveName": "Тигр топ, а ты холоп"
+      },
+      {
+        "PassiveDescription": "В последний ход Тигр не может действовать и на него нельзя нападать, потому что его забанили. Довыёбывался.",
+        "PassiveName": "Стримснайпят и банят и банят и банят"
+      }
+    ]
+  },
+  {
+    "Name": "Братишка",
+    "Intelligence": 0,
+    "Psyche": 10,
+    "Speed": 0,
+    "Strength": 0,
+    "Justice": {
+      "JusticeNow": 0,
+      "JusticeForNextRound": 0,
+      "IsWonThisRound": false
     },
-    {  
-       "Name":"Загадочный Спартанец в маске",
-       "Intelligence":1,
-       "Psyche":1,
-       "Speed":6,
-       "Strength":10,
-       "Justice":{  
-          "JusticeNow":0,
-          "JusticeForNextRound":0,
-          "IsWonThisRound":false
-       },
-       "Avatar":null,
-       "Passive":[  
-          {  
-             "PassiveDescription":"Спартанец получает метку охотника на двух игроках, победы над которыми будут приносить ему дополнительное очко.",
-             "PassiveName":"Им это не понравится"
-          },
-          {  
-             "PassiveDescription":"Поражения против Спартанца дают дополнительную справедливость.",
-             "PassiveName":"Это привилегия - умереть от моей руки"
-          },
-          {  
-             "PassiveDescription":"Первое нападение Спартанца за игру принесет либо ему, либо его оппоненту + 1 скорости, в зависимости от победы.",
-             "PassiveName":"Первая кровь"
-          },
-          {  
-             "PassiveDescription":"Отнимает у каждого уникального врага 1 силу первым нападением. Теряет всю свою Силу на последнем ходу.",
-             "PassiveName":"Они позорят военное искусство"
-          }
-       ]
+    "Avatar": "https://i.imgur.com/WJpbItN.png",
+    "Passive": [
+      {
+        "PassiveDescription": "Каждый кто свяжется с Братишкой потеряет 1 интеллекта при первом нападение на него.",
+        "PassiveName": "Ничего не понимает"
+      },
+      {
+        "PassiveDescription": "Получает +1 справедливости каждый ход, когда не топ1.",
+        "PassiveName": "Булькает"
+      },
+      {
+        "PassiveDescription": "Получает очки каждый раз, когда проигрывает кто-то рядом с ним по таблице.",
+        "PassiveName": "Лежит на дне"
+      },
+      {
+        "PassiveDescription": "Получает 1 скорость за победу над каждым уникальным врагом. Так же получает +1 скорости за каждое уникальное место, приближаясь к топ1.",
+        "PassiveName": "Челюсти"
+      }
+    ]
+  },
+  {
+    "Name": "Загадочный Спартанец в маске",
+    "Intelligence": 1,
+    "Psyche": 1,
+    "Speed": 6,
+    "Strength": 10,
+    "Justice": {
+      "JusticeNow": 0,
+      "JusticeForNextRound": 0,
+      "IsWonThisRound": false
     },
+    "Avatar": "https://i.imgur.com/EXROILm.png",
+    "Passive": [
+      {
+        "PassiveDescription": "Спартанец получает метку охотника на двух игроках, победы над которыми будут приносить ему дополнительное очко.",
+        "PassiveName": "Им это не понравится"
+      },
+      {
+        "PassiveDescription": "Поражения против Спартанца дают дополнительную справедливость.",
+        "PassiveName": "Это привилегия - умереть от моей руки"
+      },
+      {
+        "PassiveDescription": "Первое нападение Спартанца за игру принесет либо ему, либо его оппоненту + 1 скорости, в зависимости от победы.",
+        "PassiveName": "Первая кровь"
+      },
+      {
+        "PassiveDescription": "Отнимает у каждого уникального врага 1 силу первым нападением. Теряет всю свою Силу на последнем ходу.",
+        "PassiveName": "Они позорят военное искусство"
+      }
+    ]
+  },
     {  
        "Name":"Бог ЛоЛа",
        "Intelligence":7,
