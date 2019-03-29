@@ -120,9 +120,9 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 GameId = 1000000
             };
 
-            if (newAccount.DiscordUserName.Contains("<:war:557070460324675584>"))
+            if (newAccount.DiscordUserName.Contains("<:war:561287719838547981>"))
             {
-                newAccount.DiscordUserName =   newAccount.DiscordUserName.Replace("<:war:557070460324675584>", "404-228-1448");
+                newAccount.DiscordUserName =   newAccount.DiscordUserName.Replace("<:war:561287719838547981>", "404-228-1448");
             }
 
             if (newAccount.DiscordUserName.Contains("⟶"))

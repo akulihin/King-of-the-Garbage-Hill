@@ -111,9 +111,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                 game.GameLogs +=
-                    $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:557070460324675584>")} {playerIamAttacking.DiscordAccount.DiscordUserName}";
+                    $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:561287719838547981>")} {playerIamAttacking.DiscordAccount.DiscordUserName}";
                 game.PreviousGameLogs +=
-                    $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:557070460324675584>")} {playerIamAttacking.DiscordAccount.DiscordUserName}";
+                    $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:561287719838547981>")} {playerIamAttacking.DiscordAccount.DiscordUserName}";
 
                 //if block => no one gets points
 
@@ -455,10 +455,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         var fightLineSplit = fightLine.Split("⟶");
 
-                        var fightLineSplitSplit = fightLineSplit[0].Split("<:war:557070460324675584>");
+                        var fightLineSplitSplit = fightLineSplit[0].Split("<:war:561287719838547981>");
                         fightLine = fightLineSplitSplit[0].Contains($"{player.DiscordAccount.DiscordUserName}")
-                            ? $"**{fightLineSplitSplit[0]}** {new Emoji("<:war:557070460324675584>")} **{fightLineSplitSplit[1]}**"
-                            : $"**{fightLineSplitSplit[1]}** {new Emoji("<:war:557070460324675584>")} **{fightLineSplitSplit[0]}**";
+                            ? $"**{fightLineSplitSplit[0]}** {new Emoji("<:war:561287719838547981>")} **{fightLineSplitSplit[1]}**"
+                            : $"**{fightLineSplitSplit[1]}** {new Emoji("<:war:561287719838547981>")} **{fightLineSplitSplit[0]}**";
 
                         fightLine += $" ⟶ {fightLineSplit[1]}";
 

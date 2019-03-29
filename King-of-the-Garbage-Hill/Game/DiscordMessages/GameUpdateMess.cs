@@ -159,7 +159,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     var lostSeries = hardKitty?.LostSeries.Find(x => x.EnemyId == player2.DiscordAccount.DiscordId);
                     if (lostSeries != null)
                     {
-                        customString += $" {new Emoji("<:sparta:557781305178325002>")} - {lostSeries.Series}";
+                        customString += $" {new Emoji("<:sparta:561287745675329567>")} - {lostSeries.Series}";
                     }
                     break;
                 case "Sirinoks":
@@ -170,7 +170,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     {
                         if (siri.FriendList.Contains(player2.DiscordAccount.DiscordId))
                         {
-                            customString += $" {new Emoji("<:sparta:557781305178325002>")}";
+                            customString += $" {new Emoji("<:sparta:561287745675329567>")}";
                         }
                     }
 
@@ -180,7 +180,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                         x.GameId == player1Account.GameId && x.PlayerDiscordId == player1Account.DiscordId);
 
                     if (panth.FriendList.Contains(player2.DiscordAccount.DiscordId))
-                        customString += $" {new Emoji("<:sparta:557781305178325002>")}";
+                        customString += $" {new Emoji("<:sparta:561287745675329567>")}";
                     break;
 
 
@@ -191,7 +191,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                         x.PlayerDiscordId == player1Account.DiscordId && player1Account.GameId == x.GameId);
                     if (deep != null)
                         if (deep.FriendList.Contains(player2.DiscordAccount.DiscordId))
-                            customString += $" {new Emoji("<:Yo:558079094386851861>")}";
+                            customString += $" {new Emoji("<:yo:561287783704952845>")}";
                     //end tactic
 
                     //сверхразум
@@ -214,7 +214,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     var find = mylorik?.EnemyListDiscordId.Find(x =>
                         x.EnemyDiscordId == player2.DiscordAccount.DiscordId && x.IsUnique);
 
-                    if (find != null) customString += $" {new Emoji("<:sparta:557781305178325002>")}";
+                    if (find != null) customString += $" {new Emoji("<:sparta:561287745675329567>")}";
                     break;
                 case "Тигр":
 
