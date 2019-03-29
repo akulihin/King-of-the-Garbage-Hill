@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -55,7 +56,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 
         //Get DiscordAccountClass
 
-        public  IEnumerable<DiscordAccountClass> LoadAccountSettings(ulong userId)
+        public IEnumerable<DiscordAccountClass> LoadAccountSettings(ulong userId)
         {
             var filePath = $@"DataBase/OctoDataBase/UserAccounts/discordAccount-{userId}.json";
             if (!File.Exists(filePath))
@@ -81,5 +82,35 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             }
         }
 
+
+        public ConcurrentDictionary<ulong, List<DiscordAccountClass>> LoadAllAccounts()
+        {
+            var dick = new ConcurrentDictionary<ulong, List<DiscordAccountClass>>();
+            var filePaths = Directory.GetFiles(@"DataBase/OctoDataBase/UserAccounts");
+
+            foreach (var file in filePaths)
+            {
+                var json = File.ReadAllText(file);
+
+                var id = Convert.ToUInt64(file.Split("-")[1].Split(".")[0]);
+
+                if(id == 0) continue;
+
+                try
+                {
+                    var acc = JsonConvert.DeserializeObject<List<DiscordAccountClass>>(json);
+                    dick.GetOrAdd(id, x => acc);
+                }
+                catch (Exception e)
+                {
+                    _log.Critical($"LoadAccountSettings, BACK UP CREATED: {e}");
+            
+                    var newList = new List<DiscordAccountClass>();
+                    SaveAccountSettings(newList, $"{id}-BACK_UP", json);
+                    dick.GetOrAdd(id, x => newList);
+                }
+            }
+            return dick;
+        }
     }
 }

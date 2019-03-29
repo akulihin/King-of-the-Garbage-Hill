@@ -44,10 +44,10 @@ namespace King_of_the_Garbage_Hill.Helpers
             await message.DeleteAsync();
         }
 
-        public void SubstituteUserWithBot(ulong userID)
+        public void SubstituteUserWithBot(ulong userId)
         {
             var prevGame = _global.GamesList.Find(
-                x => x.PlayersList.Any(m => m.DiscordAccount.DiscordId == userID));
+                x => x.PlayersList.Any(m => m.DiscordAccount.DiscordId == userId));
            
             if (prevGame != null)
             {
@@ -58,12 +58,20 @@ namespace King_of_the_Garbage_Hill.Helpers
                     character = _charactersPull.AllCharacters[index];
                 } while (prevGame.PlayersList.Any(x => x.Character.Name == character.Name));
 
-                var account = _accounts.GetAccount(228);
+                DiscordAccountClass account;
+
+                ulong i = 1;
+                do
+                {
+                    account  = _accounts.GetAccount(i);
+                    i++;
+                } while (account.IsPlaying);
+
                 account.DiscordUserName = character.Name + " - BOT";
                 account.GameId = prevGame.GameId;
                 account.IsPlaying = true;
                 _accounts.SaveAccounts(account.DiscordId);
-                prevGame.PlayersList.Find(x => x.DiscordAccount.DiscordId == userID).DiscordAccount = account;
+                prevGame.PlayersList.Find(x => x.DiscordAccount.DiscordId == userId).DiscordAccount = account;
             }
         }
 

@@ -72,15 +72,21 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var playerIamAttacking =
                     game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.WhoToAttackThisTurn);
 
-                if (playerIamAttacking == null) 
+                if (playerIamAttacking == null)
                 {
+                    var leftUser = _global.Client.GetUser(player.Status.WhoToAttackThisTurn).Username;
+                    game.PreviousGameLogs += $"{leftUser} вышел, его место занял сверхразумный ИИ";
+                    player.Status.AddRegularPoints();
+
                    await _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
                         .SendMessageAsync($"/CalculateRound.cs:line 74 - ERROR\n" +
-                                          $"player.Status.WhoToAttackThisTurn = {player.Status.WhoToAttackThisTurn}\n" +
+                                          $"left user id = {player.Status.WhoToAttackThisTurn}\n" +
+                                          $"left user name = {leftUser}\n" +
                                           $"player.Character.Name =  {player.Character.Name}\n" +
                                           $"player.DiscordUserName = {player.DiscordAccount.DiscordUserName}");
                    continue;
                 }
+
                 playerIamAttacking.Status.IsFighting = player.DiscordAccount.DiscordId;
                 player.Status.IsFighting = playerIamAttacking.DiscordAccount.DiscordId;
 

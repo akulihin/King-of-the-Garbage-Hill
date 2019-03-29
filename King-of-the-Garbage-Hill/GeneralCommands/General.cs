@@ -148,6 +148,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             }
         }
 
+
+
         [Command("octo")]
         [Alias("окто", "octopus", "Осьминог", "Осьминожка", "Осьминога", "o", "oct", "о")]
         [Summary("Куда же без осьминожек")]
@@ -285,7 +287,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             foreach (var t in playersList)
             {
 
-                if (t.DiscordAccount.DiscordId > 1000)
+                if (!t.IsBot())
                     _upd.WaitMess(t);
             }
             _characterPassives.CalculatePassiveChances(game);
@@ -399,7 +401,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             foreach (var t in playersList)
             {
             
-                if (t.DiscordAccount.DiscordId > 1000)
+                if (!t.IsBot())
                 _upd.WaitMess(t);
             }
             _characterPassives.CalculatePassiveChances(game);

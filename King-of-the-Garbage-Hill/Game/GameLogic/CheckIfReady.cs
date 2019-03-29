@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using System.Timers;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.LocalPersistentData.FinishedGameLog;
+using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic
 {
@@ -14,11 +15,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly Global _global;
         private readonly CalculateRound _round;
         private readonly GameUpdateMess _upd;
-
+        private readonly UserAccounts _accounts;
         public Timer LoopingTimer;
 
         public CheckIfReady(Global global, GameUpdateMess upd, CalculateRound round, FinishedGameLog finishedGameLog,
-            GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior)
+            GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, UserAccounts accounts)
         {
             _global = global;
             _upd = upd;
@@ -26,6 +27,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             _finishedGameLog = finishedGameLog;
             _gameUpdateMess = gameUpdateMess;
             _botsBehavior = botsBehavior;
+            _accounts = accounts;
             CheckTimer();
         }
 
@@ -68,6 +70,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     foreach (var player in game.PlayersList)
                     {
                         player.DiscordAccount.IsPlaying = false;
+                        player.DiscordAccount.GameId = 1000000;
+                        _accounts.SaveAccounts(player.DiscordAccount.DiscordId);
                         await _gameUpdateMess.UpdateMessage(player);
                         if (!player.IsBot())
                             await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("ты кончил.");

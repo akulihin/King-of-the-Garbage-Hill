@@ -11,9 +11,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 {
     public sealed class UserAccounts : IServiceSingleton
     {
-        private static readonly ConcurrentDictionary<ulong, List<DiscordAccountClass>> UserAccountsDictionary =
-            new ConcurrentDictionary<ulong, List<DiscordAccountClass>>();
-
+        private readonly ConcurrentDictionary<ulong, List<DiscordAccountClass>> _userAccountsDictionary;
         private readonly DiscordShardedClient _client;
         private readonly UserAccountsDataStorage _usersDataStorage;
 
@@ -21,6 +19,8 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
         {
             _client = client;
             _usersDataStorage = usersDataStorage;
+            _userAccountsDictionary = _usersDataStorage.LoadAllAccounts();
+            ClearPlayingStatus();
         }
 
         public async Task InitializeAsync()
@@ -28,10 +28,20 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             await Task.CompletedTask;
         }
 
+        public void ClearPlayingStatus()
+        {
+            var accounts = GetAllAccount();
+            foreach (var a in accounts)
+            {
+                a.GameId = 1000000000000000000;
+                a.IsPlaying = false;
+                SaveAccounts(a.DiscordId);
+            }
+        }
 
         public List<DiscordAccountClass> GetOrAddUserAccountsForGuild(ulong userId)
         {
-            return UserAccountsDictionary.GetOrAdd(userId, x => _usersDataStorage.LoadAccountSettings(userId).ToList());
+            return _userAccountsDictionary.GetOrAdd(userId, x => _usersDataStorage.LoadAccountSettings(userId).ToList());
         }
 
         public DiscordAccountClass GetAccount(IUser user)
@@ -41,13 +51,13 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 
         public DiscordAccountClass GetAccount(ulong userId)
         {
-            if (userId > 1000)
+            if (userId > 1000000)
                 return GetOrCreateAccount(_client.GetUser(userId));
 
-            var toRet = UserAccountsDictionary.GetOrAdd(userId, x => _usersDataStorage.LoadAccountSettings(userId).ToList())
+            var toRet = _userAccountsDictionary.GetOrAdd(userId, x => _usersDataStorage.LoadAccountSettings(userId).ToList())
                 .FirstOrDefault();
 
-            if (toRet == null && userId < 1000)
+            if (toRet == null && userId < 1000000)
             {
                 return CreateBotAccount(userId);
             }
@@ -93,7 +103,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
         public List<DiscordAccountClass> GetAllAccount()
         {
             var accounts = new List<DiscordAccountClass>();
-            foreach (var values in UserAccountsDictionary.Values) accounts.AddRange(values);
+            foreach (var values in _userAccountsDictionary.Values) accounts.AddRange(values);
             return accounts;
         }
 
@@ -105,7 +115,9 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             {
                 DiscordId = user.Id,
                 DiscordUserName = user.Username,
-                IsLogs = true
+                IsLogs = true,
+                IsPlaying = false,
+                GameId = 1000000
             };
 
             if (newAccount.DiscordUserName.Contains("<:war:557070460324675584>"))
@@ -136,7 +148,9 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             {
                 DiscordId = botId,
                 DiscordUserName = "BOT",
-                IsLogs = false
+                IsLogs = false,
+                IsPlaying = false,
+                GameId = 1000000
             };
 
             accounts.Add(newAccount);
