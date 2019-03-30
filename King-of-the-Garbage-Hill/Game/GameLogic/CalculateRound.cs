@@ -74,8 +74,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 if (playerIamAttacking == null)
                 {
-                    var leftUser = _global.Client.GetUser(player.Status.WhoToAttackThisTurn).Username;
-                    game.AddPreviousGameLogs($"{leftUser} вышел, его место занял сверхразумный ИИ");
+                    var leftUser = $"ERROR";
+                    if (player.Status.WhoToAttackThisTurn > 1000000)
+                    {
+                         leftUser = _global.Client.GetUser(player.Status.WhoToAttackThisTurn).Username;
+                        game.AddPreviousGameLogs($"{leftUser} вышел, его место занял сверхразумный ИИ");
+                    }
+
                     player.Status.AddRegularPoints();
 
                     await _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
