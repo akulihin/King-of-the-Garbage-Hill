@@ -223,7 +223,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _accounts.SaveAccounts(accountDeep.DiscordId);
 
             var characterDeep = _charactersPull.AllCharacters[charIndex1]; //TODO: should be random someday 
-            playersList.Add(new GamePlayerBridgeClass{DiscordAccount = accountDeep, Character = characterDeep, Status = new InGameStatus()};);
+            playersList.Add(new GamePlayerBridgeClass{DiscordAccount = accountDeep, Character = characterDeep, Status = new InGameStatus()});
 
             if (tolya != null)
             {
@@ -231,7 +231,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 accountDeep.GameId = accountDeep.GameId;
                 accountDeep.IsPlaying = true;
                 _accounts.SaveAccounts(accountDeep.DiscordId);
-                playersList.Add(new GamePlayerBridgeClass{DiscordAccount = accountDeep, Character = _charactersPull.AllCharacters[charIndex2], Status = new InGameStatus()};);
+                playersList.Add(new GamePlayerBridgeClass{DiscordAccount = accountDeep, Character = _charactersPull.AllCharacters[charIndex2], Status = new InGameStatus()});
             }
 
 
