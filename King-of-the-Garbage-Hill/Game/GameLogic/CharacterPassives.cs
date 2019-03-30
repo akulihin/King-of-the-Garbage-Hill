@@ -604,7 +604,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Character.SetPsyche(0);
                             player.Character.SetIntelligence(0);
                             player.Character.SetStrength(10);
-                            game.PreviousGameLogs += $"\n**{player.DiscordAccount.DiscordUserName}:** ЕБАННЫЕ БАНЫ НА 10 ЛЕТ\n";
+                            game.AddPreviousGameLogs($"**{player.DiscordAccount.DiscordUserName}:** ЕБАННЫЕ БАНЫ НА 10 ЛЕТ");
                         }
                         //end Стримснайпят и банят и банят и банят:
 
@@ -643,7 +643,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             player.Character.AddPsyche(player.Status, -4); 
                             await _phrase.DarksciDysmoral.SendLog(player);
-                            game.PreviousGameLogs += "Всё, у меня горит!\n";
+                            game.AddPreviousGameLogs("Всё, у меня горит!");
 
                         }
                         //end Дизмораль
@@ -659,7 +659,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             await _phrase.DarksciFuckThisGame.SendLog(player);
 
                             if (game.RoundNo >= 9)
-                                game.PreviousGameLogs += $"**{player.DiscordAccount.DiscordUserName}:** Нахуй эту игру...\n";
+                                game.AddPreviousGameLogs($"**{player.DiscordAccount.DiscordUserName}:** Нахуй эту игру..");
                         }
                         //end Да всё нахуй эту игру:
 
@@ -1154,12 +1154,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             var randNum = _rand.Random(1, 5);
                             if (randNum == 1)
                             {
-                                var count = game.GameLogs.Split(" ").Count(x => x == "запизделся");
+                                var count = game.GetAllGameLogs().Split(" ").Count(x => x == "запизделся");
                                 if (count < 2)
                                 {
                                     var randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
-                                    game.PreviousGameLogs +=
-                                        $"Толя запизделся и спалил, что {randomPlayer.DiscordAccount.DiscordUserName} - {randomPlayer.Character.Name}\n";
+                                    game.AddPreviousGameLogs(
+                                        $"Толя запизделся и спалил, что {randomPlayer.DiscordAccount.DiscordUserName} - {randomPlayer.Character.Name}");
                                 }
 
                             }
@@ -1637,7 +1637,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                     }
                                 }
 
-                                game.PreviousGameLogs += $"Mitsuki отнял в общей сумме {count*2} очков.";
+                                game.AddPreviousGameLogs($"Mitsuki отнял в общей сумме {count*2} очков.");
                             }
                         }
 
@@ -1730,8 +1730,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             if (octopusPlayer.Character.Name != "Осьминожка") return true;
 
 
-            game.GameLogs += $" ⟶ победил **{playerAttackedOctopus.DiscordAccount.DiscordUserName}**\n";
-            game.PreviousGameLogs += $" ⟶ победил **{playerAttackedOctopus.DiscordAccount.DiscordUserName}**\n";
+
+            game.AddPreviousGameLogs($" ⟶ победил **{playerAttackedOctopus.DiscordAccount.DiscordUserName}**");
 
             //еврей
             var point = HandleJewPassive(playerAttackedOctopus, game);

@@ -44,8 +44,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             game.TimePassed.Stop();
             game.GameStatus = 2;
-            game.GameLogs += $"\n__**Раунд #{game.RoundNo}**__\n";
-            game.PreviousGameLogs = $"\n__**Раунд #{game.RoundNo}**__\n";
+            game.AddGameLogs($"\n__**Раунд #{game.RoundNo}**__\n");
+            game.SetPreviousGameLogs($"\n__**Раунд #{game.RoundNo}**__\n");
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
                 var pointsWined = 0;
@@ -75,7 +75,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (playerIamAttacking == null)
                 {
                     var leftUser = _global.Client.GetUser(player.Status.WhoToAttackThisTurn).Username;
-                    game.PreviousGameLogs += $"{leftUser} вышел, его место занял сверхразумный ИИ";
+                    game.AddPreviousGameLogs($"{leftUser} вышел, его место занял сверхразумный ИИ");
                     player.Status.AddRegularPoints();
 
                    await _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
@@ -110,10 +110,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (!playerIamAttacking.Status.IsAbleToWin) pointsWined = 50;
 
 
-                game.GameLogs +=
-                    $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:561287719838547981>")} {playerIamAttacking.DiscordAccount.DiscordUserName}";
-                game.PreviousGameLogs +=
-                    $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:561287719838547981>")} {playerIamAttacking.DiscordAccount.DiscordUserName}";
+                game.AddPreviousGameLogs(
+                    $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:561287719838547981>")} {playerIamAttacking.DiscordAccount.DiscordUserName}");
 
                 //if block => no one gets points
 
@@ -121,10 +119,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
 
-                    var logMess = " ⟶ *Бой не состоялся...*\n";
+                    var logMess = " ⟶ *Бой не состоялся...*";
 
-                    game.GameLogs += logMess;
-                    game.PreviousGameLogs += logMess;
+                    game.AddPreviousGameLogs(logMess);
 
                         //Спарта - никогда не теряет справедливость, атакуя в блок.
                         if (player.Character.Name != "mylorik")
@@ -151,8 +148,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 if (playerIamAttacking.Status.IsSkip)
                 {
-                    game.GameLogs += " ⟶ *Бой не состоялся...*\n";
-                    game.PreviousGameLogs += " ⟶ *Бой не состоялся...*\n";
+                    game.AddPreviousGameLogs(" ⟶ *Бой не состоялся...*");
 
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
                     await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
@@ -227,8 +223,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 1)
                 {
-                    game.GameLogs += $" ⟶ победил **{player.DiscordAccount.DiscordUserName}**\n";
-                    game.PreviousGameLogs += $" ⟶ победил **{player.DiscordAccount.DiscordUserName}**\n";
+                    game.AddPreviousGameLogs($" ⟶ победил **{player.DiscordAccount.DiscordUserName}**");
 
                     //еврей
                     var point = _characterPassives.HandleJewPassive(player, game);
@@ -259,9 +254,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     if (check)
                     {
-                        game.GameLogs += $" ⟶ победил **{playerIamAttacking.DiscordAccount.DiscordUserName}**\n";
-                        game.PreviousGameLogs +=
-                            $" ⟶ победил **{playerIamAttacking.DiscordAccount.DiscordUserName}**\n";
+               
+                        game.AddPreviousGameLogs($" ⟶ победил **{playerIamAttacking.DiscordAccount.DiscordUserName}**");
                         playerIamAttacking.Status.AddRegularPoints();
                         player.Status.WonTimes++;
                         playerIamAttacking.Character.Justice.IsWonThisRound = true;
@@ -434,14 +428,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         {
             var sortedGameLogs = "";
             var extraGameLogs = "\n";
-            var logsSplit = game.PreviousGameLogs.Split("\n").ToList();
+            var logsSplit = game.GetPreviousGameLogs().Split("\n").ToList();
             logsSplit.RemoveAll(x => x.Length <= 2);
             sortedGameLogs += $"{logsSplit[0]}\n";
             logsSplit.RemoveAt(0);
 
             for (var i = 0; i < logsSplit.Count; i++)
             {
-                if (logsSplit[i].Contains("⟶")) continue;
+                if (logsSplit[i].Contains(":war:")) continue;
                 extraGameLogs += $"{logsSplit[i]}\n";
                 logsSplit.RemoveAt(i);
             }
@@ -456,9 +450,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         var fightLineSplit = fightLine.Split("⟶");
 
                         var fightLineSplitSplit = fightLineSplit[0].Split("<:war:561287719838547981>");
-                        fightLine = fightLineSplitSplit[0].Contains($"{player.DiscordAccount.DiscordUserName}")
-                            ? $"**{fightLineSplitSplit[0]}** {new Emoji("<:war:561287719838547981>")} **{fightLineSplitSplit[1]}**"
-                            : $"**{fightLineSplitSplit[1]}** {new Emoji("<:war:561287719838547981>")} **{fightLineSplitSplit[0]}**";
+                        try
+                        {
+                            fightLine = fightLineSplitSplit[0].Contains($"{player.DiscordAccount.DiscordUserName}")
+                                ? $"**{fightLineSplitSplit[0]}** {new Emoji("<:war:561287719838547981>")} **{fightLineSplitSplit[1]}**"
+                                : $"**{fightLineSplitSplit[1]}** {new Emoji("<:war:561287719838547981>")} **{fightLineSplitSplit[0]}**";
+                        }
+                        catch (Exception e)
+                        {
+                            var ex = e;
+                            var ll = 0;
+                        }
 
                         fightLine += $" ⟶ {fightLineSplit[1]}";
 
@@ -468,7 +470,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     }
 
             sortedGameLogs += extraGameLogs;
-            game.PreviousGameLogs = sortedGameLogs;
+            game.SetPreviousGameLogs(sortedGameLogs);
         }
     }
 }

@@ -16,8 +16,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
          * 2 - Counting
          * 3 - End
          */
-        public string GameLogs ;
-        public string PreviousGameLogs ;
+        private string GameLogs { get; set; }
+        private string PreviousGameLogs { get; set; }
         public ulong WhoWon;
         public GameClass(List<GamePlayerBridgeClass> playersList, ulong gameId, int turnLengthInSecond = 200)
         {
@@ -28,8 +28,34 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             TimePassed = new Stopwatch();
             GameStatus = 1;
             GameLogs = "";
-            PreviousGameLogs = "Здесь будут показаны логи игры. \nВыберите цель для нападения по номеру в таблице, используя emoji";
+            PreviousGameLogs = "Здесь будут показаны логи игры. \nВыберите цель для нападения по номеру в таблице, используя emoji\n";
             WhoWon = 228;
+        }
+
+        public void AddPreviousGameLogs(string str)
+        {
+            PreviousGameLogs +=str + "\n";
+            GameLogs += str + "\n";
+        }
+
+        public void AddGameLogs(string str)
+        {
+            GameLogs += str;
+        }
+
+        public string GetPreviousGameLogs()
+        {
+            return PreviousGameLogs;
+        }
+
+        public string GetAllGameLogs()
+        {
+            return GameLogs;
+        }
+
+        public void SetPreviousGameLogs(string str)
+        {
+            PreviousGameLogs = str;
         }
     }
 }

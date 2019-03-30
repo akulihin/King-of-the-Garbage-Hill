@@ -276,7 +276,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             if (game != null)
             {
-                 desc = game.PreviousGameLogs;
+                 desc = game.GetPreviousGameLogs();
             }
   
             embed.WithDescription(desc);
@@ -326,7 +326,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var embed = new EmbedBuilder();
             embed.WithTitle("Логи");
-            embed.WithDescription(game.GameLogs);
+            embed.WithDescription(game.GetAllGameLogs()); // WILL CAUSE AN ERROR! 
             embed.WithColor(Color.Green);
             embed.WithFooter($"{GetTimeLeft(account)}");
 
@@ -361,7 +361,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var embed = new EmbedBuilder();
 
-            var desc = _global.GamesList.Find(x => x.GameId == account.GameId).PreviousGameLogs;
+            var desc = _global.GamesList.Find(x => x.GameId == account.GameId).GetPreviousGameLogs();
             if (desc == null)
                 return null;
             embed.WithDescription(desc);
