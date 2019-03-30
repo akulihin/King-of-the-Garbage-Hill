@@ -94,7 +94,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     await _botsBehavior.HandleBotBehavior(t, game);
 
-                    if (t.Status.IsReady && t.Status.MoveListPage != 3 && game.TimePassed.Elapsed.TotalSeconds > 13)
+                    //TODO: change game.TimePassed.Elapsed.TotalSeconds > 1 to 13
+                    if (t.Status.IsReady && t.Status.MoveListPage != 3 && game.TimePassed.Elapsed.TotalSeconds > 1)
                         readyCount++;
                     else
                         Console.WriteLine("NOT READY: = " + t.DiscordAccount.DiscordUserName);
