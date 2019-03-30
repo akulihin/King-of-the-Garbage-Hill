@@ -99,7 +99,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 }
         }
 
-        public async Task HandleAttackOrLvlUp(GameBridgeClass player, SocketReaction reaction, int botChoice = -1)
+        public async Task HandleAttackOrLvlUp(GamePlayerBridgeClass player, SocketReaction reaction, int botChoice = -1)
         {
 
             var status = player.Status;
@@ -182,14 +182,14 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         }
 
         //for GetLvlUp ONLY!
-        public void LvlUp10(GameBridgeClass player)
+        public void LvlUp10(GamePlayerBridgeClass player)
         {
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
                 SendMsgAndDeleteIt(player, "10 максимум, выбери другой стат");  //not awaited 
         }
 
        
-        public async Task SendMsgAndDeleteIt(GameBridgeClass player, string msg = "Принято", int seconds = 6)
+        public async Task SendMsgAndDeleteIt(GamePlayerBridgeClass player, string msg = "Принято", int seconds = 6)
         {
             if (!player.IsBot())
             {
@@ -199,7 +199,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             }
         }
 
-        private async Task GetLvlUp(GameBridgeClass player, int skillNumber)
+        private async Task GetLvlUp(GamePlayerBridgeClass player, int skillNumber)
         {
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
             switch (skillNumber)

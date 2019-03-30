@@ -16,13 +16,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public Task InitializeAsync() => Task.CompletedTask;
 
-        public void HandleAwdka(GameBridgeClass player)
+        public void HandleAwdka(GamePlayerBridgeClass player)
         {
           //  throw new System.NotImplementedException();
           
         }
 
-        public void HandleAwdkaAfter(GameBridgeClass player)
+        public void HandleAwdkaAfter(GamePlayerBridgeClass player)
         {
 
             if (player.Status.IsLostLastTime != 0)

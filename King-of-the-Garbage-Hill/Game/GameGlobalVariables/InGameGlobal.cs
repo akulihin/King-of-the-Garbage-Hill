@@ -97,7 +97,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
             return Task.CompletedTask;
         }
 
-        public WhenToTriggerClass GetWhenToTrigger(GameBridgeClass player, bool isMandatory, int maxRandomNumber,
+        public WhenToTriggerClass GetWhenToTrigger(GamePlayerBridgeClass player, bool isMandatory, int maxRandomNumber,
             int maxTimes, bool isMandatory2 = false, int lastRound = 10)
         {
             var toTriggerClass = new WhenToTriggerClass(player.DiscordAccount.DiscordId, player.DiscordAccount.GameId);

@@ -15,12 +15,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public Task InitializeAsync() => Task.CompletedTask;
 
-        public void HandleTolya(GameBridgeClass player)
+        public void HandleTolya(GamePlayerBridgeClass player)
         {
           //  throw new System.NotImplementedException();
         }
 
-        public void HandleTolyaAfter(GameBridgeClass player, GameClass game)
+        public void HandleTolyaAfter(GamePlayerBridgeClass player, GameClass game)
         {
             if (player.Status.IsBlock && player.Status.IsWonLastTime != 0)
             {

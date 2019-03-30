@@ -15,12 +15,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public Task InitializeAsync() => Task.CompletedTask;
 
-        public void HandlePanth(GameBridgeClass player)
+        public void HandlePanth(GamePlayerBridgeClass player)
         {
             //   throw new System.NotImplementedException();
         }
 
-        public void HandlePanthAfter(GameBridgeClass player, GameClass game)
+        public void HandlePanthAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //Первая кровь: 
             var panth = _gameGlobal.PanthFirstBlood.Find(x =>

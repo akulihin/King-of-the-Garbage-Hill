@@ -23,12 +23,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             return Task.CompletedTask;
         }
 
-        public void HandleShark(GameBridgeClass player)
+        public void HandleShark(GamePlayerBridgeClass player)
         {
             //  throw new System.NotImplementedException();
         }
 
-        public void HandleSharkAfter(GameBridgeClass player, GameClass game)
+        public void HandleSharkAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //Челюсти: 
             if (player.Status.IsWonLastTime != 0)

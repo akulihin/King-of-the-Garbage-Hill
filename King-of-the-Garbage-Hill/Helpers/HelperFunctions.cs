@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
@@ -51,28 +52,37 @@ namespace King_of_the_Garbage_Hill.Helpers
            
             if (prevGame != null)
             {
-                CharacterClass character;
-                do
-                {
-                    var index = _secureRandom.Random(0, _charactersPull.AllCharacters.Count - 1);
-                    character = _charactersPull.AllCharacters[index];
-                } while (prevGame.PlayersList.Any(x => x.Character.Name == character.Name));
-
-                DiscordAccountClass account;
-
-                ulong i = 1;
-                do
-                {
-                    account  = _accounts.GetAccount(i);
-                    i++;
-                } while (account.IsPlaying);
-
-                account.DiscordUserName = character.Name + " - BOT";
-                account.GameId = prevGame.GameId;
-                account.IsPlaying = true;
-                _accounts.SaveAccounts(account.DiscordId);
-                prevGame.PlayersList.Find(x => x.DiscordAccount.DiscordId == userId).DiscordAccount = account;
+                var account = GetFreeBot(prevGame.PlayersList, prevGame.GameId);
+                var leftUser = prevGame.PlayersList.Find(x => x.DiscordAccount.DiscordId == userId);
+                leftUser.DiscordAccount = account.DiscordAccount;
+                leftUser.Status.SocketMessageFromBot = null;
             }
+        }
+
+        public GamePlayerBridgeClass GetFreeBot(List<GamePlayerBridgeClass> playerList, ulong newGameId)
+        {
+            CharacterClass character;
+            do
+            {
+                var index = _secureRandom.Random(0, _charactersPull.AllCharacters.Count - 1);
+                character = _charactersPull.AllCharacters[index];
+            } while (playerList.Any(x => x.Character.Name == character.Name));
+
+            DiscordAccountClass account;
+
+            ulong i = 1;
+            do
+            {
+                account  = _accounts.GetAccount(i);
+                i++;
+            } while (account.IsPlaying);
+
+            account.DiscordUserName = character.Name + " - BOT";
+            account.GameId = newGameId;
+            account.IsPlaying = true;
+            _accounts.SaveAccounts(account.DiscordId);
+
+            return new GamePlayerBridgeClass {DiscordAccount = account, Character = character, Status = new InGameStatus()};;
         }
 
     }

@@ -19,12 +19,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public Task InitializeAsync() => Task.CompletedTask;
 
         
-        public void HandleDeepList(GameBridgeClass player)
+        public void HandleDeepList(GamePlayerBridgeClass player)
         {
 
         }
 
-        public async Task HandleDeepListTactics(GameBridgeClass player)
+        public async Task HandleDeepListTactics(GamePlayerBridgeClass player)
         {
             //Doubtful tactic
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
@@ -58,7 +58,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             await Task.CompletedTask;
         }
 
-        public async Task HandleDeepListAfter(GameBridgeClass player, GameClass game)
+        public async Task HandleDeepListAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //Doubtful tactic
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
@@ -91,7 +91,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         }
 
              
-        public void HandleMockery(GameBridgeClass player, GameBridgeClass player2, GameClass game)
+        public void HandleMockery(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, GameClass game)
         {
             //Стёб
             var currentDeepList =

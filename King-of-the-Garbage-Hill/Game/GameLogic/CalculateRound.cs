@@ -389,7 +389,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             await Task.CompletedTask;
         }
 
-        public int WhoIsBetter(GameBridgeClass player1, GameBridgeClass player2)
+        public int WhoIsBetter(GamePlayerBridgeClass player1, GamePlayerBridgeClass player2)
         {
             var p1 = player1.Character;
             var p2 = player2.Character;

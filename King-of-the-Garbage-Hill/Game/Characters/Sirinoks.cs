@@ -18,12 +18,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public Task InitializeAsync() => Task.CompletedTask;
 
-        public void HandleSirinoks(GameBridgeClass player)
+        public void HandleSirinoks(GamePlayerBridgeClass player)
         {
             //   throw new System.NotImplementedException();
         }
 
-        public void HandleSirinoksAfter(GameBridgeClass player, GameClass game)
+        public void HandleSirinoksAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //обучение
             if (player.Status.IsLostLastTime != 0)

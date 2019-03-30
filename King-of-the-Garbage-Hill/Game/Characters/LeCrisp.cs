@@ -16,12 +16,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public Task InitializeAsync() => Task.CompletedTask;
 
-        public void HandleLeCrisp(GameBridgeClass player)
+        public void HandleLeCrisp(GamePlayerBridgeClass player)
         {
           //  throw new System.NotImplementedException();
         }
 
-        public void HandleLeCrispAfter(GameBridgeClass player, GameClass game)
+        public void HandleLeCrispAfter(GamePlayerBridgeClass player, GameClass game)
         {
             player.Status.IsAbleToWin = true;
 

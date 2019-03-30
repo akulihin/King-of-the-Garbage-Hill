@@ -31,7 +31,7 @@ namespace King_of_the_Garbage_Hill
 
         public readonly DiscordShardedClient Client;
         public readonly DateTime TimeBotStarted;
-        public uint GamePlayingAndId;
+        private ulong GamePlayingAndId { get; set; }
         public uint TotalCommandsIssued;
         public uint TotalCommandsDeleted;
         public uint TotalCommandsChanged;
@@ -42,11 +42,21 @@ namespace King_of_the_Garbage_Hill
         public List<CheckIfReady.IsTimerToCheckEnabledClass> IsTimerToCheckEnabled = new List<CheckIfReady.IsTimerToCheckEnabledClass>();
 
 
-        public GameBridgeClass GetGameAccount(ulong userId, ulong gameId)
+        public GamePlayerBridgeClass GetGameAccount(ulong userId, ulong gameId)
         {
             return GamesList.Find(x => x.GameId == gameId).PlayersList.Find(x => x.DiscordAccount.DiscordId == userId);
         }
 
 
+        public ulong GetLastGamePlayingAndId()
+        {
+            return GamePlayingAndId;
+        }
+
+        public ulong GetNewtGamePlayingAndId()
+        {
+            GamePlayingAndId++;
+            return GamePlayingAndId;
+        }
     }
 }

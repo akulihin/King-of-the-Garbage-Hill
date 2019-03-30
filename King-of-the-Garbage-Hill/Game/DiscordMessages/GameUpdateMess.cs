@@ -35,7 +35,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
 
-        public async Task ShowRulesAndChar(SocketUser user, GameBridgeClass player)
+        public async Task ShowRulesAndChar(SocketUser user, GamePlayerBridgeClass player)
         {
             if (player.IsBot()) return;
 
@@ -83,7 +83,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             await user.SendMessageAsync("", false, embed.Build());
         }
 
-        public async Task WaitMess(GameBridgeClass player)
+        public async Task WaitMess(GamePlayerBridgeClass player)
         {
             if (player.IsBot()) return;
 
@@ -147,7 +147,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
         public string CustomLeaderBoard(DiscordAccountClass player1Account, CharacterClass player1Char,
-            GameBridgeClass player2)
+            GamePlayerBridgeClass player2)
         {
             var customString = "";
             switch (player1Char.Name)
@@ -260,7 +260,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
         //Page 1
-        public EmbedBuilder FightPage(GameBridgeClass player)
+        public EmbedBuilder FightPage(GamePlayerBridgeClass player)
         {
             var account = player.DiscordAccount;
             //        player.Status.MoveListPage = 1;
@@ -317,9 +317,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
         //Page 2
-        public EmbedBuilder LogsPage(GameBridgeClass gameBridge)
+        public EmbedBuilder LogsPage(GamePlayerBridgeClass gamePlayerBridge)
         {
-            var account = gameBridge.DiscordAccount;
+            var account = gamePlayerBridge.DiscordAccount;
 
 
             var game = _global.GamesList.Find(x => x.GameId == account.GameId);
@@ -330,16 +330,16 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithColor(Color.Green);
             embed.WithFooter($"{GetTimeLeft(account)}");
 
-            embed = CustomLogsPage(gameBridge, embed);
+            embed = CustomLogsPage(gamePlayerBridge, embed);
             return embed;
 
             //    await socketMsg.ModifyAsync(message => { message.Embed = embed.Build(); });
         }
 
 
-        public EmbedBuilder CustomLogsPage(GameBridgeClass gameBridge, EmbedBuilder embed)
+        public EmbedBuilder CustomLogsPage(GamePlayerBridgeClass gamePlayerBridge, EmbedBuilder embed)
         {
-            switch (gameBridge.Character.Name)
+            switch (gamePlayerBridge.Character.Name)
             {
                 case "DeepList":
                     break;
@@ -350,11 +350,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
         //Page 3
-        public EmbedBuilder LvlUpPage(GameBridgeClass gameBridge)
+        public EmbedBuilder LvlUpPage(GamePlayerBridgeClass gamePlayerBridge)
         {
             //    var status = player.Status;
-            var account = gameBridge.DiscordAccount;
-            var character = gameBridge.Character;
+            var account = gamePlayerBridge.DiscordAccount;
+            var character = gamePlayerBridge.Character;
 
             //   status.MoveListPage = 3;
             //    _accounts.SaveAccounts(discordAccount.PlayerDiscordId);
@@ -382,7 +382,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             return embed;
         }
 
-        public async Task UpdateMessage(GameBridgeClass player)
+        public async Task UpdateMessage(GamePlayerBridgeClass player)
         {
             var embed = FightPage(player);
 
@@ -404,7 +404,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             await UpdateMessageWithEmbed(player, embed);
         }
 
-        public async Task UpdateMessageWithEmbed(GameBridgeClass player, EmbedBuilder embed)
+        public async Task UpdateMessageWithEmbed(GamePlayerBridgeClass player, EmbedBuilder embed)
         {
             if (!player.IsBot())
                 await player.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });

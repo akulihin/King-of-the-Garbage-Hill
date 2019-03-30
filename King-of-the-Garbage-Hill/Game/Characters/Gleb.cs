@@ -15,12 +15,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         }
         public Task InitializeAsync() => Task.CompletedTask;
 
-        public void HandleGleb(GameBridgeClass player)
+        public void HandleGleb(GamePlayerBridgeClass player)
         {
            // throw new System.NotImplementedException();
         }
 
-        public void HandleGlebAfter(GameBridgeClass player)
+        public void HandleGlebAfter(GamePlayerBridgeClass player)
         {
             //skip check
            var skip = _gameGlobal.GlebSkipList.Find(x =>

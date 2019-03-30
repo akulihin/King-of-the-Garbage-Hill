@@ -278,7 +278,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                 PassiveNameEng = passiveNameEng;
             }
 
-            public async Task SendLog(GameBridgeClass player)
+            public async Task SendLog(GamePlayerBridgeClass player)
             {
                 var random = new Random();
                 var description = PassiveLogRus[random.Next(0, PassiveLogRus.Count)];
@@ -293,7 +293,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                 await Task.CompletedTask;
             }
 
-            public async Task SendLog(GameBridgeClass player, GameBridgeClass player2)
+            public async Task SendLog(GamePlayerBridgeClass player, GamePlayerBridgeClass player2)
             {
                 if (player.Character.Name == "DeepList")
                 {

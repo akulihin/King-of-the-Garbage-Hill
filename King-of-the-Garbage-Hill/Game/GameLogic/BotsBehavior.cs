@@ -23,7 +23,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             return Task.CompletedTask;
         }
 
-        public async Task HandleBotBehavior(GameBridgeClass player, GameClass game)
+        public async Task HandleBotBehavior(GamePlayerBridgeClass player, GameClass game)
         {
             if (!player.IsBot() || player.Status.IsReady && player.Status.MoveListPage != 3) return;
             if (player.Status.MoveListPage == 1)

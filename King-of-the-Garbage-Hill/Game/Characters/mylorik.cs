@@ -25,7 +25,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public Task InitializeAsync() => Task.CompletedTask;
 
         
-        public async Task HandleMylorikRevenge(GameBridgeClass player, ulong enemyIdLostTo, ulong gameId)
+        public async Task HandleMylorikRevenge(GamePlayerBridgeClass player, ulong enemyIdLostTo, ulong gameId)
         {
             //enemyIdLostTo may be 0
 
@@ -65,7 +65,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             }
         }
 
-        public async Task HandleMylorik(GameBridgeClass player, GameClass game)
+        public async Task HandleMylorik(GamePlayerBridgeClass player, GameClass game)
         {
             //Boole
 
@@ -75,7 +75,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         }
 
 
-        public async Task HandleMylorikAfter(GameBridgeClass player, GameClass game)
+        public async Task HandleMylorikAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //Revenge
      

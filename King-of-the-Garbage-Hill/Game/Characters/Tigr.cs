@@ -25,12 +25,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             return Task.CompletedTask;
         }
 
-        public void HandleTigr(GameBridgeClass player)
+        public void HandleTigr(GamePlayerBridgeClass player)
         {
             //   throw new System.NotImplementedException();
         }
 
-        public async Task HandleTigrAfter(GameBridgeClass player, GameClass game)
+        public async Task HandleTigrAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //3-0 обоссан: 
             if (player.Status.IsWonLastTime != 0)

@@ -21,12 +21,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public Task InitializeAsync() => Task.CompletedTask;
 
-        public void HandleDeepList2(GameBridgeClass player)
+        public void HandleDeepList2(GamePlayerBridgeClass player)
         {
          //   throw new System.NotImplementedException();
         }
 
-        public void HandleDeepList2After(GameBridgeClass player)
+        public void HandleDeepList2After(GamePlayerBridgeClass player)
         {
        //     throw new System.NotImplementedException();
         }

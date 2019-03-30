@@ -24,12 +24,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public Task InitializeAsync() => Task.CompletedTask;
 
-        public void HandleDarksci(GameBridgeClass player)
+        public void HandleDarksci(GamePlayerBridgeClass player)
         {
           //  throw new System.NotImplementedException();
         }
 
-        public async Task HandleDarksiAfter(GameBridgeClass player, GameClass game)
+        public async Task HandleDarksiAfter(GamePlayerBridgeClass player, GameClass game)
         {
             if (player.Status.IsLostLastTime != 0)
             {

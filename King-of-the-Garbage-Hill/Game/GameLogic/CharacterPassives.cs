@@ -83,7 +83,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         }
 
         //общее говно
-        public async Task HandleEveryAttackOnHim(GameBridgeClass playerIamAttacking, GameBridgeClass playerAttackFrom,
+        public async Task HandleEveryAttackOnHim(GamePlayerBridgeClass playerIamAttacking, GamePlayerBridgeClass playerAttackFrom,
             GameClass game)
         {
             var characterName = playerIamAttacking.Character.Name;
@@ -209,7 +209,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             await Task.CompletedTask;
         }
 
-        public async Task HandleEveryAttackFromMe(GameBridgeClass player1, GameBridgeClass playerIamAttacking,
+        public async Task HandleEveryAttackFromMe(GamePlayerBridgeClass player1, GamePlayerBridgeClass playerIamAttacking,
             GameClass game)
         {
             var characterName = player1.Character.Name;
@@ -323,7 +323,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             await Task.CompletedTask;
         }
 
-        public async Task HandleCharacterBeforeCalculations(GameBridgeClass player, GameClass game)
+        public async Task HandleCharacterBeforeCalculations(GamePlayerBridgeClass player, GameClass game)
         {
             var characterName = player.Character.Name;
             switch (characterName)
@@ -375,7 +375,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             await Task.CompletedTask;
         }
 
-        public async Task HandleCharacterAfterCalculations(GameBridgeClass player, GameClass game)
+        public async Task HandleCharacterAfterCalculations(GamePlayerBridgeClass player, GameClass game)
         {
             //tolya count
             if (player.Status.IsWonLastTime != 0 && player.Character.Name != "Толя" &&
@@ -869,7 +869,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (currentDeepList != null)
                             if (currentDeepList.WhenToTrigger.Any(x => x == game.RoundNo))
                             {
-                                GameBridgeClass randPlayer;
+                                GamePlayerBridgeClass randPlayer;
 
                                 do
                                 {
@@ -1299,7 +1299,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         //end общие говно
 
-        public async Task<int> HandleJewPassive(GameBridgeClass player, GameClass game)
+        public async Task<int> HandleJewPassive(GamePlayerBridgeClass player, GameClass game)
         {
             if (game.PlayersList.Any(x => x.Character.Name == "LeCrisp" || x.Character.Name == "Толя"))
             {
@@ -1364,7 +1364,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         }
 
         /*
-        public async Task<string> HandleBlock(GameBridgeClass octopusPlayer, GameBridgeClass player2, GameClass game)
+        public async Task<string> HandleBlock(GamePlayerBridgeClass octopusPlayer, GamePlayerBridgeClass player2, GameClass game)
         {
             switch (player2.Character.Name)
             {
@@ -1373,8 +1373,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
         }
         */
-        public async Task HandleEveryAttackOnHimAfterCalculations(GameBridgeClass playerIamAttacking,
-            GameBridgeClass player, GameClass game)
+        public async Task HandleEveryAttackOnHimAfterCalculations(GamePlayerBridgeClass playerIamAttacking,
+            GamePlayerBridgeClass player, GameClass game)
         {
             var characterName = playerIamAttacking.Character.Name;
 
@@ -1414,8 +1414,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             await Task.CompletedTask;
         }
 
-        public async Task HandleEveryAttackFromMeAfterCalculations(GameBridgeClass player,
-            GameBridgeClass playerIamAttacking, GameClass game)
+        public async Task HandleEveryAttackFromMeAfterCalculations(GamePlayerBridgeClass player,
+            GamePlayerBridgeClass playerIamAttacking, GameClass game)
         {
             var characterName = player.Character.Name;
 
@@ -1478,9 +1478,19 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             x.GameId == player.DiscordAccount.GameId &&
                             x.PlayerDiscordId == player.DiscordAccount.DiscordId);
 
+                        if (awdka == null)
+                        {
+                            _gameGlobal.AwdkaTrollingList.Add(new Awdka.TrollingClass(player.DiscordAccount.DiscordId,
+                                game.GameId));
+                            awdka = _gameGlobal.AwdkaTrollingList.Find(x =>
+                                x.GameId == player.DiscordAccount.GameId &&
+                                x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+                        }
+
                         var player2 =
                             game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonLastTime);
 
+                        //may cause a null reference exception, if so - wsomething wrong /
                         if (player2.Status.PlaceAtLeaderBoard == 1)
                             if (awdka.Cooldown <= 0)
                             {
@@ -1715,7 +1725,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
         }
 
-        public bool HandleOctopus(GameBridgeClass octopusPlayer, GameBridgeClass playerAttackedOctopus, GameClass game)
+        public bool HandleOctopus(GamePlayerBridgeClass octopusPlayer, GamePlayerBridgeClass playerAttackedOctopus, GameClass game)
         {
             if (octopusPlayer.Character.Name != "Осьминожка") return true;
 
@@ -1774,7 +1784,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         }
 
 
-        public async Task HandleCharacterWithKnownEnemyBeforeCalculations(GameBridgeClass player, GameClass game)
+        public async Task HandleCharacterWithKnownEnemyBeforeCalculations(GamePlayerBridgeClass player, GameClass game)
         {
             var characterName = player.Character.Name;
             switch (characterName)
