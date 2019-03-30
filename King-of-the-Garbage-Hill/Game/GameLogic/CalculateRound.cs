@@ -15,10 +15,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
     {
         private readonly CharacterPassives _characterPassives;
         private readonly InGameGlobal _gameGlobal;
+        private readonly Global _global;
         private readonly CharactersUniquePhrase _phrase;
         private readonly SecureRandom _rand;
         private readonly GameUpdateMess _upd;
-        private readonly Global _global;
 
         public CalculateRound(GameUpdateMess upd, SecureRandom rand, CharacterPassives characterPassives,
             InGameGlobal gameGlobal, CharactersUniquePhrase phrase, Global global)
@@ -78,13 +78,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     game.AddPreviousGameLogs($"{leftUser} вышел, его место занял сверхразумный ИИ");
                     player.Status.AddRegularPoints();
 
-                   await _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
-                        .SendMessageAsync($"/CalculateRound.cs:line 74 - ERROR\n" +
+                    await _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
+                        .SendMessageAsync("/CalculateRound.cs:line 74 - ERROR\n" +
                                           $"left user id = {player.Status.WhoToAttackThisTurn}\n" +
                                           $"left user name = {leftUser}\n" +
                                           $"player.Character.Name =  {player.Character.Name}\n" +
                                           $"player.DiscordUserName = {player.DiscordAccount.DiscordUserName}");
-                   continue;
+                    continue;
                 }
 
                 playerIamAttacking.Status.IsFighting = player.DiscordAccount.DiscordId;
@@ -111,7 +111,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                 game.AddPreviousGameLogs(
-                    $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:561287719838547981>")} {playerIamAttacking.DiscordAccount.DiscordUserName}");
+                    $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:561287719838547981>")} {playerIamAttacking.DiscordAccount.DiscordUserName}",
+                    "");
 
                 //if block => no one gets points
 
@@ -123,15 +124,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     game.AddPreviousGameLogs(logMess);
 
-                        //Спарта - никогда не теряет справедливость, атакуя в блок.
-                        if (player.Character.Name != "mylorik")
-                        {
+                    //Спарта - никогда не теряет справедливость, атакуя в блок.
+                    if (player.Character.Name != "mylorik")
+                    {
                         //end Спарта
-                            player.Character.Justice.AddJusticeForNextRound(-1);
-                            playerIamAttacking.Character.Justice.AddJusticeForNextRound();
-                            player.Status.AddBonusPoints(-1);
-                         }
-                        
+                        player.Character.Justice.AddJusticeForNextRound(-1);
+                        playerIamAttacking.Character.Justice.AddJusticeForNextRound();
+                        player.Status.AddBonusPoints(-1);
+                    }
+
 
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
                     await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
@@ -173,7 +174,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var b = playerIamAttacking.Character;
 
                 var strangeNumber = a.GetIntelligence() - b.GetIntelligence()
-                                    + a.GetStrength() - b.GetStrength() 
+                                    + a.GetStrength() - b.GetStrength()
                                     + a.GetSpeed() - b.GetSpeed()
                                     + a.GetPsyche() - b.GetPsyche();
 
@@ -228,13 +229,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //еврей
                     var point = _characterPassives.HandleJewPassive(player, game);
 
-                    if (point.Result == 0)
-                    {
-                        player.Status.AddInGamePersonalLogs("Евреи...\n");
-                    }
+                    if (point.Result == 0) player.Status.AddInGamePersonalLogs("Евреи...\n");
                     //end еврей
 
-                    
 
                     player.Status.AddRegularPoints(point.Result);
 
@@ -254,7 +251,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     if (check)
                     {
-               
                         game.AddPreviousGameLogs($" ⟶ победил **{playerIamAttacking.DiscordAccount.DiscordUserName}**");
                         playerIamAttacking.Status.AddRegularPoints();
                         player.Status.WonTimes++;
@@ -311,12 +307,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 player.Status.MoveListPage = 1;
 
-                if (player.Character.Justice.IsWonThisRound) player.Character.Justice.SetJusticeNow(0); 
+                if (player.Character.Justice.IsWonThisRound) player.Character.Justice.SetJusticeNow(0);
 
                 player.Character.Justice.IsWonThisRound = false;
                 player.Character.Justice.AddJusticeNow(player.Character.Justice.GetJusticeForNextRound());
                 player.Character.Justice.SetJusticeForNextRound(0);
-
             }
 
 
@@ -360,7 +355,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
             }
             //end Tigr Unique
- 
+
             //sort
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
@@ -390,9 +385,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             int intel = 0, speed = 0, str = 0;
 
-            if (p1.GetIntelligence() - p2.GetIntelligence()  > 0)
+            if (p1.GetIntelligence() - p2.GetIntelligence() > 0)
                 intel = 1;
-            if (p1.GetIntelligence()  - p2.GetIntelligence()  < 0)
+            if (p1.GetIntelligence() - p2.GetIntelligence() < 0)
                 intel = -1;
 
             if (p1.GetSpeed() - p2.GetSpeed() > 0)
@@ -400,9 +395,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             if (p1.GetSpeed() - p2.GetSpeed() < 0)
                 speed = -1;
 
-            if (p1.GetStrength() - p2.GetStrength()  > 0)
+            if (p1.GetStrength() - p2.GetStrength() > 0)
                 str = 1;
-            if (p1.GetStrength()  - p2.GetStrength()  < 0)
+            if (p1.GetStrength() - p2.GetStrength() < 0)
                 str = -1;
 
 
@@ -438,6 +433,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (logsSplit[i].Contains(":war:")) continue;
                 extraGameLogs += $"{logsSplit[i]}\n";
                 logsSplit.RemoveAt(i);
+                i--;
             }
 
 
@@ -450,17 +446,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         var fightLineSplit = fightLine.Split("⟶");
 
                         var fightLineSplitSplit = fightLineSplit[0].Split("<:war:561287719838547981>");
-                        try
-                        {
-                            fightLine = fightLineSplitSplit[0].Contains($"{player.DiscordAccount.DiscordUserName}")
-                                ? $"**{fightLineSplitSplit[0]}** {new Emoji("<:war:561287719838547981>")} **{fightLineSplitSplit[1]}**"
-                                : $"**{fightLineSplitSplit[1]}** {new Emoji("<:war:561287719838547981>")} **{fightLineSplitSplit[0]}**";
-                        }
-                        catch (Exception e)
-                        {
-                            var ex = e;
-                            var ll = 0;
-                        }
+
+                        fightLine = fightLineSplitSplit[0].Contains($"{player.DiscordAccount.DiscordUserName}")
+                            ? $"**{fightLineSplitSplit[0]}** {new Emoji("<:war:561287719838547981>")} **{fightLineSplitSplit[1]}**"
+                            : $"**{fightLineSplitSplit[1]}** {new Emoji("<:war:561287719838547981>")} **{fightLineSplitSplit[0]}**";
+
 
                         fightLine += $" ⟶ {fightLineSplit[1]}";
 

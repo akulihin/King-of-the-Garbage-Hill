@@ -201,9 +201,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         [Command("b")]
         public async Task StartGameTestBotVsBot()
         {
-            _helperFunctions.SubstituteUserWithBot(Context.User.Id);
-
-
             var rawList = new List<SocketUser>
             {
                 null,
@@ -216,26 +213,24 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             var playersList = new List<GamePlayerBridgeClass>();
 
 
-
             var count = rawList.Count;
             var gameId = _global.GetNewtGamePlayingAndId();
 
             for (var i = 0; i < count; i++)
             {
-                var user = rawList[i];
-
-                if (user != null) continue;
-
                 var account = _helperFunctions.GetFreeBot(playersList, gameId);
                 playersList.Add(account);
             }
 
+
             //randomize order
             playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
+
             for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
             //end  randomize order
 
             var game = new GameClass(playersList, gameId);
+
 
             //HardKitty unique (should be last in order, always
             if (game.PlayersList.Any(x => x.Character.Name == "HardKitty"))
@@ -248,8 +243,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
                 game.PlayersList[game.PlayersList.Count - 1] = tempHard;
             }
-            //end HardKitty unique
 
+            //end HardKitty unique
 
 
             //send non bot users  a wait message
@@ -257,18 +252,18 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 if (!player.IsBot())
                     _upd.WaitMess(player);
 
-            //get all the chances before the game starts
-            _characterPassives.CalculatePassiveChances(game);
-            //handle round #1
-            await _characterPassives.HandleNextRound(game);
 
             //start the timer
             game.TimePassed.Start();
-
             _global.GamesList.Add(game);
             _global.IsTimerToCheckEnabled.Add(new CheckIfReady.IsTimerToCheckEnabledClass(game.GameId));
-        }
 
+                //get all the chances before the game starts
+                _characterPassives.CalculatePassiveChances(game);
+
+            //handle round #1
+            await _characterPassives.HandleNextRound(game);
+        }
 
 
         [Command("st")]
@@ -295,7 +290,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _accounts.SaveAccounts(accountDeep.DiscordId);
 
             var characterDeep = _charactersPull.AllCharacters[charIndex1]; //TODO: should be random someday 
-            playersList.Add(new GamePlayerBridgeClass{DiscordAccount = accountDeep, Character = characterDeep, Status = new InGameStatus()});
+            playersList.Add(new GamePlayerBridgeClass
+                {DiscordAccount = accountDeep, Character = characterDeep, Status = new InGameStatus()});
 
             if (tolya != null)
             {
@@ -303,7 +299,11 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 accountDeep.GameId = accountDeep.GameId;
                 accountDeep.IsPlaying = true;
                 _accounts.SaveAccounts(accountDeep.DiscordId);
-                playersList.Add(new GamePlayerBridgeClass{DiscordAccount = accountDeep, Character = _charactersPull.AllCharacters[charIndex2], Status = new InGameStatus()});
+                playersList.Add(new GamePlayerBridgeClass
+                {
+                    DiscordAccount = accountDeep, Character = _charactersPull.AllCharacters[charIndex2],
+                    Status = new InGameStatus()
+                });
             }
 
 
@@ -341,22 +341,23 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             //end HardKitty unique
 
 
-
             //send non bot users  a wait message
             foreach (var player in playersList)
                 if (!player.IsBot())
                     _upd.WaitMess(player);
 
-            //get all the chances before the game starts
-            _characterPassives.CalculatePassiveChances(game);
-            //handle round #1
-            await _characterPassives.HandleNextRound(game);
 
             //start the timer
             game.TimePassed.Start();
 
             _global.GamesList.Add(game);
             _global.IsTimerToCheckEnabled.Add(new CheckIfReady.IsTimerToCheckEnabledClass(game.GameId));
+
+            
+            //get all the chances before the game starts
+            _characterPassives.CalculatePassiveChances(game);
+            //handle round #0
+            await _characterPassives.HandleNextRound(game);
         }
 
         // OWNER COMMANDS:

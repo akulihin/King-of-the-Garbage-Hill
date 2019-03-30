@@ -32,10 +32,10 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             WhoWon = 228;
         }
 
-        public void AddPreviousGameLogs(string str)
+        public void AddPreviousGameLogs(string str, string newLine = "\n")
         {
-            PreviousGameLogs +=str + "\n";
-            GameLogs += str + "\n";
+            PreviousGameLogs +=str + newLine;
+            GameLogs += str + newLine;
         }
 
         public void AddGameLogs(string str)
