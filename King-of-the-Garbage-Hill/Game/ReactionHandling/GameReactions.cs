@@ -141,6 +141,9 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             {
                 var game = _global.GamesList.Find(x => x.GameId == account.GameId);
                 var whoToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum);
+
+                if(whoToAttack == null) return;
+
                 status.WhoToAttackThisTurn = whoToAttack.DiscordAccount.DiscordId;
 
                 if (game.PlayersList.Any(x => x.Character.Name == "Тигр" && x.Status.PlaceAtLeaderBoard == emoteNum) && game.RoundNo == 10)
