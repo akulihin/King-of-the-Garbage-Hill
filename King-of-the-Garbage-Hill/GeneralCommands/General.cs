@@ -353,7 +353,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
            
             Parallel.ForEach(playersList, async player =>
             {
-                if (!player.IsBot())
+                //CANT USE .IsBot() method! 
+                if (player.DiscordAccount.DiscordId > 1000000)
                  await  _upd.WaitMess(player);
             });
 

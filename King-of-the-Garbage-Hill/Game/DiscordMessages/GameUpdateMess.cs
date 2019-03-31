@@ -85,7 +85,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public async Task WaitMess(GamePlayerBridgeClass player)
         {
-            if (player.IsBot()) return;
+            if (player.DiscordAccount.DiscordId <= 1000000) return;
 
             var globalAccount = _global.Client.GetUser(player.DiscordAccount.DiscordId);
 
