@@ -201,7 +201,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         [Command("b")]
         public async Task StartGameTestBotVsBot()
         {
-            for (var k = 0; k < 500; k++)
+            for (var k = 0; k < 1000; k++)
             {
                 var rawList = new List<SocketUser>
                 {

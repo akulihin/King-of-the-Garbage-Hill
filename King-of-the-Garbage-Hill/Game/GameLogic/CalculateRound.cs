@@ -48,10 +48,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             game.SetPreviousGameLogs($"\n__**Раунд #{game.RoundNo}**__\n");
 
 
-
-
-
-
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
                 var pointsWined = 0;
@@ -301,11 +297,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             if (game.RoundNo == 1) game.TurnLengthInSecond -= 75;
 
 
-            for (var i = 0; i < game.PlayersList.Count; i++)
+
+            Parallel.ForEach(game.PlayersList,  player =>
             {
-                var player = game.PlayersList[i];
-
-
                 player.Status.IsBlock = false;
                 player.Status.IsAbleToWin = true;
                 player.Status.IsSkip = false;
@@ -323,13 +317,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 player.Character.Justice.IsWonThisRound = false;
                 player.Character.Justice.AddJusticeNow(player.Character.Justice.GetJusticeForNextRound());
                 player.Character.Justice.SetJusticeForNextRound(0);
-            }
+            });
 
-
-            game.GameStatus = 1;
+           
             game.RoundNo++;
-            await _characterPassives.HandleNextRound(game);
+            game.GameStatus = 1;
 
+            await _characterPassives.HandleNextRound(game);
 
             game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
 
