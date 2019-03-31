@@ -250,9 +250,11 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
 
                 //send non bot users  a wait message
-                foreach (var player in playersList)
+                Parallel.ForEach(playersList, async player =>
+                {
                     if (!player.IsBot())
-                        _upd.WaitMess(player);
+                        await  _upd.WaitMess(player);
+                });
 
 
                 //start the timer
@@ -346,9 +348,12 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
 
             //send non bot users  a wait message
-            foreach (var player in playersList)
+           
+            Parallel.ForEach(playersList, async player =>
+            {
                 if (!player.IsBot())
-                    _upd.WaitMess(player);
+                 await  _upd.WaitMess(player);
+            });
 
 
             //start the timer
