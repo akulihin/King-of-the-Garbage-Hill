@@ -39,7 +39,6 @@ namespace King_of_the_Garbage_Hill
 
 
         public List<GameClass> GamesList;
-        public List<CheckIfReady.IsTimerToCheckEnabledClass> IsTimerToCheckEnabled = new List<CheckIfReady.IsTimerToCheckEnabledClass>();
 
 
         public GamePlayerBridgeClass GetGameAccount(ulong userId, ulong gameId)

@@ -426,6 +426,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         public void SortGameLogs(GameClass game)
         {
+
+            {
+                var ps = game.GetAllGameLogs().Split("Раунд #2");
+                if (ps.Length >= 2 && ps[1].Length < 7)
+                {
+                    var ll = 0;
+                }
+            }
             var sortedGameLogs = "";
             var extraGameLogs = "\n";
             var logsSplit = game.GetPreviousGameLogs().Split("\n").ToList();

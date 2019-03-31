@@ -386,7 +386,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         {
             var embed = FightPage(player);
 
-            if (embed == null) return;
+            if (embed == null || player.IsBot()) return;
 
             switch (player.Status.MoveListPage)
             {
@@ -417,12 +417,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             if (game == null)
             {
-                discordAccount.IsPlaying = false;
-                _accounts.SaveAccounts(discordAccount);
-                return "END";
+                return "ERROR";
             }
 
-            if (!_global.IsTimerToCheckEnabled.Find(x => x.GameId == game.GameId).IsTimerToCheckEnabled)
+            if (!game.IsTimerToCheckEnabled)
                 return $"Ведется подсчёт, пожалуйста подожди... • ход #{game.RoundNo}";
 
 

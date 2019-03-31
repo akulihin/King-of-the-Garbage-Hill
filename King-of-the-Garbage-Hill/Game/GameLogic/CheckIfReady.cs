@@ -55,10 +55,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             for (var i = 0; i < games.Count; i++)
             {
                 var game = games[i];
-                var timer = _global.IsTimerToCheckEnabled.Find(x => x.GameId == game.GameId);
-                if(timer == null) return;
+
                 
-                var isTimerToCheckEnabled = timer.IsTimerToCheckEnabled;
+                
+                var isTimerToCheckEnabled = game.IsTimerToCheckEnabled;
 
                 if (game.RoundNo > 10)
                 {
@@ -77,14 +77,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("ты кончил.");
                     }
 
-                    _global.IsTimerToCheckEnabled.Remove(timer);
                     _global.GamesList.Remove(game);
 
                     Console.WriteLine("_______________________________________________");
                     return;
                 }
 
-                if (!isTimerToCheckEnabled) return;
+                if (!isTimerToCheckEnabled) continue;
 
                 var players = _global.GamesList[i].PlayersList;
                 var readyTargetCount = players.Count;
@@ -111,7 +110,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     !(game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond) ||
                     game.GameStatus != 1) continue;
 
-                timer.IsTimerToCheckEnabled = false;
+                game.IsTimerToCheckEnabled = false;
 
                 foreach (var t in players)
                     if (t.Status.SocketMessageFromBot != null)
@@ -119,21 +118,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 await _round.DeepListMind(game);
 
-                timer.IsTimerToCheckEnabled = true;
+                game.IsTimerToCheckEnabled = true;
             }
         }
 
-
-        public class IsTimerToCheckEnabledClass
-        {
-            public ulong GameId;
-            public bool IsTimerToCheckEnabled;
-
-            public IsTimerToCheckEnabledClass(ulong gameId)
-            {
-                IsTimerToCheckEnabled = true;
-                GameId = gameId;
-            }
-        }
     }
 }

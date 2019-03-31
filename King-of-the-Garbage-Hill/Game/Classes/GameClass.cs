@@ -5,12 +5,14 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 {
     public class GameClass
     {
-        public int RoundNo;
-        public List<GamePlayerBridgeClass> PlayersList;
-        public ulong GameId;
-        public double TurnLengthInSecond;
-        public Stopwatch TimePassed;
-        public int GameStatus;
+        public int RoundNo { get; set; }
+        public List<GamePlayerBridgeClass> PlayersList { get; set; }
+        public ulong GameId{ get; set; }
+        public double TurnLengthInSecond { get; set; }
+        public Stopwatch TimePassed { get; set; }
+        public int GameStatus { get; set; }
+
+        public bool IsTimerToCheckEnabled { get; set; }
         /*
          * 1 - Turn
          * 2 - Counting
@@ -18,7 +20,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
          */
         private string GameLogs { get; set; }
         private string PreviousGameLogs { get; set; }
-        public ulong WhoWon;
+        public ulong WhoWon { get; set; }
         public GameClass(List<GamePlayerBridgeClass> playersList, ulong gameId, int turnLengthInSecond = 200)
         {
             RoundNo = 1;
@@ -30,6 +32,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             GameLogs = "";
             PreviousGameLogs = "Здесь будут показаны логи игры. \nВыберите цель для нападения по номеру в таблице, используя emoji\n";
             WhoWon = 228;
+            IsTimerToCheckEnabled = true;
         }
 
         public void AddPreviousGameLogs(string str, string newLine = "\n")

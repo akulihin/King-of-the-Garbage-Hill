@@ -1,19 +1,19 @@
 ﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
+using System.Timers;
 using Discord;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.Game.Classes;
-
 
 namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 {
     public sealed class UserAccounts : IServiceSingleton
     {
-        private readonly ConcurrentDictionary<ulong, List<DiscordAccountClass>> _userAccountsDictionary;
         private readonly DiscordShardedClient _client;
+        private readonly ConcurrentDictionary<ulong, DiscordAccountClass> _userAccountsDictionary;
         private readonly UserAccountsDataStorage _usersDataStorage;
+        private Timer LoopingTimer { get; set; }
 
         public UserAccounts(DiscordShardedClient client, UserAccountsDataStorage usersDataStorage)
         {
@@ -21,7 +21,28 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             _usersDataStorage = usersDataStorage;
             _userAccountsDictionary = _usersDataStorage.LoadAllAccounts();
             ClearPlayingStatus();
+            SaveAllAccountsTimer();
         }
+
+
+        public void SaveAllAccountsTimer()
+        {
+            LoopingTimer = new Timer
+            {
+                AutoReset = true,
+                Interval = 30000,
+                Enabled = true
+            };
+
+            LoopingTimer.Elapsed += SaveAllAccounts;
+           
+        }
+
+
+
+
+
+
 
         public async Task InitializeAsync()
         {
@@ -39,9 +60,10 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             }
         }
 
-        public List<DiscordAccountClass> GetOrAddUserAccountsForGuild(ulong userId)
+        public DiscordAccountClass GetOrAddUserAccount(ulong userId)
         {
-            return _userAccountsDictionary.GetOrAdd(userId, x => _usersDataStorage.LoadAccountSettings(userId).ToList());
+            _userAccountsDictionary.TryGetValue(userId, out var account);
+            return account;
         }
 
         public DiscordAccountClass GetAccount(IUser user)
@@ -51,65 +73,71 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 
         public DiscordAccountClass GetAccount(ulong userId)
         {
+            //return a human
             if (userId > 1000000)
                 return GetOrCreateAccount(_client.GetUser(userId));
 
-            var toRet = _userAccountsDictionary.GetOrAdd(userId, x => _usersDataStorage.LoadAccountSettings(userId).ToList())
-                .FirstOrDefault();
 
-            if (toRet == null && userId < 1000000)
-            {
-                return CreateBotAccount(userId);
-            }
-            return toRet;
+            //return a bot
+
+
+
+            _userAccountsDictionary.TryGetValue(userId, out var account);
+
+            if (account != null)
+                return account;
+
+            return CreateBotAccount(userId);
+
         }
 
-
-
-
-        /*
-        public DiscordAccountClass GetBotAccount(ulong botId)
-        {
-            return UserAccountsDictionary.GetOrAdd(botId, x => UsersDataStorage.LoadAccountSettings(botId).ToList()).FirstOrDefault();
-        }
-        */
         public DiscordAccountClass GetOrCreateAccount(IUser user)
         {
-            var accounts = GetOrAddUserAccountsForGuild(user.Id);
-            var account = accounts.FirstOrDefault() ?? CreateUserAccount(user);
+            var accounts = GetOrAddUserAccount(user.Id);
+            var account = accounts ?? CreateUserAccount(user);
             return account;
         }
 
 
+        //obsolete 
         public void SaveAccounts(ulong userId)
         {
-            var accounts = GetOrAddUserAccountsForGuild(userId);
-            _usersDataStorage.SaveAccountSettings(accounts, userId);
+        //    var accounts = GetOrAddUserAccount(userId);
+        //    _usersDataStorage.SaveAccountSettings(accounts, userId);
         }
-
+        //obsolete 
         public void SaveAccounts(IUser user)
         {
-            var accounts = GetOrAddUserAccountsForGuild(user.Id);
-            _usersDataStorage.SaveAccountSettings(accounts, user.Id);
+        //    var accounts = GetOrAddUserAccount(user.Id);
+        //    _usersDataStorage.SaveAccountSettings(accounts, user.Id);
         }
 
+        //obsolete 
         public void SaveAccounts(DiscordAccountClass user)
         {
-            var accounts = GetOrAddUserAccountsForGuild(user.DiscordId);
-            _usersDataStorage.SaveAccountSettings(accounts, user.DiscordId);
+        //    var accounts = GetOrAddUserAccount(user.DiscordId);
+        //    _usersDataStorage.SaveAccountSettings(accounts, user.DiscordId);
         }
+
+        private void SaveAllAccounts(object sender, ElapsedEventArgs e)
+        {
+            foreach (var account in _userAccountsDictionary.Values)
+                _usersDataStorage.SaveAccountSettings(account, account.DiscordId);
+        }
+
+
 
 
         public List<DiscordAccountClass> GetAllAccount()
         {
             var accounts = new List<DiscordAccountClass>();
-            foreach (var values in _userAccountsDictionary.Values) accounts.AddRange(values);
+            foreach (var account in _userAccountsDictionary.Values) accounts.Add(account);
             return accounts;
         }
 
         public DiscordAccountClass CreateUserAccount(IUser user)
         {
-            var accounts = GetOrAddUserAccountsForGuild(user.Id);
+          
 
             var newAccount = new DiscordAccountClass
             {
@@ -121,28 +149,23 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             };
 
             if (newAccount.DiscordUserName.Contains("<:war:561287719838547981>"))
-            {
-                newAccount.DiscordUserName =   newAccount.DiscordUserName.Replace("<:war:561287719838547981>", "404-228-1448");
-            }
+                newAccount.DiscordUserName =
+                    newAccount.DiscordUserName.Replace("<:war:561287719838547981>", "404-228-1448");
 
             if (newAccount.DiscordUserName.Contains("⟶"))
-            {
                 newAccount.DiscordUserName = newAccount.DiscordUserName.Replace("⟶", "404-228-1448");
-            }
 
             if (newAccount.DiscordUserName.Contains("\n"))
-            {
-                newAccount.DiscordUserName =  newAccount.DiscordUserName.Replace("\n", "404-228-1448");
-            }
+                newAccount.DiscordUserName = newAccount.DiscordUserName.Replace("\n", "404-228-1448");
 
-            accounts.Add(newAccount);
+            _userAccountsDictionary.GetOrAdd(newAccount.DiscordId, newAccount);
             SaveAccounts(user);
             return newAccount;
         }
 
         public DiscordAccountClass CreateBotAccount(ulong botId)
         {
-            var accounts = GetOrAddUserAccountsForGuild(botId);
+      
 
             var newAccount = new DiscordAccountClass
             {
@@ -153,7 +176,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 GameId = 1000000
             };
 
-            accounts.Add(newAccount);
+            _userAccountsDictionary.GetOrAdd(newAccount.DiscordId, newAccount);
             SaveAccounts(botId);
             return newAccount;
         }

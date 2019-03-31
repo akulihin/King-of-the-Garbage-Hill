@@ -258,7 +258,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 //start the timer
                 game.TimePassed.Start();
                 _global.GamesList.Add(game);
-                _global.IsTimerToCheckEnabled.Add(new CheckIfReady.IsTimerToCheckEnabledClass(game.GameId));
+          
 
                 //get all the chances before the game starts
                 _characterPassives.CalculatePassiveChances(game);
@@ -355,7 +355,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             game.TimePassed.Start();
 
             _global.GamesList.Add(game);
-            _global.IsTimerToCheckEnabled.Add(new CheckIfReady.IsTimerToCheckEnabledClass(game.GameId));
+         
 
             
             //get all the chances before the game starts
