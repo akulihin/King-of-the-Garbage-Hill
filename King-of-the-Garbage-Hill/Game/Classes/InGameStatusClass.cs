@@ -90,7 +90,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             ScoresToGiveAtEndOfRound += regularPoints;
         }
 
-        public void AddBonusPoints(int bonusPoints)
+        public void AddBonusPoints(int bonusPoints = 1)
         {
             if(bonusPoints > 0)
                 AddInGamePersonalLogs(  $"+{bonusPoints} **бонусных** очков\n");

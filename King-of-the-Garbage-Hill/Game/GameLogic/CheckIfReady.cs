@@ -95,8 +95,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     await _botsBehavior.HandleBotBehavior(t, game);
 
-                    //TODO: game.TimePassed.Elapsed.TotalSeconds > 13
-                    if (t.Status.IsReady && t.Status.MoveListPage != 3 && game.TimePassed.Elapsed.TotalSeconds > 3)
+                    
+                    if (t.Status.IsReady && t.Status.MoveListPage != 3 && game.TimePassed.Elapsed.TotalSeconds > 13)
                         readyCount++;
                     else
                         Console.WriteLine("NOT READY: = " + t.DiscordAccount.DiscordUserName);
@@ -106,7 +106,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         await _upd.UpdateMessage(t);
                 }
 
-                Console.WriteLine("readyCount = " + readyCount);
+                Console.WriteLine($"(#{game.GameId}) readyCount = " + readyCount);
 
                 if (readyCount != readyTargetCount &&
                     !(game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond) ||
@@ -123,7 +123,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         await _upd.UpdateMessage(t);
                 });
 
-                await _round.DeepListMind(game);
+                try
+                {
+                    await _round.DeepListMind(game);
+                }
+                catch (Exception f)
+                {
+                 await   _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
+                        .SendMessageAsync("CheckIfEveryoneIsReady ==>  await _round.DeepListMind(game);\n" +
+                                          $"{f.StackTrace}");
+                }
 
                 game.IsTimerToCheckEnabled = true;
             }

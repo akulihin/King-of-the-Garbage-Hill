@@ -1144,7 +1144,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         if (leImpact == null || !leImpact.IsTriggered)
                         {
-                            player.Status.AddBonusPoints(2);
+                            player.Status.AddBonusPoints();
+                            player.Character.Justice.AddJusticeForNextRound();
                             await _phrase.LeCrispImpactPhrase.SendLog(player);
                         }
                         else if (leImpact != null)

@@ -201,7 +201,9 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         [Command("b")]
         public async Task StartGameTestBotVsBot()
         {
-            for (var k = 0; k < 1000; k++)
+           
+
+            for (var k = 0; k < 1; k++)
             {
                 var rawList = new List<SocketUser>
                 {
@@ -267,7 +269,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
                 //handle round #1
                 await _characterPassives.HandleNextRound(game);
-                await Task.Delay(1000);
+               // await Task.Delay(1000);
             }
         }
 
