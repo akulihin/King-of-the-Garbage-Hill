@@ -58,6 +58,8 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 a.IsPlaying = false;
                 SaveAccounts(a.DiscordId);
             }
+
+            SaveAllAccounts(null, null);
         }
 
         public DiscordAccountClass GetOrAddUserAccount(ulong userId)

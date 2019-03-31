@@ -728,6 +728,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //Научите играть 
                         var awdkaTempStats = _gameGlobal.AwdkaTeachToPlayTempStats.Find(x =>
                             x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+
                         var awdka = _gameGlobal.AwdkaTeachToPlay.Find(x =>
                             x.PlayerDiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
 
@@ -755,14 +756,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //end remove stats
 
                         //if there is no one have been attacked from awdka
-                        if (awdka == null) return;
+                        if (awdka == null) continue;
                         //end if there..
 
                         //crazy shit
                         _gameGlobal.AwdkaTeachToPlayTempStats.Add(new DeepList.Madness(player.DiscordAccount.DiscordId,
                             game.GameId, game.RoundNo));
+
                         awdkaTempStats = _gameGlobal.AwdkaTeachToPlayTempStats.Find(x =>
                             x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+
                         awdkaTempStats.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.GetIntelligence(),
                             player.Character.GetStrength(), player.Character.GetSpeed(), player.Character.GetPsyche()));
                         //end crazy shit

@@ -46,6 +46,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             game.GameStatus = 2;
             game.AddGameLogs($"\n__**Раунд #{game.RoundNo}**__\n");
             game.SetPreviousGameLogs($"\n__**Раунд #{game.RoundNo}**__\n");
+
+
+
+
+
+
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
                 var pointsWined = 0;
@@ -373,7 +379,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             SortGameLogs(game);
             await _characterPassives.HandleNextRoundAfterSorting(game);
 
-            foreach (var t in game.PlayersList) await _upd.UpdateMessage(t);
+           
+
+            Parallel.ForEach(game.PlayersList, async t =>
+            {
+                if (t.Status.SocketMessageFromBot != null)
+                    await _upd.UpdateMessage(t);
+            });
+
 
             game.TimePassed.Reset();
             game.TimePassed.Start();
@@ -426,14 +439,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         public void SortGameLogs(GameClass game)
         {
-
-            {
-                var ps = game.GetAllGameLogs().Split("Раунд #2");
-                if (ps.Length >= 2 && ps[1].Length < 7)
-                {
-                    var ll = 0;
-                }
-            }
             var sortedGameLogs = "";
             var extraGameLogs = "\n";
             var logsSplit = game.GetPreviousGameLogs().Split("\n").ToList();

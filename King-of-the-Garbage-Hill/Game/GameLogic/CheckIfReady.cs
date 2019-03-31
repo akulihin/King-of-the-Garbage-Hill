@@ -52,13 +52,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private async void CheckIfEveryoneIsReady(object sender, ElapsedEventArgs e)
         {
             var games = _global.GamesList;
-            for (var i = 0; i < games.Count; i++)
+
+
+            for(var i = 0; i < games.Count;  i++)
             {
+                
                 var game = games[i];
 
-                
-                
-                var isTimerToCheckEnabled = game.IsTimerToCheckEnabled;
+               
 
                 if (game.RoundNo > 10)
                 {
@@ -67,7 +68,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         
                     _finishedGameLog.CreateNewLog(game);
 
-                    foreach (var player in game.PlayersList)
+
+                    Parallel.ForEach(game.PlayersList, async player =>
                     {
                         player.DiscordAccount.IsPlaying = false;
                         player.DiscordAccount.GameId = 1000000;
@@ -75,7 +77,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         await _gameUpdateMess.UpdateMessage(player);
                         if (!player.IsBot())
                             await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("ты кончил.");
-                    }
+                    });
+
 
                     _global.GamesList.Remove(game);
 
@@ -83,7 +86,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     return;
                 }
 
-                if (!isTimerToCheckEnabled) continue;
+                if (!game.IsTimerToCheckEnabled) continue;
 
                 var players = _global.GamesList[i].PlayersList;
                 var readyTargetCount = players.Count;
@@ -93,8 +96,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     await _botsBehavior.HandleBotBehavior(t, game);
 
-                    //TODO: change game.TimePassed.Elapsed.TotalSeconds > 1 to 13
-                    if (t.Status.IsReady && t.Status.MoveListPage != 3 && game.TimePassed.Elapsed.TotalSeconds > 1)
+                   
+                    if (t.Status.IsReady && t.Status.MoveListPage != 3 && game.TimePassed.Elapsed.TotalSeconds > 13)
                         readyCount++;
                     else
                         Console.WriteLine("NOT READY: = " + t.DiscordAccount.DiscordUserName);
@@ -112,14 +115,18 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 game.IsTimerToCheckEnabled = false;
 
-                foreach (var t in players)
+                Parallel.ForEach(players, async t =>
+                {
                     if (t.Status.SocketMessageFromBot != null)
                         await _upd.UpdateMessage(t);
+                });
 
                 await _round.DeepListMind(game);
 
                 game.IsTimerToCheckEnabled = true;
             }
+
+      
         }
 
     }
