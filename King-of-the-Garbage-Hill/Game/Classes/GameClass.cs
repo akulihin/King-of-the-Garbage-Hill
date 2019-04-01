@@ -12,7 +12,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public Stopwatch TimePassed { get; set; }
         public int GameStatus { get; set; }
 
-        public bool IsTimerToCheckEnabled { get; set; }
+        public bool IsCheckIfReady { get; set; }
         /*
          * 1 - Turn
          * 2 - Counting
@@ -34,7 +34,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             GameLogs = "";
             PreviousGameLogs = "Здесь будут показаны логи игры. \nВыберите цель для нападения по номеру в таблице, используя emoji\n";
             WhoWon = 228;
-            IsTimerToCheckEnabled = true;
+            IsCheckIfReady = true;
             SkipPlayersThisRound = 0;
         }
 

@@ -68,24 +68,25 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     _finishedGameLog.CreateNewLog(game);
 
 
-                    Parallel.ForEach(game.PlayersList, async player =>
+                    foreach (var player in game.PlayersList)
                     {
+                        await _gameUpdateMess.UpdateMessage(player, game);
+
                         player.DiscordAccount.IsPlaying = false;
                         player.DiscordAccount.GameId = 1000000;
-                        _accounts.SaveAccounts(player.DiscordAccount.DiscordId);
-                        await _gameUpdateMess.UpdateMessage(player);
+
                         if (!player.IsBot())
                             await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("ты кончил.");
-                    });
+                    }
 
-
+                    game.IsCheckIfReady = false;
                     _global.GamesList.Remove(game);
 
                     Console.WriteLine("_______________________________________________");
                     continue;
                 }
 
-                if (!game.IsTimerToCheckEnabled) continue;
+                if (!game.IsCheckIfReady) continue;
 
                 var players = _global.GamesList[i].PlayersList;
                 var readyTargetCount = players.Count;
@@ -113,9 +114,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     game.GameStatus != 1) continue;
 
                 //another way of protecting a frame perfect  bug
-                if (!game.IsTimerToCheckEnabled) continue;
+                if (!game.IsCheckIfReady) continue;
 
-                game.IsTimerToCheckEnabled = false;
+                game.IsCheckIfReady = false;
 
                 Parallel.ForEach(players, async t =>
                 {
@@ -134,7 +135,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                           $"{f.StackTrace}");
                 }
 
-                game.IsTimerToCheckEnabled = true;
+                game.IsCheckIfReady = true;
             }
         }
     }

@@ -296,7 +296,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             var accountDeep = _accounts.GetAccount(Context.User);
             accountDeep.GameId = _global.GetNewtGamePlayingAndId();
             accountDeep.IsPlaying = true;
-            _accounts.SaveAccounts(accountDeep.DiscordId);
+           
 
             var characterDeep = _charactersPull.AllCharacters[charIndex1]; //TODO: should be random someday 
             playersList.Add(new GamePlayerBridgeClass
@@ -307,7 +307,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 accountDeep = _accounts.GetAccount(tolya);
                 accountDeep.GameId = accountDeep.GameId;
                 accountDeep.IsPlaying = true;
-                _accounts.SaveAccounts(accountDeep.DiscordId);
+
                 playersList.Add(new GamePlayerBridgeClass
                 {
                     DiscordAccount = accountDeep, Character = _charactersPull.AllCharacters[charIndex2],
@@ -334,20 +334,29 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
             //end  randomize order
 
-            var game = new GameClass(playersList, accountDeep.GameId);
-
             //HardKitty unique (should be last in order, always
-            if (game.PlayersList.Any(x => x.Character.Name == "HardKitty"))
+            if (playersList.Any(x => x.Character.Name == "HardKitty"))
             {
-                var tempHard = game.PlayersList.Find(x => x.Character.Name == "HardKitty");
-                var hardIndex = game.PlayersList.IndexOf(tempHard);
+                var tempHard = playersList.Find(x => x.Character.Name == "HardKitty");
+                var hardIndex = playersList.IndexOf(tempHard);
 
-                for (var i = hardIndex; i < game.PlayersList.Count - 1; i++)
-                    game.PlayersList[i] = game.PlayersList[i + 1];
+                for (var i = hardIndex; i < playersList.Count - 1; i++)
+                    playersList[i] = playersList[i + 1];
 
-                game.PlayersList[game.PlayersList.Count - 1] = tempHard;
+                playersList[playersList.Count - 1] = tempHard;
             }
             //end HardKitty unique
+
+            //send  a wait message
+            Parallel.ForEach(playersList, async player =>
+            {
+                //CANT USE .IsBot() method! 
+             
+                await  _upd.WaitMess(player);
+            });
+
+
+            var game = new GameClass(playersList, accountDeep.GameId) {IsCheckIfReady = false};
 
             //vampyr unique
             if (playersList.Any(x => x.Character.Name == "Вампур"))
@@ -360,27 +369,20 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             }
             //end vampyr unique
 
-            //send non bot users  a wait message
-           
-            Parallel.ForEach(playersList, async player =>
-            {
-                //CANT USE .IsBot() method! 
-             
-                 await  _upd.WaitMess(player);
-            });
 
 
             //start the timer
             game.TimePassed.Start();
-
             _global.GamesList.Add(game);
          
-
             
             //get all the chances before the game starts
             _characterPassives.CalculatePassiveChances(game);
+
             //handle round #0
+           
             await _characterPassives.HandleNextRound(game);
+            game.IsCheckIfReady = true;
         }
 
         // OWNER COMMANDS:

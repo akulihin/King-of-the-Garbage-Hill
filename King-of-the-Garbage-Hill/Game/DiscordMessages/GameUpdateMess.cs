@@ -260,7 +260,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
         //Page 1
-        public EmbedBuilder FightPage(GamePlayerBridgeClass player)
+        public EmbedBuilder FightPage(GamePlayerBridgeClass player, GameClass game = null)
         {
             var account = player.DiscordAccount;
             //        player.Status.MoveListPage = 1;
@@ -271,7 +271,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             embed.WithFooter($"{GetTimeLeft(account)}");
 
-            var game = _global.GamesList.Find(x => x.GameId == account.GameId);
+            if (game == null)
+            {
+                game = _global.GamesList.Find(x => x.GameId == account.GameId);
+            }
+       
             var desc = "ERROR";
 
             if (game != null)
@@ -382,9 +386,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             return embed;
         }
 
-        public async Task UpdateMessage(GamePlayerBridgeClass player)
+        public async Task UpdateMessage(GamePlayerBridgeClass player, GameClass game = null)
         {
-            var embed = FightPage(player);
+            var embed = FightPage(player, game);
 
             if (embed == null || player.IsBot()) return;
 
@@ -404,9 +408,12 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             await UpdateMessageWithEmbed(player, embed);
         }
 
+
+
+
         public async Task UpdateMessageWithEmbed(GamePlayerBridgeClass player, EmbedBuilder embed)
         {
-            if (!player.IsBot())
+            if (!player.IsBot() && !embed.Footer.Text.Contains("ERROR"))
                 await player.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
         }
 
@@ -420,7 +427,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 return "ERROR";
             }
 
-            if (!game.IsTimerToCheckEnabled)
+            if (!game.IsCheckIfReady)
                 return $"Ведется подсчёт, пожалуйста подожди... • ход #{game.RoundNo}";
 
 
