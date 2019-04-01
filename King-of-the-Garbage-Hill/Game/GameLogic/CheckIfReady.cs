@@ -82,7 +82,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     _global.GamesList.Remove(game);
 
                     Console.WriteLine("_______________________________________________");
-                    return;
+                    continue;
                 }
 
                 if (!game.IsTimerToCheckEnabled) continue;
