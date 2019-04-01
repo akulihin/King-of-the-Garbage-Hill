@@ -53,33 +53,6 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             }
         }
 
-        //Get DiscordAccountClass
-
-        public DiscordAccountClass LoadAccountSettings(ulong userId)
-        {
-            var filePath = $@"DataBase/OctoDataBase/UserAccounts/discordAccount-{userId}.json";
-            if (!File.Exists(filePath))
-            {
-                var newList = new DiscordAccountClass();
-                SaveAccountSettings(newList, userId);
-                return newList;
-            }
-
-            var json = File.ReadAllText(filePath);
-
-            try
-            {
-                return JsonConvert.DeserializeObject<DiscordAccountClass>(json);
-            }
-            catch (Exception e)
-            {
-                _log.Critical($"LoadAccountSettings, BACK UP CREATED: {e}");
-            
-                var newList = new DiscordAccountClass();
-                SaveAccountSettings(newList, $"{userId}-BACK_UP", json);
-                return newList;
-            }
-        }
 
         public ConcurrentDictionary<ulong, DiscordAccountClass>LoadAllAccounts()
         {
