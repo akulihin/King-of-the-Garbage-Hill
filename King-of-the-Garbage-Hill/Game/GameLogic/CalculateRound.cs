@@ -65,8 +65,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (player.Status.IsBlock)
                 {
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
-                    player.Status.IsWonLastTime = 0;
-                    player.Status.IsLostLastTime = 0;
+                    player.Status.IsWonThisCalculation = 0;
+                    player.Status.IsLostThisCalculation = 0;
                     player.Status.IsFighting = 0;
                     continue;
                 }
@@ -144,10 +144,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
                     await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
 
-                    player.Status.IsWonLastTime = 0;
-                    player.Status.IsLostLastTime = 0;
-                    playerIamAttacking.Status.IsWonLastTime = 0;
-                    playerIamAttacking.Status.IsLostLastTime = 0;
+                    player.Status.IsWonThisCalculation = 0;
+                    player.Status.IsLostThisCalculation = 0;
+                    playerIamAttacking.Status.IsWonThisCalculation = 0;
+                    playerIamAttacking.Status.IsLostThisCalculation = 0;
                     playerIamAttacking.Status.IsFighting = 0;
                     player.Status.IsFighting = 0;
 
@@ -162,10 +162,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
                     await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
 
-                    player.Status.IsWonLastTime = 0;
-                    player.Status.IsLostLastTime = 0;
-                    playerIamAttacking.Status.IsWonLastTime = 0;
-                    playerIamAttacking.Status.IsLostLastTime = 0;
+                    player.Status.IsWonThisCalculation = 0;
+                    player.Status.IsLostThisCalculation = 0;
+                    playerIamAttacking.Status.IsWonThisCalculation = 0;
+                    playerIamAttacking.Status.IsLostThisCalculation = 0;
                     playerIamAttacking.Status.IsFighting = 0;
                     player.Status.IsFighting = 0;
 
@@ -210,10 +210,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //end round 1
 
 
-                //   var ggg = $"{player.Character.Name} vs {playerIamAttacking.Character.Name} = {strangeNumber}";
-                //   Console.WriteLine(ggg);
-
-
                 //round 2 (Justice)
                 if (player.Character.Justice.GetJusticeNow() > playerIamAttacking.Character.Justice.GetJusticeNow())
                     pointsWined++;
@@ -248,8 +244,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     playerIamAttacking.Character.Justice.AddJusticeForNextRound();
 
-                    player.Status.IsWonLastTime = playerIamAttacking.DiscordAccount.DiscordId;
-                    playerIamAttacking.Status.IsLostLastTime = player.DiscordAccount.DiscordId;
+                    player.Status.IsWonThisCalculation = playerIamAttacking.DiscordAccount.DiscordId;
+                    playerIamAttacking.Status.IsLostThisCalculation = player.DiscordAccount.DiscordId;
+                    playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.DiscordAccount.DiscordId, game.RoundNo));
                 }
                 else
                 {
@@ -266,8 +263,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         player.Character.Justice.AddJusticeForNextRound();
 
-                        playerIamAttacking.Status.IsWonLastTime = player.DiscordAccount.DiscordId;
-                        player.Status.IsLostLastTime = playerIamAttacking.DiscordAccount.DiscordId;
+                        playerIamAttacking.Status.IsWonThisCalculation = player.DiscordAccount.DiscordId;
+                        player.Status.IsLostThisCalculation = playerIamAttacking.DiscordAccount.DiscordId;
+                        player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.DiscordAccount.DiscordId, game.RoundNo));
                     }
                 }
 
@@ -281,10 +279,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 await _characterPassives.HandleCharacterAfterCalculations(player, game);
                 await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
 
-                player.Status.IsWonLastTime = 0;
-                player.Status.IsLostLastTime = 0;
-                playerIamAttacking.Status.IsWonLastTime = 0;
-                playerIamAttacking.Status.IsLostLastTime = 0;
+                player.Status.IsWonThisCalculation = 0;
+                player.Status.IsLostThisCalculation = 0;
+                playerIamAttacking.Status.IsWonThisCalculation = 0;
+                playerIamAttacking.Status.IsLostThisCalculation = 0;
                 playerIamAttacking.Status.IsFighting = 0;
                 player.Status.IsFighting = 0;
             }

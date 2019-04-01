@@ -1,4 +1,5 @@
-﻿using Discord;
+﻿using System.Collections.Generic;
+using Discord;
 
 namespace King_of_the_Garbage_Hill.Game.Classes
 {
@@ -18,13 +19,26 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             IsReady = false;
             IsAbleToWin = true;
             WonTimes = 0;
-            IsWonLastTime = 0;
-            IsLostLastTime = 0;
+            IsWonThisCalculation = 0;
+            IsLostThisCalculation = 0;
             IsFighting = 0;
             IsSkip = false;
             ScoresToGiveAtEndOfRound = 0;
             InGamePersonalLogs = "";
             InGamePersonalLogsAll = "";
+            WhoToLostEveryRound = new List<WhoToLostPreviousRoundClass>();
+        }
+
+        public class WhoToLostPreviousRoundClass
+        {
+            public ulong EnemyId;
+            public int RoundNo;
+
+            public WhoToLostPreviousRoundClass(ulong enemyId, int roundNo)
+            {
+                EnemyId = enemyId;
+                RoundNo = roundNo;
+            }
         }
 
         public int MoveListPage { get; set; }
@@ -49,13 +63,15 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public bool IsReady { get; set; }
         public int WonTimes { get; set; }
-        public ulong IsWonLastTime { get; set; }
-        public ulong IsLostLastTime { get; set; }
+        public ulong IsWonThisCalculation { get; set; }
+        public ulong IsLostThisCalculation { get; set; }
         public ulong IsFighting { get; set; }
         private double ScoresToGiveAtEndOfRound { get; set; }
         public int LvlUpPoints { get; set; }
         private string InGamePersonalLogs { get; set; }
         public string InGamePersonalLogsAll { get; set; }
+        public List<WhoToLostPreviousRoundClass> WhoToLostEveryRound { get; set; }
+
 
         public void AddInGamePersonalLogs(string str)
         {
@@ -98,6 +114,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 AddInGamePersonalLogs ( $"{bonusPoints} **бонусных** очков\n");
 
             Score += bonusPoints;
+            if (Score < 0)
+                Score = 0;
         }
 
         public double GetScoresToGiveAtEndOfRound()

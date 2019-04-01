@@ -54,7 +54,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             else
             {
                 var find = mylorik?.EnemyListDiscordId.Find(x =>
-                    x.EnemyDiscordId == player.Status.IsWonLastTime && x.IsUnique);
+                    x.EnemyDiscordId == player.Status.IsWonThisCalculation && x.IsUnique);
 
                 if (find != null)
                 {
@@ -79,11 +79,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             //Revenge
      
-              await  HandleMylorikRevenge(player, player.Status.IsLostLastTime, player.DiscordAccount.GameId);
+              await  HandleMylorikRevenge(player, player.Status.IsLostThisCalculation, player.DiscordAccount.GameId);
             //end Revenge
 
             //Spanish
-            if (player.Status.IsLostLastTime != 0)
+            if (player.Status.IsLostThisCalculation != 0)
             {
                 var rand = _rand.Random(1, 3);
 

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
+
 //using Discord;
 
 namespace King_of_the_Garbage_Hill.Game.MemoryStorage
@@ -60,11 +61,22 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public PhraseClass TolyaRammus5Phrase;
 
         public PhraseClass TolyaRammusPhrase;
+        public PhraseClass VampyrHematophagy;
+        public PhraseClass VampyrNoAttack;
+        public PhraseClass VampyrSuckspenStake;
+
+        public PhraseClass VampyrVampyr;
         //end
 
         public CharactersUniquePhrase()
         {
             //add values
+            VampyrHematophagy = new PhraseClass("Гематофагия");
+            VampyrSuckspenStake = new PhraseClass("СОсиновый кол");
+            VampyrNoAttack = new PhraseClass("СОсиновый кол");
+            VampyrVampyr = new PhraseClass("Vampyr");
+
+
             TigrTwoBetter = new PhraseClass("Лучше с двумя, чем с адекватными");
             TigrThreeZero = new PhraseClass("3-0 обоссан");
             TigrTop = new PhraseClass("Тигр топ, а ты холоп");
@@ -124,6 +136,23 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             //end
 
             //add  as many phrases as you wany
+            VampyrVampyr.PassiveLogRus.Add("Вампурская ноо-ооочь!");
+            VampyrVampyr.PassiveLogRus.Add("Таинственный Вампур");
+            VampyrHematophagy.PassiveLogRus.Add("Я - Вампур из Лондона!");
+            VampyrHematophagy.PassiveLogRus.Add("Какая питательная кровь");
+            VampyrHematophagy.PassiveLogRus.Add("Вампур-шампур!");
+            VampyrHematophagy.PassiveLogRus.Add("Клыки как бур - Вампур");
+            VampyrHematophagy.PassiveLogRus.Add("ВОТ МОЯ ФИНАЛЬНАЯ ФОРМА, теперь я - Vampyr!");
+            VampyrSuckspenStake.PassiveLogRus.Add("Ай");
+            VampyrSuckspenStake.PassiveLogRus.Add("Мое Вампурское сердце не выдержит");
+            VampyrSuckspenStake.PassiveLogRus.Add("Ниеееет!");
+            VampyrSuckspenStake.PassiveLogRus.Add("Пфхаааш!");
+            VampyrNoAttack.PassiveLogRus.Add("Не хочу, не буду");
+            VampyrNoAttack.PassiveLogRus.Add("Аа я баюс его");
+            VampyrNoAttack.PassiveLogRus.Add("Это Хельсинг, начальнике");
+            VampyrNoAttack.PassiveLogRus.Add("От него пахнет чесноком!");
+            VampyrNoAttack.PassiveLogRus.Add("Он мне кол в жопу засунул");
+
 
             TigrTwoBetter.PassiveLogRus.Add("Лучше с двумя, чем с адекватными");
             TigrTwoBetter.PassiveLogRus.Add("Добро пожаловать в мой клан!");

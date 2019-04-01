@@ -26,26 +26,28 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             var panth = _gameGlobal.PanthFirstBlood.Find(x =>
                 x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
 
-            if (panth != null && panth.FriendList.Count >= 1)
+            if (panth != null && panth.FriendList.Count == 1)
             {
-                if (panth.FriendList.Contains(player.Status.IsWonLastTime))
+
+                if (panth.FriendList.Contains(player.Status.IsWonThisCalculation))
                 {
                     player.Character.AddSpeed(player.Status);
                     panth.FriendList.Clear();
                 }
-                else if (panth.FriendList.Contains(player.Status.IsLostLastTime))
+                else if (panth.FriendList.Contains(player.Status.IsLostThisCalculation))
                 {
-                    var ene =  game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsLostLastTime);
+                    var ene =  game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsLostThisCalculation);
                     ene.Character.AddSpeed(ene.Status);
                     panth.FriendList.Clear();
                 }
+                panth.FriendList.Add(1234);
             }
             //end Первая кровь: 
 
             //Это привилегия
-            if (player.Status.IsWonLastTime != 0)
+            if (player.Status.IsWonThisCalculation != 0)
             {
-                game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonLastTime).Character
+                game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonThisCalculation).Character
                     .Justice.AddJusticeForNextRound();
             }
             //end Это привилегия
@@ -54,7 +56,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
              panth = _gameGlobal.PanthMark.Find(x =>
                 x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
 
-             if (panth.FriendList.Contains(player.Status.IsWonLastTime))
+             if (panth.FriendList.Contains(player.Status.IsWonThisCalculation))
              {
                 player.Status.AddRegularPoints();
              }

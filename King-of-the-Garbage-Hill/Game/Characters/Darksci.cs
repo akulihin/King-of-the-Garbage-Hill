@@ -31,7 +31,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public async Task HandleDarksiAfter(GamePlayerBridgeClass player, GameClass game)
         {
-            if (player.Status.IsLostLastTime != 0)
+            if (player.Status.IsLostThisCalculation != 0)
             {
                 //Не повезло
                 player.Character.AddPsyche(player.Status, -1);

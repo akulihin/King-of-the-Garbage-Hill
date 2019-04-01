@@ -30,20 +30,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                 x.PlayerDiscordId == player.DiscordAccount.DiscordId && player.DiscordAccount.GameId == x.GameId);
 
-            if (deep == null)
-            {
-                _gameGlobal.DeepListDoubtfulTactic.Add(new Sirinoks.FriendsClass(player.DiscordAccount.DiscordId, player.DiscordAccount.GameId, player.Status.IsFighting));
-              
-                player.Status.IsAbleToWin = false;
-     
-            }
-            else
-            {
-                if (deep.FriendList.Contains(player.Status.IsFighting))
-                { 
-                  
-                }
-                else
+
+               
+ if (!deep.FriendList.Contains(player.Status.IsFighting))
                 {
                     deep.FriendList.Add(player.Status.IsFighting);
                    
@@ -51,7 +40,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                 }
 
-            }
+            
 
 
             //end Doubtful tactic
@@ -64,26 +53,25 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                 x.PlayerDiscordId == player.DiscordAccount.DiscordId && player.DiscordAccount.GameId == x.GameId);
 
-            if (deep != null)
-            {
+     
                 player.Status.IsAbleToWin = true;
                 if (deep.FriendList.Contains(player.Status.IsFighting))
                 {
                   
-                    if (player.Status.IsWonLastTime != 0)
+                    if (player.Status.IsWonThisCalculation != 0)
                     {
                         player.Status.AddRegularPoints();
                         await _phrase.DeepListDoubtfulTacticPhrase.SendLog(player);
                     }
                 }
-            }
+            
 
             //end Doubtful tactic
 
             // Стёб
-            if (player.Status.IsWonLastTime != 0)
+            if (player.Status.IsWonThisCalculation != 0)
             {
-                var player2 = game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonLastTime);
+                var player2 = game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonThisCalculation);
                 HandleMockery(player, player2, game);
             }
 

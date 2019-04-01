@@ -26,9 +26,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public void HandleSirinoksAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //обучение
-            if (player.Status.IsLostLastTime != 0)
+            if (player.Status.IsLostThisCalculation != 0)
             {
-                var playerSheLostLastTime = game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsLostLastTime);
+                var playerSheLostLastTime = game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsLostThisCalculation);
                 var intel = new List<StatsClass>
                 {
                     new StatsClass(1, playerSheLostLastTime.Character.GetIntelligence()),
@@ -65,24 +65,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             }
         }
 
-        public class FriendsClass
-        {
-            public ulong GameId;
-            public ulong PlayerDiscordId;
-            public List<ulong> FriendList = new List<ulong>();
 
-            public FriendsClass(ulong playerDiscordId, ulong gameId, ulong enemyId)
-            {
-                PlayerDiscordId = playerDiscordId;
-                GameId = gameId;
-                FriendList.Add(enemyId);
-            }
-            public FriendsClass(ulong playerDiscordId, ulong gameId)
-            {
-                PlayerDiscordId = playerDiscordId;
-                GameId = gameId;
-            }
-        }
 
 
         public class TrainingClass

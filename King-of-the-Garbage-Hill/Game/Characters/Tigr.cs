@@ -33,7 +33,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public async Task HandleTigrAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //3-0 обоссан: 
-            if (player.Status.IsWonLastTime != 0)
+            if (player.Status.IsWonThisCalculation != 0)
             {
                 var tigr = _gameGlobal.TigrThreeZeroList.Find(x =>
                     x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
@@ -42,11 +42,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 if (tigr == null)
                 {
                     _gameGlobal.TigrThreeZeroList.Add(new ThreeZeroClass(player.DiscordAccount.DiscordId, game.GameId,
-                        player.Status.IsWonLastTime));
+                        player.Status.IsWonThisCalculation));
                 }
                 else
                 {
-                    var enemy = tigr.FriendList.Find(x => x.EnemyId == player.Status.IsWonLastTime);
+                    var enemy = tigr.FriendList.Find(x => x.EnemyId == player.Status.IsWonThisCalculation);
                     if (enemy != null)
                     {
                         enemy.WinsSeries++;
@@ -57,7 +57,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             await _phrase.TigrThreeZero.SendLog(player);
 
                             var enemyAcc = game.PlayersList.Find(x =>
-                                x.DiscordAccount.DiscordId == player.Status.IsWonLastTime);
+                                x.DiscordAccount.DiscordId == player.Status.IsWonThisCalculation);
 
                             if (enemyAcc != null)
                             {
@@ -70,7 +70,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     }
                     else
                     {
-                           tigr.FriendList.Add(new ThreeZeroSubClass(player.Status.IsWonLastTime));
+                           tigr.FriendList.Add(new ThreeZeroSubClass(player.Status.IsWonThisCalculation));
                     }
                 }
             }
@@ -79,7 +79,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 var tigr = _gameGlobal.TigrThreeZeroList.Find(x =>
                     x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
 
-                var enemy = tigr?.FriendList.Find(x => x.EnemyId == player.Status.IsLostLastTime);
+                var enemy = tigr?.FriendList.Find(x => x.EnemyId == player.Status.IsLostThisCalculation);
 
                 if (enemy != null && enemy.IsUnique) enemy.WinsSeries = 0;
             }

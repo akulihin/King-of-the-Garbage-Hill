@@ -37,7 +37,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public async Task ShowRulesAndChar(SocketUser user, GamePlayerBridgeClass player)
         {
-            if (player.IsBot()) return;
+         
 
             var pass = "";
             var passList = player.Character.Passive;
@@ -310,8 +310,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
 
             if (character.Avatar != null)
-                if (IsImageUrl(character.Avatar))
                     embed.WithThumbnailUrl(character.Avatar);
+            
 
             return embed;
         }

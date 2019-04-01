@@ -25,21 +25,21 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public void HandleAwdkaAfter(GamePlayerBridgeClass player)
         {
 
-            if (player.Status.IsLostLastTime != 0)
+            if (player.Status.IsLostThisCalculation != 0)
             {
                 var awdka = _gameGlobal.AwdkaTryingList.Find(x =>
                     x.GameId == player.DiscordAccount.GameId && x. PlayerDiscordId == player.DiscordAccount.DiscordId);
 
                 if(awdka == null)
                 {
-                    _gameGlobal.AwdkaTryingList.Add(new TryingClass(player.DiscordAccount.DiscordId, player.DiscordAccount.GameId, player.Status.IsLostLastTime ));
+                    _gameGlobal.AwdkaTryingList.Add(new TryingClass(player.DiscordAccount.DiscordId, player.DiscordAccount.GameId, player.Status.IsLostThisCalculation ));
                 }
                 else
                 {
-                    var enemy = awdka.TryingList.Find(x => x.EnemyId == player.Status.IsLostLastTime);
+                    var enemy = awdka.TryingList.Find(x => x.EnemyId == player.Status.IsLostThisCalculation);
                     if (enemy == null)
                     {
-                        awdka.TryingList.Add(new TryingSubClass(player.Status.IsLostLastTime));
+                        awdka.TryingList.Add(new TryingSubClass(player.Status.IsLostThisCalculation));
                     }
                     else
                     {

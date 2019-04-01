@@ -4,6 +4,7 @@ using Discord;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -18,10 +19,11 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         private readonly HelperFunctions _help;
 
         private readonly GameUpdateMess _upd;
+        private readonly CharactersUniquePhrase _phrase;
 
         public GameReaction(UserAccounts accounts,
             Global global,
-            GameUpdateMess upd, HelperFunctions help)
+            GameUpdateMess upd, HelperFunctions help, CharactersUniquePhrase phrase)
         {
             _accounts = accounts;
 
@@ -29,6 +31,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
             _upd = upd;
             _help = help;
+            _phrase = phrase;
         }
 
         public Task InitializeAsync()
@@ -79,6 +82,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                                 SendMsgAndDeleteIt(player, "Спартанцы не капитулируют!!");
                                 return;
                             }
+
 
                             status.IsBlock = true;
                             status.IsAbleToTurn = false;
@@ -156,6 +160,14 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         _help.DeleteMessOverTime(mess, 6);
 #pragma warning restore 4014
                     }
+                    return;
+                }
+
+
+                if (player.Character.Name == "Вампур" && player.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 && x.EnemyId ==  status.WhoToAttackThisTurn))
+                {
+                    status.WhoToAttackThisTurn = 0;
+                    await _phrase.VampyrNoAttack.SendLog(player);
                     return;
                 }
 

@@ -25,7 +25,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             player.Status.IsAbleToWin = true;
 
-            if (player.Status.IsLostLastTime != 0)
+            if (player.Status.IsLostThisCalculation != 0)
             {
                 var lePuska = _gameGlobal.LeCrispImpact.Find(x =>
                     x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);

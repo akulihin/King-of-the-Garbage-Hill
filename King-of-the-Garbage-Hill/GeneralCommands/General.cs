@@ -35,11 +35,12 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         private readonly CommandsInMemory _commandsInMemory;
         private readonly Global _global;
         private readonly GameUpdateMess _upd;
+        private readonly CharactersUniquePhrase _phrase;
 
 
         public General(UserAccounts accounts, SecureRandom secureRandom, OctoPicPull octoPicPull,
             OctoNamePull octoNmaNamePull, HelperFunctions helperFunctions, CommandsInMemory commandsInMemory,
-            Global global, GameUpdateMess upd, CharactersPull charactersPull, CharacterPassives characterPassives)
+            Global global, GameUpdateMess upd, CharactersPull charactersPull, CharacterPassives characterPassives, CharactersUniquePhrase phrase)
         {
             _accounts = accounts;
             _secureRandom = secureRandom;
@@ -51,6 +52,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _upd = upd;
             _charactersPull = charactersPull;
             _characterPassives = characterPassives;
+            _phrase = phrase;
         }
 
         [Command("show logs names")]
@@ -203,7 +205,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         {
            
 
-            for (var k = 0; k < 1; k++)
+            for (var k = 0; k < 100; k++)
             {
                 var rawList = new List<SocketUser>
                 {
@@ -347,6 +349,16 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             }
             //end HardKitty unique
 
+            //vampyr unique
+            if (playersList.Any(x => x.Character.Name == "Вампур"))
+            {
+                _phrase.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"));
+                if (playersList.Any(x => x.Character.Name == "mylorik"))
+                {
+                    game.AddPreviousGameLogs("Гребанный Вампур!", "\n\n", false);
+                }
+            }
+            //end vampyr unique
 
             //send non bot users  a wait message
            

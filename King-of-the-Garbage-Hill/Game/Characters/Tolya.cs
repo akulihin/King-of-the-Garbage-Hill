@@ -22,27 +22,27 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public void HandleTolyaAfter(GamePlayerBridgeClass player, GameClass game)
         {
-            if (player.Status.IsBlock && player.Status.IsWonLastTime != 0)
+            if (player.Status.IsBlock && player.Status.IsWonThisCalculation != 0)
             {
-                game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonLastTime).Status
+                game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonThisCalculation).Status
                     .IsAbleToWin = true;
             }
 
 
-            if (player.Status.IsLostLastTime != 0)
+            if (player.Status.IsLostThisCalculation != 0)
             {
                 var tolya = _inGameGlobal.TolyaCount.Find(x =>
                     x.PlayerDiscordId == player.DiscordAccount.DiscordId && x.GameId == player.DiscordAccount.GameId);
                 if (tolya == null)
                 {
-                    _inGameGlobal.TolyaCount.Add(new TolyaCountClass(player.DiscordAccount.GameId, player.DiscordAccount.DiscordId, player.Status.IsLostLastTime));
+                    _inGameGlobal.TolyaCount.Add(new TolyaCountClass(player.DiscordAccount.GameId, player.DiscordAccount.DiscordId, player.Status.IsLostThisCalculation));
                     return;
                 }
 
                 if (tolya.IsActive)
                 {
                     tolya.IsActive = false;
-                    tolya.WhoToLostLastTime = player.Status.IsLostLastTime;
+                    tolya.WhoToLostLastTime = player.Status.IsLostThisCalculation;
                     return;
                 }
                 else
