@@ -81,7 +81,6 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             }
         }
 
-
         public ConcurrentDictionary<ulong, DiscordAccountClass>LoadAllAccounts()
         {
             var dick = new ConcurrentDictionary<ulong, DiscordAccountClass>();

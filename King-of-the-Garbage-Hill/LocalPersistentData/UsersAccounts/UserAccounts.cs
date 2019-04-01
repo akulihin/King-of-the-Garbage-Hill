@@ -38,12 +38,6 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
            
         }
 
-
-
-
-
-
-
         public async Task InitializeAsync()
         {
             await Task.CompletedTask;
