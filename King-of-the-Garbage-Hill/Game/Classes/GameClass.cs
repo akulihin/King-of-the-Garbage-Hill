@@ -19,6 +19,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
          * 3 - End
          */
         private string GameLogs { get; set; }
+
+        public int SkipPlayersThisRound { get; set; }
         private string PreviousGameLogs { get; set; }
         public ulong WhoWon { get; set; }
         public GameClass(List<GamePlayerBridgeClass> playersList, ulong gameId, int turnLengthInSecond = 200)
@@ -33,6 +35,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             PreviousGameLogs = "Здесь будут показаны логи игры. \nВыберите цель для нападения по номеру в таблице, используя emoji\n";
             WhoWon = 228;
             IsTimerToCheckEnabled = true;
+            SkipPlayersThisRound = 0;
         }
 
         public void AddPreviousGameLogs(string str, string newLine = "\n")

@@ -1203,6 +1203,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
 
                     case "Осьминожка":
+
+                        //привет со дна
+                        if (game.SkipPlayersThisRound > 0)
+                        {
+                            player.Status.AddRegularPoints(game.SkipPlayersThisRound);
+                        }
+                        //end привет со дна
+
                         var octo = _gameGlobal.OctopusTentaclesList.Find(x =>
                             x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
 

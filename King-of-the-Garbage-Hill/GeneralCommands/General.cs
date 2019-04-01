@@ -254,7 +254,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 //send non bot users  a wait message
                 Parallel.ForEach(playersList, async player =>
                 {
-                    if (!player.IsBot())
                         await  _upd.WaitMess(player);
                 });
 
@@ -354,7 +353,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             Parallel.ForEach(playersList, async player =>
             {
                 //CANT USE .IsBot() method! 
-                if (player.DiscordAccount.DiscordId > 1000000)
+             
                  await  _upd.WaitMess(player);
             });
 

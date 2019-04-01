@@ -156,6 +156,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 if (playerIamAttacking.Status.IsSkip)
                 {
+                    game.SkipPlayersThisRound++;
                     game.AddPreviousGameLogs(" ⟶ *Бой не состоялся...*");
 
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
@@ -319,7 +320,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 player.Character.Justice.SetJusticeForNextRound(0);
             });
 
-           
+            game.SkipPlayersThisRound = 0;
             game.RoundNo++;
             game.GameStatus = 1;
 
