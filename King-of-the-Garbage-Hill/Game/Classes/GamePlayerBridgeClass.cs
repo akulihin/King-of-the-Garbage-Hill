@@ -10,8 +10,16 @@ namespace King_of_the_Garbage_Hill.Game.Classes
       public InGameStatus Status { get; set; }
       public bool IsBot()
       {
-          var toTet = (DiscordAccount.DiscordId <= 1000000 || Status.SocketMessageFromBot == null);
-          return toTet;
+            if(DiscordAccount.DiscordId <= 1000000)
+            {
+                return true;
+            }
+            if(Status.SocketMessageFromBot == null)
+            {
+                return true;
+            }
+
+          return false;
       }
 
       public void MinusPsycheLog(GameClass game)

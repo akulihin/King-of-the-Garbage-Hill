@@ -56,7 +56,6 @@ namespace King_of_the_Garbage_Hill.Helpers
                 var leftUser = prevGame.PlayersList.Find(x => x.DiscordAccount.DiscordId == userId);
 
                 leftUser.DiscordAccount = account.DiscordAccount;
-                leftUser.DiscordAccount.DiscordId = userId;
                 leftUser.Status.SocketMessageFromBot = null;
             }
         }
