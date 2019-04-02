@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
@@ -12,7 +13,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         private readonly CharactersUniquePhrase _phrase;
 
-        public Tigr(InGameGlobal gameGlobal, 
+        public Tigr(InGameGlobal gameGlobal,
             CharactersUniquePhrase phrase)
         {
             _gameGlobal = gameGlobal;
@@ -54,7 +55,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                         if (enemy.WinsSeries >= 3 && enemy.IsUnique)
                         {
                             player.Status.AddRegularPoints(2);
-                            await _phrase.TigrThreeZero.SendLog(player);
+
+
 
                             var enemyAcc = game.PlayersList.Find(x =>
                                 x.DiscordAccount.DiscordId == player.Status.IsWonThisCalculation);
@@ -62,15 +64,29 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             if (enemyAcc != null)
                             {
                                 enemyAcc.Character.AddIntelligence(enemyAcc.Status, -1);
-                                enemyAcc.Character.AddPsyche(enemyAcc.Status,-1);
-                                enemyAcc.MinusPsycheLog(game);
+
+                                if (game.PlayersList.All(x => x.Character.Name != "Бог ЛоЛа") ||
+                                    _gameGlobal.LolGodUdyrList.Any(
+                                        x =>
+                                            x.GameId == game.GameId &&
+                                            x.EnemyDiscordId == enemyAcc.DiscordAccount.DiscordId))
+                                {
+                                    enemyAcc.Character.AddPsyche(enemyAcc.Status, -1);
+                                    enemyAcc.MinusPsycheLog(game);
+                                    await _phrase.TigrThreeZero.SendLog(player);
+                                }
+                                else
+                                {
+                                    await _phrase.ThirdСommandment.SendLog(player);
+                                }
+
                                 enemy.IsUnique = false;
                             }
                         }
                     }
                     else
                     {
-                           tigr.FriendList.Add(new ThreeZeroSubClass(player.Status.IsWonThisCalculation));
+                        tigr.FriendList.Add(new ThreeZeroSubClass(player.Status.IsWonThisCalculation));
                     }
                 }
             }
@@ -83,6 +99,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                 if (enemy != null && enemy.IsUnique) enemy.WinsSeries = 0;
             }
+
             //end 3-0 обоссан: 
         }
 
@@ -103,9 +120,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public class ThreeZeroClass
         {
+            public List<ThreeZeroSubClass> FriendList = new List<ThreeZeroSubClass>();
             public ulong GameId;
             public ulong PlayerDiscordId;
-            public List<ThreeZeroSubClass> FriendList = new List<ThreeZeroSubClass>();
 
             public ThreeZeroClass(ulong playerDiscordId, ulong gameId, ulong enemyId)
             {
@@ -118,8 +135,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class ThreeZeroSubClass
         {
             public ulong EnemyId;
-            public int WinsSeries;
             public bool IsUnique;
+            public int WinsSeries;
 
             public ThreeZeroSubClass(ulong enemyId)
             {

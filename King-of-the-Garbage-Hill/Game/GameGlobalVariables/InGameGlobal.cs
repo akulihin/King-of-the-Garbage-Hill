@@ -92,6 +92,8 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public readonly List<Tolya.TolyaCountClass> TolyaCount = new List<Tolya.TolyaCountClass>();
         public readonly List<FriendsClass> TolyaRammusTimes = new List<FriendsClass>();
         public readonly List<FriendsClass> VampyrKilledList = new List<FriendsClass>();
+        public readonly List<LolGod.PushAndDieClass> LolGodPushAndDieSubList = new List<LolGod.PushAndDieClass>();
+        public readonly List<LolGod.Udyr> LolGodUdyrList = new List<LolGod.Udyr>();
 
         public InGameGlobal(SecureRandom rand)
         {

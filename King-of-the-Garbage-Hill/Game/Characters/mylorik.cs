@@ -10,10 +10,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class Mylorik : IServiceSingleton
     {
-     
-        private readonly SecureRandom _rand;
-        private readonly CharactersUniquePhrase _phrase;
         private readonly InGameGlobal _gameGlobal;
+        private readonly CharactersUniquePhrase _phrase;
+
+        private readonly SecureRandom _rand;
 
         public Mylorik(SecureRandom rand, InGameGlobal gameGlobal, CharactersUniquePhrase phrase)
         {
@@ -22,9 +22,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             _phrase = phrase;
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
 
-        
+
         public async Task HandleMylorikRevenge(GamePlayerBridgeClass player, ulong enemyIdLostTo, ulong gameId)
         {
             //enemyIdLostTo may be 0
@@ -49,7 +52,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                         await _phrase.MylorikRevengeLostPhrase.SendLog(player);
                     }
                 }
-          
             }
             else
             {
@@ -78,8 +80,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public async Task HandleMylorikAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //Revenge
-     
-              await  HandleMylorikRevenge(player, player.Status.IsLostThisCalculation, player.DiscordAccount.GameId);
+
+            await HandleMylorikRevenge(player, player.Status.IsLostThisCalculation, player.DiscordAccount.GameId);
             //end Revenge
 
             //Spanish
@@ -89,11 +91,17 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                 if (rand == 1)
                 {
-                    player.Character.AddPsyche(player.Status, -1);
-                    player.MinusPsycheLog(game);
-                    await _phrase.MylorikSpanishPhrase.SendLog(player);
+                    if (game.PlayersList.All(x => x.Character.Name != "Бог ЛоЛа") || _gameGlobal.LolGodUdyrList.Any(
+                            x =>
+                                x.GameId == game.GameId && x.EnemyDiscordId == player.DiscordAccount.DiscordId))
+                    {
+                        player.Character.AddPsyche(player.Status, -1);
+                        player.MinusPsycheLog(game);
+                        await _phrase.MylorikSpanishPhrase.SendLog(player);
+                    } 
+                    else
+                        await _phrase.ThirdСommandment.SendLog(player);
                 }
-             
             }
 
             //end Spanish
@@ -124,6 +132,5 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 IsUnique = true;
             }
         }
-
     }
 }

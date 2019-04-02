@@ -1,32 +1,33 @@
-﻿
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
-    public class Darksci: IServiceSingleton
+    public class Darksci : IServiceSingleton
     {
-        
-        private readonly SecureRandom _rand;
+        private readonly InGameGlobal _gameGlobal;
         private readonly CharactersUniquePhrase _phrase;
-        private readonly GameUpdateMess _upd;
 
-        public Darksci(GameUpdateMess upd, SecureRandom rand, CharactersUniquePhrase phrase)
+        public Darksci(CharactersUniquePhrase phrase, InGameGlobal gameGlobal)
         {
-            _upd = upd;
-            _rand = rand;
             _phrase = phrase;
+            _gameGlobal = gameGlobal;
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
 
         public void HandleDarksci(GamePlayerBridgeClass player)
         {
-          //  throw new System.NotImplementedException();
+            //  throw new System.NotImplementedException();
         }
 
         public async Task HandleDarksiAfter(GamePlayerBridgeClass player, GameClass game)
@@ -34,12 +35,18 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             if (player.Status.IsLostThisCalculation != 0)
             {
                 //Не повезло
-                player.Character.AddPsyche(player.Status, -1);
-                player.MinusPsycheLog(game);
-                await  _phrase.DarksciNotLucky.SendLog(player);
+                if (game.PlayersList.All(x => x.Character.Name != "Бог ЛоЛа") || _gameGlobal.LolGodUdyrList.Any(
+                        x =>
+                            x.GameId == game.GameId && x.EnemyDiscordId == player.DiscordAccount.DiscordId))
+                {
+                    player.Character.AddPsyche(player.Status, -1);
+                    player.MinusPsycheLog(game);
+                    await _phrase.DarksciNotLucky.SendLog(player);
+                }
+                else
+                    await _phrase.ThirdСommandment.SendLog(player);
                 //end Не повезло
             }
-
         }
 
 

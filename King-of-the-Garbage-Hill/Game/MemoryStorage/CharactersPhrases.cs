@@ -9,19 +9,20 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 {
     public class CharactersUniquePhrase : IServiceSingleton
     {
+        
+        //initialize variables 
         public PhraseClass AwdkaAfk;
         public PhraseClass AwdkaTeachToPlay;
         public PhraseClass AwdkaTrolling;
         public PhraseClass AwdkaTrollingReady;
         public PhraseClass AwdkaTrying;
+
         public PhraseClass DarksciDysmoral;
         public PhraseClass DarksciFuckThisGame;
         public PhraseClass DarksciLucky;
         public PhraseClass DarksciNotLucky;
 
         public PhraseClass DeepListDoubtfulTacticPhrase;
-
-        //initialize variables 
         public PhraseClass DeepListMadnessPhrase;
         public PhraseClass DeepListSuperMindPhrase;
 
@@ -33,44 +34,62 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public PhraseClass HardKittyDoebatsyaPhrase;
         public PhraseClass HardKittyLonelyPhrase;
         public PhraseClass HardKittyMutedPhrase;
+
         public PhraseClass LeCrispAssassinsPhrase;
         public PhraseClass LeCrispImpactPhrase;
         public PhraseClass LeCrispJewPhrase;
+
         public PhraseClass MitsukiCheekyBriki;
         public PhraseClass MitsukiGarbageSmell;
         public PhraseClass MitsukiSchoolboy;
         public PhraseClass MitsukiTooMuchFucking;
+
         public PhraseClass MylorikBoolePhrase;
         public PhraseClass MylorikRevengeLostPhrase;
         public PhraseClass MylorikRevengeVictoryPhrase;
         public PhraseClass MylorikSpanishPhrase;
+
         public PhraseClass SirinoksDragonPhrase;
         public PhraseClass SirinoksFriendsPhrase;
+
         public PhraseClass TigrSnipe;
         public PhraseClass TigrThreeZero;
         public PhraseClass TigrTop;
-
         public PhraseClass TigrTwoBetter;
-        public PhraseClass TolyaCountPhrase;
 
+        public PhraseClass TolyaCountPhrase;
         public PhraseClass TolyaCountReadyPhrase;
         public PhraseClass TolyaJewPhrase;
         public PhraseClass TolyaRammus2Phrase;
         public PhraseClass TolyaRammus3Phrase;
         public PhraseClass TolyaRammus4Phrase;
         public PhraseClass TolyaRammus5Phrase;
-
         public PhraseClass TolyaRammusPhrase;
+
         public PhraseClass VampyrHematophagy;
         public PhraseClass VampyrNoAttack;
         public PhraseClass VampyrSuckspenStake;
-
         public PhraseClass VampyrVampyr;
+
+       
+        public PhraseClass FirstСommandment;
+        public PhraseClass FirstСommandmentLost;
+        public PhraseClass SecondСommandment;
+        public PhraseClass ThirdСommandment;
+        public PhraseClass SecondСommandmentBan;
+        public PhraseClass FourthСommandment;
         //end
 
         public CharactersUniquePhrase()
         {
             //add values
+            FirstСommandment = new PhraseClass("Первая заповедь");
+            FirstСommandmentLost = new PhraseClass("Первая заповедь");
+            SecondСommandment = new PhraseClass("Вторая заповедь");
+            ThirdСommandment = new PhraseClass("Третья заповедь");
+            SecondСommandmentBan = new PhraseClass("Третья заповедь");
+            FourthСommandment = new PhraseClass("Четвертая заповедь");
+
             VampyrHematophagy = new PhraseClass("Гематофагия");
             VampyrSuckspenStake = new PhraseClass("СОсиновый кол");
             VampyrNoAttack = new PhraseClass("СОсиновый кол");
@@ -136,6 +155,20 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             //end
 
             //add  as many phrases as you wany
+            FirstСommandment.PassiveLogRus.Add("Если фидишь то пропушь, если пушишь то нафидь");
+            FirstСommandmentLost.PassiveLogRus.Add("Тебе нужна помощь бога");
+            FirstСommandmentLost.PassiveLogRus.Add("Багословляю, сын мой");
+            FirstСommandmentLost.PassiveLogRus.Add("Ты пришел к богу");
+            FirstСommandmentLost.PassiveLogRus.Add("Просветление");
+            FirstСommandmentLost.PassiveLogRus.Add("Только вера спасет");
+            SecondСommandment.PassiveLogRus.Add("И как боженька сказал - \"Бань удира, я зассал\" - и как доктор говорит - \"Не забанил - инвалид\"");
+            SecondСommandmentBan.PassiveLogRus.Add("Изыди!");
+            SecondСommandmentBan.PassiveLogRus.Add("Нечесть");
+            SecondСommandmentBan.PassiveLogRus.Add("Бань удира.");
+            ThirdСommandment.PassiveLogRus.Add("Не флейми в чате");
+        
+            FourthСommandment.PassiveLogRus.Add("Играй руками");
+
             VampyrVampyr.PassiveLogRus.Add("Вампурская ноо-ооочь!");
             VampyrVampyr.PassiveLogRus.Add("Таинственный Вампур");
             VampyrHematophagy.PassiveLogRus.Add("Я - Вампур из Лондона!");

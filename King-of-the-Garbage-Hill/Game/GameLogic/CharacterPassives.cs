@@ -382,7 +382,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var enemyBottom =
                     game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard + 1 == shark.Status.PlaceAtLeaderBoard);
                 if (enemyTop != null && enemyTop.Status.IsLostThisCalculation != 0) shark.Status.AddRegularPoints();
-                if (enemyBottom != null && enemyBottom.Status.IsLostThisCalculation != 0) shark.Status.AddRegularPoints();
+                if (enemyBottom != null && enemyBottom.Status.IsLostThisCalculation != 0)
+                    shark.Status.AddRegularPoints();
             }
             //end Лежит на дне:
 
@@ -452,11 +453,18 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 WhenToTriggerClass when;
                 switch (characterName)
                 {
-                    case "Вампур":
-                        _gameGlobal.VampyrKilledList.Add(new FriendsClass(player.DiscordAccount.DiscordId, game.GameId));
+                    case "Бог ЛоЛа":
+                        _gameGlobal.LolGodPushAndDieSubList.Add(
+                            new LolGod.PushAndDieClass(player.DiscordAccount.DiscordId, game.GameId, game.PlayersList));
+                        _gameGlobal.LolGodUdyrList.Add(new LolGod.Udyr(player.DiscordAccount.DiscordId, game.GameId));
                         break;
-                        case "Sirinoks":
-                        _gameGlobal.SirinoksFriendsList.Add(new FriendsClass(player.DiscordAccount.DiscordId, game.GameId));
+                    case "Вампур":
+                        _gameGlobal.VampyrKilledList.Add(new FriendsClass(player.DiscordAccount.DiscordId,
+                            game.GameId));
+                        break;
+                    case "Sirinoks":
+                        _gameGlobal.SirinoksFriendsList.Add(new FriendsClass(player.DiscordAccount.DiscordId,
+                            game.GameId));
                         break;
                     case "Братишка":
                         _gameGlobal.SharkJawsLeader.Add(new FriendsClass(player.DiscordAccount.DiscordId, game.GameId));
@@ -606,6 +614,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Character.SetStrength(10);
                             game.AddPreviousGameLogs(
                                 $"**{player.DiscordAccount.DiscordUserName}:** ЕБАННЫЕ БАНЫ НА 10 ЛЕТ");
+                            continue;
                         }
                         //end Стримснайпят и банят и банят и банят:
 
@@ -1424,6 +1433,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             switch (characterName)
             {
+                case "Бог ЛоЛа":
+                    _gameGlobal.LolGodUdyrList.Find(x =>
+                            x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId)
+                        .EnemyDiscordId = playerIamAttacking.DiscordAccount.DiscordId;
+                    await _phrase.SecondСommandmentBan.SendLog(player);
+                    break;
                 case "Вампур":
                     if (player.Status.IsWonThisCalculation != 0)
                         if (player.Character.Justice.GetJusticeForNextRound() <
@@ -1449,7 +1464,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         }
                         else
                         {
-                            var exists = hardKitty.LostSeries.Find(x => x.EnemyId == player.Status.IsLostThisCalculation);
+                            var exists =
+                                hardKitty.LostSeries.Find(x => x.EnemyId == player.Status.IsLostThisCalculation);
                             if (exists == null)
                                 hardKitty.LostSeries.Add(
                                     new HardKitty.DoebatsyaSubClass(player.Status.IsLostThisCalculation));
@@ -1468,12 +1484,26 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             var player2 = game.PlayersList.Find(x =>
                                 x.DiscordAccount.DiscordId == player.Status.IsWonThisCalculation);
-                            player2.Character.AddPsyche(player2.Status, -1);
-                            player2.MinusPsycheLog(game);
+                            if (game.PlayersList.All(x => x.Character.Name != "Бог ЛоЛа") ||
+                                _gameGlobal.LolGodUdyrList.Any(
+                                    x =>
+                                        x.GameId == game.GameId &&
+                                        x.EnemyDiscordId == player2.DiscordAccount.DiscordId))
+                            {
+                                player2.Character.AddPsyche(player2.Status, -1);
+                                player2.MinusPsycheLog(game);
+                            }
+                            else
+                            {
+                                await _phrase.SecondСommandment.SendLog(player);
+                            }
                         }
 
                         wonPlayer.Series = 0;
-                        await _phrase.HardKittyDoebatsyaPhrase.SendLog(player);
+
+
+                            await _phrase.HardKittyDoebatsyaPhrase.SendLog(player);
+              
                     }
 
                     // end Doebatsya
@@ -1499,7 +1529,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         }
 
                         var player2 =
-                            game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonThisCalculation);
+                            game.PlayersList.Find(x =>
+                                x.DiscordAccount.DiscordId == player.Status.IsWonThisCalculation);
 
                         //may cause a null reference exception, if so - wsomething wrong /
                         if (player2.Status.PlaceAtLeaderBoard == 1)
@@ -1689,7 +1720,41 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
             }
 
+            //Если фидишь то пропушь, если пушишь то нафидь
+            var god = game.PlayersList.Find(x => x.Character.Name == "Бог ЛоЛа");
+            if (god != null)
+            {
+                var players = _gameGlobal.LolGodPushAndDieSubList.Find(x =>
+                    x.GameId == game.GameId && x.PlayerDiscordId == god.DiscordAccount.DiscordId);
 
+                players.PlayersEveryRound.Add(new LolGod.PushAndDieSubClass(game.RoundNo, game.PlayersList));
+
+                var playersLastRound = players.PlayersEveryRound.Find(x => x.RoundNo == game.RoundNo - 1).PlayerList;
+                var playersThisRound = players.PlayersEveryRound.Find(x => x.RoundNo == game.RoundNo).PlayerList;
+
+                var top1ThisRound = playersThisRound.Find(x => x.PlayerPlaceAtLeaderBoard == 1).PlayerId;
+                var isTop1LastRound =
+                    playersLastRound.Find(x => x.PlayerId == top1ThisRound).PlayerPlaceAtLeaderBoard == 1;
+                if (!isTop1LastRound)
+                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == top1ThisRound).Status.AddRegularPoints(-1);
+
+
+                foreach (var player in game.PlayersList)
+                {
+                    var placeAtLastRound = playersLastRound.Find(x => x.PlayerId == player.DiscordAccount.DiscordId)
+                        .PlayerPlaceAtLeaderBoard;
+                    var placeAtThisRound = playersThisRound.Find(x => x.PlayerId == player.DiscordAccount.DiscordId)
+                        .PlayerPlaceAtLeaderBoard;
+
+                    if (placeAtLastRound > placeAtThisRound)
+                    {
+                        player.Character.Justice.AddJusticeForNextRound();
+                        await _phrase.FirstСommandmentLost.SendLog(player);
+                    }
+                }
+            }
+
+            //end Если фидишь то пропушь, если пушишь то нафидь
             if (game.RoundNo > 10)
             {
                 //TODO: implement end of the game, after turn 10.

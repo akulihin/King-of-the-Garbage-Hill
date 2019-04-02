@@ -4,6 +4,7 @@ using Discord;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
@@ -13,17 +14,15 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
     public sealed class GameReaction : IServiceSingleton
     {
         private readonly UserAccounts _accounts;
-
+        private readonly InGameGlobal _gameGlobal;
         private readonly Global _global;
-
         private readonly HelperFunctions _help;
-
-        private readonly GameUpdateMess _upd;
         private readonly CharactersUniquePhrase _phrase;
+        private readonly GameUpdateMess _upd;
 
         public GameReaction(UserAccounts accounts,
             Global global,
-            GameUpdateMess upd, HelperFunctions help, CharactersUniquePhrase phrase)
+            GameUpdateMess upd, HelperFunctions help, CharactersUniquePhrase phrase, InGameGlobal gameGlobal)
         {
             _accounts = accounts;
 
@@ -32,6 +31,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             _upd = upd;
             _help = help;
             _phrase = phrase;
+            _gameGlobal = gameGlobal;
         }
 
         public Task InitializeAsync()
@@ -105,7 +105,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
         public async Task HandleAttackOrLvlUp(GamePlayerBridgeClass player, SocketReaction reaction, int botChoice = -1)
         {
-
             var status = player.Status;
             var account = player.DiscordAccount;
 
@@ -146,25 +145,48 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 var game = _global.GamesList.Find(x => x.GameId == account.GameId);
                 var whoToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum);
 
-                if(whoToAttack == null) return;
+                if (whoToAttack == null) return;
 
                 status.WhoToAttackThisTurn = whoToAttack.DiscordAccount.DiscordId;
 
-                if (game.PlayersList.Any(x => x.Character.Name == "Тигр" && x.Status.PlaceAtLeaderBoard == emoteNum) && game.RoundNo == 10)
+                if (game.PlayersList.Any(x => x.Character.Name == "Тигр" && x.Status.PlaceAtLeaderBoard == emoteNum) &&
+                    game.RoundNo == 10)
                 {
                     status.WhoToAttackThisTurn = 0;
                     if (!player.IsBot())
                     {
-                        var mess = await reaction.Channel.SendMessageAsync("На этого игрока нельзя нападать, почему-то...");
+                        var mess = await reaction.Channel.SendMessageAsync(
+                            "На этого игрока нельзя нападать, почему-то...");
 #pragma warning disable 4014
                         _help.DeleteMessOverTime(mess, 6);
 #pragma warning restore 4014
                     }
+
+                    return;
+                }
+
+                if (game.PlayersList.Any(x => x.Character.Name == "Бог ЛоЛа") &&
+                    _gameGlobal.LolGodUdyrList.Any(
+                        x =>
+                            x.GameId == game.GameId &&
+                            x.EnemyDiscordId == whoToAttack.DiscordAccount.DiscordId))
+                {
+                    status.WhoToAttackThisTurn = 0;
+                    if (!player.IsBot())
+                    {
+                        var mess = await reaction.Channel.SendMessageAsync(
+                            "На этого игрока нельзя нападать, почему-то...");
+#pragma warning disable 4014
+                        _help.DeleteMessOverTime(mess, 6);
+#pragma warning restore 4014
+                    }
+
                     return;
                 }
 
 
-                if (player.Character.Name == "Вампур" && player.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 && x.EnemyId ==  status.WhoToAttackThisTurn))
+                if (player.Character.Name == "Вампур" && player.Status.WhoToLostEveryRound.Any(x =>
+                        x.RoundNo == game.RoundNo - 1 && x.EnemyId == status.WhoToAttackThisTurn))
                 {
                     status.WhoToAttackThisTurn = 0;
                     await _phrase.VampyrNoAttack.SendLog(player);
@@ -189,7 +211,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 status.IsAbleToTurn = false;
                 status.IsReady = true;
                 status.IsBlock = false;
-                player.Status.AddInGamePersonalLogs($"Ты напал на игрока {whoToAttack.DiscordAccount.DiscordUserName}\n");
+                player.Status.AddInGamePersonalLogs(
+                    $"Ты напал на игрока {whoToAttack.DiscordAccount.DiscordUserName}\n");
 
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
                 SendMsgAndDeleteIt(player); //not awaited 
@@ -200,10 +223,10 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         public void LvlUp10(GamePlayerBridgeClass player)
         {
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-                SendMsgAndDeleteIt(player, "10 максимум, выбери другой стат");  //not awaited 
+            SendMsgAndDeleteIt(player, "10 максимум, выбери другой стат"); //not awaited 
         }
 
-       
+
         public async Task SendMsgAndDeleteIt(GamePlayerBridgeClass player, string msg = "Принято", int seconds = 6)
         {
             if (!player.IsBot())
@@ -220,15 +243,17 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             switch (skillNumber)
             {
                 case 1:
-                   
+
                     if (player.Character.GetIntelligence() >= 10 && player.Character.GetPsyche() <= 9 &&
                         player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
                     {
                         LvlUp10(player);
                         return;
                     }
+
                     player.Character.AddIntelligence(player.Status, 1, false);
-                    player.Status.AddInGamePersonalLogs($"Ты улучшил интеллект до {player.Character.GetIntelligence()}\n");
+                    player.Status.AddInGamePersonalLogs(
+                        $"Ты улучшил интеллект до {player.Character.GetIntelligence()}\n");
                     break;
                 case 2:
 
@@ -266,7 +291,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     }
 
                     player.Character.AddPsyche(player.Status, 1, false);
-                    player.Status.AddInGamePersonalLogs( $"Ты улучшил психику до {player.Character.GetPsyche()}\n");
+                    player.Status.AddInGamePersonalLogs($"Ты улучшил психику до {player.Character.GetPsyche()}\n");
 
                     break;
                 default:
@@ -279,8 +304,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             else
                 player.Status.MoveListPage = 1;
 
-             _upd.UpdateMessage(player);
-             await Task.CompletedTask;
+            _upd.UpdateMessage(player);
+            await Task.CompletedTask;
         }
 
         private int GetNumberFromEmote(SocketReaction reaction)
