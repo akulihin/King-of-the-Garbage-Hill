@@ -98,22 +98,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                     if (currentDeepList2.Times % 2 != 0 && currentDeepList2.Times != 1)
                     {
-                        if (game.PlayersList.All(x => x.Character.Name != "Бог ЛоЛа") || _gameGlobal.LolGodUdyrList.Any(
-                                x =>
-                                    x.GameId == game.GameId && x.EnemyDiscordId == player2.DiscordAccount.DiscordId))
-                        {
+
                             player2.Character.AddPsyche(player2.Status, -1);
                             player2.MinusPsycheLog(game);
-                        }
-                        else
-                        {
-#pragma warning disable 4014
-                            _phrase.ThirdСommandment.SendLog(player);
-#pragma warning restore 4014
-                        }
-                        
-
-
 
                         player.Status.AddRegularPoints();
                         if (player2.Character.GetPsyche() < 4)

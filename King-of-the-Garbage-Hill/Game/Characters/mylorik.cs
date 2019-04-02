@@ -91,16 +91,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                 if (rand == 1)
                 {
-                    if (game.PlayersList.All(x => x.Character.Name != "Бог ЛоЛа") || _gameGlobal.LolGodUdyrList.Any(
-                            x =>
-                                x.GameId == game.GameId && x.EnemyDiscordId == player.DiscordAccount.DiscordId))
-                    {
+
                         player.Character.AddPsyche(player.Status, -1);
                         player.MinusPsycheLog(game);
                         await _phrase.MylorikSpanishPhrase.SendLog(player);
-                    } 
-                    else
-                        await _phrase.ThirdСommandment.SendLog(player);
+
                 }
             }
 

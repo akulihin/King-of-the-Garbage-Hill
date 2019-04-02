@@ -14,7 +14,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
     public sealed class GameReaction : IServiceSingleton
     {
         private readonly UserAccounts _accounts;
-        private readonly InGameGlobal _gameGlobal;
+    //    private readonly InGameGlobal _gameGlobal;
         private readonly Global _global;
         private readonly HelperFunctions _help;
         private readonly CharactersUniquePhrase _phrase;
@@ -22,7 +22,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
         public GameReaction(UserAccounts accounts,
             Global global,
-            GameUpdateMess upd, HelperFunctions help, CharactersUniquePhrase phrase, InGameGlobal gameGlobal)
+            GameUpdateMess upd, HelperFunctions help, CharactersUniquePhrase phrase)
         {
             _accounts = accounts;
 
@@ -31,7 +31,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             _upd = upd;
             _help = help;
             _phrase = phrase;
-            _gameGlobal = gameGlobal;
+          //  _gameGlobal = gameGlobal;
         }
 
         public Task InitializeAsync()
@@ -164,7 +164,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                     return;
                 }
-
+                /*
                 if (game.PlayersList.Any(x => x.Character.Name == "Бог ЛоЛа") &&
                     _gameGlobal.LolGodUdyrList.Any(
                         x =>
@@ -183,7 +183,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                     return;
                 }
-
+                */
 
                 if (player.Character.Name == "Вампур" && player.Status.WhoToLostEveryRound.Any(x =>
                         x.RoundNo == game.RoundNo - 1 && x.EnemyId == status.WhoToAttackThisTurn))

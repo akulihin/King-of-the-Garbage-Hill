@@ -65,20 +65,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             {
                                 enemyAcc.Character.AddIntelligence(enemyAcc.Status, -1);
 
-                                if (game.PlayersList.All(x => x.Character.Name != "Бог ЛоЛа") ||
-                                    _gameGlobal.LolGodUdyrList.Any(
-                                        x =>
-                                            x.GameId == game.GameId &&
-                                            x.EnemyDiscordId == enemyAcc.DiscordAccount.DiscordId))
-                                {
                                     enemyAcc.Character.AddPsyche(enemyAcc.Status, -1);
                                     enemyAcc.MinusPsycheLog(game);
                                     await _phrase.TigrThreeZero.SendLog(player);
-                                }
-                                else
-                                {
-                                    await _phrase.ThirdСommandment.SendLog(player);
-                                }
+
 
                                 enemy.IsUnique = false;
                             }

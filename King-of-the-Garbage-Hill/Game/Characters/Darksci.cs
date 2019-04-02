@@ -35,6 +35,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             if (player.Status.IsLostThisCalculation != 0)
             {
                 //Не повезло
+                //LOL GOD, EXAMPLE:
+                /*
                 if (game.PlayersList.All(x => x.Character.Name != "Бог ЛоЛа") || _gameGlobal.LolGodUdyrList.Any(
                         x =>
                             x.GameId == game.GameId && x.EnemyDiscordId == player.DiscordAccount.DiscordId))
@@ -44,7 +46,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     await _phrase.DarksciNotLucky.SendLog(player);
                 }
                 else
-                    await _phrase.ThirdСommandment.SendLog(player);
+                    await _phrase.ThirdСommandment.SendLog(player);*/
+                player.Character.AddPsyche(player.Status, -1);
+                player.MinusPsycheLog(game);
+                await _phrase.DarksciNotLucky.SendLog(player);
                 //end Не повезло
             }
         }

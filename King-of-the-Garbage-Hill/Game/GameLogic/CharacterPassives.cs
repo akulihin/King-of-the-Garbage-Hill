@@ -1484,19 +1484,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             var player2 = game.PlayersList.Find(x =>
                                 x.DiscordAccount.DiscordId == player.Status.IsWonThisCalculation);
-                            if (game.PlayersList.All(x => x.Character.Name != "Бог ЛоЛа") ||
-                                _gameGlobal.LolGodUdyrList.Any(
-                                    x =>
-                                        x.GameId == game.GameId &&
-                                        x.EnemyDiscordId == player2.DiscordAccount.DiscordId))
-                            {
+
                                 player2.Character.AddPsyche(player2.Status, -1);
                                 player2.MinusPsycheLog(game);
-                            }
-                            else
-                            {
-                                await _phrase.SecondСommandment.SendLog(player);
-                            }
+
                         }
 
                         wonPlayer.Series = 0;
