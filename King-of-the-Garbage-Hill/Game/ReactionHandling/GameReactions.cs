@@ -168,8 +168,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 if (game.PlayersList.Any(x => x.Character.Name == "Бог ЛоЛа") &&
                     _gameGlobal.LolGodUdyrList.Any(
                         x =>
-                            x.GameId == game.GameId &&
-                            x.EnemyDiscordId == whoToAttack.DiscordAccount.DiscordId))
+                            x.GameId == game.GameId && 
+                            x.EnemyDiscordId == player.DiscordAccount.DiscordId) && whoToAttack.Character.Name == "Бог ЛоЛа")
                 {
                     status.WhoToAttackThisTurn = 0;
                     if (!player.IsBot())

@@ -1722,7 +1722,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             //Если фидишь то пропушь, если пушишь то нафидь
             var god = game.PlayersList.Find(x => x.Character.Name == "Бог ЛоЛа");
-            if (god != null)
+
+            if (god != null && game.RoundNo >= 2)
             {
                 var players = _gameGlobal.LolGodPushAndDieSubList.Find(x =>
                     x.GameId == game.GameId && x.PlayerDiscordId == god.DiscordAccount.DiscordId);
