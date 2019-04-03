@@ -1,10 +1,10 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
-using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
@@ -147,12 +147,12 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                 if (whoToAttack == null) return;
 
-                status.WhoToAttackThisTurn = whoToAttack.DiscordAccount.DiscordId;
+                status.WhoToAttackThisTurn = whoToAttack.Status.PlayerId;
 
                 if (game.PlayersList.Any(x => x.Character.Name == "Тигр" && x.Status.PlaceAtLeaderBoard == emoteNum) &&
                     game.RoundNo == 10)
                 {
-                    status.WhoToAttackThisTurn = 0;
+                    status.WhoToAttackThisTurn = Guid.Empty;
                     if (!player.IsBot())
                     {
                         var mess = await reaction.Channel.SendMessageAsync(
@@ -169,7 +169,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     _gameGlobal.LolGodUdyrList.Any(
                         x =>
                             x.GameId == game.GameId && 
-                            x.EnemyDiscordId == player.DiscordAccount.DiscordId) && whoToAttack.Character.Name == "Бог ЛоЛа")
+                            x.EnemyDiscordId == player.Status.PlayerId) && whoToAttack.Character.Name == "Бог ЛоЛа")
                 {
                     status.WhoToAttackThisTurn = 0;
                     if (!player.IsBot())
@@ -188,15 +188,15 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 if (player.Character.Name == "Вампур" && player.Status.WhoToLostEveryRound.Any(x =>
                         x.RoundNo == game.RoundNo - 1 && x.EnemyId == status.WhoToAttackThisTurn))
                 {
-                    status.WhoToAttackThisTurn = 0;
+                    status.WhoToAttackThisTurn = Guid.Empty;
                     await _phrase.VampyrNoAttack.SendLog(player);
                     return;
                 }
 
 
-                if (status.WhoToAttackThisTurn == account.DiscordId)
+                if (status.WhoToAttackThisTurn == status.PlayerId)
                 {
-                    status.WhoToAttackThisTurn = 0;
+                    status.WhoToAttackThisTurn = Guid.Empty;
                     if (!player.IsBot())
                     {
                         var mess = await reaction.Channel.SendMessageAsync("Зачем ты себя бьешь?");

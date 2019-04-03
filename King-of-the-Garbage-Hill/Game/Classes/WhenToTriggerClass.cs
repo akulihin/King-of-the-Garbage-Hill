@@ -1,4 +1,5 @@
 ﻿
+using System;
 using System.Collections.Generic;
 
 
@@ -7,20 +8,20 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public class WhenToTriggerClass
         {
-            public ulong DiscordId;
+            public Guid PlayerId;
             public ulong GameId;
             public List<int> WhenToTrigger;
 
-            public WhenToTriggerClass(ulong discordId, ulong gameId)
+            public WhenToTriggerClass(Guid playerId, ulong gameId)
             {
-                DiscordId = discordId;
+                PlayerId = playerId;
                 WhenToTrigger = new List<int>();
                 GameId = gameId;
             }
 
-            public WhenToTriggerClass(ulong discordId, ulong gameId, int when)
+            public WhenToTriggerClass(Guid playerId, ulong gameId, int when)
             {
-                DiscordId = discordId;
+                PlayerId = playerId;
                 WhenToTrigger = new List<int> {when};
                 GameId = gameId;
             }

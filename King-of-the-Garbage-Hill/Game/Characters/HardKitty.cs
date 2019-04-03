@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 
@@ -23,12 +24,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class DoebatsyaClass
         {
             public ulong GameId;
-            public ulong PlayerDiscordId;
+            public Guid PlayerId;
             public List<DoebatsyaSubClass> LostSeries = new List<DoebatsyaSubClass>();
 
-            public DoebatsyaClass(ulong playerDiscordId, ulong gameId, ulong enemyId)
+            public DoebatsyaClass(Guid playerId, ulong gameId, Guid enemyId)
             {
-                PlayerDiscordId = playerDiscordId;
+                PlayerId = playerId;
                 GameId = gameId;
                 LostSeries.Add(new DoebatsyaSubClass(enemyId));
             }
@@ -36,12 +37,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public class DoebatsyaSubClass
         {
-            public ulong EnemyId;
+            public Guid EnemyPlayerId;
             public int Series;
 
-            public DoebatsyaSubClass(ulong enemyId)
+            public DoebatsyaSubClass(Guid enemyPlayerId)
             {
-                EnemyId = enemyId;
+                EnemyPlayerId = enemyPlayerId;
                 Series = 1;
             }
 
@@ -51,14 +52,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class MuteClass
         {
             public ulong GameId;
-            public ulong PlayerDiscordId;
-            public List<ulong> UniquePlayers = new List<ulong>();
+            public Guid PlayerId;
+            public List<Guid> UniquePlayers = new List<Guid>();
 
-            public MuteClass(ulong playerDiscordId, ulong gameId, ulong enemyId)
+            public MuteClass(Guid playerId, ulong gameId, Guid enemyPlayerId)
             {
-                PlayerDiscordId = playerDiscordId;
+                PlayerId = playerId;
                 GameId = gameId;
-                UniquePlayers.Add(enemyId);
+                UniquePlayers.Add(enemyPlayerId);
             }
         }
 

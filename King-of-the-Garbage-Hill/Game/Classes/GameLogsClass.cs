@@ -7,12 +7,12 @@ namespace King_of_the_Garbage_Hill.Game.Classes
     public class GameLogsClass
     {
         public ulong GameId { get; set; }
-        public ulong WhoWon { get; set; }
+        public Guid WhoWon { get; set; }
         public List<GameLogsPlayer> PlayerList { get; set; }
         public DateTime Date { get; set; }
         public String GameLogs { get; set; }
 
-        public GameLogsClass(ulong gameId, ulong whoWon, List<GameLogsPlayer> playerList, string gameLogs)
+        public GameLogsClass(ulong gameId, Guid whoWon, List<GameLogsPlayer> playerList, string gameLogs)
         {
             GameId = gameId;
             WhoWon = whoWon;

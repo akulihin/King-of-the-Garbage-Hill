@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
@@ -35,14 +36,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class Udyr
         {
             public ulong GameId { get; set; }
-            public ulong PlayerDiscordId { get; set; }
-            public ulong EnemyDiscordId { get; set; }
+            public Guid PlayerId { get; set; }
+            public Guid EnemyPlayerId { get; set; }
 
-            public Udyr(ulong playerDiscordId, ulong gameId  )
+            public Udyr(Guid playerId, ulong gameId  )
             {
-                PlayerDiscordId = playerDiscordId;
+                PlayerId = playerId;
                 GameId = gameId;
-                EnemyDiscordId = 99999999;
+                EnemyPlayerId = Guid.Empty;
             }
         }
 
@@ -53,12 +54,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class PushAndDieClass
         {
             public ulong GameId { get; set; }
-            public ulong PlayerDiscordId { get; set; }
+            public Guid PlayerId { get; set; }
             public List<PushAndDieSubClass> PlayersEveryRound = new List<PushAndDieSubClass>();
 
-            public PushAndDieClass(ulong playerDiscordId, ulong gameId, IEnumerable<GamePlayerBridgeClass> players )
+            public PushAndDieClass(Guid playerId, ulong gameId, IEnumerable<GamePlayerBridgeClass> players )
             {
-                PlayerDiscordId = playerDiscordId;
+                PlayerId = playerId;
                 GameId = gameId;
                 PlayersEveryRound.Add(new PushAndDieSubClass(1, players));
             }
@@ -75,17 +76,17 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 RoundNo = roundNo;
                 foreach (var player in players)
                 {
-                    PlayerList.Add(new PushAndDieSubSubClass(player.DiscordAccount.DiscordId, player.Status.PlaceAtLeaderBoard));
+                    PlayerList.Add(new PushAndDieSubSubClass(player.Status.PlayerId, player.Status.PlaceAtLeaderBoard));
                 }
             }
         }
 
         public class PushAndDieSubSubClass
         {
-            public ulong PlayerId  { get; set; }
+            public Guid PlayerId  { get; set; }
             public int PlayerPlaceAtLeaderBoard { get; set; }
 
-            public PushAndDieSubSubClass(ulong playerId, int playerPlaceAtLeaderBoard)
+            public PushAndDieSubSubClass(Guid playerId, int playerPlaceAtLeaderBoard)
             {
                 PlayerId = playerId;
                 PlayerPlaceAtLeaderBoard = playerPlaceAtLeaderBoard;

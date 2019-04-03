@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 
@@ -24,7 +25,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             //Первая кровь: 
             var panth = _gameGlobal.PanthFirstBlood.Find(x =>
-                x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+                x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
 
             if (panth != null && panth.FriendList.Count == 1)
             {
@@ -36,25 +37,25 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 }
                 else if (panth.FriendList.Contains(player.Status.IsLostThisCalculation))
                 {
-                    var ene =  game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsLostThisCalculation);
+                    var ene =  game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsLostThisCalculation);
                     ene.Character.AddSpeed(ene.Status);
                     panth.FriendList.Clear();
                 }
-                panth.FriendList.Add(1234);
+                panth.FriendList.Add(Guid.Empty);
             }
             //end Первая кровь: 
 
             //Это привилегия
-            if (player.Status.IsWonThisCalculation != 0)
+            if (player.Status.IsWonThisCalculation != Guid.Empty)
             {
-                game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonThisCalculation).Character
+                game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Character
                     .Justice.AddJusticeForNextRound();
             }
             //end Это привилегия
 
             //Им это не понравится: 
              panth = _gameGlobal.PanthMark.Find(x =>
-                x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+                x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
 
              if (panth.FriendList.Contains(player.Status.IsWonThisCalculation))
              {

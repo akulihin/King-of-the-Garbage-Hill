@@ -45,16 +45,15 @@ namespace King_of_the_Garbage_Hill.Helpers
             await message.DeleteAsync();
         }
 
-        public void SubstituteUserWithBot(ulong userId)
+        public void SubstituteUserWithBot(ulong discordId)
         {
             var prevGame = _global.GamesList.Find(
-                x => x.PlayersList.Any(m => m.DiscordAccount.DiscordId == userId));
+                x => x.PlayersList.Any(m => m.DiscordAccount.DiscordId == discordId));
            
             if (prevGame != null)
             {
                 var account = GetFreeBot(prevGame.PlayersList, prevGame.GameId);
-                var leftUser = prevGame.PlayersList.Find(x => x.DiscordAccount.DiscordId == userId);
-
+                var leftUser = prevGame.PlayersList.Find(x => x.DiscordAccount.DiscordId == discordId);
                 leftUser.DiscordAccount = account.DiscordAccount;
                 leftUser.Status.SocketMessageFromBot = null;
             }

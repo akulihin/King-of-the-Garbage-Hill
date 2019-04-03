@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Discord;
 
 namespace King_of_the_Garbage_Hill.Game.Classes
@@ -14,27 +15,28 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             IsBlock = false;
             IsAbleToTurn = true;
             PlaceAtLeaderBoard = 0;
-            WhoToAttackThisTurn = 0;
+            WhoToAttackThisTurn = Guid.Empty;
 
             IsReady = false;
             IsAbleToWin = true;
             WonTimes = 0;
-            IsWonThisCalculation = 0;
-            IsLostThisCalculation = 0;
-            IsFighting = 0;
+            IsWonThisCalculation =  Guid.Empty;
+            IsLostThisCalculation =  Guid.Empty;
+            IsFighting =  Guid.Empty;
             IsSkip = false;
             ScoresToGiveAtEndOfRound = 0;
             InGamePersonalLogs = "";
             InGamePersonalLogsAll = "";
             WhoToLostEveryRound = new List<WhoToLostPreviousRoundClass>();
+            PlayerId = Guid.NewGuid();
         }
 
         public class WhoToLostPreviousRoundClass
         {
-            public ulong EnemyId;
+            public Guid EnemyId;
             public int RoundNo;
 
-            public WhoToLostPreviousRoundClass(ulong enemyId, int roundNo)
+            public WhoToLostPreviousRoundClass(Guid enemyId, int roundNo)
             {
                 EnemyId = enemyId;
                 RoundNo = roundNo;
@@ -51,21 +53,22 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public IUserMessage SocketMessageFromBot { get; set; }
 
         private int Score { get; set; }
+        public Guid PlayerId { get; set; }
         public bool IsBlock { get; set; }
         public bool IsSkip { get; set; }
         public bool IsAbleToTurn { get; set; }
         public bool IsAbleToWin { get; set; }
         public int PlaceAtLeaderBoard { get; set; }
 
-        public ulong WhoToAttackThisTurn { get; set; }
+        public Guid WhoToAttackThisTurn { get; set; }
 
       
 
         public bool IsReady { get; set; }
         public int WonTimes { get; set; }
-        public ulong IsWonThisCalculation { get; set; }
-        public ulong IsLostThisCalculation { get; set; }
-        public ulong IsFighting { get; set; }
+        public Guid IsWonThisCalculation { get; set; }
+        public Guid IsLostThisCalculation { get; set; }
+        public Guid IsFighting { get; set; }
         private double ScoresToGiveAtEndOfRound { get; set; }
         public int LvlUpPoints { get; set; }
         private string InGamePersonalLogs { get; set; }

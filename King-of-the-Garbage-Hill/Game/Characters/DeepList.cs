@@ -1,5 +1,5 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
@@ -29,7 +29,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             //Doubtful tactic
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
-                x.PlayerDiscordId == player.DiscordAccount.DiscordId && player.DiscordAccount.GameId == x.GameId);
+                x.PlayerId == player.Status.PlayerId && player.DiscordAccount.GameId == x.GameId);
 
 
                
@@ -52,14 +52,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             //Doubtful tactic
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
-                x.PlayerDiscordId == player.DiscordAccount.DiscordId && player.DiscordAccount.GameId == x.GameId);
+                x.PlayerId == player.Status.PlayerId && player.DiscordAccount.GameId == x.GameId);
 
      
                 player.Status.IsAbleToWin = true;
                 if (deep.FriendList.Contains(player.Status.IsFighting))
                 {
                   
-                    if (player.Status.IsWonThisCalculation != 0)
+                    if (player.Status.IsWonThisCalculation != Guid.Empty)
                     {
                         player.Status.AddRegularPoints();
                         await _phrase.DeepListDoubtfulTacticPhrase.SendLog(player);
@@ -70,9 +70,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //end Doubtful tactic
 
             // Стёб
-            if (player.Status.IsWonThisCalculation != 0)
+            if (player.Status.IsWonThisCalculation != Guid.Empty)
             {
-                var player2 = game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonThisCalculation);
+                var player2 = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation);
                 HandleMockery(player, player2, game);
             }
 
@@ -85,12 +85,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //Стёб
             var currentDeepList =
                 _gameGlobal.DeepListMockeryList.Find(x =>
-                    x.PlayerDiscordId == player.DiscordAccount.DiscordId && game.GameId == x.GameId);
+                    x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
 
             if (currentDeepList != null)
             {
                 var currentDeepList2 =
-                    currentDeepList.WhoWonTimes.Find(x => x.EnemyDiscordId == player2.DiscordAccount.DiscordId);
+                    currentDeepList.WhoWonTimes.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
 
                 if (currentDeepList2 != null)
                 {
@@ -111,15 +111,15 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 }
                 else
                 {
-                    var toAdd = new Mockery(new List<MockerySub> {new MockerySub(player2.DiscordAccount.DiscordId, 1)},
-                        game.GameId, player.DiscordAccount.DiscordId);
+                    var toAdd = new Mockery(new List<MockerySub> {new MockerySub(player2.Status.PlayerId, 1)},
+                        game.GameId, player.Status.PlayerId);
                     _gameGlobal.DeepListMockeryList.Add(toAdd);
                 }
             }
             else
             {
-                var toAdd = new Mockery(new List<MockerySub> {new MockerySub(player2.DiscordAccount.DiscordId, 1)},
-                    game.GameId, player.DiscordAccount.DiscordId);
+                var toAdd = new Mockery(new List<MockerySub> {new MockerySub(player2.Status.PlayerId, 1)},
+                    game.GameId, player.Status.PlayerId);
                 _gameGlobal.DeepListMockeryList.Add(toAdd);
             }
 
@@ -130,38 +130,38 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class Mockery
         {
             public ulong GameId;
-            public ulong PlayerDiscordId;
+            public Guid PlayerId;
             public List<MockerySub> WhoWonTimes;
 
-            public Mockery(List<MockerySub> whoWonTimes, ulong gameId, ulong playerDiscordId)
+            public Mockery(List<MockerySub> whoWonTimes, ulong gameId, Guid playerId)
             {
                 WhoWonTimes = whoWonTimes;
                 GameId = gameId;
-                PlayerDiscordId = playerDiscordId;
+                PlayerId = playerId;
             }
         }
 
         public class MockerySub
         {
-            public ulong EnemyDiscordId;
+            public Guid EnemyPlayerId;
             public int Times;
 
-            public MockerySub(ulong enemyDiscordId, int times)
+            public MockerySub(Guid enemyPlayerId, int times)
             {
-                EnemyDiscordId = enemyDiscordId;
+                EnemyPlayerId = enemyPlayerId;
                 Times = times;
             }
         }
 
         public class SuperMindKnown
         {
-            public ulong DiscordId;
+            public Guid PlayerId;
             public ulong GameId;
-            public List<ulong> KnownPlayers = new List<ulong>();
+            public List<Guid> KnownPlayers = new List<Guid>();
 
-            public SuperMindKnown(ulong discordId, ulong gameId, ulong player2Id)
+            public SuperMindKnown(Guid playerId, ulong gameId, Guid player2Id)
             {
-                DiscordId = discordId;
+                PlayerId = playerId;
                 GameId = gameId;
                 KnownPlayers.Add(player2Id);
             }
@@ -169,20 +169,15 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public class Madness
         {
-            public ulong DiscordId;
+            public Guid PlayerId;
             public ulong GameId;
             public int RoundItTriggered;
             public List<MadnessSub> MadnessList = new List<MadnessSub>();
-            public Madness(ulong discordId, ulong gameId, int roundItTriggered)
+            public Madness(Guid playerId, ulong gameId, int roundItTriggered)
             {
-                DiscordId = discordId;
+                PlayerId = playerId;
                 GameId = gameId;
                 RoundItTriggered = roundItTriggered;
-            }
-
-            public Madness()
-            {
-
             }
         }
 

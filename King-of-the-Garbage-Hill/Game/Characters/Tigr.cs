@@ -1,5 +1,5 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
@@ -34,20 +34,20 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public async Task HandleTigrAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //3-0 обоссан: 
-            if (player.Status.IsWonThisCalculation != 0)
+            if (player.Status.IsWonThisCalculation != Guid.Empty)
             {
                 var tigr = _gameGlobal.TigrThreeZeroList.Find(x =>
-                    x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+                    x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
 
 
                 if (tigr == null)
                 {
-                    _gameGlobal.TigrThreeZeroList.Add(new ThreeZeroClass(player.DiscordAccount.DiscordId, game.GameId,
+                    _gameGlobal.TigrThreeZeroList.Add(new ThreeZeroClass(player.Status.PlayerId, game.GameId,
                         player.Status.IsWonThisCalculation));
                 }
                 else
                 {
-                    var enemy = tigr.FriendList.Find(x => x.EnemyId == player.Status.IsWonThisCalculation);
+                    var enemy = tigr.FriendList.Find(x => x.EnemyPlayerId == player.Status.IsWonThisCalculation);
                     if (enemy != null)
                     {
                         enemy.WinsSeries++;
@@ -59,7 +59,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
 
                             var enemyAcc = game.PlayersList.Find(x =>
-                                x.DiscordAccount.DiscordId == player.Status.IsWonThisCalculation);
+                                x.Status.PlayerId == player.Status.IsWonThisCalculation);
 
                             if (enemyAcc != null)
                             {
@@ -83,9 +83,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             else
             {
                 var tigr = _gameGlobal.TigrThreeZeroList.Find(x =>
-                    x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+                    x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
 
-                var enemy = tigr?.FriendList.Find(x => x.EnemyId == player.Status.IsLostThisCalculation);
+                var enemy = tigr?.FriendList.Find(x => x.EnemyPlayerId == player.Status.IsLostThisCalculation);
 
                 if (enemy != null && enemy.IsUnique) enemy.WinsSeries = 0;
             }
@@ -97,12 +97,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class TigrTopClass
         {
             public ulong GameId;
-            public ulong PlayerDiscordId;
+            public Guid PlayerId;
             public int TimeCount;
 
-            public TigrTopClass(ulong playerDiscordId, ulong gameId)
+            public TigrTopClass(Guid playerId, ulong gameId)
             {
-                PlayerDiscordId = playerDiscordId;
+                PlayerId = playerId;
                 GameId = gameId;
                 TimeCount = 2;
             }
@@ -112,11 +112,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             public List<ThreeZeroSubClass> FriendList = new List<ThreeZeroSubClass>();
             public ulong GameId;
-            public ulong PlayerDiscordId;
+            public Guid PlayerId;
 
-            public ThreeZeroClass(ulong playerDiscordId, ulong gameId, ulong enemyId)
+            public ThreeZeroClass(Guid playerId, ulong gameId, Guid enemyId)
             {
-                PlayerDiscordId = playerDiscordId;
+                PlayerId = playerId;
                 GameId = gameId;
                 FriendList.Add(new ThreeZeroSubClass(enemyId));
             }
@@ -124,13 +124,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public class ThreeZeroSubClass
         {
-            public ulong EnemyId;
+            public Guid EnemyPlayerId;
             public bool IsUnique;
             public int WinsSeries;
 
-            public ThreeZeroSubClass(ulong enemyId)
+            public ThreeZeroSubClass(Guid enemyPlayerId)
             {
-                EnemyId = enemyId;
+                EnemyPlayerId = enemyPlayerId;
                 WinsSeries = 1;
                 IsUnique = true;
             }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
@@ -26,9 +27,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public void HandleSirinoksAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //обучение
-            if (player.Status.IsLostThisCalculation != 0)
+            if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
-                var playerSheLostLastTime = game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsLostThisCalculation);
+                var playerSheLostLastTime = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsLostThisCalculation);
                 var intel = new List<StatsClass>
                 {
                     new StatsClass(1, playerSheLostLastTime.Character.GetIntelligence()),
@@ -39,11 +40,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 var best = intel.OrderByDescending(x => x.Number).ToList()[0];
 
                 var siri = _gameGlobal.SirinoksTraining.Find(x =>
-                    x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+                    x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
 
                 if (siri == null)
                 {
-                    _gameGlobal.SirinoksTraining.Add(new TrainingClass(player.DiscordAccount.DiscordId, game.GameId, best.Index, best.Number));
+                    _gameGlobal.SirinoksTraining.Add(new TrainingClass(player.Status.PlayerId, game.GameId, best.Index, best.Number));
                 }
                 else
                 {
@@ -71,12 +72,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class TrainingClass
         {
             public ulong GameId;
-            public ulong PlayerDiscordId;
+            public Guid PlayerId;
             public List<TrainingSubClass> Training = new List<TrainingSubClass>();
 
-            public TrainingClass(ulong playerDiscordId, ulong gameId, int index, int number)
+            public TrainingClass(Guid playerId, ulong gameId, int index, int number)
             {
-                PlayerDiscordId = playerDiscordId;
+                PlayerId = playerId;
                 GameId = gameId;
                 Training.Add(new TrainingSubClass(index, number));
             }

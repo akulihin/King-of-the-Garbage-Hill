@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
@@ -31,10 +33,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public void HandleSharkAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //Челюсти: 
-            if (player.Status.IsWonThisCalculation != 0)
+            if (player.Status.IsWonThisCalculation != Guid.Empty)
             {
                 var shark = _gameGlobal.SharkJawsWin.Find(x =>
-                    x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+                    x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
 
 
                     if (!shark.FriendList.Contains(player.Status.IsWonThisCalculation))
@@ -47,6 +49,20 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             }
 
             //end Челюсти: 
+        }
+
+        public class SharkLeaderClass
+        {
+            public ulong GameId { get; set; }
+            public Guid PlayerId { get; set; }
+            public List<int> FriendList = new List<int>();
+
+            public SharkLeaderClass(Guid playerId, ulong gameId)
+            {
+                PlayerId = playerId;
+                GameId = gameId;
+
+            }
         }
     }
 }

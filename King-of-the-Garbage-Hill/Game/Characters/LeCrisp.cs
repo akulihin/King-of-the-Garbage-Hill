@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 
@@ -25,10 +26,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             player.Status.IsAbleToWin = true;
 
-            if (player.Status.IsLostThisCalculation != 0)
+            if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
                 var lePuska = _gameGlobal.LeCrispImpact.Find(x =>
-                    x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == game.GameId);
+                    x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
 
                 if (lePuska != null)
                 {
@@ -40,13 +41,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public class LeCrispImpactClass
         {
-            public ulong DiscordId;
+            public Guid PlayerId;
             public ulong GameId;
             public bool IsTriggered;
 
-            public LeCrispImpactClass(ulong discordId, ulong gameId)
+            public LeCrispImpactClass(Guid playerId, ulong gameId)
             {
-                DiscordId = discordId;
+                PlayerId = playerId;
                 GameId = gameId;
                 IsTriggered = false;
             }

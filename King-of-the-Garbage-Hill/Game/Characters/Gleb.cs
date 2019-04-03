@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 
@@ -24,8 +25,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             //skip check
            var skip = _gameGlobal.GlebSkipList.Find(x =>
-                x.DiscordId == player.DiscordAccount.DiscordId && x.GameId == player.DiscordAccount.GameId);
-           if (skip != null && player.Status.WhoToAttackThisTurn != 0)
+                x.PlayerId == player.Status.PlayerId && x.GameId == player.DiscordAccount.GameId);
+           if (skip != null && player.Status.WhoToAttackThisTurn != Guid.Empty)
            {
                player.Status.IsSkip = false;
                _gameGlobal.GlebSkipList.Remove(skip);
@@ -34,12 +35,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public class GlebSkipClass
         {
-            public ulong DiscordId;
+            public Guid PlayerId;
             public ulong GameId;
 
-            public GlebSkipClass(ulong discordId, ulong gameId)
+            public GlebSkipClass(Guid playerId, ulong gameId)
             {
-                DiscordId = discordId;
+                PlayerId = playerId;
                 GameId = gameId;
 
             }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace King_of_the_Garbage_Hill.Game.Classes
@@ -22,7 +23,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public int SkipPlayersThisRound { get; set; }
         private string PreviousGameLogs { get; set; }
-        public ulong WhoWon { get; set; }
+        public Guid WhoWon { get; set; }
         public GameClass(List<GamePlayerBridgeClass> playersList, ulong gameId, int turnLengthInSecond = 200)
         {
             RoundNo = 1;
@@ -33,7 +34,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             GameStatus = 1;
             GameLogs = "";
             PreviousGameLogs = "Здесь будут показаны логи игры. \nВыберите цель для нападения по номеру в таблице, используя emoji\n";
-            WhoWon = 228;
+            WhoWon = Guid.Empty;
             IsCheckIfReady = true;
             SkipPlayersThisRound = 0;
         }

@@ -56,7 +56,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 await _characterPassives.HandleCharacterBeforeCalculations(player, game);
 
 
-                if (player.Status.WhoToAttackThisTurn == 0 && player.Status.IsBlock == false)
+                if (player.Status.WhoToAttackThisTurn == Guid.Empty && player.Status.IsBlock == false)
                     player.Status.IsBlock = true;
 
                 var randomForTooGood = 50;
@@ -65,23 +65,18 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (player.Status.IsBlock)
                 {
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
-                    player.Status.IsWonThisCalculation = 0;
-                    player.Status.IsLostThisCalculation = 0;
-                    player.Status.IsFighting = 0;
+                    player.Status.IsWonThisCalculation = Guid.Empty;
+                    player.Status.IsLostThisCalculation = Guid.Empty;
+                    player.Status.IsFighting = Guid.Empty;
                     continue;
                 }
 
                 var playerIamAttacking =
-                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.WhoToAttackThisTurn);
+                    game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
 
                 if (playerIamAttacking == null)
                 {
                     var leftUser = $"ERROR";
-                    if (player.Status.WhoToAttackThisTurn > 1000000)
-                    {
-                         leftUser = _global.Client.GetUser(player.Status.WhoToAttackThisTurn).Username;
-                        game.AddPreviousGameLogs($"{leftUser} вышел, его место занял сверхразумный ИИ");
-                    }
 
                     player.Status.AddRegularPoints();
 
@@ -94,15 +89,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     continue;
                 }
 
-                playerIamAttacking.Status.IsFighting = player.DiscordAccount.DiscordId;
-                player.Status.IsFighting = playerIamAttacking.DiscordAccount.DiscordId;
+                playerIamAttacking.Status.IsFighting = player.Status.PlayerId;
+                player.Status.IsFighting = playerIamAttacking.Status.PlayerId;
 
                 await _characterPassives.HandleCharacterWithKnownEnemyBeforeCalculations(player, game);
                 await _characterPassives.HandleCharacterWithKnownEnemyBeforeCalculations(playerIamAttacking, game);
 
                 await _characterPassives.HandleCharacterBeforeCalculations(playerIamAttacking, game);
 
-                if (playerIamAttacking.Status.WhoToAttackThisTurn == 0 && playerIamAttacking.Status.IsBlock == false)
+                if (playerIamAttacking.Status.WhoToAttackThisTurn == Guid.Empty && playerIamAttacking.Status.IsBlock == false)
                     playerIamAttacking.Status.IsBlock = true;
 
                 //т.е. он получил урон, какие у него дебаффы на этот счет 
@@ -144,12 +139,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
                     await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
 
-                    player.Status.IsWonThisCalculation = 0;
-                    player.Status.IsLostThisCalculation = 0;
-                    playerIamAttacking.Status.IsWonThisCalculation = 0;
-                    playerIamAttacking.Status.IsLostThisCalculation = 0;
-                    playerIamAttacking.Status.IsFighting = 0;
-                    player.Status.IsFighting = 0;
+                    player.Status.IsWonThisCalculation = Guid.Empty;
+                    player.Status.IsLostThisCalculation = Guid.Empty;
+                    playerIamAttacking.Status.IsWonThisCalculation = Guid.Empty;
+                    playerIamAttacking.Status.IsLostThisCalculation = Guid.Empty;
+                    playerIamAttacking.Status.IsFighting = Guid.Empty;
+                    player.Status.IsFighting = Guid.Empty;
 
                     continue;
                 }
@@ -162,12 +157,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
                     await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
 
-                    player.Status.IsWonThisCalculation = 0;
-                    player.Status.IsLostThisCalculation = 0;
-                    playerIamAttacking.Status.IsWonThisCalculation = 0;
-                    playerIamAttacking.Status.IsLostThisCalculation = 0;
-                    playerIamAttacking.Status.IsFighting = 0;
-                    player.Status.IsFighting = 0;
+                    player.Status.IsWonThisCalculation = Guid.Empty;
+                    player.Status.IsLostThisCalculation = Guid.Empty;
+                    playerIamAttacking.Status.IsWonThisCalculation = Guid.Empty;
+                    playerIamAttacking.Status.IsLostThisCalculation = Guid.Empty;
+                    playerIamAttacking.Status.IsFighting = Guid.Empty;
+                    player.Status.IsFighting = Guid.Empty;
 
                     continue;
                 }
@@ -244,9 +239,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     playerIamAttacking.Character.Justice.AddJusticeForNextRound();
 
-                    player.Status.IsWonThisCalculation = playerIamAttacking.DiscordAccount.DiscordId;
-                    playerIamAttacking.Status.IsLostThisCalculation = player.DiscordAccount.DiscordId;
-                    playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.DiscordAccount.DiscordId, game.RoundNo));
+                    player.Status.IsWonThisCalculation = playerIamAttacking.Status.PlayerId;
+                    playerIamAttacking.Status.IsLostThisCalculation = player.Status.PlayerId;
+                    playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.Status.PlayerId, game.RoundNo));
                 }
                 else
                 {
@@ -263,9 +258,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         player.Character.Justice.AddJusticeForNextRound();
 
-                        playerIamAttacking.Status.IsWonThisCalculation = player.DiscordAccount.DiscordId;
-                        player.Status.IsLostThisCalculation = playerIamAttacking.DiscordAccount.DiscordId;
-                        player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.DiscordAccount.DiscordId, game.RoundNo));
+                        playerIamAttacking.Status.IsWonThisCalculation = player.Status.PlayerId;
+                        player.Status.IsLostThisCalculation = playerIamAttacking.Status.PlayerId;
+                        player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.Status.PlayerId, game.RoundNo));
                     }
                 }
 
@@ -279,12 +274,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 await _characterPassives.HandleCharacterAfterCalculations(player, game);
                 await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
 
-                player.Status.IsWonThisCalculation = 0;
-                player.Status.IsLostThisCalculation = 0;
-                playerIamAttacking.Status.IsWonThisCalculation = 0;
-                playerIamAttacking.Status.IsLostThisCalculation = 0;
-                playerIamAttacking.Status.IsFighting = 0;
-                player.Status.IsFighting = 0;
+                player.Status.IsWonThisCalculation = Guid.Empty;
+                player.Status.IsLostThisCalculation = Guid.Empty;
+                playerIamAttacking.Status.IsWonThisCalculation = Guid.Empty;
+                playerIamAttacking.Status.IsLostThisCalculation = Guid.Empty;
+                playerIamAttacking.Status.IsFighting = Guid.Empty;
+                player.Status.IsFighting = Guid.Empty;
             }
 
             await _characterPassives.HandleEndOfRound(game);
@@ -304,7 +299,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 player.Status.IsSkip = false;
                 player.Status.IsAbleToTurn = true;
                 player.Status.IsReady = false;
-                player.Status.WhoToAttackThisTurn = 0;
+                player.Status.WhoToAttackThisTurn = Guid.Empty;
                 player.Status.CombineRoundScoreAndGameScore(game.RoundNo);
                 player.Status.ClearInGamePersonalLogs();
                 player.Status.InGamePersonalLogsAll += "|||";
@@ -346,7 +341,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var tigrTemp = game.PlayersList.Find(x => x.Character.Name == "Тигр");
 
                 var tigr = _gameGlobal.TigrTop.Find(x =>
-                    x.GameId == game.GameId && x.PlayerDiscordId == tigrTemp.DiscordAccount.DiscordId);
+                    x.GameId == game.GameId && x.PlayerId == tigrTemp.Status.PlayerId);
 
                 if (tigr != null && tigr.TimeCount > 0)
                 {

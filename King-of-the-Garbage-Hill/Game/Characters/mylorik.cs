@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
@@ -28,35 +29,35 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         }
 
 
-        public async Task HandleMylorikRevenge(GamePlayerBridgeClass player, ulong enemyIdLostTo, ulong gameId)
+        public async Task HandleMylorikRevenge(GamePlayerBridgeClass player, Guid enemyIdLostTo, ulong gameId)
         {
             //enemyIdLostTo may be 0
 
             var mylorik = _gameGlobal.MylorikRevenge.Find(x =>
-                x.GameId == gameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+                x.GameId == gameId && x.PlayerId == player.Status.PlayerId);
 
-            if (enemyIdLostTo != 0)
+            if (enemyIdLostTo != Guid.Empty)
             {
                 //check if very first lost
                 if (mylorik == null)
                 {
-                    _gameGlobal.MylorikRevenge.Add(new MylorikRevengeClass(player.DiscordAccount.DiscordId, gameId,
+                    _gameGlobal.MylorikRevenge.Add(new MylorikRevengeClass(player.Status.PlayerId, gameId,
                         enemyIdLostTo));
                     await _phrase.MylorikRevengeLostPhrase.SendLog(player);
                 }
                 else
                 {
-                    if (mylorik.EnemyListDiscordId.All(x => x.EnemyDiscordId != enemyIdLostTo))
+                    if (mylorik.EnemyListPlayerIds.All(x => x.EnemyPlayerId != enemyIdLostTo))
                     {
-                        mylorik.EnemyListDiscordId.Add(new MylorikRevengeClassSub(enemyIdLostTo));
+                        mylorik.EnemyListPlayerIds.Add(new MylorikRevengeClassSub(enemyIdLostTo));
                         await _phrase.MylorikRevengeLostPhrase.SendLog(player);
                     }
                 }
             }
             else
             {
-                var find = mylorik?.EnemyListDiscordId.Find(x =>
-                    x.EnemyDiscordId == player.Status.IsWonThisCalculation && x.IsUnique);
+                var find = mylorik?.EnemyListPlayerIds.Find(x =>
+                    x.EnemyPlayerId == player.Status.IsWonThisCalculation && x.IsUnique);
 
                 if (find != null)
                 {
@@ -85,7 +86,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //end Revenge
 
             //Spanish
-            if (player.Status.IsLostThisCalculation != 0)
+            if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
                 var rand = _rand.Random(1, 3);
 
@@ -104,26 +105,26 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public class MylorikRevengeClass
         {
-            public List<MylorikRevengeClassSub> EnemyListDiscordId;
+            public List<MylorikRevengeClassSub> EnemyListPlayerIds;
             public ulong GameId;
-            public ulong PlayerDiscordId;
+            public Guid PlayerId;
 
-            public MylorikRevengeClass(ulong playerDiscordId, ulong gameId, ulong firstLost)
+            public MylorikRevengeClass(Guid playerId, ulong gameId, Guid firstLost)
             {
-                PlayerDiscordId = playerDiscordId;
-                EnemyListDiscordId = new List<MylorikRevengeClassSub> {new MylorikRevengeClassSub(firstLost)};
+                PlayerId = playerId;
+                EnemyListPlayerIds = new List<MylorikRevengeClassSub> {new MylorikRevengeClassSub(firstLost)};
                 GameId = gameId;
             }
         }
 
         public class MylorikRevengeClassSub
         {
-            public ulong EnemyDiscordId;
+            public Guid EnemyPlayerId;
             public bool IsUnique;
 
-            public MylorikRevengeClassSub(ulong enemyDiscordId)
+            public MylorikRevengeClassSub(Guid enemyPlayerId)
             {
-                EnemyDiscordId = enemyDiscordId;
+                EnemyPlayerId = enemyPlayerId;
                 IsUnique = true;
             }
         }

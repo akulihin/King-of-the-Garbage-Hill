@@ -61,7 +61,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 if (game.RoundNo > 10)
                 {
-                    game.WhoWon = game.PlayersList[0].DiscordAccount.DiscordId;
+                    game.WhoWon = game.PlayersList[0].Status.PlayerId;
                     game.AddPreviousGameLogs(
                         $"\n**{game.PlayersList[0].DiscordAccount.DiscordUserName}** победил, играя за **{game.PlayersList[0].Character.Name}**");
 

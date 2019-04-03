@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 
@@ -22,12 +23,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class GarbageClass
         {
             public ulong GameId;
-            public ulong PlayerDiscordId;
-            public List<ulong> Training = new List<ulong>();
+            public Guid PlayerId;
+            public List<Guid> Training = new List<Guid>();
 
-            public GarbageClass(ulong playerDiscordId, ulong gameId, ulong enemyId)
+            public GarbageClass(Guid playerId, ulong gameId, Guid enemyId)
             {
-                PlayerDiscordId = playerDiscordId;
+                PlayerId = playerId;
                 GameId = gameId;
                 Training.Add(enemyId);
             }

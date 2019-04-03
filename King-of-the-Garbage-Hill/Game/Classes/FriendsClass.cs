@@ -1,4 +1,5 @@
 ﻿
+using System;
 using System.Collections.Generic;
 
 
@@ -7,18 +8,18 @@ namespace King_of_the_Garbage_Hill.Game.Classes
     public class FriendsClass
     {
         public ulong GameId { get; set; }
-        public ulong PlayerDiscordId { get; set; }
-        public List<ulong> FriendList = new List<ulong>();
+        public Guid PlayerId { get; set; }
+        public List<Guid> FriendList = new List<Guid>();
 
-        public FriendsClass(ulong playerDiscordId, ulong gameId, ulong enemyId)
+        public FriendsClass(Guid playerId, ulong gameId, Guid enemyPlayerId)
         {
-            PlayerDiscordId = playerDiscordId;
+            PlayerId = playerId;
             GameId = gameId;
-            FriendList.Add(enemyId);
+            FriendList.Add(enemyPlayerId);
         }
-        public FriendsClass(ulong playerDiscordId, ulong gameId)
+        public FriendsClass(Guid playerId, ulong gameId)
         {
-            PlayerDiscordId = playerDiscordId;
+            PlayerId = playerId;
             GameId = gameId;
         }
     }

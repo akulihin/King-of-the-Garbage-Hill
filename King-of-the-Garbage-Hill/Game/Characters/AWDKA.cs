@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
@@ -25,18 +26,18 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public void HandleAwdkaAfter(GamePlayerBridgeClass player)
         {
 
-            if (player.Status.IsLostThisCalculation != 0)
+            if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
                 var awdka = _gameGlobal.AwdkaTryingList.Find(x =>
-                    x.GameId == player.DiscordAccount.GameId && x. PlayerDiscordId == player.DiscordAccount.DiscordId);
+                    x.GameId == player.DiscordAccount.GameId && x. PlayerId == player.Status.PlayerId);
 
                 if(awdka == null)
                 {
-                    _gameGlobal.AwdkaTryingList.Add(new TryingClass(player.DiscordAccount.DiscordId, player.DiscordAccount.GameId, player.Status.IsLostThisCalculation ));
+                    _gameGlobal.AwdkaTryingList.Add(new TryingClass(player.Status.PlayerId, player.DiscordAccount.GameId, player.Status.IsLostThisCalculation ));
                 }
                 else
                 {
-                    var enemy = awdka.TryingList.Find(x => x.EnemyId == player.Status.IsLostThisCalculation);
+                    var enemy = awdka.TryingList.Find(x => x.EnemyPlayerId == player.Status.IsLostThisCalculation);
                     if (enemy == null)
                     {
                         awdka.TryingList.Add(new TryingSubClass(player.Status.IsLostThisCalculation));
@@ -54,12 +55,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class TrollingClass
         {
             public ulong GameId;
-            public ulong PlayerDiscordId;
+            public Guid PlayerId;
             public int Cooldown;
 
-            public TrollingClass(ulong playerDiscordId, ulong gameId )
+            public TrollingClass(Guid playerId, ulong gameId )
             {
-                PlayerDiscordId = playerDiscordId;
+                PlayerId = playerId;
                 GameId = gameId;
                 Cooldown = 2;
             }
@@ -70,26 +71,26 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class TryingClass
         {
             public ulong GameId;
-            public ulong PlayerDiscordId;
+            public Guid PlayerId;
             public List<TryingSubClass> TryingList = new List<TryingSubClass>();
 
-            public TryingClass(ulong playerDiscordId, ulong gameId, ulong enemyId)
+            public TryingClass(Guid playerId, ulong gameId, Guid enemyPlayerId)
             {
-                PlayerDiscordId = playerDiscordId;
+                PlayerId = playerId;
                 GameId = gameId;
-                TryingList.Add(new TryingSubClass(enemyId));
+                TryingList.Add(new TryingSubClass(enemyPlayerId));
             }
         }
 
         public class TryingSubClass
         {
-            public ulong EnemyId;
+            public Guid EnemyPlayerId;
             public int Times;
             public bool IsUnique;
 
-            public TryingSubClass(ulong enemyId)
+            public TryingSubClass(Guid enemyPlayerId)
             {
-                EnemyId = enemyId;
+                EnemyPlayerId = enemyPlayerId;
                 Times = 1;
                 IsUnique = false;
             }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 
@@ -22,13 +23,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class InvulnerabilityClass
         {
             public ulong GameId;
-            public ulong PlayerDiscordId;
+            public Guid PlayerId;
             public int Count;
 
 
-            public InvulnerabilityClass(ulong playerDiscordId, ulong gameId)
+            public InvulnerabilityClass(Guid playerId, ulong gameId)
             {
-                PlayerDiscordId = playerDiscordId;
+                PlayerId = playerId;
                 GameId = gameId;
                 Count = 1;
             }   
@@ -39,25 +40,25 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class InkClass
         {
             public ulong GameId;
-            public ulong PlayerDiscordId;
+            public Guid PlayerId;
             public List<InkSubClass> RealScoreList = new List<InkSubClass>();
 
-            public InkClass(ulong playerDiscordId, GameClass game, ulong enemyId )
+            public InkClass(Guid playerId, GameClass game, Guid enemyPlayerId )
             {
-                PlayerDiscordId = playerDiscordId;
+                PlayerId = playerId;
                 GameId = game.GameId;
-                RealScoreList.Add(new InkSubClass(enemyId, game.RoundNo, -1));
-                RealScoreList.Add(new InkSubClass(playerDiscordId,  game.RoundNo, 1));
+                RealScoreList.Add(new InkSubClass(enemyPlayerId, game.RoundNo, -1));
+                RealScoreList.Add(new InkSubClass(playerId,  game.RoundNo, 1));
             }   
         }
 
         public class InkSubClass
         {
-            public ulong PlayerId;
+            public Guid PlayerId;
             public int RealScore;
 
 
-            public InkSubClass(ulong playerDiscordId, int roundNo, int realScore)
+            public InkSubClass(Guid playerDiscordId, int roundNo, int realScore)
             {
                 if (roundNo <= 4)
                     realScore = realScore * 1; // Why????????????????????????
@@ -87,12 +88,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class TentaclesClass
         {
             public ulong GameId;
-            public ulong PlayerDiscordId;
+            public Guid PlayerId;
             public List<TentaclesSubClass> UniqePlacesList = new List<TentaclesSubClass>();
 
-            public TentaclesClass(ulong playerDiscordId, ulong gameId, int place)
+            public TentaclesClass(Guid playerId, ulong gameId, int place)
             {
-                PlayerDiscordId = playerDiscordId;
+                PlayerId = playerId;
                 GameId = gameId;
                 UniqePlacesList.Add(new TentaclesSubClass(place));
             }   

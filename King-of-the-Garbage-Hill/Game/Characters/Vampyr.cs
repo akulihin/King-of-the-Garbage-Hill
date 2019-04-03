@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
@@ -31,7 +32,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             //Падальщик
             var enemy = game.PlayersList.Find(x =>
-                x.DiscordAccount.DiscordId == player.Status.WhoToAttackThisTurn);
+                x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
 
             if (enemy != null)
                 if (enemy.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
@@ -39,10 +40,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //end Падальщик
 
             //Гематофагия
-            if (player.Status.IsWonThisCalculation != 0)
+            if (player.Status.IsWonThisCalculation != Guid.Empty)
             {
                 var vamp = _gameGlobal.VampyrKilledList.Find(x =>
-                    x.GameId == game.GameId && x.PlayerDiscordId == player.DiscordAccount.DiscordId);
+                    x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
 
                 if (!vamp.FriendList.Contains(player.Status.IsWonThisCalculation))
                 {
@@ -103,7 +104,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
 
             //Осиновый кол
-            if (player.Status.IsLostThisCalculation != 0)
+            if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
                 player.Status.AddBonusPoints(-1);
 

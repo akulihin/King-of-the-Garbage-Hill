@@ -122,9 +122,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             //    await MainPage(userId, socketMsg);
         }
 
-        public string LeaderBoard(DiscordAccountClass discordAccount, CharacterClass character)
+        public string LeaderBoard(GamePlayerBridgeClass player)
         {
-            var game = _global.GamesList.Find(x => x.GameId == discordAccount.GameId);
+            var game = _global.GamesList.Find(x => x.GameId == player.DiscordAccount.GameId);
             if (game == null) return "ERROR 404";
             var players = "";
             var playersList = game.PlayersList;
@@ -133,10 +133,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             {
                 players += $"{i + 1}. {playersList[i].DiscordAccount.DiscordUserName}";
 
-                players += CustomLeaderBoard(discordAccount, character, playersList[i]);
+                players += CustomLeaderBoard(player, playersList[i]);
 
                 //TODO: REMOVE || playersList[i].IsBot()
-                if (discordAccount.DiscordId == playersList[i].DiscordAccount.DiscordId || playersList[i].IsBot())
+                if (player.Status.PlayerId == playersList[i].Status.PlayerId || playersList[i].IsBot())
                     players +=
                         $" = {playersList[i].Status.GetScore()} (I: {playersList[i].Character.GetIntelligence()}, St: {playersList[i].Character.GetStrength()}, SP: {playersList[i].Character.GetSpeed()}, Psy: {playersList[i].Character.GetPsyche()}, J: {playersList[i].Character.Justice.GetJusticeNow()})\n";
                 else
@@ -146,18 +146,17 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             return players;
         }
 
-        public string CustomLeaderBoard(DiscordAccountClass player1Account, CharacterClass player1Char,
-            GamePlayerBridgeClass player2)
+        public string CustomLeaderBoard( GamePlayerBridgeClass player1, GamePlayerBridgeClass player2)
         {
             var customString = "";
-            switch (player1Char.Name)
+            switch (player1.Character.Name)
             {
 
                 case "HardKitty":
                     var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
-                        x.GameId == player1Account.GameId &&
-                        x.PlayerDiscordId == player1Account.DiscordId);
-                    var lostSeries = hardKitty?.LostSeries.Find(x => x.EnemyId == player2.DiscordAccount.DiscordId);
+                        x.GameId == player1.DiscordAccount.GameId &&
+                        x.PlayerId == player1.Status.PlayerId);
+                    var lostSeries = hardKitty?.LostSeries.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
                     if (lostSeries != null)
                     {
                         customString += $" {new Emoji("<:sparta:561287745675329567>")} - {lostSeries.Series}";
@@ -165,11 +164,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     break;
                 case "Sirinoks":
                     var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
-                        x.GameId == player1Account.GameId && x.PlayerDiscordId == player1Account.DiscordId);
+                        x.GameId == player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
 
                     if (siri != null)
                     {
-                        if (siri.FriendList.Contains(player2.DiscordAccount.DiscordId))
+                        if (siri.FriendList.Contains(player2.Status.PlayerId))
                         {
                             customString += $" {new Emoji("<:sparta:561287745675329567>")}";
                         }
@@ -178,9 +177,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     break;
                 case "Загадочный Спартанец в маске":
                     var panth = _gameGlobal.PanthMark.Find(x =>
-                        x.GameId == player1Account.GameId && x.PlayerDiscordId == player1Account.DiscordId);
+                        x.GameId == player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
 
-                    if (panth.FriendList.Contains(player2.DiscordAccount.DiscordId))
+                    if (panth.FriendList.Contains(player2.Status.PlayerId))
                         customString += $" {new Emoji("<:sparta:561287745675329567>")}";
                     break;
 
@@ -189,17 +188,17 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                     //tactic
                     var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
-                        x.PlayerDiscordId == player1Account.DiscordId && player1Account.GameId == x.GameId);
+                        x.PlayerId == player1.Status.PlayerId && player1.DiscordAccount.GameId == x.GameId);
                     if (deep != null)
-                        if (deep.FriendList.Contains(player2.DiscordAccount.DiscordId))
+                        if (deep.FriendList.Contains(player2.Status.PlayerId))
                             customString += $" {new Emoji("<:yo:561287783704952845>")}";
                     //end tactic
 
                     //сверхразум
                     var currentList = _gameGlobal.DeepListSupermindKnown.Find(x =>
-                        x.DiscordId == player1Account.DiscordId && x.GameId == player1Account.GameId);
+                        x.PlayerId == player1.Status.PlayerId && x.GameId == player1.DiscordAccount.GameId);
                     if (currentList != null)
-                        if (currentList.KnownPlayers.Contains(player2.DiscordAccount.DiscordId))
+                        if (currentList.KnownPlayers.Contains(player2.Status.PlayerId))
                             customString +=
                                 $" PS: - {player2.Character.Name} ({player2.Character.GetIntelligence()}, " +
                                 $"{player2.Character.GetStrength()}, {player2.Character.GetSpeed()}, " +
@@ -211,18 +210,18 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                 case "mylorik":
                     var mylorik = _gameGlobal.MylorikRevenge.Find(x =>
-                        x.GameId == player1Account.GameId && x.PlayerDiscordId == player1Account.DiscordId);
-                    var find = mylorik?.EnemyListDiscordId.Find(x =>
-                        x.EnemyDiscordId == player2.DiscordAccount.DiscordId && x.IsUnique);
+                        x.GameId == player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
+                    var find = mylorik?.EnemyListPlayerIds.Find(x =>
+                        x.EnemyPlayerId == player2.Status.PlayerId && x.IsUnique);
 
                     if (find != null) customString += $" {new Emoji("<:sparta:561287745675329567>")}";
                     break;
                 case "Тигр":
 
                     var tigr = _gameGlobal.TigrThreeZeroList.Find(x =>
-                        x.GameId == player1Account.GameId && x.PlayerDiscordId == player1Account.DiscordId);
+                        x.GameId ==player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
 
-                    var enemy = tigr?.FriendList.Find(x => x.EnemyId == player2.DiscordAccount.DiscordId);
+                    var enemy = tigr?.FriendList.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
 
                     if (enemy != null)
                     {
@@ -299,7 +298,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                 $"*Справедливость: {character.Justice.GetJusticeNow()}*\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                $"{LeaderBoard(account, character)}");
+                $"{LeaderBoard(player)}");
 
 
             var splitted = player.Status.InGamePersonalLogsAll.Split("|||");

@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 
@@ -22,33 +23,33 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public void HandleTolyaAfter(GamePlayerBridgeClass player, GameClass game)
         {
-            if (player.Status.IsBlock && player.Status.IsWonThisCalculation != 0)
+            if (player.Status.IsBlock && player.Status.IsWonThisCalculation != Guid.Empty)
             {
-                game.PlayersList.Find(x => x.DiscordAccount.DiscordId == player.Status.IsWonThisCalculation).Status
+                game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Status
                     .IsAbleToWin = true;
             }
 
 
-            if (player.Status.IsLostThisCalculation != 0)
+            if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
                 var tolya = _inGameGlobal.TolyaCount.Find(x =>
-                    x.PlayerDiscordId == player.DiscordAccount.DiscordId && x.GameId == player.DiscordAccount.GameId);
+                    x.PlayerId == player.Status.PlayerId && x.GameId == player.DiscordAccount.GameId);
                 if (tolya == null)
                 {
-                    _inGameGlobal.TolyaCount.Add(new TolyaCountClass(player.DiscordAccount.GameId, player.DiscordAccount.DiscordId, player.Status.IsLostThisCalculation));
+                    _inGameGlobal.TolyaCount.Add(new TolyaCountClass(player.DiscordAccount.GameId, player.Status.PlayerId, player.Status.IsLostThisCalculation));
                     return;
                 }
 
                 if (tolya.IsActive)
                 {
                     tolya.IsActive = false;
-                    tolya.WhoToLostLastTime = player.Status.IsLostThisCalculation;
+                    tolya.WhoToLostLastTimeId = player.Status.IsLostThisCalculation;
                     return;
                 }
                 else
                 {
                     tolya.IsActive = true;
-                    tolya.WhoToLostLastTime = 0;
+                    tolya.WhoToLostLastTimeId = Guid.Empty;
                 }
             }
            //  throw new System.NotImplementedException();
@@ -57,15 +58,15 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class TolyaCountClass
         {
             public ulong GameId;
-            public ulong PlayerDiscordId;
-            public ulong WhoToLostLastTime;
+            public Guid PlayerId;
+            public Guid WhoToLostLastTimeId;
             public bool IsActive;
             public int Cooldown;
-            public TolyaCountClass(ulong gameId, ulong playerDiscordId, ulong whoToLostLastTime)
+            public TolyaCountClass(ulong gameId, Guid playerId, Guid whoToLostLastTimeId)
             {
                 GameId = gameId;
-                PlayerDiscordId = playerDiscordId;
-                WhoToLostLastTime = whoToLostLastTime;
+                PlayerId = playerId;
+                WhoToLostLastTimeId = whoToLostLastTimeId;
                 IsActive = true;
                 Cooldown = 1;
             }
