@@ -14,7 +14,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
     public sealed class GameReaction : IServiceSingleton
     {
         private readonly UserAccounts _accounts;
-    //    private readonly InGameGlobal _gameGlobal;
         private readonly Global _global;
         private readonly HelperFunctions _help;
         private readonly CharactersUniquePhrase _phrase;
@@ -31,7 +30,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             _upd = upd;
             _help = help;
             _phrase = phrase;
-          //  _gameGlobal = gameGlobal;
+            //  _gameGlobal = gameGlobal;
         }
 
         public Task InitializeAsync()
@@ -39,6 +38,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             return Task.CompletedTask;
         }
 
+        //    private readonly InGameGlobal _gameGlobal;
         public async Task ReactionAddedGameWindow(Cacheable<IUserMessage, ulong> cash,
             ISocketMessageChannel channel, SocketReaction reaction)
         {
@@ -220,10 +220,9 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         }
 
         //for GetLvlUp ONLY!
-        public void LvlUp10(GamePlayerBridgeClass player)
+        public async Task LvlUp10(GamePlayerBridgeClass player)
         {
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-            SendMsgAndDeleteIt(player, "10 максимум, выбери другой стат"); //not awaited 
+            await SendMsgAndDeleteIt(player, "10 максимум, выбери другой стат"); //not awaited 
         }
 
 
@@ -231,15 +230,13 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         {
             if (!player.IsBot())
             {
-                var mess2 =
-                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(msg);
+                var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(msg);
                 _help.DeleteMessOverTime(mess2, seconds);
             }
         }
 
         private async Task GetLvlUp(GamePlayerBridgeClass player, int skillNumber)
         {
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
             switch (skillNumber)
             {
                 case 1:
@@ -247,7 +244,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     if (player.Character.GetIntelligence() >= 10 && player.Character.GetPsyche() <= 9 &&
                         player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
                     {
-                        LvlUp10(player);
+                        await LvlUp10(player);
                         return;
                     }
 
@@ -260,7 +257,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     if (player.Character.GetStrength() >= 10 && player.Character.GetPsyche() <= 9 &&
                         player.Character.GetIntelligence() <= 9 && player.Character.GetSpeed() <= 9)
                     {
-                        LvlUp10(player);
+                        await LvlUp10(player);
                         return;
                     }
 
@@ -273,7 +270,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     if (player.Character.GetSpeed() >= 10 && player.Character.GetPsyche() <= 9 &&
                         player.Character.GetStrength() <= 9 && player.Character.GetIntelligence() <= 9)
                     {
-                        LvlUp10(player);
+                        await LvlUp10(player);
                         return;
                     }
 
@@ -286,7 +283,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     if (player.Character.GetPsyche() >= 10 && player.Character.GetIntelligence() <= 9 &&
                         player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
                     {
-                        LvlUp10(player);
+                        await LvlUp10(player);
                         return;
                     }
 
