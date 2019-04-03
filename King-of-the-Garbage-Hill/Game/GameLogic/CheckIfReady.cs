@@ -103,8 +103,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         Console.WriteLine("NOT READY: = " + t.DiscordAccount.DiscordUserName);
 
                     if (t.Status.SocketMessageFromBot == null) continue;
-                    if (game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds >= -6)
-                        await _upd.UpdateMessage(t);
+                 //   if (game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds >= -6)
+                 //       await _upd.UpdateMessage(t);
                 }
 
                 Console.WriteLine($"(#{game.GameId}) readyCount = " + readyCount);
@@ -118,15 +118,22 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 game.IsCheckIfReady = false;
 
+                /*
                 Parallel.ForEach(players, async t =>
                 {
                     if (t.Status.SocketMessageFromBot != null)
-                        await _upd.UpdateMessage(t);
+                         await _upd.UpdateMessage(t);
                 });
-
+                */
                 try
                 {
                     await _round.DeepListMind(game);
+
+                    Parallel.ForEach(players, async t =>
+                    {
+                        if (t.Status.SocketMessageFromBot != null)
+                            await _upd.UpdateMessage(t);
+                    });
                 }
                 catch (Exception f)
                 {

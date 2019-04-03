@@ -25,7 +25,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public int SkipPlayersThisRound { get; set; }
         private string PreviousGameLogs { get; set; }
         public Guid WhoWon { get; set; }
-        public GameClass(List<GamePlayerBridgeClass> playersList, ulong gameId, int turnLengthInSecond = 200)
+        public GameClass(List<GamePlayerBridgeClass> playersList, ulong gameId, int turnLengthInSecond = 300)
         {
             RoundNo = 1;
             PlayersList = playersList;

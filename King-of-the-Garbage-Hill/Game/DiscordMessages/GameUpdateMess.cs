@@ -101,7 +101,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             //   await socketMsg.AddReactionAsync(new Emoji("🐙"));
             await socketMsg.AddReactionAsync(new Emoji("❌"));
 
-
+           await UpdateMessage(player);
             //    await MainPage(userId, socketMsg);
         }
 
@@ -274,7 +274,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var embed = new EmbedBuilder();
             embed.WithColor(Color.Blue);
 
-            embed.WithFooter($"{GetTimeLeft(account)}");
+            embed.WithFooter($"{GetTimeLeft(player)}");
 
             if (game == null)
             {
@@ -337,9 +337,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
         //Page 2
-        public EmbedBuilder LogsPage(GamePlayerBridgeClass gamePlayerBridge)
+        public EmbedBuilder LogsPage(GamePlayerBridgeClass player)
         {
-            var account = gamePlayerBridge.DiscordAccount;
+            var account = player.DiscordAccount;
 
 
             var game = _global.GamesList.Find(x => x.GameId == account.GameId);
@@ -348,17 +348,17 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithTitle("Логи");
             embed.WithDescription(game.GetAllGameLogs());
             embed.WithColor(Color.Green);
-            embed.WithFooter($"{GetTimeLeft(account)}");
+            embed.WithFooter($"{GetTimeLeft(player)}");
 
             return embed;
         }
 
         //Page 3
-        public EmbedBuilder LvlUpPage(GamePlayerBridgeClass gamePlayerBridge)
+        public EmbedBuilder LvlUpPage(GamePlayerBridgeClass player)
         {
             //    var status = player.Status;
-            var account = gamePlayerBridge.DiscordAccount;
-            var character = gamePlayerBridge.Character;
+            var account = player.DiscordAccount;
+            var character = player.Character;
 
             //   status.MoveListPage = 3;
             //    _accounts.SaveAccounts(discordAccount.PlayerDiscordId);
@@ -372,7 +372,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             embed.WithColor(Color.Blue);
 
-            embed.WithFooter($"{GetTimeLeft(account)}");
+            embed.WithFooter($"{GetTimeLeft(player)}");
             embed.AddField("_____",
                 $"__Подними один из статов на 1:__\n \n" +
                 $"1. **Интеллект:** {character.GetIntelligence()}\n" +
@@ -426,24 +426,31 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
 
-        public string GetTimeLeft(DiscordAccountClass discordAccount)
+        public string GetTimeLeft(GamePlayerBridgeClass player)
         {
-            var game = _global.GamesList.Find(x => x.GameId == discordAccount.GameId);
+            var game = _global.GamesList.Find(x => x.GameId == player.DiscordAccount.GameId);
 
             if (game == null)
             {
                 return "ERROR";
             }
 
-            if (!game.IsCheckIfReady)
-                return $"Ведется подсчёт, пожалуйста подожди... • ход #{game.RoundNo}";
+            if(player.Status.IsReady)
+                return $"Ты походил • ход #{game.RoundNo}";
+            else
+                return $"Ожидаем твой ход • ход #{game.RoundNo}";
+            /*
+            //if (!game.IsCheckIfReady)
+           //     return $"Ведется подсчёт, пожалуйста подожди... • ход #{game.RoundNo}";
 
 
             if (game.GameStatus == 1)
-                return "Времени осталось: " + (int) (game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds) +
-                       $"сек. • ход #{game.RoundNo}";
+                return $"• ход #{game.RoundNo}";
+             //   return "Времени осталось: " + (int) (game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds) +
+             //          $"сек. • ход #{game.RoundNo}";
 
             return $"Ведется подсчёт, пожалуйста подожди... • ход #{game.RoundNo}";
+            */
         }
 
         private bool IsImageUrl(string url)

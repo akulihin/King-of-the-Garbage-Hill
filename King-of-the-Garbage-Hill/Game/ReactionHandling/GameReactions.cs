@@ -89,13 +89,15 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             status.IsReady = true;
                             status.AddInGamePersonalLogs("Ты поставил блок\n");
                             SendMsgAndDeleteIt(player);
+
+                            _upd.UpdateMessage(player);
                             break;
 
                         default:
 
 
                             await HandleAttackOrLvlUp(player, reaction);
-
+                            _upd.UpdateMessage(player);
                             break;
                     }
 

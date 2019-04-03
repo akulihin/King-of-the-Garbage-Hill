@@ -368,12 +368,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             await _characterPassives.HandleNextRoundAfterSorting(game);
 
            
-
+            /*
             Parallel.ForEach(game.PlayersList, async t =>
             {
                 if (t.Status.SocketMessageFromBot != null)
                     await _upd.UpdateMessage(t);
             });
+            */
 
 
             game.TimePassed.Reset();
