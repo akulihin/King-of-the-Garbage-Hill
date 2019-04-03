@@ -379,10 +379,10 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             //end HardKitty unique
 
             //send  a wait message
-            Parallel.ForEach(playersList, async player =>
+            foreach (var player in playersList)
             {
-                await  _upd.WaitMess(player);
-            });
+                await _upd.WaitMess(player);
+            }
 
 
             var game = new GameClass(playersList, accountDeep.GameId) {IsCheckIfReady = false};
@@ -412,10 +412,11 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
            
             await _characterPassives.HandleNextRound(game);
 
-            Parallel.ForEach(playersList, async player =>
+
+            foreach (var player in playersList)
             {
                 await _upd.UpdateMessage(player);
-            });
+            }
 
             game.IsCheckIfReady = true;
         }

@@ -118,25 +118,19 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 game.IsCheckIfReady = false;
 
-                /*
-                Parallel.ForEach(players, async t =>
-                {
-                    if (t.Status.SocketMessageFromBot != null)
-                         await _upd.UpdateMessage(t);
-                });
-                */
+
                 try
                 {
                     await _round.DeepListMind(game);
 
-                    Parallel.ForEach(players, async t =>
+                    foreach (var t in players)
                     {
                         if (t.Status.SocketMessageFromBot != null)
                         {
                             await _upd.UpdateMessage(t);
                             await _upd.SendMsgAndDeleteIt(t, $"Раунд #{game.RoundNo}", 3);
                         }
-                    });
+                    }
                 }
                 catch (Exception f)
                 {
