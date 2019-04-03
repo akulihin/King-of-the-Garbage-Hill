@@ -155,11 +155,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     status.WhoToAttackThisTurn = Guid.Empty;
                     if (!player.IsBot())
                     {
-                        var mess = await reaction.Channel.SendMessageAsync(
-                            "На этого игрока нельзя нападать, почему-то...");
-#pragma warning disable 4014
-                        _help.DeleteMessOverTime(mess, 6);
-#pragma warning restore 4014
+                        SendMsgAndDeleteIt(player, "На этого игрока нельзя нападать, почему-то...");
                     }
 
                     return;
@@ -190,6 +186,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 {
                     status.WhoToAttackThisTurn = Guid.Empty;
                     await _phrase.VampyrNoAttack.SendLog(player);
+                    SendMsgAndDeleteIt(player, "На этого игрока нельзя нападать, почему-то...");
                     return;
                 }
 
@@ -199,10 +196,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     status.WhoToAttackThisTurn = Guid.Empty;
                     if (!player.IsBot())
                     {
-                        var mess = await reaction.Channel.SendMessageAsync("Зачем ты себя бьешь?");
-#pragma warning disable 4014
-                        _help.DeleteMessOverTime(mess, 6);
-#pragma warning restore 4014
+                        SendMsgAndDeleteIt(player, "Зачем ты себя бьешь?");
                     }
 
                     return;
@@ -220,9 +214,11 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         }
 
         //for GetLvlUp ONLY!
+#pragma warning disable 1998
         public async Task LvlUp10(GamePlayerBridgeClass player)
+#pragma warning restore 1998
         {
-            await SendMsgAndDeleteIt(player, "10 максимум, выбери другой стат"); //not awaited 
+             SendMsgAndDeleteIt(player, "10 максимум, выбери другой стат"); //not awaited 
         }
 
 
@@ -244,7 +240,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     if (player.Character.GetIntelligence() >= 10 && player.Character.GetPsyche() <= 9 &&
                         player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
                     {
-                        await LvlUp10(player);
+                         LvlUp10(player);
                         return;
                     }
 
@@ -257,7 +253,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     if (player.Character.GetStrength() >= 10 && player.Character.GetPsyche() <= 9 &&
                         player.Character.GetIntelligence() <= 9 && player.Character.GetSpeed() <= 9)
                     {
-                        await LvlUp10(player);
+                         LvlUp10(player);
                         return;
                     }
 
@@ -270,7 +266,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     if (player.Character.GetSpeed() >= 10 && player.Character.GetPsyche() <= 9 &&
                         player.Character.GetStrength() <= 9 && player.Character.GetIntelligence() <= 9)
                     {
-                        await LvlUp10(player);
+                         LvlUp10(player);
                         return;
                     }
 
@@ -283,7 +279,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     if (player.Character.GetPsyche() >= 10 && player.Character.GetIntelligence() <= 9 &&
                         player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
                     {
-                        await LvlUp10(player);
+                         LvlUp10(player);
                         return;
                     }
 
