@@ -116,7 +116,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             {
                 players += $"{i + 1}. {playersList[i].DiscordAccount.DiscordUserName}";
 
-                players += CustomLeaderBoard(player, playersList[i]);
+                players += CustomLeaderBoard(player, playersList[i], game);
 
                 //TODO: REMOVE || playersList[i].IsBot()
                 if (player.Status.PlayerId == playersList[i].Status.PlayerId)
@@ -130,17 +130,17 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             return players;
         }
 
-        public string CustomLeaderBoard( GamePlayerBridgeClass player1, GamePlayerBridgeClass player2)
+        public string CustomLeaderBoard( GamePlayerBridgeClass player1, GamePlayerBridgeClass player2, GameClass game)
         {
 
 
             var customString = "";
 
             if (player1.DiscordAccount.DiscordId == 181514288278536193 ||
-                player1.DiscordAccount.DiscordId == 238337696316129280)
+                player1.DiscordAccount.DiscordId == 238337696316129280 || game.RoundNo == 11)
             {
                 //  customString +=       $" =  {player2.Status.GetScore()} (I: {player2.Character.GetIntelligence()}, St: {player2.Character.GetStrength()}, SP: {player2.Character.GetSpeed()}, Psy: {player2.Character.GetPsyche()}, J: {player2.Character.Justice.GetJusticeNow()})";
-                customString += $" (as **{player2.Character.Name}**)";
+                customString += $" (as **{player2.Character.Name}**) = {player2.Status.GetScore()} Score";
             }
 
             switch (player1.Character.Name)
@@ -151,7 +151,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                     if (vamp != null)
                     {
-                        if (!vamp.FriendList.Contains(player2.Status.PlayerId))
+                        if (!vamp.FriendList.Contains(player2.Status.PlayerId) && player2.Status.PlayerId != player1.Status.PlayerId)
                         {
                             customString += $" {new Emoji("<:Y_:562885385395634196>")}";
                         }
@@ -165,7 +165,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     var lostSeries = hardKitty?.LostSeries.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
                     if (lostSeries != null)
                     {
-                        customString += $" {new Emoji("<:sparta:561287745675329567>")} - {lostSeries.Series}";
+                        customString += $" {new Emoji("<:393:563063205811847188>")} - {lostSeries.Series}";
                     }
                     break;
                 case "Sirinoks":
@@ -174,9 +174,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                     if (siri != null)
                     {
-                        if (!siri.FriendList.Contains(player2.Status.PlayerId))
+                        if (!siri.FriendList.Contains(player2.Status.PlayerId) && player2.Status.PlayerId != player1.Status.PlayerId)
                         {
-                            customString += $" {new Emoji("<:sparta:561287745675329567>")}";
+                            customString += $" {new Emoji("<:fr:563063244097585162>")}";
                         }
                     }
 
@@ -196,7 +196,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                         x.PlayerId == player1.Status.PlayerId && player1.DiscordAccount.GameId == x.GameId);
                     if (deep != null)
-                        if (deep.FriendList.Contains(player2.Status.PlayerId))
+                        if (deep.FriendList.Contains(player2.Status.PlayerId) && player2.Status.PlayerId != player1.Status.PlayerId)
                             customString += $" {new Emoji("<:yo:561287783704952845>")}";
                     //end tactic
 
@@ -435,7 +435,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             }
 
             if(player.Status.IsReady)
-                return $"Ты походил • ход #{game.RoundNo}";
+                return $"Ты походил • Ожидаем других игроков • ход #{game.RoundNo}";
             else
                 return $"Ожидаем твой ход • ход #{game.RoundNo}";
             /*

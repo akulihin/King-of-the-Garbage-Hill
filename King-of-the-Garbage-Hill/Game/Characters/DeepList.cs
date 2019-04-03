@@ -61,7 +61,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                   
                     if (player.Status.IsWonThisCalculation != Guid.Empty)
                     {
-                        player.Status.AddRegularPoints();
+                        player.Status.AddBonusPoints();
                         await _phrase.DeepListDoubtfulTacticPhrase.SendLog(player);
                     }
                 }
@@ -103,6 +103,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             player2.MinusPsycheLog(game);
 
                         player.Status.AddRegularPoints();
+                        //
                         if (player2.Character.GetPsyche() < 4)
                         {
                             player2.Character.Justice.AddJusticeForNextRound(-1);

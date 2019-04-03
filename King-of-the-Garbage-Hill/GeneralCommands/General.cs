@@ -334,13 +334,13 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
             if (tolya != null)
             {
-                accountDeep = _accounts.GetAccount(tolya);
-                accountDeep.GameId = accountDeep.GameId;
-                accountDeep.IsPlaying = true;
+                var tolAccount = _accounts.GetAccount(tolya);
+                tolAccount.GameId = accountDeep.GameId;
+                tolAccount.IsPlaying = true;
 
                 playersList.Add(new GamePlayerBridgeClass
                 {
-                    DiscordAccount = accountDeep, Character = _charactersPull.AllCharacters[charIndex2],
+                    DiscordAccount = tolAccount, Character = _charactersPull.AllCharacters[charIndex2],
                     Status = new InGameStatus()
                 });
             }

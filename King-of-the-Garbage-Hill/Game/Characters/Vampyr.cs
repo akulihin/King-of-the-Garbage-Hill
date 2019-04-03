@@ -48,7 +48,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 if (!vamp.FriendList.Contains(player.Status.IsWonThisCalculation))
                 {
                     vamp.FriendList.Add(player.Status.IsWonThisCalculation);
-                    player.Status.AddBonusPoints();
+                   // player.Status.AddBonusPoints();
 
                     for (var i = 0; i < 2; i++)
                     {
