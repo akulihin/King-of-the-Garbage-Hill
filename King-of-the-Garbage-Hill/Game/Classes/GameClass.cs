@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Discord;
 
 namespace King_of_the_Garbage_Hill.Game.Classes
 {
@@ -33,7 +34,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             TimePassed = new Stopwatch();
             GameStatus = 1;
             GameLogs = "";
-            PreviousGameLogs = "Здесь будут показаны логи игры. \nВыберите цель для нападения по номеру в таблице, используя emoji\n";
+            PreviousGameLogs = $"{new Emoji("<:sparta:561287745675329567>")} {new Emoji("<:e_:562879579694301184>")} {new Emoji("<:sparta:561287745675329567>")} {new Emoji("<:e_:562879579694301184>")} {new Emoji("<:sparta:561287745675329567>")} {new Emoji("<:e_:562879579694301184>")} {new Emoji("<:sparta:561287745675329567>")} {new Emoji("<:e_:562879579694301184>")} {new Emoji("<:sparta:561287745675329567>")}\n" +
+                               "**Выберите цель для нападения по номеру в таблице, используя emoji**\n \n" +
+                               "**Нажатие** и **Отжатие** одинаковые действия!\n" +
+                               "**__Сообщение обновляется только каждые 5 секунд__**, но я сообщу вам отдельным сообщением, если вы напали или пытались напасть\n" +
+                               $"{new Emoji("<:sparta:561287745675329567>")} {new Emoji("<:e_:562879579694301184>")} {new Emoji("<:sparta:561287745675329567>")} {new Emoji("<:e_:562879579694301184>")} {new Emoji("<:sparta:561287745675329567>")} {new Emoji("<:e_:562879579694301184>")} {new Emoji("<:sparta:561287745675329567>")} {new Emoji("<:e_:562879579694301184>")} {new Emoji("<:sparta:561287745675329567>")}\n";
             WhoWon = Guid.Empty;
             IsCheckIfReady = true;
             SkipPlayersThisRound = 0;

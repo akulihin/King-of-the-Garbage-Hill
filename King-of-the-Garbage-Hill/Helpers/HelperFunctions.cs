@@ -77,7 +77,9 @@ namespace King_of_the_Garbage_Hill.Helpers
                 i++;
             } while (account.IsPlaying);
 
-            account.DiscordUserName = character.Name + " - BOT";
+            account.DiscordUserName = character.Name;
+            if (account.DiscordUserName == "Загадочный Спартанец в маске")
+                account.DiscordUserName = "Спартанец";
             account.GameId = newGameId;
             account.IsPlaying = true;
             _accounts.SaveAccounts(account.DiscordId);

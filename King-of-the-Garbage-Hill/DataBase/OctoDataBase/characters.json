@@ -165,7 +165,7 @@
       "JusticeForNextRound": 0,
       "IsWonThisRound": false
     },
-    "Avatar": null,
+    "Avatar": "https://i.imgur.com/WBHYn9w.png",
     "Passive": [
       {
         "PassiveDescription": "Получает очко каждый ход, когда на него нападет хоть кто-то.",

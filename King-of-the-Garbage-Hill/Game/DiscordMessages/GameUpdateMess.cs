@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System;
+using System.Globalization;
 using System.Net;
 using System.Threading.Tasks;
 using Discord;
@@ -138,12 +139,24 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             if (player1.DiscordAccount.DiscordId == 181514288278536193 ||
                 player1.DiscordAccount.DiscordId == 238337696316129280)
             {
-                customString +=       $" =  {player2.Status.GetScore()} (I: {player2.Character.GetIntelligence()}, St: {player2.Character.GetStrength()}, SP: {player2.Character.GetSpeed()}, Psy: {player2.Character.GetPsyche()}, J: {player2.Character.Justice.GetJusticeNow()})";
+              //  customString +=       $" =  {player2.Status.GetScore()} (I: {player2.Character.GetIntelligence()}, St: {player2.Character.GetStrength()}, SP: {player2.Character.GetSpeed()}, Psy: {player2.Character.GetPsyche()}, J: {player2.Character.Justice.GetJusticeNow()})";
 
             }
 
             switch (player1.Character.Name)
             {
+                case "Вампур":
+                    var vamp = _gameGlobal.VampyrKilledList.Find(x =>
+                        x.GameId == player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
+
+                    if (vamp != null)
+                    {
+                        if (vamp.FriendList.Contains(player2.Status.PlayerId))
+                        {
+                            customString += $" {new Emoji("<:Y_:562885385395634196>")}";
+                        }
+                    }
+                    break;
 
                 case "HardKitty":
                     var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
@@ -282,8 +295,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     .SendMessageAsync("PreviousGameLogs >= 2048");
 
            // embed.WithTitle("Царь Мусорной Горы");
-            embed.AddField("____",
-                $"**Name:** {character.Name}\n" +
+            embed.AddField($"{new Emoji("<:e_:562879579694301184>")}",
+                
                 $"**Интеллект:** {character.GetIntelligence()}\n" +
                 $"**Сила:** {character.GetStrength()}\n" +
                 $"**Скорость:** {character.GetSpeed()}\n" +
@@ -291,17 +304,28 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                 $"*Справедливость: {character.Justice.GetJusticeNow()}*\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                $"{LeaderBoard(player)}");
+                $"{new Emoji("<:e_:562879579694301184>")}\n" +
+                $"{LeaderBoard(player)}" +
+                $"{new Emoji("<:e_:562879579694301184>")}");
 
 
             var splitted = player.Status.InGamePersonalLogsAll.Split("|||");
             if (game != null && (splitted.Length > 1 && splitted[splitted.Length-2].Length > 3 && game.RoundNo > 1))
             {
-                embed.AddField("События прошлого раунда:", $"{splitted[splitted.Length-2]}");
+                embed.AddField("События прошлого раунда:", $"{splitted[splitted.Length-2]}{new Emoji("<:e_:562879579694301184>")}");
             }
+            else
+            {
+                embed.AddField("События прошлого раунда:", $"В прошлом раунде ничего не произошло. Странно...\n{new Emoji("<:e_:562879579694301184>")}");
+            }
+
             if (player.Status.GetInGamePersonalLogs().Length >= 2)
             {
                 embed.AddField("События этого раунда:", $"{player.Status.GetInGamePersonalLogs()}");
+            }
+            else
+            {
+                embed.AddField("События этого раунда:", $"Еще ничего не произошло. Наверное...");
             }
 
 
@@ -322,25 +346,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var embed = new EmbedBuilder();
             embed.WithTitle("Логи");
-            embed.WithDescription(game.GetAllGameLogs()); // WILL CAUSE AN ERROR! 
+            embed.WithDescription(game.GetAllGameLogs());
             embed.WithColor(Color.Green);
             embed.WithFooter($"{GetTimeLeft(account)}");
-
-            embed = CustomLogsPage(gamePlayerBridge, embed);
-            return embed;
-
-            //    await socketMsg.ModifyAsync(message => { message.Embed = embed.Build(); });
-        }
-
-
-        public EmbedBuilder CustomLogsPage(GamePlayerBridgeClass gamePlayerBridge, EmbedBuilder embed)
-        {
-            switch (gamePlayerBridge.Character.Name)
-            {
-                case "DeepList":
-                    break;
-            }
-
 
             return embed;
         }
@@ -365,7 +373,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithColor(Color.Blue);
 
             embed.WithFooter($"{GetTimeLeft(account)}");
-            embed.AddField("Подними один из статов на 1:",
+            embed.AddField("_____",
+                $"__Подними один из статов на 1:__\n \n" +
                 $"1. **Интеллект:** {character.GetIntelligence()}\n" +
                 $"2. **Сила:** {character.GetStrength()}\n" +
                 $"3. **Скорость:** {character.GetSpeed()}\n" +
@@ -405,8 +414,15 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public async Task UpdateMessageWithEmbed(GamePlayerBridgeClass player, EmbedBuilder embed)
         {
-            if (!player.IsBot() && !embed.Footer.Text.Contains("ERROR"))
-                await player.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
+            try
+            {
+                if (!player.IsBot() && !embed.Footer.Text.Contains("ERROR"))
+                    await player.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
+            }
+            catch (Exception e)
+            {
+               Console.WriteLine(e.StackTrace);
+            }
         }
 
 
