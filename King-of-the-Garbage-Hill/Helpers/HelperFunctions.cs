@@ -15,7 +15,14 @@ namespace King_of_the_Garbage_Hill.Helpers
         private readonly SecureRandom _secureRandom;
         private readonly CharactersPull _charactersPull;
         private readonly Global _global;
-
+        private readonly List<string> _characterNames = new List<string>
+        {
+            "UselessCrab",
+            "Daumond",
+            "MegaVova99",
+            "YasuoOnly",
+            "PETYX"
+        };
 
         public HelperFunctions(CharactersPull charactersPull, Global global, UserAccounts accounts, SecureRandom secureRandom)
         {
@@ -62,13 +69,19 @@ namespace King_of_the_Garbage_Hill.Helpers
         public GamePlayerBridgeClass GetFreeBot(List<GamePlayerBridgeClass> playerList, ulong newGameId)
         {
             CharacterClass character;
+            DiscordAccountClass account;
+            string name;
             do
             {
                 var index = _secureRandom.Random(0, _charactersPull.AllCharacters.Count - 1);
                 character = _charactersPull.AllCharacters[index];
             } while (playerList.Any(x => x.Character.Name == character.Name));
 
-            DiscordAccountClass account;
+            do
+            {
+                var index = _secureRandom.Random(0, _characterNames.Count-1);
+                name = _characterNames[index];
+            } while (playerList.Any(x => x.DiscordAccount.DiscordUserName == name));
 
             ulong i = 1;
             do
@@ -77,14 +90,12 @@ namespace King_of_the_Garbage_Hill.Helpers
                 i++;
             } while (account.IsPlaying);
 
-            account.DiscordUserName = character.Name;
-            if (account.DiscordUserName == "Загадочный Спартанец в маске")
-                account.DiscordUserName = "Спартанец";
+            account.DiscordUserName = name;
             account.GameId = newGameId;
             account.IsPlaying = true;
             _accounts.SaveAccounts(account.DiscordId);
 
-            return new GamePlayerBridgeClass {DiscordAccount = account, Character = character, Status = new InGameStatus()};;
+            return new GamePlayerBridgeClass {DiscordAccount = account, Character = character, Status = new InGameStatus()};
         }
 
     }

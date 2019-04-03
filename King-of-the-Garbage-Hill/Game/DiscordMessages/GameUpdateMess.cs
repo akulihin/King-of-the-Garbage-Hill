@@ -139,8 +139,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             if (player1.DiscordAccount.DiscordId == 181514288278536193 ||
                 player1.DiscordAccount.DiscordId == 238337696316129280)
             {
-              //  customString +=       $" =  {player2.Status.GetScore()} (I: {player2.Character.GetIntelligence()}, St: {player2.Character.GetStrength()}, SP: {player2.Character.GetSpeed()}, Psy: {player2.Character.GetPsyche()}, J: {player2.Character.Justice.GetJusticeNow()})";
-
+                //  customString +=       $" =  {player2.Status.GetScore()} (I: {player2.Character.GetIntelligence()}, St: {player2.Character.GetStrength()}, SP: {player2.Character.GetSpeed()}, Psy: {player2.Character.GetPsyche()}, J: {player2.Character.Justice.GetJusticeNow()})";
+                customString += $"( as {player2.Character.Name})";
             }
 
             switch (player1.Character.Name)
@@ -151,7 +151,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                     if (vamp != null)
                     {
-                        if (vamp.FriendList.Contains(player2.Status.PlayerId))
+                        if (!vamp.FriendList.Contains(player2.Status.PlayerId))
                         {
                             customString += $" {new Emoji("<:Y_:562885385395634196>")}";
                         }
@@ -174,7 +174,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                     if (siri != null)
                     {
-                        if (siri.FriendList.Contains(player2.Status.PlayerId))
+                        if (!siri.FriendList.Contains(player2.Status.PlayerId))
                         {
                             customString += $" {new Emoji("<:sparta:561287745675329567>")}";
                         }
