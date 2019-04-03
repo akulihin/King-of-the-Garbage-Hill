@@ -281,7 +281,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
                     .SendMessageAsync("PreviousGameLogs >= 2048");
 
-            embed.WithTitle("Царь Мусорной Горы");
+           // embed.WithTitle("Царь Мусорной Горы");
             embed.AddField("____",
                 $"**Name:** {character.Name}\n" +
                 $"**Интеллект:** {character.GetIntelligence()}\n" +
@@ -363,9 +363,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithDescription(desc);
 
             embed.WithColor(Color.Blue);
-            embed.WithTitle("Подними один из статов");
+
             embed.WithFooter($"{GetTimeLeft(account)}");
-            embed.AddField("____",
+            embed.AddField("Подними один из статов на 1:",
                 $"1. **Интеллект:** {character.GetIntelligence()}\n" +
                 $"2. **Сила:** {character.GetStrength()}\n" +
                 $"3. **Скорость:** {character.GetSpeed()}\n" +
