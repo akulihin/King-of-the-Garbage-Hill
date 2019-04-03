@@ -135,9 +135,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
 
             var customString = "";
-
-            if (player1.DiscordAccount.DiscordId == 181514288278536193 ||
-                player1.DiscordAccount.DiscordId == 238337696316129280 || game.RoundNo == 11)
+            //player1.DiscordAccount.DiscordId == 181514288278536193 ||
+          //  player1.DiscordAccount.DiscordId == 238337696316129280 ||
+            if (game.RoundNo == 11)
             {
                 //  customString +=       $" =  {player2.Status.GetScore()} (I: {player2.Character.GetIntelligence()}, St: {player2.Character.GetStrength()}, SP: {player2.Character.GetSpeed()}, Psy: {player2.Character.GetPsyche()}, J: {player2.Character.Justice.GetJusticeNow()})";
                 customString += $" (as **{player2.Character.Name}**) = {player2.Status.GetScore()} Score";

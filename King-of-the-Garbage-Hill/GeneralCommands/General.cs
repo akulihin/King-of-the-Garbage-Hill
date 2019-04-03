@@ -356,6 +356,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 if (user != null) continue;
 
                 var account = _helperFunctions.GetFreeBot(playersList, accountDeep.GameId);
+               
                 playersList.Add(account);
             }
 
@@ -403,6 +404,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
             //end sorting
             //////////////////////////////////////////////////////END FIRST SORTING/////////////////////////////////////////////////
+
+            _gameGlobal.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
 
             //send  a wait message
             foreach (var player in playersList) await _upd.WaitMess(player);

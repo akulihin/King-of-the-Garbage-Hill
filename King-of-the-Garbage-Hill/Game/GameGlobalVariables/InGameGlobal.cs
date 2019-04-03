@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
@@ -11,6 +12,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
     {
         private readonly SecureRandom _rand;
 
+        public readonly List<BotsBehavior.NanobotClass> NanobotsList = new List<BotsBehavior.NanobotClass>();
         public readonly List<WhenToTriggerClass>
             AllSkipTriggeredWhen = new List<WhenToTriggerClass>();
 
