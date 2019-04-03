@@ -136,10 +136,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 players += CustomLeaderBoard(player, playersList[i]);
 
                 //TODO: REMOVE || playersList[i].IsBot()
-                if (player.Status.PlayerId == playersList[i].Status.PlayerId || playersList[i].IsBot())
+                if (player.Status.PlayerId == playersList[i].Status.PlayerId)
                     players +=
-                        $" = {playersList[i].Status.GetScore()} (I: {playersList[i].Character.GetIntelligence()}, St: {playersList[i].Character.GetStrength()}, SP: {playersList[i].Character.GetSpeed()}, Psy: {playersList[i].Character.GetPsyche()}, J: {playersList[i].Character.Justice.GetJusticeNow()})\n";
-                else
+                        $" = {playersList[i].Status.GetScore()} Score";
+
+                  
                     players += "\n";
             }
 
@@ -148,7 +149,17 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public string CustomLeaderBoard( GamePlayerBridgeClass player1, GamePlayerBridgeClass player2)
         {
+
+
             var customString = "";
+
+            if (player1.DiscordAccount.DiscordId == 181514288278536193 ||
+                player1.DiscordAccount.DiscordId == 238337696316129280)
+            {
+                customString +=       $" =  {player2.Status.GetScore()} (I: {player2.Character.GetIntelligence()}, St: {player2.Character.GetStrength()}, SP: {player2.Character.GetSpeed()}, Psy: {player2.Character.GetPsyche()}, J: {player2.Character.Justice.GetJusticeNow()})";
+
+            }
+
             switch (player1.Character.Name)
             {
 
