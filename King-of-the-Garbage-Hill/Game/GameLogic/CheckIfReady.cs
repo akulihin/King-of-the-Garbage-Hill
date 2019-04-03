@@ -41,7 +41,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             LoopingTimer = new Timer
             {
                 AutoReset = true,
-                Interval = 5000,
+                Interval = 7000,
                 Enabled = true
             };
 
@@ -132,7 +132,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     Parallel.ForEach(players, async t =>
                     {
                         if (t.Status.SocketMessageFromBot != null)
+                        {
                             await _upd.UpdateMessage(t);
+                            await _upd.SendMsgAndDeleteIt(t, $"Раунд #{game.RoundNo}", 3);
+                        }
                     });
                 }
                 catch (Exception f)

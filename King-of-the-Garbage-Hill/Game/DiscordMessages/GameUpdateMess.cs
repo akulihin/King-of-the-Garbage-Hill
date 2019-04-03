@@ -101,7 +101,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             //   await socketMsg.AddReactionAsync(new Emoji("🐙"));
             await socketMsg.AddReactionAsync(new Emoji("❌"));
 
-           await UpdateMessage(player);
+          
             //    await MainPage(userId, socketMsg);
         }
 
@@ -294,7 +294,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
                     .SendMessageAsync("PreviousGameLogs >= 2048");
 
-           // embed.WithTitle("Царь Мусорной Горы");
             embed.AddField($"{new Emoji("<:e_:562879579694301184>")}",
                 
                 $"**Интеллект:** {character.GetIntelligence()}\n" +
@@ -461,6 +460,18 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             {
                 return resp.ContentType.ToLower(CultureInfo.InvariantCulture)
                     .StartsWith("image/");
+            }
+        }
+
+
+        public async Task SendMsgAndDeleteIt(GamePlayerBridgeClass player, string msg = "Принято", int seconds = 6)
+        {
+            if (!player.IsBot())
+            {
+                var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(msg);
+#pragma warning disable 4014
+                _helperFunctions.DeleteMessOverTime(mess2, seconds);
+#pragma warning restore 4014
             }
         }
     }

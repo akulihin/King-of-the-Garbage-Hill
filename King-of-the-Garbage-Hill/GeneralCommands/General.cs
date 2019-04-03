@@ -381,8 +381,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             //send  a wait message
             Parallel.ForEach(playersList, async player =>
             {
-                //CANT USE .IsBot() method! 
-             
                 await  _upd.WaitMess(player);
             });
 
@@ -413,6 +411,12 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             //handle round #0
            
             await _characterPassives.HandleNextRound(game);
+
+            Parallel.ForEach(playersList, async player =>
+            {
+                await _upd.UpdateMessage(player);
+            });
+
             game.IsCheckIfReady = true;
         }
 
