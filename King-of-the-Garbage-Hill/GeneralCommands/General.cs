@@ -10,6 +10,7 @@ using Discord.WebSocket;
 using King_of_the_Garbage_Hill.BotFramework.Extensions;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
@@ -34,13 +35,15 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
         private readonly CommandsInMemory _commandsInMemory;
         private readonly Global _global;
+        private readonly InGameGlobal _gameGlobal;
         private readonly GameUpdateMess _upd;
         private readonly CharactersUniquePhrase _phrase;
 
 
         public General(UserAccounts accounts, SecureRandom secureRandom, OctoPicPull octoPicPull,
             OctoNamePull octoNmaNamePull, HelperFunctions helperFunctions, CommandsInMemory commandsInMemory,
-            Global global, GameUpdateMess upd, CharactersPull charactersPull, CharacterPassives characterPassives, CharactersUniquePhrase phrase)
+            Global global, GameUpdateMess upd, CharactersPull charactersPull, CharacterPassives characterPassives,
+            CharactersUniquePhrase phrase, InGameGlobal gameGlobal)
         {
             _accounts = accounts;
             _secureRandom = secureRandom;
@@ -53,6 +56,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _charactersPull = charactersPull;
             _characterPassives = characterPassives;
             _phrase = phrase;
+            _gameGlobal = gameGlobal;
         }
 
         [Command("show logs names")]
@@ -203,8 +207,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         [Command("b")]
         public async Task StartGameTestBotVsBot()
         {
-           
-
             for (var k = 0; k < 100; k++)
             {
                 var rawList = new List<SocketUser>
@@ -254,23 +256,20 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
 
                 //send non bot users  a wait message
-                Parallel.ForEach(playersList, async player =>
-                {
-                        await  _upd.WaitMess(player);
-                });
+                Parallel.ForEach(playersList, async player => { await _upd.WaitMess(player); });
 
 
                 //start the timer
                 game.TimePassed.Start();
                 _global.GamesList.Add(game);
-          
+
 
                 //get all the chances before the game starts
                 _characterPassives.CalculatePassiveChances(game);
 
                 //handle round #1
                 await _characterPassives.HandleNextRound(game);
-               // await Task.Delay(1000);
+                // await Task.Delay(1000);
             }
         }
 
@@ -278,7 +277,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         [Summary("Правила игры")]
         public async Task Rules()
         {
-                        var gameRules = "**Правила игры:**\n" +
+            var gameRules = "**Правила игры:**\n" +
                             "Всем выпадает рандомная карта с персонажем. Игрокам не известно против кого они играют. Каждый ход игрок может напасть на кого-то, либо обороняться. " +
                             "В случае нападения игрок либо побеждает, получая очко, либо проигрывает, приносят очко врагу. В случае нападения на обороняющегося игрока, бой не состоится и нападающий уйдет ни с чем, потеряв 1 __бонусное__ очко и 1 Справедливости. Обороняющийся получает +1 Справедливости.\n" +
                             "\n" +
@@ -327,7 +326,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             var accountDeep = _accounts.GetAccount(Context.User);
             accountDeep.GameId = _global.GetNewtGamePlayingAndId();
             accountDeep.IsPlaying = true;
-           
+
 
             var characterDeep = _charactersPull.AllCharacters[charIndex1]; //TODO: should be random someday 
             playersList.Add(new GamePlayerBridgeClass
@@ -360,12 +359,13 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 playersList.Add(account);
             }
 
+
+            ////////////////////////////////////////////////////// FIRST SORTING/////////////////////////////////////////////////
             //randomize order
             playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
-            for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
-            //end  randomize order
+            playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
 
-            //HardKitty unique (should be last in order, always
+            //HardKitty unique
             if (playersList.Any(x => x.Character.Name == "HardKitty"))
             {
                 var tempHard = playersList.Find(x => x.Character.Name == "HardKitty");
@@ -376,13 +376,36 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
                 playersList[playersList.Count - 1] = tempHard;
             }
-            //end HardKitty unique
+            //end //HardKitty unique
+
+
+            //Tigr Unique
+            if (playersList.Any(x => x.Character.Name == "Тигр"))
+            {
+                var tigrTemp = playersList.Find(x => x.Character.Name == "Тигр");
+
+                var tigr = _gameGlobal.TigrTop.Find(x =>
+                    x.GameId == tigrTemp.DiscordAccount.GameId && x.PlayerId == tigrTemp.Status.PlayerId);
+
+                if (tigr != null && tigr.TimeCount > 0)
+                {
+                    var tigrIndex = playersList.IndexOf(tigrTemp);
+
+                    playersList[tigrIndex] = playersList[0];
+                    playersList[0] = tigrTemp;
+                    tigr.TimeCount--;
+                    await _phrase.TigrTop.SendLog(tigrTemp);
+                }
+            }
+            //end Tigr Unique
+
+            //sort
+            for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
+            //end sorting
+            //////////////////////////////////////////////////////END FIRST SORTING/////////////////////////////////////////////////
 
             //send  a wait message
-            foreach (var player in playersList)
-            {
-                await _upd.WaitMess(player);
-            }
+            foreach (var player in playersList) await _upd.WaitMess(player);
 
 
             var game = new GameClass(playersList, accountDeep.GameId) {IsCheckIfReady = false};
@@ -392,31 +415,27 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             {
                 _phrase.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"));
                 if (playersList.Any(x => x.Character.Name == "mylorik"))
-                {
-                    game.AddPreviousGameLogs($" \n{new Emoji("<:Y_:562885385395634196>")} **Гребанный Вампур!** {new Emoji("<:Y_:562885385395634196>")}", "\n\n", false);
-                }
+                    game.AddPreviousGameLogs(
+                        $" \n{new Emoji("<:Y_:562885385395634196>")} **Гребанный Вампур!** {new Emoji("<:Y_:562885385395634196>")}",
+                        "\n\n", false);
             }
             //end vampyr unique
-
 
 
             //start the timer
             game.TimePassed.Start();
             _global.GamesList.Add(game);
-         
-            
+
+
             //get all the chances before the game starts
             _characterPassives.CalculatePassiveChances(game);
 
             //handle round #0
-           
+
             await _characterPassives.HandleNextRound(game);
 
 
-            foreach (var player in playersList)
-            {
-                await _upd.UpdateMessage(player);
-            }
+            foreach (var player in playersList) await _upd.UpdateMessage(player);
 
             game.IsCheckIfReady = true;
         }

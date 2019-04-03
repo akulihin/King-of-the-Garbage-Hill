@@ -79,7 +79,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             mainPage.WithAuthor(globalAccount);
             mainPage.WithFooter("Preparation time...");
             mainPage.WithColor(Color.DarkGreen);
-            mainPage.AddField("Game is being ready", $"**Please wait until you will see emoji** {new Emoji("❌")}");
+            mainPage.AddField("Game is being ready", $"**Please wait for the main menu**");
 
 
             var socketMsg = await globalAccount.SendMessageAsync("", false, mainPage.Build());
@@ -140,7 +140,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 player1.DiscordAccount.DiscordId == 238337696316129280)
             {
                 //  customString +=       $" =  {player2.Status.GetScore()} (I: {player2.Character.GetIntelligence()}, St: {player2.Character.GetStrength()}, SP: {player2.Character.GetSpeed()}, Psy: {player2.Character.GetPsyche()}, J: {player2.Character.Justice.GetJusticeNow()})";
-                customString += $"( as {player2.Character.Name})";
+                customString += $" (as **{player2.Character.Name}**)";
             }
 
             switch (player1.Character.Name)
