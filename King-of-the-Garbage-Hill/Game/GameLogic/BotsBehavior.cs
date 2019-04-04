@@ -74,22 +74,19 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     p.Ten -= 1;
 
                 if (bot.Status.WhoToLostEveryRound.Any(x =>
-                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == p.Player.Status.PlayerId))
-                    p.Ten -= 5;
-                /*
-                 TODO: implement too good inside the WhoToLostEveryRound!
+                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == p.Player.Status.PlayerId && x.IsTooGood))
+                    p.Ten -= 7;
                 else if (bot.Status.WhoToLostEveryRound.Any(x =>
                     x.RoundNo == game.RoundNo - 1 && x.EnemyId == p.Player.Status.PlayerId))
-                    p.Ten -= 7;
-                    */
+                    p.Ten -= 5;
+                    
 
-                /*
-                   TODO: implement too good inside the WhoToLostEveryRound!
-                                if (p.Player.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 && x.EnemyId == bot.Status.PlayerId))
+              
+                                if (p.Player.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 && x.EnemyId == bot.Status.PlayerId && x.IsTooGood))
                                 {
                                     p.Ten += 3;
                                 }
-                                */
+                              
 
 
                 var count = game.PlayersList.FindAll(x => x.Status.WhoToAttackThisTurn == p.Player.Status.PlayerId).Count;

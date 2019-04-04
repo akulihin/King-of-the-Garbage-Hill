@@ -60,7 +60,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     player.Status.IsBlock = true;
 
                 var randomForTooGood = 50;
-
+                var isTooGoodPlayer = false;
+                var isTooGoodEnemy = false;
                 //if block => no one gets points, and no redundant playerAttacked variable
                 if (player.Status.IsBlock)
                 {
@@ -197,8 +198,18 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 else if (whoIsBetter == 2)
                     strangeNumber -= 5;
 
-                if (strangeNumber >= 14) randomForTooGood = 68;
-                if (strangeNumber <= -14) randomForTooGood = 32;
+                if (strangeNumber >= 14)
+                {
+                    isTooGoodPlayer = true;
+                    randomForTooGood = 68;
+                }
+
+                if (strangeNumber <= -14)
+                {
+                    isTooGoodEnemy = true;
+                    randomForTooGood = 32;
+                }
+               
 
                 if (strangeNumber > 0) pointsWined++;
                 if (strangeNumber < 0) pointsWined--;
@@ -241,7 +252,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     player.Status.IsWonThisCalculation = playerIamAttacking.Status.PlayerId;
                     playerIamAttacking.Status.IsLostThisCalculation = player.Status.PlayerId;
-                    playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.Status.PlayerId, game.RoundNo));
+                    playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.Status.PlayerId, game.RoundNo, isTooGoodPlayer));
                 }
                 else
                 {
@@ -260,7 +271,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         playerIamAttacking.Status.IsWonThisCalculation = player.Status.PlayerId;
                         player.Status.IsLostThisCalculation = playerIamAttacking.Status.PlayerId;
-                        player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.Status.PlayerId, game.RoundNo));
+                        player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.Status.PlayerId, game.RoundNo, isTooGoodEnemy));
                     }
                 }
 

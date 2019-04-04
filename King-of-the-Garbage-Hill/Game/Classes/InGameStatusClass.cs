@@ -35,11 +35,13 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         {
             public Guid EnemyId;
             public int RoundNo;
+            public bool IsTooGood;
 
-            public WhoToLostPreviousRoundClass(Guid enemyId, int roundNo)
+            public WhoToLostPreviousRoundClass(Guid enemyId, int roundNo, bool isTooGood)
             {
                 EnemyId = enemyId;
                 RoundNo = roundNo;
+                IsTooGood = isTooGood;
             }
         }
 

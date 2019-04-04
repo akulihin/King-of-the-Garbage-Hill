@@ -1801,7 +1801,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             playerAttackedOctopus.Status.IsWonThisCalculation = octopusPlayer.Status.PlayerId;
             octopusPlayer.Status.IsLostThisCalculation = playerAttackedOctopus.Status.PlayerId;
-
+            octopusPlayer.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerAttackedOctopus.Status.PlayerId, game.RoundNo, false));
 
             var octo = _gameGlobal.OctopusInkList.Find(x =>
                 x.PlayerId == octopusPlayer.Status.PlayerId &&
