@@ -231,3 +231,74 @@ _________________________________________________________________________
 
 (В общих логах в начале игры: "Машина Судного Дня запущена" )
 _________________________________________________________________________
+
+
+
+
+
+
+
+
+
+{
+    "Name": "Бог ЛоЛа",
+    "Intelligence": 7,
+    "Psyche": 7,
+    "Speed": 7,
+    "Strength": 7,
+    "Justice": {
+      "JusticeNow": 0,
+      "JusticeForNextRound": 0,
+      "IsWonThisRound": false
+    },
+    "Avatar": null,
+    "Passive": [
+      {
+        "PassiveDescription": "Каждый, кто опускается в таблице получает 1 справедливость, а кто переходит в топ1 теряет одно __бонусное__ очко на следующем ходу.",
+        "PassiveName": "Первая заповедь"
+      },
+      {
+        "PassiveDescription": "Бог всегда банит Удира. Что бы это ни значило...",
+        "PassiveName": "Вторая заповедь"
+      },
+      {
+        "PassiveDescription": "Не дает отнять психику у игроков.",
+        "PassiveName": "Не флейми в чате"
+      },
+      {
+        "PassiveDescription": "Блокирует пассивку на добычу очков у последнего аттакованного врага на один ход.",
+        "PassiveName": "Играй руками"
+      }
+    ]
+  },
+  {
+    "Name": "Баг",
+    "Intelligence": 6,
+    "Psyche": 0,
+    "Speed": 6,
+    "Strength": 6,
+    "Justice": {
+      "JusticeNow": 0,
+      "JusticeForNextRound": 0,
+      "IsWonThisRound": false
+    },
+    "Avatar": null,
+    "Passive": [
+      {
+        "PassiveDescription": " //Drops 1 point from top1 enemy player for every turn after the second.",
+        "PassiveName": "admin"
+      },
+      {
+        "PassiveDescription": " //Sees the results of the random on each of the enemies in advance. + or -",
+        "PassiveName": "mechanics"
+      },
+      {
+        "PassiveDescription": " //Attacking the enemy discovers one of his random stats.",
+        "PassiveName": "program code"
+      },
+      {
+        "PassiveDescription": " //Receives a random passive from the last defeated enemy.",
+        "PassiveName": "balancer"
+      }
+    ]
+  },
