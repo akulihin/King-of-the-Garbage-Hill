@@ -81,7 +81,7 @@ namespace King_of_the_Garbage_Hill.Helpers
             {
                 var index = _secureRandom.Random(0, _characterNames.Count-1);
                 name = _characterNames[index];
-            } while (playerList.Any(x => x.DiscordAccount.DiscordUserName == name));
+            } while (playerList.Any(x => x.Character.Name == name));
 
             ulong i = 1;
             do
