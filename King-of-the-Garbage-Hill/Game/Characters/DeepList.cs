@@ -51,6 +51,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public async Task HandleDeepListAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //Doubtful tactic
+            if (player.Status.IsLostThisCalculation != Guid.Empty)
+            {
+                player.Status.AddBonusPoints(-1);
+            }
+
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                 x.PlayerId == player.Status.PlayerId && player.DiscordAccount.GameId == x.GameId);
 
@@ -66,10 +71,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     }
                 }
             
-                if(player.Status.IsLostThisCalculation != Guid.Empty)
-            {
-                player.Status.AddBonusPoints(-1);
-            }
+
             //end Doubtful tactic
 
             // Стёб

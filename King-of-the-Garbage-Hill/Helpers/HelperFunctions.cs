@@ -21,7 +21,8 @@ namespace King_of_the_Garbage_Hill.Helpers
             "Daumond",
             "MegaVova99",
             "YasuoOnly",
-            "PETYX"
+            "PETYX",
+            "Drone"
         };
 
         public HelperFunctions(CharactersPull charactersPull, Global global, UserAccounts accounts, SecureRandom secureRandom)
@@ -81,7 +82,7 @@ namespace King_of_the_Garbage_Hill.Helpers
             {
                 var index = _secureRandom.Random(0, _characterNames.Count-1);
                 name = _characterNames[index];
-            } while (playerList.Any(x => x.Character.Name == name));
+            } while (playerList.Any(x => x.DiscordAccount.DiscordUserName == name));
 
             ulong i = 1;
             do
