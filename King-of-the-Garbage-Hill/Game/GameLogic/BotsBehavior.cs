@@ -36,27 +36,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         public async Task HandleAttack(GamePlayerBridgeClass bot, GameClass game)
         {
-            /*
-            
-            //check if block
-            var playersToAttack =
-                game.PlayersList.FindAll(x =>
-                    x.Character.Justice.GetJusticeNow() == bot.Character.Justice.GetJusticeNow() &&
-                    x.Character.Name != bot.Character.Name);
-
-            var randomCheck = _rand.Random(0, playersToAttack.Count);
-
-            if (playersToAttack.Count >= 1 && randomCheck - playersToAttack.Count > 0)
-            {
-                //block
-                await _gameReaction.HandleAttackOrLvlUp(bot, null, -10);
-                return;
-            }
-            //check if block
-            */
 
             var nanobots = _gameGlobal.NanobotsList.Find(x => x.GameId == game.GameId);
             var sum = 0;
+            var isBlock = 6;
 
             foreach (var p in nanobots.Nanobots)
             {
@@ -89,16 +72,21 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     .Count;
                 p.Ten -= count;
 
-                if (p.Ten < 0)
+                if (p.Ten <= 0)
+                {
+                    isBlock--;
                     p.Ten = 0;
+                }
+                  
                 sum += p.Ten;
             }
 
-            if (sum <= 0)
+         var isBlockCheck   = _rand.Random(1, 5);
+            if (isBlockCheck > isBlock)
             {
                 //block
                 await _gameReaction.HandleAttackOrLvlUp(bot, null, -10);
-                FixItBack(nanobots);
+                ResetTens(nanobots);
                 return;
             }
 
@@ -133,7 +121,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             else
                 await _gameReaction.HandleAttackOrLvlUp(bot, null, whoToAttack);
 
-            FixItBack(nanobots);
+            ResetTens(nanobots);
             /*
 сли random <= 
 то a = цель
@@ -142,7 +130,7 @@ else если random <=a+b
          */
         }
 
-        public void FixItBack(NanobotClass nanobots)
+        public void ResetTens(NanobotClass nanobots)
         {
             foreach (var p in nanobots.Nanobots) p.Ten = 10;
         }

@@ -234,10 +234,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 case "Глеб":
                     // Я за чаем:
-                    var rand = _rand.Random(1, 10);
+                    var rand = _rand.Random(1, 8);
                     if (player1.Character.GetIntelligence() >= 9 && player1.Character.GetStrength() >= 9 &&
                         player1.Character.GetSpeed() >= 9 &&
-                        player1.Character.GetPsyche() >= 9) rand = _rand.Random(1, 9);
+                        player1.Character.GetPsyche() >= 9) rand = _rand.Random(1, 7);
                     if (rand == 1)
                     {
                         _gameGlobal.AllSkipTriggeredWhen.Add(new WhenToTriggerClass(player1.Status.WhoToAttackThisTurn,
@@ -543,8 +543,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
 
                     case "Глеб":
-                        //Спящее хуйло chance
-                        when = _gameGlobal.GetWhenToTrigger(player, true, 4, 3);
+                        //Спящее хуйло chance   
+                        when = _gameGlobal.GetWhenToTrigger(player, true, 3, 2, false, 9);
                         _gameGlobal.GlebSleepingTriggeredWhen.Add(when);
 
                         //challenger when
@@ -555,7 +555,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         bool flag;
                         do
                         {
-                            when = _gameGlobal.GetWhenToTrigger(player, true, 12, 3, true);
+                            when = _gameGlobal.GetWhenToTrigger(player, true, 4, 2, true, 12, true);
                             flag = false;
                             for (var i = 0; i < li.Count; i++)
                                 if (when.WhenToTrigger.Contains(li[i]))
@@ -1181,18 +1181,23 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             {
                                 case 1:
                                     await _phrase.TolyaRammusPhrase.SendLog(player);
+                                    player.Character.Justice.AddJusticeForNextRound(1);
                                     break;
                                 case 2:
                                     await _phrase.TolyaRammus2Phrase.SendLog(player);
+                                    player.Character.Justice.AddJusticeForNextRound(2);
                                     break;
                                 case 3:
                                     await _phrase.TolyaRammus3Phrase.SendLog(player);
+                                    player.Character.Justice.AddJusticeForNextRound(3);
                                     break;
                                 case 4:
                                     await _phrase.TolyaRammus4Phrase.SendLog(player);
+                                    player.Character.Justice.AddJusticeForNextRound(4);
                                     break;
                                 case 5:
                                     await _phrase.TolyaRammus5Phrase.SendLog(player);
+                                    player.Character.Justice.AddJusticeForNextRound(5);
                                     break;
                             }
 
@@ -1441,11 +1446,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     await _phrase.SecondСommandmentBan.SendLog(player);
                     break;
                 case "Вампур":
+                    //игнор 1 справедливости
                     if (player.Status.IsWonThisCalculation != Guid.Empty)
                         if (player.Character.Justice.GetJusticeForNextRound() <
                             playerIamAttacking.Character.Justice.GetJusticeForNextRound())
                             player.Character.Justice.SetJusticeForNextRound(playerIamAttacking.Character.Justice
                                 .GetJusticeForNextRound());
+                    //end    //игнор 1 справедливости
                     break;
 
                 case "HardKitty":
@@ -1654,14 +1661,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                         x.Status.PlayerId == t);
                                     if (player2 != null)
                                     {
-                                        player2.Status.AddBonusPoints(-2);
-                                        //  player.Status.AddBonusPoints(2);
+                                        player2.Status.AddBonusPoints(-5);
+                                        
                                         await _phrase.MitsukiGarbageSmell.SendLog(player2);
                                         count++;
                                     }
                                 }
 
-                                game.AddPreviousGameLogs($"Mitsuki отнял в общей сумме {count * 2} очков.");
+                                game.AddPreviousGameLogs($"Mitsuki отнял в общей сумме {count * 5} очков.");
                             }
                         }
 
@@ -1849,11 +1856,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     break;
 
                 case "Вампур":
+                    //игнор 1 справедливости
                     var enemy = game.PlayersList.Find(x =>
                         x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
                     if (enemy != null)
                         if (enemy.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
                             enemy.Character.Justice.SetJusticeNow(enemy.Character.Justice.GetJusticeNow() - 1);
+                    //игнор 1 справедливости
                     break;
             }
 

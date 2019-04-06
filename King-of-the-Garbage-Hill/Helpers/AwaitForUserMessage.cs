@@ -55,7 +55,7 @@ namespace King_of_the_Garbage_Hill.Helpers
             await mess.DeleteAsync();
           
 
-            return (response == "yes" || response == "ye" || response == "y");
+            return (response.Contains("yes") || response.Contains("ye") || response.Contains("y") || response.Contains("у"));
         }
 
         public async Task ReplyAndDeleteOvertime(string mess, int timeInSeconds, SocketReaction reaction)
