@@ -4,6 +4,7 @@
 
 **Brief description**
 Six players gets a random characters with unique passives skills, each of whom can attack a chosen target or defend. Victories bring players points and moving them up the table. The leading player wins after turn #ten moves.
+
 **____ **
 
 **Detailed description:**
@@ -35,6 +36,7 @@ ________________________________________________________________________________
 
 **Краткое описание игры**
 Шести игрокам выпадают случайные персонажи с уникальными статами и пассивками, каждый из которых может атаковать выбранную цель или обороняться. Победы приносят игрокам очки, передвигая их вверх по таблице. Побеждает лидирующий игрок по истечению десяти ходов.
+
 **____**
 
 **Подробные правила игры:**
