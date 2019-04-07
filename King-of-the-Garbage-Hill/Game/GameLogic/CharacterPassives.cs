@@ -556,7 +556,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     case "Глеб":
                         //Спящее хуйло chance   
-                        when = _gameGlobal.GetWhenToTrigger(player, true, 3, 2, false, 9);
+                        when = _gameGlobal.GetWhenToTrigger(player, true, 3, 3);
                         _gameGlobal.GlebSleepingTriggeredWhen.Add(when);
 
                         //challenger when
@@ -567,7 +567,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         bool flag;
                         do
                         {
-                            when = _gameGlobal.GetWhenToTrigger(player, true, 4, 2, true, 12, true);
+                            when = _gameGlobal.GetWhenToTrigger(player, true, 3, 6, true);
                             flag = false;
                             for (var i = 0; i < li.Count; i++)
                                 if (when.WhenToTrigger.Contains(li[i]))
