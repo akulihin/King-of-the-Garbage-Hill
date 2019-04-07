@@ -130,10 +130,12 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         public string CustomLeaderBoard(GamePlayerBridgeClass player1, GamePlayerBridgeClass player2, GameClass game)
         {
             var customString = "";
-            //player1.DiscordAccount.DiscordId == 181514288278536193 ||
-            //  player1.DiscordAccount.DiscordId == 238337696316129280 ||
-            if (game.RoundNo == 11)
+            if (game.RoundNo == 11 || player1.DiscordAccount.DiscordId == 238337696316129280 ||
+                player1.DiscordAccount.DiscordId == 181514288278536193)
+            {
                 customString += $" (as **{player2.Character.Name}**) = {player2.Status.GetScore()} Score";
+                customString += $" (I: {player2.Character.GetIntelligence()} | St: {player2.Character.GetStrength()} | Sp: {player2.Character.GetSpeed()} | Ps: {player2.Character.GetPsyche()})";
+            }
 
             switch (player1.Character.Name)
             {
@@ -191,9 +193,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     if (currentList != null)
                         if (currentList.KnownPlayers.Contains(player2.Status.PlayerId))
                             customString +=
-                                $" PS: - {player2.Character.Name} ({player2.Character.GetIntelligence()}, " +
-                                $"{player2.Character.GetStrength()}, {player2.Character.GetSpeed()}, " +
-                                $"{player2.Character.GetPsyche()}, {player2.Character.Justice.GetJusticeNow()})";
+                                $" PS: - {player2.Character.Name} (I: {player2.Character.GetIntelligence()} | " +
+                                $"St: {player2.Character.GetStrength()} | Sp: {player2.Character.GetSpeed()} | " +
+                                $"Ps: {player2.Character.GetPsyche()} | J: {player2.Character.Justice.GetJusticeNow()})";
                     //end сверхразум
 
 
