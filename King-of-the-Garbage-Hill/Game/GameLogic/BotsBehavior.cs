@@ -36,7 +36,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         public async Task HandleAttack(GamePlayerBridgeClass bot, GameClass game)
         {
-
             var nanobots = _gameGlobal.NanobotsList.Find(x => x.GameId == game.GameId);
             var sum = 0;
             var isBlock = 6;
@@ -77,11 +76,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     isBlock--;
                     p.Ten = 0;
                 }
-                  
+
                 sum += p.Ten;
             }
 
-         var isBlockCheck   = _rand.Random(1, 5);
+            var isBlockCheck = _rand.Random(1, 5);
             if (isBlockCheck > isBlock)
             {
                 //block
@@ -101,33 +100,55 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             var f = nanobots.Nanobots.Find(x => x.Index == 6);
 
             var whoToAttack = 0;
+            var flag = false;
+
 
             if (rand <= a.Ten)
+            {
                 whoToAttack = a.Player.Status.PlaceAtLeaderBoard;
-            else if (rand <= a.Ten + b.Ten)
+                flag = await AttackPlayer(bot, whoToAttack);
+            }
+
+            if (rand <= a.Ten + b.Ten && !flag)
+            {
                 whoToAttack = b.Player.Status.PlaceAtLeaderBoard;
-            else if (rand <= a.Ten + b.Ten + c.Ten)
+                flag = await AttackPlayer(bot, whoToAttack);
+            }
+
+            if (rand <= a.Ten + b.Ten + c.Ten && !flag)
+            {
                 whoToAttack = c.Player.Status.PlaceAtLeaderBoard;
-            else if (rand <= a.Ten + b.Ten + c.Ten + d.Ten)
+                flag = await AttackPlayer(bot, whoToAttack);
+            }
+
+            if (rand <= a.Ten + b.Ten + c.Ten + d.Ten && !flag)
+            {
                 whoToAttack = d.Player.Status.PlaceAtLeaderBoard;
-            else if (rand <= a.Ten + b.Ten + c.Ten + d.Ten + e.Ten)
+                flag = await AttackPlayer(bot, whoToAttack);
+            }
+
+            if (rand <= a.Ten + b.Ten + c.Ten + d.Ten + e.Ten && !flag)
+            {
                 whoToAttack = e.Player.Status.PlaceAtLeaderBoard;
-            else if (rand <= a.Ten + b.Ten + c.Ten + d.Ten + e.Ten + f.Ten)
+                flag = await AttackPlayer(bot, whoToAttack);
+            }
+
+            if (rand <= a.Ten + b.Ten + c.Ten + d.Ten + e.Ten + f.Ten && !flag)
+            {
                 whoToAttack = f.Player.Status.PlaceAtLeaderBoard;
+                flag = await AttackPlayer(bot, whoToAttack);
+            }
 
 
-            if (whoToAttack == 0)
+            if (whoToAttack == 0 || !flag)
                 await _gameReaction.HandleAttackOrLvlUp(bot, null, -10);
-            else
-                await _gameReaction.HandleAttackOrLvlUp(bot, null, whoToAttack);
 
             ResetTens(nanobots);
-            /*
-сли random <= 
-то a = цель
-else если random <=a+b
-то b = цель
-         */
+        }
+
+        public async Task<bool> AttackPlayer(GamePlayerBridgeClass bot, int whoToAttack)
+        {
+            return await _gameReaction.HandleAttackOrLvlUp(bot, null, whoToAttack);
         }
 
         public void ResetTens(NanobotClass nanobots)
@@ -138,7 +159,7 @@ else если random <=a+b
 
         public async Task HandleLvlUp(GamePlayerBridgeClass player, GameClass game)
         {
-            var skillNu = 1;
+            int skillNu;
 
             var intel = player.Character.GetIntelligence();
             var str = player.Character.GetStrength();

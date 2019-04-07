@@ -656,7 +656,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             player.Character.AddPsyche(player.Status, -4);
                             await _phrase.DarksciDysmoral.SendLog(player);
-                            game.AddPreviousGameLogs("Всё, у меня горит!");
+                            game.AddPreviousGameLogs($"**{player.DiscordAccount.DiscordUserName}:** Всё, у меня горит!");
                         }
                         //end Дизмораль
 

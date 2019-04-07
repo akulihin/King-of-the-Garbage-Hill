@@ -105,7 +105,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 }
         }
 
-        public async Task HandleAttackOrLvlUp(GamePlayerBridgeClass player, SocketReaction reaction, int botChoice = -1)
+        public async Task<bool> HandleAttackOrLvlUp(GamePlayerBridgeClass player, SocketReaction reaction, int botChoice = -1)
         {
             var status = player.Status;
             var account = player.DiscordAccount;
@@ -117,13 +117,13 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 status.IsBlock = true;
                 status.IsAbleToTurn = false;
                 status.IsReady = true;
-                return;
+                return true;
             }
 
             if (status.MoveListPage == 3)
             {
                 await GetLvlUp(player, emoteNum);
-                return;
+                return true;
             }
 
             if (!status.IsAbleToTurn)
@@ -133,13 +133,13 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         ? "Что-то заставило тебя пропустить этот ход..."
                         : "Ходить нельзя, пока идет подсчёт.");
 
-                return;
+                return true;
             }
 
             if (status.MoveListPage == 2)
             {
                 SendMsgAndDeleteIt(player, $"Нажми на {new Emoji("📖")}, чтобы вернуться в основное меню.");
-                return;
+                return true;
             }
 
             if (status.MoveListPage == 1)
@@ -147,7 +147,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 var game = _global.GamesList.Find(x => x.GameId == account.GameId);
                 var whoToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum);
 
-                if (whoToAttack == null) return;
+                if (whoToAttack == null) return false;
 
                 status.WhoToAttackThisTurn = whoToAttack.Status.PlayerId;
 
@@ -160,7 +160,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         SendMsgAndDeleteIt(player, "На этого игрока нельзя нападать, почему-то...");
                     }
 
-                    return;
+                    return false;
                 }
                 /*
                 if (game.PlayersList.Any(x => x.Character.Name == "Бог ЛоЛа") &&
@@ -189,7 +189,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     status.WhoToAttackThisTurn = Guid.Empty;
                     await _phrase.VampyrNoAttack.SendLog(player);
                     SendMsgAndDeleteIt(player, "На этого игрока нельзя нападать, почему-то...");
-                    return;
+                    return false;
                 }
 
 
@@ -201,7 +201,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         SendMsgAndDeleteIt(player, "Зачем ты себя бьешь?");
                     }
 
-                    return;
+                    return false;
                 }
 
                 status.IsAbleToTurn = false;
@@ -209,10 +209,10 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 status.IsBlock = false;
                 player.Status.AddInGamePersonalLogs(
                     $"Ты напал на игрока {whoToAttack.DiscordAccount.DiscordUserName}\n");
-
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
                 SendMsgAndDeleteIt(player); //not awaited 
+                return true;
             }
+            return false;
         }
 
         //for GetLvlUp ONLY!

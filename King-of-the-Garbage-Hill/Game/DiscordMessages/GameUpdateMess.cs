@@ -218,9 +218,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     var mylorik = _gameGlobal.MylorikRevenge.Find(x =>
                         x.GameId == player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
                     var find = mylorik?.EnemyListPlayerIds.Find(x =>
-                        x.EnemyPlayerId == player2.Status.PlayerId && x.IsUnique);
+                        x.EnemyPlayerId == player2.Status.PlayerId);
 
-                    if (find != null) customString += $" {new Emoji("<:sparta:561287745675329567>")}";
+                    if (find != null && find.IsUnique) customString += $" {new Emoji("<:sparta:561287745675329567>")}";
+                    if (find != null && !find.IsUnique) customString += $" {new Emoji("❌")}";
+
                     break;
                 case "Тигр":
 
