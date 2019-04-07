@@ -57,7 +57,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             player.Status.AddRegularPoints(2);
 
 
-
                             var enemyAcc = game.PlayersList.Find(x =>
                                 x.Status.PlayerId == player.Status.IsWonThisCalculation);
 
@@ -65,9 +64,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             {
                                 enemyAcc.Character.AddIntelligence(enemyAcc.Status, -1);
 
-                                    enemyAcc.Character.AddPsyche(enemyAcc.Status, -1);
-                                    enemyAcc.MinusPsycheLog(game);
-                                    await _phrase.TigrThreeZero.SendLog(player);
+                                enemyAcc.Character.AddPsyche(enemyAcc.Status, -1);
+                                enemyAcc.MinusPsycheLog(game);
+                                await _phrase.TigrThreeZero.SendLog(player);
 
 
                                 enemy.IsUnique = false;

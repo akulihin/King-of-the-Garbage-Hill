@@ -7,24 +7,26 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class Octopus : IServiceSingleton
     {
-   
-        public Task InitializeAsync() => Task.CompletedTask;
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
 
         public void HandleOctopus(GamePlayerBridgeClass player)
         {
-        //    throw new System.NotImplementedException();
+            //    throw new System.NotImplementedException();
         }
 
         public void HandleOctopusAfter(GamePlayerBridgeClass player)
         {
-        //    throw new System.NotImplementedException();
+            //    throw new System.NotImplementedException();
         }
 
         public class InvulnerabilityClass
         {
+            public int Count;
             public ulong GameId;
             public Guid PlayerId;
-            public int Count;
 
 
             public InvulnerabilityClass(Guid playerId, ulong gameId)
@@ -32,9 +34,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 PlayerId = playerId;
                 GameId = gameId;
                 Count = 1;
-            }   
+            }
         }
-
 
 
         public class InkClass
@@ -43,13 +44,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             public Guid PlayerId;
             public List<InkSubClass> RealScoreList = new List<InkSubClass>();
 
-            public InkClass(Guid playerId, GameClass game, Guid enemyPlayerId )
+            public InkClass(Guid playerId, GameClass game, Guid enemyPlayerId)
             {
                 PlayerId = playerId;
                 GameId = game.GameId;
                 RealScoreList.Add(new InkSubClass(enemyPlayerId, game.RoundNo, -1));
-                RealScoreList.Add(new InkSubClass(playerId,  game.RoundNo, 1));
-            }   
+                RealScoreList.Add(new InkSubClass(playerId, game.RoundNo, 1));
+            }
         }
 
         public class InkSubClass
@@ -64,12 +65,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     realScore = realScore * 1; // Why????????????????????????
                 else if (roundNo <= 9)
                     realScore = realScore * 2;
-                else if (roundNo == 10) 
+                else if (roundNo == 10)
                     realScore = realScore * 4;
 
                 PlayerId = playerDiscordId;
                 RealScore = realScore;
-          
             }
 
             public void AddRealScore(int roundNo, int realScore = 1)
@@ -78,7 +78,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     realScore = realScore * 1; // Why????????????????????????
                 else if (roundNo <= 9)
                     realScore = realScore * 2;
-                else if (roundNo == 10) 
+                else if (roundNo == 10)
                     realScore = realScore * 4;
 
                 RealScore += realScore;
@@ -96,21 +96,19 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 PlayerId = playerId;
                 GameId = gameId;
                 UniqePlacesList.Add(new TentaclesSubClass(place));
-            }   
+            }
         }
 
         public class TentaclesSubClass
         {
-            public int LeaderboardPlace;
             public bool IsActivated;
+            public int LeaderboardPlace;
 
             public TentaclesSubClass(int leaderboardPlace)
             {
                 LeaderboardPlace = leaderboardPlace;
                 IsActivated = false;
             }
-
         }
-
     }
 }

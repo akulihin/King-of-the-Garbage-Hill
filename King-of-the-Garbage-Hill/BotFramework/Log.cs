@@ -14,13 +14,16 @@ namespace King_of_the_Garbage_Hill.BotFramework
 {
     public sealed class LoginFromConsole : IServiceSingleton
     {
-
-        public Task InitializeAsync()
-            => Task.CompletedTask;
-
-        private string _runTime = @"DataBase/OctoDataBase/Log.json";
-        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
-        private readonly int _padLength = 16;
+        private readonly IReadOnlyDictionary<LogSeverity, string> _logAbbreviations =
+            new Dictionary<LogSeverity, string>
+            {
+                {LogSeverity.Critical, "CRIT"},
+                {LogSeverity.Error, "ERRO"},
+                {LogSeverity.Warning, "WARN"},
+                {LogSeverity.Info, "INFO"},
+                {LogSeverity.Debug, "DBUG"},
+                {LogSeverity.Verbose, "VRBS"}
+            };
 
         private readonly IReadOnlyDictionary<LogSeverity, ConsoleColor> _logColors =
             new Dictionary<LogSeverity, ConsoleColor>
@@ -33,16 +36,15 @@ namespace King_of_the_Garbage_Hill.BotFramework
                 {LogSeverity.Verbose, ConsoleColor.DarkGray}
             };
 
-        private readonly IReadOnlyDictionary<LogSeverity, string> _logAbbreviations =
-            new Dictionary<LogSeverity, string>
-            {
-                {LogSeverity.Critical, "CRIT"},
-                {LogSeverity.Error, "ERRO"},
-                {LogSeverity.Warning, "WARN"},
-                {LogSeverity.Info, "INFO"},
-                {LogSeverity.Debug, "DBUG"},
-                {LogSeverity.Verbose, "VRBS"}
-            };
+        private readonly int _padLength = 16;
+        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
+
+        private readonly string _runTime = @"DataBase/OctoDataBase/Log.json";
+
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
 
         internal Task Log(LogMessage message)
         {
@@ -71,6 +73,7 @@ namespace King_of_the_Garbage_Hill.BotFramework
 
             return Task.CompletedTask;
         }
+
         public void Critical(object value, [CallerFilePath] string callerFilePath = "",
             ConsoleColor color = ConsoleColor.Gray)
         {
@@ -167,16 +170,16 @@ namespace King_of_the_Garbage_Hill.BotFramework
                 Console.ResetColor();
                 var caller = callerFilePath;
 
-                if(caller.Length > 20)
-                try
-                {
-                    caller = Path.GetFileNameWithoutExtension(new Uri(callerFilePath).AbsolutePath);
-                }
-                catch
-                {
-                    // wasn't a file path, just use the caller name directly    
-                }
-           
+                if (caller.Length > 20)
+                    try
+                    {
+                        caller = Path.GetFileNameWithoutExtension(new Uri(callerFilePath).AbsolutePath);
+                    }
+                    catch
+                    {
+                        // wasn't a file path, just use the caller name directly    
+                    }
+
                 Console.Write($"|{PadCenter(caller)}] ");
                 Console.ForegroundColor = color;
                 Console.WriteLine(message);

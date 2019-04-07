@@ -17,21 +17,19 @@ namespace King_of_the_Garbage_Hill.BotFramework
         private readonly LoginFromConsole _log;
         private readonly Global _global;
 
- 
 
-        public DiscordEventDispatcher(DiscordShardedClient client, CommandHandling commandHandler, GameReaction gameReaction, LoginFromConsole log, Global global)
+        public DiscordEventDispatcher(DiscordShardedClient client, CommandHandling commandHandler,
+            GameReaction gameReaction, LoginFromConsole log, Global global)
         {
             _client = client;
             _commandHandler = commandHandler;
             _gameReaction = gameReaction;
             _log = log;
             _global = global;
-          
         }
 
         public Task InitializeAsync()
         {
-            
             _client.ChannelCreated += ChannelCreated;
             _client.ChannelDestroyed += ChannelDestroyed;
             _client.ChannelUpdated += ChannelUpdated;
@@ -52,7 +50,7 @@ namespace King_of_the_Garbage_Hill.BotFramework
             _client.ReactionAdded += ReactionAdded;
             _client.ReactionRemoved += ReactionRemoved;
             _client.ReactionsCleared += ReactionsCleared;
-            _client.ShardConnected += _client_ShardConnected;    
+            _client.ShardConnected += _client_ShardConnected;
             _client.RecipientAdded += RecipientAdded;
             _client.RecipientRemoved += RecipientRemoved;
             _client.RoleCreated += RoleCreated;
@@ -70,7 +68,6 @@ namespace King_of_the_Garbage_Hill.BotFramework
 
         private async Task _client_ShardConnected(DiscordSocketClient arg)
         {
-          
         }
 
         private async Task ChannelCreated(SocketChannel channel)
@@ -133,39 +130,33 @@ namespace King_of_the_Garbage_Hill.BotFramework
 
         private async Task MessageDeleted(Cacheable<IMessage, ulong> cacheMessage, ISocketMessageChannel channel)
         {
-            if (!cacheMessage.HasValue || cacheMessage.Value.Author.IsBot)
-            {
-                return; //IActivity guess
-            }
+            if (!cacheMessage.HasValue || cacheMessage.Value.Author.IsBot) return; //IActivity guess
             _commandHandler._client_MessageDeleted(cacheMessage, channel);
         }
 
         private async Task MessageReceived(SocketMessage message)
         {
-
-            
-            if(message.Author.IsBot)
+            if (message.Author.IsBot)
                 return;
-            _global.TimeSpendOnLastMessage.AddOrUpdate(message.Author.Id, Stopwatch.StartNew(), (key, oldValue) =>  Stopwatch.StartNew());
+            _global.TimeSpendOnLastMessage.AddOrUpdate(message.Author.Id, Stopwatch.StartNew(),
+                (key, oldValue) => Stopwatch.StartNew());
             _commandHandler.HandleCommandAsync(message);
-           
         }
 
         private async Task MessageUpdated(Cacheable<IMessage, ulong> cacheMessageBefore, SocketMessage messageAfter,
             ISocketMessageChannel channel)
         {
-
-            if(!cacheMessageBefore.HasValue)
+            if (!cacheMessageBefore.HasValue)
                 return;
-            if(cacheMessageBefore.Value.Author.IsBot)
+            if (cacheMessageBefore.Value.Author.IsBot)
                 return;
 
 
-            _global.TimeSpendOnLastMessage.AddOrUpdate(messageAfter.Author.Id, Stopwatch.StartNew(), (key, oldValue) =>  Stopwatch.StartNew());
+            _global.TimeSpendOnLastMessage.AddOrUpdate(messageAfter.Author.Id, Stopwatch.StartNew(),
+                (key, oldValue) => Stopwatch.StartNew());
 
 
-            _commandHandler._client_MessageUpdated(cacheMessageBefore, messageAfter, channel);     
-            
+            _commandHandler._client_MessageUpdated(cacheMessageBefore, messageAfter, channel);
         }
 
         private async Task ReactionAdded(Cacheable<IUserMessage, ulong> cacheMessage, ISocketMessageChannel channel,
@@ -179,7 +170,7 @@ namespace King_of_the_Garbage_Hill.BotFramework
             SocketReaction reaction)
         {
             if (reaction.User.Value.IsBot)
-      return;
+                return;
             _gameReaction.ReactionAddedGameWindow(cacheMessage, channel, reaction);
         }
 
@@ -235,6 +226,5 @@ namespace King_of_the_Garbage_Hill.BotFramework
             SocketVoiceState voiceStateAfter)
         {
         }
-
     }
 }

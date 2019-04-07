@@ -14,17 +14,18 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
             var singletonServicesCount = 0;
 
 
-            var watchSingleton = Stopwatch.StartNew();     
+            var watchSingleton = Stopwatch.StartNew();
             foreach (var type in Assembly.GetEntryAssembly().GetTypes()
                 .Where(x => typeof(IServiceSingleton).IsAssignableFrom(x) && !x.IsInterface))
             {
                 singletonServicesCount++;
                 services.AddSingleton(type);
-  
+
 
                 // type.GetInterfaces().FirstOrDefault(x => !(x is typeof(IServiceSingleton)))
                 //x != typeof(IService)
             }
+
             watchSingleton.Stop();
 
             var log = new LoginFromConsole();
@@ -35,22 +36,20 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
         public static IServiceCollection AutoAddTransient(this IServiceCollection services)
         {
             var transientServicesCount = 0;
-          
+
             var watchTransient = Stopwatch.StartNew();
             foreach (var type in Assembly.GetEntryAssembly().GetTypes()
                 .Where(x => typeof(IServiceTransient).IsAssignableFrom(x) && !x.IsInterface))
             {
                 transientServicesCount++;
                 services.AddTransient(type);
-                
-
             }
+
             watchTransient.Stop();
 
-            var log = new LoginFromConsole();     
+            var log = new LoginFromConsole();
             log.Info($"Transient added count: {transientServicesCount} ({watchTransient.Elapsed:m\\:ss\\.ffff}s.)");
             return services;
-
         }
 
 
@@ -66,6 +65,7 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
                 singletonServicesCount++;
                 await ((IServiceSingleton) services.GetRequiredService(type)).InitializeAsync();
             }
+
             watchSingleton.Stop();
 
 
@@ -74,14 +74,17 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
                 .Where(x => typeof(IServiceTransient).IsAssignableFrom(x) && !x.IsInterface))
             {
                 transientServicesCount++;
-                await ((IServiceTransient)services.GetRequiredService(type)).InitializeAsync();
+                await ((IServiceTransient) services.GetRequiredService(type)).InitializeAsync();
             }
+
             watchTransient.Stop();
 
             var log = new LoginFromConsole();
 
-            log.Info($"\nSingleton Initialized count: {singletonServicesCount} ({watchSingleton.Elapsed:m\\:ss\\.ffff}s.)");
-            log.Info($"Transient Initialized count: {transientServicesCount} ({watchTransient.Elapsed:m\\:ss\\.ffff}s.)\n");
+            log.Info(
+                $"\nSingleton Initialized count: {singletonServicesCount} ({watchSingleton.Elapsed:m\\:ss\\.ffff}s.)");
+            log.Info(
+                $"Transient Initialized count: {transientServicesCount} ({watchTransient.Elapsed:m\\:ss\\.ffff}s.)\n");
         }
     }
 }

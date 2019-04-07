@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 
-
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class Sirinoks : IServiceSingleton
@@ -17,7 +16,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             _gameGlobal = gameGlobal;
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
 
         public void HandleSirinoks(GamePlayerBridgeClass player)
         {
@@ -29,7 +31,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //обучение
             if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
-                var playerSheLostLastTime = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsLostThisCalculation);
+                var playerSheLostLastTime =
+                    game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsLostThisCalculation);
                 var intel = new List<StatsClass>
                 {
                     new StatsClass(1, playerSheLostLastTime.Character.GetIntelligence()),
@@ -43,14 +46,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
 
                 if (siri == null)
-                {
-                    _gameGlobal.SirinoksTraining.Add(new TrainingClass(player.Status.PlayerId, game.GameId, best.Index, best.Number));
-                }
+                    _gameGlobal.SirinoksTraining.Add(new TrainingClass(player.Status.PlayerId, game.GameId, best.Index,
+                        best.Number));
                 else
-                {
                     siri.Training.Add(new TrainingSubClass(best.Index, best.Number));
-                }
             }
+
             //обучение end
         }
 
@@ -65,8 +66,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 Number = number;
             }
         }
-
-
 
 
         public class TrainingClass
@@ -87,13 +86,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             public int StatIndex;
             public int StatNumber;
-          
+
 
             public TrainingSubClass(int statIndex, int statNumber)
             {
                 StatIndex = statIndex;
                 StatNumber = statNumber;
-               
             }
         }
     }

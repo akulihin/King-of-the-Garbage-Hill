@@ -7,17 +7,19 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class Mitsuki : IServiceSingleton
     {
-
-        public Task InitializeAsync() => Task.CompletedTask;
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
 
         public void HandleMitsuki(GamePlayerBridgeClass player)
         {
-        //    throw new System.NotImplementedException();
+            //    throw new System.NotImplementedException();
         }
 
         public void HandleMitsukiAfter(GamePlayerBridgeClass player)
         {
-          //  throw new System.NotImplementedException();
+            //  throw new System.NotImplementedException();
         }
 
         public class GarbageClass

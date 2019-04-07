@@ -105,7 +105,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 }
         }
 
-        public async Task<bool> HandleAttackOrLvlUp(GamePlayerBridgeClass player, SocketReaction reaction, int botChoice = -1)
+        public async Task<bool> HandleAttackOrLvlUp(GamePlayerBridgeClass player, SocketReaction reaction,
+            int botChoice = -1)
         {
             var status = player.Status;
             var account = player.DiscordAccount;
@@ -155,10 +156,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     game.RoundNo == 10)
                 {
                     status.WhoToAttackThisTurn = Guid.Empty;
-                    if (!player.IsBot())
-                    {
-                        SendMsgAndDeleteIt(player, "На этого игрока нельзя нападать, почему-то...");
-                    }
+                    if (!player.IsBot()) SendMsgAndDeleteIt(player, "На этого игрока нельзя нападать, почему-то...");
 
                     return false;
                 }
@@ -196,10 +194,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 if (status.WhoToAttackThisTurn == status.PlayerId)
                 {
                     status.WhoToAttackThisTurn = Guid.Empty;
-                    if (!player.IsBot())
-                    {
-                        SendMsgAndDeleteIt(player, "Зачем ты себя бьешь?");
-                    }
+                    if (!player.IsBot()) SendMsgAndDeleteIt(player, "Зачем ты себя бьешь?");
 
                     return false;
                 }
@@ -212,6 +207,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 SendMsgAndDeleteIt(player); //not awaited 
                 return true;
             }
+
             return false;
         }
 
@@ -220,7 +216,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         public async Task LvlUp10(GamePlayerBridgeClass player)
 #pragma warning restore 1998
         {
-             SendMsgAndDeleteIt(player, "10 максимум, выбери другой стат"); //not awaited 
+            SendMsgAndDeleteIt(player, "10 максимум, выбери другой стат"); //not awaited 
         }
 
 
@@ -242,7 +238,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     if (player.Character.GetIntelligence() >= 10 && player.Character.GetPsyche() <= 9 &&
                         player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
                     {
-                         LvlUp10(player);
+                        LvlUp10(player);
                         return;
                     }
 
@@ -255,7 +251,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     if (player.Character.GetStrength() >= 10 && player.Character.GetPsyche() <= 9 &&
                         player.Character.GetIntelligence() <= 9 && player.Character.GetSpeed() <= 9)
                     {
-                         LvlUp10(player);
+                        LvlUp10(player);
                         return;
                     }
 
@@ -268,7 +264,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     if (player.Character.GetSpeed() >= 10 && player.Character.GetPsyche() <= 9 &&
                         player.Character.GetStrength() <= 9 && player.Character.GetIntelligence() <= 9)
                     {
-                         LvlUp10(player);
+                        LvlUp10(player);
                         return;
                     }
 
@@ -281,7 +277,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     if (player.Character.GetPsyche() >= 10 && player.Character.GetIntelligence() <= 9 &&
                         player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
                     {
-                         LvlUp10(player);
+                        LvlUp10(player);
                         return;
                     }
 

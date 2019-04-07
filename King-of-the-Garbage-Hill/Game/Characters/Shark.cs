@@ -2,9 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
-
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
-
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
@@ -13,10 +11,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         private readonly InGameGlobal _gameGlobal;
 
 
-
-        public Shark( InGameGlobal gameGlobal)
+        public Shark(InGameGlobal gameGlobal)
         {
-
             _gameGlobal = gameGlobal;
         }
 
@@ -39,13 +35,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
 
 
-                    if (!shark.FriendList.Contains(player.Status.IsWonThisCalculation))
-                    {
-                        shark.FriendList.Add(player.Status.IsWonThisCalculation);
-                        player.Character.AddSpeed(player.Status);
-                    }
-                
-
+                if (!shark.FriendList.Contains(player.Status.IsWonThisCalculation))
+                {
+                    shark.FriendList.Add(player.Status.IsWonThisCalculation);
+                    player.Character.AddSpeed(player.Status);
+                }
             }
 
             //end Челюсти: 
@@ -53,16 +47,16 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public class SharkLeaderClass
         {
-            public ulong GameId { get; set; }
-            public Guid PlayerId { get; set; }
             public List<int> FriendList = new List<int>();
 
             public SharkLeaderClass(Guid playerId, ulong gameId)
             {
                 PlayerId = playerId;
                 GameId = gameId;
-
             }
+
+            public ulong GameId { get; set; }
+            public Guid PlayerId { get; set; }
         }
     }
 }

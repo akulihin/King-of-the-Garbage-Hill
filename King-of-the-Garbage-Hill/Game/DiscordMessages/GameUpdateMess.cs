@@ -16,12 +16,13 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
     {
         private readonly UserAccounts _accounts;
         private readonly AwaitForUserMessage _awaitForUser;
-        private readonly HelperFunctions _helperFunctions;
         private readonly InGameGlobal _gameGlobal;
         private readonly Global _global;
+        private readonly HelperFunctions _helperFunctions;
 
 
-        public GameUpdateMess(UserAccounts accounts, Global global, InGameGlobal gameGlobal, AwaitForUserMessage awaitForUser, HelperFunctions helperFunctions)
+        public GameUpdateMess(UserAccounts accounts, Global global, InGameGlobal gameGlobal,
+            AwaitForUserMessage awaitForUser, HelperFunctions helperFunctions)
         {
             _accounts = accounts;
             _global = global;
@@ -38,8 +39,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public async Task ShowRulesAndChar(SocketUser user, GamePlayerBridgeClass player)
         {
-         
-
             var pass = "";
             var passList = player.Character.Passive;
             for (var i = 0; i < passList.Count; i++)
@@ -51,7 +50,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             }
 
 
-
             var embed = new EmbedBuilder();
             embed.WithColor(Color.DarkOrange);
             embed.AddField("Твой Персонаж:", $"Name: {player.Character.Name}\n" +
@@ -60,7 +58,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                                              $"Скорость: {player.Character.GetSpeed()}\n" +
                                              $"Психика: {player.Character.GetPsyche()}\n");
             embed.AddField("Пассивки", $"{pass}");
-
 
 
             await user.SendMessageAsync("", false, embed.Build());
@@ -79,7 +76,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             mainPage.WithAuthor(globalAccount);
             mainPage.WithFooter("Preparation time...");
             mainPage.WithColor(Color.DarkGreen);
-            mainPage.AddField("Game is being ready", $"**Please wait for the main menu**");
+            mainPage.AddField("Game is being ready", "**Please wait for the main menu**");
 
 
             var socketMsg = await globalAccount.SendMessageAsync("", false, mainPage.Build());
@@ -101,7 +98,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             //   await socketMsg.AddReactionAsync(new Emoji("🐙"));
             await socketMsg.AddReactionAsync(new Emoji("❌"));
 
-          
+
             //    await MainPage(userId, socketMsg);
         }
 
@@ -123,25 +120,20 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     players +=
                         $" = {playersList[i].Status.GetScore()} Score";
 
-                  
-                    players += "\n";
+
+                players += "\n";
             }
 
             return players;
         }
 
-        public string CustomLeaderBoard( GamePlayerBridgeClass player1, GamePlayerBridgeClass player2, GameClass game)
+        public string CustomLeaderBoard(GamePlayerBridgeClass player1, GamePlayerBridgeClass player2, GameClass game)
         {
-
-
             var customString = "";
             //player1.DiscordAccount.DiscordId == 181514288278536193 ||
-          //  player1.DiscordAccount.DiscordId == 238337696316129280 ||
+            //  player1.DiscordAccount.DiscordId == 238337696316129280 ||
             if (game.RoundNo == 11)
-            {
-                //  customString +=       $" =  {player2.Status.GetScore()} (I: {player2.Character.GetIntelligence()}, St: {player2.Character.GetStrength()}, SP: {player2.Character.GetSpeed()}, Psy: {player2.Character.GetPsyche()}, J: {player2.Character.Justice.GetJusticeNow()})";
                 customString += $" (as **{player2.Character.Name}**) = {player2.Status.GetScore()} Score";
-            }
 
             switch (player1.Character.Name)
             {
@@ -150,12 +142,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                         x.GameId == player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
 
                     if (vamp != null)
-                    {
-                        if (!vamp.FriendList.Contains(player2.Status.PlayerId) && player2.Status.PlayerId != player1.Status.PlayerId)
-                        {
+                        if (!vamp.FriendList.Contains(player2.Status.PlayerId) &&
+                            player2.Status.PlayerId != player1.Status.PlayerId)
                             customString += $" {new Emoji("<:Y_:562885385395634196>")}";
-                        }
-                    }
                     break;
 
                 case "HardKitty":
@@ -164,21 +153,16 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                         x.PlayerId == player1.Status.PlayerId);
                     var lostSeries = hardKitty?.LostSeries.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
                     if (lostSeries != null)
-                    {
                         customString += $" {new Emoji("<:393:563063205811847188>")} - {lostSeries.Series}";
-                    }
                     break;
                 case "Sirinoks":
                     var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
                         x.GameId == player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
 
                     if (siri != null)
-                    {
-                        if (!siri.FriendList.Contains(player2.Status.PlayerId) && player2.Status.PlayerId != player1.Status.PlayerId)
-                        {
+                        if (!siri.FriendList.Contains(player2.Status.PlayerId) &&
+                            player2.Status.PlayerId != player1.Status.PlayerId)
                             customString += $" {new Emoji("<:fr:563063244097585162>")}";
-                        }
-                    }
 
                     break;
                 case "Загадочный Спартанец в маске":
@@ -196,7 +180,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                         x.PlayerId == player1.Status.PlayerId && player1.DiscordAccount.GameId == x.GameId);
                     if (deep != null)
-                        if (deep.FriendList.Contains(player2.Status.PlayerId) && player2.Status.PlayerId != player1.Status.PlayerId)
+                        if (deep.FriendList.Contains(player2.Status.PlayerId) &&
+                            player2.Status.PlayerId != player1.Status.PlayerId)
                             customString += $" {new Emoji("<:yo:561287783704952845>")}";
                     //end tactic
 
@@ -227,7 +212,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 case "Тигр":
 
                     var tigr = _gameGlobal.TigrThreeZeroList.Find(x =>
-                        x.GameId ==player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
+                        x.GameId == player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
 
                     var enemy = tigr?.FriendList.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
 
@@ -248,8 +233,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public async Task EndGame(SocketReaction reaction, IUserMessage socketMsg)
         {
-
-          
             var response = await _awaitForUser.FinishTheGameQuestion(reaction);
             if (!response) return;
             _helperFunctions.SubstituteUserWithBot(reaction.User.Value.Id);
@@ -257,13 +240,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var globalAccount = _global.Client.GetUser(reaction.UserId);
             var account = _accounts.GetAccount(globalAccount);
             account.IsPlaying = false;
-            
+
             _accounts.SaveAccounts(account.DiscordId);
 
-          //  await socketMsg.DeleteAsync();
+            //  await socketMsg.DeleteAsync();
             await globalAccount.SendMessageAsync("Thank you for playing!");
-
-            
         }
 
         //Page 1
@@ -278,18 +259,12 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             embed.WithFooter($"{GetTimeLeft(player)}");
 
-            if (game == null)
-            {
-                game = _global.GamesList.Find(x => x.GameId == account.GameId);
-            }
-       
+            if (game == null) game = _global.GamesList.Find(x => x.GameId == account.GameId);
+
             var desc = "ERROR";
 
-            if (game != null)
-            {
-                 desc = game.GetPreviousGameLogs();
-            }
-  
+            if (game != null) desc = game.GetPreviousGameLogs();
+
             embed.WithDescription(desc);
 
             if (desc.Length >= 2048)
@@ -297,7 +272,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     .SendMessageAsync("PreviousGameLogs >= 2048");
 
             embed.AddField($"{new Emoji("<:e_:562879579694301184>")}",
-                
                 $"**Интеллект:** {character.GetIntelligence()}\n" +
                 $"**Сила:** {character.GetStrength()}\n" +
                 $"**Скорость:** {character.GetSpeed()}\n" +
@@ -311,28 +285,22 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
 
             var splitted = player.Status.InGamePersonalLogsAll.Split("|||");
-            if (game != null && (splitted.Length > 1 && splitted[splitted.Length-2].Length > 3 && game.RoundNo > 1))
-            {
-                embed.AddField("События прошлого раунда:", $"{splitted[splitted.Length-2]}{new Emoji("<:e_:562879579694301184>")}");
-            }
+            if (game != null && splitted.Length > 1 && splitted[splitted.Length - 2].Length > 3 && game.RoundNo > 1)
+                embed.AddField("События прошлого раунда:",
+                    $"{splitted[splitted.Length - 2]}{new Emoji("<:e_:562879579694301184>")}");
             else
-            {
-                embed.AddField("События прошлого раунда:", $"В прошлом раунде ничего не произошло. Странно...\n{new Emoji("<:e_:562879579694301184>")}");
-            }
+                embed.AddField("События прошлого раунда:",
+                    $"В прошлом раунде ничего не произошло. Странно...\n{new Emoji("<:e_:562879579694301184>")}");
 
             if (player.Status.GetInGamePersonalLogs().Length >= 2)
-            {
                 embed.AddField("События этого раунда:", $"{player.Status.GetInGamePersonalLogs()}");
-            }
             else
-            {
-                embed.AddField("События этого раунда:", $"Еще ничего не произошло. Наверное...");
-            }
+                embed.AddField("События этого раунда:", "Еще ничего не произошло. Наверное...");
 
 
             if (character.Avatar != null)
-                    embed.WithThumbnailUrl(character.Avatar);
-            
+                embed.WithThumbnailUrl(character.Avatar);
+
 
             return embed;
         }
@@ -375,7 +343,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             embed.WithFooter($"{GetTimeLeft(player)}");
             embed.AddField("_____",
-                $"__Подними один из статов на 1:__\n \n" +
+                "__Подними один из статов на 1:__\n \n" +
                 $"1. **Интеллект:** {character.GetIntelligence()}\n" +
                 $"2. **Сила:** {character.GetStrength()}\n" +
                 $"3. **Скорость:** {character.GetSpeed()}\n" +
@@ -411,8 +379,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
 
-
-
         public async Task UpdateMessageWithEmbed(GamePlayerBridgeClass player, EmbedBuilder embed)
         {
             try
@@ -422,7 +388,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             }
             catch (Exception e)
             {
-               Console.WriteLine(e.StackTrace);
+                Console.WriteLine(e.StackTrace);
             }
         }
 
@@ -431,15 +397,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         {
             var game = _global.GamesList.Find(x => x.GameId == player.DiscordAccount.GameId);
 
-            if (game == null)
-            {
-                return "ERROR";
-            }
+            if (game == null) return "ERROR";
 
-            if(player.Status.IsReady)
+            if (player.Status.IsReady)
                 return $"Ты походил • Ожидаем других игроков • ход #{game.RoundNo}";
-            else
-                return $"Ожидаем твой ход • ход #{game.RoundNo}";
+            return $"Ожидаем твой ход • ход #{game.RoundNo}";
             /*
             //if (!game.IsCheckIfReady)
            //     return $"Ведется подсчёт, пожалуйста подожди... • ход #{game.RoundNo}";

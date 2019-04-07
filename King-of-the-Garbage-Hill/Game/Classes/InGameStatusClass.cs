@@ -20,29 +20,15 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             IsReady = false;
             IsAbleToWin = true;
             WonTimes = 0;
-            IsWonThisCalculation =  Guid.Empty;
-            IsLostThisCalculation =  Guid.Empty;
-            IsFighting =  Guid.Empty;
+            IsWonThisCalculation = Guid.Empty;
+            IsLostThisCalculation = Guid.Empty;
+            IsFighting = Guid.Empty;
             IsSkip = false;
             ScoresToGiveAtEndOfRound = 0;
             InGamePersonalLogs = "";
             InGamePersonalLogsAll = "";
             WhoToLostEveryRound = new List<WhoToLostPreviousRoundClass>();
             PlayerId = Guid.NewGuid();
-        }
-
-        public class WhoToLostPreviousRoundClass
-        {
-            public Guid EnemyId;
-            public int RoundNo;
-            public bool IsTooGood;
-
-            public WhoToLostPreviousRoundClass(Guid enemyId, int roundNo, bool isTooGood)
-            {
-                EnemyId = enemyId;
-                RoundNo = roundNo;
-                IsTooGood = isTooGood;
-            }
         }
 
         public int MoveListPage { get; set; }
@@ -64,7 +50,6 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public Guid WhoToAttackThisTurn { get; set; }
 
-      
 
         public bool IsReady { get; set; }
         public int WonTimes { get; set; }
@@ -95,7 +80,6 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         }
 
 
-
         public void SetScoresToGiveAtEndOfRound(int score)
         {
             ScoresToGiveAtEndOfRound = score;
@@ -113,10 +97,10 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public void AddBonusPoints(int bonusPoints = 1)
         {
-            if(bonusPoints > 0)
-                AddInGamePersonalLogs(  $"+{bonusPoints} **бонусных** очков\n");
-            else if(bonusPoints < 0)
-                AddInGamePersonalLogs ( $"{bonusPoints} **бонусных** очков\n");
+            if (bonusPoints > 0)
+                AddInGamePersonalLogs($"+{bonusPoints} **бонусных** очков\n");
+            else if (bonusPoints < 0)
+                AddInGamePersonalLogs($"{bonusPoints} **бонусных** очков\n");
 
             Score += bonusPoints;
             if (Score < 0)
@@ -145,18 +129,13 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 score = score * 1; // Why????????????????????????
             else if (roundNumber <= 9)
                 score = score * 2;
-            else if (roundNumber == 10) 
+            else if (roundNumber == 10)
                 score = score * 4;
 
             if ((int) score > 0)
-            {
                 AddInGamePersonalLogs($"+{(int) score} **обычных** очков\n");
-            }
-            else if ((int) score < 0)
-            {
-                AddInGamePersonalLogs($"{(int) score} очков...\n");
-            }
-            Score += (int)score;
+            else if ((int) score < 0) AddInGamePersonalLogs($"{(int) score} очков...\n");
+            Score += (int) score;
         }
 
         public void SetScoreToThisNumber(int score)
@@ -167,6 +146,20 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public int GetScore()
         {
             return Score;
+        }
+
+        public class WhoToLostPreviousRoundClass
+        {
+            public Guid EnemyId;
+            public bool IsTooGood;
+            public int RoundNo;
+
+            public WhoToLostPreviousRoundClass(Guid enemyId, int roundNo, bool isTooGood)
+            {
+                EnemyId = enemyId;
+                RoundNo = roundNo;
+                IsTooGood = isTooGood;
+            }
         }
     }
 }

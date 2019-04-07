@@ -13,7 +13,6 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
         private readonly DiscordShardedClient _client;
         private readonly ConcurrentDictionary<ulong, DiscordAccountClass> _userAccountsDictionary;
         private readonly UserAccountsDataStorage _usersDataStorage;
-        private Timer LoopingTimer { get; set; }
 
         public UserAccounts(DiscordShardedClient client, UserAccountsDataStorage usersDataStorage)
         {
@@ -22,6 +21,13 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             _userAccountsDictionary = _usersDataStorage.LoadAllAccounts();
             ClearPlayingStatus();
             SaveAllAccountsTimer();
+        }
+
+        private Timer LoopingTimer { get; set; }
+
+        public async Task InitializeAsync()
+        {
+            await Task.CompletedTask;
         }
 
 
@@ -35,12 +41,6 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             };
 
             LoopingTimer.Elapsed += SaveAllAccounts;
-           
-        }
-
-        public async Task InitializeAsync()
-        {
-            await Task.CompletedTask;
         }
 
         public void ClearPlayingStatus()
@@ -77,14 +77,12 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             //return a bot
 
 
-
             _userAccountsDictionary.TryGetValue(userId, out var account);
 
             if (account != null)
                 return account;
 
             return CreateBotAccount(userId);
-
         }
 
         public DiscordAccountClass GetOrCreateAccount(IUser user)
@@ -98,21 +96,22 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
         //obsolete 
         public void SaveAccounts(ulong userId)
         {
-        //    var accounts = GetOrAddUserAccount(userId);
-        //    _usersDataStorage.SaveAccountSettings(accounts, userId);
+            //    var accounts = GetOrAddUserAccount(userId);
+            //    _usersDataStorage.SaveAccountSettings(accounts, userId);
         }
+
         //obsolete 
         public void SaveAccounts(IUser user)
         {
-        //    var accounts = GetOrAddUserAccount(user.Id);
-        //    _usersDataStorage.SaveAccountSettings(accounts, user.Id);
+            //    var accounts = GetOrAddUserAccount(user.Id);
+            //    _usersDataStorage.SaveAccountSettings(accounts, user.Id);
         }
 
         //obsolete 
         public void SaveAccounts(DiscordAccountClass user)
         {
-        //    var accounts = GetOrAddUserAccount(user.DiscordId);
-        //    _usersDataStorage.SaveAccountSettings(accounts, user.DiscordId);
+            //    var accounts = GetOrAddUserAccount(user.DiscordId);
+            //    _usersDataStorage.SaveAccountSettings(accounts, user.DiscordId);
         }
 
         private void SaveAllAccounts(object sender, ElapsedEventArgs e)
@@ -120,8 +119,6 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             foreach (var account in _userAccountsDictionary.Values)
                 _usersDataStorage.SaveAccountSettings(account, account.DiscordId);
         }
-
-
 
 
         public List<DiscordAccountClass> GetAllAccount()
@@ -133,8 +130,6 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 
         public DiscordAccountClass CreateUserAccount(IUser user)
         {
-          
-
             var newAccount = new DiscordAccountClass
             {
                 DiscordId = user.Id,
@@ -161,8 +156,6 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 
         public DiscordAccountClass CreateBotAccount(ulong botId)
         {
-      
-
             var newAccount = new DiscordAccountClass
             {
                 DiscordId = botId,

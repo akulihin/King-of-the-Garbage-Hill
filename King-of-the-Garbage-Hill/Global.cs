@@ -10,10 +10,15 @@ namespace King_of_the_Garbage_Hill
 {
     public sealed class Global : IServiceSingleton
     {
-        public Task InitializeAsync()
-        {
-            return Task.CompletedTask;
-        }
+        public readonly DiscordShardedClient Client;
+        public readonly DateTime TimeBotStarted;
+
+
+        public List<GameClass> GamesList;
+        public ConcurrentDictionary<ulong, Stopwatch> TimeSpendOnLastMessage;
+        public uint TotalCommandsChanged;
+        public uint TotalCommandsDeleted;
+        public uint TotalCommandsIssued;
 
         public Global(DiscordShardedClient client)
         {
@@ -25,19 +30,14 @@ namespace King_of_the_Garbage_Hill
             TotalCommandsChanged = 0;
             TimeSpendOnLastMessage = new ConcurrentDictionary<ulong, Stopwatch>();
             GamesList = new List<GameClass>();
-            
         }
 
-        public readonly DiscordShardedClient Client;
-        public readonly DateTime TimeBotStarted;
         private ulong GamePlayingAndId { get; set; }
-        public uint TotalCommandsIssued;
-        public uint TotalCommandsDeleted;
-        public uint TotalCommandsChanged;
-        public ConcurrentDictionary<ulong, Stopwatch> TimeSpendOnLastMessage;
 
-
-        public List<GameClass> GamesList;
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
 
 
         public GamePlayerBridgeClass GetGameAccount(ulong userId, ulong gameId)

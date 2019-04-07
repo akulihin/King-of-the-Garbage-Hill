@@ -5,12 +5,9 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
 {
     public class SocketCommandContextCustom : ShardedCommandContext
     {
-        public string MessageContentForEdit { get; }
-        public string Language { get; }
-        public CommandsInMemory CommandsInMemory { get; }
-     
-
-        public SocketCommandContextCustom(DiscordShardedClient client, SocketUserMessage msg, CommandsInMemory commandsInMemory, string messageContentForEdit = null, string language = null) : base(client, msg)
+        public SocketCommandContextCustom(DiscordShardedClient client, SocketUserMessage msg,
+            CommandsInMemory commandsInMemory, string messageContentForEdit = null, string language = null) : base(
+            client, msg)
         {
             if (language == null)
                 language = "en";
@@ -18,5 +15,9 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
             Language = language;
             MessageContentForEdit = messageContentForEdit;
         }
+
+        public string MessageContentForEdit { get; }
+        public string Language { get; }
+        public CommandsInMemory CommandsInMemory { get; }
     }
 }

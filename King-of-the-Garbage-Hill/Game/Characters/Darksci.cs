@@ -2,20 +2,17 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class Darksci : IServiceSingleton
     {
-        private readonly InGameGlobal _gameGlobal;
         private readonly CharactersUniquePhrase _phrase;
 
-        public Darksci(CharactersUniquePhrase phrase, InGameGlobal gameGlobal)
+        public Darksci(CharactersUniquePhrase phrase)
         {
             _phrase = phrase;
-            _gameGlobal = gameGlobal;
         }
 
         public Task InitializeAsync()

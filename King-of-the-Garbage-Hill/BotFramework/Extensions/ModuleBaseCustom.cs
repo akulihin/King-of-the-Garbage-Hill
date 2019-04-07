@@ -4,81 +4,80 @@ using Discord.Commands;
 
 namespace King_of_the_Garbage_Hill.BotFramework.Extensions
 {
-   public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
-   {
+    public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
+    {
+        protected virtual async Task SendMessAsync(EmbedBuilder embed)
+        {
+            if (Context.MessageContentForEdit == null)
+            {
+                var message = await Context.Channel.SendMessageAsync("", false, embed.Build());
 
-       protected virtual async Task SendMessAsync(EmbedBuilder embed)
-       {
-           if (Context.MessageContentForEdit == null)
-           {
-               var message = await Context.Channel.SendMessageAsync("", false, embed.Build());
 
-
-               UpdateGlobalCommandList(message, Context);
+                UpdateGlobalCommandList(message, Context);
             }
-           else if (Context.MessageContentForEdit == "edit")
-           {
-               foreach (var t in Context.CommandsInMemory.CommandList)
-                   if (t.MessageUserId == Context.Message.Id)
-                       await t.BotSocketMsg.ModifyAsync(message =>
-                       {
-                           message.Content = "";
-                           message.Embed = null;
-                           message.Embed = embed.Build();
-                       });
-           }
-       }
-
-
-       protected virtual async Task SendMessAsync([Remainder] string regularMess = null)
-       {
-           if (Context.MessageContentForEdit == null)
-           {
-               var message = await Context.Channel.SendMessageAsync($"{regularMess}");
-
-               UpdateGlobalCommandList(message, Context);
+            else if (Context.MessageContentForEdit == "edit")
+            {
+                foreach (var t in Context.CommandsInMemory.CommandList)
+                    if (t.MessageUserId == Context.Message.Id)
+                        await t.BotSocketMsg.ModifyAsync(message =>
+                        {
+                            message.Content = "";
+                            message.Embed = null;
+                            message.Embed = embed.Build();
+                        });
             }
-           else if (Context.MessageContentForEdit == "edit")
-           {
-               foreach (var t in Context.CommandsInMemory.CommandList)
-                   if (t.MessageUserId == Context.Message.Id)
-                       await t.BotSocketMsg.ModifyAsync(message =>
-                       {
-                           message.Content = "";
-                           message.Embed = null;
-                           if (regularMess != null) message.Content = regularMess.ToString();
-                       });
-           }
-       }
+        }
 
 
-       protected virtual async Task SendMessAsync([Remainder] string regularMess, SocketCommandContextCustom context)
-       {
-           if (context.MessageContentForEdit == null )
-           {
-               var message = await context.Channel.SendMessageAsync($"{regularMess}");
+        protected virtual async Task SendMessAsync([Remainder] string regularMess = null)
+        {
+            if (Context.MessageContentForEdit == null)
+            {
+                var message = await Context.Channel.SendMessageAsync($"{regularMess}");
 
-               UpdateGlobalCommandList(message, context);
-           }
-           else if (context.MessageContentForEdit == "edit")
-           {
-               foreach (var t in context.CommandsInMemory.CommandList)
-                   if (t.MessageUserId == context.Message.Id)
-                       await t.BotSocketMsg.ModifyAsync(message =>
-                       {
-                           message.Content = "";
-                           message.Embed = null;
-                           if (regularMess != null) message.Content = regularMess.ToString();
-                       });
-           }
-       }
+                UpdateGlobalCommandList(message, Context);
+            }
+            else if (Context.MessageContentForEdit == "edit")
+            {
+                foreach (var t in Context.CommandsInMemory.CommandList)
+                    if (t.MessageUserId == Context.Message.Id)
+                        await t.BotSocketMsg.ModifyAsync(message =>
+                        {
+                            message.Content = "";
+                            message.Embed = null;
+                            if (regularMess != null) message.Content = regularMess.ToString();
+                        });
+            }
+        }
 
 
-       private static void UpdateGlobalCommandList(IUserMessage message, SocketCommandContextCustom context)
-       {
-           context.CommandsInMemory.CommandList.Insert(0, new CommandsInMemory.CommandRam(context.Message, message));
-           if(context.CommandsInMemory.CommandList.Count > context.CommandsInMemory.MaximumCommandsInRam)
-               context.CommandsInMemory.CommandList.RemoveAt(context.CommandsInMemory.CommandList.Count-1);
-       }
+        protected virtual async Task SendMessAsync([Remainder] string regularMess, SocketCommandContextCustom context)
+        {
+            if (context.MessageContentForEdit == null)
+            {
+                var message = await context.Channel.SendMessageAsync($"{regularMess}");
+
+                UpdateGlobalCommandList(message, context);
+            }
+            else if (context.MessageContentForEdit == "edit")
+            {
+                foreach (var t in context.CommandsInMemory.CommandList)
+                    if (t.MessageUserId == context.Message.Id)
+                        await t.BotSocketMsg.ModifyAsync(message =>
+                        {
+                            message.Content = "";
+                            message.Embed = null;
+                            if (regularMess != null) message.Content = regularMess.ToString();
+                        });
+            }
+        }
+
+
+        private static void UpdateGlobalCommandList(IUserMessage message, SocketCommandContextCustom context)
+        {
+            context.CommandsInMemory.CommandList.Insert(0, new CommandsInMemory.CommandRam(context.Message, message));
+            if (context.CommandsInMemory.CommandList.Count > context.CommandsInMemory.MaximumCommandsInRam)
+                context.CommandsInMemory.CommandList.RemoveAt(context.CommandsInMemory.CommandList.Count - 1);
+        }
     }
 }

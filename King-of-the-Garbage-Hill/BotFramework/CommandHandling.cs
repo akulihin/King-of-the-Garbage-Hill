@@ -12,15 +12,15 @@ namespace King_of_the_Garbage_Hill.BotFramework
 {
     public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
     {
+        private readonly UserAccounts _accounts;
 
         private readonly DiscordShardedClient _client;
         private readonly CommandService _commands;
         private readonly CommandsInMemory _commandsInMemory;
-        private readonly Scope _services;
-        private readonly UserAccounts _accounts;
+        private readonly Global _global;
 
         private readonly LoginFromConsole _log;
-        private readonly Global _global;
+        private readonly Scope _services;
 
 
         public CommandHandling(CommandService commands,
@@ -33,7 +33,7 @@ namespace King_of_the_Garbage_Hill.BotFramework
             _global = global;
             _client = client;
             _accounts = accounts;
-     
+
             _commandsInMemory = commandsInMemory;
         }
 
@@ -50,7 +50,7 @@ namespace King_of_the_Garbage_Hill.BotFramework
                 if (cacheMessage.Value.Id == t.MessageUserId)
                 {
                     _global.TotalCommandsDeleted++;
-                  await t.BotSocketMsg.DeleteAsync();
+                    await t.BotSocketMsg.DeleteAsync();
                     _commandsInMemory.CommandList.Remove(t);
                 }
 
@@ -60,8 +60,6 @@ namespace King_of_the_Garbage_Hill.BotFramework
         public async Task _client_MessageUpdated(Cacheable<IMessage, ulong> messageBefore,
             SocketMessage messageAfter, ISocketMessageChannel arg3)
         {
-           
-
             if (messageAfter.Author.IsBot)
                 return;
             var after = messageAfter as IUserMessage;
@@ -91,19 +89,17 @@ namespace King_of_the_Garbage_Hill.BotFramework
                     return;
                 _global.TotalCommandsChanged++;
                 var account = _accounts.GetAccount(messageAfter.Author);
-                var context = new SocketCommandContextCustom(_client, message,  _commandsInMemory, "edit", "ru");
+                var context = new SocketCommandContextCustom(_client, message, _commandsInMemory, "edit", "ru");
                 var argPos = 0;
 
 
                 if (message.Channel is SocketDMChannel)
                 {
-                   
                     var resultTask = Task.FromResult(await _commands.ExecuteAsync(
                         context,
                         argPos,
                         _services));
 
-                  
 
                     await resultTask.ContinueWith(async task =>
                         await CommandResults(task, context));
@@ -111,24 +107,21 @@ namespace King_of_the_Garbage_Hill.BotFramework
                     return;
                 }
 
-           
 
                 if (message.HasStringPrefix("*", ref argPos) || message.HasStringPrefix("*" + " ",
-                                                                          ref argPos)
-                                                                      || message.HasMentionPrefix(_client.CurrentUser,
-                                                                          ref argPos)
-                                                                      || message.HasStringPrefix(account.MyPrefix + " ",
-                                                                          ref argPos)
-                                                                      || message.HasStringPrefix(account.MyPrefix,
-                                                                          ref argPos))
+                                                                 ref argPos)
+                                                             || message.HasMentionPrefix(_client.CurrentUser,
+                                                                 ref argPos)
+                                                             || message.HasStringPrefix(account.MyPrefix + " ",
+                                                                 ref argPos)
+                                                             || message.HasStringPrefix(account.MyPrefix,
+                                                                 ref argPos))
                 {
-
-            
                     var resultTask = Task.FromResult(await _commands.ExecuteAsync(
                         context,
                         argPos,
                         _services));
-                    
+
 
                     await resultTask.ContinueWith(async task =>
                         await CommandResults(task, context));
@@ -137,7 +130,6 @@ namespace King_of_the_Garbage_Hill.BotFramework
                 return;
             }
 
-           
 
             await HandleCommandAsync(messageAfter);
         }
@@ -145,7 +137,6 @@ namespace King_of_the_Garbage_Hill.BotFramework
 
         public async Task HandleCommandAsync(SocketMessage msg)
         {
-
             var message = msg as SocketUserMessage;
             if (message == null) return;
             var account = _accounts.GetAccount(msg.Author);
@@ -164,43 +155,37 @@ namespace King_of_the_Garbage_Hill.BotFramework
                     return;
                 case SocketDMChannel _:
 
-                  
+
                     var resultTask = _commands.ExecuteAsync(
                         context,
                         argPos,
                         _services);
 
-               
 
-
-                  await  resultTask.ContinueWith(async task =>
+                    await resultTask.ContinueWith(async task =>
                         await CommandResults(task, context));
 
 
                     return;
             }
 
-     
-
 
             if (message.HasStringPrefix("*", ref argPos) || message.HasStringPrefix("*" + " ",
-                                                                      ref argPos)
-                                                                  || message.HasMentionPrefix(_client.CurrentUser,
-                                                                      ref argPos)
-                                                                  || message.HasStringPrefix(account.MyPrefix + " ",
-                                                                      ref argPos)
-                                                                  || message.HasStringPrefix(account.MyPrefix,
-                                                                      ref argPos))
+                                                             ref argPos)
+                                                         || message.HasMentionPrefix(_client.CurrentUser,
+                                                             ref argPos)
+                                                         || message.HasStringPrefix(account.MyPrefix + " ",
+                                                             ref argPos)
+                                                         || message.HasStringPrefix(account.MyPrefix,
+                                                             ref argPos))
             {
-            
                 var resultTask = _commands.ExecuteAsync(
                     context,
                     argPos,
                     _services);
 
-             
 
-            await    resultTask.ContinueWith(async task =>
+                await resultTask.ContinueWith(async task =>
                     await CommandResults(task, context));
             }
         }
@@ -208,7 +193,6 @@ namespace King_of_the_Garbage_Hill.BotFramework
 
         public async Task CommandResults(Task<IResult> resultTask, SocketCommandContextCustom context)
         {
-       
             _global.TimeSpendOnLastMessage.Remove(context.User.Id, out var watch);
 
             var guildName = context.Guild == null ? "DM" : $"{context.Guild.Name}({context.Guild.Id})";
@@ -233,7 +217,6 @@ namespace King_of_the_Garbage_Hill.BotFramework
                     "CommandHandling");
             }
 
-   
 
             await Task.CompletedTask;
         }

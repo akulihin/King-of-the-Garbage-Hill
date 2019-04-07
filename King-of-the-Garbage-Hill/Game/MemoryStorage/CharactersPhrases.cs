@@ -9,7 +9,6 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 {
     public class CharactersUniquePhrase : IServiceSingleton
     {
-        
         //initialize variables 
         public PhraseClass AwdkaAfk;
         public PhraseClass AwdkaTeachToPlay;
@@ -21,10 +20,17 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public PhraseClass DarksciFuckThisGame;
         public PhraseClass DarksciLucky;
         public PhraseClass DarksciNotLucky;
+        public PhraseClass DeepListDoubtfulTacticFirstLostPhrase;
 
         public PhraseClass DeepListDoubtfulTacticPhrase;
         public PhraseClass DeepListMadnessPhrase;
+        public PhraseClass DeepListPokePhrase;
         public PhraseClass DeepListSuperMindPhrase;
+
+
+        public PhraseClass FirstСommandment;
+        public PhraseClass FirstСommandmentLost;
+        public PhraseClass FourthСommandment;
 
         public PhraseClass GlebChallengerPhrase;
         public PhraseClass GlebComeBackPhrase;
@@ -36,6 +42,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public PhraseClass HardKittyMutedPhrase;
 
         public PhraseClass LeCrispAssassinsPhrase;
+        public PhraseClass LeCrispBoolingPhrase;
         public PhraseClass LeCrispImpactPhrase;
         public PhraseClass LeCrispJewPhrase;
 
@@ -48,9 +55,12 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public PhraseClass MylorikRevengeLostPhrase;
         public PhraseClass MylorikRevengeVictoryPhrase;
         public PhraseClass MylorikSpanishPhrase;
+        public PhraseClass SecondСommandment;
+        public PhraseClass SecondСommandmentBan;
 
         public PhraseClass SirinoksDragonPhrase;
         public PhraseClass SirinoksFriendsPhrase;
+        public PhraseClass ThirdСommandment;
 
         public PhraseClass TigrSnipe;
         public PhraseClass TigrThreeZero;
@@ -69,15 +79,8 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public PhraseClass VampyrHematophagy;
         public PhraseClass VampyrNoAttack;
         public PhraseClass VampyrSuckspenStake;
-        public PhraseClass VampyrVampyr;
 
-       
-        public PhraseClass FirstСommandment;
-        public PhraseClass FirstСommandmentLost;
-        public PhraseClass SecondСommandment;
-        public PhraseClass ThirdСommandment;
-        public PhraseClass SecondСommandmentBan;
-        public PhraseClass FourthСommandment;
+        public PhraseClass VampyrVampyr;
         //end
 
         public CharactersUniquePhrase()
@@ -102,7 +105,9 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             TigrSnipe = new PhraseClass("Стримснайпят и банят и банят и банят");
 
             DeepListMadnessPhrase = new PhraseClass("Безумие");
+            DeepListPokePhrase = new PhraseClass("Стёб");
             DeepListDoubtfulTacticPhrase = new PhraseClass("Сомнительная тактика");
+            DeepListDoubtfulTacticFirstLostPhrase = new PhraseClass("Сомнительная тактика");
             DeepListSuperMindPhrase = new PhraseClass("Сверхразум");
 
             MylorikRevengeLostPhrase = new PhraseClass("Месть");
@@ -118,6 +123,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             GlebTeaPhrase = new PhraseClass("Я за чаем");
 
             LeCrispJewPhrase = new PhraseClass("Еврей");
+            LeCrispBoolingPhrase = new PhraseClass("Булинг");
             LeCrispAssassinsPhrase = new PhraseClass("Гребанные ассассины");
             LeCrispImpactPhrase = new PhraseClass("Импакт");
 
@@ -161,12 +167,13 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             FirstСommandmentLost.PassiveLogRus.Add("Ты пришел к богу");
             FirstСommandmentLost.PassiveLogRus.Add("Просветление");
             FirstСommandmentLost.PassiveLogRus.Add("Только вера спасет");
-            SecondСommandment.PassiveLogRus.Add("И как боженька сказал - \"Бань удира, я зассал\" - и как доктор говорит - \"Не забанил - инвалид\"");
+            SecondСommandment.PassiveLogRus.Add(
+                "И как боженька сказал - \"Бань удира, я зассал\" - и как доктор говорит - \"Не забанил - инвалид\"");
             SecondСommandmentBan.PassiveLogRus.Add("Изыди!");
             SecondСommandmentBan.PassiveLogRus.Add("Нечесть");
             SecondСommandmentBan.PassiveLogRus.Add("Бань удира.");
             ThirdСommandment.PassiveLogRus.Add("Не флейми в чате");
-        
+
             FourthСommandment.PassiveLogRus.Add("Играй руками");
 
             VampyrVampyr.PassiveLogRus.Add("Вампурская ноо-ооочь!");
@@ -208,11 +215,29 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             DeepListMadnessPhrase.PassiveLogRus.Add("Хаха. Ха. АХАХАХАХАХАХАХ!");
             DeepListMadnessPhrase.PassiveLogRus.Add("Стоп, кто... я?");
             DeepListMadnessPhrase.PassiveLogRus.Add("Заткнитесь!");
+
+            DeepListPokePhrase.PassiveLogRus.Add("Хехе");
+            DeepListPokePhrase.PassiveLogRus.Add("Чисто постЕбаться");
+            DeepListPokePhrase.PassiveLogRus.Add("Я в деле!");
+            DeepListPokePhrase.PassiveLogRus.Add("Два игнайта...");
+            DeepListPokePhrase.PassiveLogRus.Add("*Хохочет*");
+            DeepListPokePhrase.PassiveLogRus.Add("Ты кто такой?");
+            DeepListPokePhrase.PassiveLogRus.Add("Скобочка");
+            DeepListPokePhrase.PassiveLogRus.Add("It's a joke. You got it?");
+            DeepListPokePhrase.PassiveLogRus.Add("Где импакт!?");
+
             DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Everything is going according to my plan");
             DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("My superior tactic will win");
             DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Я всё рассчитал, это работает.");
             DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Napoleon Wonnafcuk");
             DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Техника скрытого Листа - Гамбит");
+
+            DeepListDoubtfulTacticFirstLostPhrase.PassiveLogRus.Add("Скоро...");
+            DeepListDoubtfulTacticFirstLostPhrase.PassiveLogRus.Add("Тише едешь, дальше будешь");
+            DeepListDoubtfulTacticFirstLostPhrase.PassiveLogRus.Add("Я называю это \"Гамбит\"");
+            DeepListDoubtfulTacticFirstLostPhrase.PassiveLogRus.Add("Привилегия даумондов");
+            DeepListDoubtfulTacticFirstLostPhrase.PassiveLogRus.Add("Это лишь часть моего плана");
+
 
             DeepListSuperMindPhrase.PassiveLogRus.Add("Поделив энтропию на ноль, вы поняли, что ");
             DeepListSuperMindPhrase.PassiveLogRus.Add("Используя свою дедукцию, вы поняли, что ");
@@ -249,6 +274,9 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
 
             LeCrispJewPhrase.PassiveLogRus.Add("Я жру деньги!");
+            LeCrispJewPhrase.PassiveLogRus.Add("Kill secure");
+            LeCrispBoolingPhrase.PassiveLogRus.Add("Why are you bulling me?");
+            LeCrispBoolingPhrase.PassiveLogRus.Add("fuk u");
             LeCrispAssassinsPhrase.PassiveLogRus.Add("Гребанные ассассины");
             LeCrispAssassinsPhrase.PassiveLogRus.Add("Эх, жизнь АДК");
             LeCrispImpactPhrase.PassiveLogRus.Add("Импакт!");
@@ -282,6 +310,11 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
             SirinoksFriendsPhrase.PassiveLogRus.Add("Го в пати");
             SirinoksFriendsPhrase.PassiveLogRus.Add("М/Ж?");
+            SirinoksFriendsPhrase.PassiveLogRus.Add("Я проиграл");
+            SirinoksFriendsPhrase.PassiveLogRus.Add("Пепега");
+            SirinoksFriendsPhrase.PassiveLogRus.Add("Invite");
+
+
             SirinoksDragonPhrase.PassiveLogRus.Add("РООАР!");
 
 

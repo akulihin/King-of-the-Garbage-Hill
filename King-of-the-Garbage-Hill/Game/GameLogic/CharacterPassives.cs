@@ -21,7 +21,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         private readonly Darksci _darksci;
         private readonly DeepList _deepList;
-        private readonly DeepList2 _deepList2;
         private readonly InGameGlobal _gameGlobal;
         private readonly GameUpdateMess _gameUpdateMess;
         private readonly Gleb _gleb;
@@ -49,7 +48,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
         public CharacterPassives(SecureRandom rand, HelperFunctions help, Awdka awdka, DeepList deepList,
-            DeepList2 deepList2, Gleb gleb, HardKitty hardKitty, Mitsuki mitsuki, LeCrisp leCrisp, Mylorik mylorik,
+            Gleb gleb, HardKitty hardKitty, Mitsuki mitsuki, LeCrisp leCrisp, Mylorik mylorik,
             Octopus octopus, Shark shark, Sirinoks sirinoks, Tigr tigr, Tolya tolya, InGameGlobal gameGlobal,
             Darksci darksci, CharactersUniquePhrase phrase, LoginFromConsole log, GameUpdateMess gameUpdateMess,
             Panth panth, Vampyr vampyr)
@@ -58,7 +57,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             _help = help;
             _awdka = awdka;
             _deepList = deepList;
-            _deepList2 = deepList2;
             _gleb = gleb;
             _hardKitty = hardKitty;
             _mitsuki = mitsuki;
@@ -227,6 +225,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     {
                         panth.FriendList.Add(playerIamAttacking.Status.PlayerId);
                         playerIamAttacking.Character.AddStrength(playerIamAttacking.Status, -1);
+                        playerIamAttacking.Character.AddSpeed(playerIamAttacking.Status, -1);
                     }
 
 
@@ -344,8 +343,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 case "Братишка":
                     _shark.HandleShark(player);
                     break;
-                case "????":
-                    _deepList2.HandleDeepList2(player);
+                case "Загадочный Спартанец в маске":
+                    _panth.HandlePanth(player, game);
+                    break;
+                case "Вампур":
+                    _vampyr.HandleVampyr(player, game);
                     break;
             }
 
@@ -384,7 +386,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard - 1 == shark.Status.PlaceAtLeaderBoard);
                 var enemyBottom =
                     game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard + 1 == shark.Status.PlaceAtLeaderBoard);
-                if (enemyTop != null && enemyTop.Status.IsLostThisCalculation != Guid.Empty) shark.Status.AddRegularPoints();
+                if (enemyTop != null && enemyTop.Status.IsLostThisCalculation != Guid.Empty)
+                    shark.Status.AddRegularPoints();
                 if (enemyBottom != null && enemyBottom.Status.IsLostThisCalculation != Guid.Empty)
                     shark.Status.AddRegularPoints();
             }
@@ -433,9 +436,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 case "Братишка":
                     _shark.HandleSharkAfter(player, game);
                     break;
-                case "????":
-                    _deepList2.HandleDeepList2After(player);
-                    break;
                 case "Загадочный Спартанец в маске":
                     _panth.HandlePanthAfter(player, game);
                     break;
@@ -444,7 +444,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     break;
             }
 
-            if (player.Status.WhoToAttackThisTurn == Guid.Empty && player.Status.IsBlock == false) player.Status.IsBlock = true;
+            if (player.Status.WhoToAttackThisTurn == Guid.Empty && player.Status.IsBlock == false)
+                player.Status.IsBlock = true;
         }
 
 
@@ -470,7 +471,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             game.GameId));
                         break;
                     case "Братишка":
-                        _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId, game.GameId));
+                        _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId,
+                            game.GameId));
                         _gameGlobal.SharkJawsWin.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
                         _gameGlobal.SharkBoole.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
                         break;
@@ -511,7 +513,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         when = _gameGlobal.GetWhenToTrigger(player, true, 6, 2, false, 6);
                         _gameGlobal.DeepListSupermindTriggeredWhen.Add(when);
 
-                        when = _gameGlobal.GetWhenToTrigger(player, false, 10, 2);
+                        when = _gameGlobal.GetWhenToTrigger(player, true, 6, 2);
                         _gameGlobal.DeepListMadnessTriggeredWhen.Add(when);
 
                         break;
@@ -656,7 +658,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             player.Character.AddPsyche(player.Status, -4);
                             await _phrase.DarksciDysmoral.SendLog(player);
-                            game.AddPreviousGameLogs($"**{player.DiscordAccount.DiscordUserName}:** Всё, у меня горит!");
+                            game.AddPreviousGameLogs(
+                                $"**{player.DiscordAccount.DiscordUserName}:** Всё, у меня горит!");
                         }
                         //end Дизмораль
 
@@ -923,6 +926,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             if (madd.WhenToTrigger.Contains(game.RoundNo))
                             {
                                 //trigger maddness
+                                player.Status.AddBonusPoints(-3);
 
                                 var curr = _gameGlobal.DeepListMadnessList.Find(x =>
                                     x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
@@ -958,22 +962,22 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                         case int n when n == 4 || n == 5 || n == 6:
                                             statNumber = 3;
                                             break;
-                                        case int n when n >= 7 || n <= 16:
+                                        case int n when n >= 7 && n <= 16:
                                             statNumber = 4;
                                             break;
-                                        case int n when n >= 17 || n <= 31:
+                                        case int n when n >= 17 && n <= 31:
                                             statNumber = 5;
                                             break;
-                                        case int n when n >= 32 || n <= 51:
+                                        case int n when n >= 32 && n <= 51:
                                             statNumber = 6;
                                             break;
-                                        case int n when n >= 52 || n <= 71:
+                                        case int n when n >= 52 && n <= 71:
                                             statNumber = 7;
                                             break;
-                                        case int n when n >= 72 || n <= 86:
+                                        case int n when n >= 72 && n <= 86:
                                             statNumber = 8;
                                             break;
-                                        case int n when n >= 87 || n <= 96:
+                                        case int n when n >= 87 && n <= 96:
                                             statNumber = 9;
                                             break;
                                         case int n when n >= 97:
@@ -1367,6 +1371,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     {
                         leCrisp.Status.AddRegularPoints();
                         await _phrase.LeCrispJewPhrase.SendLog(leCrisp);
+                        if (player.Character.Name == "DeepList")
+                        {
+                            await _phrase.LeCrispBoolingPhrase.SendLog(leCrisp);
+                            return 1;
+                        }
+
                         return 0;
                     }
 
@@ -1486,7 +1496,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         return;
                     }
 
-                    var wonPlayer = hardKitty?.LostSeries.Find(x => x.EnemyPlayerId == player.Status.IsWonThisCalculation);
+                    var wonPlayer =
+                        hardKitty?.LostSeries.Find(x => x.EnemyPlayerId == player.Status.IsWonThisCalculation);
                     if (wonPlayer != null)
                     {
                         player.Status.AddRegularPoints(wonPlayer.Series);
@@ -1495,16 +1506,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             var player2 = game.PlayersList.Find(x =>
                                 x.Status.PlayerId == player.Status.IsWonThisCalculation);
 
-                                player2.Character.AddPsyche(player2.Status, -1);
-                                player2.MinusPsycheLog(game);
-
+                            player2.Character.AddPsyche(player2.Status, -1);
+                            player2.MinusPsycheLog(game);
                         }
 
                         wonPlayer.Series = 0;
 
 
-                            await _phrase.HardKittyDoebatsyaPhrase.SendLog(player);
-              
+                        await _phrase.HardKittyDoebatsyaPhrase.SendLog(player);
                     }
 
                     // end Doebatsya
@@ -1664,7 +1673,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                     if (player2 != null)
                                     {
                                         player2.Status.AddBonusPoints(-5);
-                                        
+
                                         await _phrase.MitsukiGarbageSmell.SendLog(player2);
                                         count++;
                                     }
@@ -1810,7 +1819,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             playerAttackedOctopus.Status.IsWonThisCalculation = octopusPlayer.Status.PlayerId;
             octopusPlayer.Status.IsLostThisCalculation = playerAttackedOctopus.Status.PlayerId;
-            octopusPlayer.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerAttackedOctopus.Status.PlayerId, game.RoundNo, false));
+            octopusPlayer.Status.WhoToLostEveryRound.Add(
+                new InGameStatus.WhoToLostPreviousRoundClass(playerAttackedOctopus.Status.PlayerId, game.RoundNo,
+                    false));
 
             var octo = _gameGlobal.OctopusInkList.Find(x =>
                 x.PlayerId == octopusPlayer.Status.PlayerId &&

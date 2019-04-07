@@ -14,19 +14,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         public DiceRollCommands(SecureRandom secureRandom)
         {
             _secureRandom = secureRandom;
-    
-        }
-
-        public class StatsStruct
-        {
-            public readonly int Number;
-            public int Count;
-
-            public StatsStruct(int number, int count)
-            {
-                Number = number;
-                Count = count;
-            }
         }
 
         [Command("rst")]
@@ -53,7 +40,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             {
                 var ran = _secureRandom.Random(1, 10);
                 statsList.Find(x => x.Number == ran).Count += 1;
-
             }
 
             var mess = $"{statsList[0].Number} = {statsList[0].Count}\n" +
@@ -67,13 +53,12 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                        $"{statsList[8].Number} = {statsList[8].Count}\n" +
                        $"{statsList[9].Number} = {statsList[9].Count}\n";
 
-                var embed = new EmbedBuilder();
-              
-                embed.WithTitle($"Roll {times} times:");
-                embed.WithDescription($"{mess}");
+            var embed = new EmbedBuilder();
 
-                await SendMessAsync(embed);
-  
+            embed.WithTitle($"Roll {times} times:");
+            embed.WithDescription($"{mess}");
+
+            await SendMessAsync(embed);
         }
 
         [Command("roll")]
@@ -113,7 +98,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 embed.WithTitle($"Roll {times} times:");
                 embed.WithDescription($"{mess}");
 
-                await SendMessAsync( embed);
+                await SendMessAsync(embed);
             }
             catch
             {
@@ -128,9 +113,21 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         [Summary("Rolling a dice 1 time")]
         public async Task Roll(int number)
         {
-                var randomIndexRoll = _secureRandom.Random(1, number);
+            var randomIndexRoll = _secureRandom.Random(1, number);
 
-                await SendMessAsync( $"It's a {randomIndexRoll}!");
+            await SendMessAsync($"It's a {randomIndexRoll}!");
+        }
+
+        public class StatsStruct
+        {
+            public readonly int Number;
+            public int Count;
+
+            public StatsStruct(int number, int count)
+            {
+                Number = number;
+                Count = count;
+            }
         }
     }
 }

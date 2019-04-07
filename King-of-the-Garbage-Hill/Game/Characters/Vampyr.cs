@@ -23,7 +23,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             return Task.CompletedTask;
         }
 
-        public void HandleVampyr(GamePlayerBridgeClass player)
+        public void HandleVampyr(GamePlayerBridgeClass player, GameClass game)
         {
             //    throw new System.NotImplementedException();
         }
@@ -48,7 +48,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 if (!vamp.FriendList.Contains(player.Status.IsWonThisCalculation))
                 {
                     vamp.FriendList.Add(player.Status.IsWonThisCalculation);
-                   // player.Status.AddBonusPoints();
+                    // player.Status.AddBonusPoints();
 
                     for (var i = 0; i < 2; i++)
                     {
@@ -103,7 +103,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             else
             {
                 var vamp = _gameGlobal.VampyrKilledList.Find(x =>
-               x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                    x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
 
                 if (vamp.FriendList.Contains(player.Status.IsLostThisCalculation))
                 {
@@ -111,10 +111,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 }
                 else
                 {
-                    if(vamp.FriendList.Count > 0)
-                    {
-                        vamp.FriendList.RemoveAt(_rand.Random(0, vamp.FriendList.Count-1));
-                    }
+                    if (vamp.FriendList.Count > 0) vamp.FriendList.RemoveAt(_rand.Random(0, vamp.FriendList.Count - 1));
                 }
             }
             //end Гематофагия

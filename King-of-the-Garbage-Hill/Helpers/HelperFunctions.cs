@@ -12,9 +12,7 @@ namespace King_of_the_Garbage_Hill.Helpers
     public sealed class HelperFunctions : IServiceSingleton
     {
         private readonly UserAccounts _accounts;
-        private readonly SecureRandom _secureRandom;
-        private readonly CharactersPull _charactersPull;
-        private readonly Global _global;
+
         private readonly List<string> _characterNames = new List<string>
         {
             "UselessCrab",
@@ -25,7 +23,12 @@ namespace King_of_the_Garbage_Hill.Helpers
             "Drone"
         };
 
-        public HelperFunctions(CharactersPull charactersPull, Global global, UserAccounts accounts, SecureRandom secureRandom)
+        private readonly CharactersPull _charactersPull;
+        private readonly Global _global;
+        private readonly SecureRandom _secureRandom;
+
+        public HelperFunctions(CharactersPull charactersPull, Global global, UserAccounts accounts,
+            SecureRandom secureRandom)
         {
             _charactersPull = charactersPull;
             _global = global;
@@ -35,7 +38,9 @@ namespace King_of_the_Garbage_Hill.Helpers
 
 
         public Task InitializeAsync()
-            => Task.CompletedTask;
+        {
+            return Task.CompletedTask;
+        }
 
         public async Task DeleteBotAndUserMessage(IUserMessage botMessage, SocketMessage userMessage,
             int timeInSeconds)
@@ -57,7 +62,7 @@ namespace King_of_the_Garbage_Hill.Helpers
         {
             var prevGame = _global.GamesList.Find(
                 x => x.PlayersList.Any(m => m.DiscordAccount.DiscordId == discordId));
-           
+
             if (prevGame != null)
             {
                 var account = GetFreeBot(prevGame.PlayersList, prevGame.GameId);
@@ -80,14 +85,14 @@ namespace King_of_the_Garbage_Hill.Helpers
 
             do
             {
-                var index = _secureRandom.Random(0, _characterNames.Count-1);
+                var index = _secureRandom.Random(0, _characterNames.Count - 1);
                 name = _characterNames[index];
             } while (playerList.Any(x => x.DiscordAccount.DiscordUserName == name));
 
             ulong i = 1;
             do
             {
-                account  = _accounts.GetAccount(i);
+                account = _accounts.GetAccount(i);
                 i++;
             } while (account.IsPlaying);
 
@@ -96,8 +101,8 @@ namespace King_of_the_Garbage_Hill.Helpers
             account.IsPlaying = true;
             _accounts.SaveAccounts(account.DiscordId);
 
-            return new GamePlayerBridgeClass {DiscordAccount = account, Character = character, Status = new InGameStatus()};
+            return new GamePlayerBridgeClass
+                {DiscordAccount = account, Character = character, Status = new InGameStatus()};
         }
-
     }
 }

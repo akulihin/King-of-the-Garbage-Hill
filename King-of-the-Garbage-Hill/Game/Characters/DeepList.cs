@@ -11,18 +11,21 @@ namespace King_of_the_Garbage_Hill.Game.Characters
     {
         private readonly InGameGlobal _gameGlobal;
         private readonly CharactersUniquePhrase _phrase;
-        public DeepList( InGameGlobal gameGlobal, CharactersUniquePhrase phrase)
+
+        public DeepList(InGameGlobal gameGlobal, CharactersUniquePhrase phrase)
         {
             _gameGlobal = gameGlobal;
             _phrase = phrase;
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
 
-        
+
         public void HandleDeepList(GamePlayerBridgeClass player)
         {
-
         }
 
         public async Task HandleDeepListTactics(GamePlayerBridgeClass player)
@@ -32,16 +35,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 x.PlayerId == player.Status.PlayerId && player.DiscordAccount.GameId == x.GameId);
 
 
-               
- if (!deep.FriendList.Contains(player.Status.IsFighting))
-                {
-                    deep.FriendList.Add(player.Status.IsFighting);
-                   
-                    player.Status.IsAbleToWin = false;
+            if (!deep.FriendList.Contains(player.Status.IsFighting))
+            {
+                deep.FriendList.Add(player.Status.IsFighting);
 
-                }
-
-            
+                player.Status.IsAbleToWin = false;
+                await _phrase.DeepListDoubtfulTacticFirstLostPhrase.SendLog(player);
+            }
 
 
             //end Doubtful tactic
@@ -53,18 +53,15 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                 x.PlayerId == player.Status.PlayerId && player.DiscordAccount.GameId == x.GameId);
 
-     
-                player.Status.IsAbleToWin = true;
-                if (deep.FriendList.Contains(player.Status.IsFighting))
+
+            player.Status.IsAbleToWin = true;
+            if (deep.FriendList.Contains(player.Status.IsFighting))
+                if (player.Status.IsWonThisCalculation != Guid.Empty)
                 {
-                  
-                    if (player.Status.IsWonThisCalculation != Guid.Empty)
-                    {
-                        player.Status.AddRegularPoints();
-                        await _phrase.DeepListDoubtfulTacticPhrase.SendLog(player);
-                    }
+                    player.Status.AddRegularPoints();
+                    await _phrase.DeepListDoubtfulTacticPhrase.SendLog(player);
                 }
-            
+
 
             //end Doubtful tactic
 
@@ -72,14 +69,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             if (player.Status.IsWonThisCalculation != Guid.Empty)
             {
                 var player2 = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation);
-                HandleMockery(player, player2, game);
+              await  HandleMockery(player, player2, game);
             }
 
             //end Стёб
         }
 
-             
-        public void HandleMockery(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, GameClass game)
+
+        public async Task HandleMockery(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, GameClass game)
         {
             //Стёб
             var currentDeepList =
@@ -97,16 +94,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                     if (currentDeepList2.Times % 2 != 0 && currentDeepList2.Times != 1)
                     {
-
-                            player2.Character.AddPsyche(player2.Status, -1);
-                            player2.MinusPsycheLog(game);
-
+                        player2.Character.AddPsyche(player2.Status, -1);
+                        player2.MinusPsycheLog(game);
                         player.Status.AddRegularPoints();
-                        //
-                        if (player2.Character.GetPsyche() < 4)
-                        {
-                            player2.Character.Justice.AddJusticeForNextRound(-1);
-                        }
+                      await  _phrase.DeepListPokePhrase.SendLog(player);
+                        if (player2.Character.GetPsyche() < 4) player2.Character.Justice.AddJusticeForNextRound(-1);
                     }
                 }
                 else
@@ -126,7 +118,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //end Стёб
         }
 
-        
+
         public class Mockery
         {
             public ulong GameId;
@@ -155,9 +147,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public class SuperMindKnown
         {
-            public Guid PlayerId;
             public ulong GameId;
             public List<Guid> KnownPlayers = new List<Guid>();
+            public Guid PlayerId;
 
             public SuperMindKnown(Guid playerId, ulong gameId, Guid player2Id)
             {
@@ -169,10 +161,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public class Madness
         {
-            public Guid PlayerId;
             public ulong GameId;
-            public int RoundItTriggered;
             public List<MadnessSub> MadnessList = new List<MadnessSub>();
+            public Guid PlayerId;
+            public int RoundItTriggered;
+
             public Madness(Guid playerId, ulong gameId, int roundItTriggered)
             {
                 PlayerId = playerId;
@@ -185,9 +178,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             public int Index;
             public int Intel;
-            public int Str;
-            public int Speed;
             public int Psyche;
+            public int Speed;
+            public int Str;
 
             public MadnessSub(int index, int intel, int str, int speed, int psyche)
             {
@@ -198,7 +191,5 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 Psyche = psyche;
             }
         }
-
-
     }
 }

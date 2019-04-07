@@ -8,7 +8,6 @@ namespace King_of_the_Garbage_Hill
 {
     public sealed class Config : IServiceSingleton
     {
-
         public Config(LoginFromConsole log)
         {
             try
@@ -23,8 +22,11 @@ namespace King_of_the_Garbage_Hill
             }
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
-
         [JsonProperty("Token")] public string Token { get; private set; }
+
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
     }
 }

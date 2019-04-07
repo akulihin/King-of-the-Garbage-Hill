@@ -6,15 +6,16 @@ namespace King_of_the_Garbage_Hill.Helpers
 {
     public sealed class AwaitForUserMessage : IServiceSingleton
     {
-
-        public Task InitializeAsync()
-            => Task.CompletedTask;
-
         private readonly Global _global;
 
         public AwaitForUserMessage(Global global)
         {
             _global = global;
+        }
+
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
         }
 
         public async Task<SocketMessage> AwaitMessage(ulong userId, ulong channelId, int delayInMs)
@@ -53,9 +54,10 @@ namespace King_of_the_Garbage_Hill.Helpers
             var response = res.Content.ToLower();
 
             await mess.DeleteAsync();
-          
 
-            return (response.Contains("yes") || response.Contains("ye") || response.Contains("y") || response.Contains("у"));
+
+            return response.Contains("yes") || response.Contains("ye") || response.Contains("y") ||
+                   response.Contains("у");
         }
 
         public async Task ReplyAndDeleteOvertime(string mess, int timeInSeconds, SocketReaction reaction)

@@ -6,12 +6,6 @@ namespace King_of_the_Garbage_Hill.Game.Classes
     //unUsed.
     public class GameLogsClass
     {
-        public ulong GameId { get; set; }
-        public Guid WhoWon { get; set; }
-        public List<GameLogsPlayer> PlayerList { get; set; }
-        public DateTime Date { get; set; }
-        public String GameLogs { get; set; }
-
         public GameLogsClass(ulong gameId, Guid whoWon, List<GameLogsPlayer> playerList, string gameLogs)
         {
             GameId = gameId;
@@ -20,22 +14,29 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             Date = DateTime.Now;
             GameLogs = gameLogs;
         }
+
+        public ulong GameId { get; set; }
+        public Guid WhoWon { get; set; }
+        public List<GameLogsPlayer> PlayerList { get; set; }
+        public DateTime Date { get; set; }
+        public string GameLogs { get; set; }
     }
 
     public class GameLogsPlayer
     {
+        public string Character;
+        public string InGamePersonalLogsAll;
+        public int Intelligence;
         public ulong PlayerId;
         public string PlayerUserName;
-        public string Character;
-        public int Score; 
-        public int Intelligence; 
         public int Psyche;
+        public int Score;
         public int Speed;
         public int Strength;
-        public string InGamePersonalLogsAll;
 
 
-        public GameLogsPlayer(ulong playerId, string playerName, string charName, int score, int  intelligence, int strength, int speed, int psyche, string inGamePersonalLogsAll)
+        public GameLogsPlayer(ulong playerId, string playerName, string charName, int score, int intelligence,
+            int strength, int speed, int psyche, string inGamePersonalLogsAll)
         {
             PlayerId = playerId;
             PlayerUserName = playerName;

@@ -77,7 +77,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 if (playerIamAttacking == null)
                 {
-                    var leftUser = $"ERROR";
+                    var leftUser = "ERROR";
 
                     player.Status.AddRegularPoints();
 
@@ -98,7 +98,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 await _characterPassives.HandleCharacterBeforeCalculations(playerIamAttacking, game);
 
-                if (playerIamAttacking.Status.WhoToAttackThisTurn == Guid.Empty && playerIamAttacking.Status.IsBlock == false)
+                if (playerIamAttacking.Status.WhoToAttackThisTurn == Guid.Empty &&
+                    playerIamAttacking.Status.IsBlock == false)
                     playerIamAttacking.Status.IsBlock = true;
 
                 //т.е. он получил урон, какие у него дебаффы на этот счет 
@@ -209,7 +210,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     isTooGoodEnemy = true;
                     randomForTooGood = 32;
                 }
-               
+
 
                 if (strangeNumber > 0) pointsWined++;
                 if (strangeNumber < 0) pointsWined--;
@@ -252,7 +253,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     player.Status.IsWonThisCalculation = playerIamAttacking.Status.PlayerId;
                     playerIamAttacking.Status.IsLostThisCalculation = player.Status.PlayerId;
-                    playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.Status.PlayerId, game.RoundNo, isTooGoodPlayer));
+                    playerIamAttacking.Status.WhoToLostEveryRound.Add(
+                        new InGameStatus.WhoToLostPreviousRoundClass(player.Status.PlayerId, game.RoundNo,
+                            isTooGoodPlayer));
                 }
                 else
                 {
@@ -271,7 +274,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         playerIamAttacking.Status.IsWonThisCalculation = player.Status.PlayerId;
                         player.Status.IsLostThisCalculation = playerIamAttacking.Status.PlayerId;
-                        player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.Status.PlayerId, game.RoundNo, isTooGoodEnemy));
+                        player.Status.WhoToLostEveryRound.Add(
+                            new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.Status.PlayerId,
+                                game.RoundNo, isTooGoodEnemy));
                     }
                 }
 

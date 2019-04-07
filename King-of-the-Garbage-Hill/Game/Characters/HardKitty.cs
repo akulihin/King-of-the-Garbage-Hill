@@ -7,25 +7,26 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class HardKitty : IServiceSingleton
     {
-
-        public Task InitializeAsync() => Task.CompletedTask;
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
 
         public void HandleHardKitty(GamePlayerBridgeClass player)
         {
-         //   throw new System.NotImplementedException();
+            //   throw new System.NotImplementedException();
         }
 
         public void HandleHardKittyAfter(GamePlayerBridgeClass player, GameClass game)
         {
-          //
-
+            //
         }
 
         public class DoebatsyaClass
         {
             public ulong GameId;
-            public Guid PlayerId;
             public List<DoebatsyaSubClass> LostSeries = new List<DoebatsyaSubClass>();
+            public Guid PlayerId;
 
             public DoebatsyaClass(Guid playerId, ulong gameId, Guid enemyId)
             {
@@ -45,7 +46,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 EnemyPlayerId = enemyPlayerId;
                 Series = 1;
             }
-
         }
 
 
@@ -62,7 +62,5 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 UniquePlayers.Add(enemyPlayerId);
             }
         }
-
-
     }
 }

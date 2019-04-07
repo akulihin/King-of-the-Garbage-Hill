@@ -4,31 +4,29 @@ using System.Threading.Tasks;
 
 namespace King_of_the_Garbage_Hill.Helpers
 {
-      public sealed class  SecureRandom : IServiceTransient
+    public sealed class SecureRandom : IServiceTransient
     {
-
-        public Task InitializeAsync()
-            => Task.CompletedTask;
-
         private readonly RNGCryptoServiceProvider _csp;
 
-        public  SecureRandom()
+        public SecureRandom()
         {
             _csp = new RNGCryptoServiceProvider();
         }
 
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
+
         public int Random(int minValue, int maxExclusiveValue)
         {
-            if (minValue == maxExclusiveValue)
-            {
-                return minValue;
-            }
+            if (minValue == maxExclusiveValue) return minValue;
 
             if (minValue >= maxExclusiveValue)
                 // ReSharper disable once NotResolvedInText its ok.
                 throw new ArgumentOutOfRangeException("minValue must be lower than maxExclusiveValue");
             maxExclusiveValue += 1;
-            var diff = (long)maxExclusiveValue - minValue;
+            var diff = (long) maxExclusiveValue - minValue;
             var upperBound = uint.MaxValue / diff * diff;
 
             uint ui;
@@ -36,7 +34,8 @@ namespace King_of_the_Garbage_Hill.Helpers
             {
                 ui = GetRandomUInt();
             } while (ui >= upperBound);
-            return (int)(minValue + (ui % diff));
+
+            return (int) (minValue + ui % diff);
         }
 
         private uint GetRandomUInt()

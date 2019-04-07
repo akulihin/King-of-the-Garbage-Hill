@@ -314,7 +314,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             embed.WithColor(Color.DarkOrange);
             embed.WithDescription(gameRules);
 
-                
+
             await Context.User.SendMessageAsync("", false, embed.Build());
         }
 
@@ -369,7 +369,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 if (user != null) continue;
 
                 var account = _helperFunctions.GetFreeBot(playersList, accountDeep.GameId);
-               
+
                 playersList.Add(account);
             }
 

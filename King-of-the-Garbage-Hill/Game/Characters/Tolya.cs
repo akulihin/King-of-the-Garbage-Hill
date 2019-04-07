@@ -14,20 +14,21 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             _inGameGlobal = inGameGlobal;
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
 
         public void HandleTolya(GamePlayerBridgeClass player)
         {
-          //  throw new System.NotImplementedException();
+            //  throw new System.NotImplementedException();
         }
 
         public void HandleTolyaAfter(GamePlayerBridgeClass player, GameClass game)
         {
             if (player.Status.IsBlock && player.Status.IsWonThisCalculation != Guid.Empty)
-            {
                 game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Status
                     .IsAbleToWin = true;
-            }
 
 
             if (player.Status.IsLostThisCalculation != Guid.Empty)
@@ -36,7 +37,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     x.PlayerId == player.Status.PlayerId && x.GameId == player.DiscordAccount.GameId);
                 if (tolya == null)
                 {
-                    _inGameGlobal.TolyaCount.Add(new TolyaCountClass(player.DiscordAccount.GameId, player.Status.PlayerId, player.Status.IsLostThisCalculation));
+                    _inGameGlobal.TolyaCount.Add(new TolyaCountClass(player.DiscordAccount.GameId,
+                        player.Status.PlayerId, player.Status.IsLostThisCalculation));
                     return;
                 }
 
@@ -44,7 +46,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 {
                     tolya.IsActive = false;
                     tolya.WhoToLostLastTimeId = player.Status.IsLostThisCalculation;
-                    return;
                 }
                 else
                 {
@@ -52,16 +53,18 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     tolya.WhoToLostLastTimeId = Guid.Empty;
                 }
             }
-           //  throw new System.NotImplementedException();
+
+            //  throw new System.NotImplementedException();
         }
 
         public class TolyaCountClass
         {
+            public int Cooldown;
             public ulong GameId;
+            public bool IsActive;
             public Guid PlayerId;
             public Guid WhoToLostLastTimeId;
-            public bool IsActive;
-            public int Cooldown;
+
             public TolyaCountClass(ulong gameId, Guid playerId, Guid whoToLostLastTimeId)
             {
                 GameId = gameId;

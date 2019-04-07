@@ -12,7 +12,6 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
     {
         private readonly SecureRandom _rand;
 
-        public readonly List<BotsBehavior.NanobotClass> NanobotsList = new List<BotsBehavior.NanobotClass>();
         public readonly List<WhenToTriggerClass>
             AllSkipTriggeredWhen = new List<WhenToTriggerClass>();
 
@@ -61,6 +60,8 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public readonly List<HardKitty.MuteClass> HardKittyMute = new List<HardKitty.MuteClass>();
 
         public readonly List<LeCrisp.LeCrispImpactClass> LeCrispImpact = new List<LeCrisp.LeCrispImpactClass>();
+        public readonly List<LolGod.PushAndDieClass> LolGodPushAndDieSubList = new List<LolGod.PushAndDieClass>();
+        public readonly List<LolGod.Udyr> LolGodUdyrList = new List<LolGod.Udyr>();
 
         public readonly List<Mitsuki.GarbageClass> MitsukiGarbageList = new List<Mitsuki.GarbageClass>();
 
@@ -71,6 +72,8 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
             MylorikBooleTriggeredWhen = new List<WhenToTriggerClass>();
 
         public readonly List<Mylorik.MylorikRevengeClass> MylorikRevenge = new List<Mylorik.MylorikRevengeClass>();
+
+        public readonly List<BotsBehavior.NanobotClass> NanobotsList = new List<BotsBehavior.NanobotClass>();
         public readonly List<Octopus.InkClass> OctopusInkList = new List<Octopus.InkClass>();
 
         public readonly List<Octopus.InvulnerabilityClass> OctopusInvulnerabilityList =
@@ -94,8 +97,6 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public readonly List<Tolya.TolyaCountClass> TolyaCount = new List<Tolya.TolyaCountClass>();
         public readonly List<FriendsClass> TolyaRammusTimes = new List<FriendsClass>();
         public readonly List<FriendsClass> VampyrKilledList = new List<FriendsClass>();
-        public readonly List<LolGod.PushAndDieClass> LolGodPushAndDieSubList = new List<LolGod.PushAndDieClass>();
-        public readonly List<LolGod.Udyr> LolGodUdyrList = new List<LolGod.Udyr>();
 
         public InGameGlobal(SecureRandom rand)
         {
@@ -115,9 +116,9 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         {
             var toTriggerClass = new WhenToTriggerClass(player.Status.PlayerId, player.DiscordAccount.GameId);
             int when;
-            var check =  new List<int>();
+            var check = new List<int>();
 
-            
+
             if (maxRandomNumber == 0)
             {
                 when = _rand.Random(2, lastRound);
@@ -165,10 +166,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
                     while (times < rand)
                     {
                         when = _rand.Random(1, lastRound);
-                            if(when == 11 || when == 12)
-                            {
-                                when = 10;
-                            }
+                        if (when == 11 || when == 12) when = 10;
 
                         if (toTriggerClass.WhenToTrigger.All(x => x != when))
                         {
@@ -184,12 +182,9 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
                     while (times < rand)
                     {
                         when = _rand.Random(1, lastRound);
-                            if (when == 11 || when == 12)
-                            {
-                                when = 10;
-                            }
+                        if (when == 11 || when == 12) when = 10;
 
-                            if (toTriggerClass.WhenToTrigger.All(x => x != when))
+                        if (toTriggerClass.WhenToTrigger.All(x => x != when))
                         {
                             toTriggerClass.WhenToTrigger.Add(when);
                             times++;
@@ -203,12 +198,9 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
                     while (times < rand)
                     {
                         when = _rand.Random(1, lastRound);
-                            if (when == 11 || when == 12)
-                            {
-                                when = 10;
-                            }
+                        if (when == 11 || when == 12) when = 10;
 
-                            if (toTriggerClass.WhenToTrigger.All(x => x != when))
+                        if (toTriggerClass.WhenToTrigger.All(x => x != when))
                         {
                             toTriggerClass.WhenToTrigger.Add(when);
                             times++;
@@ -218,24 +210,21 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
                     break;
                 }
                 case 4 when maxTimes >= 4:
+                {
+                    while (times < rand)
                     {
-                        while (times < rand)
+                        when = _rand.Random(1, lastRound);
+                        if (when == 11 || when == 12) when = 10;
+
+                        if (toTriggerClass.WhenToTrigger.All(x => x != when))
                         {
-                            when = _rand.Random(1, lastRound);
-                            if (when == 11 || when == 12)
-                            {
-                                when = 10;
-                            }
-
-                            if (toTriggerClass.WhenToTrigger.All(x => x != when))
-                            {
-                                toTriggerClass.WhenToTrigger.Add(when);
-                                times++;
-                            }
+                            toTriggerClass.WhenToTrigger.Add(when);
+                            times++;
                         }
-
-                        break;
                     }
+
+                    break;
+                }
             }
 
             return toTriggerClass;

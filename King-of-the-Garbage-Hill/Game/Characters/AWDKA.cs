@@ -15,57 +15,52 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             _gameGlobal = gameGlobal;
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public Task InitializeAsync()
+        {
+            return Task.CompletedTask;
+        }
 
         public void HandleAwdka(GamePlayerBridgeClass player)
         {
-          //  throw new System.NotImplementedException();
-          
+            //  throw new System.NotImplementedException();
         }
 
         public void HandleAwdkaAfter(GamePlayerBridgeClass player)
         {
-
             if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
                 var awdka = _gameGlobal.AwdkaTryingList.Find(x =>
-                    x.GameId == player.DiscordAccount.GameId && x. PlayerId == player.Status.PlayerId);
+                    x.GameId == player.DiscordAccount.GameId && x.PlayerId == player.Status.PlayerId);
 
-                if(awdka == null)
+                if (awdka == null)
                 {
-                    _gameGlobal.AwdkaTryingList.Add(new TryingClass(player.Status.PlayerId, player.DiscordAccount.GameId, player.Status.IsLostThisCalculation ));
+                    _gameGlobal.AwdkaTryingList.Add(new TryingClass(player.Status.PlayerId,
+                        player.DiscordAccount.GameId, player.Status.IsLostThisCalculation));
                 }
                 else
                 {
                     var enemy = awdka.TryingList.Find(x => x.EnemyPlayerId == player.Status.IsLostThisCalculation);
                     if (enemy == null)
-                    {
                         awdka.TryingList.Add(new TryingSubClass(player.Status.IsLostThisCalculation));
-                    }
                     else
-                    {
                         enemy.Times++;
-                    }
-                 
                 }
             }
-            
         }
 
         public class TrollingClass
         {
+            public int Cooldown;
             public ulong GameId;
             public Guid PlayerId;
-            public int Cooldown;
 
-            public TrollingClass(Guid playerId, ulong gameId )
+            public TrollingClass(Guid playerId, ulong gameId)
             {
                 PlayerId = playerId;
                 GameId = gameId;
                 Cooldown = 2;
             }
         }
-
 
 
         public class TryingClass
@@ -85,8 +80,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class TryingSubClass
         {
             public Guid EnemyPlayerId;
-            public int Times;
             public bool IsUnique;
+            public int Times;
 
             public TryingSubClass(Guid enemyPlayerId)
             {
@@ -95,6 +90,5 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 IsUnique = false;
             }
         }
-
     }
 }

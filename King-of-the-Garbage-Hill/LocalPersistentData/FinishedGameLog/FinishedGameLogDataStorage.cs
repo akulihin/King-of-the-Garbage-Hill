@@ -20,14 +20,16 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.FinishedGameLog
         }
 
         public async Task InitializeAsync()
-            => await Task.CompletedTask;
+        {
+            await Task.CompletedTask;
+        }
 
 
         public void SaveLogs(IEnumerable<GameLogsClass> accounts)
         {
             try
             {
-                var filePath = $@"DataBase/OctoDataBase/GameLogs.json";
+                var filePath = @"DataBase/OctoDataBase/GameLogs.json";
 
                 var json = JsonConvert.SerializeObject(accounts, Formatting.Indented);
                 File.WriteAllText(filePath, json);
@@ -40,7 +42,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.FinishedGameLog
 
         public List<GameLogsClass> LoadLogs()
         {
-            var filePath = $@"DataBase/OctoDataBase/GameLogs.json";
+            var filePath = @"DataBase/OctoDataBase/GameLogs.json";
 
             if (!File.Exists(filePath))
             {
