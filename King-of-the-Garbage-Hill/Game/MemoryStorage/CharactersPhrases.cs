@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Discord;
 using King_of_the_Garbage_Hill.Game.Classes;
 
 //using Discord;
@@ -407,6 +408,28 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                 }
 
                 await Task.CompletedTask;
+            }
+
+            public async Task SendLogSeparate(GamePlayerBridgeClass player)
+            {
+                if(player.IsBot()) return;
+
+
+                var random = new Random();
+                var description = PassiveLogRus[random.Next(0, PassiveLogRus.Count)];
+                player.Status.InGamePersonalLogsAll += $"{description}";
+
+                var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(description);
+#pragma warning disable 4014
+                DeleteMessOverTime(mess2, 6);
+#pragma warning restore 4014
+            }
+
+            private async Task DeleteMessOverTime(IUserMessage message, int timeInSeconds)
+            {
+                var seconds = timeInSeconds * 1000;
+                await Task.Delay(seconds);
+                await message.DeleteAsync();
             }
         }
     }

@@ -156,8 +156,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     game.RoundNo == 10)
                 {
                     status.WhoToAttackThisTurn = Guid.Empty;
-                    if (!player.IsBot()) SendMsgAndDeleteIt(player, "На этого игрока нельзя нападать, почему-то...");
-
+                    SendMsgAndDeleteIt(player, "Выбранные игрок недоступен в связи с баном за нарушение правил");
                     return false;
                 }
                 /*
@@ -185,8 +184,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         x.RoundNo == game.RoundNo - 1 && x.EnemyId == status.WhoToAttackThisTurn))
                 {
                     status.WhoToAttackThisTurn = Guid.Empty;
-                    await _phrase.VampyrNoAttack.SendLog(player);
-                    SendMsgAndDeleteIt(player, "На этого игрока нельзя нападать, почему-то...");
+                    await _phrase.VampyrNoAttack.SendLogSeparate(player);
                     return false;
                 }
 
@@ -194,8 +192,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 if (status.WhoToAttackThisTurn == status.PlayerId)
                 {
                     status.WhoToAttackThisTurn = Guid.Empty;
-                    if (!player.IsBot()) SendMsgAndDeleteIt(player, "Зачем ты себя бьешь?");
-
+                     SendMsgAndDeleteIt(player, "Зачем ты себя бьешь?");
                     return false;
                 }
 

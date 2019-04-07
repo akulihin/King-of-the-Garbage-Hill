@@ -24,8 +24,22 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             // throw new System.NotImplementedException();
         }
 
-        public void HandleGlebAfter(GamePlayerBridgeClass player)
+        public void HandleGlebAfter(GamePlayerBridgeClass player, GameClass game)
         {
+            if (player.Status.IsWonThisCalculation != Guid.Empty)
+            {
+                var gleb = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
+                    x.PlayerId == player.Status.PlayerId &&
+                    game.GameId == x.GameId);
+
+                if (gleb != null)
+                {
+                    if (gleb.WhenToTrigger.Contains(game.RoundNo))
+                        player.Status.AddRegularPoints(2);
+                }
+            }
+
+
             //skip check
             var skip = _gameGlobal.GlebSkipList.Find(x =>
                 x.PlayerId == player.Status.PlayerId && x.GameId == player.DiscordAccount.GameId);

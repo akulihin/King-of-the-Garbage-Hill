@@ -118,6 +118,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
 
             //Осиновый кол
+            for(var k =0 ; k < 2; k++)
             if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
                 player.Status.AddBonusPoints(-1);

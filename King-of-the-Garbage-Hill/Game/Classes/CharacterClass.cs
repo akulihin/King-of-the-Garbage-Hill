@@ -23,11 +23,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public string Avatar { get; set; }
         public List<Passive> Passive { get; set; }
 
-        public void AddIntelligence(InGameStatus status, int howMuchToAdd = 1, bool isLog = true)
+        public void AddIntelligence(InGameStatus status, int howMuchToAdd = 1, bool isLog = true, string skillName = "")
         {
             if (howMuchToAdd > 0 && isLog)
-                status.AddInGamePersonalLogs($"+{howMuchToAdd} интеллект\n");
-            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{howMuchToAdd} интеллект\n");
+                status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} интеллект\n");
+            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} интеллект\n");
 
 
             Intelligence += howMuchToAdd;
@@ -48,11 +48,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             Intelligence = newIntelligence;
         }
 
-        public void AddPsyche(InGameStatus status, int howMuchToAdd = 1, bool isLog = true)
+        public void AddPsyche(InGameStatus status, int howMuchToAdd = 1, bool isLog = true, string skillName = "")
         {
             if (howMuchToAdd > 0 && isLog)
-                status.AddInGamePersonalLogs($"+{howMuchToAdd} психика\n");
-            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{howMuchToAdd} психика\n");
+                status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} психика\n");
+            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} психика\n");
 
 
             Psyche += howMuchToAdd;
@@ -73,11 +73,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             Psyche = newPsyche;
         }
 
-        public void AddSpeed(InGameStatus status, int howMuchToAdd = 1, bool isLog = true)
+        public void AddSpeed(InGameStatus status, int howMuchToAdd = 1, bool isLog = true, string skillName = "")
         {
             if (howMuchToAdd > 0 && isLog)
-                status.AddInGamePersonalLogs($"+{howMuchToAdd} скорость\n");
-            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{howMuchToAdd} скорость\n");
+                status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} скорость\n");
+            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} скорость\n");
 
 
             Speed += howMuchToAdd;
@@ -97,11 +97,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             Speed = newSpeed;
         }
 
-        public void AddStrength(InGameStatus status, int howMuchToAdd = 1, bool isLog = true)
+        public void AddStrength(InGameStatus status, int howMuchToAdd = 1, bool isLog = true, string skillName = "")
         {
             if (howMuchToAdd > 0 && isLog)
-                status.AddInGamePersonalLogs($"+{howMuchToAdd} сила\n");
-            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{howMuchToAdd} сила\n");
+                status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} сила\n");
+            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} сила\n");
 
 
             Strength += howMuchToAdd;

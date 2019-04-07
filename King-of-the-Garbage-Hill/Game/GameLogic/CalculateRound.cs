@@ -133,10 +133,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     {
                         //end Спарта
                         player.Character.Justice.AddJusticeForNextRound(-1);
-                        playerIamAttacking.Character.Justice.AddJusticeForNextRound();
                         player.Status.AddBonusPoints(-1);
                     }
-
+                    playerIamAttacking.Character.Justice.AddJusticeForNextRound();
 
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
                     await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);

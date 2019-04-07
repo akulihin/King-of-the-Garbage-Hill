@@ -105,7 +105,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (!shark.FriendList.Contains(playerAttackFrom.Status.PlayerId))
                     {
                         shark.FriendList.Add(playerAttackFrom.Status.PlayerId);
-                        playerAttackFrom.Character.AddIntelligence(playerAttackFrom.Status, -1);
+                        playerAttackFrom.Character.AddIntelligence(playerAttackFrom.Status, -1, true, "Ничего не понимает: ");
                     }
 
 
@@ -125,9 +125,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             if (acc.WhenToTrigger.Contains(game.RoundNo))
                                 return;
 
-                        if (!playerIamAttacking.Status.IsSkip && playerIamAttacking.Character.GetStrength() < 9
-                                                              && playerIamAttacking.Character.GetSpeed() < 9
-                                                              && playerIamAttacking.Character.GetIntelligence() < 9)
+
+                        if (!playerIamAttacking.Status.IsSkip)
                         {
                             playerIamAttacking.Status.IsSkip = true;
                             _gameGlobal.GlebSkipList.Add(
@@ -212,8 +211,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 case "Загадочный Спартанец в маске":
 
                     //Первая кровь: 
-                    _gameGlobal.PanthFirstBlood.Add(new FriendsClass(player1.Status.PlayerId,
-                        game.GameId, playerIamAttacking.Status.PlayerId));
+                    var pant = _gameGlobal.PanthFirstBlood.Find(x =>
+                        x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
+                    if (pant.FriendList.Count == 0) pant.FriendList.Add(playerIamAttacking.Status.PlayerId);
+
                     //end Первая кровь: 
 
                     //Они позорят военное искусство:
@@ -224,8 +225,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (!panth.FriendList.Contains(playerIamAttacking.Status.PlayerId))
                     {
                         panth.FriendList.Add(playerIamAttacking.Status.PlayerId);
-                        playerIamAttacking.Character.AddStrength(playerIamAttacking.Status, -1);
-                        playerIamAttacking.Character.AddSpeed(playerIamAttacking.Status, -1);
+                        playerIamAttacking.Character.AddStrength(playerIamAttacking.Status, -1, true, "Они позорят военное искусство: ");
+                        playerIamAttacking.Character.AddSpeed(playerIamAttacking.Status, -1, true, "Они позорят военное искусство: ");
                     }
 
 
@@ -236,9 +237,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 case "Глеб":
                     // Я за чаем:
                     var rand = _rand.Random(1, 8);
-                    if (player1.Character.GetIntelligence() >= 9 && player1.Character.GetStrength() >= 9 &&
-                        player1.Character.GetSpeed() >= 9 &&
-                        player1.Character.GetPsyche() >= 9) rand = _rand.Random(1, 7);
+
+                    var gleb = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
+                        x.PlayerId == player1.Status.PlayerId &&
+                        game.GameId == x.GameId);
+
+                    if (gleb != null)
+                        if (gleb.WhenToTrigger.Contains(game.RoundNo))
+                            rand = _rand.Random(1, 7);
+
+
                     if (rand == 1)
                     {
                         _gameGlobal.AllSkipTriggeredWhen.Add(new WhenToTriggerClass(player1.Status.WhoToAttackThisTurn,
@@ -404,7 +412,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     await _mylorik.HandleMylorikAfter(player, game);
                     break;
                 case "Глеб":
-                    _gleb.HandleGlebAfter(player);
+                    _gleb.HandleGlebAfter(player, game);
                     break;
                 case "LeCrisp":
                     _leCrisp.HandleLeCrispAfter(player, game);
@@ -1506,7 +1514,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             var player2 = game.PlayersList.Find(x =>
                                 x.Status.PlayerId == player.Status.IsWonThisCalculation);
 
-                            player2.Character.AddPsyche(player2.Status, -1);
+                            player2.Character.AddPsyche(player2.Status, -1, true, "Доебаться: ");
                             player2.MinusPsycheLog(game);
                         }
 

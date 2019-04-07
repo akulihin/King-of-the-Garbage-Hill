@@ -130,6 +130,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
             if (isMandatory)
             {
                 when = _rand.Random(1, lastRound);
+                if (when == 11 || when == 12) when = 10;
                 check.Add(when);
                 toTriggerClass.WhenToTrigger.Add(when);
             }

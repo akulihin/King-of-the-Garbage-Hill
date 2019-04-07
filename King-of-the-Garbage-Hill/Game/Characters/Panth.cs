@@ -30,18 +30,16 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             var panth = _gameGlobal.PanthFirstBlood.Find(x =>
                 x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
 
-            if (panth != null && panth.FriendList.Count == 1)
+            if (panth.FriendList.Count == 1)
             {
                 if (panth.FriendList.Contains(player.Status.IsWonThisCalculation))
                 {
                     player.Character.AddSpeed(player.Status);
-                    panth.FriendList.Clear();
                 }
                 else if (panth.FriendList.Contains(player.Status.IsLostThisCalculation))
                 {
                     var ene = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsLostThisCalculation);
-                    ene.Character.AddSpeed(ene.Status);
-                    panth.FriendList.Clear();
+                    ene.Character.AddSpeed(ene.Status, 1, true, "Первая кровь: ");
                 }
 
                 panth.FriendList.Add(Guid.Empty);
