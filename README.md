@@ -5,7 +5,7 @@
 **Brief description**
 Six players gets a random characters with unique passives skills, each of whom can attack a chosen target or defend. Victories bring players points and moving them up the table. The leading player wins after turn #ten moves.
 
-**____ **
+**____**
 
 **Detailed description:**
 Six players gets a random character. Players are not known against whom they play. Each turn a player can attack someone, or defend. In the event of an attack, the player either wins, gains a point, or loses, bringing points to the enemy. In the event of an attack on a "defensive" player, the attacker will lose 1 Point and 1 Justice. The defender will receive 1 Justice.
