@@ -11,9 +11,10 @@ Six players gets a random character. Players are not known against whom they pla
 
 **The battle:**
 All characters have 4 stats. To win a battle you need to win two of three stages:
-                            1) stats
-                            2) justice
-                            3) accident
+
+1) stats
+2) justice
+3) accident
 
 **1** - In the battle of stats, the Counter-superior stat plays a significant role (if your character is superior to the enemy in intelligence, for example, your character is smarter). **A smart character defeats Fast, Fast defeats Strong, and Strong defeats Smart.**
 The secondary role is played by the difference in the total amount of **Psychic**. The difference in Psychic additionally gives a slight advantage, which can win a point for "stats" stage
@@ -41,9 +42,10 @@ ________________________________________________________________________________
 
 **Бой:**
 У всех персонажей есть 4 стата, чтобы победить в бою нужно выиграть по двум из трех пунктов:
-                            1) статы 
-                            2) справедливость
-                            3) случайность 
+
+1) статы 
+2) справедливость
+3) случайность 
 
 **1** - В битве статов немалую роль играет Контр - превосходящий стат (если ваш персонаж превосходит врага например в интеллекте, то ваш персонаж умнее). Умный персонаж побеждает Быстрого, Быстрый Сильного, а Сильный Умного.
 Второстепенную роль играет разница в общей сумме статов. Разница в Психике дополнительно дает небольшое преимущество.
