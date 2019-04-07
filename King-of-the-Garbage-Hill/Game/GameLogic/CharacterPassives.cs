@@ -567,7 +567,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         bool flag;
                         do
                         {
-                            when = _gameGlobal.GetWhenToTrigger(player, true, 3, 6, true);
+                            when = _gameGlobal.GetWhenToTrigger(player, true, 6, 3, true, 11);
                             flag = false;
                             for (var i = 0; i < li.Count; i++)
                                 if (when.WhenToTrigger.Contains(li[i]))
