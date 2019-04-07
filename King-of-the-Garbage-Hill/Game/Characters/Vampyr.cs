@@ -100,6 +100,23 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     }
                 }
             }
+            else
+            {
+                var vamp = _gameGlobal.VampyrKilledList.Find(x =>
+               x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+
+                if (vamp.FriendList.Contains(player.Status.IsLostThisCalculation))
+                {
+                    vamp.FriendList.Remove(player.Status.IsLostThisCalculation);
+                }
+                else
+                {
+                    if(vamp.FriendList.Count > 0)
+                    {
+                        vamp.FriendList.RemoveAt(_rand.Random(0, vamp.FriendList.Count-1));
+                    }
+                }
+            }
             //end Гематофагия
 
 
