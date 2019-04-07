@@ -112,66 +112,68 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 else
                 {
                     if (vamp.FriendList.Count > 0) vamp.FriendList.RemoveAt(_rand.Random(0, vamp.FriendList.Count - 1));
+
+
+                    for (var k = 0; k < 2; k++)
+                        if (player.Status.IsLostThisCalculation != Guid.Empty)
+                        {
+                            player.Status.AddBonusPoints(-1);
+
+                            for (var i = 0; i < 1; i++)
+                            {
+                                var index = _rand.Random(1, 4);
+
+                                switch (index)
+                                {
+                                    case 1:
+                                        var intel = player.Character.GetIntelligence();
+                                        if (intel <= 0)
+                                        {
+                                            i--;
+                                            continue;
+                                        }
+
+                                        player.Character.AddIntelligence(player.Status, -1);
+                                        break;
+                                    case 2:
+                                        intel = player.Character.GetStrength();
+                                        if (intel <= 0)
+                                        {
+                                            i--;
+                                            continue;
+                                        }
+
+                                        player.Character.AddStrength(player.Status, -1);
+                                        break;
+                                    case 3:
+                                        intel = player.Character.GetSpeed();
+                                        if (intel <= 0)
+                                        {
+                                            i--;
+                                            continue;
+                                        }
+
+                                        player.Character.AddSpeed(player.Status, -1);
+                                        break;
+                                    case 4:
+                                        intel = player.Character.GetPsyche();
+                                        if (intel <= 0)
+                                        {
+                                            i--;
+                                            continue;
+                                        }
+
+                                        player.Character.AddPsyche(player.Status, -1);
+                                        break;
+                                }
+                            }
+                        }
                 }
             }
             //end Гематофагия
 
 
             //Осиновый кол
-            for(var k =0 ; k < 2; k++)
-            if (player.Status.IsLostThisCalculation != Guid.Empty)
-            {
-                player.Status.AddBonusPoints(-1);
-
-                for (var i = 0; i < 1; i++)
-                {
-                    var index = _rand.Random(1, 4);
-
-                    switch (index)
-                    {
-                        case 1:
-                            var intel = player.Character.GetIntelligence();
-                            if (intel <= 0)
-                            {
-                                i--;
-                                continue;
-                            }
-
-                            player.Character.AddIntelligence(player.Status, -1);
-                            break;
-                        case 2:
-                            intel = player.Character.GetStrength();
-                            if (intel <= 0)
-                            {
-                                i--;
-                                continue;
-                            }
-
-                            player.Character.AddStrength(player.Status, -1);
-                            break;
-                        case 3:
-                            intel = player.Character.GetSpeed();
-                            if (intel <= 0)
-                            {
-                                i--;
-                                continue;
-                            }
-
-                            player.Character.AddSpeed(player.Status, -1);
-                            break;
-                        case 4:
-                            intel = player.Character.GetPsyche();
-                            if (intel <= 0)
-                            {
-                                i--;
-                                continue;
-                            }
-
-                            player.Character.AddPsyche(player.Status, -1);
-                            break;
-                    }
-                }
-            }
 
             //end Осиновый кол
         }
