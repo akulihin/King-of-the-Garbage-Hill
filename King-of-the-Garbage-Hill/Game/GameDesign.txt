@@ -267,7 +267,7 @@ _________________________________________________________________________
         "PassiveName": "mechanics"
       },
       {
-        "PassiveDescription": " //Attacking the enemy discovers one of his random stats.",
+        "PassiveDescription": " //Discovers one of every enemies stats at the start and every second turn.",
         "PassiveName": "program code"
       },
       {
