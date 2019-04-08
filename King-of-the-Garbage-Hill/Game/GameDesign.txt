@@ -263,7 +263,7 @@ _________________________________________________________________________
         "PassiveName": "admin"
       },
       {
-        "PassiveDescription": " //Sees the results of the random on each of the enemies in advance. + or -",
+        "PassiveDescription": " //Sees the results of the random on each of the enemies in advance. (+ or -)",
         "PassiveName": "mechanics"
       },
       {
