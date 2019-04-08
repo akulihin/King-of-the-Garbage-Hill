@@ -267,7 +267,7 @@ _________________________________________________________________________
         "PassiveName": "mechanics"
       },
       {
-        "PassiveDescription": " //Discovers one of every enemies stat at the start and every second turn.",
+        "PassiveDescription": " //Discovers one of every enemies stats on every second turn.",
         "PassiveName": "program code"
       },
       {
