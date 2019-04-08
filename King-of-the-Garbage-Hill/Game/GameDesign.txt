@@ -259,7 +259,7 @@ _________________________________________________________________________
     "Avatar": null,
     "Passive": [
       {
-        "PassiveDescription": " //Drops 1 point from top1 enemy player for every turn after the second.",
+        "PassiveDescription": " //Drops 1 point from top1 player for every turn after the second.",
         "PassiveName": "admin"
       },
       {
