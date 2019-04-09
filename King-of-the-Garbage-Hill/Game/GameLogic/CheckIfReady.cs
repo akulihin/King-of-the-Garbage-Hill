@@ -59,11 +59,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var game = games[i];
 
 
-                if (game.RoundNo > 10)
+                if (game.RoundNo == 11)
                 {
                     game.WhoWon = game.PlayersList[0].Status.PlayerId;
                     game.AddPreviousGameLogs(
-                        $"\n**{game.PlayersList[0].DiscordAccount.DiscordUserName}** победил, играя за **{game.PlayersList[0].Character.Name}**");
+                        game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList[0].Status.GetScore())
+                            .Count > 1
+                            ? "\n**Ничья**"
+                            : $"\n**{game.PlayersList[0].DiscordAccount.DiscordUserName}** победил, играя за **{game.PlayersList[0].Character.Name}**");
+
 
                     _finishedGameLog.CreateNewLog(game);
 

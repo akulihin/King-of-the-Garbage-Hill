@@ -85,9 +85,9 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             ScoresToGiveAtEndOfRound = score;
         }
 
-        public void AddRegularPoints(double regularPoints)
+        public double GetScoresToGiveAtEndOfRound()
         {
-            ScoresToGiveAtEndOfRound += regularPoints;
+            return ScoresToGiveAtEndOfRound;
         }
 
         public void AddRegularPoints(int regularPoints = 1)
@@ -95,12 +95,13 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             ScoresToGiveAtEndOfRound += regularPoints;
         }
 
+
         public void AddBonusPoints(int bonusPoints = 1)
         {
             if (bonusPoints > 0)
-                AddInGamePersonalLogs($"+{bonusPoints} **бонусных** очков\n");
+                AddInGamePersonalLogs($"+{bonusPoints} __**бонусных**__ очков\n");
             else if (bonusPoints < 0)
-                AddInGamePersonalLogs($"{bonusPoints} **бонусных** очков\n");
+                AddInGamePersonalLogs($"{bonusPoints} __**бонусных**__ очков\n");
 
             Score += bonusPoints;
             if (Score < 0)

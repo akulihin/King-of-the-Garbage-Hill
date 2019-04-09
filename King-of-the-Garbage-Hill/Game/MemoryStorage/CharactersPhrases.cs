@@ -34,6 +34,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public PhraseClass FourthСommandment;
 
         public PhraseClass GlebChallengerPhrase;
+        public PhraseClass GlebChallengerSeparatePhrase;
         public PhraseClass GlebComeBackPhrase;
         public PhraseClass GlebSleepyPhrase;
         public PhraseClass GlebTeaPhrase;
@@ -117,9 +118,8 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             MylorikSpanishPhrase = new PhraseClass("Испанец");
 
             GlebChallengerPhrase = new PhraseClass("Претендент русского сервера");
-
+            GlebChallengerSeparatePhrase = new PhraseClass("Претендент русского сервера");
             GlebSleepyPhrase = new PhraseClass("Спящее хуйло");
-
             GlebComeBackPhrase = new PhraseClass("Я щас приду");
             GlebTeaPhrase = new PhraseClass("Я за чаем");
 
@@ -266,11 +266,20 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             GlebChallengerPhrase.PassiveLogRus.Add("Глебка залетает!");
             GlebChallengerPhrase.PassiveLogRus.Add("В Претендентмобиль!");
             GlebChallengerPhrase.PassiveLogRus.Add("ЛИИИИРОЙ ДЖЕНКИНС");
+
+            GlebChallengerSeparatePhrase.PassiveLogRus.Add("FULL POWER!!!");
+            GlebChallengerSeparatePhrase.PassiveLogRus.Add("OVER 9000");
+            GlebChallengerSeparatePhrase.PassiveLogRus.Add("JA - PRETENDENT!");
+            GlebChallengerSeparatePhrase.PassiveLogRus.Add("IT'S NASHORS TIME!");
+            GlebChallengerSeparatePhrase.PassiveLogRus.Add("DOMOJ GAMBIT!");
+            
+
             GlebSleepyPhrase.PassiveLogRus.Add("Zzzz...");
             GlebSleepyPhrase.PassiveLogRus.Add("Я... Я тут...");
             GlebSleepyPhrase.PassiveLogRus.Add("Только не делайте ремейк *Зевнул*");
             GlebComeBackPhrase.PassiveLogRus.Add("5 минут");
             GlebComeBackPhrase.PassiveLogRus.Add("Я щас приду");
+            GlebComeBackPhrase.PassiveLogRus.Add("Без меня не начина...");
             GlebTeaPhrase.PassiveLogRus.Add("Какао белого цвета");
 
 
@@ -413,22 +422,14 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             public async Task SendLogSeparate(GamePlayerBridgeClass player)
             {
                 if(player.IsBot()) return;
-
-
-                var random = new Random();
-                var description = PassiveLogRus[random.Next(0, PassiveLogRus.Count)];
-                player.Status.InGamePersonalLogsAll += $"{description}";
-
-                var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(description);
 #pragma warning disable 4014
-                DeleteMessOverTime(mess2, 6);
+                DeleteMessOverTime(await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)]), 6);
 #pragma warning restore 4014
             }
 
-            private async Task DeleteMessOverTime(IUserMessage message, int timeInSeconds)
+            private static async Task DeleteMessOverTime(IDeletable message, int timeInSeconds)
             {
-                var seconds = timeInSeconds * 1000;
-                await Task.Delay(seconds);
+                await Task.Delay(timeInSeconds * 1000);
                 await message.DeleteAsync();
             }
         }

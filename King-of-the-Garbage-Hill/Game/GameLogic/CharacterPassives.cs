@@ -885,6 +885,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 gleb.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
 
                                 await _phrase.GlebChallengerPhrase.SendLog(player);
+                                await _phrase.GlebChallengerSeparatePhrase.SendLogSeparate(player);
                             }
 
                         break;
@@ -1124,6 +1125,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         // end madness 
                         break;
                     case "Глеб":
+                        //x3 point:
+                        player.Status.SetScoresToGiveAtEndOfRound((int)player.Status.GetScoresToGiveAtEndOfRound() * 3);
+                        //end x3 point:
+
                         //challenger
                         madd = _gameGlobal.GlebChallengerList.Find(x =>
                             x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId &&
@@ -1195,7 +1200,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             {
                                 case 1:
                                     await _phrase.TolyaRammusPhrase.SendLog(player);
-                                    player.Character.Justice.AddJusticeForNextRound(1);
+                                    player.Character.Justice.AddJusticeForNextRound();
                                     break;
                                 case 2:
                                     await _phrase.TolyaRammus2Phrase.SendLog(player);
@@ -1346,8 +1351,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     {
                         if (game.RoundNo > 4)
                         {
-                            leCrisp.Status.AddRegularPoints(0.5);
-                            tolya.Status.AddRegularPoints(0.5);
+                            leCrisp.Status.AddRegularPoints();
+                            tolya.Status.AddRegularPoints();
                             if (!leCrisp.IsBot())
                             {
                                 var mess =
@@ -1377,14 +1382,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (leCrisp != null)
                     if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
                     {
-                        leCrisp.Status.AddRegularPoints();
-                        await _phrase.LeCrispJewPhrase.SendLog(leCrisp);
                         if (player.Character.Name == "DeepList")
                         {
                             await _phrase.LeCrispBoolingPhrase.SendLog(leCrisp);
                             return 1;
                         }
 
+                        leCrisp.Status.AddRegularPoints();
+                        await _phrase.LeCrispJewPhrase.SendLog(leCrisp);
                         return 0;
                     }
 
@@ -1400,16 +1405,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             return 1;
         }
 
-        /*
-        public async Task<string> HandleBlock(GamePlayerBridgeClass octopusPlayer, GamePlayerBridgeClass player2, GameClass game)
-        {
-            switch (player2.Character.Name)
-            {
-             case "Толя":
-                 break;
-            }
-        }
-        */
         public async Task HandleEveryAttackOnHimAfterCalculations(GamePlayerBridgeClass playerIamAttacking,
             GamePlayerBridgeClass player, GameClass game)
         {
@@ -1667,7 +1662,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         //Запах мусора:
 
-                        if (game.RoundNo > 10)
+                        if (game.RoundNo == 11)
                         {
                             var mitsuki = _gameGlobal.MitsukiGarbageList.Find(x =>
                                 x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
@@ -1774,11 +1769,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
 
             //end Если фидишь то пропушь, если пушишь то нафидь
-            if (game.RoundNo > 10)
+
+            if (game.RoundNo == 11)
             {
-                //TODO: implement end of the game, after turn 10.
-
-
                 //handle Octo
                 var octopusInk = _gameGlobal.OctopusInkList.Find(x => x.GameId == game.GameId);
                 var octopusInv = _gameGlobal.OctopusInvulnerabilityList.Find(x => x.GameId == game.GameId);

@@ -26,6 +26,7 @@ namespace King_of_the_Garbage_Hill.Helpers
         private readonly CharactersPull _charactersPull;
         private readonly Global _global;
         private readonly SecureRandom _secureRandom;
+        private static ulong _botIdGlobal = 1;
 
         public HelperFunctions(CharactersPull charactersPull, Global global, UserAccounts accounts,
             SecureRandom secureRandom)
@@ -89,11 +90,11 @@ namespace King_of_the_Garbage_Hill.Helpers
                 name = _characterNames[index];
             } while (playerList.Any(x => x.DiscordAccount.DiscordUserName == name));
 
-            ulong i = 1;
+           
             do
             {
-                account = _accounts.GetAccount(i);
-                i++;
+                account = _accounts.GetAccount(_botIdGlobal);
+                _botIdGlobal++;
             } while (account.IsPlaying);
 
             account.DiscordUserName = name;

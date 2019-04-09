@@ -80,7 +80,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 sum += p.Ten;
             }
 
-            var isBlockCheck = _rand.Random(1, 5);
+            var isBlockCheck = _rand.Random(1, 4);
             if (isBlockCheck > isBlock)
             {
                 //block

@@ -363,7 +363,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     game.PlayersList[tigrIndex] = game.PlayersList[0];
                     game.PlayersList[0] = tigrTemp;
                     tigr.TimeCount--;
-                    await _phrase.TigrTop.SendLog(tigrTemp);
+                        // await _phrase.TigrTop.SendLog(tigrTemp);
                 }
             }
             //end Tigr Unique

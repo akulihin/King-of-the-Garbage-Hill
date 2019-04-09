@@ -408,7 +408,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     playersList[tigrIndex] = playersList[0];
                     playersList[0] = tigrTemp;
                     tigr.TimeCount--;
-                    await _phrase.TigrTop.SendLog(tigrTemp);
+                    //await _phrase.TigrTop.SendLog(tigrTemp);
                 }
             }
             //end Tigr Unique
