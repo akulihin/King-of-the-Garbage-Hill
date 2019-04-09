@@ -50,7 +50,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public class TrollingClass
         {
-            public int Cooldown;
+            public List<TrollingSubClass> EnemyList = new List<TrollingSubClass>();
+
             public ulong GameId;
             public Guid PlayerId;
 
@@ -58,7 +59,18 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             {
                 PlayerId = playerId;
                 GameId = gameId;
-                Cooldown = 2;
+            }
+        }
+
+        public class TrollingSubClass
+        {
+            public Guid EnemyId;
+            public int Score;
+
+            public TrollingSubClass(Guid enemyId, int score)
+            {
+                EnemyId = enemyId;
+                Score = score;
             }
         }
 

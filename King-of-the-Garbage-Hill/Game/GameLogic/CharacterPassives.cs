@@ -1526,35 +1526,22 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //Произошел троллинг:
 
 
-                    if (player.Status.IsWonThisCalculation != Guid.Empty)
+                    if (player.Status.IsWonThisCalculation == playerIamAttacking.Status.PlayerId)
                     {
                         var awdka = _gameGlobal.AwdkaTrollingList.Find(x =>
                             x.GameId == player.DiscordAccount.GameId &&
                             x.PlayerId == player.Status.PlayerId);
 
-                        if (awdka == null)
+                        var enemy = awdka.EnemyList.Find(x => x.EnemyId == playerIamAttacking.Status.PlayerId);
+
+                        if (enemy == null)
                         {
-                            _gameGlobal.AwdkaTrollingList.Add(new Awdka.TrollingClass(player.Status.PlayerId,
-                                game.GameId));
-                            awdka = _gameGlobal.AwdkaTrollingList.Find(x =>
-                                x.GameId == player.DiscordAccount.GameId &&
-                                x.PlayerId == player.Status.PlayerId);
+                            awdka.EnemyList.Add(new Awdka.TrollingSubClass(playerIamAttacking.Status.PlayerId, playerIamAttacking.Status.GetScore()));
                         }
-
-                        var player2 =
-                            game.PlayersList.Find(x =>
-                                x.Status.PlayerId == player.Status.IsWonThisCalculation);
-
-                        //may cause a null reference exception, if so - wsomething wrong /
-                        if (player2.Status.PlaceAtLeaderBoard == 1)
-                            if (awdka.Cooldown <= 0)
-                            {
-                                var pointsToGet = player2.Status.GetScore() / 4;
-                                if (pointsToGet < 1) pointsToGet = 1;
-                                player.Status.AddBonusPoints(pointsToGet);
-                                awdka.Cooldown = 2;
-                                await _phrase.AwdkaTrolling.SendLog(player);
-                            }
+                        else
+                        {
+                            enemy.Score = playerIamAttacking.Status.GetScore();
+                        }
                     }
 
                     //end Произошел троллинг:
@@ -1705,19 +1692,48 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                     new Octopus.TentaclesSubClass(player.Status.PlaceAtLeaderBoard));
                         }
 
+                        //Ink
+                        if (game.RoundNo == 11)
+                        {
+                           
+                            var octopusInk = _gameGlobal.OctopusInkList.Find(x => x.GameId == game.GameId);
+                            var octopusInv = _gameGlobal.OctopusInvulnerabilityList.Find(x => x.GameId == game.GameId);
+
+                            if (octopusInk != null)
+                                foreach (var t in octopusInk.RealScoreList)
+                                {
+                                    var pl = game.PlayersList.Find(x => x.Status.PlayerId == t.PlayerId);
+                                    pl?.Status.AddBonusPoints(t.RealScore);
+                                }
+
+                            if (octopusInv != null)
+                            {
+                                var octoPlayer =
+                                    game.PlayersList.Find(x => x.Status.PlayerId == octopusInv.PlayerId);
+                                octoPlayer.Status.AddBonusPoints(octopusInv.Count);
+                            }
+                        }
+                        //end   //Ink
+
                         break;
                     case "AWDKA":
-                        var awdka = _gameGlobal.AwdkaTrollingList.Find(x =>
-                            x.GameId == player.DiscordAccount.GameId &&
-                            x.PlayerId == player.Status.PlayerId);
-                        if (awdka != null)
+                        //trolling
+                        if (game.RoundNo == 11)
                         {
-                            awdka.Cooldown--;
-                            if (awdka.Cooldown <= 0) await _phrase.AwdkaTrollingReady.SendLog(player);
+                            var awdka = _gameGlobal.AwdkaTrollingList.Find(x =>
+                                x.GameId == player.DiscordAccount.GameId &&
+                                x.PlayerId == player.Status.PlayerId);
+
+                            var enemy = awdka.EnemyList.Find(x => x.EnemyId == game.PlayersList[0].Status.PlayerId);
+
+                            if (enemy != null)
+                            {
+                              player.Status.AddBonusPoints(enemy.Score/2);
+                              await  _phrase.AwdkaTrolling.SendLog(player);
+                            }
                         }
-
+                        //end //trolling
                         break;
-
                     case "Толя":
 
                         var tolya = _gameGlobal.TolyaCount.Find(x =>
@@ -1735,7 +1751,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             //Если фидишь то пропушь, если пушишь то нафидь
             var god = game.PlayersList.Find(x => x.Character.Name == "Бог ЛоЛа");
-
             if (god != null && game.RoundNo >= 2)
             {
                 var players = _gameGlobal.LolGodPushAndDieSubList.Find(x =>
@@ -1767,36 +1782,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     }
                 }
             }
-
             //end Если фидишь то пропушь, если пушишь то нафидь
 
-            if (game.RoundNo == 11)
-            {
-                //handle Octo
-                var octopusInk = _gameGlobal.OctopusInkList.Find(x => x.GameId == game.GameId);
-                var octopusInv = _gameGlobal.OctopusInvulnerabilityList.Find(x => x.GameId == game.GameId);
-
-                if (octopusInk != null)
-                    foreach (var t in octopusInk.RealScoreList)
-                    {
-                        var pl = game.PlayersList.Find(x => x.Status.PlayerId == t.PlayerId);
-                        pl?.Status.AddBonusPoints(t.RealScore);
-                    }
-
-                if (octopusInv != null)
-                {
-                    var octoPlayer =
-                        game.PlayersList.Find(x => x.Status.PlayerId == octopusInv.PlayerId);
-                    octoPlayer.Status.AddBonusPoints(octopusInv.Count);
-                }
-
-                //end handle Octo
-
-                //sort
-                game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-                for (var i = 0; i < game.PlayersList.Count; i++) game.PlayersList[i].Status.PlaceAtLeaderBoard = i + 1;
-                //end sorting
-            }
+            //sort
+            game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+            for (var i = 0; i < game.PlayersList.Count; i++) game.PlayersList[i].Status.PlaceAtLeaderBoard = i + 1;
+            //end sorting
         }
 
         public bool HandleOctopus(GamePlayerBridgeClass octopusPlayer, GamePlayerBridgeClass playerAttackedOctopus,
