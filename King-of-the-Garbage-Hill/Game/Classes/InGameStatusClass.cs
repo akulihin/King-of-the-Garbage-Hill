@@ -85,11 +85,6 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             ScoresToGiveAtEndOfRound = score;
         }
 
-        public double GetScoresToGiveAtEndOfRound()
-        {
-            return ScoresToGiveAtEndOfRound;
-        }
-
         public void AddRegularPoints(int regularPoints = 1)
         {
             ScoresToGiveAtEndOfRound += regularPoints;
