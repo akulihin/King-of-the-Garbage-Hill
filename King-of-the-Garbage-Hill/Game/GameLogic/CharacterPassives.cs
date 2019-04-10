@@ -88,11 +88,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         {
             var characterName = playerIamAttacking.Character.Name;
 
-            //еврей
-
-            //end еврей
-
-
             switch (characterName)
             {
                 case "Братишка":
@@ -105,9 +100,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (!shark.FriendList.Contains(playerAttackFrom.Status.PlayerId))
                     {
                         shark.FriendList.Add(playerAttackFrom.Status.PlayerId);
-                        playerAttackFrom.Character.AddIntelligence(playerAttackFrom.Status, -1, true, "Ничего не понимает: ");
+                        playerAttackFrom.Character.AddIntelligence(playerAttackFrom.Status, -1, true,
+                            "Ничего не понимает: ");
                     }
-
 
                     //end Ничего не понимает: 
                     break;
@@ -178,7 +173,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //Одиночество
                     break;
 
-                case "Mitsuki":
+                case "Mit*suki*":
                     var mitsuki = _gameGlobal.MitsukiGarbageList.Find(x =>
                         x.GameId == game.GameId && x.PlayerId == playerIamAttacking.Status.PlayerId);
 
@@ -225,8 +220,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (!panth.FriendList.Contains(playerIamAttacking.Status.PlayerId))
                     {
                         panth.FriendList.Add(playerIamAttacking.Status.PlayerId);
-                        playerIamAttacking.Character.AddStrength(playerIamAttacking.Status, -1, true, "Они позорят военное искусство: ");
-                        playerIamAttacking.Character.AddSpeed(playerIamAttacking.Status, -1, true, "Они позорят военное искусство: ");
+                        playerIamAttacking.Character.AddStrength(playerIamAttacking.Status, -1, true,
+                            "Они позорят военное искусство: ");
+                        playerIamAttacking.Character.AddSpeed(playerIamAttacking.Status, -1, true,
+                            "Они позорят военное искусство: ");
                     }
 
 
@@ -333,7 +330,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 case "Sirinoks":
                     _sirinoks.HandleSirinoks(player);
                     break;
-                case "Mitsuki":
+                case "Mit*suki*":
                     _mitsuki.HandleMitsuki(player);
                     break;
                 case "AWDKA":
@@ -426,7 +423,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 case "Sirinoks":
                     _sirinoks.HandleSirinoksAfter(player, game);
                     break;
-                case "Mitsuki":
+                case "Mit*suki*":
                     _mitsuki.HandleMitsukiAfter(player);
                     break;
                 case "AWDKA":
@@ -435,7 +432,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 case "Осьминожка":
                     _octopus.HandleOctopusAfter(player);
                     break;
-                case "Даркси":
+                case "Darksci":
                     await _darksci.HandleDarksiAfter(player, game);
                     break;
                 case "Тигр":
@@ -549,7 +546,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             game.GameId));
                         break;
 
-                    case "Mitsuki":
+                    case "Mit*suki*":
                         when = _gameGlobal.GetWhenToTrigger(player, true, 0, 0);
                         _gameGlobal.MitsukiNoPcTriggeredWhen.Add(when);
                         break;
@@ -660,7 +657,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
 
 
-                    case "Даркси":
+                    case "Darksci":
                         //Дизмораль
                         if (game.RoundNo == 9)
                         {
@@ -691,7 +688,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
 
 
-                    case "Mitsuki":
+                    case "Mit*suki*":
                         acc = _gameGlobal.MitsukiNoPcTriggeredWhen.Find(x =>
                             x.PlayerId == player.Status.PlayerId && player.DiscordAccount.GameId == x.GameId);
 
@@ -1126,7 +1123,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
                     case "Глеб":
                         //x3 point:
-                        player.Status.SetScoresToGiveAtEndOfRound((int)player.Status.GetScoresToGiveAtEndOfRound() * 3);
+                        player.Status.SetScoresToGiveAtEndOfRound(
+                            (int) player.Status.GetScoresToGiveAtEndOfRound() * 3);
                         //end x3 point:
 
                         //challenger
@@ -1281,7 +1279,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //end training
                         break;
 
-                    case "Mitsuki":
+                    case "Mit*suki*":
 
                         //Дерзкая школота:
                         if (game.RoundNo == 1) await _phrase.MitsukiCheekyBriki.SendLog(player);
@@ -1535,13 +1533,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         var enemy = awdka.EnemyList.Find(x => x.EnemyId == playerIamAttacking.Status.PlayerId);
 
                         if (enemy == null)
-                        {
-                            awdka.EnemyList.Add(new Awdka.TrollingSubClass(playerIamAttacking.Status.PlayerId, playerIamAttacking.Status.GetScore()));
-                        }
+                                playerIamAttacking.Status.GetScore()));
                         else
-                        {
                             enemy.Score = playerIamAttacking.Status.GetScore();
-                        }
                     }
 
                     //end Произошел троллинг:
@@ -1563,7 +1557,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     break;
 
-                case "Даркси":
+                case "Darksci":
                     var darscsi = _gameGlobal.DarksciLuckyList.Find(x =>
                         x.GameId == player.DiscordAccount.GameId &&
                         x.PlayerId == player.Status.PlayerId);
@@ -1638,7 +1632,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //end Тигр топ, а ты холоп: 
                         break;
 
-                    case "Mitsuki":
+                    case "Mit*suki*":
                         //Много выебывается:
                         if (player.Status.PlaceAtLeaderBoard == 1 && game.RoundNo > 1)
                         {
@@ -1695,7 +1689,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //Ink
                         if (game.RoundNo == 11)
                         {
-                           
                             var octopusInk = _gameGlobal.OctopusInkList.Find(x => x.GameId == game.GameId);
                             var octopusInv = _gameGlobal.OctopusInvulnerabilityList.Find(x => x.GameId == game.GameId);
 
@@ -1728,10 +1721,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                             if (enemy != null)
                             {
-                              player.Status.AddBonusPoints(enemy.Score/2);
-                              await  _phrase.AwdkaTrolling.SendLog(player);
+                                player.Status.AddBonusPoints(enemy.Score / 2);
+                                await _phrase.AwdkaTrolling.SendLog(player);
                             }
                         }
+
                         //end //trolling
                         break;
                     case "Толя":
