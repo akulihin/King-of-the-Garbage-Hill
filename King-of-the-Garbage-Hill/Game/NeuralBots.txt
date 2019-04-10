@@ -1,8 +1,10 @@
 Нейроботы: random 1 - (a+b+c+d+e+f)
 a= 10 (не меньше нуля)
--5 same or more jst
+-5 same jst
+-6 more jst
 -5 more sts
--7 tg
+-7 tg-
++3 tg+
 -2 high
 -1 low on1
 -1 sametarget
