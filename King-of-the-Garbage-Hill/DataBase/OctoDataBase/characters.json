@@ -190,7 +190,7 @@
     "Intelligence": 5,
     "Psyche": 5,
     "Speed": 5,
-    "Strength": 2,
+    "Strength": 1,
     "Justice": {
       "JusticeNow": 0,
       "JusticeForNextRound": 0,
@@ -252,7 +252,7 @@
     "Intelligence": 3,
     "Psyche": 7,
     "Speed": 4,
-    "Strength": 1,
+    "Strength": 2,
     "Justice": {
       "JusticeNow": 0,
       "JusticeForNextRound": 0,
