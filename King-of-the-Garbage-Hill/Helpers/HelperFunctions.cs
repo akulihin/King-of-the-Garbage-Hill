@@ -66,10 +66,15 @@ namespace King_of_the_Garbage_Hill.Helpers
 
             if (prevGame != null)
             {
-                var account = GetFreeBot(prevGame.PlayersList, prevGame.GameId);
+                var freeBot = GetFreeBot(prevGame.PlayersList, prevGame.GameId);
+                freeBot.DiscordAccount.GameId = prevGame.GameId;
+             
                 var leftUser = prevGame.PlayersList.Find(x => x.DiscordAccount.DiscordId == discordId);
-                leftUser.DiscordAccount = account.DiscordAccount;
+
+                leftUser.DiscordAccount = freeBot.DiscordAccount;
                 leftUser.Status.SocketMessageFromBot = null;
+
+                _accounts.GetAccount(discordId).GameId = 1000000000000000000;
             }
         }
 
@@ -78,10 +83,11 @@ namespace King_of_the_Garbage_Hill.Helpers
             CharacterClass character;
             DiscordAccountClass account;
             string name;
+            var characters = _charactersPull.GetAllCharacters();
             do
             {
-                var index = _secureRandom.Random(0, _charactersPull.AllCharacters.Count - 1);
-                character = _charactersPull.AllCharacters[index];
+                var index = _secureRandom.Random(0, characters.Count - 1);
+                character = characters[index];
             } while (playerList.Any(x => x.Character.Name == character.Name));
 
             do

@@ -8,14 +8,23 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 {
     public class CharactersPull : IServiceTransient
     {
-        public List<CharacterClass> AllCharacters;
+        /*
+        private readonly List<CharacterClass> _allCharacters;
 
 
         public CharactersPull()
         {
             var filePath = @"DataBase/OctoDataBase/characters.json";
             var json = File.ReadAllText(filePath);
-            AllCharacters = JsonConvert.DeserializeObject<List<CharacterClass>>(json);
+            _allCharacters = JsonConvert.DeserializeObject<List<CharacterClass>>(json);
+        }
+        */
+
+        public List<CharacterClass> GetAllCharacters()
+        {
+            var filePath = @"DataBase/OctoDataBase/characters.json";
+            var json = File.ReadAllText(filePath);
+            return JsonConvert.DeserializeObject<List<CharacterClass>>(json);
         }
 
         public async Task InitializeAsync()

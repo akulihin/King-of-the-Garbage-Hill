@@ -238,16 +238,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 case "LeCrisp":
                     //block chances
-                    if (game.RoundNo == 1)
-                    {
-                        var leRand = _rand.Random(1, 10);
-                        if (leRand == 4)
-                        {
-                            minimumRandomNumberForBlock = 9999;
-                            maximumRandomNumberForBlock = 9999;
-                        }
-                    }
-
                     if (game.RoundNo >= 2 && game.RoundNo <= 5) minimumRandomNumberForBlock += 1;
 
                     var assassinsCount = game.PlayersList

@@ -340,8 +340,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             accountDeep.GameId = _global.GetNewtGamePlayingAndId();
             accountDeep.IsPlaying = true;
 
-
-            var characterDeep = _charactersPull.AllCharacters[charIndex1]; //TODO: should be random someday 
+            var characters = _charactersPull.GetAllCharacters();
+            var characterDeep = characters[charIndex1]; //TODO: should be random someday 
             playersList.Add(new GamePlayerBridgeClass
                 {DiscordAccount = accountDeep, Character = characterDeep, Status = new InGameStatus()});
 
@@ -353,7 +353,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
                 playersList.Add(new GamePlayerBridgeClass
                 {
-                    DiscordAccount = tolAccount, Character = _charactersPull.AllCharacters[charIndex2],
+                    DiscordAccount = tolAccount, Character =characters[charIndex2],
                     Status = new InGameStatus()
                 });
             }
