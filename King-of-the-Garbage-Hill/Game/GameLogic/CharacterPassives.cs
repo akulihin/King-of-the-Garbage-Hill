@@ -427,7 +427,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     _mitsuki.HandleMitsukiAfter(player);
                     break;
                 case "AWDKA":
-                    _awdka.HandleAwdkaAfter(player);
+                    _awdka.HandleAwdkaAfter(player, game);
                     break;
                 case "Осьминожка":
                     _octopus.HandleOctopusAfter(player);
