@@ -325,7 +325,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             SirinoksFriendsPhrase.PassiveLogRus.Add("Invite");
 
 
-            SirinoksDragonPhrase.PassiveLogRus.Add("РООАР!");
+            SirinoksDragonPhrase.PassiveLogRus.Add("ROAR!");
 
 
             MitsukiCheekyBriki.PassiveLogRus.Add("Ну чё, ёпта, поиграем?");
