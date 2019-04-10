@@ -25,8 +25,37 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //  throw new System.NotImplementedException();
         }
 
-        public void HandleAwdkaAfter(GamePlayerBridgeClass player)
+        public void HandleAwdkaAfter(GamePlayerBridgeClass player, GameClass game)
         {
+
+
+         
+            //Произошел троллинг:
+
+
+            if (player.Status.IsWonThisCalculation == Guid.Empty)
+            {
+                var awdka = _gameGlobal.AwdkaTrollingList.Find(x =>
+                    x.GameId == player.DiscordAccount.GameId &&
+                    x.PlayerId == player.Status.PlayerId);
+
+                var enemy = awdka.EnemyList.Find(x => x.EnemyId == player.Status.IsWonThisCalculation);
+
+                if (enemy == null)
+                    awdka.EnemyList.Add(new Awdka.TrollingSubClass(player.Status.IsWonThisCalculation,
+                       game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Status.GetScore()));
+                else
+                    enemy.Score =  game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Status.GetScore();
+            }
+
+            //end Произошел троллинг:
+          
+
+
+
+
+
+
             if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
                 var awdka = _gameGlobal.AwdkaTryingList.Find(x =>

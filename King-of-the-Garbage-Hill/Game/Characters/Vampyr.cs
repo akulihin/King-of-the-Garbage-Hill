@@ -100,23 +100,27 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     }
                 }
             }
-            else
+            else if(player.Status.IsLostThisCalculation != Guid.Empty)
             {
                 var vamp = _gameGlobal.VampyrKilledList.Find(x =>
                     x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                var flag = false;
+                player.Status.AddBonusPoints(-1);
 
                 if (vamp.FriendList.Contains(player.Status.IsLostThisCalculation))
                 {
                     vamp.FriendList.Remove(player.Status.IsLostThisCalculation);
+                    flag = true;
                 }
-                else
+                else if (vamp.FriendList.Count > 0)
                 {
-                    if (vamp.FriendList.Count > 0) vamp.FriendList.RemoveAt(_rand.Random(0, vamp.FriendList.Count - 1));
+                    vamp.FriendList.RemoveAt(_rand.Random(0, vamp.FriendList.Count - 1));
+                    flag = true;
+                }
 
-                    player.Status.AddBonusPoints(-1);
+                if (flag)
+                {
                     for (var k = 0; k < 2; k++)
-                        if (player.Status.IsLostThisCalculation != Guid.Empty)
-                        {
                             for (var i = 0; i < 1; i++)
                             {
                                 var index = _rand.Random(1, 4);
@@ -165,7 +169,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                         break;
                                 }
                             }
-                        }
                 }
             }
             //end Гематофагия
