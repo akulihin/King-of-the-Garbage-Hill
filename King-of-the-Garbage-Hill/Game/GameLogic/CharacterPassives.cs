@@ -1533,6 +1533,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         var enemy = awdka.EnemyList.Find(x => x.EnemyId == playerIamAttacking.Status.PlayerId);
 
                         if (enemy == null)
+                            awdka.EnemyList.Add(new Awdka.TrollingSubClass(playerIamAttacking.Status.PlayerId,
                                 playerIamAttacking.Status.GetScore()));
                         else
                             enemy.Score = playerIamAttacking.Status.GetScore();
