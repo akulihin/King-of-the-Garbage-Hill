@@ -118,8 +118,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:561287719838547981>")} {playerIamAttacking.DiscordAccount.DiscordUserName}",
                     "");
 
-                //if block => no one gets points
 
+
+
+                //if block => no one gets points
                 if (playerIamAttacking.Status.IsBlock && player.Status.IsAbleToWin)
                 {
                     // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
@@ -288,6 +290,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 await _characterPassives.HandleCharacterAfterCalculations(player, game);
                 await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
+                await _characterPassives.HandleEventsAfterEveryBattle(game); //used only for shark...
 
                 player.Status.IsWonThisCalculation = Guid.Empty;
                 player.Status.IsLostThisCalculation = Guid.Empty;

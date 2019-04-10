@@ -177,6 +177,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         //Первым ходом выбирает только тех, кого точно победит. (кто побеждает его по статам, тем 10 = 0)
 
+                        /*
                         if (game.RoundNo == 1)
                             if (p.Player.Character.GetSpeed() + p.Player.Character.GetStrength() +
                                 p.Player.Character.GetIntelligence() + p.Player.Character.GetPsyche()
@@ -184,6 +185,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 bot.Character.GetStrength() - bot.Character.GetSpeed() -
                                 bot.Character.GetIntelligence() - bot.Character.GetPsyche() > 0)
                                 p.Ten = 0;
+                                */
+
                         //end Первым ходом выбирает только тех, кого точно победит. (кто побеждает его по статам, тем 10 = 0)
 
 

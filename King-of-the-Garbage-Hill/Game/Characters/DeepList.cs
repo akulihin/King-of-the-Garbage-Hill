@@ -28,14 +28,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
         }
 
-        public async Task HandleDeepListTactics(GamePlayerBridgeClass player)
+        public async Task HandleDeepListTactics(GamePlayerBridgeClass player, GameClass game)
         {
             //Doubtful tactic
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                 x.PlayerId == player.Status.PlayerId && player.DiscordAccount.GameId == x.GameId);
 
 
-            if (!deep.FriendList.Contains(player.Status.IsFighting))
+            if (!deep.FriendList.Contains(player.Status.IsFighting) && !game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsFighting).Status.IsBlock)
             {
                 deep.FriendList.Add(player.Status.IsFighting);
 

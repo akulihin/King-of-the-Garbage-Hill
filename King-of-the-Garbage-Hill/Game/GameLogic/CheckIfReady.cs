@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
@@ -61,6 +62,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 if (game.RoundNo == 11)
                 {
+
+                    //sort
+                        game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+                       for (var k = 0; k < game.PlayersList.Count; k++) game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
+                    //end sorting
+
+
                     game.WhoWon = game.PlayersList[0].Status.PlayerId;
                     game.AddPreviousGameLogs(
                         game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList[0].Status.GetScore())
