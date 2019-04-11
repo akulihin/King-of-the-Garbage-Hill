@@ -180,13 +180,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                     if (awdkaTrying != null)
                     {
-                        if (!awdkaTrying.IsUnique) customString += "<:octo_ye:465374379048435712>";
+                        if (!awdkaTrying.IsUnique) customString += "<:bronze:565744159680626700>";
+                        else customString += "<:plat:565745613208158233>";
                     }
-                    else
-                    {
-                        customString +=
-                            "<:octo_ye:465374379048435712> <:octo_ye:465374379048435712>";
-                    }
+
 
                     break;
                 case "Братишка":
