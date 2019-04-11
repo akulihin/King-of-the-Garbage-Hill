@@ -20,9 +20,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             return Task.CompletedTask;
         }
 
-        public void HandleDarksci(GamePlayerBridgeClass player)
+        public async Task HandleDarksci(GamePlayerBridgeClass player, GameClass game)
         {
-            //  throw new System.NotImplementedException();
+            await Task.CompletedTask;
         }
 
         public async Task HandleDarksiAfter(GamePlayerBridgeClass player, GameClass game)
@@ -56,11 +56,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             public Guid PlayerId;
             public List<Guid> TouchedPlayers = new List<Guid>();
 
-            public LuckyClass(Guid playerId, ulong gameId, Guid enemyPlayerId)
+            public LuckyClass(Guid playerId, ulong gameId)
             {
                 PlayerId = playerId;
                 GameId = gameId;
-                TouchedPlayers.Add(enemyPlayerId);
             }
         }
     }

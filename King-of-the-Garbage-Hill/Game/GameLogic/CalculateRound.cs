@@ -383,6 +383,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             SortGameLogs(game);
             await _characterPassives.HandleNextRoundAfterSorting(game);
 
+#pragma warning disable 4014
+            _characterPassives.HandleDarksciDismoral(game); //not awaited!
+#pragma warning restore 4014
 
             game.TimePassed.Reset();
             game.TimePassed.Start();

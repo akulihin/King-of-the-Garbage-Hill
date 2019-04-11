@@ -71,7 +71,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 PlayerId = playerId;
                 WhoToLostLastTimeId = whoToLostLastTimeId;
                 IsActive = true;
-                Cooldown = 1;
+                Cooldown = 2;
             }
         }
     }

@@ -340,7 +340,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     _octopus.HandleOctopus(player);
                     break;
                 case "Darksci":
-                    _darksci.HandleDarksci(player);
+                   await _darksci.HandleDarksci(player, game);
                     break;
                 case "Тигр":
                     _tigr.HandleTigr(player);
@@ -402,7 +402,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         var tolyaAcc = game.PlayersList.Find(x =>
                             x.Status.PlayerId == player.Status.PlayerId &&
                             x.DiscordAccount.GameId == player.DiscordAccount.GameId);
-                        tolyaAcc.Status.AddRegularPoints();
+                        tolyaAcc.Status.AddRegularPoints(2);
+                        tolyaAcc.Character.Justice.AddJusticeForNextRound(2);
                         await _phrase.TolyaCountPhrase.SendLog(player);
                         tolya.Cooldown = 1;
                     }
@@ -473,6 +474,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 WhenToTriggerClass when;
                 switch (characterName)
                 {
+                    case "Darksci":
+                        _gameGlobal.DarksciLuckyList.Add(new Darksci.LuckyClass(player.Status.PlayerId,
+                            game.GameId));
+                        break;
                     case "Бог ЛоЛа":
                         _gameGlobal.LolGodPushAndDieSubList.Add(
                             new LolGod.PushAndDieClass(player.Status.PlayerId, game.GameId, game.PlayersList));
@@ -698,15 +703,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                     case "Darksci":
-                        //Дизмораль
-                        if (game.RoundNo == 9)
-                        {
-                            player.Character.AddPsyche(player.Status, -4);
-                            await _phrase.DarksciDysmoral.SendLog(player);
-                            game.AddPreviousGameLogs(
-                                $"**{player.DiscordAccount.DiscordUserName}:** Всё, у меня горит!");
-                        }
-                        //end Дизмораль
+
+
 
                         //Да всё нахуй эту игру:
                         if (player.Character.GetPsyche() <= 0)
@@ -718,8 +716,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Status.WhoToAttackThisTurn = Guid.Empty;
                             await _phrase.DarksciFuckThisGame.SendLog(player);
 
-                            if (game.RoundNo >= 9)
-                                game.AddPreviousGameLogs(
+                            game.AddPreviousGameLogs(
                                     $"**{player.DiscordAccount.DiscordUserName}:** Нахуй эту игру..");
                         }
                         //end Да всё нахуй эту игру:
@@ -1142,7 +1139,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 if (!tigr.FriendList.Contains(t.Status.PlayerId))
                                 {
                                     tigr.FriendList.Add(t.Status.PlayerId);
-                                    player.Status.AddRegularPoints();
+                                   // player.Status.AddRegularPoints();
+                                   player.Status.AddBonusPoints(4);
                                     await _phrase.TigrTwoBetter.SendLog(player);
                                 }
                             }
@@ -1517,13 +1515,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     await _phrase.SecondСommandmentBan.SendLog(player);
                     break;
                 case "Вампур":
-                    //игнор 1 справедливости
+                    //Вампуризм
                     if (player.Status.IsWonThisCalculation != Guid.Empty)
-                        if (player.Character.Justice.GetJusticeForNextRound() <
-                            playerIamAttacking.Character.Justice.GetJusticeForNextRound())
                             player.Character.Justice.SetJusticeForNextRound(playerIamAttacking.Character.Justice
                                 .GetJusticeForNextRound());
-                    //end    //игнор 1 справедливости
+                    //end   Вампуризм
                     break;
 
                 case "HardKitty":
@@ -1600,13 +1596,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         x.GameId == player.DiscordAccount.GameId &&
                         x.PlayerId == player.Status.PlayerId);
 
-                    if (darscsi == null)
-                    {
-                        _gameGlobal.DarksciLuckyList.Add(new Darksci.LuckyClass(player.Status.PlayerId,
-                            game.GameId, playerIamAttacking.Status.PlayerId));
-                    }
-                    else
-                    {
                         if (!darscsi.TouchedPlayers.Contains(playerIamAttacking.Status.PlayerId))
                             darscsi.TouchedPlayers.Add(playerIamAttacking.Status.PlayerId);
 
@@ -1618,7 +1607,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             darscsi.TouchedPlayers.Clear();
                             await _phrase.DarksciLucky.SendLog(player);
                         }
-                    }
+                    
 
                     break;
             }
@@ -1841,6 +1830,25 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             return false;
         }
 
+        public async Task HandleDarksciDismoral(GameClass game)
+        {
+            if (game.PlayersList.Any(x => x.Character.Name == "Darksci") && game.RoundNo == 9)
+            {
+                var darksi = game.PlayersList.Find(x => x.Character.Name == "Darksci");
+
+                while (darksi.Status.MoveListPage == 3)
+                {
+                    //doing nothing.... just waiting.... ya, strange way, I know
+                }
+
+                //Дизмораль
+                    darksi.Character.AddPsyche(darksi.Status, -4);
+                    await _phrase.DarksciDysmoral.SendLog(darksi);
+                    game.AddPreviousGameLogs(
+                        $"**{darksi.DiscordAccount.DiscordUserName}:** Всё, у меня горит!");
+                //end Дизмораль
+            }
+        }
 
         public async Task HandleCharacterWithKnownEnemyBeforeCalculations(GamePlayerBridgeClass player, GameClass game)
         {

@@ -139,6 +139,17 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             switch (player1.Character.Name)
             {
+                case "Darksci":
+                    var dar = _gameGlobal.DarksciLuckyList.Find(x =>
+                        x.GameId == game.GameId &&
+                        x.PlayerId == player1.Status.PlayerId);
+
+                        if (!dar.TouchedPlayers.Contains(player2.Status.PlayerId) &&
+                            player2.Status.PlayerId != player1.Status.PlayerId)
+                            customString += $" {new Emoji("<:Darksci:565598465531576352>")}";
+
+
+                    break;
                 case "Вампур":
                     var vamp = _gameGlobal.VampyrKilledList.Find(x =>
                         x.GameId == player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
