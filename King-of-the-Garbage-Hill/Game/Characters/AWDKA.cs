@@ -44,26 +44,21 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             }
             //end Произошел троллинг:
           
-
+            //Я пытаюсь!
             if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
                 var awdka = _gameGlobal.AwdkaTryingList.Find(x =>
                     x.GameId == player.DiscordAccount.GameId && x.PlayerId == player.Status.PlayerId);
 
-                if (awdka == null)
-                {
-                    _gameGlobal.AwdkaTryingList.Add(new TryingClass(player.Status.PlayerId,
-                        player.DiscordAccount.GameId, player.Status.IsLostThisCalculation));
-                }
-                else
-                {
+
                     var enemy = awdka.TryingList.Find(x => x.EnemyPlayerId == player.Status.IsLostThisCalculation);
                     if (enemy == null)
                         awdka.TryingList.Add(new TryingSubClass(player.Status.IsLostThisCalculation));
                     else
                         enemy.Times++;
-                }
+          
             }
+            //Я пытаюсь!
         }
 
         public class TrollingClass
@@ -99,11 +94,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             public Guid PlayerId;
             public List<TryingSubClass> TryingList = new List<TryingSubClass>();
 
-            public TryingClass(Guid playerId, ulong gameId, Guid enemyPlayerId)
+            public TryingClass(Guid playerId, ulong gameId)
             {
                 PlayerId = playerId;
                 GameId = gameId;
-                TryingList.Add(new TryingSubClass(enemyPlayerId));
             }
         }
 

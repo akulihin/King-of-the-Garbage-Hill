@@ -432,7 +432,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 _phrase.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"));
                 if (playersList.Any(x => x.Character.Name == "mylorik"))
                     game.AddPreviousGameLogs(
-                        $" \n{new Emoji("<:Y_:562885385395634196>")} *mylorik: Гребанный Вампур!* {new Emoji("<:Y_:562885385395634196>")}",
+                        $" \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
                         "\n\n", false);
             }
             //end vampyr unique

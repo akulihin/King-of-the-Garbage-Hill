@@ -2,7 +2,6 @@
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using Discord;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
@@ -115,7 +114,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                 game.AddPreviousGameLogs(
-                    $"{player.DiscordAccount.DiscordUserName} {new Emoji("<:war:561287719838547981>")} {playerIamAttacking.DiscordAccount.DiscordUserName}",
+                    $"{player.DiscordAccount.DiscordUserName} <:war:561287719838547981> {playerIamAttacking.DiscordAccount.DiscordUserName}",
                     "");
 
 
@@ -465,8 +464,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         var fightLineSplitSplit = fightLineSplit[0].Split("<:war:561287719838547981>");
 
                         fightLine = fightLineSplitSplit[0].Contains($"{player.DiscordAccount.DiscordUserName}")
-                            ? $"**{fightLineSplitSplit[0]}** {new Emoji("<:war:561287719838547981>")} **{fightLineSplitSplit[1]}**"
-                            : $"**{fightLineSplitSplit[1]}** {new Emoji("<:war:561287719838547981>")} **{fightLineSplitSplit[0]}**";
+                            ? $"**{fightLineSplitSplit[0]}** <:war:561287719838547981> **{fightLineSplitSplit[1]}**"
+                            : $"**{fightLineSplitSplit[1]}** <:war:561287719838547981> **{fightLineSplitSplit[0]}**";
 
 
                         fightLine += $" ⟶ {fightLineSplit[1]}";

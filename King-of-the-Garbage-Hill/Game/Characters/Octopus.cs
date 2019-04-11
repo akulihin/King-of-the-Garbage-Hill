@@ -89,25 +89,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             public ulong GameId;
             public Guid PlayerId;
-            public List<TentaclesSubClass> UniqePlacesList = new List<TentaclesSubClass>();
+            public List<int> LeaderboardPlace = new List<int>();
 
-            public TentaclesClass(Guid playerId, ulong gameId, int place)
+            public TentaclesClass(Guid playerId, ulong gameId)
             {
                 PlayerId = playerId;
                 GameId = gameId;
-                UniqePlacesList.Add(new TentaclesSubClass(place));
-            }
-        }
-
-        public class TentaclesSubClass
-        {
-            public bool IsActivated;
-            public int LeaderboardPlace;
-
-            public TentaclesSubClass(int leaderboardPlace)
-            {
-                LeaderboardPlace = leaderboardPlace;
-                IsActivated = false;
             }
         }
     }

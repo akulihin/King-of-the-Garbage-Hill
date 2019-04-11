@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Discord;
 
 namespace King_of_the_Garbage_Hill.Game.Classes
 {
@@ -17,10 +16,10 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             GameStatus = 1;
             GameLogs = "";
             PreviousGameLogs =
-                $"{new Emoji("<:sparta:561287745675329567>")} {new Emoji("<:e_:562879579694301184>")} {new Emoji("<:sparta:561287745675329567>")} {new Emoji("<:e_:562879579694301184>")} {new Emoji("<:sparta:561287745675329567>")} {new Emoji("<:e_:562879579694301184>")} {new Emoji("<:sparta:561287745675329567>")} {new Emoji("<:e_:562879579694301184>")} {new Emoji("<:sparta:561287745675329567>")}\n" +
+                "<:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567>\n" +
                 "\n**Выберите цель для нападения по номеру в таблице, используя emoji**\n" +
                 "__**Повторное нажатие**__ кнопки приводит к повторному выполнению действия.\n" +
-                $"\n{new Emoji("<:sparta:561287745675329567>")} {new Emoji("<:e_:562879579694301184>")} {new Emoji("<:sparta:561287745675329567>")} {new Emoji("<:e_:562879579694301184>")} {new Emoji("<:sparta:561287745675329567>")} {new Emoji("<:e_:562879579694301184>")} {new Emoji("<:sparta:561287745675329567>")} {new Emoji("<:e_:562879579694301184>")} {new Emoji("<:sparta:561287745675329567>")}\n";
+                "\n<:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567>\n";
             WhoWon = Guid.Empty;
             IsCheckIfReady = true;
             SkipPlayersThisRound = 0;

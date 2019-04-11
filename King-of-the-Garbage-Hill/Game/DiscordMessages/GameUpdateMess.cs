@@ -111,9 +111,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             for (var i = 0; i < playersList.Count; i++)
             {
+                players += CustomLeaderBoardBeforeNumber(player, playersList[i], game, i + 1);
+
                 players += $"{i + 1}. {playersList[i].DiscordAccount.DiscordUserName}";
 
-                players += CustomLeaderBoard(player, playersList[i], game);
+                players += CustomLeaderBoardAfterPlayer(player, playersList[i], game);
 
                 //TODO: REMOVE || playersList[i].IsBot()
                 if (player.Status.PlayerId == playersList[i].Status.PlayerId)
@@ -127,26 +129,82 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             return players;
         }
 
-        public string CustomLeaderBoard(GamePlayerBridgeClass player1, GamePlayerBridgeClass player2, GameClass game)
+        public string CustomLeaderBoardBeforeNumber(GamePlayerBridgeClass player1, GamePlayerBridgeClass player2,
+            GameClass game, int number)
         {
             var customString = "";
+
+            switch (player1.Character.Name)
+            {
+                case "Осьминожка":
+                    var octoTentacles = _gameGlobal.OctopusTentaclesList.Find(x =>
+                        x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
+
+                    if (!octoTentacles.LeaderboardPlace.Contains(number)) customString += "🐙";
+
+
+                    break;
+
+                case "Братишка":
+                    var shark = _gameGlobal.SharkJawsLeader.Find(x =>
+                        x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
+
+                    if (!shark.FriendList.Contains(number)) customString += "🐙";
+                    break;
+            }
+
+            return customString + " ";
+        }
+
+        public string CustomLeaderBoardAfterPlayer(GamePlayerBridgeClass player1, GamePlayerBridgeClass player2,
+            GameClass game)
+        {
+            var customString = " ";
             if (game.RoundNo == 11 || player1.DiscordAccount.DiscordId == 238337696316129280 ||
                 player1.DiscordAccount.DiscordId == 181514288278536193)
             {
-                customString += $" (as **{player2.Character.Name}**) = {player2.Status.GetScore()} Score";
-                customString += $" (I: {player2.Character.GetIntelligence()} | St: {player2.Character.GetStrength()} | Sp: {player2.Character.GetSpeed()} | Ps: {player2.Character.GetPsyche()})";
+                customString += $"(as **{player2.Character.Name}**) = {player2.Status.GetScore()} Score";
+                customString +=
+                    $"(I: {player2.Character.GetIntelligence()} | St: {player2.Character.GetStrength()} | Sp: {player2.Character.GetSpeed()} | Ps: {player2.Character.GetPsyche()})";
             }
 
             switch (player1.Character.Name)
             {
+                case "AWDKA":
+                    if (player2.Status.PlayerId == player1.Status.PlayerId) break;
+
+                    var awdka = _gameGlobal.AwdkaTryingList.Find(x =>
+                        x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
+
+                    var awdkaTrying = awdka.TryingList.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
+
+                    if (awdkaTrying != null)
+                    {
+                        if (!awdkaTrying.IsUnique) customString += "<:octo_ye:465374379048435712>";
+                    }
+                    else
+                    {
+                        customString +=
+                            "<:octo_ye:465374379048435712> <:octo_ye:465374379048435712>";
+                    }
+
+                    break;
+                case "Братишка":
+                    var shark = _gameGlobal.SharkJawsWin.Find(x =>
+                        x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
+                    if (!shark.FriendList.Contains(player2.Status.PlayerId) &&
+                        player2.Status.PlayerId != player1.Status.PlayerId)
+                        customString += "<:octo_ye:465374379048435712>";
+                    break;
+
                 case "Darksci":
                     var dar = _gameGlobal.DarksciLuckyList.Find(x =>
                         x.GameId == game.GameId &&
                         x.PlayerId == player1.Status.PlayerId);
 
-                        if (!dar.TouchedPlayers.Contains(player2.Status.PlayerId) &&
-                            player2.Status.PlayerId != player1.Status.PlayerId)
-                            customString += $" {new Emoji("<:Darksci:565598465531576352>")}";
+                    if (!dar.TouchedPlayers.Contains(player2.Status.PlayerId) &&
+                        player2.Status.PlayerId != player1.Status.PlayerId)
+                        customString += "<:Darksci:565598465531576352>";
 
 
                     break;
@@ -157,7 +215,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     if (vamp != null)
                         if (!vamp.FriendList.Contains(player2.Status.PlayerId) &&
                             player2.Status.PlayerId != player1.Status.PlayerId)
-                            customString += $" {new Emoji("<:Y_:562885385395634196>")}";
+                            customString += "<:Y_:562885385395634196>";
                     break;
 
                 case "HardKitty":
@@ -166,7 +224,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                         x.PlayerId == player1.Status.PlayerId);
                     var lostSeries = hardKitty?.LostSeries.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
                     if (lostSeries != null)
-                        customString += $" {new Emoji("<:393:563063205811847188>")} - {lostSeries.Series}";
+                        customString += $"<:393:563063205811847188> - {lostSeries.Series}";
                     break;
                 case "Sirinoks":
                     var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
@@ -175,15 +233,25 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     if (siri != null)
                         if (!siri.FriendList.Contains(player2.Status.PlayerId) &&
                             player2.Status.PlayerId != player1.Status.PlayerId)
-                            customString += $" {new Emoji("<:fr:563063244097585162>")}";
+                            customString += "<:fr:563063244097585162>";
 
                     break;
                 case "Загадочный Спартанец в маске":
-                    var panth = _gameGlobal.PanthMark.Find(x =>
+                {
+                    var panthShame = _gameGlobal.PanthShame.Find(x =>
+                        x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
+                    if (!panthShame.FriendList.Contains(player2.Status.PlayerId) &&
+                        player2.Status.PlayerId != player1.Status.PlayerId)
+                        customString += "<:yasuo:445323301137547264>";
+                }
+                {
+                    var panthMark = _gameGlobal.PanthMark.Find(x =>
                         x.GameId == player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
 
-                    if (panth.FriendList.Contains(player2.Status.PlayerId))
-                        customString += $" {new Emoji("<:sparta:561287745675329567>")}";
+                    if (panthMark.FriendList.Contains(player2.Status.PlayerId))
+                        customString += "<:sparta:561287745675329567>";
+                }
+
                     break;
 
 
@@ -195,7 +263,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     if (deep != null)
                         if (deep.FriendList.Contains(player2.Status.PlayerId) &&
                             player2.Status.PlayerId != player1.Status.PlayerId)
-                            customString += $" {new Emoji("<:yo:561287783704952845>")}";
+                            customString += "<:yo:561287783704952845>";
                     //end tactic
 
                     //сверхразум
@@ -204,7 +272,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     if (currentList != null)
                         if (currentList.KnownPlayers.Contains(player2.Status.PlayerId))
                             customString +=
-                                $" PS: - {player2.Character.Name} (I: {player2.Character.GetIntelligence()} | " +
+                                $"PS: - {player2.Character.Name} (I: {player2.Character.GetIntelligence()} | " +
                                 $"St: {player2.Character.GetStrength()} | Sp: {player2.Character.GetSpeed()} | " +
                                 $"Ps: {player2.Character.GetPsyche()} | J: {player2.Character.Justice.GetJusticeNow()})";
                     //end сверхразум
@@ -218,8 +286,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     var find = mylorik?.EnemyListPlayerIds.Find(x =>
                         x.EnemyPlayerId == player2.Status.PlayerId);
 
-                    if (find != null && find.IsUnique) customString += $" {new Emoji("<:sparta:561287745675329567>")}";
-                    if (find != null && !find.IsUnique) customString += $" {new Emoji("❌")}";
+                    if (find != null && find.IsUnique) customString += "<:sparta:561287745675329567>";
+                    if (find != null && !find.IsUnique) customString += "❌";
 
                     break;
                 case "Тигр":
@@ -232,10 +300,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     if (enemy != null)
                     {
                         if (enemy.WinsSeries == 1)
-                            customString += " 1:0";
+                            customString += "1:0";
                         else if (enemy.WinsSeries == 2)
-                            customString += " 2:0";
-                        else if (enemy.WinsSeries == 3) customString += " 3:0, обоссан";
+                            customString += "2:0";
+                        else if (enemy.WinsSeries == 3) customString += "3:0, обоссан";
                     }
 
                     break;
@@ -284,7 +352,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
                     .SendMessageAsync("PreviousGameLogs >= 2048");
 
-            embed.AddField($"{new Emoji("<:e_:562879579694301184>")}",
+            embed.AddField("<:e_:562879579694301184>",
                 $"**Интеллект:** {character.GetIntelligence()}\n" +
                 $"**Сила:** {character.GetStrength()}\n" +
                 $"**Скорость:** {character.GetSpeed()}\n" +
@@ -292,18 +360,18 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                 $"*Справедливость: {character.Justice.GetJusticeNow()}*\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                $"{new Emoji("<:e_:562879579694301184>")}\n" +
+                "<:e_:562879579694301184>\n" +
                 $"{LeaderBoard(player)}" +
-                $"{new Emoji("<:e_:562879579694301184>")}");
+                "<:e_:562879579694301184>");
 
 
             var splitted = player.Status.InGamePersonalLogsAll.Split("|||");
             if (game != null && splitted.Length > 1 && splitted[splitted.Length - 2].Length > 3 && game.RoundNo > 1)
                 embed.AddField("События прошлого раунда:",
-                    $"{splitted[splitted.Length - 2]}{new Emoji("<:e_:562879579694301184>")}");
+                    $"{splitted[splitted.Length - 2]}<:e_:562879579694301184>");
             else
                 embed.AddField("События прошлого раунда:",
-                    $"В прошлом раунде ничего не произошло. Странно...\n{new Emoji("<:e_:562879579694301184>")}");
+                    "В прошлом раунде ничего не произошло. Странно...\n<:e_:562879579694301184>");
 
             if (player.Status.GetInGamePersonalLogs().Length >= 2)
                 embed.AddField("События этого раунда:", $"{player.Status.GetInGamePersonalLogs()}");

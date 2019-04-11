@@ -474,6 +474,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 WhenToTriggerClass when;
                 switch (characterName)
                 {
+                    case "Осьминожка":
+                        _gameGlobal.OctopusTentaclesList.Add(new Octopus.TentaclesClass(player.Status.PlayerId, game.GameId));
+                        break;
                     case "Darksci":
                         _gameGlobal.DarksciLuckyList.Add(new Darksci.LuckyClass(player.Status.PlayerId,
                             game.GameId));
@@ -553,6 +556,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         _gameGlobal.AwdkaAfkTriggeredWhen.Add(when);
                         _gameGlobal.AwdkaTrollingList.Add(new Awdka.TrollingClass(player.Status.PlayerId,
                             game.GameId));
+                        _gameGlobal.AwdkaTryingList.Add(new Awdka.TryingClass(player.Status.PlayerId, game.GameId));
                         break;
 
                     case "Толя":
@@ -785,7 +789,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             x.GameId == player.DiscordAccount.GameId &&
                             x.PlayerId == player.Status.PlayerId);
 
-                        if (awdkaa != null)
                             foreach (var enemy in awdkaa.TryingList)
                                 if (enemy != null)
                                     if (enemy.Times >= 2 && enemy.IsUnique == false && player.Status.LvlUpPoints != 3)
@@ -1285,20 +1288,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (game.SkipPlayersThisRound > 0) player.Status.AddRegularPoints(game.SkipPlayersThisRound);
                         //end привет со дна
 
-                        var octo = _gameGlobal.OctopusTentaclesList.Find(x =>
-                            x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
-
-                        if (octo != null)
-                            for (var i = 0; i < octo.UniqePlacesList.Count; i++)
-                            {
-                                var uni = octo.UniqePlacesList[i];
-
-                                if (!uni.IsActivated)
-                                {
-                                    player.Status.AddRegularPoints();
-                                    uni.IsActivated = true;
-                                }
-                            }
 
                         break;
 
@@ -1698,22 +1687,18 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
 
                     case "Осьминожка":
-                        var octo = _gameGlobal.OctopusTentaclesList.Find(x =>
-                            x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
-
-                        if (octo == null)
+                        //Раскинуть щупальца:
+                        if (game.RoundNo > 1)
                         {
-                            _gameGlobal.OctopusTentaclesList.Add(new Octopus.TentaclesClass(
-                                player.Status.PlayerId, game.GameId, player.Status.PlaceAtLeaderBoard));
+                            var octo = _gameGlobal.OctopusTentaclesList.Find(x =>
+                                x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                            if (!octo.LeaderboardPlace.Contains(player.Status.PlaceAtLeaderBoard))
+                            {
+                                octo.LeaderboardPlace.Add(player.Status.PlaceAtLeaderBoard);
+                                player.Status.AddRegularPoints();
+                            }
                         }
-                        else
-                        {
-                            if (octo.UniqePlacesList.All(x => x.LeaderboardPlace != player.Status.PlaceAtLeaderBoard))
-                                octo.UniqePlacesList.Add(
-                                    new Octopus.TentaclesSubClass(player.Status.PlaceAtLeaderBoard));
-                        }
-
-
+                        //end Раскинуть щупальца:
                         break;
                     case "AWDKA":
 
