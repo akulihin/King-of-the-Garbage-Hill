@@ -194,7 +194,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                         x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
                     if (!shark.FriendList.Contains(player2.Status.PlayerId) &&
                         player2.Status.PlayerId != player1.Status.PlayerId)
-                        customString += "<:octo_ye:465374379048435712>";
+                        customString += "<:jaws:565741834219945986>";
                     break;
 
                 case "Darksci":
