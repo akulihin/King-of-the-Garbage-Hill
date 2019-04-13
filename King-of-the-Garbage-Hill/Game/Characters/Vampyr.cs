@@ -105,7 +105,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 var vamp = _gameGlobal.VampyrKilledList.Find(x =>
                     x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
                 var flag = false;
-                player.Status.AddBonusPoints(-1);
+                player.Status.AddBonusPoints(-1, "Гематофагия: ");
 
                 if (vamp.FriendList.Contains(player.Status.IsLostThisCalculation))
                 {

@@ -617,14 +617,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 foreach (var t in octopusInk.RealScoreList)
                                 {
                                     var pl = game.PlayersList.Find(x => x.Status.PlayerId == t.PlayerId);
-                                    pl?.Status.AddBonusPoints(t.RealScore);
+                                    pl?.Status.AddBonusPoints(t.RealScore, "🐙: ");
                                 }
 
                             if (octopusInv != null)
                             {
                                 var octoPlayer =
                                     game.PlayersList.Find(x => x.Status.PlayerId == octopusInv.PlayerId);
-                                octoPlayer.Status.AddBonusPoints(octopusInv.Count);
+                                octoPlayer.Status.AddBonusPoints(octopusInv.Count, "🐙: ");
                             }
 
                             //sort
@@ -991,7 +991,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             if (madd.WhenToTrigger.Contains(game.RoundNo))
                             {
                                 //trigger maddness
-                                player.Status.AddBonusPoints(-3);
+                                player.Status.AddBonusPoints(-3, "Безумие: ");
 
                                 var curr = _gameGlobal.DeepListMadnessList.Find(x =>
                                     x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
@@ -1080,7 +1080,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Character.SetSpeed(10);
                             player.Character.SetPsyche(11);
 
-                            player.Status.AddBonusPoints(10);
+                            var pointsToGive = 10;
+                          
 
                             var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
                                 x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
@@ -1090,10 +1091,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 {
                                     var player2 = game.PlayersList[i - 1];
                                     if (siri.FriendList.Contains(player2.Status.PlayerId))
-                                        player.Status.AddBonusPoints(-1);
+                                        pointsToGive--;
                                 }
 
-
+                            player.Status.AddBonusPoints(pointsToGive);
                             await _phrase.SirinoksDragonPhrase.SendLog(player);
                         }
 
@@ -1673,7 +1674,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                         x.Status.PlayerId == t);
                                     if (player2 != null)
                                     {
-                                        player2.Status.AddBonusPoints(-5);
+                                        player2.Status.AddBonusPoints(-5, "Запах мусора: ");
 
                                         await _phrase.MitsukiGarbageSmell.SendLog(player2);
                                         count++;

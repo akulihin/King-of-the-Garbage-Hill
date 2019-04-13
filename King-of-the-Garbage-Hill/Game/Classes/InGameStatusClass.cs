@@ -91,12 +91,14 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         }
 
 
-        public void AddBonusPoints(int bonusPoints = 1)
+        public void AddBonusPoints(int bonusPoints = 1, string skillName = "")
         {
             if (bonusPoints > 0)
                 AddInGamePersonalLogs($"+{bonusPoints} __**бонусных**__ очков\n");
             else if (bonusPoints < 0)
-                AddInGamePersonalLogs($"{bonusPoints} __**бонусных**__ очков\n");
+            {
+                AddInGamePersonalLogs($"{skillName}{bonusPoints} __**бонусных**__ очков\n");
+            }
 
             Score += bonusPoints;
             if (Score < 0)

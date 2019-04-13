@@ -137,7 +137,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     {
                         //end Спарта
                         player.Character.Justice.AddJusticeForNextRound(-1);
-                        player.Status.AddBonusPoints(-1);
+                        player.Status.AddBonusPoints(-1, "Блок: ");
                     }
                     playerIamAttacking.Character.Justice.AddJusticeForNextRound();
 
@@ -399,7 +399,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             game.TimePassed.Reset();
             game.TimePassed.Start();
             _logs.Info(
-                $"Finished calculating game #{game.GameId} (round# {game.RoundNo}). || {watch.Elapsed.TotalSeconds}s");
+                $"Finished calculating game #{game.GameId} (round# {game.RoundNo-1}). || {watch.Elapsed.TotalSeconds}s");
             Console.WriteLine("");
             watch.Stop();
             await Task.CompletedTask;
