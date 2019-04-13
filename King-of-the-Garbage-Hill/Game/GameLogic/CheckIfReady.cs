@@ -2,15 +2,15 @@
 using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
+using King_of_the_Garbage_Hill.BotFramework;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.LocalPersistentData.FinishedGameLog;
-using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic
 {
     public class CheckIfReady : IServiceSingleton
     {
-        private readonly UserAccounts _accounts;
+        private readonly LoginFromConsole _logs;
         private readonly BotsBehavior _botsBehavior;
         private readonly FinishedGameLog _finishedGameLog;
         private readonly GameUpdateMess _gameUpdateMess;
@@ -20,7 +20,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         public Timer LoopingTimer;
 
         public CheckIfReady(Global global, GameUpdateMess upd, CalculateRound round, FinishedGameLog finishedGameLog,
-            GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, UserAccounts accounts)
+            GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, LoginFromConsole logs)
         {
             _global = global;
             _upd = upd;
@@ -28,7 +28,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             _finishedGameLog = finishedGameLog;
             _gameUpdateMess = gameUpdateMess;
             _botsBehavior = botsBehavior;
-            _accounts = accounts;
+            _logs = logs;
             CheckTimer();
         }
 
@@ -104,6 +104,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var readyTargetCount = players.Count;
                 var readyCount = 0;
 
+                Console.WriteLine(" ");
                 foreach (var t in players)
                 {
                     await _botsBehavior.HandleBotBehavior(t, game);
@@ -112,14 +113,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (t.Status.IsReady && t.Status.MoveListPage != 3 && game.TimePassed.Elapsed.TotalSeconds > 13)
                         readyCount++;
                     else
-                        Console.WriteLine("NOT READY: = " + t.DiscordAccount.DiscordUserName);
+                        _logs.Info("NOT READY: = " + t.DiscordAccount.DiscordUserName);
 
                     if (t.Status.SocketMessageFromBot == null) continue;
                     //   if (game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds >= -6)
                     //       await _upd.UpdateMessage(t);
                 }
 
-                Console.WriteLine($"(#{game.GameId}) readyCount = " + readyCount);
+                _logs.Info($"(#{game.GameId}) readyCount = " + readyCount);
+                Console.WriteLine(" ");
 
                 if (readyCount != readyTargetCount &&
                     !(game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond) ||
@@ -138,7 +140,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     foreach (var t in players)
                         if (t.Status.SocketMessageFromBot != null)
                         {
-                            await _upd.UpdateMessage(t);
+                          await _upd.UpdateMessage(t);
                             await _upd.SendMsgAndDeleteIt(t, $"Раунд #{game.RoundNo}", 3);
                         }
                 }

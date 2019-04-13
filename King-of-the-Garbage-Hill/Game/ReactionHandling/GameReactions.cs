@@ -192,7 +192,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 if (status.WhoToAttackThisTurn == status.PlayerId)
                 {
                     status.WhoToAttackThisTurn = Guid.Empty;
-                     SendMsgAndDeleteIt(player, "Зачем ты себя бьешь?");
+                    SendMsgAndDeleteIt(player, "Зачем ты себя бьешь?");
                     return false;
                 }
 
@@ -291,6 +291,41 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 player.Status.LvlUpPoints--;
             else
                 player.Status.MoveListPage = 1;
+            //end awdka
+
+            //darcsi only
+            if (player.Character.Name == "Darksci")
+            {
+                var game = _global.GamesList.Find(x => x.GameId == player.DiscordAccount.GameId);
+                if (game.RoundNo == 9)
+                {
+                    //Дизмораль
+                    player.Character.AddPsyche(player.Status, -4);
+                    await _phrase.DarksciDysmoral.SendLog(player);
+                    game.AddPreviousGameLogs(
+                        $"**{player.DiscordAccount.DiscordUserName}:** Всё, у меня горит!");
+                    //end Дизмораль
+
+
+                    ////Да всё нахуй эту игру:
+                    player.Status.IsSkip = true;
+                    player.Status.IsBlock = false;
+                    player.Status.IsAbleToTurn = false;
+                    player.Status.IsReady = true;
+                    player.Status.WhoToAttackThisTurn = Guid.Empty;
+                    await _phrase.DarksciFuckThisGame.SendLog(player);
+
+
+                    if (player.Character.GetPsyche() <= 0)
+                    {
+                        if(game.RoundNo == 9 || game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
+                            game.AddPreviousGameLogs(
+                                $"**{player.DiscordAccount.DiscordUserName}:** Нахуй эту игру..");
+                    }
+                    //end //Да всё нахуй эту игру:
+                }
+            }
+            //end
 
             _upd.UpdateMessage(player);
             await Task.CompletedTask;

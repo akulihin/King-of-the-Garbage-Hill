@@ -2,10 +2,9 @@
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using King_of_the_Garbage_Hill.BotFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
-using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic
@@ -15,19 +14,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly CharacterPassives _characterPassives;
         private readonly InGameGlobal _gameGlobal;
         private readonly Global _global;
-        private readonly CharactersUniquePhrase _phrase;
         private readonly SecureRandom _rand;
-        private readonly GameUpdateMess _upd;
+        private readonly LoginFromConsole _logs;
 
-        public CalculateRound(GameUpdateMess upd, SecureRandom rand, CharacterPassives characterPassives,
-            InGameGlobal gameGlobal, CharactersUniquePhrase phrase, Global global)
+        public CalculateRound(SecureRandom rand, CharacterPassives characterPassives,
+            InGameGlobal gameGlobal, Global global, LoginFromConsole logs)
         {
-            _upd = upd;
             _rand = rand;
             _characterPassives = characterPassives;
             _gameGlobal = gameGlobal;
-            _phrase = phrase;
             _global = global;
+            _logs = logs;
         }
 
         public async Task InitializeAsync()
@@ -37,7 +34,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         public async Task DeepListMind(GameClass game)
         {
-            Console.WriteLine($"calculating game #{game.GameId}...");
+            Console.WriteLine("");
+            _logs.Info($"calculating game #{game.GameId}, round #{game.RoundNo}");
            
             var watch = new Stopwatch();
             watch.Start();
@@ -54,7 +52,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 
                 var pointsWined = 0;
                 var player = game.PlayersList[i];
-                Console.WriteLine($"calculating {player.Character.Name}");
                 await _characterPassives.HandleCharacterBeforeCalculations(player, game);
 
 
@@ -92,27 +89,24 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     continue;
                 }
 
-                Console.WriteLine($"calculating {player.Character.Name} attacking {playerIamAttacking.Character.Name}");
 
                 playerIamAttacking.Status.IsFighting = player.Status.PlayerId;
                 player.Status.IsFighting = playerIamAttacking.Status.PlayerId;
 
-                Console.WriteLine($"Check 1");
+
                 await _characterPassives.HandleCharacterWithKnownEnemyBeforeCalculations(player, game);
-                Console.WriteLine($"Check 2");
                 await _characterPassives.HandleCharacterWithKnownEnemyBeforeCalculations(playerIamAttacking, game);
-                Console.WriteLine($"Check 3");
+
                 await _characterPassives.HandleCharacterBeforeCalculations(playerIamAttacking, game);
 
                 if (playerIamAttacking.Status.WhoToAttackThisTurn == Guid.Empty &&
                     playerIamAttacking.Status.IsBlock == false)
                     playerIamAttacking.Status.IsBlock = true;
 
-                Console.WriteLine($"Check 4");
+
                 //т.е. он получил урон, какие у него дебаффы на этот счет 
                 await _characterPassives.HandleEveryAttackOnHim(playerIamAttacking, player, game);
 
-                Console.WriteLine($"Check 5");
                 //т.е. я его аттакую, какие у меня бонусы на это
                 await _characterPassives.HandleEveryAttackFromMe(player, playerIamAttacking, game);
 
@@ -128,7 +122,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
 
-                Console.WriteLine($"Check block");
+
                 //if block => no one gets points
                 if (playerIamAttacking.Status.IsBlock && player.Status.IsAbleToWin)
                 {
@@ -160,7 +154,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     continue;
                 }
 
-                Console.WriteLine($"Check skip");
+
                 if (playerIamAttacking.Status.IsSkip)
                 {
                     game.SkipPlayersThisRound++;
@@ -181,7 +175,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 //round 1 (contr)
 
-                Console.WriteLine($"Check 6");
+
                 var whoIsBetter = WhoIsBetter(player, playerIamAttacking);
 
                 //main formula:
@@ -245,7 +239,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 1)
                 {
-                    Console.WriteLine($"Check win 1");
                     game.AddPreviousGameLogs($" ⟶ победил **{player.DiscordAccount.DiscordUserName}**");
 
                     //еврей
@@ -270,7 +263,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
                 else
                 {
-                    Console.WriteLine($"Check win 2");
+
                     //octopus  // playerIamAttacking is octopus
                     var check = _characterPassives.HandleOctopus(playerIamAttacking, player, game);
                     //end octopus
@@ -292,18 +285,18 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     }
                 }
 
-                Console.WriteLine($"Check 7");
+
                 //т.е. он получил урон, какие у него дебаффы на этот счет 
                 await _characterPassives.HandleEveryAttackOnHimAfterCalculations(playerIamAttacking, player, game);
-                Console.WriteLine($"Check 9");
+
                 //т.е. я его аттакую, какие у меня бонусы на это
                 await _characterPassives.HandleEveryAttackFromMeAfterCalculations(player, playerIamAttacking, game);
 
                 //TODO: merge top 2 methods and 2 below... they are the same... or no?
 
-                Console.WriteLine($"Check 9");
+
                 await _characterPassives.HandleCharacterAfterCalculations(player, game);
-                Console.WriteLine($"Check 10");
+
                 await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
                 await _characterPassives.HandleEventsAfterEveryBattle(game); //used only for shark...
 
@@ -315,7 +308,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 player.Status.IsFighting = Guid.Empty;
             }
 
-            Console.WriteLine($"Check 11 - IMPORTANT");
+
             await _characterPassives.HandleEndOfRound(game);
             if (game.RoundNo % 2 == 0)
                 game.TurnLengthInSecond += 10;
@@ -349,12 +342,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             game.RoundNo++;
             game.GameStatus = 1;
 
-            Console.WriteLine($"Check 12");
+
             await _characterPassives.HandleNextRound(game);
 
             game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
 
-            Console.WriteLine($"Check 13");
+
             //HardKitty unique
             if (game.PlayersList.Any(x => x.Character.Name == "HardKitty"))
             {
@@ -368,7 +361,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
             //end //HardKitty unique
 
-            Console.WriteLine($"Check 14");
+
             //Tigr Unique
             if (game.PlayersList.Any(x => x.Character.Name == "Тигр"))
             {
@@ -397,19 +390,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 game.PlayersList[i].Status.PlaceAtLeaderBoard = i + 1;
             }
             //end sorting
-            Console.WriteLine($"Check 15");
-            SortGameLogs(game);
-            Console.WriteLine($"Check 16");
-            await _characterPassives.HandleNextRoundAfterSorting(game);
 
-#pragma warning disable 4014
-            _characterPassives.HandleDarksciDismoral(game); //not awaited!
-#pragma warning restore 4014
+            SortGameLogs(game);
+            _logs.Info($"Start HandleNextRoundAfterSorting");
+            await _characterPassives.HandleNextRoundAfterSorting(game);
+            _logs.Info($"Finished HandleNextRoundAfterSorting");
 
             game.TimePassed.Reset();
             game.TimePassed.Start();
-            Console.WriteLine(
+            _logs.Info(
                 $"Finished calculating game #{game.GameId} (round# {game.RoundNo}). || {watch.Elapsed.TotalSeconds}s");
+            Console.WriteLine("");
             watch.Stop();
             await Task.CompletedTask;
         }

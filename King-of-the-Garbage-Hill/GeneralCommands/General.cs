@@ -84,6 +84,26 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
+        [Command("sr")]
+        public async Task SelectRound(int roundNo)
+        {
+            if(roundNo < 1 || roundNo > 10) return;
+
+            var game = _global.GamesList.Find(
+                l => l.PlayersList.Any(x => x.DiscordAccount.DiscordId == Context.User.Id));
+
+            if (game == null) return;
+
+            game.RoundNo = roundNo;
+
+            foreach (var t in game.PlayersList)
+            {
+               await _upd.UpdateMessage(t);
+            }
+        }
+
+
+
         [Command("runtime")]
         [Alias("uptime")]
         [Summary("Статистика бота")]

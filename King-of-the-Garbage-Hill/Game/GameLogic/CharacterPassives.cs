@@ -720,6 +720,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Status.WhoToAttackThisTurn = Guid.Empty;
                             await _phrase.DarksciFuckThisGame.SendLog(player);
 
+                            if(game.RoundNo == 9 || game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
                             game.AddPreviousGameLogs(
                                     $"**{player.DiscordAccount.DiscordUserName}:** Нахуй эту игру..");
                         }
@@ -1143,7 +1144,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 {
                                     tigr.FriendList.Add(t.Status.PlayerId);
                                    // player.Status.AddRegularPoints();
-                                   player.Status.AddBonusPoints(4);
+                                   player.Status.AddBonusPoints(3);
                                     await _phrase.TigrTwoBetter.SendLog(player);
                                 }
                             }
@@ -1815,25 +1816,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             return false;
         }
 
-        public async Task HandleDarksciDismoral(GameClass game)
-        {
-            if (game.PlayersList.Any(x => x.Character.Name == "Darksci") && game.RoundNo == 9)
-            {
-                var darksi = game.PlayersList.Find(x => x.Character.Name == "Darksci");
 
-                while (darksi.Status.MoveListPage == 3)
-                {
-                    //doing nothing.... just waiting.... ya, strange way, I know
-                }
-
-                //Дизмораль
-                    darksi.Character.AddPsyche(darksi.Status, -4);
-                    await _phrase.DarksciDysmoral.SendLog(darksi);
-                    game.AddPreviousGameLogs(
-                        $"**{darksi.DiscordAccount.DiscordUserName}:** Всё, у меня горит!");
-                //end Дизмораль
-            }
-        }
 
         public async Task HandleCharacterWithKnownEnemyBeforeCalculations(GamePlayerBridgeClass player, GameClass game)
         {
