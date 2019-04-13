@@ -80,7 +80,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     .Count;
                 p.Ten -= count;
 
-                //custom behavior
+                //custom bot behavior
                 switch (bot.Character.Name)
                 {
                     case "Sirinoks":
@@ -180,15 +180,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         //Первым ходом выбирает только тех, кого точно победит. (кто побеждает его по статам, тем 10 = 0)
 
-                        /*
-                        if (game.RoundNo == 1)
-                            if (p.Player.Character.GetSpeed() + p.Player.Character.GetStrength() +
-                                p.Player.Character.GetIntelligence() + p.Player.Character.GetPsyche()
-                                -
-                                bot.Character.GetStrength() - bot.Character.GetSpeed() -
-                                bot.Character.GetIntelligence() - bot.Character.GetPsyche() > 0)
-                                p.Ten = 0;
-                                */
 
                         //end Первым ходом выбирает только тех, кого точно победит. (кто побеждает его по статам, тем 10 = 0)
 
@@ -210,7 +201,21 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     }
                         break;
                 }
-                //end custom behavior
+                //end custom bot behavior
+
+
+                //custom enemy
+                switch (p.Player.Character.Name)
+                {
+                    case "Darksci":
+                        if (game.RoundNo == 9 ||
+                            game.RoundNo == 10 && game.GetAllGameLogs().Contains("Нахуй эту игру"))
+                        {
+                            p.Ten = 0;
+                        }
+                        break;
+                }
+                //end custom enemy
 
                 //self always = 0
                 if (bot.Status.PlayerId == p.Player.Status.PlayerId) p.Ten = 0;
