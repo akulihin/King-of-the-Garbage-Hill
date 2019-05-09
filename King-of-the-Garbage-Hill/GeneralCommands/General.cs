@@ -103,6 +103,27 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             }
         }
 
+
+        [Command("SetScore")]
+        [Summary("Set your score")]
+        public async Task SetScore(int number)
+        {
+
+            var game = _global.GamesList.Find(
+                l => l.PlayersList.Any(x => x.DiscordAccount.DiscordId == Context.User.Id));
+
+            if (game == null) return;
+
+
+            game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Status.SetScoreToThisNumber(number);
+
+            foreach (var t in game.PlayersList)
+            {
+                await _upd.UpdateMessage(t);
+            }
+        }
+
+
         [Command("set")]
         [Summary("Set a stat (in, sp, st, ps)")]
         public async Task SetCharacteristic(string name, int number)
