@@ -15,9 +15,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly CharacterPassives _characterPassives;
         private readonly InGameGlobal _gameGlobal;
         private readonly Global _global;
-        private readonly SecureRandom _rand;
         private readonly LoginFromConsole _logs;
         private readonly CharactersUniquePhrase _phrase;
+        private readonly SecureRandom _rand;
 
         public CalculateRound(SecureRandom rand, CharacterPassives characterPassives,
             InGameGlobal gameGlobal, Global global, LoginFromConsole logs, CharactersUniquePhrase phrase)
@@ -39,7 +39,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         {
             Console.WriteLine("");
             _logs.Info($"calculating game #{game.GameId}, round #{game.RoundNo}");
-           
+
             var watch = new Stopwatch();
             watch.Start();
 
@@ -49,10 +49,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             game.SetPreviousGameLogs($"\n__**Раунд #{game.RoundNo}**__\n");
 
 
-          
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
-                
                 var pointsWined = 0;
                 var player = game.PlayersList[i];
                 await _characterPassives.HandleCharacterBeforeCalculations(player, game);
@@ -124,8 +122,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     "");
 
 
-
-
                 //if block => no one gets points
                 if (playerIamAttacking.Status.IsBlock && player.Status.IsAbleToWin)
                 {
@@ -142,6 +138,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         player.Character.Justice.AddJusticeForNextRound(-1);
                         player.Status.AddBonusPoints(-1, "Блок: ");
                     }
+
                     playerIamAttacking.Character.Justice.AddJusticeForNextRound();
 
                     await _characterPassives.HandleCharacterAfterCalculations(player, game);
@@ -234,7 +231,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //round 3 (Random)
                 if (pointsWined == 0)
                 {
-                    var randomNumber = _rand.Random(1, 100);
+                    var randomNumber = _rand.Random(1,
+                        100 - (player.Character.Justice.GetJusticeNow() -
+                               playerIamAttacking.Character.Justice.GetJusticeNow()));
                     if (randomNumber <= randomForTooGood) pointsWined++;
                 }
                 //end round 3
@@ -266,7 +265,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
                 else
                 {
-
                     //octopus  // playerIamAttacking is octopus
                     var check = _characterPassives.HandleOctopus(playerIamAttacking, player, game);
                     //end octopus
@@ -328,7 +326,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 player.Status.IsAbleToTurn = true;
                 player.Status.IsReady = false;
                 player.Status.WhoToAttackThisTurn = Guid.Empty;
-               await player.Status.CombineRoundScoreAndGameScore(game, _gameGlobal, _phrase);
+                await player.Status.CombineRoundScoreAndGameScore(game, _gameGlobal, _phrase);
                 player.Status.ClearInGamePersonalLogs();
                 player.Status.InGamePersonalLogsAll += "|||";
 
@@ -380,7 +378,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     game.PlayersList[tigrIndex] = game.PlayersList[0];
                     game.PlayersList[0] = tigrTemp;
                     tigr.TimeCount--;
-                        // await _phrase.TigrTop.SendLog(tigrTemp);
+                    // await _phrase.TigrTop.SendLog(tigrTemp);
                 }
             }
             //end Tigr Unique
@@ -395,14 +393,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             //end sorting
 
             SortGameLogs(game);
-            _logs.Info($"Start HandleNextRoundAfterSorting");
+            _logs.Info("Start HandleNextRoundAfterSorting");
             await _characterPassives.HandleNextRoundAfterSorting(game);
-            _logs.Info($"Finished HandleNextRoundAfterSorting");
+            _logs.Info("Finished HandleNextRoundAfterSorting");
 
             game.TimePassed.Reset();
             game.TimePassed.Start();
             _logs.Info(
-                $"Finished calculating game #{game.GameId} (round# {game.RoundNo-1}). || {watch.Elapsed.TotalSeconds}s");
+                $"Finished calculating game #{game.GameId} (round# {game.RoundNo - 1}). || {watch.Elapsed.TotalSeconds}s");
             Console.WriteLine("");
             watch.Stop();
             await Task.CompletedTask;
