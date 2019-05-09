@@ -55,11 +55,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             public Guid PlayerId;
             public List<Guid> UniquePlayers = new List<Guid>();
 
-            public MuteClass(Guid playerId, ulong gameId, Guid enemyPlayerId)
+            public MuteClass(Guid playerId, ulong gameId)
             {
                 PlayerId = playerId;
                 GameId = gameId;
-                UniquePlayers.Add(enemyPlayerId);
             }
         }
     }

@@ -81,7 +81,144 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             return Task.CompletedTask;
         }
 
-        //общее говно
+
+        public void CalculatePassiveChances(GameClass game)
+        {
+            foreach (var player in game.PlayersList)
+            {
+                var characterName = player.Character.Name;
+                WhenToTriggerClass when;
+                switch (characterName)
+                {
+
+                    case "HardKitty":
+                        _gameGlobal.HardKittyMute.Add(new HardKitty.MuteClass(player.Status.PlayerId, game.GameId));
+                        break;
+                    case "Осьминожка":
+                        _gameGlobal.OctopusTentaclesList.Add(new Octopus.TentaclesClass(player.Status.PlayerId,
+                            game.GameId));
+                        break;
+                    case "Darksci":
+                        _gameGlobal.DarksciLuckyList.Add(new Darksci.LuckyClass(player.Status.PlayerId,
+                            game.GameId));
+                        break;
+                    case "Бог ЛоЛа":
+                        _gameGlobal.LolGodPushAndDieSubList.Add(
+                            new LolGod.PushAndDieClass(player.Status.PlayerId, game.GameId, game.PlayersList));
+                        _gameGlobal.LolGodUdyrList.Add(new LolGod.Udyr(player.Status.PlayerId, game.GameId));
+                        break;
+                    case "Вампур":
+                        _gameGlobal.VampyrKilledList.Add(new FriendsClass(player.Status.PlayerId,
+                            game.GameId));
+                        break;
+                    case "Sirinoks":
+                        _gameGlobal.SirinoksFriendsList.Add(new FriendsClass(player.Status.PlayerId,
+                            game.GameId));
+                        break;
+                    case "Братишка":
+                        _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId,
+                            game.GameId));
+                        _gameGlobal.SharkJawsWin.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                        _gameGlobal.SharkBoole.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                        break;
+                    case "Загадочный Спартанец в маске":
+
+
+                        Guid enemy1;
+                        Guid enemy2;
+
+                        do
+                        {
+                            var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
+                            enemy1 = game.PlayersList[randIndex].Status.PlayerId;
+                        } while (enemy1 == player.Status.PlayerId);
+
+                        do
+                        {
+                            var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
+                            enemy2 = game.PlayersList[randIndex].Status.PlayerId;
+                        } while (enemy2 == player.Status.PlayerId || enemy2 == enemy1);
+
+                        _gameGlobal.PanthMark.Add(new FriendsClass(player.Status.PlayerId,
+                            game.GameId, enemy1));
+                        var panth = _gameGlobal.PanthMark.Find(x =>
+                            x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                        panth.FriendList.Add(enemy2);
+
+
+                        _gameGlobal.PanthShame.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                        _gameGlobal.PanthFirstBlood.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+
+
+                        break;
+                    case "DeepList":
+                        _gameGlobal.DeepListDoubtfulTactic.Add(new FriendsClass(player.Status.PlayerId,
+                            game.GameId));
+
+                        when = _gameGlobal.GetWhenToTrigger(player, true, 6, 2, false, 6);
+                        _gameGlobal.DeepListSupermindTriggeredWhen.Add(when);
+
+                        when = _gameGlobal.GetWhenToTrigger(player, true, 6, 2);
+                        _gameGlobal.DeepListMadnessTriggeredWhen.Add(when);
+
+                        break;
+                    case "mylorik":
+                        when = _gameGlobal.GetWhenToTrigger(player, false, 10, 2);
+                        _gameGlobal.MylorikBooleTriggeredWhen.Add(when);
+                        break;
+                    case "Тигр":
+                        _gameGlobal.TigrTwoBetterList.Add(
+                            new FriendsClass(player.Status.PlayerId, game.GameId));
+                        when = _gameGlobal.GetWhenToTrigger(player, true, 10, 1);
+                        _gameGlobal.TigrTopWhen.Add(when);
+                        break;
+                    case "AWDKA":
+                        when = _gameGlobal.GetWhenToTrigger(player, false, 10, 1);
+                        _gameGlobal.AwdkaAfkTriggeredWhen.Add(when);
+                        _gameGlobal.AwdkaTrollingList.Add(new Awdka.TrollingClass(player.Status.PlayerId,
+                            game.GameId));
+                        _gameGlobal.AwdkaTryingList.Add(new Awdka.TryingClass(player.Status.PlayerId, game.GameId));
+                        break;
+
+                    case "Толя":
+                        _gameGlobal.TolyaCount.Add(new Tolya.TolyaCountClass(game.GameId, player.Status.PlayerId));
+                        _gameGlobal.TolyaRammusTimes.Add(new FriendsClass(player.Status.PlayerId,
+                            game.GameId));
+                        break;
+
+                    case "Mit*suki*":
+                        when = _gameGlobal.GetWhenToTrigger(player, true, 0, 0);
+                        _gameGlobal.MitsukiNoPcTriggeredWhen.Add(when);
+                        break;
+
+                    case "Глеб":
+                        //Спящее хуйло chance   
+                        when = _gameGlobal.GetWhenToTrigger(player, true, 3, 3);
+                        _gameGlobal.GlebSleepingTriggeredWhen.Add(when);
+
+                        //challenger when
+                        var li = new List<int>();
+
+                        foreach (var t in when.WhenToTrigger) li.Add(t);
+
+                        bool flag;
+                        do
+                        {
+                            when = _gameGlobal.GetWhenToTrigger(player, true, 6, 3, true, 11);
+                            flag = false;
+                            for (var i = 0; i < li.Count; i++)
+                                if (when.WhenToTrigger.Contains(li[i]))
+                                    flag = true;
+                        } while (flag);
+
+                        _gameGlobal.GlebChallengerTriggeredWhen.Add(when);
+
+                        break;
+                }
+            }
+        }
+
+
         public async Task HandleEveryAttackOnHim(GamePlayerBridgeClass playerIamAttacking,
             GamePlayerBridgeClass playerAttackFrom,
             GameClass game)
@@ -340,7 +477,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     _octopus.HandleOctopus(player);
                     break;
                 case "Darksci":
-                   await _darksci.HandleDarksci(player, game);
+                    await _darksci.HandleDarksci(player, game);
                     break;
                 case "Тигр":
                     _tigr.HandleTigr(player);
@@ -389,26 +526,27 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         public async Task HandleCharacterAfterCalculations(GamePlayerBridgeClass player, GameClass game)
         {
+
+            //TODO: test it
             //tolya count
-            if (player.Status.IsWonThisCalculation != Guid.Empty && player.Character.Name != "Толя" &&
+            if (player.Status.IsLostThisCalculation != Guid.Empty && player.Character.Name != "Толя" &&
                 game.PlayersList.Any(x => x.Character.Name == "Толя"))
             {
-                var tolya = _gameGlobal.TolyaCount.Find(x =>
-                    x.PlayerId == player.Status.PlayerId && x.GameId == player.DiscordAccount.GameId);
+                var tolyaAcc = game.PlayersList.Find(x => x.Character.Name == "Толя");
 
-                if (tolya != null)
-                    if (player.Status.IsWonThisCalculation == tolya.WhoToLostLastTimeId && tolya.Cooldown <= 0)
-                    {
-                        var tolyaAcc = game.PlayersList.Find(x =>
-                            x.Status.PlayerId == player.Status.PlayerId &&
-                            x.DiscordAccount.GameId == player.DiscordAccount.GameId);
-                        tolyaAcc.Status.AddRegularPoints(2);
-                        tolyaAcc.Character.Justice.AddJusticeForNextRound(2);
-                        await _phrase.TolyaCountPhrase.SendLog(player);
-                        tolya.Cooldown = 1;
-                    }
+                var tolyaCount = _gameGlobal.TolyaCount.Find(x =>
+                    x.PlayerId == tolyaAcc.Status.PlayerId && x.GameId == game.GameId);
+
+
+                if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == player.Status.PlayerId))
+                {
+              
+                    tolyaAcc.Status.AddRegularPoints(2);
+                    tolyaAcc.Character.Justice.AddJusticeForNextRound(2);
+                    await _phrase.TolyaCountPhrase.SendLog(tolyaAcc); 
+                }
             }
-            //tolya count end
+            //tolya count end 
 
 
             var characterName = player.Character.Name;
@@ -463,139 +601,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             if (player.Status.WhoToAttackThisTurn == Guid.Empty && player.Status.IsBlock == false)
                 player.Status.IsBlock = true;
-        }
-
-
-        public void CalculatePassiveChances(GameClass game)
-        {
-            foreach (var player in game.PlayersList)
-            {
-                var characterName = player.Character.Name;
-                WhenToTriggerClass when;
-                switch (characterName)
-                {
-                    case "Осьминожка":
-                        _gameGlobal.OctopusTentaclesList.Add(new Octopus.TentaclesClass(player.Status.PlayerId, game.GameId));
-                        break;
-                    case "Darksci":
-                        _gameGlobal.DarksciLuckyList.Add(new Darksci.LuckyClass(player.Status.PlayerId,
-                            game.GameId));
-                        break;
-                    case "Бог ЛоЛа":
-                        _gameGlobal.LolGodPushAndDieSubList.Add(
-                            new LolGod.PushAndDieClass(player.Status.PlayerId, game.GameId, game.PlayersList));
-                        _gameGlobal.LolGodUdyrList.Add(new LolGod.Udyr(player.Status.PlayerId, game.GameId));
-                        break;
-                    case "Вампур":
-                        _gameGlobal.VampyrKilledList.Add(new FriendsClass(player.Status.PlayerId,
-                            game.GameId));
-                        break;
-                    case "Sirinoks":
-                        _gameGlobal.SirinoksFriendsList.Add(new FriendsClass(player.Status.PlayerId,
-                            game.GameId));
-                        break;
-                    case "Братишка":
-                        _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId,
-                            game.GameId));
-                        _gameGlobal.SharkJawsWin.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
-                        _gameGlobal.SharkBoole.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
-                        break;
-                    case "Загадочный Спартанец в маске":
-
-
-                        Guid enemy1;
-                        Guid enemy2;
-
-                        do
-                        {
-                            var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
-                            enemy1 = game.PlayersList[randIndex].Status.PlayerId;
-                        } while (enemy1 == player.Status.PlayerId);
-
-                        do
-                        {
-                            var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
-                            enemy2 = game.PlayersList[randIndex].Status.PlayerId;
-                        } while (enemy2 == player.Status.PlayerId || enemy2 == enemy1);
-
-                        _gameGlobal.PanthMark.Add(new FriendsClass(player.Status.PlayerId,
-                            game.GameId, enemy1));
-                        var panth = _gameGlobal.PanthMark.Find(x =>
-                            x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
-                        panth.FriendList.Add(enemy2);
-
-
-                        _gameGlobal.PanthShame.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
-                        _gameGlobal.PanthFirstBlood.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
-
-
-                        break;
-                    case "DeepList":
-                        _gameGlobal.DeepListDoubtfulTactic.Add(new FriendsClass(player.Status.PlayerId,
-                            game.GameId));
-
-                        when = _gameGlobal.GetWhenToTrigger(player, true, 6, 2, false, 6);
-                        _gameGlobal.DeepListSupermindTriggeredWhen.Add(when);
-
-                        when = _gameGlobal.GetWhenToTrigger(player, true, 6, 2);
-                        _gameGlobal.DeepListMadnessTriggeredWhen.Add(when);
-
-                        break;
-                    case "mylorik":
-                        when = _gameGlobal.GetWhenToTrigger(player, false, 10, 2);
-                        _gameGlobal.MylorikBooleTriggeredWhen.Add(when);
-                        break;
-                    case "Тигр":
-                        _gameGlobal.TigrTwoBetterList.Add(
-                            new FriendsClass(player.Status.PlayerId, game.GameId));
-                        when = _gameGlobal.GetWhenToTrigger(player, true, 10, 1);
-                        _gameGlobal.TigrTopWhen.Add(when);
-                        break;
-                    case "AWDKA":
-                        when = _gameGlobal.GetWhenToTrigger(player, false, 10, 1);
-                        _gameGlobal.AwdkaAfkTriggeredWhen.Add(when);
-                        _gameGlobal.AwdkaTrollingList.Add(new Awdka.TrollingClass(player.Status.PlayerId,
-                            game.GameId));
-                        _gameGlobal.AwdkaTryingList.Add(new Awdka.TryingClass(player.Status.PlayerId, game.GameId));
-                        break;
-
-                    case "Толя":
-                        _gameGlobal.TolyaCount.Add(new Tolya.TolyaCountClass(game.GameId,
-                            player.Status.PlayerId, Guid.Empty));
-                        _gameGlobal.TolyaRammusTimes.Add(new FriendsClass(player.Status.PlayerId,
-                            game.GameId));
-                        break;
-
-                    case "Mit*suki*":
-                        when = _gameGlobal.GetWhenToTrigger(player, true, 0, 0);
-                        _gameGlobal.MitsukiNoPcTriggeredWhen.Add(when);
-                        break;
-
-                    case "Глеб":
-                        //Спящее хуйло chance   
-                        when = _gameGlobal.GetWhenToTrigger(player, true, 3, 3);
-                        _gameGlobal.GlebSleepingTriggeredWhen.Add(when);
-
-                        //challenger when
-                        var li = new List<int>();
-
-                        foreach (var t in when.WhenToTrigger) li.Add(t);
-
-                        bool flag;
-                        do
-                        {
-                            when = _gameGlobal.GetWhenToTrigger(player, true, 6, 3, true, 11);
-                            flag = false;
-                            for (var i = 0; i < li.Count; i++)
-                                if (when.WhenToTrigger.Contains(li[i]))
-                                    flag = true;
-                        } while (flag);
-
-                        _gameGlobal.GlebChallengerTriggeredWhen.Add(when);
-
-                        break;
-                }
-            }
         }
 
 
@@ -709,7 +714,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     case "Darksci":
 
 
-
                         //Да всё нахуй эту игру:
                         if (player.Character.GetPsyche() <= 0)
                         {
@@ -720,7 +724,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Status.WhoToAttackThisTurn = Guid.Empty;
                             await _phrase.DarksciFuckThisGame.SendLog(player);
 
-                            if(game.RoundNo == 9 || game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
+                            if (game.RoundNo == 9 ||
+                                game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
                                 game.AddPreviousGameLogs(
                                     $"**{player.DiscordAccount.DiscordUserName}:** Нахуй эту игру..");
                         }
@@ -761,7 +766,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                             if (enemy != null)
                             {
-                                player.Status.AddBonusPoints((enemy.Score + 1 ) / 2);
+                                player.Status.AddBonusPoints((enemy.Score + 1) / 2);
                                 await _phrase.AwdkaTrolling.SendLog(player);
                             }
                         }
@@ -790,15 +795,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             x.GameId == player.DiscordAccount.GameId &&
                             x.PlayerId == player.Status.PlayerId);
 
-                            foreach (var enemy in awdkaa.TryingList)
-                                if (enemy != null)
-                                    if (enemy.Times >= 2 && enemy.IsUnique == false && player.Status.LvlUpPoints != 3)
-                                    {
-                                        player.Status.LvlUpPoints = 3;
-                                        await _gameUpdateMess.UpdateMessage(player);
-                                        enemy.IsUnique = true;
-                                        await _phrase.AwdkaTrying.SendLog(player);
-                                    }
+                        foreach (var enemy in awdkaa.TryingList)
+                            if (enemy != null)
+                                if (enemy.Times >= 2 && enemy.IsUnique == false && player.Status.LvlUpPoints != 3)
+                                {
+                                    player.Status.LvlUpPoints = 3;
+                                    await _gameUpdateMess.UpdateMessage(player);
+                                    enemy.IsUnique = true;
+                                    await _phrase.AwdkaTrying.SendLog(player);
+                                }
                         //end Я пытаюсь!:
 
 
@@ -1081,7 +1086,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Character.SetPsyche(11);
 
                             var pointsToGive = 10;
-                          
+
 
                             var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
                                 x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
@@ -1144,8 +1149,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 if (!tigr.FriendList.Contains(t.Status.PlayerId))
                                 {
                                     tigr.FriendList.Add(t.Status.PlayerId);
-                                   // player.Status.AddRegularPoints();
-                                   player.Status.AddBonusPoints(3);
+                                    // player.Status.AddRegularPoints();
+                                    player.Status.AddBonusPoints(3);
                                     await _phrase.TigrTwoBetter.SendLog(player);
                                 }
                             }
@@ -1380,76 +1385,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         //end общие говно
 
-        public async Task<int> HandleJewPassive(GamePlayerBridgeClass player, GameClass game)
-        {
-            if (game.PlayersList.Any(x => x.Character.Name == "LeCrisp" || x.Character.Name == "Толя"))
-            {
-                if (player.Character.Name == "LeCrisp" || player.Character.Name == "Толя") return 1;
-
-                var leCrisp = game.PlayersList.Find(x => x.Character.Name == "LeCrisp");
-                var tolya = game.PlayersList.Find(x => x.Character.Name == "Толя");
-
-
-                if (leCrisp != null && tolya != null)
-                    if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn &&
-                        tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
-                    {
-                        if (game.RoundNo > 4)
-                        {
-                            leCrisp.Status.AddRegularPoints();
-                            tolya.Status.AddRegularPoints();
-                            if (!leCrisp.IsBot())
-                            {
-                                var mess =
-                                    await leCrisp.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                                        "МЫ жрём деньги!");
-#pragma warning disable 4014
-                                _help.DeleteMessOverTime(mess, 10);
-#pragma warning restore 4014
-                            }
-
-                            if (!tolya.IsBot())
-                            {
-                                var mess =
-                                    await tolya.Status.SocketMessageFromBot.Channel.SendMessageAsync("МЫ жрём деньги!");
-#pragma warning disable 4014
-                                _help.DeleteMessOverTime(mess, 10);
-#pragma warning restore 4014
-                            }
-
-
-                            return 0;
-                        }
-
-                        return 1;
-                    }
-
-                if (leCrisp != null)
-                    if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
-                    {
-                        if (player.Character.Name == "DeepList")
-                        {
-                            await _phrase.LeCrispBoolingPhrase.SendLog(leCrisp);
-                            return 1;
-                        }
-
-                        leCrisp.Status.AddRegularPoints();
-                        await _phrase.LeCrispJewPhrase.SendLog(leCrisp);
-                        return 0;
-                    }
-
-                if (tolya != null)
-                    if (tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
-                    {
-                        tolya.Status.AddRegularPoints();
-                        await _phrase.TolyaJewPhrase.SendLog(tolya);
-                        return 0;
-                    }
-            }
-
-            return 1;
-        }
-
         public async Task HandleEveryAttackOnHimAfterCalculations(GamePlayerBridgeClass playerIamAttacking,
             GamePlayerBridgeClass player, GameClass game)
         {
@@ -1465,23 +1400,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         var hardKitty = _gameGlobal.HardKittyMute.Find(x =>
                             x.PlayerId == playerIamAttacking.Status.PlayerId &&
                             x.GameId == game.GameId);
-                        if (hardKitty == null)
-                        {
-                            _gameGlobal.HardKittyMute.Add(new HardKitty.MuteClass(
-                                playerIamAttacking.Status.PlayerId, game.GameId,
-                                player.Status.PlayerId));
-                            player.Status.AddRegularPoints();
-                            await _phrase.HardKittyMutedPhrase.SendLog(playerIamAttacking);
-                        }
-                        else
-                        {
+
+     
                             if (!hardKitty.UniquePlayers.Contains(player.Status.PlayerId))
                             {
                                 hardKitty.UniquePlayers.Add(player.Status.PlayerId);
                                 player.Status.AddRegularPoints();
                                 await _phrase.HardKittyMutedPhrase.SendLog(playerIamAttacking);
                             }
-                        }
+                        
                     }
 
                     //Muted passive end
@@ -1508,8 +1435,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 case "Вампур":
                     //Вампуризм
                     if (player.Status.IsWonThisCalculation != Guid.Empty)
-                            player.Character.Justice.SetJusticeForNextRound(playerIamAttacking.Character.Justice
-                                .GetJusticeForNextRound());
+                        player.Character.Justice.SetJusticeForNextRound(playerIamAttacking.Character.Justice
+                            .GetJusticeForNextRound());
                     //end   Вампуризм
                     break;
 
@@ -1587,18 +1514,18 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         x.GameId == player.DiscordAccount.GameId &&
                         x.PlayerId == player.Status.PlayerId);
 
-                        if (!darscsi.TouchedPlayers.Contains(playerIamAttacking.Status.PlayerId))
-                            darscsi.TouchedPlayers.Add(playerIamAttacking.Status.PlayerId);
+                    if (!darscsi.TouchedPlayers.Contains(playerIamAttacking.Status.PlayerId))
+                        darscsi.TouchedPlayers.Add(playerIamAttacking.Status.PlayerId);
 
-                        if (darscsi.TouchedPlayers.Count == game.PlayersList.Count - 1)
-                        {
-                            player.Status.AddBonusPoints(player.Status.GetScore() * 3);
+                    if (darscsi.TouchedPlayers.Count == game.PlayersList.Count - 1)
+                    {
+                        player.Status.AddBonusPoints(player.Status.GetScore() * 3);
 
-                            player.Character.AddPsyche(player.Status, 2);
-                            darscsi.TouchedPlayers.Clear();
-                            await _phrase.DarksciLucky.SendLog(player);
-                        }
-                    
+                        player.Character.AddPsyche(player.Status, 2);
+                        darscsi.TouchedPlayers.Clear();
+                        await _phrase.DarksciLucky.SendLog(player);
+                    }
+
 
                     break;
             }
@@ -1700,6 +1627,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 player.Status.AddRegularPoints();
                             }
                         }
+
                         //end Раскинуть щупальца:
                         break;
                     case "AWDKA":
@@ -1710,11 +1638,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         var tolya = _gameGlobal.TolyaCount.Find(x =>
                             x.GameId == player.DiscordAccount.GameId &&
                             x.PlayerId == player.Status.PlayerId);
-                        if (tolya != null)
-                        {
+
                             tolya.Cooldown--;
-                            if (tolya.Cooldown <= 0) await _phrase.TolyaCountReadyPhrase.SendLog(player);
-                        }
+
+                            if (tolya.Cooldown <= 0 && tolya.IsReadyToUse == false)
+                            {
+                                tolya.IsReadyToUse = true;
+                                await _phrase.TolyaCountReadyPhrase.SendLog(player);
+                            }
 
                         break;
                 }
@@ -1756,6 +1687,117 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             //end Если фидишь то пропушь, если пушишь то нафидь
         }
+
+
+        public async Task HandleCharacterWithKnownEnemyBeforeCalculations(GamePlayerBridgeClass player, GameClass game)
+        {
+            var characterName = player.Character.Name;
+            switch (characterName)
+            {
+                case "Толя":
+
+                    var tolya = _gameGlobal.TolyaCount.Find(x =>
+                        x.GameId == player.DiscordAccount.GameId &&
+                        x.PlayerId == player.Status.PlayerId);
+
+                    if (tolya.IsReadyToUse && player.Status.WhoToAttackThisTurn != Guid.Empty)
+                    {
+                        tolya.TargetList.Add(new Tolya.TolyaCountSubClass(player.Status.WhoToAttackThisTurn, game.RoundNo));
+                        tolya.IsReadyToUse = false;
+                        tolya.Cooldown = 2;
+                    }
+                    break;
+
+                case "DeepList":
+                    await _deepList.HandleDeepListTactics(player, game);
+                    break;
+
+                case "Вампур":
+                    //игнор 1 справедливости
+                    var enemy = game.PlayersList.Find(x =>
+                        x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
+                    if (enemy != null)
+                        if (enemy.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
+                            enemy.Character.Justice.SetJusticeNow(enemy.Character.Justice.GetJusticeNow() - 1);
+                    //игнор 1 справедливости
+                    break;
+            }
+
+
+            await Task.CompletedTask;
+        }
+
+
+        public async Task<int> HandleJewPassive(GamePlayerBridgeClass player, GameClass game)
+        {
+            if (game.PlayersList.Any(x => x.Character.Name == "LeCrisp" || x.Character.Name == "Толя"))
+            {
+                if (player.Character.Name == "LeCrisp" || player.Character.Name == "Толя") return 1;
+
+                var leCrisp = game.PlayersList.Find(x => x.Character.Name == "LeCrisp");
+                var tolya = game.PlayersList.Find(x => x.Character.Name == "Толя");
+
+
+                if (leCrisp != null && tolya != null)
+                    if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn &&
+                        tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
+                    {
+                        if (game.RoundNo > 4)
+                        {
+                            leCrisp.Status.AddRegularPoints();
+                            tolya.Status.AddRegularPoints();
+                            if (!leCrisp.IsBot())
+                            {
+                                var mess =
+                                    await leCrisp.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                                        "МЫ жрём деньги!");
+#pragma warning disable 4014
+                                _help.DeleteMessOverTime(mess, 10);
+#pragma warning restore 4014
+                            }
+
+                            if (!tolya.IsBot())
+                            {
+                                var mess =
+                                    await tolya.Status.SocketMessageFromBot.Channel.SendMessageAsync("МЫ жрём деньги!");
+#pragma warning disable 4014
+                                _help.DeleteMessOverTime(mess, 10);
+#pragma warning restore 4014
+                            }
+
+
+                            return 0;
+                        }
+
+                        return 1;
+                    }
+
+                if (leCrisp != null)
+                    if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
+                    {
+                        if (player.Character.Name == "DeepList")
+                        {
+                            await _phrase.LeCrispBoolingPhrase.SendLog(leCrisp);
+                            return 1;
+                        }
+
+                        leCrisp.Status.AddRegularPoints();
+                        await _phrase.LeCrispJewPhrase.SendLog(leCrisp);
+                        return 0;
+                    }
+
+                if (tolya != null)
+                    if (tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
+                    {
+                        tolya.Status.AddRegularPoints();
+                        await _phrase.TolyaJewPhrase.SendLog(tolya);
+                        return 0;
+                    }
+            }
+
+            return 1;
+        }
+
 
         public bool HandleOctopus(GamePlayerBridgeClass octopusPlayer, GamePlayerBridgeClass playerAttackedOctopus,
             GameClass game)
@@ -1815,32 +1857,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
             return false;
-        }
-
-
-
-        public async Task HandleCharacterWithKnownEnemyBeforeCalculations(GamePlayerBridgeClass player, GameClass game)
-        {
-            var characterName = player.Character.Name;
-            switch (characterName)
-            {
-                case "DeepList":
-                    await _deepList.HandleDeepListTactics(player, game);
-                    break;
-
-                case "Вампур":
-                    //игнор 1 справедливости
-                    var enemy = game.PlayersList.Find(x =>
-                        x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
-                    if (enemy != null)
-                        if (enemy.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
-                            enemy.Character.Justice.SetJusticeNow(enemy.Character.Justice.GetJusticeNow() - 1);
-                    //игнор 1 справедливости
-                    break;
-            }
-
-
-            await Task.CompletedTask;
         }
     }
 }

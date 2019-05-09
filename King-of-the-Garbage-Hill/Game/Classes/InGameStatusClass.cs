@@ -1,6 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Discord;
+using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 
 namespace King_of_the_Garbage_Hill.Game.Classes
 {
@@ -95,10 +99,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         {
             if (bonusPoints > 0)
                 AddInGamePersonalLogs($"+{bonusPoints} __**бонусных**__ очков\n");
-            else if (bonusPoints < 0)
-            {
-                AddInGamePersonalLogs($"{skillName}{bonusPoints} __**бонусных**__ очков\n");
-            }
+            else if (bonusPoints < 0) AddInGamePersonalLogs($"{skillName}{bonusPoints} __**бонусных**__ очков\n");
 
             Score += bonusPoints;
             if (Score < 0)
@@ -110,8 +111,32 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             return ScoresToGiveAtEndOfRound;
         }
 
-        public void CombineRoundScoreAndGameScore(int roundNumber)
+        public async Task CombineRoundScoreAndGameScore(GameClass game, InGameGlobal gameGlobal,
+            CharactersUniquePhrase phrase)
         {
+            var roundNumber = game.RoundNo;
+
+
+            if (game.PlayersList.Any(x => x.Character.Name == "Толя"))
+            {
+                var tolyaAcc = game.PlayersList.Find(x => x.Character.Name == "Толя");
+
+                var tolyaCount = gameGlobal.TolyaCount.Find(x =>
+                    x.PlayerId == tolyaAcc.Status.PlayerId && x.GameId == game.GameId);
+
+
+                if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == PlayerId))
+                {
+                    roundNumber = 1;
+
+                    if (game.PlayersList.Any(x => x.Status.PlayerId == PlayerId && x.Character.Name == "Глеб"))
+                        if (gameGlobal.GlebChallengerTriggeredWhen.Any(x => x.WhenToTrigger.Contains(game.RoundNo)))
+                            await phrase.TolyaCountReadyPhrase.SendLog(
+                                game.PlayersList.Find(x => x.Character.Name == "Глеб"));
+                }
+            }
+
+
             AddScore(GetScoresToGiveAtEndOfRound(), roundNumber);
             SetScoresToGiveAtEndOfRound(0);
         }

@@ -85,6 +85,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
 
         [Command("sr")]
+        [Summary("Select round 1-10")]
         public async Task SelectRound(int roundNo)
         {
             if(roundNo < 1 || roundNo > 10) return;
@@ -99,6 +100,44 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             foreach (var t in game.PlayersList)
             {
                await _upd.UpdateMessage(t);
+            }
+        }
+
+        [Command("set")]
+        [Summary("Set a stat (in, sp, st, ps)")]
+        public async Task SetCharacteristic(string name, int number)
+        {
+            if (number < 1 || number > 10) return;
+
+            var game = _global.GamesList.Find(
+                l => l.PlayersList.Any(x => x.DiscordAccount.DiscordId == Context.User.Id));
+
+            if (game == null) return;
+
+
+            switch (name.ToLower())
+            {
+
+                case "in":
+                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Character.SetIntelligence(number);
+                    break;
+                case "sp":
+                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Character.SetSpeed(number);
+                    break;
+                case "st":
+                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Character.SetStrength(number);
+                    break;
+                case "ps":
+                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Character.SetPsyche(number);
+                    break;
+                default:
+                    return;
+            }
+            
+
+            foreach (var t in game.PlayersList)
+            {
+                await _upd.UpdateMessage(t);
             }
         }
 

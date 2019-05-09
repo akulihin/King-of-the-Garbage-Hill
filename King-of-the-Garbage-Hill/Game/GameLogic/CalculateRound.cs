@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.BotFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic
@@ -16,15 +17,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly Global _global;
         private readonly SecureRandom _rand;
         private readonly LoginFromConsole _logs;
+        private readonly CharactersUniquePhrase _phrase;
 
         public CalculateRound(SecureRandom rand, CharacterPassives characterPassives,
-            InGameGlobal gameGlobal, Global global, LoginFromConsole logs)
+            InGameGlobal gameGlobal, Global global, LoginFromConsole logs, CharactersUniquePhrase phrase)
         {
             _rand = rand;
             _characterPassives = characterPassives;
             _gameGlobal = gameGlobal;
             _global = global;
             _logs = logs;
+            _phrase = phrase;
         }
 
         public async Task InitializeAsync()
@@ -325,7 +328,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 player.Status.IsAbleToTurn = true;
                 player.Status.IsReady = false;
                 player.Status.WhoToAttackThisTurn = Guid.Empty;
-                player.Status.CombineRoundScoreAndGameScore(game.RoundNo);
+               await player.Status.CombineRoundScoreAndGameScore(game, _gameGlobal, _phrase);
                 player.Status.ClearInGamePersonalLogs();
                 player.Status.InGamePersonalLogsAll += "|||";
 
