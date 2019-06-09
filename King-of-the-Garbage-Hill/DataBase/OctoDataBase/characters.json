@@ -168,7 +168,7 @@
     "Avatar": "https://i.imgur.com/WBHYn9w.png",
     "Passive": [
       {
-        "PassiveDescription": "Получает очко каждый раз, когда на него нападет хоть кто-то...",
+        "PassiveDescription": "Получает очко каждый ход, когда на него нападет хоть кто-то...",
         "PassiveName": "Одиночество"
       },
       {
