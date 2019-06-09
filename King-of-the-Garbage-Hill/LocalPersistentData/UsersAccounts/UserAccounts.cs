@@ -162,7 +162,8 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 DiscordUserName = "BOT",
                 IsLogs = false,
                 IsPlaying = false,
-                GameId = 1000000
+                GameId = 1000000,
+                UserType = "player"
             };
 
             _userAccountsDictionary.GetOrAdd(newAccount.DiscordId, newAccount);

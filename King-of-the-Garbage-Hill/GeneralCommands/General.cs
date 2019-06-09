@@ -84,6 +84,29 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
+
+        [Command("setType")]
+        [Summary("setting type of account: player, admin")]
+        public async Task SetType(SocketUser user, string userType)
+        {
+            userType = userType.ToLower();
+            var account = _accounts.GetAccount(user);
+
+            if(userType != "admin" && userType != "player") {
+                   SendMessAsync($"**admin** OR **player** only available options");
+                return; 
+                }
+            if(Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193) {
+                 SendMessAsync("only owners can use this command");
+                return;
+                }
+
+            account.UserType = userType;
+
+            SendMessAsync($"done. {user.Username} is now **{userType}**");
+        }
+
+
         [Command("sr")]
         [Summary("Select round 1-10")]
         public async Task SelectRound(int roundNo)
@@ -397,6 +420,148 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
             await Context.User.SendMessageAsync("", false, embed.Build());
         }
+
+                [Command("st")]
+        [Summary("запуск игры")]
+        public async Task StartGameTest(SocketUser tolya = null)
+        {
+            _helperFunctions.SubstituteUserWithBot(Context.User.Id);
+
+
+            var rawList = new List<SocketUser>
+            {
+                null,
+                null,
+                null,
+                null,
+                null
+            };
+            var playersList = new List<GamePlayerBridgeClass>();
+
+
+            var accountDeep = _accounts.GetAccount(Context.User);
+            accountDeep.GameId = _global.GetNewtGamePlayingAndId();
+            accountDeep.IsPlaying = true;
+
+            var characters = _charactersPull.GetAllCharacters();
+            var characterDeep = characters[_secureRandom.Random(0, characters.Count()-1)]; //TODO: should be random someday 
+            characters.Remove(characterDeep);
+            playersList.Add(new GamePlayerBridgeClass
+                {DiscordAccount = accountDeep, Character = characterDeep, Status = new InGameStatus()});
+
+            if (tolya != null)
+            {
+                var tolAccount = _accounts.GetAccount(tolya);
+                tolAccount.GameId = accountDeep.GameId;
+                tolAccount.IsPlaying = true;
+                var characterTolya  = characters[_secureRandom.Random(0, characters.Count()-1)];
+                characters.Remove(characterTolya);
+                playersList.Add(new GamePlayerBridgeClass
+                {
+                    DiscordAccount = tolAccount, Character = characterTolya,
+                    Status = new InGameStatus()
+                });
+            }
+
+
+            var count = rawList.Count;
+            if (tolya != null) count--;
+
+            for (var i = 0; i < count; i++)
+            {
+                var user = rawList[i];
+
+                if (user != null) continue;
+
+                var account = _helperFunctions.GetFreeBot(playersList, accountDeep.GameId);
+
+                playersList.Add(account);
+            }
+
+
+            ////////////////////////////////////////////////////// FIRST SORTING/////////////////////////////////////////////////
+            //randomize order
+            playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
+            playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+
+            //HardKitty unique
+            if (playersList.Any(x => x.Character.Name == "HardKitty"))
+            {
+                var tempHard = playersList.Find(x => x.Character.Name == "HardKitty");
+                var hardIndex = playersList.IndexOf(tempHard);
+
+                for (var i = hardIndex; i < playersList.Count - 1; i++)
+                    playersList[i] = playersList[i + 1];
+
+                playersList[playersList.Count - 1] = tempHard;
+            }
+            //end //HardKitty unique
+
+
+            //Tigr Unique
+            if (playersList.Any(x => x.Character.Name == "Тигр"))
+            {
+                var tigrTemp = playersList.Find(x => x.Character.Name == "Тигр");
+
+                var tigr = _gameGlobal.TigrTop.Find(x =>
+                    x.GameId == tigrTemp.DiscordAccount.GameId && x.PlayerId == tigrTemp.Status.PlayerId);
+
+                if (tigr != null && tigr.TimeCount > 0)
+                {
+                    var tigrIndex = playersList.IndexOf(tigrTemp);
+
+                    playersList[tigrIndex] = playersList[0];
+                    playersList[0] = tigrTemp;
+                    tigr.TimeCount--;
+                    //await _phrase.TigrTop.SendLog(tigrTemp);
+                }
+            }
+            //end Tigr Unique
+
+            //sort
+            for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
+            //end sorting
+            //////////////////////////////////////////////////////END FIRST SORTING/////////////////////////////////////////////////
+
+            _gameGlobal.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
+
+            //send  a wait message
+            foreach (var player in playersList) await _upd.WaitMess(player);
+
+
+            var game = new GameClass(playersList, accountDeep.GameId) {IsCheckIfReady = false};
+
+            //vampyr unique
+            if (playersList.Any(x => x.Character.Name == "Вампур"))
+            {
+                _phrase.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"));
+                if (playersList.Any(x => x.Character.Name == "mylorik"))
+                    game.AddPreviousGameLogs(
+                        $" \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
+                        "\n\n", false);
+            }
+            //end vampyr unique
+
+
+            //start the timer
+            game.TimePassed.Start();
+            _global.GamesList.Add(game);
+
+
+            //get all the chances before the game starts
+            _characterPassives.CalculatePassiveChances(game);
+
+            //handle round #0
+
+            await _characterPassives.HandleNextRound(game);
+
+
+            foreach (var player in playersList) await _upd.UpdateMessage(player);
+
+            game.IsCheckIfReady = true;
+        }
+
+
 
         [Command("st")]
         [Summary("запуск игры")]

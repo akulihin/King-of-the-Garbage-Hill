@@ -8,5 +8,6 @@
         public bool IsPlaying { get; set; }
         public bool IsLogs { get; set; }
         public ulong GameId { get; set; }
+        public string UserType {get; set;}
     }
 }

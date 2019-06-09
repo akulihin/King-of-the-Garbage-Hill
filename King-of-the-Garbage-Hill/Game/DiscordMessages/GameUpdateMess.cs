@@ -160,8 +160,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             GameClass game)
         {
             var customString = " ";
-            if (game.RoundNo == 11 || player1.DiscordAccount.DiscordId == 238337696316129280 ||
-                player1.DiscordAccount.DiscordId == 181514288278536193)
+            //|| player1.DiscordAccount.DiscordId == 238337696316129280 || player1.DiscordAccount.DiscordId == 181514288278536193
+            if (game.RoundNo == 11 || player1.DiscordAccount.UserType == "admin")
             {
                 customString += $"(as **{player2.Character.Name}**) = {player2.Status.GetScore()} Score";
                 customString +=
