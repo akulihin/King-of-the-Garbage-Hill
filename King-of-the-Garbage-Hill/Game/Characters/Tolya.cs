@@ -63,5 +63,19 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 RoundNumber = roundNumber;
             }
         }
+
+        public class TolyaTalkedlClass
+        {
+            public ulong GameId;
+            public Guid PlayerId;
+            public List<Guid> PlayerHeTalkedAbout = new List<Guid>();
+
+            public TolyaTalkedlClass(ulong gameId, Guid playerId)
+            {
+                GameId = gameId;
+                PlayerId = playerId;
+            }
+        }
+
     }
 }

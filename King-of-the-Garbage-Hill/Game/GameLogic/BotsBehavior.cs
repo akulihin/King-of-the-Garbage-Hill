@@ -171,7 +171,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     }
                         break;
                     case "Загадочный Спартанец в маске":
-                    {
+                    {/*
+                        
+
                         //"Они позорят военное искусство"
                         var panth = _gameGlobal.PanthShame.Find(x =>
                             x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
@@ -198,7 +200,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 if (bot.Character.Justice.GetJusticeNow() >= p.Player.Character.Justice.GetJusticeNow())
                                     mandatoryAttack = p.Player.Status.PlaceAtLeaderBoard;
                         //end автоматически выбирает целью помеченного МЕТКОЙ врага, если превосходит его по статам и НЕ УСТУПАЕТ в Справедливости. то есть > или =
-                    }
+                   */ }
                         break;
                 }
                 //end custom bot behavior

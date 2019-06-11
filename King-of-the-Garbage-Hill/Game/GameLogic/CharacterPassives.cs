@@ -90,7 +90,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 WhenToTriggerClass when;
                 switch (characterName)
                 {
-
                     case "HardKitty":
                         _gameGlobal.HardKittyMute.Add(new HardKitty.MuteClass(player.Status.PlayerId, game.GameId));
                         break;
@@ -182,6 +181,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     case "Толя":
                         _gameGlobal.TolyaCount.Add(new Tolya.TolyaCountClass(game.GameId, player.Status.PlayerId));
+                        _gameGlobal.TolyaTalked.Add(new Tolya.TolyaTalkedlClass(game.GameId, player.Status.PlayerId));
                         _gameGlobal.TolyaRammusTimes.Add(new FriendsClass(player.Status.PlayerId,
                             game.GameId));
                         break;
@@ -526,7 +526,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         public async Task HandleCharacterAfterCalculations(GamePlayerBridgeClass player, GameClass game)
         {
-
             //TODO: test it
             //tolya count
             if (player.Status.IsLostThisCalculation != Guid.Empty && player.Character.Name != "Толя" &&
@@ -538,12 +537,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     x.PlayerId == tolyaAcc.Status.PlayerId && x.GameId == game.GameId);
 
 
-                if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == player.Status.PlayerId))
+                if (tolyaCount.TargetList.Any(x =>
+                    x.RoundNumber == game.RoundNo - 1 && x.Target == player.Status.PlayerId))
                 {
-              
                     tolyaAcc.Status.AddRegularPoints(2);
                     tolyaAcc.Character.Justice.AddJusticeForNextRound(2);
-                    await _phrase.TolyaCountPhrase.SendLog(tolyaAcc); 
+                    await _phrase.TolyaCountPhrase.SendLog(tolyaAcc);
                 }
             }
             //tolya count end 
@@ -568,7 +567,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     _tolya.HandleTolyaAfter(player, game);
                     break;
                 case "HardKitty":
-                    _hardKitty.HandleHardKittyAfter(player, game);
+                    await _hardKitty.HandleHardKittyAfter(player, game);
                     break;
                 case "Sirinoks":
                     _sirinoks.HandleSirinoksAfter(player, game);
@@ -1245,10 +1244,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             var randNum = _rand.Random(1, 5);
                             if (randNum == 1)
                             {
-                                var count = game.GetAllGameLogs().Split(" ").Count(x => x == "запизделся");
-                                if (count < 2)
+                                var tolyaTalked = _gameGlobal.TolyaTalked.Find(x =>
+                                    x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                                if (tolyaTalked.PlayerHeTalkedAbout.Count < 2)
                                 {
                                     var randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
+
+                                    while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.Status.PlayerId))
+                                        randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
+
+                                    tolyaTalked.PlayerHeTalkedAbout.Add(randomPlayer.Status.PlayerId);
                                     game.AddPreviousGameLogs(
                                         $"Толя запизделся и спалил, что {randomPlayer.DiscordAccount.DiscordUserName} - {randomPlayer.Character.Name}");
                                 }
@@ -1401,14 +1406,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             x.PlayerId == playerIamAttacking.Status.PlayerId &&
                             x.GameId == game.GameId);
 
-     
-                            if (!hardKitty.UniquePlayers.Contains(player.Status.PlayerId))
-                            {
-                                hardKitty.UniquePlayers.Add(player.Status.PlayerId);
-                                player.Status.AddRegularPoints();
-                                await _phrase.HardKittyMutedPhrase.SendLog(playerIamAttacking);
-                            }
-                        
+
+                        if (!hardKitty.UniquePlayers.Contains(player.Status.PlayerId))
+                        {
+                            hardKitty.UniquePlayers.Add(player.Status.PlayerId);
+                            player.Status.AddRegularPoints();
+                            await _phrase.HardKittyMutedPhrase.SendLog(playerIamAttacking);
+                        }
                     }
 
                     //Muted passive end
@@ -1438,58 +1442,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         player.Character.Justice.SetJusticeForNextRound(playerIamAttacking.Character.Justice
                             .GetJusticeForNextRound());
                     //end   Вампуризм
-                    break;
-
-                case "HardKitty":
-                    //Doebatsya
-                    var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
-                        x.GameId == player.DiscordAccount.GameId &&
-                        x.PlayerId == player.Status.PlayerId);
-                    //can be null
-
-                    if (player.Status.IsLostThisCalculation != Guid.Empty)
-                    {
-                        if (hardKitty == null)
-                        {
-                            _gameGlobal.HardKittyDoebatsya.Add(new HardKitty.DoebatsyaClass(
-                                player.Status.PlayerId, player.DiscordAccount.GameId,
-                                player.Status.IsLostThisCalculation));
-                        }
-                        else
-                        {
-                            var exists =
-                                hardKitty.LostSeries.Find(x => x.EnemyPlayerId == player.Status.IsLostThisCalculation);
-                            if (exists == null)
-                                hardKitty.LostSeries.Add(
-                                    new HardKitty.DoebatsyaSubClass(player.Status.IsLostThisCalculation));
-                            else
-                                exists.Series++;
-                        }
-
-                        return;
-                    }
-
-                    var wonPlayer =
-                        hardKitty?.LostSeries.Find(x => x.EnemyPlayerId == player.Status.IsWonThisCalculation);
-                    if (wonPlayer != null)
-                    {
-                        player.Status.AddRegularPoints(wonPlayer.Series);
-                        if (wonPlayer.Series >= 2)
-                        {
-                            var player2 = game.PlayersList.Find(x =>
-                                x.Status.PlayerId == player.Status.IsWonThisCalculation);
-
-                            player2.Character.AddPsyche(player2.Status, -1, true, "Доебаться: ");
-                            player2.MinusPsycheLog(game);
-                        }
-
-                        wonPlayer.Series = 0;
-
-
-                        await _phrase.HardKittyDoebatsyaPhrase.SendLog(player);
-                    }
-
-                    // end Doebatsya
                     break;
 
 
@@ -1639,13 +1591,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             x.GameId == player.DiscordAccount.GameId &&
                             x.PlayerId == player.Status.PlayerId);
 
-                            tolya.Cooldown--;
+                        tolya.Cooldown--;
 
-                            if (tolya.Cooldown <= 0 && tolya.IsReadyToUse == false)
-                            {
-                                tolya.IsReadyToUse = true;
-                                await _phrase.TolyaCountReadyPhrase.SendLog(player);
-                            }
+                        if (tolya.Cooldown <= 0)
+                        {
+                            tolya.IsReadyToUse = true;
+                            await _phrase.TolyaCountReadyPhrase.SendLog(player);
+                        }
 
                         break;
                 }
@@ -1702,10 +1654,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     if (tolya.IsReadyToUse && player.Status.WhoToAttackThisTurn != Guid.Empty)
                     {
-                        tolya.TargetList.Add(new Tolya.TolyaCountSubClass(player.Status.WhoToAttackThisTurn, game.RoundNo));
+                        tolya.TargetList.Add(new Tolya.TolyaCountSubClass(player.Status.WhoToAttackThisTurn,
+                            game.RoundNo));
                         tolya.IsReadyToUse = false;
                         tolya.Cooldown = 2;
                     }
+
                     break;
 
                 case "DeepList":

@@ -95,6 +95,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public readonly List<WhenToTriggerClass> TigrTopWhen = new List<WhenToTriggerClass>();
         public readonly List<FriendsClass> TigrTwoBetterList = new List<FriendsClass>();
         public readonly List<Tolya.TolyaCountClass> TolyaCount = new List<Tolya.TolyaCountClass>();
+        public readonly List<Tolya.TolyaTalkedlClass> TolyaTalked = new List<Tolya.TolyaTalkedlClass>();
         public readonly List<FriendsClass> TolyaRammusTimes = new List<FriendsClass>();
         public readonly List<FriendsClass> VampyrKilledList = new List<FriendsClass>();
 

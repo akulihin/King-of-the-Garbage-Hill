@@ -20,7 +20,18 @@ namespace King_of_the_Garbage_Hill.Helpers
             "MegaVova99",
             "YasuoOnly",
             "PETYX",
-            "Drone"
+            "Drone",
+            "Boole",
+            "Shark",
+            "EloBoost",
+            "Ratata",
+            "R.I.D.",
+            "2kEloPro",
+            "Razer",
+            "SpartanHero",
+            "AllMight",
+            "Nezuko",
+            "Naruto1999"
         };
 
         private readonly CharactersPull _charactersPull;

@@ -274,7 +274,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         game.AddPreviousGameLogs($" ⟶ победил **{playerIamAttacking.DiscordAccount.DiscordUserName}**");
                         playerIamAttacking.Status.AddRegularPoints();
                         player.Status.WonTimes++;
+
+                      
                         playerIamAttacking.Character.Justice.IsWonThisRound = true;
+
+                        if (playerIamAttacking.Character.Name == "Толя" && playerIamAttacking.Status.IsBlock)
+                            playerIamAttacking.Character.Justice.IsWonThisRound = false;
 
                         player.Character.Justice.AddJusticeForNextRound();
 
