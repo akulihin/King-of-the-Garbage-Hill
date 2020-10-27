@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 
@@ -6,7 +7,15 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
 {
     public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
     {
-        protected virtual async Task SendMessAsync(EmbedBuilder embed)
+        protected async Task DeleteMessage(IUserMessage userMessage,
+            int timeInSeconds)
+        {
+            var seconds = timeInSeconds * 1000;
+            await Task.Delay(seconds);
+            await userMessage.DeleteAsync();
+        }
+
+        protected virtual async Task SendMessAsync(EmbedBuilder embed, int delete = 0)
         {
             if (Context.MessageContentForEdit == null)
             {
@@ -14,6 +23,10 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
 
 
                 UpdateGlobalCommandList(message, Context);
+
+#pragma warning disable 4014
+                if (delete > 0) DeleteMessage(message, delete);
+#pragma warning restore 4014
             }
             else if (Context.MessageContentForEdit == "edit")
             {
@@ -29,13 +42,16 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
         }
 
 
-        protected virtual async Task SendMessAsync([Remainder] string regularMess = null)
+        protected virtual async Task SendMessAsync([Remainder] string regularMess = null, int delete = 0)
         {
             if (Context.MessageContentForEdit == null)
             {
                 var message = await Context.Channel.SendMessageAsync($"{regularMess}");
 
                 UpdateGlobalCommandList(message, Context);
+#pragma warning disable 4014
+                if (delete > 0) DeleteMessage(message, delete);
+#pragma warning restore 4014
             }
             else if (Context.MessageContentForEdit == "edit")
             {
@@ -45,7 +61,7 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
                         {
                             message.Content = "";
                             message.Embed = null;
-                            if (regularMess != null) message.Content = regularMess.ToString();
+                            if (regularMess != null) message.Content = regularMess;
                         });
             }
         }
@@ -67,7 +83,7 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
                         {
                             message.Content = "";
                             message.Embed = null;
-                            if (regularMess != null) message.Content = regularMess.ToString();
+                            if (regularMess != null) message.Content = regularMess;
                         });
             }
         }
@@ -75,9 +91,18 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
 
         private static void UpdateGlobalCommandList(IUserMessage message, SocketCommandContextCustom context)
         {
-            context.CommandsInMemory.CommandList.Insert(0, new CommandsInMemory.CommandRam(context.Message, message));
-            if (context.CommandsInMemory.CommandList.Count > context.CommandsInMemory.MaximumCommandsInRam)
-                context.CommandsInMemory.CommandList.RemoveAt(context.CommandsInMemory.CommandList.Count - 1);
+            try
+            {
+                context.CommandsInMemory.CommandList.Insert(0,
+                    new CommandsInMemory.CommandRam(context.Message, message));
+                if (context.CommandsInMemory.CommandList.Count > context.CommandsInMemory.MaximumCommandsInRam)
+                    context.CommandsInMemory.CommandList.RemoveAt(
+                        (int)context.CommandsInMemory.MaximumCommandsInRam - 1);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
         }
     }
 }

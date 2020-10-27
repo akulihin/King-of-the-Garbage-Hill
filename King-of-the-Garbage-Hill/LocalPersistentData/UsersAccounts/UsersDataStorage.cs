@@ -27,7 +27,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 
         public void SaveAccountSettings(DiscordAccountClass accounts, string idString, string json)
         {
-            var filePath = $@"DataBase/OctoDataBase/UserAccounts/discordAccount-{idString}.json";
+            var filePath = $@"DataBase/UserAccounts/discordAccount-{idString}.json";
             try
             {
                 File.WriteAllText(filePath, json);
@@ -41,7 +41,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 
         public void SaveAccountSettings(DiscordAccountClass accounts, ulong userId)
         {
-            var filePath = $@"DataBase/OctoDataBase/UserAccounts/discordAccount-{userId}.json";
+            var filePath = $@"DataBase/UserAccounts/discordAccount-{userId}.json";
             try
             {
                 var json = JsonConvert.SerializeObject(accounts, Formatting.Indented);
@@ -57,7 +57,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
         public ConcurrentDictionary<ulong, DiscordAccountClass> LoadAllAccounts()
         {
             var dick = new ConcurrentDictionary<ulong, DiscordAccountClass>();
-            var filePaths = Directory.GetFiles(@"DataBase/OctoDataBase/UserAccounts");
+            var filePaths = Directory.GetFiles(@"DataBase/UserAccounts");
 
             foreach (var file in filePaths)
             {

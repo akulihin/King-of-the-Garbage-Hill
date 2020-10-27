@@ -39,7 +39,7 @@ namespace King_of_the_Garbage_Hill.BotFramework
         private readonly int _padLength = 16;
         private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 
-        private readonly string _runTime = @"DataBase/OctoDataBase/Log.json";
+        private readonly string _runTime = @"DataBase/Log.json";
 
         public Task InitializeAsync()
         {
@@ -69,6 +69,8 @@ namespace King_of_the_Garbage_Hill.BotFramework
                 case LogSeverity.Debug:
                     Debug(message.Message, message.Source);
                     break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
 
             return Task.CompletedTask;
@@ -162,8 +164,10 @@ namespace King_of_the_Garbage_Hill.BotFramework
         {
             if (string.IsNullOrEmpty(message)) return;
             Semaphore.Wait();
-            
+
 #endif
+                var timestamp = DateTime.Now.ToString("MM/dd/yyyy hh:mm tt");
+                Console.Write($"[{timestamp}] ");
                 Console.Write("[");
                 Console.ForegroundColor = _logColors[severity];
                 Console.Write($"{_logAbbreviations[severity]}");

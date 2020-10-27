@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Threading.Tasks;
 using Discord;
@@ -46,15 +47,22 @@ namespace King_of_the_Garbage_Hill.BotFramework
 
         public async Task _client_MessageDeleted(Cacheable<IMessage, ulong> cacheMessage, ISocketMessageChannel channel)
         {
-            foreach (var t in _commandsInMemory.CommandList)
-                if (cacheMessage.Value.Id == t.MessageUserId)
+            try
+            {
+                for (var index = 0; index < _commandsInMemory.CommandList.Count; index++)
                 {
+                    if (cacheMessage.Value.Id != _commandsInMemory.CommandList[index].MessageUserId) continue;
                     _global.TotalCommandsDeleted++;
-                    await t.BotSocketMsg.DeleteAsync();
-                    _commandsInMemory.CommandList.Remove(t);
+                    await _commandsInMemory.CommandList[index].BotSocketMsg.DeleteAsync();
+                    _commandsInMemory.CommandList.RemoveAt(index);
                 }
 
-            await Task.CompletedTask;
+                await Task.CompletedTask;
+            }
+            catch (Exception e)
+            {
+                _log.Critical(e.Message);
+            }
         }
 
         public async Task _client_MessageUpdated(Cacheable<IMessage, ulong> messageBefore,

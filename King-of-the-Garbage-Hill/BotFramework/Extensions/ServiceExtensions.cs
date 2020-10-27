@@ -15,6 +15,7 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
 
 
             var watchSingleton = Stopwatch.StartNew();
+            // ReSharper disable once PossibleNullReferenceException
             foreach (var type in Assembly.GetEntryAssembly().GetTypes()
                 .Where(x => typeof(IServiceSingleton).IsAssignableFrom(x) && !x.IsInterface))
             {
@@ -38,6 +39,7 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
             var transientServicesCount = 0;
 
             var watchTransient = Stopwatch.StartNew();
+            // ReSharper disable once PossibleNullReferenceException
             foreach (var type in Assembly.GetEntryAssembly().GetTypes()
                 .Where(x => typeof(IServiceTransient).IsAssignableFrom(x) && !x.IsInterface))
             {
@@ -59,22 +61,24 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
             var transientServicesCount = 0;
 
             var watchSingleton = Stopwatch.StartNew();
+            // ReSharper disable once PossibleNullReferenceException
             foreach (var type in Assembly.GetEntryAssembly().GetTypes()
                 .Where(x => typeof(IServiceSingleton).IsAssignableFrom(x) && !x.IsInterface))
             {
                 singletonServicesCount++;
-                await ((IServiceSingleton) services.GetRequiredService(type)).InitializeAsync();
+                await ((IServiceSingleton)services.GetRequiredService(type)).InitializeAsync();
             }
 
             watchSingleton.Stop();
 
 
             var watchTransient = Stopwatch.StartNew();
+            // ReSharper disable once PossibleNullReferenceException
             foreach (var type in Assembly.GetEntryAssembly().GetTypes()
                 .Where(x => typeof(IServiceTransient).IsAssignableFrom(x) && !x.IsInterface))
             {
                 transientServicesCount++;
-                await ((IServiceTransient) services.GetRequiredService(type)).InitializeAsync();
+                await ((IServiceTransient)services.GetRequiredService(type)).InitializeAsync();
             }
 
             watchTransient.Stop();

@@ -14,7 +14,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
         public CharactersPull()
         {
-            var filePath = @"DataBase/OctoDataBase/characters.json";
+            var filePath = @"DataBase/characters.json";
             var json = File.ReadAllText(filePath);
             _allCharacters = JsonConvert.DeserializeObject<List<CharacterClass>>(json);
         }
@@ -22,7 +22,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
         public List<CharacterClass> GetAllCharacters()
         {
-            var filePath = @"DataBase/OctoDataBase/characters.json";
+            var filePath = @"DataBase/characters.json";
             var json = File.ReadAllText(filePath);
             return JsonConvert.DeserializeObject<List<CharacterClass>>(json);
         }

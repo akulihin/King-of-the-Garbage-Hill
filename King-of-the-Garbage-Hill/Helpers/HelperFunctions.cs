@@ -117,7 +117,7 @@ namespace King_of_the_Garbage_Hill.Helpers
             account.DiscordUserName = name;
             account.GameId = newGameId;
             account.IsPlaying = true;
-            _accounts.SaveAccounts(account.DiscordId);
+    
 
             return new GamePlayerBridgeClass
                 {DiscordAccount = account, Character = character, Status = new InGameStatus()};

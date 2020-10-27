@@ -1,4 +1,4 @@
-﻿using System;
+﻿ using System;
 using System.IO;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.BotFramework;
@@ -12,7 +12,7 @@ namespace King_of_the_Garbage_Hill
         {
             try
             {
-                JsonConvert.PopulateObject(File.ReadAllText(@"DataBase/OctoDataBase/config.json"), this);
+                JsonConvert.PopulateObject(File.ReadAllText(@"DataBase/config.json"), this);
             }
             catch (Exception ex)
             {

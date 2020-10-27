@@ -80,7 +80,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     "Ты видишь название пассивок под сообщением с логами.  Заюзай жту команду еще раз, чтобы их **НЕ** видить. Пример - https://i.imgur.com/eFvjRf5.png");
             }
 
-            _accounts.SaveAccounts(Context.User);
+          
         }
 
 
@@ -187,7 +187,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
 
 
-        [Command("runtime")]
+        [Command("время")]
         [Alias("uptime")]
         [Summary("Статистика бота")]
         public async Task UpTime()
@@ -195,29 +195,24 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _global.TimeSpendOnLastMessage.TryGetValue(Context.User.Id, out var watch);
 
             var time = DateTime.Now - _global.TimeBotStarted;
-            var ramUsage = Process.GetCurrentProcess().WorkingSet64 / (1024 * 1024);
 
             var embed = new EmbedBuilder()
                 // .WithAuthor(Context.Client.CurrentUser)
                 // .WithTitle("My internal statistics")
                 .WithColor(Color.DarkGreen)
                 .WithCurrentTimestamp()
-                .WithFooter("Version: 0.0a | Thank you for using me!")
-                .AddField("Numbers:", "" +
-                                      $"Working for: {time.Days}d {time.Hours}h {time.Minutes}m and {time:ss\\.fff}s\n" +
-                                      $"Total Games Started: {_global.GetLastGamePlayingAndId()}\n" +
-                                      $"Total Commands issued while running: {_global.TotalCommandsIssued}\n" +
-                                      $"Total Commands changed: {_global.TotalCommandsChanged}\n" +
-                                      $"Total Commands deleted: {_global.TotalCommandsDeleted}\n" +
-                                      $"Total Commands in memory: {_commandsInMemory.CommandList.Count} (max {_commandsInMemory.MaximumCommandsInRam})\n" +
-                                      $"Client Latency: {_global.Client.Latency}\n" +
-                                      $"Time I spend processing your command: {watch?.Elapsed:m\\:ss\\.ffff}s\n" +
-                                      "This time counts from from the moment he receives this command.\n" +
-                                      $"Memory Used: {ramUsage}");
+                .WithFooter("Версия: 2.0")
+                .WithDescription("**Циферки:**\n" +
+                                 $"Работает: {time.Days}д {time.Hours}ч {time.Minutes}м + {time:ss\\.fff}с\n" +
+                                 $"Всего команд: {_global.TotalCommandsIssued}\n" +
+                                 $"Всего команд изменено: {_global.TotalCommandsChanged}\n" +
+                                 $"Всего команд удалено: {_global.TotalCommandsDeleted}\n" +
+                                 $"Всего команд в памяти: {_commandsInMemory.CommandList.Count} (max {_commandsInMemory.MaximumCommandsInRam})\n" +
+                                 $"Задержка клиента: {_global.Client.Latency}\n" +
+                                 $"Время потрачено на обработку этой команды: {watch?.Elapsed:m\\:ss\\.ffff}s\n" +
+                                 "(Время считается с момента получения команды бота не включая задержки клиента и божественное вмешательство)\n");
 
-
-            SendMessAsync(embed);
-
+            await SendMessAsync(embed);
             // Context.User.GetAvatarUrl()
         }
 
@@ -246,7 +241,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     return;
                 }
 
-                _accounts.SaveAccounts(Context.User);
+      
                 await SendMessAsync(
                     $"Your own prefix is now **{prefix}**");
             }
@@ -715,7 +710,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             string ll;
             var at = "";
 
-            var file = new StreamReader(@"DataBase/OctoDataBase/esy.txt");
+            var file = new StreamReader(@"DataBase/esy.txt");
             while ((ll = file.ReadLine()) != null)
                 at += ll;
             //         cc++;  

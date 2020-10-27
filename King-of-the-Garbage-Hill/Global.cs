@@ -14,24 +14,21 @@ namespace King_of_the_Garbage_Hill
         public readonly DateTime TimeBotStarted;
 
 
-        public List<GameClass> GamesList;
-        public ConcurrentDictionary<ulong, Stopwatch> TimeSpendOnLastMessage;
-        public uint TotalCommandsChanged;
-        public uint TotalCommandsDeleted;
-        public uint TotalCommandsIssued;
+        public List<GameClass> GamesList = new List<GameClass>();
+
+        public ConcurrentDictionary<ulong, Stopwatch> TimeSpendOnLastMessage =
+            new ConcurrentDictionary<ulong, Stopwatch>();
+
 
         public Global(DiscordShardedClient client)
         {
             Client = client;
             TimeBotStarted = DateTime.Now;
-            GamePlayingAndId = 0;
-            TotalCommandsIssued = 0;
-            TotalCommandsDeleted = 0;
-            TotalCommandsChanged = 0;
-            TimeSpendOnLastMessage = new ConcurrentDictionary<ulong, Stopwatch>();
-            GamesList = new List<GameClass>();
         }
 
+        public uint TotalCommandsIssued { get; set; }
+        public uint TotalCommandsDeleted { get; set; }
+        public uint TotalCommandsChanged { get; set; }
         private ulong GamePlayingAndId { get; set; }
 
         public Task InitializeAsync()

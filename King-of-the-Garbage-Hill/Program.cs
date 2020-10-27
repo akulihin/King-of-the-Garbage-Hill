@@ -26,9 +26,10 @@ namespace King_of_the_Garbage_Hill
             _client = new DiscordShardedClient(_shardIds, new DiscordSocketConfig
             {
                 LogLevel = LogSeverity.Verbose,
-                DefaultRetryMode = RetryMode.AlwaysRetry,
-                MessageCacheSize = 50,
-                TotalShards = 1
+                MessageCacheSize = 100,
+                TotalShards = 1,
+                AlwaysDownloadUsers = true,
+                ExclusiveBulkDelete = true
             });
 
             _services = new Container(x =>

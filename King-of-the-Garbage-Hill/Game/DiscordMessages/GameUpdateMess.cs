@@ -319,7 +319,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var account = _accounts.GetAccount(globalAccount);
             account.IsPlaying = false;
 
-            _accounts.SaveAccounts(account.DiscordId);
 
             //  await socketMsg.DeleteAsync();
             await globalAccount.SendMessageAsync("Thank you for playing!");

@@ -50,7 +50,6 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             {
                 a.GameId = 1000000000000000000;
                 a.IsPlaying = false;
-                SaveAccounts(a.DiscordId);
             }
 
             SaveAllAccounts(null, null);
@@ -93,27 +92,6 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
         }
 
 
-        //obsolete 
-        public void SaveAccounts(ulong userId)
-        {
-            //    var accounts = GetOrAddUserAccount(userId);
-            //    _usersDataStorage.SaveAccountSettings(accounts, userId);
-        }
-
-        //obsolete 
-        public void SaveAccounts(IUser user)
-        {
-            //    var accounts = GetOrAddUserAccount(user.Id);
-            //    _usersDataStorage.SaveAccountSettings(accounts, user.Id);
-        }
-
-        //obsolete 
-        public void SaveAccounts(DiscordAccountClass user)
-        {
-            //    var accounts = GetOrAddUserAccount(user.DiscordId);
-            //    _usersDataStorage.SaveAccountSettings(accounts, user.DiscordId);
-        }
-
         private void SaveAllAccounts(object sender, ElapsedEventArgs e)
         {
             foreach (var account in _userAccountsDictionary.Values)
@@ -150,7 +128,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 newAccount.DiscordUserName = newAccount.DiscordUserName.Replace("\n", "404-228-1448");
 
             _userAccountsDictionary.GetOrAdd(newAccount.DiscordId, newAccount);
-            SaveAccounts(user);
+
             return newAccount;
         }
 
@@ -167,7 +145,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             };
 
             _userAccountsDictionary.GetOrAdd(newAccount.DiscordId, newAccount);
-            SaveAccounts(botId);
+
             return newAccount;
         }
     }
