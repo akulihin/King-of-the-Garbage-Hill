@@ -11,6 +11,27 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
     public sealed class UserAccounts : IServiceSingleton
     {
         private readonly DiscordShardedClient _client;
+
+        private readonly List<DiscordAccountClass.ChampionChances> _defaultChampionChances =
+            new List<DiscordAccountClass.ChampionChances>
+            {
+                new DiscordAccountClass.ChampionChances("DeepList", 7),
+                new DiscordAccountClass.ChampionChances("mylorik", 7),
+                new DiscordAccountClass.ChampionChances("Глеб", 7),
+                new DiscordAccountClass.ChampionChances("LeCrisp", 7),
+                new DiscordAccountClass.ChampionChances("Толя", 7),
+                new DiscordAccountClass.ChampionChances("HardKitty", 7),
+                new DiscordAccountClass.ChampionChances("Sirinoks", 7),
+                new DiscordAccountClass.ChampionChances("Mit*suki*", 7),
+                new DiscordAccountClass.ChampionChances("AWDKA", 7),
+                new DiscordAccountClass.ChampionChances("Осьминожка", 2),
+                new DiscordAccountClass.ChampionChances("Darksci", 7),
+                new DiscordAccountClass.ChampionChances("Тигр", 7),
+                new DiscordAccountClass.ChampionChances("Братишка", 2),
+                new DiscordAccountClass.ChampionChances("Загадочный Спартанец в маске", 5),
+                new DiscordAccountClass.ChampionChances("Вампур", 5)
+            };
+
         private readonly ConcurrentDictionary<ulong, DiscordAccountClass> _userAccountsDictionary;
         private readonly UserAccountsDataStorage _usersDataStorage;
 
@@ -114,7 +135,9 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 DiscordUserName = user.Username,
                 IsLogs = true,
                 IsPlaying = false,
-                GameId = 1000000
+                GameId = 1000000,
+                ZBSPoints = 0,
+                ChampionChance = _defaultChampionChances
             };
 
             if (newAccount.DiscordUserName.Contains("<:war:561287719838547981>"))
@@ -141,7 +164,9 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 IsLogs = false,
                 IsPlaying = false,
                 GameId = 1000000,
-                UserType = "player"
+                UserType = "player",
+                ZBSPoints = 0,
+                ChampionChance = _defaultChampionChances
             };
 
             _userAccountsDictionary.GetOrAdd(newAccount.DiscordId, newAccount);

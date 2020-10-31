@@ -439,7 +439,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             accountDeep.IsPlaying = true;
 
             var characters = _charactersPull.GetAllCharacters();
-            var characterDeep = characters[_secureRandom.Random(0, characters.Count()-1)]; //TODO: should be random someday 
+            var characterDeep = characters[_secureRandom.Random(0, characters.Count()-1)]; 
             characters.Remove(characterDeep);
             playersList.Add(new GamePlayerBridgeClass
                 {DiscordAccount = accountDeep, Character = characterDeep, Status = new InGameStatus()});
