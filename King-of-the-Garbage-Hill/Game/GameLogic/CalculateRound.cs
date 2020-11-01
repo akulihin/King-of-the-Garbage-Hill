@@ -65,7 +65,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //if block => no one gets points, and no redundant playerAttacked variable
                 if (player.Status.IsBlock)
                 {
-                    await _characterPassives.HandleCharacterAfterCalculations(player, game);
+                    _characterPassives.HandleCharacterAfterCalculations(player, game);
                     player.Status.IsWonThisCalculation = Guid.Empty;
                     player.Status.IsLostThisCalculation = Guid.Empty;
                     player.Status.IsFighting = Guid.Empty;
@@ -141,8 +141,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     playerIamAttacking.Character.Justice.AddJusticeForNextRound();
 
-                    await _characterPassives.HandleCharacterAfterCalculations(player, game);
-                    await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
+                    _characterPassives.HandleCharacterAfterCalculations(player, game);
+                    _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
 
                     player.Status.IsWonThisCalculation = Guid.Empty;
                     player.Status.IsLostThisCalculation = Guid.Empty;
@@ -160,8 +160,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     game.SkipPlayersThisRound++;
                     game.AddPreviousGameLogs(" ⟶ *Бой не состоялся...*");
 
-                    await _characterPassives.HandleCharacterAfterCalculations(player, game);
-                    await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
+                    _characterPassives.HandleCharacterAfterCalculations(player, game);
+                    _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
 
                     player.Status.IsWonThisCalculation = Guid.Empty;
                     player.Status.IsLostThisCalculation = Guid.Empty;
@@ -312,9 +312,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //TODO: merge top 2 methods and 2 below... they are the same... or no?
 
 
-                await _characterPassives.HandleCharacterAfterCalculations(player, game);
+                _characterPassives.HandleCharacterAfterCalculations(player, game);
 
-                await _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
+                _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
                 await _characterPassives.HandleEventsAfterEveryBattle(game); //used only for shark...
 
                 player.Status.IsWonThisCalculation = Guid.Empty;
@@ -342,7 +342,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 player.Status.IsAbleToTurn = true;
                 player.Status.IsReady = false;
                 player.Status.WhoToAttackThisTurn = Guid.Empty;
-                await player.Status.CombineRoundScoreAndGameScore(game, _gameGlobal, _phrase);
+                player.Status.CombineRoundScoreAndGameScore(game, _gameGlobal, _phrase);
                 player.Status.ClearInGamePersonalLogs();
                 player.Status.InGamePersonalLogsAll += "|||";
 
@@ -411,7 +411,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             SortGameLogs(game);
             _logs.Info("Start HandleNextRoundAfterSorting");
-            await _characterPassives.HandleNextRoundAfterSorting(game);
+            _characterPassives.HandleNextRoundAfterSorting(game);
             _logs.Info("Finished HandleNextRoundAfterSorting");
 
             game.TimePassed.Reset();

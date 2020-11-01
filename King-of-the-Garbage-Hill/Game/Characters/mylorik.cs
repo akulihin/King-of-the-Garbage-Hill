@@ -79,11 +79,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         }
 
 
-        public async Task HandleMylorikAfter(GamePlayerBridgeClass player, GameClass game)
+        public void HandleMylorikAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //Revenge
 
-            await HandleMylorikRevenge(player, player.Status.IsLostThisCalculation, player.DiscordAccount.GameId);
+            HandleMylorikRevenge(player, player.Status.IsLostThisCalculation, player.DiscordAccount.GameId);
             //end Revenge
 
             //Spanish

@@ -113,7 +113,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             return ScoresToGiveAtEndOfRound;
         }
 
-        public async Task CombineRoundScoreAndGameScore(GameClass game, InGameGlobal gameGlobal,
+        public void CombineRoundScoreAndGameScore(GameClass game, InGameGlobal gameGlobal,
             CharactersUniquePhrase phrase)
         {
             var roundNumber = game.RoundNo;

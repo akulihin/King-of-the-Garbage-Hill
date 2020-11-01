@@ -49,7 +49,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             await Task.CompletedTask;
         }
 
-        public async Task HandleDeepListAfter(GamePlayerBridgeClass player, GameClass game)
+        public void HandleDeepListAfter(GamePlayerBridgeClass player, GameClass game)
         {
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                 x.PlayerId == player.Status.PlayerId && player.DiscordAccount.GameId == x.GameId);
