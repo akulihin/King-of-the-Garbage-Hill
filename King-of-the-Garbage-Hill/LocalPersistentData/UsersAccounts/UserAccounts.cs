@@ -141,7 +141,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 IsLogs = true,
                 IsPlaying = false,
                 GameId = 1000000,
-                ZBSPoints = 0,
+                ZbsPoints = 0,
                 ChampionChance = _defaultChampionChances
             };
 
@@ -170,7 +170,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 IsPlaying = false,
                 GameId = 1000000,
                 UserType = "player",
-                ZBSPoints = 0,
+                ZbsPoints = 0,
                 ChampionChance = _defaultChampionChances
             };
 

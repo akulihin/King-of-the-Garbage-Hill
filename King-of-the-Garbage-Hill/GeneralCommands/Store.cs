@@ -76,7 +76,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             embed.WithTitle("Магазин");
             embed.WithDescription($"Ты выбрал персонажа **{champion.CharacterName}**");
             embed.AddField("Текущий бонусный шанс", $"{champion.Multiplier}");
-            embed.AddField("Текущее Количество ZBS Points", $"{account.ZBSPoints}");
+            embed.AddField("Текущее Количество ZBS Points", $"{account.ZbsPoints}");
             embed.AddField("Варинты", $"{new Emoji("1⃣")} сбросить шанс до 0 - 50 ZP\n" +
                                       $"{new Emoji("2⃣")} Уменьшить шанс на 1% - 20 ZP\n" +
                                       $"{new Emoji("3⃣")} Увеличить шанс на 1% - 20 ZP");

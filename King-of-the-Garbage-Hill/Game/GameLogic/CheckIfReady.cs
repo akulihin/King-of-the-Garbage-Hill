@@ -93,9 +93,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         player.DiscordAccount.TotalWins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong)0;
                         player.DiscordAccount.MatchHistory.Add(
                             new DiscordAccountClass.MatchHistoryClass(player.Character.Name, player.Status.GetScore(), player.Status.PlaceAtLeaderBoard));
-                        player.DiscordAccount.ZBSPoints += (player.Status.PlaceAtLeaderBoard - 6) * -1 + 1;
+                        player.DiscordAccount.ZbsPoints += (player.Status.PlaceAtLeaderBoard - 6) * -1 + 1;
                         if (player.Status.PlaceAtLeaderBoard == 1)
-                            player.DiscordAccount.ZBSPoints += 4;
+                            player.DiscordAccount.ZbsPoints += 4;
 
                         var championStatistics =
                             player.DiscordAccount.ChampionStatistics.Find(x =>

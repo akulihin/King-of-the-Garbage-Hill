@@ -86,7 +86,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             //   await socketMsg.AddReactionAsync(new Emoji("➡"));
             // await socketMsg.AddReactionAsync(new Emoji("📖"));
 
-            await socketMsg.AddReactionsAsync(new IEmote[] { new Emoji("🛡"), new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣"), new Emoji("4⃣"), new Emoji("5⃣"), new Emoji("6⃣"), new Emoji("❌") });
+            await socketMsg.AddReactionsAsync(new IEmote[]
+            {
+                new Emoji("🛡"), new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣"), new Emoji("4⃣"), new Emoji("5⃣"),
+                new Emoji("6⃣"), new Emoji("❌")
+            });
             //   await socketMsg.AddReactionAsync(new Emoji("⬆"));
             //   await socketMsg.AddReactionAsync(new Emoji("8⃣"));
             //   await socketMsg.AddReactionAsync(new Emoji("9⃣"));
@@ -336,7 +340,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             if (game != null) desc = game.GetPreviousGameLogs();
 
-            embed.WithDescription(desc.Replace(player.DiscordAccount.DiscordUserName, $"**{player.DiscordAccount.DiscordUserName}**"));
+            embed.WithDescription(desc.Replace(player.DiscordAccount.DiscordUserName,
+                $"**{player.DiscordAccount.DiscordUserName}**"));
 
             if (desc.Length >= 2048)
                 _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
@@ -357,18 +362,18 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 "<:e_:562879579694301184>");
 
 
-            var splitted = player.Status.InGamePersonalLogsAll.Split("|||");
-            if (game != null && splitted.Length > 1 && splitted[splitted.Length - 2].Length > 3 && game.RoundNo > 1)
+            var splitLogs = player.Status.InGamePersonalLogsAll.Split("|||");
+            if (game != null && splitLogs.Length > 1 && splitLogs[^2].Length > 3 && game.RoundNo > 1)
                 embed.AddField("События прошлого раунда:",
-                    $"{splitted[splitted.Length - 2]}<:e_:562879579694301184>");
+                    $"{splitLogs[^2]}<:e_:562879579694301184>");
             else
                 embed.AddField("События прошлого раунда:",
                     "В прошлом раунде ничего не произошло. Странно...\n<:e_:562879579694301184>");
 
-            if (player.Status.GetInGamePersonalLogs().Length >= 2)
-                embed.AddField("События этого раунда:", $"{player.Status.GetInGamePersonalLogs()}");
-            else
-                embed.AddField("События этого раунда:", "Еще ничего не произошло. Наверное...");
+            embed.AddField("События этого раунда:",
+                player.Status.GetInGamePersonalLogs().Length >= 2
+                    ? $"{player.Status.GetInGamePersonalLogs()}"
+                    : "Еще ничего не произошло. Наверное...");
 
 
             if (character.Avatar != null)
@@ -432,7 +437,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         //Page 4
         public EmbedBuilder MoralPage(GamePlayerBridgeClass player)
         {
-
             var account = player.DiscordAccount;
             var character = player.Character;
 

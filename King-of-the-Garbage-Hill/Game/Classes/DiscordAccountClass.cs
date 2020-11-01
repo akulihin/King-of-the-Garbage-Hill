@@ -13,7 +13,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public bool IsLogs { get; set; }
         public ulong GameId { get; set; }
         public string UserType { get; set; }
-        public int ZBSPoints { get; set; }
+        public int ZbsPoints { get; set; }
 
         public List<ChampionChances> ChampionChance = new List<ChampionChances>();
         public List<ChampionStatisticsClass> ChampionStatistics = new List<ChampionStatisticsClass>();
