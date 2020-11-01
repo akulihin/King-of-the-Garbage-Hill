@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace King_of_the_Garbage_Hill.Game.Classes
@@ -11,6 +12,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             Speed = speed;
             Psyche = psyche;
             Justice = new JusticeClass();
+            CurrentSkillTarget = RandomCurrentSkillTarget();
             Name = name;
         }
 
@@ -19,9 +21,93 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         private int Psyche { get; set; }
         private int Speed { get; set; }
         private int Strength { get; set; }
+        private double Skill { get; set; }
+        private string CurrentSkillTarget { get; set; }
+        private int Moral { get; set; }
         public JusticeClass Justice { get; set; }
         public string Avatar { get; set; }
         public List<Passive> Passive { get; set; }
+
+        public string GetCurrentSkillTarget()
+        {
+            return CurrentSkillTarget;
+        }
+
+        public void RollCurrentSkillTarget()
+        {
+            switch (CurrentSkillTarget)
+            {
+                case "Интеллект":
+                    CurrentSkillTarget = "Сила";
+                    break;
+                case "Сила":
+                    CurrentSkillTarget = "Скорость";
+                    break;
+                case "Скорость":
+                    CurrentSkillTarget = "Интеллект";
+                    break;
+            }
+        }
+
+        public string RandomCurrentSkillTarget()
+        {
+            var skillsSet = new List<string>{ "Интеллект", "Скорость", "Сила" };
+            var rand = new Random();
+            return skillsSet[rand.Next(0, 2)];
+        }
+
+        public double GetSkill()
+        {
+            return Skill;
+        }
+
+        public void SetSkill(double newSkill)
+        {
+            Skill = newSkill;
+        }
+
+        public void AddSkill(InGameStatus status, double howMuchToAdd = 10, bool isLog = true, string skillName = "")
+        {
+            if (isLog)
+                status.AddInGamePersonalLogs("+ скилл\n");
+
+            howMuchToAdd = Skill switch
+            {
+                0 => 10,
+                10 => 9,
+                19 => 8,
+                27 => 7,
+                34 => 6,
+                40 => 5,
+                45 => 4,
+                49 => 3,
+                52 => 2,
+                54 => 1,
+                _ => 0
+            };
+
+            Skill += howMuchToAdd;
+        }
+
+        public int GetMoral()
+        {
+            return Moral;
+        }
+
+        public void SetMoral(int newMoral)
+        {
+            Moral = newMoral;
+        }
+
+        public void AddMoral(InGameStatus status, int howMuchToAdd = 0, bool isLog = true, string skillName = "")
+        {
+            if (howMuchToAdd > 0 && isLog)
+                status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} морали\n");
+            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} морали\n");
+
+            Moral += howMuchToAdd;
+            if (Moral < 0) Moral = 0;
+        }
 
         public void AddIntelligence(InGameStatus status, int howMuchToAdd = 1, bool isLog = true, string skillName = "")
         {

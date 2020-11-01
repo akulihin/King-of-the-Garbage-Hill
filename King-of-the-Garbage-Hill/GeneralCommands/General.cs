@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -21,23 +20,19 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 {
     public class General : ModuleBaseCustom
     {
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-#pragma warning disable CS1998 // This async method lacks 'await' operators and will run synchronously. Consider using the 'await' operator to await non-blocking API calls, or 'await Task.Run(...)' to do CPU-bound work on a background thread.
-
-
         private readonly UserAccounts _accounts;
-        private readonly SecureRandom _secureRandom;
-        private readonly OctoPicPull _octoPicPull;
-        private readonly OctoNamePull _octoNmaNamePull;
-        private readonly CharactersPull _charactersPull;
-        private readonly HelperFunctions _helperFunctions;
         private readonly CharacterPassives _characterPassives;
+        private readonly CharactersPull _charactersPull;
 
         private readonly CommandsInMemory _commandsInMemory;
-        private readonly Global _global;
         private readonly InGameGlobal _gameGlobal;
-        private readonly GameUpdateMess _upd;
+        private readonly Global _global;
+        private readonly HelperFunctions _helperFunctions;
+        private readonly OctoNamePull _octoNmaNamePull;
+        private readonly OctoPicPull _octoPicPull;
         private readonly CharactersUniquePhrase _phrase;
+        private readonly SecureRandom _secureRandom;
+        private readonly GameUpdateMess _upd;
 
 
         public General(UserAccounts accounts, SecureRandom secureRandom, OctoPicPull octoPicPull,
@@ -70,19 +65,16 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             if (account.IsLogs)
             {
                 account.IsLogs = false;
-                SendMessAsync(
+                await SendMessAsync(
                     "Ты больше не увидишь название пассивок под сообщением с логами. Заюзай жту команду еще раз, чтобы их видить. Пример - https://i.imgur.com/R4JkRZR.png");
             }
             else
             {
                 account.IsLogs = true;
-                SendMessAsync(
+                await SendMessAsync(
                     "Ты видишь название пассивок под сообщением с логами.  Заюзай жту команду еще раз, чтобы их **НЕ** видить. Пример - https://i.imgur.com/eFvjRf5.png");
             }
-
-          
         }
-
 
 
         [Command("setType")]
@@ -92,18 +84,21 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             userType = userType.ToLower();
             var account = _accounts.GetAccount(user);
 
-            if(userType != "admin" && userType != "player") {
-                   SendMessAsync($"**admin** OR **player** only available options");
-                return; 
-                }
-            if(Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193) {
-                 SendMessAsync("only owners can use this command");
+            if (userType != "admin" && userType != "player")
+            {
+                await SendMessAsync("**admin** OR **player** only available options");
                 return;
-                }
+            }
+
+            if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
+            {
+                await SendMessAsync("only owners can use this command");
+                return;
+            }
 
             account.UserType = userType;
 
-            SendMessAsync($"done. {user.Username} is now **{userType}**");
+            await SendMessAsync($"done. {user.Username} is now **{userType}**");
         }
 
 
@@ -111,7 +106,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         [Summary("Select round 1-10")]
         public async Task SelectRound(int roundNo)
         {
-            if(roundNo < 1 || roundNo > 10) return;
+            if (roundNo < 1 || roundNo > 10) return;
 
             var game = _global.GamesList.Find(
                 l => l.PlayersList.Any(x => x.DiscordAccount.DiscordId == Context.User.Id));
@@ -120,10 +115,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
             game.RoundNo = roundNo;
 
-            foreach (var t in game.PlayersList)
-            {
-               await _upd.UpdateMessage(t);
-            }
+            foreach (var t in game.PlayersList) await _upd.UpdateMessage(t);
         }
 
 
@@ -131,19 +123,16 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         [Summary("Set your score")]
         public async Task SetScore(int number)
         {
-
             var game = _global.GamesList.Find(
                 l => l.PlayersList.Any(x => x.DiscordAccount.DiscordId == Context.User.Id));
 
             if (game == null) return;
 
 
-            game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Status.SetScoreToThisNumber(number);
+            game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Status
+                .SetScoreToThisNumber(number);
 
-            foreach (var t in game.PlayersList)
-            {
-                await _upd.UpdateMessage(t);
-            }
+            foreach (var t in game.PlayersList) await _upd.UpdateMessage(t);
         }
 
 
@@ -161,30 +150,29 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
             switch (name.ToLower())
             {
-
                 case "in":
-                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Character.SetIntelligence(number);
+                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Character
+                        .SetIntelligence(number);
                     break;
                 case "sp":
-                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Character.SetSpeed(number);
+                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Character
+                        .SetSpeed(number);
                     break;
                 case "st":
-                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Character.SetStrength(number);
+                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Character
+                        .SetStrength(number);
                     break;
                 case "ps":
-                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Character.SetPsyche(number);
+                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Character
+                        .SetPsyche(number);
                     break;
                 default:
                     return;
             }
-            
 
-            foreach (var t in game.PlayersList)
-            {
-                await _upd.UpdateMessage(t);
-            }
+
+            foreach (var t in game.PlayersList) await _upd.UpdateMessage(t);
         }
-
 
 
         [Command("время")]
@@ -241,7 +229,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     return;
                 }
 
-      
+
                 await SendMessAsync(
                     $"Your own prefix is now **{prefix}**");
             }
@@ -283,20 +271,26 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 case 19:
                 {
                     var lll = await Context.Channel.SendMessageAsync("Ooooo, it was I who just passed Dark Souls!");
+#pragma warning disable 4014
                     _helperFunctions.DeleteMessOverTime(lll, 6);
+#pragma warning restore 4014
                     break;
                 }
                 case 9:
                 {
                     var lll = await Context.Channel.SendMessageAsync("I'm drawing an octopus :3");
+#pragma warning disable 4014
                     _helperFunctions.DeleteMessOverTime(lll, 6);
+#pragma warning restore 4014
                     break;
                 }
                 case 26:
                 {
                     var lll = await Context.Channel.SendMessageAsync(
                         "Oh, this is New Year! time to gift turtles!!");
+#pragma warning disable 4014
                     _helperFunctions.DeleteMessOverTime(lll, 6);
+#pragma warning restore 4014
                     break;
                 }
             }
@@ -416,7 +410,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             await Context.User.SendMessageAsync("", false, embed.Build());
         }
 
-                [Command("st")]
+        [Command("st")]
         [Summary("запуск игры")]
         public async Task StartGameTest(SocketUser tolya = null)
         {
@@ -439,7 +433,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             accountDeep.IsPlaying = true;
 
             var characters = _charactersPull.GetAllCharacters();
-            var characterDeep = characters[_secureRandom.Random(0, characters.Count()-1)]; 
+            var characterDeep = characters[_secureRandom.Random(0, characters.Count() - 1)];
             characters.Remove(characterDeep);
             playersList.Add(new GamePlayerBridgeClass
                 {DiscordAccount = accountDeep, Character = characterDeep, Status = new InGameStatus()});
@@ -449,7 +443,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 var tolAccount = _accounts.GetAccount(tolya);
                 tolAccount.GameId = accountDeep.GameId;
                 tolAccount.IsPlaying = true;
-                var characterTolya  = characters[_secureRandom.Random(0, characters.Count()-1)];
+                var characterTolya = characters[_secureRandom.Random(0, characters.Count() - 1)];
                 characters.Remove(characterTolya);
                 playersList.Add(new GamePlayerBridgeClass
                 {
@@ -532,7 +526,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 _phrase.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"));
                 if (playersList.Any(x => x.Character.Name == "mylorik"))
                     game.AddPreviousGameLogs(
-                        $" \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
+                        " \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
                         "\n\n", false);
             }
             //end vampyr unique
@@ -555,7 +549,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
             game.IsCheckIfReady = true;
         }
-
 
 
         [Command("st")]
@@ -593,7 +586,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
                 playersList.Add(new GamePlayerBridgeClass
                 {
-                    DiscordAccount = tolAccount, Character =characters[charIndex2],
+                    DiscordAccount = tolAccount, Character = characters[charIndex2],
                     Status = new InGameStatus()
                 });
             }
@@ -672,7 +665,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 _phrase.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"));
                 if (playersList.Any(x => x.Character.Name == "mylorik"))
                     game.AddPreviousGameLogs(
-                        $" \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
+                        " \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
                         "\n\n", false);
             }
             //end vampyr unique
@@ -759,6 +752,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
             var json = JsonConvert.SerializeObject(allcha.ToArray());
             File.WriteAllText(@"D:\characters.json", json);
+            await Task.CompletedTask;
         }
 
 
@@ -769,7 +763,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         public async Task ChangeMaxNumberOfCommandsInRam(uint number)
         {
             _commandsInMemory.MaximumCommandsInRam = number;
-            SendMessAsync($"now I will store {number} of commands");
+            await SendMessAsync($"now I will store {number} of commands");
         }
 
         [Command("clearMaxRam")]
@@ -779,7 +773,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         {
             var toBeDeleted = _commandsInMemory.CommandList.Count;
             _commandsInMemory.CommandList.Clear();
-            SendMessAsync($"I have deleted {toBeDeleted} commands");
+            await SendMessAsync($"I have deleted {toBeDeleted} commands");
         }
     }
 }

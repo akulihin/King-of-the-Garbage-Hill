@@ -29,7 +29,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         }
 
 
-        public async Task HandleMylorikRevenge(GamePlayerBridgeClass player, Guid enemyIdLostTo, ulong gameId)
+        public void HandleMylorikRevenge(GamePlayerBridgeClass player, Guid enemyIdLostTo, ulong gameId)
         {
             //enemyIdLostTo may be 0
 
@@ -43,14 +43,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 {
                     _gameGlobal.MylorikRevenge.Add(new MylorikRevengeClass(player.Status.PlayerId, gameId,
                         enemyIdLostTo));
-                    await _phrase.MylorikRevengeLostPhrase.SendLog(player);
+                    _phrase.MylorikRevengeLostPhrase.SendLog(player);
                 }
                 else
                 {
                     if (mylorik.EnemyListPlayerIds.All(x => x.EnemyPlayerId != enemyIdLostTo))
                     {
                         mylorik.EnemyListPlayerIds.Add(new MylorikRevengeClassSub(enemyIdLostTo));
-                        await _phrase.MylorikRevengeLostPhrase.SendLog(player);
+                        _phrase.MylorikRevengeLostPhrase.SendLog(player);
                     }
                 }
             }
@@ -64,7 +64,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     player.Status.AddRegularPoints(2);
                     player.Character.AddPsyche(player.Status);
                     find.IsUnique = false;
-                    await _phrase.MylorikRevengeVictoryPhrase.SendLog(player);
+                    _phrase.MylorikRevengeVictoryPhrase.SendLog(player);
                 }
             }
         }
@@ -95,7 +95,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 {
                     player.Character.AddPsyche(player.Status, -1);
                     player.MinusPsycheLog(game);
-                    await _phrase.MylorikSpanishPhrase.SendLog(player);
+                    _phrase.MylorikSpanishPhrase.SendLog(player);
                 }
             }
 

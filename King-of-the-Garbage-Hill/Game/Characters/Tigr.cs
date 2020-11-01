@@ -66,7 +66,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                                 enemyAcc.Character.AddPsyche(enemyAcc.Status, -1, true, "3-0 обоссан: ");
                                 enemyAcc.MinusPsycheLog(game);
-                                await _phrase.TigrThreeZero.SendLog(player);
+                                _phrase.TigrThreeZero.SendLog(player);
 
 
                                 enemy.IsUnique = false;

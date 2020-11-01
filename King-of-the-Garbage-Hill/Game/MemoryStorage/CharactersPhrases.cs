@@ -383,7 +383,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                 PassiveNameEng = passiveNameEng;
             }
 
-            public async Task SendLog(GamePlayerBridgeClass player)
+            public void SendLog(GamePlayerBridgeClass player)
             {
                 var random = new Random();
                 var description = PassiveLogRus[random.Next(0, PassiveLogRus.Count)];
@@ -395,7 +395,6 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                     player.Status.InGamePersonalLogsAll += $"{PassiveNameRus}: ";
 
                 player.Status.AddInGamePersonalLogs($"{description}\n");
-                await Task.CompletedTask;
             }
 
             public async Task SendLog(GamePlayerBridgeClass player, GamePlayerBridgeClass player2)

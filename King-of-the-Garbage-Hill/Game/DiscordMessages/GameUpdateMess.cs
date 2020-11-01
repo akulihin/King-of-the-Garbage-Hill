@@ -342,7 +342,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             if (game != null) desc = game.GetPreviousGameLogs();
 
-            embed.WithDescription(desc);
+            embed.WithDescription(desc.Replace(player.DiscordAccount.DiscordUserName, $"**{player.DiscordAccount.DiscordUserName}**"));
 
             if (desc.Length >= 2048)
                 _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
@@ -354,7 +354,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 $"**Скорость:** {character.GetSpeed()}\n" +
                 $"**Психика:** {character.GetPsyche()}\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                $"*Справедливость: {character.Justice.GetJusticeNow()}*\n" +
+                $"Справедливость: {character.Justice.GetJusticeNow()}\n" +
+                $"Скилл: {character.GetSkill()} (**{character.GetCurrentSkillTarget()}**)\n" +
+                $"Мораль: {character.GetMoral()}\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                 "<:e_:562879579694301184>\n" +
                 $"{LeaderBoard(player)}" +
@@ -433,6 +435,38 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             return embed;
         }
 
+        //Page 4
+        public EmbedBuilder MoralPage(GamePlayerBridgeClass player)
+        {
+
+            var account = player.DiscordAccount;
+            var character = player.Character;
+
+
+            var embed = new EmbedBuilder();
+
+            var desc = _global.GamesList.Find(x => x.GameId == account.GameId).GetPreviousGameLogs();
+            if (desc == null)
+                return null;
+            embed.WithDescription(desc);
+
+            embed.WithColor(Color.Blue);
+
+            embed.WithFooter($"{GetTimeLeft(player)}");
+            embed.AddField("_____",
+                "__Ты можешь  1:__\n \n" +
+                $"1. **Интеллект:** {character.GetIntelligence()}\n" +
+                $"2. **Сила:** {character.GetStrength()}\n" +
+                $"3. **Скорость:** {character.GetSpeed()}\n" +
+                $"4. **Психика:** {character.GetPsyche()}\n");
+
+            if (character.Avatar != null)
+                if (IsImageUrl(character.Avatar))
+                    embed.WithThumbnailUrl(character.Avatar);
+
+            return embed;
+        }
+
         public async Task UpdateMessage(GamePlayerBridgeClass player, GameClass game = null)
         {
             var embed = FightPage(player, game);
@@ -447,7 +481,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 case 2:
                     embed = LogsPage(player);
                     break;
-                case int n when n >= 3:
+                case 3:
                     embed = LvlUpPage(player);
                     break;
             }

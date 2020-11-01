@@ -35,12 +35,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 x.PlayerId == player.Status.PlayerId && player.DiscordAccount.GameId == x.GameId);
 
 
-            if (!deep.FriendList.Contains(player.Status.IsFighting) && !game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsFighting).Status.IsBlock)
+            if (!deep.FriendList.Contains(player.Status.IsFighting) && !game.PlayersList
+                .Find(x => x.Status.PlayerId == player.Status.IsFighting).Status.IsBlock)
             {
                 deep.FriendList.Add(player.Status.IsFighting);
 
                 player.Status.IsAbleToWin = false;
-                await _phrase.DeepListDoubtfulTacticFirstLostPhrase.SendLog(player);
+                _phrase.DeepListDoubtfulTacticFirstLostPhrase.SendLog(player);
             }
 
 
@@ -59,7 +60,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 if (player.Status.IsWonThisCalculation != Guid.Empty)
                 {
                     player.Status.AddRegularPoints();
-                    await _phrase.DeepListDoubtfulTacticPhrase.SendLog(player);
+                    _phrase.DeepListDoubtfulTacticPhrase.SendLog(player);
                 }
 
 
@@ -69,14 +70,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             if (player.Status.IsWonThisCalculation != Guid.Empty)
             {
                 var player2 = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation);
-              await  HandleMockery(player, player2, game);
+                HandleMockery(player, player2, game);
             }
 
             //end Стёб
         }
 
 
-        public async Task HandleMockery(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, GameClass game)
+        public void HandleMockery(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, GameClass game)
         {
             //Стёб
             var currentDeepList =
@@ -97,7 +98,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                         player2.Character.AddPsyche(player2.Status, -1, true, "Стёб: ");
                         player2.MinusPsycheLog(game);
                         player.Status.AddRegularPoints();
-                      await  _phrase.DeepListPokePhrase.SendLog(player);
+                        _phrase.DeepListPokePhrase.SendLog(player);
                         if (player2.Character.GetPsyche() < 4) player2.Character.Justice.AddJusticeForNextRound(-1);
                     }
                 }

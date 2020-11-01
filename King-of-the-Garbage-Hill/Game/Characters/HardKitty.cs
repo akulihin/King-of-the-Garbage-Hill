@@ -28,7 +28,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //   throw new System.NotImplementedException();
         }
 
-        public async Task HandleHardKittyAfter(GamePlayerBridgeClass player, GameClass game)
+        public void HandleHardKittyAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //Doebatsya
             var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
@@ -75,7 +75,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 wonPlayer.Series = 0;
 
 
-                await _phrase.HardKittyDoebatsyaPhrase.SendLog(player);
+                _phrase.HardKittyDoebatsyaPhrase.SendLog(player);
             }
 
             // end Doebatsya

@@ -301,7 +301,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 {
                     //Дизмораль
                     player.Character.AddPsyche(player.Status, -4);
-                    await _phrase.DarksciDysmoral.SendLog(player);
+                    _phrase.DarksciDysmoral.SendLog(player);
                     game.AddPreviousGameLogs(
                         $"**{player.DiscordAccount.DiscordUserName}:** Всё, у меня горит!");
                     //end Дизмораль
@@ -313,7 +313,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     player.Status.IsAbleToTurn = false;
                     player.Status.IsReady = true;
                     player.Status.WhoToAttackThisTurn = Guid.Empty;
-                    await _phrase.DarksciFuckThisGame.SendLog(player);
+                    _phrase.DarksciFuckThisGame.SendLog(player);
 
 
                     if (player.Character.GetPsyche() <= 0)

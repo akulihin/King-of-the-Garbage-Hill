@@ -15,21 +15,26 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
         private readonly List<DiscordAccountClass.ChampionChances> _defaultChampionChances =
             new List<DiscordAccountClass.ChampionChances>
             {
-                new DiscordAccountClass.ChampionChances("DeepList", 7),
-                new DiscordAccountClass.ChampionChances("mylorik", 7),
-                new DiscordAccountClass.ChampionChances("Глеб", 7),
-                new DiscordAccountClass.ChampionChances("LeCrisp", 7),
-                new DiscordAccountClass.ChampionChances("Толя", 7),
-                new DiscordAccountClass.ChampionChances("HardKitty", 7),
-                new DiscordAccountClass.ChampionChances("Sirinoks", 7),
-                new DiscordAccountClass.ChampionChances("Mit*suki*", 7),
-                new DiscordAccountClass.ChampionChances("AWDKA", 7),
-                new DiscordAccountClass.ChampionChances("Осьминожка", 2),
-                new DiscordAccountClass.ChampionChances("Darksci", 7),
-                new DiscordAccountClass.ChampionChances("Тигр", 7),
-                new DiscordAccountClass.ChampionChances("Братишка", 2),
-                new DiscordAccountClass.ChampionChances("Загадочный Спартанец в маске", 5),
-                new DiscordAccountClass.ChampionChances("Вампур", 5)
+                //default 100 range
+                new DiscordAccountClass.ChampionChances("DeepList", 0, 99),
+                new DiscordAccountClass.ChampionChances("mylorik", 100, 199),
+                new DiscordAccountClass.ChampionChances("Глеб", 200, 299),
+                new DiscordAccountClass.ChampionChances("LeCrisp", 300, 399),
+                new DiscordAccountClass.ChampionChances("Толя", 400, 499),
+                new DiscordAccountClass.ChampionChances("HardKitty", 500, 599),
+                new DiscordAccountClass.ChampionChances("Sirinoks", 600, 699),
+                new DiscordAccountClass.ChampionChances("Mit*suki*", 700, 799),
+                new DiscordAccountClass.ChampionChances("AWDKA", 800, 899),
+                new DiscordAccountClass.ChampionChances("Darksci", 900, 999),
+                
+                //default 50 range
+                new DiscordAccountClass.ChampionChances("Загадочный Спартанец в маске", 1000, 1049),
+                new DiscordAccountClass.ChampionChances("Тигр", 1050, 1099),
+                new DiscordAccountClass.ChampionChances("Вампур", 1100, 1149),
+
+                //default 40 range
+                new DiscordAccountClass.ChampionChances("Братишка", 1150, 1189),
+                new DiscordAccountClass.ChampionChances("Осьминожка", 1190, 1229)
             };
 
         private readonly ConcurrentDictionary<ulong, DiscordAccountClass> _userAccountsDictionary;
@@ -57,7 +62,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             LoopingTimer = new Timer
             {
                 AutoReset = true,
-                Interval = 30000,
+                Interval = 10000,
                 Enabled = true
             };
 

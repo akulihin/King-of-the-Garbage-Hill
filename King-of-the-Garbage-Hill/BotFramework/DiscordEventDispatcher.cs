@@ -16,16 +16,18 @@ namespace King_of_the_Garbage_Hill.BotFramework
         private readonly GameReaction _gameReaction;
         private readonly LoginFromConsole _log;
         private readonly Global _global;
+        private readonly StoreReactionHandling _storeReactionHandling;
 
 
         public DiscordEventDispatcher(DiscordShardedClient client, CommandHandling commandHandler,
-            GameReaction gameReaction, LoginFromConsole log, Global global)
+            GameReaction gameReaction, LoginFromConsole log, Global global, StoreReactionHandling storeReactionHandling)
         {
             _client = client;
             _commandHandler = commandHandler;
             _gameReaction = gameReaction;
             _log = log;
             _global = global;
+            _storeReactionHandling = storeReactionHandling;
         }
 
         public Task InitializeAsync()
@@ -164,6 +166,7 @@ namespace King_of_the_Garbage_Hill.BotFramework
         {
             if (reaction.User.Value.IsBot) return;
             _gameReaction.ReactionAddedGameWindow(cacheMessage, channel, reaction);
+            _storeReactionHandling.ReactionAddedStore(cacheMessage, channel, reaction);
         }
 
         private async Task ReactionRemoved(Cacheable<IUserMessage, ulong> cacheMessage, ISocketMessageChannel channel,
@@ -172,6 +175,7 @@ namespace King_of_the_Garbage_Hill.BotFramework
             if (reaction.User.Value.IsBot)
                 return;
             _gameReaction.ReactionAddedGameWindow(cacheMessage, channel, reaction);
+            _storeReactionHandling.ReactionAddedStore(cacheMessage, channel, reaction);
         }
 
         private async Task ReactionsCleared(Cacheable<IUserMessage, ulong> cacheMessage, ISocketMessageChannel channel)

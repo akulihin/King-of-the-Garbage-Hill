@@ -179,45 +179,50 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var whoIsBetter = WhoIsBetter(player, playerIamAttacking);
 
                 //main formula:
+                //main formula:
                 var a = player.Character;
                 var b = playerIamAttacking.Character;
 
-                var strangeNumber = a.GetIntelligence() - b.GetIntelligence()
-                                    + a.GetStrength() - b.GetStrength()
-                                    + a.GetSpeed() - b.GetSpeed()
-                                    + a.GetPsyche() - b.GetPsyche();
 
-                var pd = a.GetPsyche() - b.GetPsyche();
+                var skillA = 1 + a.GetSkill() / 100 / 2;
+                var skillB = 1 + b.GetSkill() / 100 / 2;
 
-                if (pd > 0 && pd < 4)
-                    strangeNumber += 1;
-                else if (pd >= 4)
-                    strangeNumber += 2;
-                else if (pd < 0 && pd > -4)
-                    strangeNumber -= 1;
-                else if (pd < 0 && pd <= -4)
-                    strangeNumber -= 2;
+                var scaleA = a.GetIntelligence() + a.GetStrength() + a.GetSpeed() + a.GetPsyche();
+                var scaleB = b.GetIntelligence() + b.GetStrength() + b.GetSpeed() + b.GetPsyche();
+
+                var weighingMachine = scaleA * skillA - scaleB * skillB;
+
+                var psycheDifference = a.GetPsyche() - b.GetPsyche();
+
+                if (psycheDifference > 0 && psycheDifference < 4)
+                    weighingMachine += 1;
+                else if (psycheDifference >= 4)
+                    weighingMachine += 2;
+                else if (psycheDifference < 0 && psycheDifference > -4)
+                    weighingMachine -= 1;
+                else if (psycheDifference < 0 && psycheDifference <= -4)
+                    weighingMachine -= 2;
 
                 if (whoIsBetter == 1)
-                    strangeNumber += 5;
+                    weighingMachine += 5;
                 else if (whoIsBetter == 2)
-                    strangeNumber -= 5;
+                    weighingMachine -= 5;
 
-                if (strangeNumber >= 14)
+                if (weighingMachine >= 14)
                 {
                     isTooGoodPlayer = true;
                     randomForTooGood = 68;
                 }
 
-                if (strangeNumber <= -14)
+                if (weighingMachine <= -14)
                 {
                     isTooGoodEnemy = true;
                     randomForTooGood = 32;
                 }
 
 
-                if (strangeNumber > 0) pointsWined++;
-                if (strangeNumber < 0) pointsWined--;
+                if (weighingMachine > 0) pointsWined++;
+                if (weighingMachine < 0) pointsWined--;
                 //end round 1
 
 
@@ -238,10 +243,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
                 //end round 3
 
+
+                var moral = player.Status.PlaceAtLeaderBoard - player.Status.PlaceAtLeaderBoard;
+                if (moral < 0) moral *= -1;
+
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 1)
                 {
-                    game.AddPreviousGameLogs($" ⟶ победил **{player.DiscordAccount.DiscordUserName}**");
+                    game.AddPreviousGameLogs($" ⟶ {player.DiscordAccount.DiscordUserName}");
 
                     //еврей
                     var point = _characterPassives.HandleJewPassive(player, game);
@@ -254,6 +263,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     player.Status.WonTimes++;
                     player.Character.Justice.IsWonThisRound = true;
+                    player.Character.AddMoral(player.Status, moral*-1);
 
                     playerIamAttacking.Character.Justice.AddJusticeForNextRound();
 
@@ -271,12 +281,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     if (check)
                     {
-                        game.AddPreviousGameLogs($" ⟶ победил **{playerIamAttacking.DiscordAccount.DiscordUserName}**");
+                        game.AddPreviousGameLogs($" ⟶ {playerIamAttacking.DiscordAccount.DiscordUserName}");
                         playerIamAttacking.Status.AddRegularPoints();
                         player.Status.WonTimes++;
 
-                      
+
                         playerIamAttacking.Character.Justice.IsWonThisRound = true;
+                        playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral);
 
                         if (playerIamAttacking.Character.Name == "Толя" && playerIamAttacking.Status.IsBlock)
                             playerIamAttacking.Character.Justice.IsWonThisRound = false;
@@ -394,6 +405,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (game.RoundNo == 3 || game.RoundNo == 5 || game.RoundNo == 7 || game.RoundNo == 9)
                     game.PlayersList[i].Status.MoveListPage = 3;
                 game.PlayersList[i].Status.PlaceAtLeaderBoard = i + 1;
+                game.PlayersList[i].Character.RollCurrentSkillTarget();
             }
             //end sorting
 
@@ -481,8 +493,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         var fightLineSplitSplit = fightLineSplit[0].Split("<:war:561287719838547981>");
 
                         fightLine = fightLineSplitSplit[0].Contains($"{player.DiscordAccount.DiscordUserName}")
-                            ? $"**{fightLineSplitSplit[0]}** <:war:561287719838547981> **{fightLineSplitSplit[1]}**"
-                            : $"**{fightLineSplitSplit[1]}** <:war:561287719838547981> **{fightLineSplitSplit[0]}**";
+                            ? $"{fightLineSplitSplit[0]} <:war:561287719838547981> {fightLineSplitSplit[1]}"
+                            : $"{fightLineSplitSplit[1]} <:war:561287719838547981> {fightLineSplitSplit[0]}";
 
 
                         fightLine += $" ⟶ {fightLineSplit[1]}";

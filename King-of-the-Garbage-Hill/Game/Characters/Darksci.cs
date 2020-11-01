@@ -25,7 +25,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             await Task.CompletedTask;
         }
 
-        public async Task HandleDarksiAfter(GamePlayerBridgeClass player, GameClass game)
+        public void HandleDarksiAfter(GamePlayerBridgeClass player, GameClass game)
         {
             if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
@@ -44,7 +44,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     await _phrase.ThirdСommandment.SendLog(player);*/
                 player.Character.AddPsyche(player.Status, -1,  true, "Не повезло: ");
                 player.MinusPsycheLog(game);
-                await _phrase.DarksciNotLucky.SendLog(player);
+                _phrase.DarksciNotLucky.SendLog(player);
                 //end Не повезло
             }
         }
