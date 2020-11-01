@@ -52,10 +52,14 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 return;
             }
 
+            var cost = 0;
+            
             switch (reaction.Emote.Name)
             {
+
                 //Уменьшить шанс на 1% - 20 ZP
                 case "1⃣":
+                    cost = 20;
                     if (champion.Multiplier <= 0.0)
                     {
                         await channel.SendMessageAsync(
@@ -63,15 +67,15 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         return;
                     }
 
-                    if (account.ZbsPoints < 20)
+                    if (account.ZbsPoints < cost)
                     {
-                        await channel.SendMessageAsync("У тебя недостаточно ZBS Points, нужно 20.");
+                        await channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
                         return;
                     }
 
                     champion.Multiplier -= 0.01;
                     champion.Changes++;
-                    account.ZbsPoints -= 20;
+                    account.ZbsPoints -= cost;
 
                     await channel.SendMessageAsync(
                         $"Готово. Бонусный шанш {champion.CharacterName} = {champion.Multiplier}");
@@ -86,6 +90,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                 //Увеличить шанс на 1% - 20 ZP
                 case "2⃣":
+                    cost = 20;
                     if (champion.Multiplier >= 2.0)
                     {
                         await channel.SendMessageAsync(
@@ -93,15 +98,15 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         return;
                     }
 
-                    if (account.ZbsPoints < 20)
+                    if (account.ZbsPoints < cost)
                     {
-                        await channel.SendMessageAsync("У тебя недостаточно ZBS Points, нужно 20.");
+                        await channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
                         return;
                     }
 
                     champion.Multiplier += 0.01;
                     champion.Changes++;
-                    account.ZbsPoints -= 20;
+                    account.ZbsPoints -= cost;
 
                     await channel.SendMessageAsync(
                         $"Готово. Бонусный шанш {champion.CharacterName} = {champion.Multiplier}");
@@ -116,16 +121,17 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                 //Вернуть все ZBS Points за этого персонажа - 10 ZP
                 case "3⃣":
-                    if (account.ZbsPoints < 0)
+                    cost = 0;
+                    if (account.ZbsPoints < cost)
                     {
-                        await channel.SendMessageAsync("У тебя недостаточно ZBS Points, нужно 10.");
+                        await channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
                         return;
                     }
 
                     champion.Multiplier = 1.0;
                     var zbsPointsToReturn = champion.Changes * 20;
                     account.ZbsPoints += zbsPointsToReturn;
-                    account.ZbsPoints -= 10;
+                    account.ZbsPoints -= cost;
                     champion.Changes = 0;
 
                     await channel.SendMessageAsync(
@@ -142,14 +148,15 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                 //Вернуть все ZBS Points за ВСЕХ персонажей - 50 ZP
                 case "4⃣":
-                    if (account.ZbsPoints < 0)
+                    cost = 0;
+                    if (account.ZbsPoints < cost)
                     {
-                        await channel.SendMessageAsync("У тебя недостаточно ZBS Points, нужно 50.");
+                        await channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
                         return;
                     }
 
                     zbsPointsToReturn = 0;
-                    account.ZbsPoints -= 50;
+                    account.ZbsPoints -= cost;
 
                     foreach (var c in account.ChampionChance)
                     {
