@@ -23,9 +23,19 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         private double Skill { get; set; }
         private string CurrentSkillTarget { get; set; } = "Ничего";
         private int Moral { get; set; }
+        private int BonusPointsFromMoral { get; set; }
         public JusticeClass Justice { get; set; }
         public string Avatar { get; set; }
         public List<Passive> Passive { get; set; }
+
+        public int GetBonusPointsFromMoral()
+        {
+            return BonusPointsFromMoral;
+        }
+        public void SetBonusPointsFromMoral(int newBonusPointsFromMoral)
+        {
+            BonusPointsFromMoral = newBonusPointsFromMoral;
+        }
 
         public string GetCurrentSkillTarget()
         {
@@ -110,6 +120,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             Moral += howMuchToAdd;
             if (Moral < 0) Moral = 0;
         }
+
 
         public void AddIntelligence(InGameStatus status, int howMuchToAdd = 1, bool isLog = true, string skillName = "")
         {

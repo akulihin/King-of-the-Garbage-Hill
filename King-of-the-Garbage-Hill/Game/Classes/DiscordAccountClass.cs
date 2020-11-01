@@ -29,6 +29,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             public int CharacterChanceMax;
             public string CharacterName;
             public double Multiplier;
+            public int Changes;
 
             public ChampionChances(string characterName, int characterChanceMin, int characterChanceMax)
             {
@@ -36,6 +37,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 CharacterChanceMin = characterChanceMin;
                 CharacterChanceMax = characterChanceMax;
                 Multiplier = 1.0;
+                Changes = 0;
             }
         }
 

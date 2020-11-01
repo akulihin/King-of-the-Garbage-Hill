@@ -93,8 +93,42 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             _upd.UpdateMessage(player);
                             break;
 
-                        default:
+                        case "🧭":
 
+                            switch (player.Character.GetMoral())
+                            {
+                                case 3:
+                                    player.Character.AddMoral(player.Status, -3);
+                                    player.Character.SetBonusPointsFromMoral(1);
+                                    SendMsgAndDeleteIt(player, "Мораль: Ойвей + 1  __бонунсых__ очка");
+                                    break;
+                                case 5:
+                                    player.Character.AddMoral(player.Status, -5);
+                                    player.Character.SetBonusPointsFromMoral(2);
+                                    SendMsgAndDeleteIt(player, "Мораль: Изи катка + 2 __бонунсых__ очка");
+                                    break;
+                                case 10:
+                                    player.Character.AddMoral(player.Status, -10);
+                                    player.Character.SetBonusPointsFromMoral(8);
+                                    SendMsgAndDeleteIt(player, "Мораль: МВП + 8 __бонунсых__ очка");
+                                    break;
+                                case 15:
+                                    player.Character.AddMoral(player.Status, -15);
+                                    player.Character.SetBonusPointsFromMoral(15);
+                                    SendMsgAndDeleteIt(player, "Мораль: Я БОГ ЭТОГО МИРА + 15 __бонунсых__ очка");
+                                    break;
+                                default:
+                                    SendMsgAndDeleteIt(player, "У тебя недосточно морали, чтобы поменять ее на бонусные очки.\n" +
+                                                               "3 морали =  1 бонусное очко\n" +
+                                                               "5 морали = 2 бонусных очка\n" +
+                                                               "10 морали = 8 бонусных очков\n" +
+                                                               "15 морали = 15 бонусных очков");
+                                    break;
+                            }
+
+                            break;
+
+                        default:
 
                             await HandleAttackOrLvlUp(player, reaction);
                             _upd.UpdateMessage(player);
@@ -217,7 +251,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         }
 
 
-        public async Task SendMsgAndDeleteIt(GamePlayerBridgeClass player, string msg = "Принято", int seconds = 6)
+        public async Task SendMsgAndDeleteIt(GamePlayerBridgeClass player, string msg = "Принято", int seconds = 7)
         {
             if (!player.IsBot())
             {

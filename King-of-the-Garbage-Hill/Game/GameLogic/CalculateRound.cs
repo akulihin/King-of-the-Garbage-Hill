@@ -303,7 +303,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (check)
                     {
                         game.AddPreviousGameLogs($" ⟶ {playerIamAttacking.DiscordAccount.DiscordUserName}");
-                       
+
                         playerIamAttacking.Status.AddRegularPoints();
 
                         player.Status.WonTimes++;
@@ -382,6 +382,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
             await _characterPassives.HandleNextRound(game);
+
+            //Handle Moral
+            foreach (var p in game.PlayersList)
+            {
+                p.Status.AddBonusPoints(p.Character.GetBonusPointsFromMoral(), "Мораль: ");
+                p.Character.SetBonusPointsFromMoral(0);
+            }
+            //end Moral
 
             game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
 

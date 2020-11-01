@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using King_of_the_Garbage_Hill.BotFramework.Extensions;
+using King_of_the_Garbage_Hill.Game.Store;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -13,12 +14,15 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
     {
         private readonly UserAccounts _accounts;
         private readonly AwaitForUserMessage _awaitForUserMessage;
+        private readonly StoreLogic _storeLogic;
 
-        public Store(UserAccounts userAccounts, AwaitForUserMessage awaitForUserMessage)
+        public Store(UserAccounts userAccounts, AwaitForUserMessage awaitForUserMessage, StoreLogic storeLogic)
         {
             _accounts = userAccounts;
             _awaitForUserMessage = awaitForUserMessage;
+            _storeLogic = storeLogic;
         }
+
 
         [Command("store")]
         [Alias("магазин")]
@@ -71,23 +75,9 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
             var champion = account.ChampionChance.Find(x => x.CharacterName == chosenChampion.CharacterName);
 
-            var embed = new EmbedBuilder();
-            embed.WithAuthor(Context.User);
-            embed.WithTitle("Магазин");
-            embed.WithDescription($"Ты выбрал персонажа **{champion.CharacterName}**");
-            embed.AddField("Текущий бонусный шанс", $"{champion.Multiplier}");
-            embed.AddField("Текущее Количество ZBS Points", $"{account.ZbsPoints}");
-            embed.AddField("Варинты", $"{new Emoji("1⃣")} сбросить шанс до 0 - 50 ZP\n" +
-                                      $"{new Emoji("2⃣")} Уменьшить шанс на 1% - 20 ZP\n" +
-                                      $"{new Emoji("3⃣")} Увеличить шанс на 1% - 20 ZP");
-            embed.WithCurrentTimestamp();
-            embed.WithFooter("WELCOME! Stranger...");
-            embed.WithColor(Color.DarkPurple);
-            embed.WithThumbnailUrl(
-                "https://media.giphy.com/media/lbAgIgQ6Dytkk/giphy.gif");
-            var socketMsg = await SendMessAsync(embed);
-            await socketMsg.AddReactionsAsync(new IEmote[] {new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣") });
-
+            var socketMsg = await SendMessAsync(_storeLogic.GetStoreEmbed(champion, account, Context.User));
+            await socketMsg.AddReactionsAsync(new IEmote[]
+                {new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣"), new Emoji("4⃣")});
         }
 
         public class StoreChoice

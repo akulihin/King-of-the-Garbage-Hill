@@ -366,18 +366,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        /*
-Царь мусорный горы:
-Текстовая, пошаговая игра, базирующаяся на локальных мемах. Более двадцати уникальных персонажей с особенными статами и неповторимыми пассивками. Сложная тактическая система боя. Перехитри их всех!
-
-         */
-
-
-        /*
-Шести игрокам выпадают случайне персонажи с уникальными статами и пассивками, каждый из которых может атаковать выбранную цель или обороняться. Победы приносят игрокам очки, передвигая их вверх по таблице. Побеждает лидирующий игрок по истечению десяти ходов.
-Важно Напишите в чат /rules для получения описания боевой системы.
-         */
-
         [Command("rules")]
         [Summary("Правила игры")]
         public async Task Rules()
@@ -689,9 +677,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             game.IsCheckIfReady = true;
         }
 
-        // OWNER COMMANDS:
-
-
         //yes, this is my shit.
         [Command("es")]
         [Summary("CAREFUL! Better not to use it, ever.")]
@@ -765,6 +750,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _commandsInMemory.MaximumCommandsInRam = number;
             await SendMessAsync($"now I will store {number} of commands");
         }
+
 
         [Command("clearMaxRam")]
         [RequireOwner]

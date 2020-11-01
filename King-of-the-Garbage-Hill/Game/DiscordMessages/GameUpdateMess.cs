@@ -89,7 +89,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             await socketMsg.AddReactionsAsync(new IEmote[]
             {
                 new Emoji("🛡"), new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣"), new Emoji("4⃣"), new Emoji("5⃣"),
-                new Emoji("6⃣"), new Emoji("❌")
+                new Emoji("6⃣"), new Emoji("🧭"), new Emoji("❌")
             });
             //   await socketMsg.AddReactionAsync(new Emoji("⬆"));
             //   await socketMsg.AddReactionAsync(new Emoji("8⃣"));
