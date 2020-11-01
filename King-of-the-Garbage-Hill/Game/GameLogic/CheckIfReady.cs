@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
 using King_of_the_Garbage_Hill.BotFramework;
+using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.LocalPersistentData.FinishedGameLog;
 
@@ -10,11 +11,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 {
     public class CheckIfReady : IServiceSingleton
     {
-        private readonly LoginFromConsole _logs;
         private readonly BotsBehavior _botsBehavior;
         private readonly FinishedGameLog _finishedGameLog;
         private readonly GameUpdateMess _gameUpdateMess;
         private readonly Global _global;
+        private readonly LoginFromConsole _logs;
         private readonly CalculateRound _round;
         private readonly GameUpdateMess _upd;
         public Timer LoopingTimer;
@@ -62,10 +63,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 if (game.RoundNo == 11)
                 {
-
                     //sort
-                        game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-                       for (var k = 0; k < game.PlayersList.Count; k++) game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
+                    game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+                    for (var k = 0; k < game.PlayersList.Count; k++)
+                        game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
                     //end sorting
 
 
@@ -86,6 +87,41 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         player.DiscordAccount.IsPlaying = false;
                         player.DiscordAccount.GameId = 1000000;
+
+
+                        player.DiscordAccount.TotalPlays++;
+                        player.DiscordAccount.TotalWins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong)0;
+                        player.DiscordAccount.MatchHistory.Add(
+                            new DiscordAccountClass.MatchHistoryClass(player.Character.Name, player.Status.GetScore(), player.Status.PlaceAtLeaderBoard));
+                        player.DiscordAccount.ZBSPoints += (player.Status.PlaceAtLeaderBoard - 6) * -1 + 1;
+                        if (player.Status.PlaceAtLeaderBoard == 1)
+                            player.DiscordAccount.ZBSPoints += 4;
+
+                        var championStatistics =
+                            player.DiscordAccount.ChampionStatistics.Find(x =>
+                                x.CharacterName == player.Character.Name);
+
+                        if (championStatistics == null)
+                        {
+                            player.DiscordAccount.ChampionStatistics.Add(
+                                new DiscordAccountClass.ChampionStatisticsClass(player.Character.Name,
+                                    player.Status.PlaceAtLeaderBoard));
+                        }
+                        else
+                        {
+                            championStatistics.Plays++;
+                            championStatistics.Wins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong) 0;
+                        }
+
+                        var performanceStatistics =
+                            player.DiscordAccount.PerformanceStatistics.Find(x =>
+                                x.Place == player.Status.PlaceAtLeaderBoard);
+
+                        if (performanceStatistics == null)
+                            player.DiscordAccount.PerformanceStatistics.Add(
+                                new DiscordAccountClass.PerformanceStatisticsClass(player.Status.PlaceAtLeaderBoard));
+                        else
+                            performanceStatistics.Times++;
 
                         if (!player.IsBot())
                             await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("ты кончил.");
@@ -140,7 +176,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     foreach (var t in players)
                         if (t.Status.SocketMessageFromBot != null)
                         {
-                          await _upd.UpdateMessage(t);
+                            await _upd.UpdateMessage(t);
                             await _upd.SendMsgAndDeleteIt(t, $"Раунд #{game.RoundNo}", 3);
                         }
                 }

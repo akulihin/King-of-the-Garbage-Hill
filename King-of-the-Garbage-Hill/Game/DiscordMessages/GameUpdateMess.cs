@@ -83,20 +83,14 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             player.Status.SocketMessageFromBot = socketMsg;
 
-            await socketMsg.AddReactionAsync(new Emoji("🛡"));
             //   await socketMsg.AddReactionAsync(new Emoji("➡"));
             // await socketMsg.AddReactionAsync(new Emoji("📖"));
-            await socketMsg.AddReactionAsync(new Emoji("1⃣"));
-            await socketMsg.AddReactionAsync(new Emoji("2⃣"));
-            await socketMsg.AddReactionAsync(new Emoji("3⃣"));
-            await socketMsg.AddReactionAsync(new Emoji("4⃣"));
-            await socketMsg.AddReactionAsync(new Emoji("5⃣"));
-            await socketMsg.AddReactionAsync(new Emoji("6⃣"));
+
+            await socketMsg.AddReactionsAsync(new IEmote[] { new Emoji("🛡"), new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣"), new Emoji("4⃣"), new Emoji("5⃣"), new Emoji("6⃣"), new Emoji("❌") });
             //   await socketMsg.AddReactionAsync(new Emoji("⬆"));
             //   await socketMsg.AddReactionAsync(new Emoji("8⃣"));
             //   await socketMsg.AddReactionAsync(new Emoji("9⃣"));
             //   await socketMsg.AddReactionAsync(new Emoji("🐙"));
-            await socketMsg.AddReactionAsync(new Emoji("❌"));
 
 
             //    await MainPage(userId, socketMsg);
@@ -354,9 +348,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 $"**Скорость:** {character.GetSpeed()}\n" +
                 $"**Психика:** {character.GetPsyche()}\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                $"Справедливость: {character.Justice.GetJusticeNow()}\n" +
-                $"Скилл: {character.GetSkill()} (**{character.GetCurrentSkillTarget()}**)\n" +
+                $"*Справедливость: {character.Justice.GetJusticeNow()}\n" +
                 $"Мораль: {character.GetMoral()}\n" +
+                $"Скилл: {character.GetSkill()} (**{character.GetCurrentSkillTarget()}**)*\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                 "<:e_:562879579694301184>\n" +
                 $"{LeaderBoard(player)}" +

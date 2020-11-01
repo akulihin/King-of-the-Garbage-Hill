@@ -12,7 +12,6 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             Speed = speed;
             Psyche = psyche;
             Justice = new JusticeClass();
-            CurrentSkillTarget = RandomCurrentSkillTarget();
             Name = name;
         }
 
@@ -22,7 +21,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         private int Speed { get; set; }
         private int Strength { get; set; }
         private double Skill { get; set; }
-        private string CurrentSkillTarget { get; set; }
+        private string CurrentSkillTarget { get; set; } = "Ничего";
         private int Moral { get; set; }
         public JusticeClass Justice { get; set; }
         public string Avatar { get; set; }
@@ -46,6 +45,9 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 case "Скорость":
                     CurrentSkillTarget = "Интеллект";
                     break;
+                case "Ничего":
+                    CurrentSkillTarget = RandomCurrentSkillTarget();
+                    break;
             }
         }
 
@@ -66,7 +68,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             Skill = newSkill;
         }
 
-        public void AddSkill(InGameStatus status, double howMuchToAdd = 10, bool isLog = true, string skillName = "")
+        public void AddSkill(InGameStatus status, double howMuchToAdd = 0, bool isLog = true, string skillName = "")
         {
             if (isLog)
                 status.AddInGamePersonalLogs("+ скилл\n");

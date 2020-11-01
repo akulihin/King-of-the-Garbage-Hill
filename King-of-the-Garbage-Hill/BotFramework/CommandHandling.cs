@@ -203,12 +203,15 @@ namespace King_of_the_Garbage_Hill.BotFramework
         {
             _global.TimeSpendOnLastMessage.Remove(context.User.Id, out var watch);
 
+            var speedText = "";
+            speedText = watch != null ? $"{watch.Elapsed:m\\:ss\\.ffff}" : $"???";
+
             var guildName = context.Guild == null ? "DM" : $"{context.Guild.Name}({context.Guild.Id})";
 
             if (!resultTask.Result.IsSuccess)
             {
                 _log.Warning(
-                    $"Command [{context.Message.Content}] by [{context.User}] [{guildName}] after {watch.Elapsed:m\\:ss\\.ffff}s.\n" +
+                    $"Command [{context.Message.Content}] by [{context.User}] [{guildName}] after {speedText}s.\n" +
                     $"Reason: {resultTask.Result.ErrorReason}", "CommandHandling");
                 _log.Error(resultTask.Result.ErrorReason);
 
@@ -221,7 +224,7 @@ namespace King_of_the_Garbage_Hill.BotFramework
                 _global.TotalCommandsIssued++;
 
                 _log.Info(
-                    $"Command [{context.Message.Content}] by [{context.User}] [{guildName}] after {watch.Elapsed:m\\:ss\\.ffff}s.",
+                    $"Command [{context.Message.Content}] by [{context.User}] [{guildName}] after {speedText}s.",
                     "CommandHandling");
             }
 

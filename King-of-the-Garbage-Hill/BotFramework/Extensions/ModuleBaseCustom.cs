@@ -15,7 +15,7 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
             await userMessage.DeleteAsync();
         }
 
-        protected virtual async Task SendMessAsync(EmbedBuilder embed, int delete = 0)
+        protected virtual async Task<IUserMessage> SendMessAsync(EmbedBuilder embed, int delete = 0)
         {
             if (Context.MessageContentForEdit == null)
             {
@@ -27,18 +27,23 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
 #pragma warning disable 4014
                 if (delete > 0) DeleteMessage(message, delete);
 #pragma warning restore 4014
+                return message;
             }
-            else if (Context.MessageContentForEdit == "edit")
-            {
+
+            if (Context.MessageContentForEdit == "edit")
                 foreach (var t in Context.CommandsInMemory.CommandList)
                     if (t.MessageUserId == Context.Message.Id)
+                    {
                         await t.BotSocketMsg.ModifyAsync(message =>
                         {
                             message.Content = "";
                             message.Embed = null;
                             message.Embed = embed.Build();
                         });
-            }
+                        return t.BotSocketMsg;
+                    }
+
+            return null;
         }
 
 
@@ -97,7 +102,7 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
                     new CommandsInMemory.CommandRam(context.Message, message));
                 if (context.CommandsInMemory.CommandList.Count > context.CommandsInMemory.MaximumCommandsInRam)
                     context.CommandsInMemory.CommandList.RemoveAt(
-                        (int)context.CommandsInMemory.MaximumCommandsInRam - 1);
+                        (int) context.CommandsInMemory.MaximumCommandsInRam - 1);
             }
             catch (Exception e)
             {

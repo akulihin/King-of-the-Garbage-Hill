@@ -20,9 +20,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public List<MatchHistoryClass> MatchHistory = new List<MatchHistoryClass>();
         public List<PerformanceStatisticsClass> PerformanceStatistics = new List<PerformanceStatisticsClass>();
 
-        public ulong RankedScore { get; set; }
-
         public ulong TotalPlays { get; set; }
+        public ulong TotalWins { get; set; }
 
         public class ChampionChances
         {
@@ -46,11 +45,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             public ulong Plays;
             public ulong Wins;
 
-            public ChampionStatisticsClass(string characterName, ulong wins, ulong plays)
+            public ChampionStatisticsClass(string characterName, int wins)
             {
                 CharacterName = characterName;
-                Wins = wins;
-                Plays = plays;
+                Wins = wins == 1 ? 1 : (ulong) 0;
+                Plays = 1;
             }
         }
 
@@ -59,10 +58,10 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             public int Place;
             public ulong Times;
 
-            public PerformanceStatisticsClass(int place, ulong times)
+            public PerformanceStatisticsClass(int place)
             {
                 Place = place;
-                Times = times;
+                Times = 1;
             }
         }
 
@@ -71,11 +70,13 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             public string CharacterName;
             public DateTimeOffset Date;
             public int Score;
+            public int Place;
 
-            public MatchHistoryClass(string characterName, int score)
+            public MatchHistoryClass(string characterName, int score, int place)
             {
                 CharacterName = characterName;
                 Score = score;
+                Place = place;
                 Date = DateTimeOffset.UtcNow;
             }
         }

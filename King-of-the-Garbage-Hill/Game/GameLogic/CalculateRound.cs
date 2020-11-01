@@ -190,7 +190,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var scaleA = a.GetIntelligence() + a.GetStrength() + a.GetSpeed() + a.GetPsyche();
                 var scaleB = b.GetIntelligence() + b.GetStrength() + b.GetSpeed() + b.GetPsyche();
 
-                var weighingMachine = scaleA * skillA - scaleB * skillB;
+                var skillABonus = scaleA + a.GetSkill() / 5 / 2;
+                var skillBBonus = scaleB + b.GetSkill() / 5 / 2;
+
+                var weighingMachine = skillABonus * skillA - skillBBonus * skillB;
 
                 var psycheDifference = a.GetPsyche() - b.GetPsyche();
 
@@ -258,12 +261,30 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (point.Result == 0) player.Status.AddInGamePersonalLogs("Евреи...\n");
                     //end еврей
 
-
+                    //add regular points
                     player.Status.AddRegularPoints(point.Result);
+
+                    //add skill
+                    if (player.Status.WhoToAttackThisTurn == playerIamAttacking.Status.PlayerId)
+                        switch (player.Character.GetCurrentSkillTarget())
+                        {
+                            case "Интеллект":
+                                if (player.Character.GetIntelligence() > playerIamAttacking.Character.GetIntelligence())
+                                    player.Character.AddSkill(player.Status);
+                                break;
+                            case "Сила":
+                                if (player.Character.GetStrength() > playerIamAttacking.Character.GetStrength())
+                                    player.Character.AddSkill(player.Status);
+                                break;
+                            case "Скорость":
+                                if (player.Character.GetSpeed() > playerIamAttacking.Character.GetSpeed())
+                                    player.Character.AddSkill(player.Status);
+                                break;
+                        }
 
                     player.Status.WonTimes++;
                     player.Character.Justice.IsWonThisRound = true;
-                    player.Character.AddMoral(player.Status, moral*-1);
+                    player.Character.AddMoral(player.Status, moral * -1);
 
                     playerIamAttacking.Character.Justice.AddJusticeForNextRound();
 
@@ -282,10 +303,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (check)
                     {
                         game.AddPreviousGameLogs($" ⟶ {playerIamAttacking.DiscordAccount.DiscordUserName}");
+                       
                         playerIamAttacking.Status.AddRegularPoints();
+
                         player.Status.WonTimes++;
-
-
                         playerIamAttacking.Character.Justice.IsWonThisRound = true;
                         playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral);
 

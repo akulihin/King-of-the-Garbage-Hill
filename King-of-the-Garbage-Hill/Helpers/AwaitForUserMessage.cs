@@ -19,11 +19,11 @@ namespace King_of_the_Garbage_Hill.Helpers
             return Task.CompletedTask;
         }
 
-        public async Task<SocketMessage> AwaitMessage(ulong userId, ulong channelId, int delayInMs)
+        public async Task<SocketMessage> AwaitMessage(ulong userId, ulong channelId, int delayInSeconds)
         {
             SocketMessage response = null;
             var cancler = new CancellationTokenSource();
-            var waiter = Task.Delay(delayInMs, cancler.Token);
+            var waiter = Task.Delay(delayInSeconds * 1000, cancler.Token);
 
             _global.Client.MessageReceived += OnMessageReceived;
             try
