@@ -15,15 +15,15 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public string UserType { get; set; }
         public int ZbsPoints { get; set; }
 
-        public List<ChampionChances> ChampionChance = new List<ChampionChances>();
-        public List<ChampionStatisticsClass> ChampionStatistics = new List<ChampionStatisticsClass>();
+        public List<CharacterChances> CharacterChance = new List<CharacterChances>();
+        public List<CharacterStatisticsClass> CharacterStatistics = new List<CharacterStatisticsClass>();
         public List<MatchHistoryClass> MatchHistory = new List<MatchHistoryClass>();
         public List<PerformanceStatisticsClass> PerformanceStatistics = new List<PerformanceStatisticsClass>();
 
         public ulong TotalPlays { get; set; }
         public ulong TotalWins { get; set; }
 
-        public class ChampionChances
+        public class CharacterChances
         {
             public int CharacterChanceMin;
             public int CharacterChanceMax;
@@ -31,23 +31,23 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             public double Multiplier;
             public int Changes;
 
-            public ChampionChances(string characterName, int characterChanceMin, int characterChanceMax)
+            public CharacterChances(string characterName, int characterChanceMin, int characterChanceMax, double multiplier = 1.0)
             {
                 CharacterName = characterName;
                 CharacterChanceMin = characterChanceMin;
                 CharacterChanceMax = characterChanceMax;
-                Multiplier = 1.0;
+                Multiplier = multiplier;
                 Changes = 0;
             }
         }
 
-        public class ChampionStatisticsClass
+        public class CharacterStatisticsClass
         {
             public string CharacterName;
             public ulong Plays;
             public ulong Wins;
 
-            public ChampionStatisticsClass(string characterName, int wins)
+            public CharacterStatisticsClass(string characterName, int wins)
             {
                 CharacterName = characterName;
                 Wins = wins == 1 ? 1 : (ulong) 0;

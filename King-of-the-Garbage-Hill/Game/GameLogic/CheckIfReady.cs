@@ -97,20 +97,20 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (player.Status.PlaceAtLeaderBoard == 1)
                             player.DiscordAccount.ZbsPoints += 4;
 
-                        var championStatistics =
-                            player.DiscordAccount.ChampionStatistics.Find(x =>
+                        var characterStatistics =
+                            player.DiscordAccount.CharacterStatistics.Find(x =>
                                 x.CharacterName == player.Character.Name);
 
-                        if (championStatistics == null)
+                        if (characterStatistics == null)
                         {
-                            player.DiscordAccount.ChampionStatistics.Add(
-                                new DiscordAccountClass.ChampionStatisticsClass(player.Character.Name,
+                            player.DiscordAccount.CharacterStatistics.Add(
+                                new DiscordAccountClass.CharacterStatisticsClass(player.Character.Name,
                                     player.Status.PlaceAtLeaderBoard));
                         }
                         else
                         {
-                            championStatistics.Plays++;
-                            championStatistics.Wins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong) 0;
+                            characterStatistics.Plays++;
+                            characterStatistics.Wins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong) 0;
                         }
 
                         var performanceStatistics =

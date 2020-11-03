@@ -20,13 +20,13 @@ namespace King_of_the_Garbage_Hill.Game.Store
             await Task.CompletedTask;
         }
 
-        public EmbedBuilder GetStoreEmbed(DiscordAccountClass.ChampionChances champion, DiscordAccountClass account, IUser user)
+        public EmbedBuilder GetStoreEmbed(DiscordAccountClass.CharacterChances character, DiscordAccountClass account, IUser user)
         {
             var embed = new EmbedBuilder();
             embed.WithAuthor(user);
-            embed.WithTitle($"Магазин - {champion.CharacterName}");
-            embed.WithDescription($"Ты выбрал персонажа **{champion.CharacterName}**");
-            embed.AddField("Текущий бонусный шанс", $"{champion.Multiplier}");
+            embed.WithTitle($"Магазин - {character.CharacterName}");
+            embed.WithDescription($"Ты выбрал персонажа **{character.CharacterName}**");
+            embed.AddField("Текущий бонусный шанс", $"{character.Multiplier}");
             embed.AddField("Текущее Количество ZBS Points", $"{account.ZbsPoints}");
             embed.AddField("Варинты", $"{new Emoji("1⃣")} Уменьшить шанс на 1% - 20 ZP\n" +
                                       $"{new Emoji("2⃣")} Увеличить шанс на 1% - 20 ZP\n" +

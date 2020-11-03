@@ -44,11 +44,11 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             if (title[0] != "Магазин") return;
 
             var account = _userAccounts.GetAccount(reaction.UserId);
-            var champion = account.ChampionChance.Find(x => x.CharacterName == title[1]);
+            var character = account.CharacterChance.Find(x => x.CharacterName == title[1]);
 
-            if (champion == null)
+            if (character == null)
             {
-                await channel.SendMessageAsync($"ERROR: champion named {title[1]} was not found");
+                await channel.SendMessageAsync($"ERROR: character named {title[1]} was not found");
                 return;
             }
 
@@ -60,10 +60,10 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 //Уменьшить шанс на 1% - 20 ZP
                 case "1⃣":
                     cost = 20;
-                    if (champion.Multiplier <= 0.0)
+                    if (character.Multiplier <= 0.0)
                     {
                         await channel.SendMessageAsync(
-                            $"У персонажа {champion.CharacterName} и так минимальный бонусный шанс - {champion.Multiplier}");
+                            $"У персонажа {character.CharacterName} и так минимальный бонусный шанс - {character.Multiplier}");
                         return;
                     }
 
@@ -73,28 +73,28 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         return;
                     }
 
-                    champion.Multiplier -= 0.01;
-                    champion.Changes++;
+                    character.Multiplier -= 0.01;
+                    character.Changes++;
                     account.ZbsPoints -= cost;
 
                     await channel.SendMessageAsync(
-                        $"Готово. Бонусный шанш {champion.CharacterName} = {champion.Multiplier}");
+                        $"Готово. Бонусный шанш {character.CharacterName} = {character.Multiplier}");
 
                     await cash.Value.ModifyAsync(message =>
                     {
                         message.Content = "";
                         message.Embed = null;
-                        message.Embed = _storeLogic.GetStoreEmbed(champion, account, reaction.User.Value).Build();
+                        message.Embed = _storeLogic.GetStoreEmbed(character, account, reaction.User.Value).Build();
                     });
                     break;
 
                 //Увеличить шанс на 1% - 20 ZP
                 case "2⃣":
                     cost = 20;
-                    if (champion.Multiplier >= 2.0)
+                    if (character.Multiplier >= 2.0)
                     {
                         await channel.SendMessageAsync(
-                            $"У персонажа {champion.CharacterName} и так максимальный бонусный шанс - {champion.Multiplier}");
+                            $"У персонажа {character.CharacterName} и так максимальный бонусный шанс - {character.Multiplier}");
                         return;
                     }
 
@@ -104,18 +104,18 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         return;
                     }
 
-                    champion.Multiplier += 0.01;
-                    champion.Changes++;
+                    character.Multiplier += 0.01;
+                    character.Changes++;
                     account.ZbsPoints -= cost;
 
                     await channel.SendMessageAsync(
-                        $"Готово. Бонусный шанш {champion.CharacterName} = {champion.Multiplier}");
+                        $"Готово. Бонусный шанш {character.CharacterName} = {character.Multiplier}");
 
                     await cash.Value.ModifyAsync(message =>
                     {
                         message.Content = "";
                         message.Embed = null;
-                        message.Embed = _storeLogic.GetStoreEmbed(champion, account, reaction.User.Value).Build();
+                        message.Embed = _storeLogic.GetStoreEmbed(character, account, reaction.User.Value).Build();
                     });
                     break;
 
@@ -128,21 +128,21 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         return;
                     }
 
-                    champion.Multiplier = 1.0;
-                    var zbsPointsToReturn = champion.Changes * 20;
+                    character.Multiplier = 1.0;
+                    var zbsPointsToReturn = character.Changes * 20;
                     account.ZbsPoints += zbsPointsToReturn;
                     account.ZbsPoints -= cost;
-                    champion.Changes = 0;
+                    character.Changes = 0;
 
                     await channel.SendMessageAsync(
-                        $"Готово. Бонусный шанш {champion.CharacterName} = {champion.Multiplier}\n" +
+                        $"Готово. Бонусный шанш {character.CharacterName} = {character.Multiplier}\n" +
                         $"Ты вернул {zbsPointsToReturn} ZBS Points");
 
                     await cash.Value.ModifyAsync(message =>
                     {
                         message.Content = "";
                         message.Embed = null;
-                        message.Embed = _storeLogic.GetStoreEmbed(champion, account, reaction.User.Value).Build();
+                        message.Embed = _storeLogic.GetStoreEmbed(character, account, reaction.User.Value).Build();
                     });
                     break;
 
@@ -158,7 +158,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     zbsPointsToReturn = 0;
                     account.ZbsPoints -= cost;
 
-                    foreach (var c in account.ChampionChance)
+                    foreach (var c in account.CharacterChance)
                     {
                         c.Multiplier = 1.0;
                         zbsPointsToReturn += c.Changes * 20;
@@ -167,14 +167,14 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                     account.ZbsPoints += zbsPointsToReturn;
                     await channel.SendMessageAsync(
-                        $"Готово. Бонусный шанш **Всех Персонажей** = {champion.Multiplier}\n" +
+                        $"Готово. Бонусный шанш **Всех Персонажей** = {character.Multiplier}\n" +
                         $"Ты вернул {zbsPointsToReturn} ZBS Points");
 
                     await cash.Value.ModifyAsync(message =>
                     {
                         message.Content = "";
                         message.Embed = null;
-                        message.Embed = _storeLogic.GetStoreEmbed(champion, account, reaction.User.Value).Build();
+                        message.Embed = _storeLogic.GetStoreEmbed(character, account, reaction.User.Value).Build();
                     });
                     break;
             }

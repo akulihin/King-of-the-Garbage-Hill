@@ -72,34 +72,29 @@ namespace King_of_the_Garbage_Hill.Helpers
 
         public void SubstituteUserWithBot(ulong discordId)
         {
+            
             var prevGame = _global.GamesList.Find(
                 x => x.PlayersList.Any(m => m.DiscordAccount.DiscordId == discordId));
 
             if (prevGame != null)
             {
                 var freeBot = GetFreeBot(prevGame.PlayersList, prevGame.GameId);
-                freeBot.DiscordAccount.GameId = prevGame.GameId;
+                freeBot.GameId = prevGame.GameId;
              
                 var leftUser = prevGame.PlayersList.Find(x => x.DiscordAccount.DiscordId == discordId);
 
-                leftUser.DiscordAccount = freeBot.DiscordAccount;
+                leftUser.DiscordAccount = freeBot;
                 leftUser.Status.SocketMessageFromBot = null;
 
                 _accounts.GetAccount(discordId).GameId = 1000000000000000000;
             }
+            
         }
 
-        public GamePlayerBridgeClass GetFreeBot(List<GamePlayerBridgeClass> playerList, ulong newGameId)
+        public DiscordAccountClass GetFreeBot(List<GamePlayerBridgeClass> playerList, ulong newGameId)
         {
-            CharacterClass character;
             DiscordAccountClass account;
             string name;
-            var characters = _charactersPull.GetAllCharacters();
-            do
-            {
-                var index = _secureRandom.Random(0, characters.Count - 1);
-                character = characters[index];
-            } while (playerList.Any(x => x.Character.Name == character.Name));
 
             do
             {
@@ -115,12 +110,8 @@ namespace King_of_the_Garbage_Hill.Helpers
             } while (account.IsPlaying);
 
             account.DiscordUserName = name;
-            account.GameId = newGameId;
-            account.IsPlaying = true;
-    
 
-            return new GamePlayerBridgeClass
-                {DiscordAccount = account, Character = character, Status = new InGameStatus()};
+            return account;
         }
     }
 }

@@ -36,7 +36,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             var choiceList = new List<StoreChoice>();
 
             var i = 1;
-            foreach (var c in account.ChampionChance)
+            foreach (var c in account.CharacterChance)
             {
                 text += $"{i}. {c.CharacterName}\n";
                 choiceList.Add(new StoreChoice(i, c.CharacterName));
@@ -65,17 +65,17 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 return;
             }
 
-            var chosenChampion = choiceList.Find(x => x.Index == choice);
+            var chosenCharacter = choiceList.Find(x => x.Index == choice);
 
-            if (chosenChampion == null)
+            if (chosenCharacter == null)
             {
                 await SendMessAsync("Ты не выбрал персонажа которого не было в списке");
                 return;
             }
 
-            var champion = account.ChampionChance.Find(x => x.CharacterName == chosenChampion.CharacterName);
+            var character = account.CharacterChance.Find(x => x.CharacterName == chosenCharacter.CharacterName);
 
-            var socketMsg = await SendMessAsync(_storeLogic.GetStoreEmbed(champion, account, Context.User));
+            var socketMsg = await SendMessAsync(_storeLogic.GetStoreEmbed(character, account, Context.User));
             await socketMsg.AddReactionsAsync(new IEmote[]
                 {new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣"), new Emoji("4⃣")});
         }
