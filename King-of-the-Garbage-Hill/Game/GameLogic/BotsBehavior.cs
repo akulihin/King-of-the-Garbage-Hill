@@ -28,9 +28,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         public async Task HandleBotBehavior(GamePlayerBridgeClass player, GameClass game)
         {
+            var timeOffest = 0;
             if (!player.IsBot() || player.Status.IsReady && player.Status.MoveListPage != 3) return;
             var realPlayers = game.PlayersList.FindAll(x => !x.IsBot() && !x.Status.IsReady).ToList().Count;
-            if(realPlayers > 0 && game.TimePassed.Elapsed.Seconds < game.TurnLengthInSecond - 15) return;
+            if(realPlayers > 0 && game.TimePassed.Elapsed.Seconds < game.TurnLengthInSecond - timeOffest) return;
 
             if (player.Status.MoveListPage == 1) await HandleAttack(player, game);
 

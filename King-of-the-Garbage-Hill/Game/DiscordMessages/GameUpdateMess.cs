@@ -513,8 +513,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             if (game == null) return "ERROR";
 
             if (player.Status.IsReady)
-                return $"Ты походил • Ожидаем других игроков • ход #{game.RoundNo} • ({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
-            return $"Ожидаем твой ход • ход #{game.RoundNo} • ({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
+                return
+                    $"Ты походил • Ожидаем других игроков • ход #{game.RoundNo} • ({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
+            return
+                $"Ожидаем твой ход • ход #{game.RoundNo} • ({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
             /*
             //if (!game.IsCheckIfReady)
            //     return $"Ведется подсчёт, пожалуйста подожди... • ход #{game.RoundNo}";
