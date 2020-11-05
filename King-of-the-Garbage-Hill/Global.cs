@@ -39,7 +39,7 @@ namespace King_of_the_Garbage_Hill
 
         public GamePlayerBridgeClass GetGameAccount(ulong userId, ulong gameId)
         {
-            return GamesList.Find(x => x.GameId == gameId).PlayersList.Find(x => x.DiscordAccount.DiscordId == userId);
+            return GamesList.Find(x => x.GameId == gameId).PlayersList.Find(x => x.DiscordId == userId);
         }
 
 

@@ -389,7 +389,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                 var description = PassiveLogRus[random.Next(0, PassiveLogRus.Count)];
 
 
-                if (player.DiscordAccount.IsLogs)
+                if (player.IsLogs)
                     player.Status.AddInGamePersonalLogs($"{PassiveNameRus}: ");
                 else
                     player.Status.InGamePersonalLogsAll += $"{PassiveNameRus}: ";
@@ -405,9 +405,9 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
                     var description = PassiveLogRus[random.Next(0, PassiveLogRus.Count)];
 
-                    description += $"{player2.DiscordAccount.DiscordUserName} - {player2.Character.Name}";
+                    description += $"{player2.DiscordUsername} - {player2.Character.Name}";
 
-                    if (player.DiscordAccount.IsLogs)
+                    if (player.IsLogs)
                         player.Status.AddInGamePersonalLogs($"{PassiveNameRus}: ");
                     else
                         player.Status.InGamePersonalLogsAll += $"{PassiveNameRus}: ";

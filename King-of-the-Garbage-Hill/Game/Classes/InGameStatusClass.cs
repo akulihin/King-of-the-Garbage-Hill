@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Discord;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
@@ -51,10 +50,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public bool IsAbleToTurn { get; set; }
         public bool IsAbleToWin { get; set; }
         public int PlaceAtLeaderBoard { get; set; }
-
         public Guid WhoToAttackThisTurn { get; set; }
-
-
         public bool IsReady { get; set; }
         public int WonTimes { get; set; }
         public Guid IsWonThisCalculation { get; set; }
@@ -93,8 +89,6 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         {
             ScoresToGiveAtEndOfRound += regularPoints;
         }
-
-
 
 
         public void AddBonusPoints(int bonusPoints = 1, string skillName = "")

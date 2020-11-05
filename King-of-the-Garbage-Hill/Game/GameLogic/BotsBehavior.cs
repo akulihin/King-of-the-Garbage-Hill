@@ -432,7 +432,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             public NanobotClass(IReadOnlyList<GamePlayerBridgeClass> players)
             {
-                GameId = players[0].DiscordAccount.GameId;
+                GameId = players[0].GameId;
                 foreach (var t in players) Nanobots.Add(new Nanobot(t));
             }
         }

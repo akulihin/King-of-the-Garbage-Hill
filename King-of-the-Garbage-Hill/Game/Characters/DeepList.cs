@@ -32,7 +32,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             //Doubtful tactic
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
-                x.PlayerId == player.Status.PlayerId && player.DiscordAccount.GameId == x.GameId);
+                x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
 
 
             if (!deep.FriendList.Contains(player.Status.IsFighting) && !game.PlayersList
@@ -52,7 +52,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public void HandleDeepListAfter(GamePlayerBridgeClass player, GameClass game)
         {
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
-                x.PlayerId == player.Status.PlayerId && player.DiscordAccount.GameId == x.GameId);
+                x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
 
 
             player.Status.IsAbleToWin = true;

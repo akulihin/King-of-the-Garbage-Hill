@@ -86,7 +86,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                           $"left user id = {player.Status.WhoToAttackThisTurn}\n" +
                                           $"left user name = {leftUser}\n" +
                                           $"player.Character.Name =  {player.Character.Name}\n" +
-                                          $"player.DiscordUserName = {player.DiscordAccount.DiscordUserName}");
+                                          $"player.DiscordUserName = {player.DiscordUsername}");
                     continue;
                 }
 
@@ -118,7 +118,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                 game.AddPreviousGameLogs(
-                    $"{player.DiscordAccount.DiscordUserName} <:war:561287719838547981> {playerIamAttacking.DiscordAccount.DiscordUserName}",
+                    $"{player.DiscordUsername} <:war:561287719838547981> {playerIamAttacking.DiscordUsername}",
                     "");
 
 
@@ -253,7 +253,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 1)
                 {
-                    game.AddPreviousGameLogs($" ⟶ {player.DiscordAccount.DiscordUserName}");
+                    game.AddPreviousGameLogs($" ⟶ {player.DiscordUsername}");
 
                     //еврей
                     var point = _characterPassives.HandleJewPassive(player, game);
@@ -302,7 +302,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     if (check)
                     {
-                        game.AddPreviousGameLogs($" ⟶ {playerIamAttacking.DiscordAccount.DiscordUserName}");
+                        game.AddPreviousGameLogs($" ⟶ {playerIamAttacking.DiscordUsername}");
 
                         playerIamAttacking.Status.AddRegularPoints();
 
@@ -513,7 +513,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             foreach (var player in game.PlayersList)
                 for (var i = 0; i < logsSplit.Count; i++)
-                    if (logsSplit[i].Contains($"{player.DiscordAccount.DiscordUserName}"))
+                    if (logsSplit[i].Contains($"{player.DiscordUsername}"))
                     {
                         var fightLine = logsSplit[i];
 
@@ -521,7 +521,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         var fightLineSplitSplit = fightLineSplit[0].Split("<:war:561287719838547981>");
 
-                        fightLine = fightLineSplitSplit[0].Contains($"{player.DiscordAccount.DiscordUserName}")
+                        fightLine = fightLineSplitSplit[0].Contains($"{player.DiscordUsername}")
                             ? $"{fightLineSplitSplit[0]} <:war:561287719838547981> {fightLineSplitSplit[1]}"
                             : $"{fightLineSplitSplit[1]} <:war:561287719838547981> {fightLineSplitSplit[0]}";
 

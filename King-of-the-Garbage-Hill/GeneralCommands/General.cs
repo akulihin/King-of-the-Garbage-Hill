@@ -109,7 +109,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             if (roundNo < 1 || roundNo > 10) return;
 
             var game = _global.GamesList.Find(
-                l => l.PlayersList.Any(x => x.DiscordAccount.DiscordId == Context.User.Id));
+                l => l.PlayersList.Any(x => x.DiscordId == Context.User.Id));
 
             if (game == null) return;
 
@@ -124,12 +124,12 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         public async Task SetScore(int number)
         {
             var game = _global.GamesList.Find(
-                l => l.PlayersList.Any(x => x.DiscordAccount.DiscordId == Context.User.Id));
+                l => l.PlayersList.Any(x => x.DiscordId == Context.User.Id));
 
             if (game == null) return;
 
 
-            game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Status
+            game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Status
                 .SetScoreToThisNumber(number);
 
             foreach (var t in game.PlayersList) await _upd.UpdateMessage(t);
@@ -143,7 +143,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             if (number < 1 || number > 10) return;
 
             var game = _global.GamesList.Find(
-                l => l.PlayersList.Any(x => x.DiscordAccount.DiscordId == Context.User.Id));
+                l => l.PlayersList.Any(x => x.DiscordId == Context.User.Id));
 
             if (game == null) return;
 
@@ -151,19 +151,19 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             switch (name.ToLower())
             {
                 case "in":
-                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Character
+                    game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Character
                         .SetIntelligence(number);
                     break;
                 case "sp":
-                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Character
+                    game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Character
                         .SetSpeed(number);
                     break;
                 case "st":
-                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Character
+                    game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Character
                         .SetStrength(number);
                     break;
                 case "ps":
-                    game.PlayersList.Find(x => x.DiscordAccount.DiscordId == Context.User.Id).Character
+                    game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Character
                         .SetPsyche(number);
                     break;
                 default:
@@ -296,7 +296,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             }
         }
 
-        
+
         [Command("b")]
         public async Task StartGameTestBotVsBot()
         {
@@ -390,11 +390,12 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             //shuffle player list
             players = players.OrderBy(x => Guid.NewGuid()).ToList();
 
-            foreach ( var player in players)
+            foreach (var player in players)
             {
-                var account = player != null ? _accounts.GetAccount(player.Id) : _helperFunctions.GetFreeBot(playersList, gameId);
+                var account = player != null
+                    ? _accounts.GetAccount(player.Id)
+                    : _helperFunctions.GetFreeBot(playersList);
 
-                account.GameId = gameId;
                 account.IsPlaying = true;
                 var tempCharacterChances = account.CharacterChance.ConvertAll(x =>
                     new DiscordAccountClass.CharacterChances(x.CharacterName, x.CharacterChanceMin,
@@ -432,8 +433,13 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                             .CharacterChanceMax);
                     var cr = tempCharacterChances.Find(x => r >= x.CharacterChanceMin && r <= x.CharacterChanceMax);
                     var character = allCharacters.Find(x => x.Name == cr.CharacterName);
-                    if(character == null) continue;
-                    playersList.Add(new GamePlayerBridgeClass{DiscordAccount = account, Character = character, Status = new InGameStatus() });
+                    if (character == null) continue;
+                    playersList.Add(new GamePlayerBridgeClass
+                    {
+                        Character = character, Status = new InGameStatus(), DiscordId = account.DiscordId,
+                        GameId = gameId, DiscordUsername = account.DiscordUserName, IsLogs = account.IsLogs,
+                        UserType = account.UserType
+                    });
                     allCharacters.Remove(character);
                     break;
                 }
@@ -443,7 +449,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             return playersList;
         }
 
-        
+
         [Command("st")]
         [Summary("запуск игры")]
         public async Task StartGameTest(SocketUser socketPlayer2 = null)
@@ -455,13 +461,9 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             var gameId = _global.GetNewtGamePlayingAndId();
 
             var f = 6 - players.Count;
-            for (var i = 0; i < f; i++)
-            {
-                players.Add(null);
-            }
+            for (var i = 0; i < f; i++) players.Add(null);
 
             var playersList = HandleCharacterRoll(players, gameId);
-
 
 
             ////////////////////////////////////////////////////// FIRST SORTING/////////////////////////////////////////////////
@@ -489,7 +491,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 var tigrTemp = playersList.Find(x => x.Character.Name == "Тигр");
 
                 var tigr = _gameGlobal.TigrTop.Find(x =>
-                    x.GameId == tigrTemp.DiscordAccount.GameId && x.PlayerId == tigrTemp.Status.PlayerId);
+                    x.GameId == tigrTemp.GameId && x.PlayerId == tigrTemp.Status.PlayerId);
 
                 if (tigr != null && tigr.TimeCount > 0)
                 {

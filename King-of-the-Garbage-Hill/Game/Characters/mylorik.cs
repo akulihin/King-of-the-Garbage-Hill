@@ -83,7 +83,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             //Revenge
 
-            HandleMylorikRevenge(player, player.Status.IsLostThisCalculation, player.DiscordAccount.GameId);
+            HandleMylorikRevenge(player, player.Status.IsLostThisCalculation, player.GameId);
             //end Revenge
 
             //Spanish

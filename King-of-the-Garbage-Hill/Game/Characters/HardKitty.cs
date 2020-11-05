@@ -32,7 +32,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             //Doebatsya
             var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
-                x.GameId == player.DiscordAccount.GameId &&
+                x.GameId == player.GameId &&
                 x.PlayerId == player.Status.PlayerId);
             //can be null
 
@@ -41,7 +41,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 if (hardKitty == null)
                 {
                     _gameGlobal.HardKittyDoebatsya.Add(new DoebatsyaClass(
-                        player.Status.PlayerId, player.DiscordAccount.GameId,
+                        player.Status.PlayerId, player.GameId,
                         player.Status.IsLostThisCalculation));
                 }
                 else

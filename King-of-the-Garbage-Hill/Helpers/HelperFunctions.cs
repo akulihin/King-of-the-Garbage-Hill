@@ -37,7 +37,7 @@ namespace King_of_the_Garbage_Hill.Helpers
         private readonly CharactersPull _charactersPull;
         private readonly Global _global;
         private readonly SecureRandom _secureRandom;
-       
+
 
         public HelperFunctions(CharactersPull charactersPull, Global global, UserAccounts accounts,
             SecureRandom secureRandom)
@@ -70,28 +70,28 @@ namespace King_of_the_Garbage_Hill.Helpers
             await message.DeleteAsync();
         }
 
+
+
+
         public void SubstituteUserWithBot(ulong discordId)
         {
-            
             var prevGame = _global.GamesList.Find(
-                x => x.PlayersList.Any(m => m.DiscordAccount.DiscordId == discordId));
+                x => x.PlayersList.Any(m => m.DiscordId == discordId));
 
-            if (prevGame != null)
-            {
-                var freeBot = GetFreeBot(prevGame.PlayersList, prevGame.GameId);
-                freeBot.GameId = prevGame.GameId;
-             
-                var leftUser = prevGame.PlayersList.Find(x => x.DiscordAccount.DiscordId == discordId);
+            if (prevGame == null) return;
 
-                leftUser.DiscordAccount = freeBot;
-                leftUser.Status.SocketMessageFromBot = null;
-
-                _accounts.GetAccount(discordId).GameId = 1000000000000000000;
-            }
-            
+            var freeBot = GetFreeBot(prevGame.PlayersList);
+            var leftUser = prevGame.PlayersList.Find(x => x.DiscordId == discordId);
+           
+            leftUser.DiscordId = freeBot.DiscordId;
+            leftUser.DiscordUsername = freeBot.DiscordUserName;
+            leftUser.IsLogs = freeBot.IsLogs;
+            leftUser.UserType = freeBot.UserType;
+            leftUser.Status.SocketMessageFromBot = null;
+            freeBot.IsPlaying = true;
         }
 
-        public DiscordAccountClass GetFreeBot(List<GamePlayerBridgeClass> playerList, ulong newGameId)
+        public DiscordAccountClass GetFreeBot(List<GamePlayerBridgeClass> playerList)
         {
             DiscordAccountClass account;
             string name;
@@ -100,7 +100,7 @@ namespace King_of_the_Garbage_Hill.Helpers
             {
                 var index = _secureRandom.Random(0, _characterNames.Count - 1);
                 name = _characterNames[index];
-            } while (playerList.Any(x => x.DiscordAccount.DiscordUserName == name));
+            } while (playerList.Any(x => x.DiscordUsername == name));
 
             ulong botId = 1;
             do

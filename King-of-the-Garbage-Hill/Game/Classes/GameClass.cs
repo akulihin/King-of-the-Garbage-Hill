@@ -22,6 +22,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 "\n<:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567>\n";
             WhoWon = Guid.Empty;
             IsCheckIfReady = true;
+            IsPause = false;
             SkipPlayersThisRound = 0;
         }
 
@@ -31,6 +32,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public double TurnLengthInSecond { get; set; }
         public Stopwatch TimePassed { get; set; }
         public int GameStatus { get; set; }
+
+        public bool IsPause { get; set; }
 
         public bool IsCheckIfReady { get; set; }
 

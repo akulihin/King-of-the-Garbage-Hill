@@ -74,7 +74,6 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             var accounts = GetAllAccount();
             foreach (var a in accounts)
             {
-                a.GameId = 1000000000000000000;
                 a.IsPlaying = false;
             }
 
@@ -140,7 +139,6 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 DiscordUserName = user.Username,
                 IsLogs = true,
                 IsPlaying = false,
-                GameId = 1000000,
                 ZbsPoints = 0,
                 CharacterChance = _defaultCharacterChances
             };
@@ -168,7 +166,6 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 DiscordUserName = "BOT",
                 IsLogs = false,
                 IsPlaying = false,
-                GameId = 1000000,
                 UserType = "player",
                 ZbsPoints = 0,
                 CharacterChance = _defaultCharacterChances

@@ -11,7 +11,6 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public string MyPrefix { get; set; }
         public bool IsPlaying { get; set; }
         public bool IsLogs { get; set; }
-        public ulong GameId { get; set; }
         public string UserType { get; set; }
         public int ZbsPoints { get; set; }
 

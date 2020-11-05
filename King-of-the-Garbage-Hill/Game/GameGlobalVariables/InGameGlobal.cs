@@ -115,7 +115,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public WhenToTriggerClass GetWhenToTrigger(GamePlayerBridgeClass player, bool isMandatory, int maxRandomNumber,
             int maxTimes, bool isMandatory2 = false, int lastRound = 10, bool isMandatory3 = false)
         {
-            var toTriggerClass = new WhenToTriggerClass(player.Status.PlayerId, player.DiscordAccount.GameId);
+            var toTriggerClass = new WhenToTriggerClass(player.Status.PlayerId, player.GameId);
             int when;
             var check = new List<int>();
 

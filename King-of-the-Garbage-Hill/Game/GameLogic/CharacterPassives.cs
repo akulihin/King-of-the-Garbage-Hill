@@ -251,7 +251,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     {
                         var acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
                             x.PlayerId == playerIamAttacking.Status.PlayerId &&
-                            playerIamAttacking.DiscordAccount.GameId == x.GameId);
+                            playerIamAttacking.GameId == x.GameId);
 
                         if (acc != null)
                             if (acc.WhenToTrigger.Contains(game.RoundNo))
@@ -296,7 +296,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         // playerIamAttacking.Status.IsBlock = false;
                         playerAttackFrom.Status.IsAbleToWin = false;
                         var tolya = _gameGlobal.TolyaRammusTimes.Find(x =>
-                            x.GameId == playerIamAttacking.DiscordAccount.GameId &&
+                            x.GameId == playerIamAttacking.GameId &&
                             x.PlayerId == playerIamAttacking.Status.PlayerId);
                         tolya.FriendList.Add(playerAttackFrom.Status.PlayerId);
                     }
@@ -646,7 +646,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     case "mylorik":
                         var acc = _gameGlobal.MylorikBooleTriggeredWhen.Find(x =>
-                            x.PlayerId == player.Status.PlayerId && player.DiscordAccount.GameId == x.GameId);
+                            x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
 
                         if (acc != null)
                             if (acc.WhenToTrigger.Contains(game.RoundNo))
@@ -676,7 +676,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Character.SetIntelligence(0);
                             player.Character.SetStrength(10);
                             game.AddPreviousGameLogs(
-                                $"**{player.DiscordAccount.DiscordUserName}:** ЕБАННЫЕ БАНЫ НА 10 ЛЕТ");
+                                $"**{player.DiscordUsername}:** ЕБАННЫЕ БАНЫ НА 10 ЛЕТ");
                             continue;
                         }
                         //end Стримснайпят и банят и банят и банят:
@@ -726,7 +726,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             if (game.RoundNo == 9 ||
                                 game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
                                 game.AddPreviousGameLogs(
-                                    $"**{player.DiscordAccount.DiscordUserName}:** Нахуй эту игру..");
+                                    $"**{player.DiscordUsername}:** Нахуй эту игру..");
                         }
                         //end Да всё нахуй эту игру:
 
@@ -736,7 +736,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     case "Mit*suki*":
                         acc = _gameGlobal.MitsukiNoPcTriggeredWhen.Find(x =>
-                            x.PlayerId == player.Status.PlayerId && player.DiscordAccount.GameId == x.GameId);
+                            x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
 
                         if (acc != null)
                             if (acc.WhenToTrigger.Contains(game.RoundNo))
@@ -757,7 +757,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (game.RoundNo == 11)
                         {
                             var awdkaTroll = _gameGlobal.AwdkaTrollingList.Find(x =>
-                                x.GameId == player.DiscordAccount.GameId &&
+                                x.GameId == player.GameId &&
                                 x.PlayerId == player.Status.PlayerId);
 
                             var enemy = awdkaTroll.EnemyList.Find(x =>
@@ -774,7 +774,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //АФКА
 
                         var awdkaaa = _gameGlobal.AwdkaAfkTriggeredWhen.Find(x =>
-                            x.GameId == player.DiscordAccount.GameId && x.PlayerId == player.Status.PlayerId);
+                            x.GameId == player.GameId && x.PlayerId == player.Status.PlayerId);
 
                         if (awdkaaa != null)
                             if (awdkaaa.WhenToTrigger.Contains(game.RoundNo))
@@ -791,7 +791,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         //Я пытаюсь!:
                         var awdkaa = _gameGlobal.AwdkaTryingList.Find(x =>
-                            x.GameId == player.DiscordAccount.GameId &&
+                            x.GameId == player.GameId &&
                             x.PlayerId == player.Status.PlayerId);
 
                         foreach (var enemy in awdkaa.TryingList)
@@ -894,7 +894,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     case "Глеб":
                         //Спящее хуйло:
                         acc = _gameGlobal.GlebSleepingTriggeredWhen.Find(x =>
-                            x.PlayerId == player.Status.PlayerId && player.DiscordAccount.GameId == x.GameId);
+                            x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
 
                         if (acc != null)
                             if (acc.WhenToTrigger.Contains(game.RoundNo))
@@ -910,7 +910,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         //Претендент русского сервера: 
                         acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
-                            x.PlayerId == player.Status.PlayerId && player.DiscordAccount.GameId == x.GameId);
+                            x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
 
                         if (acc != null)
                             if (acc.WhenToTrigger.Contains(game.RoundNo))
@@ -1255,13 +1255,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                                     tolyaTalked.PlayerHeTalkedAbout.Add(randomPlayer.Status.PlayerId);
                                     game.AddPreviousGameLogs(
-                                        $"Толя запизделся и спалил, что {randomPlayer.DiscordAccount.DiscordUserName} - {randomPlayer.Character.Name}");
+                                        $"Толя запизделся и спалил, что {randomPlayer.DiscordUsername} - {randomPlayer.Character.Name}");
                                 }
                             }
                         }
 
                         var tolya = _gameGlobal.TolyaRammusTimes.Find(x =>
-                            x.GameId == player.DiscordAccount.GameId &&
+                            x.GameId == player.GameId &&
                             x.PlayerId == player.Status.PlayerId);
                         if (tolya != null)
                         {
@@ -1449,7 +1449,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (player.Status.IsLostThisCalculation != Guid.Empty)
                     {
                         var octo = _gameGlobal.OctopusInvulnerabilityList.Find(x =>
-                            x.GameId == player.DiscordAccount.GameId &&
+                            x.GameId == player.GameId &&
                             x.PlayerId == player.Status.PlayerId);
 
                         if (octo == null)
@@ -1463,7 +1463,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 case "Darksci":
                     var darscsi = _gameGlobal.DarksciLuckyList.Find(x =>
-                        x.GameId == player.DiscordAccount.GameId &&
+                        x.GameId == player.GameId &&
                         x.PlayerId == player.Status.PlayerId);
 
                     if (!darscsi.TouchedPlayers.Contains(playerIamAttacking.Status.PlayerId))
@@ -1588,7 +1588,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     case "Толя":
 
                         var tolya = _gameGlobal.TolyaCount.Find(x =>
-                            x.GameId == player.DiscordAccount.GameId &&
+                            x.GameId == player.GameId &&
                             x.PlayerId == player.Status.PlayerId);
 
                         tolya.Cooldown--;
@@ -1649,7 +1649,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 case "Толя":
 
                     var tolya = _gameGlobal.TolyaCount.Find(x =>
-                        x.GameId == player.DiscordAccount.GameId &&
+                        x.GameId == player.GameId &&
                         x.PlayerId == player.Status.PlayerId);
 
                     if (tolya.IsReadyToUse && player.Status.WhoToAttackThisTurn != Guid.Empty)
@@ -1759,7 +1759,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             if (octopusPlayer.Character.Name != "Осьминожка") return true;
 
 
-            game.AddPreviousGameLogs($" ⟶ {playerAttackedOctopus.DiscordAccount.DiscordUserName}");
+            game.AddPreviousGameLogs($" ⟶ {playerAttackedOctopus.DiscordUsername}");
 
             //еврей
             var point = HandleJewPassive(playerAttackedOctopus, game);

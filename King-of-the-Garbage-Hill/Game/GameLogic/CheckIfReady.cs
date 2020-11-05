@@ -6,6 +6,7 @@ using King_of_the_Garbage_Hill.BotFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.LocalPersistentData.FinishedGameLog;
+using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic
 {
@@ -19,9 +20,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly CalculateRound _round;
         private readonly GameUpdateMess _upd;
         public Timer LoopingTimer;
+        private readonly UserAccounts _accounts;
 
         public CheckIfReady(Global global, GameUpdateMess upd, CalculateRound round, FinishedGameLog finishedGameLog,
-            GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, LoginFromConsole logs)
+            GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, LoginFromConsole logs, UserAccounts accounts)
         {
             _global = global;
             _upd = upd;
@@ -30,6 +32,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             _gameUpdateMess = gameUpdateMess;
             _botsBehavior = botsBehavior;
             _logs = logs;
+            _accounts = accounts;
             CheckTimer();
         }
 
@@ -75,7 +78,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList[0].Status.GetScore())
                             .Count > 1
                             ? "\n**Ничья**"
-                            : $"\n**{game.PlayersList[0].DiscordAccount.DiscordUserName}** победил, играя за **{game.PlayersList[0].Character.Name}**");
+                            : $"\n**{game.PlayersList[0].DiscordUsername}** победил, играя за **{game.PlayersList[0].Character.Name}**");
 
 
                     _finishedGameLog.CreateNewLog(game);
@@ -85,25 +88,26 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     {
                         await _gameUpdateMess.UpdateMessage(player, game);
 
-                        player.DiscordAccount.IsPlaying = false;
-                        player.DiscordAccount.GameId = 1000000;
+                        var account = _accounts.GetAccount(player.DiscordId);
+                        account.IsPlaying = false;
+                        player.GameId = 1000000;
 
 
-                        player.DiscordAccount.TotalPlays++;
-                        player.DiscordAccount.TotalWins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong)0;
-                        player.DiscordAccount.MatchHistory.Add(
+                        account.TotalPlays++;
+                        account.TotalWins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong)0;
+                        account.MatchHistory.Add(
                             new DiscordAccountClass.MatchHistoryClass(player.Character.Name, player.Status.GetScore(), player.Status.PlaceAtLeaderBoard));
-                        player.DiscordAccount.ZbsPoints += (player.Status.PlaceAtLeaderBoard - 6) * -1 + 1;
+                        account.ZbsPoints += (player.Status.PlaceAtLeaderBoard - 6) * -1 + 1;
                         if (player.Status.PlaceAtLeaderBoard == 1)
-                            player.DiscordAccount.ZbsPoints += 4;
+                            account.ZbsPoints += 4;
 
                         var characterStatistics =
-                            player.DiscordAccount.CharacterStatistics.Find(x =>
+                            account.CharacterStatistics.Find(x =>
                                 x.CharacterName == player.Character.Name);
 
                         if (characterStatistics == null)
                         {
-                            player.DiscordAccount.CharacterStatistics.Add(
+                            account.CharacterStatistics.Add(
                                 new DiscordAccountClass.CharacterStatisticsClass(player.Character.Name,
                                     player.Status.PlaceAtLeaderBoard));
                         }
@@ -114,11 +118,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         }
 
                         var performanceStatistics =
-                            player.DiscordAccount.PerformanceStatistics.Find(x =>
+                            account.PerformanceStatistics.Find(x =>
                                 x.Place == player.Status.PlaceAtLeaderBoard);
 
                         if (performanceStatistics == null)
-                            player.DiscordAccount.PerformanceStatistics.Add(
+                            account.PerformanceStatistics.Add(
                                 new DiscordAccountClass.PerformanceStatisticsClass(player.Status.PlaceAtLeaderBoard));
                         else
                             performanceStatistics.Times++;
@@ -149,7 +153,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (t.Status.IsReady && t.Status.MoveListPage != 3 && game.TimePassed.Elapsed.TotalSeconds > 13)
                         readyCount++;
                     else
-                        _logs.Info("NOT READY: = " + t.DiscordAccount.DiscordUserName);
+                        _logs.Info("NOT READY: = " + t.DiscordUsername);
 
                     if (t.Status.SocketMessageFromBot == null) continue;
                     //   if (game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds >= -6)

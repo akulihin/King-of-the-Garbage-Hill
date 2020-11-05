@@ -45,11 +45,11 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
             foreach (var t in _global.GamesList)
                 if (t.PlayersList.Any(x =>
-                    x.DiscordAccount.DiscordId == reaction.UserId &&
+                    x.DiscordId == reaction.UserId &&
                     x.Status.SocketMessageFromBot.Id == reaction.MessageId))
                 {
-                    var account = _accounts.GetAccount(reaction.UserId);
-                    var player = _global.GetGameAccount(reaction.UserId, account.GameId);
+
+                    var player = _global.GetGameAccount(reaction.UserId, t.PlayersList.FirstOrDefault().GameId);
                     var status = player.Status;
 
                     // if (!discordAccount.IsAbleToTurn){return;}
@@ -143,7 +143,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             int botChoice = -1)
         {
             var status = player.Status;
-            var account = player.DiscordAccount;
+
 
             var emoteNum = !player.IsBot() ? GetNumberFromEmote(reaction) : botChoice;
 
@@ -179,7 +179,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
             if (status.MoveListPage == 1)
             {
-                var game = _global.GamesList.Find(x => x.GameId == account.GameId);
+                var game = _global.GamesList.Find(x => x.GameId == player.GameId);
                 var whoToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum);
 
                 if (whoToAttack == null) return false;
@@ -234,7 +234,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 status.IsReady = true;
                 status.IsBlock = false;
                 player.Status.AddInGamePersonalLogs(
-                    $"Ты напал на игрока {whoToAttack.DiscordAccount.DiscordUserName}\n");
+                    $"Ты напал на игрока {whoToAttack.DiscordUsername}\n");
                 SendMsgAndDeleteIt(player); //not awaited 
                 return true;
             }
@@ -330,14 +330,14 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             //darcsi only
             if (player.Character.Name == "Darksci")
             {
-                var game = _global.GamesList.Find(x => x.GameId == player.DiscordAccount.GameId);
+                var game = _global.GamesList.Find(x => x.GameId == player.GameId);
                 if (game.RoundNo == 9)
                 {
                     //Дизмораль
                     player.Character.AddPsyche(player.Status, -4);
                     _phrase.DarksciDysmoral.SendLog(player);
                     game.AddPreviousGameLogs(
-                        $"**{player.DiscordAccount.DiscordUserName}:** Всё, у меня горит!");
+                        $"**{player.DiscordUsername}:** Всё, у меня горит!");
                     //end Дизмораль
 
 
@@ -354,7 +354,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     {
                         if(game.RoundNo == 9 || game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
                             game.AddPreviousGameLogs(
-                                $"**{player.DiscordAccount.DiscordUserName}:** Нахуй эту игру..");
+                                $"**{player.DiscordUsername}:** Нахуй эту игру..");
                     }
                     //end //Да всё нахуй эту игру:
                 }

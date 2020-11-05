@@ -38,8 +38,8 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.FinishedGameLog
             var playerList = new List<GameLogsPlayer>();
 
             foreach (var player in game.PlayersList)
-                playerList.Add(new GameLogsPlayer(player.DiscordAccount.DiscordId,
-                    player.DiscordAccount.DiscordUserName, player.Character.Name,
+                playerList.Add(new GameLogsPlayer(player.DiscordId,
+                    player.DiscordUsername, player.Character.Name,
                     player.Status.GetScore(), player.Character.GetIntelligence(), player.Character.GetStrength(),
                     player.Character.GetSpeed(), player.Character.GetPsyche(), player.Status.InGamePersonalLogsAll));
 

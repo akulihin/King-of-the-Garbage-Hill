@@ -65,9 +65,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public async Task WaitMess(GamePlayerBridgeClass player)
         {
-            if (player.DiscordAccount.DiscordId <= 1000000) return;
+            if (player.DiscordId <= 1000000) return;
 
-            var globalAccount = _global.Client.GetUser(player.DiscordAccount.DiscordId);
+            var globalAccount = _global.Client.GetUser(player.DiscordId);
 
 
             await ShowRulesAndChar(globalAccount, player);
@@ -102,7 +102,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public string LeaderBoard(GamePlayerBridgeClass player)
         {
-            var game = _global.GamesList.Find(x => x.GameId == player.DiscordAccount.GameId);
+            var game = _global.GamesList.Find(x => x.GameId == player.GameId);
             if (game == null) return "ERROR 404";
             var players = "";
             var playersList = game.PlayersList;
@@ -111,7 +111,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             {
                 players += CustomLeaderBoardBeforeNumber(player, playersList[i], game, i + 1);
 
-                players += $"{i + 1}. {playersList[i].DiscordAccount.DiscordUserName}";
+                players += $"{i + 1}. {playersList[i].DiscordUsername}";
 
                 players += CustomLeaderBoardAfterPlayer(player, playersList[i], game);
 
@@ -158,8 +158,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             GameClass game)
         {
             var customString = " ";
-            //|| player1.DiscordAccount.DiscordId == 238337696316129280 || player1.DiscordAccount.DiscordId == 181514288278536193
-            if (game.RoundNo == 11 || player1.DiscordAccount.UserType == "admin")
+            //|| player1.DiscordId == 238337696316129280 || player1.DiscordId == 181514288278536193
+            if (game.RoundNo == 11 || player1.UserType == "admin")
             {
                 customString += $"(as **{player2.Character.Name}**) = {player2.Status.GetScore()} Score";
                 customString +=
@@ -205,7 +205,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     break;
                 case "Вампур":
                     var vamp = _gameGlobal.VampyrKilledList.Find(x =>
-                        x.GameId == player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
+                        x.GameId == player1.GameId && x.PlayerId == player1.Status.PlayerId);
 
                     if (vamp != null)
                         if (!vamp.FriendList.Contains(player2.Status.PlayerId) &&
@@ -215,7 +215,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                 case "HardKitty":
                     var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
-                        x.GameId == player1.DiscordAccount.GameId &&
+                        x.GameId == player1.GameId &&
                         x.PlayerId == player1.Status.PlayerId);
                     var lostSeries = hardKitty?.LostSeries.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
                     if (lostSeries != null)
@@ -223,7 +223,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     break;
                 case "Sirinoks":
                     var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
-                        x.GameId == player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
+                        x.GameId == player1.GameId && x.PlayerId == player1.Status.PlayerId);
 
                     if (siri != null)
                         if (!siri.FriendList.Contains(player2.Status.PlayerId) &&
@@ -241,7 +241,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 }
                 {
                     var panthMark = _gameGlobal.PanthMark.Find(x =>
-                        x.GameId == player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
+                        x.GameId == player1.GameId && x.PlayerId == player1.Status.PlayerId);
 
                     if (panthMark.FriendList.Contains(player2.Status.PlayerId))
                         customString += "<:sparta:561287745675329567>";
@@ -254,7 +254,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                     //tactic
                     var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
-                        x.PlayerId == player1.Status.PlayerId && player1.DiscordAccount.GameId == x.GameId);
+                        x.PlayerId == player1.Status.PlayerId && player1.GameId == x.GameId);
                     if (deep != null)
                         if (deep.FriendList.Contains(player2.Status.PlayerId) &&
                             player2.Status.PlayerId != player1.Status.PlayerId)
@@ -263,7 +263,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                     //сверхразум
                     var currentList = _gameGlobal.DeepListSupermindKnown.Find(x =>
-                        x.PlayerId == player1.Status.PlayerId && x.GameId == player1.DiscordAccount.GameId);
+                        x.PlayerId == player1.Status.PlayerId && x.GameId == player1.GameId);
                     if (currentList != null)
                         if (currentList.KnownPlayers.Contains(player2.Status.PlayerId))
                             customString +=
@@ -277,7 +277,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                 case "mylorik":
                     var mylorik = _gameGlobal.MylorikRevenge.Find(x =>
-                        x.GameId == player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
+                        x.GameId == player1.GameId && x.PlayerId == player1.Status.PlayerId);
                     var find = mylorik?.EnemyListPlayerIds.Find(x =>
                         x.EnemyPlayerId == player2.Status.PlayerId);
 
@@ -288,7 +288,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 case "Тигр":
 
                     var tigr = _gameGlobal.TigrThreeZeroList.Find(x =>
-                        x.GameId == player1.DiscordAccount.GameId && x.PlayerId == player1.Status.PlayerId);
+                        x.GameId == player1.GameId && x.PlayerId == player1.Status.PlayerId);
 
                     var enemy = tigr?.FriendList.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
 
@@ -325,7 +325,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         //Page 1
         public EmbedBuilder FightPage(GamePlayerBridgeClass player, GameClass game = null)
         {
-            var account = player.DiscordAccount;
+            var account = _accounts.GetAccount(player.DiscordId);
             //        player.Status.MoveListPage = 1;
             var character = player.Character;
 
@@ -333,15 +333,16 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithColor(Color.Blue);
 
             embed.WithFooter($"{GetTimeLeft(player)}");
+            embed.WithCurrentTimestamp();
 
-            if (game == null) game = _global.GamesList.Find(x => x.GameId == account.GameId);
+            if (game == null) game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
             var desc = "ERROR";
 
             if (game != null) desc = game.GetPreviousGameLogs();
 
-            embed.WithDescription(desc.Replace(player.DiscordAccount.DiscordUserName,
-                $"**{player.DiscordAccount.DiscordUserName}**"));
+            embed.WithDescription(desc.Replace(player.DiscordUsername,
+                $"**{player.DiscordUsername}**"));
 
             if (desc.Length >= 2048)
                 _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
@@ -386,16 +387,17 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         //Page 2
         public EmbedBuilder LogsPage(GamePlayerBridgeClass player)
         {
-            var account = player.DiscordAccount;
+            var account = _accounts.GetAccount(player.DiscordId);
 
 
-            var game = _global.GamesList.Find(x => x.GameId == account.GameId);
+            var game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
             var embed = new EmbedBuilder();
             embed.WithTitle("Логи");
             embed.WithDescription(game.GetAllGameLogs());
             embed.WithColor(Color.Green);
             embed.WithFooter($"{GetTimeLeft(player)}");
+            embed.WithCurrentTimestamp();
 
             return embed;
         }
@@ -404,7 +406,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         public EmbedBuilder LvlUpPage(GamePlayerBridgeClass player)
         {
             //    var status = player.Status;
-            var account = player.DiscordAccount;
+            var account = _accounts.GetAccount(player.DiscordId);
             var character = player.Character;
 
             //   status.MoveListPage = 3;
@@ -412,7 +414,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var embed = new EmbedBuilder();
 
-            var desc = _global.GamesList.Find(x => x.GameId == account.GameId).GetPreviousGameLogs();
+            var desc = _global.GamesList.Find(x => x.GameId == player.GameId).GetPreviousGameLogs();
             if (desc == null)
                 return null;
             embed.WithDescription(desc);
@@ -420,6 +422,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithColor(Color.Blue);
 
             embed.WithFooter($"{GetTimeLeft(player)}");
+            embed.WithCurrentTimestamp();
             embed.AddField("_____",
                 "__Подними один из статов на 1:__\n \n" +
                 $"1. **Интеллект:** {character.GetIntelligence()}\n" +
@@ -437,13 +440,13 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         //Page 4
         public EmbedBuilder MoralPage(GamePlayerBridgeClass player)
         {
-            var account = player.DiscordAccount;
+            var account = _accounts.GetAccount(player.DiscordId);
             var character = player.Character;
 
 
             var embed = new EmbedBuilder();
 
-            var desc = _global.GamesList.Find(x => x.GameId == account.GameId).GetPreviousGameLogs();
+            var desc = _global.GamesList.Find(x => x.GameId == player.GameId).GetPreviousGameLogs();
             if (desc == null)
                 return null;
             embed.WithDescription(desc);
@@ -451,6 +454,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithColor(Color.Blue);
 
             embed.WithFooter($"{GetTimeLeft(player)}");
+            embed.WithCurrentTimestamp();
             embed.AddField("_____",
                 "__Ты можешь  1:__\n \n" +
                 $"1. **Интеллект:** {character.GetIntelligence()}\n" +
@@ -504,13 +508,13 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public string GetTimeLeft(GamePlayerBridgeClass player)
         {
-            var game = _global.GamesList.Find(x => x.GameId == player.DiscordAccount.GameId);
+            var game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
             if (game == null) return "ERROR";
 
             if (player.Status.IsReady)
-                return $"Ты походил • Ожидаем других игроков • ход #{game.RoundNo}";
-            return $"Ожидаем твой ход • ход #{game.RoundNo}";
+                return $"Ты походил • Ожидаем других игроков • ход #{game.RoundNo} • ({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
+            return $"Ожидаем твой ход • ход #{game.RoundNo} • ({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
             /*
             //if (!game.IsCheckIfReady)
            //     return $"Ведется подсчёт, пожалуйста подожди... • ход #{game.RoundNo}";
