@@ -34,7 +34,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 
                 if (title_str == null)
                 {
-                    await channel.SendMessageAsync("ERROR: Embed Title == null");
+                    //await channel.SendMessageAsync("ERROR: Embed Title == null");
                     return;
                 }
                 
@@ -42,7 +42,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                 if (title.Length < 2)
                 {
-                    await channel.SendMessageAsync("ERROR: Embed Title len < 2");
+                    //await channel.SendMessageAsync("ERROR: Embed Title len < 2");
                     return;
                 }
 
