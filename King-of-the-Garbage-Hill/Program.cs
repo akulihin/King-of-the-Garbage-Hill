@@ -26,10 +26,10 @@ namespace King_of_the_Garbage_Hill
             _client = new DiscordShardedClient(_shardIds, new DiscordSocketConfig
             {
                 LogLevel = LogSeverity.Verbose,
-                MessageCacheSize = 100,
+                MessageCacheSize = 300,
                 TotalShards = 1,
-                AlwaysDownloadUsers = true,
-                ExclusiveBulkDelete = true
+                //AlwaysDownloadUsers = true,
+                //ExclusiveBulkDelete = true
             });
 
             _services = new Container(x =>

@@ -139,6 +139,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 DiscordUserName = user.Username,
                 IsLogs = true,
                 IsPlaying = false,
+                UserType = "player",
                 ZbsPoints = 0,
                 CharacterChance = _defaultCharacterChances
             };

@@ -30,12 +30,15 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             {
                 await cash.DownloadAsync();
                 if (!cash.HasValue) return;
-                var title = cash.Value.Embeds.FirstOrDefault()?.Title.Split(" - ");
-                if (title == null)
+                var title_str = cash.Value.Embeds.FirstOrDefault()?.Title;
+                
+                if (title_str == null)
                 {
                     await channel.SendMessageAsync("ERROR: Embed Title == null");
                     return;
                 }
+                
+                var title = title_str.Split(" - ");
 
                 if (title.Length < 2)
                 {

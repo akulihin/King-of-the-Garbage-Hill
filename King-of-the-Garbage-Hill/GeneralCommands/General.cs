@@ -306,7 +306,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 {
                     _helperFunctions.SubstituteUserWithBot(Context.User.Id);
 
-                    var players = new List<SocketUser> {null};
+                    var players = new List<IUser> {null};
 
                     var gameId = _global.GetNewtGamePlayingAndId();
 
@@ -436,7 +436,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        public List<GamePlayerBridgeClass> HandleCharacterRoll(List<SocketUser> players, ulong gameId)
+        public List<GamePlayerBridgeClass> HandleCharacterRoll(List<IUser> players, ulong gameId)
         {
             var allCharacters = _charactersPull.GetAllCharacters();
             var playersList = new List<GamePlayerBridgeClass>();
@@ -506,11 +506,11 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
         [Command("st")]
         [Summary("запуск игры")]
-        public async Task StartGameTest(SocketUser socketPlayer2 = null)
+        public async Task StartGameTest(IUser socketPlayer2 = null)
         {
             _helperFunctions.SubstituteUserWithBot(Context.User.Id);
 
-            var players = new List<SocketUser> {Context.User};
+            var players = new List<IUser> {Context.User};
             if (socketPlayer2 != null) players.Add(socketPlayer2);
             var gameId = _global.GetNewtGamePlayingAndId();
 
