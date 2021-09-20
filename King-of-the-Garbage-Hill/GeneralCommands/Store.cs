@@ -75,7 +75,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
             var character = account.CharacterChance.Find(x => x.CharacterName == chosenCharacter.CharacterName);
 
-            var socketMsg = await SendMessAsync(_storeLogic.GetStoreEmbed(character, account, Context.User));
+            var msg_to_send = _storeLogic.GetStoreEmbed(character, account, Context.User);
+            var socketMsg = await SendMessAsync();
             await socketMsg.AddReactionsAsync(new IEmote[]
                 {new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣"), new Emoji("4⃣")});
         }
