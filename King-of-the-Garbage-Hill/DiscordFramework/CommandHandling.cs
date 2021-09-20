@@ -5,11 +5,11 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
-using King_of_the_Garbage_Hill.BotFramework.Extensions;
+using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 using Lamar.IoC;
 
-namespace King_of_the_Garbage_Hill.BotFramework
+namespace King_of_the_Garbage_Hill.DiscordFramework
 {
     public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
     {

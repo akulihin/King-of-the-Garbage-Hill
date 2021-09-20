@@ -10,7 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Discord;
 
-namespace King_of_the_Garbage_Hill.BotFramework
+namespace King_of_the_Garbage_Hill.DiscordFramework
 {
     public sealed class LoginFromConsole : IServiceSingleton
     {
@@ -39,7 +39,7 @@ namespace King_of_the_Garbage_Hill.BotFramework
         private readonly int _padLength = 16;
         private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 
-        private readonly string _runTime = @"DataBase/Log.json";
+
 
         public Task InitializeAsync()
         {
@@ -187,7 +187,8 @@ namespace King_of_the_Garbage_Hill.BotFramework
                 Console.Write($"|{PadCenter(caller)}] ");
                 Console.ForegroundColor = color;
                 Console.WriteLine(message);
-                File.AppendAllText(_runTime, $"\n{DateTime.Now.ToLongTimeString()} - {message}");
+                var now = DateTime.Now;
+                File.AppendAllText(@"DataBase/Log-" + $"{now.Month}-{now.Day}-{now.Year}" + ".log", $"\n{DateTime.Now.ToLongTimeString()} - {message}");
                 Console.ResetColor();
 #if PRETTY_LOGGING
             }

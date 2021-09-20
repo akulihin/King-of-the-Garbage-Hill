@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
-using King_of_the_Garbage_Hill.BotFramework.Extensions;
+using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
@@ -77,7 +77,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        [Command("setType")]
+        [Command("SetType")]
         [Summary("setting type of account: player, admin")]
         public async Task SetType(SocketUser user, string userType)
         {
@@ -102,7 +102,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        [Command("sr")]
+        [Command("SetRound")]
+        [Alias("sr")]
         [Summary("Select round 1-10")]
         public async Task SelectRound(int roundNo)
         {
@@ -136,7 +137,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        [Command("set")]
+        [Command("SetStat")]
+        [Alias("set")]
         [Summary("Set a stat (in, sp, st, ps)")]
         public async Task SetCharacteristic(string name, int number)
         {
@@ -297,7 +299,9 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        [Command("b")]
+        [Command("BotGame")]
+        [Alias("bot")]
+        [Summary("запуск игры для ботов")]
         public async Task StartGameTestBotVsBot()
         {
             for (var uhg = 0; uhg < 10000; uhg++)
@@ -504,7 +508,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        [Command("st")]
+        [Command("start")]
+        [Alias("st", "start game")]
         [Summary("запуск игры")]
         public async Task StartGameTest(IUser socketPlayer2 = null)
         {
@@ -707,6 +712,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         [RequireOwner]
         public async Task Asdasd()
         {
+            return;
             var allcha = new List<CharacterClass>();
             //  int cc = 0;  
             string ll;

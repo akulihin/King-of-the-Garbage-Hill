@@ -5,11 +5,11 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace King_of_the_Garbage_Hill.BotFramework.Extensions
+namespace King_of_the_Garbage_Hill.DiscordFramework.Extensions
 {
     public static class ServiceExtensions
     {
-        public static IServiceCollection AutoAddSingleton(this IServiceCollection services)
+        public static IServiceCollection AddSingletonAutomatically(this IServiceCollection services)
         {
             var singletonServicesCount = 0;
 
@@ -21,10 +21,6 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
             {
                 singletonServicesCount++;
                 services.AddSingleton(type);
-
-
-                // type.GetInterfaces().FirstOrDefault(x => !(x is typeof(IServiceSingleton)))
-                //x != typeof(IService)
             }
 
             watchSingleton.Stop();
@@ -34,7 +30,7 @@ namespace King_of_the_Garbage_Hill.BotFramework.Extensions
             return services;
         }
 
-        public static IServiceCollection AutoAddTransient(this IServiceCollection services)
+        public static IServiceCollection AddTransientAutomatically(this IServiceCollection services)
         {
             var transientServicesCount = 0;
 

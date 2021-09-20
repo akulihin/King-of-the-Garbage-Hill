@@ -1,12 +1,16 @@
-﻿using System.Net.Http;
+﻿using System;
+using System.Net.Http;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
-using King_of_the_Garbage_Hill.BotFramework.Extensions;
+using King_of_the_Garbage_Hill.DiscordFramework;
+using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 using Lamar;
 using Microsoft.Extensions.DependencyInjection;
+
 
 namespace King_of_the_Garbage_Hill
 {
@@ -16,18 +20,20 @@ namespace King_of_the_Garbage_Hill
         private DiscordShardedClient _client;
         private Container _services;
 
-        private static void Main()
+        public static Task Main(string[] args)
         {
-            new ProgramKingOfTheGarbageHill().RunBotAsync().GetAwaiter().GetResult();
+            Console.OutputEncoding = Encoding.UTF8;
+            return new ProgramKingOfTheGarbageHill().MainAsync();
         }
 
-        public async Task RunBotAsync()
+        public async Task MainAsync()
         {
             _client = new DiscordShardedClient(_shardIds, new DiscordSocketConfig
             {
                 LogLevel = LogSeverity.Verbose,
                 MessageCacheSize = 300,
                 TotalShards = 1,
+                //GatewayIntents = GatewayIntents.All
                 //AlwaysDownloadUsers = true,
                 //ExclusiveBulkDelete = true
             });
@@ -38,8 +44,8 @@ namespace King_of_the_Garbage_Hill
                     .AddSingleton<CancellationTokenSource>()
                     .AddSingleton<CommandService>()
                     .AddSingleton<HttpClient>()
-                    .AutoAddSingleton()
-                    .AutoAddTransient()
+                    .AddSingletonAutomatically()
+                    .AddTransientAutomatically()
                     .BuildServiceProvider();
             });
 
@@ -50,6 +56,7 @@ namespace King_of_the_Garbage_Hill
             await _client.LoginAsync(TokenType.Bot, _services.GetRequiredService<Config>().Token);
             await _client.StartAsync();
 
+            SendMessagesUsingConsole.ConsoleInput(_client);
 
             try
             {
