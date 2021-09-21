@@ -20,7 +20,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         [Summary("Showing how good is my random")]
         public async Task RandomStats()
         {
-            ulong times = 10000;
+            ulong times = 1000000;
 
             var statsList = new List<StatsStruct>
             {
@@ -33,12 +33,23 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 new(7, 0),
                 new(8, 0),
                 new(9, 0),
-                new(10, 0)
+                new(10, 0),
+                new(11, 0),
+                new(12, 0),
+                new(13, 0),
+                new(14, 0),
+                new(15, 0),
+                new(16, 0),
+                new(17, 0),
+                new(18, 0),
+                new(19, 0),
+                new(20, 0),
+
             };
 
             for (ulong i = 0; i < times; i++)
             {
-                var ran = _secureRandom.Random(1, 10);
+                var ran = _secureRandom.Random(1, 20);
                 statsList.Find(x => x.Number == ran).Count += 1;
             }
 
@@ -51,7 +62,18 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                        $"{statsList[6].Number} = {statsList[6].Count}\n" +
                        $"{statsList[7].Number} = {statsList[7].Count}\n" +
                        $"{statsList[8].Number} = {statsList[8].Count}\n" +
-                       $"{statsList[9].Number} = {statsList[9].Count}\n";
+                       $"{statsList[9].Number} = {statsList[9].Count}\n" +
+                       $"{statsList[10].Number} = {statsList[10].Count}\n" +
+                       $"{statsList[11].Number} = {statsList[11].Count}\n" +
+                       $"{statsList[12].Number} = {statsList[12].Count}\n" +
+                       $"{statsList[13].Number} = {statsList[13].Count}\n" +
+                       $"{statsList[14].Number} = {statsList[14].Count}\n" +
+                       $"{statsList[15].Number} = {statsList[15].Count}\n" +
+                       $"{statsList[16].Number} = {statsList[16].Count}\n" +
+                       $"{statsList[17].Number} = {statsList[17].Count}\n" +
+                       $"{statsList[18].Number} = {statsList[18].Count}\n" +
+                       $"{statsList[19].Number} = {statsList[19].Count}\n";
+
 
             var embed = new EmbedBuilder();
 
