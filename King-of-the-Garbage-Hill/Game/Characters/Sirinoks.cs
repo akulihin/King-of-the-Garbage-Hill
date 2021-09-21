@@ -35,10 +35,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsLostThisCalculation);
                 var intel = new List<StatsClass>
                 {
-                    new StatsClass(1, playerSheLostLastTime.Character.GetIntelligence()),
-                    new StatsClass(2, playerSheLostLastTime.Character.GetStrength()),
-                    new StatsClass(3, playerSheLostLastTime.Character.GetSpeed()),
-                    new StatsClass(4, playerSheLostLastTime.Character.GetPsyche())
+                    new(1, playerSheLostLastTime.Character.GetIntelligence()),
+                    new(2, playerSheLostLastTime.Character.GetStrength()),
+                    new(3, playerSheLostLastTime.Character.GetSpeed()),
+                    new(4, playerSheLostLastTime.Character.GetPsyche())
                 };
                 var best = intel.OrderByDescending(x => x.Number).ToList()[0];
 
@@ -72,7 +72,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             public ulong GameId;
             public Guid PlayerId;
-            public List<TrainingSubClass> Training = new List<TrainingSubClass>();
+            public List<TrainingSubClass> Training = new();
 
             public TrainingClass(Guid playerId, ulong gameId, int index, int number)
             {

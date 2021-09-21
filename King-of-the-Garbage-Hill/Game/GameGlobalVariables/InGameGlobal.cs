@@ -13,91 +13,91 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         private readonly SecureRandom _rand;
 
         public readonly List<WhenToTriggerClass>
-            AllSkipTriggeredWhen = new List<WhenToTriggerClass>();
+            AllSkipTriggeredWhen = new();
 
         public readonly List<WhenToTriggerClass>
-            AwdkaAfkTriggeredWhen = new List<WhenToTriggerClass>();
+            AwdkaAfkTriggeredWhen = new();
 
-        public readonly List<Sirinoks.TrainingClass> AwdkaTeachToPlay = new List<Sirinoks.TrainingClass>();
-        public readonly List<DeepList.Madness> AwdkaTeachToPlayTempStats = new List<DeepList.Madness>();
-        public readonly List<Awdka.TrollingClass> AwdkaTrollingList = new List<Awdka.TrollingClass>();
-        public readonly List<Awdka.TryingClass> AwdkaTryingList = new List<Awdka.TryingClass>();
+        public readonly List<Sirinoks.TrainingClass> AwdkaTeachToPlay = new();
+        public readonly List<DeepList.Madness> AwdkaTeachToPlayTempStats = new();
+        public readonly List<Awdka.TrollingClass> AwdkaTrollingList = new();
+        public readonly List<Awdka.TryingClass> AwdkaTryingList = new();
 
-        public readonly List<Darksci.LuckyClass> DarksciLuckyList = new List<Darksci.LuckyClass>();
-        public readonly List<FriendsClass> DeepListDoubtfulTactic = new List<FriendsClass>();
+        public readonly List<Darksci.LuckyClass> DarksciLuckyList = new();
+        public readonly List<FriendsClass> DeepListDoubtfulTactic = new();
 
-        public readonly List<DeepList.Madness> DeepListMadnessList = new List<DeepList.Madness>();
+        public readonly List<DeepList.Madness> DeepListMadnessList = new();
 
 
         public readonly List<WhenToTriggerClass>
-            DeepListMadnessTriggeredWhen = new List<WhenToTriggerClass>();
+            DeepListMadnessTriggeredWhen = new();
 
-        public readonly List<DeepList.Mockery> DeepListMockeryList = new List<DeepList.Mockery>();
+        public readonly List<DeepList.Mockery> DeepListMockeryList = new();
 
         public readonly List<DeepList.SuperMindKnown>
-            DeepListSupermindKnown = new List<DeepList.SuperMindKnown>();
+            DeepListSupermindKnown = new();
 
         public readonly List<WhenToTriggerClass>
-            DeepListSupermindTriggeredWhen = new List<WhenToTriggerClass>();
+            DeepListSupermindTriggeredWhen = new();
 
-        public readonly List<DeepList.Madness> GlebChallengerList = new List<DeepList.Madness>();
-
-        public readonly List<WhenToTriggerClass>
-            GlebChallengerTriggeredWhen = new List<WhenToTriggerClass>();
+        public readonly List<DeepList.Madness> GlebChallengerList = new();
 
         public readonly List<WhenToTriggerClass>
-            GlebComeBackTriggeredWhen = new List<WhenToTriggerClass>();
-
-        public readonly List<Gleb.GlebSkipClass> GlebSkipList = new List<Gleb.GlebSkipClass>();
+            GlebChallengerTriggeredWhen = new();
 
         public readonly List<WhenToTriggerClass>
-            GlebSleepingTriggeredWhen = new List<WhenToTriggerClass>();
+            GlebComeBackTriggeredWhen = new();
+
+        public readonly List<Gleb.GlebSkipClass> GlebSkipList = new();
 
         public readonly List<WhenToTriggerClass>
-            GlebTeaTriggeredWhen = new List<WhenToTriggerClass>();
-
-        public readonly List<HardKitty.DoebatsyaClass> HardKittyDoebatsya = new List<HardKitty.DoebatsyaClass>();
-        public readonly List<HardKitty.MuteClass> HardKittyMute = new List<HardKitty.MuteClass>();
-
-        public readonly List<LeCrisp.LeCrispImpactClass> LeCrispImpact = new List<LeCrisp.LeCrispImpactClass>();
-        public readonly List<LolGod.PushAndDieClass> LolGodPushAndDieSubList = new List<LolGod.PushAndDieClass>();
-        public readonly List<LolGod.Udyr> LolGodUdyrList = new List<LolGod.Udyr>();
-
-        public readonly List<Mitsuki.GarbageClass> MitsukiGarbageList = new List<Mitsuki.GarbageClass>();
+            GlebSleepingTriggeredWhen = new();
 
         public readonly List<WhenToTriggerClass>
-            MitsukiNoPcTriggeredWhen = new List<WhenToTriggerClass>();
+            GlebTeaTriggeredWhen = new();
+
+        public readonly List<HardKitty.DoebatsyaClass> HardKittyDoebatsya = new();
+        public readonly List<HardKitty.MuteClass> HardKittyMute = new();
+
+        public readonly List<LeCrisp.LeCrispImpactClass> LeCrispImpact = new();
+        public readonly List<LolGod.PushAndDieClass> LolGodPushAndDieSubList = new();
+        public readonly List<LolGod.Udyr> LolGodUdyrList = new();
+
+        public readonly List<Mitsuki.GarbageClass> MitsukiGarbageList = new();
 
         public readonly List<WhenToTriggerClass>
-            MylorikBooleTriggeredWhen = new List<WhenToTriggerClass>();
+            MitsukiNoPcTriggeredWhen = new();
 
-        public readonly List<Mylorik.MylorikRevengeClass> MylorikRevenge = new List<Mylorik.MylorikRevengeClass>();
+        public readonly List<WhenToTriggerClass>
+            MylorikBooleTriggeredWhen = new();
 
-        public readonly List<BotsBehavior.NanobotClass> NanobotsList = new List<BotsBehavior.NanobotClass>();
-        public readonly List<Octopus.InkClass> OctopusInkList = new List<Octopus.InkClass>();
+        public readonly List<Mylorik.MylorikRevengeClass> MylorikRevenge = new();
+
+        public readonly List<BotsBehavior.NanobotClass> NanobotsList = new();
+        public readonly List<Octopus.InkClass> OctopusInkList = new();
 
         public readonly List<Octopus.InvulnerabilityClass> OctopusInvulnerabilityList =
-            new List<Octopus.InvulnerabilityClass>();
+            new();
 
-        public readonly List<Octopus.TentaclesClass> OctopusTentaclesList = new List<Octopus.TentaclesClass>();
-        public readonly List<FriendsClass> PanthFirstBlood = new List<FriendsClass>();
-        public readonly List<FriendsClass> PanthMark = new List<FriendsClass>();
-        public readonly List<FriendsClass> PanthShame = new List<FriendsClass>();
-        public readonly List<FriendsClass> SharkBoole = new List<FriendsClass>();
-        public readonly List<Shark.SharkLeaderClass> SharkJawsLeader = new List<Shark.SharkLeaderClass>();
-        public readonly List<FriendsClass> SharkJawsWin = new List<FriendsClass>();
+        public readonly List<Octopus.TentaclesClass> OctopusTentaclesList = new();
+        public readonly List<FriendsClass> PanthFirstBlood = new();
+        public readonly List<FriendsClass> PanthMark = new();
+        public readonly List<FriendsClass> PanthShame = new();
+        public readonly List<FriendsClass> SharkBoole = new();
+        public readonly List<Shark.SharkLeaderClass> SharkJawsLeader = new();
+        public readonly List<FriendsClass> SharkJawsWin = new();
 
-        public readonly List<FriendsClass> SirinoksFriendsList = new List<FriendsClass>();
-        public readonly List<Sirinoks.TrainingClass> SirinoksTraining = new List<Sirinoks.TrainingClass>();
+        public readonly List<FriendsClass> SirinoksFriendsList = new();
+        public readonly List<Sirinoks.TrainingClass> SirinoksTraining = new();
 
-        public readonly List<Tigr.ThreeZeroClass> TigrThreeZeroList = new List<Tigr.ThreeZeroClass>();
-        public readonly List<Tigr.TigrTopClass> TigrTop = new List<Tigr.TigrTopClass>();
-        public readonly List<WhenToTriggerClass> TigrTopWhen = new List<WhenToTriggerClass>();
-        public readonly List<FriendsClass> TigrTwoBetterList = new List<FriendsClass>();
-        public readonly List<Tolya.TolyaCountClass> TolyaCount = new List<Tolya.TolyaCountClass>();
-        public readonly List<Tolya.TolyaTalkedlClass> TolyaTalked = new List<Tolya.TolyaTalkedlClass>();
-        public readonly List<FriendsClass> TolyaRammusTimes = new List<FriendsClass>();
-        public readonly List<FriendsClass> VampyrKilledList = new List<FriendsClass>();
+        public readonly List<Tigr.ThreeZeroClass> TigrThreeZeroList = new();
+        public readonly List<Tigr.TigrTopClass> TigrTop = new();
+        public readonly List<WhenToTriggerClass> TigrTopWhen = new();
+        public readonly List<FriendsClass> TigrTwoBetterList = new();
+        public readonly List<Tolya.TolyaCountClass> TolyaCount = new();
+        public readonly List<FriendsClass> TolyaRammusTimes = new();
+        public readonly List<Tolya.TolyaTalkedlClass> TolyaTalked = new();
+        public readonly List<FriendsClass> VampyrKilledList = new();
 
         public InGameGlobal(SecureRandom rand)
         {
@@ -123,7 +123,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
             if (maxRandomNumber == 0)
             {
                 when = _rand.Random(2, lastRound);
-                if ((lastRound == 11 && when == 3) || when > 10) when = 10;
+                if (lastRound == 11 && when == 3 || when > 10) when = 10;
                 toTriggerClass.WhenToTrigger.Add(when);
                 return toTriggerClass;
             }
@@ -132,7 +132,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
             if (isMandatory)
             {
                 when = _rand.Random(1, lastRound);
-                if ((lastRound == 11 && when == 3) || when > 10) when = 10;
+                if (lastRound == 11 && when == 3 || when > 10) when = 10;
                 check.Add(when);
                 toTriggerClass.WhenToTrigger.Add(when);
             }
@@ -142,7 +142,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
                 do
                 {
                     when = _rand.Random(1, lastRound);
-                    if ((lastRound == 11 && when == 3) || when > 10) when = 10;
+                    if (lastRound == 11 && when == 3 || when > 10) when = 10;
                 } while (check.Contains(when));
 
                 check.Add(when);
@@ -154,7 +154,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
                 do
                 {
                     when = _rand.Random(1, lastRound);
-                    if ((lastRound == 11 && when == 3) || when > 10) when = 10;
+                    if (lastRound == 11 && when == 3 || when > 10) when = 10;
                 } while (check.Contains(when));
 
                 check.Add(when);
@@ -171,9 +171,9 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
                     while (times < rand)
                     {
                         when = _rand.Random(1, lastRound);
-                        if ((lastRound == 11 && when == 3) || when > 10) when = 10;
+                        if (lastRound == 11 && when == 3 || when > 10) when = 10;
 
-                            if (toTriggerClass.WhenToTrigger.All(x => x != when))
+                        if (toTriggerClass.WhenToTrigger.All(x => x != when))
                         {
                             toTriggerClass.WhenToTrigger.Add(when);
                             times++;
@@ -187,9 +187,9 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
                     while (times < rand)
                     {
                         when = _rand.Random(1, lastRound);
-                        if ((lastRound == 11 && when == 3) || when > 10) when = 10;
+                        if (lastRound == 11 && when == 3 || when > 10) when = 10;
 
-                            if (toTriggerClass.WhenToTrigger.All(x => x != when))
+                        if (toTriggerClass.WhenToTrigger.All(x => x != when))
                         {
                             toTriggerClass.WhenToTrigger.Add(when);
                             times++;
@@ -203,9 +203,9 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
                     while (times < rand)
                     {
                         when = _rand.Random(1, lastRound);
-                        if ((lastRound == 11 && when == 3) || when > 10) when = 10;
+                        if (lastRound == 11 && when == 3 || when > 10) when = 10;
 
-                            if (toTriggerClass.WhenToTrigger.All(x => x != when))
+                        if (toTriggerClass.WhenToTrigger.All(x => x != when))
                         {
                             toTriggerClass.WhenToTrigger.Add(when);
                             times++;
@@ -219,7 +219,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
                     while (times < rand)
                     {
                         when = _rand.Random(1, lastRound);
-                        if ((lastRound == 11 && when == 3) || when > 10) when = 10;
+                        if (lastRound == 11 && when == 3 || when > 10) when = 10;
 
                         if (toTriggerClass.WhenToTrigger.All(x => x != when))
                         {

@@ -22,9 +22,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public void HandleTolya(GamePlayerBridgeClass player)
         {
- 
-
-
         }
 
         public void HandleTolyaAfter(GamePlayerBridgeClass player, GameClass game)
@@ -32,7 +29,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             if (player.Status.IsBlock && player.Status.IsWonThisCalculation != Guid.Empty)
                 game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Status
                     .IsAbleToWin = true;
-
         }
 
         public class TolyaCountClass
@@ -41,7 +37,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             public ulong GameId;
             public bool IsReadyToUse;
             public Guid PlayerId;
-            public List<TolyaCountSubClass> TargetList   = new List<TolyaCountSubClass>();
+            public List<TolyaCountSubClass> TargetList = new();
 
             public TolyaCountClass(ulong gameId, Guid playerId)
             {
@@ -67,8 +63,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class TolyaTalkedlClass
         {
             public ulong GameId;
+            public List<Guid> PlayerHeTalkedAbout = new();
             public Guid PlayerId;
-            public List<Guid> PlayerHeTalkedAbout = new List<Guid>();
 
             public TolyaTalkedlClass(ulong gameId, Guid playerId)
             {
@@ -76,6 +72,5 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 PlayerId = playerId;
             }
         }
-
     }
 }

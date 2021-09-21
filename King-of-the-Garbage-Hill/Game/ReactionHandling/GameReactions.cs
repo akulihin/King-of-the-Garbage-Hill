@@ -48,7 +48,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     x.DiscordId == reaction.UserId &&
                     x.Status.SocketMessageFromBot.Id == reaction.MessageId))
                 {
-
                     var player = _global.GetGameAccount(reaction.UserId, t.PlayersList.FirstOrDefault().GameId);
                     var status = player.Status;
 
@@ -118,11 +117,12 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                                     SendMsgAndDeleteIt(player, "Мораль: Я БОГ ЭТОГО МИРА + 15 __бонунсых__ очка");
                                     break;
                                 default:
-                                    SendMsgAndDeleteIt(player, "У тебя недосточно морали, чтобы поменять ее на бонусные очки.\n" +
-                                                               "3 морали =  1 бонусное очко\n" +
-                                                               "5 морали = 2 бонусных очка\n" +
-                                                               "10 морали = 8 бонусных очков\n" +
-                                                               "15 морали = 15 бонусных очков");
+                                    SendMsgAndDeleteIt(player,
+                                        "У тебя недосточно морали, чтобы поменять ее на бонусные очки.\n" +
+                                        "3 морали =  1 бонусное очко\n" +
+                                        "5 морали = 2 бонусных очка\n" +
+                                        "10 морали = 8 бонусных очков\n" +
+                                        "15 морали = 15 бонусных очков");
                                     break;
                             }
 
@@ -215,7 +215,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 */
 
                 if (player.Character.Name == "Вампур" && player.Status.WhoToLostEveryRound.Any(x =>
-                        x.RoundNo == game.RoundNo - 1 && x.EnemyId == status.WhoToAttackThisTurn))
+                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == status.WhoToAttackThisTurn))
                 {
                     status.WhoToAttackThisTurn = Guid.Empty;
                     await _phrase.VampyrNoAttack.SendLogSeparate(player);
@@ -351,11 +351,10 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
 
                     if (player.Character.GetPsyche() <= 0)
-                    {
-                        if(game.RoundNo == 9 || game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
+                        if (game.RoundNo == 9 ||
+                            game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
                             game.AddPreviousGameLogs(
                                 $"**{player.DiscordUsername}:** Нахуй эту игру..");
-                    }
                     //end //Да всё нахуй эту игру:
                 }
             }

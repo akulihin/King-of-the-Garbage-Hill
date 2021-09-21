@@ -5,7 +5,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 {
     public class FriendsClass
     {
-        public List<Guid> FriendList = new List<Guid>();
+        public List<Guid> FriendList = new();
 
         public FriendsClass(Guid playerId, ulong gameId, Guid enemyPlayerId)
         {

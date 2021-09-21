@@ -12,6 +12,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 {
     public class CheckIfReady : IServiceSingleton
     {
+        private readonly UserAccounts _accounts;
         private readonly BotsBehavior _botsBehavior;
         private readonly FinishedGameLog _finishedGameLog;
         private readonly GameUpdateMess _gameUpdateMess;
@@ -20,7 +21,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly CalculateRound _round;
         private readonly GameUpdateMess _upd;
         public Timer LoopingTimer;
-        private readonly UserAccounts _accounts;
 
         public CheckIfReady(Global global, GameUpdateMess upd, CalculateRound round, FinishedGameLog finishedGameLog,
             GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, LoginFromConsole logs, UserAccounts accounts)
@@ -94,9 +94,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                         account.TotalPlays++;
-                        account.TotalWins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong)0;
+                        account.TotalWins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong) 0;
                         account.MatchHistory.Add(
-                            new DiscordAccountClass.MatchHistoryClass(player.Character.Name, player.Status.GetScore(), player.Status.PlaceAtLeaderBoard));
+                            new DiscordAccountClass.MatchHistoryClass(player.Character.Name, player.Status.GetScore(),
+                                player.Status.PlaceAtLeaderBoard));
                         account.ZbsPoints += (player.Status.PlaceAtLeaderBoard - 6) * -1 + 1;
                         if (player.Status.PlaceAtLeaderBoard == 1)
                             account.ZbsPoints += 4;

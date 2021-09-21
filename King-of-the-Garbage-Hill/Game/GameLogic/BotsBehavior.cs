@@ -31,7 +31,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             var timeOffest = 0;
             if (!player.IsBot() || player.Status.IsReady && player.Status.MoveListPage != 3) return;
             var realPlayers = game.PlayersList.FindAll(x => !x.IsBot() && !x.Status.IsReady).ToList().Count;
-            if(realPlayers > 0 && game.TimePassed.Elapsed.Seconds < game.TurnLengthInSecond - timeOffest) return;
+            if (realPlayers > 0 && game.TimePassed.Elapsed.Seconds < game.TurnLengthInSecond - timeOffest) return;
 
             if (player.Status.MoveListPage == 1) await HandleAttack(player, game);
 
@@ -52,8 +52,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             //calculation Tens
             foreach (var p in nanobots.Nanobots)
             {
-             
-
                 if (bot.Character.Justice.GetJusticeNow() == p.Player.Character.Justice.GetJusticeNow())
                     p.AttackPreference -= 5;
                 else if (bot.Character.Justice.GetJusticeNow() < p.Player.Character.Justice.GetJusticeNow())
@@ -74,7 +72,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                 if (p.Player.Status.WhoToLostEveryRound.Any(x =>
-                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == bot.Status.PlayerId && x.IsTooGood)) 
+                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == bot.Status.PlayerId && x.IsTooGood))
                     p.AttackPreference += 3;
 
 
@@ -93,31 +91,28 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         if (siriFriends != null)
                         {
-                            if (!siriFriends.FriendList.Contains(p.Player.Status.PlayerId))
-                            {
-                                p.AttackPreference += 5;
-                            }
+                            if (!siriFriends.FriendList.Contains(p.Player.Status.PlayerId)) p.AttackPreference += 5;
                             //До начала 5го хода может нападать только на одну цель. Если значение цели 0 - то блок.
                             if (siriFriends.FriendList.Count == 1 && game.RoundNo < 5)
                             {
                                 p.AttackPreference = 0;
-                                mandatoryAttack = game.PlayersList.Find(x => x.Status.PlayerId == siriFriends.FriendList[0]).Status.PlaceAtLeaderBoard;
+                                mandatoryAttack = game.PlayersList
+                                    .Find(x => x.Status.PlayerId == siriFriends.FriendList[0]).Status
+                                    .PlaceAtLeaderBoard;
                             }
                             //end До начала 5го хода может нападать только на одну цель. Если значение цели 0 - то блок.
 
-                        //Если кол-во оставшихся ходов = кол-во незапроканных друзей, то выбирает цель только из тех, кто еще не друг.
-                        // 3 == 4
-                        if ((10 - game.RoundNo) - (5 - siriFriends.FriendList.Count) <= 0)
-                        {
-                            var allNotFriends =
-                                game.PlayersList.FindAll(x => !siriFriends.FriendList.Contains(x.Status.PlayerId));
-
-                            if (allNotFriends != null && allNotFriends.Count > 0)
+                            //Если кол-во оставшихся ходов = кол-во незапроканных друзей, то выбирает цель только из тех, кто еще не друг.
+                            // 3 == 4
+                            if (10 - game.RoundNo - (5 - siriFriends.FriendList.Count) <= 0)
                             {
-                                mandatoryAttack = allNotFriends.FirstOrDefault().Status.PlaceAtLeaderBoard;
+                                var allNotFriends =
+                                    game.PlayersList.FindAll(x => !siriFriends.FriendList.Contains(x.Status.PlayerId));
+
+                                if (allNotFriends != null && allNotFriends.Count > 0)
+                                    mandatoryAttack = allNotFriends.FirstOrDefault().Status.PlaceAtLeaderBoard;
                             }
-                        }
-                        //end Если кол-во оставшихся ходов = кол-во незапроканных друзей, то выбирает цель только из тех, кто еще не друг.
+                            //end Если кол-во оставшихся ходов = кол-во незапроканных друзей, то выбирает цель только из тех, кто еще не друг.
                         }
                         //end +5 к значению тех, кто еще не друг.
                     }
@@ -173,36 +168,38 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     }
                         break;
                     case "Загадочный Спартанец в маске":
-                    {/*
+                    {
+                        /*
+                                                
                         
-
-                        //"Они позорят военное искусство"
-                        var panth = _gameGlobal.PanthShame.Find(x =>
-                            x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
-                        if (!panth.FriendList.Contains(p.Player.Status.PlayerId)) p.AttackPreference += 4;
-                        //end "Они позорят военное искусство"
-
-                        //Первым ходом выбирает только тех, кого точно победит. (кто побеждает его по статам, тем 10 = 0)
-
-
-                        //end Первым ходом выбирает только тех, кого точно победит. (кто побеждает его по статам, тем 10 = 0)
-
-
-                        //holy fuck, how can I read it!?!?
-                        //автоматически выбирает целью помеченного МЕТКОЙ врага, если превосходит его по статам и НЕ УСТУПАЕТ в Справедливости. то есть > или =
-                        var panth1 = _gameGlobal.PanthMark.Find(x =>
-                            x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
-
-                        if (panth1.FriendList.Contains(p.Player.Status.PlayerId))
-                            if (p.Player.Character.GetSpeed() + p.Player.Character.GetStrength() +
-                                p.Player.Character.GetIntelligence() + p.Player.Character.GetPsyche()
-                                -
-                                bot.Character.GetStrength() - bot.Character.GetSpeed() -
-                                bot.Character.GetIntelligence() - bot.Character.GetPsyche() < 0)
-                                if (bot.Character.Justice.GetJusticeNow() >= p.Player.Character.Justice.GetJusticeNow())
-                                    mandatoryAttack = p.Player.Status.PlaceAtLeaderBoard;
-                        //end автоматически выбирает целью помеченного МЕТКОЙ врага, если превосходит его по статам и НЕ УСТУПАЕТ в Справедливости. то есть > или =
-                   */ }
+                                                //"Они позорят военное искусство"
+                                                var panth = _gameGlobal.PanthShame.Find(x =>
+                                                    x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
+                                                if (!panth.FriendList.Contains(p.Player.Status.PlayerId)) p.AttackPreference += 4;
+                                                //end "Они позорят военное искусство"
+                        
+                                                //Первым ходом выбирает только тех, кого точно победит. (кто побеждает его по статам, тем 10 = 0)
+                        
+                        
+                                                //end Первым ходом выбирает только тех, кого точно победит. (кто побеждает его по статам, тем 10 = 0)
+                        
+                        
+                                                //holy fuck, how can I read it!?!?
+                                                //автоматически выбирает целью помеченного МЕТКОЙ врага, если превосходит его по статам и НЕ УСТУПАЕТ в Справедливости. то есть > или =
+                                                var panth1 = _gameGlobal.PanthMark.Find(x =>
+                                                    x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
+                        
+                                                if (panth1.FriendList.Contains(p.Player.Status.PlayerId))
+                                                    if (p.Player.Character.GetSpeed() + p.Player.Character.GetStrength() +
+                                                        p.Player.Character.GetIntelligence() + p.Player.Character.GetPsyche()
+                                                        -
+                                                        bot.Character.GetStrength() - bot.Character.GetSpeed() -
+                                                        bot.Character.GetIntelligence() - bot.Character.GetPsyche() < 0)
+                                                        if (bot.Character.Justice.GetJusticeNow() >= p.Player.Character.Justice.GetJusticeNow())
+                                                            mandatoryAttack = p.Player.Status.PlaceAtLeaderBoard;
+                                                //end автоматически выбирает целью помеченного МЕТКОЙ врага, если превосходит его по статам и НЕ УСТУПАЕТ в Справедливости. то есть > или =
+                                           */
+                    }
                         break;
                 }
                 //end custom bot behavior
@@ -214,9 +211,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     case "Darksci":
                         if (game.RoundNo == 9 ||
                             game.RoundNo == 10 && game.GetAllGameLogs().Contains("Нахуй эту игру"))
-                        {
                             p.AttackPreference = 0;
-                        }
                         break;
                 }
                 //end custom enemy
@@ -305,25 +300,29 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 isAttacked = await AttackPlayer(bot, whoToAttack);
             }
 
-            if (randomNumber <= player1.AttackPreference + player2.AttackPreference + player3.AttackPreference && !isAttacked)
+            if (randomNumber <= player1.AttackPreference + player2.AttackPreference + player3.AttackPreference &&
+                !isAttacked)
             {
                 whoToAttack = player3.Player.Status.PlaceAtLeaderBoard;
                 isAttacked = await AttackPlayer(bot, whoToAttack);
             }
 
-            if (randomNumber <= player1.AttackPreference + player2.AttackPreference + player3.AttackPreference + player4.AttackPreference && !isAttacked)
+            if (randomNumber <= player1.AttackPreference + player2.AttackPreference + player3.AttackPreference +
+                player4.AttackPreference && !isAttacked)
             {
                 whoToAttack = player4.Player.Status.PlaceAtLeaderBoard;
                 isAttacked = await AttackPlayer(bot, whoToAttack);
             }
 
-            if (randomNumber <= player1.AttackPreference + player2.AttackPreference + player3.AttackPreference + player4.AttackPreference + player5.AttackPreference && !isAttacked)
+            if (randomNumber <= player1.AttackPreference + player2.AttackPreference + player3.AttackPreference +
+                player4.AttackPreference + player5.AttackPreference && !isAttacked)
             {
                 whoToAttack = player5.Player.Status.PlaceAtLeaderBoard;
                 isAttacked = await AttackPlayer(bot, whoToAttack);
             }
 
-            if (randomNumber <= player1.AttackPreference + player2.AttackPreference + player3.AttackPreference + player4.AttackPreference + player5.AttackPreference + player6.AttackPreference && !isAttacked)
+            if (randomNumber <= player1.AttackPreference + player2.AttackPreference + player3.AttackPreference +
+                player4.AttackPreference + player5.AttackPreference + player6.AttackPreference && !isAttacked)
             {
                 whoToAttack = player6.Player.Status.PlaceAtLeaderBoard;
                 isAttacked = await AttackPlayer(bot, whoToAttack);
@@ -358,10 +357,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             var stats = new List<BiggestStatClass>
             {
-                new BiggestStatClass(1, intelligence),
-                new BiggestStatClass(2, strength),
-                new BiggestStatClass(3, speed),
-                new BiggestStatClass(4, psyche)
+                new(1, intelligence),
+                new(2, strength),
+                new(3, speed),
+                new(4, psyche)
             };
 
             stats = stats.OrderByDescending(x => x.StatCount).ToList();
@@ -414,9 +413,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         public class Nanobot
         {
+            public int AttackPreference;
             public int PlaceAtLeaderBoard;
             public GamePlayerBridgeClass Player;
-            public int AttackPreference;
 
 
             public Nanobot(GamePlayerBridgeClass player)
@@ -430,7 +429,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         public class NanobotClass
         {
             public ulong GameId;
-            public List<Nanobot> Nanobots = new List<Nanobot>();
+            public List<Nanobot> Nanobots = new();
 
             public NanobotClass(IReadOnlyList<GamePlayerBridgeClass> players)
             {

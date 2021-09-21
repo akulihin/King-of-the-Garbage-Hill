@@ -421,10 +421,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     var player2Stats = new List<Sirinoks.TrainingSubClass>
                     {
-                        new Sirinoks.TrainingSubClass(1, playerIamAttacking.Character.GetIntelligence()),
-                        new Sirinoks.TrainingSubClass(2, playerIamAttacking.Character.GetStrength()),
-                        new Sirinoks.TrainingSubClass(3, playerIamAttacking.Character.GetSpeed()),
-                        new Sirinoks.TrainingSubClass(4, playerIamAttacking.Character.GetPsyche())
+                        new(1, playerIamAttacking.Character.GetIntelligence()),
+                        new(2, playerIamAttacking.Character.GetStrength()),
+                        new(3, playerIamAttacking.Character.GetSpeed()),
+                        new(4, playerIamAttacking.Character.GetPsyche())
                     };
                     var sup = player2Stats.OrderByDescending(x => x.StatNumber).ToList()[0];
                     if (awdka == null)

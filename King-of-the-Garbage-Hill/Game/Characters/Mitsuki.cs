@@ -26,7 +26,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             public ulong GameId;
             public Guid PlayerId;
-            public List<Guid> Training = new List<Guid>();
+            public List<Guid> Training = new();
 
             public GarbageClass(Guid playerId, ulong gameId, Guid enemyId)
             {

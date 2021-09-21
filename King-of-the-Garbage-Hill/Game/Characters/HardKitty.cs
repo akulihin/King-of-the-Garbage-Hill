@@ -84,7 +84,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class DoebatsyaClass
         {
             public ulong GameId;
-            public List<DoebatsyaSubClass> LostSeries = new List<DoebatsyaSubClass>();
+            public List<DoebatsyaSubClass> LostSeries = new();
             public Guid PlayerId;
 
             public DoebatsyaClass(Guid playerId, ulong gameId, Guid enemyId)
@@ -112,7 +112,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             public ulong GameId;
             public Guid PlayerId;
-            public List<Guid> UniquePlayers = new List<Guid>();
+            public List<Guid> UniquePlayers = new();
 
             public MuteClass(Guid playerId, ulong gameId)
             {

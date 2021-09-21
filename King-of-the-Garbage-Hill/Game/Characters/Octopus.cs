@@ -42,7 +42,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             public ulong GameId;
             public Guid PlayerId;
-            public List<InkSubClass> RealScoreList = new List<InkSubClass>();
+            public List<InkSubClass> RealScoreList = new();
 
             public InkClass(Guid playerId, GameClass game, Guid enemyPlayerId)
             {
@@ -88,8 +88,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class TentaclesClass
         {
             public ulong GameId;
+            public List<int> LeaderboardPlace = new();
             public Guid PlayerId;
-            public List<int> LeaderboardPlace = new List<int>();
 
             public TentaclesClass(Guid playerId, ulong gameId)
             {

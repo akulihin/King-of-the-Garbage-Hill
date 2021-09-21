@@ -11,7 +11,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework.Extensions
 
         //not data
 
-        public List<CommandRam> CommandList { get; set; } = new List<CommandRam>();
+        public List<CommandRam> CommandList { get; set; } = new();
 
         public async Task InitializeAsync()
         {

@@ -39,7 +39,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public class PushAndDieClass
         {
-            public List<PushAndDieSubClass> PlayersEveryRound = new List<PushAndDieSubClass>();
+            public List<PushAndDieSubClass> PlayersEveryRound = new();
 
             public PushAndDieClass(Guid playerId, ulong gameId, IEnumerable<GamePlayerBridgeClass> players)
             {
@@ -54,7 +54,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public class PushAndDieSubClass
         {
-            public List<PushAndDieSubSubClass> PlayerList = new List<PushAndDieSubSubClass>();
+            public List<PushAndDieSubSubClass> PlayerList = new();
 
             public PushAndDieSubClass(int roundNo, IEnumerable<GamePlayerBridgeClass> players)
             {

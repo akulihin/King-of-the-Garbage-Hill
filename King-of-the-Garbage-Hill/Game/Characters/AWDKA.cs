@@ -38,12 +38,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                 if (enemy == null)
                     awdka.EnemyList.Add(new TrollingSubClass(player.Status.IsWonThisCalculation,
-                       game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Status.GetScore()));
+                        game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Status
+                            .GetScore()));
                 else
-                    enemy.Score =  game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Status.GetScore();
+                    enemy.Score = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation)
+                        .Status.GetScore();
             }
             //end Произошел троллинг:
-          
+
             //Я пытаюсь!
             if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
@@ -51,19 +53,18 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     x.GameId == player.GameId && x.PlayerId == player.Status.PlayerId);
 
 
-                    var enemy = awdka.TryingList.Find(x => x.EnemyPlayerId == player.Status.IsLostThisCalculation);
-                    if (enemy == null)
-                        awdka.TryingList.Add(new TryingSubClass(player.Status.IsLostThisCalculation));
-                    else
-                        enemy.Times++;
-          
+                var enemy = awdka.TryingList.Find(x => x.EnemyPlayerId == player.Status.IsLostThisCalculation);
+                if (enemy == null)
+                    awdka.TryingList.Add(new TryingSubClass(player.Status.IsLostThisCalculation));
+                else
+                    enemy.Times++;
             }
             //Я пытаюсь!
         }
 
         public class TrollingClass
         {
-            public List<TrollingSubClass> EnemyList = new List<TrollingSubClass>();
+            public List<TrollingSubClass> EnemyList = new();
 
             public ulong GameId;
             public Guid PlayerId;
@@ -92,7 +93,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             public ulong GameId;
             public Guid PlayerId;
-            public List<TryingSubClass> TryingList = new List<TryingSubClass>();
+            public List<TryingSubClass> TryingList = new();
 
             public TryingClass(Guid playerId, ulong gameId)
             {

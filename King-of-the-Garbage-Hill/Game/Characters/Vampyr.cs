@@ -100,7 +100,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     }
                 }
             }
-            else if(player.Status.IsLostThisCalculation != Guid.Empty)
+            else if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
                 var vamp = _gameGlobal.VampyrKilledList.Find(x =>
                     x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
@@ -119,57 +119,55 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 }
 
                 if (flag)
-                {
                     for (var k = 0; k < 2; k++)
-                            for (var i = 0; i < 1; i++)
-                            {
-                                var index = _rand.Random(1, 4);
+                    for (var i = 0; i < 1; i++)
+                    {
+                        var index = _rand.Random(1, 4);
 
-                                switch (index)
+                        switch (index)
+                        {
+                            case 1:
+                                var intel = player.Character.GetIntelligence();
+                                if (intel <= 0)
                                 {
-                                    case 1:
-                                        var intel = player.Character.GetIntelligence();
-                                        if (intel <= 0)
-                                        {
-                                            i--;
-                                            continue;
-                                        }
-
-                                        player.Character.AddIntelligence(player.Status, -1);
-                                        break;
-                                    case 2:
-                                        intel = player.Character.GetStrength();
-                                        if (intel <= 0)
-                                        {
-                                            i--;
-                                            continue;
-                                        }
-
-                                        player.Character.AddStrength(player.Status, -1);
-                                        break;
-                                    case 3:
-                                        intel = player.Character.GetSpeed();
-                                        if (intel <= 0)
-                                        {
-                                            i--;
-                                            continue;
-                                        }
-
-                                        player.Character.AddSpeed(player.Status, -1);
-                                        break;
-                                    case 4:
-                                        intel = player.Character.GetPsyche();
-                                        if (intel <= 0)
-                                        {
-                                            i--;
-                                            continue;
-                                        }
-
-                                        player.Character.AddPsyche(player.Status, -1);
-                                        break;
+                                    i--;
+                                    continue;
                                 }
-                            }
-                }
+
+                                player.Character.AddIntelligence(player.Status, -1);
+                                break;
+                            case 2:
+                                intel = player.Character.GetStrength();
+                                if (intel <= 0)
+                                {
+                                    i--;
+                                    continue;
+                                }
+
+                                player.Character.AddStrength(player.Status, -1);
+                                break;
+                            case 3:
+                                intel = player.Character.GetSpeed();
+                                if (intel <= 0)
+                                {
+                                    i--;
+                                    continue;
+                                }
+
+                                player.Character.AddSpeed(player.Status, -1);
+                                break;
+                            case 4:
+                                intel = player.Character.GetPsyche();
+                                if (intel <= 0)
+                                {
+                                    i--;
+                                    continue;
+                                }
+
+                                player.Character.AddPsyche(player.Status, -1);
+                                break;
+                        }
+                    }
             }
             //end Гематофагия
 

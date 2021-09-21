@@ -24,16 +24,16 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
             var statsList = new List<StatsStruct>
             {
-                new StatsStruct(1, 0),
-                new StatsStruct(2, 0),
-                new StatsStruct(3, 0),
-                new StatsStruct(4, 0),
-                new StatsStruct(5, 0),
-                new StatsStruct(6, 0),
-                new StatsStruct(7, 0),
-                new StatsStruct(8, 0),
-                new StatsStruct(9, 0),
-                new StatsStruct(10, 0)
+                new(1, 0),
+                new(2, 0),
+                new(3, 0),
+                new(4, 0),
+                new(5, 0),
+                new(6, 0),
+                new(7, 0),
+                new(8, 0),
+                new(9, 0),
+                new(10, 0)
             };
 
             for (ulong i = 0; i < times; i++)

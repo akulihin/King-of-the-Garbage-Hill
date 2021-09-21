@@ -13,7 +13,7 @@ namespace King_of_the_Garbage_Hill.Helpers
     {
         private readonly UserAccounts _accounts;
 
-        private readonly List<string> _characterNames = new List<string>
+        private readonly List<string> _characterNames = new()
         {
             "UselessCrab",
             "Daumond",
@@ -71,8 +71,6 @@ namespace King_of_the_Garbage_Hill.Helpers
         }
 
 
-
-
         public void SubstituteUserWithBot(ulong discordId)
         {
             var prevGame = _global.GamesList.Find(
@@ -82,7 +80,7 @@ namespace King_of_the_Garbage_Hill.Helpers
 
             var freeBot = GetFreeBot(prevGame.PlayersList);
             var leftUser = prevGame.PlayersList.Find(x => x.DiscordId == discordId);
-           
+
             leftUser.DiscordId = freeBot.DiscordId;
             leftUser.DiscordUsername = freeBot.DiscordUserName;
             leftUser.IsLogs = freeBot.IsLogs;

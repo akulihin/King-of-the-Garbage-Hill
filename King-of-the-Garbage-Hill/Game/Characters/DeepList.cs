@@ -104,14 +104,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 }
                 else
                 {
-                    var toAdd = new Mockery(new List<MockerySub> {new MockerySub(player2.Status.PlayerId, 1)},
+                    var toAdd = new Mockery(new List<MockerySub> {new(player2.Status.PlayerId, 1)},
                         game.GameId, player.Status.PlayerId);
                     _gameGlobal.DeepListMockeryList.Add(toAdd);
                 }
             }
             else
             {
-                var toAdd = new Mockery(new List<MockerySub> {new MockerySub(player2.Status.PlayerId, 1)},
+                var toAdd = new Mockery(new List<MockerySub> {new(player2.Status.PlayerId, 1)},
                     game.GameId, player.Status.PlayerId);
                 _gameGlobal.DeepListMockeryList.Add(toAdd);
             }
@@ -149,7 +149,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class SuperMindKnown
         {
             public ulong GameId;
-            public List<Guid> KnownPlayers = new List<Guid>();
+            public List<Guid> KnownPlayers = new();
             public Guid PlayerId;
 
             public SuperMindKnown(Guid playerId, ulong gameId, Guid player2Id)
@@ -163,7 +163,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class Madness
         {
             public ulong GameId;
-            public List<MadnessSub> MadnessList = new List<MadnessSub>();
+            public List<MadnessSub> MadnessList = new();
             public Guid PlayerId;
             public int RoundItTriggered;
 

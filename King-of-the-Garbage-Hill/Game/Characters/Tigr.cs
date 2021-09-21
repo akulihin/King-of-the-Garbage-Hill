@@ -109,7 +109,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public class ThreeZeroClass
         {
-            public List<ThreeZeroSubClass> FriendList = new List<ThreeZeroSubClass>();
+            public List<ThreeZeroSubClass> FriendList = new();
             public ulong GameId;
             public Guid PlayerId;
 

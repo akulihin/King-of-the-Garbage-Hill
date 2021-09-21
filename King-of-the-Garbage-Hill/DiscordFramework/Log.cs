@@ -37,7 +37,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
             };
 
         private readonly int _padLength = 16;
-        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
+        private readonly SemaphoreSlim _semaphore = new(1);
 
 
 

@@ -5,6 +5,10 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 {
     public class DiscordAccountClass
     {
+        public List<CharacterChances> CharacterChance = new();
+        public List<CharacterStatisticsClass> CharacterStatistics = new();
+        public List<MatchHistoryClass> MatchHistory = new();
+        public List<PerformanceStatisticsClass> PerformanceStatistics = new();
 
         public string DiscordUserName { get; set; }
         public ulong DiscordId { get; set; }
@@ -14,23 +18,19 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public string UserType { get; set; }
         public int ZbsPoints { get; set; }
 
-        public List<CharacterChances> CharacterChance = new List<CharacterChances>();
-        public List<CharacterStatisticsClass> CharacterStatistics = new List<CharacterStatisticsClass>();
-        public List<MatchHistoryClass> MatchHistory = new List<MatchHistoryClass>();
-        public List<PerformanceStatisticsClass> PerformanceStatistics = new List<PerformanceStatisticsClass>();
-
         public ulong TotalPlays { get; set; }
         public ulong TotalWins { get; set; }
 
         public class CharacterChances
         {
-            public int CharacterChanceMin;
+            public int Changes;
             public int CharacterChanceMax;
+            public int CharacterChanceMin;
             public string CharacterName;
             public double Multiplier;
-            public int Changes;
 
-            public CharacterChances(string characterName, int characterChanceMin, int characterChanceMax, double multiplier = 1.0)
+            public CharacterChances(string characterName, int characterChanceMin, int characterChanceMax,
+                double multiplier = 1.0)
             {
                 CharacterName = characterName;
                 CharacterChanceMin = characterChanceMin;
@@ -70,8 +70,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         {
             public string CharacterName;
             public DateTimeOffset Date;
-            public int Score;
             public int Place;
+            public int Score;
 
             public MatchHistoryClass(string characterName, int score, int place)
             {

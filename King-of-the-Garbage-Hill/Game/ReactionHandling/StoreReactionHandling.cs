@@ -31,20 +31,16 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 await cash.DownloadAsync();
                 if (!cash.HasValue) return;
                 var title_str = cash.Value.Embeds.FirstOrDefault()?.Title;
-                
+
                 if (title_str == null)
-                {
                     //await channel.SendMessageAsync("ERROR: Embed Title == null");
                     return;
-                }
-                
+
                 var title = title_str.Split(" - ");
 
                 if (title.Length < 2)
-                {
                     //await channel.SendMessageAsync("ERROR: Embed Title len < 2");
                     return;
-                }
 
                 if (title[0] != "Магазин") return;
 
@@ -61,7 +57,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                 switch (reaction.Emote.Name)
                 {
-
                     //Уменьшить шанс на 1% - 20 ZP
                     case "1⃣":
                         cost = 20;
@@ -183,13 +178,11 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         });
                         break;
                 }
-
             }
             catch
             {
                 //ingored
             }
-
         }
     }
 }

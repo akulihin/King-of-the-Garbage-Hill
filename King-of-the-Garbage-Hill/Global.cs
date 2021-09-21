@@ -14,10 +14,10 @@ namespace King_of_the_Garbage_Hill
         public readonly DateTime TimeBotStarted;
 
 
-        public List<GameClass> GamesList = new List<GameClass>();
+        public List<GameClass> GamesList = new();
 
         public ConcurrentDictionary<ulong, Stopwatch> TimeSpendOnLastMessage =
-            new ConcurrentDictionary<ulong, Stopwatch>();
+            new();
 
 
         public Global(DiscordShardedClient client)

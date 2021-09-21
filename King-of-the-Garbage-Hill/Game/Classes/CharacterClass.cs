@@ -32,6 +32,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         {
             return BonusPointsFromMoral;
         }
+
         public void SetBonusPointsFromMoral(int newBonusPointsFromMoral)
         {
             BonusPointsFromMoral = newBonusPointsFromMoral;
@@ -63,7 +64,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public string RandomCurrentSkillTarget()
         {
-            var skillsSet = new List<string>{ "Интеллект", "Скорость", "Сила" };
+            var skillsSet = new List<string> {"Интеллект", "Скорость", "Сила"};
             var rand = new Random();
             return skillsSet[rand.Next(0, 2)];
         }

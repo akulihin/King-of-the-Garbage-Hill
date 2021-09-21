@@ -13,7 +13,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
         private readonly DiscordShardedClient _client;
 
         private readonly List<DiscordAccountClass.CharacterChances> _defaultCharacterChances =
-            new List<DiscordAccountClass.CharacterChances>
+            new()
             {
                 //default 100 range
                 new DiscordAccountClass.CharacterChances("DeepList", 1, 100),
@@ -26,7 +26,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 new DiscordAccountClass.CharacterChances("Mit*suki*", 701, 800),
                 new DiscordAccountClass.CharacterChances("AWDKA", 801, 900),
                 new DiscordAccountClass.CharacterChances("Darksci", 901, 1000),
-                
+
                 //default 50 range
                 new DiscordAccountClass.CharacterChances("Загадочный Спартанец в маске", 1001, 1050),
                 new DiscordAccountClass.CharacterChances("Тигр", 1051, 1100),
@@ -72,10 +72,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
         public void ClearPlayingStatus()
         {
             var accounts = GetAllAccount();
-            foreach (var a in accounts)
-            {
-                a.IsPlaying = false;
-            }
+            foreach (var a in accounts) a.IsPlaying = false;
 
             SaveAllAccounts(null, null);
         }

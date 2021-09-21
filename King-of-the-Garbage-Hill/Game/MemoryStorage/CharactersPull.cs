@@ -8,6 +8,10 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 {
     public class CharactersPull : IServiceTransient
     {
+        public async Task InitializeAsync()
+        {
+            await Task.CompletedTask;
+        }
         /*
         private readonly List<CharacterClass> _allCharacters;
 
@@ -25,11 +29,6 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             var filePath = @"DataBase/characters.json";
             var json = File.ReadAllText(filePath);
             return JsonConvert.DeserializeObject<List<CharacterClass>>(json);
-        }
-
-        public async Task InitializeAsync()
-        {
-            await Task.CompletedTask;
         }
     }
 }

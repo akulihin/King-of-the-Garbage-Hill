@@ -111,7 +111,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             public MylorikRevengeClass(Guid playerId, ulong gameId, Guid firstLost)
             {
                 PlayerId = playerId;
-                EnemyListPlayerIds = new List<MylorikRevengeClassSub> {new MylorikRevengeClassSub(firstLost)};
+                EnemyListPlayerIds = new List<MylorikRevengeClassSub> {new(firstLost)};
                 GameId = gameId;
             }
         }

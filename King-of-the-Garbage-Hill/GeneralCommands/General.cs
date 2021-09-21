@@ -640,8 +640,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             embed.AddField("Тип Пользователя", $"{account.UserType}", true);
             embed.AddField("Всего Игр", $"{account.TotalPlays}", true);
             embed.AddField("Всего Топ 1", $"{account.TotalWins}", true);
-            
-            if(totalPoints > 0)
+
+            if (totalPoints > 0)
                 embed.AddField("Среднее количество очков за игру",
                     $"{totalPoints / account.TotalWins} - ({totalPoints}/{account.TotalWins})");
             if (topPoints != null)
@@ -664,7 +664,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 embed.AddField("Самое частое место", $"Топ {mostPlace.Place} - {mostPlace.Times}/{account.TotalPlays}",
                     true);
             if (leastPlace != null)
-                embed.AddField("Самое редкое место", $"Топ {leastPlace.Place} - {leastPlace.Times}/{account.TotalPlays}",
+                embed.AddField("Самое редкое место",
+                    $"Топ {leastPlace.Place} - {leastPlace.Times}/{account.TotalPlays}",
                     true);
             if (mostChance != null)
                 embed.AddField("Самый большой шанс",

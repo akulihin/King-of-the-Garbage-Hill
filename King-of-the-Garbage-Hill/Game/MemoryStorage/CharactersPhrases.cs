@@ -272,7 +272,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             GlebChallengerSeparatePhrase.PassiveLogRus.Add("JA - PRETENDENT!");
             GlebChallengerSeparatePhrase.PassiveLogRus.Add("IT'S NASHORS TIME!");
             GlebChallengerSeparatePhrase.PassiveLogRus.Add("DOMOJ GAMBIT!");
-            
+
 
             GlebSleepyPhrase.PassiveLogRus.Add("Zzzz...");
             GlebSleepyPhrase.PassiveLogRus.Add("Я... Я тут...");
@@ -371,8 +371,8 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         //class needed to send unique logs.
         public class PhraseClass
         {
-            public List<string> PassiveLogEng = new List<string>();
-            public List<string> PassiveLogRus = new List<string>();
+            public List<string> PassiveLogEng = new();
+            public List<string> PassiveLogRus = new();
             public string PassiveNameEng;
             public string PassiveNameRus;
 
@@ -420,9 +420,11 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
             public async Task SendLogSeparate(GamePlayerBridgeClass player)
             {
-                if(player.IsBot()) return;
+                if (player.IsBot()) return;
 #pragma warning disable 4014
-                DeleteMessOverTime(await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)]), 6);
+                DeleteMessOverTime(
+                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                        PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)]), 6);
 #pragma warning restore 4014
             }
 
