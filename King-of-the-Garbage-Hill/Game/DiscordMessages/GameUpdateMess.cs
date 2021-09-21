@@ -331,7 +331,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var embed = new EmbedBuilder();
             embed.WithColor(Color.Blue);
-            embed.WithTitle("King of the Garbage Hill")
+            embed.WithTitle("King of the Garbage Hill");
             embed.WithFooter($"{GetTimeLeft(player)}");
             embed.WithCurrentTimestamp();
 
