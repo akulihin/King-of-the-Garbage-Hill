@@ -1,6 +1,5 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
-using Discord;
 using Discord.WebSocket;
 
 namespace King_of_the_Garbage_Hill.Helpers
@@ -48,10 +47,10 @@ namespace King_of_the_Garbage_Hill.Helpers
             }
         }
 
-        public async Task<bool> FinishTheGameQuestion(SocketReaction reaction)
+        public async Task<bool> FinishTheGameQuestion(SocketMessageComponent button)
         {
-            var mess = await reaction.Channel.SendMessageAsync("Are you sure, you want to **end** the game? say `y`");
-            var res = await AwaitMessage(reaction.UserId, reaction.Channel.Id, 5000);
+            var mess = await button.Channel.SendMessageAsync("Are you sure, you want to **end** the game? say `y`");
+            var res = await AwaitMessage(button.User.Id, button.Channel.Id, 5000);
             var response = res.Content.ToLower();
 
             await mess.DeleteAsync();
@@ -59,66 +58,6 @@ namespace King_of_the_Garbage_Hill.Helpers
 
             return response.Contains("yes") || response.Contains("ye") || response.Contains("y") ||
                    response.Contains("у");
-        }
-
-        public async Task<bool> AwaitEmoji(ulong userId, ulong messageId, string emoji, int delayInSeconds)
-        {
-            var response = false;
-            var cancler = new CancellationTokenSource();
-            var waiter = Task.Delay(delayInSeconds * 1000, cancler.Token);
-
-            _global.Client.ReactionAdded += OnReactionAdded;
-            _global.Client.ReactionRemoved += OnReactionRemoved;
-            try
-            {
-                await waiter;
-            }
-            catch (TaskCanceledException)
-            {
-            }
-
-            _global.Client.ReactionAdded -= OnReactionAdded;
-            _global.Client.ReactionRemoved -= OnReactionRemoved;
-
-            return response;
-
-            async Task OnReactionAdded(Cacheable<IUserMessage, ulong> arg1, ISocketMessageChannel arg2,
-                SocketReaction arg3)
-            {
-                if (arg3.UserId == userId && arg3.MessageId == messageId && arg3.Emote.Name != emoji)
-                {
-                    response = false;
-                    cancler.Cancel();
-                    await Task.CompletedTask;
-                }
-                else if (arg3.UserId != userId || arg3.MessageId != messageId || arg3.Emote.Name != emoji)
-                {
-                    return;
-                }
-
-                response = true;
-                cancler.Cancel();
-                await Task.CompletedTask;
-            }
-
-            async Task OnReactionRemoved(Cacheable<IUserMessage, ulong> arg1, ISocketMessageChannel arg2,
-                SocketReaction arg3)
-            {
-                if (arg3.UserId == userId && arg3.MessageId == messageId && arg3.Emote.Name != emoji)
-                {
-                    response = false;
-                    cancler.Cancel();
-                    await Task.CompletedTask;
-                }
-                else if (arg3.UserId != userId || arg3.MessageId != messageId || arg3.Emote.Name != emoji)
-                {
-                    return;
-                }
-
-                response = true;
-                cancler.Cancel();
-                await Task.CompletedTask;
-            }
         }
 
 

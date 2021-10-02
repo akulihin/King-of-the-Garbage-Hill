@@ -187,7 +187,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
                 catch (Exception f)
                 {
-                    await _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
+                    await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
                         .SendMessageAsync("CheckIfEveryoneIsReady ==>  await _round.DeepListMind(game);\n" +
                                           $"{f.StackTrace}");
                 }

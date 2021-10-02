@@ -23,14 +23,11 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             return Task.CompletedTask;
         }
 
-        public async Task ReactionAddedStore(Cacheable<IUserMessage, ulong> cash, ISocketMessageChannel channel,
-            SocketReaction reaction)
+        public async Task ReactionAddedStore(SocketMessageComponent button)
         {
             try
             {
-                await cash.DownloadAsync();
-                if (!cash.HasValue) return;
-                var title_str = cash.Value.Embeds.FirstOrDefault()?.Title;
+                var title_str = button.Message.Embeds.FirstOrDefault()?.Title;
 
                 if (title_str == null)
                     //await channel.SendMessageAsync("ERROR: Embed Title == null");
@@ -44,32 +41,32 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                 if (title[0] != "Магазин") return;
 
-                var account = _userAccounts.GetAccount(reaction.UserId);
+                var account = _userAccounts.GetAccount(button.User.Id);
                 var character = account.CharacterChance.Find(x => x.CharacterName == title[1]);
 
                 if (character == null)
                 {
-                    await channel.SendMessageAsync($"ERROR: character named {title[1]} was not found");
+                    await button.Channel.SendMessageAsync($"ERROR: character named {title[1]} was not found");
                     return;
                 }
 
                 var cost = 0;
 
-                switch (reaction.Emote.Name)
+                switch (button.Data.CustomId)
                 {
                     //Уменьшить шанс на 1% - 20 ZP
-                    case "1⃣":
+                    case "attack-one":
                         cost = 20;
                         if (character.Multiplier <= 0.0)
                         {
-                            await channel.SendMessageAsync(
+                            await button.Channel.SendMessageAsync(
                                 $"У персонажа {character.CharacterName} и так минимальный бонусный шанс - {character.Multiplier}");
                             return;
                         }
 
                         if (account.ZbsPoints < cost)
                         {
-                            await channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
+                            await button.Channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
                             return;
                         }
 
@@ -77,30 +74,30 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         character.Changes++;
                         account.ZbsPoints -= cost;
 
-                        await channel.SendMessageAsync(
+                        await button.Channel.SendMessageAsync(
                             $"Готово. Бонусный шанш {character.CharacterName} = {character.Multiplier}");
 
-                        await cash.Value.ModifyAsync(message =>
+                        await button.Message.ModifyAsync(message =>
                         {
                             message.Content = "";
                             message.Embed = null;
-                            message.Embed = _storeLogic.GetStoreEmbed(character, account, reaction.User.Value).Build();
+                            message.Embed = _storeLogic.GetStoreEmbed(character, account, button.User).Build();
                         });
                         break;
 
                     //Увеличить шанс на 1% - 20 ZP
-                    case "2⃣":
+                    case "attack-two":
                         cost = 20;
                         if (character.Multiplier >= 2.0)
                         {
-                            await channel.SendMessageAsync(
+                            await button.Channel.SendMessageAsync(
                                 $"У персонажа {character.CharacterName} и так максимальный бонусный шанс - {character.Multiplier}");
                             return;
                         }
 
                         if (account.ZbsPoints < cost)
                         {
-                            await channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
+                            await button.Channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
                             return;
                         }
 
@@ -108,23 +105,23 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         character.Changes++;
                         account.ZbsPoints -= cost;
 
-                        await channel.SendMessageAsync(
+                        await button.Channel.SendMessageAsync(
                             $"Готово. Бонусный шанш {character.CharacterName} = {character.Multiplier}");
 
-                        await cash.Value.ModifyAsync(message =>
+                        await button.Message.ModifyAsync(message =>
                         {
                             message.Content = "";
                             message.Embed = null;
-                            message.Embed = _storeLogic.GetStoreEmbed(character, account, reaction.User.Value).Build();
+                            message.Embed = _storeLogic.GetStoreEmbed(character, account, button.User).Build();
                         });
                         break;
 
                     //Вернуть все ZBS Points за этого персонажа - 10 ZP
-                    case "3⃣":
+                    case "attack-three":
                         cost = 0;
                         if (account.ZbsPoints < cost)
                         {
-                            await channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
+                            await button.Channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
                             return;
                         }
 
@@ -134,24 +131,24 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         account.ZbsPoints -= cost;
                         character.Changes = 0;
 
-                        await channel.SendMessageAsync(
+                        await button.Channel.SendMessageAsync(
                             $"Готово. Бонусный шанш {character.CharacterName} = {character.Multiplier}\n" +
                             $"Ты вернул {zbsPointsToReturn} ZBS Points");
 
-                        await cash.Value.ModifyAsync(message =>
+                        await button.Message.ModifyAsync(message =>
                         {
                             message.Content = "";
                             message.Embed = null;
-                            message.Embed = _storeLogic.GetStoreEmbed(character, account, reaction.User.Value).Build();
+                            message.Embed = _storeLogic.GetStoreEmbed(character, account, button.User).Build();
                         });
                         break;
 
                     //Вернуть все ZBS Points за ВСЕХ персонажей - 50 ZP
-                    case "4⃣":
+                    case "attack-four":
                         cost = 0;
                         if (account.ZbsPoints < cost)
                         {
-                            await channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
+                            await button.Channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
                             return;
                         }
 
@@ -166,15 +163,15 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         }
 
                         account.ZbsPoints += zbsPointsToReturn;
-                        await channel.SendMessageAsync(
+                        await button.Channel.SendMessageAsync(
                             $"Готово. Бонусный шанш **Всех Персонажей** = {character.Multiplier}\n" +
                             $"Ты вернул {zbsPointsToReturn} ZBS Points");
 
-                        await cash.Value.ModifyAsync(message =>
+                        await button.Message.ModifyAsync(message =>
                         {
                             message.Content = "";
                             message.Embed = null;
-                            message.Embed = _storeLogic.GetStoreEmbed(character, account, reaction.User.Value).Build();
+                            message.Embed = _storeLogic.GetStoreEmbed(character, account, button.User).Build();
                         });
                         break;
                 }

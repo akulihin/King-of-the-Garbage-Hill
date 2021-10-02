@@ -16,13 +16,13 @@ namespace King_of_the_Garbage_Hill.DiscordFramework.Extensions
             await userMessage.DeleteAsync();
         }
 
-        protected virtual async Task SendMessAsync(EmbedBuilder embed, int delete = 0)
+        protected virtual async Task<IUserMessage> SendMessAsync(EmbedBuilder embed, int delete = 0, MessageComponent components = null )
         {
             switch (Context.MessageContentForEdit)
             {
                 case null:
                     {
-                        var message = await Context.Channel.SendMessageAsync("", false, embed.Build());
+                        var message = await Context.Channel.SendMessageAsync("", false, embed.Build(), component: components);
 
 
                         UpdateGlobalCommandList(message, Context);
@@ -30,20 +30,26 @@ namespace King_of_the_Garbage_Hill.DiscordFramework.Extensions
 #pragma warning disable 4014
                         if (delete > 0) DeleteMessage(message, delete);
 #pragma warning restore 4014
-                        break;
+                        return message;
                     }
                 case "edit":
                     {
-                        foreach (var t in Context.CommandsInMemory.CommandList.Where(t => t.MessageUserId == Context.Message.Id))
+                        foreach (var t in Context.CommandsInMemory.CommandList.Where(t =>
+                            t.MessageUserId == Context.Message.Id))
+                        {
                             await t.BotSocketMsg.ModifyAsync(message =>
                             {
                                 message.Content = "";
                                 message.Embed = null;
                                 message.Embed = embed.Build();
                             });
-                        break;
+                            return t.BotSocketMsg;
+                        }
+
+                        return null;
                     }
             }
+            return null;
         }
 
 

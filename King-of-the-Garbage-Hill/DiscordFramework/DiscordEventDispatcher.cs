@@ -50,6 +50,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
             _client.MessageReceived += MessageReceived;
             _client.MessageUpdated += MessageUpdated;
             _client.ReactionAdded += ReactionAdded;
+            _client.ButtonExecuted += _client_ButtonExecuted;
             _client.ReactionRemoved += ReactionRemoved;
             _client.ReactionsCleared += ReactionsCleared;
             _client.ShardConnected += _client_ShardConnected;
@@ -66,6 +67,12 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
             _client.UserUpdated += UserUpdated;
             _client.UserVoiceStateUpdated += UserVoiceStateUpdated;
             return Task.CompletedTask;
+        }
+
+
+
+        private async Task UserIsTyping(Cacheable<IUser, ulong> arg1, Cacheable<IMessageChannel, ulong> arg2)
+        {
         }
 
         private async Task _client_ShardConnected(DiscordSocketClient arg)
@@ -96,7 +103,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
         {
         }
 
-        private async Task GuildMemberUpdated(SocketGuildUser userBefore, SocketGuildUser userAfter)
+        private async Task GuildMemberUpdated(Cacheable<SocketGuildUser, ulong> userBefore, SocketGuildUser userAfterarg2)
         {
         }
 
@@ -130,10 +137,10 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
         {
         }
 
-        private async Task MessageDeleted(Cacheable<IMessage, ulong> cacheMessage, ISocketMessageChannel channel)
+        private async Task MessageDeleted(Cacheable<IMessage, ulong> cacheMessage, Cacheable<IMessageChannel, ulong> channel)
         {
             if (!cacheMessage.HasValue || cacheMessage.Value.Author.IsBot) return; //IActivity guess
-            _commandHandler._client_MessageDeleted(cacheMessage, channel);
+            _commandHandler._client_MessageDeleted(cacheMessage, channel.GetOrDownloadAsync().Result);
         }
 
         private async Task MessageReceived(SocketMessage message)
@@ -161,24 +168,36 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
             _commandHandler._client_MessageUpdated(cacheMessageBefore, messageAfter, channel);
         }
 
-        private async Task ReactionAdded(Cacheable<IUserMessage, ulong> cacheMessage, ISocketMessageChannel channel,
-            SocketReaction reaction)
+        private async Task _client_ButtonExecuted(SocketMessageComponent button)
         {
-            if (reaction.User.Value.IsBot) return;
-            _gameReaction.ReactionAddedGameWindow(cacheMessage, channel, reaction);
-            _storeReactionHandling.ReactionAddedStore(cacheMessage, channel, reaction);
+            button.RespondAsync();
+            _gameReaction.ReactionAddedGameWindow(button);
+            _storeReactionHandling.ReactionAddedStore(button);
         }
 
-        private async Task ReactionRemoved(Cacheable<IUserMessage, ulong> cacheMessage, ISocketMessageChannel channel,
+        private async Task ReactionAdded(Cacheable<IUserMessage, ulong> cacheMessage, Cacheable<IMessageChannel, ulong> channelCacheable,
             SocketReaction reaction)
         {
+            /*
+            if (reaction.User.Value.IsBot) return;
+            var channel = channelCacheable.GetOrDownloadAsync().Result;
+            _gameReaction.ReactionAddedGameWindow(cacheMessage, channel, reaction);
+            _storeReactionHandling.ReactionAddedStore(cacheMessage, channel, reaction);
+            */
+        }
+
+        private async Task ReactionRemoved(Cacheable<IUserMessage, ulong> cacheMessage, Cacheable<IMessageChannel, ulong> channelCacheable,
+            SocketReaction reaction)
+        {
+            /*
             if (reaction.User.Value.IsBot)
                 return;
+            var channel = channelCacheable.GetOrDownloadAsync().Result;
             _gameReaction.ReactionAddedGameWindow(cacheMessage, channel, reaction);
-            _storeReactionHandling.ReactionAddedStore(cacheMessage, channel, reaction);
+            _storeReactionHandling.ReactionAddedStore(cacheMessage, channel, reaction);*/
         }
 
-        private async Task ReactionsCleared(Cacheable<IUserMessage, ulong> cacheMessage, ISocketMessageChannel channel)
+        private async Task ReactionsCleared(Cacheable<IUserMessage, ulong> cacheMessage, Cacheable<IMessageChannel, ulong> channel)
         {
         }
 
@@ -203,10 +222,6 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
         }
 
         private async Task UserBanned(SocketUser user, SocketGuild guild)
-        {
-        }
-
-        private async Task UserIsTyping(SocketUser user, ISocketMessageChannel channel)
         {
         }
 

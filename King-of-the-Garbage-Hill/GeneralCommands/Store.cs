@@ -76,9 +76,12 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             var character = account.CharacterChance.Find(x => x.CharacterName == chosenCharacter.CharacterName);
 
             var msg_to_send = _storeLogic.GetStoreEmbed(character, account, Context.User);
-            var socketMsg = await SendMessAsync();
-            await socketMsg.AddReactionsAsync(new IEmote[]
-                {new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣"), new Emoji("4⃣")});
+            var builder = new ComponentBuilder()
+                .WithButton(customId: "attack-one", emote: new Emoji("1⃣"), row: 0)
+                .WithButton(customId: "attack-two", emote: new Emoji("2⃣"), row: 0)
+                .WithButton(customId: "attack-three", emote: new Emoji("3⃣"), row: 0)
+                .WithButton(customId: "attack-four", emote: new Emoji("4⃣"), row: 0);
+            await SendMessAsync(msg_to_send, components: builder.Build());
         }
 
         public class StoreChoice

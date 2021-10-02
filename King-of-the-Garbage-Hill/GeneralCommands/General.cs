@@ -690,6 +690,23 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             await SendMessAsync(GetStatsEmbed(_accounts.GetAccount(user?.Id ?? Context.User.Id)));
         }
 
+        [Command("inv")]
+        public async Task Invite()
+        {
+            foreach (var guild in _global.Client.Guilds)
+            {
+                try
+                {
+                    await SendMessAsync($"{guild.Name}" +
+                                        $"\n{guild.GetVanityInviteAsync().Result.Url}");
+                }
+                catch
+                {
+                    //
+                }
+            }
+        }
+
 
         [Command("stats")]
         [Summary("Персональные статы")]

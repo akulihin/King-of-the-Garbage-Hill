@@ -39,27 +39,27 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         }
 
         //    private readonly InGameGlobal _gameGlobal;
-        public async Task ReactionAddedGameWindow(Cacheable<IUserMessage, ulong> cash,
-            ISocketMessageChannel channel, SocketReaction reaction)
+        public async Task ReactionAddedGameWindow(SocketMessageComponent button)
         {
+            
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
             foreach (var t in _global.GamesList)
                 if (t.PlayersList.Any(x =>
-                    x.DiscordId == reaction.UserId &&
-                    x.Status.SocketMessageFromBot.Id == reaction.MessageId))
+                    x.DiscordId == button.User.Id &&
+                    x.Status.SocketMessageFromBot.Id == button.Message.Id))
                 {
-                    var player = _global.GetGameAccount(reaction.UserId, t.PlayersList.FirstOrDefault().GameId);
+                    var player = _global.GetGameAccount(button.User.Id, t.PlayersList.FirstOrDefault().GameId);
                     var status = player.Status;
 
                     // if (!discordAccount.IsAbleToTurn){return;}
 
-                    switch (reaction.Emote.Name)
+                    switch (button.Data.CustomId)
                     {
-                        case "❌":
-                            await _upd.EndGame(reaction, reaction.Message.Value);
+                        case "end":
+                            await _upd.EndGame(button);
                             break;
 
-                        case "📖":
+                        case "stats":
 
                             if (player.Status.MoveListPage == 1)
                                 player.Status.MoveListPage = 2;
@@ -69,7 +69,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             break;
 
 
-                        case "🛡" when status.IsAbleToTurn:
+                        case "block" when status.IsAbleToTurn:
                             if (status.MoveListPage == 3)
                             {
                                 SendMsgAndDeleteIt(player, "Ходить нельзя, Апни лвл!");
@@ -92,7 +92,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             _upd.UpdateMessage(player);
                             break;
 
-                        case "🧭":
+                        case "moral":
 
                             switch (player.Character.GetMoral())
                             {
@@ -130,7 +130,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                         default:
 
-                            await HandleAttackOrLvlUp(player, reaction);
+                            await HandleAttackOrLvlUp(player, button);
                             _upd.UpdateMessage(player);
                             break;
                     }
@@ -139,13 +139,13 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 }
         }
 
-        public async Task<bool> HandleAttackOrLvlUp(GamePlayerBridgeClass player, SocketReaction reaction,
+        public async Task<bool> HandleAttackOrLvlUp(GamePlayerBridgeClass player, SocketMessageComponent button,
             int botChoice = -1)
         {
             var status = player.Status;
 
 
-            var emoteNum = !player.IsBot() ? GetNumberFromEmote(reaction) : botChoice;
+            var emoteNum = !player.IsBot() ? GetNumberFromButtonId(button.Data.CustomId) : botChoice;
 
             if (botChoice == -10)
             {
@@ -364,36 +364,36 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             await Task.CompletedTask;
         }
 
-        private int GetNumberFromEmote(SocketReaction reaction)
+        private int GetNumberFromButtonId(string buttonId)
         {
-            switch (reaction.Emote.Name)
+            switch (buttonId)
             {
-                case "1⃣":
+                case "attack-one":
                 {
                     return 1;
                 }
 
-                case "2⃣":
+                case "attack-two":
                 {
                     return 2;
                 }
 
-                case "3⃣":
+                case "attack-three":
                 {
                     return 3;
                 }
 
-                case "4⃣":
+                case "attack-four":
                 {
                     return 4;
                 }
 
-                case "5⃣":
+                case "attack-five":
                 {
                     return 5;
                 }
 
-                case "6⃣":
+                case "attack-six":
                 {
                     return 6;
                 }

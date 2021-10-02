@@ -81,7 +81,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     player.Status.AddRegularPoints();
 
-                    await _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
+                    await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
                         .SendMessageAsync("/CalculateRound.cs:line 74 - ERROR\n" +
                                           $"left user id = {player.Status.WhoToAttackThisTurn}\n" +
                                           $"left user name = {leftUser}\n" +

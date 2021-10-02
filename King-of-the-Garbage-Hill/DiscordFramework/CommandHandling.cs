@@ -45,7 +45,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
                 _services);
         }
 
-        public async Task _client_MessageDeleted(Cacheable<IMessage, ulong> cacheMessage, ISocketMessageChannel channel)
+        public async Task _client_MessageDeleted(Cacheable<IMessage, ulong> cacheMessage, IMessageChannel channel)
         {
             try
             {

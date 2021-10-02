@@ -78,19 +78,24 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             mainPage.WithColor(Color.DarkGreen);
             mainPage.AddField("Game is being ready", "**Please wait for the main menu**");
 
+            var builder = new ComponentBuilder()
+                .WithButton(customId: "attack-one", emote: new Emoji("1⃣"), row: 0)
+                .WithButton(customId: "attack-two", emote: new Emoji("2⃣"), row: 0)
+                .WithButton(customId: "attack-three", emote: new Emoji("3⃣"), row: 0)
+                .WithButton(customId: "attack-four", emote: new Emoji("4⃣"), row: 1)
+                .WithButton(customId: "attack-five", emote: new Emoji("5⃣"), row: 1)
+                .WithButton(customId: "attack-six", emote: new Emoji("6⃣"), row: 1)
+                .WithButton(customId: "block", emote: new Emoji("🛡"), row: 2, style:ButtonStyle.Success)
+                .WithButton(customId: "moral", emote: new Emoji("🧭"), row: 2, style: ButtonStyle.Secondary)
+                .WithButton(customId: "end", emote: new Emoji("❌"), row: 2, style:ButtonStyle.Danger);
 
-            var socketMsg = await globalAccount.SendMessageAsync("", false, mainPage.Build());
+
+            var socketMsg = await globalAccount.SendMessageAsync("", false, mainPage.Build(), component: builder.Build());
 
             player.Status.SocketMessageFromBot = socketMsg;
 
             //   await socketMsg.AddReactionAsync(new Emoji("➡"));
             // await socketMsg.AddReactionAsync(new Emoji("📖"));
-
-            await socketMsg.AddReactionsAsync(new IEmote[]
-            {
-                new Emoji("🛡"), new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣"), new Emoji("4⃣"), new Emoji("5⃣"),
-                new Emoji("6⃣"), new Emoji("🧭"), new Emoji("❌")
-            });
             //   await socketMsg.AddReactionAsync(new Emoji("⬆"));
             //   await socketMsg.AddReactionAsync(new Emoji("8⃣"));
             //   await socketMsg.AddReactionAsync(new Emoji("9⃣"));
@@ -307,13 +312,13 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             return customString;
         }
 
-        public async Task EndGame(SocketReaction reaction, IUserMessage socketMsg)
+        public async Task EndGame(SocketMessageComponent button)
         {
-            var response = await _awaitForUser.FinishTheGameQuestion(reaction);
+            var response = await _awaitForUser.FinishTheGameQuestion(button);
             if (!response) return;
-            _helperFunctions.SubstituteUserWithBot(reaction.User.Value.Id);
+            _helperFunctions.SubstituteUserWithBot(button.User.Id);
 
-            var globalAccount = _global.Client.GetUser(reaction.UserId);
+            var globalAccount = _global.Client.GetUser(button.User.Id);
             var account = _accounts.GetAccount(globalAccount);
             account.IsPlaying = false;
 
@@ -345,7 +350,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 $"**{player.DiscordUsername}**"));
 
             if (desc.Length >= 2048)
-                _global.Client.GetUser(181514288278536193).GetOrCreateDMChannelAsync().Result
+                _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
                     .SendMessageAsync("PreviousGameLogs >= 2048");
 
             embed.AddField("<:e_:562879579694301184>",
