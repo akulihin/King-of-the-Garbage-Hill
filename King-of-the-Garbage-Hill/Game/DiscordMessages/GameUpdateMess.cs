@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Threading.Tasks;
@@ -63,7 +64,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             await user.SendMessageAsync("", false, embed.Build());
         }
 
-        public async Task WaitMess(GamePlayerBridgeClass player)
+        public async Task WaitMess(GamePlayerBridgeClass player, List<GamePlayerBridgeClass> players)
         {
             if (player.DiscordId <= 1000000) return;
 
@@ -78,19 +79,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             mainPage.WithColor(Color.DarkGreen);
             mainPage.AddField("Game is being ready", "**Please wait for the main menu**");
 
-            var builder = new ComponentBuilder()
-                .WithButton(customId: "attack-one", emote: new Emoji("1⃣"), row: 0)
-                .WithButton(customId: "attack-two", emote: new Emoji("2⃣"), row: 0)
-                .WithButton(customId: "attack-three", emote: new Emoji("3⃣"), row: 0)
-                .WithButton(customId: "attack-four", emote: new Emoji("4⃣"), row: 1)
-                .WithButton(customId: "attack-five", emote: new Emoji("5⃣"), row: 1)
-                .WithButton(customId: "attack-six", emote: new Emoji("6⃣"), row: 1)
-                .WithButton(customId: "block", emote: new Emoji("🛡"), row: 2, style:ButtonStyle.Success)
-                .WithButton(customId: "moral", emote: new Emoji("🧭"), row: 2, style: ButtonStyle.Secondary)
-                .WithButton(customId: "end", emote: new Emoji("❌"), row: 2, style:ButtonStyle.Danger);
 
-
-            var socketMsg = await globalAccount.SendMessageAsync("", false, mainPage.Build(), component: builder.Build());
+            var socketMsg = await globalAccount.SendMessageAsync("", false, mainPage.Build());
 
             player.Status.SocketMessageFromBot = socketMsg;
 
@@ -474,35 +464,81 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             return embed;
         }
 
-        public async Task UpdateMessage(GamePlayerBridgeClass player, GameClass game = null)
+        public async Task UpdateMessage(GamePlayerBridgeClass player)
         {
-            var embed = FightPage(player, game);
+            if (player.IsBot()) return;
 
-            if (embed == null || player.IsBot()) return;
+            var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+
+            var embed = new EmbedBuilder();
+
+            var attackMenu = new SelectMenuBuilder()
+                .WithMinValues(1)
+                .WithMaxValues(1)
+                .WithCustomId("attack-select")
+                .WithPlaceholder("Выбор цели");
+            if (game != null)
+                attackMenu.AddOption(game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 1)?.DiscordUsername, "1",
+                        emote: new Emoji("1⃣"))
+                    .AddOption(game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 2)?.DiscordUsername, "2",
+                        emote: new Emoji("2⃣"))
+                    .AddOption(game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 3)?.DiscordUsername, "3",
+                        emote: new Emoji("3⃣"))
+                    .AddOption(game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 4)?.DiscordUsername, "4",
+                        emote: new Emoji("4⃣"))
+                    .AddOption(game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 5)?.DiscordUsername, "5",
+                        emote: new Emoji("5⃣"))
+                    .AddOption(game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 6)?.DiscordUsername, "6",
+                        emote: new Emoji("6⃣"));
+
+
+            var charMenu = new SelectMenuBuilder()
+                .WithMinValues(1)
+                .WithMaxValues(1)
+                .WithCustomId("char-select")
+                .WithPlaceholder("Выбор прокачки")
+                .AddOption("Интеллект", "1")
+                .AddOption("Сила", "2")
+                .AddOption("Скорость", "3")
+                .AddOption("Психика", "4");
+
+            var builder = new ComponentBuilder();
 
             switch (player.Status.MoveListPage)
             {
                 case 1:
-                    // embed = LogsPage(player);
+                    embed = FightPage(player);
+                    builder = new ComponentBuilder()
+                        .WithButton("Блок", "block", row: 0, style: ButtonStyle.Success)
+                        .WithButton("Обменять Мораль", "moral", row: 0, style: ButtonStyle.Secondary)
+                        .WithButton("Завершить", "end", row: 0, style: ButtonStyle.Danger)
+                        .WithSelectMenu(attackMenu, 1);
                     break;
                 case 2:
                     embed = LogsPage(player);
+                    builder = new ComponentBuilder();
                     break;
                 case 3:
                     embed = LvlUpPage(player);
+                    builder = new ComponentBuilder().WithSelectMenu(charMenu);
                     break;
             }
 
-            await UpdateMessageWithEmbed(player, embed);
+            await UpdateMessageWithEmbed(player, embed, builder);
         }
 
 
-        public async Task UpdateMessageWithEmbed(GamePlayerBridgeClass player, EmbedBuilder embed)
+        public async Task UpdateMessageWithEmbed(GamePlayerBridgeClass player, EmbedBuilder embed,
+            ComponentBuilder builder)
         {
             try
             {
                 if (!player.IsBot() && !embed.Footer.Text.Contains("ERROR"))
-                    await player.Status.SocketMessageFromBot.ModifyAsync(message => { message.Embed = embed.Build(); });
+                    await player.Status.SocketMessageFromBot.ModifyAsync(message =>
+                    {
+                        message.Embed = embed.Build();
+                        message.Components = builder.Build();
+                    });
             }
             catch (Exception e)
             {

@@ -66,10 +66,21 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
             _client.UserUnbanned += UserUnbanned;
             _client.UserUpdated += UserUpdated;
             _client.UserVoiceStateUpdated += UserVoiceStateUpdated;
+            _client.SelectMenuExecuted += _client_SelectMenuExecuted;
             return Task.CompletedTask;
         }
 
-
+        private async Task _client_SelectMenuExecuted(SocketMessageComponent button)
+        {
+            button.RespondAsync();
+            _gameReaction.ReactionAddedGameWindow(button);
+        }
+        private async Task _client_ButtonExecuted(SocketMessageComponent button)
+        {
+            button.RespondAsync();
+            _gameReaction.ReactionAddedGameWindow(button);
+            _storeReactionHandling.ReactionAddedStore(button);
+        }
 
         private async Task UserIsTyping(Cacheable<IUser, ulong> arg1, Cacheable<IMessageChannel, ulong> arg2)
         {
@@ -168,12 +179,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
             _commandHandler._client_MessageUpdated(cacheMessageBefore, messageAfter, channel);
         }
 
-        private async Task _client_ButtonExecuted(SocketMessageComponent button)
-        {
-            button.RespondAsync();
-            _gameReaction.ReactionAddedGameWindow(button);
-            _storeReactionHandling.ReactionAddedStore(button);
-        }
+
 
         private async Task ReactionAdded(Cacheable<IUserMessage, ulong> cacheMessage, Cacheable<IMessageChannel, ulong> channelCacheable,
             SocketReaction reaction)

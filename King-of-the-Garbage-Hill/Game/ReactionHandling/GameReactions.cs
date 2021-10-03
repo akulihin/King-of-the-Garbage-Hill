@@ -128,8 +128,11 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                             break;
 
-                        default:
-
+                        case "char-select":
+                            await HandleAttackOrLvlUp(player, button);
+                            _upd.UpdateMessage(player);
+                            break;
+                        case "attack-select":
                             await HandleAttackOrLvlUp(player, button);
                             _upd.UpdateMessage(player);
                             break;
@@ -144,8 +147,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         {
             var status = player.Status;
 
-
-            var emoteNum = !player.IsBot() ? GetNumberFromButtonId(button.Data.CustomId) : botChoice;
+            var emoteNum = !player.IsBot() ? Convert.ToInt32(string.Join("", button.Data.Values)) : botChoice;
 
             if (botChoice == -10)
             {
@@ -155,11 +157,17 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 return true;
             }
 
-            if (status.MoveListPage == 3)
-            {
-                await GetLvlUp(player, emoteNum);
-                return true;
-            }
+            if(!player.IsBot())
+                if (button.Data.CustomId == "char-select")
+                {
+                    if (status.MoveListPage == 3)
+                    {
+                        await GetLvlUp(player, emoteNum);
+                        return true;
+                    }
+                    return false;
+                }
+
 
             if (!status.IsAbleToTurn)
             {

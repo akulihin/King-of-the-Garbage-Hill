@@ -367,7 +367,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     _gameGlobal.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
 
                     //send  a wait message
-                    foreach (var player in playersList) await _upd.WaitMess(player);
+                    foreach (var player in playersList) await _upd.WaitMess(player, playersList);
 
 
                     var game = new GameClass(playersList, gameId) {IsCheckIfReady = false};
@@ -572,7 +572,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _gameGlobal.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
 
             //send  a wait message
-            foreach (var player in playersList) await _upd.WaitMess(player);
+            foreach (var player in playersList) await _upd.WaitMess(player, playersList);
 
 
             var game = new GameClass(playersList, gameId) {IsCheckIfReady = false};

@@ -86,7 +86,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     foreach (var player in game.PlayersList)
                     {
-                        await _gameUpdateMess.UpdateMessage(player, game);
+                        await _gameUpdateMess.UpdateMessage(player);
 
                         var account = _accounts.GetAccount(player.DiscordId);
                         account.IsPlaying = false;

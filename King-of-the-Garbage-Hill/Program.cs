@@ -33,7 +33,7 @@ namespace King_of_the_Garbage_Hill
                 LogLevel = LogSeverity.Verbose,
                 MessageCacheSize = 300,
                 TotalShards = 1,
-                //GatewayIntents = GatewayIntents.All
+                GatewayIntents = GatewayIntents.All
                 //AlwaysDownloadUsers = true,
                 //ExclusiveBulkDelete = true
             });
