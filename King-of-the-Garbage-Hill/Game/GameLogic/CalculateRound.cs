@@ -267,15 +267,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         switch (player.Character.GetCurrentSkillTarget())
                         {
                             case "Интеллект":
-                                if (playerIamAttacking.Character.GetIntelligence() > playerIamAttacking.Character.GetSpeed() && playerIamAttacking.Character.GetIntelligence() > playerIamAttacking.Character.GetStrength())
+                                if (playerIamAttacking.Character.GetIntelligence() >= playerIamAttacking.Character.GetSpeed() && playerIamAttacking.Character.GetIntelligence() >= playerIamAttacking.Character.GetStrength())
                                     player.Character.AddSkill(player.Status);
                                 break;
                             case "Сила":
-                                if (playerIamAttacking.Character.GetStrength() > playerIamAttacking.Character.GetSpeed() && playerIamAttacking.Character.GetStrength() > playerIamAttacking.Character.GetIntelligence())
+                                if (playerIamAttacking.Character.GetStrength() >= playerIamAttacking.Character.GetSpeed() && playerIamAttacking.Character.GetStrength() >= playerIamAttacking.Character.GetIntelligence())
                                     player.Character.AddSkill(player.Status);
                                 break;
                             case "Скорость":
-                                if (playerIamAttacking.Character.GetSpeed() > playerIamAttacking.Character.GetStrength() && playerIamAttacking.Character.GetSpeed() > playerIamAttacking.Character.GetIntelligence())
+                                if (playerIamAttacking.Character.GetSpeed() >= playerIamAttacking.Character.GetStrength() && playerIamAttacking.Character.GetSpeed() >= playerIamAttacking.Character.GetIntelligence())
                                     player.Character.AddSkill(player.Status);
                                 break;
                         }

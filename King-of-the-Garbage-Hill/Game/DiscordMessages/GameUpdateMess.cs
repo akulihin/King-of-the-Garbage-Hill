@@ -113,7 +113,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 //TODO: REMOVE || playersList[i].IsBot()
                 if (player.Status.PlayerId == playersList[i].Status.PlayerId)
                     players +=
-                        $" = {playersList[i].Status.GetScore()} Score";
+                        $" = **{playersList[i].Status.GetScore()} Score**";
 
 
                 players += "\n";
