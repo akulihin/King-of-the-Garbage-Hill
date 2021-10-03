@@ -45,8 +45,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             game.TimePassed.Stop();
             game.GameStatus = 2;
-            game.AddGameLogs($"\n__**Раунд #{game.RoundNo}**__\n");
-            game.SetPreviousGameLogs($"\n__**Раунд #{game.RoundNo}**__\n");
+            game.AddGameLogs($"\n__**Раунд #{game.RoundNo+1}**__\n");
+            game.SetPreviousGameLogs($"\n__**Раунд #{game.RoundNo+1}**__\n");
 
 
             for (var i = 0; i < game.PlayersList.Count; i++)
@@ -268,15 +268,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             case "Интеллект":
                                 if (playerIamAttacking.Character.GetIntelligence() >= playerIamAttacking.Character.GetSpeed() && playerIamAttacking.Character.GetIntelligence() >= playerIamAttacking.Character.GetStrength())
-                                    player.Character.AddSkill(player.Status);
+                                    player.Character.AddSkill(player.Status, "умного");
                                 break;
                             case "Сила":
                                 if (playerIamAttacking.Character.GetStrength() >= playerIamAttacking.Character.GetSpeed() && playerIamAttacking.Character.GetStrength() >= playerIamAttacking.Character.GetIntelligence())
-                                    player.Character.AddSkill(player.Status);
+                                    player.Character.AddSkill(player.Status, "сильного");
                                 break;
                             case "Скорость":
                                 if (playerIamAttacking.Character.GetSpeed() >= playerIamAttacking.Character.GetStrength() && playerIamAttacking.Character.GetSpeed() >= playerIamAttacking.Character.GetIntelligence())
-                                    player.Character.AddSkill(player.Status);
+                                    player.Character.AddSkill(player.Status, "быстрого");
                                 break;
                         }
 
@@ -286,8 +286,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     if (player.Status.PlaceAtLeaderBoard > playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
                     {
-                        player.Character.AddMoral(player.Status, moral * -1);
-                        playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral);
+                        player.Character.AddMoral(player.Status, moral);
+                        playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1);
                     }
                         
 
@@ -316,8 +316,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
                         {
+                            player.Character.AddMoral(player.Status, moral );
                             playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1);
-                            player.Character.AddMoral(player.Status, moral);
                         }
 
                         if (playerIamAttacking.Character.Name == "Толя" && playerIamAttacking.Status.IsBlock)

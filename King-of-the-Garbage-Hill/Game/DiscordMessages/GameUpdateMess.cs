@@ -344,10 +344,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     .SendMessageAsync("PreviousGameLogs >= 2048");
 
             embed.AddField("<:e_:562879579694301184>",
-                $"**Интеллект:** {character.GetIntelligence()}\n" +
-                $"**Сила:** {character.GetStrength()}\n" +
-                $"**Скорость:** {character.GetSpeed()}\n" +
-                $"**Психика:** {character.GetPsyche()}\n" +
+                $"**Интеллект:** {character.GetIntelligenceString()}\n" +
+                $"**Сила:** {character.GetStrengthString()}\n" +
+                $"**Скорость:** {character.GetSpeedString()}\n" +
+                $"**Психика:** {character.GetPsycheString()}\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                 $"*Справедливость: {character.Justice.GetJusticeNow()}\n" +
                 $"Мораль: {character.GetMoral()}\n" +
@@ -412,7 +412,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var desc = _global.GamesList.Find(x => x.GameId == player.GameId).GetPreviousGameLogs();
             if (desc == null)
                 return null;
-            embed.WithDescription(desc);
+            embed.WithDescription(desc.Replace(player.DiscordUsername,
+                $"**{player.DiscordUsername}**"));
 
             embed.WithColor(Color.Blue);
 

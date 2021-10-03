@@ -286,7 +286,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 {
                     var lll = await Context.Channel.SendMessageAsync("Ooooo, it was I who just passed Dark Souls!");
 #pragma warning disable 4014
-                    _helperFunctions.DeleteMessOverTime(lll, 6);
+                    _helperFunctions.DeleteMessOverTime(lll);
 #pragma warning restore 4014
                     break;
                 }
@@ -294,7 +294,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 {
                     var lll = await Context.Channel.SendMessageAsync("I'm drawing an octopus :3");
 #pragma warning disable 4014
-                    _helperFunctions.DeleteMessOverTime(lll, 6);
+                    _helperFunctions.DeleteMessOverTime(lll);
 #pragma warning restore 4014
                     break;
                 }
@@ -303,7 +303,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     var lll = await Context.Channel.SendMessageAsync(
                         "Oh, this is New Year! time to gift turtles!!");
 #pragma warning disable 4014
-                    _helperFunctions.DeleteMessOverTime(lll, 6);
+                    _helperFunctions.DeleteMessOverTime(lll);
 #pragma warning restore 4014
                     break;
                 }
@@ -329,7 +329,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     var f = 6 - players.Count;
                     for (var i = 0; i < f; i++) players.Add(null);
 
-                    var playersList = HandleCharacterRoll(players, gameId);
+                    var playersList = HandleCharacterRoll(players, gameId, -1, 0);
 
 
                     ////////////////////////////////////////////////////// FIRST SORTING/////////////////////////////////////////////////
@@ -452,7 +452,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        public List<GamePlayerBridgeClass> HandleCharacterRoll(List<IUser> players, ulong gameId)
+        public List<GamePlayerBridgeClass> HandleCharacterRoll(List<IUser> players, ulong gameId, int characterChoice, ulong characterChoiceUserId)
         {
             var allCharacters = _charactersPull.GetAllCharacters();
             var playersList = new List<GamePlayerBridgeClass>();
@@ -465,6 +465,24 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 var account = player != null
                     ? _accounts.GetAccount(player.Id)
                     : _helperFunctions.GetFreeBot(playersList);
+
+
+                if (account.DiscordId == characterChoiceUserId && characterChoiceUserId != 0 && characterChoice >= 0)
+                {
+                    var character = allCharacters[characterChoice];
+                    playersList.Add(new GamePlayerBridgeClass
+                    {
+                        Character = character,
+                        Status = new InGameStatus(),
+                        DiscordId = account.DiscordId,
+                        GameId = gameId,
+                        DiscordUsername = account.DiscordUserName,
+                        IsLogs = account.IsLogs,
+                        UserType = account.UserType
+                    });
+                    allCharacters.Remove(character);
+                    continue;
+                }
 
                 account.IsPlaying = true;
                 var tempCharacterChances = account.CharacterChance.ConvertAll(x =>
@@ -534,7 +552,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             var f = 6 - players.Count;
             for (var i = 0; i < f; i++) players.Add(null);
 
-            var playersList = HandleCharacterRoll(players, gameId);
+            var playersList = HandleCharacterRoll(players, gameId, -1, 0);
 
 
             ////////////////////////////////////////////////////// FIRST SORTING/////////////////////////////////////////////////
@@ -619,6 +637,105 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             game.IsCheckIfReady = true;
         }
 
+
+        [Command("start")]
+        [Alias("st", "start game")]
+        [Summary("запуск игры")]
+        public async Task StartGameTest(int characterChoice = -1)
+        {
+            _helperFunctions.SubstituteUserWithBot(Context.User.Id);
+
+            var players = new List<IUser> { Context.User };
+      
+            var gameId = _global.GetNewtGamePlayingAndId();
+
+            var f = 6 - players.Count;
+            for (var i = 0; i < f; i++) players.Add(null);
+
+            var playersList = HandleCharacterRoll(players, gameId, characterChoice, Context.User.Id);
+
+
+            ////////////////////////////////////////////////////// FIRST SORTING/////////////////////////////////////////////////
+            //randomize order
+            playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
+            playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+
+            //HardKitty unique
+            if (playersList.Any(x => x.Character.Name == "HardKitty"))
+            {
+                var tempHard = playersList.Find(x => x.Character.Name == "HardKitty");
+                var hardIndex = playersList.IndexOf(tempHard);
+
+                for (var i = hardIndex; i < playersList.Count - 1; i++)
+                    playersList[i] = playersList[i + 1];
+
+                playersList[playersList.Count - 1] = tempHard;
+            }
+            //end //HardKitty unique
+
+
+            //Tigr Unique
+            if (playersList.Any(x => x.Character.Name == "Тигр"))
+            {
+                var tigrTemp = playersList.Find(x => x.Character.Name == "Тигр");
+
+                var tigr = _gameGlobal.TigrTop.Find(x =>
+                    x.GameId == tigrTemp.GameId && x.PlayerId == tigrTemp.Status.PlayerId);
+
+                if (tigr != null && tigr.TimeCount > 0)
+                {
+                    var tigrIndex = playersList.IndexOf(tigrTemp);
+
+                    playersList[tigrIndex] = playersList[0];
+                    playersList[0] = tigrTemp;
+                    tigr.TimeCount--;
+                    //await _phrase.TigrTop.SendLog(tigrTemp);
+                }
+            }
+            //end Tigr Unique
+
+            //sort
+            for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
+            //end sorting
+            //////////////////////////////////////////////////////END FIRST SORTING/////////////////////////////////////////////////
+
+            _gameGlobal.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
+
+            //send  a wait message
+            foreach (var player in playersList) await _upd.WaitMess(player, playersList);
+
+
+            var game = new GameClass(playersList, gameId) { IsCheckIfReady = false };
+
+            //vampyr unique
+            if (playersList.Any(x => x.Character.Name == "Вампур"))
+            {
+                _phrase.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"));
+                if (playersList.Any(x => x.Character.Name == "mylorik"))
+                    game.AddPreviousGameLogs(
+                        " \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
+                        "\n\n", false);
+            }
+            //end vampyr unique
+
+
+            //start the timer
+            game.TimePassed.Start();
+            _global.GamesList.Add(game);
+
+
+            //get all the chances before the game starts
+            _characterPassives.CalculatePassiveChances(game);
+
+            //handle round #0
+
+            await _characterPassives.HandleNextRound(game);
+
+
+            foreach (var player in playersList) await _upd.UpdateMessage(player);
+
+            game.IsCheckIfReady = true;
+        }
 
         public EmbedBuilder GetStatsEmbed(DiscordAccountClass account)
         {

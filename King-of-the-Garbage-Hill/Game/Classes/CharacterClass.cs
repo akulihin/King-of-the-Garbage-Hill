@@ -17,9 +17,13 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public string Name { get; set; }
         private int Intelligence { get; set; }
+        private string IntelligenceExtraText { get; set; }
         private int Psyche { get; set; }
+        private string PsycheExtraText { get; set; }
         private int Speed { get; set; }
+        private string SpeedExtraText { get; set; }
         private int Strength { get; set; }
+        private string StrengthExtraText { get; set; }
         private double Skill { get; set; }
         private string CurrentSkillTarget { get; set; } = "Ничего";
         private int Moral { get; set; }
@@ -79,12 +83,13 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             Skill = newSkill;
         }
 
-        public void AddSkill(InGameStatus status, double howMuchToAdd = 0, bool isLog = true, string skillName = "")
+        public void AddSkill(InGameStatus status, string skillName, bool isLog = true)
         {
             if (isLog)
-                status.AddInGamePersonalLogs("+ скилл\n");
+                status.AddInGamePersonalLogs($" + скилл (за {skillName} врага)\n");
 
-            howMuchToAdd = Skill switch
+
+            var howMuchToAdd = Skill switch
             {
                 0 => 10,
                 10 => 9,
@@ -143,9 +148,19 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             return Intelligence;
         }
 
+        public string GetIntelligenceString()
+        {
+            return $"{Intelligence}{IntelligenceExtraText}";
+        }
+
         public void SetIntelligence(int newIntelligence)
         {
             Intelligence = newIntelligence;
+        }
+
+        public void SetIntelligenceExtraText(string newIntelligenceExtraText)
+        {
+            IntelligenceExtraText = newIntelligenceExtraText;
         }
 
         public void AddPsyche(InGameStatus status, int howMuchToAdd = 1, bool isLog = true, string skillName = "")
@@ -168,9 +183,19 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             return Psyche;
         }
 
+        public string GetPsycheString()
+        {
+            return $"{Psyche}{PsycheExtraText}";
+        }
+
         public void SetPsyche(int newPsyche)
         {
             Psyche = newPsyche;
+        }
+
+        public void SetPsycheExtraText(string newPsycheExtraText)
+        {
+            PsycheExtraText = newPsycheExtraText;
         }
 
         public void AddSpeed(InGameStatus status, int howMuchToAdd = 1, bool isLog = true, string skillName = "")
@@ -192,9 +217,19 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             return Speed;
         }
 
+        public string GetSpeedString()
+        {
+            return $"{Speed}{SpeedExtraText}";
+        }
+
         public void SetSpeed(int newSpeed)
         {
             Speed = newSpeed;
+        }
+
+        public void SetSpeedExtraText(string newSpeedExtraText)
+        {
+            SpeedExtraText = newSpeedExtraText;
         }
 
         public void AddStrength(InGameStatus status, int howMuchToAdd = 1, bool isLog = true, string skillName = "")
@@ -216,9 +251,19 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             return Strength;
         }
 
+        public string GetStrengthString()
+        {
+            return $"{Strength}{StrengthExtraText}";
+        }
+
         public void SetStrength(int newStrength)
         {
             Strength = newStrength;
+        }
+
+        public void SetStrengthExtraText(string newStrengthExtraText)
+        {
+            StrengthExtraText = newStrengthExtraText;
         }
     }
 

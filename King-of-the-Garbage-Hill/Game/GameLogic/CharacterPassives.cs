@@ -831,7 +831,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Character.SetStrength(regularStats.Str + str);
                             player.Character.SetSpeed(regularStats.Speed + speed);
                             player.Character.SetPsyche(regularStats.Psyche + psy);
-
+                            player.Character.SetIntelligenceExtraText("");
+                            player.Character.SetStrengthExtraText("");
+                            player.Character.SetSpeedExtraText("");
+                            player.Character.SetPsycheExtraText("");
                             _gameGlobal.AwdkaTeachToPlayTempStats.Remove(awdkaTempStats);
                         }
                         //end remove stats
@@ -863,22 +866,30 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             case 1:
                                 intel1 = bestSkill.StatNumber;
+                                player.Character.SetIntelligenceExtraText(" <:volibir:894286361895522434>");
                                 break;
                             case 2:
                                 str1 = bestSkill.StatNumber;
+                                player.Character.SetStrengthExtraText(" <:volibir:894286361895522434>");
                                 break;
                             case 3:
                                 speed1 = bestSkill.StatNumber;
+                                player.Character.SetSpeedExtraText(" <:volibir:894286361895522434>");
                                 break;
                             case 4:
                                 pshy1 = bestSkill.StatNumber;
+                                player.Character.SetPsycheExtraText(" <:volibir:894286361895522434>");
                                 break;
                         }
 
-                        player.Character.SetIntelligence(intel1);
-                        player.Character.SetStrength(str1);
-                        player.Character.SetSpeed(speed1);
-                        player.Character.SetPsyche(pshy1);
+                        if (intel1 >= player.Character.GetIntelligence())
+                            player.Character.SetIntelligence(intel1);
+                        if (str1 >= player.Character.GetStrength())
+                            player.Character.SetStrength(str1);
+                        if (speed1 >= player.Character.GetSpeed())
+                            player.Character.SetSpeed(speed1);
+                        if (pshy1 >= player.Character.GetPsyche())
+                            player.Character.SetPsyche(pshy1);
                         //end find out  the biggest stat
 
                         //crazy shit 2
@@ -1706,7 +1717,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                     await leCrisp.Status.SocketMessageFromBot.Channel.SendMessageAsync(
                                         "МЫ жрём деньги!");
 #pragma warning disable 4014
-                                _help.DeleteMessOverTime(mess, 10);
+                                _help.DeleteMessOverTime(mess);
 #pragma warning restore 4014
                             }
 
@@ -1715,7 +1726,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 var mess =
                                     await tolya.Status.SocketMessageFromBot.Channel.SendMessageAsync("МЫ жрём деньги!");
 #pragma warning disable 4014
-                                _help.DeleteMessOverTime(mess, 10);
+                                _help.DeleteMessOverTime(mess);
 #pragma warning restore 4014
                             }
 

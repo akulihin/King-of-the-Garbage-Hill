@@ -63,7 +63,7 @@ namespace King_of_the_Garbage_Hill.Helpers
             await userMessage.DeleteAsync();
         }
 
-        public async Task DeleteMessOverTime(IUserMessage message, int timeInSeconds)
+        public async Task DeleteMessOverTime(IUserMessage message, int timeInSeconds = 20)
         {
             var seconds = timeInSeconds * 1000;
             await Task.Delay(seconds);

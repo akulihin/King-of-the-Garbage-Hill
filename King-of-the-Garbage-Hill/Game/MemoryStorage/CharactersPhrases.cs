@@ -424,11 +424,11 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 #pragma warning disable 4014
                 DeleteMessOverTime(
                     await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                        PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)]), 6);
+                        PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)]));
 #pragma warning restore 4014
             }
 
-            private static async Task DeleteMessOverTime(IDeletable message, int timeInSeconds)
+            private async Task DeleteMessOverTime(IDeletable message, int timeInSeconds = 20)
             {
                 await Task.Delay(timeInSeconds * 1000);
                 await message.DeleteAsync();
