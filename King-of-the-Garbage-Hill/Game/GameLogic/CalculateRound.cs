@@ -183,17 +183,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var a = player.Character;
                 var b = playerIamAttacking.Character;
 
+                var scaleA = (a.GetIntelligence() + a.GetStrength() + a.GetSpeed() + a.GetPsyche()) + a.GetSkill() / 10;
+                var scaleB = (b.GetIntelligence() + b.GetStrength() + b.GetSpeed() + b.GetPsyche()) + b.GetSkill() / 10;
 
-                var skillA = 1 + a.GetSkill() / 100 / 2;
-                var skillB = 1 + b.GetSkill() / 100 / 2;
-
-                var scaleA = a.GetIntelligence() + a.GetStrength() + a.GetSpeed() + a.GetPsyche();
-                var scaleB = b.GetIntelligence() + b.GetStrength() + b.GetSpeed() + b.GetPsyche();
-
-                var skillABonus = scaleA + a.GetSkill() / 5 / 2;
-                var skillBBonus = scaleB + b.GetSkill() / 5 / 2;
-
-                var weighingMachine = skillABonus * skillA - skillBBonus * skillB;
+                var weighingMachine = scaleA - scaleB;
 
                 var psycheDifference = a.GetPsyche() - b.GetPsyche();
 
@@ -224,6 +217,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
 
 
+                var wtf = 1 + (a.GetSkill() / 200 - b.GetSkill() / 200);
+                weighingMachine *= wtf;
+
+
+                weighingMachine += player.Character.Justice.GetJusticeNow() - playerIamAttacking.Character.Justice.GetJusticeNow();
+
+
                 if (weighingMachine > 0) pointsWined++;
                 if (weighingMachine < 0) pointsWined--;
                 //end round 1
@@ -239,16 +239,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //round 3 (Random)
                 if (pointsWined == 0)
                 {
-                    var randomNumber = _rand.Random(1,
-                        100 - (player.Character.Justice.GetJusticeNow() -
-                               playerIamAttacking.Character.Justice.GetJusticeNow()));
+                    var randomNumber = _rand.Random(1, 100 - (player.Character.Justice.GetJusticeNow() - playerIamAttacking.Character.Justice.GetJusticeNow()));
                     if (randomNumber <= randomForTooGood) pointsWined++;
+                    else pointsWined--;
                 }
                 //end round 3
 
 
-                var moral = player.Status.PlaceAtLeaderBoard - player.Status.PlaceAtLeaderBoard;
-                if (moral < 0) moral *= -1;
+                var moral = player.Status.PlaceAtLeaderBoard - playerIamAttacking.Status.PlaceAtLeaderBoard;
 
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 1)
@@ -269,22 +267,29 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         switch (player.Character.GetCurrentSkillTarget())
                         {
                             case "Интеллект":
-                                if (player.Character.GetIntelligence() > playerIamAttacking.Character.GetIntelligence())
+                                if (playerIamAttacking.Character.GetIntelligence() > playerIamAttacking.Character.GetSpeed() && playerIamAttacking.Character.GetIntelligence() > playerIamAttacking.Character.GetStrength())
                                     player.Character.AddSkill(player.Status);
                                 break;
                             case "Сила":
-                                if (player.Character.GetStrength() > playerIamAttacking.Character.GetStrength())
+                                if (playerIamAttacking.Character.GetStrength() > playerIamAttacking.Character.GetSpeed() && playerIamAttacking.Character.GetStrength() > playerIamAttacking.Character.GetIntelligence())
                                     player.Character.AddSkill(player.Status);
                                 break;
                             case "Скорость":
-                                if (player.Character.GetSpeed() > playerIamAttacking.Character.GetSpeed())
+                                if (playerIamAttacking.Character.GetSpeed() > playerIamAttacking.Character.GetStrength() && playerIamAttacking.Character.GetSpeed() > playerIamAttacking.Character.GetIntelligence())
                                     player.Character.AddSkill(player.Status);
                                 break;
                         }
 
                     player.Status.WonTimes++;
                     player.Character.Justice.IsWonThisRound = true;
-                    player.Character.AddMoral(player.Status, moral * -1);
+
+
+                    if (player.Status.PlaceAtLeaderBoard > playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
+                    {
+                        player.Character.AddMoral(player.Status, moral * -1);
+                        playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral);
+                    }
+                        
 
                     playerIamAttacking.Character.Justice.AddJusticeForNextRound();
 
@@ -308,7 +313,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         player.Status.WonTimes++;
                         playerIamAttacking.Character.Justice.IsWonThisRound = true;
-                        playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral);
+
+                        if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
+                        {
+                            playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1);
+                            player.Character.AddMoral(player.Status, moral);
+                        }
 
                         if (playerIamAttacking.Character.Name == "Толя" && playerIamAttacking.Status.IsBlock)
                             playerIamAttacking.Character.Justice.IsWonThisRound = false;

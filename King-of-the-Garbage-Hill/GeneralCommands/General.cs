@@ -139,10 +139,10 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
         [Command("SetStat")]
         [Alias("set")]
-        [Summary("Set a stat (in, sp, st, ps)")]
+        [Summary("Set a stat (in, sp, st, ps, js, sk, mr)")]
         public async Task SetCharacteristic(string name, int number)
         {
-            if (number < 1 || number > 10) return;
+   
 
             var game = _global.GamesList.Find(
                 l => l.PlayersList.Any(x => x.DiscordId == Context.User.Id));
@@ -167,6 +167,18 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 case "ps":
                     game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Character
                         .SetPsyche(number);
+                    break;
+                case "js":
+                    game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Character
+                        .Justice.SetJusticeNow(number);
+                    break;
+                case "sk":
+                    game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Character
+                        .SetSkill(number);
+                    break;
+                case "mr":
+                    game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Character
+                        .SetMoral(number);
                     break;
                 default:
                     return;
