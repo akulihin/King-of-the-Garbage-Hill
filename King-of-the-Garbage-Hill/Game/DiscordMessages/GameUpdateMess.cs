@@ -154,12 +154,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         {
             var customString = " ";
             //|| player1.DiscordId == 238337696316129280 || player1.DiscordId == 181514288278536193
-            if (game.RoundNo == 11 || player1.UserType == "admin")
-            {
-                customString += $"(as **{player2.Character.Name}**) = {player2.Status.GetScore()} Score";
-                customString +=
-                    $"(I: {player2.Character.GetIntelligence()} | St: {player2.Character.GetStrength()} | Sp: {player2.Character.GetSpeed()} | Ps: {player2.Character.GetPsyche()})";
-            }
+
 
             switch (player1.Character.Name)
             {
@@ -268,7 +263,32 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     //end сверхразум
 
 
-                    break;
+                    //стёб
+                    var currentDeepList =
+                        _gameGlobal.DeepListMockeryList.Find(x =>
+                            x.PlayerId == player1.Status.PlayerId && game.GameId == x.GameId);
+
+                    if (currentDeepList != null)
+                    {
+                        var currentDeepList2 =
+                            currentDeepList.WhoWonTimes.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
+
+                        if (currentDeepList2 != null)
+                        {
+                            if (currentDeepList2.Times % 2 == 1)
+                            {
+                                customString += "**лол**";
+                            }
+                            else
+                            {
+                                customString += "**кек**";
+                            }
+                        }
+                    }
+                    //end стёб
+
+
+                            break;
 
                 case "mylorik":
                     var mylorik = _gameGlobal.MylorikRevenge.Find(x =>
@@ -297,6 +317,13 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     }
 
                     break;
+            }
+
+            if (game.RoundNo == 11 || player1.UserType == "admin")
+            {
+                customString += $"(as **{player2.Character.Name}**) = {player2.Status.GetScore()} Score";
+                customString +=
+                    $"(I: {player2.Character.GetIntelligence()} | St: {player2.Character.GetStrength()} | Sp: {player2.Character.GetSpeed()} | Ps: {player2.Character.GetPsyche()})";
             }
 
             return customString;
@@ -433,37 +460,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             return embed;
         }
 
-        //Page 4
-        public EmbedBuilder MoralPage(GamePlayerBridgeClass player)
-        {
-            var account = _accounts.GetAccount(player.DiscordId);
-            var character = player.Character;
 
-
-            var embed = new EmbedBuilder();
-
-            var desc = _global.GamesList.Find(x => x.GameId == player.GameId).GetPreviousGameLogs();
-            if (desc == null)
-                return null;
-            embed.WithDescription(desc);
-
-            embed.WithColor(Color.Blue);
-
-            embed.WithFooter($"{GetTimeLeft(player)}");
-            embed.WithCurrentTimestamp();
-            embed.AddField("_____",
-                "__Ты можешь  1:__\n \n" +
-                $"1. **Интеллект:** {character.GetIntelligence()}\n" +
-                $"2. **Сила:** {character.GetStrength()}\n" +
-                $"3. **Скорость:** {character.GetSpeed()}\n" +
-                $"4. **Психика:** {character.GetPsyche()}\n");
-
-            if (character.Avatar != null)
-                if (IsImageUrl(character.Avatar))
-                    embed.WithThumbnailUrl(character.Avatar);
-
-            return embed;
-        }
 
         public async Task UpdateMessage(GamePlayerBridgeClass player)
         {

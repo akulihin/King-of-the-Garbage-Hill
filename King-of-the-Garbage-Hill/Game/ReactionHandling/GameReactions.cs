@@ -332,10 +332,17 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             }
 
             //awdka only:
-            if (player.Status.LvlUpPoints == 3 || player.Status.LvlUpPoints == 2)
+            if (player.Status.LvlUpPoints > 1)
+            {
                 player.Status.LvlUpPoints--;
+                var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync($"Осталось еще {player.Status.LvlUpPoints} очков характеристик. Пытайся!");
+                _help.DeleteMessOverTime(mess2);
+            }
             else
-                player.Status.MoveListPage = 1;
+            {
+                player.Status.MoveListPage = 1; 
+
+            }
             //end awdka
 
             _upd.UpdateMessage(player);
