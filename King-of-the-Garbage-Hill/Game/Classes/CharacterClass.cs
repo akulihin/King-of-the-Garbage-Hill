@@ -156,6 +156,10 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public void SetIntelligence(int newIntelligence)
         {
             Intelligence = newIntelligence;
+            if (Intelligence < 0)
+                Intelligence = 0;
+            if (Intelligence > 10)
+                Intelligence = 10;
         }
 
         public void SetIntelligenceExtraText(string newIntelligenceExtraText)
@@ -191,6 +195,10 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public void SetPsyche(int newPsyche)
         {
             Psyche = newPsyche;
+            if (Psyche < 0)
+                Psyche = 0;
+            if (Psyche > 10)
+                Psyche = 10;
         }
 
         public void SetPsycheExtraText(string newPsycheExtraText)
@@ -225,6 +233,10 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public void SetSpeed(int newSpeed)
         {
             Speed = newSpeed;
+            if (Speed < 0)
+                Speed = 0;
+            if (Speed > 10)
+                Speed = 10;
         }
 
         public void SetSpeedExtraText(string newSpeedExtraText)
@@ -259,6 +271,10 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public void SetStrength(int newStrength)
         {
             Strength = newStrength;
+            if (Strength < 0)
+                Strength = 0;
+            if (Strength > 10)
+                Strength = 10;
         }
 
         public void SetStrengthExtraText(string newStrengthExtraText)

@@ -711,7 +711,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                     case "Darksci":
-
+                        if (game.RoundNo == 9)
+                        {
+                            //Дизмораль
+                            player.Character.AddPsyche(player.Status, -4);
+                            _phrase.DarksciDysmoral.SendLog(player);
+                            game.AddPreviousGameLogs(
+                                $"**{player.DiscordUsername}:** Всё, у меня горит!");
+                            //end Дизмораль
+                        }
 
                         //Да всё нахуй эту игру:
                         if (player.Character.GetPsyche() <= 0)

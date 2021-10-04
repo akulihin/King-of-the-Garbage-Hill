@@ -93,7 +93,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 {
                     currentDeepList2.Times++;
 
-                    if (currentDeepList2.Times % 2 != 0 && currentDeepList2.Times != 1)
+                    if (currentDeepList2.Times % 2 == 0)
                     {
                         player2.Character.AddPsyche(player2.Status, -1, true, "Стёб: ");
                         player2.MinusPsycheLog(game);

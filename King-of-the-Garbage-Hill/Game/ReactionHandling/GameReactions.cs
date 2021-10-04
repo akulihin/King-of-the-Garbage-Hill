@@ -338,39 +338,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 player.Status.MoveListPage = 1;
             //end awdka
 
-            //darcsi only
-            if (player.Character.Name == "Darksci")
-            {
-                var game = _global.GamesList.Find(x => x.GameId == player.GameId);
-                if (game.RoundNo == 9)
-                {
-                    //Дизмораль
-                    player.Character.AddPsyche(player.Status, -4);
-                    _phrase.DarksciDysmoral.SendLog(player);
-                    game.AddPreviousGameLogs(
-                        $"**{player.DiscordUsername}:** Всё, у меня горит!");
-                    //end Дизмораль
-
-
-                    ////Да всё нахуй эту игру:
-                    player.Status.IsSkip = true;
-                    player.Status.IsBlock = false;
-                    player.Status.IsAbleToTurn = false;
-                    player.Status.IsReady = true;
-                    player.Status.WhoToAttackThisTurn = Guid.Empty;
-                    _phrase.DarksciFuckThisGame.SendLog(player);
-
-
-                    if (player.Character.GetPsyche() <= 0)
-                        if (game.RoundNo == 9 ||
-                            game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
-                            game.AddPreviousGameLogs(
-                                $"**{player.DiscordUsername}:** Нахуй эту игру..");
-                    //end //Да всё нахуй эту игру:
-                }
-            }
-            //end
-
             _upd.UpdateMessage(player);
             await Task.CompletedTask;
         }

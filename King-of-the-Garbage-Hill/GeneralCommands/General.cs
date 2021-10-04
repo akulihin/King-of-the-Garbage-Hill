@@ -458,7 +458,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             var playersList = new List<GamePlayerBridgeClass>();
 
             //shuffle player list
-            players = players.OrderBy(x => Guid.NewGuid()).ToList();
+            // RETURN SHUFFLE AND REMOVE CHOICE!
+            //players = players.OrderBy(x => Guid.NewGuid()).ToList();
 
             foreach (var player in players)
             {
