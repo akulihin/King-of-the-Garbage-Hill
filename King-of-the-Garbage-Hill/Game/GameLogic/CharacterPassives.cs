@@ -1418,7 +1418,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             switch (characterName)
             {
                 case "HardKitty":
-                    //Muted passive
+                    //Mute passive
                     if (playerIamAttacking.Status.IsLostThisCalculation != Guid.Empty)
                     {
                         var hardKitty = _gameGlobal.HardKittyMute.Find(x =>
@@ -1434,7 +1434,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         }
                     }
 
-                    //Muted passive end
+                    //Mute passive end
                     break;
             }
 
@@ -1612,7 +1612,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         tolya.Cooldown--;
 
-                        if (tolya.Cooldown <= 0)
+                        if (tolya.Cooldown < 0)
                         {
                             tolya.IsReadyToUse = true;
                             _phrase.TolyaCountReadyPhrase.SendLog(player);

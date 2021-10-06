@@ -276,19 +276,15 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                         if (currentDeepList2 != null)
                         {
                             if (currentDeepList2.Times % 2 == 1)
-                            {
                                 customString += "**лол**";
-                            }
                             else
-                            {
                                 customString += "**кек**";
-                            }
                         }
                     }
                     //end стёб
 
 
-                            break;
+                    break;
 
                 case "mylorik":
                     var mylorik = _gameGlobal.MylorikRevenge.Find(x =>
@@ -355,7 +351,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithColor(Color.Blue);
             embed.WithTitle("King of the Garbage Hill");
             embed.WithFooter($"{GetTimeLeft(player)}");
-            embed.WithCurrentTimestamp();
+
 
             if (game == null) game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
@@ -461,33 +457,35 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
 
-
         public async Task UpdateMessage(GamePlayerBridgeClass player)
         {
             if (player.IsBot()) return;
 
             var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+            var playerChoiceAttackList = new List<Emoji>
+                {new("1⃣"), new("2⃣"), new("3⃣"), new("4⃣"), new("5⃣"), new("6⃣")};
 
             var embed = new EmbedBuilder();
+            var playerIsReady = (player.Status.IsSkip || player.Status.IsReady);
 
             var attackMenu = new SelectMenuBuilder()
                 .WithMinValues(1)
                 .WithMaxValues(1)
                 .WithCustomId("attack-select")
+                .WithDisabled(playerIsReady)
                 .WithPlaceholder("Выбор цели");
+
+    
+
             if (game != null)
-                attackMenu.AddOption(game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 1)?.DiscordUsername, "1",
-                        emote: new Emoji("1⃣"))
-                    .AddOption(game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 2)?.DiscordUsername, "2",
-                        emote: new Emoji("2⃣"))
-                    .AddOption(game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 3)?.DiscordUsername, "3",
-                        emote: new Emoji("3⃣"))
-                    .AddOption(game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 4)?.DiscordUsername, "4",
-                        emote: new Emoji("4⃣"))
-                    .AddOption(game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 5)?.DiscordUsername, "5",
-                        emote: new Emoji("5⃣"))
-                    .AddOption(game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 6)?.DiscordUsername, "6",
-                        emote: new Emoji("6⃣"));
+                for (var i = 0; i < playerChoiceAttackList.Count; i++)
+                {
+                    var playerToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == i + 1);
+                    if (playerToAttack == null) continue;
+                    if (playerToAttack.DiscordId != player.DiscordId)
+                        attackMenu.AddOption(playerToAttack.DiscordUsername, $"{i + 1}",
+                            emote: playerChoiceAttackList[i]);
+                }
 
 
             var charMenu = new SelectMenuBuilder()
@@ -506,11 +504,22 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             {
                 case 1:
                     embed = FightPage(player);
-                    builder = new ComponentBuilder()
-                        .WithButton("Блок", "block", row: 0, style: ButtonStyle.Success)
-                        .WithButton("Обменять Мораль", "moral", row: 0, style: ButtonStyle.Secondary)
-                        .WithButton("Завершить", "end", row: 0, style: ButtonStyle.Danger)
-                        .WithSelectMenu(attackMenu, 1);
+                    builder = new ComponentBuilder();
+
+                    builder.WithButton("Блок", "block", row: 0, style: ButtonStyle.Success, disabled: playerIsReady);
+
+                    builder.WithSelectMenu(attackMenu, 1);
+                    if(player.Character.GetMoral() >= 15)
+                       builder.WithButton("Обменять 15 Морали на 15 бонусных очков", "moral", row: 0, style: ButtonStyle.Secondary);
+                    else if (player.Character.GetMoral() >= 10)
+                        builder.WithButton("Обменять 10 Морали на 8 бонусных очков", "moral", row: 0, style: ButtonStyle.Secondary);
+                    else if (player.Character.GetMoral() >= 5)
+                        builder.WithButton("Обменять 5 Морали на 2 бонусных очка", "moral", row: 0, style: ButtonStyle.Secondary);
+                    else if (player.Character.GetMoral() >= 3)
+                        builder.WithButton("Обменять 3 Морали на 1 бонусное очко", "moral", row: 0, style: ButtonStyle.Secondary);
+                    else
+                        builder.WithButton("Недостаточно очков морали", "moral", row: 0, style: ButtonStyle.Secondary, disabled:true);
+                    builder.WithButton("Завершить", "end", row: 0, style: ButtonStyle.Danger);
                     break;
                 case 2:
                     embed = LogsPage(player);
@@ -553,9 +562,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             if (player.Status.IsReady)
                 return
-                    $"Ты походил • Ожидаем других игроков • ход #{game.RoundNo} • ({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
+                    $"Ты походил • Ожидаем других игроков • ({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
             return
-                $"Ожидаем твой ход • ход #{game.RoundNo} • ({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
+                $"Ожидаем твой ход • ({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
             /*
             //if (!game.IsCheckIfReady)
            //     return $"Ведется подсчёт, пожалуйста подожди... • ход #{game.RoundNo}";

@@ -46,7 +46,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             game.TimePassed.Stop();
             game.GameStatus = 2;
-            game.AddGameLogs($"\n__**Раунд #{game.RoundNo+1}**__\n");
+            var roundNumber = game.RoundNo + 1;
+            if (roundNumber > 10)
+            {
+                roundNumber = 10;
+            }
+            game.AddGameLogs($"\n__**Раунд #{roundNumber}**__\n");
             game.SetPreviousGameLogs($"\n__**Раунд #{game.RoundNo+1}**__\n");
 
 
@@ -269,15 +274,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             case "Интеллект":
                                 if (playerIamAttacking.Character.GetIntelligence() >= playerIamAttacking.Character.GetSpeed() && playerIamAttacking.Character.GetIntelligence() >= playerIamAttacking.Character.GetStrength())
-                                    player.Character.AddSkill(player.Status, "умного");
+                                    player.Character.AddSkill(player.Status, "**умного**");
                                 break;
                             case "Сила":
                                 if (playerIamAttacking.Character.GetStrength() >= playerIamAttacking.Character.GetSpeed() && playerIamAttacking.Character.GetStrength() >= playerIamAttacking.Character.GetIntelligence())
-                                    player.Character.AddSkill(player.Status, "сильного");
+                                    player.Character.AddSkill(player.Status, "**сильного**");
                                 break;
                             case "Скорость":
                                 if (playerIamAttacking.Character.GetSpeed() >= playerIamAttacking.Character.GetStrength() && playerIamAttacking.Character.GetSpeed() >= playerIamAttacking.Character.GetIntelligence())
-                                    player.Character.AddSkill(player.Status, "быстрого");
+                                    player.Character.AddSkill(player.Status, "**быстрого**");
                                 break;
                         }
 

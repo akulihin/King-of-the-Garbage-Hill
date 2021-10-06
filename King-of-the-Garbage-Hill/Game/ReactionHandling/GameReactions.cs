@@ -93,6 +93,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             break;
 
                         case "moral":
+                            var tempMoral = player.Character.GetMoral();
 
                             if (player.Character.GetMoral() >= 15)
                             {
@@ -128,6 +129,10 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                                     "15 морали = 15 бонусных очков");
                             }
 
+                            if (tempMoral >= 3)
+                            {
+                                _upd.UpdateMessage(t.PlayersList.Find(x => x.DiscordId == player.DiscordId));
+                            }
 
                             break;
 

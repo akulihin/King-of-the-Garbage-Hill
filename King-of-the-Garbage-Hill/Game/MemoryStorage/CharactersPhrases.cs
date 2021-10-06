@@ -139,7 +139,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
             HardKittyLonelyPhrase = new PhraseClass("Одиночество");
             HardKittyDoebatsyaPhrase = new PhraseClass("Доебаться");
-            HardKittyMutedPhrase = new PhraseClass("Muted");
+            HardKittyMutedPhrase = new PhraseClass("Mute");
 
             SirinoksFriendsPhrase = new PhraseClass("Заводить друзей");
             SirinoksDragonPhrase = new PhraseClass("Дракон");
@@ -315,7 +315,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             HardKittyDoebatsyaPhrase.PassiveLogRus.Add("Какой у тебя Windows?");
             HardKittyDoebatsyaPhrase.PassiveLogRus.Add("Что лучше взять на MF?");
             HardKittyDoebatsyaPhrase.PassiveLogRus.Add("Эй, э-эй...");
-            HardKittyMutedPhrase.PassiveLogRus.Add("Muted");
+            HardKittyMutedPhrase.PassiveLogRus.Add("Mute");
 
 
             SirinoksFriendsPhrase.PassiveLogRus.Add("Го в пати");
