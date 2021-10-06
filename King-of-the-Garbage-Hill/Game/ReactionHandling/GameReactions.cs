@@ -137,11 +137,11 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             break;
 
                         case "char-select":
-                            await HandleAttackOrLvlUp(player, button);
+                            await HandleLvlUp(player, button);
                             _upd.UpdateMessage(player);
                             break;
                         case "attack-select":
-                            await HandleAttackOrLvlUp(player, button);
+                            await HandleAttack(player, button);
                             _upd.UpdateMessage(player);
                             break;
                     }
@@ -150,7 +150,38 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 }
         }
 
-        public async Task<bool> HandleAttackOrLvlUp(GamePlayerBridgeClass player, SocketMessageComponent button,
+        public async Task HandleLvlUp(GamePlayerBridgeClass player, SocketMessageComponent button,
+    int botChoice = -1)
+        {
+            var status = player.Status;
+
+            var emoteNum = !player.IsBot() ? Convert.ToInt32(string.Join("", button.Data.Values)) : botChoice;
+            var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+
+
+            await GetLvlUp(player, emoteNum);
+
+
+            //Да всё нахуй эту игру:
+            if (player.Character.GetPsyche() <= 0)
+            {
+                player.Status.IsSkip = true;
+                player.Status.IsBlock = false;
+                player.Status.IsAbleToTurn = false;
+                player.Status.IsReady = true;
+                player.Status.WhoToAttackThisTurn = Guid.Empty;
+                _phrase.DarksciFuckThisGame.SendLog(player);
+
+                if (game.RoundNo == 9 ||
+                    game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
+                    game.AddPreviousGameLogs(
+                        $"**{player.DiscordUsername}:** Нахуй эту игру..");
+            }
+            //end Да всё нахуй эту игру:
+
+        }
+
+        public async Task<bool> HandleAttack(GamePlayerBridgeClass player, SocketMessageComponent button,
             int botChoice = -1)
         {
             var status = player.Status;
@@ -165,17 +196,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 return true;
             }
 
-            if(!player.IsBot())
-                if (button.Data.CustomId == "char-select")
-                {
-                    if (status.MoveListPage == 3)
-                    {
-                        await GetLvlUp(player, emoteNum);
-                        return true;
-                    }
-                    return false;
-                }
-
 
             if (!status.IsAbleToTurn)
             {
@@ -187,11 +207,13 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 return true;
             }
 
+            /*
             if (status.MoveListPage == 2)
             {
                 SendMsgAndDeleteIt(player, $"Нажми на {new Emoji("📖")}, чтобы вернуться в основное меню.");
                 return true;
             }
+            */
 
             if (status.MoveListPage == 1)
             {

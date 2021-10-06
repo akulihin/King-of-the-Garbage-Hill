@@ -267,7 +267,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             if (isBlockCheck > isBlock)
             {
                 //block
-                await _gameReaction.HandleAttackOrLvlUp(bot, null, -10);
+                await _gameReaction.HandleAttack(bot, null, -10);
                 ResetTens(nanobots);
                 return;
             }
@@ -330,14 +330,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
             if (whoToAttack == 0 || !isAttacked)
-                await _gameReaction.HandleAttackOrLvlUp(bot, null, -10);
+                await _gameReaction.HandleAttack(bot, null, -10);
 
             ResetTens(nanobots);
         }
 
         public async Task<bool> AttackPlayer(GamePlayerBridgeClass bot, int whoToAttack)
         {
-            return await _gameReaction.HandleAttackOrLvlUp(bot, null, whoToAttack);
+            return await _gameReaction.HandleAttack(bot, null, whoToAttack);
         }
 
         public void ResetTens(NanobotClass nanobots)
@@ -395,7 +395,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             if (player.Character.Name == "Darksci" && psyche < 10) skillNumber = 4;
             if (player.Character.Name == "Тигр" && psyche < 10 && game.RoundNo <= 6) skillNumber = 4;
 
-            await _gameReaction.HandleAttackOrLvlUp(player, null, skillNumber);
+            await _gameReaction.HandleLvlUp(player, null, skillNumber);
             player.Status.MoveListPage = 1;
         }
 

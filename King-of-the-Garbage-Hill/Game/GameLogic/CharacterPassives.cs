@@ -721,24 +721,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             //end Дизмораль
                         }
 
-                        //Да всё нахуй эту игру:
-                        if (player.Character.GetPsyche() <= 0)
-                        {
-                            player.Status.IsSkip = true;
-                            player.Status.IsBlock = false;
-                            player.Status.IsAbleToTurn = false;
-                            player.Status.IsReady = true;
-                            player.Status.WhoToAttackThisTurn = Guid.Empty;
-                            _phrase.DarksciFuckThisGame.SendLog(player);
-
-                            if (game.RoundNo == 9 ||
-                                game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
-                                game.AddPreviousGameLogs(
-                                    $"**{player.DiscordUsername}:** Нахуй эту игру..");
-                        }
-                        //end Да всё нахуй эту игру:
-
-
                         break;
 
 
