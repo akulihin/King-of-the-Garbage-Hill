@@ -85,7 +85,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     var leftUser = "ERROR";
 
-                    player.Status.AddRegularPoints();
+                    player.Status.AddRegularPoints(1, "Техническая Победа");
 
                     await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
                         .SendMessageAsync("/CalculateRound.cs:line 74 - ERROR\n" +
@@ -266,7 +266,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //end еврей
 
                     //add regular points
-                    player.Status.AddRegularPoints(point.Result);
+                    player.Status.AddRegularPoints(point.Result, "Победа");
 
                     //add skill
                     if (player.Status.WhoToAttackThisTurn == playerIamAttacking.Status.PlayerId)
@@ -292,8 +292,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     if (player.Status.PlaceAtLeaderBoard > playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
                     {
-                        player.Character.AddMoral(player.Status, moral);
-                        playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1);
+                        player.Character.AddMoral(player.Status, moral, "Победа: ");
+                        playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Поражение: ");
                     }
                         
 
@@ -315,15 +315,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     {
                         game.AddPreviousGameLogs($" ⟶ {playerIamAttacking.DiscordUsername}");
 
-                        playerIamAttacking.Status.AddRegularPoints();
+                        playerIamAttacking.Status.AddRegularPoints(1, "Победа");
 
                         player.Status.WonTimes++;
                         playerIamAttacking.Character.Justice.IsWonThisRound = true;
 
                         if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
                         {
-                            player.Character.AddMoral(player.Status, moral );
-                            playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1);
+                            player.Character.AddMoral(player.Status, moral, "Поражение: ");
+                            playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Победа: ");
                         }
 
                         if (playerIamAttacking.Character.Name == "Толя" && playerIamAttacking.Status.IsBlock)
@@ -385,7 +385,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 player.Status.MoveListPage = 1;
 
-                if (player.Character.Justice.IsWonThisRound) player.Character.Justice.SetJusticeNow(player.Status, 0, "Новый Раунд:", true);
+                if (player.Character.Justice.IsWonThisRound) player.Character.Justice.SetJusticeNow(player.Status, 0, "Новый Раунд:", false);
 
                 player.Character.Justice.IsWonThisRound = false;
                 player.Character.Justice.AddJusticeNow(player.Character.Justice.GetJusticeForNextRound());

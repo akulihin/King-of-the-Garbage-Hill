@@ -305,7 +305,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 case "HardKitty":
                     //Одиночество
-                    playerIamAttacking.Status.AddRegularPoints();
+                    playerIamAttacking.Status.AddRegularPoints(1, "Одиночество");
                     _phrase.HardKittyLonelyPhrase.SendLog(playerIamAttacking);
                     //Одиночество
                     break;
@@ -386,7 +386,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         _gameGlobal.AllSkipTriggeredWhen.Add(new WhenToTriggerClass(player1.Status.WhoToAttackThisTurn,
                             game.GameId,
                             game.RoundNo + 1));
-                        player1.Status.AddRegularPoints();
+                        player1.Status.AddRegularPoints(1, "Я за чаем");
                         _phrase.GlebTeaPhrase.SendLog(player1);
                     }
                     //end  Я за чаем:
@@ -404,7 +404,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (!siri.FriendList.Contains(playerIamAttacking.Status.PlayerId))
                     {
                         siri.FriendList.Add(playerIamAttacking.Status.PlayerId);
-                        player1.Status.AddRegularPoints();
+                        player1.Status.AddRegularPoints(1, "Заводить друзей");
                         _phrase.SirinoksFriendsPhrase.SendLog(player1);
                     }
 
@@ -509,13 +509,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard + 1 == shark.Status.PlaceAtLeaderBoard);
                 if (enemyTop != null && enemyTop.Status.IsLostThisCalculation != Guid.Empty)
                 {
-                    shark.Status.AddRegularPoints();
+                    shark.Status.AddRegularPoints(1, "Лежит на дне");
                     Console.WriteLine("shark + 1 TOP");
                 }
 
                 if (enemyBottom != null && enemyBottom.Status.IsLostThisCalculation != Guid.Empty)
                 {
-                    shark.Status.AddRegularPoints();
+                    shark.Status.AddRegularPoints(1, "Лежит на дне");
                     Console.WriteLine("shark + 1 BOT");
                 }
             }
@@ -540,7 +540,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (tolyaCount.TargetList.Any(x =>
                     x.RoundNumber == game.RoundNo - 1 && x.Target == player.Status.PlayerId))
                 {
-                    tolyaAcc.Status.AddRegularPoints(2);
+                    tolyaAcc.Status.AddRegularPoints(2, "Подсчет");
                     tolyaAcc.Character.Justice.AddJusticeForNextRound(2);
                     _phrase.TolyaCountPhrase.SendLog(tolyaAcc);
                 }
@@ -1189,7 +1189,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             //x3 point:
                             player.Status.SetScoresToGiveAtEndOfRound(
-                                (int) player.Status.GetScoresToGiveAtEndOfRound() * 3);
+                                (int) player.Status.GetScoresToGiveAtEndOfRound() * 3, "Претендент русского сервера");
                             //end x3 point:
 
                             var regularStats = glebChall.MadnessList.Find(x => x.Index == 1);
@@ -1290,7 +1290,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     case "Осьминожка":
 
                         //привет со дна
-                        if (game.SkipPlayersThisRound > 0) player.Status.AddRegularPoints(game.SkipPlayersThisRound);
+                        if (game.SkipPlayersThisRound > 0) player.Status.AddRegularPoints(game.SkipPlayersThisRound, "привет со дна");
                         //end привет со дна
 
 
@@ -1403,7 +1403,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (!hardKitty.UniquePlayers.Contains(player.Status.PlayerId))
                         {
                             hardKitty.UniquePlayers.Add(player.Status.PlayerId);
-                            player.Status.AddRegularPoints();
+                            player.Status.AddRegularPoints(1, "Mute");
                             _phrase.HardKittyMutedPhrase.SendLog(playerIamAttacking);
                         }
                     }
@@ -1526,7 +1526,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //Много выебывается:
                         if (player.Status.PlaceAtLeaderBoard == 1 && game.RoundNo > 1)
                         {
-                            player.Status.AddRegularPoints();
+                            player.Status.AddRegularPoints(1, "Много выебывается");
                             _phrase.MitsukiTooMuchFucking.SendLog(player);
                         }
                         //end Много выебывается:
@@ -1569,7 +1569,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             if (!octo.LeaderboardPlace.Contains(player.Status.PlaceAtLeaderBoard))
                             {
                                 octo.LeaderboardPlace.Add(player.Status.PlaceAtLeaderBoard);
-                                player.Status.AddRegularPoints();
+                                player.Status.AddRegularPoints(1, "Раскинуть щупальца");
                             }
                         }
 
@@ -1612,7 +1612,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var isTop1LastRound =
                     playersLastRound.Find(x => x.PlayerId == top1ThisRound).PlayerPlaceAtLeaderBoard == 1;
                 if (!isTop1LastRound)
-                    game.PlayersList.Find(x => x.Status.PlayerId == top1ThisRound).Status.AddRegularPoints(-1);
+                    game.PlayersList.Find(x => x.Status.PlayerId == top1ThisRound).Status.AddRegularPoints(-1, "Если фидишь то пропушь, если пушишь то нафидь");
 
 
                 foreach (var player in game.PlayersList)
@@ -1691,8 +1691,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     {
                         if (game.RoundNo > 4)
                         {
-                            leCrisp.Status.AddRegularPoints();
-                            tolya.Status.AddRegularPoints();
+                            leCrisp.Status.AddRegularPoints(1, "Еврей");
+                            tolya.Status.AddRegularPoints(1, "Еврей");
                             if (!leCrisp.IsBot())
                             {
                                 var mess =
@@ -1728,7 +1728,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             return 1;
                         }
 
-                        leCrisp.Status.AddRegularPoints();
+                        leCrisp.Status.AddRegularPoints(1, "Еврей");
                         _phrase.LeCrispJewPhrase.SendLog(leCrisp);
                         return 0;
                     }
@@ -1736,7 +1736,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (tolya != null)
                     if (tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
                     {
-                        tolya.Status.AddRegularPoints();
+                        tolya.Status.AddRegularPoints(1, "Еврей");
                         _phrase.TolyaJewPhrase.SendLog(tolya);
                         return 0;
                     }
@@ -1758,7 +1758,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             var point = HandleJewPassive(playerAttackedOctopus, game);
             //end еврей
 
-            playerAttackedOctopus.Status.AddRegularPoints(point.Result);
+            playerAttackedOctopus.Status.AddRegularPoints(point.Result, "Чернильная завеса");
 
             playerAttackedOctopus.Status.WonTimes++;
             playerAttackedOctopus.Character.Justice.IsWonThisRound = true;
@@ -1799,8 +1799,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
             }
 
-            octopusPlayer.Status.AddRegularPoints();
-            playerAttackedOctopus.Status.AddRegularPoints(-1);
+            octopusPlayer.Status.AddRegularPoints(1, "Чернильная завеса");
+            playerAttackedOctopus.Status.AddRegularPoints(-1, "Чернильная завеса");
 
 
             return false;

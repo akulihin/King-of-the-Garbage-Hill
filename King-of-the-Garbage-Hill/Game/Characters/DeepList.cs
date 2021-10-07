@@ -59,7 +59,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             if (deep.FriendList.Contains(player.Status.IsFighting))
                 if (player.Status.IsWonThisCalculation != Guid.Empty)
                 {
-                    player.Status.AddRegularPoints();
+                    player.Status.AddRegularPoints(1, "Сомнительная тактика");
                     _phrase.DeepListDoubtfulTacticPhrase.SendLog(player);
                 }
 
@@ -97,7 +97,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     {
                         player2.Character.AddPsyche(player2.Status, -1, "Стёб: ");
                         player2.MinusPsycheLog(game);
-                        player.Status.AddRegularPoints();
+                        player.Status.AddRegularPoints(1, "Стёб");
                         _phrase.DeepListPokePhrase.SendLog(player);
                         if (player2.Character.GetPsyche() < 4) player2.Character.Justice.AddJusticeForNextRound(-1);
                     }

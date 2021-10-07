@@ -54,7 +54,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                         if (enemy.WinsSeries >= 3 && enemy.IsUnique)
                         {
-                            player.Status.AddRegularPoints(2);
+                            player.Status.AddRegularPoints(2, "3-0 обоссан");
 
 
                             var enemyAcc = game.PlayersList.Find(x =>

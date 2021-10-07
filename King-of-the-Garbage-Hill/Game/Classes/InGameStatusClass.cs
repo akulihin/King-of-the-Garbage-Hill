@@ -30,6 +30,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             ScoresToGiveAtEndOfRound = 0;
             InGamePersonalLogs = "";
             InGamePersonalLogsAll = "";
+            ScoreSource = "";
             WhoToLostEveryRound = new List<WhoToLostPreviousRoundClass>();
             PlayerId = Guid.NewGuid();
         }
@@ -60,6 +61,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public int LvlUpPoints { get; set; }
         private string InGamePersonalLogs { get; set; }
         public string InGamePersonalLogsAll { get; set; }
+        public string ScoreSource { get; set; }
         public List<WhoToLostPreviousRoundClass> WhoToLostEveryRound { get; set; }
 
 
@@ -80,14 +82,18 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         }
 
 
-        public void SetScoresToGiveAtEndOfRound(int score)
+        public void SetScoresToGiveAtEndOfRound(int score, string reason, bool isLog = true)
         {
             ScoresToGiveAtEndOfRound = score;
+            if (isLog)
+                ScoreSource += $"{reason}+";
         }
 
-        public void AddRegularPoints(int regularPoints = 1)
+        public void AddRegularPoints(int regularPoints, string reason, bool isLog = true)
         {
             ScoresToGiveAtEndOfRound += regularPoints;
+            if (isLog)
+                ScoreSource += $"{reason}+";
         }
 
 
@@ -134,7 +140,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
 
             AddScore(GetScoresToGiveAtEndOfRound(), roundNumber);
-            SetScoresToGiveAtEndOfRound(0);
+            SetScoresToGiveAtEndOfRound(0, "", false);
+            ScoreSource = "";
         }
 
         private void AddScore(double score, int roundNumber)
@@ -152,8 +159,10 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 score = score * 4;
 
             if ((int) score > 0)
-                AddInGamePersonalLogs($"+{(int) score} **обычных** очков\n");
-            else if ((int) score < 0) AddInGamePersonalLogs($"{(int) score} очков...\n");
+                AddInGamePersonalLogs(
+                    $"+{(int) score} **обычных** очков ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
+            else if ((int) score < 0)
+                AddInGamePersonalLogs($"{(int) score} очков... ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
             Score += (int) score;
         }
 

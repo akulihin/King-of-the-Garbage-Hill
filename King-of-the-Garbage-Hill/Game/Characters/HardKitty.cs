@@ -62,7 +62,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 hardKitty?.LostSeries.Find(x => x.EnemyPlayerId == player.Status.IsWonThisCalculation);
             if (wonPlayer != null)
             {
-                player.Status.AddRegularPoints(wonPlayer.Series);
+                player.Status.AddRegularPoints(wonPlayer.Series, "Доебаться");
                 if (wonPlayer.Series >= 2)
                 {
                     var player2 = game.PlayersList.Find(x =>

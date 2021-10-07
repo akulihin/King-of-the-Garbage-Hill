@@ -59,7 +59,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             panth = _gameGlobal.PanthMark.Find(x =>
                 x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
 
-            if (panth.FriendList.Contains(player.Status.IsWonThisCalculation)) player.Status.AddRegularPoints();
+            if (panth.FriendList.Contains(player.Status.IsWonThisCalculation)) player.Status.AddRegularPoints(1, "Им это не понравится");
 
             //end Им это не понравится: 
         }
