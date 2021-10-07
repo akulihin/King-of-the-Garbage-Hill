@@ -52,7 +52,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 roundNumber = 10;
             }
             game.AddGameLogs($"\n__**Раунд #{roundNumber}**__\n");
-            game.SetPreviousGameLogs($"\n__**Раунд #{game.RoundNo+1}**__\n");
+            game.SetPreviousGameLogs($"\n__**Раунд #{roundNumber}**__\n");
 
 
             for (var i = 0; i < game.PlayersList.Count; i++)

@@ -87,9 +87,6 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public void AddSkill(InGameStatus status, string skillName, bool isLog = true)
         {
-            if (isLog)
-                status.AddInGamePersonalLogs($" + скилл (за {skillName} врага)\n");
-
 
             var howMuchToAdd = Skill switch
             {
@@ -105,6 +102,9 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 54 => 1,
                 _ => 0
             };
+
+            if (isLog)
+                status.AddInGamePersonalLogs($" +{howMuchToAdd} скилла (за {skillName} врага)\n");
 
             Skill += howMuchToAdd;
         }

@@ -241,7 +241,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     game.RoundNo == 10)
                 {
                     status.WhoToAttackThisTurn = Guid.Empty;
-                    SendMsgAndDeleteIt(player, "Выбранные игрок недоступен в связи с баном за нарушение правил");
+                    SendMsgAndDeleteIt(player, "Выбранный игрок недоступен в связи с баном за нарушение правил");
                     return false;
                 }
                 /*
