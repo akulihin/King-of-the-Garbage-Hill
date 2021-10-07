@@ -149,36 +149,36 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
             if (game == null) return;
 
-
+            var player = game.PlayersList.Find(x => x.DiscordId == Context.User.Id);
             switch (name.ToLower())
             {
                 case "in":
-                    game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Character
-                        .SetIntelligence(number);
+                    player.Character
+                        .SetIntelligence(player.Status, number, "Читы: ");
                     break;
                 case "sp":
-                    game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Character
-                        .SetSpeed(number);
+                    player.Character
+                        .SetSpeed(player.Status, number, "Читы: ");
                     break;
                 case "st":
-                    game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Character
-                        .SetStrength(number);
+                    player.Character
+                        .SetStrength(player.Status, number, "Читы: ");
                     break;
                 case "ps":
-                    game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Character
-                        .SetPsyche(number);
+                    player.Character
+                        .SetPsyche(player.Status, number, "Читы: ");
                     break;
                 case "js":
-                    game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Character
-                        .Justice.SetJusticeNow(number);
+                    player.Character
+                        .Justice.SetJusticeNow(player.Status, number, "Читы: ");
                     break;
                 case "sk":
-                    game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Character
-                        .SetSkill(number);
+                    player.Character
+                        .SetSkill(player.Status, number, "Читы: ");
                     break;
                 case "mr":
-                    game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Character
-                        .SetMoral(number);
+                    player.Character
+                        .SetMoral(player.Status, number, "Читы: ");
                     break;
                 default:
                     return;

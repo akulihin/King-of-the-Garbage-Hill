@@ -97,25 +97,25 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                             if (player.Character.GetMoral() >= 15)
                             {
-                                player.Character.AddMoral(player.Status, -15);
+                                player.Character.AddMoral(player.Status, -15, skillName:"Обмен Морали: ");
                                 player.Character.SetBonusPointsFromMoral(15);
                                 SendMsgAndDeleteIt(player, "Мораль: Я БОГ ЭТОГО МИРА + 15 __бонунсых__ очка");
                             }
                             else if (player.Character.GetMoral() >= 10)
                             {
-                                player.Character.AddMoral(player.Status, -10);
+                                player.Character.AddMoral(player.Status, -10, skillName: "Обмен Морали: ");
                                 player.Character.SetBonusPointsFromMoral(8);
                                 SendMsgAndDeleteIt(player, "Мораль: МВП + 8 __бонунсых__ очка");
                             }
                             else if (player.Character.GetMoral() >= 5)
                             {
-                                player.Character.AddMoral(player.Status, -5);
+                                player.Character.AddMoral(player.Status, -5, skillName: "Обмен Морали: ");
                                 player.Character.SetBonusPointsFromMoral(2);
                                 SendMsgAndDeleteIt(player, "Мораль: Изи катка + 2 __бонунсых__ очка");
                             }
                             else if (player.Character.GetMoral() >= 3)
                             {
-                                player.Character.AddMoral(player.Status, -3);
+                                player.Character.AddMoral(player.Status, -3, skillName: "Обмен Морали: ");
                                 player.Character.SetBonusPointsFromMoral(1);
                                 SendMsgAndDeleteIt(player, "Мораль: Ойвей + 1  __бонунсых__ очка");
                             }
@@ -161,23 +161,36 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
             await GetLvlUp(player, emoteNum);
 
-
-            //Да всё нахуй эту игру:
-            if (player.Character.GetPsyche() <= 0)
+            if (player.Character.Name == "Darksci")
             {
-                player.Status.IsSkip = true;
-                player.Status.IsBlock = false;
-                player.Status.IsAbleToTurn = false;
-                player.Status.IsReady = true;
-                player.Status.WhoToAttackThisTurn = Guid.Empty;
-                _phrase.DarksciFuckThisGame.SendLog(player);
-
-                if (game.RoundNo == 9 ||
-                    game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
+                if (game.RoundNo == 9)
+                {
+                    //Дизмораль
+                    player.Character.AddPsyche(player.Status, -4,  "Дизмораль: ");
+                    _phrase.DarksciDysmoral.SendLog(player);
                     game.AddPreviousGameLogs(
-                        $"**{player.DiscordUsername}:** Нахуй эту игру..");
+                        $"**{player.DiscordUsername}:** Всё, у меня горит!");
+                    //end Дизмораль
+                }
+
+                //Да всё нахуй эту игру:
+                if (player.Character.GetPsyche() <= 0)
+                {
+                    player.Status.IsSkip = true;
+                    player.Status.IsBlock = false;
+                    player.Status.IsAbleToTurn = false;
+                    player.Status.IsReady = true;
+                    player.Status.WhoToAttackThisTurn = Guid.Empty;
+                    _phrase.DarksciFuckThisGame.SendLog(player);
+
+                    if (game.RoundNo == 9 ||
+                        game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
+                        game.AddPreviousGameLogs(
+                            $"**{player.DiscordUsername}:** Нахуй эту игру..");
+                }
+                //end Да всё нахуй эту игру:
             }
-            //end Да всё нахуй эту игру:
+
 
         }
 
@@ -311,7 +324,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         return;
                     }
 
-                    player.Character.AddIntelligence(player.Status, 1, false);
+                    player.Character.AddIntelligence(player.Status, 1,  "Прокачка: ");
                     player.Status.AddInGamePersonalLogs(
                         $"Ты улучшил интеллект до {player.Character.GetIntelligence()}\n");
                     break;
@@ -324,7 +337,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         return;
                     }
 
-                    player.Character.AddStrength(player.Status, 1, false);
+                    player.Character.AddStrength(player.Status, 1,  "Прокачка: ");
                     player.Status.AddInGamePersonalLogs($"Ты улучшил силу до {player.Character.GetStrength()}\n");
 
                     break;
@@ -337,7 +350,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         return;
                     }
 
-                    player.Character.AddSpeed(player.Status, 1, false);
+                    player.Character.AddSpeed(player.Status, 1,  "Прокачка: ");
                     player.Status.AddInGamePersonalLogs($"Ты улучшил скорость до {player.Character.GetSpeed()}\n");
 
                     break;
@@ -350,7 +363,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         return;
                     }
 
-                    player.Character.AddPsyche(player.Status, 1, false);
+                    player.Character.AddPsyche(player.Status, 1,  "Прокачка: ");
                     player.Status.AddInGamePersonalLogs($"Ты улучшил психику до {player.Character.GetPsyche()}\n");
 
                     break;

@@ -68,7 +68,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     var player2 = game.PlayersList.Find(x =>
                         x.Status.PlayerId == player.Status.IsWonThisCalculation);
 
-                    player2.Character.AddPsyche(player2.Status, -1, true, "Доебаться: ");
+                    player2.Character.AddPsyche(player2.Status, -1, "Доебаться: ");
                     player2.MinusPsycheLog(game);
                 }
 

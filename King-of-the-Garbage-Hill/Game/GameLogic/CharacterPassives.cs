@@ -237,7 +237,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (!shark.FriendList.Contains(playerAttackFrom.Status.PlayerId))
                     {
                         shark.FriendList.Add(playerAttackFrom.Status.PlayerId);
-                        playerAttackFrom.Character.AddIntelligence(playerAttackFrom.Status, -1, true,
+                        playerAttackFrom.Character.AddIntelligence(playerAttackFrom.Status, -1, 
                             "Ничего не понимает: ");
                     }
 
@@ -357,9 +357,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (!panth.FriendList.Contains(playerIamAttacking.Status.PlayerId))
                     {
                         panth.FriendList.Add(playerIamAttacking.Status.PlayerId);
-                        playerIamAttacking.Character.AddStrength(playerIamAttacking.Status, -1, true,
+                        playerIamAttacking.Character.AddStrength(playerIamAttacking.Status, -1, 
                             "Они позорят военное искусство: ");
-                        playerIamAttacking.Character.AddSpeed(playerIamAttacking.Status, -1, true,
+                        playerIamAttacking.Character.AddSpeed(playerIamAttacking.Status, -1, 
                             "Они позорят военное искусство: ");
                     }
 
@@ -640,7 +640,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //end   //Ink
                         break;
                     case "Загадочный Спартанец в маске":
-                        if (game.RoundNo == 10) player.Character.SetStrength(0);
+                        if (game.RoundNo == 10) player.Character.SetStrength(player.Status, 0, "Они позорят военное искусство: ");
 
                         break;
 
@@ -672,9 +672,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Status.IsAbleToTurn = false;
                             player.Status.IsReady = true;
                             player.Status.WhoToAttackThisTurn = Guid.Empty;
-                            player.Character.SetPsyche(0);
-                            player.Character.SetIntelligence(0);
-                            player.Character.SetStrength(10);
+                            player.Character.SetPsyche(player.Status, 0, "Стримснайпят и банят и банят и банят: ");
+                            player.Character.SetIntelligence(player.Status, 0, "Стримснайпят и банят и банят и банят: ");
+                            player.Character.SetStrength(player.Status, 10, "Стримснайпят и банят и банят и банят: ");
                             game.AddPreviousGameLogs(
                                 $"**{player.DiscordUsername}:** ЕБАННЫЕ БАНЫ НА 10 ЛЕТ");
                             continue;
@@ -711,15 +711,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                     case "Darksci":
-                        if (game.RoundNo == 9)
-                        {
-                            //Дизмораль
-                            player.Character.AddPsyche(player.Status, -4);
-                            _phrase.DarksciDysmoral.SendLog(player);
-                            game.AddPreviousGameLogs(
-                                $"**{player.DiscordUsername}:** Всё, у меня горит!");
-                            //end Дизмораль
-                        }
+
 
                         break;
 
@@ -755,7 +747,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                             if (enemy != null)
                             {
-                                player.Status.AddBonusPoints((enemy.Score + 1) / 2);
+                                player.Status.AddBonusPoints((enemy.Score + 1) / 2, "Троллинг: ");
                                 _phrase.AwdkaTrolling.SendLog(player);
                             }
                         }
@@ -817,10 +809,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             var intelToGive = regularStats.Intel + intel;
                             if (intelToGive > 10)
                                 intelToGive = 10;
-                            player.Character.SetIntelligence(intelToGive);
-                            player.Character.SetStrength(regularStats.Str + str);
-                            player.Character.SetSpeed(regularStats.Speed + speed);
-                            player.Character.SetPsyche(regularStats.Psyche + psy);
+                            player.Character.SetIntelligence(player.Status, intelToGive, "Научите играть: ");
+                            player.Character.SetStrength(player.Status, regularStats.Str + str, "Научите играть: ");
+                            player.Character.SetSpeed(player.Status, regularStats.Speed + speed, "Научите играть: ");
+                            player.Character.SetPsyche(player.Status, regularStats.Psyche + psy, "Научите играть: ");
                             player.Character.SetIntelligenceExtraText("");
                             player.Character.SetStrengthExtraText("");
                             player.Character.SetSpeedExtraText("");
@@ -873,13 +865,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         }
 
                         if (intel1 >= player.Character.GetIntelligence())
-                            player.Character.SetIntelligence(intel1);
+                            player.Character.SetIntelligence(player.Status, intel1, "Научите играть: ");
                         if (str1 >= player.Character.GetStrength())
-                            player.Character.SetStrength(str1);
+                            player.Character.SetStrength(player.Status, str1, "Научите играть: ");
                         if (speed1 >= player.Character.GetSpeed())
-                            player.Character.SetSpeed(speed1);
+                            player.Character.SetSpeed(player.Status, speed1, "Научите играть: ");
                         if (pshy1 >= player.Character.GetPsyche())
-                            player.Character.SetPsyche(pshy1);
+                            player.Character.SetPsyche(player.Status, pshy1, "Научите играть: ");
                         //end find out  the biggest stat
 
                         //crazy shit 2
@@ -937,10 +929,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 var pshy = player.Character.GetPsyche() >= 10 ? 10 : 9;
 
 
-                                player.Character.SetIntelligence(intel);
-                                player.Character.SetStrength(str);
-                                player.Character.SetSpeed(speed);
-                                player.Character.SetPsyche(pshy);
+                                player.Character.SetIntelligence(player.Status, intel, "Претендент русского сервера: ");
+                                player.Character.SetStrength(player.Status, str, "Претендент русского сервера: ");
+                                player.Character.SetSpeed(player.Status, speed, "Претендент русского сервера: ");
+                                player.Character.SetPsyche(player.Status, pshy, "Претендент русского сервера: ");
 
 
                                 gleb.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
@@ -1064,10 +1056,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                     else if (i == 3) pshy = statNumber;
                                 }
 
-                                player.Character.SetIntelligence(intel);
-                                player.Character.SetStrength(str);
-                                player.Character.SetSpeed(speed);
-                                player.Character.SetPsyche(pshy);
+                                player.Character.SetIntelligence(player.Status, intel, "Безумие: ");
+                                player.Character.SetStrength(player.Status, str, "Безумие: ");
+                                player.Character.SetSpeed(player.Status, speed, "Безумие: ");
+                                player.Character.SetPsyche(player.Status, pshy, "Безумие: ");
 
                                 _phrase.DeepListMadnessPhrase.SendLog(player);
                                 curr.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
@@ -1080,10 +1072,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         if (game.RoundNo == 10)
                         {
-                            player.Character.SetIntelligence(10);
-                            player.Character.SetStrength(10);
-                            player.Character.SetSpeed(10);
-                            player.Character.SetPsyche(11);
+                            player.Character.SetIntelligence(player.Status, 10, "Дракон: ");
+                            player.Character.SetStrength(player.Status, 10, "Дракон: ");
+                            player.Character.SetSpeed(player.Status, 10, "Дракон: ");
+                            player.Character.SetPsyche(player.Status, 11, "Дракон: ");
 
                             var pointsToGive = 10;
 
@@ -1099,7 +1091,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                         pointsToGive--;
                                 }
 
-                            player.Status.AddBonusPoints(pointsToGive);
+                            player.Status.AddBonusPoints(pointsToGive, "Дракон: ");
                             _phrase.SirinoksDragonPhrase.SendLog(player);
                         }
 
@@ -1150,7 +1142,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 {
                                     tigr.FriendList.Add(t.Status.PlayerId);
                                     // player.Status.AddRegularPoints();
-                                    player.Status.AddBonusPoints(3);
+                                    player.Status.AddBonusPoints(3, "Лучше с двумя, чем с адекватными: ");
                                     _phrase.TigrTwoBetter.SendLog(player);
                                 }
                             }
@@ -1178,10 +1170,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             var psy = player.Character.GetPsyche() - madStats.Psyche;
 
 
-                            player.Character.SetIntelligence(regularStats.Intel + intel);
-                            player.Character.SetStrength(regularStats.Str + str);
-                            player.Character.SetSpeed(regularStats.Speed + speed);
-                            player.Character.SetPsyche(regularStats.Psyche + psy);
+                            player.Character.SetIntelligence(player.Status, regularStats.Intel + intel, "Безумие: ");
+                            player.Character.SetStrength(player.Status, regularStats.Str + str, "Безумие: ");
+                            player.Character.SetSpeed(player.Status, regularStats.Speed + speed, "Безумие: ");
+                            player.Character.SetPsyche(player.Status, regularStats.Psyche + psy, "Безумие: ");
                             _gameGlobal.DeepListMadnessList.Remove(madd);
                         }
 
@@ -1210,10 +1202,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             var psy = player.Character.GetPsyche() - madStats.Psyche;
 
 
-                            player.Character.SetIntelligence(regularStats.Intel + intel);
-                            player.Character.SetStrength(regularStats.Str + str);
-                            player.Character.SetSpeed(regularStats.Speed + speed);
-                            player.Character.SetPsyche(regularStats.Psyche + psy);
+                            player.Character.SetIntelligence(player.Status, regularStats.Intel + intel, "Претендент русского сервера: ");
+                            player.Character.SetStrength(player.Status, regularStats.Str + str, "Претендент русского сервера: ");
+                            player.Character.SetSpeed(player.Status, regularStats.Speed + speed, "Претендент русского сервера: ");
+                            player.Character.SetPsyche(player.Status, regularStats.Psyche + psy, "Претендент русского сервера: ");
                             _gameGlobal.GlebChallengerList.Remove(glebChall);
                         }
 
@@ -1226,7 +1218,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         if (leImpact == null || !leImpact.IsTriggered)
                         {
-                            player.Status.AddBonusPoints();
+                            player.Status.AddBonusPoints(1, "Импакт: ");
                             player.Character.Justice.AddJusticeForNextRound();
                             _phrase.LeCrispImpactPhrase.SendLog(player);
                         }
@@ -1317,16 +1309,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             switch (stats.StatIndex)
                             {
                                 case 1:
-                                    player.Character.AddIntelligence(player.Status);
+                                    player.Character.AddIntelligence(player.Status, 1, "Обучение: ");
                                     break;
                                 case 2:
-                                    player.Character.AddStrength(player.Status);
+                                    player.Character.AddStrength(player.Status, 1, "Обучение: ");
                                     break;
                                 case 3:
-                                    player.Character.AddSpeed(player.Status);
+                                    player.Character.AddSpeed(player.Status, 1, "Обучение: ");
                                     break;
                                 case 4:
-                                    player.Character.AddPsyche(player.Status);
+                                    player.Character.AddPsyche(player.Status, 1, "Обучение: ");
                                     break;
                             }
 
@@ -1347,32 +1339,32 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         switch (randStat1)
                         {
                             case 1:
-                                player.Character.AddIntelligence(player.Status, -1);
+                                player.Character.AddIntelligence(player.Status, -1, "Дерзкая школота: ");
                                 break;
                             case 2:
-                                player.Character.AddStrength(player.Status, -1);
+                                player.Character.AddStrength(player.Status, -1, "Дерзкая школота: ");
                                 break;
                             case 3:
-                                player.Character.AddSpeed(player.Status, -1);
+                                player.Character.AddSpeed(player.Status, -1, "Дерзкая школота: ");
                                 break;
                             case 4:
-                                player.Character.AddPsyche(player.Status, -1);
+                                player.Character.AddPsyche(player.Status, -1, "Дерзкая школота: ");
                                 break;
                         }
 
                         switch (randStat2)
                         {
                             case 1:
-                                player.Character.AddIntelligence(player.Status, -1);
+                                player.Character.AddIntelligence(player.Status, -1, "Дерзкая школота: ");
                                 break;
                             case 2:
-                                player.Character.AddStrength(player.Status, -1);
+                                player.Character.AddStrength(player.Status, -1, "Дерзкая школота: ");
                                 break;
                             case 3:
-                                player.Character.AddSpeed(player.Status, -1);
+                                player.Character.AddSpeed(player.Status, -1, "Дерзкая школота: ");
                                 break;
                             case 4:
-                                player.Character.AddPsyche(player.Status, -1);
+                                player.Character.AddPsyche(player.Status, -1, "Дерзкая школота: ");
                                 break;
                         }
 
@@ -1472,9 +1464,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     if (darscsi.TouchedPlayers.Count == game.PlayersList.Count - 1)
                     {
-                        player.Status.AddBonusPoints(player.Status.GetScore() * 3);
+                        player.Status.AddBonusPoints(player.Status.GetScore() * 3, "Повезло: ");
 
-                        player.Character.AddPsyche(player.Status, 2);
+                        player.Character.AddPsyche(player.Status, 2, "Повезло: ");
                         darscsi.TouchedPlayers.Clear();
                         _phrase.DarksciLucky.SendLog(player);
                     }
@@ -1512,7 +1504,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             if (!shark.FriendList.Contains(player.Status.PlaceAtLeaderBoard))
                             {
                                 shark.FriendList.Add(player.Status.PlaceAtLeaderBoard);
-                                player.Character.AddSpeed(player.Status);
+                                player.Character.AddSpeed(player.Status, 1, "Челюсти: ");
                             }
                         }
 
@@ -1523,7 +1515,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //Тигр топ, а ты холоп: 
                         if (player.Status.PlaceAtLeaderBoard == 1 && game.RoundNo > 1)
                         {
-                            player.Character.AddPsyche(player.Status);
+                            player.Character.AddPsyche(player.Status, 1, "Тигр топ, а ты холоп: ");
                             _phrase.TigrTop.SendLog(player);
                         }
 
@@ -1673,7 +1665,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
                     if (enemy != null)
                         if (enemy.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
-                            enemy.Character.Justice.SetJusticeNow(enemy.Character.Justice.GetJusticeNow() - 1);
+                            enemy.Character.Justice.SetJusticeNow(enemy.Status , enemy.Character.Justice.GetJusticeNow() - 1, "Падальщик: ", false);
                     //игнор 1 справедливости
                     break;
             }

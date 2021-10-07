@@ -34,12 +34,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             {
                 if (panth.FriendList.Contains(player.Status.IsWonThisCalculation))
                 {
-                    player.Character.AddSpeed(player.Status);
+                    player.Character.AddSpeed(player.Status, 1, "Первая кровь: ");
                 }
                 else if (panth.FriendList.Contains(player.Status.IsLostThisCalculation))
                 {
                     var ene = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsLostThisCalculation);
-                    ene.Character.AddSpeed(ene.Status, 1, true, "Первая кровь: ");
+                    ene.Character.AddSpeed(ene.Status, 1, "Первая кровь: ");
                 }
 
                 panth.FriendList.Add(Guid.Empty);
@@ -51,7 +51,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             {
                 game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Character
                     .Justice.AddJusticeForNextRound();
-                player.Character.AddIntelligence(player.Status, -1);
+                player.Character.AddIntelligence(player.Status, -1, "Это привилегия: ");
             }
             //end Это привилегия
 

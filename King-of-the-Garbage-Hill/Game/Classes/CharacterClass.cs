@@ -78,15 +78,15 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             return Skill;
         }
 
-        public void SetSkill(double newSkill)
+        public void SetSkill(InGameStatus status, double howMuchToSet = 1, string skillName = "")
         {
-            Skill = newSkill;
+            status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} скилла\n");
+            Skill = howMuchToSet;
         }
 
         public void AddSkill(InGameStatus status, string skillName, bool isLog = true)
         {
-            if (isLog)
-                status.AddInGamePersonalLogs($" + скилл (за {skillName} врага)\n");
+            status.AddInGamePersonalLogs($" + скилл (за {skillName} врага)\n");
 
 
             var howMuchToAdd = Skill switch
@@ -112,27 +112,28 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             return Moral;
         }
 
-        public void SetMoral(int newMoral)
+        public void SetMoral(InGameStatus status, int howMuchToSet = 1, string skillName = "")
         {
-            Moral = newMoral;
+            status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} морали\n");
+            Moral = howMuchToSet;
         }
 
-        public void AddMoral(InGameStatus status, int howMuchToAdd = 0, bool isLog = true, string skillName = "")
+        public void AddMoral(InGameStatus status, int howMuchToAdd = 0, string skillName = "")
         {
-            if (howMuchToAdd > 0 && isLog)
+            if (howMuchToAdd > 0)
                 status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} морали\n");
-            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} морали\n");
+            else if (howMuchToAdd < 0) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} морали\n");
 
             Moral += howMuchToAdd;
             if (Moral < 0) Moral = 0;
         }
 
 
-        public void AddIntelligence(InGameStatus status, int howMuchToAdd = 1, bool isLog = true, string skillName = "")
+        public void AddIntelligence(InGameStatus status, int howMuchToAdd = 1, string skillName = "")
         {
-            if (howMuchToAdd > 0 && isLog)
+            if (howMuchToAdd > 0)
                 status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} интеллект\n");
-            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} интеллект\n");
+            else if (howMuchToAdd < 0) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} интеллект\n");
 
 
             Intelligence += howMuchToAdd;
@@ -153,9 +154,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             return $"{Intelligence}{IntelligenceExtraText}";
         }
 
-        public void SetIntelligence(int newIntelligence)
+        public void SetIntelligence(InGameStatus status, int howMuchToSet = 1, string skillName = "")
         {
-            Intelligence = newIntelligence;
+            status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} интеллект\n");
+
+            Intelligence = howMuchToSet;
             if (Intelligence < 0)
                 Intelligence = 0;
             if (Intelligence > 10)
@@ -167,11 +170,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             IntelligenceExtraText = newIntelligenceExtraText;
         }
 
-        public void AddPsyche(InGameStatus status, int howMuchToAdd = 1, bool isLog = true, string skillName = "")
+        public void AddPsyche(InGameStatus status, int howMuchToAdd = 1, string skillName = "")
         {
-            if (howMuchToAdd > 0 && isLog)
+            if (howMuchToAdd > 0)
                 status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} психика\n");
-            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} психика\n");
+            else if (howMuchToAdd < 0) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} психика\n");
 
 
             Psyche += howMuchToAdd;
@@ -192,9 +195,10 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             return $"{Psyche}{PsycheExtraText}";
         }
 
-        public void SetPsyche(int newPsyche)
+        public void SetPsyche(InGameStatus status, int howMuchToSet = 1, string skillName = "")
         {
-            Psyche = newPsyche;
+            status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} психики\n");
+            Psyche = howMuchToSet;
             if (Psyche < 0)
                 Psyche = 0;
             if (Psyche > 10)
@@ -206,11 +210,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             PsycheExtraText = newPsycheExtraText;
         }
 
-        public void AddSpeed(InGameStatus status, int howMuchToAdd = 1, bool isLog = true, string skillName = "")
+        public void AddSpeed(InGameStatus status, int howMuchToAdd = 1, string skillName = "")
         {
-            if (howMuchToAdd > 0 && isLog)
+            if (howMuchToAdd > 0)
                 status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} скорость\n");
-            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} скорость\n");
+            else if (howMuchToAdd < 0) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} скорость\n");
 
 
             Speed += howMuchToAdd;
@@ -230,9 +234,10 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             return $"{Speed}{SpeedExtraText}";
         }
 
-        public void SetSpeed(int newSpeed)
+        public void SetSpeed(InGameStatus status, int howMuchToSet = 1, string skillName = "")
         {
-            Speed = newSpeed;
+            status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} скорости\n");
+            Speed = howMuchToSet;
             if (Speed < 0)
                 Speed = 0;
             if (Speed > 10)
@@ -244,11 +249,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             SpeedExtraText = newSpeedExtraText;
         }
 
-        public void AddStrength(InGameStatus status, int howMuchToAdd = 1, bool isLog = true, string skillName = "")
+        public void AddStrength(InGameStatus status, int howMuchToAdd = 1, string skillName = "")
         {
-            if (howMuchToAdd > 0 && isLog)
+            if (howMuchToAdd > 0)
                 status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} сила\n");
-            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} сила\n");
+            else if (howMuchToAdd < 0) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} сила\n");
 
 
             Strength += howMuchToAdd;
@@ -268,9 +273,10 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             return $"{Strength}{StrengthExtraText}";
         }
 
-        public void SetStrength(int newStrength)
+        public void SetStrength(InGameStatus status, int howMuchToSet = 1, string skillName = "")
         {
-            Strength = newStrength;
+            status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} силы\n");
+            Strength = howMuchToSet;
             if (Strength < 0)
                 Strength = 0;
             if (Strength > 10)
@@ -329,9 +335,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             return JusticeNow;
         }
 
-        public void SetJusticeNow(int newJusticeNow)
+        public void SetJusticeNow(InGameStatus status, int howMuchToSet = 1, string skillName = "", bool isLog = true)
         {
-            JusticeNow = newJusticeNow;
+            if(isLog)
+                status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} справедливости\n");
+            JusticeNow = howMuchToSet;
         }
 
         public void AddJusticeForNextRound(int howMuchToAdd = 1)

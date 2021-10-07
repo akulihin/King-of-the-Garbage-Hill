@@ -36,7 +36,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
             if (enemy != null)
                 if (enemy.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
-                    enemy.Character.Justice.SetJusticeNow(enemy.Character.Justice.GetJusticeNow() + 1);
+                    enemy.Character.Justice.SetJusticeNow(enemy.Status, enemy.Character.Justice.GetJusticeNow() + 1, "Падальщик: ", true);
             //end Падальщик
 
             //Гематофагия
@@ -64,7 +64,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                     continue;
                                 }
 
-                                player.Character.AddIntelligence(player.Status);
+                                player.Character.AddIntelligence(player.Status,1,   "Гематофагия: ");
                                 break;
                             case 2:
                                 intel = player.Character.GetStrength();
@@ -74,7 +74,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                     continue;
                                 }
 
-                                player.Character.AddStrength(player.Status);
+                                player.Character.AddStrength(player.Status, 1, "Гематофагия: ");
                                 break;
                             case 3:
                                 intel = player.Character.GetSpeed();
@@ -84,7 +84,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                     continue;
                                 }
 
-                                player.Character.AddSpeed(player.Status);
+                                player.Character.AddSpeed(player.Status, 1, "Гематофагия: ");
                                 break;
                             case 4:
                                 intel = player.Character.GetPsyche();
@@ -94,7 +94,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                     continue;
                                 }
 
-                                player.Character.AddPsyche(player.Status);
+                                player.Character.AddPsyche(player.Status, 1, "Гематофагия: ");
                                 break;
                         }
                     }
@@ -134,7 +134,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                     continue;
                                 }
 
-                                player.Character.AddIntelligence(player.Status, -1);
+                                player.Character.AddIntelligence(player.Status, -1, "Гематофагия: ");
                                 break;
                             case 2:
                                 intel = player.Character.GetStrength();
@@ -144,7 +144,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                     continue;
                                 }
 
-                                player.Character.AddStrength(player.Status, -1);
+                                player.Character.AddStrength(player.Status, -1, "Гематофагия: ");
                                 break;
                             case 3:
                                 intel = player.Character.GetSpeed();
@@ -154,7 +154,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                     continue;
                                 }
 
-                                player.Character.AddSpeed(player.Status, -1);
+                                player.Character.AddSpeed(player.Status, -1, "Гематофагия: ");
                                 break;
                             case 4:
                                 intel = player.Character.GetPsyche();
@@ -164,7 +164,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                                     continue;
                                 }
 
-                                player.Character.AddPsyche(player.Status, -1);
+                                player.Character.AddPsyche(player.Status, -1, "Гематофагия: ");
                                 break;
                         }
                     }

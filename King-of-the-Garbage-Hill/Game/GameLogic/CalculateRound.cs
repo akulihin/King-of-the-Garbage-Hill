@@ -385,7 +385,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 player.Status.MoveListPage = 1;
 
-                if (player.Character.Justice.IsWonThisRound) player.Character.Justice.SetJusticeNow(0);
+                if (player.Character.Justice.IsWonThisRound) player.Character.Justice.SetJusticeNow(player.Status, 0, "Новый Раунд:", true);
 
                 player.Character.Justice.IsWonThisRound = false;
                 player.Character.Justice.AddJusticeNow(player.Character.Justice.GetJusticeForNextRound());

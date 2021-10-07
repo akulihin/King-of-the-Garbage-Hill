@@ -62,7 +62,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 if (find != null)
                 {
                     player.Status.AddRegularPoints(2);
-                    player.Character.AddPsyche(player.Status);
+                    player.Character.AddPsyche(player.Status, 1, "Месть: ");
                     find.IsUnique = false;
                     _phrase.MylorikRevengeVictoryPhrase.SendLog(player);
                 }
@@ -93,7 +93,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                 if (rand == 1)
                 {
-                    player.Character.AddPsyche(player.Status, -1);
+                    player.Character.AddPsyche(player.Status, -1, "Испанец: ");
                     player.MinusPsycheLog(game);
                     _phrase.MylorikSpanishPhrase.SendLog(player);
                 }

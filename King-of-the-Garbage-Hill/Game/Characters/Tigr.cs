@@ -62,9 +62,9 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                             if (enemyAcc != null)
                             {
-                                enemyAcc.Character.AddIntelligence(enemyAcc.Status, -1, true, "3-0 обоссан: ");
+                                enemyAcc.Character.AddIntelligence(enemyAcc.Status, -1, "3-0 обоссан: ");
 
-                                enemyAcc.Character.AddPsyche(enemyAcc.Status, -1, true, "3-0 обоссан: ");
+                                enemyAcc.Character.AddPsyche(enemyAcc.Status, -1, "3-0 обоссан: ");
                                 enemyAcc.MinusPsycheLog(game);
                                 _phrase.TigrThreeZero.SendLog(player);
 

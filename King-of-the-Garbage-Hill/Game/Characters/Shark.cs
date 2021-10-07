@@ -38,7 +38,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 if (!shark.FriendList.Contains(player.Status.IsWonThisCalculation))
                 {
                     shark.FriendList.Add(player.Status.IsWonThisCalculation);
-                    player.Character.AddSpeed(player.Status);
+                    player.Character.AddSpeed(player.Status, 1, "Челюсти: ");
                 }
             }
 
