@@ -136,6 +136,17 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             foreach (var t in game.PlayersList) await _upd.UpdateMessage(t);
         }
 
+        [Command("leave")]
+        [Alias("set")]
+        [Summary("leave from all servers")]
+        public async Task Leave()
+        {
+            foreach (var guild in _global.Client.Guilds)
+            {
+                if (guild.Id == 561282595799826432 || guild.Name.Contains("SC Software Development")) continue;
+               await guild.LeaveAsync();
+            }
+        }
 
         [Command("SetStat")]
         [Alias("set")]
