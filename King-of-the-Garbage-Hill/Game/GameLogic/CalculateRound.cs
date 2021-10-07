@@ -51,8 +51,20 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             {
                 roundNumber = 10;
             }
-            game.AddGameLogs($"\n__**Раунд #{roundNumber}**__\n");
-            game.SetPreviousGameLogs($"\n__**Раунд #{roundNumber}**__\n");
+
+            var multiplier = roundNumber switch
+            {
+                <= 4 => 1,
+                <= 9 => 2,
+                _ => 4
+            };
+            /*
+            1-4 х1
+            5-9 х2
+            10  х4
+             */
+            game.AddGameLogs($"\n__**Раунд #{roundNumber}**__: **x{multiplier}** очков\n\n");
+            game.SetPreviousGameLogs($"\n__**Раунд #{roundNumber}**__: **x{multiplier}** очков\n\n");
 
 
             for (var i = 0; i < game.PlayersList.Count; i++)

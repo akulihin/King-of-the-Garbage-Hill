@@ -350,7 +350,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var embed = new EmbedBuilder();
             embed.WithColor(Color.Blue);
             embed.WithTitle("King of the Garbage Hill");
-            embed.WithFooter($"{GetTimeLeft(player)}");
+            
 
 
             if (game == null) game = _global.GamesList.Find(x => x.GameId == player.GameId);
@@ -367,6 +367,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     .SendMessageAsync("PreviousGameLogs >= 2048");
 
             embed.AddField("<:e_:562879579694301184>",
+                "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                 $"**Интеллект:** {character.GetIntelligenceString()}\n" +
                 $"**Сила:** {character.GetStrengthString()}\n" +
                 $"**Скорость:** {character.GetSpeedString()}\n" +
@@ -530,6 +531,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     builder = new ComponentBuilder().WithSelectMenu(charMenu);
                     break;
             }
+
+            embed.WithFooter($"{GetTimeLeft(player)} |{embed.Length}|");
+            
 
             await UpdateMessageWithEmbed(player, embed, builder);
         }
