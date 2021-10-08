@@ -308,7 +308,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
 
             HardKittyLonelyPhrase.PassiveLogRus.Add("Привет");
-            HardKittyLonelyPhrase.PassiveLogRus.Add("Мне сегодня снилось, как...");
+            HardKittyLonelyPhrase.PassiveLogRus.Add("Мне сегодня снилось, что...");
             HardKittyLonelyPhrase.PassiveLogRus.Add("Что делаешь?");
             HardKittyLonelyPhrase.PassiveLogRus.Add("Как дела?");
             HardKittyDoebatsyaPhrase.PassiveLogRus.Add("У вас продают молоко в пакетах?");
