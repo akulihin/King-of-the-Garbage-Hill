@@ -2,18 +2,13 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.MemoryStorage;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class Darksci : IServiceSingleton
     {
-        private readonly CharactersUniquePhrase _phrase;
+        
 
-        public Darksci(CharactersUniquePhrase phrase)
-        {
-            _phrase = phrase;
-        }
 
         public Task InitializeAsync()
         {
@@ -38,13 +33,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 {
                     player.Character.AddPsyche(player.Status, -1);
                     player.MinusPsycheLog(game);
-                    await _phrase.DarksciNotLucky.SendLog(player);
+                    await game.Phrases.DarksciNotLucky.SendLog(player);
                 }
                 else
-                    await _phrase.ThirdСommandment.SendLog(player);*/
+                    await game.Phrases.ThirdСommandment.SendLog(player);*/
                 player.Character.AddPsyche(player.Status, -1, "Не повезло: ");
                 player.MinusPsycheLog(game);
-                _phrase.DarksciNotLucky.SendLog(player);
+                game.Phrases.DarksciNotLucky.SendLog(player, true);
                 //end Не повезло
             }
         }

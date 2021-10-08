@@ -3,19 +3,17 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
-using King_of_the_Garbage_Hill.Game.MemoryStorage;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class DeepList : IServiceSingleton
     {
         private readonly InGameGlobal _gameGlobal;
-        private readonly CharactersUniquePhrase _phrase;
+        
 
-        public DeepList(InGameGlobal gameGlobal, CharactersUniquePhrase phrase)
+        public DeepList(InGameGlobal gameGlobal)
         {
             _gameGlobal = gameGlobal;
-            _phrase = phrase;
         }
 
         public Task InitializeAsync()
@@ -41,7 +39,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 deep.FriendList.Add(player.Status.IsFighting);
 
                 player.Status.IsAbleToWin = false;
-                _phrase.DeepListDoubtfulTacticFirstLostPhrase.SendLog(player);
+                game.Phrases.DeepListDoubtfulTacticFirstLostPhrase.SendLog(player, false);
             }
 
 
@@ -60,7 +58,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 if (player.Status.IsWonThisCalculation != Guid.Empty)
                 {
                     player.Status.AddRegularPoints(1, "Сомнительная тактика");
-                    _phrase.DeepListDoubtfulTacticPhrase.SendLog(player);
+                    game.Phrases.DeepListDoubtfulTacticPhrase.SendLog(player, false);
                 }
 
 
@@ -98,7 +96,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                         player2.Character.AddPsyche(player2.Status, -1, "Стёб: ");
                         player2.MinusPsycheLog(game);
                         player.Status.AddRegularPoints(1, "Стёб");
-                        _phrase.DeepListPokePhrase.SendLog(player);
+                        game.Phrases.DeepListPokePhrase.SendLog(player, true);
                         if (player2.Character.GetPsyche() < 4) player2.Character.Justice.AddJusticeForNextRound(-1);
                     }
                 }

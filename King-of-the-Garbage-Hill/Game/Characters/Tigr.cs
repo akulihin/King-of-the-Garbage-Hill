@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
-using King_of_the_Garbage_Hill.Game.MemoryStorage;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
@@ -11,14 +10,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
     {
         private readonly InGameGlobal _gameGlobal;
 
-        private readonly CharactersUniquePhrase _phrase;
+        
 
-        public Tigr(InGameGlobal gameGlobal,
-            CharactersUniquePhrase phrase)
+        public Tigr(InGameGlobal gameGlobal)
         {
             _gameGlobal = gameGlobal;
 
-            _phrase = phrase;
         }
 
         public Task InitializeAsync()
@@ -66,7 +63,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                                 enemyAcc.Character.AddPsyche(enemyAcc.Status, -1, "3-0 обоссан: ");
                                 enemyAcc.MinusPsycheLog(game);
-                                _phrase.TigrThreeZero.SendLog(player);
+                                game.Phrases.TigrThreeZero.SendLog(player, false);
 
 
                                 enemy.IsUnique = false;

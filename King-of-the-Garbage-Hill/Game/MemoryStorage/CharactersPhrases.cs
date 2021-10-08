@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Discord;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Helpers;
 
 //using Discord;
 
 namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 {
-    public class CharactersUniquePhrase : IServiceSingleton
+    public class CharactersUniquePhrase
     {
         //initialize variables 
         public PhraseClass AwdkaAfk;
@@ -362,10 +363,6 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         }
 
 
-        public Task InitializeAsync()
-        {
-            return Task.CompletedTask;
-        }
 
 
         //class needed to send unique logs.
@@ -383,10 +380,30 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                 PassiveNameEng = passiveNameEng;
             }
 
-            public void SendLog(GamePlayerBridgeClass player)
+            public void SendLog(GamePlayerBridgeClass player, bool delete)
             {
-                var random = new Random();
-                var description = PassiveLogRus[random.Next(0, PassiveLogRus.Count)];
+                
+                var description = PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)];
+                
+                if(delete)
+                {
+                    if(PassiveLogRus.Count > 1)
+                        PassiveLogRus.Remove(description);
+
+                }
+                else
+                {
+                    var personalLogs = player.Status.GetInGamePersonalLogs();
+                    var i = 0;
+                    while (i < 20)
+                    {
+                        i++;
+                        if (!personalLogs.Contains(description))
+                            break;
+                        description = PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)];
+                    }
+                }
+                
 
 
                 if (player.IsLogs)
@@ -397,13 +414,32 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                 player.Status.AddInGamePersonalLogs($"{description}\n");
             }
 
-            public async Task SendLog(GamePlayerBridgeClass player, GamePlayerBridgeClass player2)
+            public async Task SendLog(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, bool delete)
             {
                 if (player.Character.Name == "DeepList")
                 {
-                    var random = new Random();
+                  
 
-                    var description = PassiveLogRus[random.Next(0, PassiveLogRus.Count)];
+                    var description = PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)];
+
+                    if (delete)
+                    {
+                        if (PassiveLogRus.Count > 1)
+                            PassiveLogRus.Remove(description);
+
+                    }
+                    else
+                    {
+                        var personalLogs = player.Status.GetInGamePersonalLogs();
+                        var i = 0;
+                        while (i < 20)
+                        {
+                            i++;
+                            if (!personalLogs.Contains(description))
+                                break;
+                            description = PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)];
+                        }
+                    }
 
                     description += $"{player2.DiscordUsername} - {player2.Character.Name}";
 
@@ -418,13 +454,37 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                 await Task.CompletedTask;
             }
 
-            public async Task SendLogSeparate(GamePlayerBridgeClass player)
+            public async Task SendLogSeparate(GamePlayerBridgeClass player, bool delete)
             {
+
                 if (player.IsBot()) return;
+
+                var description = PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)];
+                if (delete)
+                {
+                    if (PassiveLogRus.Count > 1)
+                        PassiveLogRus.Remove(description);
+
+                }
+                else
+                {
+                    var personalLogs = player.Status.GetInGamePersonalLogs();
+                    var i = 0;
+                    while (i < 20)
+                    {
+                        i++;
+                        if (!personalLogs.Contains(description))
+                            break;
+                        description = PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)];
+                    }
+                }
+
+
+                
+                if (PassiveLogRus.Count > 1)
+                    PassiveLogRus.Remove(description);
 #pragma warning disable 4014
-                DeleteMessOverTime(
-                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                        PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)]));
+                DeleteMessOverTime(await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(description));
 #pragma warning restore 4014
             }
 

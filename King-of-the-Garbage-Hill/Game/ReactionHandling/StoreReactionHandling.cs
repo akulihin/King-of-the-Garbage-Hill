@@ -1,6 +1,5 @@
 ﻿using System.Linq;
 using System.Threading.Tasks;
-using Discord;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.Game.Store;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;

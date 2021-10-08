@@ -227,7 +227,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                         x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
                     if (!panthShame.FriendList.Contains(player2.Status.PlayerId) &&
                         player2.Status.PlayerId != player1.Status.PlayerId)
-                        customString += "<:yasuo:445323301137547264>";
+                        customString += "<:yasuo:895819754428833833>";
                 }
                 {
                     var panthMark = _gameGlobal.PanthMark.Find(x =>

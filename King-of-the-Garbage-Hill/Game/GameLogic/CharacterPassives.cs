@@ -7,7 +7,6 @@ using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
-using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic
@@ -36,7 +35,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly Mylorik _mylorik;
         private readonly Octopus _octopus;
         private readonly Panth _panth;
-        private readonly CharactersUniquePhrase _phrase;
+        
         private readonly SecureRandom _rand;
         private readonly Shark _shark;
         private readonly Sirinoks _sirinoks;
@@ -50,7 +49,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         public CharacterPassives(SecureRandom rand, HelperFunctions help, Awdka awdka, DeepList deepList,
             Gleb gleb, HardKitty hardKitty, Mitsuki mitsuki, LeCrisp leCrisp, Mylorik mylorik,
             Octopus octopus, Shark shark, Sirinoks sirinoks, Tigr tigr, Tolya tolya, InGameGlobal gameGlobal,
-            Darksci darksci, CharactersUniquePhrase phrase, LoginFromConsole log, GameUpdateMess gameUpdateMess,
+            Darksci darksci, LoginFromConsole log, GameUpdateMess gameUpdateMess,
             Panth panth, Vampyr vampyr)
         {
             _rand = rand;
@@ -69,7 +68,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             _tolya = tolya;
             _gameGlobal = gameGlobal;
             _darksci = darksci;
-            _phrase = phrase;
             _log = log;
             _gameUpdateMess = gameUpdateMess;
             _panth = panth;
@@ -263,7 +261,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             playerIamAttacking.Status.IsSkip = true;
                             _gameGlobal.GlebSkipList.Add(
                                 new Gleb.GlebSkipClass(playerIamAttacking.Status.PlayerId, game.GameId));
-                            _phrase.GlebComeBackPhrase.SendLog(playerIamAttacking);
+                            game.Phrases.GlebComeBackPhrase.SendLog(playerIamAttacking, true);
                         }
                     }
 
@@ -276,7 +274,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         && !playerIamAttacking.Status.IsSkip)
                     {
                         playerIamAttacking.Status.IsAbleToWin = false;
-                        _phrase.LeCrispAssassinsPhrase.SendLog(playerIamAttacking);
+                        game.Phrases.LeCrispAssassinsPhrase.SendLog(playerIamAttacking, false);
                     }
                     //end гребанные ассасисны
 
@@ -306,7 +304,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 case "HardKitty":
                     //Одиночество
                     playerIamAttacking.Status.AddRegularPoints(1, "Одиночество");
-                    _phrase.HardKittyLonelyPhrase.SendLog(playerIamAttacking);
+                    game.Phrases.HardKittyLonelyPhrase.SendLog(playerIamAttacking, true);
                     //Одиночество
                     break;
 
@@ -387,7 +385,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             game.GameId,
                             game.RoundNo + 1));
                         player1.Status.AddRegularPoints(1, "Я за чаем");
-                        _phrase.GlebTeaPhrase.SendLog(player1);
+                        game.Phrases.GlebTeaPhrase.SendLog(player1, true);
                     }
                     //end  Я за чаем:
 
@@ -405,7 +403,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     {
                         siri.FriendList.Add(playerIamAttacking.Status.PlayerId);
                         player1.Status.AddRegularPoints(1, "Заводить друзей");
-                        _phrase.SirinoksFriendsPhrase.SendLog(player1);
+                        game.Phrases.SirinoksFriendsPhrase.SendLog(player1, true);
                     }
 
                     if (siri.FriendList.Contains(playerIamAttacking.Status.PlayerId))
@@ -542,7 +540,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     tolyaAcc.Status.AddRegularPoints(2, "Подсчет");
                     tolyaAcc.Character.Justice.AddJusticeForNextRound(2);
-                    _phrase.TolyaCountPhrase.SendLog(tolyaAcc);
+                    game.Phrases.TolyaCountPhrase.SendLog(tolyaAcc, false);
                 }
             }
             //tolya count end 
@@ -657,7 +655,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 player.Status.IsReady = true;
                                 player.Status.WhoToAttackThisTurn = Guid.Empty;
 
-                                _phrase.MylorikBoolePhrase.SendLog(player);
+                                game.Phrases.MylorikBoolePhrase.SendLog(player, false);
                             }
 
                         break;
@@ -729,7 +727,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 player.Status.IsReady = true;
                                 player.Status.WhoToAttackThisTurn = Guid.Empty;
 
-                                _phrase.MitsukiSchoolboy.SendLog(player);
+                                game.Phrases.MitsukiSchoolboy.SendLog(player, true);
                             }
 
                         break;
@@ -748,7 +746,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             if (enemy != null)
                             {
                                 player.Status.AddBonusPoints((enemy.Score + 1) / 2, "Троллинг: ");
-                                _phrase.AwdkaTrolling.SendLog(player);
+                                game.Phrases.AwdkaTrolling.SendLog(player, true);
                             }
                         }
 
@@ -767,7 +765,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 player.Status.IsReady = true;
                                 player.Status.WhoToAttackThisTurn = Guid.Empty;
 
-                                _phrase.AwdkaAfk.SendLog(player);
+                                game.Phrases.AwdkaAfk.SendLog(player, true);
                             }
                         //end АФКА
 
@@ -783,7 +781,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                     player.Status.LvlUpPoints = 3;
                                     await _gameUpdateMess.UpdateMessage(player);
                                     enemy.IsUnique = true;
-                                    _phrase.AwdkaTrying.SendLog(player);
+                                    game.Phrases.AwdkaTrying.SendLog(player, true);
                                 }
                         //end Я пытаюсь!:
 
@@ -879,7 +877,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         _gameGlobal.AwdkaTeachToPlay.Remove(awdka);
                         //end crazy shit 2
 
-                        _phrase.AwdkaTeachToPlay.SendLog(player);
+                        game.Phrases.AwdkaTeachToPlay.SendLog(player, true);
 
                         //end Научите играть: 
                         break;
@@ -898,7 +896,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 player.Status.IsReady = true;
                                 player.Status.WhoToAttackThisTurn = Guid.Empty;
 
-                                _phrase.GlebSleepyPhrase.SendLog(player);
+                                game.Phrases.GlebSleepyPhrase.SendLog(player, false);
                             }
 
                         //Претендент русского сервера: 
@@ -937,8 +935,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                                 gleb.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
 
-                                _phrase.GlebChallengerPhrase.SendLog(player);
-                                await _phrase.GlebChallengerSeparatePhrase.SendLogSeparate(player);
+                                game.Phrases.GlebChallengerPhrase.SendLog(player, true);
+                                await game.Phrases.GlebChallengerSeparatePhrase.SendLogSeparate(player, true);
                             }
 
                         break;
@@ -975,7 +973,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 else
                                     check.KnownPlayers.Add(randPlayer.Status.PlayerId);
 
-                                await _phrase.DeepListSuperMindPhrase.SendLog(player, randPlayer);
+                                await game.Phrases.DeepListSuperMindPhrase.SendLog(player, randPlayer, true);
                             }
                         //end Сверхразум
 
@@ -1061,7 +1059,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 player.Character.SetSpeed(player.Status, speed, "Безумие: ");
                                 player.Character.SetPsyche(player.Status, pshy, "Безумие: ");
 
-                                _phrase.DeepListMadnessPhrase.SendLog(player);
+                                game.Phrases.DeepListMadnessPhrase.SendLog(player, true);
                                 curr.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
                             }
                         //end madness
@@ -1092,7 +1090,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 }
 
                             player.Status.AddBonusPoints(pointsToGive, "Дракон: ");
-                            _phrase.SirinoksDragonPhrase.SendLog(player);
+                            game.Phrases.SirinoksDragonPhrase.SendLog(player, true);
                         }
 
                         break;
@@ -1143,7 +1141,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                     tigr.FriendList.Add(t.Status.PlayerId);
                                     // player.Status.AddRegularPoints();
                                     player.Status.AddBonusPoints(3, "Лучше с двумя, чем с адекватными: ");
-                                    _phrase.TigrTwoBetter.SendLog(player);
+                                    game.Phrases.TigrTwoBetter.SendLog(player, false);
                                 }
                             }
                         }
@@ -1220,7 +1218,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             player.Status.AddBonusPoints(1, "Импакт: ");
                             player.Character.Justice.AddJusticeForNextRound();
-                            _phrase.LeCrispImpactPhrase.SendLog(player);
+                            game.Phrases.LeCrispImpactPhrase.SendLog(player, false);
                         }
                         else if (leImpact != null)
                         {
@@ -1261,23 +1259,23 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             switch (tolya.FriendList.Count)
                             {
                                 case 1:
-                                    _phrase.TolyaRammusPhrase.SendLog(player);
+                                    game.Phrases.TolyaRammusPhrase.SendLog(player, false);
                                     player.Character.Justice.AddJusticeForNextRound();
                                     break;
                                 case 2:
-                                    _phrase.TolyaRammus2Phrase.SendLog(player);
+                                    game.Phrases.TolyaRammus2Phrase.SendLog(player, false);
                                     player.Character.Justice.AddJusticeForNextRound(2);
                                     break;
                                 case 3:
-                                    _phrase.TolyaRammus3Phrase.SendLog(player);
+                                    game.Phrases.TolyaRammus3Phrase.SendLog(player, false);
                                     player.Character.Justice.AddJusticeForNextRound(3);
                                     break;
                                 case 4:
-                                    _phrase.TolyaRammus4Phrase.SendLog(player);
+                                    game.Phrases.TolyaRammus4Phrase.SendLog(player, false);
                                     player.Character.Justice.AddJusticeForNextRound(4);
                                     break;
                                 case 5:
-                                    _phrase.TolyaRammus5Phrase.SendLog(player);
+                                    game.Phrases.TolyaRammus5Phrase.SendLog(player, false);
                                     player.Character.Justice.AddJusticeForNextRound(5);
                                     break;
                             }
@@ -1332,7 +1330,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     case "Mit*suki*":
 
                         //Дерзкая школота:
-                        if (game.RoundNo == 1) _phrase.MitsukiCheekyBriki.SendLog(player);
+                        if (game.RoundNo == 1) game.Phrases.MitsukiCheekyBriki.SendLog(player, true);
 
                         var randStat1 = _rand.Random(1, 4);
                         var randStat2 = _rand.Random(1, 4);
@@ -1404,7 +1402,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             hardKitty.UniquePlayers.Add(player.Status.PlayerId);
                             player.Status.AddRegularPoints(1, "Mute");
-                            _phrase.HardKittyMutedPhrase.SendLog(playerIamAttacking);
+                            game.Phrases.HardKittyMutedPhrase.SendLog(playerIamAttacking, false);
                         }
                     }
 
@@ -1427,7 +1425,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     _gameGlobal.LolGodUdyrList.Find(x =>
                             x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId)
                         .EnemyPlayerId = playerIamAttacking.Status.PlayerId;
-                    _phrase.SecondСommandmentBan.SendLog(player);
+                    game.Phrases.SecondСommandmentBan.SendLog(player, false);
                     break;
                 case "Вампур":
                     //Вампуризм
@@ -1468,7 +1466,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         player.Character.AddPsyche(player.Status, 2, "Повезло: ");
                         darscsi.TouchedPlayers.Clear();
-                        _phrase.DarksciLucky.SendLog(player);
+                        game.Phrases.DarksciLucky.SendLog(player, true);
                     }
 
 
@@ -1516,7 +1514,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (player.Status.PlaceAtLeaderBoard == 1 && game.RoundNo > 1)
                         {
                             player.Character.AddPsyche(player.Status, 1, "Тигр топ, а ты холоп: ");
-                            _phrase.TigrTop.SendLog(player);
+                            game.Phrases.TigrTop.SendLog(player, false);
                         }
 
                         //end Тигр топ, а ты холоп: 
@@ -1527,7 +1525,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (player.Status.PlaceAtLeaderBoard == 1 && game.RoundNo > 1)
                         {
                             player.Status.AddRegularPoints(1, "Много выебывается");
-                            _phrase.MitsukiTooMuchFucking.SendLog(player);
+                            game.Phrases.MitsukiTooMuchFucking.SendLog(player, false);
                         }
                         //end Много выебывается:
 
@@ -1548,7 +1546,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                     {
                                         player2.Status.AddBonusPoints(-5, "Запах мусора: ");
 
-                                        _phrase.MitsukiGarbageSmell.SendLog(player2);
+                                        game.Phrases.MitsukiGarbageSmell.SendLog(player2, true);
                                         count++;
                                     }
                                 }
@@ -1589,7 +1587,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (tolya.Cooldown < 0)
                         {
                             tolya.IsReadyToUse = true;
-                            _phrase.TolyaCountReadyPhrase.SendLog(player);
+                            game.Phrases.TolyaCountReadyPhrase.SendLog(player, false);
                         }
 
                         break;
@@ -1625,7 +1623,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (placeAtLastRound > placeAtThisRound)
                     {
                         player.Character.Justice.AddJusticeForNextRound();
-                        _phrase.FirstСommandmentLost.SendLog(player);
+                        game.Phrases.FirstСommandmentLost.SendLog(player, false);
                     }
                 }
             }
@@ -1724,12 +1722,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     {
                         if (player.Character.Name == "DeepList")
                         {
-                            _phrase.LeCrispBoolingPhrase.SendLog(leCrisp);
+                            game.Phrases.LeCrispBoolingPhrase.SendLog(leCrisp, false);
                             return 1;
                         }
 
                         leCrisp.Status.AddRegularPoints(1, "Еврей");
-                        _phrase.LeCrispJewPhrase.SendLog(leCrisp);
+                        game.Phrases.LeCrispJewPhrase.SendLog(leCrisp, true);
                         return 0;
                     }
 
@@ -1737,7 +1735,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
                     {
                         tolya.Status.AddRegularPoints(1, "Еврей");
-                        _phrase.TolyaJewPhrase.SendLog(tolya);
+                        game.Phrases.TolyaJewPhrase.SendLog(tolya, true);
                         return 0;
                     }
             }

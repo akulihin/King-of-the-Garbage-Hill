@@ -30,7 +30,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         private readonly HelperFunctions _helperFunctions;
         private readonly OctoNamePull _octoNmaNamePull;
         private readonly OctoPicPull _octoPicPull;
-        private readonly CharactersUniquePhrase _phrase;
+        
         private readonly SecureRandom _secureRandom;
         private readonly GameUpdateMess _upd;
 
@@ -50,7 +50,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _upd = upd;
             _charactersPull = charactersPull;
             _characterPassives = characterPassives;
-            _phrase = phrase;
             _gameGlobal = gameGlobal;
         }
 
@@ -377,7 +376,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                             playersList[tigrIndex] = playersList[0];
                             playersList[0] = tigrTemp;
                             tigr.TimeCount--;
-                            //await _phrase.TigrTop.SendLog(tigrTemp);
+                            //await game.Phrases.TigrTop.SendLog(tigrTemp);
                         }
                     }
                     //end Tigr Unique
@@ -398,7 +397,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     //vampyr unique
                     if (playersList.Any(x => x.Character.Name == "Вампур"))
                     {
-                        _phrase.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"));
+                        game.Phrases.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"), true);
                         if (playersList.Any(x => x.Character.Name == "mylorik"))
                             game.AddPreviousGameLogs(
                                 " \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
@@ -601,7 +600,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     playersList[tigrIndex] = playersList[0];
                     playersList[0] = tigrTemp;
                     tigr.TimeCount--;
-                    //await _phrase.TigrTop.SendLog(tigrTemp);
+                    //await game.Phrases.TigrTop.SendLog(tigrTemp);
                 }
             }
             //end Tigr Unique
@@ -622,7 +621,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             //vampyr unique
             if (playersList.Any(x => x.Character.Name == "Вампур"))
             {
-                _phrase.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"));
+                game.Phrases.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"), true);
                 if (playersList.Any(x => x.Character.Name == "mylorik"))
                     game.AddPreviousGameLogs(
                         " \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
@@ -701,7 +700,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     playersList[tigrIndex] = playersList[0];
                     playersList[0] = tigrTemp;
                     tigr.TimeCount--;
-                    //await _phrase.TigrTop.SendLog(tigrTemp);
+                    //await game.Phrases.TigrTop.SendLog(tigrTemp);
                 }
             }
             //end Tigr Unique
@@ -722,7 +721,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             //vampyr unique
             if (playersList.Any(x => x.Character.Name == "Вампур"))
             {
-                _phrase.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"));
+                game.Phrases.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"), true);
                 if (playersList.Any(x => x.Character.Name == "mylorik"))
                     game.AddPreviousGameLogs(
                         " \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",

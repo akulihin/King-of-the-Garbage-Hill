@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
-using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic
@@ -16,18 +15,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly InGameGlobal _gameGlobal;
         private readonly Global _global;
         private readonly LoginFromConsole _logs;
-        private readonly CharactersUniquePhrase _phrase;
+        
         private readonly SecureRandom _rand;
 
         public CalculateRound(SecureRandom rand, CharacterPassives characterPassives,
-            InGameGlobal gameGlobal, Global global, LoginFromConsole logs, CharactersUniquePhrase phrase)
+            InGameGlobal gameGlobal, Global global, LoginFromConsole logs)
         {
             _rand = rand;
             _characterPassives = characterPassives;
             _gameGlobal = gameGlobal;
             _global = global;
             _logs = logs;
-            _phrase = phrase;
         }
 
         public async Task InitializeAsync()
@@ -63,8 +61,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             5-9 х2
             10  х4
              */
-            game.AddGameLogs($"\n__**Раунд #{roundNumber}**__: **x{multiplier}** очков\n\n");
-            game.SetPreviousGameLogs($"\n__**Раунд #{roundNumber}**__: **x{multiplier}** очков\n\n");
+            game.AddGameLogs($"\n__**Раунд #{roundNumber}**__: <:e_:562879579694301184> <:e_:562879579694301184> <:e_:562879579694301184> (**X{multiplier}** обычных очков)\n\n");
+            game.SetPreviousGameLogs($"\n__**Раунд #{roundNumber}**__: <:e_:562879579694301184> <:e_:562879579694301184> <:e_:562879579694301184> (**X{multiplier}** обычных очков)\n\n");
 
 
             for (var i = 0; i < game.PlayersList.Count; i++)
@@ -391,7 +389,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 player.Status.IsAbleToTurn = true;
                 player.Status.IsReady = false;
                 player.Status.WhoToAttackThisTurn = Guid.Empty;
-                player.Status.CombineRoundScoreAndGameScore(game, _gameGlobal, _phrase);
+                player.Status.CombineRoundScoreAndGameScore(game, _gameGlobal, game.Phrases);
                 player.Status.ClearInGamePersonalLogs();
                 player.Status.InGamePersonalLogsAll += "|||";
 
@@ -451,7 +449,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     game.PlayersList[tigrIndex] = game.PlayersList[0];
                     game.PlayersList[0] = tigrTemp;
                     tigr.TimeCount--;
-                    // await _phrase.TigrTop.SendLog(tigrTemp);
+                    // await game.Phrases.TigrTop.SendLog(tigrTemp);
                 }
             }
             //end Tigr Unique

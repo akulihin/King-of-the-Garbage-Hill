@@ -3,19 +3,17 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
-using King_of_the_Garbage_Hill.Game.MemoryStorage;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
     public class HardKitty : IServiceSingleton
     {
         private readonly InGameGlobal _gameGlobal;
-        private readonly CharactersUniquePhrase _phrase;
+        
 
-        public HardKitty(InGameGlobal gameGlobal, CharactersUniquePhrase phrase)
+        public HardKitty(InGameGlobal gameGlobal)
         {
             _gameGlobal = gameGlobal;
-            _phrase = phrase;
         }
 
         public Task InitializeAsync()
@@ -75,7 +73,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 wonPlayer.Series = 0;
 
 
-                _phrase.HardKittyDoebatsyaPhrase.SendLog(player);
+                game.Phrases.HardKittyDoebatsyaPhrase.SendLog(player, false);
             }
 
             // end Doebatsya

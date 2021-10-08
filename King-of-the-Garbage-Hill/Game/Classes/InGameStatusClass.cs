@@ -133,8 +133,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
                     if (game.PlayersList.Any(x => x.Status.PlayerId == PlayerId && x.Character.Name == "Глеб"))
                         if (gameGlobal.GlebChallengerTriggeredWhen.Any(x => x.WhenToTrigger.Contains(game.RoundNo)))
-                            phrase.TolyaCountReadyPhrase.SendLog(
-                                game.PlayersList.Find(x => x.Character.Name == "Глеб"));
+                            phrase.TolyaCountReadyPhrase.SendLog(game.PlayersList.Find(x => x.Character.Name == "Глеб"), false);
                 }
             }
 

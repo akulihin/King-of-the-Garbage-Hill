@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 
 namespace King_of_the_Garbage_Hill.Game.Classes
 {
@@ -9,6 +10,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public GameClass(List<GamePlayerBridgeClass> playersList, ulong gameId, int turnLengthInSecond = 300)
         {
             RoundNo = 1;
+            Phrases = new CharactersUniquePhrase();
             PlayersList = playersList;
             GameId = gameId;
             TurnLengthInSecond = turnLengthInSecond;
@@ -36,8 +38,9 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public double TurnLengthInSecond { get; set; }
         public Stopwatch TimePassed { get; set; }
         public int GameStatus { get; set; }
+        public CharactersUniquePhrase Phrases { get; set; }
 
-        public bool IsPause { get; set; }
+    public bool IsPause { get; set; }
 
         public bool IsCheckIfReady { get; set; }
 

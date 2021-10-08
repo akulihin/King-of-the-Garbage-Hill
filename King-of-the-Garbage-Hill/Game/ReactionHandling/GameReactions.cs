@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
-using Discord;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
-using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -13,23 +11,19 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 {
     public sealed class GameReaction : IServiceSingleton
     {
-        private readonly UserAccounts _accounts;
         private readonly Global _global;
         private readonly HelperFunctions _help;
-        private readonly CharactersUniquePhrase _phrase;
+        
         private readonly GameUpdateMess _upd;
 
         public GameReaction(UserAccounts accounts,
             Global global,
-            GameUpdateMess upd, HelperFunctions help, CharactersUniquePhrase phrase)
+            GameUpdateMess upd, HelperFunctions help)
         {
-            _accounts = accounts;
-
             _global = global;
 
             _upd = upd;
             _help = help;
-            _phrase = phrase;
             //  _gameGlobal = gameGlobal;
         }
 
@@ -167,7 +161,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 {
                     //Дизмораль
                     player.Character.AddPsyche(player.Status, -4,  "Дизмораль: ");
-                    _phrase.DarksciDysmoral.SendLog(player);
+                    game.Phrases.DarksciDysmoral.SendLog(player, true);
                     game.AddPreviousGameLogs(
                         $"**{player.DiscordUsername}:** Всё, у меня горит!");
                     //end Дизмораль
@@ -181,7 +175,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     player.Status.IsAbleToTurn = false;
                     player.Status.IsReady = true;
                     player.Status.WhoToAttackThisTurn = Guid.Empty;
-                    _phrase.DarksciFuckThisGame.SendLog(player);
+                    game.Phrases.DarksciFuckThisGame.SendLog(player, true);
 
                     if (game.RoundNo == 9 ||
                         game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
@@ -269,7 +263,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     x.RoundNo == game.RoundNo - 1 && x.EnemyId == status.WhoToAttackThisTurn))
                 {
                     status.WhoToAttackThisTurn = Guid.Empty;
-                    await _phrase.VampyrNoAttack.SendLogSeparate(player);
+                    await game.Phrases.VampyrNoAttack.SendLogSeparate(player, false);
                     return false;
                 }
 
