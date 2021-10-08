@@ -81,7 +81,12 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public void SetSkill(InGameStatus status, double howMuchToSet, string skillName, bool isLog = true)
         {
             if (isLog)
-                status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} скилла\n");
+            {
+                var diff = howMuchToSet - Skill;
+                if (diff > 0)
+                    status.AddInGamePersonalLogs($"{skillName}+{diff} скилла\n");
+                else if (diff < 0) status.AddInGamePersonalLogs($"{skillName}{diff} скилла\n");
+            }
             Skill = howMuchToSet;
         }
 
@@ -116,7 +121,12 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public void SetMoral(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
         {
             if (isLog)
-                status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} морали\n");
+            {
+                var diff = howMuchToSet - Moral;
+                if (diff > 0)
+                    status.AddInGamePersonalLogs($"{skillName}+{diff} морали\n");
+                else if (diff < 0) status.AddInGamePersonalLogs($"{skillName}{diff} морали\n");
+            }
             Moral = howMuchToSet;
         }
 
