@@ -368,8 +368,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     //Дизмораль
                     player.Character.AddPsyche(player.Status, -4, "Дизмораль: ");
                     game.Phrases.DarksciDysmoral.SendLog(player, true);
-                    game.AddPreviousGameLogs(
-                        $"**{player.DiscordUsername}:** Всё, у меня горит!");
+                    game.AddPreviousGameLogs($"{player.DiscordUsername}: Всё, у меня горит!");
                     //end Дизмораль
                 }
 
@@ -386,7 +385,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     if (game.RoundNo == 9 ||
                         game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
                         game.AddPreviousGameLogs(
-                            $"**{player.DiscordUsername}:** Нахуй эту игру..");
+                            $"{player.DiscordUsername}: Нахуй эту игру..");
                 }
                 //end Да всё нахуй эту игру:
             }

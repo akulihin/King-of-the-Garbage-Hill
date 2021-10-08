@@ -1170,10 +1170,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             var psy = player.Character.GetPsyche() - madStats.Psyche;
 
 
-                            player.Character.SetIntelligence(player.Status, regularStats.Intel + intel, "Безумие: ");
-                            player.Character.SetStrength(player.Status, regularStats.Str + str, "Безумие: ");
-                            player.Character.SetSpeed(player.Status, regularStats.Speed + speed, "Безумие: ");
-                            player.Character.SetPsyche(player.Status, regularStats.Psyche + psy, "Безумие: ");
+                            player.Character.SetIntelligence(player.Status, regularStats.Intel + intel, "Безумие: ", false);
+                            player.Character.SetStrength(player.Status, regularStats.Str + str, "Безумие: ", false);
+                            player.Character.SetSpeed(player.Status, regularStats.Speed + speed, "Безумие: ", false);
+                            player.Character.SetPsyche(player.Status, regularStats.Psyche + psy, "Безумие: ", false);
+                            game.Phrases.DeepListMadnessEndPhrase.SendLog(player, true);
                             _gameGlobal.DeepListMadnessList.Remove(madd);
                         }
 

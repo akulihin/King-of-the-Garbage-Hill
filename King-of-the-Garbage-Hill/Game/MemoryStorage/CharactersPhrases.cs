@@ -26,6 +26,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
         public PhraseClass DeepListDoubtfulTacticPhrase;
         public PhraseClass DeepListMadnessPhrase;
+        public PhraseClass DeepListMadnessEndPhrase;
         public PhraseClass DeepListPokePhrase;
         public PhraseClass DeepListSuperMindPhrase;
 
@@ -108,6 +109,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             TigrSnipe = new PhraseClass("Стримснайпят и банят и банят и банят");
 
             DeepListMadnessPhrase = new PhraseClass("Безумие");
+            DeepListMadnessEndPhrase = new PhraseClass("Безумие");
             DeepListPokePhrase = new PhraseClass("Стёб");
             DeepListDoubtfulTacticPhrase = new PhraseClass("Сомнительная тактика");
             DeepListDoubtfulTacticFirstLostPhrase = new PhraseClass("Сомнительная тактика");
@@ -217,6 +219,9 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             DeepListMadnessPhrase.PassiveLogRus.Add("Хаха. Ха. АХАХАХАХАХАХАХ!");
             DeepListMadnessPhrase.PassiveLogRus.Add("Стоп, кто... я?");
             DeepListMadnessPhrase.PassiveLogRus.Add("Заткнитесь!");
+            DeepListMadnessEndPhrase.PassiveLogRus.Add("Выпил таблетки");
+            DeepListMadnessEndPhrase.PassiveLogRus.Add("А, воооот он я?");
+            DeepListMadnessEndPhrase.PassiveLogRus.Add("Живооой, курииилка");
 
             DeepListPokePhrase.PassiveLogRus.Add("Хехе");
             DeepListPokePhrase.PassiveLogRus.Add("Чисто постЕбаться");
