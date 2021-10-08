@@ -353,8 +353,21 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var embed = new EmbedBuilder();
             embed.WithColor(Color.Blue);
             embed.WithTitle("King of the Garbage Hill");
-            
+            var roundNumber = 1;
+            if (game != null)
+                roundNumber = game.RoundNo + 1;
+       
+            if (roundNumber > 10)
+            {
+                roundNumber = 10;
+            }
 
+            var multiplier = roundNumber switch
+            {
+                <= 4 => 1,
+                <= 9 => 2,
+                _ => 4
+            };
 
             if (game == null) game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
@@ -379,6 +392,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 $"*Справедливость: {character.Justice.GetJusticeNow()}\n" +
                 $"Мораль: {character.GetMoral()}\n" +
                 $"Скилл: {character.GetSkill()} (**{character.GetCurrentSkillTarget()}**)*\n" +
+                $"Множитель очков: **X{multiplier}**\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                 "<:e_:562879579694301184>\n" +
                 $"{LeaderBoard(player)}" +

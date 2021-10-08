@@ -149,45 +149,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         public async Task HandleLvlUp(GamePlayerBridgeClass player, SocketMessageComponent button,
     int botChoice = -1)
         {
-            var status = player.Status;
-
             var emoteNum = !player.IsBot() ? Convert.ToInt32(string.Join("", button.Data.Values)) : botChoice;
-            var game = _global.GamesList.Find(x => x.GameId == player.GameId);
-
-
             await GetLvlUp(player, emoteNum);
-
-            if (player.Character.Name == "Darksci")
-            {
-                if (game.RoundNo == 9)
-                {
-                    //Дизмораль
-                    player.Character.AddPsyche(player.Status, -4,  "Дизмораль: ");
-                    game.Phrases.DarksciDysmoral.SendLog(player, true);
-                    game.AddPreviousGameLogs(
-                        $"**{player.DiscordUsername}:** Всё, у меня горит!");
-                    //end Дизмораль
-                }
-
-                //Да всё нахуй эту игру:
-                if (player.Character.GetPsyche() <= 0)
-                {
-                    player.Status.IsSkip = true;
-                    player.Status.IsBlock = false;
-                    player.Status.IsAbleToTurn = false;
-                    player.Status.IsReady = true;
-                    player.Status.WhoToAttackThisTurn = Guid.Empty;
-                    game.Phrases.DarksciFuckThisGame.SendLog(player, true);
-
-                    if (game.RoundNo == 9 ||
-                        game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
-                        game.AddPreviousGameLogs(
-                            $"**{player.DiscordUsername}:** Нахуй эту игру..");
-                }
-                //end Да всё нахуй эту игру:
-            }
-
-
         }
 
         public async Task<bool> HandleAttack(GamePlayerBridgeClass player, SocketMessageComponent button,
@@ -377,9 +340,13 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             if (player.Status.LvlUpPoints > 1)
             {
                 player.Status.LvlUpPoints--;
-                try{
-                    var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync($"Осталось еще {player.Status.LvlUpPoints} очков характеристик. Пытайся!");
-                    _help.DeleteMessOverTime(mess2);
+                try
+                {
+                    if (!player.IsBot())
+                    {
+                        var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync($"Осталось еще {player.Status.LvlUpPoints} очков характеристик. Пытайся!");
+                        _help.DeleteMessOverTime(mess2);
+                    }
                 }
                 catch (Exception e)
                 {
@@ -392,6 +359,37 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
             }
             //end awdka
+            
+            var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+            if (player.Character.Name == "Darksci")
+            {
+                if (game.RoundNo == 9)
+                {
+                    //Дизмораль
+                    player.Character.AddPsyche(player.Status, -4, "Дизмораль: ");
+                    game.Phrases.DarksciDysmoral.SendLog(player, true);
+                    game.AddPreviousGameLogs(
+                        $"**{player.DiscordUsername}:** Всё, у меня горит!");
+                    //end Дизмораль
+                }
+
+                //Да всё нахуй эту игру:
+                if (player.Character.GetPsyche() <= 0)
+                {
+                    player.Status.IsSkip = true;
+                    player.Status.IsBlock = false;
+                    player.Status.IsAbleToTurn = false;
+                    player.Status.IsReady = true;
+                    player.Status.WhoToAttackThisTurn = Guid.Empty;
+                    game.Phrases.DarksciFuckThisGame.SendLog(player, true);
+
+                    if (game.RoundNo == 9 ||
+                        game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
+                        game.AddPreviousGameLogs(
+                            $"**{player.DiscordUsername}:** Нахуй эту игру..");
+                }
+                //end Да всё нахуй эту игру:
+            }
 
             _upd.UpdateMessage(player);
             await Task.CompletedTask;
