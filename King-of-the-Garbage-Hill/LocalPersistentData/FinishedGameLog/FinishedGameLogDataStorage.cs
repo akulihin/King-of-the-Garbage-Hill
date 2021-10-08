@@ -36,7 +36,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.FinishedGameLog
             }
             catch
             {
-                Console.WriteLine("Failed To ReadFile(SaveAccountSettings). Will ty in 5 sec.");
+               _log.Critical("Failed To ReadFile(SaveAccountSettings). Will ty in 5 sec.");
             }
         }
 

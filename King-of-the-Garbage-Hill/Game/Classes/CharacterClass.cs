@@ -87,7 +87,6 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public void AddSkill(InGameStatus status, string skillName, bool isLog = true)
         {
-
             var howMuchToAdd = Skill switch
             {
                 0 => 10,
@@ -160,7 +159,12 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public void SetIntelligence(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
         {
             if (isLog)
-                status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} интеллект\n");
+            {
+                var diff = howMuchToSet - Intelligence;
+                if (diff > 0)
+                    status.AddInGamePersonalLogs($"{skillName}+{diff} интеллект\n");
+                else if (diff < 0) status.AddInGamePersonalLogs($"{skillName}{diff} интеллект\n");
+            }
 
             Intelligence = howMuchToSet;
             if (Intelligence < 0)
@@ -202,7 +206,12 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public void SetPsyche(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
         {
             if (isLog)
-            status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} психики\n");
+            {
+                var diff = howMuchToSet - Psyche;
+                if (diff > 0)
+                    status.AddInGamePersonalLogs($"{skillName}+{diff} психика\n");
+                else if (diff < 0) status.AddInGamePersonalLogs($"{skillName}{diff} психика\n");
+            }
             Psyche = howMuchToSet;
             if (Psyche < 0)
                 Psyche = 0;
@@ -242,7 +251,13 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public void SetSpeed(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
         {
             if (isLog)
-                status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} скорости\n");
+            {
+                var diff = howMuchToSet - Speed;
+                if (diff > 0)
+                    status.AddInGamePersonalLogs($"{skillName}+{diff} скорость\n");
+                else if (diff < 0) status.AddInGamePersonalLogs($"{skillName}{diff} скорость\n");
+            }
+                
             Speed = howMuchToSet;
             if (Speed < 0)
                 Speed = 0;
@@ -282,7 +297,12 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public void SetStrength(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
         {
             if (isLog)
-                status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} силы\n");
+            {
+                var diff = howMuchToSet - Strength;
+                if (diff > 0)
+                    status.AddInGamePersonalLogs($"{skillName}+{diff} силы\n");
+                else if (diff < 0) status.AddInGamePersonalLogs($"{skillName}{diff} силы\n");
+            }
             Strength = howMuchToSet;
             if (Strength < 0)
                 Strength = 0;

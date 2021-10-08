@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Discord.WebSocket;
+using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Helpers;
@@ -13,17 +14,18 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
     {
         private readonly Global _global;
         private readonly HelperFunctions _help;
-        
+        private readonly LoginFromConsole _logs;
         private readonly GameUpdateMess _upd;
 
         public GameReaction(UserAccounts accounts,
             Global global,
-            GameUpdateMess upd, HelperFunctions help)
+            GameUpdateMess upd, HelperFunctions help, LoginFromConsole logs)
         {
             _global = global;
 
             _upd = upd;
             _help = help;
+            _logs = logs;
             //  _gameGlobal = gameGlobal;
         }
 
@@ -298,10 +300,16 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
         public async Task SendMsgAndDeleteIt(GamePlayerBridgeClass player, string msg = "Принято", int seconds = 7)
         {
-            if (!player.IsBot())
+            try{
+                if (!player.IsBot())
+                {
+                    var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(msg);
+                    _help.DeleteMessOverTime(mess2);
+                }
+            }
+            catch (Exception e)
             {
-                var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(msg);
-                _help.DeleteMessOverTime(mess2);
+                _logs.Critical(e.StackTrace);
             }
         }
 
@@ -369,8 +377,14 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             if (player.Status.LvlUpPoints > 1)
             {
                 player.Status.LvlUpPoints--;
-                var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync($"Осталось еще {player.Status.LvlUpPoints} очков характеристик. Пытайся!");
-                _help.DeleteMessOverTime(mess2);
+                try{
+                    var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync($"Осталось еще {player.Status.LvlUpPoints} очков характеристик. Пытайся!");
+                    _help.DeleteMessOverTime(mess2);
+                }
+                catch (Exception e)
+                {
+                    _logs.Critical(e.StackTrace);
+                }
             }
             else
             {

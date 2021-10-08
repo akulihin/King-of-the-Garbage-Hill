@@ -127,15 +127,21 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 new DiscordAccountClass.PerformanceStatisticsClass(player.Status.PlaceAtLeaderBoard));
                         else
                             performanceStatistics.Times++;
-
-                        if (!player.IsBot())
-                            await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("ты кончил.");
+                        try
+                        {
+                            if (!player.IsBot())
+                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("ты кончил.");
+                        }
+                        catch (Exception ee)
+                        {
+                            _logs.Critical(ee.StackTrace);
+                        }
                     }
 
                     game.IsCheckIfReady = false;
                     _global.GamesList.Remove(game);
 
-                    Console.WriteLine("_______________________________________________");
+                    _logs.Critical("_______________________________________________");
                     continue;
                 }
 
@@ -145,7 +151,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var readyTargetCount = players.Count;
                 var readyCount = 0;
 
-                Console.WriteLine(" ");
+                _logs.Critical(" ");
                 foreach (var t in players)
                 {
                     await _botsBehavior.HandleBotBehavior(t, game);
@@ -153,7 +159,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     //if (t.Status.IsReady && t.Status.MoveListPage != 3)
                     if (t.Status.IsReady && t.Status.MoveListPage != 3 && game.TimePassed.Elapsed.TotalSeconds > 13)
-                            readyCount++;
+                        readyCount++;
                     else
                         _logs.Info("NOT READY: = " + t.DiscordUsername);
 
@@ -163,7 +169,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
 
                 _logs.Info($"(#{game.GameId}) readyCount = " + readyCount);
-                Console.WriteLine(" ");
+                _logs.Critical(" ");
 
                 if (readyCount != readyTargetCount &&
                     !(game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond) ||
@@ -175,23 +181,23 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 game.IsCheckIfReady = false;
 
 
-                try
-                {
-                    await _round.DeepListMind(game);
+                await _round.DeepListMind(game);
 
-                    foreach (var t in players)
+                foreach (var t in players)
+                    try
+                    {
                         if (t.Status.SocketMessageFromBot != null)
                         {
                             await _upd.UpdateMessage(t);
                             await _upd.SendMsgAndDeleteIt(t, $"Раунд #{game.RoundNo}", 3);
                         }
-                }
-                catch (Exception f)
-                {
-                    await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
-                        .SendMessageAsync("CheckIfEveryoneIsReady ==>  await _round.DeepListMind(game);\n" +
-                                          $"{f.StackTrace}");
-                }
+                    }
+                    catch (Exception f)
+                    {
+                        await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
+                            .SendMessageAsync("CheckIfEveryoneIsReady ==>  await _round.DeepListMind(game);\n" +
+                                              $"{f.StackTrace}");
+                    }
 
                 game.IsCheckIfReady = true;
             }

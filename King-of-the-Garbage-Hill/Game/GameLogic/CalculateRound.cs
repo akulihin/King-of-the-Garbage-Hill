@@ -16,6 +16,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly Global _global;
         private readonly LoginFromConsole _logs;
         
+        
         private readonly SecureRandom _rand;
 
         public CalculateRound(SecureRandom rand, CharacterPassives characterPassives,
@@ -36,7 +37,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         //пристрій судного дня
         public async Task DeepListMind(GameClass game)
         {
-            Console.WriteLine("");
+            _logs.Critical("");
             _logs.Info($"calculating game #{game.GameId}, round #{game.RoundNo}");
 
             var watch = new Stopwatch();
@@ -473,7 +474,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             game.TimePassed.Start();
             _logs.Info(
                 $"Finished calculating game #{game.GameId} (round# {game.RoundNo - 1}). || {watch.Elapsed.TotalSeconds}s");
-            Console.WriteLine("");
+           _logs.Critical("");
             watch.Stop();
             await Task.CompletedTask;
         }

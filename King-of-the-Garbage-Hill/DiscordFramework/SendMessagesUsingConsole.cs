@@ -25,7 +25,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
         {
             try
             {
-                Console.WriteLine("Guilds: ");
+               Console.WriteLine("Guilds: ");
                 var guild = GetSelectedGuild(client.Guilds);
                 var textChannel = GetSelectedTextChannel(guild.TextChannels);
                 var msg = string.Empty;

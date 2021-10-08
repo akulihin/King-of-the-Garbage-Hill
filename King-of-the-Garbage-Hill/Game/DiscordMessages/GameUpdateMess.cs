@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
+using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Helpers;
@@ -20,16 +21,18 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         private readonly InGameGlobal _gameGlobal;
         private readonly Global _global;
         private readonly HelperFunctions _helperFunctions;
+        private readonly LoginFromConsole _log;
 
 
         public GameUpdateMess(UserAccounts accounts, Global global, InGameGlobal gameGlobal,
-            AwaitForUserMessage awaitForUser, HelperFunctions helperFunctions)
+            AwaitForUserMessage awaitForUser, HelperFunctions helperFunctions, LoginFromConsole log)
         {
             _accounts = accounts;
             _global = global;
             _gameGlobal = gameGlobal;
             _awaitForUser = awaitForUser;
             _helperFunctions = helperFunctions;
+            _log = log;
         }
 
         public Task InitializeAsync()
@@ -553,7 +556,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.StackTrace);
+               _log.Critical(e.StackTrace);
             }
         }
 
@@ -597,12 +600,18 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public async Task SendMsgAndDeleteIt(GamePlayerBridgeClass player, string msg = "Принято", int seconds = 6)
         {
-            if (!player.IsBot())
-            {
-                var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(msg);
+            try{
+                if (!player.IsBot())
+                {
+                    var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(msg);
 #pragma warning disable 4014
-                _helperFunctions.DeleteMessOverTime(mess2, seconds);
+                    _helperFunctions.DeleteMessOverTime(mess2, seconds);
 #pragma warning restore 4014
+                }
+            }
+            catch (Exception e)
+            {
+                _log.Critical(e.StackTrace);
             }
         }
     }

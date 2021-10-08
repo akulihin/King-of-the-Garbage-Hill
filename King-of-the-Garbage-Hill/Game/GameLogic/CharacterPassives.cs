@@ -35,7 +35,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly Mylorik _mylorik;
         private readonly Octopus _octopus;
         private readonly Panth _panth;
-        
+
         private readonly SecureRandom _rand;
         private readonly Shark _shark;
         private readonly Sirinoks _sirinoks;
@@ -235,7 +235,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (!shark.FriendList.Contains(playerAttackFrom.Status.PlayerId))
                     {
                         shark.FriendList.Add(playerAttackFrom.Status.PlayerId);
-                        playerAttackFrom.Character.AddIntelligence(playerAttackFrom.Status, -1, 
+                        playerAttackFrom.Character.AddIntelligence(playerAttackFrom.Status, -1,
                             "Ничего не понимает: ");
                     }
 
@@ -355,9 +355,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (!panth.FriendList.Contains(playerIamAttacking.Status.PlayerId))
                     {
                         panth.FriendList.Add(playerIamAttacking.Status.PlayerId);
-                        playerIamAttacking.Character.AddStrength(playerIamAttacking.Status, -1, 
+                        playerIamAttacking.Character.AddStrength(playerIamAttacking.Status, -1,
                             "Они позорят военное искусство: ");
-                        playerIamAttacking.Character.AddSpeed(playerIamAttacking.Status, -1, 
+                        playerIamAttacking.Character.AddSpeed(playerIamAttacking.Status, -1,
                             "Они позорят военное искусство: ");
                     }
 
@@ -508,13 +508,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (enemyTop != null && enemyTop.Status.IsLostThisCalculation != Guid.Empty)
                 {
                     shark.Status.AddRegularPoints(1, "Лежит на дне");
-                    Console.WriteLine("shark + 1 TOP");
+                    _log.Critical("shark + 1 TOP");
                 }
 
                 if (enemyBottom != null && enemyBottom.Status.IsLostThisCalculation != Guid.Empty)
                 {
                     shark.Status.AddRegularPoints(1, "Лежит на дне");
-                    Console.WriteLine("shark + 1 BOT");
+                    _log.Critical("shark + 1 BOT");
                 }
             }
             //end Лежит на дне:
@@ -638,7 +638,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //end   //Ink
                         break;
                     case "Загадочный Спартанец в маске":
-                        if (game.RoundNo == 10) player.Character.SetStrength(player.Status, 0, "Они позорят военное искусство: ");
+                        if (game.RoundNo == 10)
+                            player.Character.SetStrength(player.Status, 0, "Они позорят военное искусство: ");
 
                         break;
 
@@ -671,7 +672,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Status.IsReady = true;
                             player.Status.WhoToAttackThisTurn = Guid.Empty;
                             player.Character.SetPsyche(player.Status, 0, "Стримснайпят и банят и банят и банят: ");
-                            player.Character.SetIntelligence(player.Status, 0, "Стримснайпят и банят и банят и банят: ");
+                            player.Character.SetIntelligence(player.Status, 0,
+                                "Стримснайпят и банят и банят и банят: ");
                             player.Character.SetStrength(player.Status, 10, "Стримснайпят и банят и банят и банят: ");
                             game.AddPreviousGameLogs(
                                 $"**{player.DiscordUsername}:** ЕБАННЫЕ БАНЫ НА 10 ЛЕТ");
@@ -1200,10 +1202,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             var psy = player.Character.GetPsyche() - madStats.Psyche;
 
 
-                            player.Character.SetIntelligence(player.Status, regularStats.Intel + intel, "Претендент русского сервера: ");
-                            player.Character.SetStrength(player.Status, regularStats.Str + str, "Претендент русского сервера: ");
-                            player.Character.SetSpeed(player.Status, regularStats.Speed + speed, "Претендент русского сервера: ");
-                            player.Character.SetPsyche(player.Status, regularStats.Psyche + psy, "Претендент русского сервера: ");
+                            player.Character.SetIntelligence(player.Status, regularStats.Intel + intel,
+                                "Претендент русского сервера: ");
+                            player.Character.SetStrength(player.Status, regularStats.Str + str,
+                                "Претендент русского сервера: ");
+                            player.Character.SetSpeed(player.Status, regularStats.Speed + speed,
+                                "Претендент русского сервера: ");
+                            player.Character.SetPsyche(player.Status, regularStats.Psyche + psy,
+                                "Претендент русского сервера: ");
                             _gameGlobal.GlebChallengerList.Remove(glebChall);
                         }
 
@@ -1288,7 +1294,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     case "Осьминожка":
 
                         //привет со дна
-                        if (game.SkipPlayersThisRound > 0) player.Status.AddRegularPoints(game.SkipPlayersThisRound, "привет со дна");
+                        if (game.SkipPlayersThisRound > 0)
+                            player.Status.AddRegularPoints(game.SkipPlayersThisRound, "привет со дна");
                         //end привет со дна
 
 
@@ -1610,7 +1617,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var isTop1LastRound =
                     playersLastRound.Find(x => x.PlayerId == top1ThisRound).PlayerPlaceAtLeaderBoard == 1;
                 if (!isTop1LastRound)
-                    game.PlayersList.Find(x => x.Status.PlayerId == top1ThisRound).Status.AddRegularPoints(-1, "Если фидишь то пропушь, если пушишь то нафидь");
+                    game.PlayersList.Find(x => x.Status.PlayerId == top1ThisRound).Status
+                        .AddRegularPoints(-1, "Если фидишь то пропушь, если пушишь то нафидь");
 
 
                 foreach (var player in game.PlayersList)
@@ -1663,7 +1671,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
                     if (enemy != null)
                         if (enemy.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
-                            enemy.Character.Justice.SetJusticeNow(enemy.Status , enemy.Character.Justice.GetJusticeNow() - 1, "Падальщик: ", false);
+                            enemy.Character.Justice.SetJusticeNow(enemy.Status,
+                                enemy.Character.Justice.GetJusticeNow() - 1, "Падальщик: ", false);
                     //игнор 1 справедливости
                     break;
             }
@@ -1693,20 +1702,35 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             tolya.Status.AddRegularPoints(1, "Еврей");
                             if (!leCrisp.IsBot())
                             {
-                                var mess =
-                                    await leCrisp.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                                        "МЫ жрём деньги!");
+                                try
+                                {
+                                    var mess =
+                                        await leCrisp.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                                            "МЫ жрём деньги!");
 #pragma warning disable 4014
-                                _help.DeleteMessOverTime(mess);
+                                    _help.DeleteMessOverTime(mess);
+                                }
+                                catch (Exception e)
+                                {
+                                    _log.Critical(e.StackTrace);
+                                }
 #pragma warning restore 4014
                             }
 
                             if (!tolya.IsBot())
                             {
-                                var mess =
-                                    await tolya.Status.SocketMessageFromBot.Channel.SendMessageAsync("МЫ жрём деньги!");
+                                try
+                                {
+                                    var mess =
+                                        await tolya.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                                            "МЫ жрём деньги!");
 #pragma warning disable 4014
-                                _help.DeleteMessOverTime(mess);
+                                    _help.DeleteMessOverTime(mess);
+                                }
+                                catch (Exception e)
+                                {
+                                    _log.Critical(e.StackTrace);
+                                }
 #pragma warning restore 4014
                             }
 

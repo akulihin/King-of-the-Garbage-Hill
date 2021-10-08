@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
@@ -8,6 +9,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework.Extensions
 {
     public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
     {
+
         protected async Task DeleteMessage(IUserMessage userMessage,
             int timeInSeconds)
         {
@@ -134,7 +136,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework.Extensions
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.Message);
+               Console.WriteLine(e.Message);
             }
         }
     }
