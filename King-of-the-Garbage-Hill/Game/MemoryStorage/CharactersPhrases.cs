@@ -309,14 +309,14 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
 
             HardKittyLonelyPhrase.PassiveLogRus.Add("Привет");
-            HardKittyLonelyPhrase.PassiveLogRus.Add("Мне сегодня снилось, как...");
+            HardKittyLonelyPhrase.PassiveLogRus.Add("Мне сегодня снилось, что...");
             HardKittyLonelyPhrase.PassiveLogRus.Add("Что делаешь?");
             HardKittyLonelyPhrase.PassiveLogRus.Add("Как дела?");
             HardKittyDoebatsyaPhrase.PassiveLogRus.Add("У вас продают молоко в пакетах?");
             HardKittyDoebatsyaPhrase.PassiveLogRus.Add("Какой у тебя Windows?");
             HardKittyDoebatsyaPhrase.PassiveLogRus.Add("Что лучше взять на MF?");
             HardKittyDoebatsyaPhrase.PassiveLogRus.Add("Эй, э-эй...");
-            HardKittyMutedPhrase.PassiveLogRus.Add("Mute");
+            HardKittyMutedPhrase.PassiveLogRus.Add("Muted");
 
 
             SirinoksFriendsPhrase.PassiveLogRus.Add("Го в пати");
