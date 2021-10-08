@@ -315,7 +315,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             HardKittyDoebatsyaPhrase.PassiveLogRus.Add("Какой у тебя Windows?");
             HardKittyDoebatsyaPhrase.PassiveLogRus.Add("Что лучше взять на MF?");
             HardKittyDoebatsyaPhrase.PassiveLogRus.Add("Эй, э-эй...");
-            HardKittyMutedPhrase.PassiveLogRus.Add("Mute");
+            HardKittyMutedPhrase.PassiveLogRus.Add("Muted");
 
 
             SirinoksFriendsPhrase.PassiveLogRus.Add("Го в пати");
