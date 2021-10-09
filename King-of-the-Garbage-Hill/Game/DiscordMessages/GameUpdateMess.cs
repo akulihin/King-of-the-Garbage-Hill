@@ -284,6 +284,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                                 customString += "**кек**";
                         }
                     }
+    
                     //end стёб
 
 
@@ -344,18 +345,16 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
         //Page 1
-        public EmbedBuilder FightPage(GamePlayerBridgeClass player, GameClass game = null)
+        public EmbedBuilder FightPage(GamePlayerBridgeClass player)
         {
-            var account = _accounts.GetAccount(player.DiscordId);
-            //        player.Status.MoveListPage = 1;
+            var game = _global.GamesList.Find(x => x.GameId == player.GameId);
             var character = player.Character;
 
             var embed = new EmbedBuilder();
             embed.WithColor(Color.Blue);
             embed.WithTitle("King of the Garbage Hill");
-            var roundNumber = 1;
-            if (game != null)
-                roundNumber = game.RoundNo + 1;
+            var roundNumber = game.RoundNo;
+
        
             if (roundNumber > 10)
             {
@@ -368,12 +367,17 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 <= 9 => 2,
                 _ => 4
             };
+            //Претендент русского сервера
+            if (player.Status.GetInGamePersonalLogs().Contains("Претендент русского сервера"))
+            {
+                multiplier *= 3;
+            }
+            //end Претендент русского сервера
 
-            if (game == null) game = _global.GamesList.Find(x => x.GameId == player.GameId);
+           game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
-            var desc = "ERROR";
 
-            if (game != null) desc = game.GetPreviousGameLogs();
+            var desc = game.GetPreviousGameLogs();
 
             embed.WithDescription(desc.Replace(player.DiscordUsername,
                 $"**{player.DiscordUsername}**"));
@@ -484,8 +488,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 {new("1⃣"), new("2⃣"), new("3⃣"), new("4⃣"), new("5⃣"), new("6⃣")};
 
             var embed = new EmbedBuilder();
-            var playerIsReady = (player.Status.IsSkip || player.Status.IsReady);
-
+            var playerIsReady = (player.Status.IsSkip || player.Status.IsReady) || game.RoundNo > 10;
             var attackMenu = new SelectMenuBuilder()
                 .WithMinValues(1)
                 .WithMaxValues(1)

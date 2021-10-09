@@ -189,7 +189,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (t.Status.SocketMessageFromBot != null)
                         {
                             await _upd.UpdateMessage(t);
-                            await _upd.SendMsgAndDeleteIt(t, $"Раунд #{game.RoundNo}", 3);
+                            if(game.RoundNo <= 10)
+                                await _upd.SendMsgAndDeleteIt(t, $"Раунд #{game.RoundNo}", 3);
                         }
                     }
                     catch (Exception f)

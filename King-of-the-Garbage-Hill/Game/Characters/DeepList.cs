@@ -78,14 +78,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public void HandleMockery(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, GameClass game)
         {
             //Стёб
-            var currentDeepList =
-                _gameGlobal.DeepListMockeryList.Find(x =>
-                    x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
+            var currentDeepList = _gameGlobal.DeepListMockeryList.Find(x => x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
 
             if (currentDeepList != null)
             {
-                var currentDeepList2 =
-                    currentDeepList.WhoWonTimes.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
+                var currentDeepList2 = currentDeepList.WhoWonTimes.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
 
                 if (currentDeepList2 != null)
                 {
@@ -102,15 +99,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 }
                 else
                 {
-                    var toAdd = new Mockery(new List<MockerySub> {new(player2.Status.PlayerId, 1)},
-                        game.GameId, player.Status.PlayerId);
-                    _gameGlobal.DeepListMockeryList.Add(toAdd);
+                    currentDeepList.WhoWonTimes.Add(new MockerySub(player2.Status.PlayerId, 1));
                 }
             }
             else
             {
-                var toAdd = new Mockery(new List<MockerySub> {new(player2.Status.PlayerId, 1)},
-                    game.GameId, player.Status.PlayerId);
+                var toAdd = new Mockery(new List<MockerySub> {new(player2.Status.PlayerId, 1)}, game.GameId, player.Status.PlayerId);
                 _gameGlobal.DeepListMockeryList.Add(toAdd);
             }
 
