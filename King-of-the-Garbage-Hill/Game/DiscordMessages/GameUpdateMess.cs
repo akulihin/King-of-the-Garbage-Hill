@@ -222,7 +222,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                         if (!siri.FriendList.Contains(player2.Status.PlayerId) &&
                             player2.Status.PlayerId != player1.Status.PlayerId)
                             customString += "<:fr:563063244097585162>";
-
                     break;
                 case "Загадочный Спартанец в маске":
                 {
@@ -301,11 +300,16 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                     break;
                 case "Тигр":
+                    var tigr1 = _gameGlobal.TigrTwoBetterList.Find(x => x.PlayerId == player1.Status.PlayerId && x.GameId == player1.GameId);
 
-                    var tigr = _gameGlobal.TigrThreeZeroList.Find(x =>
-                        x.GameId == player1.GameId && x.PlayerId == player1.Status.PlayerId);
+                    if (tigr1 != null)
+                        if (tigr1.FriendList.Contains(player2.Status.PlayerId) &&
+                            player2.Status.PlayerId != player1.Status.PlayerId)
+                            customString += "<:pepe_down:896514760823144478>";
 
-                    var enemy = tigr?.FriendList.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
+                    var tigr2 = _gameGlobal.TigrThreeZeroList.Find(x => x.GameId == player1.GameId && x.PlayerId == player1.Status.PlayerId);
+
+                    var enemy = tigr2?.FriendList.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
 
                     if (enemy != null)
                     {
@@ -331,10 +335,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public async Task EndGame(SocketMessageComponent button)
         {
-            var response = await _awaitForUser.FinishTheGameQuestion(button);
-            if (!response) return;
             _helperFunctions.SubstituteUserWithBot(button.User.Id);
-
             var globalAccount = _global.Client.GetUser(button.User.Id);
             var account = _accounts.GetAccount(globalAccount);
             account.IsPlaying = false;
@@ -540,7 +541,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                         builder.WithButton("Обменять 3 Морали на 1 бонусное очко", "moral", row: 0, style: ButtonStyle.Secondary);
                     else
                         builder.WithButton("Недостаточно очков морали", "moral", row: 0, style: ButtonStyle.Secondary, disabled:true);
-                    builder.WithButton("Завершить", "end", row: 0, style: ButtonStyle.Danger);
+                    builder.WithButton("Завершить Игру", "end", row: 0, style: ButtonStyle.Danger);
                     break;
                 case 2:
                     embed = LogsPage(player);

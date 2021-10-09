@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Discord;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
@@ -51,7 +52,17 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                     switch (button.Data.CustomId)
                     {
+
+                        case "end-1":
+                            var builder = new ComponentBuilder();
+                            builder.WithButton("Подтвердить Завершение игры", "end", row: 0, style: ButtonStyle.Danger);
+                            var dm = await button.User.CreateDMChannelAsync();
+                            var msg = await dm.SendMessageAsync("Ты уверен?", component: builder.Build());
+                            _help.DeleteMessOverTime(msg, 20);
+                            break;
                         case "end":
+                            dm = await button.User.CreateDMChannelAsync();
+                            await dm.SendMessageAsync("Спасибо за игру!");
                             await _upd.EndGame(button);
                             break;
 

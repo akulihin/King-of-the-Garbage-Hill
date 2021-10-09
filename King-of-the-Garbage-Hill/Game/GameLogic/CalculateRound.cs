@@ -138,7 +138,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
 
-                    var logMess = " ⟶ *Бой не состоялся...*";
+                    var logMess = " ⟶ *Бой не состоялся (Блок)...*";
 
                     game.AddPreviousGameLogs(logMess);
 
@@ -169,7 +169,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (playerIamAttacking.Status.IsSkip)
                 {
                     game.SkipPlayersThisRound++;
-                    game.AddPreviousGameLogs(" ⟶ *Бой не состоялся...*");
+                    game.AddPreviousGameLogs(" ⟶ *Бой не состоялся (Скип)...*");
 
                     _characterPassives.HandleCharacterAfterCalculations(player, game);
                     _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);

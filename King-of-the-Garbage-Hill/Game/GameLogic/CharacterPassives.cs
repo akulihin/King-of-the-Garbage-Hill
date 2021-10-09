@@ -427,7 +427,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     var sup = player2Stats.OrderByDescending(x => x.StatNumber).ToList()[0];
                     if (awdka == null)
                         _gameGlobal.AwdkaTeachToPlay.Add(new Sirinoks.TrainingClass(player1.Status.PlayerId,
-                            game.GameId, sup.StatIndex, sup.StatNumber));
+                            game.GameId, sup.StatIndex, sup.StatNumber, Guid.Empty));
                     else
                         awdka.Training.Add(new Sirinoks.TrainingSubClass(sup.StatIndex, sup.StatNumber));
 
@@ -1327,9 +1327,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                     player.Character.AddPsyche(player.Status, 1, "Обучение: ");
                                     break;
                             }
-
-
-                            siri.Training.Clear();
                         }
 
                         //end training
