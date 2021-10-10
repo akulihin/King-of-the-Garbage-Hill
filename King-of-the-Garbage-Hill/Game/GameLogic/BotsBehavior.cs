@@ -41,7 +41,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         public async Task HandleAttack(GamePlayerBridgeClass bot, GameClass game)
         {
             //local variables
-            var nanobots = _gameGlobal.NanobotsList.Find(x => x.GameId == game.GameId);
+            var allPlayers = _gameGlobal.NanobotsList.Find(x => x.GameId == game.GameId);
             var maxRandomNumber = 0;
             var isBlock = 6;
             var minimumRandomNumberForBlock = 1;
@@ -50,120 +50,125 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             //end local variables
 
             //calculation Tens
-            foreach (var p in nanobots.Nanobots)
+            foreach (var player in allPlayers.Nanobots)
             {
-                if (bot.Character.Justice.GetJusticeNow() == p.Player.Character.Justice.GetJusticeNow())
-                    p.AttackPreference -= 5;
-                else if (bot.Character.Justice.GetJusticeNow() < p.Player.Character.Justice.GetJusticeNow())
-                    p.AttackPreference -= 6;
 
-                if (bot.Status.PlaceAtLeaderBoard < p.Player.Status.PlaceAtLeaderBoard)
-                    p.AttackPreference -= 2;
+                //if justice is the same
+                if (bot.Character.Justice.GetJusticeNow() == player.Player.Character.Justice.GetJusticeNow())
+                    player.AttackPreference -= 5;
+                //if bot justice less than platers
+                else if (bot.Character.Justice.GetJusticeNow() < player.Player.Character.Justice.GetJusticeNow())
+                    player.AttackPreference -= 6;
 
-                if (bot.Status.PlaceAtLeaderBoard - p.Player.Status.PlaceAtLeaderBoard == 1)
-                    p.AttackPreference -= 1;
+                //if player is first
+                if (player.Player.Status.PlaceAtLeaderBoard == 1)
+                    player.AttackPreference -= 1;
 
+                //if player is second when we are first
+                if (bot.Status.PlaceAtLeaderBoard == 1 && player.Player.Status.PlaceAtLeaderBoard == 2)
+                    player.AttackPreference -= 1;
+
+                //lost
                 if (bot.Status.WhoToLostEveryRound.Any(x =>
-                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == p.Player.Status.PlayerId && x.IsTooGood))
-                    p.AttackPreference -= 7;
+                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == player.Player.Status.PlayerId && x.IsTooGood))
+                    player.AttackPreference -= 7;
+                //lost and too good
                 else if (bot.Status.WhoToLostEveryRound.Any(x =>
-                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == p.Player.Status.PlayerId))
-                    p.AttackPreference -= 5;
+                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == player.Player.Status.PlayerId))
+                    player.AttackPreference -= 5;
 
-
-                if (p.Player.Status.WhoToLostEveryRound.Any(x =>
+                //won and too good
+                if (player.Player.Status.WhoToLostEveryRound.Any(x =>
                     x.RoundNo == game.RoundNo - 1 && x.EnemyId == bot.Status.PlayerId && x.IsTooGood))
-                    p.AttackPreference += 3;
+                    player.AttackPreference += 3;
 
 
-                var count = game.PlayersList.FindAll(x => x.Status.WhoToAttackThisTurn == p.Player.Status.PlayerId)
-                    .Count;
-                p.AttackPreference -= count;
+                //how many players are attacking the same player
+                var count = game.PlayersList.FindAll(x => x.Status.WhoToAttackThisTurn == player.Player.Status.PlayerId).Count;
+                player.AttackPreference -= count;
 
                 //custom bot behavior
                 switch (bot.Character.Name)
                 {
                     case "Sirinoks":
                     {
-                        //+5 к значению тех, кто еще не друг.
-                        var siriFriends = _gameGlobal.SirinoksFriendsList.Find(x =>
-                            x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
+                        
+                        var siriFriends = _gameGlobal.SirinoksFriendsList.Find(x => x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
 
                         if (siriFriends != null)
                         {
-                            if (!siriFriends.FriendList.Contains(p.Player.Status.PlayerId)) p.AttackPreference += 5;
+                            //+5 к значению тех, кто еще не друг.
+                            if (!siriFriends.FriendList.Contains(player.Player.Status.PlayerId)) 
+                                player.AttackPreference += 5;
+
                             //До начала 5го хода может нападать только на одну цель. Если значение цели 0 - то блок.
                             if (siriFriends.FriendList.Count == 1 && game.RoundNo < 5)
                             {
-                                p.AttackPreference = 0;
-                                mandatoryAttack = game.PlayersList
-                                    .Find(x => x.Status.PlayerId == siriFriends.FriendList[0]).Status
-                                    .PlaceAtLeaderBoard;
+                                player.AttackPreference = 0;
+                                mandatoryAttack = game.PlayersList.Find(x => x.Status.PlayerId == siriFriends.FriendList[0]).Status.PlaceAtLeaderBoard;
                             }
-                            //end До начала 5го хода может нападать только на одну цель. Если значение цели 0 - то блок.
 
-                            //Если кол-во оставшихся ходов = кол-во незапроканных друзей, то выбирает цель только из тех, кто еще не друг.
-                            // 3 == 4
-                            if (10 - game.RoundNo - (5 - siriFriends.FriendList.Count) <= 0)
+
+                            //Если кол-во оставшихся ходов == кол-во незапроканных друзей, то выбирает цель только из тех, кто еще не друг.
+                            var nonFiendsLeft = 5 - siriFriends.FriendList.Count;
+                            var roundsLeft = 10 - game.RoundNo;
+                            var allNotFriends = game.PlayersList.FindAll(x => !siriFriends.FriendList.Contains(x.Status.PlayerId) && x.Status.PlayerId != bot.Status.PlayerId);
+
+                            if (nonFiendsLeft == roundsLeft)
                             {
-                                var allNotFriends =
-                                    game.PlayersList.FindAll(x => !siriFriends.FriendList.Contains(x.Status.PlayerId));
-
-                                if (allNotFriends != null && allNotFriends.Count > 0)
+                                if (allNotFriends is {Count: > 0})
                                     mandatoryAttack = allNotFriends.FirstOrDefault().Status.PlaceAtLeaderBoard;
                             }
-                            //end Если кол-во оставшихся ходов = кол-во незапроканных друзей, то выбирает цель только из тех, кто еще не друг.
                         }
-                        //end +5 к значению тех, кто еще не друг.
                     }
                         break;
                     case "Толя":
                         //Jew
                         foreach (var v in game.PlayersList)
-                            if (v.Status.WhoToAttackThisTurn == p.Player.Status.PlayerId)
-                                p.AttackPreference += 6;
+                            if (v.Status.WhoToAttackThisTurn == player.Player.Status.PlayerId)
+                                player.AttackPreference += 6;
                         //end Jew
                         break;
 
                     case "LeCrisp":
                         //Jew
                         foreach (var v in game.PlayersList)
-                            if (v.Status.WhoToAttackThisTurn == p.Player.Status.PlayerId)
-                                p.AttackPreference += 6;
+                            if (v.Status.WhoToAttackThisTurn == player.Player.Status.PlayerId)
+                                player.AttackPreference += 6;
                         //end Jew
                         break;
 
                     case "Глеб":
                     {
-                        if (p.Player.Status.IsSkip) p.AttackPreference = 0;
+                        if (player.Player.Status.IsSkip) 
+                            player.AttackPreference = 0;
+
                         //Во время претендента забывает о всех -5 и -7 за луз по статам, но вспоминает после окончания претендента.
-                        var glebAcc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
-                            x.PlayerId == bot.Status.PlayerId && game.GameId == x.GameId);
+                        var glebAcc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x => x.PlayerId == bot.Status.PlayerId && game.GameId == x.GameId);
 
                         if (glebAcc != null)
                             if (glebAcc.WhenToTrigger.Contains(game.RoundNo))
                             {
                                 if (bot.Status.WhoToLostEveryRound.Any(x =>
-                                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == p.Player.Status.PlayerId &&
+                                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == player.Player.Status.PlayerId &&
                                     x.IsTooGood))
-                                    p.AttackPreference += 7;
+                                    player.AttackPreference += 7;
                                 else if (bot.Status.WhoToLostEveryRound.Any(x =>
-                                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == p.Player.Status.PlayerId))
-                                    p.AttackPreference += 5;
-                                //end Во время претендента забывает о всех -5 и -7 за луз по статам, но вспоминает после окончания претендента.
+                                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == player.Player.Status.PlayerId))
+                                    player.AttackPreference += 5;
+
 
                                 //Под претендентом не ставит блок.
                                 {
                                     minimumRandomNumberForBlock = 0;
                                     maximumRandomNumberForBlock = 0;
                                 }
-                                //end Под претендентом не ставит блок.
+
 
                                 //Под претендентом автоматически выбирает цель с наибольшим значением. 
-                                var sorted = nanobots.Nanobots.OrderByDescending(x => x.AttackPreference).ToList();
+                                var sorted = allPlayers.Nanobots.OrderByDescending(x => x.AttackPreference).ToList();
 
                                 mandatoryAttack = sorted[0].Player.Status.PlaceAtLeaderBoard;
-                                //end Под претендентом автоматически выбирает цель с наибольшим значением. 
                             }
                     }
                         break;
@@ -206,26 +211,26 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                 //custom enemy
-                switch (p.Player.Character.Name)
+                switch (player.Player.Character.Name)
                 {
                     case "Darksci":
                         if (game.RoundNo == 9 ||
                             game.RoundNo == 10 && game.GetAllGameLogs().Contains("Нахуй эту игру"))
-                            p.AttackPreference = 0;
+                            player.AttackPreference = 0;
                         break;
                 }
                 //end custom enemy
 
                 //self always = 0
-                if (bot.Status.PlayerId == p.Player.Status.PlayerId) p.AttackPreference = 0;
+                if (bot.Status.PlayerId == player.Player.Status.PlayerId) player.AttackPreference = 0;
 
-                if (p.AttackPreference <= 0)
+                if (player.AttackPreference <= 0)
                 {
                     isBlock--;
-                    p.AttackPreference = 0;
+                    player.AttackPreference = 0;
                 }
 
-                maxRandomNumber += p.AttackPreference;
+                maxRandomNumber += player.AttackPreference;
             }
             //end calculation Tens
 
@@ -240,7 +245,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 case "Толя":
                     //rammus
-                    var count = nanobots.Nanobots.FindAll(x => x.AttackPreference >= 10).Count;
+                    var count = allPlayers.Nanobots.FindAll(x => x.AttackPreference >= 10).Count;
                     if (count <= 0) minimumRandomNumberForBlock += 2;
                     //end rammus
                     break;
@@ -268,19 +273,19 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             {
                 //block
                 await _gameReaction.HandleAttack(bot, null, -10);
-                ResetTens(nanobots);
+                ResetTens(allPlayers);
                 return;
             }
 
             var randomNumber = _rand.Random(1, maxRandomNumber);
 
 
-            var player1 = nanobots.Nanobots.Find(x => x.PlaceAtLeaderBoard == 1);
-            var player2 = nanobots.Nanobots.Find(x => x.PlaceAtLeaderBoard == 2);
-            var player3 = nanobots.Nanobots.Find(x => x.PlaceAtLeaderBoard == 3);
-            var player4 = nanobots.Nanobots.Find(x => x.PlaceAtLeaderBoard == 4);
-            var player5 = nanobots.Nanobots.Find(x => x.PlaceAtLeaderBoard == 5);
-            var player6 = nanobots.Nanobots.Find(x => x.PlaceAtLeaderBoard == 6);
+            var player1 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 1);
+            var player2 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 2);
+            var player3 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 3);
+            var player4 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 4);
+            var player5 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 5);
+            var player6 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 6);
 
             var whoToAttack = 0;
             var isAttacked = false;
@@ -332,7 +337,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             if (whoToAttack == 0 || !isAttacked)
                 await _gameReaction.HandleAttack(bot, null, -10);
 
-            ResetTens(nanobots);
+            ResetTens(allPlayers);
         }
 
         public async Task<bool> AttackPlayer(GamePlayerBridgeClass bot, int whoToAttack)
