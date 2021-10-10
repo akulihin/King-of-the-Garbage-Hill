@@ -253,7 +253,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 case "LeCrisp":
                     //block chances
-                    if (game.RoundNo >= 2 && game.RoundNo <= 5) minimumRandomNumberForBlock += 1;
+                    if (game.RoundNo is >= 2 and <= 4) minimumRandomNumberForBlock += 1;
 
                     var assassinsCount = game.PlayersList
                         .FindAll(x => bot.Character.GetStrength() - x.Character.GetStrength() <= -2).Count;
