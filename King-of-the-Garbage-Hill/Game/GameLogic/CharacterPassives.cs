@@ -398,6 +398,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
                         x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
 
+                    if(siri != null)
+                        if (siri.FriendList.Contains(playerIamAttacking.Status.PlayerId))
+                            playerIamAttacking.Status.IsBlock = false;
 
                     if (!siri.FriendList.Contains(playerIamAttacking.Status.PlayerId))
                     {
@@ -406,8 +409,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         game.Phrases.SirinoksFriendsPhrase.SendLog(player1, true);
                     }
 
-                    if (siri.FriendList.Contains(playerIamAttacking.Status.PlayerId))
-                        playerIamAttacking.Status.IsBlock = false;
+
                     //Friends end
                     break;
 
@@ -886,6 +888,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     case "Глеб":
                         //Спящее хуйло:
+                        if (game.RoundNo == 11)
+                        {
+                            game.Phrases.GlebSleepyPhrase.SendLog(player, false);
+                        }
+
                         acc = _gameGlobal.GlebSleepingTriggeredWhen.Find(x =>
                             x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
 
