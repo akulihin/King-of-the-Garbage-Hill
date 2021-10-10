@@ -112,7 +112,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 await _characterPassives.HandleCharacterBeforeCalculations(playerIamAttacking, game);
 
                 if (playerIamAttacking.Status.WhoToAttackThisTurn == Guid.Empty &&
-                    playerIamAttacking.Status.IsBlock == false)
+                    playerIamAttacking.Status.IsBlock == false && playerIamAttacking.Status.IsSkip == false)
                     playerIamAttacking.Status.IsBlock = true;
 
 
@@ -194,49 +194,75 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var a = player.Character;
                 var b = playerIamAttacking.Character;
 
-                var scaleA = (a.GetIntelligence() + a.GetStrength() + a.GetSpeed() + a.GetPsyche()) + a.GetSkill() / 10;
-                var scaleB = (b.GetIntelligence() + b.GetStrength() + b.GetSpeed() + b.GetPsyche()) + b.GetSkill() / 10;
+                var scaleA = (a.GetIntelligence() + a.GetStrength() + a.GetSpeed() + a.GetPsyche()) + a.GetSkill() / 30;
+                var scaleB = (b.GetIntelligence() + b.GetStrength() + b.GetSpeed() + b.GetPsyche()) + b.GetSkill() / 30;
 
                 var weighingMachine = scaleA - scaleB;
 
                 var psycheDifference = a.GetPsyche() - b.GetPsyche();
 
-                if (psycheDifference > 0 && psycheDifference < 4)
-                    weighingMachine += 1;
-                else if (psycheDifference >= 4)
-                    weighingMachine += 2;
-                else if (psycheDifference < 0 && psycheDifference > -4)
-                    weighingMachine -= 1;
-                else if (psycheDifference < 0 && psycheDifference <= -4)
-                    weighingMachine -= 2;
-
-                if (whoIsBetter == 1)
-                    weighingMachine += 5;
-                else if (whoIsBetter == 2)
-                    weighingMachine -= 5;
-
-                if (weighingMachine >= 14)
+                switch (psycheDifference)
                 {
-                    isTooGoodPlayer = true;
-                    randomForTooGood = 68;
+                    case > 0 and <= 3:
+                        weighingMachine += 1;
+                        break;
+                    case >= 4 and <= 5:
+                        weighingMachine += 2;
+                        break;
+                    case >= 6:
+                        weighingMachine += 4;
+                        break;
+                    case < 0 and >= -3:
+                        weighingMachine -= 1;
+                        break;
+                    case >= -5 and <= -4:
+                        weighingMachine -= 2;
+                        break;
+                    case <= -6:
+                        weighingMachine -= 4;
+                        break;
                 }
 
-                if (weighingMachine <= -14)
+                switch (whoIsBetter)
                 {
-                    isTooGoodEnemy = true;
-                    randomForTooGood = 32;
+                    case 1:
+                        weighingMachine += 5;
+                        break;
+                    case 2:
+                        weighingMachine -= 5;
+                        break;
+                }
+
+                switch (weighingMachine)
+                {
+                    case >= 14:
+                        isTooGoodPlayer = true;
+                        randomForTooGood = 68;
+                        break;
+                    case <= -14:
+                        isTooGoodEnemy = true;
+                        randomForTooGood = 32;
+                        break;
                 }
 
 
-                var wtf = 1 + (a.GetSkill() / 200 - b.GetSkill() / 200);
-                weighingMachine *= wtf;
+                var wtf = scaleA * (1 + (a.GetSkill() / 300 - b.GetSkill() / 300)) - scaleA;
+                weighingMachine += wtf;
 
 
-                weighingMachine += player.Character.Justice.GetJusticeNow() - playerIamAttacking.Character.Justice.GetJusticeNow();
+                weighingMachine += (player.Character.Justice.GetJusticeNow() -
+                                    playerIamAttacking.Character.Justice.GetJusticeNow()) * 2;
 
 
-                if (weighingMachine > 0) pointsWined++;
-                if (weighingMachine < 0) pointsWined--;
+                switch (weighingMachine)
+                {
+                    case > 0:
+                        pointsWined++;
+                        break;
+                    case < 0:
+                        pointsWined--;
+                        break;
+                }
                 //end round 1
 
 
@@ -250,7 +276,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //round 3 (Random)
                 if (pointsWined == 0)
                 {
-                    var randomNumber = _rand.Random(1, 100 - (player.Character.Justice.GetJusticeNow() - playerIamAttacking.Character.Justice.GetJusticeNow()));
+                    var maxRandomNumber = 100;
+                        if (player.Character.Justice.GetJusticeNow() > 1 || playerIamAttacking.Character.Justice.GetJusticeNow() > 1)
+                            maxRandomNumber -= (player.Character.Justice.GetJusticeNow() - playerIamAttacking.Character.Justice.GetJusticeNow()) * 5;
+                    var randomNumber = _rand.Random(1, maxRandomNumber);
                     if (randomNumber <= randomForTooGood) pointsWined++;
                     else pointsWined--;
                 }
@@ -437,7 +466,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var tigr = _gameGlobal.TigrTop.Find(x =>
                     x.GameId == game.GameId && x.PlayerId == tigrTemp.Status.PlayerId);
 
-                if (tigr != null && tigr.TimeCount > 0)
+                if (tigr is {TimeCount: > 0})
                 {
                     var tigrIndex = game.PlayersList.IndexOf(tigrTemp);
 

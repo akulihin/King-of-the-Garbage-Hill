@@ -119,11 +119,11 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
             int when;
             var check = new List<int>();
 
-
+            //probably only for mitsuki
             if (maxRandomNumber == 0)
             {
                 when = _rand.Random(2, lastRound);
-                if (lastRound == 11 && when == 3 || when > 10) when = 10;
+                if (lastRound >= 11 && when == 3 || when > 10) when = 10;
                 toTriggerClass.WhenToTrigger.Add(when);
                 return toTriggerClass;
             }
@@ -132,7 +132,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
             if (isMandatory)
             {
                 when = _rand.Random(1, lastRound);
-                if (lastRound == 11 && when == 3 || when > 10) when = 10;
+                if (lastRound >= 11 && when == 3 || when > 10) when = 10;
                 check.Add(when);
                 toTriggerClass.WhenToTrigger.Add(when);
             }
@@ -142,7 +142,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
                 do
                 {
                     when = _rand.Random(1, lastRound);
-                    if (lastRound == 11 && when == 3 || when > 10) when = 10;
+                    if (lastRound >= 11 && when == 3 || when > 10) when = 10;
                 } while (check.Contains(when));
 
                 check.Add(when);

@@ -202,7 +202,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         bool flag;
                         do
                         {
-                            when = _gameGlobal.GetWhenToTrigger(player, true, 6, 3, true, 11);
+                            when = _gameGlobal.GetWhenToTrigger(player, true, 6, 3, true, 12);
                             flag = false;
                             for (var i = 0; i < li.Count; i++)
                                 if (when.WhenToTrigger.Contains(li[i]))
@@ -1075,7 +1075,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Character.SetIntelligence(player.Status, 10, "Дракон: ");
                             player.Character.SetStrength(player.Status, 10, "Дракон: ");
                             player.Character.SetSpeed(player.Status, 10, "Дракон: ");
-                            player.Character.SetPsyche(player.Status, 11, "Дракон: ");
+                            player.Character.SetPsyche(player.Status, 10, "Дракон: ");
 
                             var pointsToGive = 10;
 
