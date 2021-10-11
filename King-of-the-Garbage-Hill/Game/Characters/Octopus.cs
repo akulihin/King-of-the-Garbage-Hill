@@ -12,10 +12,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             return Task.CompletedTask;
         }
 
-        public void HandleOctopus(GamePlayerBridgeClass player)
-        {
-            //    throw new System.NotImplementedException();
-        }
+
 
         public void HandleOctopusAfter(GamePlayerBridgeClass player)
         {

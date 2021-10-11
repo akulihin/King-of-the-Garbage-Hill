@@ -19,10 +19,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             return Task.CompletedTask;
         }
 
-        public void HandlePanth(GamePlayerBridgeClass player, GameClass game)
-        {
-            //   throw new System.NotImplementedException();
-        }
+
 
         public void HandlePanthAfter(GamePlayerBridgeClass player, GameClass game)
         {

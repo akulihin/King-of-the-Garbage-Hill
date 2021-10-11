@@ -66,14 +66,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             }
         }
 
-        public async Task HandleMylorik(GamePlayerBridgeClass player, GameClass game)
-        {
-            //Boole
 
-
-            await Task.CompletedTask;
-            //end Boole
-        }
 
 
         public void HandleMylorikAfter(GamePlayerBridgeClass player, GameClass game)

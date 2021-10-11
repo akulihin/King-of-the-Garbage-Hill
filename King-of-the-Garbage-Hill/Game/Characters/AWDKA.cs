@@ -20,10 +20,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             return Task.CompletedTask;
         }
 
-        public void HandleAwdka(GamePlayerBridgeClass player)
-        {
-            //  throw new System.NotImplementedException();
-        }
+
 
         public void HandleAwdkaAfter(GamePlayerBridgeClass player, GameClass game)
         {

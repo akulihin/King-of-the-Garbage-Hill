@@ -21,10 +21,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             return Task.CompletedTask;
         }
 
-        public void HandleShark(GamePlayerBridgeClass player)
-        {
-            //  throw new System.NotImplementedException();
-        }
+
 
         public void HandleSharkAfter(GamePlayerBridgeClass player, GameClass game)
         {

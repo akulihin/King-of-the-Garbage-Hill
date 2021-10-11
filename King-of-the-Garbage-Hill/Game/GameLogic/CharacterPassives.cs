@@ -441,60 +441,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             await Task.CompletedTask;
         }
 
-        public async Task HandleCharacterBeforeCalculations(GamePlayerBridgeClass player, GameClass game)
-        {
-            var characterName = player.Character.Name;
-            switch (characterName)
-            {
-                case "DeepList":
-                    _deepList.HandleDeepList(player);
-                    break;
-                case "mylorik":
-                    await _mylorik.HandleMylorik(player, game);
-                    break;
-                case "Глеб":
-                    _gleb.HandleGleb(player);
-                    break;
-                case "LeCrisp":
-                    _leCrisp.HandleLeCrisp(player);
-                    break;
-                case "Толя":
-                    _tolya.HandleTolya(player);
-                    break;
-                case "HardKitty":
-                    _hardKitty.HandleHardKitty(player);
-                    break;
-                case "Sirinoks":
-                    _sirinoks.HandleSirinoks(player);
-                    break;
-                case "Mit*suki*":
-                    _mitsuki.HandleMitsuki(player);
-                    break;
-                case "AWDKA":
-                    _awdka.HandleAwdka(player);
-                    break;
-                case "Осьминожка":
-                    _octopus.HandleOctopus(player);
-                    break;
-                case "Darksci":
-                    await _darksci.HandleDarksci(player, game);
-                    break;
-                case "Тигр":
-                    _tigr.HandleTigr(player);
-                    break;
-                case "Братишка":
-                    _shark.HandleShark(player);
-                    break;
-                case "Загадочный Спартанец в маске":
-                    _panth.HandlePanth(player, game);
-                    break;
-                case "Вампур":
-                    _vampyr.HandleVampyr(player, game);
-                    break;
-            }
 
-            await Task.CompletedTask;
-        }
 
         public async Task HandleEventsAfterEveryBattle(GameClass game)
         {
@@ -598,8 +545,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     break;
             }
 
-            if (player.Status.WhoToAttackThisTurn == Guid.Empty && player.Status.IsBlock == false)
-                player.Status.IsBlock = true;
         }
 
 

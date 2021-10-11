@@ -12,10 +12,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             return Task.CompletedTask;
         }
 
-        public void HandleMitsuki(GamePlayerBridgeClass player)
-        {
-            //    throw new System.NotImplementedException();
-        }
+ 
 
         public void HandleMitsukiAfter(GamePlayerBridgeClass player)
         {

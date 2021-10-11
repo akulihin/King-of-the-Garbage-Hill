@@ -33,12 +33,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             var realPlayers = game.PlayersList.FindAll(x => !x.IsBot() && !x.Status.IsReady).ToList().Count;
             if (realPlayers > 0 && game.TimePassed.Elapsed.Seconds < game.TurnLengthInSecond - timeOffest) return;
 
-            if (player.Status.MoveListPage == 1) await HandleAttack(player, game);
+            if (player.Status.MoveListPage == 1) await HandleBotAttack(player, game);
 
             if (player.Status.MoveListPage == 3) await HandleLvlUp(player, game);
         }
 
-        public async Task HandleAttack(GamePlayerBridgeClass bot, GameClass game)
+        public async Task HandleBotAttack(GamePlayerBridgeClass bot, GameClass game)
         {
             //local variables
             var allPlayers = _gameGlobal.NanobotsList.Find(x => x.GameId == game.GameId);
@@ -58,7 +58,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     player.AttackPreference -= 5;
                 //if bot justice less than platers
                 else if (bot.Character.Justice.GetJusticeNow() < player.Player.Character.Justice.GetJusticeNow())
-                    player.AttackPreference -= 6;
+                    player.AttackPreference -= 7;
 
                 //if player is first
                 if (player.Player.Status.PlaceAtLeaderBoard == 1)
@@ -140,6 +140,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     case "Глеб":
                     {
+                        isBlock = 99999;
+
                         if (player.Player.Status.IsSkip) 
                             player.AttackPreference = 0;
 
@@ -287,7 +289,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             var player5 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 5);
             var player6 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 6);
 
-            var whoToAttack = 0;
+            int whoToAttack;
             var isAttacked = false;
 
 
@@ -334,7 +336,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
 
 
-            if (whoToAttack == 0 || !isAttacked)
+            if (!isAttacked)
                 await _gameReaction.HandleAttack(bot, null, -10);
 
             ResetTens(allPlayers);

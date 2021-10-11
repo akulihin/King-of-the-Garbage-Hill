@@ -22,9 +22,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         }
 
 
-        public void HandleDeepList(GamePlayerBridgeClass player)
-        {
-        }
+
 
         public async Task HandleDeepListTactics(GamePlayerBridgeClass player, GameClass game)
         {

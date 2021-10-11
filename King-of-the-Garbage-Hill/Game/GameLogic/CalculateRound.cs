@@ -60,21 +60,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             game.SetPreviousGameLogs($"\n__**Раунд #{roundNumber}**__:\n\n");
 
 
-            for (var i = 0; i < game.PlayersList.Count; i++)
+            foreach (var player in game.PlayersList)
             {
                 var pointsWined = 0;
-                var player = game.PlayersList[i];
-                await _characterPassives.HandleCharacterBeforeCalculations(player, game);
-
-
-                if (player.Status.WhoToAttackThisTurn == Guid.Empty && player.Status.IsBlock == false)
-                    player.Status.IsBlock = true;
-
                 var randomForTooGood = 50;
                 var isTooGoodPlayer = false;
                 var isTooGoodEnemy = false;
+                var playerIamAttacking = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
+
+
                 //if block => no one gets points, and no redundant playerAttacked variable
-                if (player.Status.IsBlock)
+                if (player.Status.IsBlock || player.Status.IsSkip)
                 {
                     _characterPassives.HandleCharacterAfterCalculations(player, game);
                     player.Status.IsWonThisCalculation = Guid.Empty;
@@ -83,23 +79,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     continue;
                 }
 
-                var playerIamAttacking =
-                    game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
 
-                if (playerIamAttacking == null)
-                {
-                    var leftUser = "ERROR";
-
-                    player.Status.AddRegularPoints(1, "Техническая Победа");
-
-                    await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
-                        .SendMessageAsync("/CalculateRound.cs:line 74 - ERROR\n" +
-                                          $"left user id = {player.Status.WhoToAttackThisTurn}\n" +
-                                          $"left user name = {leftUser}\n" +
-                                          $"player.Character.Name =  {player.Character.Name}\n" +
-                                          $"player.DiscordUserName = {player.DiscordUsername}");
-                    continue;
-                }
+                if (playerIamAttacking.Status.WhoToAttackThisTurn == Guid.Empty &&
+                    playerIamAttacking.Status.IsBlock == false && playerIamAttacking.Status.IsSkip == false)
+                    playerIamAttacking.Status.IsBlock = true;
 
 
                 playerIamAttacking.Status.IsFighting = player.Status.PlayerId;
@@ -108,23 +91,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 await _characterPassives.HandleCharacterWithKnownEnemyBeforeCalculations(player, game);
                 await _characterPassives.HandleCharacterWithKnownEnemyBeforeCalculations(playerIamAttacking, game);
-
-                await _characterPassives.HandleCharacterBeforeCalculations(playerIamAttacking, game);
-
-                if (playerIamAttacking.Status.WhoToAttackThisTurn == Guid.Empty &&
-                    playerIamAttacking.Status.IsBlock == false && playerIamAttacking.Status.IsSkip == false)
-                    playerIamAttacking.Status.IsBlock = true;
-
-
                 //т.е. он получил урон, какие у него дебаффы на этот счет 
                 await _characterPassives.HandleEveryAttackOnHim(playerIamAttacking, player, game);
-
                 //т.е. я его аттакую, какие у меня бонусы на это
                 await _characterPassives.HandleEveryAttackFromMe(player, playerIamAttacking, game);
 
 
                 if (!player.Status.IsAbleToWin) pointsWined = -50;
-
                 if (!playerIamAttacking.Status.IsAbleToWin) pointsWined = 50;
 
 
@@ -277,8 +250,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (pointsWined == 0)
                 {
                     var maxRandomNumber = 100;
-                        if (player.Character.Justice.GetJusticeNow() > 1 || playerIamAttacking.Character.Justice.GetJusticeNow() > 1)
-                            maxRandomNumber -= (player.Character.Justice.GetJusticeNow() - playerIamAttacking.Character.Justice.GetJusticeNow()) * 5;
+                    if (player.Character.Justice.GetJusticeNow() > 1 || playerIamAttacking.Character.Justice.GetJusticeNow() > 1)
+                        maxRandomNumber -= (player.Character.Justice.GetJusticeNow() - playerIamAttacking.Character.Justice.GetJusticeNow()) * 5;
                     var randomNumber = _rand.Random(1, maxRandomNumber);
                     if (randomNumber <= randomForTooGood) pointsWined++;
                     else pointsWined--;

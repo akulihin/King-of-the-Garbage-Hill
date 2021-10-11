@@ -203,7 +203,10 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 var game = _global.GamesList.Find(x => x.GameId == player.GameId);
                 var whoToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum);
 
-                if (whoToAttack == null) return false;
+                if (whoToAttack == null)
+                {
+                    return false;
+                }
 
                 status.WhoToAttackThisTurn = whoToAttack.Status.PlayerId;
 

@@ -20,9 +20,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             return Task.CompletedTask;
         }
 
-        public void HandleTolya(GamePlayerBridgeClass player)
-        {
-        }
+ 
 
         public void HandleTolyaAfter(GamePlayerBridgeClass player, GameClass game)
         {
