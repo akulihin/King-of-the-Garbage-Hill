@@ -80,10 +80,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
 
 
-                if (playerIamAttacking.Status.WhoToAttackThisTurn == Guid.Empty &&
-                    playerIamAttacking.Status.IsBlock == false && playerIamAttacking.Status.IsSkip == false)
-                    playerIamAttacking.Status.IsBlock = true;
-
 
                 playerIamAttacking.Status.IsFighting = player.Status.PlayerId;
                 player.Status.IsFighting = playerIamAttacking.Status.PlayerId;

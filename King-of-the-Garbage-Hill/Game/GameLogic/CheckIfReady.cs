@@ -180,6 +180,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 game.IsCheckIfReady = false;
 
+                foreach (var t in players.Where(t => t.Status.WhoToAttackThisTurn == Guid.Empty &&
+                                                     t.Status.IsBlock == false && t.Status.IsSkip == false))
+                {
+                    t.Status.IsBlock = true;
+                }
 
                 await _round.DeepListMind(game);
 
