@@ -411,46 +411,5 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             _upd.UpdateMessage(player);
             await Task.CompletedTask;
         }
-
-        private int GetNumberFromButtonId(string buttonId)
-        {
-            switch (buttonId)
-            {
-                case "attack-one":
-                {
-                    return 1;
-                }
-
-                case "attack-two":
-                {
-                    return 2;
-                }
-
-                case "attack-three":
-                {
-                    return 3;
-                }
-
-                case "attack-four":
-                {
-                    return 4;
-                }
-
-                case "attack-five":
-                {
-                    return 5;
-                }
-
-                case "attack-six":
-                {
-                    return 6;
-                }
-
-                default:
-                {
-                    return 99;
-                }
-            }
-        }
     }
 }

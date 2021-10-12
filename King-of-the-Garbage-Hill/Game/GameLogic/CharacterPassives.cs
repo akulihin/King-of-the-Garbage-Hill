@@ -1156,13 +1156,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                             player.Character.SetIntelligence(player.Status, regularStats.Intel + intel,
-                                "Претендент русского сервера: ");
+                                "Претендент русского сервера: ", false);
                             player.Character.SetStrength(player.Status, regularStats.Str + str,
-                                "Претендент русского сервера: ");
+                                "Претендент русского сервера: ", false);
                             player.Character.SetSpeed(player.Status, regularStats.Speed + speed,
-                                "Претендент русского сервера: ");
+                                "Претендент русского сервера: ", false);
                             player.Character.SetPsyche(player.Status, regularStats.Psyche + psy,
-                                "Претендент русского сервера: ");
+                                "Претендент русского сервера: ", false);
                             _gameGlobal.GlebChallengerList.Remove(glebChall);
                         }
 
