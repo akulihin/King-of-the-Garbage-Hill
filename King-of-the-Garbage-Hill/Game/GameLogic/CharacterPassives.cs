@@ -1538,7 +1538,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     case "Darksci":
 
                         //Да всё нахуй эту игру (3, 6 and 9 are in LVL up):
-                        if (game.RoundNo != 9 && game.RoundNo != 3 && game.RoundNo != 6)
+                        if (game.RoundNo != 9 && game.RoundNo != 7 && game.RoundNo != 5 && game.RoundNo != 3)
                             if (player.Character.GetPsyche() <= 0)
                             {
                                 player.Status.IsSkip = true;

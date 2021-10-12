@@ -391,7 +391,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 }
 
                 //Да всё нахуй эту игру:
-                if (game.RoundNo == 9 || game.RoundNo == 3 || game.RoundNo == 6)
+                if (game.RoundNo == 9 || game.RoundNo == 7 || game.RoundNo == 5 || game.RoundNo == 3)
                     if (player.Character.GetPsyche() <= 0)
                     {
                         player.Status.IsSkip = true;
