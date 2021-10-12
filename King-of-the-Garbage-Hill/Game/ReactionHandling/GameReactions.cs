@@ -373,34 +373,38 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
             }
             //end awdka
+
+
+
             
             var game = _global.GamesList.Find(x => x.GameId == player.GameId);
             if (player.Character.Name == "Darksci")
             {
+
                 if (game.RoundNo == 9)
                 {
                     //Дизмораль
-                    player.Character.AddPsyche(player.Status, -4, "Дизмораль: ");
                     game.Phrases.DarksciDysmoral.SendLog(player, true);
                     game.AddPreviousGameLogs($"{player.DiscordUsername}: Всё, у меня горит!");
+                    player.Character.AddPsyche(player.Status, -4, "Дизмораль: ");
                     //end Дизмораль
                 }
 
                 //Да всё нахуй эту игру:
-                if (player.Character.GetPsyche() <= 0)
-                {
-                    player.Status.IsSkip = true;
-                    player.Status.IsBlock = false;
-                    player.Status.IsAbleToTurn = false;
-                    player.Status.IsReady = true;
-                    player.Status.WhoToAttackThisTurn = Guid.Empty;
-                    game.Phrases.DarksciFuckThisGame.SendLog(player, true);
+                if (game.RoundNo == 9 || game.RoundNo == 3 || game.RoundNo == 6)
+                    if (player.Character.GetPsyche() <= 0)
+                    {
+                        player.Status.IsSkip = true;
+                        player.Status.IsBlock = false;
+                        player.Status.IsAbleToTurn = false;
+                        player.Status.IsReady = true;
+                        player.Status.WhoToAttackThisTurn = Guid.Empty;
+                        game.Phrases.DarksciFuckThisGame.SendLog(player, true);
 
-                    if (game.RoundNo == 9 ||
-                        game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
-                        game.AddPreviousGameLogs(
-                            $"{player.DiscordUsername}: Нахуй эту игру..");
-                }
+                        if (game.RoundNo == 9 ||
+                            game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
+                            game.AddPreviousGameLogs($"{player.DiscordUsername}: Нахуй эту игру..");
+                    }
                 //end Да всё нахуй эту игру:
             }
 

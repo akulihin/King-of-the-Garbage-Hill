@@ -1417,12 +1417,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (!darscsi.TouchedPlayers.Contains(playerIamAttacking.Status.PlayerId))
                         darscsi.TouchedPlayers.Add(playerIamAttacking.Status.PlayerId);
 
-                    if (darscsi.TouchedPlayers.Count == game.PlayersList.Count - 1)
+                    if (darscsi.TouchedPlayers.Count == game.PlayersList.Count - 1 && darscsi.Triggered == false)
                     {
                         player.Status.AddBonusPoints(player.Status.GetScore() * 3, "Повезло: ");
 
                         player.Character.AddPsyche(player.Status, 2, "Повезло: ");
                         darscsi.TouchedPlayers.Clear();
+                        darscsi.Triggered = true;
                         game.Phrases.DarksciLucky.SendLog(player, true);
                     }
 
@@ -1535,21 +1536,23 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
 
                     case "Darksci":
-                        //Да всё нахуй эту игру:
-                        if (player.Character.GetPsyche() <= 0)
-                        {
-                            player.Status.IsSkip = true;
-                            player.Status.IsBlock = false;
-                            player.Status.IsAbleToTurn = false;
-                            player.Status.IsReady = true;
-                            player.Status.WhoToAttackThisTurn = Guid.Empty;
-                            game.Phrases.DarksciFuckThisGame.SendLog(player, true);
 
-                            if (game.RoundNo == 9 ||
-                                game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
-                                game.AddPreviousGameLogs(
-                                    $"{player.DiscordUsername}: Нахуй эту игру..");
-                        }
+                        //Да всё нахуй эту игру (3, 6 and 9 are in LVL up):
+                        if (game.RoundNo != 9 && game.RoundNo != 3 && game.RoundNo != 6)
+                            if (player.Character.GetPsyche() <= 0)
+                            {
+                                player.Status.IsSkip = true;
+                                player.Status.IsBlock = false;
+                                player.Status.IsAbleToTurn = false;
+                                player.Status.IsReady = true;
+                                player.Status.WhoToAttackThisTurn = Guid.Empty;
+                                game.Phrases.DarksciFuckThisGame.SendLog(player, true);
+
+                                if (game.RoundNo == 9 ||
+                                    game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
+                                    game.AddPreviousGameLogs(
+                                        $"{player.DiscordUsername}: Нахуй эту игру..");
+                            }
                         //end Да всё нахуй эту игру:
                         break;
                     case "Толя":
@@ -1758,9 +1761,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             playerAttackedOctopus.Status.IsWonThisCalculation = octopusPlayer.Status.PlayerId;
             octopusPlayer.Status.IsLostThisCalculation = playerAttackedOctopus.Status.PlayerId;
-            octopusPlayer.Status.WhoToLostEveryRound.Add(
-                new InGameStatus.WhoToLostPreviousRoundClass(playerAttackedOctopus.Status.PlayerId, game.RoundNo,
-                    false));
+            octopusPlayer.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerAttackedOctopus.Status.PlayerId, game.RoundNo, false));
 
             var octo = _gameGlobal.OctopusInkList.Find(x =>
                 x.PlayerId == octopusPlayer.Status.PlayerId &&

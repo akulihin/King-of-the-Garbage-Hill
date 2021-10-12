@@ -46,12 +46,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             public ulong GameId;
             public Guid PlayerId;
+            public bool Triggered;
             public List<Guid> TouchedPlayers = new();
 
             public LuckyClass(Guid playerId, ulong gameId)
             {
                 PlayerId = playerId;
                 GameId = gameId;
+                Triggered = false;
             }
         }
     }

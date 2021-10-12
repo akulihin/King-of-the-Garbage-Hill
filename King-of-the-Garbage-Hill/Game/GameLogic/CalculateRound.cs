@@ -304,9 +304,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     player.Status.IsWonThisCalculation = playerIamAttacking.Status.PlayerId;
                     playerIamAttacking.Status.IsLostThisCalculation = player.Status.PlayerId;
-                    playerIamAttacking.Status.WhoToLostEveryRound.Add(
-                        new InGameStatus.WhoToLostPreviousRoundClass(player.Status.PlayerId, game.RoundNo,
-                            isTooGoodPlayer));
+                    playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.Status.PlayerId, game.RoundNo, isTooGoodPlayer));
                 }
                 else
                 {
@@ -336,9 +334,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         playerIamAttacking.Status.IsWonThisCalculation = player.Status.PlayerId;
                         player.Status.IsLostThisCalculation = playerIamAttacking.Status.PlayerId;
-                        player.Status.WhoToLostEveryRound.Add(
-                            new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.Status.PlayerId,
-                                game.RoundNo, isTooGoodEnemy));
+                        player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.Status.PlayerId, game.RoundNo, isTooGoodEnemy));
                     }
                 }
 
