@@ -56,6 +56,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var embed = new EmbedBuilder();
             embed.WithColor(Color.DarkOrange);
+            if (player.Character.Avatar != null)
+                embed.WithImageUrl(player.Character.Avatar);
             embed.AddField("Твой Персонаж:", $"Name: {player.Character.Name}\n" +
                                              $"Интеллект: {player.Character.GetIntelligence()}\n" +
                                              $"Сила: {player.Character.GetStrength()}\n" +
@@ -418,9 +420,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     : "Еще ничего не произошло. Наверное...");
 
 
-            if (character.Avatar != null)
-                    embed.withImageUrl(character.Avatar);
-
 
             return embed;
         }
@@ -471,10 +470,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 $"2. **Сила:** {character.GetStrength()}\n" +
                 $"3. **Скорость:** {character.GetSpeed()}\n" +
                 $"4. **Психика:** {character.GetPsyche()}\n");
-
-            if (character.Avatar != null)
-                if (IsImageUrl(character.Avatar))
-                    embed.withImageUrl(character.Avatar);
 
             return embed;
         }
