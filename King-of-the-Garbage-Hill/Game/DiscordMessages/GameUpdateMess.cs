@@ -419,7 +419,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
 
             if (character.Avatar != null)
-                embed.WithThumbnailUrl(character.Avatar);
+                    embed.withImageUrl(character.Avatar);
 
 
             return embed;
@@ -474,7 +474,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             if (character.Avatar != null)
                 if (IsImageUrl(character.Avatar))
-                    embed.WithThumbnailUrl(character.Avatar);
+                    embed.withImageUrl(character.Avatar);
 
             return embed;
         }
