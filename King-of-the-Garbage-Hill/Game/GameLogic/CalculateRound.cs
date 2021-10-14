@@ -204,11 +204,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 switch (weighingMachine)
                 {
-                    case >= 14:
+                    case >= 13:
                         isTooGoodPlayer = true;
                         randomForTooGood = 68;
                         break;
-                    case <= -14:
+                    case <= -13:
                         isTooGoodEnemy = true;
                         randomForTooGood = 32;
                         break;
@@ -220,7 +220,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                 weighingMachine += (player.Character.Justice.GetJusticeNow() -
-                                    playerIamAttacking.Character.Justice.GetJusticeNow()) * 2;
+                                    playerIamAttacking.Character.Justice.GetJusticeNow());
 
 
                 switch (weighingMachine)
