@@ -611,6 +611,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     case "Тигр":
 
                         //Стримснайпят и банят и банят и банят:
+                        if (game.RoundNo > 10)
+                        {
+                            player.Character.SetIntelligence(player.Status, 0, "Стримснайпят и банят и банят и банят: ", false);
+                            player.Character.SetPsyche(player.Status, 0, "Стримснайпят и банят и банят и банят: ", false);
+                            player.Character.SetStrength(player.Status, 10, "Стримснайпят и банят и банят и банят: ", false);
+                        }
+
                         if (game.RoundNo == 10)
                         {
                             player.Status.IsSkip = true;
@@ -619,8 +626,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Status.IsReady = true;
                             player.Status.WhoToAttackThisTurn = Guid.Empty;
                             player.Character.SetPsyche(player.Status, 0, "Стримснайпят и банят и банят и банят: ");
-                            player.Character.SetIntelligence(player.Status, 0,
-                                "Стримснайпят и банят и банят и банят: ");
+                            player.Character.SetIntelligence(player.Status, 0, "Стримснайпят и банят и банят и банят: ");
                             player.Character.SetStrength(player.Status, 10, "Стримснайпят и банят и банят и банят: ");
                             game.AddPreviousGameLogs(
                                 $"**{player.DiscordUsername}:** ЕБАННЫЕ БАНЫ НА 10 ЛЕТ");
@@ -694,7 +700,28 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                             if (enemy != null)
                             {
-                                player.Status.AddBonusPoints((enemy.Score + 1) / 2, "Троллинг: ");
+                                var tolled = game.PlayersList.Find(x => x.Status.PlayerId == enemy.EnemyId);
+
+                                var trolledText = tolled.Character.Name switch
+                                {
+                                    "DeepList" => "Затроллил Листа",
+                                    "mylorik" => "Затроллил Лорика",
+                                    "Глеб" => "Затроллил Глеба",
+                                    "LeCrisp" => "Затроллил ЛеПуську",
+                                    "Толя" => "Затроллил Толю",
+                                    "HardKitty" => "Затроллил Пакет Молока",
+                                    "Sirinoks" => "Затроллил Айсика",
+                                    "Mit*suki*" => "Затроллил МитСУКИ",
+                                    "AWDKA" => "Затроллил Самого Cебя...",
+                                    "Осьминожка" => "Затроллил Осьминожку",
+                                    "Darksci" => "Затроллил Даркси",
+                                    "Братишка" => "Затроллил Братишку!",
+                                    "Загадочный Спартанец в маске" => "Затроллил Спатанца!? А-я-йо...",
+                                    "Вампур" => "Затроллил ВампYра",
+                                    _ => ""
+                                };
+
+                                player.Status.AddBonusPoints((enemy.Score + 1) / 2, $"Троллинг: {trolledText} ");
                                 game.Phrases.AwdkaTrolling.SendLog(player, true);
                             }
                         }
@@ -795,19 +822,19 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             case 1:
                                 intel1 = bestSkill.StatNumber;
-                                player.Character.SetIntelligenceExtraText(" <:volibir:894286361895522434>");
+                                player.Character.SetIntelligenceExtraText($" (<:volibir:894286361895522434> Интеллект {intel1})");
                                 break;
                             case 2:
                                 str1 = bestSkill.StatNumber;
-                                player.Character.SetStrengthExtraText(" <:volibir:894286361895522434>");
+                                player.Character.SetStrengthExtraText($" (<:volibir:894286361895522434> Сила {str1})");
                                 break;
                             case 3:
                                 speed1 = bestSkill.StatNumber;
-                                player.Character.SetSpeedExtraText(" <:volibir:894286361895522434>");
+                                player.Character.SetSpeedExtraText($" (<:volibir:894286361895522434> Скорость {speed1})");
                                 break;
                             case 4:
                                 pshy1 = bestSkill.StatNumber;
-                                player.Character.SetPsycheExtraText(" <:volibir:894286361895522434>");
+                                player.Character.SetPsycheExtraText($" (<:volibir:894286361895522434> Психика {pshy1})");
                                 break;
                         }
 

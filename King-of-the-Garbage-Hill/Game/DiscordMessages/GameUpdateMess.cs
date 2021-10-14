@@ -303,8 +303,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     var tigr1 = _gameGlobal.TigrTwoBetterList.Find(x => x.PlayerId == player1.Status.PlayerId && x.GameId == player1.GameId);
 
                     if (tigr1 != null)
-                        if (tigr1.FriendList.Contains(player2.Status.PlayerId) &&
-                            player2.Status.PlayerId != player1.Status.PlayerId)
+                        //if (tigr1.FriendList.Contains(player2.Status.PlayerId) && player2.Status.PlayerId != player1.Status.PlayerId)
+                        if (tigr1.FriendList.Contains(player2.Status.PlayerId))
                             customString += "<:pepe_down:896514760823144478>";
 
                     var tigr2 = _gameGlobal.TigrThreeZeroList.Find(x => x.GameId == player1.GameId && x.PlayerId == player1.Status.PlayerId);
@@ -396,7 +396,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                 $"*Справедливость: {character.Justice.GetJusticeNow()}\n" +
                 $"Мораль: {character.GetMoral()}\n" +
-                $"Скилл: {character.GetSkill()} (**{character.GetCurrentSkillTarget()}**)*\n" +
+                $"Скилл: {character.GetSkill()} (Мишень: **{character.GetCurrentSkillTarget()}**)*\n" +
                 $"Множитель очков: **X{multiplier}**\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                 "<:e_:562879579694301184>\n" +
@@ -531,16 +531,34 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     builder.WithButton("Блок", "block", row: 0, style: ButtonStyle.Success, disabled: playerIsReady);
 
                     builder.WithSelectMenu(attackMenu, 1);
-                    if(player.Character.GetMoral() >= 15)
-                       builder.WithButton("Обменять 15 Морали на 15 бонусных очков", "moral", row: 0, style: ButtonStyle.Secondary);
-                    else if (player.Character.GetMoral() >= 10)
-                        builder.WithButton("Обменять 10 Морали на 8 бонусных очков", "moral", row: 0, style: ButtonStyle.Secondary);
-                    else if (player.Character.GetMoral() >= 5)
-                        builder.WithButton("Обменять 5 Морали на 2 бонусных очка", "moral", row: 0, style: ButtonStyle.Secondary);
-                    else if (player.Character.GetMoral() >= 3)
-                        builder.WithButton("Обменять 3 Морали на 1 бонусное очко", "moral", row: 0, style: ButtonStyle.Secondary);
+
+                    if (game != null && game.RoundNo <= 10)
+                    {
+                        if (player.Character.GetMoral() >= 15)
+                            builder.WithButton("Обменять 15 Морали на 15 бонусных очков", "moral", row: 0, style: ButtonStyle.Secondary);
+                        else if (player.Character.GetMoral() >= 10)
+                            builder.WithButton("Обменять 10 Морали на 8 бонусных очков", "moral", row: 0, style: ButtonStyle.Secondary);
+                        else if (player.Character.GetMoral() >= 5)
+                            builder.WithButton("Обменять 5 Морали на 2 бонусных очка", "moral", row: 0, style: ButtonStyle.Secondary);
+                        else if (player.Character.GetMoral() >= 3)
+                            builder.WithButton("Обменять 3 Морали на 1 бонусное очко", "moral", row: 0, style: ButtonStyle.Secondary);
+                        else
+                            builder.WithButton("Недостаточно очков морали", "moral", row: 0, style: ButtonStyle.Secondary, disabled: true);
+                    }
                     else
-                        builder.WithButton("Недостаточно очков морали", "moral", row: 0, style: ButtonStyle.Secondary, disabled:true);
+                    {
+                        if (player.Character.GetMoral() >= 15)
+                            builder.WithButton("Обменять 15 Морали на 15 бонусных очков (Конец игры)", "moral", row: 0, style: ButtonStyle.Secondary, disabled: true);
+                        else if (player.Character.GetMoral() >= 10)
+                            builder.WithButton("Обменять 10 Морали на 8 бонусных очков (Конец игры)", "moral", row: 0, style: ButtonStyle.Secondary, disabled: true);
+                        else if (player.Character.GetMoral() >= 5)
+                            builder.WithButton("Обменять 5 Морали на 2 бонусных очка (Конец игры)", "moral", row: 0, style: ButtonStyle.Secondary, disabled: true);
+                        else if (player.Character.GetMoral() >= 3)
+                            builder.WithButton("Обменять 3 Морали на 1 бонусное очко (Конец игры)", "moral", row: 0, style: ButtonStyle.Secondary, disabled: true);
+                        else
+                            builder.WithButton("Недостаточно очков морали", "moral", row: 0, style: ButtonStyle.Secondary, disabled: true);
+                    }
+
                     builder.WithButton("Завершить Игру", "end", row: 0, style: ButtonStyle.Danger);
                     break;
                 case 2:

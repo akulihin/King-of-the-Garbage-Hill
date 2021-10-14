@@ -68,14 +68,23 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (bot.Status.PlaceAtLeaderBoard == 1 && player.Player.Status.PlaceAtLeaderBoard == 2)
                     player.AttackPreference -= 1;
 
-                //lost
+                //lost last round + toogood
                 if (bot.Status.WhoToLostEveryRound.Any(x =>
                     x.RoundNo == game.RoundNo - 1 && x.EnemyId == player.Player.Status.PlayerId && x.IsTooGood))
                     player.AttackPreference -= 7;
-                //lost and too good
+                //lost last round-1 toogood
+                else if (bot.Status.WhoToLostEveryRound.Any(x =>
+                    x.RoundNo == game.RoundNo - 2 && x.EnemyId == player.Player.Status.PlayerId && x.IsTooGood))
+                    player.AttackPreference -= 7;
+                //lost last round 
                 else if (bot.Status.WhoToLostEveryRound.Any(x =>
                     x.RoundNo == game.RoundNo - 1 && x.EnemyId == player.Player.Status.PlayerId))
                     player.AttackPreference -= 5;
+                //lost last round-1
+                else if (bot.Status.WhoToLostEveryRound.Any(x =>
+                    x.RoundNo == game.RoundNo - 2 && x.EnemyId == player.Player.Status.PlayerId))
+                    player.AttackPreference -= 5;
+
 
                 //won and too good
                 if (player.Player.Status.WhoToLostEveryRound.Any(x =>
