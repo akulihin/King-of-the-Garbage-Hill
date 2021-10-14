@@ -10,7 +10,7 @@
       "JusticeForNextRound": 0,
       "IsWonThisRound": false
     },
-    "Avatar": null,
+    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898217732078706688/deepList.png",
     "Passive": [
       {
         "PassiveDescription": " Проигрывает первую схватку каждому новому игроку (<:yo:561287783704952845>), после чего получает +1 очко за победу над ними до конца игры.",
@@ -41,7 +41,7 @@
       "JusticeForNextRound": 0,
       "IsWonThisRound": false
     },
-    "Avatar": null,
+    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218034819395624/mylorik.png",
     "Passive": [
       {
         "PassiveDescription": " Получает дополнительно 2 очка за победу над каждым уникальным врагом (<:sparta:561287745675329567>), поразившим его ранее. Успешное отмщение прибавляет ему 1 Психики.",
@@ -72,7 +72,7 @@
       "JusticeForNextRound": 0,
       "IsWonThisRound": false
     },
-    "Avatar": "https://i.imgur.com/lzghKB9.png",
+    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218210082578532/gleb.png",
     "Passive": [
       {
         "PassiveDescription": "Большой шанс заснуть и пропустить ход.",
@@ -103,7 +103,7 @@
       "JusticeForNextRound": 0,
       "IsWonThisRound": false
     },
-    "Avatar": null,
+    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218325300088832/le_crisp.png",
     "Passive": [
       {
         "PassiveDescription": "Забирает себе все очки победы при нападение на одного и того же игрока вместе с кем-то.",
@@ -134,7 +134,7 @@
       "JusticeForNextRound": 0,
       "IsWonThisRound": false
     },
-    "Avatar": "https://i.imgur.com/SovUuW9.png",
+    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218461677907968/tolya.png",
     "Passive": [
       {
         "PassiveDescription": "Забирает себе все очки победы при нападение на одного и того же игрока вместе с кем-то.",
@@ -165,7 +165,7 @@
       "JusticeForNextRound": 0,
       "IsWonThisRound": false
     },
-    "Avatar": "https://i.imgur.com/WBHYn9w.png",
+    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218646126616617/amumu.png",
     "Passive": [
       {
         "PassiveDescription": "Получает очко каждый раз, когда на него нападет хоть кто-то...",
@@ -196,7 +196,7 @@
       "JusticeForNextRound": 0,
       "IsWonThisRound": false
     },
-    "Avatar": null,
+    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219322856595547/sirinoks.png",
     "Passive": [
       {
         "PassiveDescription": "Каждый ход получает +1 рандомный стат из тех, по которым она проиграла в прошлый раз.",
@@ -227,7 +227,7 @@
       "JusticeForNextRound": 0,
       "IsWonThisRound": false
     },
-    "Avatar": "https://i.imgur.com/pVeod0p.png",
+    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219463403524116/mitsuki5.png",
     "Passive": [
       {
         "PassiveDescription": "Начинает игру со всеми статами на 9, но теряет 2 рандомных после каждого хода.",
@@ -258,7 +258,7 @@
       "JusticeForNextRound": 0,
       "IsWonThisRound": false
     },
-    "Avatar": null,
+    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219562452025384/awdka.png",
     "Passive": [
       {
         "PassiveDescription": "Получает себе лучший стат от атакуемого врага (<:volibir:894286361895522434>) на один следующий ход.",
@@ -289,7 +289,7 @@
       "JusticeForNextRound": 0,
       "IsWonThisRound": false
     },
-    "Avatar": "https://i.imgur.com/EKjMkk6.png",
+    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219652029751316/octopus.png",
     "Passive": [
       {
         "PassiveDescription": "Получает очко за каждое уникальное место в таблице (🐙), на которое он переходит.",
@@ -320,7 +320,7 @@
       "JusticeForNextRound": 0,
       "IsWonThisRound": false
     },
-    "Avatar": null,
+    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219764223209490/darksci2.png",
     "Passive": [
       {
         "PassiveDescription": "Теряет 1 психики за каждое поражение.",
@@ -351,7 +351,7 @@
       "JusticeForNextRound": 0,
       "IsWonThisRound": false
     },
-    "Avatar": "https://i.imgur.com/KXmjFZj.png",
+    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219869697343508/tigr.png",
     "Passive": [
       {
         "PassiveDescription": "Тигр принимает единомышленников в свой клан и получает +3 __бонусных__ очка за каждого уникального игрока (<:pepe_down:896514760823144478>), сравнявшегося с его уровнем интеллекта или психики.",
@@ -382,7 +382,7 @@
       "JusticeForNextRound": 0,
       "IsWonThisRound": false
     },
-    "Avatar": "https://i.imgur.com/WJpbItN.png",
+    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219963167424512/bratishka.png",
     "Passive": [
       {
         "PassiveDescription": "Каждый кто свяжется с Братишкой потеряет 1 интеллекта при первом нападение на него.",
@@ -413,7 +413,7 @@
       "JusticeForNextRound": 0,
       "IsWonThisRound": false
     },
-    "Avatar": "https://i.imgur.com/EXROILm.png",
+    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898220034172801094/tain.png",
     "Passive": [
       {
         "PassiveDescription": "Спартанец получает метку охотника (<:sparta:561287745675329567>) на двух игроках, победы над которыми будут приносить ему дополнительное очко.",
