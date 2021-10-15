@@ -5,6 +5,7 @@ using System.Timers;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.LocalPersistentData.FinishedGameLog;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -15,6 +16,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly UserAccounts _accounts;
         private readonly BotsBehavior _botsBehavior;
         private readonly FinishedGameLog _finishedGameLog;
+        private readonly InGameGlobal _gameGlobal;
         private readonly GameUpdateMess _gameUpdateMess;
         private readonly Global _global;
         private readonly LoginFromConsole _logs;
@@ -23,7 +25,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         public Timer LoopingTimer;
 
         public CheckIfReady(Global global, GameUpdateMess upd, CalculateRound round, FinishedGameLog finishedGameLog,
-            GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, LoginFromConsole logs, UserAccounts accounts)
+            GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, LoginFromConsole logs, UserAccounts accounts,
+            InGameGlobal gameGlobal)
         {
             _global = global;
             _upd = upd;
@@ -33,6 +36,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             _botsBehavior = botsBehavior;
             _logs = logs;
             _accounts = accounts;
+            _gameGlobal = gameGlobal;
             CheckTimer();
         }
 
@@ -71,6 +75,57 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     for (var k = 0; k < game.PlayersList.Count; k++)
                         game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
                     //end sorting
+
+
+                    //case "AWDKA":
+                    var AWDKA = game.PlayersList.Find(x => x.Character.Name == "AWDKA");
+                    //trolling
+                    if (AWDKA != null)
+                    {
+                        var awdkaTroll = _gameGlobal.AwdkaTrollingList.Find(x =>
+                            x.GameId == AWDKA.GameId &&
+                            x.PlayerId == AWDKA.Status.PlayerId);
+
+
+                        var enemy = awdkaTroll.EnemyList.Find(x =>
+                            x.EnemyId == game.PlayersList.Find(y => y.Status.PlaceAtLeaderBoard == 1).Status.PlayerId);
+
+                        if (enemy != null)
+                        {
+                            var tolled = game.PlayersList.Find(x => x.Status.PlayerId == enemy.EnemyId);
+
+                            var trolledText = tolled.Character.Name switch
+                            {
+                                "DeepList" => "Лист Затроллился, хех",
+                                "mylorik" => "Лорик Затроллился, МММ!",
+                                "Глеб" => "Спящее Хуйло",
+                                "LeCrisp" => "ЛеПуська Затроллилась",
+                                "Толя" => "Раммус Продал Тормейл",
+                                "HardKitty" => "Пакет Молока Пролился На Клавиатуру",
+                                "Sirinoks" => "Айсик Затроллилась#",
+                                "Mit*suki*" => "МитСУКИ Затроллился",
+                                "AWDKA" => "AWDKA Затроллился сам по себе...",
+                                "Осьминожка" => "Осьминожка Забулькался",
+                                "Darksci" => "Даркси Не Повезло...",
+                                "Братишка" => "Братишка Забулькался",
+                                "Загадочный Спартанец в маске" => "Спатанец Затроллился!? А-я-йо...",
+                                "Вампур" => "ВампYр Затроллился",
+                                "Тигр" => "Тигр Обоссался, и кто теперь обоссан!?",
+                                _ => ""
+                            };
+
+                            AWDKA.Status.AddBonusPoints((enemy.Score + 1) / 2, $"**Произошёл Троллинг:** {trolledText}");
+                            game.AddPreviousGameLogs($"**Произошёл Троллинг:** {trolledText}");
+                            game.Phrases.AwdkaTrolling.SendLog(AWDKA, true);
+                        }
+
+                        //sort
+                        game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+                        for (var k = 0; k < game.PlayersList.Count; k++)
+                            game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
+                        //end sorting
+                    }
+                    //end //trolling
 
 
                     game.WhoWon = game.PlayersList[0].Status.PlayerId;
@@ -182,9 +237,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 foreach (var t in players.Where(t => t.Status.WhoToAttackThisTurn == Guid.Empty &&
                                                      t.Status.IsBlock == false && t.Status.IsSkip == false))
-                {
                     t.Status.IsBlock = true;
-                }
 
                 await _round.DeepListMind(game);
 
@@ -194,7 +247,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (t.Status.SocketMessageFromBot != null)
                         {
                             await _upd.UpdateMessage(t);
-                            if(game.RoundNo <= 10)
+                            if (game.RoundNo <= 10)
                                 await _upd.SendMsgAndDeleteIt(t, $"Раунд #{game.RoundNo}", 3);
                         }
                     }

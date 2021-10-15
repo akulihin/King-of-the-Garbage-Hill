@@ -705,46 +705,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
                     case "AWDKA":
 
-                        //trolling
-                        if (game.RoundNo == 11)
-                        {
-                            var awdkaTroll = _gameGlobal.AwdkaTrollingList.Find(x =>
-                                x.GameId == player.GameId &&
-                                x.PlayerId == player.Status.PlayerId);
-
-                            var enemy = awdkaTroll.EnemyList.Find(x => x.EnemyId == game.PlayersList.Find(y => y.Status.PlaceAtLeaderBoard == 1).Status.PlayerId);
-
-                            if (enemy != null)
-                            {
-                                var tolled = game.PlayersList.Find(x => x.Status.PlayerId == enemy.EnemyId);
-
-                                var trolledText = tolled.Character.Name switch
-                                {
-                                    "DeepList" => "Затроллил Листа",
-                                    "mylorik" => "Затроллил Лорика",
-                                    "Глеб" => "Затроллил Спящее Хуйло",
-                                    "LeCrisp" => "Затроллил ЛеПуську",
-                                    "Толя" => "Затроллил Раммуса",
-                                    "HardKitty" => "Затроллил Пакет Молока",
-                                    "Sirinoks" => "Затроллил Айсика",
-                                    "Mit*suki*" => "Затроллил МитСУКИ",
-                                    "AWDKA" => "Затроллил Самого Cебя...",
-                                    "Осьминожка" => "Затроллил Осьминожку",
-                                    "Darksci" => "Затроллил Даркси",
-                                    "Братишка" => "Затроллил Братишку!",
-                                    "Загадочный Спартанец в маске" => "Затроллил Спатанца!? А-я-йо...",
-                                    "Вампур" => "Затроллил ВампYра",
-                                    "Тигр" => "Затроллил Тигра, и кто теперь обоссан!?",
-                                    _ => ""
-                                };
-
-                                player.Status.AddBonusPoints((enemy.Score + 1) / 2, $"Троллинг: {trolledText} |{tolled.Character.Name}| ");
-                                game.AddPreviousGameLogs($"**Троллинг: AWDKA {trolledText}**");
-                                game.Phrases.AwdkaTrolling.SendLog(player, true);
-                            }
-                        }
-
-                        //end //trolling
                         //АФКА
 
                         var awdkaaa = _gameGlobal.AwdkaAfkTriggeredWhen.Find(x =>
