@@ -172,8 +172,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     case "AWDKA":
                         when = _gameGlobal.GetWhenToTrigger(player, false, 10, 1);
                         _gameGlobal.AwdkaAfkTriggeredWhen.Add(when);
-                        _gameGlobal.AwdkaTrollingList.Add(new Awdka.TrollingClass(player.Status.PlayerId,
-                            game.GameId));
+                        _gameGlobal.AwdkaTrollingList.Add(new Awdka.TrollingClass(player.Status.PlayerId, game.GameId));
+                        _gameGlobal.AwdkaTeachToPlayHistory.Add(new Awdka.TeachToPlayHistory(player.Status.PlayerId, game.GameId));
                         _gameGlobal.AwdkaTryingList.Add(new Awdka.TryingClass(player.Status.PlayerId, game.GameId));
                         break;
 
@@ -416,8 +416,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 case "AWDKA":
 
                     //Научите играть
-                    var awdka = _gameGlobal.AwdkaTeachToPlay.Find(x =>
-                        x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
+                    var awdka = _gameGlobal.AwdkaTeachToPlay.Find(x => x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
+                    var awdkaHistory = _gameGlobal.AwdkaTeachToPlayHistory.Find(x => x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
 
                     var player2Stats = new List<Sirinoks.TrainingSubClass>
                     {
@@ -427,11 +427,28 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         new(4, playerIamAttacking.Character.GetPsyche())
                     };
                     var sup = player2Stats.OrderByDescending(x => x.StatNumber).ToList()[0];
+                    
                     if (awdka == null)
-                        _gameGlobal.AwdkaTeachToPlay.Add(new Sirinoks.TrainingClass(player1.Status.PlayerId,
-                            game.GameId, sup.StatIndex, sup.StatNumber, Guid.Empty));
+                    {
+                        _gameGlobal.AwdkaTeachToPlay.Add(new Sirinoks.TrainingClass(player1.Status.PlayerId, game.GameId, sup.StatIndex, sup.StatNumber, Guid.Empty));
+                    }
                     else
+                    {
                         awdka.Training.Add(new Sirinoks.TrainingSubClass(sup.StatIndex, sup.StatNumber));
+                    }
+
+
+                    var enemy = awdkaHistory.History.Find(x => x.EnemyPlayerId == playerIamAttacking.Status.PlayerId);
+                    if (enemy == null)
+                    {
+                        awdkaHistory.History.Add(new(playerIamAttacking.Status.PlayerId, $"{sup.StatIndex}", sup.StatNumber));
+                    }
+                    else
+                    {
+                        enemy.Text = $"{sup.StatIndex}";
+                        enemy.Stat = sup.StatNumber;
+                    }
+                    
 
                     //end Научите играть
 
@@ -695,8 +712,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 x.GameId == player.GameId &&
                                 x.PlayerId == player.Status.PlayerId);
 
-                            var enemy = awdkaTroll.EnemyList.Find(x =>
-                                x.EnemyId == game.PlayersList[0].Status.PlayerId);
+                            var enemy = awdkaTroll.EnemyList.Find(x => x.EnemyId == game.PlayersList.Find(y => y.Status.PlaceAtLeaderBoard == 1).Status.PlayerId);
 
                             if (enemy != null)
                             {
@@ -706,9 +722,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 {
                                     "DeepList" => "Затроллил Листа",
                                     "mylorik" => "Затроллил Лорика",
-                                    "Глеб" => "Затроллил Глеба",
+                                    "Глеб" => "Затроллил Спящее Хуйло",
                                     "LeCrisp" => "Затроллил ЛеПуську",
-                                    "Толя" => "Затроллил Толю",
+                                    "Толя" => "Затроллил Раммуса",
                                     "HardKitty" => "Затроллил Пакет Молока",
                                     "Sirinoks" => "Затроллил Айсика",
                                     "Mit*suki*" => "Затроллил МитСУКИ",
@@ -718,10 +734,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                     "Братишка" => "Затроллил Братишку!",
                                     "Загадочный Спартанец в маске" => "Затроллил Спатанца!? А-я-йо...",
                                     "Вампур" => "Затроллил ВампYра",
+                                    "Тигр" => "Затроллил Тигра, и кто теперь обоссан!?",
                                     _ => ""
                                 };
 
-                                player.Status.AddBonusPoints((enemy.Score + 1) / 2, $"Троллинг: {trolledText} ");
+                                player.Status.AddBonusPoints((enemy.Score + 1) / 2, $"Троллинг: {trolledText} |{tolled.Character.Name}| ");
+                                game.AddPreviousGameLogs($"**Троллинг: AWDKA {trolledText}**");
                                 game.Phrases.AwdkaTrolling.SendLog(player, true);
                             }
                         }
@@ -839,13 +857,24 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         }
 
                         if (intel1 >= player.Character.GetIntelligence())
+                        {
                             player.Character.SetIntelligence(player.Status, intel1, "Научите играть: ");
+                        }
+
                         if (str1 >= player.Character.GetStrength())
+                        {
                             player.Character.SetStrength(player.Status, str1, "Научите играть: ");
+                        }
+
                         if (speed1 >= player.Character.GetSpeed())
+                        {
                             player.Character.SetSpeed(player.Status, speed1, "Научите играть: ");
+                        }
+
                         if (pshy1 >= player.Character.GetPsyche())
+                        {
                             player.Character.SetPsyche(player.Status, pshy1, "Научите играть: ");
+                        }
                         //end find out  the biggest stat
 
                         //crazy shit 2

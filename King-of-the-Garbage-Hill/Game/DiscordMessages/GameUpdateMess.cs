@@ -166,8 +166,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 case "AWDKA":
                     if (player2.Status.PlayerId == player1.Status.PlayerId) break;
 
-                    var awdka = _gameGlobal.AwdkaTryingList.Find(x =>
-                        x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
+                    var awdka = _gameGlobal.AwdkaTryingList.Find(x => x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
+                    var awdkaTrainingHistory = _gameGlobal.AwdkaTeachToPlayHistory.Find(x => x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
 
                     var awdkaTrying = awdka.TryingList.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
 
@@ -178,7 +178,27 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     }
 
 
-                    break;
+                   
+                    if (awdkaTrainingHistory != null)
+                    {
+                        var awdkaTrainingHistoryEnemy = awdkaTrainingHistory.History.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
+                        if (awdkaTrainingHistoryEnemy != null)
+                        {
+                            var statText = awdkaTrainingHistoryEnemy.Text switch
+                            {
+                                "1" => "Интеллект",
+                                "2" => "Сила",
+                                "3" => "Скорость",
+                                "4" => "Психика",
+                                _ => ""
+                            };
+                            customString += $" (**{statText} {awdkaTrainingHistoryEnemy.Stat}** ?)";
+                        }
+                    }
+                    //(<:volibir:894286361895522434> сила 10 ?)
+
+
+                        break;
                 case "Братишка":
                     var shark = _gameGlobal.SharkJawsWin.Find(x =>
                         x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
@@ -419,7 +439,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     ? $"{player.Status.GetInGamePersonalLogs()}"
                     : "Еще ничего не произошло. Наверное...");
 
-
+            if (character.Avatar != null)
+                embed.WithThumbnailUrl(character.Avatar);
 
             return embed;
         }
@@ -470,6 +491,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 $"2. **Сила:** {character.GetStrength()}\n" +
                 $"3. **Скорость:** {character.GetSpeed()}\n" +
                 $"4. **Психика:** {character.GetPsyche()}\n");
+
+            if (character.Avatar != null)
+                embed.WithThumbnailUrl(character.Avatar);
 
             return embed;
         }

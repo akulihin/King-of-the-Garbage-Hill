@@ -25,7 +25,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public void HandleAwdkaAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //Произошел троллинг:
-            if (player.Status.IsWonThisCalculation != Guid.Empty)
+            if (player.Status.IsWonThisCalculation != Guid.Empty && player.Status.WhoToAttackThisTurn == player.Status.IsWonThisCalculation)
             {
                 var awdka = _gameGlobal.AwdkaTrollingList.Find(x =>
                     x.GameId == player.GameId &&
@@ -85,6 +85,32 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             }
         }
 
+        public class TeachToPlayHistory
+        {
+            public ulong GameId;
+            public Guid PlayerId;
+            public List<TeachToPlayHistoryListClass> History = new();
+
+            public TeachToPlayHistory(Guid playerId, ulong gameId)
+            {
+                GameId = gameId;
+                PlayerId = playerId;
+            }
+        }
+
+        public class TeachToPlayHistoryListClass
+        {
+            public Guid EnemyPlayerId;
+            public string Text;
+            public int Stat;
+
+            public TeachToPlayHistoryListClass(Guid enemyPlayerId, string text, int stat)
+            {
+                EnemyPlayerId = enemyPlayerId;
+                Text = text;
+                Stat = stat;
+            }
+        }
 
         public class TryingClass
         {
