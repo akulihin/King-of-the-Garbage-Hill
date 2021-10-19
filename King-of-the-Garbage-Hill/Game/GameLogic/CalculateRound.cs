@@ -216,8 +216,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var me = player.Character;
                 var target = playerIamAttacking.Character;
 
-                var scaleMe = (me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche()) + me.GetSkill() / 30;
-                var scaleTarget = (target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche()) + target.GetSkill() / 30;
+                var scaleMe = (me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche()) + me.GetSkill() / 60;
+                var scaleTarget = (target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche()) + target.GetSkill() / 60;
 
                 var weighingMachine = scaleMe - scaleTarget;
 
@@ -307,7 +307,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
 
 
-                var wtf = scaleMe * (1 + (me.GetSkill() / 300 - target.GetSkill() / 300)) - scaleMe;
+                var wtf = scaleMe * (1 + (me.GetSkill() / 1000 - target.GetSkill() / 1000)) - scaleMe;
                 weighingMachine += wtf;
 
 
