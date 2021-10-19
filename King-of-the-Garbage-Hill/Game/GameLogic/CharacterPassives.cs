@@ -345,10 +345,27 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             {
                 case "Загадочный Спартанец в маске":
 
+                    //DragonSlayer:
+                    if (game.RoundNo == 10)
+                    {
+                        if (playerIamAttacking.Character.Name == "Sirinoks")
+                        {
+                            playerIamAttacking.Status.IsAbleToWin = false;
+                            game.AddPreviousGameLogs($"**Я DRAGONSLAYER!**\n" +
+                                                     $"\"{player1.DiscordUsername}\" побеждает дракона и забирает **1000 голды**!");
+                            foreach (var p in game.PlayersList)
+                            {
+                                game.Phrases.SpartanDragonSlayer.SendLog(p, false);
+                            }
+                        }
+                    }
+
+
                     //Первая кровь: 
                     var pant = _gameGlobal.PanthFirstBlood.Find(x =>
                         x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
                     if (pant.FriendList.Count == 0) pant.FriendList.Add(playerIamAttacking.Status.PlayerId);
+                    
 
                     //end Первая кровь: 
 
@@ -361,6 +378,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     {
                         panth.FriendList.Add(playerIamAttacking.Status.PlayerId);
                         playerIamAttacking.Character.AddPsyche(playerIamAttacking.Status, 1, "ОН уважает военное искусство!: ");
+                        game.Phrases.SpartanShameMylorik.SendLog(player1, false);
                     }
 
                     if (!panth.FriendList.Contains(playerIamAttacking.Status.PlayerId))
@@ -1403,6 +1421,18 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             switch (characterName)
             {
+                case "Загадочный Спартанец в маске":
+
+                    //DragonSlayer:
+                    if (game.RoundNo == 10)
+                    {
+                        if (playerIamAttacking.Character.Name == "Sirinoks")
+                        {
+                            playerIamAttacking.Status.IsAbleToWin = true;
+                        }
+                    }
+
+                    break;
                 case "Бог ЛоЛа":
                     _gameGlobal.LolGodUdyrList.Find(x =>
                             x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId)

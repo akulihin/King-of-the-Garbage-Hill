@@ -85,6 +85,9 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public PhraseClass VampyrSuckspenStake;
 
         public PhraseClass VampyrVampyr;
+
+        public PhraseClass SpartanShameMylorik;
+        public PhraseClass SpartanDragonSlayer;
         //end
 
         public CharactersUniquePhrase()
@@ -101,6 +104,9 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             VampyrSuckspenStake = new PhraseClass("СОсиновый кол");
             VampyrNoAttack = new PhraseClass("СОсиновый кол");
             VampyrVampyr = new PhraseClass("Vampyr");
+
+            SpartanShameMylorik = new PhraseClass("Искусство");
+            SpartanDragonSlayer = new PhraseClass("2kxaoc");
 
 
             TigrTwoBetter = new PhraseClass("Лучше с двумя, чем с адекватными");
@@ -196,6 +202,9 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             VampyrNoAttack.PassiveLogRus.Add("Это Хельсинг, начальнике");
             VampyrNoAttack.PassiveLogRus.Add("От него пахнет чесноком!");
             VampyrNoAttack.PassiveLogRus.Add("Он мне кол в жопу засунул");
+
+            SpartanShameMylorik.PassiveLogRus.Add("ОН уважает военное искуство!");
+            SpartanDragonSlayer.PassiveLogRus.Add("*Oторвался от остальных на 2000 голды*");
 
 
             TigrTwoBetter.PassiveLogRus.Add("Лучше с двумя, чем с адекватными");
