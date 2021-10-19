@@ -122,18 +122,23 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                         Guid enemy1;
+
                         Guid enemy2;
 
                         do
                         {
                             var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
                             enemy1 = game.PlayersList[randIndex].Status.PlayerId;
+                            if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "Вампур")
+                                enemy1 = player.Status.PlayerId;
                         } while (enemy1 == player.Status.PlayerId);
 
                         do
                         {
                             var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
                             enemy2 = game.PlayersList[randIndex].Status.PlayerId;
+                            if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "Вампур")
+                                enemy2 = player.Status.PlayerId;
                         } while (enemy2 == player.Status.PlayerId || enemy2 == enemy1);
 
                         _gameGlobal.PanthMark.Add(new FriendsClass(player.Status.PlayerId,
@@ -352,13 +357,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
 
 
+                    if (playerIamAttacking.Character.Name == "mylorik" && !panth.FriendList.Contains(playerIamAttacking.Status.PlayerId))
+                    {
+                        panth.FriendList.Add(playerIamAttacking.Status.PlayerId);
+                        playerIamAttacking.Character.AddPsyche(playerIamAttacking.Status, 1, "ОН уважает военное искусство!: ");
+                    }
+
                     if (!panth.FriendList.Contains(playerIamAttacking.Status.PlayerId))
                     {
                         panth.FriendList.Add(playerIamAttacking.Status.PlayerId);
-                        playerIamAttacking.Character.AddStrength(playerIamAttacking.Status, -1,
-                            "Они позорят военное искусство: ");
-                        playerIamAttacking.Character.AddSpeed(playerIamAttacking.Status, -1,
-                            "Они позорят военное искусство: ");
+                        playerIamAttacking.Character.AddStrength(playerIamAttacking.Status, -1, "Они позорят военное искусство: ");
+                        playerIamAttacking.Character.AddSpeed(playerIamAttacking.Status, -1, "Они позорят военное искусство: ");
                     }
 
 
@@ -730,9 +739,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         foreach (var enemy in awdkaa.TryingList)
                             if (enemy != null)
-                                if (enemy.Times >= 2 && enemy.IsUnique == false && player.Status.LvlUpPoints != 3)
+                                if (enemy.Times >= 2 && enemy.IsUnique == false)
                                 {
-                                    player.Status.LvlUpPoints = 3;
+                                    player.Status.LvlUpPoints += 2;
                                     await _gameUpdateMess.UpdateMessage(player);
                                     enemy.IsUnique = true;
                                     game.Phrases.AwdkaTrying.SendLog(player, true);
@@ -1435,10 +1444,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     if (darscsi.TouchedPlayers.Count == game.PlayersList.Count - 1 && darscsi.Triggered == false)
                     {
-                        player.Status.AddBonusPoints(player.Status.GetScore() * 3, "Повезло: ");
+                        player.Status.AddBonusPoints(player.Status.GetScore() * 2, "Повезло: ");
 
                         player.Character.AddPsyche(player.Status, 2, "Повезло: ");
-                        darscsi.TouchedPlayers.Clear();
                         darscsi.Triggered = true;
                         game.Phrases.DarksciLucky.SendLog(player, true);
                     }
@@ -1672,85 +1680,77 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         public async Task<int> HandleJewPassive(GamePlayerBridgeClass player, GameClass game)
         {
-            if (game.PlayersList.Any(x => x.Character.Name == "LeCrisp" || x.Character.Name == "Толя"))
-            {
-                if (player.Character.Name == "LeCrisp" || player.Character.Name == "Толя") return 1;
+            if (!game.PlayersList.Any(x => x.Character.Name is "LeCrisp" or "Толя")) return 1;
+            if (player.Character.Name is "LeCrisp" or "Толя") return 1;
 
-                var leCrisp = game.PlayersList.Find(x => x.Character.Name == "LeCrisp");
-                var tolya = game.PlayersList.Find(x => x.Character.Name == "Толя");
+            var leCrisp = game.PlayersList.Find(x => x.Character.Name == "LeCrisp");
+            var tolya = game.PlayersList.Find(x => x.Character.Name == "Толя");
 
 
-                if (leCrisp != null && tolya != null)
-                    if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn &&
-                        tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
-                    {
-                        if (game.RoundNo > 4)
+            if (leCrisp != null && tolya != null)
+                if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn &&
+                    tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
+                {
+
+                        leCrisp.Status.AddRegularPoints(1, "Еврей");
+                        tolya.Status.AddRegularPoints(1, "Еврей");
+                        game.Phrases.TolyaJewPhrase.SendLog(tolya, true);
+                        game.Phrases.LeCrispJewPhrase.SendLog(leCrisp, true);
+
+                        if (!leCrisp.IsBot())
                         {
-                            leCrisp.Status.AddRegularPoints(1, "Еврей");
-                            tolya.Status.AddRegularPoints(1, "Еврей");
-                            if (!leCrisp.IsBot())
+                            try
                             {
-                                try
-                                {
-                                    var mess =
-                                        await leCrisp.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                                            "МЫ жрём деньги!");
-#pragma warning disable 4014
-                                    _help.DeleteMessOverTime(mess);
-                                }
-                                catch (Exception e)
-                                {
-                                    _log.Critical(e.StackTrace);
-                                }
-#pragma warning restore 4014
+                                var mess =
+                                    await leCrisp.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                                        "МЫ жрём деньги!");
+                                _help.DeleteMessOverTime(mess);
                             }
-
-                            if (!tolya.IsBot())
+                            catch (Exception e)
                             {
-                                try
-                                {
-                                    var mess =
-                                        await tolya.Status.SocketMessageFromBot.Channel.SendMessageAsync(
-                                            "МЫ жрём деньги!");
-#pragma warning disable 4014
-                                    _help.DeleteMessOverTime(mess);
-                                }
-                                catch (Exception e)
-                                {
-                                    _log.Critical(e.StackTrace);
-                                }
-#pragma warning restore 4014
+                                _log.Critical(e.StackTrace);
                             }
-
-
-                            return 0;
+                        }
+                        if (!tolya.IsBot())
+                        {
+                            try
+                            {
+                                var mess =
+                                    await tolya.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                                        "МЫ жрём деньги!");
+                                _help.DeleteMessOverTime(mess);
+                            }
+                            catch (Exception e)
+                            {
+                                _log.Critical(e.StackTrace);
+                            }
                         }
 
+                        return 0;
+                }
+
+            
+            if (leCrisp != null)
+                if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
+                {
+                    if (player.Character.Name == "DeepList")
+                    {
+                        game.Phrases.LeCrispBoolingPhrase.SendLog(leCrisp, false);
                         return 1;
                     }
 
-                if (leCrisp != null)
-                    if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
-                    {
-                        if (player.Character.Name == "DeepList")
-                        {
-                            game.Phrases.LeCrispBoolingPhrase.SendLog(leCrisp, false);
-                            return 1;
-                        }
+                    leCrisp.Status.AddRegularPoints(1, "Еврей");
+                    game.Phrases.LeCrispJewPhrase.SendLog(leCrisp, true);
+                    return 0;
+                }
 
-                        leCrisp.Status.AddRegularPoints(1, "Еврей");
-                        game.Phrases.LeCrispJewPhrase.SendLog(leCrisp, true);
-                        return 0;
-                    }
-
-                if (tolya != null)
-                    if (tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
-                    {
-                        tolya.Status.AddRegularPoints(1, "Еврей");
-                        game.Phrases.TolyaJewPhrase.SendLog(tolya, true);
-                        return 0;
-                    }
-            }
+            if (tolya != null)
+                if (tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
+                {
+                    tolya.Status.AddRegularPoints(1, "Еврей");
+                    game.Phrases.TolyaJewPhrase.SendLog(tolya, true);
+                    return 0;
+                }
 
             return 1;
         }

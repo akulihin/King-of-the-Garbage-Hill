@@ -46,8 +46,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //Я пытаюсь!
             if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
-                var awdka = _gameGlobal.AwdkaTryingList.Find(x =>
-                    x.GameId == player.GameId && x.PlayerId == player.Status.PlayerId);
+                var awdka = _gameGlobal.AwdkaTryingList.Find(x => x.GameId == player.GameId && x.PlayerId == player.Status.PlayerId);
 
 
                 var enemy = awdka.TryingList.Find(x => x.EnemyPlayerId == player.Status.IsLostThisCalculation);

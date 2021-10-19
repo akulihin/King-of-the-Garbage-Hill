@@ -105,25 +105,25 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             if (player.Character.GetMoral() >= 15)
                             {
                                 player.Character.AddMoral(player.Status, -15, skillName:"Обмен Морали: ");
-                                player.Character.SetBonusPointsFromMoral(15);
+                                player.Character.AddBonusPointsFromMoral(15);
                                 SendMsgAndDeleteIt(player, "Мораль: Я БОГ ЭТОГО МИРА + 15 __бонунсых__ очка");
                             }
                             else if (player.Character.GetMoral() >= 10)
                             {
                                 player.Character.AddMoral(player.Status, -10, skillName: "Обмен Морали: ");
-                                player.Character.SetBonusPointsFromMoral(8);
+                                player.Character.AddBonusPointsFromMoral(8);
                                 SendMsgAndDeleteIt(player, "Мораль: МВП + 8 __бонунсых__ очка");
                             }
                             else if (player.Character.GetMoral() >= 5)
                             {
                                 player.Character.AddMoral(player.Status, -5, skillName: "Обмен Морали: ");
-                                player.Character.SetBonusPointsFromMoral(2);
+                                player.Character.AddBonusPointsFromMoral(2);
                                 SendMsgAndDeleteIt(player, "Мораль: Изи катка + 2 __бонунсых__ очка");
                             }
                             else if (player.Character.GetMoral() >= 3)
                             {
                                 player.Character.AddMoral(player.Status, -3, skillName: "Обмен Морали: ");
-                                player.Character.SetBonusPointsFromMoral(1);
+                                player.Character.AddBonusPointsFromMoral(1);
                                 SendMsgAndDeleteIt(player, "Мораль: Ойвей + 1  __бонунсых__ очка");
                             }
                             else

@@ -166,8 +166,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 case "AWDKA":
                     if (player2.Status.PlayerId == player1.Status.PlayerId) break;
 
-                    var awdka = _gameGlobal.AwdkaTryingList.Find(x => x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
-                    var awdkaTrainingHistory = _gameGlobal.AwdkaTeachToPlayHistory.Find(x => x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
+                    var awdka = _gameGlobal.AwdkaTryingList.Find(x =>
+                        x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
+                    var awdkaTrainingHistory = _gameGlobal.AwdkaTeachToPlayHistory.Find(x =>
+                        x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
 
                     var awdkaTrying = awdka.TryingList.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
 
@@ -178,10 +180,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     }
 
 
-                   
                     if (awdkaTrainingHistory != null)
                     {
-                        var awdkaTrainingHistoryEnemy = awdkaTrainingHistory.History.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
+                        var awdkaTrainingHistoryEnemy =
+                            awdkaTrainingHistory.History.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
                         if (awdkaTrainingHistoryEnemy != null)
                         {
                             var statText = awdkaTrainingHistoryEnemy.Text switch
@@ -198,7 +200,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     //(<:volibir:894286361895522434> сила 10 ?)
 
 
-                        break;
+                    break;
                 case "Братишка":
                     var shark = _gameGlobal.SharkJawsWin.Find(x =>
                         x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
@@ -246,20 +248,24 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                             customString += "<:fr:563063244097585162>";
                     break;
                 case "Загадочный Спартанец в маске":
-                {
+
                     var panthShame = _gameGlobal.PanthShame.Find(x =>
                         x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
+
                     if (!panthShame.FriendList.Contains(player2.Status.PlayerId) &&
                         player2.Status.PlayerId != player1.Status.PlayerId)
                         customString += "<:yasuo:895819754428833833>";
-                }
-                {
+
+                    if (panthShame.FriendList.Contains(player2.Status.PlayerId) && player2.Status.PlayerId != player1.Status.PlayerId && player2.Character.Name == "mylorik")
+                        customString += "<:pantheon:899847724936089671>";
+
+
                     var panthMark = _gameGlobal.PanthMark.Find(x =>
                         x.GameId == player1.GameId && x.PlayerId == player1.Status.PlayerId);
 
                     if (panthMark.FriendList.Contains(player2.Status.PlayerId))
                         customString += "<:sparta:561287745675329567>";
-                }
+
 
                     break;
 
@@ -305,7 +311,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                                 customString += "**кек**";
                         }
                     }
-    
+
                     //end стёб
 
 
@@ -322,14 +328,16 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                     break;
                 case "Тигр":
-                    var tigr1 = _gameGlobal.TigrTwoBetterList.Find(x => x.PlayerId == player1.Status.PlayerId && x.GameId == player1.GameId);
+                    var tigr1 = _gameGlobal.TigrTwoBetterList.Find(x =>
+                        x.PlayerId == player1.Status.PlayerId && x.GameId == player1.GameId);
 
                     if (tigr1 != null)
                         //if (tigr1.FriendList.Contains(player2.Status.PlayerId) && player2.Status.PlayerId != player1.Status.PlayerId)
                         if (tigr1.FriendList.Contains(player2.Status.PlayerId))
                             customString += "<:pepe_down:896514760823144478>";
 
-                    var tigr2 = _gameGlobal.TigrThreeZeroList.Find(x => x.GameId == player1.GameId && x.PlayerId == player1.Status.PlayerId);
+                    var tigr2 = _gameGlobal.TigrThreeZeroList.Find(x =>
+                        x.GameId == player1.GameId && x.PlayerId == player1.Status.PlayerId);
 
                     var enemy = tigr2?.FriendList.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
 
@@ -378,11 +386,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             embed.WithTitle("King of the Garbage Hill");
             var roundNumber = game.RoundNo;
 
-       
-            if (roundNumber > 10)
-            {
-                roundNumber = 10;
-            }
+
+            if (roundNumber > 10) roundNumber = 10;
 
             var multiplier = roundNumber switch
             {
@@ -391,13 +396,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 _ => 4
             };
             //Претендент русского сервера
-            if (player.Status.GetInGamePersonalLogs().Contains("Претендент русского сервера"))
-            {
-                multiplier *= 3;
-            }
+            if (player.Status.GetInGamePersonalLogs().Contains("Претендент русского сервера")) multiplier *= 3;
             //end Претендент русского сервера
 
-           game = _global.GamesList.Find(x => x.GameId == player.GameId);
+            game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
 
             var desc = game.GetPreviousGameLogs();
@@ -419,8 +421,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 $"*Справедливость: {character.Justice.GetJusticeNow()}\n" +
                 $"Мораль: {character.GetMoral()}\n" +
                 $"Скилл: {character.GetSkill()} (Мишень: **{character.GetCurrentSkillTarget()}**)*\n" +
-                $"Множитель очков: **X{multiplier}**\n" +
+                $"*Класс:* {character.GetClassStatString()}\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
+                $"Множитель очков: **X{multiplier}**\n" +
                 "<:e_:562879579694301184>\n" +
                 $"{LeaderBoard(player)}" +
                 "<:e_:562879579694301184>");
@@ -508,7 +511,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 {new("1⃣"), new("2⃣"), new("3⃣"), new("4⃣"), new("5⃣"), new("6⃣")};
 
             var embed = new EmbedBuilder();
-            var playerIsReady = (player.Status.IsSkip || player.Status.IsReady) || game.RoundNo > 10;
+            var playerIsReady = player.Status.IsSkip || player.Status.IsReady || game.RoundNo > 10;
             var attackMenu = new SelectMenuBuilder()
                 .WithMinValues(1)
                 .WithMaxValues(1)
@@ -516,7 +519,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 .WithDisabled(playerIsReady)
                 .WithPlaceholder("Выбор цели");
 
-    
 
             if (game != null)
                 for (var i = 0; i < playerChoiceAttackList.Count; i++)
@@ -554,28 +556,38 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     if (game != null && game.RoundNo <= 10)
                     {
                         if (player.Character.GetMoral() >= 15)
-                            builder.WithButton("Обменять 15 Морали на 15 бонусных очков", "moral", row: 0, style: ButtonStyle.Secondary);
+                            builder.WithButton("Обменять 15 Морали на 15 бонусных очков", "moral", row: 0,
+                                style: ButtonStyle.Secondary);
                         else if (player.Character.GetMoral() >= 10)
-                            builder.WithButton("Обменять 10 Морали на 8 бонусных очков", "moral", row: 0, style: ButtonStyle.Secondary);
+                            builder.WithButton("Обменять 10 Морали на 8 бонусных очков", "moral", row: 0,
+                                style: ButtonStyle.Secondary);
                         else if (player.Character.GetMoral() >= 5)
-                            builder.WithButton("Обменять 5 Морали на 2 бонусных очка", "moral", row: 0, style: ButtonStyle.Secondary);
+                            builder.WithButton("Обменять 5 Морали на 2 бонусных очка", "moral", row: 0,
+                                style: ButtonStyle.Secondary);
                         else if (player.Character.GetMoral() >= 3)
-                            builder.WithButton("Обменять 3 Морали на 1 бонусное очко", "moral", row: 0, style: ButtonStyle.Secondary);
+                            builder.WithButton("Обменять 3 Морали на 1 бонусное очко", "moral", row: 0,
+                                style: ButtonStyle.Secondary);
                         else
-                            builder.WithButton("Недостаточно очков морали", "moral", row: 0, style: ButtonStyle.Secondary, disabled: true);
+                            builder.WithButton("Недостаточно очков морали", "moral", row: 0,
+                                style: ButtonStyle.Secondary, disabled: true);
                     }
                     else
                     {
                         if (player.Character.GetMoral() >= 15)
-                            builder.WithButton("Обменять 15 Морали на 15 бонусных очков (Конец игры)", "moral", row: 0, style: ButtonStyle.Secondary, disabled: true);
+                            builder.WithButton("Обменять 15 Морали на 15 бонусных очков (Конец игры)", "moral", row: 0,
+                                style: ButtonStyle.Secondary, disabled: true);
                         else if (player.Character.GetMoral() >= 10)
-                            builder.WithButton("Обменять 10 Морали на 8 бонусных очков (Конец игры)", "moral", row: 0, style: ButtonStyle.Secondary, disabled: true);
+                            builder.WithButton("Обменять 10 Морали на 8 бонусных очков (Конец игры)", "moral", row: 0,
+                                style: ButtonStyle.Secondary, disabled: true);
                         else if (player.Character.GetMoral() >= 5)
-                            builder.WithButton("Обменять 5 Морали на 2 бонусных очка (Конец игры)", "moral", row: 0, style: ButtonStyle.Secondary, disabled: true);
+                            builder.WithButton("Обменять 5 Морали на 2 бонусных очка (Конец игры)", "moral", row: 0,
+                                style: ButtonStyle.Secondary, disabled: true);
                         else if (player.Character.GetMoral() >= 3)
-                            builder.WithButton("Обменять 3 Морали на 1 бонусное очко (Конец игры)", "moral", row: 0, style: ButtonStyle.Secondary, disabled: true);
+                            builder.WithButton("Обменять 3 Морали на 1 бонусное очко (Конец игры)", "moral", row: 0,
+                                style: ButtonStyle.Secondary, disabled: true);
                         else
-                            builder.WithButton("Недостаточно очков морали", "moral", row: 0, style: ButtonStyle.Secondary, disabled: true);
+                            builder.WithButton("Недостаточно очков морали", "moral", row: 0,
+                                style: ButtonStyle.Secondary, disabled: true);
                     }
 
                     builder.WithButton("Завершить Игру", "end", row: 0, style: ButtonStyle.Danger);
@@ -591,7 +603,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             }
 
             embed.WithFooter($"{GetTimeLeft(player)} |{embed.Length}|");
-            
+
 
             await UpdateMessageWithEmbed(player, embed, builder);
         }
@@ -611,7 +623,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             }
             catch (Exception e)
             {
-               _log.Critical(e.StackTrace);
+                _log.Critical(e.StackTrace);
             }
         }
 
@@ -655,7 +667,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public async Task SendMsgAndDeleteIt(GamePlayerBridgeClass player, string msg = "Принято", int seconds = 6)
         {
-            try{
+            try
+            {
                 if (!player.IsBot())
                 {
                     var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(msg);

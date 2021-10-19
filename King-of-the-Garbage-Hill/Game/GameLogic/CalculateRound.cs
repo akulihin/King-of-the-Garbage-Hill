@@ -34,6 +34,26 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             await Task.CompletedTask;
         }
 
+        public string GetLostContrText(CharacterClass me, CharacterClass target)
+        {
+            if (me.GetClassStatInt() == 0 && target.GetClassStatInt() == 2)
+            {
+                return "Вас обманул";
+            }
+
+            if (me.GetClassStatInt() == 1 && target.GetClassStatInt() == 0)
+            {
+                return "Вас пресанул";
+            }
+
+            if (me.GetClassStatInt() == 2 && target.GetClassStatInt() == 1)
+            {
+                return "Вас обогнал";
+            }
+
+            return "буль?";
+        }
+
         //пристрій судного дня
         public async Task DeepListMind(GameClass game)
         {
@@ -66,6 +86,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var randomForTooGood = 50;
                 var isTooGoodPlayer = false;
                 var isTooGoodEnemy = false;
+                var isContrLost = 0;
+                var isTooGoodLost = 0;
                 var playerIamAttacking = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
 
 
@@ -77,6 +99,26 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     player.Status.IsLostThisCalculation = Guid.Empty;
                     player.Status.IsFighting = Guid.Empty;
                     continue;
+                }
+
+
+                //This is a bug!
+                if (playerIamAttacking == null)
+                {
+                    _characterPassives.HandleCharacterAfterCalculations(player, game);
+                    player.Status.IsWonThisCalculation = Guid.Empty;
+                    player.Status.IsLostThisCalculation = Guid.Empty;
+                    player.Status.IsFighting = Guid.Empty;
+                    await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
+                        .SendMessageAsync("playerIamAttacking == null\n" +
+                                          $"");
+                    continue;
+                }
+
+                //умный
+                if (player.Character.GetClassStatInt() == 0 && playerIamAttacking.Character.Justice.GetJusticeNow() == 0)
+                {
+                    player.Character.AddExtraSkill(player.Status, "Класс: ", 4, true);
                 }
 
 
@@ -156,20 +198,77 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //round 1 (contr)
 
 
-                var whoIsBetter = WhoIsBetter(player, playerIamAttacking);
+                //быстрый
+                if (playerIamAttacking.Character.GetClassStatInt() == 2)
+                {
+                    playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, "Класс: ", 2, true);
+                }
+
+                if (player.Character.GetClassStatInt() == 2)
+                {
+                    player.Character.AddExtraSkill(player.Status, "Класс: ",2, true);
+                }
+
+
 
                 //main formula:
                 //main formula:
-                var a = player.Character;
-                var b = playerIamAttacking.Character;
+                var me = player.Character;
+                var target = playerIamAttacking.Character;
 
-                var scaleA = (a.GetIntelligence() + a.GetStrength() + a.GetSpeed() + a.GetPsyche()) + a.GetSkill() / 30;
-                var scaleB = (b.GetIntelligence() + b.GetStrength() + b.GetSpeed() + b.GetPsyche()) + b.GetSkill() / 30;
+                var scaleMe = (me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche()) + me.GetSkill() / 30;
+                var scaleTarget = (target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche()) + target.GetSkill() / 30;
 
-                var weighingMachine = scaleA - scaleB;
+                var weighingMachine = scaleMe - scaleTarget;
 
-                var psycheDifference = a.GetPsyche() - b.GetPsyche();
+                if (me.GetClassStatInt() == 0 && target.GetClassStatInt() == 2)
+                {
+                    weighingMachine += 2;
+                    isContrLost -= 1;
+                }
 
+                if (me.GetClassStatInt() == 1 && target.GetClassStatInt() == 0)
+                {
+                    weighingMachine += 2;
+                    isContrLost -= 1;
+                }
+
+                if (me.GetClassStatInt() == 2 && target.GetClassStatInt() == 1)
+                {
+                    weighingMachine += 2;
+                    isContrLost -= 1;
+                }
+
+
+                if (target.GetClassStatInt() == 0 && me.GetClassStatInt() == 2)
+                {
+                    weighingMachine -= 2;
+                    isContrLost += 1;
+                }
+
+                if (target.GetClassStatInt() == 1 && me.GetClassStatInt() == 0)
+                {
+                    weighingMachine -= 2;
+                    isContrLost += 1;
+                }
+
+                if (target.GetClassStatInt() == 2 && me.GetClassStatInt() == 1)
+                {
+                    weighingMachine -= 2;
+                    isContrLost += 1;
+                }
+
+                switch (WhoIsBetter(player, playerIamAttacking))
+                {
+                    case 1:
+                        weighingMachine += 5;
+                        break;
+                    case 2:
+                        weighingMachine -= 5;
+                        break;
+                }
+
+                var psycheDifference = me.GetPsyche() - target.GetPsyche();
                 switch (psycheDifference)
                 {
                     case > 0 and <= 3:
@@ -192,30 +291,23 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
                 }
 
-                switch (whoIsBetter)
-                {
-                    case 1:
-                        weighingMachine += 5;
-                        break;
-                    case 2:
-                        weighingMachine -= 5;
-                        break;
-                }
 
                 switch (weighingMachine)
                 {
                     case >= 13:
                         isTooGoodPlayer = true;
                         randomForTooGood = 68;
+                        isTooGoodLost = 1;
                         break;
                     case <= -13:
                         isTooGoodEnemy = true;
                         randomForTooGood = 32;
+                        isTooGoodLost = -1;
                         break;
                 }
 
 
-                var wtf = scaleA * (1 + (a.GetSkill() / 300 - b.GetSkill() / 300)) - scaleA;
+                var wtf = scaleMe * (1 + (me.GetSkill() / 300 - target.GetSkill() / 300)) - scaleMe;
                 weighingMachine += wtf;
 
 
@@ -227,9 +319,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     case > 0:
                         pointsWined++;
+                        isContrLost -= 1;
                         break;
                     case < 0:
                         pointsWined--;
+                        isContrLost += 1;
                         break;
                 }
                 //end round 1
@@ -260,6 +354,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 1)
                 {
+                    //сильный
+                    if (player.Character.GetClassStatInt() == 1)
+                    {
+                        player.Character.AddExtraSkill(player.Status, "Класс: ", 5, true);
+                    }
+
+                    isContrLost -= 1;
                     game.AddPreviousGameLogs($" ⟶ {player.DiscordUsername}");
 
                     //еврей
@@ -276,16 +377,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         switch (player.Character.GetCurrentSkillTarget())
                         {
                             case "Интеллект":
-                                if (playerIamAttacking.Character.GetIntelligence() >= playerIamAttacking.Character.GetSpeed() && playerIamAttacking.Character.GetIntelligence() >= playerIamAttacking.Character.GetStrength())
-                                    player.Character.AddSkill(player.Status, "**умного**");
+                                if (playerIamAttacking.Character.GetClassStatInt() == 0)
+                                    player.Character.AddMainSkill(player.Status, "**умного**");
                                 break;
                             case "Сила":
-                                if (playerIamAttacking.Character.GetStrength() >= playerIamAttacking.Character.GetSpeed() && playerIamAttacking.Character.GetStrength() >= playerIamAttacking.Character.GetIntelligence())
-                                    player.Character.AddSkill(player.Status, "**сильного**");
+                                if (playerIamAttacking.Character.GetClassStatInt() == 1)
+                                    player.Character.AddMainSkill(player.Status, "**сильного**");
                                 break;
                             case "Скорость":
-                                if (playerIamAttacking.Character.GetSpeed() >= playerIamAttacking.Character.GetStrength() && playerIamAttacking.Character.GetSpeed() >= playerIamAttacking.Character.GetIntelligence())
-                                    player.Character.AddSkill(player.Status, "**быстрого**");
+                                if (playerIamAttacking.Character.GetClassStatInt() == 2)
+                                    player.Character.AddMainSkill(player.Status, "**быстрого**");
                                 break;
                         }
 
@@ -308,6 +409,19 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
                 else
                 {
+
+                    //сильный
+                    if (playerIamAttacking.Character.GetClassStatInt() == 1)
+                    {
+                        playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, "Класс: ", 5, true);
+                    }
+
+                    if (isTooGoodLost == -1)
+                    {
+                        player.Status.AddInGamePersonalLogs($"{playerIamAttacking.DiscordUsername} is __TOO GOOD__ for you\n");
+                    }
+
+                    isContrLost += 1;
                     //octopus  // playerIamAttacking is octopus
                     var check = _characterPassives.HandleOctopus(playerIamAttacking, player, game);
                     //end octopus
@@ -347,6 +461,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 //TODO: merge top 2 methods and 2 below... they are the same... or no?
 
+
+                switch (isContrLost)
+                {
+                    case 3:
+                        player.Status.AddInGamePersonalLogs($"Поражение: {GetLostContrText(target, me)} {playerIamAttacking.DiscordUsername}\n");
+                        break;
+                    case -3:
+                        playerIamAttacking.Status.AddInGamePersonalLogs($"Поражение: {GetLostContrText(me, target)} {player.DiscordUsername}\n");
+                        break;
+                }
 
                 _characterPassives.HandleCharacterAfterCalculations(player, game);
 
@@ -467,26 +591,32 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             await Task.CompletedTask;
         }
 
-        public int WhoIsBetter(GamePlayerBridgeClass player1, GamePlayerBridgeClass player2)
+        /*
+I: 4 | St: 8 | Sp: 9 | Ps: 3
+I: 1 | St: 9 | Sp: 9 | Ps: 1
+1-1
+         */
+
+        public int WhoIsBetter(GamePlayerBridgeClass meClass, GamePlayerBridgeClass targetClass)
         {
-            var p1 = player1.Character;
-            var p2 = player2.Character;
+            var me = meClass.Character;
+            var target = targetClass.Character;
 
             int intel = 0, speed = 0, str = 0;
 
-            if (p1.GetIntelligence() - p2.GetIntelligence() > 0)
+            if (me.GetIntelligence() - target.GetIntelligence() > 0)
                 intel = 1;
-            if (p1.GetIntelligence() - p2.GetIntelligence() < 0)
+            if (me.GetIntelligence() - target.GetIntelligence() < 0)
                 intel = -1;
 
-            if (p1.GetSpeed() - p2.GetSpeed() > 0)
+            if (me.GetSpeed() - target.GetSpeed() > 0)
                 speed = 1;
-            if (p1.GetSpeed() - p2.GetSpeed() < 0)
+            if (me.GetSpeed() - target.GetSpeed() < 0)
                 speed = -1;
 
-            if (p1.GetStrength() - p2.GetStrength() > 0)
+            if (me.GetStrength() - target.GetStrength() > 0)
                 str = 1;
-            if (p1.GetStrength() - p2.GetStrength() < 0)
+            if (me.GetStrength() - target.GetStrength() < 0)
                 str = -1;
 
 
@@ -494,9 +624,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 return 1;
             if (intel + speed + str <= -2)
                 return 2;
-            if (intel + speed + str == 0)
-                return 0;
-
 
             if (intel == 1 && str != -1)
                 return 1;

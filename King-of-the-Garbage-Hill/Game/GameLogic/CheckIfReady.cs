@@ -77,55 +77,65 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //end sorting
 
 
-                    //case "AWDKA":
-                    var AWDKA = game.PlayersList.Find(x => x.Character.Name == "AWDKA");
-                    //trolling
-                    if (AWDKA != null)
+                    try
                     {
-                        var awdkaTroll = _gameGlobal.AwdkaTrollingList.Find(x =>
-                            x.GameId == AWDKA.GameId &&
-                            x.PlayerId == AWDKA.Status.PlayerId);
-
-
-                        var enemy = awdkaTroll.EnemyList.Find(x =>
-                            x.EnemyId == game.PlayersList.Find(y => y.Status.PlaceAtLeaderBoard == 1).Status.PlayerId);
-
-                        if (enemy != null)
+                        //case "AWDKA":
+                        var AWDKA = game.PlayersList.Find(x => x.Character.Name == "AWDKA");
+                        //trolling
+                        if (AWDKA != null)
                         {
-                            var tolled = game.PlayersList.Find(x => x.Status.PlayerId == enemy.EnemyId);
+                            var awdkaTroll = _gameGlobal.AwdkaTrollingList.Find(x =>
+                                x.GameId == AWDKA.GameId &&
+                                x.PlayerId == AWDKA.Status.PlayerId);
 
-                            var trolledText = tolled.Character.Name switch
+
+                            var enemy = awdkaTroll.EnemyList.Find(x => x.EnemyId == game.PlayersList.Find(y => y.Status.PlaceAtLeaderBoard == 1).Status.PlayerId);
+
+                            if (enemy != null)
                             {
-                                "DeepList" => "Лист Затроллился, хех",
-                                "mylorik" => "Лорик Затроллился, МММ!",
-                                "Глеб" => "Спящее Хуйло",
-                                "LeCrisp" => "ЛеПуська Затроллилась",
-                                "Толя" => "Раммус Продал Тормейл",
-                                "HardKitty" => "Пакет Молока Пролился На Клавиатуру",
-                                "Sirinoks" => "Айсик Затроллилась#",
-                                "Mit*suki*" => "МитСУКИ Затроллился",
-                                "AWDKA" => "AWDKA Затроллился сам по себе...",
-                                "Осьминожка" => "Осьминожка Забулькался",
-                                "Darksci" => "Даркси Не Повезло...",
-                                "Братишка" => "Братишка Забулькался",
-                                "Загадочный Спартанец в маске" => "Спатанец Затроллился!? А-я-йо...",
-                                "Вампур" => "ВампYр Затроллился",
-                                "Тигр" => "Тигр Обоссался, и кто теперь обоссан!?",
-                                _ => ""
-                            };
+                                var tolled = game.PlayersList.Find(x => x.Status.PlayerId == enemy.EnemyId);
 
-                            AWDKA.Status.AddBonusPoints((enemy.Score + 1) / 2, $"**Произошёл Троллинг:** {trolledText}");
-                            game.AddPreviousGameLogs($"**Произошёл Троллинг:** {trolledText}");
-                            game.Phrases.AwdkaTrolling.SendLog(AWDKA, true);
+                                var trolledText = tolled.Character.Name switch
+                                {
+                                    "DeepList" => "Лист Затроллился, хех",
+                                    "mylorik" => "Лорик Затроллился, МММ!",
+                                    "Глеб" => "Спящее Хуйло",
+                                    "LeCrisp" => "ЛеПуська Затроллилась",
+                                    "Толя" => "Раммус Продал Тормейл",
+                                    "HardKitty" => "Пакет Молока Пролился На Клавиатуру",
+                                    "Sirinoks" => "Айсик Затроллилась#",
+                                    "Mit*suki*" => "МитСУКИ Затроллился",
+                                    "AWDKA" => "AWDKA Затроллился сам по себе...",
+                                    "Осьминожка" => "Осьминожка Забулькался",
+                                    "Darksci" => "Даркси Не Повезло...",
+                                    "Братишка" => "Братишка Забулькался",
+                                    "Загадочный Спартанец в маске" => "Спатанец Затроллился!? А-я-йо...",
+                                    "Вампур" => "ВампYр Затроллился",
+                                    "Тигр" => "Тигр Обоссался, и кто теперь обоссан!?",
+                                    _ => ""
+                                };
+
+                                AWDKA.Status.AddBonusPoints((enemy.Score + 1) / 2, $"**Произошел Троллинг:** {trolledText} ");
+                                game.AddPreviousGameLogs($"**Произошел Троллинг:** {trolledText} ");
+                                game.Phrases.AwdkaTrolling.SendLog(AWDKA, true);
+                            }
+
+                            //sort
+                            game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+                            for (var k = 0; k < game.PlayersList.Count; k++)
+                                game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
+                            //end sorting
                         }
-
-                        //sort
-                        game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-                        for (var k = 0; k < game.PlayersList.Count; k++)
-                            game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
-                        //end sorting
+                        //end //trolling
                     }
-                    //end //trolling
+
+                    catch (Exception ex)
+                    {
+                        await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
+                            .SendMessageAsync("AWDKA trolling\n" +
+                                              $"{ex.StackTrace}");
+                    }
+
 
 
                     game.WhoWon = game.PlayersList[0].Status.PlayerId;

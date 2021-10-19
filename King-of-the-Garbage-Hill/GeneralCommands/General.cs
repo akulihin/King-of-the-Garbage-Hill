@@ -184,7 +184,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     break;
                 case "sk":
                     player.Character
-                        .SetSkill(player.Status, number, "Читы: ");
+                        .SetMainSkill(player.Status, number, "Читы: ");
                     break;
                 case "mr":
                     player.Character

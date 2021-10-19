@@ -16,6 +16,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         }
 
         public string Name { get; set; }
+
         private int Intelligence { get; set; }
         private string IntelligenceExtraText { get; set; }
         private int Psyche { get; set; }
@@ -24,13 +25,44 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         private string SpeedExtraText { get; set; }
         private int Strength { get; set; }
         private string StrengthExtraText { get; set; }
-        private double Skill { get; set; }
+        private double SkillMain { get; set; }
+        private double SkillExtra { get; set; }
         private string CurrentSkillTarget { get; set; } = "Ничего";
         private int Moral { get; set; }
         private int BonusPointsFromMoral { get; set; }
+        
         public JusticeClass Justice { get; set; }
         public string Avatar { get; set; }
         public List<Passive> Passive { get; set; }
+
+
+        public string GetClassStatString()
+        {
+            if (Intelligence >= Strength && Intelligence >= Speed) return "***Умный*** нападает на тех, кто без *Справедливости*.";
+            if (Strength >= Intelligence && Strength >= Speed) return "***Сильный*** побеждает!";
+            if (Speed >= Intelligence && Speed >= Strength) return "***Быстрый*** успевает во все битвы...";
+            return "Братишка";
+        }
+
+        /*
+         001
+         010
+         100
+         Intelligence => Speed
+         Strength => Intelligence
+         Speed => Strength
+         */
+
+        public int GetClassStatInt()
+        {
+            if (Intelligence == 0 && Strength == 0 && Speed == 0) return 3;
+
+            if (Intelligence >= Strength && Intelligence >= Speed) return 0;
+            if (Strength >= Intelligence && Strength >= Speed) return 1;
+            if (Speed >= Intelligence && Speed >= Strength) return 2;
+            return 3;
+        }
+
 
         public int GetBonusPointsFromMoral()
         {
@@ -40,6 +72,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public void SetBonusPointsFromMoral(int newBonusPointsFromMoral)
         {
             BonusPointsFromMoral = newBonusPointsFromMoral;
+        }
+
+        public void AddBonusPointsFromMoral(int newBonusPointsFromMoral)
+        {
+            BonusPointsFromMoral += newBonusPointsFromMoral;
         }
 
         public string GetCurrentSkillTarget()
@@ -75,24 +112,24 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public double GetSkill()
         {
-            return Skill;
+            return SkillMain + SkillExtra;
         }
 
-        public void SetSkill(InGameStatus status, double howMuchToSet, string skillName, bool isLog = true)
+        public void SetMainSkill(InGameStatus status, double howMuchToSet, string skillName, bool isLog = true)
         {
             if (isLog)
             {
-                var diff = howMuchToSet - Skill;
+                var diff = howMuchToSet - SkillMain;
                 if (diff > 0)
                     status.AddInGamePersonalLogs($"{skillName}+{diff} скилла\n");
                 else if (diff < 0) status.AddInGamePersonalLogs($"{skillName}{diff} скилла\n");
             }
-            Skill = howMuchToSet;
+            SkillMain = howMuchToSet;
         }
 
-        public void AddSkill(InGameStatus status, string skillName, bool isLog = true)
+        public void AddMainSkill(InGameStatus status, string skillName, bool isLog = true)
         {
-            var howMuchToAdd = Skill switch
+            var howMuchToAdd = SkillMain switch
             {
                 0 => 10,
                 10 => 9,
@@ -107,10 +144,19 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 _ => 0
             };
 
+
             if (isLog)
                 status.AddInGamePersonalLogs($" +{howMuchToAdd} скилла (за {skillName} врага)\n");
 
-            Skill += howMuchToAdd;
+            SkillMain += howMuchToAdd;
+        }
+
+        public void AddExtraSkill(InGameStatus status, string skillName, int howMuchToAdd, bool isLog = true)
+        {
+            if (isLog)
+                status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} *Cкилла*\n");
+
+            SkillExtra += howMuchToAdd;
         }
 
         public int GetMoral()
