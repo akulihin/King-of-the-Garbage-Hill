@@ -143,8 +143,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 54 => 1,
                 _ => 0
             };
-            howMuchToAdd *= 2;
 
+            AddExtraSkill(status, skillName, howMuchToAdd, false);
 
             if (isLog)
                 status.AddInGamePersonalLogs($" +{howMuchToAdd} скилла (за {skillName} врага)\n");

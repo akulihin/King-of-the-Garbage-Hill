@@ -58,7 +58,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     player.AttackPreference -= 5;
                 //if bot justice less than platers
                 else if (bot.Character.Justice.GetJusticeNow() < player.Player.Character.Justice.GetJusticeNow())
-                    player.AttackPreference -= 7;
+                    player.AttackPreference -= 6;
 
                 //if player is first
                 if (player.Player.Status.PlaceAtLeaderBoard == 1)
