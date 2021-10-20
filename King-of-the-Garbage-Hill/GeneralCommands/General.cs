@@ -290,34 +290,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
             await SendMessAsync(embed);
 
-            switch (octoIndex)
-            {
-                case 19:
-                {
-                    var lll = await Context.Channel.SendMessageAsync("Ooooo, it was I who just passed Dark Souls!");
-#pragma warning disable 4014
-                    _helperFunctions.DeleteMessOverTime(lll);
-#pragma warning restore 4014
-                    break;
-                }
-                case 9:
-                {
-                    var lll = await Context.Channel.SendMessageAsync("I'm drawing an octopus :3");
-#pragma warning disable 4014
-                    _helperFunctions.DeleteMessOverTime(lll);
-#pragma warning restore 4014
-                    break;
-                }
-                case 26:
-                {
-                    var lll = await Context.Channel.SendMessageAsync(
-                        "Oh, this is New Year! time to gift turtles!!");
-#pragma warning disable 4014
-                    _helperFunctions.DeleteMessOverTime(lll);
-#pragma warning restore 4014
-                    break;
-                }
-            }
+
         }
 
 

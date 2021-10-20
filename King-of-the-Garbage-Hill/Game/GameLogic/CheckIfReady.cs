@@ -6,6 +6,7 @@ using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
+using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.FinishedGameLog;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -23,10 +24,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly CalculateRound _round;
         private readonly GameUpdateMess _upd;
         public Timer LoopingTimer;
+        private readonly HelperFunctions _help;
 
         public CheckIfReady(Global global, GameUpdateMess upd, CalculateRound round, FinishedGameLog finishedGameLog,
             GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, LoginFromConsole logs, UserAccounts accounts,
-            InGameGlobal gameGlobal)
+            InGameGlobal gameGlobal, HelperFunctions help)
         {
             _global = global;
             _upd = upd;
@@ -37,6 +39,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             _logs = logs;
             _accounts = accounts;
             _gameGlobal = gameGlobal;
+            _help = help;
             CheckTimer();
         }
 
@@ -249,6 +252,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                                      t.Status.IsBlock == false && t.Status.IsSkip == false))
                     t.Status.IsBlock = true;
 
+
+                foreach (var player in game.PlayersList)
+                {
+                    _help.DeleteItAfterRound(player);
+                }
+
                 await _round.DeepListMind(game);
 
                 foreach (var t in players)
@@ -258,7 +267,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             await _upd.UpdateMessage(t);
                             if (game.RoundNo <= 10)
-                                await _upd.SendMsgAndDeleteIt(t, $"Раунд #{game.RoundNo}", 3);
+                                await _help.SendMsgAndDeleteItAfterRound(t, $"Раунд #{game.RoundNo}");
                         }
                     }
                     catch (Exception f)

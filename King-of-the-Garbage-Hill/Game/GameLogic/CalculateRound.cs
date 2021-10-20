@@ -209,6 +209,47 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     player.Character.AddExtraSkill(player.Status, "Класс: ",2, true);
                 }
 
+                //add skill
+                if (player.Status.WhoToAttackThisTurn == playerIamAttacking.Status.PlayerId)
+                    switch (player.Character.GetCurrentSkillTarget())
+                    {
+                        case "Интеллект":
+                            if (playerIamAttacking.Character.GetClassStatInt() == 0)
+                            {
+                                player.Character.AddMainSkill(player.Status, "**умного**");
+                                var known = player.Status.KnownPlayerClass.Find(x =>
+                                    x.EnemyId == playerIamAttacking.Status.PlayerId);
+                                if (known != null)
+                                    player.Status.KnownPlayerClass.Remove(known);
+                                player.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(playerIamAttacking.Status.PlayerId, "(**Умный** ?) "));
+                            }
+                            break;
+                        case "Сила":
+                            if (playerIamAttacking.Character.GetClassStatInt() == 1)
+                            {
+                                player.Character.AddMainSkill(player.Status, "**сильного**");
+                                var known = player.Status.KnownPlayerClass.Find(x =>
+                                    x.EnemyId == playerIamAttacking.Status.PlayerId);
+                                if (known != null)
+                                    player.Status.KnownPlayerClass.Remove(known);
+                                player.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(playerIamAttacking.Status.PlayerId, "(**Сильный** ?) "));
+
+                            }
+                            break;
+                        case "Скорость":
+                            if (playerIamAttacking.Character.GetClassStatInt() == 2)
+                            {
+                                player.Character.AddMainSkill(player.Status, "**быстрого**");
+                                var known = player.Status.KnownPlayerClass.Find(x =>
+                                    x.EnemyId == playerIamAttacking.Status.PlayerId);
+                                if (known != null)
+                                    player.Status.KnownPlayerClass.Remove(known);
+                                player.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(playerIamAttacking.Status.PlayerId, "(**Быстрый** ?) "));
+                            }
+                            break;
+                    }
+
+
 
 
                 //main formula:
@@ -351,6 +392,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 var moral = player.Status.PlaceAtLeaderBoard - playerIamAttacking.Status.PlaceAtLeaderBoard;
 
+
+
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 1)
                 {
@@ -372,23 +415,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //add regular points
                     player.Status.AddRegularPoints(point.Result, "Победа");
 
-                    //add skill
-                    if (player.Status.WhoToAttackThisTurn == playerIamAttacking.Status.PlayerId)
-                        switch (player.Character.GetCurrentSkillTarget())
-                        {
-                            case "Интеллект":
-                                if (playerIamAttacking.Character.GetClassStatInt() == 0)
-                                    player.Character.AddMainSkill(player.Status, "**умного**");
-                                break;
-                            case "Сила":
-                                if (playerIamAttacking.Character.GetClassStatInt() == 1)
-                                    player.Character.AddMainSkill(player.Status, "**сильного**");
-                                break;
-                            case "Скорость":
-                                if (playerIamAttacking.Character.GetClassStatInt() == 2)
-                                    player.Character.AddMainSkill(player.Status, "**быстрого**");
-                                break;
-                        }
 
                     player.Status.WonTimes++;
                     player.Character.Justice.IsWonThisRound = true;

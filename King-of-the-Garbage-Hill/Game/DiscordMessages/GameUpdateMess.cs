@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Net;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
@@ -17,7 +15,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
     public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceSingleton
     {
         private readonly UserAccounts _accounts;
-        private readonly AwaitForUserMessage _awaitForUser;
+   
         private readonly InGameGlobal _gameGlobal;
         private readonly Global _global;
         private readonly HelperFunctions _helperFunctions;
@@ -25,12 +23,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
 
         public GameUpdateMess(UserAccounts accounts, Global global, InGameGlobal gameGlobal,
-            AwaitForUserMessage awaitForUser, HelperFunctions helperFunctions, LoginFromConsole log)
+            HelperFunctions helperFunctions, LoginFromConsole log)
         {
             _accounts = accounts;
             _global = global;
             _gameGlobal = gameGlobal;
-            _awaitForUser = awaitForUser;
             _helperFunctions = helperFunctions;
             _log = log;
         }
@@ -249,21 +246,21 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     break;
                 case "Загадочный Спартанец в маске":
 
-                    var panthShame = _gameGlobal.PanthShame.Find(x =>
+                    var SpartanShame = _gameGlobal.SpartanShame.Find(x =>
                         x.GameId == game.GameId && x.PlayerId == player1.Status.PlayerId);
 
-                    if (!panthShame.FriendList.Contains(player2.Status.PlayerId) &&
+                    if (!SpartanShame.FriendList.Contains(player2.Status.PlayerId) &&
                         player2.Status.PlayerId != player1.Status.PlayerId)
                         customString += "<:yasuo:895819754428833833>";
 
-                    if (panthShame.FriendList.Contains(player2.Status.PlayerId) && player2.Status.PlayerId != player1.Status.PlayerId && player2.Character.Name == "mylorik")
-                        customString += "<:pantheon:899847724936089671>";
+                    if (SpartanShame.FriendList.Contains(player2.Status.PlayerId) && player2.Status.PlayerId != player1.Status.PlayerId && player2.Character.Name == "mylorik")
+                        customString += "<:Spartaneon:899847724936089671>";
 
 
-                    var panthMark = _gameGlobal.PanthMark.Find(x =>
+                    var SpartanMark = _gameGlobal.SpartanMark.Find(x =>
                         x.GameId == player1.GameId && x.PlayerId == player1.Status.PlayerId);
 
-                    if (panthMark.FriendList.Contains(player2.Status.PlayerId))
+                    if (SpartanMark.FriendList.Contains(player2.Status.PlayerId))
                         customString += "<:sparta:561287745675329567>";
 
 
@@ -353,6 +350,11 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     break;
             }
 
+            var knownClass = player1.Status.KnownPlayerClass.Find(x => x.EnemyId == player2.Status.PlayerId);
+            if (knownClass != null && player1.Character.Name != "AWDKA")
+                customString += $"{knownClass.Text}";
+
+
             if (game.RoundNo == 11 || player1.UserType == "admin")
             {
                 customString += $"(as **{player2.Character.Name}**) = {player2.Status.GetScore()} Score";
@@ -372,7 +374,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
 
             //  await socketMsg.DeleteAsync();
-            await globalAccount.SendMessageAsync("Thank you for playing!");
+            await globalAccount.SendMessageAsync("Спасибо за игру!");
         }
 
         //Page 1
@@ -418,9 +420,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 $"**Скорость:** {character.GetSpeedString()}\n" +
                 $"**Психика:** {character.GetPsycheString()}\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                $"*Справедливость: {character.Justice.GetJusticeNow()}\n" +
-                $"Мораль: {character.GetMoral()}\n" +
-                $"Скилл: {character.GetSkill()} (Мишень: **{character.GetCurrentSkillTarget()}**)*\n" +
+                $"*Справедливость: **{character.Justice.GetJusticeNow()}***\n" +
+                $"*Мораль: {character.GetMoral()}*\n" +
+                $"*Скилл: {character.GetSkill()} (Мишень: **{character.GetCurrentSkillTarget()}**)*\n" +
                 $"*Класс:* {character.GetClassStatString()}\n" +
                 "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                 $"Множитель очков: **X{multiplier}**\n" +
@@ -451,9 +453,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         //Page 2
         public EmbedBuilder LogsPage(GamePlayerBridgeClass player)
         {
-            var account = _accounts.GetAccount(player.DiscordId);
-
-
             var game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
             var embed = new EmbedBuilder();
@@ -635,52 +634,16 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             if (game == null) return "ERROR";
 
             if (player.Status.IsReady)
-                return
-                    $"Ты походил • Ожидаем других игроков • ({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
-            return
-                $"Ожидаем твой ход • ({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
-            /*
-            //if (!game.IsCheckIfReady)
-           //     return $"Ведется подсчёт, пожалуйста подожди... • ход #{game.RoundNo}";
-
-
-            if (game.GameStatus == 1)
-                return $"• ход #{game.RoundNo}";
-             //   return "Времени осталось: " + (int) (game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds) +
-             //          $"сек. • ход #{game.RoundNo}";
-
-            return $"Ведется подсчёт, пожалуйста подожди... • ход #{game.RoundNo}";
-            */
-        }
-
-        private bool IsImageUrl(string url)
-        {
-            var req = (HttpWebRequest) WebRequest.Create(url);
-            req.Method = "HEAD";
-            using (var resp = req.GetResponse())
             {
-                return resp.ContentType.ToLower(CultureInfo.InvariantCulture)
-                    .StartsWith("image/");
+                return $"Ты походил • Ожидаем других игроков • ({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
+            }
+            else
+            {
+                return $"Ожидаем твой ход • ({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
             }
         }
 
 
-        public async Task SendMsgAndDeleteIt(GamePlayerBridgeClass player, string msg = "Принято", int seconds = 6)
-        {
-            try
-            {
-                if (!player.IsBot())
-                {
-                    var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(msg);
-#pragma warning disable 4014
-                    _helperFunctions.DeleteMessOverTime(mess2, seconds);
-#pragma warning restore 4014
-                }
-            }
-            catch (Exception e)
-            {
-                _log.Critical(e.StackTrace);
-            }
-        }
+
     }
 }

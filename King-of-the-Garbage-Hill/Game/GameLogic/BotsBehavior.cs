@@ -107,14 +107,31 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (siriFriends != null)
                         {
                             //+5 к значению тех, кто еще не друг.
-                            if (!siriFriends.FriendList.Contains(player.Player.Status.PlayerId)) 
+                            if (!siriFriends.FriendList.Contains(player.Player.Status.PlayerId) && player.AttackPreference > 0) 
                                 player.AttackPreference += 5;
+
+                            
 
                             //До начала 5го хода может нападать только на одну цель. Если значение цели 0 - то блок.
                             if (siriFriends.FriendList.Count == 1 && game.RoundNo < 5)
                             {
-                                player.AttackPreference = 0;
-                                mandatoryAttack = game.PlayersList.Find(x => x.Status.PlayerId == siriFriends.FriendList[0]).Status.PlaceAtLeaderBoard;
+                                var sirisFried = game.PlayersList.Find(x => x.Status.PlayerId == siriFriends.FriendList[0]);
+
+                                if (player.Player.Status.PlayerId != sirisFried.Status.PlayerId)
+                                {
+                                    player.AttackPreference = 0;
+                                }
+                                else
+                                {
+                                    if (player.AttackPreference > 3)
+                                    {
+                                        mandatoryAttack = sirisFried.Status.PlaceAtLeaderBoard;
+                                    }
+                                    else
+                                    {
+                                        player.AttackPreference = 0;
+                                    }
+                                }
                             }
 
 
@@ -189,9 +206,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                                 
                         
                                                 //"Они позорят военное искусство"
-                                                var panth = _gameGlobal.PanthShame.Find(x =>
+                                                var Spartan = _gameGlobal.SpartanShame.Find(x =>
                                                     x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
-                                                if (!panth.FriendList.Contains(p.Player.Status.PlayerId)) p.AttackPreference += 4;
+                                                if (!Spartan.FriendList.Contains(p.Player.Status.PlayerId)) p.AttackPreference += 4;
                                                 //end "Они позорят военное искусство"
                         
                                                 //Первым ходом выбирает только тех, кого точно победит. (кто побеждает его по статам, тем 10 = 0)
@@ -202,10 +219,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         
                                                 //holy fuck, how can I read it!?!?
                                                 //автоматически выбирает целью помеченного МЕТКОЙ врага, если превосходит его по статам и НЕ УСТУПАЕТ в Справедливости. то есть > или =
-                                                var panth1 = _gameGlobal.PanthMark.Find(x =>
+                                                var Spartan1 = _gameGlobal.SpartanMark.Find(x =>
                                                     x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
                         
-                                                if (panth1.FriendList.Contains(p.Player.Status.PlayerId))
+                                                if (Spartan1.FriendList.Contains(p.Player.Status.PlayerId))
                                                     if (p.Player.Character.GetSpeed() + p.Player.Character.GetStrength() +
                                                         p.Player.Character.GetIntelligence() + p.Player.Character.GetPsyche()
                                                         -

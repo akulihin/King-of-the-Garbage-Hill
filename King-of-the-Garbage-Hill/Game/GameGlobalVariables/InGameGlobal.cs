@@ -81,9 +81,9 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
             new();
 
         public readonly List<Octopus.TentaclesClass> OctopusTentaclesList = new();
-        public readonly List<FriendsClass> PanthFirstBlood = new();
-        public readonly List<FriendsClass> PanthMark = new();
-        public readonly List<FriendsClass> PanthShame = new();
+        public readonly List<FriendsClass> SpartanFirstBlood = new();
+        public readonly List<FriendsClass> SpartanMark = new();
+        public readonly List<FriendsClass> SpartanShame = new();
         public readonly List<FriendsClass> SharkBoole = new();
         public readonly List<Shark.SharkLeaderClass> SharkJawsLeader = new();
         public readonly List<FriendsClass> SharkJawsWin = new();

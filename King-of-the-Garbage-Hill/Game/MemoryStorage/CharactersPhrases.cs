@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Discord;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Helpers;
 
 //using Discord;
 
@@ -88,6 +86,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
         public PhraseClass SpartanShameMylorik;
         public PhraseClass SpartanDragonSlayer;
+        public PhraseClass SpartanTheyWontLikeIt;
         //end
 
         public CharactersUniquePhrase()
@@ -107,6 +106,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
             SpartanShameMylorik = new PhraseClass("Искусство");
             SpartanDragonSlayer = new PhraseClass("2kxaoc");
+            SpartanTheyWontLikeIt = new PhraseClass("Им это не понравится");
 
 
             TigrTwoBetter = new PhraseClass("Лучше с двумя, чем с адекватными");
@@ -205,6 +205,8 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
             SpartanShameMylorik.PassiveLogRus.Add("ОН уважает военное искуство!");
             SpartanDragonSlayer.PassiveLogRus.Add("*Oторвался от остальных на 2000 голды*");
+            SpartanTheyWontLikeIt.PassiveLogRus.Add("Твой щит - ничто для моего копья!");
+            SpartanTheyWontLikeIt.PassiveLogRus.Add("Настакал blackcleaver!");
 
 
             TigrTwoBetter.PassiveLogRus.Add("Лучше с двумя, чем с адекватными");
@@ -377,8 +379,6 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         }
 
 
-
-
         //class needed to send unique logs.
         public class PhraseClass
         {
@@ -498,9 +498,9 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                 if (PassiveLogRus.Count > 1)
                     PassiveLogRus.Remove(description);
                 try{
-#pragma warning disable 4014
-                DeleteMessOverTime(await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(description));
-#pragma warning restore 4014
+
+                    var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(description);
+                    player.DeleteMessages.Add(mess2.Id);
                 }
                 catch (Exception e)
                 {
@@ -508,11 +508,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                 }
             }
 
-            private async Task DeleteMessOverTime(IDeletable message, int timeInSeconds = 20)
-            {
-                await Task.Delay(timeInSeconds * 1000);
-                await message.DeleteAsync();
-            }
+
         }
     }
 }

@@ -1,10 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
-using Discord.WebSocket;
+using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
 namespace King_of_the_Garbage_Hill.Helpers
@@ -12,6 +12,7 @@ namespace King_of_the_Garbage_Hill.Helpers
     public sealed class HelperFunctions : IServiceSingleton
     {
         private readonly UserAccounts _accounts;
+        private readonly LoginFromConsole _logs;
 
         private readonly List<string> _characterNames = new()
         {
@@ -30,18 +31,19 @@ namespace King_of_the_Garbage_Hill.Helpers
             "AllMight"
         };
 
-        private readonly CharactersPull _charactersPull;
+      
         private readonly Global _global;
         private readonly SecureRandom _secureRandom;
 
 
-        public HelperFunctions(CharactersPull charactersPull, Global global, UserAccounts accounts,
-            SecureRandom secureRandom)
+        public HelperFunctions( Global global, UserAccounts accounts,
+            SecureRandom secureRandom, LoginFromConsole log)
         {
-            _charactersPull = charactersPull;
+           
             _global = global;
             _accounts = accounts;
             _secureRandom = secureRandom;
+            _logs = log;
         }
 
 
@@ -50,21 +52,44 @@ namespace King_of_the_Garbage_Hill.Helpers
             return Task.CompletedTask;
         }
 
-        public async Task DeleteBotAndUserMessage(IUserMessage botMessage, SocketMessage userMessage,
-            int timeInSeconds)
+
+        public async Task SendMsgAndDeleteItAfterRound(GamePlayerBridgeClass player, string msg)
         {
-            var seconds = timeInSeconds * 1000;
-            await Task.Delay(seconds);
-            await botMessage.DeleteAsync();
-            await userMessage.DeleteAsync();
+            try
+            {
+                if (!player.IsBot())
+                {
+                    var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(msg);
+                    player.DeleteMessages.Add(mess2.Id);
+                }
+            }
+            catch (Exception e)
+            {
+                _logs.Critical(e.StackTrace);
+            }
         }
 
-        public async Task DeleteMessOverTime(IUserMessage message, int timeInSeconds = 20)
+
+        public async Task DeleteItAfterRound(GamePlayerBridgeClass player)
         {
-            var seconds = timeInSeconds * 1000;
-            await Task.Delay(seconds);
-            await message.DeleteAsync();
+            try
+            {
+                if (!player.IsBot())
+                {
+                    for (var i = player.DeleteMessages.Count - 1; i >= 0; i--)
+                    {
+                        var m = await player.Status.SocketMessageFromBot.Channel.GetMessageAsync(player.DeleteMessages[i]);
+                        await m.DeleteAsync();
+                        player.DeleteMessages.RemoveAt(i);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                _logs.Critical(e.StackTrace);
+            }
         }
+
 
 
         public void SubstituteUserWithBot(ulong discordId)

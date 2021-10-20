@@ -30,33 +30,30 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public void HandleMylorikRevenge(GamePlayerBridgeClass player, Guid enemyIdLostTo, ulong gameId, GameClass game)
         {
             //enemyIdLostTo may be 0
-            var mylorik = _gameGlobal.MylorikRevenge.Find(x =>
-                x.GameId == gameId && x.PlayerId == player.Status.PlayerId);
+            var mylorik = _gameGlobal.MylorikRevenge.Find(x => x.GameId == gameId && x.PlayerId == player.Status.PlayerId);
 
             if (enemyIdLostTo != Guid.Empty)
             {
                 //check if very first lost
                 if (mylorik == null)
                 {
-                    _gameGlobal.MylorikRevenge.Add(new MylorikRevengeClass(player.Status.PlayerId, gameId,
-                        enemyIdLostTo));
+                    _gameGlobal.MylorikRevenge.Add(new MylorikRevengeClass(player.Status.PlayerId, gameId, enemyIdLostTo, game.RoundNo));
                     game.Phrases.MylorikRevengeLostPhrase.SendLog(player, true);
                 }
                 else
                 {
                     if (mylorik.EnemyListPlayerIds.All(x => x.EnemyPlayerId != enemyIdLostTo))
                     {
-                        mylorik.EnemyListPlayerIds.Add(new MylorikRevengeClassSub(enemyIdLostTo));
+                        mylorik.EnemyListPlayerIds.Add(new MylorikRevengeClassSub(enemyIdLostTo, game.RoundNo));
                         game.Phrases.MylorikRevengeLostPhrase.SendLog(player, true);
                     }
                 }
             }
             else
             {
-                var find = mylorik?.EnemyListPlayerIds.Find(x =>
-                    x.EnemyPlayerId == player.Status.IsWonThisCalculation && x.IsUnique);
+                var find = mylorik?.EnemyListPlayerIds.Find(x => x.EnemyPlayerId == player.Status.IsWonThisCalculation && x.IsUnique);
 
-                if (find != null)
+                if (find != null && find.RoundNumber != game.RoundNo)
                 {
                     player.Status.AddRegularPoints(2, "Месть");
                     player.Character.AddPsyche(player.Status, 1, "Месть: ");
@@ -98,10 +95,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             public ulong GameId;
             public Guid PlayerId;
 
-            public MylorikRevengeClass(Guid playerId, ulong gameId, Guid firstLost)
+            public MylorikRevengeClass(Guid playerId, ulong gameId, Guid firstLost, int roundNumber)
             {
                 PlayerId = playerId;
-                EnemyListPlayerIds = new List<MylorikRevengeClassSub> {new(firstLost)};
+                EnemyListPlayerIds = new List<MylorikRevengeClassSub> {new(firstLost, roundNumber) };
                 GameId = gameId;
             }
         }
@@ -110,10 +107,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             public Guid EnemyPlayerId;
             public bool IsUnique;
+            public int RoundNumber;
 
-            public MylorikRevengeClassSub(Guid enemyPlayerId)
+            public MylorikRevengeClassSub(Guid enemyPlayerId, int roundNumber)
             {
                 EnemyPlayerId = enemyPlayerId;
+                RoundNumber = roundNumber;
                 IsUnique = true;
             }
         }

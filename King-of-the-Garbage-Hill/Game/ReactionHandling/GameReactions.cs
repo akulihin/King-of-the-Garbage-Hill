@@ -53,16 +53,9 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     switch (button.Data.CustomId)
                     {
 
-                        case "end-1":
-                            var builder = new ComponentBuilder();
-                            builder.WithButton("Подтвердить Завершение игры", "end", row: 0, style: ButtonStyle.Danger);
-                            var dm = await button.User.CreateDMChannelAsync();
-                            var msg = await dm.SendMessageAsync("Ты уверен?", component: builder.Build());
-                            _help.DeleteMessOverTime(msg, 20);
-                            break;
+
                         case "end":
-                            dm = await button.User.CreateDMChannelAsync();
-                            await dm.SendMessageAsync("Спасибо за игру!");
+                            var dm = await button.User.CreateDMChannelAsync();
                             await _upd.EndGame(button);
                             break;
 
@@ -79,13 +72,13 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         case "block" when status.IsAbleToTurn:
                             if (status.MoveListPage == 3)
                             {
-                                SendMsgAndDeleteIt(player, "Ходить нельзя, Апни лвл!");
+                                _help.SendMsgAndDeleteItAfterRound(player, "Ходить нельзя, Апни лвл!");
                                 return;
                             }
 
                             if (player.Character.Name == "mylorik")
                             {
-                                SendMsgAndDeleteIt(player, "Спартанцы не капитулируют!!");
+                                _help.SendMsgAndDeleteItAfterRound(player, "Спартанцы не капитулируют!!");
                                 return;
                             }
 
@@ -94,7 +87,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             status.IsAbleToTurn = false;
                             status.IsReady = true;
                             status.AddInGamePersonalLogs("Ты поставил блок\n");
-                            SendMsgAndDeleteIt(player);
 
                             _upd.UpdateMessage(player);
                             break;
@@ -106,29 +98,29 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             {
                                 player.Character.AddMoral(player.Status, -15, skillName:"Обмен Морали: ");
                                 player.Character.AddBonusPointsFromMoral(15);
-                                SendMsgAndDeleteIt(player, "Мораль: Я БОГ ЭТОГО МИРА + 15 __бонунсых__ очка");
+                                _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Я БОГ ЭТОГО МИРА + 15 __бонунсых__ очка");
                             }
                             else if (player.Character.GetMoral() >= 10)
                             {
                                 player.Character.AddMoral(player.Status, -10, skillName: "Обмен Морали: ");
                                 player.Character.AddBonusPointsFromMoral(8);
-                                SendMsgAndDeleteIt(player, "Мораль: МВП + 8 __бонунсых__ очка");
+                                _help.SendMsgAndDeleteItAfterRound(player, "Мораль: МВП + 8 __бонунсых__ очка");
                             }
                             else if (player.Character.GetMoral() >= 5)
                             {
                                 player.Character.AddMoral(player.Status, -5, skillName: "Обмен Морали: ");
                                 player.Character.AddBonusPointsFromMoral(2);
-                                SendMsgAndDeleteIt(player, "Мораль: Изи катка + 2 __бонунсых__ очка");
+                                _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Изи катка + 2 __бонунсых__ очка");
                             }
                             else if (player.Character.GetMoral() >= 3)
                             {
                                 player.Character.AddMoral(player.Status, -3, skillName: "Обмен Морали: ");
                                 player.Character.AddBonusPointsFromMoral(1);
-                                SendMsgAndDeleteIt(player, "Мораль: Ойвей + 1  __бонунсых__ очка");
+                                _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Ойвей + 1  __бонунсых__ очка");
                             }
                             else
                             {
-                                SendMsgAndDeleteIt(player,
+                                _help.SendMsgAndDeleteItAfterRound(player,
                                     "У тебя недосточно морали, чтобы поменять ее на бонусные очки.\n" +
                                     "3 морали =  1 бонусное очко\n" +
                                     "5 морали = 2 бонусных очка\n" +
@@ -182,7 +174,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
             if (!status.IsAbleToTurn)
             {
-                SendMsgAndDeleteIt(player,
+                _help.SendMsgAndDeleteItAfterRound(player,
                     player.Status.IsSkip
                         ? "Что-то заставило тебя пропустить этот ход..."
                         : "Ходить нельзя, пока идет подсчёт.");
@@ -193,7 +185,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             /*
             if (status.MoveListPage == 2)
             {
-                SendMsgAndDeleteIt(player, $"Нажми на {new Emoji("📖")}, чтобы вернуться в основное меню.");
+                SendMsgAndDeleteItAfterRound(player, $"Нажми на {new Emoji("📖")}, чтобы вернуться в основное меню.");
                 return true;
             }
             */
@@ -214,7 +206,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     game.RoundNo == 10)
                 {
                     status.WhoToAttackThisTurn = Guid.Empty;
-                    SendMsgAndDeleteIt(player, "Выбранный игрок недоступен в связи с баном за нарушение правил");
+                    _help.SendMsgAndDeleteItAfterRound(player, "Выбранный игрок недоступен в связи с баном за нарушение правил");
                     return false;
                 }
                 /*
@@ -250,7 +242,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 if (status.WhoToAttackThisTurn == status.PlayerId)
                 {
                     status.WhoToAttackThisTurn = Guid.Empty;
-                    SendMsgAndDeleteIt(player, "Зачем ты себя бьешь?");
+                    _help.SendMsgAndDeleteItAfterRound(player, "Зачем ты себя бьешь?");
                     return false;
                 }
 
@@ -259,7 +251,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 status.IsBlock = false;
                 player.Status.AddInGamePersonalLogs(
                     $"Ты напал на игрока {whoToAttack.DiscordUsername}\n");
-                SendMsgAndDeleteIt(player); //not awaited 
                 return true;
             }
 
@@ -271,24 +262,11 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         public async Task LvlUp10(GamePlayerBridgeClass player)
 #pragma warning restore 1998
         {
-            SendMsgAndDeleteIt(player, "10 максимум, выбери другой стат"); //not awaited 
+            _help.SendMsgAndDeleteItAfterRound(player, "10 максимум, выбери другой стат"); //not awaited 
         }
 
 
-        public async Task SendMsgAndDeleteIt(GamePlayerBridgeClass player, string msg = "Принято", int seconds = 7)
-        {
-            try{
-                if (!player.IsBot())
-                {
-                    var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(msg);
-                    _help.DeleteMessOverTime(mess2);
-                }
-            }
-            catch (Exception e)
-            {
-                _logs.Critical(e.StackTrace);
-            }
-        }
+
 
         private async Task GetLvlUp(GamePlayerBridgeClass player, int skillNumber)
         {
@@ -358,8 +336,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 {
                     if (!player.IsBot())
                     {
-                        var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync($"Осталось еще {player.Status.LvlUpPoints} очков характеристик. Пытайся!");
-                        _help.DeleteMessOverTime(mess2);
+                        _help.SendMsgAndDeleteItAfterRound(player, $"Осталось еще {player.Status.LvlUpPoints} очков характеристик. Пытайся!");
                     }
                 }
                 catch (Exception e)

@@ -33,6 +33,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             ScoreSource = "";
             WhoToLostEveryRound = new List<WhoToLostPreviousRoundClass>();
             PlayerId = Guid.NewGuid();
+            KnownPlayerClass = new List<KnownPlayerClassClass>();
         }
 
         public int MoveListPage { get; set; }
@@ -63,6 +64,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public string InGamePersonalLogsAll { get; set; }
         public string ScoreSource { get; set; }
         public List<WhoToLostPreviousRoundClass> WhoToLostEveryRound { get; set; }
+        public List<KnownPlayerClassClass> KnownPlayerClass { get; set; }
 
 
         public void AddInGamePersonalLogs(string str)
@@ -186,6 +188,18 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 EnemyId = enemyId;
                 RoundNo = roundNo;
                 IsTooGood = isTooGood;
+            }
+        }
+
+        public class KnownPlayerClassClass
+        {
+            public Guid EnemyId;
+            public string Text;
+
+            public KnownPlayerClassClass(Guid enemyId, string text)
+            {
+                EnemyId = enemyId;
+                Text = text;
             }
         }
     }
