@@ -55,6 +55,25 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //обучение end
         }
 
+        public class SirinoksFriendsClass
+        {
+            public ulong GameId;
+            public Guid PlayerId;
+            public Guid EnemyId;
+            public bool IsBlock;
+            public bool IsSkip;
+
+            public SirinoksFriendsClass(Guid playerId, ulong gameId)
+            {
+                PlayerId = playerId;
+                GameId = gameId;
+                EnemyId = Guid.Empty;
+                IsBlock = false;
+                IsSkip = false;
+            }
+        }
+
+
         public class StatsClass
         {
             public int Index;
@@ -66,7 +85,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 Number = number;
             }
         }
-
 
         public class TrainingClass
         {

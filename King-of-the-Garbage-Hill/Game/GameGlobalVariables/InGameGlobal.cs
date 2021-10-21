@@ -19,6 +19,9 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
             AwdkaAfkTriggeredWhen = new();
 
         public readonly List<Sirinoks.TrainingClass> AwdkaTeachToPlay = new();
+        public readonly List<Sirinoks.SirinoksFriendsClass> SirinoksFriendsAttack = new();
+
+
         public readonly List<Awdka.TeachToPlayHistory> AwdkaTeachToPlayHistory = new();
         public readonly List<DeepList.Madness> AwdkaTeachToPlayTempStats = new();
         public readonly List<Awdka.TrollingClass> AwdkaTrollingList = new();

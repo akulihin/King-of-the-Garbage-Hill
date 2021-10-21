@@ -110,8 +110,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             game.GameId));
                         break;
                     case "Sirinoks":
-                        _gameGlobal.SirinoksFriendsList.Add(new FriendsClass(player.Status.PlayerId,
-                            game.GameId));
+                        _gameGlobal.SirinoksFriendsList.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                        _gameGlobal.SirinoksFriendsAttack.Add(new  Sirinoks.SirinoksFriendsClass(player.Status.PlayerId, game.GameId));
                         break;
                     case "Братишка":
                         _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId,
@@ -447,10 +447,28 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //Friends
                     var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
                         x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
+                    var siriAttack = _gameGlobal.SirinoksFriendsAttack.Find(x =>
+                        x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
 
-                    if(siri != null)
-                        if (siri.FriendList.Contains(target.Status.PlayerId))
+                    if (siri != null && siriAttack != null)
+                    {
+                        if (siri.FriendList.Contains(target.Status.PlayerId) && target.Status.IsBlock)
+                        {
                             target.Status.IsBlock = false;
+                            siriAttack.EnemyId = target.Status.PlayerId;
+                            siriAttack.IsBlock = true;
+                        }
+                    }
+
+                    if (siri != null && siriAttack != null)
+                    {
+                        if (siri.FriendList.Contains(target.Status.PlayerId) && target.Status.IsSkip)
+                        {
+                            target.Status.IsSkip = false;
+                            siriAttack.EnemyId = target.Status.PlayerId;
+                            siriAttack.IsSkip = true;
+                        }
+                    }
 
                     if (!siri.FriendList.Contains(target.Status.PlayerId))
                     {
@@ -1543,6 +1561,31 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             octo.Count++;
                     }
 
+                    break;
+
+                case "Sirinoks":
+
+                    //Friends
+                    var siriAttack = _gameGlobal.SirinoksFriendsAttack.Find(x =>
+                        x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
+
+                    if (siriAttack != null)
+                    {
+                        if (siriAttack.EnemyId == target.Status.PlayerId)
+                        {
+                            if (siriAttack.IsSkip)
+                                target.Status.IsSkip = true;
+
+                            if (siriAttack.IsBlock)
+                                target.Status.IsBlock = true;
+
+                            siriAttack.EnemyId = Guid.Empty;
+                            siriAttack.IsBlock = false;
+                            siriAttack.IsSkip = false;
+
+                        }
+                    }
+                    //Friends end
                     break;
 
                 case "Darksci":
