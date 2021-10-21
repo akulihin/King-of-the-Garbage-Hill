@@ -115,5 +115,19 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 GameId = gameId;
             }
         }
+
+        public class LonelinessClass
+        {
+            public ulong GameId;
+            public Guid PlayerId;
+            public bool Activated;
+
+            public LonelinessClass(Guid playerId, ulong gameId)
+            {
+                PlayerId = playerId;
+                GameId = gameId;
+                Activated = false;
+            }
+        }
     }
 }

@@ -168,7 +168,7 @@
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218646126616617/amumu.png",
     "Passive": [
       {
-        "PassiveDescription": "Получает очко каждый раз, когда на него нападет хоть кто-то...",
+        "PassiveDescription": "Получает очко каждый раунд, когда на него нападет хоть кто-то...",
         "PassiveName": "Одиночество"
       },
       {
@@ -404,7 +404,7 @@
   },
   {
     "Name": "Загадочный Спартанец в маске",
-    "Intelligence": 6,
+    "Intelligence": 7,
     "Psyche": 1,
     "Speed": 6,
     "Strength": 10,

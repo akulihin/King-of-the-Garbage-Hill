@@ -38,17 +38,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         {
             if (me.GetClassStatInt() == 0 && target.GetClassStatInt() == 2)
             {
-                return "Вас обманул";
+                return "вас обманул";
             }
 
             if (me.GetClassStatInt() == 1 && target.GetClassStatInt() == 0)
             {
-                return "Вас пресанул";
+                return "вас пресанул";
             }
 
             if (me.GetClassStatInt() == 2 && target.GetClassStatInt() == 1)
             {
-                return "Вас обогнал";
+                return "вас обогнал";
             }
 
             return "буль?";
@@ -144,71 +144,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     "");
 
 
-                //if block => no one gets points
-                if (playerIamAttacking.Status.IsBlock && player.Status.IsAbleToWin)
-                {
-                    // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
-
-                    var logMess = " ⟶ *Бой не состоялся (Блок)...*";
-
-                    game.AddPreviousGameLogs(logMess);
-
-                    //Спарта - никогда не теряет справедливость, атакуя в блок.
-                    if (player.Character.Name != "mylorik")
-                    {
-                        //end Спарта
-                        player.Character.Justice.AddJusticeForNextRound(-1);
-                        player.Status.AddBonusPoints(-1, "Блок: ");
-                    }
-
-                    playerIamAttacking.Character.Justice.AddJusticeForNextRound();
-
-                    _characterPassives.HandleCharacterAfterCalculations(player, game);
-                    _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
-
-                    player.Status.IsWonThisCalculation = Guid.Empty;
-                    player.Status.IsLostThisCalculation = Guid.Empty;
-                    playerIamAttacking.Status.IsWonThisCalculation = Guid.Empty;
-                    playerIamAttacking.Status.IsLostThisCalculation = Guid.Empty;
-                    playerIamAttacking.Status.IsFighting = Guid.Empty;
-                    player.Status.IsFighting = Guid.Empty;
-
-                    continue;
-                }
-
-
-                if (playerIamAttacking.Status.IsSkip)
-                {
-                    game.SkipPlayersThisRound++;
-                    game.AddPreviousGameLogs(" ⟶ *Бой не состоялся (Скип)...*");
-
-                    _characterPassives.HandleCharacterAfterCalculations(player, game);
-                    _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
-
-                    player.Status.IsWonThisCalculation = Guid.Empty;
-                    player.Status.IsLostThisCalculation = Guid.Empty;
-                    playerIamAttacking.Status.IsWonThisCalculation = Guid.Empty;
-                    playerIamAttacking.Status.IsLostThisCalculation = Guid.Empty;
-                    playerIamAttacking.Status.IsFighting = Guid.Empty;
-                    player.Status.IsFighting = Guid.Empty;
-
-                    continue;
-                }
-
-                //round 1 (contr)
-
-
-                //быстрый
-                if (playerIamAttacking.Character.GetClassStatInt() == 2)
-                {
-                    playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, "Класс: ", 2, true);
-                }
-
-                if (player.Character.GetClassStatInt() == 2)
-                {
-                    player.Character.AddExtraSkill(player.Status, "Класс: ",2, true);
-                }
-
                 //add skill
                 if (player.Status.WhoToAttackThisTurn == playerIamAttacking.Status.PlayerId)
                     switch (player.Character.GetCurrentSkillTarget())
@@ -248,6 +183,75 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             }
                             break;
                     }
+
+
+                //if block => no one gets points
+                if (playerIamAttacking.Status.IsBlock && player.Status.IsAbleToWin)
+                {
+                    // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
+
+                    var logMess = " ⟶ *Бой не состоялся (Блок)...*";
+
+                    game.AddPreviousGameLogs(logMess);
+
+                    //Спарта - никогда не теряет справедливость, атакуя в блок.
+                    if (player.Character.Name != "mylorik")
+                    {
+                        //end Спарта
+                        player.Character.Justice.AddJusticeForNextRound(-1);
+                        player.Status.AddBonusPoints(-1, "Блок: ");
+                    }
+
+                    playerIamAttacking.Character.Justice.AddJusticeForNextRound();
+
+                    _characterPassives.HandleCharacterAfterCalculations(player, game);
+                    _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
+
+                    player.Status.IsWonThisCalculation = Guid.Empty;
+                    player.Status.IsLostThisCalculation = Guid.Empty;
+                    playerIamAttacking.Status.IsWonThisCalculation = Guid.Empty;
+                    playerIamAttacking.Status.IsLostThisCalculation = Guid.Empty;
+                    playerIamAttacking.Status.IsFighting = Guid.Empty;
+                    player.Status.IsFighting = Guid.Empty;
+
+                    continue;
+                }
+
+
+                // if skip => something
+                if (playerIamAttacking.Status.IsSkip)
+                {
+                    game.SkipPlayersThisRound++;
+                    game.AddPreviousGameLogs(" ⟶ *Бой не состоялся (Скип)...*");
+
+                    _characterPassives.HandleCharacterAfterCalculations(player, game);
+                    _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
+
+                    player.Status.IsWonThisCalculation = Guid.Empty;
+                    player.Status.IsLostThisCalculation = Guid.Empty;
+                    playerIamAttacking.Status.IsWonThisCalculation = Guid.Empty;
+                    playerIamAttacking.Status.IsLostThisCalculation = Guid.Empty;
+                    playerIamAttacking.Status.IsFighting = Guid.Empty;
+                    player.Status.IsFighting = Guid.Empty;
+
+                    continue;
+                }
+
+                //round 1 (contr)
+
+
+                //быстрый
+                if (playerIamAttacking.Character.GetClassStatInt() == 2)
+                {
+                    playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, "Класс: ", 2, true);
+                }
+
+                if (player.Character.GetClassStatInt() == 2)
+                {
+                    player.Character.AddExtraSkill(player.Status, "Класс: ",2, true);
+                }
+
+
 
 
 
@@ -448,6 +452,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     }
 
                     isContrLost += 1;
+                    
                     //octopus  // playerIamAttacking is octopus
                     var check = _characterPassives.HandleOctopus(playerIamAttacking, player, game);
                     //end octopus
@@ -491,10 +496,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 switch (isContrLost)
                 {
                     case 3:
-                        player.Status.AddInGamePersonalLogs($"Поражение: {GetLostContrText(target, me)} {playerIamAttacking.DiscordUsername}\n");
+                        player.Status.AddInGamePersonalLogs($"Поражение: {playerIamAttacking.DiscordUsername} {GetLostContrText(target, me)}\n");
                         break;
                     case -3:
-                        playerIamAttacking.Status.AddInGamePersonalLogs($"Поражение: {GetLostContrText(me, target)} {player.DiscordUsername}\n");
+                        playerIamAttacking.Status.AddInGamePersonalLogs($"Поражение: {player.DiscordUsername} {GetLostContrText(me, target)}\n");
                         break;
                 }
 

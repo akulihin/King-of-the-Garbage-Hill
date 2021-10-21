@@ -90,6 +90,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     case "HardKitty":
                         _gameGlobal.HardKittyMute.Add(new HardKitty.MuteClass(player.Status.PlayerId, game.GameId));
+                        _gameGlobal.HardKittyLoneliness.Add(new HardKitty.LonelinessClass(player.Status.PlayerId, game.GameId));
                         break;
                     case "Осьминожка":
                         _gameGlobal.OctopusTentaclesList.Add(new Octopus.TentaclesClass(player.Status.PlayerId,
@@ -122,14 +123,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                         Guid enemy1;
-
                         Guid enemy2;
 
                         do
                         {
                             var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
                             enemy1 = game.PlayersList[randIndex].Status.PlayerId;
-                            if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "Вампур")
+                            if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "mylorik")
                                 enemy1 = player.Status.PlayerId;
                         } while (enemy1 == player.Status.PlayerId);
 
@@ -137,14 +137,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
                             enemy2 = game.PlayersList[randIndex].Status.PlayerId;
-                            if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "Вампур")
+                            if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "mylorik")
                                 enemy2 = player.Status.PlayerId;
                         } while (enemy2 == player.Status.PlayerId || enemy2 == enemy1);
 
-                        _gameGlobal.SpartanMark.Add(new FriendsClass(player.Status.PlayerId,
-                            game.GameId, enemy1));
-                        var Spartan = _gameGlobal.SpartanMark.Find(x =>
-                            x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                        _gameGlobal.SpartanMark.Add(new FriendsClass(player.Status.PlayerId, game.GameId, enemy1));
+                        var Spartan = _gameGlobal.SpartanMark.Find(x => x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
                         Spartan.FriendList.Add(enemy2);
 
 
@@ -308,8 +306,19 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 case "HardKitty":
                     //Одиночество
-                    target.Status.AddRegularPoints(1, "Одиночество");
-                    game.Phrases.HardKittyLonelyPhrase.SendLog(target, true);
+                    var hard = _gameGlobal.HardKittyLoneliness.Find(x => x.GameId == me.GameId &&
+                                                                         x.PlayerId == me.Status.PlayerId);
+                    if (hard != null)
+                    {
+                        if (!hard.Activated)
+                        {
+                            target.Status.AddRegularPoints(1, "Одиночество");
+                            game.Phrases.HardKittyLonelyPhrase.SendLog(target, true);
+                        }
+
+                        hard.Activated = true;
+                    }
+
                     //Одиночество
                     break;
 
@@ -390,6 +399,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (target.Character.Name == "mylorik" && !Spartan.FriendList.Contains(target.Status.PlayerId))
                     {
                         Spartan.FriendList.Add(target.Status.PlayerId);
+                        me.Character.AddPsyche(me.Status, 1, "ОН уважает военное искусство!: ");
                         target.Character.AddPsyche(target.Status, 1, "ОН уважает военное искусство!: ");
                         game.Phrases.SpartanShameMylorik.SendLog(me, false);
                     }
@@ -668,13 +678,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     case "Тигр":
 
                         //Стримснайпят и банят и банят и банят:
-                        if (game.RoundNo > 10)
-                        {
-                            player.Character.SetIntelligence(player.Status, 0, "Стримснайпят и банят и банят и банят: ", false);
-                            player.Character.SetPsyche(player.Status, 0, "Стримснайпят и банят и банят и банят: ", false);
-                            player.Character.SetStrength(player.Status, 10, "Стримснайпят и банят и банят и банят: ", false);
-                        }
-
                         if (game.RoundNo == 10)
                         {
                             player.Status.IsSkip = true;
@@ -1340,6 +1343,59 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //end training
                         break;
 
+                    case "HardKitty":
+                        //Одиночество
+                        var hard = _gameGlobal.HardKittyLoneliness.Find(x => x.GameId == player.GameId &&
+                                                                             x.PlayerId == player.Status.PlayerId);
+                        if (hard != null)
+                        {
+                            hard.Activated = false;
+                        }
+                        //Одиночество
+                        break;
+
+
+                    case "Загадочный Спартанец в маске":
+
+                        if (game.RoundNo == 2 || game.RoundNo == 4 || game.RoundNo == 6 || game.RoundNo == 8)
+                        {
+                            var Spartan = _gameGlobal.SpartanMark.Find(x => x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                            Spartan.FriendList.Clear();
+
+                            Guid enemy1;
+                            Guid enemy2;
+
+                            do
+                            {
+                                var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
+                                enemy1 = game.PlayersList[randIndex].Status.PlayerId;
+                                if (game.PlayersList[randIndex].Character.Name is "Глеб" or "mylorik")
+                                    enemy1 = player.Status.PlayerId;
+                                if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" && game.RoundNo < 4)
+                                    enemy1 = player.Status.PlayerId;
+                                if (game.PlayersList[randIndex].Character.Name is "Вампур" && game.RoundNo >= 4)
+                                    enemy1 = player.Status.PlayerId;
+                            } while (enemy1 == player.Status.PlayerId);
+
+                            do
+                            {
+                                var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
+                                enemy2 = game.PlayersList[randIndex].Status.PlayerId;
+                                if (game.PlayersList[randIndex].Character.Name is  "Глеб" or "mylorik")
+                                    enemy2 = player.Status.PlayerId;
+                                if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" && game.RoundNo < 4)
+                                    enemy1 = player.Status.PlayerId;
+                                if (game.PlayersList[randIndex].Character.Name is "Вампур" && game.RoundNo >= 4)
+                                    enemy1 = player.Status.PlayerId;
+                            } while (enemy2 == player.Status.PlayerId || enemy2 == enemy1);
+
+
+                            Spartan.FriendList.Add(enemy2);
+                            Spartan.FriendList.Add(enemy1);
+                        }
+
+
+                        break;
                     case "Mit*suki*":
 
                         //Дерзкая школота:
@@ -1550,8 +1606,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //Тигр топ, а ты холоп: 
                         if (player.Status.PlaceAtLeaderBoard == 1 && game.RoundNo > 1)
                         {
-                            player.Character.AddPsyche(player.Status, 1, "Тигр топ, а ты холоп: ");
-                            game.Phrases.TigrTop.SendLog(player, false);
+                            if (game.RoundNo != 10)
+                            {
+                                player.Character.AddPsyche(player.Status, 1, "Тигр топ, а ты холоп: ");
+                                game.Phrases.TigrTop.SendLog(player, false);
+                            }
                         }
 
                         //end Тигр топ, а ты холоп: 
@@ -1854,6 +1913,18 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             GameClass game)
         {
             if (octopusPlayer.Character.Name != "Осьминожка") return true;
+            if (playerAttackedOctopus.Character.Name == "DeepList")
+            {
+                var doubtfull = _gameGlobal.DeepListDoubtfulTactic.Find(x => x.PlayerId == playerAttackedOctopus.Status.PlayerId && x.GameId == game.GameId);
+
+                if (doubtfull != null)
+                {
+                    if (!doubtfull.FriendList.Contains(octopusPlayer.Status.PlayerId))
+                    {
+                        return true;
+                    }
+                }
+            }
 
 
             game.AddPreviousGameLogs($" ⟶ {playerAttackedOctopus.DiscordUsername}");

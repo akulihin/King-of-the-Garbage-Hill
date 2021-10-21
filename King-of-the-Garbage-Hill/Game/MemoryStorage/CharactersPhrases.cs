@@ -109,6 +109,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             SpartanTheyWontLikeIt = new PhraseClass("Им это не понравится");
 
 
+
             TigrTwoBetter = new PhraseClass("Лучше с двумя, чем с адекватными");
             TigrThreeZero = new PhraseClass("3-0 обоссан");
             TigrTop = new PhraseClass("Тигр топ, а ты холоп");
@@ -207,7 +208,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             SpartanDragonSlayer.PassiveLogRus.Add("*Oторвался от остальных на 2000 голды*");
             SpartanTheyWontLikeIt.PassiveLogRus.Add("Твой щит - ничто для моего копья!");
             SpartanTheyWontLikeIt.PassiveLogRus.Add("Настакал blackcleaver!");
-
+            SpartanTheyWontLikeIt.PassiveLogRus.Add("Мое копье создано что бы пронзить НЕБЕСА!");
 
             TigrTwoBetter.PassiveLogRus.Add("Лучше с двумя, чем с адекватными");
             TigrTwoBetter.PassiveLogRus.Add("Добро пожаловать в мой клан!");

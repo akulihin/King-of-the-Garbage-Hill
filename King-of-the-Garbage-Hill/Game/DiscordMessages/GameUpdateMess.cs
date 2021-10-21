@@ -344,7 +344,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                             customString += "1:0";
                         else if (enemy.WinsSeries == 2)
                             customString += "2:0";
-                        else if (enemy.WinsSeries == 3) customString += "3:0, обоссан";
+                        else if (enemy.WinsSeries >= 3) customString += "3:0, обоссан";
                     }
 
                     break;
@@ -605,6 +605,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                             builder.WithButton("Недостаточно очков морали", "moral", row: 0,
                                 style: ButtonStyle.Secondary, disabled: true);
                     }
+                    builder.WithButton("Завершить Игру", "end", row: 0, style: ButtonStyle.Danger); 
                     break;
                 case 2:
                     embed = LogsPage(player);

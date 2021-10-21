@@ -59,6 +59,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
 
         public readonly List<HardKitty.DoebatsyaClass> HardKittyDoebatsya = new();
         public readonly List<HardKitty.MuteClass> HardKittyMute = new();
+        public readonly List<HardKitty.LonelinessClass> HardKittyLoneliness = new();
 
         public readonly List<LeCrisp.LeCrispImpactClass> LeCrispImpact = new();
         public readonly List<LolGod.PushAndDieClass> LolGodPushAndDieSubList = new();
