@@ -306,17 +306,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 case "HardKitty":
                     //Одиночество
-                    var hard = _gameGlobal.HardKittyLoneliness.Find(x => x.GameId == me.GameId &&
-                                                                         x.PlayerId == me.Status.PlayerId);
+                    var hard = _gameGlobal.HardKittyLoneliness.Find(x => x.GameId == game.GameId && x.PlayerId == target.Status.PlayerId);
                     if (hard != null)
                     {
                         if (!hard.Activated)
                         {
                             target.Status.AddRegularPoints(1, "Одиночество");
                             game.Phrases.HardKittyLonelyPhrase.SendLog(target, true);
+                            hard.Activated = true;
                         }
-
-                        hard.Activated = true;
                     }
 
                     //Одиночество

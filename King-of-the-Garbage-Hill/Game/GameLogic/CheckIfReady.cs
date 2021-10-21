@@ -94,11 +94,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                             var enemy = awdkaTroll.EnemyList.Find(x => x.EnemyId == game.PlayersList.Find(y => y.Status.PlaceAtLeaderBoard == 1).Status.PlayerId);
 
+                            var trolledText = "";
                             if (enemy != null)
                             {
                                 var tolled = game.PlayersList.Find(x => x.Status.PlayerId == enemy.EnemyId);
 
-                                var trolledText = tolled.Character.Name switch
+                                trolledText = tolled.Character.Name switch
                                 {
                                     "DeepList" => "Лист Затроллился, хех",
                                     "mylorik" => "Лорик Затроллился, МММ!",
@@ -119,7 +120,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 };
 
                                 AWDKA.Status.AddBonusPoints((enemy.Score + 1) / 2, $"**Произошел Троллинг:** {trolledText} ");
-                                game.AddPreviousGameLogs($"**Произошел Троллинг:** {trolledText} ");
                                 game.Phrases.AwdkaTrolling.SendLog(AWDKA, true);
                             }
 
@@ -128,6 +128,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             for (var k = 0; k < game.PlayersList.Count; k++)
                                 game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
                             //end sorting
+
+                            if (enemy != null && game.PlayersList[0].Character.Name == "AWDKA")
+                            {
+                                game.AddPreviousGameLogs($"**Произошел Троллинг:** {trolledText} ");
+                            }
                         }
                         //end //trolling
                     }
