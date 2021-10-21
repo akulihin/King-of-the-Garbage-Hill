@@ -30,15 +30,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                 x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
 
-
-            if (!deep.FriendList.Contains(player.Status.IsFighting) && !game.PlayersList
-                .Find(x => x.Status.PlayerId == player.Status.IsFighting).Status.IsBlock)
+            if (deep != null)
             {
-                deep.FriendList.Add(player.Status.IsFighting);
-
-                player.Status.IsAbleToWin = false;
-                game.Phrases.DeepListDoubtfulTacticFirstLostPhrase.SendLog(player, false);
+                if (!deep.FriendList.Contains(player.Status.IsFighting))
+                {
+                    player.Status.IsAbleToWin = false;
+                }
             }
+
 
 
             //end Doubtful tactic
@@ -50,16 +49,29 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                 x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
 
+            
 
-            player.Status.IsAbleToWin = true;
-            if (deep.FriendList.Contains(player.Status.IsFighting))
-                if (player.Status.IsWonThisCalculation != Guid.Empty)
+            if (deep != null)
+            {
+                if (!deep.FriendList.Contains(player.Status.IsFighting) && player.Status.IsLostThisCalculation == player.Status.IsFighting)
                 {
-                    player.Status.AddRegularPoints(1, "Сомнительная тактика");
-                    game.Phrases.DeepListDoubtfulTacticPhrase.SendLog(player, false);
+                    player.Status.IsAbleToWin = true;
+                    deep.FriendList.Add(player.Status.IsFighting);
+                    game.Phrases.DeepListDoubtfulTacticFirstLostPhrase.SendLog(player, false);
                 }
+            }
 
-
+            if (deep != null)
+            {
+                if (deep.FriendList.Contains(player.Status.IsFighting))
+                {
+                    if (player.Status.IsWonThisCalculation != Guid.Empty)
+                    {
+                        player.Status.AddRegularPoints(1, "Сомнительная тактика");
+                        game.Phrases.DeepListDoubtfulTacticPhrase.SendLog(player, false);
+                    }
+                }
+            }
             //end Doubtful tactic
 
             // Стёб

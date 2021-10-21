@@ -568,7 +568,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 for (var i = hardIndex; i < game.PlayersList.Count - 1; i++)
                     game.PlayersList[i] = game.PlayersList[i + 1];
 
-                game.PlayersList[game.PlayersList.Count - 1] = tempHard;
+                game.PlayersList[^1] = tempHard;
             }
             //end //HardKitty unique
 

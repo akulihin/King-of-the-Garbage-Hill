@@ -33,9 +33,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             var realPlayers = game.PlayersList.FindAll(x => !x.IsBot() && !x.Status.IsReady).ToList().Count;
             if (realPlayers > 0 && game.TimePassed.Elapsed.Seconds < game.TurnLengthInSecond - timeOffest) return;
 
-            if (player.Status.MoveListPage == 1) await HandleBotAttack(player, game);
-
-            if (player.Status.MoveListPage == 3) await HandleLvlUp(player, game);
+            if (player.Status.MoveListPage == 1)
+            {
+                await HandleBotAttack(player, game);
+            }
+            if (player.Status.MoveListPage == 3)
+            {
+                await HandleLvlUpBot(player, game);
+            }
         }
 
         public async Task HandleBotAttack(GamePlayerBridgeClass bot, GameClass game)
@@ -293,11 +298,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
             //end custom behaviour After calculation Tens
 
+
+            //mandatory attack
+            var isAttacked = false;
+            if (mandatoryAttack >= 0) isAttacked = await AttackPlayer(bot, mandatoryAttack);
+
+            //block
             if (minimumRandomNumberForBlock > maximumRandomNumberForBlock)
                 maximumRandomNumberForBlock = minimumRandomNumberForBlock;
 
             var isBlockCheck = _rand.Random(minimumRandomNumberForBlock, maximumRandomNumberForBlock);
-            if (isBlockCheck > isBlock)
+            if (isBlockCheck > isBlock && !isAttacked)
             {
                 //block
                 await _gameReaction.HandleAttack(bot, null, -10);
@@ -305,8 +316,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 return;
             }
 
+            //"random" attack
             var randomNumber = _rand.Random(1, maxRandomNumber);
-
 
             var player1 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 1);
             var player2 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 2);
@@ -316,10 +327,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             var player6 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 6);
 
             int whoToAttack;
-            var isAttacked = false;
-
-
-            if (mandatoryAttack >= 0) isAttacked = await AttackPlayer(bot, mandatoryAttack);
 
             if (randomNumber <= player1.AttackPreference && !isAttacked)
             {
@@ -379,57 +386,63 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         }
 
 
-        public async Task HandleLvlUp(GamePlayerBridgeClass player, GameClass game)
+        public async Task HandleLvlUpBot(GamePlayerBridgeClass player, GameClass game)
         {
-            int skillNumber;
 
-            var intelligence = player.Character.GetIntelligence();
-            var strength = player.Character.GetStrength();
-            var speed = player.Character.GetSpeed();
-            var psyche = player.Character.GetPsyche();
+            do
+            {
+                int skillNumber;
 
-            var stats = new List<BiggestStatClass>
-            {
-                new(1, intelligence),
-                new(2, strength),
-                new(3, speed),
-                new(4, psyche)
-            };
+                var intelligence = player.Character.GetIntelligence();
+                var strength = player.Character.GetStrength();
+                var speed = player.Character.GetSpeed();
+                var psyche = player.Character.GetPsyche();
 
-            stats = stats.OrderByDescending(x => x.StatCount).ToList();
+                var stats = new List<BiggestStatClass>
+                {
+                    new(1, intelligence),
+                    new(2, strength),
+                    new(3, speed),
+                    new(4, psyche)
+                };
 
-            if (stats[1].StatCount < 7)
-            {
-                skillNumber = stats[1].StatIndex;
-            }
-            else if (stats[0].StatCount < 10)
-            {
-                skillNumber = stats[0].StatIndex;
-            }
-            else if (stats[1].StatCount < 10)
-            {
-                skillNumber = stats[1].StatIndex;
-            }
-            else if (stats[2].StatCount < 10)
-            {
-                skillNumber = stats[2].StatIndex;
-            }
-            else if (stats[3].StatCount < 10)
-            {
-                skillNumber = stats[3].StatIndex;
-            }
-            else
-            {
-                player.Status.MoveListPage = 1;
-                return;
-            }
+                stats = stats.OrderByDescending(x => x.StatCount).ToList();
 
-            if (player.Character.Name == "LeCrisp" && strength < 10) skillNumber = 2;
-            if (player.Character.Name == "Darksci" && psyche < 10) skillNumber = 4;
-            if (player.Character.Name == "Тигр" && psyche < 10 && game.RoundNo <= 6) skillNumber = 4;
+                if (stats[1].StatCount < 7)
+                {
+                    skillNumber = stats[1].StatIndex;
+                }
+                else if (stats[0].StatCount < 10)
+                {
+                    skillNumber = stats[0].StatIndex;
+                }
+                else if (stats[1].StatCount < 10)
+                {
+                    skillNumber = stats[1].StatIndex;
+                }
+                else if (stats[2].StatCount < 10)
+                {
+                    skillNumber = stats[2].StatIndex;
+                }
+                else if (stats[3].StatCount < 10)
+                {
+                    skillNumber = stats[3].StatIndex;
+                }
+                else
+                {
+                    player.Status.MoveListPage = 1;
+                    return;
+                }
 
-            await _gameReaction.HandleLvlUp(player, null, skillNumber);
+                if (player.Character.Name == "LeCrisp" && strength < 10) skillNumber = 2;
+                if (player.Character.Name == "Darksci" && psyche < 10) skillNumber = 4;
+                if (player.Character.Name == "Тигр" && psyche < 10 && game.RoundNo <= 6) skillNumber = 4;
+
+                await _gameReaction.HandleLvlUp(player, null, skillNumber);
+            } while (player.Status.LvlUpPoints > 1);
+
             player.Status.MoveListPage = 1;
+
         }
 
         public class BiggestStatClass

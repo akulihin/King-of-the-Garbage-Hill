@@ -540,7 +540,24 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 .AddOption("Скорость", "3")
                 .AddOption("Психика", "4");
 
+
             var builder = new ComponentBuilder();
+
+
+            //Да всё нахуй эту игру Part #4
+            if (game.RoundNo == 9 && player.Character.GetPsyche() == 4 && player.Character.Name == "Darksci")
+            {
+                charMenu = new SelectMenuBuilder()
+                    .WithMinValues(1)
+                    .WithMaxValues(1)
+                    .WithCustomId("char-select")
+                    .WithPlaceholder("\"Выбор\" прокачки")
+                    .AddOption("Психика", "4");
+                await _helperFunctions.SendMsgAndDeleteItAfterRound(player, "Riot Games: бери smite и не выебывайся");
+            }
+            //end Да всё нахуй эту игру: Part #4
+
+            
 
             switch (player.Status.MoveListPage)
             {
@@ -588,8 +605,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                             builder.WithButton("Недостаточно очков морали", "moral", row: 0,
                                 style: ButtonStyle.Secondary, disabled: true);
                     }
-
-                    builder.WithButton("Завершить Игру", "end", row: 0, style: ButtonStyle.Danger);
                     break;
                 case 2:
                     embed = LogsPage(player);
@@ -598,6 +613,14 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 case 3:
                     embed = LvlUpPage(player);
                     builder = new ComponentBuilder().WithSelectMenu(charMenu);
+
+                    //Да всё нахуй эту игру Part #5
+                    if (game.RoundNo == 9 && player.Character.GetPsyche() == 4 && player.Character.Name == "Darksci")
+                    {
+                        builder.WithButton("Riot style \"choice\"", "crutch", row: 1, style: ButtonStyle.Secondary, disabled: true);
+                    }
+                    //end Да всё нахуй эту игру: Part #5
+
                     break;
             }
 

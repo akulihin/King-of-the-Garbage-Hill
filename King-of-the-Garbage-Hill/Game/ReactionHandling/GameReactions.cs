@@ -149,8 +149,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 }
         }
 
-        public async Task HandleLvlUp(GamePlayerBridgeClass player, SocketMessageComponent button,
-    int botChoice = -1)
+        public async Task HandleLvlUp(GamePlayerBridgeClass player, SocketMessageComponent button, int botChoice = -1)
         {
             var emoteNum = !player.IsBot() ? Convert.ToInt32(string.Join("", button.Data.Values)) : botChoice;
             await GetLvlUp(player, emoteNum);
@@ -346,28 +345,25 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             }
             else
             {
-                player.Status.MoveListPage = 1; 
-
+                player.Status.MoveListPage = 1;
             }
             //end awdka
 
 
 
-            
+            // Darksci
             var game = _global.GamesList.Find(x => x.GameId == player.GameId);
             if (player.Character.Name == "Darksci")
             {
 
                 if (game.RoundNo == 9)
                 {
-                    //Дизмораль
-                    game.Phrases.DarksciDysmoral.SendLog(player, true);
-                    game.AddPreviousGameLogs($"{player.DiscordUsername}: Всё, у меня горит!");
+                    //Дизмораль Part #2
                     player.Character.AddPsyche(player.Status, -4, "Дизмораль: ");
-                    //end Дизмораль
+                    //end Дизмораль Part #2
                 }
 
-                //Да всё нахуй эту игру:
+                //Да всё нахуй эту игру: Part #2
                 if (game.RoundNo == 9 || game.RoundNo == 7 || game.RoundNo == 5 || game.RoundNo == 3)
                     if (player.Character.GetPsyche() <= 0)
                     {
@@ -377,13 +373,10 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         player.Status.IsReady = true;
                         player.Status.WhoToAttackThisTurn = Guid.Empty;
                         game.Phrases.DarksciFuckThisGame.SendLog(player, true);
-
-                        if (game.RoundNo == 9 ||
-                            game.RoundNo == 10 && !game.GetAllGameLogs().Contains("Нахуй эту игру"))
-                            game.AddPreviousGameLogs($"{player.DiscordUsername}: Нахуй эту игру..");
                     }
-                //end Да всё нахуй эту игру:
+                //end Да всё нахуй эту игру: Part #2
             }
+            //end Darksci
 
             _upd.UpdateMessage(player);
             await Task.CompletedTask;
