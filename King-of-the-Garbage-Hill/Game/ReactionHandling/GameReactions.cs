@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
@@ -143,11 +144,128 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             await HandleAttack(player, button);
                             _upd.UpdateMessage(player);
                             break;
+                        
+                        case "predict-1":
+                            await HandlePredic1(player, button);
+                            break;
+
+                        case "predict-2":
+                            HandlePredic2(player, button);
+                            break;
                     }
 
                     return;
                 }
         }
+
+
+        public async Task HandlePredic1(GamePlayerBridgeClass player, SocketMessageComponent button)
+        {
+
+            var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+            var builder = new ComponentBuilder();
+            
+            var predictMenu = new SelectMenuBuilder()
+                .WithMinValues(1)
+                .WithMaxValues(1)
+                .WithCustomId("predict-2")
+                .WithPlaceholder(string.Join("", button.Data.Values) + " это...");
+
+            var allCharacters = new List<string> {
+                "DeepList",
+                "mylorik",
+                "Глеб",
+                "LeCrisp",
+                "Толя",
+                "HardKitty",
+                "Sirinoks",
+                "Mit*suki*",
+                "AWDKA",
+                "Осьминожка",
+                "Darksci",
+                "Тигр",
+                "Братишка",
+                "Загадочный Спартанец в маске",
+                "Вампур"
+            };
+            
+            var i = 0;
+            predictMenu.AddOption("Предыдущие меню", "prev-page");
+            //predictMenu.AddOption("Очистить", "empty");
+            foreach (var character in allCharacters)
+            {
+                i++;
+                predictMenu.AddOption(character, string.Join("", button.Data.Values) + "||spb||" + character);
+            }
+
+
+            builder.WithButton(_upd.GetBlockButton(player, game), 0);
+            builder.WithButton(_upd.GetMoralButton(player, game), 0);
+            builder.WithButton(_upd.GetEndGameButton(), 0);
+            builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
+            builder.WithSelectMenu(predictMenu, 2);
+
+
+            await button.Message.ModifyAsync(message =>
+            {
+                message.Components = builder.Build();
+            });
+
+        }
+
+        public async Task HandlePredic2(GamePlayerBridgeClass player, SocketMessageComponent button)
+        {
+
+            var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+            var builder = new ComponentBuilder();
+            var embed = new EmbedBuilder();
+
+
+            embed = _upd.FightPage(player);
+            embed.WithFooter($"{_upd.GetTimeLeft(player)} |{embed.Length}|");
+
+            builder.WithButton(_upd.GetBlockButton(player, game), 0);
+            builder.WithButton(_upd.GetMoralButton(player, game), 0);
+            builder.WithButton(_upd.GetEndGameButton(), 0);
+            builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
+            builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 2);
+
+            var splitted = string.Join("", button.Data.Values).Split("||spb||");
+
+            if (splitted[0] == "prev-page")
+            {
+                await button.Message.ModifyAsync(message =>
+                {
+                    message.Embed = embed.Build();
+                    message.Components = builder.Build();
+                });
+                return;
+            }
+
+            var predictedPlayerUsername = splitted[0];
+            var predictedCharacterName = splitted[1];
+            var predictedPlayerId = game.PlayersList.Find(x => x.DiscordUsername == predictedPlayerUsername).Status.PlayerId;
+
+            var predicted = player.Predict.Find(x => x.PlayerId == predictedPlayerId);
+
+            if (predicted == null)
+            {
+                player.Predict.Add(new PredictClass(predictedCharacterName, predictedPlayerId));
+            }
+            else
+            {
+                predicted.CharacterName = predictedCharacterName;
+            }
+
+
+            embed = _upd.FightPage(player);
+            await button.Message.ModifyAsync(message =>
+            {
+                message.Embed = embed.Build();
+                message.Components = builder.Build();
+            });
+        }
+
 
         public async Task HandleLvlUp(GamePlayerBridgeClass player, SocketMessageComponent button, int botChoice = -1)
         {

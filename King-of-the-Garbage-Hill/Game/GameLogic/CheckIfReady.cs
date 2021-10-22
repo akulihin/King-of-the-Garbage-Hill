@@ -71,8 +71,19 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var game = games[i];
 
 
+                    
+
                 if (game.RoundNo == 11)
                 {
+
+                    //predict
+                    foreach (var player in from player in game.PlayersList from predict in player.Predict let enemy = game.PlayersList.Find(x => x.Status.PlayerId == predict.PlayerId) where enemy.Character.Name == predict.CharacterName select player)
+                    {
+                        player.Status.AddBonusPoints(4, "Предположение: ");
+                    }
+
+                    //
+
                     //sort
                     game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
                     for (var k = 0; k < game.PlayersList.Count; k++)
@@ -273,6 +284,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             await _upd.UpdateMessage(t);
                             if (game.RoundNo <= 10)
                                 await _help.SendMsgAndDeleteItAfterRound(t, $"Раунд #{game.RoundNo}");
+                            if (game.RoundNo == 8)
+                                await _help.SendMsgAndDeleteItAfterRound(t, $"Это последний раунд, когда можно сделать **предложение**!");
+
                         }
                     }
                     catch (Exception f)
