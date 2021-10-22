@@ -203,7 +203,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             builder.WithButton(_upd.GetMoralButton(player, game), 0);
             builder.WithButton(_upd.GetEndGameButton(), 0);
             builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
-            builder.WithSelectMenu(predictMenu, 2);
+            builder.WithButton(_upd.GetPlaceHolderButton(), 2);
+            builder.WithSelectMenu(predictMenu, 3);
 
 
             await button.Message.ModifyAsync(message =>
@@ -228,7 +229,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             builder.WithButton(_upd.GetMoralButton(player, game), 0);
             builder.WithButton(_upd.GetEndGameButton(), 0);
             builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
-            builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 2);
+            builder.WithButton(_upd.GetPlaceHolderButton(), 2);
+            builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 3);
 
             var splitted = string.Join("", button.Data.Values).Split("||spb||");
 

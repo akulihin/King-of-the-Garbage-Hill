@@ -79,9 +79,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //predict
                     foreach (var player in from player in game.PlayersList from predict in player.Predict let enemy = game.PlayersList.Find(x => x.Status.PlayerId == predict.PlayerId) where enemy.Character.Name == predict.CharacterName select player)
                     {
-                        player.Status.AddBonusPoints(4, "Предположение: ");
+                        player.Status.AddBonusPoints(3, "Предположение: ");
                     }
-
                     //
 
                     //sort

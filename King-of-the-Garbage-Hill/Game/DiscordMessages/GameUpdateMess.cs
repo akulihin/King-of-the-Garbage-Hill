@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
@@ -360,21 +361,18 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
 
             if (game.RoundNo == 11)
-            {
                 customString += $" (as **{other.Character.Name}**) = {other.Status.GetScore()} Score";
-            }
 
             if (me.UserType == "admin")
             {
                 customString += $" (as **{other.Character.Name}**) = {other.Status.GetScore()} Score";
-                customString += $" (I: {other.Character.GetIntelligence()} | St: {other.Character.GetStrength()} | Sp: {other.Character.GetSpeed()} | Ps: {other.Character.GetPsyche()})";
+                customString +=
+                    $" (I: {other.Character.GetIntelligence()} | St: {other.Character.GetStrength()} | Sp: {other.Character.GetSpeed()} | Ps: {other.Character.GetPsyche()})";
             }
 
             var predicted = me.Predict.Find(x => x.PlayerId == other.Status.PlayerId);
             if (predicted != null)
-            {
                 customString += $"<:e_:562879579694301184>|<:e_:562879579694301184>{predicted.CharacterName} ?";
-            }
 
             return customString;
         }
@@ -389,6 +387,12 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             //  await socketMsg.DeleteAsync();
             await globalAccount.SendMessageAsync("Спасибо за игру!");
+        }
+
+        private static IEnumerable<string> Split(string str, int chunkSize)
+        {
+            return Enumerable.Range(0, str.Length / chunkSize)
+                .Select(i => str.Substring(i * chunkSize, chunkSize));
         }
 
         //Page 1
@@ -420,41 +424,66 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var desc = game.GetGlobalLogs();
 
-            embed.WithDescription(desc.Replace(player.DiscordUsername,
-                $"**{player.DiscordUsername}**"));
-
-            if (desc.Length >= 2048)
-                _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
-                    .SendMessageAsync("PreviousGameLogs >= 2048");
-
-            embed.AddField("**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**",
-                $"**Интеллект:** {character.GetIntelligenceString()}\n" +
-                $"**Сила:** {character.GetStrengthString()}\n" +
-                $"**Скорость:** {character.GetSpeedString()}\n" +
-                $"**Психика:** {character.GetPsycheString()}\n" +
-                "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                $"*Справедливость: **{character.Justice.GetJusticeNow()}***\n" +
-                $"*Мораль: {character.GetMoral()}*\n" +
-                $"*Скилл: {character.GetSkill()} (Мишень: **{character.GetCurrentSkillTarget()}**)*\n" +
-                $"*Класс:* {character.GetClassStatString()}\n" +
-                "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                $"Множитель очков: **X{multiplier}**\n" +
-                "<:e_:562879579694301184>\n" +
-                $"{LeaderBoard(player)}");
+            embed.WithDescription($"{desc.Replace(player.DiscordUsername, $"**{player.DiscordUsername}**")}" +
+                                  "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
+                                  $"**Интеллект:** {character.GetIntelligenceString()}\n" +
+                                  $"**Сила:** {character.GetStrengthString()}\n" +
+                                  $"**Скорость:** {character.GetSpeedString()}\n" +
+                                  $"**Психика:** {character.GetPsycheString()}\n" +
+                                  "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
+                                  $"*Справедливость: **{character.Justice.GetJusticeNow()}***\n" +
+                                  $"*Мораль: {character.GetMoral()}*\n" +
+                                  $"*Скилл: {character.GetSkill()} (Мишень: **{character.GetCurrentSkillTarget()}**)*\n" +
+                                  $"*Класс:* {character.GetClassStatString()}\n" +
+                                  "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
+                                  $"Множитель очков: **X{multiplier}**\n" +
+                                  "<:e_:562879579694301184>\n" +
+                                  $"{LeaderBoard(player)}");
 
 
             var splitLogs = player.Status.InGamePersonalLogsAll.Split("|||");
             if (game != null && splitLogs.Length > 1 && splitLogs[^2].Length > 3 && game.RoundNo > 1)
-                embed.AddField("События прошлого раунда:",
-                    $"{splitLogs[^2]}");
+            {
+                if (splitLogs[^2].Length < 1000)
+                {
+                    embed.AddField("События прошлого раунда:", $"{splitLogs[^2]}");
+                }
+                else
+                {
+                    var text = splitLogs[^2];
+                    var splittedText = Split(text, 1000);
+                    var i = 0;
+                    foreach (var splitted in splittedText)
+                    {
+                        i++;
+                        embed.AddField($"События прошлого раунда Часть #{i}:", splitted);
+                    }
+                }
+            }
             else
+            {
                 embed.AddField("События прошлого раунда:",
-                    "В прошлом раунде ничего не произошло. Странно...\n<:e_:562879579694301184>");
+                    "В прошлом раунде ничего не произошло. Странно...");
+            }
 
-            embed.AddField("События этого раунда:",
-                player.Status.GetInGamePersonalLogs().Length >= 2
-                    ? $"{player.Status.GetInGamePersonalLogs()}"
-                    : "Еще ничего не произошло. Наверное...");
+            if (player.Status.GetInGamePersonalLogs().Length <= 1000)
+            {
+                embed.AddField("События этого раунда:",
+                    player.Status.GetInGamePersonalLogs().Length >= 2
+                        ? $"{player.Status.GetInGamePersonalLogs()}"
+                        : "Еще ничего не произошло. Наверное...");
+            }
+            else
+            {
+                var text = player.Status.GetInGamePersonalLogs();
+                var splittedText = Split(text, 1000);
+                var i = 0;
+                foreach (var splitted in splittedText)
+                {
+                    i++;
+                    embed.AddField($"События этого раунда Часть #{i}:", splitted);
+                }
+            }
 
             if (character.Avatar != null)
                 embed.WithThumbnailUrl(character.Avatar);
@@ -553,7 +582,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     var playerToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == i + 1);
                     if (playerToAttack == null) continue;
                     if (playerToAttack.DiscordId != player.DiscordId)
-                        predictMenu.AddOption(playerToAttack.DiscordUsername + " это...", playerToAttack.DiscordUsername,
+                        predictMenu.AddOption(playerToAttack.DiscordUsername + " это...",
+                            playerToAttack.DiscordUsername,
                             emote: _playerChoiceAttackList[i]);
                 }
 
@@ -597,19 +627,20 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         {
             var disabled = game is not {RoundNo: <= 10};
             var extraText = "";
-            if (game.RoundNo == 10)
-            {
-                extraText = " (Конец игры)";
-            }
+            if (game.RoundNo == 10) extraText = " (Конец игры)";
 
             if (player.Character.GetMoral() >= 15)
-                return new ButtonBuilder($"Обменять 15 Морали на 15 бонусных очков{extraText}", "moral", ButtonStyle.Secondary, disabled: disabled);
+                return new ButtonBuilder($"Обменять 15 Морали на 15 бонусных очков{extraText}", "moral",
+                    ButtonStyle.Secondary, disabled: disabled);
             if (player.Character.GetMoral() >= 10)
-                return new ButtonBuilder($"Обменять 10 Морали на 8 бонусных очков{extraText}", "moral", ButtonStyle.Secondary, disabled: disabled);
+                return new ButtonBuilder($"Обменять 10 Морали на 8 бонусных очков{extraText}", "moral",
+                    ButtonStyle.Secondary, disabled: disabled);
             if (player.Character.GetMoral() >= 5)
-                return new ButtonBuilder($"Обменять 5 Морали на 2 бонусных очка{extraText}", "moral", ButtonStyle.Secondary, disabled: disabled);
+                return new ButtonBuilder($"Обменять 5 Морали на 2 бонусных очка{extraText}", "moral",
+                    ButtonStyle.Secondary, disabled: disabled);
             if (player.Character.GetMoral() >= 3)
-                return new ButtonBuilder($"Обменять 3 Морали на 1 бонусное очко{extraText}", "moral", ButtonStyle.Secondary, disabled: disabled);
+                return new ButtonBuilder($"Обменять 3 Морали на 1 бонусное очко{extraText}", "moral",
+                    ButtonStyle.Secondary, disabled: disabled);
             return new ButtonBuilder("Недостаточно очков морали", "moral", ButtonStyle.Secondary, disabled: true);
         }
 
@@ -617,12 +648,17 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         public ButtonBuilder GetBlockButton(GamePlayerBridgeClass player, GameClass game)
         {
             var playerIsReady = player.Status.IsSkip || player.Status.IsReady || game.RoundNo > 10;
-            return new ButtonBuilder("Блок", "block", style: ButtonStyle.Success, disabled: playerIsReady);
+            return new ButtonBuilder("Блок", "block", ButtonStyle.Success, disabled: playerIsReady);
         }
 
         public ButtonBuilder GetEndGameButton()
         {
-            return new ButtonBuilder("Завершить Игру", "end", style: ButtonStyle.Danger);
+            return new("Завершить Игру", "end", ButtonStyle.Danger);
+        }
+
+        public ButtonBuilder GetPlaceHolderButton()
+        {
+            return new("Братишка валяется почему-то...", "boole", ButtonStyle.Secondary, disabled: true, emote: Emote.Parse("<a:bratishka:900962522276958298>"));
         }
 
 
@@ -639,11 +675,12 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 case 1:
                     embed = FightPage(player);
                     builder = new ComponentBuilder();
-                    builder.WithButton(GetBlockButton(player, game), 0);
-                    builder.WithButton(GetMoralButton(player, game), 0);
-                    builder.WithButton(GetEndGameButton(), 0);
+                    builder.WithButton(GetBlockButton(player, game));
+                    builder.WithButton(GetMoralButton(player, game));
+                    builder.WithButton(GetEndGameButton());
                     builder.WithSelectMenu(GetAttackMenu(player, game), 1);
-                    builder.WithSelectMenu(GetPredictMenu(player, game), 2);
+                    builder.WithButton(GetPlaceHolderButton(), 2);
+                    builder.WithSelectMenu(GetPredictMenu(player, game), 3);
                     break;
                 case 2:
                     embed = LogsPage(player);
