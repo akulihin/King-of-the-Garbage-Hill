@@ -131,7 +131,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                             if (enemy != null && game.PlayersList[0].Character.Name == "AWDKA")
                             {
-                                game.AddPreviousGameLogs($"**Произошел Троллинг:** {trolledText} ");
+                                game.AddGlobalLogs($"**Произошел Троллинг:** {trolledText} ");
                             }
                         }
                         //end //trolling
@@ -147,7 +147,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                     game.WhoWon = game.PlayersList[0].Status.PlayerId;
-                    game.AddPreviousGameLogs(
+                    game.AddGlobalLogs(
                         game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList[0].Status.GetScore())
                             .Count > 1
                             ? "\n**Ничья**"
@@ -263,7 +263,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     _help.DeleteItAfterRound(player);
                 }
 
-                await _round.DeepListMind(game);
+                await _round.CalculateAllFights(game);
 
                 foreach (var t in players)
                     try
@@ -278,7 +278,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     catch (Exception f)
                     {
                         await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
-                            .SendMessageAsync("CheckIfEveryoneIsReady ==>  await _round.DeepListMind(game);\n" +
+                            .SendMessageAsync("CheckIfEveryoneIsReady ==>  await _round.CalculateAllFights(game);\n" +
                                               $"{f.StackTrace}");
                     }
 

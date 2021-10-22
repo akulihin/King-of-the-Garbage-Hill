@@ -120,7 +120,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         {
             var roundNumber = game.RoundNo;
 
-
+            //Подсчет
             if (game.PlayersList.Any(x => x.Character.Name == "Толя"))
             {
                 var tolyaAcc = game.PlayersList.Find(x => x.Character.Name == "Толя");
@@ -132,13 +132,9 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == PlayerId))
                 {
                     roundNumber = 1;
-
-                    if (game.PlayersList.Any(x => x.Status.PlayerId == PlayerId && x.Character.Name == "Глеб"))
-                        if (gameGlobal.GlebChallengerTriggeredWhen.Any(x => x.WhenToTrigger.Contains(game.RoundNo)))
-                            phrase.TolyaCountReadyPhrase.SendLog(game.PlayersList.Find(x => x.Character.Name == "Глеб"), false);
                 }
             }
-
+            //end Подсчет
 
             AddScore(GetScoresToGiveAtEndOfRound(), roundNumber);
             SetScoresToGiveAtEndOfRound(0, "", false);

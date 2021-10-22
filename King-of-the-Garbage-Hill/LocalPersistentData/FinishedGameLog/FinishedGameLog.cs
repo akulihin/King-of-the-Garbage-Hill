@@ -43,7 +43,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.FinishedGameLog
                     player.Status.GetScore(), player.Character.GetIntelligence(), player.Character.GetStrength(),
                     player.Character.GetSpeed(), player.Character.GetPsyche(), player.Status.InGamePersonalLogsAll));
 
-            var log = new GameLogsClass(game.GameId, game.WhoWon, playerList, game.GetAllGameLogs());
+            var log = new GameLogsClass(game.GameId, game.WhoWon, playerList, game.GetAllGlobalLogs());
             AddLog(log);
         }
     }

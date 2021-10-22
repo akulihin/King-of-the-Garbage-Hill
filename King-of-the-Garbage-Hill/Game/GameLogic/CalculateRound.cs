@@ -55,7 +55,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         }
 
         //пристрій судного дня
-        public async Task DeepListMind(GameClass game)
+        public async Task CalculateAllFights(GameClass game)
         {
             _logs.Critical("");
             _logs.Info($"calculating game #{game.GameId}, round #{game.RoundNo}");
@@ -76,8 +76,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             5-9 х2
             10  х4
              */
-            game.AddGameLogs($"\n__**Раунд #{roundNumber}**__:\n\n");
-            game.SetPreviousGameLogs($"\n__**Раунд #{roundNumber}**__:\n\n");
+       
+            game.SetGlobalLogs($"\n__**Раунд #{roundNumber}**__:\n\n");
 
 
             foreach (var player in game.PlayersList)
@@ -129,17 +129,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 await _characterPassives.HandleCharacterWithKnownEnemyBeforeCalculations(player, game);
                 await _characterPassives.HandleCharacterWithKnownEnemyBeforeCalculations(playerIamAttacking, game);
-                //т.е. он получил урон, какие у него дебаффы на этот счет 
-                await _characterPassives.HandleEveryAttackOnHim(playerIamAttacking, player, game);
-                //т.е. я его аттакую, какие у меня бонусы на это
-                await _characterPassives.HandleEveryAttackFromMe(player, playerIamAttacking, game);
+                await _characterPassives.HandleEveryDefence(playerIamAttacking, player, game);
+                await _characterPassives.HandleEveryAttack(player, playerIamAttacking, game);
 
 
                 if (!player.Status.IsAbleToWin) pointsWined = -50;
                 if (!playerIamAttacking.Status.IsAbleToWin) pointsWined = 50;
 
 
-                game.AddPreviousGameLogs(
+                game.AddGlobalLogs(
                     $"{player.DiscordUsername} <:war:561287719838547981> {playerIamAttacking.DiscordUsername}",
                     "");
 
@@ -192,7 +190,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     var logMess = " ⟶ *Бой не состоялся (Блок)...*";
 
-                    game.AddPreviousGameLogs(logMess);
+                    game.AddGlobalLogs(logMess);
 
                     //Спарта - никогда не теряет справедливость, атакуя в блок.
                     if (player.Character.Name != "mylorik")
@@ -222,7 +220,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (playerIamAttacking.Status.IsSkip)
                 {
                     game.SkipPlayersThisRound++;
-                    game.AddPreviousGameLogs(" ⟶ *Бой не состоялся (Скип)...*");
+                    game.AddGlobalLogs(" ⟶ *Бой не состоялся (Скип)...*");
 
                     _characterPassives.HandleCharacterAfterCalculations(player, game);
                     _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
@@ -408,7 +406,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     }
 
                     isContrLost -= 1;
-                    game.AddPreviousGameLogs($" ⟶ {player.DiscordUsername}");
+                    game.AddGlobalLogs($" ⟶ {player.DiscordUsername}");
 
                     //еврей
                     var point = _characterPassives.HandleJewPassive(player, game);
@@ -459,7 +457,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     if (check)
                     {
-                        game.AddPreviousGameLogs($" ⟶ {playerIamAttacking.DiscordUsername}");
+                        game.AddGlobalLogs($" ⟶ {playerIamAttacking.DiscordUsername}");
 
                         playerIamAttacking.Status.AddRegularPoints(1, "Победа");
 
@@ -485,10 +483,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                 //т.е. он получил урон, какие у него дебаффы на этот счет 
-                await _characterPassives.HandleEveryAttackOnHimAfterCalculations(playerIamAttacking, player, game);
+                await _characterPassives.HandleEveryDefenceAfterCalculations(playerIamAttacking, player, game);
 
                 //т.е. я его аттакую, какие у меня бонусы на это
-                await _characterPassives.HandleEveryAttackFromMeAfterCalculations(player, playerIamAttacking, game);
+                await _characterPassives.HandleEveryAttackAfterCalculations(player, playerIamAttacking, game);
 
                 //TODO: merge top 2 methods and 2 below... they are the same... or no?
 
@@ -666,11 +664,12 @@ I: 1 | St: 9 | Sp: 9 | Ps: 1
             return 2;
         }
 
+
         public void SortGameLogs(GameClass game)
         {
             var sortedGameLogs = "";
             var extraGameLogs = "\n";
-            var logsSplit = game.GetPreviousGameLogs().Split("\n").ToList();
+            var logsSplit = game.GetGlobalLogs().Split("\n").ToList();
             logsSplit.RemoveAll(x => x.Length <= 2);
             sortedGameLogs += $"{logsSplit[0]}\n";
             logsSplit.RemoveAt(0);
@@ -707,7 +706,7 @@ I: 1 | St: 9 | Sp: 9 | Ps: 1
                     }
 
             sortedGameLogs += extraGameLogs;
-            game.SetPreviousGameLogs(sortedGameLogs);
+            game.SetGlobalLogs(sortedGameLogs);
         }
     }
 }

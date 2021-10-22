@@ -404,7 +404,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
 
-            var desc = game.GetPreviousGameLogs();
+            var desc = game.GetGlobalLogs();
 
             embed.WithDescription(desc.Replace(player.DiscordUsername,
                 $"**{player.DiscordUsername}**"));
@@ -457,7 +457,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var embed = new EmbedBuilder();
             embed.WithTitle("Логи");
-            embed.WithDescription(game.GetAllGameLogs());
+            embed.WithDescription(game.GetAllGlobalLogs());
             embed.WithColor(Color.Green);
             embed.WithFooter($"{GetTimeLeft(player)}");
             embed.WithCurrentTimestamp();
@@ -477,7 +477,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var embed = new EmbedBuilder();
 
-            var desc = _global.GamesList.Find(x => x.GameId == player.GameId).GetPreviousGameLogs();
+            var desc = _global.GamesList.Find(x => x.GameId == player.GameId).GetGlobalLogs();
             if (desc == null)
                 return null;
             embed.WithDescription(desc.Replace(player.DiscordUsername,

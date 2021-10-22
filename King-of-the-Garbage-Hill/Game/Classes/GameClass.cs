@@ -16,8 +16,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             TurnLengthInSecond = turnLengthInSecond;
             TimePassed = new Stopwatch();
             GameStatus = 1;
-            GameLogs = "";
-            PreviousGameLogs =
+            AllGameGlobalLogs = "";
+            GlobalLogs =
                 "<:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567>\n\n" +
                 "Сервер игры<:e_:562879579694301184>- https://discord.gg/EpzznDgTe7\n" +
                 "Правила <:e_:562879579694301184> <:e_:562879579694301184>- <#561293853076881409>\n" +
@@ -28,7 +28,6 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 "\n\n<:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567>\n";
             WhoWon = Guid.Empty;
             IsCheckIfReady = true;
-            IsPause = false;
             SkipPlayersThisRound = 0;
         }
 
@@ -39,9 +38,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public Stopwatch TimePassed { get; set; }
         public int GameStatus { get; set; }
         public CharactersUniquePhrase Phrases { get; set; }
-
-    public bool IsPause { get; set; }
-
+       
         public bool IsCheckIfReady { get; set; }
 
         /*
@@ -49,37 +46,31 @@ namespace King_of_the_Garbage_Hill.Game.Classes
          * 2 - Counting
          * 3 - End
          */
-        private string GameLogs { get; set; }
+        private string AllGameGlobalLogs { get; set; }
 
         public int SkipPlayersThisRound { get; set; }
-        private string PreviousGameLogs { get; set; }
+        private string GlobalLogs { get; set; }
         public Guid WhoWon { get; set; }
 
-        public void AddPreviousGameLogs(string str, string newLine = "\n", bool isAddItTooAllGameLogs = true)
+        public void AddGlobalLogs(string str, string newLine = "\n")
         {
-            PreviousGameLogs += str + newLine;
-            if (isAddItTooAllGameLogs)
-                GameLogs += str + newLine;
+            GlobalLogs += str + newLine;
+            AllGameGlobalLogs += str + newLine;
         }
 
-        public void AddGameLogs(string str)
+        public string GetGlobalLogs()
         {
-            GameLogs += str;
+            return GlobalLogs;
         }
 
-        public string GetPreviousGameLogs()
+        public string GetAllGlobalLogs()
         {
-            return PreviousGameLogs;
+            return AllGameGlobalLogs;
         }
 
-        public string GetAllGameLogs()
+        public void SetGlobalLogs(string str)
         {
-            return GameLogs;
-        }
-
-        public void SetPreviousGameLogs(string str)
-        {
-            PreviousGameLogs = str;
+            GlobalLogs = str;
         }
     }
 }

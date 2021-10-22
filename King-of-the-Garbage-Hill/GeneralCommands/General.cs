@@ -372,9 +372,9 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     {
                         game.Phrases.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"), true);
                         if (playersList.Any(x => x.Character.Name == "mylorik"))
-                            game.AddPreviousGameLogs(
+                            game.AddGlobalLogs(
                                 " \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
-                                "\n\n", false);
+                                "\n\n");
                     }
                     //end vampyr unique
 
@@ -596,9 +596,9 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             {
                 game.Phrases.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"), true);
                 if (playersList.Any(x => x.Character.Name == "mylorik"))
-                    game.AddPreviousGameLogs(
+                    game.AddGlobalLogs(
                         " \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
-                        "\n\n", false);
+                        "\n\n");
             }
             //end vampyr unique
 
@@ -696,9 +696,9 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             {
                 game.Phrases.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"), true);
                 if (playersList.Any(x => x.Character.Name == "mylorik"))
-                    game.AddPreviousGameLogs(
+                    game.AddGlobalLogs(
                         " \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
-                        "\n\n", false);
+                        "\n\n");
             }
             //end vampyr unique
 

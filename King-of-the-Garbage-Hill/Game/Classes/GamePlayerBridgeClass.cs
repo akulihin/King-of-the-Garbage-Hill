@@ -25,7 +25,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public void MinusPsycheLog(GameClass game)
         {
-            game.AddPreviousGameLogs($"\n{DiscordUsername} психанул");
+            game.AddGlobalLogs($"\n{DiscordUsername} психанул");
         }
     }
 }
