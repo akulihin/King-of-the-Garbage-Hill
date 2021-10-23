@@ -58,8 +58,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var embed = new EmbedBuilder();
             embed.WithColor(Color.DarkOrange);
-            if (player.Character.Avatar != null)
-                embed.WithImageUrl(player.Character.Avatar);
+            //if (player.Character.Avatar != null)
+           //     embed.WithImageUrl(player.Character.Avatar);
             embed.AddField("Твой Персонаж:", $"Name: {player.Character.Name}\n" +
                                              $"Интеллект: {player.Character.GetIntelligence()}\n" +
                                              $"Сила: {player.Character.GetStrength()}\n" +
@@ -67,8 +67,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                                              $"Психика: {player.Character.GetPsyche()}\n");
             embed.AddField("Пассивки", $"{pass}");
             
-            if(player.Character.Description.Length > 1)
-                embed.WithDescription(player.Character.Description);
+            //if(player.Character.Description.Length > 1)
+            //    embed.WithDescription(player.Character.Description);
 
 
             await user.SendMessageAsync("", false, embed.Build());
@@ -540,13 +540,44 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         public SelectMenuBuilder GetAttackMenu(GamePlayerBridgeClass player, GameClass game)
         {
             var playerIsReady = player.Status.IsSkip || player.Status.IsReady || game.RoundNo > 10;
+            var placeHolder = "Выбрать цель";
+
+            if (player.Status.IsSkip)
+            {
+                placeHolder = "Что-то заставило тебя скипнуть...";
+            }
+
+            if (player.Status.IsBlock)
+            {
+                placeHolder = "Ты поставил блок!";
+            }
+
+            if (game.RoundNo > 10)
+            {
+                placeHolder = "gg wp";
+            }
+
+            if (player.Status.IsReady)
+            {
+                var target = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
+                if (target != null)
+                {
+                    placeHolder = $"Ты напал на {target.DiscordUsername}";
+                }
+            }
+
+            if (!player.Status.CanSelectAttack)
+            {
+                playerIsReady = true;
+                placeHolder = "Подтвердите свои предложение перед атакой!";
+            }
 
             var attackMenu = new SelectMenuBuilder()
                 .WithMinValues(1)
                 .WithMaxValues(1)
                 .WithCustomId("attack-select")
                 .WithDisabled(playerIsReady)
-                .WithPlaceholder("Выбор цели");
+                .WithPlaceholder(placeHolder);
 
 
             if (game != null)
@@ -569,7 +600,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 .WithMaxValues(1)
                 .WithCustomId("predict-1")
                 .WithDisabled(game.RoundNo >= 9)
-                .WithPlaceholder("Предположение");
+                .WithPlaceholder("Сделать предположение");
 
             if (game != null)
                 for (var i = 0; i < _playerChoiceAttackList.Count; i++)
@@ -651,10 +682,19 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             return new("Завершить Игру", "end", ButtonStyle.Danger);
         }
 
-        public ButtonBuilder GetPlaceHolderButton()
+        public ButtonBuilder GetPlaceHolderButton(GamePlayerBridgeClass player, GameClass game)
         {
-            return new("Братишка валяется почему-то...", "boole", ButtonStyle.Secondary, disabled: true, emote:
-                Emote.Parse("<a:bratishka:900962522276958298>"));
+            if (!player.Status.CanSelectAttack)
+            {
+                return new("Я подтверждаю свои предположения", "confirm-prefict", ButtonStyle.Primary, disabled: false, emote:
+                    Emote.Parse("<a:bratishka:900962522276958298>"));
+            }
+            else
+            {
+                return new("Братишка валяется почему-то...", "boole", ButtonStyle.Secondary, disabled: true, emote:
+                    Emote.Parse("<a:bratishka:900962522276958298>"));
+            }
+
         }
 
 
@@ -675,7 +715,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     builder.WithButton(GetMoralButton(player, game));
                     builder.WithButton(GetEndGameButton());
                     builder.WithSelectMenu(GetAttackMenu(player, game), 1);
-                    builder.WithButton(GetPlaceHolderButton(), 2);
+                    builder.WithButton(GetPlaceHolderButton(player, game), 2);
                     builder.WithSelectMenu(GetPredictMenu(player, game), 3);
                     break;
                 case 2:

@@ -34,6 +34,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             WhoToLostEveryRound = new List<WhoToLostPreviousRoundClass>();
             PlayerId = Guid.NewGuid();
             KnownPlayerClass = new List<KnownPlayerClassClass>();
+            CanSelectAttack = true;
         }
 
         public int MoveListPage { get; set; }
@@ -65,7 +66,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public string ScoreSource { get; set; }
         public List<WhoToLostPreviousRoundClass> WhoToLostEveryRound { get; set; }
         public List<KnownPlayerClassClass> KnownPlayerClass { get; set; }
-
+        public bool CanSelectAttack { get; set; }
 
         public void AddInGamePersonalLogs(string str)
         {

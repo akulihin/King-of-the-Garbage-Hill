@@ -1650,7 +1650,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //Вампуризм
                         var vampyr = _gameGlobal.VampyrHematophagiaList.Find(x => x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
                         if(vampyr.Hematophagia.Count > 0)
-                            player.Character.AddMoral(player.Status, vampyr.Hematophagia.Count, "Вампуризм: ", true);
+                            if(game.RoundNo == 3 || game.RoundNo == 6 || game.RoundNo == 9)
+                                player.Character.AddMoral(player.Status, vampyr.Hematophagia.Count, "Вампуризм: ", true);
                         //end Вампуризм
                         break;
                 }

@@ -53,6 +53,29 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                     switch (button.Data.CustomId)
                     {
+                        case "confirm-prefict":
+                            player.Status.CanSelectAttack = true;
+                            var builder = new ComponentBuilder();
+                            var embed = new EmbedBuilder();
+                            var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+
+
+                            embed = _upd.FightPage(player);
+                            embed.WithFooter($"{_upd.GetTimeLeft(player)} |{embed.Length}|");
+
+                            builder.WithButton(_upd.GetBlockButton(player, game), 0);
+                            builder.WithButton(_upd.GetMoralButton(player, game), 0);
+                            builder.WithButton(_upd.GetEndGameButton(), 0);
+                            builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
+                            builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
+                            builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 3);
+                            await button.Message.ModifyAsync(message =>
+                            {
+                                message.Embed = embed.Build();
+                                message.Components = builder.Build();
+                            });
+                            break;
+                            
 
 
                         case "end":
@@ -203,7 +226,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             builder.WithButton(_upd.GetMoralButton(player, game), 0);
             builder.WithButton(_upd.GetEndGameButton(), 0);
             builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
-            builder.WithButton(_upd.GetPlaceHolderButton(), 2);
+            builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
             builder.WithSelectMenu(predictMenu, 3);
 
 
@@ -229,7 +252,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             builder.WithButton(_upd.GetMoralButton(player, game), 0);
             builder.WithButton(_upd.GetEndGameButton(), 0);
             builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
-            builder.WithButton(_upd.GetPlaceHolderButton(), 2);
+            builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
             builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 3);
 
             var splitted = string.Join("", button.Data.Values).Split("||spb||");

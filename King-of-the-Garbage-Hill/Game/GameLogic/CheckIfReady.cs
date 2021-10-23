@@ -303,12 +303,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     {
                         if (t.Status.SocketMessageFromBot != null)
                         {
-                            await _upd.UpdateMessage(t);
+                            
                             if (game.RoundNo <= 10)
                                 await _help.SendMsgAndDeleteItAfterRound(t, $"Раунд #{game.RoundNo}");
                             if (game.RoundNo == 8)
+                            {
+                                t.Status.CanSelectAttack = false;
                                 await _help.SendMsgAndDeleteItAfterRound(t, $"Это последний раунд, когда можно сделать **предложение**!");
+                            }
 
+                            await _upd.UpdateMessage(t);
                         }
                     }
                     catch (Exception f)
