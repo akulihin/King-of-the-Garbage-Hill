@@ -66,7 +66,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                                              $"Скорость: {player.Character.GetSpeed()}\n" +
                                              $"Психика: {player.Character.GetPsyche()}\n");
             embed.AddField("Пассивки", $"{pass}");
-            embed.WithDescription(player.Character.Description);
+            
+            if(player.Character.Description.Length > 1)
+                embed.WithDescription(player.Character.Description);
 
 
             await user.SendMessageAsync("", false, embed.Build());
@@ -214,13 +216,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                     break;
                 case "Вампур":
-                    var vamp = _gameGlobal.VampyrKilledList.Find(x =>
-                        x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
-
-                    if (vamp != null)
-                        if (!vamp.FriendList.Contains(other.Status.PlayerId) &&
-                            other.Status.PlayerId != me.Status.PlayerId)
-                            customString += " <:Y_:562885385395634196>";
+                    var vamp = _gameGlobal.VampyrHematophagiaList.Find(x => x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
+                    var target = vamp.Hematophagia.Find(x => x.EnemyId == other.Status.PlayerId);
+                    if (target != null)
+                        customString += " <:Y_:562885385395634196>";
                     break;
 
                 case "HardKitty":
@@ -452,15 +451,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                 if (player.PlayerType == 0)
                 {
-                    foreach (var p in game.PlayersList)
-                    {
-                        if (p.Status.PlayerId == player.Status.PlayerId)
-                            continue;
-                        foreach (var passive in p.Character.Passive)
-                        {
-                            text = text.Replace($"{passive.PassiveName}", "❓");
-                        }
-                    }
+                    text = game.PlayersList.Where(p => p.Status.PlayerId != player.Status.PlayerId).Aggregate(text, (current1, p) => p.Character.Passive.Aggregate(current1, (current, passive) => current.Replace($"{passive.PassiveName}", "❓")));
                 }
 
 

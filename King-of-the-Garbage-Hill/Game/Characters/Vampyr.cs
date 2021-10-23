@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
@@ -26,151 +27,156 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public void HandleVampyrAfter(GamePlayerBridgeClass player, GameClass game)
         {
-            //Падальщик
-            var enemy = game.PlayersList.Find(x =>
-                x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
-
-            if (enemy != null)
-                if (enemy.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
-                    enemy.Character.Justice.SetJusticeNow(enemy.Status, enemy.Character.Justice.GetJusticeNow() + 1, "Падальщик: ", true);
-            //end Падальщик
-
             //Гематофагия
+
+            var vampyr = _gameGlobal.VampyrHematophagiaList.Find(x => x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+            
             if (player.Status.IsWonThisCalculation != Guid.Empty)
             {
-                var vamp = _gameGlobal.VampyrKilledList.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
-
-                if (!vamp.FriendList.Contains(player.Status.IsWonThisCalculation))
+                var target = vampyr.Hematophagia.Find(x => x.EnemyId == player.Status.IsWonThisCalculation);
+                if (target == null)
                 {
-                    vamp.FriendList.Add(player.Status.IsWonThisCalculation);
-                    // player.Status.AddBonusPoints();
+                    var statIndex = 0;
 
-                    for (var i = 0; i < 2; i++)
+                    var found = false;
+                    while (!found)
                     {
-                        var index = _rand.Random(1, 4);
-
-                        switch (index)
+                        statIndex = _rand.Random(1, 4);
+                        switch (statIndex)
                         {
                             case 1:
-                                var intel = player.Character.GetIntelligence();
-                                if (intel >= 10)
+                                if (player.Character.GetIntelligence() < 10)
                                 {
-                                    i--;
-                                    continue;
+                                    player.Character.AddIntelligence(player.Status, 2, "Гематофагия: ");
+                                    found = true;
                                 }
-
-                                player.Character.AddIntelligence(player.Status,1,   "Гематофагия: ");
                                 break;
                             case 2:
-                                intel = player.Character.GetStrength();
-                                if (intel >= 10)
+                                if (player.Character.GetStrength() < 10)
                                 {
-                                    i--;
-                                    continue;
+                                    player.Character.AddStrength(player.Status, 2, "Гематофагия: ");
+                                    found = true;
                                 }
-
-                                player.Character.AddStrength(player.Status, 1, "Гематофагия: ");
                                 break;
                             case 3:
-                                intel = player.Character.GetSpeed();
-                                if (intel >= 10)
+                                if (player.Character.GetSpeed() < 10)
                                 {
-                                    i--;
-                                    continue;
+                                    player.Character.AddSpeed(player.Status, 2, "Гематофагия: ");
+                                    found = true;
                                 }
-
-                                player.Character.AddSpeed(player.Status, 1, "Гематофагия: ");
                                 break;
                             case 4:
-                                intel = player.Character.GetPsyche();
-                                if (intel >= 10)
+                                if (player.Character.GetPsyche() < 10)
                                 {
-                                    i--;
-                                    continue;
+                                    player.Character.AddPsyche(player.Status, 2, "Гематофагия: ");
+                                    found = true;
                                 }
-
-                                player.Character.AddPsyche(player.Status, 1, "Гематофагия: ");
                                 break;
                         }
                     }
+
+                    vampyr.Hematophagia.Add(new HematophagiaSubClass(statIndex, player.Status.IsWonThisCalculation));
                 }
             }
-            else if (player.Status.IsLostThisCalculation != Guid.Empty)
+            
+            if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
-                var vamp = _gameGlobal.VampyrKilledList.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
-                var flag = false;
-                player.Status.AddBonusPoints(-1, "Гематофагия: ");
+                var target = vampyr.Hematophagia.Find(x => x.EnemyId == player.Status.IsLostThisCalculation);
 
-                if (vamp.FriendList.Contains(player.Status.IsLostThisCalculation))
+                if (target != null)
                 {
-                    vamp.FriendList.Remove(player.Status.IsLostThisCalculation);
-                    flag = true;
-                }
-                else if (vamp.FriendList.Count > 0)
-                {
-                    vamp.FriendList.RemoveAt(_rand.Random(0, vamp.FriendList.Count - 1));
-                    flag = true;
-                }
-
-                if (flag)
-                    for (var k = 0; k < 2; k++)
-                    for (var i = 0; i < 1; i++)
+                    vampyr.Hematophagia.Remove(target);
+                    switch (target.StatIndex)
                     {
-                        var index = _rand.Random(1, 4);
+                        case 1:
+                            player.Character.AddIntelligence(player.Status, -2, "СОсиновый кол: ");
+                            break;
+                        case 2:
+                            player.Character.AddStrength(player.Status, -2, "СОсиновый кол: ");
+                            break;
+                        case 3:
+                            player.Character.AddSpeed(player.Status, -2, "СОсиновый кол: ");
+                            break;
+                        case 4:
+                            player.Character.AddPsyche(player.Status, -2, "СОсиновый кол: ");
+                            break;
+                    }
 
-                        switch (index)
+                }
+                else
+                {
+                    if (vampyr.Hematophagia.Count > 0)
+                    {
+                        var randomIndex = _rand.Random(0, vampyr.Hematophagia.Count - 1);
+                        target = vampyr.Hematophagia[randomIndex];
+                        vampyr.Hematophagia.Remove(target);
+                        switch (target.StatIndex)
                         {
                             case 1:
-                                var intel = player.Character.GetIntelligence();
-                                if (intel <= 0)
-                                {
-                                    i--;
-                                    continue;
-                                }
-
-                                player.Character.AddIntelligence(player.Status, -1, "Гематофагия: ");
+                                player.Character.AddIntelligence(player.Status, -2, "Гематофагия: ");
                                 break;
                             case 2:
-                                intel = player.Character.GetStrength();
-                                if (intel <= 0)
-                                {
-                                    i--;
-                                    continue;
-                                }
-
-                                player.Character.AddStrength(player.Status, -1, "Гематофагия: ");
+                                player.Character.AddStrength(player.Status, -2, "Гематофагия: ");
                                 break;
                             case 3:
-                                intel = player.Character.GetSpeed();
-                                if (intel <= 0)
-                                {
-                                    i--;
-                                    continue;
-                                }
-
-                                player.Character.AddSpeed(player.Status, -1, "Гематофагия: ");
+                                player.Character.AddSpeed(player.Status, -2, "Гематофагия: ");
                                 break;
                             case 4:
-                                intel = player.Character.GetPsyche();
-                                if (intel <= 0)
-                                {
-                                    i--;
-                                    continue;
-                                }
-
-                                player.Character.AddPsyche(player.Status, -1, "Гематофагия: ");
+                                player.Character.AddPsyche(player.Status, -2, "Гематофагия: ");
                                 break;
                         }
+
                     }
+                }
+
             }
             //end Гематофагия
 
 
-            //Осиновый кол
 
-            //end Осиновый кол
+        }
+
+        public class ScavengerClass
+        {
+            public ulong GameId;
+            public Guid PlayerId;
+            public Guid EnemyId = Guid.Empty;
+            public int EnemyJustice = 0;
+
+            public ScavengerClass(Guid playerId, ulong gameId)
+            {
+                PlayerId = playerId;
+                GameId = gameId;
+            }
+        }
+
+
+
+        public class HematophagiaClass
+        {
+            public ulong GameId;
+            public Guid PlayerId;
+            public List<HematophagiaSubClass> Hematophagia = new();
+
+            public HematophagiaClass(Guid playerId, ulong gameId)
+            {
+                PlayerId = playerId;
+                GameId = gameId;
+            }
+        }
+
+        public class HematophagiaSubClass
+        {
+            public int StatIndex;
+      
+            public Guid EnemyId;
+
+
+            public HematophagiaSubClass(int statIndex, Guid enemyId)
+            {
+                StatIndex = statIndex;
+                EnemyId = enemyId;
+            }
         }
     }
 }

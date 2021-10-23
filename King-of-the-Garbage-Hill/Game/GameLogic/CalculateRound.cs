@@ -34,20 +34,25 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             await Task.CompletedTask;
         }
 
-        public string GetLostContrText(CharacterClass me, CharacterClass target)
+        public string GetLostContrText(GamePlayerBridgeClass me, GamePlayerBridgeClass target)
         {
-            if (me.GetClassStatInt() == 0 && target.GetClassStatInt() == 2)
+
+
+            if (me.Character.GetClassStatInt() == 0 && target.Character.GetClassStatInt() == 2)
             {
+                target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Умный** ?) "));
                 return "вас обманул";
             }
 
-            if (me.GetClassStatInt() == 1 && target.GetClassStatInt() == 0)
+            if (me.Character.GetClassStatInt() == 1 && target.Character.GetClassStatInt() == 0)
             {
+                target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Сильный** ?) "));
                 return "вас пресанул";
             }
 
-            if (me.GetClassStatInt() == 2 && target.GetClassStatInt() == 1)
+            if (me.Character.GetClassStatInt() == 2 && target.Character.GetClassStatInt() == 1)
             {
+                target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Быстрый** ?) "));
                 return "вас обогнал";
             }
 
@@ -94,7 +99,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //if block => no one gets points, and no redundant playerAttacked variable
                 if (player.Status.IsBlock || player.Status.IsSkip)
                 {
-                    _characterPassives.HandleCharacterAfterCalculations(player, game);
+                    _characterPassives.HandleCharacterAfterSingleCalculation(player, game);
                     player.Status.IsWonThisCalculation = Guid.Empty;
                     player.Status.IsLostThisCalculation = Guid.Empty;
                     player.Status.IsFighting = Guid.Empty;
@@ -105,7 +110,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //This is a bug!
                 if (playerIamAttacking == null)
                 {
-                    _characterPassives.HandleCharacterAfterCalculations(player, game);
+                    _characterPassives.HandleCharacterAfterSingleCalculation(player, game);
                     player.Status.IsWonThisCalculation = Guid.Empty;
                     player.Status.IsLostThisCalculation = Guid.Empty;
                     player.Status.IsFighting = Guid.Empty;
@@ -202,8 +207,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     playerIamAttacking.Character.Justice.AddJusticeForNextRound();
 
-                    _characterPassives.HandleCharacterAfterCalculations(player, game);
-                    _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
+                    _characterPassives.HandleCharacterAfterSingleCalculation(player, game);
+                    _characterPassives.HandleCharacterAfterSingleCalculation(playerIamAttacking, game);
 
                     player.Status.IsWonThisCalculation = Guid.Empty;
                     player.Status.IsLostThisCalculation = Guid.Empty;
@@ -223,8 +228,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     game.AddGlobalLogs(" ⟶ *Бой не состоялся (Скип)...*");
 
 
-                    _characterPassives.HandleCharacterAfterCalculations(player, game);
-                    _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
+                    _characterPassives.HandleCharacterAfterSingleCalculation(player, game);
+                    _characterPassives.HandleCharacterAfterSingleCalculation(playerIamAttacking, game);
 
                     player.Status.IsWonThisCalculation = Guid.Empty;
                     player.Status.IsLostThisCalculation = Guid.Empty;
@@ -495,16 +500,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 switch (isContrLost)
                 {
                     case 3:
-                        player.Status.AddInGamePersonalLogs($"Поражение: {playerIamAttacking.DiscordUsername} {GetLostContrText(target, me)}\n");
+                        player.Status.AddInGamePersonalLogs($"Поражение: {playerIamAttacking.DiscordUsername} {GetLostContrText(playerIamAttacking, player)}\n");
                         break;
                     case -3:
-                        playerIamAttacking.Status.AddInGamePersonalLogs($"Поражение: {player.DiscordUsername} {GetLostContrText(me, target)}\n");
+                        playerIamAttacking.Status.AddInGamePersonalLogs($"Поражение: {player.DiscordUsername} {GetLostContrText(player, playerIamAttacking)}\n");
                         break;
                 }
 
-                _characterPassives.HandleCharacterAfterCalculations(player, game);
+                _characterPassives.HandleCharacterAfterSingleCalculation(player, game);
 
-                _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
+                _characterPassives.HandleCharacterAfterSingleCalculation(playerIamAttacking, game);
                 await _characterPassives.HandleEventsAfterEveryBattle(game); //used only for shark...
 
                 player.Status.IsWonThisCalculation = Guid.Empty;

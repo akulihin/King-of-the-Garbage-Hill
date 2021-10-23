@@ -102,7 +102,9 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public readonly List<Tolya.TolyaCountClass> TolyaCount = new();
         public readonly List<FriendsClass> TolyaRammusTimes = new();
         public readonly List<Tolya.TolyaTalkedlClass> TolyaTalked = new();
-        public readonly List<FriendsClass> VampyrKilledList = new();
+        public readonly List<Vampyr.HematophagiaClass> VampyrHematophagiaList = new();
+        public readonly List<Vampyr.ScavengerClass> VampyrScavengerList = new();
+
 
         public InGameGlobal(SecureRandom rand)
         {

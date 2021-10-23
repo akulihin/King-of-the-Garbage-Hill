@@ -471,7 +471,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
 
 
-            // Darksci
+            //Дизмораль
             var game = _global.GamesList.Find(x => x.GameId == player.GameId);
             if (player.Character.Name == "Darksci")
             {
@@ -496,7 +496,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     }
                 //end Да всё нахуй эту игру: Part #2
             }
-            //end Darksci
+            //end Дизмораль
 
             _upd.UpdateMessage(player);
             await Task.CompletedTask;

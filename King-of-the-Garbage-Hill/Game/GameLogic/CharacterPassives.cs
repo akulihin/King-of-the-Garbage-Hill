@@ -107,8 +107,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         _gameGlobal.LolGodUdyrList.Add(new LolGod.Udyr(player.Status.PlayerId, game.GameId));
                         break;
                     case "Вампур":
-                        _gameGlobal.VampyrKilledList.Add(new FriendsClass(player.Status.PlayerId,
-                            game.GameId));
+                        _gameGlobal.VampyrHematophagiaList.Add(new Vampyr.HematophagiaClass(player.Status.PlayerId, game.GameId));
+                        _gameGlobal.VampyrScavengerList.Add(new Vampyr.ScavengerClass(player.Status.PlayerId, game.GameId));
                         break;
                     case "Sirinoks":
                         _gameGlobal.SirinoksFriendsList.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
@@ -522,6 +522,186 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //end Научите играть
 
                     break;
+                case "Вампур":
+
+                    //Падальщик
+                    if (target.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
+                    {
+                        var scavenger = _gameGlobal.VampyrScavengerList.Find(x => x.PlayerId == me.Status.PlayerId && x.GameId == game.GameId);
+                        scavenger.EnemyId = target.Status.PlayerId;
+                        scavenger.EnemyJustice = target.Character.Justice.GetJusticeNow();
+                        target.Character.Justice.AddJusticeNow(- 1);
+                    }
+                    //end Падальщик
+                    break;
+            }
+
+            await Task.CompletedTask;
+        }
+
+
+
+        public async Task HandleEveryDefenceAfterCalculations(GamePlayerBridgeClass target,
+            GamePlayerBridgeClass me, GameClass game)
+        {
+            var characterName = target.Character.Name;
+
+
+            switch (characterName)
+            {
+                case "LeCrisp":
+                    //Гребанные ассассин
+                    if (me.Character.GetStrength() - target.Character.GetStrength() >= 2
+                        && !target.Status.IsBlock
+                        && !target.Status.IsSkip)
+                        target.Status.IsAbleToWin = true;
+                    //end Гребанные ассассин
+                    break;
+                case "HardKitty":
+                    //Mute passive
+                    if (target.Status.IsLostThisCalculation != Guid.Empty)
+                    {
+                        var hardKitty = _gameGlobal.HardKittyMute.Find(x =>
+                            x.PlayerId == target.Status.PlayerId &&
+                            x.GameId == game.GameId);
+
+
+                        if (!hardKitty.UniquePlayers.Contains(me.Status.PlayerId))
+                        {
+                            hardKitty.UniquePlayers.Add(me.Status.PlayerId);
+                            me.Status.AddRegularPoints(1, "Mute");
+                            game.Phrases.HardKittyMutedPhrase.SendLog(target, false);
+                        }
+                    }
+
+                    //Mute passive end
+                    break;
+            }
+
+            await Task.CompletedTask;
+        }
+
+
+        public async Task HandleEveryAttackAfterCalculations(GamePlayerBridgeClass me,
+            GamePlayerBridgeClass target, GameClass game)
+        {
+            var characterName = me.Character.Name;
+
+
+            switch (characterName)
+            {
+                case "Загадочный Спартанец в маске":
+
+                    //Им это не понравится:
+                    var spartanMark =
+                        _gameGlobal.SpartanMark.Find(x => x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
+                    if (spartanMark != null)
+                        if (target.Status.IsBlock && spartanMark.FriendList.Contains(target.Status.PlayerId))
+                        {
+                            target.Status.IsAbleToWin = true;
+                            target.Status.IsBlock = true;
+                        }
+                    //end Им это не понравится:
+
+                    //DragonSlayer:
+                    if (game.RoundNo == 10)
+                        if (target.Character.Name == "Sirinoks")
+                            target.Status.IsAbleToWin = true;
+                    //end DragonSlayer
+
+                    break;
+                case "Бог ЛоЛа":
+                    _gameGlobal.LolGodUdyrList.Find(x =>
+                            x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId)
+                        .EnemyPlayerId = target.Status.PlayerId;
+                    game.Phrases.SecondСommandmentBan.SendLog(me, false);
+                    break;
+                case "Вампур":
+                    //Падальщик
+                    if (target.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
+                    {
+                        var scavenger = _gameGlobal.VampyrScavengerList.Find(x => x.PlayerId == me.Status.PlayerId && x.GameId == game.GameId);
+
+                        if (scavenger.EnemyId == target.Status.PlayerId)
+                        {
+                            target.Character.Justice.SetJusticeNow(target.Status, scavenger.EnemyJustice, "Падальщик: ", false);
+                            scavenger.EnemyId = Guid.Empty;
+                            scavenger.EnemyJustice = 0;
+                        }
+                    }
+                    //end Падальщик
+
+                    //Вампуризм
+                    if (me.Status.IsWonThisCalculation == target.Status.PlayerId)
+                    {
+                        me.Character.Justice.AddJusticeForNextRound(target.Character.Justice.GetJusticeNow());
+                    }
+                    //Вампуризм
+
+                    break;
+
+
+                case "Осьминожка":
+                    //Неуязвимость
+                    if (me.Status.IsLostThisCalculation != Guid.Empty)
+                    {
+                        var octo = _gameGlobal.OctopusInvulnerabilityList.Find(x =>
+                            x.GameId == me.GameId &&
+                            x.PlayerId == me.Status.PlayerId);
+
+                        if (octo == null)
+                            _gameGlobal.OctopusInvulnerabilityList.Add(
+                                new Octopus.InvulnerabilityClass(me.Status.PlayerId, game.GameId));
+                        else
+                            octo.Count++;
+                    }
+                    //end Неуязвимость
+
+                    break;
+
+                case "Sirinoks":
+
+                    //Заводить друзей
+                    var siriAttack = _gameGlobal.SirinoksFriendsAttack.Find(x =>
+                        x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
+
+                    if (siriAttack != null)
+                        if (siriAttack.EnemyId == target.Status.PlayerId)
+                        {
+                            if (siriAttack.IsSkip)
+                                target.Status.IsSkip = true;
+
+                            if (siriAttack.IsBlock)
+                                target.Status.IsBlock = true;
+
+                            siriAttack.EnemyId = Guid.Empty;
+                            siriAttack.IsBlock = false;
+                            siriAttack.IsSkip = false;
+                        }
+
+                    //end Заводить друзей
+                    break;
+
+                case "Darksci":
+                    //Повезло
+                    var darscsi = _gameGlobal.DarksciLuckyList.Find(x =>
+                        x.GameId == me.GameId &&
+                        x.PlayerId == me.Status.PlayerId);
+
+                    if (!darscsi.TouchedPlayers.Contains(target.Status.PlayerId))
+                        darscsi.TouchedPlayers.Add(target.Status.PlayerId);
+
+                    if (darscsi.TouchedPlayers.Count == game.PlayersList.Count - 1 && darscsi.Triggered == false)
+                    {
+                        me.Status.AddBonusPoints(me.Status.GetScore() * 3, "Повезло: ");
+
+                        me.Character.AddPsyche(me.Status, 2, "Повезло: ");
+                        darscsi.Triggered = true;
+                        game.Phrases.DarksciLucky.SendLog(me, true);
+                    }
+                    //end Повезло
+
+                    break;
             }
 
             await Task.CompletedTask;
@@ -557,7 +737,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         }
 
 
-        public void HandleCharacterAfterCalculations(GamePlayerBridgeClass player, GameClass game)
+        public void HandleCharacterAfterSingleCalculation(GamePlayerBridgeClass player, GameClass game)
         {
             //TODO: test it
             //Подсчет
@@ -1466,6 +1646,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //end Много выебывается:
 
                         break;
+                    case "Вампур":
+                        //Вампуризм
+                        var vampyr = _gameGlobal.VampyrHematophagiaList.Find(x => x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                        if(vampyr.Hematophagia.Count > 0)
+                            player.Character.AddMoral(player.Status, vampyr.Hematophagia.Count, "Вампуризм: ", true);
+                        //end Вампуризм
+                        break;
                 }
             }
 
@@ -1474,156 +1661,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         //end общие говно
 
-
-        public async Task HandleEveryDefenceAfterCalculations(GamePlayerBridgeClass target,
-            GamePlayerBridgeClass me, GameClass game)
-        {
-            var characterName = target.Character.Name;
-
-
-            switch (characterName)
-            {
-                case "LeCrisp":
-                    //Гребанные ассассин
-                    if (me.Character.GetStrength() - target.Character.GetStrength() >= 2
-                        && !target.Status.IsBlock
-                        && !target.Status.IsSkip)
-                        target.Status.IsAbleToWin = true;
-                    //end Гребанные ассассин
-                    break;
-                case "HardKitty":
-                    //Mute passive
-                    if (target.Status.IsLostThisCalculation != Guid.Empty)
-                    {
-                        var hardKitty = _gameGlobal.HardKittyMute.Find(x =>
-                            x.PlayerId == target.Status.PlayerId &&
-                            x.GameId == game.GameId);
-
-
-                        if (!hardKitty.UniquePlayers.Contains(me.Status.PlayerId))
-                        {
-                            hardKitty.UniquePlayers.Add(me.Status.PlayerId);
-                            me.Status.AddRegularPoints(1, "Mute");
-                            game.Phrases.HardKittyMutedPhrase.SendLog(target, false);
-                        }
-                    }
-
-                    //Mute passive end
-                    break;
-            }
-
-            await Task.CompletedTask;
-        }
-
-
-        public async Task HandleEveryAttackAfterCalculations(GamePlayerBridgeClass me,
-            GamePlayerBridgeClass target, GameClass game)
-        {
-            var characterName = me.Character.Name;
-
-
-            switch (characterName)
-            {
-                case "Загадочный Спартанец в маске":
-
-                    //Им это не понравится:
-                    var spartanMark =
-                        _gameGlobal.SpartanMark.Find(x => x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
-                    if (spartanMark != null)
-                        if (target.Status.IsBlock && spartanMark.FriendList.Contains(target.Status.PlayerId))
-                        {
-                            target.Status.IsAbleToWin = true;
-                            target.Status.IsBlock = true;
-                        }
-                    //end Им это не понравится:
-
-                    //DragonSlayer:
-                    if (game.RoundNo == 10)
-                        if (target.Character.Name == "Sirinoks")
-                            target.Status.IsAbleToWin = true;
-                    //end DragonSlayer
-
-                    break;
-                case "Бог ЛоЛа":
-                    _gameGlobal.LolGodUdyrList.Find(x =>
-                            x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId)
-                        .EnemyPlayerId = target.Status.PlayerId;
-                    game.Phrases.SecondСommandmentBan.SendLog(me, false);
-                    break;
-                case "Вампур":
-                    //Вампуризм
-                    if (me.Status.IsWonThisCalculation != Guid.Empty)
-                        me.Character.Justice.SetJusticeForNextRound(target.Character.Justice
-                            .GetJusticeForNextRound());
-                    //end   Вампуризм
-                    break;
-
-
-                case "Осьминожка":
-                    //Неуязвимость
-                    if (me.Status.IsLostThisCalculation != Guid.Empty)
-                    {
-                        var octo = _gameGlobal.OctopusInvulnerabilityList.Find(x =>
-                            x.GameId == me.GameId &&
-                            x.PlayerId == me.Status.PlayerId);
-
-                        if (octo == null)
-                            _gameGlobal.OctopusInvulnerabilityList.Add(
-                                new Octopus.InvulnerabilityClass(me.Status.PlayerId, game.GameId));
-                        else
-                            octo.Count++;
-                    }
-                    //end Неуязвимость
-
-                    break;
-
-                case "Sirinoks":
-
-                    //Заводить друзей
-                    var siriAttack = _gameGlobal.SirinoksFriendsAttack.Find(x =>
-                        x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
-
-                    if (siriAttack != null)
-                        if (siriAttack.EnemyId == target.Status.PlayerId)
-                        {
-                            if (siriAttack.IsSkip)
-                                target.Status.IsSkip = true;
-
-                            if (siriAttack.IsBlock)
-                                target.Status.IsBlock = true;
-
-                            siriAttack.EnemyId = Guid.Empty;
-                            siriAttack.IsBlock = false;
-                            siriAttack.IsSkip = false;
-                        }
-
-                    //end Заводить друзей
-                    break;
-
-                case "Darksci":
-                    //Повезло
-                    var darscsi = _gameGlobal.DarksciLuckyList.Find(x =>
-                        x.GameId == me.GameId &&
-                        x.PlayerId == me.Status.PlayerId);
-
-                    if (!darscsi.TouchedPlayers.Contains(target.Status.PlayerId))
-                        darscsi.TouchedPlayers.Add(target.Status.PlayerId);
-
-                    if (darscsi.TouchedPlayers.Count == game.PlayersList.Count - 1 && darscsi.Triggered == false)
-                    {
-                        me.Status.AddBonusPoints(me.Status.GetScore() * 3, "Повезло: ");
-
-                        me.Character.AddPsyche(me.Status, 2, "Повезло: ");
-                        darscsi.Triggered = true;
-                        game.Phrases.DarksciLucky.SendLog(me, true);
-                    }
-                    //end Повезло
-
-                    break;
-            }
-
-            await Task.CompletedTask;
-        }
 
 
         public void HandleNextRoundAfterSorting(GameClass game)
@@ -1876,17 +1913,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 case "DeepList":
                     await _deepList.HandleDeepListTactics(player, game);
-                    break;
-
-                case "Вампур":
-                    //Падальщик
-                    var enemy = game.PlayersList.Find(x =>
-                        x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
-                    if (enemy != null)
-                        if (enemy.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
-                            enemy.Character.Justice.SetJusticeNow(enemy.Status,
-                                enemy.Character.Justice.GetJusticeNow() - 1, "Падальщик: ", false);
-                    //end Падальщик
                     break;
             }
 
