@@ -26,7 +26,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public async Task HandleDeepListTactics(GamePlayerBridgeClass player, GameClass game)
         {
-            //Doubtful tactic
+            //Сомнительная тактика
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                 x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
 
@@ -40,12 +40,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
 
 
-            //end Doubtful tactic
+            //end Сомнительная тактика
             await Task.CompletedTask;
         }
 
         public void HandleDeepListAfter(GamePlayerBridgeClass player, GameClass game)
         {
+            //Сомнительная тактика
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                 x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
 
@@ -72,7 +73,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     }
                 }
             }
-            //end Doubtful tactic
+            //end Сомнительная тактика
 
             // Стёб
             if (player.Status.IsWonThisCalculation != Guid.Empty)

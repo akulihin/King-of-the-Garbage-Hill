@@ -45,12 +45,13 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         public async Task ShowRulesAndChar(SocketUser user, GamePlayerBridgeClass player)
         {
             var pass = "";
-            var passList = player.Character.Passive;
-            for (var i = 0; i < passList.Count; i++)
+            var characterPassivesList = player.Character.Passive;
+            foreach (var passive in characterPassivesList)
             {
-                pass += $"__**{passList[i].PassiveName}**__";
+                if(!passive.Visible) continue;
+                pass += $"__**{passive.PassiveName}**__";
                 pass += ": ";
-                pass += passList[i].PassiveDescription;
+                pass += passive.PassiveDescription;
                 pass += "\n";
             }
 
@@ -65,6 +66,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                                              $"Скорость: {player.Character.GetSpeed()}\n" +
                                              $"Психика: {player.Character.GetPsyche()}\n");
             embed.AddField("Пассивки", $"{pass}");
+            embed.WithDescription(player.Character.Description);
 
 
             await user.SendMessageAsync("", false, embed.Build());
@@ -89,16 +91,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var socketMsg = await globalAccount.SendMessageAsync("", false, mainPage.Build());
 
             player.Status.SocketMessageFromBot = socketMsg;
-
-            //   await socketMsg.AddReactionAsync(new Emoji("➡"));
-            // await socketMsg.AddReactionAsync(new Emoji("📖"));
-            //   await socketMsg.AddReactionAsync(new Emoji("⬆"));
-            //   await socketMsg.AddReactionAsync(new Emoji("8⃣"));
-            //   await socketMsg.AddReactionAsync(new Emoji("9⃣"));
-            //   await socketMsg.AddReactionAsync(new Emoji("🐙"));
-
-
-            //    await MainPage(userId, socketMsg);
         }
 
         public string LeaderBoard(GamePlayerBridgeClass player)
@@ -363,7 +355,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             if (game.RoundNo == 11)
                 customString += $" (as **{other.Character.Name}**) = {other.Status.GetScore()} Score";
 
-            if (me.UserType == "admin")
+            if (me.PlayerType == 2)
             {
                 customString += $" (as **{other.Character.Name}**) = {other.Status.GetScore()} Score";
                 customString +=
@@ -423,8 +415,18 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
 
             var desc = game.GetGlobalLogs();
+            desc = desc.Replace(player.DiscordUsername, $"**{player.DiscordUsername}**");
 
-            embed.WithDescription($"{desc.Replace(player.DiscordUsername, $"**{player.DiscordUsername}**")}" +
+            /*
+            if (player.PlayerType == 0)
+            {
+                desc = desc.Replace(" (Блок)...", "");
+                desc = desc.Replace(" (Скип)...", "");
+            }
+            */
+
+
+            embed.WithDescription($"{desc}" +
                                   "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                                   $"**Интеллект:** {character.GetIntelligenceString()}\n" +
                                   $"**Сила:** {character.GetStrengthString()}\n" +
@@ -442,48 +444,50 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
 
             var splitLogs = player.Status.InGamePersonalLogsAll.Split("|||");
-            if (game != null && splitLogs.Length > 1 && splitLogs[^2].Length > 3 && game.RoundNo > 1)
+
+            var text = "";
+            if (splitLogs.Length > 1 && splitLogs[^2].Length > 3 && game.RoundNo > 1)
             {
-                if (splitLogs[^2].Length < 1000)
+                text = splitLogs[^2];
+
+                if (player.PlayerType == 0)
                 {
-                    embed.AddField("События прошлого раунда:", $"{splitLogs[^2]}");
-                }
-                else
-                {
-                    var text = splitLogs[^2];
-                    var splittedText = Split(text, 1000);
-                    var i = 0;
-                    foreach (var splitted in splittedText)
+                    foreach (var p in game.PlayersList)
                     {
-                        i++;
-                        embed.AddField($"События прошлого раунда Часть #{i}:", splitted);
+                        if (p.Status.PlayerId == player.Status.PlayerId)
+                            continue;
+                        foreach (var passive in p.Character.Passive)
+                        {
+                            text = text.Replace($"{passive.PassiveName}", "❓");
+                        }
+                    }
+                }
+
+
+                embed.AddField("События прошлого раунда:", $"{text}");
+            }
+            else
+            {
+                embed.AddField("События прошлого раунда:", "В прошлом раунде ничего не произошло. Странно...");
+            }
+
+            text = player.Status.GetInGamePersonalLogs().Length >= 2 ? $"{player.Status.GetInGamePersonalLogs()}" : "Еще ничего не произошло. Наверное...";
+
+            if (player.PlayerType == 0)
+            {
+                foreach (var p in game.PlayersList)
+                {
+                    if (p.Status.PlayerId == player.Status.PlayerId)
+                        continue;
+                    foreach (var passive in p.Character.Passive)
+                    {
+                        text = text.Replace($"{passive.PassiveName}", "❓");
                     }
                 }
             }
-            else
-            {
-                embed.AddField("События прошлого раунда:",
-                    "В прошлом раунде ничего не произошло. Странно...");
-            }
 
-            if (player.Status.GetInGamePersonalLogs().Length <= 1000)
-            {
-                embed.AddField("События этого раунда:",
-                    player.Status.GetInGamePersonalLogs().Length >= 2
-                        ? $"{player.Status.GetInGamePersonalLogs()}"
-                        : "Еще ничего не произошло. Наверное...");
-            }
-            else
-            {
-                var text = player.Status.GetInGamePersonalLogs();
-                var splittedText = Split(text, 1000);
-                var i = 0;
-                foreach (var splitted in splittedText)
-                {
-                    i++;
-                    embed.AddField($"События этого раунда Часть #{i}:", splitted);
-                }
-            }
+            embed.AddField("События этого раунда:", text);
+
 
             if (character.Avatar != null)
                 embed.WithThumbnailUrl(character.Avatar);
@@ -658,7 +662,8 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public ButtonBuilder GetPlaceHolderButton()
         {
-            return new("Братишка валяется почему-то...", "boole", ButtonStyle.Secondary, disabled: true, emote: Emote.Parse("<a:bratishka:900962522276958298>"));
+            return new("Братишка валяется почему-то...", "boole", ButtonStyle.Secondary, disabled: true, emote:
+                Emote.Parse("<a:bratishka:900962522276958298>"));
         }
 
 

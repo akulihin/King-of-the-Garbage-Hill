@@ -44,14 +44,14 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             }
             //end Первая кровь: 
 
-            //Это привилегия
+            //Это привилегия - умереть от моей руки
             if (player.Status.IsWonThisCalculation != Guid.Empty && game.RoundNo > 4)
             {
                 game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Character
                     .Justice.AddJusticeForNextRound();
                 player.Character.AddIntelligence(player.Status, -1, "Это привилегия: ");
             }
-            //end Это привилегия
+            //end Это привилегия - умереть от моей руки
 
             //Им это не понравится: 
             Spartan = _gameGlobal.SpartanMark.Find(x =>

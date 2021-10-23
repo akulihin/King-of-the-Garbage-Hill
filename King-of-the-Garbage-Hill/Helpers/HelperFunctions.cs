@@ -105,7 +105,7 @@ namespace King_of_the_Garbage_Hill.Helpers
             leftUser.DiscordId = freeBot.DiscordId;
             leftUser.DiscordUsername = freeBot.DiscordUserName;
             leftUser.IsLogs = freeBot.IsLogs;
-            leftUser.UserType = freeBot.UserType;
+            leftUser.PlayerType = freeBot.PlayerType;
             leftUser.Status.SocketMessageFromBot = null;
             freeBot.IsPlaying = true;
         }

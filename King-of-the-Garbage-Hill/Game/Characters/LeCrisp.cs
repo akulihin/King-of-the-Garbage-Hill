@@ -23,8 +23,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public void HandleLeCrispAfter(GamePlayerBridgeClass player, GameClass game)
         {
-            player.Status.IsAbleToWin = true;
-
+            //Импакт
             if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
                 var lePuska = _gameGlobal.LeCrispImpact.Find(x =>
@@ -32,6 +31,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
                 if (lePuska != null) lePuska.IsTriggered = true;
             }
+            //Импакт
         }
 
         public class LeCrispImpactClass

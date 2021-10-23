@@ -29,6 +29,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public void HandleMylorikRevenge(GamePlayerBridgeClass player, Guid enemyIdLostTo, ulong gameId, GameClass game)
         {
+            //Месть
             //enemyIdLostTo may be 0
             var mylorik = _gameGlobal.MylorikRevenge.Find(x => x.GameId == gameId && x.PlayerId == player.Status.PlayerId);
 
@@ -61,6 +62,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     game.Phrases.MylorikRevengeVictoryPhrase.SendLog(player, true);
                 }
             }
+            //end //Месть
         }
 
 
@@ -68,12 +70,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public void HandleMylorikAfter(GamePlayerBridgeClass player, GameClass game)
         {
-            //Revenge
+            //Месть
 
             HandleMylorikRevenge(player, player.Status.IsLostThisCalculation, player.GameId, game);
-            //end Revenge
+            //end Месть
 
-            //Spanish
+            //Испанец
             if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
                 var rand = _rand.Random(1, 3);
@@ -86,7 +88,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 }
             }
 
-            //end Spanish
+            //end Испанец
         }
 
         public class MylorikRevengeClass

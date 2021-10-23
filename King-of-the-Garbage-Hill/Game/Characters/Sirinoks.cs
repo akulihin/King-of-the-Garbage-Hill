@@ -25,7 +25,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public void HandleSirinoksAfter(GamePlayerBridgeClass player, GameClass game)
         {
-            //обучение
+            //Обучение
             var siri = _gameGlobal.SirinoksTraining.Find(x => x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
 
 
@@ -52,7 +52,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     
             }
 
-            //обучение end
+            //Обучение end
         }
 
         public class SirinoksFriendsClass

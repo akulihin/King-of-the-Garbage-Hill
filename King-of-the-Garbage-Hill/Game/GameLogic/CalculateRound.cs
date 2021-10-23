@@ -222,6 +222,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     game.SkipPlayersThisRound++;
                     game.AddGlobalLogs(" ⟶ *Бой не состоялся (Скип)...*");
 
+
                     _characterPassives.HandleCharacterAfterCalculations(player, game);
                     _characterPassives.HandleCharacterAfterCalculations(playerIamAttacking, game);
 

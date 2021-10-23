@@ -24,9 +24,11 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public void HandleTolyaAfter(GamePlayerBridgeClass player, GameClass game)
         {
+            //Раммус мейн
             if (player.Status.IsBlock && player.Status.IsWonThisCalculation != Guid.Empty)
                 game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Status
                     .IsAbleToWin = true;
+            //end Раммус мейн
         }
 
         public class TolyaCountClass

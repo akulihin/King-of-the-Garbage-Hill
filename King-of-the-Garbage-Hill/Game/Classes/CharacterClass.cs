@@ -5,7 +5,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 {
     public class CharacterClass
     {
-        public CharacterClass(int intelligence, int strength, int speed, int psyche, string name)
+        public CharacterClass(int intelligence, int strength, int speed, int psyche, string name, string description)
         {
             Intelligence = intelligence;
             Strength = strength;
@@ -13,6 +13,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             Psyche = psyche;
             Justice = new JusticeClass();
             Name = name;
+            Description = description;
         }
 
         public string Name { get; set; }
@@ -34,6 +35,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public JusticeClass Justice { get; set; }
         public string Avatar { get; set; }
         public List<Passive> Passive { get; set; }
+        public string Description { get; set; }
 
 
         public string GetClassStatString()
@@ -377,17 +379,20 @@ namespace King_of_the_Garbage_Hill.Game.Classes
     {
         public string PassiveDescription;
         public string PassiveName;
+        public bool Visible; 
 
         public Passive()
         {
             PassiveDescription = "";
             PassiveName = "";
+            Visible = false;
         }
 
-        public Passive(string passiveName, string passiveDescription)
+        public Passive(string passiveName, string passiveDescription, bool visible)
         {
             PassiveDescription = passiveDescription;
             PassiveName = passiveName;
+            Visible = visible;
         }
     }
 

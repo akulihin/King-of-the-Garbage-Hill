@@ -23,7 +23,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public void HandleGlebAfter(GamePlayerBridgeClass player, GameClass game)
         {
-            //skip check
+            //Спящее хуйло
             var skip = _gameGlobal.GlebSkipList.Find(x =>
                 x.PlayerId == player.Status.PlayerId && x.GameId == player.GameId);
             if (skip != null && player.Status.WhoToAttackThisTurn != Guid.Empty)
@@ -31,6 +31,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 player.Status.IsSkip = false;
                 _gameGlobal.GlebSkipList.Remove(skip);
             }
+            //end Спящее хуйло
         }
 
         public class GlebSkipClass

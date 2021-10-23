@@ -15,11 +15,18 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public string MyPrefix { get; set; }
         public bool IsPlaying { get; set; }
         public bool IsLogs { get; set; }
-        public string UserType { get; set; }
+       
         public int ZbsPoints { get; set; }
 
         public ulong TotalPlays { get; set; }
         public ulong TotalWins { get; set; }
+
+        /*
+        0 == Normal
+        1 == Casual
+        2 == Admin
+        */
+        public int PlayerType { get; set; }
 
         public class CharacterChances
         {

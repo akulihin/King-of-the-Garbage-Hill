@@ -12,7 +12,12 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public ulong GameId { get; set; }
         public string DiscordUsername { get; set; }
         public bool IsLogs { get; set; }
-        public string UserType { get; set; }
+        /*
+0 == Normal
+1 == Casual
+2 == Admin
+*/
+        public int PlayerType { get; set; }
         public List<ulong> DeleteMessages { get; set; } = new List<ulong>();
         public List<PredictClass> Predict { get; set; } = new List<PredictClass>();
 

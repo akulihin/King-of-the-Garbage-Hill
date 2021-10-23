@@ -77,15 +77,17 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
 
         [Command("SetType")]
-        [Summary("setting type of account: player, admin")]
-        public async Task SetType(SocketUser user, string userType)
-        {
-            userType = userType.ToLower();
+        [Summary("setting type of account: 0, 1, 2 ")]
+        public async Task SetType(SocketUser user, int userType)
+        {                    
             var account = _accounts.GetAccount(user);
 
-            if (userType != "admin" && userType != "player")
+            if (userType != 0 && userType != 1 && userType != 2)
             {
-                await SendMessAsync("**admin** OR **player** only available options");
+                await SendMessAsync("0 == **Normal**\n" +
+                                    "1 == **Casual**\n" +
+                                    "2 == **Admin**\n" +
+                                    "are the only available options");
                 return;
             }
 
@@ -95,7 +97,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 return;
             }
 
-            account.UserType = userType;
+            account.PlayerType = 2;
 
             await SendMessAsync($"done. {user.Username} is now **{userType}**");
         }
@@ -462,7 +464,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                         GameId = gameId,
                         DiscordUsername = account.DiscordUserName,
                         IsLogs = account.IsLogs,
-                        UserType = account.UserType
+                        PlayerType = account.PlayerType
                     });
                     allCharacters.Remove(character);
                     continue;
@@ -510,7 +512,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     {
                         Character = character, Status = new InGameStatus(), DiscordId = account.DiscordId,
                         GameId = gameId, DiscordUsername = account.DiscordUserName, IsLogs = account.IsLogs,
-                        UserType = account.UserType
+                        PlayerType = account.PlayerType
                     });
                     allCharacters.Remove(character);
                     break;
@@ -750,7 +752,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             // embed.WithDescription("буль-буль");
 
             embed.AddField("ZBS Points", $"{account.ZbsPoints}", true);
-            embed.AddField("Тип Пользователя", $"{account.UserType}", true);
+            embed.AddField("Тип Пользователя", $"{account.PlayerType}", true);
             embed.AddField("Всего Игр", $"{account.TotalPlays}", true);
             embed.AddField("Всего Топ 1", $"{account.TotalWins}", true);
 
@@ -837,69 +839,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        //yes, this is my shit.
-        [Command("es")]
-        [Summary("CAREFUL! Better not to use it, ever.")]
-        [RequireOwner]
-        public async Task Asdasd()
-        {
-            return;
-            var allcha = new List<CharacterClass>();
-            //  int cc = 0;  
-            string ll;
-            var at = "";
-
-            var file = new StreamReader(@"DataBase/esy.txt");
-            while ((ll = file.ReadLine()) != null)
-                at += ll;
-            //         cc++;  
-
-            var c = at.Split("||");
-
-            for (var i = 0; i < c.Length; i++)
-            {
-                var parts = c[i].Split("WW");
-                var part1 = parts[0];
-                var part2 = parts[1];
-
-                var p = part1.Split("UU");
-                var name = p[0];
-                var t = p[1].Replace("Интеллект", " ");
-                t = t.Replace("Сила", " ");
-                t = t.Replace("Скорость", " ");
-                t = t.Replace("Психика", " ");
-                var hh = t.Split(" ");
-                var oo = new int[4];
-                var ind = 0;
-                for (var mm = 0; mm < hh.Length; mm++)
-                    if (hh[mm] != "")
-                    {
-                        oo[ind] = int.Parse(hh[mm]);
-                        ind++;
-                    }
-
-                var intel = oo[0];
-                var str = oo[1];
-
-                var pe = oo[2];
-                var psy = oo[3];
-                allcha.Add(new CharacterClass(intel, str, pe, psy, name));
-                var pass = new List<Passive>();
-                var passives = part2.Split(":");
-                for (var k = 0; k < passives.Length - 1; k++)
-                {
-                    pass.Add(new Passive(passives[k], passives[k + 1]));
-                    k++;
-                }
-
-                allcha[allcha.Count - 1].Passive = pass;
-            }
-
-
-            var json = JsonConvert.SerializeObject(allcha.ToArray());
-            File.WriteAllText(@"D:\characters.json", json);
-            await Task.CompletedTask;
-        }
 
 
         [Command("updMaxRam")]

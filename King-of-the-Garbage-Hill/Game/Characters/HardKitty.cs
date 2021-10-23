@@ -25,11 +25,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public void HandleHardKittyAfter(GamePlayerBridgeClass player, GameClass game)
         {
-            //Doebatsya
+            //Доебаться
             var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
                 x.GameId == player.GameId &&
                 x.PlayerId == player.Status.PlayerId);
-            //can be null
 
             if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
@@ -73,7 +72,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 game.Phrases.HardKittyDoebatsyaPhrase.SendLog(player, false);
             }
 
-            // end Doebatsya
+            // end Доебаться
         }
 
         public class DoebatsyaClass
