@@ -81,7 +81,30 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     {
                         player.Status.AddBonusPoints(3, "Предположение: ");
                     }
-                    //
+                    // predict
+
+                    //predict bot
+                    foreach (var bot in game.PlayersList)
+                    {
+                        if(!bot.IsBot()) continue;
+
+                        bot.Status.AddBonusPoints(3, "Предположение: ");
+                        if (game.GetAllGlobalLogs().Contains("Толя запизделся"))
+                        {
+                            bot.Status.AddBonusPoints(3, "Предположение: ");
+                        }
+
+                        if (bot.Character.Name == "DeepList")
+                        {
+                            bot.Status.AddBonusPoints(3, "Предположение: ");
+                        }
+                        if (bot.Character.Name == "AWDKA")
+                        {
+                            bot.Status.AddBonusPoints(6, "Предположение: ");
+                        }
+                    }
+
+                    //end bot
 
                     //sort
                     game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();

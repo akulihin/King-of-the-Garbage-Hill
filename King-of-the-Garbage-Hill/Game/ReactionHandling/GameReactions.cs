@@ -447,7 +447,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     return;
             }
 
-            //awdka only:
+            //Я пытаюсь!
             if (player.Status.LvlUpPoints > 1)
             {
                 player.Status.LvlUpPoints--;
@@ -467,7 +467,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             {
                 player.Status.MoveListPage = 1;
             }
-            //end awdka
+            //end Я пытаюсь!
 
 
 

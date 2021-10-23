@@ -33,6 +33,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             var realPlayers = game.PlayersList.FindAll(x => !x.IsBot() && !x.Status.IsReady).ToList().Count;
             if (realPlayers > 0 && game.TimePassed.Elapsed.Seconds < game.TurnLengthInSecond - timeOffest) return;
 
+            HandleBotMoral(player, game);
             if (player.Status.MoveListPage == 1)
             {
                 await HandleBotAttack(player, game);
@@ -42,6 +43,73 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 await HandleLvlUpBot(player, game);
             }
         }
+
+        public void HandleBotMoral(GamePlayerBridgeClass bot, GameClass game)
+        {
+            //логика до 10го раунда
+            if (game.RoundNo < 10)
+            {
+                //если хардкитти или вампур или осьминожка - всегда ждет 15 морали
+                if (bot.Character.Name is "HardKitty" or "Осьминожка" or "Вампур")
+                {
+                    if (bot.Character.GetMoral() < 15)
+                        return;
+                }
+
+                //если авдка не в топ 3 - ждет 10
+                if (bot.Character.Name == "AWDKA")
+                {
+                    if(bot.Status.PlaceAtLeaderBoard > 3 && bot.Character.GetMoral() < 10)
+                        return;
+                }
+
+                //если бот на 5м месте то ждет 10
+                if(bot.Status.PlaceAtLeaderBoard == 5 && bot.Character.GetMoral() < 10)
+                    return;
+
+                //если бот на последнем месте - ждет 15
+                if (bot.Status.PlaceAtLeaderBoard == 6 && bot.Character.GetMoral() < 15)
+                    return;
+
+                //обычные боты ждут 3 морали если они входят в топ 3, else ждут 5 морали.
+                if (bot.Status.PlaceAtLeaderBoard > 3 && bot.Character.GetMoral() < 5)
+                    return;
+
+            }
+            //end логика до 10го раунда
+
+            //прожать всю момаль
+            if (bot.Character.GetMoral() >= 15)
+            {
+                bot.Character.AddMoral(bot.Status, -15, "Обмен Морали: ", false);
+                bot.Character.AddBonusPointsFromMoral(15);
+            }
+            if (bot.Character.GetMoral() >= 10)
+            {
+                bot.Character.AddMoral(bot.Status, -10, "Обмен Морали: ", false);
+                bot.Character.AddBonusPointsFromMoral(8);
+            }
+            if (bot.Character.GetMoral() >= 5)
+            {
+                bot.Character.AddMoral(bot.Status, -5, "Обмен Морали: ", false);
+                bot.Character.AddBonusPointsFromMoral(2);
+            }
+            if (bot.Character.GetMoral() >= 3)
+            {
+                bot.Character.AddMoral(bot.Status, -3, "Обмен Морали: ", false);
+                bot.Character.AddBonusPointsFromMoral(1);
+            }
+            /*
+                                    _help.SendMsgAndDeleteItAfterRound(player,
+                                    "У тебя недосточно морали, чтобы поменять ее на бонусные очки.\n" +
+                                    "3 морали =  1 бонусное очко\n" +
+                                    "5 морали = 2 бонусных очка\n" +
+                                    "10 морали = 8 бонусных очков\n" +
+                                    "15 морали = 15 бонусных очков");
+             */
+            //end прожать всю момаль
+        }
+
 
         public async Task HandleBotAttack(GamePlayerBridgeClass bot, GameClass game)
         {
