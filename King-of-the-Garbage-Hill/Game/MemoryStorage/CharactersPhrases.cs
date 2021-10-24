@@ -418,13 +418,8 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                         description = PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)];
                     }
                 }
-                
 
-
-                if (player.IsLogs)
-                    player.Status.AddInGamePersonalLogs($"{PassiveNameRus}: ");
-                else
-                    player.Status.InGamePersonalLogsAll += $"{PassiveNameRus}: ";
+                player.Status.AddInGamePersonalLogs($"{PassiveNameRus}: ");
 
                 player.Status.AddInGamePersonalLogs($"{description}\n");
             }
@@ -458,10 +453,9 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
                     description += $"{player2.DiscordUsername} - {player2.Character.Name}";
 
-                    if (player.IsLogs)
-                        player.Status.AddInGamePersonalLogs($"{PassiveNameRus}: ");
-                    else
-                        player.Status.InGamePersonalLogsAll += $"{PassiveNameRus}: ";
+                   
+                    player.Status.AddInGamePersonalLogs($"{PassiveNameRus}: ");
+
 
                     player.Status.AddInGamePersonalLogs($"{description}\n");
                 }
@@ -508,7 +502,6 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                     Console.WriteLine(e.StackTrace);
                 }
             }
-
 
         }
     }

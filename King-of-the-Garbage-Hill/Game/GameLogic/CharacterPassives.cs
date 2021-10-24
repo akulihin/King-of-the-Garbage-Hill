@@ -1304,6 +1304,19 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         }
                         //end Дракон
                         break;
+                    case "Вампур":
+                        //vampyr unique
+                        if (game.RoundNo == 1)
+                        {
+                            game.Phrases.VampyrVampyr.SendLog(player, true);
+                            if (game.PlayersList.Any(x => x.Character.Name == "mylorik"))
+                                game.AddGlobalLogs(
+                                    " \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
+                                    "\n\n");
+
+                        }
+                        //end vampyr unique
+                        break;
                 }
 
                 //Я за чаем

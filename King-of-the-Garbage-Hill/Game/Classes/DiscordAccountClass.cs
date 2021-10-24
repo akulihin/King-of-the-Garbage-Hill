@@ -14,7 +14,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public ulong DiscordId { get; set; }
         public string MyPrefix { get; set; }
         public bool IsPlaying { get; set; }
-        public bool IsLogs { get; set; }
+
        
         public int ZbsPoints { get; set; }
 
@@ -31,17 +31,14 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public class CharacterChances
         {
             public int Changes;
-            public int CharacterChanceMax;
-            public int CharacterChanceMin;
             public string CharacterName;
             public double Multiplier;
+            public int Tier;
 
-            public CharacterChances(string characterName, int characterChanceMin, int characterChanceMax,
-                double multiplier = 1.0)
+            public CharacterChances(string characterName, int tier, double multiplier = 1.0)
             {
                 CharacterName = characterName;
-                CharacterChanceMin = characterChanceMin;
-                CharacterChanceMax = characterChanceMax;
+                Tier = tier;
                 Multiplier = multiplier;
                 Changes = 0;
             }
@@ -53,10 +50,10 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             public ulong Plays;
             public ulong Wins;
 
-            public CharacterStatisticsClass(string characterName, int wins)
+            public CharacterStatisticsClass(string characterName, ulong wins)
             {
                 CharacterName = characterName;
-                Wins = wins == 1 ? 1 : (ulong) 0;
+                Wins = wins;
                 Plays = 1;
             }
         }
@@ -86,6 +83,20 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 Score = score;
                 Place = place;
                 Date = DateTimeOffset.UtcNow;
+            }
+        }
+
+        public class CharacterRollClass
+        {
+            public string CharacterName;
+            public int CharacterRangeMin;
+            public int CharacterRangeMax;
+
+            public CharacterRollClass(string characterName, int characterRangeMin, int characterRangeMax)
+            {
+                CharacterName = characterName;
+                CharacterRangeMin = characterRangeMin;
+                CharacterRangeMax = characterRangeMax;
             }
         }
     }

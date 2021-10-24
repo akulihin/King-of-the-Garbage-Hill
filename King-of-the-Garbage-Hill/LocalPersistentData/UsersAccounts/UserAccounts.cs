@@ -12,30 +12,6 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
     {
         private readonly DiscordShardedClient _client;
 
-        private readonly List<DiscordAccountClass.CharacterChances> _defaultCharacterChances =
-            new()
-            {
-                //default 100 range
-                new DiscordAccountClass.CharacterChances("DeepList", 1, 100),
-                new DiscordAccountClass.CharacterChances("mylorik", 101, 200),
-                new DiscordAccountClass.CharacterChances("Глеб", 201, 300),
-                new DiscordAccountClass.CharacterChances("LeCrisp", 301, 400),
-                new DiscordAccountClass.CharacterChances("Толя", 401, 500),
-                new DiscordAccountClass.CharacterChances("HardKitty", 501, 600),
-                new DiscordAccountClass.CharacterChances("Sirinoks", 601, 700),
-                new DiscordAccountClass.CharacterChances("Mit*suki*", 701, 800),
-                new DiscordAccountClass.CharacterChances("AWDKA", 801, 900),
-                new DiscordAccountClass.CharacterChances("Darksci", 901, 1000),
-
-                //default 50 range
-                new DiscordAccountClass.CharacterChances("Загадочный Спартанец в маске", 1001, 1050),
-                new DiscordAccountClass.CharacterChances("Тигр", 1051, 1100),
-                new DiscordAccountClass.CharacterChances("Вампур", 1101, 1150),
-
-                //default 40 range
-                new DiscordAccountClass.CharacterChances("Братишка", 1151, 1190),
-                new DiscordAccountClass.CharacterChances("Осьминожка", 1191, 1230)
-            };
 
         private readonly ConcurrentDictionary<ulong, DiscordAccountClass> _userAccountsDictionary;
         private readonly UserAccountsDataStorage _usersDataStorage;
@@ -134,16 +110,13 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             {
                 DiscordId = user.Id,
                 DiscordUserName = user.Username,
-                IsLogs = true,
                 IsPlaying = false,
                 PlayerType = 1,
                 ZbsPoints = 0,
-                CharacterChance = _defaultCharacterChances
             };
 
             if (newAccount.DiscordUserName.Contains("<:war:561287719838547981>"))
-                newAccount.DiscordUserName =
-                    newAccount.DiscordUserName.Replace("<:war:561287719838547981>", "404-228-1448");
+                newAccount.DiscordUserName = newAccount.DiscordUserName.Replace("<:war:561287719838547981>", "404-228-1448");
 
             if (newAccount.DiscordUserName.Contains("⟶"))
                 newAccount.DiscordUserName = newAccount.DiscordUserName.Replace("⟶", "404-228-1448");
@@ -162,11 +135,9 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             {
                 DiscordId = botId,
                 DiscordUserName = "BOT",
-                IsLogs = false,
                 IsPlaying = false,
                 PlayerType = 1,
-                ZbsPoints = 0,
-                CharacterChance = _defaultCharacterChances
+                ZbsPoints = 0
             };
 
             _userAccountsDictionary.GetOrAdd(newAccount.DiscordId, newAccount);

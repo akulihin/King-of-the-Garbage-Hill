@@ -214,9 +214,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         if (characterStatistics == null)
                         {
-                            account.CharacterStatistics.Add(
-                                new DiscordAccountClass.CharacterStatisticsClass(player.Character.Name,
-                                    player.Status.PlaceAtLeaderBoard));
+                            account.CharacterStatistics.Add(new DiscordAccountClass.CharacterStatisticsClass(player.Character.Name, player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong)0));
                         }
                         else
                         {

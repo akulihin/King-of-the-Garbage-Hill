@@ -50,10 +50,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             //логика до 10го раунда
             if (game.RoundNo < 10)
             {
-                //если хардкитти или вампур или осьминожка - всегда ждет 15 морали
-                if (bot.Character.Name is "HardKitty" or "Осьминожка" or "Вампур")
+                //если хардкитти или осьминожка - всегда ждет 15 морали
+                if (bot.Character.Name is "HardKitty" or "Осьминожка")
                 {
                     if (moral < 15)
+                        return;
+                }
+
+                if (bot.Character.Name is "Вампур")
+                {
+                    if (moral < 30)
                         return;
                 }
 

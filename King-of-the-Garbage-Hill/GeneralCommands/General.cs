@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
@@ -14,7 +13,6 @@ using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
-using Newtonsoft.Json;
 
 namespace King_of_the_Garbage_Hill.GeneralCommands
 {
@@ -28,22 +26,19 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         private readonly InGameGlobal _gameGlobal;
         private readonly Global _global;
         private readonly HelperFunctions _helperFunctions;
-        private readonly OctoNamePull _octoNmaNamePull;
-        private readonly OctoPicPull _octoPicPull;
+
         
         private readonly SecureRandom _secureRandom;
         private readonly GameUpdateMess _upd;
 
 
-        public General(UserAccounts accounts, SecureRandom secureRandom, OctoPicPull octoPicPull,
-            OctoNamePull octoNmaNamePull, HelperFunctions helperFunctions, CommandsInMemory commandsInMemory,
+        public General(UserAccounts accounts, SecureRandom secureRandom, 
+             HelperFunctions helperFunctions, CommandsInMemory commandsInMemory,
             Global global, GameUpdateMess upd, CharactersPull charactersPull, CharacterPassives characterPassives,
             CharactersUniquePhrase phrase, InGameGlobal gameGlobal)
         {
             _accounts = accounts;
             _secureRandom = secureRandom;
-            _octoPicPull = octoPicPull;
-            _octoNmaNamePull = octoNmaNamePull;
             _helperFunctions = helperFunctions;
             _commandsInMemory = commandsInMemory;
             _global = global;
@@ -53,26 +48,260 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _gameGlobal = gameGlobal;
         }
 
-        [Command("show logs names")]
-        [Alias("sln", "sin")]
-        [Summary(
-            "default is \'true\'. Если \'true\' Ты видишь название пассивок под сообщением с логами. Заюзай эту команду чтобы поменять на \'false\' и обратно\n" +
-            "Логи это уникальные фразы при активации определенной пасивки персонажа")]
-        public async Task ChangeLogsState()
+
+        public int GetRangeFromTier(int tier)
         {
-            var account = _accounts.GetAccount(Context.User);
-            if (account.IsLogs)
+            switch (tier)
             {
-                account.IsLogs = false;
-                await SendMessAsync(
-                    "Ты больше не увидишь название пассивок под сообщением с логами. Заюзай жту команду еще раз, чтобы их видить. Пример - https://i.imgur.com/R4JkRZR.png");
+                case 6:
+                    return 100;
+                case 5:
+                    return 50;
+                case 4:
+                    return 40;
+                case 3:
+                    return 30;
+                case 2:
+                    return 20;
+                case 1:
+                    return 10;
+                default:
+                    return 0;
             }
-            else
+        }
+
+
+        public List<GamePlayerBridgeClass> HandleCharacterRoll(List<IUser> players, ulong gameId)
+        {
+            var allCharacters = _charactersPull.GetAllCharacters();
+            var playersList = new List<GamePlayerBridgeClass>();
+
+
+            players = players.OrderBy(x => Guid.NewGuid()).ToList();
+
+
+            foreach (var account in players.Select(player => player != null
+                ? _accounts.GetAccount(player.Id)
+                : _helperFunctions.GetFreeBot(playersList)))
             {
-                account.IsLogs = true;
-                await SendMessAsync(
-                    "Ты видишь название пассивок под сообщением с логами.  Заюзай жту команду еще раз, чтобы их **НЕ** видить. Пример - https://i.imgur.com/eFvjRf5.png");
+                account.IsPlaying = true;
+
+                //выдать персонажей если их нет на аккаунте
+                foreach (var character in from character in allCharacters let knownCharacter = account.CharacterChance.Find(x => x.CharacterName == character.Name) where knownCharacter == null select character)
+                {
+                    account.CharacterChance.Add(new DiscordAccountClass.CharacterChances(character.Name, character.Tier));
+                }
+
+                var allAvailableCharacters = new List<DiscordAccountClass.CharacterRollClass>();
+                
+                var totalPool = 1;
+                
+                foreach (var character in allCharacters)
+                {
+                    var range = GetRangeFromTier(character.Tier);
+                    var temp = totalPool + Convert.ToInt32(range * account.CharacterChance.Find(x => x.CharacterName == character.Name).Multiplier) - 1;
+                    allAvailableCharacters.Add(new DiscordAccountClass.CharacterRollClass(character.Name, totalPool, temp));
+                    totalPool = temp + 1;
+                }
+                //100
+                //200
+                //310
+                var randomIndex = _secureRandom.Random(1, totalPool);
+
+                var rolledCharacter = allAvailableCharacters.Find(x => randomIndex >= x.CharacterRangeMin && randomIndex <= x.CharacterRangeMax);
+
+                var characterToAssign = allCharacters.Find(x => x.Name == rolledCharacter.CharacterName);
+                playersList.Add(new GamePlayerBridgeClass
+                {
+                    Character = characterToAssign,
+                    Status = new InGameStatus(),
+                    DiscordId = account.DiscordId,
+                    GameId = gameId,
+                    DiscordUsername = account.DiscordUserName,
+                    PlayerType = account.PlayerType
+                });
+                allCharacters.Remove(characterToAssign);
             }
+
+            return playersList;
+        }
+
+
+        public EmbedBuilder GetStatsEmbed(DiscordAccountClass account)
+        {
+            var embed = new EmbedBuilder();
+            var mostWins = account.CharacterStatistics.OrderByDescending(x => x.Wins).ToList().ElementAtOrDefault(0);
+            var leastWins = account.CharacterStatistics.OrderByDescending(x => x.Wins)
+                .ElementAtOrDefault(account.CharacterStatistics.Count - 1);
+            var mostPlays = account.CharacterStatistics.OrderByDescending(x => x.Plays).ElementAtOrDefault(0);
+            var leastPlays = account.CharacterStatistics.OrderByDescending(x => x.Plays)
+                .ElementAtOrDefault(account.CharacterStatistics.Count - 1);
+            var mostPlace = account.PerformanceStatistics.OrderByDescending(x => x.Place).ElementAtOrDefault(0);
+            var leastPlace = account.PerformanceStatistics.OrderByDescending(x => x.Place)
+                .ElementAtOrDefault(account.PerformanceStatistics.Count - 1);
+            var topPoints = account.MatchHistory.OrderByDescending(x => x.Score).ElementAtOrDefault(0);
+            var mostChance = account.CharacterChance.OrderByDescending(x => x.Multiplier).ElementAtOrDefault(0);
+            var leastChance = account.CharacterChance.OrderByDescending(x => x.Multiplier)
+                .ElementAtOrDefault(account.CharacterChance.Count - 1);
+
+            ulong totalPoints = 0;
+
+            foreach (var v in account.MatchHistory)
+                if (v.Score > 0)
+                    totalPoints += (ulong)v.Score;
+                else
+                    totalPoints += (ulong)(v.Score * -1);
+
+            embed.WithAuthor(Context.User);
+            // embed.WithDescription("буль-буль");
+
+            embed.AddField("ZBS Points", $"{account.ZbsPoints}", true);
+            embed.AddField("Тип Пользователя", $"{account.PlayerType}", true);
+            embed.AddField("Всего Игр", $"{account.TotalPlays}", true);
+            embed.AddField("Всего Топ 1", $"{account.TotalWins}", true);
+
+            if (totalPoints > 0)
+                embed.AddField("Среднее количество очков за игру",
+                    $"{totalPoints / account.TotalWins} - ({totalPoints}/{account.TotalWins})");
+            if (topPoints != null)
+                embed.AddField("Больше всего очков за игру",
+                    $"{topPoints.CharacterName} - {topPoints.Score} (#{topPoints.Place}) {topPoints.Date.Month}.{topPoints.Date.Day}.{topPoints.Date.Year}",
+                    true);
+            if (mostWins != null)
+                embed.AddField("Больше всего побед", $"{mostWins.CharacterName} - {mostWins.Wins}/{mostWins.Plays}",
+                    true);
+            if (leastWins != null)
+                embed.AddField("Меньше всего побед", $"{leastWins.CharacterName} - {leastWins.Wins}/{leastWins.Plays}",
+                    true);
+            if (mostPlays != null)
+                embed.AddField("Больше всего игр", $"{mostPlays.CharacterName} - {mostPlays.Wins}/{mostPlays.Plays}",
+                    true);
+            if (leastPlays != null)
+                embed.AddField("Меньше всего игр", $"{leastPlays.CharacterName} - {leastPlays.Wins}/{leastPlays.Plays}",
+                    true);
+            if (mostPlace != null)
+                embed.AddField("Самое частое место", $"Топ {mostPlace.Place} - {mostPlace.Times}/{account.TotalPlays}",
+                    true);
+            if (leastPlace != null)
+                embed.AddField("Самое редкое место",
+                    $"Топ {leastPlace.Place} - {leastPlace.Times}/{account.TotalPlays}",
+                    true);
+            if (mostChance != null)
+                embed.AddField("Самый большой шанс",
+                    $"{mostChance.CharacterName} - {mostChance.Multiplier} ",
+                    true);
+            if (leastChance != null)
+                embed.AddField("Самый маленький шанс",
+                    $"{leastChance.CharacterName} - {leastChance.Multiplier} ",
+                    true);
+
+            embed.WithFooter("циферки");
+            embed.WithCurrentTimestamp();
+
+            return embed;
+        }
+
+
+
+        public List<GamePlayerBridgeClass> HandleEventsBeforeFirstRound(List<GamePlayerBridgeClass> playersList)
+        {
+
+            //Никому не нужен
+            if (playersList.Any(x => x.Character.Name == "HardKitty"))
+            {
+                var tempHard = playersList.Find(x => x.Character.Name == "HardKitty");
+                var hardIndex = playersList.IndexOf(tempHard);
+
+                for (var i = hardIndex; i < playersList.Count - 1; i++)
+                    playersList[i] = playersList[i + 1];
+
+                playersList[playersList.Count - 1] = tempHard;
+            }
+            //end Никому не нужен
+
+
+            //Тигр топ, а ты холоп
+            if (playersList.Any(x => x.Character.Name == "Тигр"))
+            {
+                var tigrTemp = playersList.Find(x => x.Character.Name == "Тигр");
+
+                var tigr = _gameGlobal.TigrTop.Find(x =>
+                    x.GameId == tigrTemp.GameId && x.PlayerId == tigrTemp.Status.PlayerId);
+
+                if (tigr != null && tigr.TimeCount > 0)
+                {
+                    var tigrIndex = playersList.IndexOf(tigrTemp);
+
+                    playersList[tigrIndex] = playersList[0];
+                    playersList[0] = tigrTemp;
+                    tigr.TimeCount--;
+                    //await game.Phrases.TigrTop.SendLog(tigrTemp);
+                }
+            }
+            //Тигр топ, а ты холоп
+
+            return playersList;
+        }
+
+
+        [Command("start")]
+        [Alias("st", "start game")]
+        [Summary("запуск игры")]
+        public async Task StartGameTest(IUser player2 = null, IUser player3 = null, IUser player4 = null, IUser player5 = null, IUser player6 = null)
+        {
+            var players = new List<IUser>
+            {
+                Context.User,
+                player2,
+                player3,
+                player4,
+                player5,
+                player6
+            };
+
+            //Заменить игрока на бота
+            foreach (var player in players.Where(p => p != null))
+            {
+                _helperFunctions.SubstituteUserWithBot(player.Id);
+            }
+
+            //получаем gameId
+            var gameId = _global.GetNewtGamePlayingAndId();
+
+            //ролл персонажей для игры
+            var playersList = HandleCharacterRoll(players, gameId);
+
+
+            //тасуем игроков
+            playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
+            playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+            playersList = HandleEventsBeforeFirstRound(playersList);
+
+            //выдаем место в таблице
+            for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
+
+            //это нужно для ботов
+            _gameGlobal.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
+
+            //отправить меню игры
+            foreach (var player in playersList) await _upd.WaitMess(player, playersList);
+
+            //создаем игру
+            var game = new GameClass(playersList, gameId) { IsCheckIfReady = false };
+
+
+            //start the timer
+            game.TimePassed.Start();
+            _global.GamesList.Add(game);
+
+            //get all the chances before the game starts
+            _characterPassives.CalculatePassiveChances(game);
+
+            //handle round #0
+            await _characterPassives.HandleNextRound(game);
+
+            foreach (var player in playersList) await _upd.UpdateMessage(player);
+            game.IsCheckIfReady = true;
         }
 
 
@@ -80,6 +309,13 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         [Summary("setting type of account: 0, 1, 2 ")]
         public async Task SetType(SocketUser user, int userType)
         {                    
+
+            if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
+            {
+                await SendMessAsync("only owners can use this command");
+                return;
+            }
+
             var account = _accounts.GetAccount(user);
 
             if (userType != 0 && userType != 1 && userType != 2)
@@ -90,13 +326,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                                     "are the only available options");
                 return;
             }
-
-            if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
-            {
-                await SendMessAsync("only owners can use this command");
-                return;
-            }
-
             account.PlayerType = 2;
 
             await SendMessAsync($"done. {user.Username} is now **{userType}**");
@@ -108,7 +337,18 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         [Summary("Select round 1-10")]
         public async Task SelectRound(int roundNo)
         {
-            if (roundNo < 1 || roundNo > 10) return;
+
+            if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
+            {
+                await SendMessAsync("only owners can use this command");
+                return;
+            }
+
+            if (roundNo < 1 || roundNo > 10)
+            {
+                await SendMessAsync("select between 1 and 10");
+                return;
+            }
 
             var game = _global.GamesList.Find(
                 l => l.PlayersList.Any(x => x.DiscordId == Context.User.Id));
@@ -125,6 +365,12 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         [Summary("Set your score")]
         public async Task SetScore(int number)
         {
+            if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
+            {
+                await SendMessAsync("only owners can use this command");
+                return;
+            }
+
             var game = _global.GamesList.Find(
                 l => l.PlayersList.Any(x => x.DiscordId == Context.User.Id));
 
@@ -137,24 +383,17 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             foreach (var t in game.PlayersList) await _upd.UpdateMessage(t);
         }
 
-        [Command("leave")]
-        [Alias("set")]
-        [Summary("leave from all servers")]
-        public async Task Leave()
-        {
-            foreach (var guild in _global.Client.Guilds)
-            {
-                if (guild.Id == 561282595799826432 || guild.Name.Contains("SC Software Development")) continue;
-               await guild.LeaveAsync();
-            }
-        }
 
         [Command("SetStat")]
         [Alias("set")]
         [Summary("Set a stat (in, sp, st, ps, js, sk, mr)")]
         public async Task SetCharacteristic(string name, int number)
         {
-   
+            if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
+            {
+                await SendMessAsync("only owners can use this command");
+                return;
+            }
 
             var game = _global.GamesList.Find(
                 l => l.PlayersList.Any(x => x.DiscordId == Context.User.Id));
@@ -267,536 +506,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        [Command("octo")]
-        [Alias("окто", "octopus", "Осьминог", "Осьминожка", "Осьминога", "o", "oct", "о")]
-        [Summary("Куда же без осьминожек")]
-        public async Task OctopusPicture()
-        {
-            var octoIndex = _secureRandom.Random(0, _octoPicPull.OctoPics.Length - 1);
-            var octoToPost = _octoPicPull.OctoPics[octoIndex];
-
-
-            var color1Index = _secureRandom.Random(0, 255);
-            var color2Index = _secureRandom.Random(0, 255);
-            var color3Index = _secureRandom.Random(0, 255);
-
-            var randomIndex = _secureRandom.Random(0, _octoNmaNamePull.OctoNameRu.Length - 1);
-            var randomOcto = _octoNmaNamePull.OctoNameRu[randomIndex];
-
-            var embed = new EmbedBuilder();
-            embed.WithDescription($"{randomOcto} found:");
-            embed.WithFooter("lil octo notebook");
-            embed.WithColor(color1Index, color2Index, color3Index);
-            embed.WithAuthor(Context.User);
-            embed.WithImageUrl("" + octoToPost);
-
-            await SendMessAsync(embed);
-
-
-        }
-
-
-        [Command("BotGame")]
-        [Alias("bot")]
-        [Summary("запуск игры для ботов")]
-        public async Task StartGameTestBotVsBot()
-        {
-            for (var uhg = 0; uhg < 10000; uhg++)
-            {
-                for (var k = 0; k < 100; k++)
-                {
-                    _helperFunctions.SubstituteUserWithBot(Context.User.Id);
-
-                    var players = new List<IUser> {null};
-
-                    var gameId = _global.GetNewtGamePlayingAndId();
-
-                    var f = 6 - players.Count;
-                    for (var i = 0; i < f; i++) players.Add(null);
-
-                    var playersList = HandleCharacterRoll(players, gameId, -1, 0);
-
-
-                    ////////////////////////////////////////////////////// FIRST SORTING/////////////////////////////////////////////////
-                    //randomize order
-                    playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
-                    playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-
-                    //HardKitty unique
-                    if (playersList.Any(x => x.Character.Name == "HardKitty"))
-                    {
-                        var tempHard = playersList.Find(x => x.Character.Name == "HardKitty");
-                        var hardIndex = playersList.IndexOf(tempHard);
-
-                        for (var i = hardIndex; i < playersList.Count - 1; i++)
-                            playersList[i] = playersList[i + 1];
-
-                        playersList[playersList.Count - 1] = tempHard;
-                    }
-                    //end //HardKitty unique
-
-
-                    //Tigr Unique
-                    if (playersList.Any(x => x.Character.Name == "Тигр"))
-                    {
-                        var tigrTemp = playersList.Find(x => x.Character.Name == "Тигр");
-
-                        var tigr = _gameGlobal.TigrTop.Find(x =>
-                            x.GameId == tigrTemp.GameId && x.PlayerId == tigrTemp.Status.PlayerId);
-
-                        if (tigr != null && tigr.TimeCount > 0)
-                        {
-                            var tigrIndex = playersList.IndexOf(tigrTemp);
-
-                            playersList[tigrIndex] = playersList[0];
-                            playersList[0] = tigrTemp;
-                            tigr.TimeCount--;
-                            //await game.Phrases.TigrTop.SendLog(tigrTemp);
-                        }
-                    }
-                    //end Tigr Unique
-
-                    //sort
-                    for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
-                    //end sorting
-                    //////////////////////////////////////////////////////END FIRST SORTING/////////////////////////////////////////////////
-
-                    _gameGlobal.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
-
-                    //send  a wait message
-                    foreach (var player in playersList) await _upd.WaitMess(player, playersList);
-
-
-                    var game = new GameClass(playersList, gameId) {IsCheckIfReady = false};
-
-                    //vampyr unique
-                    if (playersList.Any(x => x.Character.Name == "Вампур"))
-                    {
-                        game.Phrases.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"), true);
-                        if (playersList.Any(x => x.Character.Name == "mylorik"))
-                            game.AddGlobalLogs(
-                                " \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
-                                "\n\n");
-                    }
-                    //end vampyr unique
-
-
-                    //start the timer
-                    game.TimePassed.Start();
-                    _global.GamesList.Add(game);
-
-
-                    //get all the chances before the game starts
-                    _characterPassives.CalculatePassiveChances(game);
-
-                    //handle round #0
-
-                    await _characterPassives.HandleNextRound(game);
-
-
-                    foreach (var player in playersList) await _upd.UpdateMessage(player);
-
-                    game.IsCheckIfReady = true;
-                }
-
-                await Task.Delay(100000);
-            }
-        }
-
-
-        [Command("rules")]
-        [Summary("Правила игры")]
-        public async Task Rules()
-        {
-            var gameRules = "**Правила игры:**\n" +
-                            "Шести игрокам выпадает случайный персонаж. Игрокам не известно против кого они играют. Каждый ход игрок может напасть на кого-то, либо обороняться. " +
-                            "В случае нападения игрок либо побеждает, получая очко, либо проигрывает, приносят очко врагу. В случае нападения на обороняющегося игрока, бой не состоится и нападающий потеряет 1 __бонусное__ очко и 1 Справедливости. Обороняющийся получит +1 Справедливости.\n" +
-                            "\n" +
-                            "**Бой:**\n" +
-                            "У всех персонажей есть 4 стата, чтобы победить в бою нужно выиграть по двум из трех пунктов:\n" +
-                            "1) статы \n" +
-                            "2) справедливость\n" +
-                            "3) случайность \n" +
-                            "\n" +
-                            "1 - В битве статов немалую роль играет Контр - превосходящий стат (если ваш персонаж превосходит врага например в интеллекте, то ваш персонаж умнее). Умный персонаж побеждает Быстрого, Быстрый Сильного, а Сильный Умного.\n" +
-                            "Второстепенную роль играет разница в общей сумме статов. Разница в Психике дополнительно дает небольшое преимущество.\n" +
-                            "2 - Проигрывая, персонажи получают +1 справедливости (максимум 5), при победе они полностью ее теряют. Во втором пункте побеждает тот, у кого больше справедливости на момент сражения.\n" +
-                            "3 - Обычный рандом, который чуть больше уважает СЛИШКОМ превосходящих игроков по первому пункту." +
-                            "\n" +
-                            "Очки напрямую влияют на место в таблице. Начиная с 5го хода,  все  получаемые очки, кроме __бонусных__, умножаются на 2, на 10ом ходу очки умножаются на 4.\n" +
-                            "После каждого хода обновляется таблица лидеров, побеждает лучший игрок после 10и ходов.\n" +
-                            "После каждого второго хода игрок может улучшить один из статов на +1.\n" +
-                            "У каждого персонажа есть особые пассивки, используйте их как надо!";
-
-            var embed = new EmbedBuilder();
-            embed.WithColor(Color.DarkOrange);
-            embed.WithDescription(gameRules);
-
-
-            await Context.User.SendMessageAsync("", false, embed.Build());
-        }
-
-
-        public List<GamePlayerBridgeClass> HandleCharacterRoll(List<IUser> players, ulong gameId, int characterChoice, ulong characterChoiceUserId)
-        {
-            var allCharacters = _charactersPull.GetAllCharacters();
-            var playersList = new List<GamePlayerBridgeClass>();
-
-            //shuffle player list
-            // RETURN SHUFFLE AND REMOVE CHOICE!
-            //players = players.OrderBy(x => Guid.NewGuid()).ToList();
-
-            foreach (var player in players)
-            {
-                var account = player != null
-                    ? _accounts.GetAccount(player.Id)
-                    : _helperFunctions.GetFreeBot(playersList);
-
-
-                if (account.DiscordId == characterChoiceUserId && characterChoiceUserId != 0 && characterChoice >= 0)
-                {
-                    var character = allCharacters[characterChoice];
-                    playersList.Add(new GamePlayerBridgeClass
-                    {
-                        Character = character,
-                        Status = new InGameStatus(),
-                        DiscordId = account.DiscordId,
-                        GameId = gameId,
-                        DiscordUsername = account.DiscordUserName,
-                        IsLogs = account.IsLogs,
-                        PlayerType = account.PlayerType
-                    });
-                    allCharacters.Remove(character);
-                    continue;
-                }
-
-                account.IsPlaying = true;
-                var tempCharacterChances = account.CharacterChance.ConvertAll(x =>
-                    new DiscordAccountClass.CharacterChances(x.CharacterName, x.CharacterChanceMin,
-                        x.CharacterChanceMax, x.Multiplier));
-
-                foreach (var tempCharacterChance in tempCharacterChances)
-                    if (tempCharacterChance.Multiplier > 1 || tempCharacterChance.Multiplier < 1)
-                    {
-                        var tempMax = tempCharacterChance.CharacterChanceMax;
-                        var tempMin = tempCharacterChance.CharacterChanceMin;
-
-                        var tempRealChance = tempMax - tempMin + 1;
-
-                        var tempMultipliedChance = Convert.ToInt32(tempRealChance * tempCharacterChance.Multiplier);
-
-                        if (tempRealChance == tempMultipliedChance) continue;
-
-                        var diff = tempMultipliedChance - tempRealChance;
-
-
-                        foreach (var t in tempCharacterChances.Where(x =>
-                            x.CharacterChanceMax > tempCharacterChance.CharacterChanceMax))
-                        {
-                            t.CharacterChanceMax += diff;
-                            t.CharacterChanceMin += diff;
-                        }
-
-                        tempCharacterChance.CharacterChanceMax += diff;
-                    }
-
-                while (true)
-                {
-                    var r = _secureRandom.Random(1,
-                        tempCharacterChances.OrderByDescending(x => x.CharacterChanceMax).ToList()[0]
-                            .CharacterChanceMax);
-                    var cr = tempCharacterChances.Find(x => r >= x.CharacterChanceMin && r <= x.CharacterChanceMax);
-                    var character = allCharacters.Find(x => x.Name == cr.CharacterName);
-                    if (character == null) continue;
-                    playersList.Add(new GamePlayerBridgeClass
-                    {
-                        Character = character, Status = new InGameStatus(), DiscordId = account.DiscordId,
-                        GameId = gameId, DiscordUsername = account.DiscordUserName, IsLogs = account.IsLogs,
-                        PlayerType = account.PlayerType
-                    });
-                    allCharacters.Remove(character);
-                    break;
-                }
-            }
-
-
-            return playersList;
-        }
-
-
-        [Command("start")]
-        [Alias("st", "start game")]
-        [Summary("запуск игры")]
-        public async Task StartGameTest(IUser socketPlayer2 = null)
-        {
-            _helperFunctions.SubstituteUserWithBot(Context.User.Id);
-
-            var players = new List<IUser> {Context.User};
-            if (socketPlayer2 != null) players.Add(socketPlayer2);
-            var gameId = _global.GetNewtGamePlayingAndId();
-
-            var f = 6 - players.Count;
-            for (var i = 0; i < f; i++) players.Add(null);
-
-            var playersList = HandleCharacterRoll(players, gameId, -1, 0);
-
-
-            ////////////////////////////////////////////////////// FIRST SORTING/////////////////////////////////////////////////
-            //randomize order
-            playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
-            playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-
-            //HardKitty unique
-            if (playersList.Any(x => x.Character.Name == "HardKitty"))
-            {
-                var tempHard = playersList.Find(x => x.Character.Name == "HardKitty");
-                var hardIndex = playersList.IndexOf(tempHard);
-
-                for (var i = hardIndex; i < playersList.Count - 1; i++)
-                    playersList[i] = playersList[i + 1];
-
-                playersList[playersList.Count - 1] = tempHard;
-            }
-            //end //HardKitty unique
-
-
-            //Tigr Unique
-            if (playersList.Any(x => x.Character.Name == "Тигр"))
-            {
-                var tigrTemp = playersList.Find(x => x.Character.Name == "Тигр");
-
-                var tigr = _gameGlobal.TigrTop.Find(x =>
-                    x.GameId == tigrTemp.GameId && x.PlayerId == tigrTemp.Status.PlayerId);
-
-                if (tigr != null && tigr.TimeCount > 0)
-                {
-                    var tigrIndex = playersList.IndexOf(tigrTemp);
-
-                    playersList[tigrIndex] = playersList[0];
-                    playersList[0] = tigrTemp;
-                    tigr.TimeCount--;
-                    //await game.Phrases.TigrTop.SendLog(tigrTemp);
-                }
-            }
-            //end Tigr Unique
-
-            //sort
-            for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
-            //end sorting
-            //////////////////////////////////////////////////////END FIRST SORTING/////////////////////////////////////////////////
-
-            _gameGlobal.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
-
-            //send  a wait message
-            foreach (var player in playersList) await _upd.WaitMess(player, playersList);
-
-
-            var game = new GameClass(playersList, gameId) {IsCheckIfReady = false};
-
-            //vampyr unique
-            if (playersList.Any(x => x.Character.Name == "Вампур"))
-            {
-                game.Phrases.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"), true);
-                if (playersList.Any(x => x.Character.Name == "mylorik"))
-                    game.AddGlobalLogs(
-                        " \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
-                        "\n\n");
-            }
-            //end vampyr unique
-
-
-            //start the timer
-            game.TimePassed.Start();
-            _global.GamesList.Add(game);
-
-
-            //get all the chances before the game starts
-            _characterPassives.CalculatePassiveChances(game);
-
-            //handle round #0
-
-            await _characterPassives.HandleNextRound(game);
-
-
-            foreach (var player in playersList) await _upd.UpdateMessage(player);
-
-            game.IsCheckIfReady = true;
-        }
-
-
-        [Command("start")]
-        [Alias("st", "start game")]
-        [Summary("запуск игры")]
-        public async Task StartGameTest(int characterChoice = -1)
-        {
-            _helperFunctions.SubstituteUserWithBot(Context.User.Id);
-
-            var players = new List<IUser> { Context.User };
-      
-            var gameId = _global.GetNewtGamePlayingAndId();
-
-            var f = 6 - players.Count;
-            for (var i = 0; i < f; i++) players.Add(null);
-
-            var playersList = HandleCharacterRoll(players, gameId, characterChoice, Context.User.Id);
-
-
-            ////////////////////////////////////////////////////// FIRST SORTING/////////////////////////////////////////////////
-            //randomize order
-            playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
-            playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-
-            //HardKitty unique
-            if (playersList.Any(x => x.Character.Name == "HardKitty"))
-            {
-                var tempHard = playersList.Find(x => x.Character.Name == "HardKitty");
-                var hardIndex = playersList.IndexOf(tempHard);
-
-                for (var i = hardIndex; i < playersList.Count - 1; i++)
-                    playersList[i] = playersList[i + 1];
-
-                playersList[playersList.Count - 1] = tempHard;
-            }
-            //end //HardKitty unique
-
-
-            //Tigr Unique
-            if (playersList.Any(x => x.Character.Name == "Тигр"))
-            {
-                var tigrTemp = playersList.Find(x => x.Character.Name == "Тигр");
-
-                var tigr = _gameGlobal.TigrTop.Find(x =>
-                    x.GameId == tigrTemp.GameId && x.PlayerId == tigrTemp.Status.PlayerId);
-
-                if (tigr != null && tigr.TimeCount > 0)
-                {
-                    var tigrIndex = playersList.IndexOf(tigrTemp);
-
-                    playersList[tigrIndex] = playersList[0];
-                    playersList[0] = tigrTemp;
-                    tigr.TimeCount--;
-                    //await game.Phrases.TigrTop.SendLog(tigrTemp);
-                }
-            }
-            //end Tigr Unique
-
-            //sort
-            for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
-            //end sorting
-            //////////////////////////////////////////////////////END FIRST SORTING/////////////////////////////////////////////////
-
-            _gameGlobal.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
-
-            //send  a wait message
-            foreach (var player in playersList) await _upd.WaitMess(player, playersList);
-
-
-            var game = new GameClass(playersList, gameId) { IsCheckIfReady = false };
-
-            //vampyr unique
-            if (playersList.Any(x => x.Character.Name == "Вампур"))
-            {
-                game.Phrases.VampyrVampyr.SendLog(playersList.Find(x => x.Character.Name == "Вампур"), true);
-                if (playersList.Any(x => x.Character.Name == "mylorik"))
-                    game.AddGlobalLogs(
-                        " \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
-                        "\n\n");
-            }
-            //end vampyr unique
-
-
-            //start the timer
-            game.TimePassed.Start();
-            _global.GamesList.Add(game);
-
-
-            //get all the chances before the game starts
-            _characterPassives.CalculatePassiveChances(game);
-
-            //handle round #0
-
-            await _characterPassives.HandleNextRound(game);
-
-
-            foreach (var player in playersList) await _upd.UpdateMessage(player);
-
-            game.IsCheckIfReady = true;
-        }
-
-        public EmbedBuilder GetStatsEmbed(DiscordAccountClass account)
-        {
-            var embed = new EmbedBuilder();
-            var mostWins = account.CharacterStatistics.OrderByDescending(x => x.Wins).ToList().ElementAtOrDefault(0);
-            var leastWins = account.CharacterStatistics.OrderByDescending(x => x.Wins)
-                .ElementAtOrDefault(account.CharacterStatistics.Count - 1);
-            var mostPlays = account.CharacterStatistics.OrderByDescending(x => x.Plays).ElementAtOrDefault(0);
-            var leastPlays = account.CharacterStatistics.OrderByDescending(x => x.Plays)
-                .ElementAtOrDefault(account.CharacterStatistics.Count - 1);
-            var mostPlace = account.PerformanceStatistics.OrderByDescending(x => x.Place).ElementAtOrDefault(0);
-            var leastPlace = account.PerformanceStatistics.OrderByDescending(x => x.Place)
-                .ElementAtOrDefault(account.PerformanceStatistics.Count - 1);
-            var topPoints = account.MatchHistory.OrderByDescending(x => x.Score).ElementAtOrDefault(0);
-            var mostChance = account.CharacterChance.OrderByDescending(x => x.Multiplier).ElementAtOrDefault(0);
-            var leastChance = account.CharacterChance.OrderByDescending(x => x.Multiplier)
-                .ElementAtOrDefault(account.CharacterChance.Count - 1);
-
-            ulong totalPoints = 0;
-
-            foreach (var v in account.MatchHistory)
-                if (v.Score > 0)
-                    totalPoints += (ulong) v.Score;
-                else
-                    totalPoints += (ulong) (v.Score * -1);
-
-            embed.WithAuthor(Context.User);
-            // embed.WithDescription("буль-буль");
-
-            embed.AddField("ZBS Points", $"{account.ZbsPoints}", true);
-            embed.AddField("Тип Пользователя", $"{account.PlayerType}", true);
-            embed.AddField("Всего Игр", $"{account.TotalPlays}", true);
-            embed.AddField("Всего Топ 1", $"{account.TotalWins}", true);
-
-            if (totalPoints > 0)
-                embed.AddField("Среднее количество очков за игру",
-                    $"{totalPoints / account.TotalWins} - ({totalPoints}/{account.TotalWins})");
-            if (topPoints != null)
-                embed.AddField("Больше всего очков за игру",
-                    $"{topPoints.CharacterName} - {topPoints.Score} (#{topPoints.Place}) {topPoints.Date.Month}.{topPoints.Date.Day}.{topPoints.Date.Year}",
-                    true);
-            if (mostWins != null)
-                embed.AddField("Больше всего побед", $"{mostWins.CharacterName} - {mostWins.Wins}/{mostWins.Plays}",
-                    true);
-            if (leastWins != null)
-                embed.AddField("Меньше всего побед", $"{leastWins.CharacterName} - {leastWins.Wins}/{leastWins.Plays}",
-                    true);
-            if (mostPlays != null)
-                embed.AddField("Больше всего игр", $"{mostPlays.CharacterName} - {mostPlays.Wins}/{mostPlays.Plays}",
-                    true);
-            if (leastPlays != null)
-                embed.AddField("Меньше всего игр", $"{leastPlays.CharacterName} - {leastPlays.Wins}/{leastPlays.Plays}",
-                    true);
-            if (mostPlace != null)
-                embed.AddField("Самое частое место", $"Топ {mostPlace.Place} - {mostPlace.Times}/{account.TotalPlays}",
-                    true);
-            if (leastPlace != null)
-                embed.AddField("Самое редкое место",
-                    $"Топ {leastPlace.Place} - {leastPlace.Times}/{account.TotalPlays}",
-                    true);
-            if (mostChance != null)
-                embed.AddField("Самый большой шанс",
-                    $"{mostChance.CharacterName} - {mostChance.Multiplier} ({(mostChance.CharacterChanceMax - mostChance.CharacterChanceMin + 1) * mostChance.Multiplier})",
-                    true);
-            if (leastChance != null)
-                embed.AddField("Самый маленький шанс",
-                    $"{leastChance.CharacterName} - {leastChance.Multiplier} ({leastChance.CharacterChanceMax - leastChance.CharacterChanceMin + 1})",
-                    true);
-
-            embed.WithFooter("циферки");
-            embed.WithCurrentTimestamp();
-
-            return embed;
-        }
-
 
         [Command("stats")]
         [Summary("Персональные статы")]
@@ -805,22 +514,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             await SendMessAsync(GetStatsEmbed(_accounts.GetAccount(user?.Id ?? Context.User.Id)));
         }
 
-        [Command("inv")]
-        public async Task Invite()
-        {
-            foreach (var guild in _global.Client.Guilds)
-            {
-                try
-                {
-                    await SendMessAsync($"{guild.Name}" +
-                                        $"\n{guild.GetVanityInviteAsync().Result.Url}");
-                }
-                catch
-                {
-                    //
-                }
-            }
-        }
+
 
 
         [Command("stats")]
@@ -831,35 +525,5 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        [Command("top")]
-        [Summary("Мировые статы")]
-        public async Task GameStatsWorld()
-        {
-            var allAccounts = _accounts.GetAllAccount();
-        }
-
-
-
-
-        [Command("updMaxRam")]
-        [RequireOwner]
-        [Summary(
-            "updates maximum number of commands bot will save in memory (default 1000 every time you launch this app)")]
-        public async Task ChangeMaxNumberOfCommandsInRam(uint number)
-        {
-            _commandsInMemory.MaximumCommandsInRam = number;
-            await SendMessAsync($"now I will store {number} of commands");
-        }
-
-
-        [Command("clearMaxRam")]
-        [RequireOwner]
-        [Summary("CAREFUL! This will delete ALL commands in ram")]
-        public async Task ClearCommandsInRam()
-        {
-            var toBeDeleted = _commandsInMemory.CommandList.Count;
-            _commandsInMemory.CommandList.Clear();
-            await SendMessAsync($"I have deleted {toBeDeleted} commands");
-        }
     }
 }

@@ -38,12 +38,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
 
         private readonly int _padLength = 16;
         private readonly SemaphoreSlim _semaphore = new(1);
-        private readonly LoginFromConsole _logs;
 
-        public LoginFromConsole()
-        {
-        
-        }
 
 
         public Task InitializeAsync()
