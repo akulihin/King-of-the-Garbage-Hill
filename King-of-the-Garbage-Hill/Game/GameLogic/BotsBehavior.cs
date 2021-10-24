@@ -89,12 +89,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             if (moral >= 15)
             {
                 bot.Character.AddMoral(bot.Status, -15, "Обмен Морали: ", false);
-                bot.Character.AddBonusPointsFromMoral(15);
+                bot.Character.AddBonusPointsFromMoral(12);
             }
             if (moral >= 10)
             {
                 bot.Character.AddMoral(bot.Status, -10, "Обмен Морали: ", false);
-                bot.Character.AddBonusPointsFromMoral(8);
+                bot.Character.AddBonusPointsFromMoral(6);
             }
             if (moral >= 5)
             {

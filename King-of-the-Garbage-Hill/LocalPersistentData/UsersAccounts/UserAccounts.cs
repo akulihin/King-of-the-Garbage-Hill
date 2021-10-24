@@ -109,8 +109,10 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 DiscordId = user.Id,
                 DiscordUserName = user.Username,
                 IsPlaying = false,
-                PlayerType = 1,
+                PlayerType = 0,
                 ZbsPoints = 0,
+                IsNewPlayer = true,
+                MyPrefix = "*",
             };
 
             if (newAccount.DiscordUserName.Contains("<:war:561287719838547981>"))
@@ -134,8 +136,10 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 DiscordId = botId,
                 DiscordUserName = "BOT",
                 IsPlaying = false,
-                PlayerType = 1,
-                ZbsPoints = 0
+                PlayerType = 404,
+                ZbsPoints = 0,
+                IsNewPlayer = true,
+                MyPrefix = "*",
             };
 
             _userAccountsDictionary.GetOrAdd(newAccount.DiscordId, newAccount);

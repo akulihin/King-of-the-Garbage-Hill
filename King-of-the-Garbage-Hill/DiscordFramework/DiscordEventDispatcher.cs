@@ -74,6 +74,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
         {
             button.RespondAsync();
             _gameReaction.ReactionAddedGameWindow(button);
+            _storeReactionHandling.ReactionAddedStore(button);
         }
         private async Task _client_ButtonExecuted(SocketMessageComponent button)
         {

@@ -10,22 +10,20 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public ulong DiscordId { get; set; }
         public ulong GameId { get; set; }
-        public string DiscordUsername { get; set; }
-        /*
+        public string DiscordUsername { get; set; } 
+/*
 0 == Normal
 1 == Casual
 2 == Admin
+404 == Bot
 */
         public int PlayerType { get; set; }
-        public List<ulong> DeleteMessages { get; set; } = new List<ulong>();
-        public List<PredictClass> Predict { get; set; } = new List<PredictClass>();
+        public List<ulong> DeleteMessages { get; set; } = new();
+        public List<PredictClass> Predict { get; set; } = new();
 
         public bool IsBot()
         {
-            if (DiscordId <= 1000000) return true;
-            if (Status.SocketMessageFromBot == null) return true;
-
-            return false;
+            return PlayerType == 404 || Status.SocketMessageFromBot == null;
         }
 
         public void MinusPsycheLog(GameClass game)

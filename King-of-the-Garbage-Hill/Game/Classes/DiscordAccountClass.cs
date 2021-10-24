@@ -14,7 +14,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public ulong DiscordId { get; set; }
         public string MyPrefix { get; set; }
         public bool IsPlaying { get; set; }
-
+        public List<string> SeenCharacters = new();
+        public bool IsNewPlayer { get; set; }
        
         public int ZbsPoints { get; set; }
 
@@ -27,8 +28,16 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         0 == Normal
         1 == Casual
         2 == Admin
+        404 == Bot
         */
         public int PlayerType { get; set; }
+
+
+        public bool IsBot()
+        {
+            return PlayerType == 404;
+        }
+
 
         public class CharacterChances
         {

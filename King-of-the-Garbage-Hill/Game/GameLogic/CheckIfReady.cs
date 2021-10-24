@@ -234,7 +234,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         try
                         {
                             if (!player.IsBot())
-                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("ты кончил.");
+                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Спасибо за игру!");
                         }
                         catch (Exception ee)
                         {

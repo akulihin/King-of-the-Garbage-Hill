@@ -18,11 +18,13 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         private readonly HelperFunctions _help;
         private readonly LoginFromConsole _logs;
         private readonly GameUpdateMess _upd;
+        private readonly UserAccounts _accounts;
 
         public GameReaction(UserAccounts accounts,
             Global global,
             GameUpdateMess upd, HelperFunctions help, LoginFromConsole logs)
         {
+            _accounts = accounts;
             _global = global;
 
             _upd = upd;
@@ -121,14 +123,14 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             if (player.Character.GetMoral() >= 15)
                             {
                                 player.Character.AddMoral(player.Status, -15, skillName:"Обмен Морали: ");
-                                player.Character.AddBonusPointsFromMoral(15);
-                                _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Я БОГ ЭТОГО МИРА + 15 __бонунсых__ очка");
+                                player.Character.AddBonusPointsFromMoral(12);
+                                _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Я БОГ ЭТОГО МИРА + 12 __бонунсых__ очка");
                             }
                             else if (player.Character.GetMoral() >= 10)
                             {
                                 player.Character.AddMoral(player.Status, -10, skillName: "Обмен Морали: ");
                                 player.Character.AddBonusPointsFromMoral(8);
-                                _help.SendMsgAndDeleteItAfterRound(player, "Мораль: МВП + 8 __бонунсых__ очка");
+                                _help.SendMsgAndDeleteItAfterRound(player, "Мораль: МВП + 6 __бонунсых__ очка");
                             }
                             else if (player.Character.GetMoral() >= 5)
                             {
@@ -148,8 +150,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                                     "У тебя недосточно морали, чтобы поменять ее на бонусные очки.\n" +
                                     "3 морали =  1 бонусное очко\n" +
                                     "5 морали = 2 бонусных очка\n" +
-                                    "10 морали = 8 бонусных очков\n" +
-                                    "15 морали = 15 бонусных очков");
+                                    "10 морали = 6 бонусных очков\n" +
+                                    "15 морали = 12 бонусных очков");
                             }
 
                             if (tempMoral >= 3)
@@ -185,6 +187,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         public async Task HandlePredic1(GamePlayerBridgeClass player, SocketMessageComponent button)
         {
 
+            var account = _accounts.GetAccount(player.DiscordId);
             var game = _global.GamesList.Find(x => x.GameId == player.GameId);
             var builder = new ComponentBuilder();
             
@@ -194,24 +197,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 .WithCustomId("predict-2")
                 .WithPlaceholder(string.Join("", button.Data.Values) + " это...");
 
-            var allCharacters = new List<string> {
-                "DeepList",
-                "mylorik",
-                "Глеб",
-                "LeCrisp",
-                "Толя",
-                "HardKitty",
-                "Sirinoks",
-                "Mit*suki*",
-                "AWDKA",
-                "Осьминожка",
-                "Darksci",
-                "Тигр",
-                "Братишка",
-                "Загадочный Спартанец в маске",
-                "Вампур"
-            };
-            
+            var allCharacters = account.CharacterChance.Select(character => character.CharacterName).ToList();
+
             var i = 0;
             predictMenu.AddOption("Предыдущие меню", "prev-page");
             //predictMenu.AddOption("Очистить", "empty");

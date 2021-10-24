@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
-using King_of_the_Garbage_Hill.Game.Store;
+using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -13,14 +13,13 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
     public class Store : ModuleBaseCustom
     {
         private readonly UserAccounts _accounts;
-        private readonly AwaitForUserMessage _awaitForUserMessage;
-        private readonly StoreLogic _storeLogic;
+        private readonly StoreReactionHandling _storeReactionHandling;
 
-        public Store(UserAccounts userAccounts, AwaitForUserMessage awaitForUserMessage, StoreLogic storeLogic)
+        public Store(UserAccounts userAccounts, StoreReactionHandling storeReactionHandling)
         {
             _accounts = userAccounts;
-            _awaitForUserMessage = awaitForUserMessage;
-            _storeLogic = storeLogic;
+   
+            _storeReactionHandling = storeReactionHandling;
         }
 
 
@@ -32,56 +31,26 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         {
             var account = _accounts.GetAccount(Context.User);
 
-            var text = "Напиши в чат цифру персонажа, которого хочешь изменить\n\n";
-            var choiceList = new List<StoreChoice>();
-
-            var i = 1;
-            foreach (var c in account.CharacterChance)
+            if (account.SeenCharacters.Count == 0)
             {
-                text += $"{i}. {c.CharacterName}\n";
-                choiceList.Add(new StoreChoice(i, c.CharacterName));
-                i++;
-            }
-
-            await SendMessAsync(text);
-
-            var response = await _awaitForUserMessage.AwaitMessage(Context.User.Id, Context.Channel.Id, 10);
-
-            if (response == null)
-            {
-                await SendMessAsync("Ты не выбрал персонажа");
+                await SendMessAsync("Ты еще ни разу не сыграл! Магазин закрыт.");
                 return;
             }
 
-            var choice = 0;
 
-            try
-            {
-                choice = Convert.ToInt32(response.Content);
-            }
-            catch
-            {
-                await SendMessAsync("Ты написал не цифру.");
-                return;
-            }
+            var character = account.CharacterChance.Find(x => x.CharacterName == account.SeenCharacters[0]);
 
-            var chosenCharacter = choiceList.Find(x => x.Index == choice);
-
-            if (chosenCharacter == null)
+            var builder = new ComponentBuilder();
+            var embed = _storeReactionHandling.GetStoreEmbed(Context.User, character.CharacterName);
+        
+            foreach (var button in _storeReactionHandling.GetStoreButtons())
             {
-                await SendMessAsync("Ты не выбрал персонажа которого не было в списке");
-                return;
+                builder.WithButton(button);
             }
 
-            var character = account.CharacterChance.Find(x => x.CharacterName == chosenCharacter.CharacterName);
+            builder.WithSelectMenu(_storeReactionHandling.GetStoreCharacterSelectMenu(account));
 
-            var msg_to_send = _storeLogic.GetStoreEmbed(character, account, Context.User);
-            var builder = new ComponentBuilder()
-                .WithButton(customId: "attack-one", emote: new Emoji("1⃣"), row: 0)
-                .WithButton(customId: "attack-two", emote: new Emoji("2⃣"), row: 0)
-                .WithButton(customId: "attack-three", emote: new Emoji("3⃣"), row: 0)
-                .WithButton(customId: "attack-four", emote: new Emoji("4⃣"), row: 0);
-            await SendMessAsync(msg_to_send, components: builder.Build());
+            await SendMessAsync(embed, components: builder.Build());
         }
 
         public class StoreChoice

@@ -656,10 +656,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             if (game.RoundNo == 10) extraText = " (Конец игры)";
 
             if (player.Character.GetMoral() >= 15)
-                return new ButtonBuilder($"Обменять 15 Морали на 15 бонусных очков{extraText}", "moral",
+                return new ButtonBuilder($"Обменять 15 Морали на 12 бонусных очков{extraText}", "moral",
                     ButtonStyle.Secondary, disabled: disabled);
             if (player.Character.GetMoral() >= 10)
-                return new ButtonBuilder($"Обменять 10 Морали на 8 бонусных очков{extraText}", "moral",
+                return new ButtonBuilder($"Обменять 10 Морали на 6 бонусных очков{extraText}", "moral",
                     ButtonStyle.Secondary, disabled: disabled);
             if (player.Character.GetMoral() >= 5)
                 return new ButtonBuilder($"Обменять 5 Морали на 2 бонусных очка{extraText}", "moral",
@@ -686,12 +686,12 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         {
             if (!player.Status.CanSelectAttack)
             {
-                return new("Я подтверждаю свои предположения", "confirm-prefict", ButtonStyle.Primary, disabled: false, emote:
+                return new ButtonBuilder("Я подтверждаю свои предположения", "confirm-prefict", ButtonStyle.Primary, disabled: false, emote:
                     Emote.Parse("<a:bratishka:900962522276958298>"));
             }
             else
             {
-                return new("Братишка валяется почему-то...", "boole", ButtonStyle.Secondary, disabled: true, emote:
+                return new ButtonBuilder("Братишка валяется почему-то...", "boole", ButtonStyle.Secondary, disabled: true, emote:
                     Emote.Parse("<a:bratishka:900962522276958298>"));
             }
 

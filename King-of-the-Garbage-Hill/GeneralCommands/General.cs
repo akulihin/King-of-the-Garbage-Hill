@@ -120,13 +120,12 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 //end
 
                 var allAvailableCharacters = new List<DiscordAccountClass.CharacterRollClass>();
-                
                 var totalPool = 1;
                 
                 foreach (var character in allCharacters)
                 {
                     var range = GetRangeFromTier(character.Tier);
-                    if (character.Tier == 4 && account.DiscordId <= 1000000)
+                    if (character.Tier == 4 && account.IsBot())
                     {
                         range *= 3;
                     }
@@ -134,13 +133,9 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     allAvailableCharacters.Add(new DiscordAccountClass.CharacterRollClass(character.Name, totalPool, temp));
                     totalPool = temp + 1;
                 }
-                //100
-                //200
-                //310
+
                 var randomIndex = _secureRandom.Random(1, totalPool);
-
                 var rolledCharacter = allAvailableCharacters.Find(x => randomIndex >= x.CharacterRangeMin && randomIndex <= x.CharacterRangeMax);
-
                 var characterToAssign = allCharacters.Find(x => x.Name == rolledCharacter.CharacterName);
 
                 switch (characterToAssign.Name)
@@ -171,6 +166,17 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     PlayerType = account.PlayerType
                 });
                 allCharacters.Remove(characterToAssign);
+            }
+
+            //Добавить персонажа в магазин человека
+            foreach (var player in players)
+            {
+                if(player == null) continue;
+                var account = _accounts.GetAccount(player);
+                foreach (var playerInGame in playersList.Where(playerInGame => !account.SeenCharacters.Contains(playerInGame.Character.Name)))
+                {
+                    account.SeenCharacters.Add(playerInGame.Character.Name);
+                }
             }
 
             return playersList;
@@ -309,13 +315,10 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 player6
             };
 
-            foreach (var player in players)
+            foreach (var player in players.Where(player => player != null).Where(player => player.IsBot))
             {
-                if (player.IsBot)
-                {
-                    await SendMessAsync($"ERROR: {player.Mention}  is a bot!");
-                    return;
-                }
+                await SendMessAsync($"ERROR: {player.Mention}  is a bot!");
+                return;
             }
 
             //Заменить игрока на бота
