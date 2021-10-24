@@ -15,6 +15,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 
         private readonly ConcurrentDictionary<ulong, DiscordAccountClass> _userAccountsDictionary;
         private readonly UserAccountsDataStorage _usersDataStorage;
+        private Timer _loopingTimer;
 
         public UserAccounts(DiscordShardedClient client, UserAccountsDataStorage usersDataStorage)
         {
@@ -25,7 +26,6 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
             SaveAllAccountsTimer();
         }
 
-        private Timer LoopingTimer { get; set; }
 
         public async Task InitializeAsync()
         {
@@ -33,24 +33,22 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
         }
 
 
-        public void SaveAllAccountsTimer()
+        internal Task SaveAllAccountsTimer()
         {
-            LoopingTimer = new Timer
+            _loopingTimer = new Timer
             {
                 AutoReset = true,
-                Interval = 10000,
+                Interval = 60000,
                 Enabled = true
             };
-
-            LoopingTimer.Elapsed += SaveAllAccounts;
+            _loopingTimer.Elapsed += SaveAllAccounts;
+            return Task.CompletedTask;
         }
 
         public void ClearPlayingStatus()
         {
             var accounts = GetAllAccount();
             foreach (var a in accounts) a.IsPlaying = false;
-
-            SaveAllAccounts(null, null);
         }
 
         public DiscordAccountClass GetOrAddUserAccount(ulong userId)
@@ -92,8 +90,8 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
 
         private void SaveAllAccounts(object sender, ElapsedEventArgs e)
         {
-            foreach (var account in _userAccountsDictionary.Values)
-                _usersDataStorage.SaveAccountSettings(account, account.DiscordId);
+            foreach (var a in _userAccountsDictionary)
+                _usersDataStorage.SaveAccountSettings(a.Value, a.Key);
         }
 
 

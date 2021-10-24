@@ -74,10 +74,19 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         public List<GamePlayerBridgeClass> HandleCharacterRoll(List<IUser> players, ulong gameId)
         {
             var allCharacters = _charactersPull.GetAllCharacters();
+            var reservedCharacters = new List<CharacterClass>();
             var playersList = new List<GamePlayerBridgeClass>();
 
 
             players = players.OrderBy(x => Guid.NewGuid()).ToList();
+
+            //handle custom selected character part #1
+            foreach (var character in from player in players where player != null select _accounts.GetAccount(player) into account where account.CharacterToGiveNextTime != null select allCharacters.Find(x => x.Name == account.CharacterToGiveNextTime))
+            {
+                reservedCharacters.Add(character);
+                allCharacters.Remove(character);
+            }
+            //end
 
 
             foreach (var account in players.Select(player => player != null
@@ -91,6 +100,24 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 {
                     account.CharacterChance.Add(new DiscordAccountClass.CharacterChances(character.Name, character.Tier));
                 }
+                //end
+
+                //handle custom selected character part #2
+                if (account.CharacterToGiveNextTime != null)
+                {
+                    playersList.Add(new GamePlayerBridgeClass
+                    {
+                        Character = reservedCharacters.Find(x => x.Name == account.CharacterToGiveNextTime),
+                        Status = new InGameStatus(),
+                        DiscordId = account.DiscordId,
+                        GameId = gameId,
+                        DiscordUsername = account.DiscordUserName,
+                        PlayerType = account.PlayerType
+                    });
+                    account.CharacterToGiveNextTime = null;
+                    continue;
+                }
+                //end
 
                 var allAvailableCharacters = new List<DiscordAccountClass.CharacterRollClass>();
                 
@@ -99,6 +126,10 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 foreach (var character in allCharacters)
                 {
                     var range = GetRangeFromTier(character.Tier);
+                    if (character.Tier == 4 && account.DiscordId <= 1000000)
+                    {
+                        range *= 3;
+                    }
                     var temp = totalPool + Convert.ToInt32(range * account.CharacterChance.Find(x => x.CharacterName == character.Name).Multiplier) - 1;
                     allAvailableCharacters.Add(new DiscordAccountClass.CharacterRollClass(character.Name, totalPool, temp));
                     totalPool = temp + 1;
@@ -111,6 +142,25 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 var rolledCharacter = allAvailableCharacters.Find(x => randomIndex >= x.CharacterRangeMin && randomIndex <= x.CharacterRangeMax);
 
                 var characterToAssign = allCharacters.Find(x => x.Name == rolledCharacter.CharacterName);
+
+                switch (characterToAssign.Name)
+                {
+                    case "LeCrisp":
+                    {
+                        var characterToRemove = allCharacters.Find(x => x.Name == "Толя");
+                        if (characterToRemove != null)
+                            allCharacters.Remove(characterToRemove);
+                        break;
+                    }
+                    case "Толя":
+                    {
+                        var characterToRemove = allCharacters.Find(x => x.Name == "LeCrisp");
+                        if (characterToRemove != null)
+                            allCharacters.Remove(characterToRemove);
+                        break;
+                    }
+                }
+
                 playersList.Add(new GamePlayerBridgeClass
                 {
                     Character = characterToAssign,
@@ -247,7 +297,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         [Command("start")]
         [Alias("st", "start game")]
         [Summary("запуск игры")]
-        public async Task StartGameTest(IUser player2 = null, IUser player3 = null, IUser player4 = null, IUser player5 = null, IUser player6 = null)
+        public async Task StartGame(IUser player2 = null, IUser player3 = null, IUser player4 = null, IUser player5 = null, IUser player6 = null)
         {
             var players = new List<IUser>
             {
@@ -257,6 +307,93 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 player4,
                 player5,
                 player6
+            };
+
+            foreach (var player in players)
+            {
+                if (player.IsBot)
+                {
+                    await SendMessAsync($"ERROR: {player.Mention}  is a bot!");
+                    return;
+                }
+            }
+
+            //Заменить игрока на бота
+            foreach (var player in players.Where(p => p != null))
+            {
+                _helperFunctions.SubstituteUserWithBot(player.Id);
+            }
+
+            //получаем gameId
+            var gameId = _global.GetNewtGamePlayingAndId();
+
+            //ролл персонажей для игры
+            var playersList = HandleCharacterRoll(players, gameId);
+
+
+            //тасуем игроков
+            playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
+            playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+            playersList = HandleEventsBeforeFirstRound(playersList);
+
+            //выдаем место в таблице
+            for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
+
+            //это нужно для ботов
+            _gameGlobal.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
+
+            //отправить меню игры
+            foreach (var player in playersList) await _upd.WaitMess(player, playersList);
+
+            //создаем игру
+            var game = new GameClass(playersList, gameId) { IsCheckIfReady = false };
+
+
+            //start the timer
+            game.TimePassed.Start();
+            _global.GamesList.Add(game);
+
+            //get all the chances before the game starts
+            _characterPassives.CalculatePassiveChances(game);
+
+            //handle round #0
+            await _characterPassives.HandleNextRound(game);
+
+            foreach (var player in playersList) await _upd.UpdateMessage(player);
+            game.IsCheckIfReady = true;
+        }
+
+
+        [Command("start")]
+        [Alias("st", "start game")]
+        [Summary("запуск игры")]
+        public async Task StartGameTestMode(int choice)
+        {
+            if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
+            {
+                await SendMessAsync("only owners can use this command");
+                return;
+            }
+
+            var allCharacters = _charactersPull.GetAllCharacters();
+
+            if ( choice + 1 > allCharacters.Count)
+            {
+                await SendMessAsync($"ERROR: 404 - no such Character. Please select between 0 and {allCharacters.Count-1}");
+                return;
+            }
+
+            var account = _accounts.GetAccount(Context.User);
+            account.CharacterToGiveNextTime = allCharacters[choice].Name;
+
+            var players = new List<IUser>
+            {
+                Context.User,
+                null,
+                null,
+                null,
+                null,
+                null
             };
 
             //Заменить игрока на бота
@@ -305,6 +442,39 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
+        [Command("SetCharacter")]
+        [Summary("set character to roll next game")]
+        public async Task CharacterToGiveNextTime(string character, IUser player = null)
+        {
+            if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
+            {
+                await SendMessAsync("only owners can use this command");
+                return;
+            }
+
+            var allCharacters = _charactersPull.GetAllCharacters();
+            var account = _accounts.GetAccount(Context.User);
+
+            if (player != null)
+            {
+                account = _accounts.GetAccount(player);
+            }
+
+            var foundCharacter = allCharacters.Find(x => x.Name.ToLower() == character.ToLower());
+
+            if (foundCharacter == null)
+            {
+                var extra = allCharacters.Aggregate("", (current, c) => current + $"`{c.Name}`\n");
+                await SendMessAsync($"ERROR: 404 - No Such Character ({character})\nAvailable:\n{extra}");
+                return;
+            }
+
+            account.CharacterToGiveNextTime = foundCharacter.Name;
+
+            await SendMessAsync($"Done. {player.Mention} будет играть на {foundCharacter.Name} в следующей игре");
+        }
+
+        
         [Command("SetType")]
         [Summary("setting type of account: 0, 1, 2 ")]
         public async Task SetType(SocketUser user, int userType)

@@ -157,25 +157,6 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
             if (msg.Author.IsBot)
                 return;
 
-            switch (message.Channel)
-            {
-                case SocketDMChannel _ when context.User.IsBot:
-                    return;
-                case SocketDMChannel _:
-
-
-                    var resultTask = _commands.ExecuteAsync(
-                        context,
-                        argPos,
-                        _services);
-
-
-                    await resultTask.ContinueWith(async task =>
-                        await CommandResults(task, context));
-
-
-                    return;
-            }
 
 
             if (message.HasStringPrefix("*", ref argPos) || message.HasStringPrefix("*" + " ",
