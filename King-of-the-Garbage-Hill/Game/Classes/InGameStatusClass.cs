@@ -35,6 +35,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             PlayerId = Guid.NewGuid();
             KnownPlayerClass = new List<KnownPlayerClassClass>();
             CanSelectAttack = true;
+            IsTargetSkipped = Guid.NewGuid();
+            IsTargetBlocked = Guid.NewGuid();
         }
 
         public int MoveListPage { get; set; }
@@ -58,6 +60,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public int WonTimes { get; set; }
         public Guid IsWonThisCalculation { get; set; }
         public Guid IsLostThisCalculation { get; set; }
+        public Guid IsTargetSkipped { get; set; }
+        public Guid IsTargetBlocked { get; set; }
         public Guid IsFighting { get; set; }
         private double ScoresToGiveAtEndOfRound { get; set; }
         public int LvlUpPoints { get; set; }

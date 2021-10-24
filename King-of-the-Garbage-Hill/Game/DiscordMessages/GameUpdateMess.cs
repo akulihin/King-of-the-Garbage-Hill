@@ -223,12 +223,15 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     break;
 
                 case "HardKitty":
-                    var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
-                        x.GameId == me.GameId &&
-                        x.PlayerId == me.Status.PlayerId);
-                    var lostSeries = hardKitty?.LostSeries.Find(x => x.EnemyPlayerId == other.Status.PlayerId);
-                    if (lostSeries != null)
-                        customString += $" <:393:563063205811847188> - {lostSeries.Series}";
+                    var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x => x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
+                    if (hardKitty != null)
+                    {
+                        var lostSeries = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == other.Status.PlayerId);
+                        if(lostSeries != null)
+                            if (lostSeries.Series > 0)
+                                customString += $" <:393:563063205811847188> - {lostSeries.Series}";
+                    }
+
                     break;
                 case "Sirinoks":
                     var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
@@ -386,6 +389,28 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 .Select(i => str.Substring(i * chunkSize, chunkSize));
         }
 
+
+        public string HandleCasualNormalSkillShow(string text, GamePlayerBridgeClass player, GameClass game)
+        {
+            if (player.PlayerType == 0)
+            {
+                foreach (var p in game.PlayersList)
+                {
+                    if (p.Status.PlayerId == player.Status.PlayerId)
+                        continue;
+                    foreach (var passive in p.Character.Passive)
+                    {
+                        if (passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса")
+                        {
+                            text = text.Replace($"{passive.PassiveName}", "❓");
+                        }
+                    }
+                }
+            }
+
+            return text;
+        }
+
         //Page 1
         public EmbedBuilder FightPage(GamePlayerBridgeClass player)
         {
@@ -448,13 +473,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             if (splitLogs.Length > 1 && splitLogs[^2].Length > 3 && game.RoundNo > 1)
             {
                 text = splitLogs[^2];
-
-                if (player.PlayerType == 0)
-                {
-                    text = game.PlayersList.Where(p => p.Status.PlayerId != player.Status.PlayerId).Aggregate(text, (current1, p) => p.Character.Passive.Aggregate(current1, (current, passive) => current.Replace($"{passive.PassiveName}", "❓")));
-                }
-
-
+                text = HandleCasualNormalSkillShow(text, player, game);
                 embed.AddField("События прошлого раунда:", $"{text}");
             }
             else
@@ -463,20 +482,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             }
 
             text = player.Status.GetInGamePersonalLogs().Length >= 2 ? $"{player.Status.GetInGamePersonalLogs()}" : "Еще ничего не произошло. Наверное...";
-
-            if (player.PlayerType == 0)
-            {
-                foreach (var p in game.PlayersList)
-                {
-                    if (p.Status.PlayerId == player.Status.PlayerId)
-                        continue;
-                    foreach (var passive in p.Character.Passive)
-                    {
-                        text = text.Replace($"{passive.PassiveName}", "❓");
-                    }
-                }
-            }
-
+            text = HandleCasualNormalSkillShow(text, player, game);
             embed.AddField("События этого раунда:", text);
 
 

@@ -61,7 +61,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             return buttons;
         }
 
-
+            
         public string GetMerchantGif()
         {
             var merchants = new List<string>

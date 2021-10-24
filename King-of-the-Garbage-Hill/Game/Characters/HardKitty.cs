@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
@@ -26,53 +27,38 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public void HandleHardKittyAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //Доебаться
-            var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
-                x.GameId == player.GameId &&
-                x.PlayerId == player.Status.PlayerId);
+            var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x => x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
 
-            if (player.Status.IsLostThisCalculation != Guid.Empty)
+            if (player.Status.WhoToAttackThisTurn != Guid.Empty)
             {
-                if (hardKitty == null)
+                if (player.Status.IsLostThisCalculation == player.Status.WhoToAttackThisTurn || player.Status.IsTargetBlocked == player.Status.WhoToAttackThisTurn || player.Status.IsTargetSkipped == player.Status.WhoToAttackThisTurn)
                 {
-                    _gameGlobal.HardKittyDoebatsya.Add(new DoebatsyaClass(
-                        player.Status.PlayerId, player.GameId,
-                        player.Status.IsLostThisCalculation));
-                }
-                else
-                {
-                    var exists =
-                        hardKitty.LostSeries.Find(x => x.EnemyPlayerId == player.Status.IsLostThisCalculation);
-                    if (exists == null)
-                        hardKitty.LostSeries.Add(
-                            new DoebatsyaSubClass(player.Status.IsLostThisCalculation));
+                    var found = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == player.Status.WhoToAttackThisTurn);
+
+                    if (found != null)
+                        found.Series++;
                     else
-                        exists.Series++;
+                    {
+                        hardKitty.LostSeries.Add(new DoebatsyaSubClass(player.Status.WhoToAttackThisTurn));
+                    }
                 }
-
-                return;
             }
 
-            var wonPlayer =
-                hardKitty?.LostSeries.Find(x => x.EnemyPlayerId == player.Status.IsWonThisCalculation);
-            if (wonPlayer != null)
+            if (player.Status.IsWonThisCalculation != Guid.Empty && player.Status.IsWonThisCalculation == player.Status.WhoToAttackThisTurn)
             {
-                player.Status.AddRegularPoints(wonPlayer.Series, "Доебаться");
-                if (wonPlayer.Series >= 2)
+                var found = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == player.Status.WhoToAttackThisTurn);
+                if (found != null)
                 {
-                    var player2 = game.PlayersList.Find(x =>
-                        x.Status.PlayerId == player.Status.IsWonThisCalculation);
-
-                    player2.Character.AddPsyche(player2.Status, -1, "Доебаться: ");
-                    player2.MinusPsycheLog(game);
+                    if (found.Series > 0)
+                    {
+                        player.Status.AddRegularPoints(found.Series, "Доебаться", true);
+                        found.Series = 0;
+                    }
                 }
-
-                wonPlayer.Series = 0;
-
-
-                game.Phrases.HardKittyDoebatsyaPhrase.SendLog(player, false);
             }
+            //end Доебаться
 
-            // end Доебаться
+
         }
 
         public class DoebatsyaClass
@@ -81,11 +67,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             public List<DoebatsyaSubClass> LostSeries = new();
             public Guid PlayerId;
 
-            public DoebatsyaClass(Guid playerId, ulong gameId, Guid enemyId)
+            public DoebatsyaClass(Guid playerId, ulong gameId)
             {
                 PlayerId = playerId;
                 GameId = gameId;
-                LostSeries.Add(new DoebatsyaSubClass(enemyId));
             }
         }
 

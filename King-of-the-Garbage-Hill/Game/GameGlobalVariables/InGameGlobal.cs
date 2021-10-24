@@ -12,99 +12,74 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
     {
         private readonly SecureRandom _rand;
 
-        public readonly List<WhenToTriggerClass>
-            AllSkipTriggeredWhen = new();
-
-        public readonly List<WhenToTriggerClass>
-            AwdkaAfkTriggeredWhen = new();
+        public readonly List<Sirinoks.SirinoksFriendsClass> SirinoksFriendsAttack = new();
+        public readonly List<FriendsClass> SirinoksFriendsList = new();
+        public readonly List<Sirinoks.TrainingClass> SirinoksTraining = new();
 
         public readonly List<Sirinoks.TrainingClass> AwdkaTeachToPlay = new();
-        public readonly List<Sirinoks.SirinoksFriendsClass> SirinoksFriendsAttack = new();
-
-
         public readonly List<Awdka.TeachToPlayHistory> AwdkaTeachToPlayHistory = new();
         public readonly List<DeepList.Madness> AwdkaTeachToPlayTempStats = new();
         public readonly List<Awdka.TrollingClass> AwdkaTrollingList = new();
         public readonly List<Awdka.TryingClass> AwdkaTryingList = new();
+        public readonly List<WhenToTriggerClass> AwdkaAfkTriggeredWhen = new();
 
         public readonly List<Darksci.LuckyClass> DarksciLuckyList = new();
+
         public readonly List<FriendsClass> DeepListDoubtfulTactic = new();
-
         public readonly List<DeepList.Madness> DeepListMadnessList = new();
-
-
-        public readonly List<WhenToTriggerClass>
-            DeepListMadnessTriggeredWhen = new();
-
+        public readonly List<WhenToTriggerClass> DeepListMadnessTriggeredWhen = new();
         public readonly List<DeepList.Mockery> DeepListMockeryList = new();
-
-        public readonly List<DeepList.SuperMindKnown>
-            DeepListSupermindKnown = new();
-
-        public readonly List<WhenToTriggerClass>
-            DeepListSupermindTriggeredWhen = new();
+        public readonly List<DeepList.SuperMindKnown> DeepListSupermindKnown = new();
+        public readonly List<WhenToTriggerClass> DeepListSupermindTriggeredWhen = new();
 
         public readonly List<DeepList.Madness> GlebChallengerList = new();
-
-        public readonly List<WhenToTriggerClass>
-            GlebChallengerTriggeredWhen = new();
-
-        public readonly List<WhenToTriggerClass>
-            GlebComeBackTriggeredWhen = new();
-
+        public readonly List<WhenToTriggerClass> GlebChallengerTriggeredWhen = new();
         public readonly List<Gleb.GlebSkipClass> GlebSkipList = new();
+        public readonly List<WhenToTriggerClass> GlebSleepingTriggeredWhen = new();
+        public readonly List<WhenToTriggerClass> GlebTeaTriggeredWhen = new();
 
-        public readonly List<WhenToTriggerClass>
-            GlebSleepingTriggeredWhen = new();
-
-        public readonly List<WhenToTriggerClass>
-            GlebTeaTriggeredWhen = new();
-
-        public readonly List<HardKitty.DoebatsyaClass> HardKittyDoebatsya = new();
         public readonly List<HardKitty.MuteClass> HardKittyMute = new();
         public readonly List<HardKitty.LonelinessClass> HardKittyLoneliness = new();
+        public readonly List<HardKitty.DoebatsyaClass> HardKittyDoebatsya = new();
 
         public readonly List<LeCrisp.LeCrispImpactClass> LeCrispImpact = new();
+
         public readonly List<LolGod.PushAndDieClass> LolGodPushAndDieSubList = new();
         public readonly List<LolGod.Udyr> LolGodUdyrList = new();
 
         public readonly List<Mitsuki.GarbageClass> MitsukiGarbageList = new();
+        public readonly List<WhenToTriggerClass> MitsukiNoPcTriggeredWhen = new();
 
-        public readonly List<WhenToTriggerClass>
-            MitsukiNoPcTriggeredWhen = new();
-
-        public readonly List<WhenToTriggerClass>
-            MylorikBooleTriggeredWhen = new();
-
+        public readonly List<WhenToTriggerClass> MylorikBooleTriggeredWhen = new();
         public readonly List<Mylorik.MylorikRevengeClass> MylorikRevenge = new();
 
-        public readonly List<BotsBehavior.NanobotClass> NanobotsList = new();
+        
         public readonly List<Octopus.InkClass> OctopusInkList = new();
-
-        public readonly List<Octopus.InvulnerabilityClass> OctopusInvulnerabilityList =
-            new();
-
+        public readonly List<Octopus.InvulnerabilityClass> OctopusInvulnerabilityList = new();
         public readonly List<Octopus.TentaclesClass> OctopusTentaclesList = new();
+
         public readonly List<FriendsClass> SpartanFirstBlood = new();
         public readonly List<FriendsClass> SpartanMark = new();
         public readonly List<FriendsClass> SpartanShame = new();
+
         public readonly List<FriendsClass> SharkBoole = new();
         public readonly List<Shark.SharkLeaderClass> SharkJawsLeader = new();
         public readonly List<FriendsClass> SharkJawsWin = new();
-
-        public readonly List<FriendsClass> SirinoksFriendsList = new();
-        public readonly List<Sirinoks.TrainingClass> SirinoksTraining = new();
 
         public readonly List<Tigr.ThreeZeroClass> TigrThreeZeroList = new();
         public readonly List<Tigr.TigrTopClass> TigrTop = new();
         public readonly List<WhenToTriggerClass> TigrTopWhen = new();
         public readonly List<FriendsClass> TigrTwoBetterList = new();
+
         public readonly List<Tolya.TolyaCountClass> TolyaCount = new();
         public readonly List<FriendsClass> TolyaRammusTimes = new();
         public readonly List<Tolya.TolyaTalkedlClass> TolyaTalked = new();
+
         public readonly List<Vampyr.HematophagiaClass> VampyrHematophagiaList = new();
         public readonly List<Vampyr.ScavengerClass> VampyrScavengerList = new();
 
+        public readonly List<BotsBehavior.NanobotClass> NanobotsList = new();
+        
 
         public InGameGlobal(SecureRandom rand)
         {

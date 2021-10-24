@@ -59,6 +59,26 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             return "буль?";
         }
 
+
+        public void ResetFight(GamePlayerBridgeClass player, GamePlayerBridgeClass playerIamAttacking = null)
+        {
+            player.Status.IsWonThisCalculation = Guid.Empty;
+            player.Status.IsLostThisCalculation = Guid.Empty;
+            player.Status.IsFighting = Guid.Empty;
+            player.Status.IsTargetSkipped = Guid.Empty;
+            player.Status.IsTargetBlocked = Guid.Empty;
+
+            if (playerIamAttacking != null)
+            {
+                playerIamAttacking.Status.IsWonThisCalculation = Guid.Empty;
+                playerIamAttacking.Status.IsLostThisCalculation = Guid.Empty;
+                playerIamAttacking.Status.IsFighting = Guid.Empty;
+                playerIamAttacking.Status.IsTargetSkipped = Guid.Empty;
+                playerIamAttacking.Status.IsTargetBlocked = Guid.Empty;
+            }
+        }
+
+
         //пристрій судного дня
         public async Task CalculateAllFights(GameClass game)
         {
@@ -99,10 +119,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //if block => no one gets points, and no redundant playerAttacked variable
                 if (player.Status.IsBlock || player.Status.IsSkip)
                 {
-                    _characterPassives.HandleCharacterAfterSingleCalculation(player, game);
-                    player.Status.IsWonThisCalculation = Guid.Empty;
-                    player.Status.IsLostThisCalculation = Guid.Empty;
-                    player.Status.IsFighting = Guid.Empty;
+                    _characterPassives.HandleCharacterAfterFight(player, game);
+                    ResetFight(player);
                     continue;
                 }
 
@@ -110,10 +128,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //This is a bug!
                 if (playerIamAttacking == null)
                 {
-                    _characterPassives.HandleCharacterAfterSingleCalculation(player, game);
-                    player.Status.IsWonThisCalculation = Guid.Empty;
-                    player.Status.IsLostThisCalculation = Guid.Empty;
-                    player.Status.IsFighting = Guid.Empty;
+                    _characterPassives.HandleCharacterAfterFight(player, game);
+                    ResetFight(player);
                     await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
                         .SendMessageAsync("playerIamAttacking == null\n" +
                                           $"");
@@ -132,10 +148,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 player.Status.IsFighting = playerIamAttacking.Status.PlayerId;
 
 
-                await _characterPassives.HandleCharacterWithKnownEnemyBeforeCalculations(player, game);
-                await _characterPassives.HandleCharacterWithKnownEnemyBeforeCalculations(playerIamAttacking, game);
-                await _characterPassives.HandleEveryDefence(playerIamAttacking, player, game);
-                await _characterPassives.HandleEveryAttack(player, playerIamAttacking, game);
+                await _characterPassives.HandleCharacterWithKnownEnemyBeforeFight(player, game);
+                await _characterPassives.HandleCharacterWithKnownEnemyBeforeFight(playerIamAttacking, game);
+                await _characterPassives.HandleDefenseBeforeFight(playerIamAttacking, player, game);
+                await _characterPassives.HandleAttackBeforeFight(player, playerIamAttacking, game);
 
 
                 if (!player.Status.IsAbleToWin) pointsWined = -50;
@@ -191,6 +207,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //if block => no one gets points
                 if (playerIamAttacking.Status.IsBlock && player.Status.IsAbleToWin)
                 {
+                    player.Status.IsTargetBlocked = playerIamAttacking.Status.PlayerId;
                     // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
 
                     var logMess = " ⟶ *Бой не состоялся (Блок)...*";
@@ -207,15 +224,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     playerIamAttacking.Character.Justice.AddJusticeForNextRound();
 
-                    _characterPassives.HandleCharacterAfterSingleCalculation(player, game);
-                    _characterPassives.HandleCharacterAfterSingleCalculation(playerIamAttacking, game);
+                    _characterPassives.HandleCharacterAfterFight(player, game);
+                    _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game);
 
-                    player.Status.IsWonThisCalculation = Guid.Empty;
-                    player.Status.IsLostThisCalculation = Guid.Empty;
-                    playerIamAttacking.Status.IsWonThisCalculation = Guid.Empty;
-                    playerIamAttacking.Status.IsLostThisCalculation = Guid.Empty;
-                    playerIamAttacking.Status.IsFighting = Guid.Empty;
-                    player.Status.IsFighting = Guid.Empty;
+                    ResetFight(player, playerIamAttacking);
 
                     continue;
                 }
@@ -224,19 +236,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 // if skip => something
                 if (playerIamAttacking.Status.IsSkip)
                 {
+                    player.Status.IsTargetSkipped = playerIamAttacking.Status.PlayerId;
                     game.SkipPlayersThisRound++;
                     game.AddGlobalLogs(" ⟶ *Бой не состоялся (Скип)...*");
 
+                    _characterPassives.HandleCharacterAfterFight(player, game);
+                    _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game);
 
-                    _characterPassives.HandleCharacterAfterSingleCalculation(player, game);
-                    _characterPassives.HandleCharacterAfterSingleCalculation(playerIamAttacking, game);
-
-                    player.Status.IsWonThisCalculation = Guid.Empty;
-                    player.Status.IsLostThisCalculation = Guid.Empty;
-                    playerIamAttacking.Status.IsWonThisCalculation = Guid.Empty;
-                    playerIamAttacking.Status.IsLostThisCalculation = Guid.Empty;
-                    playerIamAttacking.Status.IsFighting = Guid.Empty;
-                    player.Status.IsFighting = Guid.Empty;
+                    ResetFight(player, playerIamAttacking);
 
                     continue;
                 }
@@ -415,13 +422,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     game.AddGlobalLogs($" ⟶ {player.DiscordUsername}");
 
                     //еврей
-                    var point = _characterPassives.HandleJewPassive(player, game);
+                    var point = _characterPassives.HandleJews(player, game);
 
-                    if (point.Result == 0) player.Status.AddInGamePersonalLogs("Евреи...\n");
+                    if (point == 0) player.Status.AddInGamePersonalLogs("Евреи...\n");
                     //end еврей
 
                     //add regular points
-                    player.Status.AddRegularPoints(point.Result, "Победа");
+                    player.Status.AddRegularPoints(point, "Победа");
 
 
                     player.Status.WonTimes++;
@@ -489,10 +496,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                 //т.е. он получил урон, какие у него дебаффы на этот счет 
-                await _characterPassives.HandleEveryDefenceAfterCalculations(playerIamAttacking, player, game);
+                await _characterPassives.HandleDefenseAfterFight(playerIamAttacking, player, game);
 
                 //т.е. я его аттакую, какие у меня бонусы на это
-                await _characterPassives.HandleEveryAttackAfterCalculations(player, playerIamAttacking, game);
+                await _characterPassives.HandleAttackAfterFight(player, playerIamAttacking, game);
 
                 //TODO: merge top 2 methods and 2 below... they are the same... or no?
 
@@ -507,17 +514,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
                 }
 
-                _characterPassives.HandleCharacterAfterSingleCalculation(player, game);
+                _characterPassives.HandleCharacterAfterFight(player, game);
 
-                _characterPassives.HandleCharacterAfterSingleCalculation(playerIamAttacking, game);
-                await _characterPassives.HandleEventsAfterEveryBattle(game); //used only for shark...
+                _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game);
+                await _characterPassives.HandleShark(game); //used only for shark...
 
-                player.Status.IsWonThisCalculation = Guid.Empty;
-                player.Status.IsLostThisCalculation = Guid.Empty;
-                playerIamAttacking.Status.IsWonThisCalculation = Guid.Empty;
-                playerIamAttacking.Status.IsLostThisCalculation = Guid.Empty;
-                playerIamAttacking.Status.IsFighting = Guid.Empty;
-                player.Status.IsFighting = Guid.Empty;
+                ResetFight(player, playerIamAttacking);
             }
 
 

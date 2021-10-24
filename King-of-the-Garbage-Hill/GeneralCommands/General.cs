@@ -173,9 +173,11 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             {
                 if(player == null) continue;
                 var account = _accounts.GetAccount(player);
+
                 foreach (var playerInGame in playersList.Where(playerInGame => !account.SeenCharacters.Contains(playerInGame.Character.Name)))
                 {
-                    account.SeenCharacters.Add(playerInGame.Character.Name);
+                    if(playerInGame.DiscordId == player.Id)
+                        account.SeenCharacters.Add(playerInGame.Character.Name);
                 }
             }
 
@@ -271,7 +273,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 for (var i = hardIndex; i < playersList.Count - 1; i++)
                     playersList[i] = playersList[i + 1];
 
-                playersList[playersList.Count - 1] = tempHard;
+                playersList[^1] = tempHard;
             }
             //end Никому не нужен
 

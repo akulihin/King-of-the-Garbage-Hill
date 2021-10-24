@@ -92,6 +92,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         _gameGlobal.HardKittyMute.Add(new HardKitty.MuteClass(player.Status.PlayerId, game.GameId));
                         _gameGlobal.HardKittyLoneliness.Add(
                             new HardKitty.LonelinessClass(player.Status.PlayerId, game.GameId));
+                        _gameGlobal.HardKittyDoebatsya.Add(new HardKitty.DoebatsyaClass(player.Status.PlayerId,
+                            game.GameId));
                         break;
                     case "Осьминожка":
                         _gameGlobal.OctopusTentaclesList.Add(new Octopus.TentaclesClass(player.Status.PlayerId,
@@ -107,13 +109,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         _gameGlobal.LolGodUdyrList.Add(new LolGod.Udyr(player.Status.PlayerId, game.GameId));
                         break;
                     case "Вампур":
-                        _gameGlobal.VampyrHematophagiaList.Add(new Vampyr.HematophagiaClass(player.Status.PlayerId, game.GameId));
-                        _gameGlobal.VampyrScavengerList.Add(new Vampyr.ScavengerClass(player.Status.PlayerId, game.GameId));
+                        _gameGlobal.VampyrHematophagiaList.Add(
+                            new Vampyr.HematophagiaClass(player.Status.PlayerId, game.GameId));
+                        _gameGlobal.VampyrScavengerList.Add(new Vampyr.ScavengerClass(player.Status.PlayerId,
+                            game.GameId));
                         break;
                     case "Sirinoks":
                         _gameGlobal.SirinoksFriendsList.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
                         _gameGlobal.SirinoksFriendsAttack.Add(
                             new Sirinoks.SirinoksFriendsClass(player.Status.PlayerId, game.GameId));
+
                         break;
                     case "Братишка":
                         _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId,
@@ -228,7 +233,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         }
 
 
-        public async Task HandleEveryDefence(GamePlayerBridgeClass target,
+        public async Task HandleDefenseBeforeFight(GamePlayerBridgeClass target,
             GamePlayerBridgeClass me,
             GameClass game)
         {
@@ -346,6 +351,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (!mitsuki.Training.Contains(me.Status.PlayerId))
                             mitsuki.Training.Add(me.Status.PlayerId);
                     }
+
                     //end Запах мусора
                     break;
             }
@@ -353,7 +359,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             await Task.CompletedTask;
         }
 
-        public async Task HandleEveryAttack(GamePlayerBridgeClass me,
+
+        public async Task HandleAttackBeforeFight(GamePlayerBridgeClass me,
             GamePlayerBridgeClass target,
             GameClass game)
         {
@@ -436,7 +443,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     if (rand == 1)
                     {
-                        _gameGlobal.AllSkipTriggeredWhen.Add(new WhenToTriggerClass(me.Status.WhoToAttackThisTurn,
+                        _gameGlobal.GlebTeaTriggeredWhen.Add(new WhenToTriggerClass(me.Status.WhoToAttackThisTurn,
                             game.GameId,
                             game.RoundNo + 1));
                         me.Status.AddRegularPoints(1, "Я за чаем");
@@ -527,11 +534,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //Падальщик
                     if (target.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
                     {
-                        var scavenger = _gameGlobal.VampyrScavengerList.Find(x => x.PlayerId == me.Status.PlayerId && x.GameId == game.GameId);
+                        var scavenger = _gameGlobal.VampyrScavengerList.Find(x =>
+                            x.PlayerId == me.Status.PlayerId && x.GameId == game.GameId);
                         scavenger.EnemyId = target.Status.PlayerId;
                         scavenger.EnemyJustice = target.Character.Justice.GetJusticeNow();
-                        target.Character.Justice.AddJusticeNow(- 1);
+                        target.Character.Justice.AddJusticeNow(-1);
                     }
+
                     //end Падальщик
                     break;
             }
@@ -540,8 +549,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         }
 
 
-
-        public async Task HandleEveryDefenceAfterCalculations(GamePlayerBridgeClass target,
+        public async Task HandleDefenseAfterFight(GamePlayerBridgeClass target,
             GamePlayerBridgeClass me, GameClass game)
         {
             var characterName = target.Character.Name;
@@ -561,20 +569,21 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //Mute passive
                     if (target.Status.IsLostThisCalculation != Guid.Empty)
                     {
-                        var hardKitty = _gameGlobal.HardKittyMute.Find(x =>
+                        var hardKittyMute = _gameGlobal.HardKittyMute.Find(x =>
                             x.PlayerId == target.Status.PlayerId &&
                             x.GameId == game.GameId);
 
 
-                        if (!hardKitty.UniquePlayers.Contains(me.Status.PlayerId))
+                        if (!hardKittyMute.UniquePlayers.Contains(me.Status.PlayerId))
                         {
-                            hardKitty.UniquePlayers.Add(me.Status.PlayerId);
+                            hardKittyMute.UniquePlayers.Add(me.Status.PlayerId);
                             me.Status.AddRegularPoints(1, "Mute");
                             game.Phrases.HardKittyMutedPhrase.SendLog(target, false);
                         }
                     }
-
                     //Mute passive end
+
+
                     break;
             }
 
@@ -582,7 +591,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         }
 
 
-        public async Task HandleEveryAttackAfterCalculations(GamePlayerBridgeClass me,
+        public async Task HandleAttackAfterFight(GamePlayerBridgeClass me,
             GamePlayerBridgeClass target, GameClass game)
         {
             var characterName = me.Character.Name;
@@ -620,11 +629,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //Падальщик
                     if (target.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
                     {
-                        var scavenger = _gameGlobal.VampyrScavengerList.Find(x => x.PlayerId == me.Status.PlayerId && x.GameId == game.GameId);
+                        var scavenger = _gameGlobal.VampyrScavengerList.Find(x =>
+                            x.PlayerId == me.Status.PlayerId && x.GameId == game.GameId);
 
                         if (scavenger.EnemyId == target.Status.PlayerId)
                         {
-                            target.Character.Justice.SetJusticeNow(target.Status, scavenger.EnemyJustice, "Падальщик: ", false);
+                            target.Character.Justice.SetJusticeNow(target.Status, scavenger.EnemyJustice, "Падальщик: ",
+                                false);
                             scavenger.EnemyId = Guid.Empty;
                             scavenger.EnemyJustice = 0;
                         }
@@ -633,9 +644,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     //Вампуризм
                     if (me.Status.IsWonThisCalculation == target.Status.PlayerId)
-                    {
                         me.Character.Justice.AddJusticeForNextRound(target.Character.Justice.GetJusticeNow());
-                    }
                     //Вампуризм
 
                     break;
@@ -708,36 +717,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         }
 
 
-        public async Task HandleEventsAfterEveryBattle(GameClass game)
-        {
-            //shark Лежит на дне:
-            if (game.PlayersList.Any(x => x.Character.Name == "Братишка"))
-            {
-                var shark = game.PlayersList.Find(x => x.Character.Name == "Братишка");
-
-                var enemyTop =
-                    game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard - 1 == shark.Status.PlaceAtLeaderBoard);
-                var enemyBottom =
-                    game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard + 1 == shark.Status.PlaceAtLeaderBoard);
-                if (enemyTop != null && enemyTop.Status.IsLostThisCalculation != Guid.Empty)
-                {
-                    shark.Status.AddRegularPoints(1, "Лежит на дне");
-                    _log.Critical("shark + 1 TOP");
-                }
-
-                if (enemyBottom != null && enemyBottom.Status.IsLostThisCalculation != Guid.Empty)
-                {
-                    shark.Status.AddRegularPoints(1, "Лежит на дне");
-                    _log.Critical("shark + 1 BOT");
-                }
-            }
-            //end Лежит на дне:
-
-            await Task.CompletedTask;
-        }
-
-
-        public void HandleCharacterAfterSingleCalculation(GamePlayerBridgeClass player, GameClass game)
+        public void HandleCharacterAfterFight(GamePlayerBridgeClass player, GameClass game)
         {
             //TODO: test it
             //Подсчет
@@ -810,6 +790,39 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     _vampyr.HandleVampyrAfter(player, game);
                     break;
             }
+        }
+
+
+        public async Task HandleCharacterWithKnownEnemyBeforeFight(GamePlayerBridgeClass player, GameClass game)
+        {
+            var characterName = player.Character.Name;
+            switch (characterName)
+            {
+                case "Толя":
+
+                    //Подсчет
+                    var tolya = _gameGlobal.TolyaCount.Find(x =>
+                        x.GameId == player.GameId &&
+                        x.PlayerId == player.Status.PlayerId);
+
+                    if (tolya.IsReadyToUse && player.Status.WhoToAttackThisTurn != Guid.Empty)
+                    {
+                        tolya.TargetList.Add(new Tolya.TolyaCountSubClass(player.Status.WhoToAttackThisTurn,
+                            game.RoundNo));
+                        tolya.IsReadyToUse = false;
+                        tolya.Cooldown = 4;
+                    }
+
+                    //Подсчет end
+                    break;
+
+                case "DeepList":
+                    await _deepList.HandleDeepListTactics(player, game);
+                    break;
+            }
+
+
+            await Task.CompletedTask;
         }
 
 
@@ -947,6 +960,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                                 game.Phrases.MitsukiSchoolboy.SendLog(player, true);
                             }
+
                         //end Школьник
                         break;
                     case "AWDKA":
@@ -1147,6 +1161,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 game.Phrases.GlebChallengerPhrase.SendLog(player, true);
                                 await game.Phrases.GlebChallengerSeparatePhrase.SendLogSeparate(player, true);
                             }
+
                         //end Претендент русского сервера
                         break;
                     case "DeepList":
@@ -1302,6 +1317,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Status.AddBonusPoints(pointsToGive, "Дракон: ");
                             game.Phrases.SirinoksDragonPhrase.SendLog(player, true);
                         }
+
                         //end Дракон
                         break;
                     case "Вампур":
@@ -1313,14 +1329,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 game.AddGlobalLogs(
                                     " \n<:Y_:562885385395634196> *mylorik: Гребанный Вампур!* <:Y_:562885385395634196>",
                                     "\n\n");
-
                         }
+
                         //end vampyr unique
                         break;
                 }
 
                 //Я за чаем
-                var isSkip = _gameGlobal.AllSkipTriggeredWhen.Find(x =>
+                var isSkip = _gameGlobal.GlebTeaTriggeredWhen.Find(x =>
                     x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId &&
                     x.WhenToTrigger.Contains(game.RoundNo));
 
@@ -1516,6 +1532,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                             tolya.FriendList.Clear();
                         }
+
                         //end Раммус мейн
                         break;
 
@@ -1565,6 +1582,29 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                                                              x.PlayerId == player.Status.PlayerId);
                         if (hard != null) hard.Activated = false;
                         //Одиночество
+
+
+                        
+                        //Доебаться
+                        var hardKittyDoebatsya = _gameGlobal.HardKittyDoebatsya.Find(x => x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+
+                        foreach (var target in game.PlayersList)
+                        {
+                            if (target.Status.WhoToAttackThisTurn == player.Status.PlayerId)
+                            {
+                                var found = hardKittyDoebatsya.LostSeries.Find(x => x.EnemyPlayerId == target.Status.PlayerId);
+                                if (found != null)
+                                {
+                                    if (found.Series > 0)
+                                    {
+                                        found.Series = 0;
+                                        game.Phrases.HardKittyDoebatsyaAnswerPhrase.SendLog(player, false);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        //end Доебаться
                         break;
 
 
@@ -1661,10 +1701,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
                     case "Вампур":
                         //Вампуризм
-                        var vampyr = _gameGlobal.VampyrHematophagiaList.Find(x => x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
-                        if(vampyr.Hematophagia.Count > 0)
-                            if(game.RoundNo == 3 || game.RoundNo == 6 || game.RoundNo == 9)
-                                player.Character.AddMoral(player.Status, vampyr.Hematophagia.Count, "Вампуризм: ", true);
+                        var vampyr = _gameGlobal.VampyrHematophagiaList.Find(x =>
+                            x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                        if (vampyr.Hematophagia.Count > 0)
+                            if (game.RoundNo == 3 || game.RoundNo == 6 || game.RoundNo == 9)
+                                player.Character.AddMoral(player.Status, vampyr.Hematophagia.Count, "Вампуризм: ");
                         //end Вампуризм
                         break;
                 }
@@ -1672,10 +1713,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             await Task.CompletedTask;
         }
-
-        //end общие говно
-
-
 
         public void HandleNextRoundAfterSorting(GameClass game)
         {
@@ -1775,8 +1812,25 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         //end Раскинуть щупальца:
                         break;
-                    case "AWDKA":
+                    case "HardKitty":
+                        //Никому не нужен:
+                        if (game.RoundNo is 9 or 7 or 5 or 3)
+                        {
+                            var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
+                                x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
+                            foreach (var target in game.PlayersList)
+                            {
+                                if (player.Status.PlayerId == target.Status.PlayerId) continue;
+                                var found = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == target.Status.PlayerId);
 
+                                if (found != null)
+                                    found.Series += 1;
+                                else
+                                    hardKitty.LostSeries.Add(new HardKitty.DoebatsyaSubClass(target.Status.PlayerId));
+                            }
+                        }
+
+                        //end Никому не нужен:
                         break;
 
                     case "Darksci":
@@ -1902,40 +1956,36 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         }
 
 
-        public async Task HandleCharacterWithKnownEnemyBeforeCalculations(GamePlayerBridgeClass player, GameClass game)
+        //unique
+        public async Task HandleShark(GameClass game)
         {
-            var characterName = player.Character.Name;
-            switch (characterName)
+            //shark Лежит на дне:
+            if (game.PlayersList.Any(x => x.Character.Name == "Братишка"))
             {
-                case "Толя":
+                var shark = game.PlayersList.Find(x => x.Character.Name == "Братишка");
 
-                    //Подсчет
-                    var tolya = _gameGlobal.TolyaCount.Find(x =>
-                        x.GameId == player.GameId &&
-                        x.PlayerId == player.Status.PlayerId);
+                var enemyTop =
+                    game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard - 1 == shark.Status.PlaceAtLeaderBoard);
+                var enemyBottom =
+                    game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard + 1 == shark.Status.PlaceAtLeaderBoard);
+                if (enemyTop != null && enemyTop.Status.IsLostThisCalculation != Guid.Empty)
+                {
+                    shark.Status.AddRegularPoints(1, "Лежит на дне");
+                    _log.Critical("shark + 1 TOP");
+                }
 
-                    if (tolya.IsReadyToUse && player.Status.WhoToAttackThisTurn != Guid.Empty)
-                    {
-                        tolya.TargetList.Add(new Tolya.TolyaCountSubClass(player.Status.WhoToAttackThisTurn,
-                            game.RoundNo));
-                        tolya.IsReadyToUse = false;
-                        tolya.Cooldown = 4;
-                    }
-
-                    //Подсчет end
-                    break;
-
-                case "DeepList":
-                    await _deepList.HandleDeepListTactics(player, game);
-                    break;
+                if (enemyBottom != null && enemyBottom.Status.IsLostThisCalculation != Guid.Empty)
+                {
+                    shark.Status.AddRegularPoints(1, "Лежит на дне");
+                    _log.Critical("shark + 1 BOT");
+                }
             }
-
+            //end Лежит на дне:
 
             await Task.CompletedTask;
         }
 
-
-        public async Task<int> HandleJewPassive(GamePlayerBridgeClass player, GameClass game)
+        public int HandleJews(GamePlayerBridgeClass player, GameClass game)
         {
             //Еврей
             if (!game.PlayersList.Any(x => x.Character.Name is "LeCrisp" or "Толя")) return 1;
@@ -2003,7 +2053,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             return 1;
         }
 
-
         public bool HandleOctopus(GamePlayerBridgeClass octopusPlayer, GamePlayerBridgeClass playerAttackedOctopus,
             GameClass game)
         {
@@ -2022,10 +2071,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             game.AddGlobalLogs($" ⟶ {playerAttackedOctopus.DiscordUsername}");
 
             //еврей
-            var point = HandleJewPassive(playerAttackedOctopus, game);
+            var point = HandleJews(playerAttackedOctopus, game);
             //end еврей
 
-            playerAttackedOctopus.Status.AddRegularPoints(point.Result, "Чернильная завеса");
+            playerAttackedOctopus.Status.AddRegularPoints(point, "Чернильная завеса");
 
             playerAttackedOctopus.Status.WonTimes++;
             playerAttackedOctopus.Character.Justice.IsWonThisRound = true;
