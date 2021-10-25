@@ -164,8 +164,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                 //add skill
-                if (player.Status.WhoToAttackThisTurn == playerIamAttacking.Status.PlayerId)
-                    switch (player.Character.GetCurrentSkillTarget())
+                
+                switch (player.Character.GetCurrentSkillTarget())
                     {
                         case "Интеллект":
                             if (playerIamAttacking.Character.GetClassStatInt() == 0)

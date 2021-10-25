@@ -53,6 +53,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public PhraseClass MitsukiGarbageSmell;
         public PhraseClass MitsukiSchoolboy;
         public PhraseClass MitsukiTooMuchFucking;
+        public PhraseClass MitsukiTooMuchFuckingNoAttack;
 
         public PhraseClass MylorikBoolePhrase;
         public PhraseClass MylorikRevengeLostPhrase;
@@ -158,6 +159,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
             MitsukiCheekyBriki = new PhraseClass("Дерзкая школота");
             MitsukiTooMuchFucking = new PhraseClass("Много выебывается");
+            MitsukiTooMuchFuckingNoAttack = new PhraseClass("Много выебывается");
             MitsukiGarbageSmell = new PhraseClass("Запах мусора");
             MitsukiSchoolboy = new PhraseClass("Школьник");
 
@@ -355,6 +357,9 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             MitsukiTooMuchFucking.PassiveLogRus.Add("Сука ня");
             MitsukiTooMuchFucking.PassiveLogRus.Add("Чё пацаны, аниме?");
             MitsukiTooMuchFucking.PassiveLogRus.Add("Наслаждайтесь жижей!");
+            MitsukiTooMuchFuckingNoAttack.PassiveLogRus.Add("Ну че, зассали, суки?");
+            MitsukiTooMuchFuckingNoAttack.PassiveLogRus.Add("Кто на меня?");
+            MitsukiTooMuchFuckingNoAttack.PassiveLogRus.Add("Пвп или зассал?");
             MitsukiGarbageSmell.PassiveLogRus.Add("Во что это я вляпался?");
             MitsukiGarbageSmell.PassiveLogRus.Add("Запахло мусором...");
             MitsukiSchoolboy.PassiveLogRus.Add("Да блять, своего компьютера-то нету");

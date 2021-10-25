@@ -131,7 +131,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             SkillMain = howMuchToSet;
         }
 
-        public void AddMainSkill(InGameStatus status, string skillName, bool isLog = true)
+        public void AddMainSkill(InGameStatus status, string skillName, bool isLog = true, bool fromSkill = false)
         {
             var howMuchToAdd = SkillMain switch
             {
@@ -150,8 +150,12 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
             AddExtraSkill(status, skillName, howMuchToAdd, false);
 
-            if (isLog)
+            if (isLog && !fromSkill)
                 status.AddInGamePersonalLogs($" +{howMuchToAdd*2} скилла (за {skillName} врага)\n");
+            if (fromSkill && isLog)
+            {
+                status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd * 2} скилла\n");
+            }
 
             SkillMain += howMuchToAdd;
         }
@@ -159,7 +163,16 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public void AddExtraSkill(InGameStatus status, string skillName, int howMuchToAdd, bool isLog = true)
         {
             if (isLog)
-                status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} *Cкилла*\n");
+            {
+                if (howMuchToAdd > 0)
+                {
+                    status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} *Cкилла*\n");
+                }
+                else
+                {
+                    status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} *Cкилла*\n");
+                }
+            }
 
             SkillExtra += howMuchToAdd;
         }
@@ -175,8 +188,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             {
                 var diff = howMuchToSet - Moral;
                 if (diff > 0)
-                    status.AddInGamePersonalLogs($"{skillName}+{diff} морали\n");
-                else if (diff < 0) status.AddInGamePersonalLogs($"{skillName}{diff} морали\n");
+                    status.AddInGamePersonalLogs($"{skillName}+{diff} *Морали*\n");
+                else if (diff < 0) status.AddInGamePersonalLogs($"{skillName}{diff} *Морали*\n");
             }
             Moral = howMuchToSet;
         }
@@ -184,8 +197,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public void AddMoral(InGameStatus status, int howMuchToAdd, string skillName, bool isLog = true)
         {
             if (howMuchToAdd > 0 && isLog)
-                status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} морали\n");
-            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} морали\n");
+                status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} *Морали*\n");
+            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} *Морали*\n");
 
             Moral += howMuchToAdd;
             if (Moral < 0) Moral = 0;

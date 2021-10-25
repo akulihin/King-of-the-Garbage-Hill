@@ -42,13 +42,17 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
             var builder = new ComponentBuilder();
             var embed = _storeReactionHandling.GetStoreEmbed(Context.User, character.CharacterName);
-        
-            foreach (var button in _storeReactionHandling.GetStoreButtons())
-            {
-                builder.WithButton(button);
-            }
 
-            builder.WithSelectMenu(_storeReactionHandling.GetStoreCharacterSelectMenu(account));
+            var i = 0;
+            foreach (var b in _storeReactionHandling.GetStoreButtons())
+            {
+                i++;
+                if (i > 2)
+                    builder.WithButton(b, 1);
+                else
+                    builder.WithButton(b);
+            }
+            builder.WithSelectMenu(_storeReactionHandling.GetStoreCharacterSelectMenu(account), 2);
 
             await SendMessAsync(embed, components: builder.Build());
         }

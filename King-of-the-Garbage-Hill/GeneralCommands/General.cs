@@ -73,6 +73,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
         public List<GamePlayerBridgeClass> HandleCharacterRoll(List<IUser> players, ulong gameId)
         {
+            var allCharacters2 = _charactersPull.GetAllCharacters();
             var allCharacters = _charactersPull.GetAllCharacters();
             var reservedCharacters = new List<CharacterClass>();
             var playersList = new List<GamePlayerBridgeClass>();
@@ -96,7 +97,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 account.IsPlaying = true;
 
                 //выдать персонажей если их нет на аккаунте
-                foreach (var character in from character in allCharacters let knownCharacter = account.CharacterChance.Find(x => x.CharacterName == character.Name) where knownCharacter == null select character)
+                foreach (var character in from character in allCharacters2 let knownCharacter = account.CharacterChance.Find(x => x.CharacterName == character.Name) where knownCharacter == null select character)
                 {
                     account.CharacterChance.Add(new DiscordAccountClass.CharacterChances(character.Name, character.Tier));
                 }
@@ -260,7 +261,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-
         public List<GamePlayerBridgeClass> HandleEventsBeforeFirstRound(List<GamePlayerBridgeClass> playersList)
         {
 
@@ -297,6 +297,27 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 }
             }
             //Тигр топ, а ты холоп
+
+            //Дерзкая школота
+
+            if (playersList.Any(x => x.Character.Name == "Mit*suki*"))
+            {
+                var mitsukiTemp = playersList.Find(x => x.Character.Name == "Mit*suki*");
+                mitsukiTemp.Character.AddExtraSkill(mitsukiTemp.Status, "Дерзкая школота: ", 100);
+            }
+
+  
+            if (playersList.Any(x => x.Character.Name == "Mit*suki*"))
+            {
+                var tempHard = playersList.Find(x => x.Character.Name == "Mit*suki*");
+                var hardIndex = playersList.IndexOf(tempHard);
+
+                playersList[hardIndex] = playersList[0];
+                playersList[0] = tempHard;
+            }
+      
+
+            //end Дерзкая школота
 
             return playersList;
         }

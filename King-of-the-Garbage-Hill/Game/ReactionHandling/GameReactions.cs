@@ -147,7 +147,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             else
                             {
                                 _help.SendMsgAndDeleteItAfterRound(player,
-                                    "У тебя недосточно морали, чтобы поменять ее на бонусные очки.\n" +
+                                    "У тебя недосточно *Морали*, чтобы поменять ее на бонусные очки.\n" +
                                     "3 морали =  1 бонусное очко\n" +
                                     "5 морали = 2 бонусных очка\n" +
                                     "10 морали = 6 бонусных очков\n" +

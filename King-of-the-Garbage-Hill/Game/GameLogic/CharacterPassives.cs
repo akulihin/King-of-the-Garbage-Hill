@@ -342,14 +342,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     if (mitsuki == null)
                     {
-                        _gameGlobal.MitsukiGarbageList.Add(new Mitsuki.GarbageClass(
-                            target.Status.PlayerId, game.GameId,
+                        _gameGlobal.MitsukiGarbageList.Add(new Mitsuki.GarbageClass(target.Status.PlayerId, game.GameId,
                             me.Status.PlayerId));
                     }
                     else
                     {
-                        if (!mitsuki.Training.Contains(me.Status.PlayerId))
-                            mitsuki.Training.Add(me.Status.PlayerId);
+                        var found = mitsuki.Training.Find(x => x.EnemyId == me.Status.PlayerId);
+                        if (found != null)
+                            found.Times++;
+                        else
+                            mitsuki.Training.Add(new Mitsuki.GarbageSubClass(me.Status.PlayerId));
                     }
 
                     //end Запах мусора
@@ -766,7 +768,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     _sirinoks.HandleSirinoksAfter(player, game);
                     break;
                 case "Mit*suki*":
-                    _mitsuki.HandleMitsukiAfter(player);
+                    _mitsuki.HandleMitsukiAfter(player, game);
                     break;
                 case "AWDKA":
                     _awdka.HandleAwdkaAfter(player, game);
@@ -945,6 +947,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                     case "Mit*suki*":
+                        //Дерзкая школота
+                        if (game.RoundNo == 1)
+                        {
+                            game.Phrases.MitsukiCheekyBriki.SendLog(player, true);
+                            player.Status.AddRegularPoints(1, "Много выебывается");
+                            game.Phrases.MitsukiTooMuchFucking.SendLog(player, false);
+                        }
+                        //end Дерзкая школота
+
                         //Школьник
                         acc = _gameGlobal.MitsukiNoPcTriggeredWhen.Find(x =>
                             x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
@@ -959,6 +970,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 player.Status.WhoToAttackThisTurn = Guid.Empty;
 
                                 game.Phrases.MitsukiSchoolboy.SendLog(player, true);
+                                player.Character.Justice.AddJusticeForNextRound(5);
                             }
 
                         //end Школьник
@@ -1300,7 +1312,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Character.SetSpeed(player.Status, 10, "Дракон: ");
                             player.Character.SetPsyche(player.Status, 10, "Дракон: ");
 
-                            var pointsToGive = 10;
+                            var pointsToGive = (int) (player.Character.GetSkill() / 10);
 
 
                             var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
@@ -1311,7 +1323,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 {
                                     var player2 = game.PlayersList[i - 1];
                                     if (siri.FriendList.Contains(player2.Status.PlayerId))
-                                        pointsToGive--;
+                                        pointsToGive -= 2;
                                 }
 
                             player.Status.AddBonusPoints(pointsToGive, "Дракон: ");
@@ -1560,15 +1572,43 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             {
                                 case 1:
                                     player.Character.AddIntelligence(player.Status, 1, "Обучение: ");
+                                    if (player.Character.GetIntelligence() == stats.StatNumber)
+                                        if (!siri.TriggeredBonusFromStat.Contains(stats.StatIndex))
+                                        {
+                                            player.Character.AddMoral(player.Status, 3, "Обучение: ");
+                                            siri.TriggeredBonusFromStat.Add(stats.StatIndex);
+                                        }
+
                                     break;
                                 case 2:
                                     player.Character.AddStrength(player.Status, 1, "Обучение: ");
+                                    if (player.Character.GetStrength() == stats.StatNumber)
+                                        if (!siri.TriggeredBonusFromStat.Contains(stats.StatIndex))
+                                        {
+                                            player.Character.AddMoral(player.Status, 3, "Обучение: ");
+                                            siri.TriggeredBonusFromStat.Add(stats.StatIndex);
+                                        }
+
                                     break;
                                 case 3:
                                     player.Character.AddSpeed(player.Status, 1, "Обучение: ");
+                                    if (player.Character.GetSpeed() == stats.StatNumber)
+                                        if (!siri.TriggeredBonusFromStat.Contains(stats.StatIndex))
+                                        {
+                                            player.Character.AddMoral(player.Status, 3, "Обучение: ");
+                                            siri.TriggeredBonusFromStat.Add(stats.StatIndex);
+                                        }
+
                                     break;
                                 case 4:
                                     player.Character.AddPsyche(player.Status, 1, "Обучение: ");
+                                    if (player.Character.GetPsyche() == stats.StatNumber)
+                                        if (!siri.TriggeredBonusFromStat.Contains(stats.StatIndex))
+                                        {
+                                            player.Character.AddMoral(player.Status, 3, "Обучение: ");
+                                            siri.TriggeredBonusFromStat.Add(stats.StatIndex);
+                                        }
+
                                     break;
                             }
                         }
@@ -1584,26 +1624,23 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //Одиночество
 
 
-                        
                         //Доебаться
-                        var hardKittyDoebatsya = _gameGlobal.HardKittyDoebatsya.Find(x => x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                        var hardKittyDoebatsya = _gameGlobal.HardKittyDoebatsya.Find(x =>
+                            x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
 
                         foreach (var target in game.PlayersList)
-                        {
                             if (target.Status.WhoToAttackThisTurn == player.Status.PlayerId)
                             {
-                                var found = hardKittyDoebatsya.LostSeries.Find(x => x.EnemyPlayerId == target.Status.PlayerId);
+                                var found = hardKittyDoebatsya.LostSeries.Find(x =>
+                                    x.EnemyPlayerId == target.Status.PlayerId);
                                 if (found != null)
-                                {
                                     if (found.Series > 0)
                                     {
                                         found.Series = 0;
                                         game.Phrases.HardKittyDoebatsyaAnswerPhrase.SendLog(player, false);
                                     }
-                                }
                             }
-                        }
-                        
+
                         //end Доебаться
                         break;
 
@@ -1656,47 +1693,65 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     case "Mit*suki*":
 
                         //Дерзкая школота:
-                        if (game.RoundNo == 1) game.Phrases.MitsukiCheekyBriki.SendLog(player, true);
-
-                        var randStat1 = _rand.Random(1, 4);
-                        var randStat2 = _rand.Random(1, 4);
-                        switch (randStat1)
+                        if (!player.Status.IsSkip)
                         {
-                            case 1:
-                                player.Character.AddIntelligence(player.Status, -1, "Дерзкая школота: ");
-                                break;
-                            case 2:
-                                player.Character.AddStrength(player.Status, -1, "Дерзкая школота: ");
-                                break;
-                            case 3:
-                                player.Character.AddSpeed(player.Status, -1, "Дерзкая школота: ");
-                                break;
-                            case 4:
-                                player.Character.AddPsyche(player.Status, -1, "Дерзкая школота: ");
-                                break;
+                            player.Character.AddExtraSkill(player.Status, "Дерзкая школота: ", -20);
+
+                            var randStat1 = _rand.Random(1, 4);
+                            var randStat2 = _rand.Random(1, 4);
+                            switch (randStat1)
+                            {
+                                case 1:
+                                    player.Character.AddIntelligence(player.Status, -1, "Дерзкая школота: ");
+                                    break;
+                                case 2:
+                                    player.Character.AddStrength(player.Status, -1, "Дерзкая школота: ");
+                                    break;
+                                case 3:
+                                    player.Character.AddSpeed(player.Status, -1, "Дерзкая школота: ");
+                                    break;
+                                case 4:
+                                    player.Character.AddPsyche(player.Status, -1, "Дерзкая школота: ");
+                                    break;
+                            }
+
+                            switch (randStat2)
+                            {
+                                case 1:
+                                    player.Character.AddIntelligence(player.Status, -1, "Дерзкая школота: ");
+                                    break;
+                                case 2:
+                                    player.Character.AddStrength(player.Status, -1, "Дерзкая школота: ");
+                                    break;
+                                case 3:
+                                    player.Character.AddSpeed(player.Status, -1, "Дерзкая школота: ");
+                                    break;
+                                case 4:
+                                    player.Character.AddPsyche(player.Status, -1, "Дерзкая школота: ");
+                                    break;
+                            }
                         }
 
-                        switch (randStat2)
-                        {
-                            case 1:
-                                player.Character.AddIntelligence(player.Status, -1, "Дерзкая школота: ");
-                                break;
-                            case 2:
-                                player.Character.AddStrength(player.Status, -1, "Дерзкая школота: ");
-                                break;
-                            case 3:
-                                player.Character.AddSpeed(player.Status, -1, "Дерзкая школота: ");
-                                break;
-                            case 4:
-                                player.Character.AddPsyche(player.Status, -1, "Дерзкая школота: ");
-                                break;
-                        }
 
                         //end  Дерзкая школота:
+                        if (game.RoundNo > 1)
+                        {
+                            var noAttack = true;
 
-                        //Много выебывается:
+                            foreach (var target in game.PlayersList)
+                            {
+                                if (target.Status.PlayerId == player.Status.PlayerId) continue;
+                                if (target.Status.WhoToAttackThisTurn == player.Status.PlayerId)
+                                    noAttack = false;
+                            }
 
-                        //end Много выебывается:
+                            if (noAttack)
+                            {
+                                player.Status.AddRegularPoints(1, "Много выебывается");
+                                game.Phrases.MitsukiTooMuchFuckingNoAttack.SendLog(player, true);
+                            }
+                        }
+                        //end Много выебывается
 
                         break;
                     case "Вампур":
@@ -1761,11 +1816,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     case "Mit*suki*":
                         //Много выебывается:
-                        if (player.Status.PlaceAtLeaderBoard == 1 && game.RoundNo > 1)
+                        if (player.Status.PlaceAtLeaderBoard == 1)
                         {
                             player.Status.AddRegularPoints(1, "Много выебывается");
                             game.Phrases.MitsukiTooMuchFucking.SendLog(player, false);
                         }
+
                         //end Много выебывается:
 
                         //Запах мусора:
@@ -1777,10 +1833,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             if (mitsuki != null)
                             {
                                 var count = 0;
-                                foreach (var t in mitsuki.Training)
+                                foreach (var t in mitsuki.Training.Where(x => x.Times >= 2))
                                 {
-                                    var player2 = game.PlayersList.Find(x =>
-                                        x.Status.PlayerId == t);
+                                    var player2 = game.PlayersList.Find(x => x.Status.PlayerId == t.EnemyId);
                                     if (player2 != null)
                                     {
                                         player2.Status.AddBonusPoints(-5, "Запах мусора: ");

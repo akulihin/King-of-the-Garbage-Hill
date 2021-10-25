@@ -92,6 +92,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             public Guid PlayerId;
             public Guid EnemyId;
             public List<TrainingSubClass> Training = new();
+            public List<int> TriggeredBonusFromStat = new();
 
             public TrainingClass(Guid playerId, ulong gameId, int index, int number, Guid enemyId)
             {
