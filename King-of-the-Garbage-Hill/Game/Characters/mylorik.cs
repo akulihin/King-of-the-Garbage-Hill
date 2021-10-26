@@ -78,7 +78,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             //Испанец
             if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
-                var rand = _rand.Random(1, 3);
+                var rand = _rand.Random(1, 2);
 
                 if (rand == 1)
                 {

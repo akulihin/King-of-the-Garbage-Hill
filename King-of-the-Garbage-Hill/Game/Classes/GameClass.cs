@@ -7,7 +7,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 {
     public class GameClass
     {
-        public GameClass(List<GamePlayerBridgeClass> playersList, ulong gameId, int turnLengthInSecond = 333)
+        public GameClass(List<GamePlayerBridgeClass> playersList, ulong gameId, int turnLengthInSecond = 300)
         {
             RoundNo = 1;
             Phrases = new CharactersUniquePhrase();

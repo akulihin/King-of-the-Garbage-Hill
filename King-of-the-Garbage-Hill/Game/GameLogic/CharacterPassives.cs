@@ -449,7 +449,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     var geblTea =
                         _gameGlobal.GlebTea.Find(x => x.PlayerId == me.Status.PlayerId && game.GameId == x.GameId);
 
-                    if (geblTea.Ready)
+                    if (geblTea.Ready && me.Status.WhoToAttackThisTurn != Guid.Empty)
                     {
                         geblTea.Ready = false;
                         _gameGlobal.GlebTeaTriggeredWhen.Add(new WhenToTriggerClass(me.Status.WhoToAttackThisTurn, game.GameId, game.RoundNo + 1));
@@ -916,7 +916,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     case "mylorik":
                         //Буль
-                        var random = _rand.Random(1, 3 + player.Character.GetPsyche() * 3);
+                        var random = _rand.Random(1, 2 + player.Character.GetPsyche() * 3);
                         
 
                             if (random == 2)
@@ -1363,7 +1363,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 player.Character.SetSpeed(player.Status, speed, "Безумие: ");
                                 player.Character.SetPsyche(player.Status, pshy, "Безумие: ");
                                 //2 это х3
-                                player.Character.SetSkillMultiplier(2);
+                                player.Character.SetSkillMultiplier(3);
 
                                 game.Phrases.DeepListMadnessPhrase.SendLog(player, true);
                                 curr.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
@@ -1395,7 +1395,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 {
                                     var player2 = game.PlayersList[i - 1];
                                     if (siri.FriendList.Contains(player2.Status.PlayerId))
-                                        pointsToGive -= 2;
+                                        pointsToGive -= 1;
                                 }
 
                             player.Status.AddBonusPoints(pointsToGive, "Дракон: ");
@@ -1534,6 +1534,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 "Претендент русского сервера: ", false);
                             player.Character.SetPsyche(player.Status, regularStats.Psyche + psy,
                                 "Претендент русского сервера: ", false);
+                            player.Character.AddExtraSkill(player.Status, "Претендент русского сервера: ", -100, false);
                             _gameGlobal.GlebChallengerList.Remove(glebChall);
                         }
                         //end Претендент русского сервера
@@ -1578,9 +1579,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                                     
                                     if(randomPlayer.Status.PlayerId == player.Status.PlayerId)
-                                        randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
+                                        while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.Status.PlayerId))
+                                            randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
                                     if (randomPlayer.Status.PlayerId == player.Status.PlayerId)
-                                        randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
+                                        while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.Status.PlayerId))
+                                            randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
 
 
                                     tolyaTalked.PlayerHeTalkedAbout.Add(randomPlayer.Status.PlayerId);

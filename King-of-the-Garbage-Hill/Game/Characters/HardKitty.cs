@@ -52,6 +52,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                     if (found.Series > 0)
                     {
                         player.Status.AddRegularPoints(found.Series, "Доебаться", true);
+                        game.Phrases.HardKittyDoebatsyaPhrase.SendLog(player, false);
                         found.Series = 0;
                     }
                 }

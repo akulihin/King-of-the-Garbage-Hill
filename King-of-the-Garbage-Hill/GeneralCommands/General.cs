@@ -268,7 +268,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             if (playersList.Any(x => x.Character.Name == "HardKitty"))
             {
                 var tempHard = playersList.Find(x => x.Character.Name == "HardKitty");
-                tempHard.Status.AddRegularPoints(-20, "Никому не нужен", true);
+                tempHard.Status.AddBonusPoints(-20, "Никому не нужен");
                 var hardIndex = playersList.IndexOf(tempHard);
 
                 for (var i = hardIndex; i < playersList.Count - 1; i++)

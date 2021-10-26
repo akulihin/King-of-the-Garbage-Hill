@@ -222,9 +222,16 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         {
             if (howMuchToAdd > 0 && isLog)
                 status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} *Морали*\n");
-            else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} *Морали*\n");
+            if (howMuchToAdd < 0 && Moral == 0)
+                isLog = false;
 
             Moral += howMuchToAdd;
+
+            if (Moral < 0)
+                howMuchToAdd = Moral*-1 + howMuchToAdd;
+
+            if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}{howMuchToAdd} *Морали*\n");
+
             if (Moral < 0) Moral = 0;
         }
 

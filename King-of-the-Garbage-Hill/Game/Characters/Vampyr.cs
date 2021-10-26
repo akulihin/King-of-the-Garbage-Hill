@@ -94,15 +94,15 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                             break;
                         case 2:
                             player.Character.AddStrength(player.Status, -2, "СОсиновый кол: ");
-                            player.Status.AddRegularPoints(-1, "СОсиновый кол: ", true);
+                            player.Status.AddRegularPoints(-1, "СОсиновый кол", true);
                             break;
                         case 3:
                             player.Character.AddSpeed(player.Status, -2, "СОсиновый кол: ");
-                            player.Status.AddRegularPoints(-1, "СОсиновый кол: ", true);
+                            player.Status.AddRegularPoints(-1, "СОсиновый кол", true);
                             break;
                         case 4:
                             player.Character.AddPsyche(player.Status, -2, "СОсиновый кол: ");
-                            player.Status.AddRegularPoints(-1, "СОсиновый кол: ", true);
+                            player.Status.AddRegularPoints(-1, "СОсиновый кол", true);
                             break;
                     }
 
