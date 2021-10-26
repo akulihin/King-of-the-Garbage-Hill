@@ -322,6 +322,19 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     if (find != null && find.IsUnique) customString += " <:sparta:561287745675329567>";
                     if (find != null && !find.IsUnique) customString += " ❌";
 
+                    var mylorikSpartan  = _gameGlobal.MylorikSpartan.Find(x =>
+                        x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
+
+                    var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == other.Status.PlayerId);
+
+                    if (mylorikEnemy != null)
+                    {
+                        if (mylorikEnemy.Active)
+                        {
+                            customString += " <:broken_shield:902044789917241404>";
+                        }
+                    }
+
                     break;
                 case "Тигр":
                     var tigr1 = _gameGlobal.TigrTwoBetterList.Find(x =>
