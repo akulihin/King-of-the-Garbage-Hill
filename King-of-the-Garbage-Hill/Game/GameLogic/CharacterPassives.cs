@@ -174,7 +174,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         break;
                     case "mylorik":
-                        _gameGlobal.MylorikSpartan.Add(new Mylorik.MylorikSpartanClass(player.Status.PlayerId, game.GameId, Guid.Empty));
+                        _gameGlobal.MylorikSpartan.Add(new Mylorik.MylorikSpartanClass(player.Status.PlayerId, game.GameId));
                         break;
                     case "Тигр":
                         _gameGlobal.TigrTwoBetterList.Add(
@@ -284,9 +284,24 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     break;
                 case "LeCrisp":
                     //Гребанные ассассин
+
+                    //Гребанные ассассин + Сомнительная тактика
+                    var ok = true;
+                    var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x => x.PlayerId == target.Status.PlayerId && game.GameId == x.GameId);
+
+                    if (deep != null)
+                    {
+                        if (!deep.FriendList.Contains(me.Status.PlayerId))
+                        {
+                            ok = false;
+                        }
+                    }
+
+
                     if (me.Character.GetStrength() - target.Character.GetStrength() >= 2
                         && !target.Status.IsBlock
-                        && !target.Status.IsSkip)
+                        && !target.Status.IsSkip
+                        && ok)
                     {
                         target.Status.IsAbleToWin = false;
                         game.Phrases.LeCrispAssassinsPhrase.SendLog(target, false);
@@ -834,7 +849,20 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     break;
 
                 case "DeepList":
-                    await _deepList.HandleDeepListTactics(player, game);
+                    //Сомнительная тактика
+                    var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
+                        x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
+
+                    if (deep != null)
+                    {
+                        if (!deep.FriendList.Contains(player.Status.IsFighting))
+                        {
+                            player.Status.IsAbleToWin = false;
+                        }
+                    }
+
+
+                    //end Сомнительная тактика
                     break;
             }
 
@@ -971,7 +999,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //end Дерзкая школота
 
                         //Школьник
-                        acc = _gameGlobal.MitsukiNoPcTriggeredWhen.Find(x =>
+                        var acc = _gameGlobal.MitsukiNoPcTriggeredWhen.Find(x =>
                             x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
 
                         if (acc != null)

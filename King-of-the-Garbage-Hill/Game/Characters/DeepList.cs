@@ -23,27 +23,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
 
 
-
-        public async Task HandleDeepListTactics(GamePlayerBridgeClass player, GameClass game)
-        {
-            //Сомнительная тактика
-            var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
-                x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
-
-            if (deep != null)
-            {
-                if (!deep.FriendList.Contains(player.Status.IsFighting))
-                {
-                    player.Status.IsAbleToWin = false;
-                }
-            }
-
-
-
-            //end Сомнительная тактика
-            await Task.CompletedTask;
-        }
-
         public void HandleDeepListAfter(GamePlayerBridgeClass player, GameClass game)
         {
             //Сомнительная тактика
