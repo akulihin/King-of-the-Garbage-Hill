@@ -86,36 +86,40 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         }
 
 
-        public void HandleMockery(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, GameClass game)
+        public void HandleMockery(GamePlayerBridgeClass me, GamePlayerBridgeClass target, GameClass game)
         {
             //Стёб
-            var currentDeepList = _gameGlobal.DeepListMockeryList.Find(x => x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
+            var currentDeepList = _gameGlobal.DeepListMockeryList.Find(x => x.PlayerId == me.Status.PlayerId && game.GameId == x.GameId);
 
             if (currentDeepList != null)
             {
-                var currentDeepList2 = currentDeepList.WhoWonTimes.Find(x => x.EnemyPlayerId == player2.Status.PlayerId);
+                var currentDeepList2 = currentDeepList.WhoWonTimes.Find(x => x.EnemyPlayerId == target.Status.PlayerId);
 
                 if (currentDeepList2 != null)
                 {
                     currentDeepList2.Times++;
 
-                    if (currentDeepList2.Times % 2 == 0)
+                    if (currentDeepList2.Times == 2)
                     {
-                        player2.Character.AddPsyche(player2.Status, -1, "Стёб: ");
-                        player2.MinusPsycheLog(game);
-                        player.Status.AddRegularPoints(1, "Стёб");
-                        game.Phrases.DeepListPokePhrase.SendLog(player, true);
-                        if (player2.Character.GetPsyche() < 4) player2.Character.Justice.AddJusticeForNextRound(-1);
+
+                        
+                        target.Character.AddPsyche(target.Status, -1, "Стёб: ");
+                        target.MinusPsycheLog(game);
+                        me.Status.AddRegularPoints(1, "Стёб");
+                        game.Phrases.DeepListPokePhrase.SendLog(me, true);
+                        if (target.Character.GetPsyche() < 4)
+                            if (target.Character.Justice.GetJusticeNow() > 0)
+                                target.Character.Justice.AddJusticeForNextRound(-1);
                     }
                 }
                 else
                 {
-                    currentDeepList.WhoWonTimes.Add(new MockerySub(player2.Status.PlayerId, 1));
+                    currentDeepList.WhoWonTimes.Add(new MockerySub(target.Status.PlayerId, 1));
                 }
             }
             else
             {
-                var toAdd = new Mockery(new List<MockerySub> {new(player2.Status.PlayerId, 1)}, game.GameId, player.Status.PlayerId);
+                var toAdd = new Mockery(new List<MockerySub> {new(target.Status.PlayerId, 1)}, game.GameId, me.Status.PlayerId);
                 _gameGlobal.DeepListMockeryList.Add(toAdd);
             }
 
@@ -141,11 +145,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         {
             public Guid EnemyPlayerId;
             public int Times;
+            public bool Triggered;
 
             public MockerySub(Guid enemyPlayerId, int times)
             {
                 EnemyPlayerId = enemyPlayerId;
                 Times = times;
+                Triggered = false;
             }
         }
 

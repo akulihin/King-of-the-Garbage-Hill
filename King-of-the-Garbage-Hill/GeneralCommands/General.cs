@@ -268,6 +268,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             if (playersList.Any(x => x.Character.Name == "HardKitty"))
             {
                 var tempHard = playersList.Find(x => x.Character.Name == "HardKitty");
+                tempHard.Status.AddRegularPoints(-20, "Никому не нужен", true);
                 var hardIndex = playersList.IndexOf(tempHard);
 
                 for (var i = hardIndex; i < playersList.Count - 1; i++)
@@ -299,7 +300,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             //Тигр топ, а ты холоп
 
             //Дерзкая школота
-
             if (playersList.Any(x => x.Character.Name == "Mit*suki*"))
             {
                 var mitsukiTemp = playersList.Find(x => x.Character.Name == "Mit*suki*");
@@ -315,8 +315,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 playersList[hardIndex] = playersList[0];
                 playersList[0] = tempHard;
             }
-      
-
             //end Дерзкая школота
 
             return playersList;
@@ -503,7 +501,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         
         [Command("SetType")]
         [Summary("setting type of account: 0, 1, 2 ")]
-        public async Task SetType(SocketUser user, int userType)
+        public async Task SetType(IUser user, int userType)
         {                    
 
             if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
@@ -522,8 +520,14 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                                     "are the only available options");
                 return;
             }
-            account.PlayerType = 2;
 
+            account.PlayerType = userType;
+            var game = _global.GamesList.Find(x => x.PlayersList.Any(y => y.DiscordId == user.Id));
+            if (game != null)
+            {
+                var playing  = game.PlayersList.Find(y => y.DiscordId == user.Id);
+                playing.PlayerType = userType;
+            }
             await SendMessAsync($"done. {user.Username} is now **{userType}**");
         }
 

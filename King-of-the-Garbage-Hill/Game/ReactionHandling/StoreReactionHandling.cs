@@ -153,7 +153,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     return;
                 }
 
-                var cost = 0;
+                var cost = 10 + character.Changes;
 
                 switch (button.Data.CustomId)
                 {
@@ -163,7 +163,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                         break;
                     //Уменьшить шанс на 1% - 20 ZP
                     case "store-down-1":
-                        cost = 20;
+                        
                         if (character.Multiplier <= 0.0)
                         {
                             await button.Channel.SendMessageAsync(
@@ -186,7 +186,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                     //Увеличить шанс на 1% - 20 ZP
                     case "store-up-1":
-                        cost = 20;
+                    
                         if (character.Multiplier >= 2.0)
                         {
                             await button.Channel.SendMessageAsync(
@@ -209,7 +209,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                     //Вернуть все ZBS Points за этого персонажа - 10 ZP
                     case "store-return-character":
-                        cost = 0;
+                       
                         if (account.ZbsPoints < cost)
                         {
                             await button.Channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
@@ -228,7 +228,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                     //Вернуть все ZBS Points за ВСЕХ персонажей - 50 ZP
                     case "store-return-all-characters":
-                        cost = 0;
+                       
                         if (account.ZbsPoints < cost)
                         {
                             await button.Channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");

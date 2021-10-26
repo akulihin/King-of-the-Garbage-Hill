@@ -204,9 +204,34 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         account.MatchHistory.Add(
                             new DiscordAccountClass.MatchHistoryClass(player.Character.Name, player.Status.GetScore(),
                                 player.Status.PlaceAtLeaderBoard));
+                        
+                        /*
                         account.ZbsPoints += (player.Status.PlaceAtLeaderBoard - 6) * -1 + 1;
                         if (player.Status.PlaceAtLeaderBoard == 1)
                             account.ZbsPoints += 4;
+                        */
+
+                        switch (player.Status.PlaceAtLeaderBoard)
+                        {
+                            case 1:
+                                account.ZbsPoints += 100;
+                                break;
+                            case 2:
+                                account.ZbsPoints += 50;
+                                break;
+                            case 3:
+                                account.ZbsPoints += 40;
+                                break;
+                            case 4:
+                                account.ZbsPoints += 30;
+                                break;
+                            case 5:
+                                account.ZbsPoints += 20;
+                                break;
+                            case 6:
+                                account.ZbsPoints += 10;
+                                break;
+                        }
 
                         var characterStatistics =
                             account.CharacterStatistics.Find(x =>
@@ -262,7 +287,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                     //if (t.Status.IsReady && t.Status.MoveListPage != 3)
-                    if (t.Status.IsReady && t.Status.MoveListPage != 3 && game.TimePassed.Elapsed.TotalSeconds > 13)
+                    if (t.Status.IsReady && t.Status.MoveListPage != 3 && game.TimePassed.Elapsed.TotalSeconds > 13 && t.Status.CanSelectAttack)
                         readyCount++;
                     else
                         _logs.Info("NOT READY: = " + t.DiscordUsername);
@@ -304,8 +329,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             
                             if (game.RoundNo <= 10)
                                 await _help.SendMsgAndDeleteItAfterRound(t, $"Раунд #{game.RoundNo}");
-                            if (game.RoundNo == 8)
-                            {
+                            if (game.RoundNo == 8 && !t.IsBot())
+                            { 
                                 t.Status.CanSelectAttack = false;
                                 await _help.SendMsgAndDeleteItAfterRound(t, $"Это последний раунд, когда можно сделать **предложение**!");
                             }

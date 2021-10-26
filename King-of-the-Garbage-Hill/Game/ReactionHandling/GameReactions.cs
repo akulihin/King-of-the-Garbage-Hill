@@ -123,14 +123,14 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                             if (player.Character.GetMoral() >= 15)
                             {
                                 player.Character.AddMoral(player.Status, -15, skillName:"Обмен Морали: ");
-                                player.Character.AddBonusPointsFromMoral(12);
-                                _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Я БОГ ЭТОГО МИРА + 12 __бонунсых__ очка");
+                                player.Character.AddBonusPointsFromMoral(10);
+                                _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Я БОГ ЭТОГО МИРА + 10 __бонунсых__ очков");
                             }
                             else if (player.Character.GetMoral() >= 10)
                             {
                                 player.Character.AddMoral(player.Status, -10, skillName: "Обмен Морали: ");
                                 player.Character.AddBonusPointsFromMoral(8);
-                                _help.SendMsgAndDeleteItAfterRound(player, "Мораль: МВП + 6 __бонунсых__ очка");
+                                _help.SendMsgAndDeleteItAfterRound(player, "Мораль: МВП + 6 __бонунсых__ очков");
                             }
                             else if (player.Character.GetMoral() >= 5)
                             {
@@ -151,7 +151,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                                     "3 морали =  1 бонусное очко\n" +
                                     "5 морали = 2 бонусных очка\n" +
                                     "10 морали = 6 бонусных очков\n" +
-                                    "15 морали = 12 бонусных очков");
+                                    "15 морали = 10 бонусных очков");
                             }
 
                             if (tempMoral >= 3)

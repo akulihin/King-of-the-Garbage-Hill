@@ -274,7 +274,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     if (deep != null)
                         if (deep.FriendList.Contains(other.Status.PlayerId) &&
                             other.Status.PlayerId != me.Status.PlayerId)
-                            customString += " <:yo:561287783704952845>";
+                            customString += " <:yo_filled:902361411840266310>";
                     //end tactic
 
                     //сверхразум
@@ -406,6 +406,23 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                         }
                     }
                 }
+            }
+
+            if (text.Contains("Евреи..."))
+            {
+                var temp = "";
+                var jewSplit = text.Split('\n');
+                foreach (var line in jewSplit)
+                {
+                    if (line.Contains("Евреи..."))
+                        temp += line + "\n";
+                }
+                foreach (var line in jewSplit)
+                {
+                    if (!line.Contains("Евреи..."))
+                        temp += line + "\n";
+                }
+                text = temp;
             }
 
             return text;
@@ -662,7 +679,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             if (game.RoundNo == 10) extraText = " (Конец игры)";
 
             if (player.Character.GetMoral() >= 15)
-                return new ButtonBuilder($"Обменять 15 Морали на 12 бонусных очков{extraText}", "moral",
+                return new ButtonBuilder($"Обменять 15 Морали на 10 бонусных очков{extraText}", "moral",
                     ButtonStyle.Secondary, disabled: disabled);
             if (player.Character.GetMoral() >= 10)
                 return new ButtonBuilder($"Обменять 10 Морали на 6 бонусных очков{extraText}", "moral",
@@ -740,7 +757,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     break;
             }
 
-            embed.WithFooter($"{GetTimeLeft(player)} |{embed.Length}|");
+            embed.WithFooter($"{GetTimeLeft(player)}");
 
             await UpdateMessageWithEmbed(player, embed, builder);
         }
@@ -770,12 +787,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
             if (game == null) return "ERROR";
-
+            var time = $"({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
             if (player.Status.IsReady)
-                return
-                    $"Ты походил • Ожидаем других игроков • ({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
-
-            return $"Ожидаем твой ход • ({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
+                return $"Ожидаем других игроков • {time} | {game.GameVersion}";
+            return $"{time} | {game.GameVersion}";
         }
     }
 }

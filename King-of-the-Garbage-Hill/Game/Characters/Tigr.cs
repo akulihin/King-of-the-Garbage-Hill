@@ -49,6 +49,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                         if (enemy.WinsSeries >= 3 && enemy.IsUnique)
                         {
                             player.Status.AddRegularPoints(2, "3-0 обоссан");
+                            player.Character.AddExtraSkill(player.Status, "3-0 обоссан: ", 20);
 
 
                             var enemyAcc = game.PlayersList.Find(x =>
@@ -84,6 +85,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             }
 
             //end 3-0 обоссан: 
+
+            //Тигр топ, а ты холоп: 
+            if (player.Status.IsLostThisCalculation != Guid.Empty && player.Status.PlaceAtLeaderBoard == 1)
+            {
+                player.Character.Justice.AddJusticeForNextRound(-1);
+            }
+            //end //Тигр топ, а ты холоп
         }
 
 

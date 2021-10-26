@@ -7,7 +7,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 {
     public class GameClass
     {
-        public GameClass(List<GamePlayerBridgeClass> playersList, ulong gameId, int turnLengthInSecond = 300)
+        public GameClass(List<GamePlayerBridgeClass> playersList, ulong gameId, int turnLengthInSecond = 333)
         {
             RoundNo = 1;
             Phrases = new CharactersUniquePhrase();
@@ -29,12 +29,14 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             WhoWon = Guid.Empty;
             IsCheckIfReady = true;
             SkipPlayersThisRound = 0;
+            GameVersion = "0.9.1";
         }
 
         public int RoundNo { get; set; }
         public List<GamePlayerBridgeClass> PlayersList { get; set; }
         public ulong GameId { get; set; }
         public double TurnLengthInSecond { get; set; }
+        public string GameVersion { get; set; }
         public Stopwatch TimePassed { get; set; }
         public int GameStatus { get; set; }
         public CharactersUniquePhrase Phrases { get; set; }

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Helpers;
@@ -214,12 +215,28 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     game.AddGlobalLogs(logMess);
 
-                    //Спарта - никогда не теряет справедливость, атакуя в блок.
+                    
                     if (player.Character.Name != "mylorik")
                     {
-                        //end Спарта
-                        player.Character.Justice.AddJusticeForNextRound(-1);
+                        if(player.Character.Justice.GetJusticeNow() > 0)
+                            player.Character.Justice.AddJusticeForNextRound(-1);
                         player.Status.AddBonusPoints(-1, "Блок: ");
+                    }
+                    else
+                    {
+                        //Спарта 
+                        var mylorik = _gameGlobal.MylorikSpartan.Find( x => x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                        var mylorikEnemy = mylorik.Enemies.Find(x => x.EnemyId == playerIamAttacking.Status.PlayerId);
+                        if (mylorikEnemy == null)
+                        {
+                            mylorik.Enemies.Add(new Mylorik.MylorikSpartanSubClass(playerIamAttacking.Status.PlayerId));
+                        }
+                        else
+                        {
+                            mylorikEnemy.EnemyId = playerIamAttacking.Status.PlayerId;
+                            mylorikEnemy.Active = true;
+                        }
+                        //end Спарта
                     }
 
                     playerIamAttacking.Character.Justice.AddJusticeForNextRound();
@@ -524,12 +541,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
             await _characterPassives.HandleEndOfRound(game);
-            if (game.RoundNo % 2 == 0)
-                game.TurnLengthInSecond += 10;
-            else
-                game.TurnLengthInSecond -= 10;
-
-            if (game.RoundNo == 1) game.TurnLengthInSecond -= 75;
 
             foreach (var player in game.PlayersList)
             {

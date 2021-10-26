@@ -89,7 +89,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             if (moral >= 15)
             {
                 bot.Character.AddMoral(bot.Status, -15, "Обмен Морали: ", false);
-                bot.Character.AddBonusPointsFromMoral(12);
+                bot.Character.AddBonusPointsFromMoral(10);
             }
             if (moral >= 10)
             {
@@ -224,6 +224,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             {
                                 if (allNotFriends is {Count: > 0})
                                     mandatoryAttack = allNotFriends.FirstOrDefault().Status.PlaceAtLeaderBoard;
+                            }
+
+                            if (game.RoundNo == 10)
+                            {
+                                isBlock = 99999;
                             }
                         }
                     }

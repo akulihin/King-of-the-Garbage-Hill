@@ -37,6 +37,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public readonly List<Gleb.GlebSkipClass> GlebSkipList = new();
         public readonly List<WhenToTriggerClass> GlebSleepingTriggeredWhen = new();
         public readonly List<WhenToTriggerClass> GlebTeaTriggeredWhen = new();
+        public readonly List<Gleb.GlebTeaClass> GlebTea = new();
 
         public readonly List<HardKitty.MuteClass> HardKittyMute = new();
         public readonly List<HardKitty.LonelinessClass> HardKittyLoneliness = new();
@@ -50,8 +51,9 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public readonly List<Mitsuki.GarbageClass> MitsukiGarbageList = new();
         public readonly List<WhenToTriggerClass> MitsukiNoPcTriggeredWhen = new();
 
-        public readonly List<WhenToTriggerClass> MylorikBooleTriggeredWhen = new();
+        
         public readonly List<Mylorik.MylorikRevengeClass> MylorikRevenge = new();
+        public readonly List<Mylorik.MylorikSpartanClass> MylorikSpartan = new();
 
         
         public readonly List<Octopus.InkClass> OctopusInkList = new();

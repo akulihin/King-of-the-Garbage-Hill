@@ -24,7 +24,6 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
         public PhraseClass DeepListDoubtfulTacticPhrase;
         public PhraseClass DeepListMadnessPhrase;
-        public PhraseClass DeepListMadnessEndPhrase;
         public PhraseClass DeepListPokePhrase;
         public PhraseClass DeepListSuperMindPhrase;
 
@@ -38,6 +37,8 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
         public PhraseClass GlebComeBackPhrase;
         public PhraseClass GlebSleepyPhrase;
         public PhraseClass GlebTeaPhrase;
+        public PhraseClass GlebTeaReadyPhrase;
+
 
         public PhraseClass HardKittyDoebatsyaPhrase;
         public PhraseClass HardKittyDoebatsyaAnswerPhrase;
@@ -118,7 +119,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             TigrSnipe = new PhraseClass("Стримснайпят и банят и банят и банят");
 
             DeepListMadnessPhrase = new PhraseClass("Безумие");
-            DeepListMadnessEndPhrase = new PhraseClass("Безумие");
+           
             DeepListPokePhrase = new PhraseClass("Стёб");
             DeepListDoubtfulTacticPhrase = new PhraseClass("Сомнительная тактика");
             DeepListDoubtfulTacticFirstLostPhrase = new PhraseClass("Сомнительная тактика");
@@ -134,6 +135,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             GlebSleepyPhrase = new PhraseClass("Спящее хуйло");
             GlebComeBackPhrase = new PhraseClass("Я щас приду");
             GlebTeaPhrase = new PhraseClass("Я за чаем");
+            GlebTeaReadyPhrase = new PhraseClass("Я за чаем");
 
             LeCrispJewPhrase = new PhraseClass("Еврей");
             LeCrispBoolingPhrase = new PhraseClass("Булинг");
@@ -216,8 +218,9 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
 
             TigrTwoBetter.PassiveLogRus.Add("Лучше с двумя, чем с адекватными");
             TigrTwoBetter.PassiveLogRus.Add("Добро пожаловать в мой клан!");
-            TigrThreeZero.PassiveLogRus.Add("Го 1v1");
-            TigrThreeZero.PassiveLogRus.Add("2:0");
+            
+            /*TigrThreeZero.PassiveLogRus.Add("Го 1v1");
+            TigrThreeZero.PassiveLogRus.Add("2:0");*/
             TigrThreeZero.PassiveLogRus.Add("Изи 3-0, обоссан");
             TigrTop.PassiveLogRus.Add("Тигр топ, а ты холоп!");
             TigrTop.PassiveLogRus.Add("Я - ТОП1 БЕРСЕРК НА СЕРВЕРЕ!!!");
@@ -235,9 +238,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             DeepListMadnessPhrase.PassiveLogRus.Add("Хаха. Ха. АХАХАХАХАХАХАХ!");
             DeepListMadnessPhrase.PassiveLogRus.Add("Стоп, кто... я?");
             DeepListMadnessPhrase.PassiveLogRus.Add("Заткнитесь!");
-            DeepListMadnessEndPhrase.PassiveLogRus.Add("Выпил таблетки");
-            DeepListMadnessEndPhrase.PassiveLogRus.Add("А, воооот он я?");
-            DeepListMadnessEndPhrase.PassiveLogRus.Add("Живооой, курииилка");
+
 
             DeepListPokePhrase.PassiveLogRus.Add("Хехе");
             DeepListPokePhrase.PassiveLogRus.Add("Чисто постЕбаться");
@@ -303,6 +304,8 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
             GlebComeBackPhrase.PassiveLogRus.Add("Я щас приду");
             GlebComeBackPhrase.PassiveLogRus.Add("Без меня не начина...");
             GlebTeaPhrase.PassiveLogRus.Add("Какао белого цвета");
+            GlebTeaReadyPhrase.PassiveLogRus.Add("U menja est' lishnij chaj!");
+            GlebTeaReadyPhrase.PassiveLogRus.Add("Chaj zavarilsa!");
 
 
             LeCrispJewPhrase.PassiveLogRus.Add("Я жру деньги!");

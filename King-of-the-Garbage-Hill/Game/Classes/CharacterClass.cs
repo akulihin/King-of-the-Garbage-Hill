@@ -15,6 +15,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             Name = name;
             Description = description;
             Tier = tier;
+            SkillMultiplier = 0;
+            SkillFightMultiplier = 1;
         }
 
         public string Name { get; set; }
@@ -29,6 +31,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         private string StrengthExtraText { get; set; }
         private double SkillMain { get; set; }
         private double SkillExtra { get; set; }
+        private int SkillMultiplier { get; set; }
+        private int SkillFightMultiplier { get; set; }
         private string CurrentSkillTarget { get; set; } = "Ничего";
         private int Moral { get; set; }
         private int BonusPointsFromMoral { get; set; }
@@ -114,9 +118,27 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             return skillsSet[rand.Next(0, 2)];
         }
 
+
+        public void SetSkillMultiplier(int skillMultiplier = 0)
+        {
+            SkillMultiplier = skillMultiplier;
+        }
+
+        public void SetSkillFightMultiplier(int skillFightMultiplier = 1)
+        {
+            SkillFightMultiplier = skillFightMultiplier;
+        }
+
+
+
         public double GetSkill()
         {
-            return SkillMain + SkillExtra;
+            return (SkillMain + SkillExtra)* SkillFightMultiplier;
+        }
+
+        public double GetSkillMainOnly()
+        {
+            return SkillMain;
         }
 
         public void SetMainSkill(InGameStatus status, double howMuchToSet, string skillName, bool isLog = true)
@@ -131,7 +153,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             SkillMain = howMuchToSet;
         }
 
-        public void AddMainSkill(InGameStatus status, string skillName, bool isLog = true, bool fromSkill = false)
+        public void AddMainSkill(InGameStatus status, string skillName, bool isLog = true)
         {
             var howMuchToAdd = SkillMain switch
             {
@@ -147,21 +169,23 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 54 => 1,
                 _ => 0
             };
-
-            AddExtraSkill(status, skillName, howMuchToAdd, false);
-
-            if (isLog && !fromSkill)
-                status.AddInGamePersonalLogs($" +{howMuchToAdd*2} скилла (за {skillName} врага)\n");
-            if (fromSkill && isLog)
-            {
-                status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd * 2} скилла\n");
-            }
-
+           
             SkillMain += howMuchToAdd;
+            SkillExtra += howMuchToAdd;
+            var total = howMuchToAdd + howMuchToAdd;
+
+            var multiplier = total * SkillMultiplier;
+            total += multiplier;
+            SkillExtra += multiplier;
+
+            if (isLog)
+                status.AddInGamePersonalLogs($" +{total} скилла (за {skillName} врага)\n");
         }
 
         public void AddExtraSkill(InGameStatus status, string skillName, int howMuchToAdd, bool isLog = true)
         {
+            if (SkillMultiplier > 0 && howMuchToAdd > 0)
+                howMuchToAdd *= SkillMultiplier;
             if (isLog)
             {
                 if (howMuchToAdd > 0)
@@ -448,7 +472,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public void AddJusticeForNextRound(int howMuchToAdd = 1)
         {
-            JusticeForNextRound += howMuchToAdd;
+            JusticeForNextRound += (int)howMuchToAdd;
 
             if (JusticeForNextRound < 0)
                 JusticeForNextRound = 0;
