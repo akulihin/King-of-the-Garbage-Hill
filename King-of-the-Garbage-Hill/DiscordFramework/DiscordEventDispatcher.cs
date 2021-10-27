@@ -16,11 +16,11 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
         private readonly GameReaction _gameReaction;
         private readonly LoginFromConsole _log;
         private readonly Global _global;
-        private readonly StoreReactionHandling _storeReactionHandling;
-
+        private readonly StoreReactions _storeReactionHandling;
+        private readonly TutorialReactions _tutorialReactions;
 
         public DiscordEventDispatcher(DiscordShardedClient client, CommandHandling commandHandler,
-            GameReaction gameReaction, LoginFromConsole log, Global global, StoreReactionHandling storeReactionHandling)
+            GameReaction gameReaction, LoginFromConsole log, Global global, StoreReactions storeReactionHandling, TutorialReactions tutorialReactions)
         {
             _client = client;
             _commandHandler = commandHandler;
@@ -28,6 +28,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
             _log = log;
             _global = global;
             _storeReactionHandling = storeReactionHandling;
+            _tutorialReactions = tutorialReactions;
         }
 
         public Task InitializeAsync()
@@ -75,12 +76,14 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
             button.RespondAsync();
             _gameReaction.ReactionAddedGameWindow(button);
             _storeReactionHandling.ReactionAddedStore(button);
+            _tutorialReactions.ReactionAddedTutorial(button);
         }
         private async Task _client_ButtonExecuted(SocketMessageComponent button)
         {
             button.RespondAsync();
             _gameReaction.ReactionAddedGameWindow(button);
             _storeReactionHandling.ReactionAddedStore(button);
+            _tutorialReactions.ReactionAddedTutorial(button);
         }
 
         private async Task UserIsTyping(Cacheable<IUser, ulong> arg1, Cacheable<IMessageChannel, ulong> arg2)

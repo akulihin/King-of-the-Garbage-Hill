@@ -13,9 +13,9 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
     public class Store : ModuleBaseCustom
     {
         private readonly UserAccounts _accounts;
-        private readonly StoreReactionHandling _storeReactionHandling;
+        private readonly StoreReactions _storeReactionHandling;
 
-        public Store(UserAccounts userAccounts, StoreReactionHandling storeReactionHandling)
+        public Store(UserAccounts userAccounts, StoreReactions storeReactionHandling)
         {
             _accounts = userAccounts;
    

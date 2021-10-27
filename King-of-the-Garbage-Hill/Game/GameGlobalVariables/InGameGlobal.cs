@@ -54,6 +54,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         
         public readonly List<Mylorik.MylorikRevengeClass> MylorikRevenge = new();
         public readonly List<Mylorik.MylorikSpartanClass> MylorikSpartan = new();
+        public readonly List<Mylorik.MylorikSpanishClass> MylorikSpanish = new();
 
         
         public readonly List<Octopus.InkClass> OctopusInkList = new();

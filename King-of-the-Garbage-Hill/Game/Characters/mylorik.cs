@@ -79,13 +79,28 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
                 var rand = _rand.Random(1, 2);
+                var boole = _gameGlobal.MylorikSpanish.Find(x => x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
 
                 if (rand == 1)
                 {
+                    boole.Times = 0;
                     player.Character.AddPsyche(player.Status, -1, "Испанец: ");
                     player.Character.AddExtraSkill(player.Status,  "Испанец: ", 5);
                     player.MinusPsycheLog(game);
                     game.Phrases.MylorikSpanishPhrase.SendLog(player, false);
+                }
+                else
+                {
+                    boole.Times++;
+
+                    if (boole.Times == 2)
+                    {
+                        boole.Times = 0;
+                        player.Character.AddPsyche(player.Status, -1, "Испанец: ");
+                        player.Character.AddExtraSkill(player.Status, "Испанец: ", 5);
+                        player.MinusPsycheLog(game);
+                        game.Phrases.MylorikSpanishPhrase.SendLog(player, false);
+                    }
                 }
             }
 
@@ -144,6 +159,20 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             {
                 EnemyId = enemyId;
                 Active = true;
+            }
+        }
+
+        public class MylorikSpanishClass
+        {
+            public ulong GameId;
+            public Guid PlayerId;
+            public int Times;
+
+            public MylorikSpanishClass(Guid playerId, ulong gameId)
+            {
+                PlayerId = playerId;
+                GameId = gameId;
+                Times = 0;
             }
         }
     }

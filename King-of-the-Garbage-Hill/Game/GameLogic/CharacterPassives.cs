@@ -121,8 +121,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         break;
                     case "Братишка":
-                        _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId,
-                            game.GameId));
+                        _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId, game.GameId));
                         _gameGlobal.SharkJawsWin.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
                         _gameGlobal.SharkBoole.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
                         break;
@@ -175,6 +174,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
                     case "mylorik":
                         _gameGlobal.MylorikSpartan.Add(new Mylorik.MylorikSpartanClass(player.Status.PlayerId, game.GameId));
+                        _gameGlobal.MylorikSpanish.Add(new Mylorik.MylorikSpanishClass(player.Status.PlayerId, game.GameId));
                         break;
                     case "Тигр":
                         _gameGlobal.TigrTwoBetterList.Add(
@@ -918,7 +918,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         //Буль
                         var random = _rand.Random(1, 2 + player.Character.GetPsyche() * 3);
                         
-
                             if (random == 2)
                             {
                                 player.Status.IsSkip = true;
@@ -1851,6 +1850,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             await Task.CompletedTask;
         }
 
+
         public void HandleNextRoundAfterSorting(GameClass game)
         {
             foreach (var player in game.PlayersList)
@@ -2051,6 +2051,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         }
 
                         //end Подсчет
+                        break;
+                    case "mylorik":
+                        if (player.Character.GetPsyche() == 10)
+                        {
+                            player.Character.Name = "Братишка";
+                            _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId, game.GameId));
+                            _gameGlobal.SharkJawsWin.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                            _gameGlobal.SharkBoole.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                            player.Status.AddInGamePersonalLogs("Братишка: **Буууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууль**\n");
+                        }
                         break;
                 }
             }

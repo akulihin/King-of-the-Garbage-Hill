@@ -103,6 +103,12 @@ namespace King_of_the_Garbage_Hill.Game.Classes
                 ScoreSource += $"{reason}+";
         }
 
+        public void HardKittyMinus(int scoreToAdd, string skillName)
+        {
+            Score += scoreToAdd;
+            AddInGamePersonalLogs($"{skillName} {scoreToAdd} очков\n");
+        }
+
 
         public void AddBonusPoints(int bonusPoints = 1, string skillName = "")
         {
@@ -111,8 +117,8 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             else if (bonusPoints < 0) AddInGamePersonalLogs($"{skillName}{bonusPoints} __**бонусных**__ очков\n");
 
             Score += bonusPoints;
-            if (Score < 0)
-                Score = 0;
+            //if (Score < 0)
+            //    Score = 0;
         }
 
         public double GetScoresToGiveAtEndOfRound()

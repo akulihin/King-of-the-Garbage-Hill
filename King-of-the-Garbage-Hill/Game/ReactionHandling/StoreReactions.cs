@@ -10,13 +10,13 @@ using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
 namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 {
-    public class StoreReactionHandling : IServiceSingleton
+    public class StoreReactions : IServiceSingleton
     {
         private readonly CharactersPull _charactersPull;
         private readonly UserAccounts _userAccounts;
         private readonly SecureRandom _random;
 
-        public StoreReactionHandling(UserAccounts userAccounts, CharactersPull charactersPull, SecureRandom random)
+        public StoreReactions(UserAccounts userAccounts, CharactersPull charactersPull, SecureRandom random)
         {
             _userAccounts = userAccounts;
             _charactersPull = charactersPull;
@@ -130,6 +130,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
         {
             try
             {
+                if(!button.Data.CustomId.Contains("store")) return;
+
                 var title_str = button.Message.Embeds.FirstOrDefault()?.Title;
 
                 if (title_str == null)
