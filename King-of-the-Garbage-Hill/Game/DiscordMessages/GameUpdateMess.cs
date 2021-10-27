@@ -303,7 +303,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                         {
                             if (currentDeepList2.Times == 1)
                                 customString += " **лол**";
-                            else if(currentDeepList2.Times == 2)
+                            if(currentDeepList2.Triggered)
                                 customString += " **кек**";
                         }
                     }

@@ -1289,7 +1289,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             if (madd.WhenToTrigger.Contains(game.RoundNo))
                             {
                                 //trigger maddness
-                                player.Status.AddBonusPoints(-3, "Безумие: ");
+                                //player.Status.AddBonusPoints(-3, "Безумие: ");
 
                                 var curr = _gameGlobal.DeepListMadnessList.Find(x =>
                                     x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);

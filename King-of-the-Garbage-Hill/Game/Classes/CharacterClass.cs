@@ -172,6 +172,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
            
             SkillMain += howMuchToAdd;
             SkillExtra += howMuchToAdd;
+           
             var total = howMuchToAdd + howMuchToAdd;
 
             var multiplier = total * SkillMultiplier;
@@ -185,7 +186,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public void AddExtraSkill(InGameStatus status, string skillName, int howMuchToAdd, bool isLog = true)
         {
             if (SkillMultiplier > 0 && howMuchToAdd > 0)
-                howMuchToAdd *= SkillMultiplier;
+                howMuchToAdd *= (SkillMultiplier+1);
             if (isLog)
             {
                 if (howMuchToAdd > 0)
