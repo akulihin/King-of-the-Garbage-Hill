@@ -140,7 +140,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //умный
                 if (player.Character.GetClassStatInt() == 0 && playerIamAttacking.Character.Justice.GetJusticeNow() == 0)
                 {
-                    player.Character.AddExtraSkill(player.Status, "Класс: ", 4, true);
+                    player.Character.AddExtraSkill(player.Status, "Класс: ", 6, true);
                 }
 
 
@@ -432,7 +432,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //сильный
                     if (player.Character.GetClassStatInt() == 1)
                     {
-                        player.Character.AddExtraSkill(player.Status, "Класс: ", 5, true);
+                        player.Character.AddExtraSkill(player.Status, "Класс: ", 4, true);
                     }
 
                     isContrLost -= 1;
@@ -471,7 +471,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //сильный
                     if (playerIamAttacking.Character.GetClassStatInt() == 1)
                     {
-                        playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, "Класс: ", 5, true);
+                        playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, "Класс: ", 4, true);
                     }
 
                     if (isTooGoodLost == -1)

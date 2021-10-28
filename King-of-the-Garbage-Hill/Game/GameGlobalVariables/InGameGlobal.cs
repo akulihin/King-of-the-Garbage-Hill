@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameLogic;
+using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
@@ -82,6 +83,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public readonly List<Vampyr.ScavengerClass> VampyrScavengerList = new();
 
         public readonly List<BotsBehavior.NanobotClass> NanobotsList = new();
+        public readonly List<TutorialReactions.TutorialGame> Tutorials = new();
         
 
         public InGameGlobal(SecureRandom rand)

@@ -413,7 +413,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                         continue;
                     foreach (var passive in p.Character.Passive)
                     {
-                        if (passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса")
+                        if (passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса" && passive.PassiveName != "Еврей")
                         {
                             text = text.Replace($"{passive.PassiveName}", "❓");
                         }
@@ -492,7 +492,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                                   $"*Скилл: {character.GetSkill()} (Мишень: **{character.GetCurrentSkillTarget()}**)*\n" +
                                   $"*Класс:* {character.GetClassStatString()}\n" +
                                   "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                                  $"Множитель очков: **X{multiplier}**\n" +
+                                  $"Множитель очков: **x{multiplier}**\n" +
                                   "<:e_:562879579694301184>\n" +
                                   $"{LeaderBoard(player)}");
 
