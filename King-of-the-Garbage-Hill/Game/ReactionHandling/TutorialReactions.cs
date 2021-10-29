@@ -85,7 +85,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 5).ClassString = "(**Быстрый** ?)";
                 game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 6).ClassString = "(**Сильный** ?)";
             }
-
+                
 
             foreach (var p in game.PlayersList.OrderBy(x => x.PlaceAtLeaderBoard))
             {
@@ -93,7 +93,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                 if (p.PlayerId == game.DiscordPlayerId)
                     text += $"{index}. {p.DiscordUsername} = **{p.Score} Score**\n";
-                else if (player.Predicted && p.DiscordUsername == "MegaVova99 ")
+                else if (player.Predicted && p.DiscordUsername == "MegaVova99")
                     text += $"{index}. {p.DiscordUsername} {p.ClassString} | AWDKA ?\n";
                 else
                     text += $"{index}. {p.DiscordUsername} {p.ClassString}\n";
@@ -381,7 +381,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
             if (game.RoundNumber == 7)
             {
-                player.Justice = 0;
+                player.Justice = 2;
                 if (player.ClassString.Contains("Умный") && target.ClassString.Contains("Быстрый"))
                 {
                     text +=
@@ -437,7 +437,20 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
             if (game.RoundNumber == 8)
             {
-                player.Justice = 2;
+                player.Justice += 2;
+
+                var target1 = game.PlayersList.Find(x => x.PlayerId == player.WhoToAttackThisTurn);
+                var moral =  target1.PlaceAtLeaderBoard - player.PlaceAtLeaderBoard;
+                if (moral > 0)
+                    player.Moral -= moral;
+
+                target1 = game.PlayersList.Find(x => x.DiscordUsername == "PETYX");
+                moral = target1.PlaceAtLeaderBoard - player.PlaceAtLeaderBoard;
+                if (moral > 0)
+                    player.Moral -= moral;
+
+                if (player.Moral < 0)
+                    player.Moral = 0;
 
                 text +=
                     $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ {target.DiscordUsername}\n";
@@ -449,27 +462,30 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                 text += "\nТоля запизделся и спалил, что MegaVova99  - AWDKA\n";
             }
-
+                
             if (game.RoundNumber == 9)
             {
-                player.Justice = 2;
+                
                 if (player.ClassString.Contains("Умный") && target.ClassString.Contains("Быстрый"))
                 {
                     text +=
                         $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ **{player.DiscordUsername}** \n";
                     player.Score += 2;
+                    player.Justice = 0;
                 }
                 else if (player.ClassString.Contains("Быстрый") && target.ClassString.Contains("Сильный"))
                 {
                     text +=
                         $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ **{player.DiscordUsername}** \n";
                     player.Score += 2;
+                    player.Justice = 0;
                 }
                 else if (player.ClassString.Contains("Сильный") && target.ClassString.Contains("Умный"))
                 {
                     text +=
                         $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ **{player.DiscordUsername}** \n";
                     player.Score += 2;
+                    player.Justice = 0;
                 }
                 else
                 {
@@ -478,6 +494,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     player.Justice += 1;
                 }
 
+                player.Justice += 2;
 
                 text += $"Drone <:war:561287719838547981> **{player.DiscordUsername}** ⟶ Drone\n";
                 text += $"MegaVova99 <:war:561287719838547981> **{player.DiscordUsername}** ⟶ MegaVova99\n";
@@ -488,20 +505,22 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
             if (game.RoundNumber == 10)
             {
-                player.Justice = 3;
+                player.Justice += 3;
+                 
 
                 text +=
                     $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ {target.DiscordUsername}\n";
                 text += $"PETYX <:war:561287719838547981> **{player.DiscordUsername}** ⟶ PETYX\n";
                 text += $"YasuoOnly <:war:561287719838547981> **{player.DiscordUsername}** ⟶ YasuoOnly\n";
                 text += "Drone <:war:561287719838547981> PETYX ⟶ Drone\n";
-                text += "EloBoost <:war:56128771983854798п1> PETYX ⟶ EloBoost\n";
+                text += "EloBoost <:war:561287719838547981> PETYX ⟶ EloBoost\n";
                 text += "MegaVova99 <:war:561287719838547981> PETYX ⟶ MegaVova99\n";
             }
 
             if (game.RoundNumber == 11)
             {
                 player.Score += 11;
+                player.Justice = 1;
                 text = "";
                 text +=
                     $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ **{player.DiscordUsername}**\n";
@@ -963,12 +982,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                         if (game.RoundNumber == 8)
                         {
-                            embed.WithTitle(GetTitleTutorial());
-                            embed.WithDescription(GetDescriptionTutorial(game));
-                            embed.AddField(GetStatsBoardTutorial(game));
-                            embed.AddField(GetSecondaryStatsBoardTutorial(game));
-                            embed.AddField(GetLeaderBoardTutorial(game));
-                            embed.WithFooter(GetFooter());
 
                             builder.WithButton(GetBlockButtonTutorial(true));
                             builder.WithSelectMenu(GetAttackMenuTutorial(game, true), 1);
@@ -979,7 +992,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                         await game.SocketMessageFromBot.ModifyAsync(message =>
                         {
-                            message.Embed = embed.Build();
                             message.Components = builder.Build();
                         });
                         break;
@@ -993,13 +1005,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                         if (game.RoundNumber == 8)
                         {
-                            embed.WithTitle(GetTitleTutorial());
-                            embed.WithDescription(GetDescriptionTutorial(game));
-                            embed.AddField(GetStatsBoardTutorial(game));
-                            embed.AddField(GetSecondaryStatsBoardTutorial(game));
-                            embed.AddField(GetLeaderBoardTutorial(game));
-                            embed.WithFooter(GetFooter());
-
                             builder.WithButton(GetBlockButtonTutorial(true));
                             builder.WithSelectMenu(GetAttackMenuTutorial(game), 1);
                             builder.WithButton(GetMoralButtonTutorial(game, true));
@@ -1009,7 +1014,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
                         await game.SocketMessageFromBot.ModifyAsync(message =>
                         {
-                            message.Embed = embed.Build();
                             message.Components = builder.Build();
                         });
                         break;
