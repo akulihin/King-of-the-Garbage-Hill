@@ -289,8 +289,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var me = player.Character;
                 var target = playerIamAttacking.Character;
 
-                var scaleMe = (me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche()) + me.GetSkill() / 60;
-                var scaleTarget = (target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche()) + target.GetSkill() / 60;
+                var scaleMe = (me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche()) + me.GetSkill() / 50;
+                var scaleTarget = (target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche()) + target.GetSkill() / 50;
 
                 var weighingMachine = scaleMe - scaleTarget;
 
