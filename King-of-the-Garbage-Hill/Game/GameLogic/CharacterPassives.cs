@@ -1633,7 +1633,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         //привет со дна
                         if (game.SkipPlayersThisRound > 0)
-                            player.Status.AddRegularPoints(game.SkipPlayersThisRound, "привет со дна");
+                            player.Status.AddBonusPoints(game.SkipPlayersThisRound, "привет со дна");
                         //end привет со дна
 
 
@@ -1890,7 +1890,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             if (game.RoundNo != 10)
                             {
                                 player.Character.AddPsyche(player.Status, 1, "Тигр топ, а ты холоп: ");
-                                player.Character.AddMoral(player.Status, 1, "Тигр топ, а ты холоп: ");
+                                //player.Character.AddMoral(player.Status, 1, "Тигр топ, а ты холоп: ");
                                 game.Phrases.TigrTop.SendLog(player, false);
                             }
 
@@ -2222,7 +2222,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             var point = HandleJews(playerAttackedOctopus, game);
             //end еврей
 
-            playerAttackedOctopus.Status.AddRegularPoints(point, "Чернильная завеса");
+            playerAttackedOctopus.Status.AddRegularPoints(point, "Победа");
 
             playerAttackedOctopus.Status.WonTimes++;
             playerAttackedOctopus.Character.Justice.IsWonThisRound = true;
@@ -2235,9 +2235,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 new InGameStatus.WhoToLostPreviousRoundClass(playerAttackedOctopus.Status.PlayerId, game.RoundNo,
                     false));
 
-            var octo = _gameGlobal.OctopusInkList.Find(x =>
-                x.PlayerId == octopusPlayer.Status.PlayerId &&
-                x.GameId == game.GameId);
+            var octo = _gameGlobal.OctopusInkList.Find(x => x.PlayerId == octopusPlayer.Status.PlayerId && x.GameId == game.GameId);
 
             if (octo == null)
             {
@@ -2246,14 +2244,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
             else
             {
-                var enemyRealScore =
-                    octo.RealScoreList.Find(x => x.PlayerId == playerAttackedOctopus.Status.PlayerId);
+                var enemyRealScore = octo.RealScoreList.Find(x => x.PlayerId == playerAttackedOctopus.Status.PlayerId);
                 var octoRealScore = octo.RealScoreList.Find(x => x.PlayerId == octopusPlayer.Status.PlayerId);
 
                 if (enemyRealScore == null)
                 {
-                    octo.RealScoreList.Add(new Octopus.InkSubClass(playerAttackedOctopus.Status.PlayerId,
-                        game.RoundNo, -1));
+                    octo.RealScoreList.Add(new Octopus.InkSubClass(playerAttackedOctopus.Status.PlayerId, game.RoundNo, -1));
                     octoRealScore.AddRealScore(game.RoundNo);
                 }
                 else
@@ -2263,8 +2259,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
             }
 
-            octopusPlayer.Status.AddRegularPoints(1, "Чернильная завеса");
-            playerAttackedOctopus.Status.AddRegularPoints(-1, "Чернильная завеса");
+            //octopusPlayer.Status.AddRegularPoints(1, "Чернильная завеса");
+            //playerAttackedOctopus.Status.AddRegularPoints(-1, "Чернильная завеса");
 
 
             return false;

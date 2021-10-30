@@ -263,6 +263,14 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         public List<GamePlayerBridgeClass> HandleEventsBeforeFirstRound(List<GamePlayerBridgeClass> playersList)
         {
 
+            //Загадочный Спартанец в маске
+            if (playersList.Any(x => x.Character.Name == "Загадочный Спартанец в маске"))
+            {
+                var spartan = playersList.Find(x => x.Character.Name == "Загадочный Спартанец в маске");
+                spartan.Character.SetSkillMultiplier(1);
+            }
+            //end Загадочный Спартанец в маске
+
             //Никому не нужен
             if (playersList.Any(x => x.Character.Name == "HardKitty"))
             {
@@ -277,7 +285,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 playersList[^1] = tempHard;
             }
             //end Никому не нужен
-
+            
 
             //Тигр топ, а ты холоп
             if (playersList.Any(x => x.Character.Name == "Тигр"))

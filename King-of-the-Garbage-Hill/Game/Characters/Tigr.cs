@@ -86,12 +86,12 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
             //end 3-0 обоссан: 
 
-            //Тигр топ, а ты холоп: 
+            /*//Тигр топ, а ты холоп: 
             if (player.Status.IsLostThisCalculation != Guid.Empty && player.Status.PlaceAtLeaderBoard == 1)
             {
                 player.Character.Justice.AddJusticeForNextRound(-1);
             }
-            //end //Тигр топ, а ты холоп
+            //end //Тигр топ, а ты холоп*/
         }
 
 
