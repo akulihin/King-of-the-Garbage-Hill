@@ -410,8 +410,15 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     }
 
                     player.Character.AddIntelligence(player.Status, 1,  "Прокачка: ", false);
-                    player.Status.AddInGamePersonalLogs(
-                        $"Ты улучшил интеллект до {player.Character.GetIntelligence()}\n");
+                    
+                    if (player.Character.Name == "HardKitty")
+                    {
+                        player.Status.AddInGamePersonalLogs($"#life: Я прокачал Интеллект на {player.Character.GetIntelligence()}!\n");
+                    }
+                    else
+                    {
+                        player.Status.AddInGamePersonalLogs($"Ты улучшил Интеллект до {player.Character.GetIntelligence()}\n");
+                    }
                     break;
                 case 2:
 
@@ -423,7 +430,14 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     }
 
                     player.Character.AddStrength(player.Status, 1,  "Прокачка: ", false);
-                    player.Status.AddInGamePersonalLogs($"Ты улучшил силу до {player.Character.GetStrength()}\n");
+                    if (player.Character.Name == "HardKitty")
+                    {
+                        player.Status.AddInGamePersonalLogs($"#life: Я прокачал Силу на {player.Character.GetStrength()}!\n");
+                    }
+                    else
+                    {
+                        player.Status.AddInGamePersonalLogs($"Ты улучшил Силу до {player.Character.GetStrength()}\n");
+                    }
 
                     break;
                 case 3:
@@ -436,7 +450,14 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     }
 
                     player.Character.AddSpeed(player.Status, 1,  "Прокачка: ", false);
-                    player.Status.AddInGamePersonalLogs($"Ты улучшил скорость до {player.Character.GetSpeed()}\n");
+                    if (player.Character.Name == "HardKitty")
+                    {
+                        player.Status.AddInGamePersonalLogs($"#life: Я прокачал Cкорость на {player.Character.GetSpeed()}!\n");
+                    }
+                    else
+                    {
+                        player.Status.AddInGamePersonalLogs($"Ты улучшил Скорость до {player.Character.GetSpeed()}\n");
+                    }
 
                     break;
                 case 4:
@@ -449,7 +470,14 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                     }
 
                     player.Character.AddPsyche(player.Status, 1,  "Прокачка: ", false);
-                    player.Status.AddInGamePersonalLogs($"Ты улучшил психику до {player.Character.GetPsyche()}\n");
+                    if (player.Character.Name == "HardKitty")
+                    {
+                        player.Status.AddInGamePersonalLogs($"#life: Я прокачал Психику на {player.Character.GetPsyche()}!\n");
+                    }
+                    else
+                    {
+                        player.Status.AddInGamePersonalLogs($"Ты улучшил Психику до {player.Character.GetPsyche()}\n");
+                    }
 
                     break;
             }

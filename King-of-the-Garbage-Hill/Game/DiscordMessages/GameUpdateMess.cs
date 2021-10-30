@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection.Metadata;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
@@ -49,7 +48,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var characterPassivesList = player.Character.Passive;
             foreach (var passive in characterPassivesList)
             {
-                if(!passive.Visible) continue;
+                if (!passive.Visible) continue;
                 pass += $"__**{passive.PassiveName}**__";
                 pass += ": ";
                 pass += passive.PassiveDescription;
@@ -60,14 +59,14 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var embed = new EmbedBuilder();
             embed.WithColor(Color.DarkOrange);
             //if (player.Character.Avatar != null)
-           //     embed.WithImageUrl(player.Character.Avatar);
+            //     embed.WithImageUrl(player.Character.Avatar);
             embed.AddField("Твой Персонаж:", $"Name: {player.Character.Name}\n" +
                                              $"Интеллект: {player.Character.GetIntelligence()}\n" +
                                              $"Сила: {player.Character.GetStrength()}\n" +
                                              $"Скорость: {player.Character.GetSpeed()}\n" +
                                              $"Психика: {player.Character.GetPsyche()}\n");
             embed.AddField("Пассивки", $"{pass}");
-            
+
             //if(player.Character.Description.Length > 1)
             //    embed.WithDescription(player.Character.Description);
 
@@ -217,18 +216,20 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                     break;
                 case "Вампур":
-                    var vamp = _gameGlobal.VampyrHematophagiaList.Find(x => x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
+                    var vamp = _gameGlobal.VampyrHematophagiaList.Find(x =>
+                        x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
                     var target = vamp.Hematophagia.Find(x => x.EnemyId == other.Status.PlayerId);
                     if (target != null)
                         customString += " <:Y_:562885385395634196>";
                     break;
 
                 case "HardKitty":
-                    var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x => x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
+                    var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
+                        x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
                     if (hardKitty != null)
                     {
                         var lostSeries = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == other.Status.PlayerId);
-                        if(lostSeries != null)
+                        if (lostSeries != null)
                             if (lostSeries.Series > 0)
                                 customString += $" <:393:563063205811847188> - {lostSeries.Series}";
                     }
@@ -304,7 +305,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                         {
                             if (currentDeepList2.Times == 1)
                                 customString += " **лол**";
-                            if(currentDeepList2.Triggered)
+                            if (currentDeepList2.Triggered)
                                 customString += " **кек**";
                         }
                     }
@@ -323,18 +324,14 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     if (find != null && find.IsUnique) customString += " <:sparta:561287745675329567>";
                     if (find != null && !find.IsUnique) customString += " ❌";
 
-                    var mylorikSpartan  = _gameGlobal.MylorikSpartan.Find(x =>
+                    var mylorikSpartan = _gameGlobal.MylorikSpartan.Find(x =>
                         x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
 
                     var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == other.Status.PlayerId);
 
                     if (mylorikEnemy != null)
-                    {
                         if (mylorikEnemy.Active)
-                        {
                             customString += " <:broken_shield:902044789917241404>";
-                        }
-                    }
 
                     break;
                 case "Тигр":
@@ -407,37 +404,59 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         public string HandleCasualNormalSkillShow(string text, GamePlayerBridgeClass player, GameClass game)
         {
             if (player.PlayerType == 0)
-            {
                 foreach (var p in game.PlayersList)
                 {
                     if (p.Status.PlayerId == player.Status.PlayerId)
                         continue;
                     foreach (var passive in p.Character.Passive)
-                    {
-                        if (passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса" && passive.PassiveName != "Еврей")
-                        {
+                        if (passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса" &&
+                            passive.PassiveName != "Еврей")
                             text = text.Replace($"{passive.PassiveName}", "❓");
-                        }
-                    }
                 }
-            }
 
             if (text.Contains("Евреи..."))
             {
+                text.Replace("Евреи...\n", "");
+
                 var temp = "";
                 var jewSplit = text.Split('\n');
+
                 foreach (var line in jewSplit)
                 {
-                    if (!line.Contains("Евреи..."))
-                        temp += line + "\n";
-                }
-                foreach (var line in jewSplit)
-                {
-                    if (line.Contains("Евреи..."))
-                        temp += line + "\n";
+                    if (line.Contains("обычных"))
+                    {
+                        temp += "Евреи...\n";
+                    }
+                    temp += line + "\n";
                 }
                 text = temp;
             }
+
+            if (text.Contains("Класс:"))
+            {
+                var temp = "";
+                var jewSplit = text.Split('\n');
+                var totalClass = 0;
+
+                foreach (var line in jewSplit)
+                {
+                    if (!line.Contains("Класс:"))
+                    {
+                        temp += line + "\n";
+                    }
+                    else
+                    {
+                        var classText = line.Split(' ')[1].Replace("+", "");
+                        totalClass += Convert.ToInt32(classText);
+                    }
+                    
+                }
+                temp = temp.Remove(temp.Length - 1);
+                temp += $"Класс: +{totalClass} *Cкилла*\n";
+                text = temp;
+            }
+
+            
 
             return text;
         }
@@ -446,16 +465,13 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         public string HandleIsNewPlayerDescription(string text, GamePlayerBridgeClass player)
         {
             var account = _accounts.GetAccount(player.DiscordId);
-            if (account.IsNewPlayer)
-            {
-                text = text.Replace("⟶", "⟶ победил");
-            }
+            if (account.IsNewPlayer) text = text.Replace("⟶", "⟶ победил");
 
             text = text.Replace(player.DiscordUsername, $"**{player.DiscordUsername}**");
 
             return text;
         }
-        
+
         //Page 1
         public EmbedBuilder FightPage(GamePlayerBridgeClass player)
         {
@@ -484,16 +500,6 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
 
             var desc = HandleIsNewPlayerDescription(game.GetGlobalLogs(), player);
-            
-            //⟶
-
-            /*
-            if (player.PlayerType == 0)
-            {
-                desc = desc.Replace(" (Блок)...", "");
-                desc = desc.Replace(" (Скип)...", "");
-            }
-            */
 
 
             embed.WithDescription($"{desc}" +
@@ -527,7 +533,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 embed.AddField("События прошлого раунда:", "В прошлом раунде ничего не произошло. Странно...");
             }
 
-            text = player.Status.GetInGamePersonalLogs().Length >= 2 ? $"{player.Status.GetInGamePersonalLogs()}" : "Еще ничего не произошло. Наверное...";
+            text = player.Status.GetInGamePersonalLogs().Length >= 2
+                ? $"{player.Status.GetInGamePersonalLogs()}"
+                : "Еще ничего не произошло. Наверное...";
             text = HandleCasualNormalSkillShow(text, player, game);
             embed.AddField("События этого раунда:", text);
 
@@ -539,19 +547,19 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         }
 
         //Page 2
-        public EmbedBuilder LogsPage(GamePlayerBridgeClass player)
-        {
-            var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+        /*public EmbedBuilder LogsPage(GamePlayerBridgeClass player)
+       {
+          var game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
-            var embed = new EmbedBuilder();
-            embed.WithTitle("Логи");
-            embed.WithDescription(HandleIsNewPlayerDescription(game.GetAllGlobalLogs(), player));
-            embed.WithColor(Color.Green);
-            embed.WithFooter($"{GetTimeLeft(player)}");
-            embed.WithCurrentTimestamp();
+           var embed = new EmbedBuilder();
+           embed.WithTitle("Логи");
+           embed.WithDescription(game.GetAllGlobalLogs());
+           embed.WithColor(Color.Green);
+           embed.WithFooter($"{GetTimeLeft(player)}");
+           embed.WithCurrentTimestamp();
 
-            return embed;
-        }
+           return embed;
+    }*/
 
         //Page 3
         public EmbedBuilder LvlUpPage(GamePlayerBridgeClass player)
@@ -581,28 +589,16 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             var playerIsReady = player.Status.IsSkip || player.Status.IsReady || game.RoundNo > 10;
             var placeHolder = "Выбрать цель";
 
-            if (player.Status.IsSkip)
-            {
-                placeHolder = "Что-то заставило тебя скипнуть...";
-            }
+            if (player.Status.IsSkip) placeHolder = "Что-то заставило тебя скипнуть...";
 
-            if (player.Status.IsBlock)
-            {
-                placeHolder = "Ты поставил блок!";
-            }
+            if (player.Status.IsBlock) placeHolder = "Ты поставил блок!";
 
-            if (game.RoundNo > 10)
-            {
-                placeHolder = "gg wp";
-            }
+            if (game.RoundNo > 10) placeHolder = "gg wp";
 
             if (player.Status.IsReady)
             {
                 var target = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
-                if (target != null)
-                {
-                    placeHolder = $"Ты напал на {target.DiscordUsername}";
-                }
+                if (target != null) placeHolder = $"Ты напал на {target.DiscordUsername}";
             }
 
             if (!player.Status.CanSelectAttack)
@@ -724,16 +720,12 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         public ButtonBuilder GetPlaceHolderButton(GamePlayerBridgeClass player, GameClass game)
         {
             if (!player.Status.CanSelectAttack)
-            {
-                return new ButtonBuilder("Я подтверждаю свои предположения", "confirm-prefict", ButtonStyle.Primary, disabled: false, emote:
+                return new ButtonBuilder("Я подтверждаю свои предположения", "confirm-prefict", ButtonStyle.Primary,
+                    disabled: false, emote:
                     Emote.Parse("<a:bratishka:900962522276958298>"));
-            }
-            else
-            {
-                return new ButtonBuilder("Братишка валяется почему-то...", "boole", ButtonStyle.Secondary, disabled: true, emote:
-                    Emote.Parse("<a:bratishka:900962522276958298>"));
-            }
-
+            return new ButtonBuilder("Братишка валяется почему-то...", "boole", ButtonStyle.Secondary, disabled: true,
+                emote:
+                Emote.Parse("<a:bratishka:900962522276958298>"));
         }
 
 
@@ -758,8 +750,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     builder.WithSelectMenu(GetPredictMenu(player, game), 3);
                     break;
                 case 2:
-                    embed = LogsPage(player);
-                    builder = new ComponentBuilder();
+                    // RESERVED
+
+                    /*embed = LogsPage(player);
+                    builder = new ComponentBuilder();*/
                     break;
                 case 3:
                     embed = LvlUpPage(player);
