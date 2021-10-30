@@ -2119,13 +2119,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (enemyTop != null && enemyTop.Status.IsLostThisCalculation != Guid.Empty)
                 {
                     shark.Status.AddRegularPoints(1, "Лежит на дне");
-                    _log.Critical("shark + 1 TOP");
+   
                 }
 
                 if (enemyBottom != null && enemyBottom.Status.IsLostThisCalculation != Guid.Empty)
                 {
                     shark.Status.AddRegularPoints(1, "Лежит на дне");
-                    _log.Critical("shark + 1 BOT");
+
                 }
             }
             //end Лежит на дне:

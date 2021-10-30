@@ -34,13 +34,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             if (realPlayers > 0 && game.TimePassed.Elapsed.Seconds < game.TurnLengthInSecond - timeOffest) return;
 
             HandleBotMoral(player, game);
-            if (player.Status.MoveListPage == 1)
-            {
-                await HandleBotAttack(player, game);
-            }
             if (player.Status.MoveListPage == 3)
             {
                 await HandleLvlUpBot(player, game);
+            }
+            if (player.Status.MoveListPage == 1)
+            {
+                await HandleBotAttack(player, game);
             }
         }
 

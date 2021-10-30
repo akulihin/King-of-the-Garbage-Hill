@@ -15,7 +15,6 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             GameId = gameId;
             TurnLengthInSecond = turnLengthInSecond;
             TimePassed = new Stopwatch();
-            GameStatus = 1;
             AllGameGlobalLogs = "";
             GlobalLogs =
                 "<:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567>\n\n" +
@@ -38,7 +37,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public double TurnLengthInSecond { get; set; }
         public string GameVersion { get; set; }
         public Stopwatch TimePassed { get; set; }
-        public int GameStatus { get; set; }
+   
         public CharactersUniquePhrase Phrases { get; set; }
        
         public bool IsCheckIfReady { get; set; }

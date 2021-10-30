@@ -20,15 +20,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly InGameGlobal _gameGlobal;
         private readonly GameUpdateMess _gameUpdateMess;
         private readonly Global _global;
+        private readonly HelperFunctions _help;
         private readonly LoginFromConsole _logs;
+        private readonly SecureRandom _random;
         private readonly CalculateRound _round;
         private readonly GameUpdateMess _upd;
         public Timer LoopingTimer;
-        private readonly HelperFunctions _help;
 
         public CheckIfReady(Global global, GameUpdateMess upd, CalculateRound round, FinishedGameLog finishedGameLog,
             GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, LoginFromConsole logs, UserAccounts accounts,
-            InGameGlobal gameGlobal, HelperFunctions help)
+            InGameGlobal gameGlobal, HelperFunctions help, SecureRandom random)
         {
             _global = global;
             _upd = upd;
@@ -40,6 +41,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             _accounts = accounts;
             _gameGlobal = gameGlobal;
             _help = help;
+            _random = random;
             CheckTimer();
         }
 
@@ -53,7 +55,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             LoopingTimer = new Timer
             {
                 AutoReset = true,
-                Interval = 7000,
+                Interval = 500,
                 Enabled = true
             };
 
@@ -61,50 +63,83 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             return Task.CompletedTask;
         }
 
-        private async void CheckIfEveryoneIsReady(object sender, ElapsedEventArgs e)
+
+        private async void HandleLastRound(GameClass game)
         {
-            var games = _global.GamesList;
+            game.IsCheckIfReady = false;
+            //predict
+            foreach (var player in from player in game.PlayersList
+                from predict in player.Predict
+                let enemy = game.PlayersList.Find(x => x.Status.PlayerId == predict.PlayerId)
+                where enemy.Character.Name == predict.CharacterName
+                select player) player.Status.AddBonusPoints(3, "Предположение: ");
+            // predict
 
-
-            for (var i = 0; i < games.Count; i++)
+            //predict bot
+            foreach (var bot in game.PlayersList)
             {
-                var game = games[i];
+                if (!bot.IsBot()) continue;
+
+                bot.Status.AddBonusPoints(3, "Предположение: ");
+                if (game.GetAllGlobalLogs().Contains("Толя запизделся"))
+                    bot.Status.AddBonusPoints(3, "Предположение: ");
+
+                if (bot.Character.Name == "DeepList") bot.Status.AddBonusPoints(3, "Предположение: ");
+                if (bot.Character.Name == "AWDKA") bot.Status.AddBonusPoints(6, "Предположение: ");
+            }
+
+            //end bot
+
+            //sort
+            game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+            for (var k = 0; k < game.PlayersList.Count; k++)
+                game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
+            //end sorting
 
 
-                    
-
-                if (game.RoundNo == 11)
+            try
+            {
+                //case "AWDKA":
+                var AWDKA = game.PlayersList.Find(x => x.Character.Name == "AWDKA");
+                //trolling
+                if (AWDKA != null)
                 {
+                    var awdkaTroll = _gameGlobal.AwdkaTrollingList.Find(x =>
+                        x.GameId == AWDKA.GameId &&
+                        x.PlayerId == AWDKA.Status.PlayerId);
 
-                    //predict
-                    foreach (var player in from player in game.PlayersList from predict in player.Predict let enemy = game.PlayersList.Find(x => x.Status.PlayerId == predict.PlayerId) where enemy.Character.Name == predict.CharacterName select player)
+
+                    var enemy = awdkaTroll.EnemyList.Find(x =>
+                        x.EnemyId == game.PlayersList.Find(y => y.Status.PlaceAtLeaderBoard == 1).Status.PlayerId);
+
+                    var trolledText = "";
+                    if (enemy != null)
                     {
-                        player.Status.AddBonusPoints(3, "Предположение: ");
+                        var tolled = game.PlayersList.Find(x => x.Status.PlayerId == enemy.EnemyId);
+
+                        trolledText = tolled.Character.Name switch
+                        {
+                            "DeepList" => "Лист Затроллился, хех",
+                            "mylorik" => "Лорик Затроллился, МММ!",
+                            "Глеб" => "Спящее Хуйло",
+                            "LeCrisp" => "ЛеПуська Затроллилась",
+                            "Толя" => "Раммус Продал Тормейл",
+                            "HardKitty" => "Пакет Молока Пролился На Клавиатуру",
+                            "Sirinoks" => "Айсик Затроллилась#",
+                            "Mit*suki*" => "МитСУКИ Затроллился",
+                            "AWDKA" => "AWDKA Затроллился сам по себе...",
+                            "Осьминожка" => "Осьминожка Забулькался",
+                            "Darksci" => "Даркси Не Повезло...",
+                            "Братишка" => "Братишка Забулькался",
+                            "Загадочный Спартанец в маске" => "Спатанец Затроллился!? А-я-йо...",
+                            "Вампур" => "ВампYр Затроллился",
+                            "Тигр" => "Тигр Обоссался, и кто теперь обоссан!?",
+                            _ => ""
+                        };
+
+                        AWDKA.Status.AddBonusPoints((enemy.Score + 1) / 2, $"**Произошел Троллинг:** {trolledText} ");
+                        game.Phrases.AwdkaTrolling.SendLog(AWDKA, true);
                     }
-                    // predict
-
-                    //predict bot
-                    foreach (var bot in game.PlayersList)
-                    {
-                        if(!bot.IsBot()) continue;
-
-                        bot.Status.AddBonusPoints(3, "Предположение: ");
-                        if (game.GetAllGlobalLogs().Contains("Толя запизделся"))
-                        {
-                            bot.Status.AddBonusPoints(3, "Предположение: ");
-                        }
-
-                        if (bot.Character.Name == "DeepList")
-                        {
-                            bot.Status.AddBonusPoints(3, "Предположение: ");
-                        }
-                        if (bot.Character.Name == "AWDKA")
-                        {
-                            bot.Status.AddBonusPoints(6, "Предположение: ");
-                        }
-                    }
-
-                    //end bot
 
                     //sort
                     game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
@@ -112,235 +147,205 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
                     //end sorting
 
+                    if (enemy != null && game.PlayersList[0].Character.Name == "AWDKA")
+                        game.AddGlobalLogs($"**Произошел Троллинг:** {trolledText} ");
+                }
+                //end //trolling
+            }
 
-                    try
-                    {
-                        //case "AWDKA":
-                        var AWDKA = game.PlayersList.Find(x => x.Character.Name == "AWDKA");
-                        //trolling
-                        if (AWDKA != null)
-                        {
-                            var awdkaTroll = _gameGlobal.AwdkaTrollingList.Find(x =>
-                                x.GameId == AWDKA.GameId &&
-                                x.PlayerId == AWDKA.Status.PlayerId);
-
-
-                            var enemy = awdkaTroll.EnemyList.Find(x => x.EnemyId == game.PlayersList.Find(y => y.Status.PlaceAtLeaderBoard == 1).Status.PlayerId);
-
-                            var trolledText = "";
-                            if (enemy != null)
-                            {
-                                var tolled = game.PlayersList.Find(x => x.Status.PlayerId == enemy.EnemyId);
-
-                                trolledText = tolled.Character.Name switch
-                                {
-                                    "DeepList" => "Лист Затроллился, хех",
-                                    "mylorik" => "Лорик Затроллился, МММ!",
-                                    "Глеб" => "Спящее Хуйло",
-                                    "LeCrisp" => "ЛеПуська Затроллилась",
-                                    "Толя" => "Раммус Продал Тормейл",
-                                    "HardKitty" => "Пакет Молока Пролился На Клавиатуру",
-                                    "Sirinoks" => "Айсик Затроллилась#",
-                                    "Mit*suki*" => "МитСУКИ Затроллился",
-                                    "AWDKA" => "AWDKA Затроллился сам по себе...",
-                                    "Осьминожка" => "Осьминожка Забулькался",
-                                    "Darksci" => "Даркси Не Повезло...",
-                                    "Братишка" => "Братишка Забулькался",
-                                    "Загадочный Спартанец в маске" => "Спатанец Затроллился!? А-я-йо...",
-                                    "Вампур" => "ВампYр Затроллился",
-                                    "Тигр" => "Тигр Обоссался, и кто теперь обоссан!?",
-                                    _ => ""
-                                };
-
-                                AWDKA.Status.AddBonusPoints((enemy.Score + 1) / 2, $"**Произошел Троллинг:** {trolledText} ");
-                                game.Phrases.AwdkaTrolling.SendLog(AWDKA, true);
-                            }
-
-                            //sort
-                            game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-                            for (var k = 0; k < game.PlayersList.Count; k++)
-                                game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
-                            //end sorting
-
-                            if (enemy != null && game.PlayersList[0].Character.Name == "AWDKA")
-                            {
-                                game.AddGlobalLogs($"**Произошел Троллинг:** {trolledText} ");
-                            }
-                        }
-                        //end //trolling
-                    }
-
-                    catch (Exception ex)
-                    {
-                        await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
-                            .SendMessageAsync("AWDKA trolling\n" +
-                                              $"{ex.StackTrace}");
-                    }
+            catch (Exception ex)
+            {
+                await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
+                    .SendMessageAsync("AWDKA trolling\n" +
+                                      $"{ex.StackTrace}");
+            }
 
 
-
-                    game.WhoWon = game.PlayersList[0].Status.PlayerId;
-                    game.AddGlobalLogs(
-                        game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList[0].Status.GetScore())
-                            .Count > 1
-                            ? "\n**Ничья**"
-                            : $"\n**{game.PlayersList[0].DiscordUsername}** победил, играя за **{game.PlayersList[0].Character.Name}**");
-
-
-                    _finishedGameLog.CreateNewLog(game);
+            game.WhoWon = game.PlayersList[0].Status.PlayerId;
+            game.AddGlobalLogs(
+                game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList[0].Status.GetScore())
+                    .Count > 1
+                    ? "\n**Ничья**"
+                    : $"\n**{game.PlayersList[0].DiscordUsername}** победил, играя за **{game.PlayersList[0].Character.Name}**");
 
 
-                    foreach (var player in game.PlayersList)
-                    {
-                        await _gameUpdateMess.UpdateMessage(player);
-
-                        var account = _accounts.GetAccount(player.DiscordId);
-                        account.IsPlaying = false;
-                        player.GameId = 1000000;
+            _finishedGameLog.CreateNewLog(game);
 
 
-                        account.TotalPlays++;
-                        if (account.TotalPlays > 10)
-                        {
-                            account.IsNewPlayer = false;
-                        }
-                        account.TotalWins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong) 0;
-                        account.MatchHistory.Add(
-                            new DiscordAccountClass.MatchHistoryClass(player.Character.Name, player.Status.GetScore(),
-                                player.Status.PlaceAtLeaderBoard));
-                        
-                        /*
-                        account.ZbsPoints += (player.Status.PlaceAtLeaderBoard - 6) * -1 + 1;
-                        if (player.Status.PlaceAtLeaderBoard == 1)
-                            account.ZbsPoints += 4;
-                        */
+            foreach (var player in game.PlayersList)
+            {
+                await _gameUpdateMess.UpdateMessage(player);
 
-                        switch (player.Status.PlaceAtLeaderBoard)
-                        {
-                            case 1:
-                                account.ZbsPoints += 100;
-                                break;
-                            case 2:
-                                account.ZbsPoints += 50;
-                                break;
-                            case 3:
-                                account.ZbsPoints += 40;
-                                break;
-                            case 4:
-                                account.ZbsPoints += 30;
-                                break;
-                            case 5:
-                                account.ZbsPoints += 20;
-                                break;
-                            case 6:
-                                account.ZbsPoints += 10;
-                                break;
-                        }
+                var account = _accounts.GetAccount(player.DiscordId);
+                account.IsPlaying = false;
+                player.GameId = 1000000;
 
-                        var characterStatistics =
-                            account.CharacterStatistics.Find(x =>
-                                x.CharacterName == player.Character.Name);
 
-                        if (characterStatistics == null)
-                        {
-                            account.CharacterStatistics.Add(new DiscordAccountClass.CharacterStatisticsClass(player.Character.Name, player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong)0));
-                        }
-                        else
-                        {
-                            characterStatistics.Plays++;
-                            characterStatistics.Wins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong) 0;
-                        }
+                account.TotalPlays++;
+                if (account.TotalPlays > 10) account.IsNewPlayer = false;
+                account.TotalWins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong) 0;
+                account.MatchHistory.Add(
+                    new DiscordAccountClass.MatchHistoryClass(player.Character.Name, player.Status.GetScore(),
+                        player.Status.PlaceAtLeaderBoard));
 
-                        var performanceStatistics =
-                            account.PerformanceStatistics.Find(x =>
-                                x.Place == player.Status.PlaceAtLeaderBoard);
+                /*
+                account.ZbsPoints += (player.Status.PlaceAtLeaderBoard - 6) * -1 + 1;
+                if (player.Status.PlaceAtLeaderBoard == 1)
+                    account.ZbsPoints += 4;
+                */
 
-                        if (performanceStatistics == null)
-                            account.PerformanceStatistics.Add(
-                                new DiscordAccountClass.PerformanceStatisticsClass(player.Status.PlaceAtLeaderBoard));
-                        else
-                            performanceStatistics.Times++;
-                        try
-                        {
-                            if (!player.IsBot())
-                                await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Спасибо за игру!");
-                        }
-                        catch (Exception ee)
-                        {
-                            _logs.Critical(ee.StackTrace);
-                        }
-                    }
+                switch (player.Status.PlaceAtLeaderBoard)
+                {
+                    case 1:
+                        account.ZbsPoints += 100;
+                        break;
+                    case 2:
+                        account.ZbsPoints += 50;
+                        break;
+                    case 3:
+                        account.ZbsPoints += 40;
+                        break;
+                    case 4:
+                        account.ZbsPoints += 30;
+                        break;
+                    case 5:
+                        account.ZbsPoints += 20;
+                        break;
+                    case 6:
+                        account.ZbsPoints += 10;
+                        break;
+                }
 
-                    game.IsCheckIfReady = false;
-                    _global.GamesList.Remove(game);
+                var characterStatistics =
+                    account.CharacterStatistics.Find(x =>
+                        x.CharacterName == player.Character.Name);
 
-                    _logs.Critical("_______________________________________________");
+                if (characterStatistics == null)
+                {
+                    account.CharacterStatistics.Add(
+                        new DiscordAccountClass.CharacterStatisticsClass(player.Character.Name,
+                            player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong) 0));
+                }
+                else
+                {
+                    characterStatistics.Plays++;
+                    characterStatistics.Wins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong) 0;
+                }
+
+                var performanceStatistics =
+                    account.PerformanceStatistics.Find(x =>
+                        x.Place == player.Status.PlaceAtLeaderBoard);
+
+                if (performanceStatistics == null)
+                    account.PerformanceStatistics.Add(
+                        new DiscordAccountClass.PerformanceStatisticsClass(player.Status.PlaceAtLeaderBoard));
+                else
+                    performanceStatistics.Times++;
+                try
+                {
+                    if (!player.IsBot())
+                        await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Спасибо за игру!");
+                }
+                catch (Exception ee)
+                {
+                    _logs.Critical(ee.StackTrace);
+                }
+            }
+
+            _global.GamesList.Remove(game);
+        }
+
+
+        private async void CheckIfEveryoneIsReady(object sender, ElapsedEventArgs e)
+        {
+            var games = _global.GamesList;
+
+            for (var i = 0; i < games.Count; i++)
+            {
+                var game = games[i];
+
+                //protection against double calculations
+                if (!game.IsCheckIfReady) continue;
+
+                //round 11 is the end of the game, no fights on round 11
+                if (game.RoundNo == 11)
+                {
+                    HandleLastRound(game);
                     continue;
                 }
 
-                if (!game.IsCheckIfReady) continue;
-
                 var players = _global.GamesList[i].PlayersList;
-                var readyTargetCount = players.Count;
-                var readyCount = 0;
-
-                _logs.Critical(" ");
-                foreach (var t in players)
-                {
-                    await _botsBehavior.HandleBotBehavior(t, game);
-
-
-                    //if (t.Status.IsReady && t.Status.MoveListPage != 3)
-                    if (t.Status.IsReady && t.Status.MoveListPage != 3 && game.TimePassed.Elapsed.TotalSeconds > 13 && t.Status.CanSelectAttack)
-                        readyCount++;
-                    else
-                        _logs.Info("NOT READY: = " + t.DiscordUsername);
-
-                    if (t.Status.SocketMessageFromBot == null) continue;
-                    //   if (game.TurnLengthInSecond - game.TimePassed.Elapsed.TotalSeconds >= -6)
-                    //       await _upd.UpdateMessage(t);
-                }
-
-                _logs.Info($"(#{game.GameId}) readyCount = " + readyCount);
-                _logs.Critical(" ");
+                var readyTargetCount = players.Count(x => !x.IsBot());
+                var readyCount = players.Where(x => !x.IsBot()).Count(t =>
+                    t.Status.IsReady && t.Status.MoveListPage != 3 && game.TimePassed.Elapsed.TotalSeconds > 13 &&
+                    t.Status.CanSelectAttack);
 
                 if (readyCount != readyTargetCount &&
-                    !(game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond) ||
-                    game.GameStatus != 1) continue;
+                    !(game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond)) continue;
 
-                //another way of protecting a frame perfect  bug
-                if (!game.IsCheckIfReady) continue;
-
+                //Calculating the game
                 game.IsCheckIfReady = false;
 
-                foreach (var t in players.Where(t => t.Status.WhoToAttackThisTurn == Guid.Empty &&
-                                                     t.Status.IsBlock == false && t.Status.IsSkip == false))
-                    t.Status.IsBlock = true;
+                //handle bots
+                foreach (var t in players.Where(x => x.IsBot())) await _botsBehavior.HandleBotBehavior(t, game);
 
 
-                foreach (var player in game.PlayersList)
+                //If did do anything - Block
+                foreach (var t in players.Where(t =>
+                    t.Status.WhoToAttackThisTurn == Guid.Empty && t.Status.IsBlock == false &&
+                    t.Status.IsSkip == false))
                 {
-                    _help.DeleteItAfterRound(player);
+                    _logs.Critical($"WARN: {t.DiscordUsername} didn't do anything!");
+                    t.Status.IsBlock = true;
                 }
+
+                //If did do anything - LvL up a random stat
+                foreach (var t in players.Where(t => t.Status.MoveListPage == 3))
+                {
+                    do
+                    {
+                        var randomStat = _random.Random(1, 4);
+                        switch (randomStat)
+                        {
+                            case 1:
+                                t.Character.AddIntelligence(t.Status, 1, "Прокачка: ");
+                                break;
+                            case 2:
+                                t.Character.AddStrength(t.Status, 1, "Прокачка: ");
+                                break;
+                            case 3:
+                                t.Character.AddSpeed(t.Status, 1, "Прокачка: ");
+                                break;
+                            case 4:
+                                t.Character.AddPsyche(t.Status, 1, "Прокачка: ");
+                                break;
+                        }
+
+                        if (t.Status.LvlUpPoints > 1)
+                            t.Status.LvlUpPoints--;
+                    } while (t.Status.LvlUpPoints > 1);
+
+                    t.Status.MoveListPage = 1;
+                }
+
+                //delete messages from prev round. No await.
+                foreach (var player in game.PlayersList) _help.DeleteItAfterRound(player);
 
                 await _round.CalculateAllFights(game);
 
-                foreach (var t in players)
+                foreach (var t in players.Where(x => !x.IsBot()))
                     try
                     {
-                        if (t.Status.SocketMessageFromBot != null)
-                        {
-                            
-                            if (game.RoundNo <= 10)
-                                await _help.SendMsgAndDeleteItAfterRound(t, $"Раунд #{game.RoundNo}");
-                            if (game.RoundNo == 8 && !t.IsBot())
-                            { 
-                                t.Status.CanSelectAttack = false;
-                                await _help.SendMsgAndDeleteItAfterRound(t, $"Это последний раунд, когда можно сделать **предложение**!");
-                            }
+                        if (game.RoundNo <= 10) await _help.SendMsgAndDeleteItAfterRound(t, $"Раунд #{game.RoundNo}");
 
-                            await _upd.UpdateMessage(t);
+                        if (game.RoundNo == 8)
+                        {
+                            t.Status.CanSelectAttack = false;
+                            await _help.SendMsgAndDeleteItAfterRound(t,
+                                "Это последний раунд, когда можно сделать **предложение**!");
                         }
+
+                        await _upd.UpdateMessage(t);
                     }
                     catch (Exception f)
                     {

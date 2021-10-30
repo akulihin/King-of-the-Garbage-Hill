@@ -90,7 +90,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             watch.Start();
 
             game.TimePassed.Stop();
-            game.GameStatus = 2;
             var roundNumber = game.RoundNo + 1;
             if (roundNumber > 10)
             {
@@ -565,7 +564,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             game.SkipPlayersThisRound = 0;
             game.RoundNo++;
-            game.GameStatus = 1;
+     
 
 
             await _characterPassives.HandleNextRound(game);
@@ -626,9 +625,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             //end sorting
 
             SortGameLogs(game);
-            _logs.Info("Start HandleNextRoundAfterSorting");
             _characterPassives.HandleNextRoundAfterSorting(game);
-            _logs.Info("Finished HandleNextRoundAfterSorting");
 
             game.TimePassed.Reset();
             game.TimePassed.Start();

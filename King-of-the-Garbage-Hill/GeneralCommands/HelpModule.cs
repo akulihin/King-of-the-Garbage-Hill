@@ -22,8 +22,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _userAccounts = userAccounts;
         }
 
-        [Command("help")]
-        [Alias("assist")]
+        [Command("помощь")]
+        [Alias("assist", "help")]
         [Summary(
             "Shows help about specific command or module. If command has 2 or more variants you can select a page, for example `help roll 2`")]
         public async Task HelpSpecific([Remainder] string command)
@@ -77,8 +77,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        [Command("help")]
-        [Alias("assist")]
+        [Command("помощь")]
+        [Alias("assist", "help")]
         [Summary("Shows generic help menu.")]
         public async Task Help()
         {
