@@ -79,19 +79,19 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             var characterChance = account.CharacterChance.Find(x => x.CharacterName == characterName);
             var character = allCharacters.Find(x => x.Name == characterName);
             var embed = new EmbedBuilder();
+            var cost = 10 + characterChance.Changes;
 
-            embed.WithAuthor(user);
+         
             embed.WithTitle($"Магазин - {characterChance.CharacterName}");
 
             embed.AddField("Персонаж:", $"{characterChance.CharacterName}", true);
-            embed.AddField("Тир:", $"{character.Tier}", true);
             embed.AddField("Бонусный шанс:", $"{characterChance.Multiplier}", true);
             embed.AddField("ZBS Points:", $"{account.ZbsPoints}");
-            embed.AddField("Стоимость", $"Уменьшить шанс на 1% - 20 ZP\n" +
-                                      $"Увеличить шанс на 1% - 20 ZP\n" +
+            embed.AddField("Стоимость", $"Уменьшить шанс на 1% - {cost} ZP\n" +
+                                      $"Увеличить шанс на 1% - {cost} ZP\n" +
                                       $"Вернуть все ZBS Points за **этого** персонажа - ~~10~~ 0 ZP\n" +
                                       $"Вернуть все ZBS Points за **всех** персонажей - ~~50~~ 0 ZP\n");
-            embed.WithCurrentTimestamp();
+ 
             embed.WithFooter("WELCOME! Straaanger...");
             embed.WithColor(Color.DarkPurple);
             if (character.Avatar != null)

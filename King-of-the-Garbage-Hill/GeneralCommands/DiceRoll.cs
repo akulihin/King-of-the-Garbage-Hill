@@ -61,8 +61,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             await SendMessAsync(embed);
         }
 
-        [Command("roll")]
-        [Alias("Роллл", "Ролл")]
+        [Command("Ролл")]
+        [Alias("Роллл", "roll")]
         [Summary("Rolling a dice multiple times")]
         public async Task Roll(int number, int times)
         {
@@ -108,8 +108,8 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             }
         }
 
-        [Command("roll")]
-        [Alias("Роллл", "Ролл")]
+        [Command("Роллл")]
+        [Alias("Роллл", "roll")]
         [Summary("Rolling a dice 1 time")]
         public async Task Roll(int number)
         {

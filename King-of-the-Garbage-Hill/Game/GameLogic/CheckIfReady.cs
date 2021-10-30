@@ -200,6 +200,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                         account.TotalPlays++;
+                        if (account.TotalPlays > 10)
+                        {
+                            account.IsNewPlayer = false;
+                        }
                         account.TotalWins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong) 0;
                         account.MatchHistory.Add(
                             new DiscordAccountClass.MatchHistoryClass(player.Character.Name, player.Status.GetScore(),

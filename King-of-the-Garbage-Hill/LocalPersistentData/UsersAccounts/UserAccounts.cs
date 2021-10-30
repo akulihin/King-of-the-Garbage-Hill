@@ -112,6 +112,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 PlayerType = 0,
                 ZbsPoints = 0,
                 IsNewPlayer = true,
+                PassedTutorial = false,
                 MyPrefix = "*",
             };
 
@@ -139,6 +140,7 @@ namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts
                 PlayerType = 404,
                 ZbsPoints = 0,
                 IsNewPlayer = true,
+                PassedTutorial = false,
                 MyPrefix = "*",
             };
 

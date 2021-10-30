@@ -20,10 +20,9 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        [Command("store")]
-        [Alias("магазин")]
-        [Summary(
-            "Открывает магазин")]
+        [Command("магазин")]
+        [Alias("store")]
+        [Summary("Открывает магазин")]
         public async Task StartStore()
         {
             var account = _accounts.GetAccount(Context.User);

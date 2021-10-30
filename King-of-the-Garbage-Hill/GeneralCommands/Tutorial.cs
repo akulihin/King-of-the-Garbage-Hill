@@ -14,7 +14,6 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         private readonly TutorialReactions _tutorial;
 
 
-
         public Tutorial(InGameGlobal gameGlobal, TutorialReactions tutorial)
         {
             _gameGlobal = gameGlobal;
@@ -22,16 +21,16 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         }
 
 
-        [Command("tutorial")]
-        [Alias("tt")]
-        [Summary("Tutorial")]
+        [Command("обучение")]
+        [Alias("tt", "tutorial")]
+        [Summary("Обучение игры")]
         public async Task TutorialCommand()
         {
             var game = _gameGlobal.Tutorials.Find(x => x.DiscordPlayerId == Context.User.Id);
             if (game != null)
                 _gameGlobal.Tutorials.Remove(game);
             
-            var botMsg = await SendMessAsync("Boole!");
+            var botMsg = await Context.User.CreateDMChannelAsync().Result.SendMessageAsync("Boole!");
             _gameGlobal.Tutorials.Add(new TutorialReactions.TutorialGame(Context.User, botMsg));
             game = _gameGlobal.Tutorials.Find(x => x.DiscordPlayerId == Context.User.Id);
 

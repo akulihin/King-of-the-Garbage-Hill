@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
@@ -441,6 +442,20 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             return text;
         }
 
+
+        public string HandleIsNewPlayerDescription(string text, GamePlayerBridgeClass player)
+        {
+            var account = _accounts.GetAccount(player.DiscordId);
+            if (account.IsNewPlayer)
+            {
+                text = text.Replace("⟶", "⟶ победил");
+            }
+
+            text = text.Replace(player.DiscordUsername, $"**{player.DiscordUsername}**");
+
+            return text;
+        }
+        
         //Page 1
         public EmbedBuilder FightPage(GamePlayerBridgeClass player)
         {
@@ -468,8 +483,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
 
-            var desc = game.GetGlobalLogs();
-            desc = desc.Replace(player.DiscordUsername, $"**{player.DiscordUsername}**");
+            var desc = HandleIsNewPlayerDescription(game.GetGlobalLogs(), player);
+            
+            //⟶
 
             /*
             if (player.PlayerType == 0)
@@ -529,7 +545,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             var embed = new EmbedBuilder();
             embed.WithTitle("Логи");
-            embed.WithDescription(game.GetAllGlobalLogs());
+            embed.WithDescription(HandleIsNewPlayerDescription(game.GetAllGlobalLogs(), player));
             embed.WithColor(Color.Green);
             embed.WithFooter($"{GetTimeLeft(player)}");
             embed.WithCurrentTimestamp();
@@ -540,23 +556,10 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
         //Page 3
         public EmbedBuilder LvlUpPage(GamePlayerBridgeClass player)
         {
-            //    var status = player.Status;
-            var account = _accounts.GetAccount(player.DiscordId);
             var character = player.Character;
-
-            //   status.MoveListPage = 3;
-            //    _accounts.SaveAccounts(discordAccount.PlayerDiscordId);
-
             var embed = new EmbedBuilder();
 
-            var desc = _global.GamesList.Find(x => x.GameId == player.GameId).GetGlobalLogs();
-            if (desc == null)
-                return null;
-            embed.WithDescription(desc.Replace(player.DiscordUsername,
-                $"**{player.DiscordUsername}**"));
-
             embed.WithColor(Color.Blue);
-
             embed.WithFooter($"{GetTimeLeft(player)}");
             embed.WithCurrentTimestamp();
             embed.AddField("_____",
