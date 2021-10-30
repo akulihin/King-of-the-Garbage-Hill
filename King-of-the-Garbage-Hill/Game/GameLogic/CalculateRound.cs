@@ -380,7 +380,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 }
 
 
-                var wtf = scaleMe * (1 + (me.GetSkill() / 1000 - target.GetSkill() / 1000)) - scaleMe;
+                var wtf = scaleMe * (1 + (me.GetSkill() / 500 - target.GetSkill() / 500)) - scaleMe;
                 weighingMachine += wtf;
 
 
