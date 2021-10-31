@@ -46,10 +46,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 
         public string GetClassStatString()
         {
+            if(Intelligence == 0 && Strength == 0 && Speed == 0) return "***Братишка***... буль-буль...";
             if (Intelligence >= Strength && Intelligence >= Speed) return "***Умный*** нападает на тех, кто без *Справедливости*.";
             if (Strength >= Intelligence && Strength >= Speed) return "***Сильный*** побеждает!";
             if (Speed >= Intelligence && Speed >= Strength) return "***Быстрый*** успевает во все битвы...";
-            return "Братишка";
+            return "404";
         }
 
         /*
@@ -180,7 +181,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             SkillExtra += multiplier;
 
             if (isLog)
-                status.AddInGamePersonalLogs($" +{total} скилла (за {skillName} врага)\n");
+                status.AddInGamePersonalLogs($" +{total} *Cкилла* (за {skillName} врага)\n");
         }
 
         public void AddExtraSkill(InGameStatus status, string skillName, int howMuchToAdd, bool isLog = true)

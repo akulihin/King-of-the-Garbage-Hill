@@ -29,8 +29,6 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                 x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
 
-            
-
             if (deep != null)
             {
                 if (!deep.FriendList.Contains(player.Status.IsFighting) && player.Status.IsLostThisCalculation == player.Status.IsFighting)

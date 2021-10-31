@@ -68,6 +68,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
 
         public readonly List<FriendsClass> SharkBoole = new();
         public readonly List<Shark.SharkLeaderClass> SharkJawsLeader = new();
+        public readonly List<Shark.SharkDontUnderstand> SharkDontUnderstand = new();
         public readonly List<FriendsClass> SharkJawsWin = new();
 
         public readonly List<Tigr.ThreeZeroClass> TigrThreeZeroList = new();

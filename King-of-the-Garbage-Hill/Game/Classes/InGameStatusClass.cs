@@ -9,7 +9,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
 {
     public class InGameStatus
     {
-        public InGameStatus()
+        public InGameStatus(string characterName)
         {
             MoveListPage = 1;
             LvlUpPoints = 1;
@@ -34,9 +34,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             WhoToLostEveryRound = new List<WhoToLostPreviousRoundClass>();
             PlayerId = Guid.NewGuid();
             KnownPlayerClass = new List<KnownPlayerClassClass>();
-            CanSelectAttack = true;
+            ConfirmedPredict = true;
+            ConfirmedSkip = true;
             IsTargetSkipped = Guid.NewGuid();
             IsTargetBlocked = Guid.NewGuid();
+            CharacterName = characterName;
         }
 
         public int MoveListPage { get; set; }
@@ -70,7 +72,9 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public string ScoreSource { get; set; }
         public List<WhoToLostPreviousRoundClass> WhoToLostEveryRound { get; set; }
         public List<KnownPlayerClassClass> KnownPlayerClass { get; set; }
-        public bool CanSelectAttack { get; set; }
+        public bool ConfirmedPredict { get; set; }
+        public bool ConfirmedSkip { get; set; }
+        public string CharacterName { get; set; }
 
         public void AddInGamePersonalLogs(string str)
         {
@@ -117,8 +121,9 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             else if (bonusPoints < 0) AddInGamePersonalLogs($"{skillName}{bonusPoints} __**бонусных**__ очков\n");
 
             Score += bonusPoints;
-            //if (Score < 0)
-            //    Score = 0;
+            
+            if (Score < 0 && CharacterName != "HardKitty")
+                Score = 0;
         }
 
         public double GetScoresToGiveAtEndOfRound()

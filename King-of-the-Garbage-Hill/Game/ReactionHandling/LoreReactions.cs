@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
@@ -78,8 +79,6 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
 
             if (character.Avatar != null)
                 embed.WithThumbnailUrl(character.Avatar);
-            if (character.Avatar != null)
-                embed.WithImageUrl(character.Avatar);
 
 
             return embed;

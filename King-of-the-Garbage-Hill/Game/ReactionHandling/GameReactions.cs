@@ -49,16 +49,36 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
                 {
                     var player = _global.GetGameAccount(button.User.Id, t.PlayersList.FirstOrDefault().GameId);
                     var status = player.Status;
-
+                    var builder = new ComponentBuilder();
+                    var embed = new EmbedBuilder();
+                    var game = _global.GamesList.Find(x => x.GameId == player.GameId);
                     // if (!discordAccount.IsAbleToTurn){return;}
 
                     switch (button.Data.CustomId)
                     {
+                        case "confirm-skip":
+                            player.Status.ConfirmedSkip = true;
+                            embed = _upd.FightPage(player);
+                            embed.WithFooter($"{_upd.GetTimeLeft(player)} |{embed.Length}|");
+
+                            builder.WithButton(_upd.GetBlockButton(player, game), 0);
+                            builder.WithButton(_upd.GetMoralButton(player, game), 0);
+                            builder.WithButton(_upd.GetEndGameButton(), 0);
+                            builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
+                            builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
+                            builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 3);
+                            await button.Message.ModifyAsync(message =>
+                            {
+                                message.Embed = embed.Build();
+                                message.Components = builder.Build();
+                            });
+                            break;
+
                         case "confirm-prefict":
-                            player.Status.CanSelectAttack = true;
-                            var builder = new ComponentBuilder();
-                            var embed = new EmbedBuilder();
-                            var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+                            player.Status.ConfirmedPredict = true;
+                            builder = new ComponentBuilder();
+                            embed = new EmbedBuilder();
+                            game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
 
                             embed = _upd.FightPage(player);

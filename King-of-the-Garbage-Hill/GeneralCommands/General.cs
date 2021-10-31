@@ -108,7 +108,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                     playersList.Add(new GamePlayerBridgeClass
                     {
                         Character = reservedCharacters.Find(x => x.Name == account.CharacterToGiveNextTime),
-                        Status = new InGameStatus(),
+                        Status = new InGameStatus(reservedCharacters.Find(x => x.Name == account.CharacterToGiveNextTime).Name),
                         DiscordId = account.DiscordId,
                         GameId = gameId,
                         DiscordUsername = account.DiscordUserName,
@@ -159,7 +159,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
                 playersList.Add(new GamePlayerBridgeClass
                 {
                     Character = characterToAssign,
-                    Status = new InGameStatus(),
+                    Status = new InGameStatus(characterToAssign.Name),
                     DiscordId = account.DiscordId,
                     GameId = gameId,
                     DiscordUsername = account.DiscordUserName,

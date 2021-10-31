@@ -55,7 +55,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             LoopingTimer = new Timer
             {
                 AutoReset = true,
-                Interval = 500,
+                Interval = 1000,
                 Enabled = true
             };
 
@@ -276,9 +276,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 var players = _global.GamesList[i].PlayersList;
                 var readyTargetCount = players.Count(x => !x.IsBot());
-                var readyCount = players.Where(x => !x.IsBot()).Count(t =>
-                    t.Status.IsReady && t.Status.MoveListPage != 3 && game.TimePassed.Elapsed.TotalSeconds > 13 &&
-                    t.Status.CanSelectAttack);
+                var readyCount = 0;
+                foreach (var player in players.Where(x => !x.IsBot()))
+                {
+                    if(game.TimePassed.Elapsed.TotalSeconds < 3)
+                        continue;
+                    if (game.TimePassed.Elapsed.TotalSeconds < 30 && !player.Status.ConfirmedSkip)
+                        continue;   
+                    if (player.Status.IsReady && player.Status.ConfirmedPredict) 
+                        readyCount++;
+                }
+
 
                 if (readyCount != readyTargetCount &&
                     !(game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond)) continue;
@@ -297,6 +305,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     _logs.Critical($"WARN: {t.DiscordUsername} didn't do anything!");
                     t.Status.IsBlock = true;
+                    t.Status.AddInGamePersonalLogs($"Ты поставил блок (Auto)\n");
                 }
 
                 //If did do anything - LvL up a random stat
@@ -308,16 +317,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         switch (randomStat)
                         {
                             case 1:
-                                t.Character.AddIntelligence(t.Status, 1, "Прокачка: ");
+                                t.Character.AddIntelligence(t.Status, 1, "Прокачка (Auto): ");
                                 break;
                             case 2:
-                                t.Character.AddStrength(t.Status, 1, "Прокачка: ");
+                                t.Character.AddStrength(t.Status, 1, "Прокачка (Auto): ");
                                 break;
                             case 3:
-                                t.Character.AddSpeed(t.Status, 1, "Прокачка: ");
+                                t.Character.AddSpeed(t.Status, 1, "Прокачка (Auto): ");
                                 break;
                             case 4:
-                                t.Character.AddPsyche(t.Status, 1, "Прокачка: ");
+                                t.Character.AddPsyche(t.Status, 1, "Прокачка (Auto): ");
                                 break;
                         }
 
@@ -340,9 +349,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         if (game.RoundNo == 8)
                         {
-                            t.Status.CanSelectAttack = false;
+                            t.Status.ConfirmedPredict = false;
                             await _help.SendMsgAndDeleteItAfterRound(t,
                                 "Это последний раунд, когда можно сделать **предложение**!");
+                        }
+
+                        if (game.RoundNo == 9)
+                        {
+                            t.Status.ConfirmedPredict = true;
                         }
 
                         await _upd.UpdateMessage(t);

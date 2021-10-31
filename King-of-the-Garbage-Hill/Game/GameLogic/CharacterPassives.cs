@@ -122,6 +122,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
                     case "Братишка":
                         _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId, game.GameId));
+                        _gameGlobal.SharkDontUnderstand.Add(new Shark.SharkDontUnderstand(player.Status.PlayerId, game.GameId));
+                        
                         _gameGlobal.SharkJawsWin.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
                         _gameGlobal.SharkBoole.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
                         break;
@@ -252,6 +254,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         shark.FriendList.Add(me.Status.PlayerId);
                         me.Character.AddIntelligence(me.Status, -1,
                             "Ничего не понимает: ");
+                    }
+
+                    var sharkDontUndertand = _gameGlobal.SharkDontUnderstand.Find(x => x.PlayerId == target.Status.PlayerId && game.GameId == x.GameId);
+
+                    if (sharkDontUndertand != null)
+                    {
+                        sharkDontUndertand.EnemyId = me.Status.PlayerId;
+                        sharkDontUndertand.IntelligenceToReturn = me.Character.GetIntelligence();
+                        me.Character.SetIntelligence(me.Status, 0, "Ничего не понимает: ", false);
                     }
 
                     //end Ничего не понимает: 
@@ -575,6 +586,18 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             switch (characterName)
             {
+                case "Братишка":
+                    //Ничего не понимает: 
+                    var sharkDontUndertand = _gameGlobal.SharkDontUnderstand.Find(x => x.PlayerId == target.Status.PlayerId && game.GameId == x.GameId);
+                    if (sharkDontUndertand != null)
+                    {
+                        me.Character.SetIntelligence(me.Status, sharkDontUndertand.IntelligenceToReturn, "Ничего не понимает: ", false);
+                        sharkDontUndertand.EnemyId = Guid.Empty;
+                        sharkDontUndertand.IntelligenceToReturn = 0;
+                    }
+
+                    //end Ничего не понимает: 
+                    break;
                 case "LeCrisp":
                     //Гребанные ассассин
                     if (me.Character.GetStrength() - target.Character.GetStrength() >= 2
@@ -852,13 +875,19 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //Сомнительная тактика
                     var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                         x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
+                   
 
                     if (deep != null)
                     {
-                        if (!deep.FriendList.Contains(player.Status.IsFighting))
+                        if (player.Status.IsFighting != Guid.Empty)
                         {
-                            player.Status.IsAbleToWin = false;
+                            var target = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsFighting);
+                            if (!deep.FriendList.Contains(player.Status.IsFighting) && !target.Status.IsSkip && !target.Status.IsBlock)
+                            {
+                                player.Status.IsAbleToWin = false;
+                            }
                         }
+  
                     }
 
 
@@ -921,7 +950,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             if (random == 2)
                             {
                                 player.Status.IsSkip = true;
-                                player.Status.IsBlock = false;
+                                player.Status.ConfirmedSkip = false;
+                            player.Status.IsBlock = false;
                                 player.Status.IsAbleToTurn = false;
                                 player.Status.IsReady = true;
                                 player.Status.WhoToAttackThisTurn = Guid.Empty;
@@ -938,6 +968,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (game.RoundNo == 10)
                         {
                             player.Status.IsSkip = true;
+                            player.Status.ConfirmedSkip = false;
                             player.Status.IsBlock = false;
                             player.Status.IsAbleToTurn = false;
                             player.Status.IsReady = true;
@@ -1005,6 +1036,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             if (acc.WhenToTrigger.Contains(game.RoundNo))
                             {
                                 player.Status.IsSkip = true;
+                                player.Status.ConfirmedSkip = false;
                                 player.Status.IsBlock = false;
                                 player.Status.IsAbleToTurn = false;
                                 player.Status.IsReady = true;
@@ -1027,6 +1059,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             if (awdkaaa.WhenToTrigger.Contains(game.RoundNo))
                             {
                                 player.Status.IsSkip = true;
+                                player.Status.ConfirmedSkip = false;
                                 player.Status.IsBlock = false;
                                 player.Status.IsAbleToTurn = false;
                                 player.Status.IsReady = true;
@@ -1191,6 +1224,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             if (acc.WhenToTrigger.Contains(game.RoundNo))
                             {
                                 player.Status.IsSkip = true;
+                                player.Status.ConfirmedSkip = false;
                                 player.Status.IsBlock = false;
                                 player.Status.IsAbleToTurn = false;
                                 player.Status.IsReady = true;
@@ -1426,6 +1460,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (isSkip != null)
                 {
                     player.Status.IsSkip = true;
+                    player.Status.ConfirmedSkip = false;
                     player.Status.IsBlock = false;
                     player.Status.IsAbleToTurn = false;
                     player.Status.IsReady = true;
@@ -2057,6 +2092,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             player.Character.Name = "Братишка";
                             _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId, game.GameId));
+                            _gameGlobal.SharkDontUnderstand.Add(new Shark.SharkDontUnderstand(player.Status.PlayerId, game.GameId));
                             _gameGlobal.SharkJawsWin.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
                             _gameGlobal.SharkBoole.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
                             player.Status.AddInGamePersonalLogs("Братишка: **Буууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууль**\n");

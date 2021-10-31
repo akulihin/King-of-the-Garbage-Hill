@@ -136,13 +136,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     continue;
                 }
 
-                //умный
-                if (player.Character.GetClassStatInt() == 0 && playerIamAttacking.Character.Justice.GetJusticeNow() == 0)
-                {
-                    player.Character.AddExtraSkill(player.Status, "Класс: ", 6, true);
-                }
-
-
 
                 playerIamAttacking.Status.IsFighting = player.Status.PlayerId;
                 player.Status.IsFighting = playerIamAttacking.Status.PlayerId;
@@ -152,6 +145,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 await _characterPassives.HandleCharacterWithKnownEnemyBeforeFight(playerIamAttacking, game);
                 await _characterPassives.HandleDefenseBeforeFight(playerIamAttacking, player, game);
                 await _characterPassives.HandleAttackBeforeFight(player, playerIamAttacking, game);
+
+                
+                //умный
+                if (player.Character.GetClassStatInt() == 0 && playerIamAttacking.Character.Justice.GetJusticeNow() == 0)
+                {
+                    player.Character.AddExtraSkill(player.Status, "Класс: ", 6, true);
+                }
 
 
                 if (!player.Status.IsAbleToWin) pointsWined = -50;

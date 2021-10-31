@@ -586,7 +586,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public SelectMenuBuilder GetAttackMenu(GamePlayerBridgeClass player, GameClass game)
         {
-            var playerIsReady = player.Status.IsSkip || player.Status.IsReady || game.RoundNo > 10;
+            var isDisabled = player.Status.IsSkip || player.Status.IsReady || game.RoundNo > 10;
             var placeHolder = "Выбрать цель";
 
             if (player.Status.IsSkip) placeHolder = "Что-то заставило тебя скипнуть...";
@@ -601,17 +601,29 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 if (target != null) placeHolder = $"Ты напал на {target.DiscordUsername}";
             }
 
-            if (!player.Status.CanSelectAttack)
+            if (!player.Status.ConfirmedPredict)
             {
-                playerIsReady = true;
+                isDisabled = true;
                 placeHolder = "Подтвердите свои предложение перед атакой!";
+            }
+
+            if (!player.Status.ConfirmedSkip)
+            {
+                isDisabled = true;
+                placeHolder = "Подтвердите пропуск хода, для проодолжения игры";
+            }
+
+            if (!player.Status.ConfirmedSkip && player.Character.Name == "Тигр")
+            {
+                isDisabled = true;
+                placeHolder = "Обжаловать бан...";
             }
 
             var attackMenu = new SelectMenuBuilder()
                 .WithMinValues(1)
                 .WithMaxValues(1)
                 .WithCustomId("attack-select")
-                .WithDisabled(playerIsReady)
+                .WithDisabled(isDisabled)
                 .WithPlaceholder(placeHolder);
 
 
@@ -719,8 +731,12 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
         public ButtonBuilder GetPlaceHolderButton(GamePlayerBridgeClass player, GameClass game)
         {
-            if (!player.Status.CanSelectAttack)
+            if (!player.Status.ConfirmedPredict)
                 return new ButtonBuilder("Я подтверждаю свои предположения", "confirm-prefict", ButtonStyle.Primary,
+                    disabled: false, emote:
+                    Emote.Parse("<a:bratishka:900962522276958298>"));
+            if (!player.Status.ConfirmedSkip)
+                return new ButtonBuilder("Я подтверждаю пропуск хода", "confirm-skip", ButtonStyle.Primary,
                     disabled: false, emote:
                     Emote.Parse("<a:bratishka:900962522276958298>"));
             return new ButtonBuilder("Братишка валяется почему-то...", "boole", ButtonStyle.Secondary, disabled: true,
