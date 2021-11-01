@@ -30,7 +30,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             WhoWon = Guid.Empty;
             IsCheckIfReady = true;
             SkipPlayersThisRound = 0;
-            GameVersion = "версия 0.9.1";
+            GameVersion = "версия 1.0";
         }
 
         public int RoundNo { get; set; }

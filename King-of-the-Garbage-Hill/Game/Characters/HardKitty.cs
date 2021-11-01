@@ -105,13 +105,28 @@ namespace King_of_the_Garbage_Hill.Game.Characters
             public ulong GameId;
             public Guid PlayerId;
             public bool Activated;
+            public List<LonelinessSubClass> AttackHistory;
 
             public LonelinessClass(Guid playerId, ulong gameId)
             {
                 PlayerId = playerId;
                 GameId = gameId;
                 Activated = false;
+                AttackHistory = new List<LonelinessSubClass>();
             }
         }
+
+        public class LonelinessSubClass
+        {
+            public Guid EnemyId;
+            public int Times;
+
+            public LonelinessSubClass(Guid enemyId)
+            {
+                EnemyId = enemyId;
+                Times = 0;
+            }
+        }
+
     }
 }

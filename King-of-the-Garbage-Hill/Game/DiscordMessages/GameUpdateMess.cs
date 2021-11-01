@@ -324,15 +324,29 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                     if (find != null && find.IsUnique) customString += " <:sparta:561287745675329567>";
                     if (find != null && !find.IsUnique) customString += " ❌";
 
-                    var mylorikSpartan = _gameGlobal.MylorikSpartan.Find(x =>
-                        x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
+                    var mylorikSpartan = _gameGlobal.MylorikSpartan.Find(x => x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
 
                     var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == other.Status.PlayerId);
 
                     if (mylorikEnemy != null)
-                        if (mylorikEnemy.Active)
-                            customString += " <:broken_shield:902044789917241404>";
-
+                        if (mylorikEnemy.LostTimes > 0)
+                        {
+                            switch (mylorikEnemy.LostTimes)
+                            {
+                                case 1:
+                                    customString += " <:broken_shield:902044789917241404>";
+                                    break;
+                                case 2:
+                                    customString += " <:broken_shield:902044789917241404><:broken_shield:902044789917241404>";
+                                    break;
+                                case 3:
+                                    customString += " <:broken_shield:902044789917241404><:broken_shield:902044789917241404>🍰🍰";
+                                    break;
+                                case 4: case 5: case 6: case 7: case 8: case 9: case 10:
+                                    customString += " <:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404>🎂 **НЯМ!**";
+                                    break;
+                            }
+                        }
                     break;
                 case "Тигр":
                     var tigr1 = _gameGlobal.TigrTwoBetterList.Find(x =>
@@ -416,7 +430,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
             if (text.Contains("Евреи..."))
             {
-                text.Replace("Евреи...\n", "");
+                text = text.Replace("Евреи...\n", "");
 
                 var temp = "";
                 var jewSplit = text.Split('\n');

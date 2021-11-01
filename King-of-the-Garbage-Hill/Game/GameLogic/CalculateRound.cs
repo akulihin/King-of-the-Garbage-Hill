@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
-using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Helpers;
@@ -16,8 +15,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         private readonly InGameGlobal _gameGlobal;
         private readonly Global _global;
         private readonly LoginFromConsole _logs;
-        
-        
+
+
         private readonly SecureRandom _rand;
 
         public CalculateRound(SecureRandom rand, CharacterPassives characterPassives,
@@ -37,23 +36,24 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         public string GetLostContrText(GamePlayerBridgeClass me, GamePlayerBridgeClass target)
         {
-
-
             if (me.Character.GetClassStatInt() == 0 && target.Character.GetClassStatInt() == 2)
             {
-                target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Умный** ?) "));
+                target.Status.KnownPlayerClass.Add(
+                    new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Умный** ?) "));
                 return "вас обманул";
             }
 
             if (me.Character.GetClassStatInt() == 1 && target.Character.GetClassStatInt() == 0)
             {
-                target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Сильный** ?) "));
+                target.Status.KnownPlayerClass.Add(
+                    new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Сильный** ?) "));
                 return "вас пресанул";
             }
 
             if (me.Character.GetClassStatInt() == 2 && target.Character.GetClassStatInt() == 1)
             {
-                target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Быстрый** ?) "));
+                target.Status.KnownPlayerClass.Add(
+                    new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Быстрый** ?) "));
                 return "вас обогнал";
             }
 
@@ -91,17 +91,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             game.TimePassed.Stop();
             var roundNumber = game.RoundNo + 1;
-            if (roundNumber > 10)
-            {
-                roundNumber = 10;
-            }
+            if (roundNumber > 10) roundNumber = 10;
 
             /*
             1-4 х1
             5-9 х2
             10  х4
              */
-       
+
             game.SetGlobalLogs($"\n__**Раунд #{roundNumber}**__:\n\n");
 
 
@@ -113,7 +110,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var isTooGoodEnemy = false;
                 var isContrLost = 0;
                 var isTooGoodLost = 0;
-                var playerIamAttacking = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
+                var playerIamAttacking =
+                    game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
 
 
                 //if block => no one gets points, and no redundant playerAttacked variable
@@ -132,7 +130,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     ResetFight(player);
                     await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
                         .SendMessageAsync("playerIamAttacking == null\n" +
-                                          $"");
+                                          "");
                     continue;
                 }
 
@@ -146,12 +144,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 await _characterPassives.HandleDefenseBeforeFight(playerIamAttacking, player, game);
                 await _characterPassives.HandleAttackBeforeFight(player, playerIamAttacking, game);
 
-                
+
                 //умный
-                if (player.Character.GetClassStatInt() == 0 && playerIamAttacking.Character.Justice.GetJusticeNow() == 0)
-                {
-                    player.Character.AddExtraSkill(player.Status, "Класс: ", 6, true);
-                }
+                if (player.Character.GetClassStatInt() == 0 &&
+                    playerIamAttacking.Character.Justice.GetJusticeNow() == 0)
+                    player.Character.AddExtraSkill(player.Status, "Класс: ", 6);
 
 
                 if (!player.Status.IsAbleToWin) pointsWined = -50;
@@ -164,45 +161,93 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
                 //add skill
-                
+
                 switch (player.Character.GetCurrentSkillTarget())
-                    {
-                        case "Интеллект":
-                            if (playerIamAttacking.Character.GetClassStatInt() == 0)
-                            {
-                                player.Character.AddMainSkill(player.Status, "**умного**");
-                                var known = player.Status.KnownPlayerClass.Find(x =>
-                                    x.EnemyId == playerIamAttacking.Status.PlayerId);
-                                if (known != null)
-                                    player.Status.KnownPlayerClass.Remove(known);
-                                player.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(playerIamAttacking.Status.PlayerId, "(**Умный** ?) "));
-                            }
-                            break;
-                        case "Сила":
-                            if (playerIamAttacking.Character.GetClassStatInt() == 1)
-                            {
-                                player.Character.AddMainSkill(player.Status, "**сильного**");
-                                var known = player.Status.KnownPlayerClass.Find(x =>
-                                    x.EnemyId == playerIamAttacking.Status.PlayerId);
-                                if (known != null)
-                                    player.Status.KnownPlayerClass.Remove(known);
-                                player.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(playerIamAttacking.Status.PlayerId, "(**Сильный** ?) "));
+                {
+                    case "Интеллект":
+                        if (playerIamAttacking.Character.GetClassStatInt() == 0)
+                        {
+                            player.Character.AddMainSkill(player.Status, "**умного**");
+                            var known = player.Status.KnownPlayerClass.Find(x =>
+                                x.EnemyId == playerIamAttacking.Status.PlayerId);
+                            if (known != null)
+                                player.Status.KnownPlayerClass.Remove(known);
+                            player.Status.KnownPlayerClass.Add(
+                                new InGameStatus.KnownPlayerClassClass(playerIamAttacking.Status.PlayerId,
+                                    "(**Умный** ?) "));
+                        }
 
-                            }
-                            break;
-                        case "Скорость":
-                            if (playerIamAttacking.Character.GetClassStatInt() == 2)
-                            {
-                                player.Character.AddMainSkill(player.Status, "**быстрого**");
-                                var known = player.Status.KnownPlayerClass.Find(x =>
-                                    x.EnemyId == playerIamAttacking.Status.PlayerId);
-                                if (known != null)
-                                    player.Status.KnownPlayerClass.Remove(known);
-                                player.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(playerIamAttacking.Status.PlayerId, "(**Быстрый** ?) "));
-                            }
-                            break;
-                    }
+                        break;
+                    case "Сила":
+                        if (playerIamAttacking.Character.GetClassStatInt() == 1)
+                        {
+                            player.Character.AddMainSkill(player.Status, "**сильного**");
+                            var known = player.Status.KnownPlayerClass.Find(x =>
+                                x.EnemyId == playerIamAttacking.Status.PlayerId);
+                            if (known != null)
+                                player.Status.KnownPlayerClass.Remove(known);
+                            player.Status.KnownPlayerClass.Add(
+                                new InGameStatus.KnownPlayerClassClass(playerIamAttacking.Status.PlayerId,
+                                    "(**Сильный** ?) "));
+                        }
 
+                        break;
+                    case "Скорость":
+                        if (playerIamAttacking.Character.GetClassStatInt() == 2)
+                        {
+                            player.Character.AddMainSkill(player.Status, "**быстрого**");
+                            var known = player.Status.KnownPlayerClass.Find(x =>
+                                x.EnemyId == playerIamAttacking.Status.PlayerId);
+                            if (known != null)
+                                player.Status.KnownPlayerClass.Remove(known);
+                            player.Status.KnownPlayerClass.Add(
+                                new InGameStatus.KnownPlayerClassClass(playerIamAttacking.Status.PlayerId,
+                                    "(**Быстрый** ?) "));
+                        }
+
+                        break;
+                }
+
+                //check skill text
+                switch (player.Character.GetCurrentSkillTarget())
+                {
+                    case "Интеллект":
+                        if (playerIamAttacking.Character.GetClassStatInt() != 0)
+                        {
+                            var knownEnemy =
+                                player.Status.KnownPlayerClass.Find(
+                                    x => x.EnemyId == playerIamAttacking.Status.PlayerId);
+                            if (knownEnemy != null)
+                                if (knownEnemy.Text.Contains("Умный"))
+                                    player.Status.KnownPlayerClass.Remove(knownEnemy);
+                        }
+
+                        break;
+                    case "Сила":
+                        if (playerIamAttacking.Character.GetClassStatInt() != 1)
+                        {
+                            var knownEnemy =
+                                player.Status.KnownPlayerClass.Find(
+                                    x => x.EnemyId == playerIamAttacking.Status.PlayerId);
+                            if (knownEnemy != null)
+                                if (knownEnemy.Text.Contains("Сильный"))
+                                    player.Status.KnownPlayerClass.Remove(knownEnemy);
+                        }
+
+                        break;
+                    case "Скорость":
+                        if (playerIamAttacking.Character.GetClassStatInt() != 2)
+                        {
+                            var knownEnemy =
+                                player.Status.KnownPlayerClass.Find(
+                                    x => x.EnemyId == playerIamAttacking.Status.PlayerId);
+                            if (knownEnemy != null)
+                                if (knownEnemy.Text.Contains("Быстрый"))
+                                    player.Status.KnownPlayerClass.Remove(knownEnemy);
+                        }
+
+                        break;
+                }
 
                 //if block => no one gets points
                 if (playerIamAttacking.Status.IsBlock && player.Status.IsAbleToWin)
@@ -214,28 +259,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     game.AddGlobalLogs(logMess);
 
-                    
+
                     if (player.Character.Name != "mylorik")
                     {
-                        if(player.Character.Justice.GetJusticeNow() > 0)
+                        if (player.Character.Justice.GetJusticeNow() > 0)
                             player.Character.Justice.AddJusticeForNextRound(-1);
                         player.Status.AddBonusPoints(-1, "Блок: ");
-                    }
-                    else
-                    {
-                        //Спарта 
-                        var mylorik = _gameGlobal.MylorikSpartan.Find( x => x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
-                        var mylorikEnemy = mylorik.Enemies.Find(x => x.EnemyId == playerIamAttacking.Status.PlayerId);
-                        if (mylorikEnemy == null)
-                        {
-                            mylorik.Enemies.Add(new Mylorik.MylorikSpartanSubClass(playerIamAttacking.Status.PlayerId));
-                        }
-                        else
-                        {
-                            mylorikEnemy.EnemyId = playerIamAttacking.Status.PlayerId;
-                            mylorikEnemy.Active = true;
-                        }
-                        //end Спарта
                     }
 
                     playerIamAttacking.Character.Justice.AddJusticeForNextRound();
@@ -269,18 +298,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 //быстрый
                 if (playerIamAttacking.Character.GetClassStatInt() == 2)
-                {
-                    playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, "Класс: ", 2, true);
-                }
+                    playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, "Класс: ", 2);
 
                 if (player.Character.GetClassStatInt() == 2)
-                {
-                    player.Character.AddExtraSkill(player.Status, "Класс: ",2, true);
-                }
-
-
-
-
+                    player.Character.AddExtraSkill(player.Status, "Класс: ", 2);
 
 
                 //main formula:
@@ -288,8 +309,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var me = player.Character;
                 var target = playerIamAttacking.Character;
 
-                var scaleMe = (me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche()) + me.GetSkill() / 50;
-                var scaleTarget = (target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche()) + target.GetSkill() / 50;
+                var scaleMe = me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() +
+                              me.GetSkill() / 50;
+                var scaleTarget = target.GetIntelligence() + target.GetStrength() + target.GetSpeed() +
+                                  target.GetPsyche() + target.GetSkill() / 50;
 
                 var weighingMachine = scaleMe - scaleTarget;
 
@@ -378,13 +401,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
                 }
 
-
                 var wtf = scaleMe * (1 + (me.GetSkill() / 500 - target.GetSkill() / 500)) - scaleMe;
                 weighingMachine += wtf;
 
 
-                weighingMachine += (player.Character.Justice.GetJusticeNow() -
-                                    playerIamAttacking.Character.Justice.GetJusticeNow());
+                weighingMachine += player.Character.Justice.GetJusticeNow() -
+                                   playerIamAttacking.Character.Justice.GetJusticeNow();
 
 
                 switch (weighingMachine)
@@ -412,8 +434,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (pointsWined == 0)
                 {
                     var maxRandomNumber = 100;
-                    if (player.Character.Justice.GetJusticeNow() > 1 || playerIamAttacking.Character.Justice.GetJusticeNow() > 1)
-                        maxRandomNumber -= (player.Character.Justice.GetJusticeNow() - playerIamAttacking.Character.Justice.GetJusticeNow()) * 5;
+                    if (player.Character.Justice.GetJusticeNow() > 1 ||
+                        playerIamAttacking.Character.Justice.GetJusticeNow() > 1)
+                        maxRandomNumber -= (player.Character.Justice.GetJusticeNow() -
+                                            playerIamAttacking.Character.Justice.GetJusticeNow()) * 5;
                     var randomNumber = _rand.Random(1, maxRandomNumber);
                     if (randomNumber <= randomForTooGood) pointsWined++;
                     else pointsWined--;
@@ -424,15 +448,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var moral = player.Status.PlaceAtLeaderBoard - playerIamAttacking.Status.PlaceAtLeaderBoard;
 
 
-
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 1)
                 {
                     //сильный
                     if (player.Character.GetClassStatInt() == 1)
-                    {
-                        player.Character.AddExtraSkill(player.Status, "Класс: ", 4, true);
-                    }
+                        player.Character.AddExtraSkill(player.Status, "Класс: ", 4);
 
                     isContrLost -= 1;
                     game.AddGlobalLogs($" ⟶ {player.DiscordUsername}");
@@ -451,35 +472,34 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     player.Character.Justice.IsWonThisRound = true;
 
 
-                    if (player.Status.PlaceAtLeaderBoard > playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
+                    if (player.Status.PlaceAtLeaderBoard > playerIamAttacking.Status.PlaceAtLeaderBoard &&
+                        game.RoundNo > 1)
                     {
                         player.Character.AddMoral(player.Status, moral, "Победа: ");
                         playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Поражение: ");
                     }
-                        
+
 
                     playerIamAttacking.Character.Justice.AddJusticeForNextRound();
 
                     player.Status.IsWonThisCalculation = playerIamAttacking.Status.PlayerId;
                     playerIamAttacking.Status.IsLostThisCalculation = player.Status.PlayerId;
-                    playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.Status.PlayerId, game.RoundNo, isTooGoodPlayer));
+                    playerIamAttacking.Status.WhoToLostEveryRound.Add(
+                        new InGameStatus.WhoToLostPreviousRoundClass(player.Status.PlayerId, game.RoundNo,
+                            isTooGoodPlayer));
                 }
                 else
                 {
-
                     //сильный
                     if (playerIamAttacking.Character.GetClassStatInt() == 1)
-                    {
-                        playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, "Класс: ", 4, true);
-                    }
+                        playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, "Класс: ", 4);
 
                     if (isTooGoodLost == -1)
-                    {
-                        player.Status.AddInGamePersonalLogs($"{playerIamAttacking.DiscordUsername} is __TOO GOOD__ for you\n");
-                    }
+                        player.Status.AddInGamePersonalLogs(
+                            $"{playerIamAttacking.DiscordUsername} is __TOO GOOD__ for you\n");
 
                     isContrLost += 1;
-                    
+
                     //octopus  // playerIamAttacking is octopus
                     var check = _characterPassives.HandleOctopus(playerIamAttacking, player, game);
                     //end octopus
@@ -493,7 +513,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         player.Status.WonTimes++;
                         playerIamAttacking.Character.Justice.IsWonThisRound = true;
 
-                        if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
+                        if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard &&
+                            game.RoundNo > 1)
                         {
                             player.Character.AddMoral(player.Status, moral, "Поражение: ");
                             playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Победа: ");
@@ -506,7 +527,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         playerIamAttacking.Status.IsWonThisCalculation = player.Status.PlayerId;
                         player.Status.IsLostThisCalculation = playerIamAttacking.Status.PlayerId;
-                        player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.Status.PlayerId, game.RoundNo, isTooGoodEnemy));
+                        player.Status.WhoToLostEveryRound.Add(
+                            new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.Status.PlayerId,
+                                game.RoundNo, isTooGoodEnemy));
                     }
                 }
 
@@ -523,10 +546,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 switch (isContrLost)
                 {
                     case 3:
-                        player.Status.AddInGamePersonalLogs($"Поражение: {playerIamAttacking.DiscordUsername} {GetLostContrText(playerIamAttacking, player)}\n");
+                        player.Status.AddInGamePersonalLogs(
+                            $"Поражение: {playerIamAttacking.DiscordUsername} {GetLostContrText(playerIamAttacking, player)}\n");
                         break;
                     case -3:
-                        playerIamAttacking.Status.AddInGamePersonalLogs($"Поражение: {player.DiscordUsername} {GetLostContrText(player, playerIamAttacking)}\n");
+                        playerIamAttacking.Status.AddInGamePersonalLogs(
+                            $"Поражение: {player.DiscordUsername} {GetLostContrText(player, playerIamAttacking)}\n");
                         break;
                 }
 
@@ -555,16 +580,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 player.Status.MoveListPage = 1;
 
-                if (player.Character.Justice.IsWonThisRound) player.Character.Justice.SetJusticeNow(player.Status, 0, "Новый Раунд:", false);
+                if (player.Character.Justice.IsWonThisRound)
+                    player.Character.Justice.SetJusticeNow(player.Status, 0, "Новый Раунд:", false);
 
                 player.Character.Justice.IsWonThisRound = false;
-                player.Character.Justice.AddJusticeNow(player.Character.Justice.GetJusticeForNextRound());
+                player.Character.Justice.AddJusticeNow(player.Status,
+                    player.Character.Justice.GetJusticeForNextRound());
                 player.Character.Justice.SetJusticeForNextRound(0);
             }
 
             game.SkipPlayersThisRound = 0;
             game.RoundNo++;
-     
 
 
             await _characterPassives.HandleNextRound(game);
@@ -621,6 +647,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     game.PlayersList[i].Status.MoveListPage = 3;
                 game.PlayersList[i].Status.PlaceAtLeaderBoard = i + 1;
                 game.PlayersList[i].Character.RollCurrentSkillTarget();
+                game.PlayersList[i].Status.PlaceAtLeaderBoardHistory.Add(
+                    new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo,
+                        game.PlayersList[i].Status.PlaceAtLeaderBoard));
             }
             //end sorting
 
@@ -631,7 +660,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             game.TimePassed.Start();
             _logs.Info(
                 $"Finished calculating game #{game.GameId} (round# {game.RoundNo - 1}). || {watch.Elapsed.TotalSeconds}s");
-           _logs.Critical("");
+            _logs.Critical("");
             watch.Stop();
             await Task.CompletedTask;
         }

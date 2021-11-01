@@ -39,6 +39,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             IsTargetSkipped = Guid.NewGuid();
             IsTargetBlocked = Guid.NewGuid();
             CharacterName = characterName;
+            PlaceAtLeaderBoardHistory = new List<PlaceAtLeaderBoardHistoryClass>();
         }
 
         public int MoveListPage { get; set; }
@@ -75,6 +76,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         public bool ConfirmedPredict { get; set; }
         public bool ConfirmedSkip { get; set; }
         public string CharacterName { get; set; }
+        public List<PlaceAtLeaderBoardHistoryClass> PlaceAtLeaderBoardHistory { get; set; }
 
         public void AddInGamePersonalLogs(string str)
         {
@@ -212,6 +214,18 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             {
                 EnemyId = enemyId;
                 Text = text;
+            }
+        }
+
+        public class PlaceAtLeaderBoardHistoryClass
+        {
+            public int GameRound;
+            public int Place;
+
+            public PlaceAtLeaderBoardHistoryClass(int gameRound, int place)
+            {
+                GameRound = gameRound;
+                Place = place;
             }
         }
     }

@@ -85,7 +85,7 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 {
                     boole.Times = 0;
                     player.Character.AddPsyche(player.Status, -1, "Испанец: ");
-                    player.Character.AddExtraSkill(player.Status,  "Испанец: ", 5);
+                    //player.Character.AddExtraSkill(player.Status,  "Испанец: ", 5);
                     player.MinusPsycheLog(game);
                     game.Phrases.MylorikSpanishPhrase.SendLog(player, false);
                 }
@@ -152,13 +152,13 @@ namespace King_of_the_Garbage_Hill.Game.Characters
         public class MylorikSpartanSubClass
         {
             public Guid EnemyId;
-            public bool Active;
+            public int LostTimes;
 
 
             public MylorikSpartanSubClass(Guid enemyId)
             {
                 EnemyId = enemyId;
-                Active = true;
+                LostTimes = 0;
             }
         }
 

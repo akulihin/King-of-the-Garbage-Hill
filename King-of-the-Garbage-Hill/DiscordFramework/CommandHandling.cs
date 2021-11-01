@@ -1,6 +1,7 @@
 ﻿    using System;
 using System.Collections.Generic;
-using System.Reflection;
+    using System.Linq;
+    using System.Reflection;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
@@ -157,7 +158,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
             if (msg.Author.IsBot)
                 return;
 
-
+            var isDm = ((SocketChannel) msg.Channel).Users.Count == 2;
 
             if (message.HasStringPrefix("*", ref argPos) || message.HasStringPrefix("*" + " ",
                                                              ref argPos)
@@ -166,7 +167,8 @@ namespace King_of_the_Garbage_Hill.DiscordFramework
                                                          || message.HasStringPrefix(account.MyPrefix + " ",
                                                              ref argPos)
                                                          || message.HasStringPrefix(account.MyPrefix,
-                                                             ref argPos))
+                                                             ref argPos)
+                                                         || isDm)
             {
                 var resultTask = _commands.ExecuteAsync(
                     context,

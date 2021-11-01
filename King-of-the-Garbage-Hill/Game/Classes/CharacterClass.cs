@@ -457,9 +457,21 @@ namespace King_of_the_Garbage_Hill.Game.Classes
         private int JusticeForNextRound { get; set; }
         public bool IsWonThisRound { get; set; }
 
-        public void AddJusticeNow(int howMuchToAdd = 1)
+
+        public void AddJusticeNow(InGameStatus status, int howMuchToAdd = 1)
         {
+            var justricePhrases = new List<string>
+            {
+                "Ты сможешь!", "Еще немного!", "Верь в себя!", "Верь в мою веру в тебя!",
+                "Не повeзло, но всё получится!",
+                "Справедливость на нашей стороне!", "Мы им покажем!"
+            };
             JusticeNow += howMuchToAdd;
+            
+            if (howMuchToAdd > 0)
+            {
+                status.AddInGamePersonalLogs($"Справедливость: +{howMuchToAdd}! {justricePhrases[new Random().Next(0, justricePhrases.Count)]}\n");
+            }
 
             if (JusticeNow < 0)
                 JusticeNow = 0;

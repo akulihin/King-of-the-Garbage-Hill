@@ -119,6 +119,7 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling
             if (game.RoundNumber > 2) text += $"*Мораль: {player.Moral}*\n";
 
             if (game.RoundNumber == 7) text += $"*Скилл: {player.Skill} (Мишень: **Умный**)*\n";
+            if (game.RoundNumber >= 8) text += $"*Скилл: {player.Skill}*\n";
 
             if (game.RoundNumber > 5)
             {

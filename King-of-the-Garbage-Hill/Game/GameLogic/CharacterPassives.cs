@@ -121,9 +121,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         break;
                     case "Братишка":
-                        _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId, game.GameId));
-                        _gameGlobal.SharkDontUnderstand.Add(new Shark.SharkDontUnderstand(player.Status.PlayerId, game.GameId));
-                        
+                        _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId,
+                            game.GameId));
+                        _gameGlobal.SharkDontUnderstand.Add(
+                            new Shark.SharkDontUnderstand(player.Status.PlayerId, game.GameId));
+
                         _gameGlobal.SharkJawsWin.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
                         _gameGlobal.SharkBoole.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
                         break;
@@ -138,7 +140,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
                             enemy1 = game.PlayersList[randIndex].Status.PlayerId;
-                            if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "mylorik" or "Загадочный Спартанец в маске")
+                            if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "mylorik" or
+                                "Загадочный Спартанец в маске")
                                 enemy1 = player.Status.PlayerId;
                         } while (enemy1 == player.Status.PlayerId);
 
@@ -146,7 +149,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         {
                             var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
                             enemy2 = game.PlayersList[randIndex].Status.PlayerId;
-                            if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "mylorik" or "Загадочный Спартанец в маске")
+                            if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "mylorik" or
+                                "Загадочный Спартанец в маске")
                                 enemy2 = player.Status.PlayerId;
                             if (enemy2 == enemy1)
                                 enemy2 = player.Status.PlayerId;
@@ -175,8 +179,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                         break;
                     case "mylorik":
-                        _gameGlobal.MylorikSpartan.Add(new Mylorik.MylorikSpartanClass(player.Status.PlayerId, game.GameId));
-                        _gameGlobal.MylorikSpanish.Add(new Mylorik.MylorikSpanishClass(player.Status.PlayerId, game.GameId));
+                        _gameGlobal.MylorikSpartan.Add(
+                            new Mylorik.MylorikSpartanClass(player.Status.PlayerId, game.GameId));
+                        _gameGlobal.MylorikSpanish.Add(
+                            new Mylorik.MylorikSpanishClass(player.Status.PlayerId, game.GameId));
                         break;
                     case "Тигр":
                         _gameGlobal.TigrTwoBetterList.Add(
@@ -256,14 +262,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             "Ничего не понимает: ");
                     }
 
-                    var sharkDontUndertand = _gameGlobal.SharkDontUnderstand.Find(x => x.PlayerId == target.Status.PlayerId && game.GameId == x.GameId);
+                    var sharkDontUndertand = _gameGlobal.SharkDontUnderstand.Find(x =>
+                        x.PlayerId == target.Status.PlayerId && game.GameId == x.GameId);
 
-                    if (sharkDontUndertand != null)
-                    {
-                        sharkDontUndertand.EnemyId = me.Status.PlayerId;
-                        sharkDontUndertand.IntelligenceToReturn = me.Character.GetIntelligence();
-                        me.Character.SetIntelligence(me.Status, 0, "Ничего не понимает: ", false);
-                    }
+                    sharkDontUndertand.EnemyId = me.Status.PlayerId;
+                    sharkDontUndertand.IntelligenceToReturn = me.Character.GetIntelligence();
+                    me.Character.SetIntelligence(me.Status, 0, "Ничего не понимает: ", false);
 
                     //end Ничего не понимает: 
                     break;
@@ -298,15 +302,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     //Гребанные ассассин + Сомнительная тактика
                     var ok = true;
-                    var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x => x.PlayerId == target.Status.PlayerId && game.GameId == x.GameId);
+                    var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
+                        x.PlayerId == target.Status.PlayerId && game.GameId == x.GameId);
 
                     if (deep != null)
-                    {
                         if (!deep.FriendList.Contains(me.Status.PlayerId))
-                        {
                             ok = false;
-                        }
-                    }
 
 
                     if (me.Character.GetStrength() - target.Character.GetStrength() >= 2
@@ -355,6 +356,25 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             target.Status.AddRegularPoints(1, "Одиночество");
                             game.Phrases.HardKittyLonelyPhrase.SendLog(target, true);
                             hard.Activated = true;
+                            var hardEnemy = hard.AttackHistory.Find(x => x.EnemyId == me.Status.PlayerId);
+                            if (hardEnemy == null)
+                            {
+                                hard.AttackHistory.Add(new HardKitty.LonelinessSubClass(me.Status.PlayerId));
+                                hardEnemy = hard.AttackHistory.Find(x => x.EnemyId == me.Status.PlayerId);
+                            }
+
+                            switch (game.RoundNo)
+                            {
+                                case 1: case 2: case 3: case 4:
+                                    hardEnemy.Times += 1;
+                                    break;
+                                case 5: case 6: case 7: case 8: case 9:
+                                    hardEnemy.Times += 2;
+                                    break;
+                                case 10:
+                                    hardEnemy.Times += 4;
+                                    break;
+                            }
                         }
 
                     //Одиночество
@@ -380,6 +400,60 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     }
 
                     //end Запах мусора
+                    break;
+            }
+
+            await Task.CompletedTask;
+        }
+
+
+        public async Task HandleDefenseAfterFight(GamePlayerBridgeClass target,
+            GamePlayerBridgeClass me, GameClass game)
+        {
+            var characterName = target.Character.Name;
+
+
+            switch (characterName)
+            {
+                case "Братишка":
+                    //Ничего не понимает: 
+                    var sharkDontUndertand = _gameGlobal.SharkDontUnderstand.Find(x => x.PlayerId == target.Status.PlayerId && game.GameId == x.GameId);
+                    if (sharkDontUndertand.EnemyId == me.Status.PlayerId)
+                    {
+                        me.Character.SetIntelligence(me.Status, sharkDontUndertand.IntelligenceToReturn, "Ничего не понимает: ", false);
+                        sharkDontUndertand.EnemyId = Guid.Empty;
+                        sharkDontUndertand.IntelligenceToReturn = 0;
+                    }
+
+                    //end Ничего не понимает: 
+                    break;
+                case "LeCrisp":
+                    //Гребанные ассассин
+                    if (me.Character.GetStrength() - target.Character.GetStrength() >= 2
+                        && !target.Status.IsBlock
+                        && !target.Status.IsSkip)
+                        target.Status.IsAbleToWin = true;
+                    //end Гребанные ассассин
+                    break;
+                case "HardKitty":
+                    //Mute passive
+                    if (target.Status.IsLostThisCalculation != Guid.Empty)
+                    {
+                        var hardKittyMute = _gameGlobal.HardKittyMute.Find(x =>
+                            x.PlayerId == target.Status.PlayerId &&
+                            x.GameId == game.GameId);
+
+
+                        if (!hardKittyMute.UniquePlayers.Contains(me.Status.PlayerId))
+                        {
+                            hardKittyMute.UniquePlayers.Add(me.Status.PlayerId);
+                            me.Status.AddRegularPoints(1, "Mute");
+                            game.Phrases.HardKittyMutedPhrase.SendLog(target, false);
+                        }
+                    }
+                    //Mute passive end
+
+
                     break;
             }
 
@@ -463,10 +537,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     if (geblTea.Ready && me.Status.WhoToAttackThisTurn != Guid.Empty)
                     {
                         geblTea.Ready = false;
-                        _gameGlobal.GlebTeaTriggeredWhen.Add(new WhenToTriggerClass(me.Status.WhoToAttackThisTurn, game.GameId, game.RoundNo + 1));
+                        _gameGlobal.GlebTeaTriggeredWhen.Add(new WhenToTriggerClass(me.Status.WhoToAttackThisTurn,
+                            game.GameId, game.RoundNo + 1));
                         me.Status.AddRegularPoints(1, "Я за чаем");
                         game.Phrases.GlebTeaPhrase.SendLog(me, true);
                     }
+
                     //end  Я за чаем:
                     break;
 
@@ -554,83 +630,55 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             x.PlayerId == me.Status.PlayerId && x.GameId == game.GameId);
                         scavenger.EnemyId = target.Status.PlayerId;
                         scavenger.EnemyJustice = target.Character.Justice.GetJusticeNow();
-                        target.Character.Justice.AddJusticeNow(-1);
+                        target.Character.Justice.AddJusticeNow(target.Status, -1);
                     }
 
                     //end Падальщик
                     break;
                 case "mylorik":
-                    //Спарта 
-                    var mylorik = _gameGlobal.MylorikSpartan.Find(x => x.PlayerId == me.Status.PlayerId && x.GameId == game.GameId);
-                    var mylorikEnemy = mylorik.Enemies.Find(x => x.EnemyId == target.Status.PlayerId);
-                    if (mylorikEnemy != null)
+                    // Cпарта
+                    var mylorikSpartan =
+                        _gameGlobal.MylorikSpartan.Find(x => x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
+                    var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.Status.PlayerId);
+                    if (mylorikEnemy == null)
                     {
-                        if (mylorikEnemy.Active)
-                        {
-                            me.Character.SetSkillFightMultiplier(3);
-                        }
+                        mylorikSpartan.Enemies.Add(new Mylorik.MylorikSpartanSubClass(target.Status.PlayerId));
+                        mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.Status.PlayerId);
                     }
-                    //end Спарта
+
+                    if (me.Status.WhoToAttackThisTurn == target.Status.PlayerId)
+                        //set FightMultiplier
+                        switch (mylorikEnemy.LostTimes)
+                        {
+                            case 1:
+                                me.Character.SetSkillFightMultiplier(2);
+                                break;
+                            case 2:
+                                me.Character.SetSkillFightMultiplier(4);
+                                break;
+                            case 3:
+                                me.Character.SetSkillFightMultiplier(8);
+                                break;
+                            case 4:
+                            case 5:
+                            case 6:
+                            case 7:
+                            case 8:
+                            case 9:
+                            case 10:
+                                me.Character.SetSkillFightMultiplier(16);
+                                break;
+                            default:
+                                me.Character.SetSkillFightMultiplier();
+                                break;
+                        }
+
+                    //end Cпарта
                     break;
             }
 
             await Task.CompletedTask;
         }
-
-
-        public async Task HandleDefenseAfterFight(GamePlayerBridgeClass target,
-            GamePlayerBridgeClass me, GameClass game)
-        {
-            var characterName = target.Character.Name;
-
-
-            switch (characterName)
-            {
-                case "Братишка":
-                    //Ничего не понимает: 
-                    var sharkDontUndertand = _gameGlobal.SharkDontUnderstand.Find(x => x.PlayerId == target.Status.PlayerId && game.GameId == x.GameId);
-                    if (sharkDontUndertand != null)
-                    {
-                        me.Character.SetIntelligence(me.Status, sharkDontUndertand.IntelligenceToReturn, "Ничего не понимает: ", false);
-                        sharkDontUndertand.EnemyId = Guid.Empty;
-                        sharkDontUndertand.IntelligenceToReturn = 0;
-                    }
-
-                    //end Ничего не понимает: 
-                    break;
-                case "LeCrisp":
-                    //Гребанные ассассин
-                    if (me.Character.GetStrength() - target.Character.GetStrength() >= 2
-                        && !target.Status.IsBlock
-                        && !target.Status.IsSkip)
-                        target.Status.IsAbleToWin = true;
-                    //end Гребанные ассассин
-                    break;
-                case "HardKitty":
-                    //Mute passive
-                    if (target.Status.IsLostThisCalculation != Guid.Empty)
-                    {
-                        var hardKittyMute = _gameGlobal.HardKittyMute.Find(x =>
-                            x.PlayerId == target.Status.PlayerId &&
-                            x.GameId == game.GameId);
-
-
-                        if (!hardKittyMute.UniquePlayers.Contains(me.Status.PlayerId))
-                        {
-                            hardKittyMute.UniquePlayers.Add(me.Status.PlayerId);
-                            me.Status.AddRegularPoints(1, "Mute");
-                            game.Phrases.HardKittyMutedPhrase.SendLog(target, false);
-                        }
-                    }
-                    //Mute passive end
-
-
-                    break;
-            }
-
-            await Task.CompletedTask;
-        }
-
 
         public async Task HandleAttackAfterFight(GamePlayerBridgeClass me,
             GamePlayerBridgeClass target, GameClass game)
@@ -753,18 +801,26 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     break;
                 case "mylorik":
-                    //Спарта 
-                    var mylorik = _gameGlobal.MylorikSpartan.Find(x => x.PlayerId == me.Status.PlayerId && x.GameId == game.GameId);
-                    var mylorikEnemy = mylorik.Enemies.Find(x => x.EnemyId == target.Status.PlayerId);
-                    if (mylorikEnemy != null)
+                    // Cпарта
+                    if (me.Status.WhoToAttackThisTurn == target.Status.PlayerId)
                     {
-                        if (mylorikEnemy.Active)
+                        var mylorikSpartan = _gameGlobal.MylorikSpartan.Find(x =>
+                            x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
+                        var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.Status.PlayerId);
+                        if (mylorikEnemy == null)
                         {
-                            me.Character.SetSkillFightMultiplier();
-                            mylorikEnemy.Active = false;
+                            mylorikSpartan.Enemies.Add(new Mylorik.MylorikSpartanSubClass(target.Status.PlayerId));
+                            mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.Status.PlayerId);
                         }
+
+                        if (me.Status.IsLostThisCalculation == me.Status.WhoToAttackThisTurn) mylorikEnemy.LostTimes++;
+
+                        if (me.Status.IsWonThisCalculation == me.Status.WhoToAttackThisTurn) mylorikEnemy.LostTimes = 0;
                     }
-                    //end Спарта
+
+                    //reset FightMultiplier
+                    me.Character.SetSkillFightMultiplier();
+                    //end Cпарта
                     break;
             }
 
@@ -875,20 +931,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     //Сомнительная тактика
                     var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
                         x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
-                   
+
 
                     if (deep != null)
-                    {
                         if (player.Status.IsFighting != Guid.Empty)
                         {
                             var target = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsFighting);
-                            if (!deep.FriendList.Contains(player.Status.IsFighting) && !target.Status.IsSkip && !target.Status.IsBlock)
-                            {
-                                player.Status.IsAbleToWin = false;
-                            }
+                            if (!deep.FriendList.Contains(player.Status.IsFighting) && !target.Status.IsSkip &&
+                                !target.Status.IsBlock) player.Status.IsAbleToWin = false;
                         }
-  
-                    }
 
 
                     //end Сомнительная тактика
@@ -946,18 +997,18 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     case "mylorik":
                         //Буль
                         var random = _rand.Random(1, 2 + player.Character.GetPsyche() * 3);
-                        
-                            if (random == 2)
-                            {
-                                player.Status.IsSkip = true;
-                                player.Status.ConfirmedSkip = false;
-                            player.Status.IsBlock = false;
-                                player.Status.IsAbleToTurn = false;
-                                player.Status.IsReady = true;
-                                player.Status.WhoToAttackThisTurn = Guid.Empty;
 
-                                game.Phrases.MylorikBoolePhrase.SendLog(player, false);
-                            }
+                        if (random == 2)
+                        {
+                            player.Status.IsSkip = true;
+                            player.Status.ConfirmedSkip = false;
+                            player.Status.IsBlock = false;
+                            player.Status.IsAbleToTurn = false;
+                            player.Status.IsReady = true;
+                            player.Status.WhoToAttackThisTurn = Guid.Empty;
+
+                            game.Phrases.MylorikBoolePhrase.SendLog(player, false);
+                        }
                         //end Буль
 
                         break;
@@ -1189,22 +1240,22 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
 
 
-
                     case "Глеб":
 
                         // Я за чаем:
                         var rand = _rand.Random(1, 8);
 
-                        var glebChalleger = _gameGlobal.GlebChallengerTriggeredWhen.Find(x => x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
+                        var glebChalleger = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
+                            x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
 
                         if (glebChalleger != null)
                             if (glebChalleger.WhenToTrigger.Contains(game.RoundNo))
                                 rand = _rand.Random(1, 7);
 
 
-
                         var geblTea =
-                            _gameGlobal.GlebTea.Find(x => x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
+                            _gameGlobal.GlebTea.Find(x =>
+                                x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
 
                         if (rand == 1)
                         {
@@ -1415,7 +1466,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             player.Character.SetSpeed(player.Status, 10, "Дракон: ");
                             player.Character.SetPsyche(player.Status, 10, "Дракон: ");
 
-                            player.Character.AddExtraSkill(player.Status, "Дракон: ", (int)player.Character.GetSkill(),  true);
+                            player.Character.AddExtraSkill(player.Status, "Дракон: ",
+                                (int) player.Character.GetSkill());
 
                             var pointsToGive = (int) (player.Character.GetSkill() / 10);
 
@@ -1611,13 +1663,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                     while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.Status.PlayerId))
                                         randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
 
-                                    
-                                    if(randomPlayer.Status.PlayerId == player.Status.PlayerId)
-                                        while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.Status.PlayerId))
-                                            randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
+
                                     if (randomPlayer.Status.PlayerId == player.Status.PlayerId)
                                         while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.Status.PlayerId))
-                                            randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
+                                            randomPlayer =
+                                                game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
+                                    if (randomPlayer.Status.PlayerId == player.Status.PlayerId)
+                                        while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.Status.PlayerId))
+                                            randomPlayer =
+                                                game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
 
 
                                     tolyaTalked.PlayerHeTalkedAbout.Add(randomPlayer.Status.PlayerId);
@@ -1777,7 +1831,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             {
                                 var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
                                 enemy1 = game.PlayersList[randIndex].Status.PlayerId;
-                                if (game.PlayersList[randIndex].Character.Name is "Глеб" or "mylorik" or "Загадочный Спартанец в маске")
+                                if (game.PlayersList[randIndex].Character.Name is "Глеб" or "mylorik" or
+                                    "Загадочный Спартанец в маске")
                                     enemy1 = player.Status.PlayerId;
                                 if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" && game.RoundNo < 4)
                                     enemy1 = player.Status.PlayerId;
@@ -1789,13 +1844,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                             {
                                 var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
                                 enemy2 = game.PlayersList[randIndex].Status.PlayerId;
-                                if (game.PlayersList[randIndex].Character.Name is "Глеб" or "mylorik" or "Загадочный Спартанец в маске")
+                                if (game.PlayersList[randIndex].Character.Name is "Глеб" or "mylorik" or
+                                    "Загадочный Спартанец в маске")
                                     enemy2 = player.Status.PlayerId;
                                 if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" && game.RoundNo < 4)
                                     enemy2 = player.Status.PlayerId;
                                 if (game.PlayersList[randIndex].Character.Name is "Вампур" && game.RoundNo >= 4)
                                     enemy2 = player.Status.PlayerId;
-                                if(enemy2 == enemy1)
+                                if (enemy2 == enemy1)
                                     enemy2 = player.Status.PlayerId;
                             } while (enemy2 == player.Status.PlayerId);
 
@@ -1899,7 +1955,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     case "Братишка":
                         //Булькает:
-                        if (player.Status.PlaceAtLeaderBoard != 1) player.Character.Justice.AddJusticeNow();
+                        if (player.Status.PlaceAtLeaderBoard != 1)
+                            player.Character.Justice.AddJusticeNow(player.Status);
                         //end Булькает:
 
                         //Челюсти:
@@ -2091,12 +2148,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (player.Character.GetPsyche() == 10)
                         {
                             player.Character.Name = "Братишка";
-                            _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId, game.GameId));
-                            _gameGlobal.SharkDontUnderstand.Add(new Shark.SharkDontUnderstand(player.Status.PlayerId, game.GameId));
+                            _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId,
+                                game.GameId));
+                            _gameGlobal.SharkDontUnderstand.Add(
+                                new Shark.SharkDontUnderstand(player.Status.PlayerId, game.GameId));
                             _gameGlobal.SharkJawsWin.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
                             _gameGlobal.SharkBoole.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
-                            player.Status.AddInGamePersonalLogs("Братишка: **Буууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууль**\n");
+                            player.Status.AddInGamePersonalLogs(
+                                "Братишка: **Буууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууль**\n");
                         }
+
                         break;
                 }
             }
@@ -2153,16 +2214,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var enemyBottom =
                     game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard + 1 == shark.Status.PlaceAtLeaderBoard);
                 if (enemyTop != null && enemyTop.Status.IsLostThisCalculation != Guid.Empty)
-                {
                     shark.Status.AddRegularPoints(1, "Лежит на дне");
-   
-                }
 
                 if (enemyBottom != null && enemyBottom.Status.IsLostThisCalculation != Guid.Empty)
-                {
                     shark.Status.AddRegularPoints(1, "Лежит на дне");
-
-                }
             }
             //end Лежит на дне:
 
@@ -2271,7 +2326,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 new InGameStatus.WhoToLostPreviousRoundClass(playerAttackedOctopus.Status.PlayerId, game.RoundNo,
                     false));
 
-            var octo = _gameGlobal.OctopusInkList.Find(x => x.PlayerId == octopusPlayer.Status.PlayerId && x.GameId == game.GameId);
+            var octo = _gameGlobal.OctopusInkList.Find(x =>
+                x.PlayerId == octopusPlayer.Status.PlayerId && x.GameId == game.GameId);
 
             if (octo == null)
             {
@@ -2285,7 +2341,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 if (enemyRealScore == null)
                 {
-                    octo.RealScoreList.Add(new Octopus.InkSubClass(playerAttackedOctopus.Status.PlayerId, game.RoundNo, -1));
+                    octo.RealScoreList.Add(new Octopus.InkSubClass(playerAttackedOctopus.Status.PlayerId, game.RoundNo,
+                        -1));
                     octoRealScore.AddRealScore(game.RoundNo);
                 }
                 else
