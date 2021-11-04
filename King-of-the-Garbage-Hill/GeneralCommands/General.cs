@@ -405,7 +405,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             _global.GamesList.Add(game);
 
             //get all the chances before the game starts
-            _characterPassives.CalculatePassiveChances(game);
+            _gameGlobal.CalculatePassiveChances(game);
 
             //handle round #0
             await _characterPassives.HandleNextRound(game);

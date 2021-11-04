@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Characters;
@@ -45,6 +46,8 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
         public readonly List<HardKitty.DoebatsyaClass> HardKittyDoebatsya = new();
 
         public readonly List<LeCrisp.LeCrispImpactClass> LeCrispImpact = new();
+        public readonly List<LeCrisp.LeCrispAssassins> LeCrispAssassins = new();
+        
 
         public readonly List<LolGod.PushAndDieClass> LolGodPushAndDieSubList = new();
         public readonly List<LolGod.Udyr> LolGodUdyrList = new();
@@ -222,5 +225,173 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables
 
             return toTriggerClass;
         }
+
+
+        public void CalculatePassiveChances(GameClass game)
+        {
+            foreach (var player in game.PlayersList)
+            {
+                var characterName = player.Character.Name;
+                WhenToTriggerClass when;
+                switch (characterName)
+                {
+                    case "HardKitty":
+                        HardKittyMute.Add(new HardKitty.MuteClass(player.Status.PlayerId, game.GameId));
+                        HardKittyLoneliness.Add(
+                            new HardKitty.LonelinessClass(player.Status.PlayerId, game.GameId));
+                        HardKittyDoebatsya.Add(new HardKitty.DoebatsyaClass(player.Status.PlayerId,
+                            game.GameId));
+                        break;
+                    case "Осьминожка":
+                        OctopusTentaclesList.Add(new Octopus.TentaclesClass(player.Status.PlayerId,
+                            game.GameId));
+                        break;
+                    case "Darksci":
+                        DarksciLuckyList.Add(new Darksci.LuckyClass(player.Status.PlayerId,
+                            game.GameId));
+                        break;
+                    case "Бог ЛоЛа":
+                        LolGodPushAndDieSubList.Add(
+                            new LolGod.PushAndDieClass(player.Status.PlayerId, game.GameId, game.PlayersList));
+                        LolGodUdyrList.Add(new LolGod.Udyr(player.Status.PlayerId, game.GameId));
+                        break;
+                    case "Вампур":
+                        VampyrHematophagiaList.Add(
+                            new Vampyr.HematophagiaClass(player.Status.PlayerId, game.GameId));
+                        VampyrScavengerList.Add(new Vampyr.ScavengerClass(player.Status.PlayerId,
+                            game.GameId));
+                        break;
+                    case "Sirinoks":
+                        SirinoksFriendsList.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                        SirinoksFriendsAttack.Add(
+                            new Sirinoks.SirinoksFriendsClass(player.Status.PlayerId, game.GameId));
+
+                        break;
+                    case "Братишка":
+                        SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId,
+                            game.GameId));
+                        SharkDontUnderstand.Add(
+                            new Shark.SharkDontUnderstand(player.Status.PlayerId, game.GameId));
+
+                        SharkJawsWin.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                        SharkBoole.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                        break;
+                    case "Загадочный Спартанец в маске":
+
+
+                        //Им это не понравится
+                        Guid enemy1;
+                        Guid enemy2;
+
+                        do
+                        {
+                            var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
+                            enemy1 = game.PlayersList[randIndex].Status.PlayerId;
+                            if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "mylorik" or
+                                "Загадочный Спартанец в маске")
+                                enemy1 = player.Status.PlayerId;
+                        } while (enemy1 == player.Status.PlayerId);
+
+                        do
+                        {
+                            var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
+                            enemy2 = game.PlayersList[randIndex].Status.PlayerId;
+                            if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "mylorik" or
+                                "Загадочный Спартанец в маске")
+                                enemy2 = player.Status.PlayerId;
+                            if (enemy2 == enemy1)
+                                enemy2 = player.Status.PlayerId;
+                        } while (enemy2 == player.Status.PlayerId);
+
+                        SpartanMark.Add(new FriendsClass(player.Status.PlayerId, game.GameId, enemy1));
+                        var Spartan = SpartanMark.Find(x =>
+                            x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                        Spartan.FriendList.Add(enemy2);
+                        //end Им это не понравится
+
+                        SpartanShame.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                        SpartanFirstBlood.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+
+
+                        break;
+                    case "DeepList":
+                        DeepListDoubtfulTactic.Add(new FriendsClass(player.Status.PlayerId,
+                            game.GameId));
+
+                        when = GetWhenToTrigger(player, true, 6, 2, false, 6);
+                        DeepListSupermindTriggeredWhen.Add(when);
+
+                        when = GetWhenToTrigger(player, true, 6, 2);
+                        DeepListMadnessTriggeredWhen.Add(when);
+
+                        break;
+                    case "mylorik":
+                        MylorikSpartan.Add(
+                            new Mylorik.MylorikSpartanClass(player.Status.PlayerId, game.GameId));
+                        MylorikSpanish.Add(
+                            new Mylorik.MylorikSpanishClass(player.Status.PlayerId, game.GameId));
+                        break;
+                    case "LeCrisp":
+                        LeCrispAssassins.Add(new LeCrisp.LeCrispAssassins(player.Status.PlayerId,
+                            game.GameId));
+                        LeCrispImpact.Add(new LeCrisp.LeCrispImpactClass(player.Status.PlayerId,
+                            game.GameId));
+                        break;
+                    case "Тигр":
+                        TigrTwoBetterList.Add(
+                            new FriendsClass(player.Status.PlayerId, game.GameId));
+                        when = GetWhenToTrigger(player, true, 10, 1);
+                        TigrTopWhen.Add(when);
+                        break;
+                    case "AWDKA":
+                        when = GetWhenToTrigger(player, false, 10, 1);
+                        AwdkaAfkTriggeredWhen.Add(when);
+                        AwdkaTrollingList.Add(new Awdka.TrollingClass(player.Status.PlayerId, game.GameId));
+                        AwdkaTeachToPlayHistory.Add(
+                            new Awdka.TeachToPlayHistory(player.Status.PlayerId, game.GameId));
+                        AwdkaTryingList.Add(new Awdka.TryingClass(player.Status.PlayerId, game.GameId));
+                        break;
+
+                    case "Толя":
+                        TolyaCount.Add(new Tolya.TolyaCountClass(game.GameId, player.Status.PlayerId));
+                        TolyaTalked.Add(new Tolya.TolyaTalkedlClass(game.GameId, player.Status.PlayerId));
+                        TolyaRammusTimes.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                        break;
+
+                    case "Mit*suki*":
+                        when = GetWhenToTrigger(player, true, 0, 0);
+                        MitsukiNoPcTriggeredWhen.Add(when);
+                        break;
+
+                    case "Глеб":
+                        GlebTea.Add(new Gleb.GlebTeaClass(player.Status.PlayerId, game.GameId));
+                        //Спящее хуйло chance   
+                        when = GetWhenToTrigger(player, true, 3, 3);
+                        GlebSleepingTriggeredWhen.Add(when);
+
+                        //Претендент русского сервера
+                        var li = new List<int>();
+
+                        foreach (var t in when.WhenToTrigger) li.Add(t);
+
+                        bool flag;
+                        do
+                        {
+                            when = GetWhenToTrigger(player, true, 6, 3, true, 12);
+                            flag = false;
+                            for (var i = 0; i < li.Count; i++)
+                                if (when.WhenToTrigger.Contains(li[i]))
+                                    flag = true;
+                        } while (flag);
+
+                        GlebChallengerTriggeredWhen.Add(when);
+                        //end Претендент русского сервера
+
+                        break;
+                }
+            }
+        }
+
+
     }
 }

@@ -1,66 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
-    public class HardKitty : IServiceSingleton
+    public class HardKitty
     {
-        private readonly InGameGlobal _gameGlobal;
-        
-
-        public HardKitty(InGameGlobal gameGlobal)
-        {
-            _gameGlobal = gameGlobal;
-        }
-
-        public Task InitializeAsync()
-        {
-            return Task.CompletedTask;
-        }
-
-    
-
-        public void HandleHardKittyAfter(GamePlayerBridgeClass player, GameClass game)
-        {
-            //Доебаться
-            var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x => x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
-
-            if (player.Status.WhoToAttackThisTurn != Guid.Empty)
-            {
-                if (player.Status.IsLostThisCalculation == player.Status.WhoToAttackThisTurn || player.Status.IsTargetBlocked == player.Status.WhoToAttackThisTurn || player.Status.IsTargetSkipped == player.Status.WhoToAttackThisTurn)
-                {
-                    var found = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == player.Status.WhoToAttackThisTurn);
-
-                    if (found != null)
-                        found.Series++;
-                    else
-                    {
-                        hardKitty.LostSeries.Add(new DoebatsyaSubClass(player.Status.WhoToAttackThisTurn));
-                    }
-                }
-            }
-
-            if (player.Status.IsWonThisCalculation != Guid.Empty && player.Status.IsWonThisCalculation == player.Status.WhoToAttackThisTurn)
-            {
-                var found = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == player.Status.WhoToAttackThisTurn);
-                if (found != null)
-                {
-                    if (found.Series > 0)
-                    {
-                        player.Status.AddRegularPoints(found.Series, "Доебаться", true);
-                        game.Phrases.HardKittyDoebatsyaPhrase.SendLog(player, false);
-                        found.Series = 0;
-                    }
-                }
-            }
-            //end Доебаться
-
-
-        }
-
         public class DoebatsyaClass
         {
             public ulong GameId;
@@ -102,10 +46,10 @@ namespace King_of_the_Garbage_Hill.Game.Characters
 
         public class LonelinessClass
         {
-            public ulong GameId;
-            public Guid PlayerId;
             public bool Activated;
             public List<LonelinessSubClass> AttackHistory;
+            public ulong GameId;
+            public Guid PlayerId;
 
             public LonelinessClass(Guid playerId, ulong gameId)
             {
@@ -127,6 +71,5 @@ namespace King_of_the_Garbage_Hill.Game.Characters
                 Times = 0;
             }
         }
-
     }
 }

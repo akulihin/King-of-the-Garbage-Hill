@@ -470,7 +470,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes
             
             if (howMuchToAdd > 0)
             {
-                status.AddInGamePersonalLogs($"Справедливость: +{howMuchToAdd}! {justricePhrases[new Random().Next(0, justricePhrases.Count)]}\n");
+                status.AddInGamePersonalLogs($"*Справедливость*: ***+ {howMuchToAdd}!***<:e_:562879579694301184>{justricePhrases[new Random().Next(0, justricePhrases.Count)]}\n");
             }
 
             if (JusticeNow < 0)

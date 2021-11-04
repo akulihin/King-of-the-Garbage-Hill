@@ -1,27 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 
 namespace King_of_the_Garbage_Hill.Game.Characters
 {
-    public class LolGod : IServiceSingleton
+    public class LolGod
     {
-        public Task InitializeAsync()
-        {
-            return Task.CompletedTask;
-        }
-
-        public void HandleLolGod(GamePlayerBridgeClass player)
-        {
-            //   throw new System.NotImplementedException();
-        }
-
-        public void HandleLolGodAfter(GamePlayerBridgeClass player)
-        {
-            //     throw new System.NotImplementedException();
-        }
-
         public class Udyr
         {
             public Udyr(Guid playerId, ulong gameId)

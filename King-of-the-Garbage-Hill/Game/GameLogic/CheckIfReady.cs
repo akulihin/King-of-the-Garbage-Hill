@@ -63,37 +63,34 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             return Task.CompletedTask;
         }
 
-        private async Task HandlePostGameEvents(GameClass game)
+        private void HandlePostGameEvents(GameClass game)
         {
             var playerWhoWon = game.PlayersList[0];
-           
+
             //if won phrases
             switch (playerWhoWon.Character.Name)
             {
                 case "HardKitty":
                     game.AddGlobalLogs("HarDKitty больше не одинок! Как много друзей!!!");
 
-                    var hard = _gameGlobal.HardKittyLoneliness.Find(x => x.GameId == game.GameId && x.PlayerId == playerWhoWon.Status.PlayerId);
+                    var hard = _gameGlobal.HardKittyLoneliness.Find(x =>
+                        x.GameId == game.GameId && x.PlayerId == playerWhoWon.Status.PlayerId);
 
                     if (hard != null)
-                    {
                         foreach (var enemy in game.PlayersList)
                         {
                             var hardEnemy = hard.AttackHistory.Find(x => x.EnemyId == enemy.Status.PlayerId);
                             if (hardEnemy == null)
-                            {
-                                game.PlayersList.Find(x => x.Status.PlayerId == hardEnemy.EnemyId).Status.AddInGamePersonalLogs($"HarDKitty больше не одинок! Вы принесли ему {hardEnemy.Times} очков.\n");
-                            }
+                                game.PlayersList.Find(x => x.Status.PlayerId == hardEnemy.EnemyId).Status
+                                    .AddInGamePersonalLogs(
+                                        $"HarDKitty больше не одинок! Вы принесли ему {hardEnemy.Times} очков.\n");
                         }
-                        
-                    }
-           
+
                     break;
             }
 
             //if lost phrases
             foreach (var player in game.PlayersList.Where(x => x.Status.PlaceAtLeaderBoard != 1))
-            {
                 switch (player.Character.Name)
                 {
                     case "HardKitty":
@@ -106,7 +103,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         player.Status.AddInGamePersonalLogs("Обоссанная игра, обоссанный баланс");
                         break;
                 }
-            }
 
             //unique
             if (game.PlayersList.Any(x => x.Character.Name == "DeepList") &&
@@ -116,21 +112,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var deepList = game.PlayersList.Find(x => x.Character.Name == "DeepList");
 
                 foreach (var deepListPredict in deepList.Predict)
-                {
                     if (mylorik.Predict.Any(x =>
                         x.PlayerId == deepListPredict.PlayerId && x.CharacterName == deepListPredict.CharacterName))
-                    {
-                        game.AddGlobalLogs("DeepList & mylorik: Гении мыслят одинакого или одно целое уничтожает воду.");
-                    }
-                }
+                        game.AddGlobalLogs(
+                            "DeepList & mylorik: Гении мыслят одинакого или одно целое уничтожает воду.");
             }
 
             if (playerWhoWon.Status.PlaceAtLeaderBoardHistory.Find(x => x.GameRound == 10).Place != 1)
-            {
                 game.AddGlobalLogs($"**{playerWhoWon.DiscordUsername}** вырывает **очко** на последних секундах!");
-            }
-
-
         }
 
 
@@ -232,16 +221,19 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
 
             for (var k = 0; k < game.PlayersList.Count; k++)
-                game.PlayersList[k].Status.PlaceAtLeaderBoardHistory.Add(new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo, game.PlayersList[k].Status.PlaceAtLeaderBoard));
+                game.PlayersList[k].Status.PlaceAtLeaderBoardHistory.Add(
+                    new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo,
+                        game.PlayersList[k].Status.PlaceAtLeaderBoard));
 
             game.WhoWon = game.PlayersList[0].Status.PlayerId;
+            HandlePostGameEvents(game);
+
             game.AddGlobalLogs(
                 game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList[0].Status.GetScore())
                     .Count > 1
                     ? "\n**Ничья**"
                     : $"\n**{game.PlayersList[0].DiscordUsername}** победил, играя за **{game.PlayersList[0].Character.Name}**");
-            
-            await HandlePostGameEvents(game);
+
 
             _finishedGameLog.CreateNewLog(game);
 
@@ -353,11 +345,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 var readyCount = 0;
                 foreach (var player in players.Where(x => !x.IsBot()))
                 {
-                    if(game.TimePassed.Elapsed.TotalSeconds < 3)
+                    if (game.TimePassed.Elapsed.TotalSeconds < 3)
                         continue;
                     if (game.TimePassed.Elapsed.TotalSeconds < 30 && !player.Status.ConfirmedSkip)
-                        continue;   
-                    if (player.Status.IsReady && player.Status.ConfirmedPredict) 
+                        continue;
+                    if (player.Status.IsReady && player.Status.ConfirmedPredict)
                         readyCount++;
                 }
 
@@ -370,7 +362,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 //handle bots
                 foreach (var t in players.Where(x => x.IsBot()))
-                {
                     try
                     {
                         await _botsBehavior.HandleBotBehavior(t, game);
@@ -382,7 +373,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                               $"{exception.Message}\n" +
                                               $"{exception.StackTrace}\n");
                     }
-                }
 
 
                 //If did do anything - Block
@@ -392,7 +382,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 {
                     _logs.Critical($"WARN: {t.DiscordUsername} didn't do anything!");
                     t.Status.IsBlock = true;
-                    t.Status.AddInGamePersonalLogs($"Ты поставил блок (Auto)\n");
+                    t.Status.AddInGamePersonalLogs("Ты поставил блок (Auto)\n");
                 }
 
                 //If did do anything - LvL up a random stat
@@ -441,10 +431,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                                 "Это последний раунд, когда можно сделать **предложение**!");
                         }
 
-                        if (game.RoundNo == 9)
-                        {
-                            t.Status.ConfirmedPredict = true;
-                        }
+                        if (game.RoundNo == 9) t.Status.ConfirmedPredict = true;
 
                         await _upd.UpdateMessage(t);
                     }

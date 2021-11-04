@@ -406,7 +406,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                 PassiveNameEng = passiveNameEng;
             }
 
-            public void SendLog(GamePlayerBridgeClass player, bool delete)
+            public void SendLog(GamePlayerBridgeClass player, bool delete, string prefix = "")
             {
                 
                 var description = PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)];
@@ -430,7 +430,7 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage
                     }
                 }
 
-                player.Status.AddInGamePersonalLogs($"{PassiveNameRus}: ");
+                player.Status.AddInGamePersonalLogs($"{PassiveNameRus}: {prefix}");
 
                 player.Status.AddInGamePersonalLogs($"{description}\n");
             }

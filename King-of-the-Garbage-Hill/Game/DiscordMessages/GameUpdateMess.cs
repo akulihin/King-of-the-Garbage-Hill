@@ -437,7 +437,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
 
                 foreach (var line in jewSplit)
                 {
-                    if (line.Contains("обычных"))
+                    if (line.Contains("**обычных** очков"))
                     {
                         temp += "Евреи...\n";
                     }
@@ -470,7 +470,29 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 text = temp;
             }
 
-            
+            if (text.Contains("**обычных** очков"))
+            {
+                var temp = "";
+                var jewSplit = text.Split('\n');
+
+                foreach (var line in jewSplit)
+                {
+                    if (!line.Contains("**обычных** очков"))
+                    {
+                        temp += line + "\n";
+                    }
+                }
+
+                foreach (var line in jewSplit)
+                {
+                    if (line.Contains("**обычных** очков"))
+                    {
+                        temp += line + "\n";
+                    }
+                }
+
+                text = temp;
+            }
 
             return text;
         }
