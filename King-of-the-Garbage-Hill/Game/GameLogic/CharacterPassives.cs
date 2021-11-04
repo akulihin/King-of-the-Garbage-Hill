@@ -844,8 +844,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         var lePuska = _gameGlobal.LeCrispImpact.Find(x =>
                             x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
 
-                        if (lePuska.ImpactTimes > 0)
-                            player.Character.AddMoral(player.Status, lePuska.ImpactTimes, "Импакт: ");
+                        
+                        player.Character.AddMoral(player.Status, lePuska.ImpactTimes+1, "Импакт: ");
                     }
 
                     //Импакт
