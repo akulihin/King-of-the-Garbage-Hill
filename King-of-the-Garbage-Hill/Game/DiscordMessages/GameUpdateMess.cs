@@ -494,7 +494,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
                 text = temp;
             }
 
-            return text;
+            return text.Replace("\n\n", "\n");
         }
 
 

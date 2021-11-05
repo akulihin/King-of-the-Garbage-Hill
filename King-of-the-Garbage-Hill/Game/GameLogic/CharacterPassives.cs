@@ -2081,8 +2081,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         if (rand == 1)
                         {
                             geblTea.Ready = true;
-                            game.Phrases.GlebTeaReadyPhrase.SendLog(player, true);
                         }
+                        
+                        if(geblTea.Ready)
+                            game.Phrases.GlebTeaReadyPhrase.SendLog(player, true);
                         //end  Я за чаем:
 
 
