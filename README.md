@@ -1,5 +1,8 @@
 #                                                       King of the Garbage Hill - Discord Game
 
+# Discord Server 
+https://discord.gg/YZFWdqD
+
 # English
 
 **Game Description:**
