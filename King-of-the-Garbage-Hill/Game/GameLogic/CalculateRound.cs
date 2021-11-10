@@ -308,29 +308,29 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 //main formula:
                 var me = player.Character;
                 var target = playerIamAttacking.Character;
+                double weighingMachine = 0;
 
-                var scaleMe = me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() +
-                              me.GetSkill() / 50;
-                var scaleTarget = target.GetIntelligence() + target.GetStrength() + target.GetSpeed() +
-                                  target.GetPsyche() + target.GetSkill() / 50;
-
-                var weighingMachine = scaleMe - scaleTarget;
+                var skillMultiplierMe = 1;
+                var skillMultiplierTarget= 1;
 
                 if (me.GetClassStatInt() == 0 && target.GetClassStatInt() == 2)
                 {
                     weighingMachine += 2;
+                    skillMultiplierMe = 2;
                     isContrLost -= 1;
                 }
 
                 if (me.GetClassStatInt() == 1 && target.GetClassStatInt() == 0)
                 {
                     weighingMachine += 2;
+                    skillMultiplierMe = 2;
                     isContrLost -= 1;
                 }
 
                 if (me.GetClassStatInt() == 2 && target.GetClassStatInt() == 1)
                 {
                     weighingMachine += 2;
+                    skillMultiplierMe = 2;
                     isContrLost -= 1;
                 }
 
@@ -338,20 +338,28 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 if (target.GetClassStatInt() == 0 && me.GetClassStatInt() == 2)
                 {
                     weighingMachine -= 2;
+                    skillMultiplierTarget = 2;
                     isContrLost += 1;
                 }
 
                 if (target.GetClassStatInt() == 1 && me.GetClassStatInt() == 0)
                 {
                     weighingMachine -= 2;
+                    skillMultiplierTarget = 2;
                     isContrLost += 1;
                 }
 
                 if (target.GetClassStatInt() == 2 && me.GetClassStatInt() == 1)
                 {
                     weighingMachine -= 2;
+                    skillMultiplierTarget = 2;
                     isContrLost += 1;
                 }
+
+
+                var scaleMe = me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() + me.GetSkill() * skillMultiplierMe / 50;
+                var scaleTarget = target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche() + target.GetSkill() * skillMultiplierTarget / 50;
+                weighingMachine += scaleMe - scaleTarget;
 
                 switch (WhoIsBetter(player, playerIamAttacking))
                 {
@@ -401,7 +409,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         break;
                 }
 
-                var wtf = scaleMe * (1 + (me.GetSkill() / 500 - target.GetSkill() / 500)) - scaleMe;
+                var wtf = scaleMe * (1 + (me.GetSkill() * skillMultiplierMe / 500 - target.GetSkill() * skillMultiplierTarget / 500)) - scaleMe;
                 weighingMachine += wtf;
 
 

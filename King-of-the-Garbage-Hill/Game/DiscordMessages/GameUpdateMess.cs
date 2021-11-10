@@ -106,7 +106,7 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages
             {
                 players += CustomLeaderBoardBeforeNumber(player, playersList[i], game, i + 1);
 
-                players += $"{i + 1}. {playersList[i].DiscordUsername}";
+                players += $"{i + 1}. {playersList[i].DiscordUsername.Replace("_", "\\_").Replace("*", "\\*").Replace("~", "\\~")}";
 
                 players += CustomLeaderBoardAfterPlayer(player, playersList[i], game);
 

@@ -336,11 +336,11 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
         {
             var contextPlayer = _accounts.GetAccount(Context.User);
 
-            if (!contextPlayer.PassedTutorial)
+            /*if (!contextPlayer.PassedTutorial)
             {
                 await SendMessAsync($"Извините! Для запуска игры, пожалуйста, сперва пройдите обучение - `*обучение`");
                 return;
-            }
+            }*/
 
             //_userAccounts.GetAccount(player.PlayerId).PassedTutorial = true;
             var players = new List<IUser>
