@@ -2,49 +2,48 @@
 using System.Threading.Tasks;
 using Discord.WebSocket;
 
-namespace King_of_the_Garbage_Hill.Helpers
+namespace King_of_the_Garbage_Hill.Helpers;
+
+public sealed class AwaitForUserMessage : IServiceSingleton
 {
-    public sealed class AwaitForUserMessage : IServiceSingleton
+    private readonly Global _global;
+
+    public AwaitForUserMessage(Global global)
     {
-        private readonly Global _global;
+        _global = global;
+    }
 
-        public AwaitForUserMessage(Global global)
+    public Task InitializeAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    public async Task<SocketMessage> AwaitMessage(ulong userId, ulong channelId, int delayInSeconds)
+    {
+        SocketMessage response = null;
+        var cancler = new CancellationTokenSource();
+        var waiter = Task.Delay(delayInSeconds * 1000, cancler.Token);
+
+        _global.Client.MessageReceived += OnMessageReceived;
+        try
         {
-            _global = global;
+            await waiter;
+        }
+        catch (TaskCanceledException)
+        {
         }
 
-        public Task InitializeAsync()
+        _global.Client.MessageReceived -= OnMessageReceived;
+
+        return response;
+
+        async Task OnMessageReceived(SocketMessage message)
         {
-            return Task.CompletedTask;
-        }
-
-        public async Task<SocketMessage> AwaitMessage(ulong userId, ulong channelId, int delayInSeconds)
-        {
-            SocketMessage response = null;
-            var cancler = new CancellationTokenSource();
-            var waiter = Task.Delay(delayInSeconds * 1000, cancler.Token);
-
-            _global.Client.MessageReceived += OnMessageReceived;
-            try
-            {
-                await waiter;
-            }
-            catch (TaskCanceledException)
-            {
-            }
-
-            _global.Client.MessageReceived -= OnMessageReceived;
-
-            return response;
-
-            async Task OnMessageReceived(SocketMessage message)
-            {
-                if (message.Author.Id != userId || message.Channel.Id != channelId)
-                    return;
-                response = message;
-                cancler.Cancel();
-                await Task.CompletedTask;
-            }
+            if (message.Author.Id != userId || message.Channel.Id != channelId)
+                return;
+            response = message;
+            cancler.Cancel();
+            await Task.CompletedTask;
         }
     }
 }

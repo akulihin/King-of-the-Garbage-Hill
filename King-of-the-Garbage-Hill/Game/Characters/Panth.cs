@@ -1,6 +1,5 @@
-﻿namespace King_of_the_Garbage_Hill.Game.Characters
+﻿namespace King_of_the_Garbage_Hill.Game.Characters;
+
+public class Spartan
 {
-    public class Spartan
-    {
-    }
 }

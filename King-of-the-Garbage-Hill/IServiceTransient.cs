@@ -1,9 +1,8 @@
 ﻿using System.Threading.Tasks;
 
-namespace King_of_the_Garbage_Hill
+namespace King_of_the_Garbage_Hill;
+
+public interface IServiceTransient
 {
-    public interface IServiceTransient
-    {
-        Task InitializeAsync();
-    }
+    Task InitializeAsync();
 }

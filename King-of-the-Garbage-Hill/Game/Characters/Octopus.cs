@@ -2,83 +2,82 @@
 using System.Collections.Generic;
 using King_of_the_Garbage_Hill.Game.Classes;
 
-namespace King_of_the_Garbage_Hill.Game.Characters
+namespace King_of_the_Garbage_Hill.Game.Characters;
+
+public class Octopus
 {
-    public class Octopus
+    public class InvulnerabilityClass
     {
-        public class InvulnerabilityClass
+        public int Count;
+        public ulong GameId;
+        public Guid PlayerId;
+
+
+        public InvulnerabilityClass(Guid playerId, ulong gameId)
         {
-            public int Count;
-            public ulong GameId;
-            public Guid PlayerId;
+            PlayerId = playerId;
+            GameId = gameId;
+            Count = 1;
+        }
+    }
+
+    public class InkClass
+    {
+        public ulong GameId;
+        public Guid PlayerId;
+        public List<InkSubClass> RealScoreList = new();
+
+        public InkClass(Guid playerId, GameClass game, Guid enemyPlayerId)
+        {
+            PlayerId = playerId;
+            GameId = game.GameId;
+            RealScoreList.Add(new InkSubClass(enemyPlayerId, game.RoundNo, -1));
+            RealScoreList.Add(new InkSubClass(playerId, game.RoundNo, 1));
+        }
+    }
+
+    public class InkSubClass
+    {
+        public Guid PlayerId;
+        public int RealScore;
 
 
-            public InvulnerabilityClass(Guid playerId, ulong gameId)
-            {
-                PlayerId = playerId;
-                GameId = gameId;
-                Count = 1;
-            }
+        public InkSubClass(Guid playerDiscordId, int roundNo, int realScore)
+        {
+            if (roundNo <= 4)
+                realScore = realScore * 1; // Why????????????????????????
+            else if (roundNo <= 9)
+                realScore = realScore * 2;
+            else if (roundNo == 10)
+                realScore = realScore * 4;
+
+            PlayerId = playerDiscordId;
+            RealScore = realScore;
         }
 
-        public class InkClass
+        public void AddRealScore(int roundNo, int realScore = 1)
         {
-            public ulong GameId;
-            public Guid PlayerId;
-            public List<InkSubClass> RealScoreList = new();
+            if (roundNo <= 4)
+                realScore = realScore * 1; // Why????????????????????????
+            else if (roundNo <= 9)
+                realScore = realScore * 2;
+            else if (roundNo == 10)
+                realScore = realScore * 4;
 
-            public InkClass(Guid playerId, GameClass game, Guid enemyPlayerId)
-            {
-                PlayerId = playerId;
-                GameId = game.GameId;
-                RealScoreList.Add(new InkSubClass(enemyPlayerId, game.RoundNo, -1));
-                RealScoreList.Add(new InkSubClass(playerId, game.RoundNo, 1));
-            }
+            RealScore += realScore;
         }
+    }
 
-        public class InkSubClass
+    public class TentaclesClass
+    {
+        public ulong GameId;
+        public List<int> LeaderboardPlace = new();
+        public Guid PlayerId;
+
+        public TentaclesClass(Guid playerId, ulong gameId)
         {
-            public Guid PlayerId;
-            public int RealScore;
-
-
-            public InkSubClass(Guid playerDiscordId, int roundNo, int realScore)
-            {
-                if (roundNo <= 4)
-                    realScore = realScore * 1; // Why????????????????????????
-                else if (roundNo <= 9)
-                    realScore = realScore * 2;
-                else if (roundNo == 10)
-                    realScore = realScore * 4;
-
-                PlayerId = playerDiscordId;
-                RealScore = realScore;
-            }
-
-            public void AddRealScore(int roundNo, int realScore = 1)
-            {
-                if (roundNo <= 4)
-                    realScore = realScore * 1; // Why????????????????????????
-                else if (roundNo <= 9)
-                    realScore = realScore * 2;
-                else if (roundNo == 10)
-                    realScore = realScore * 4;
-
-                RealScore += realScore;
-            }
-        }
-
-        public class TentaclesClass
-        {
-            public ulong GameId;
-            public List<int> LeaderboardPlace = new();
-            public Guid PlayerId;
-
-            public TentaclesClass(Guid playerId, ulong gameId)
-            {
-                PlayerId = playerId;
-                GameId = gameId;
-            }
+            PlayerId = playerId;
+            GameId = gameId;
         }
     }
 }
