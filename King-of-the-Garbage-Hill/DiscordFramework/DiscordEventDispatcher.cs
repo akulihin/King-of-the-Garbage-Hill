@@ -66,7 +66,6 @@ public sealed class DiscordEventDispatcher : IServiceSingleton
         _client.UserBanned += UserBanned;
         _client.UserIsTyping += UserIsTyping;
         _client.UserJoined += UserJoined;
-        _client.UserLeft += UserLeft;
         _client.UserUnbanned += UserUnbanned;
         _client.UserUpdated += UserUpdated;
         _client.UserVoiceStateUpdated += UserVoiceStateUpdated;
@@ -248,9 +247,6 @@ public sealed class DiscordEventDispatcher : IServiceSingleton
     {
     }
 
-    private async Task UserLeft(SocketGuildUser user)
-    {
-    }
 
     private async Task UserUnbanned(SocketUser user, SocketGuild guild)
     {

@@ -23,7 +23,7 @@ public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
         {
             case null:
             {
-                var message = await Context.Channel.SendMessageAsync("", false, embed.Build(), component: components);
+                var message = await Context.Channel.SendMessageAsync("", false, embed.Build(), components: components);
 
 
                 UpdateGlobalCommandList(message, Context);

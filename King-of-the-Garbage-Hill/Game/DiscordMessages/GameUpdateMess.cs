@@ -438,7 +438,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         text = text.Replace($"{passive.PassiveName}", "❓");
             }
 
-        if (text.Contains("Евреи..."))
+        if (text.Contains("Евреи...") && text.Contains("**обычных** очков"))
         {
             text = text.Replace("Евреи...\n", "");
 
