@@ -105,9 +105,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         for (var i = 0; i < playersList.Count; i++)
         {
             players += CustomLeaderBoardBeforeNumber(player, playersList[i], game, i + 1);
-
+            var sanitizedDiscordUsername = playersList[i].DiscordUsername
+                .Replace("_", "")
+                .Replace("*", "")
+                .Replace("~", "")
+                .Replace("`", "")
+                .Replace(">", "");
             players +=
-                $"{i + 1}. {playersList[i].DiscordUsername.Replace("_", "\\_").Replace("*", "\\*").Replace("~", "\\~")}";
+                $"{i + 1}. {sanitizedDiscordUsername}";
 
             players += CustomLeaderBoardAfterPlayer(player, playersList[i], game);
 
@@ -438,21 +443,6 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         text = text.Replace($"{passive.PassiveName}", "❓");
             }
 
-        if (text.Contains("Евреи...") && text.Contains("**обычных** очков"))
-        {
-            text = text.Replace("Евреи...\n", "");
-
-            var temp = "";
-            var jewSplit = text.Split('\n');
-
-            foreach (var line in jewSplit)
-            {
-                if (line.Contains("**обычных** очков")) temp += "Евреи...\n";
-                temp += line + "\n";
-            }
-
-            text = temp;
-        }
 
         if (text.Contains("Класс:"))
         {
@@ -475,6 +465,41 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             temp += $"Класс: +{totalClass} *Cкилла*\n";
             text = temp;
         }
+
+
+        if (text.Contains("Cкилла"))
+        {
+            var temp = "";
+            var jewSplit = text.Split('\n');
+
+            foreach (var line in jewSplit)
+                if (!line.Contains("Cкилла"))
+                    temp += line + "\n";
+
+            foreach (var line in jewSplit)
+                if (line.Contains("Cкилла"))
+                    temp += line + "\n";
+
+            text = temp;
+        }
+
+
+        if (text.Contains("Евреи..."))
+        {
+            var temp = "";
+            var jewSplit = text.Split('\n');
+
+            foreach (var line in jewSplit)
+                if (!line.Contains("Евреи..."))
+                    temp += line + "\n";
+
+            foreach (var line in jewSplit)
+                if (line.Contains("Евреи..."))
+                    temp += line + "\n";
+
+            text = temp;
+        }
+
 
         if (text.Contains("**обычных** очков"))
         {

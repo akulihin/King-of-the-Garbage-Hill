@@ -129,8 +129,17 @@ public class CalculateRound : IServiceSingleton
                 _characterPassives.HandleCharacterAfterFight(player, game);
                 ResetFight(player);
                 await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
-                    .SendMessageAsync("playerIamAttacking == null\n" +
-                                      "");
+                    .SendMessageAsync(
+                        $"{player.DiscordUsername} as {player.Character.Name} - playerIamAttacking == null\n");
+                await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
+                    .SendMessageAsync(
+                        $"{player.DiscordUsername} as {player.Character.Name} - playerIamAttacking == null\n" +
+                        $"{game.PlayersList[0].Character.Name} attacks {game.PlayersList.Find(x => x.Status.PlayerId == game.PlayersList[0].Status.WhoToAttackThisTurn)?.Character.Name}\n" +
+                        $"{game.PlayersList[1].Character.Name} attacks {game.PlayersList.Find(x => x.Status.PlayerId == game.PlayersList[1].Status.WhoToAttackThisTurn)?.Character.Name}\n" +
+                        $"{game.PlayersList[2].Character.Name} attacks {game.PlayersList.Find(x => x.Status.PlayerId == game.PlayersList[2].Status.WhoToAttackThisTurn)?.Character.Name}\n" +
+                        $"{game.PlayersList[3].Character.Name} attacks {game.PlayersList.Find(x => x.Status.PlayerId == game.PlayersList[3].Status.WhoToAttackThisTurn)?.Character.Name}\n" +
+                        $"{game.PlayersList[4].Character.Name} attacks {game.PlayersList.Find(x => x.Status.PlayerId == game.PlayersList[4].Status.WhoToAttackThisTurn)?.Character.Name}\n" +
+                        $"{game.PlayersList[5].Character.Name} attacks {game.PlayersList.Find(x => x.Status.PlayerId == game.PlayersList[5].Status.WhoToAttackThisTurn)?.Character.Name}\n");
                 continue;
             }
 
