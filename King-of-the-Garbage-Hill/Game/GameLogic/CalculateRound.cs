@@ -110,8 +110,7 @@ public class CalculateRound : IServiceSingleton
             var isTooGoodEnemy = false;
             var isContrLost = 0;
             var isTooGoodLost = 0;
-            var playerIamAttacking =
-                game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
+            var playerIamAttacking = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
 
 
             //if block => no one gets points, and no redundant playerAttacked variable
@@ -126,21 +125,28 @@ public class CalculateRound : IServiceSingleton
             //This is a bug!
             if (playerIamAttacking == null)
             {
-                _characterPassives.HandleCharacterAfterFight(player, game);
-                ResetFight(player);
                 await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
                     .SendMessageAsync(
                         $"{player.DiscordUsername} as {player.Character.Name} - playerIamAttacking == null\n");
+                while (true)
+                {
+                    var bugAttack = game.PlayersList[_rand.Random(0, 5)].Status.PlayerId;
+
+                    if (game.PlayersList.Find(x => x.Status.PlayerId == bugAttack).Character.Name == "Тигр" &&
+                        game.RoundNo == 10)
+                        continue;
+
+                    if (bugAttack == player.Status.PlayerId) continue;
+
+                    player.Status.WhoToAttackThisTurn = bugAttack;
+                    playerIamAttacking =
+                        game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
+                    break;
+                }
+
                 await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
                     .SendMessageAsync(
-                        $"{player.DiscordUsername} as {player.Character.Name} - playerIamAttacking == null\n" +
-                        $"{game.PlayersList[0].Character.Name} attacks {game.PlayersList.Find(x => x.Status.PlayerId == game.PlayersList[0].Status.WhoToAttackThisTurn)?.Character.Name}\n" +
-                        $"{game.PlayersList[1].Character.Name} attacks {game.PlayersList.Find(x => x.Status.PlayerId == game.PlayersList[1].Status.WhoToAttackThisTurn)?.Character.Name}\n" +
-                        $"{game.PlayersList[2].Character.Name} attacks {game.PlayersList.Find(x => x.Status.PlayerId == game.PlayersList[2].Status.WhoToAttackThisTurn)?.Character.Name}\n" +
-                        $"{game.PlayersList[3].Character.Name} attacks {game.PlayersList.Find(x => x.Status.PlayerId == game.PlayersList[3].Status.WhoToAttackThisTurn)?.Character.Name}\n" +
-                        $"{game.PlayersList[4].Character.Name} attacks {game.PlayersList.Find(x => x.Status.PlayerId == game.PlayersList[4].Status.WhoToAttackThisTurn)?.Character.Name}\n" +
-                        $"{game.PlayersList[5].Character.Name} attacks {game.PlayersList.Find(x => x.Status.PlayerId == game.PlayersList[5].Status.WhoToAttackThisTurn)?.Character.Name}\n");
-                continue;
+                        $"{player.DiscordUsername} as {player.Character.Name} - wil attack {game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn).DiscordUsername} as {game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn).Character.Name}\n");
             }
 
 

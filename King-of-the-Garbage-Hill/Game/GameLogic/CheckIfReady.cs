@@ -383,9 +383,31 @@ public class CheckIfReady : IServiceSingleton
                          t.Status.WhoToAttackThisTurn == Guid.Empty && t.Status.IsBlock == false &&
                          t.Status.IsSkip == false))
             {
-                _logs.Critical($"WARN: {t.DiscordUsername} didn't do anything!");
+                _logs.Critical($"\nWARN: {t.DiscordUsername} didn't do anything!\n");
+
+
                 t.Status.IsBlock = true;
-                t.Status.AddInGamePersonalLogs("Ты поставил блок (Auto)\n");
+                t.Status.IsReady = true;
+                t.Status.IsAbleToTurn = false;
+                var randomIndex = _random.Random(1, 10);
+                if (t.Character.Name == "mylorik" || randomIndex > 5)
+                {
+                    t.Status.IsBlock = false;
+                    t.Status.WhoToAttackThisTurn = game.PlayersList[0].Status.PlayerId;
+
+                    if (t.Status.WhoToAttackThisTurn == t.Status.PlayerId)
+                    {
+                        t.Status.WhoToAttackThisTurn = game.PlayersList[_random.Random(1, 5)].Status.PlayerId;
+                    }
+
+                    t.Status.AddInGamePersonalLogs($"Ты напал на игрока {game.PlayersList.Find(x => x.Status.PlayerId == t.Status.WhoToAttackThisTurn).DiscordUsername} (Auto)\n");
+                }
+                else
+                {
+                    t.Status.AddInGamePersonalLogs("Ты поставил блок (Auto)\n");
+                }
+
+                
             }
 
             //If did do anything - LvL up a random stat

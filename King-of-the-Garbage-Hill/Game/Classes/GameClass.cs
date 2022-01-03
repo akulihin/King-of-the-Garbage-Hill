@@ -30,7 +30,7 @@ public class GameClass
         WhoWon = Guid.Empty;
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "версия 1.0";
+        GameVersion = "версия 1.1";
     }
 
     public int RoundNo { get; set; }
