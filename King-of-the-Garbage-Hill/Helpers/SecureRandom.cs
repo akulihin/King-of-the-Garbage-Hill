@@ -11,13 +11,14 @@ public class SecureRandom : IServiceTransient
         return Task.CompletedTask;
     }
 
-    public int Random(int minValue, int maxExclusiveValue)
+    public int Random(int minValue, int maxValue)
     {
-        if (minValue == maxExclusiveValue) return minValue;
-        if (minValue > maxExclusiveValue)
-            throw new ArgumentOutOfRangeException($"{nameof(minValue)} must be lower than {nameof(maxExclusiveValue)}");
+        maxValue += 1;
+        if (minValue == maxValue) return minValue;
+        if (minValue > maxValue)
+            throw new ArgumentOutOfRangeException($"{nameof(minValue)} must be lower than {nameof(maxValue)}");
 
-        var diff = (long)maxExclusiveValue - minValue;
+        var diff = (long)maxValue - minValue;
         var upperBound = uint.MaxValue / diff * diff;
 
         uint ui;

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 
@@ -398,6 +399,24 @@ public class CharactersUniquePhrase
         public string PassiveNameEng;
         public string PassiveNameRus;
 
+        public int Random(int minValue, int maxValue)
+        {
+            maxValue += 1;
+            if (minValue == maxValue) return minValue;
+            if (minValue > maxValue)
+                throw new ArgumentOutOfRangeException($"{nameof(minValue)} must be lower than {nameof(maxValue)}");
+
+            var diff = (long)maxValue - minValue;
+            var upperBound = uint.MaxValue / diff * diff;
+
+            uint ui;
+            do
+            {
+                ui = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(24), 0);
+            } while (ui >= upperBound);
+
+            return (int)(minValue + ui % diff);
+        }
 
         public PhraseClass(string passiveNameRus, string passiveNameEng = "")
         {
@@ -407,7 +426,7 @@ public class CharactersUniquePhrase
 
         public void SendLog(GamePlayerBridgeClass player, bool delete, string prefix = "")
         {
-            var description = PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)];
+            var description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
 
             if (delete)
             {
@@ -423,7 +442,7 @@ public class CharactersUniquePhrase
                     i++;
                     if (!personalLogs.Contains(description))
                         break;
-                    description = PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)];
+                    description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
                 }
             }
 
@@ -436,7 +455,7 @@ public class CharactersUniquePhrase
         {
             if (player.Character.Name == "DeepList")
             {
-                var description = PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)];
+                var description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
 
                 if (delete)
                 {
@@ -452,7 +471,7 @@ public class CharactersUniquePhrase
                         i++;
                         if (!personalLogs.Contains(description))
                             break;
-                        description = PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)];
+                        description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
                     }
                 }
 
@@ -472,7 +491,7 @@ public class CharactersUniquePhrase
         {
             if (player.IsBot()) return;
 
-            var description = PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)];
+            var description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
             if (delete)
             {
                 if (PassiveLogRus.Count > 1)
@@ -487,7 +506,7 @@ public class CharactersUniquePhrase
                     i++;
                     if (!personalLogs.Contains(description))
                         break;
-                    description = PassiveLogRus[new Random().Next(0, PassiveLogRus.Count)];
+                    description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
                 }
             }
 
