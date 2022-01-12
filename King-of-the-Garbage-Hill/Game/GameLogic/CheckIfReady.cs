@@ -330,7 +330,6 @@ public class CheckIfReady : IServiceSingleton
 
     private async void NotifyOwner(GameClass game)
     {
-        return;
         try
         {
             if (game.GameMode == "Bot")
