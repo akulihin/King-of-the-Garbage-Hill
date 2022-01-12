@@ -294,6 +294,7 @@ public class CharacterPassives : IServiceSingleton
                 if (spartanMark != null)
                     if (target.Status.IsBlock && spartanMark.FriendList.Contains(target.Status.PlayerId))
                     {
+                        spartanMark.BlockedPlayer = target.Status.PlayerId;
                         target.Status.IsAbleToWin = false;
                         target.Status.IsBlock = false;
                         game.Phrases.SpartanTheyWontLikeIt.SendLog(me, false);
@@ -511,10 +512,11 @@ public class CharacterPassives : IServiceSingleton
                 var spartanMark =
                     _gameGlobal.SpartanMark.Find(x => x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
                 if (spartanMark != null)
-                    if (target.Status.IsBlock && spartanMark.FriendList.Contains(target.Status.PlayerId))
+                    if (spartanMark.BlockedPlayer == target.Status.PlayerId)
                     {
                         target.Status.IsAbleToWin = true;
                         target.Status.IsBlock = true;
+                        spartanMark.BlockedPlayer = Guid.Empty;
                     }
                 //end Им это не понравится:
 
@@ -1155,10 +1157,10 @@ public class CharacterPassives : IServiceSingleton
                 //end Это привилегия - умереть от моей руки
 
                 //Им это не понравится: 
-                Spartan = _gameGlobal.SpartanMark.Find(x =>
+                var SpartanTheyWontLikeIt = _gameGlobal.SpartanMark.Find(x =>
                     x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
 
-                if (Spartan.FriendList.Contains(player.Status.IsWonThisCalculation))
+                if (SpartanTheyWontLikeIt.FriendList.Contains(player.Status.IsWonThisCalculation))
                 {
                     player.Status.AddRegularPoints(1, "Им это не понравится");
                     player.Status.AddBonusPoints(1, "Им это не понравится: ");

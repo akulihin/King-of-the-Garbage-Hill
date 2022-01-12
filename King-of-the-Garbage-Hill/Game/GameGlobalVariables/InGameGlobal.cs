@@ -73,7 +73,7 @@ public class InGameGlobal : IServiceSingleton
     public readonly List<Sirinoks.TrainingClass> SirinoksTraining = new();
 
     public readonly List<FriendsClass> SpartanFirstBlood = new();
-    public readonly List<FriendsClass> SpartanMark = new();
+    public readonly List<Spartan.TheyWontLikeIt> SpartanMark = new();
     public readonly List<FriendsClass> SpartanShame = new();
 
     public readonly List<Tigr.ThreeZeroClass> TigrThreeZeroList = new();
@@ -303,7 +303,7 @@ public class InGameGlobal : IServiceSingleton
                             enemy2 = player.Status.PlayerId;
                     } while (enemy2 == player.Status.PlayerId);
 
-                    SpartanMark.Add(new FriendsClass(player.Status.PlayerId, game.GameId, enemy1));
+                    SpartanMark.Add(new Spartan.TheyWontLikeIt(player.Status.PlayerId, game.GameId, enemy1));
                     var Spartan = SpartanMark.Find(x =>
                         x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
                     Spartan.FriendList.Add(enemy2);
