@@ -1735,8 +1735,10 @@ public class CharacterPassives : IServiceSingleton
                     }
 
 
-                    //end  Дерзкая школота:
-                    if (game.RoundNo > 1)
+                    //end  Дерзкая школота
+
+                    //Много выебывается
+                    if (true)
                     {
                         var noAttack = true;
 

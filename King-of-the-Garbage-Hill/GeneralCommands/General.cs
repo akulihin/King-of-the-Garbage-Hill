@@ -280,7 +280,7 @@ public class General : ModuleBaseCustom
         if (playersList.Any(x => x.Character.Name == "HardKitty"))
         {
             var tempHard = playersList.Find(x => x.Character.Name == "HardKitty");
-            tempHard.Status.HardKittyMinus(-20, "Никому не нужен: ");
+            //tempHard.Status.HardKittyMinus(-20, "Никому не нужен: ");
             tempHard.Status.AddInGamePersonalLogs("Никому не нужен: -50 *Морали*\n");
             var hardIndex = playersList.IndexOf(tempHard);
 

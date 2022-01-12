@@ -51,7 +51,7 @@ public sealed class HelperFunctions : IServiceSingleton
         "xsirh925",
         "qsiL",
         "Accessner",
-        "Ninja_ProR3",
+        "ProR3",
         "Tonuu",
         "VelocityTTK",
         "Phenomenal Jay",
@@ -129,14 +129,14 @@ public sealed class HelperFunctions : IServiceSingleton
         "Angelbabyluv",
         "Exotic Khvostov",
         "TheFinalRemedy",
-        "The_Christer",
+        "Christer",
         "Call me TALL",
         "Crimson",
         "LordZiltoid",
         "DrugDebatesInc",
         "Csyclone",
         "MOROCCAFELLA",
-        "diabeetus_ninja",
+        "ninja",
         "VortexVR",
         "Bunny",
         "Hanwoo",
@@ -160,7 +160,7 @@ public sealed class HelperFunctions : IServiceSingleton
         "Tata",
         "Lion",
         "Buttercup",
-        "Bebe",
+        "BaBa",
         "Toots",
         "Skunk",
         "Skinny Minny",
@@ -270,6 +270,7 @@ public sealed class HelperFunctions : IServiceSingleton
         } while (account.IsPlaying);
 
         account.DiscordUserName = name;
+
 
         return account;
     }

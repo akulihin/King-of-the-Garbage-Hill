@@ -61,11 +61,11 @@ public sealed class UserAccountsDataStorage : IServiceSingleton
 
         foreach (var file in filePaths)
         {
+            var id = Convert.ToUInt64(file.Split("-")[1].Split(".")[0]);
+            if (id == 0) continue;
+
             var json = File.ReadAllText(file);
 
-            var id = Convert.ToUInt64(file.Split("-")[1].Split(".")[0]);
-
-            if (id == 0) continue;
 
             try
             {
