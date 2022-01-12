@@ -102,7 +102,7 @@ public class AdminPanel : ModuleBaseCustom
         foreach (var player in playersList) await _upd.WaitMess(player, playersList);
 
         //создаем игру
-        var game = new GameClass(playersList, gameId) { IsCheckIfReady = false };
+        var game = new GameClass(playersList, gameId, Context.User.Id) { IsCheckIfReady = false };
 
 
         //start the timer

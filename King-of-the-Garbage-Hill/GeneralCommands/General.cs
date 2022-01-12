@@ -133,16 +133,13 @@ public class General : ModuleBaseCustom
             {
                 var range = GetRangeFromTier(character.Tier);
                 if (character.Tier == 4 && account.IsBot()) range *= 3;
-                var temp = totalPool +
-                    Convert.ToInt32(range * account.CharacterChance.Find(x => x.CharacterName == character.Name)
-                        .Multiplier) - 1;
+                var temp = totalPool + Convert.ToInt32(range * account.CharacterChance.Find(x => x.CharacterName == character.Name).Multiplier) - 1;
                 allAvailableCharacters.Add(new DiscordAccountClass.CharacterRollClass(character.Name, totalPool, temp));
                 totalPool = temp + 1;
             }
 
-            var randomIndex = _secureRandom.Random(1, totalPool);
-            var rolledCharacter = allAvailableCharacters.Find(x =>
-                randomIndex >= x.CharacterRangeMin && randomIndex <= x.CharacterRangeMax);
+            var randomIndex = _secureRandom.Random(1, totalPool-1);
+            var rolledCharacter = allAvailableCharacters.Find(x => randomIndex >= x.CharacterRangeMin && randomIndex <= x.CharacterRangeMax);
             var characterToAssign = allCharacters.Find(x => x.Name == rolledCharacter.CharacterName);
 
             switch (characterToAssign.Name)
@@ -398,7 +395,7 @@ public class General : ModuleBaseCustom
         foreach (var player in playersList) await _upd.WaitMess(player, playersList);
 
         //создаем игру
-        var game = new GameClass(playersList, gameId) { IsCheckIfReady = false };
+        var game = new GameClass(playersList, gameId, Context.User.Id) { IsCheckIfReady = false };
 
 
         //start the timer
@@ -413,6 +410,89 @@ public class General : ModuleBaseCustom
 
         foreach (var player in playersList) await _upd.UpdateMessage(player);
         game.IsCheckIfReady = true;
+    }
+
+
+    [Command("stb")]
+    [Summary("запуск игры")]
+    public async Task StartGame()
+    {
+        for (int jj = 0; jj < 10; jj++)
+        {
+            var contextPlayer = _accounts.GetAccount(Context.User);
+
+            /*if (!contextPlayer.PassedTutorial)
+            {
+                await SendMessAsync($"Извините! Для запуска игры, пожалуйста, сперва пройдите обучение - `*обучение`");
+                return;
+            }*/
+
+            //_userAccounts.GetAccount(player.PlayerId).PassedTutorial = true;
+            var players = new List<IUser>
+        {
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        };
+
+            foreach (var player in players.Where(player => player != null).Where(player => player.IsBot))
+            {
+                await SendMessAsync($"ERROR: {player.Mention}  is a bot!");
+                return;
+            }
+
+            foreach (var player in players.Where(player => player != null && player.Id != Context.User.Id))
+                if (_accounts.GetAccount(player.Id).IsPlaying)
+                {
+                    await SendMessAsync($"ERROR: {player.Mention}  сейчас играет!");
+                    return;
+                }
+
+
+            //Заменить игрока на бота
+            foreach (var player in players.Where(p => p != null)) _helperFunctions.SubstituteUserWithBot(player.Id);
+
+            //получаем gameId
+            var gameId = _global.GetNewtGamePlayingAndId();
+
+            //ролл персонажей для игры
+            var playersList = HandleCharacterRoll(players, gameId);
+
+
+            //тасуем игроков
+            playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
+            playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+            playersList = HandleEventsBeforeFirstRound(playersList);
+
+            //выдаем место в таблице
+            for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
+
+            //это нужно для ботов
+            _gameGlobal.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
+
+            //отправить меню игры
+            foreach (var player in playersList) await _upd.WaitMess(player, playersList);
+
+            //создаем игру
+            var game = new GameClass(playersList, gameId, Context.User.Id, 300, "Bot") { IsCheckIfReady = false };
+
+
+            //start the timer
+            game.TimePassed.Start();
+            _global.GamesList.Add(game);
+
+            //get all the chances before the game starts
+            _gameGlobal.CalculatePassiveChances(game);
+
+            //handle round #0
+            await _characterPassives.HandleNextRound(game);
+
+            foreach (var player in playersList) await _upd.UpdateMessage(player);
+            game.IsCheckIfReady = true;
+        }
     }
 
 

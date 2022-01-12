@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
+using Discord;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
@@ -26,6 +27,7 @@ public class CheckIfReady : IServiceSingleton
     private readonly CalculateRound _round;
     private readonly GameUpdateMess _upd;
     public Timer LoopingTimer;
+    private bool _looping = false;
 
     public CheckIfReady(Global global, GameUpdateMess upd, CalculateRound round, FinishedGameLog finishedGameLog,
         GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, LoginFromConsole logs, UserAccounts accounts,
@@ -80,7 +82,7 @@ public class CheckIfReady : IServiceSingleton
                     foreach (var enemy in game.PlayersList)
                     {
                         var hardEnemy = hard.AttackHistory.Find(x => x.EnemyId == enemy.Status.PlayerId);
-                        if (hardEnemy == null)
+                        if (hardEnemy != null)
                             game.PlayersList.Find(x => x.Status.PlayerId == hardEnemy.EnemyId).Status
                                 .AddInGamePersonalLogs(
                                     $"HarDKitty больше не одинок! Вы принесли ему {hardEnemy.Times} очков.\n");
@@ -322,11 +324,43 @@ public class CheckIfReady : IServiceSingleton
         }
 
         _global.GamesList.Remove(game);
+        NotifyOwner(game);
+
     }
 
+    private async void NotifyOwner(GameClass game)
+    {
+        return;
+        try
+        {
+            if (game.GameMode == "Bot")
+            {
+                var channel = _global.Client.GetGuild(561282595799826432).GetTextChannel(930706511632691222);
+                await channel.SendMessageAsync($"Game #{game.GameId}\n" +
+                                               $"Vesrion: {game.GameVersion}\n" +
+                                               $"1. **{game.PlayersList[0].Character.Name} - {game.PlayersList[0].Status.GetScore()}**\n" +
+                                               $"2. {game.PlayersList[1].Character.Name} - {game.PlayersList[1].Status.GetScore()}\n" +
+                                               $"3. {game.PlayersList[2].Character.Name} - {game.PlayersList[2].Status.GetScore()}\n" +
+                                               $"4. {game.PlayersList[3].Character.Name} - {game.PlayersList[3].Status.GetScore()}\n" +
+                                               $"5. {game.PlayersList[4].Character.Name} - {game.PlayersList[4].Status.GetScore()}\n" +
+                                               $"6. {game.PlayersList[5].Character.Name} - {game.PlayersList[5].Status.GetScore()}\n<:e_:562879579694301184>\n");
+            }
+        }
+        catch
+        {
+            //
+        }
+    }
+    
 
     private async void CheckIfEveryoneIsReady(object sender, ElapsedEventArgs e)
     {
+        if (_looping)
+        {
+            return;
+        }
+        _looping = true;
+
         var games = _global.GamesList;
 
         for (var i = 0; i < games.Count; i++)
@@ -469,5 +503,7 @@ public class CheckIfReady : IServiceSingleton
 
             game.IsCheckIfReady = true;
         }
+
+        _looping = false;
     }
 }

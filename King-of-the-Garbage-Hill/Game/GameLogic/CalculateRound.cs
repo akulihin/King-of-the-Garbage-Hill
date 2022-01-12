@@ -125,11 +125,11 @@ public class CalculateRound : IServiceSingleton
             //This is a bug!
             if (playerIamAttacking == null)
             {
-                await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
-                    .SendMessageAsync(
-                        $"{player.DiscordUsername} as {player.Character.Name} - playerIamAttacking == null\n");
+                //await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result.SendMessageAsync($"{player.DiscordUsername} as {player.Character.Name} - playerIamAttacking == null\n");
+                
                 while (true)
                 {
+                    
                     var bugAttack = game.PlayersList[_rand.Random(0, 5)].Status.PlayerId;
 
                     if (game.PlayersList.Find(x => x.Status.PlayerId == bugAttack).Character.Name == "Тигр" &&
@@ -144,9 +144,7 @@ public class CalculateRound : IServiceSingleton
                     break;
                 }
 
-                await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
-                    .SendMessageAsync(
-                        $"{player.DiscordUsername} as {player.Character.Name} - wil attack {game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn).DiscordUsername} as {game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn).Character.Name}\n");
+                //await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result.SendMessageAsync($"{player.DiscordUsername} as {player.Character.Name} - wil attack {game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn).DiscordUsername} as {game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn).Character.Name}\n");
             }
 
 
