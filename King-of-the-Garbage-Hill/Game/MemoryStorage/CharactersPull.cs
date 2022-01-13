@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 
 namespace King_of_the_Garbage_Hill.Game.MemoryStorage;
 
-public class CharactersPull : IServiceTransient
+public class CharactersPull : IServiceSingleton
 {
     public async Task InitializeAsync()
     {

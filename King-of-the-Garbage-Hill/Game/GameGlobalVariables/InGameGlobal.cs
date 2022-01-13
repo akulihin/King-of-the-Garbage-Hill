@@ -145,19 +145,23 @@ public class InGameGlobal : IServiceSingleton
         //mandatory times
         for (var i = 0; i < mandatoryTimes; i++)
         {
-            when = _rand.Random(firstRound, lastRound);
-            if (toTriggerClass.WhenToTrigger.Any(x => x == when)) continue;
-            toTriggerClass.WhenToTrigger.Add(when);
-            break;
+            while (true)
+            {
+                when = _rand.Random(firstRound, lastRound);
+                if (toTriggerClass.WhenToTrigger.Any(x => x == when)) continue;
+                toTriggerClass.WhenToTrigger.Add(when);
+                break;
+            }
         }
         //end mandatory times
 
         //additional times
+        var target = _rand.Random(1, range);
         for (var i = 0; i < maxAdditionalTimes; i++)
         {
             var rand = _rand.Random(1, range);
+            if (rand != target) continue;
 
-            if (rand != 1) continue;
             while (true)
             {
                 when = _rand.Random(firstRound, lastRound);
