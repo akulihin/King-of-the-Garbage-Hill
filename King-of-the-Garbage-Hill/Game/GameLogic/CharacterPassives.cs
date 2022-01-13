@@ -45,6 +45,22 @@ public class CharacterPassives : IServiceSingleton
 
         switch (characterName)
         {
+            case "Краборак":
+                //Панцирь
+                var сraboRackShell = _gameGlobal.CraboRackShell.Find(x => x.PlayerId == target.Status.PlayerId && target.GameId == x.GameId);
+                if (сraboRackShell != null)
+                {
+                    if (!сraboRackShell.FriendList.Contains(me.Status.PlayerId))
+                    {
+                        сraboRackShell.CurrentAttacker = me.Status.PlayerId;
+                        target.Character.AddMoral(target.Status, 3, "Панцирь: ", true);
+                        target.Character.AddExtraSkill(target.Status,  "Панцирь: ", 30, true);
+                        target.Status.IsSuperBlock = true;
+                    }
+                }
+                //end Панцирь
+                break;
+
             case "Братишка":
                 //Ничего не понимает: 
                 var shark = _gameGlobal.SharkBoole.Find(x =>
@@ -674,10 +690,24 @@ public class CharacterPassives : IServiceSingleton
         var characterName = player.Character.Name;
         switch (characterName)
         {
+            case "Краборак":
+                //Панцирь
+                var сraboRackShell = _gameGlobal.CraboRackShell.Find(x => x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
+                if (сraboRackShell != null)
+                {
+                    if (сraboRackShell.CurrentAttacker != Guid.Empty)
+                    {
+                        сraboRackShell.CurrentAttacker = Guid.Empty;
+                        player.Status.IsSuperBlock = false;
+                    }
+                }
+                //end Панцирь
+                break;
+
+
             case "DeepList":
                 //Сомнительная тактика
-                var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
-                    x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
+                var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x => x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
 
                 if (deep != null)
                     if (!deep.FriendList.Contains(player.Status.IsFighting) &&
@@ -1438,6 +1468,20 @@ public class CharacterPassives : IServiceSingleton
                     //end Претендент русского сервера
 
                     break;
+                case "Краборак":
+                    //Бокобуль:
+                    var craboRack = _gameGlobal.CraboRackSidewaysBooleList.Find(x => x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId && x.RoundItTriggered == game.RoundNo);
+
+                    if (craboRack != null)
+                    {
+                        var regularStats = craboRack.MadnessList.Find(x => x.Index == 1);
+                        var madStats = craboRack.MadnessList.Find(x => x.Index == 2);
+                        var speed = player.Character.GetSpeed() - madStats.Speed;
+                        player.Character.SetSpeed(player.Status, regularStats.Speed + speed, "Бокобуль: ", false);
+                        _gameGlobal.CraboRackSidewaysBooleList.Remove(craboRack);
+                    }
+                    //end Бокобуль
+                    break;
                 case "LeCrisp":
 
 
@@ -2151,6 +2195,31 @@ public class CharacterPassives : IServiceSingleton
                         }
 
                     //end Претендент русского сервера
+                    break;
+
+                case "Краборак":
+                    //Бокобуль:
+                    acc = _gameGlobal.CraboRackSidewaysBooleTriggeredWhen.Find(x =>
+                        x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
+                    if (acc != null)
+                        if (acc.WhenToTrigger.Contains(game.RoundNo))
+                        {
+                            var craboRack = _gameGlobal.CraboRackSidewaysBooleList.Find(x => x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                            //just check
+                            if (craboRack != null) _gameGlobal.CraboRackSidewaysBooleList.Remove(craboRack);
+
+                            _gameGlobal.CraboRackSidewaysBooleList.Add(new DeepList.Madness(player.Status.PlayerId, game.GameId, game.RoundNo));
+                            craboRack = _gameGlobal.CraboRackSidewaysBooleList.Find(x => x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                            craboRack.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.GetIntelligence(), player.Character.GetStrength(), player.Character.GetSpeed(), player.Character.GetPsyche()));
+
+
+                            var speed = 10;
+
+                            player.Character.SetSpeed(player.Status, speed, "Бокобуль: ");
+                            craboRack.MadnessList.Add(new DeepList.MadnessSub(2, player.Character.GetIntelligence(), player.Character.GetStrength(), speed, player.Character.GetPsyche()));
+                            game.Phrases.CraboRackSidewaysBoolePhrase.SendLog(player, true);
+                        }
+                    //end Бокобуль
                     break;
                 case "DeepList":
 

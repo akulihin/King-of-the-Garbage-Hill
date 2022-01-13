@@ -16,6 +16,7 @@ public class InGameStatus
         SocketMessageFromBot = null;
         Score = 0;
         IsBlock = false;
+        IsSuperBlock = false;
         IsAbleToTurn = true;
         PlaceAtLeaderBoard = 0;
         WhoToAttackThisTurn = Guid.Empty;
@@ -54,6 +55,8 @@ public class InGameStatus
     private int Score { get; set; }
     public Guid PlayerId { get; set; }
     public bool IsBlock { get; set; }
+
+    public bool IsSuperBlock { get; set; }
     public bool IsSkip { get; set; }
     public bool IsAbleToTurn { get; set; }
     public bool IsAbleToWin { get; set; }

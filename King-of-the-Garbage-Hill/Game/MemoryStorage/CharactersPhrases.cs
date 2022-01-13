@@ -91,6 +91,8 @@ public class CharactersUniquePhrase
     public PhraseClass VampyrSuckspenStake;
 
     public PhraseClass VampyrVampyr;
+
+    public PhraseClass CraboRackSidewaysBoolePhrase;
     //end
 
     public CharactersUniquePhrase()
@@ -387,6 +389,16 @@ public class CharactersUniquePhrase
         AwdkaTrying.PassiveLogRus.Add("В киберспорт!");
         AwdkaAfk.PassiveLogRus.Add("AFKA");
         AwdkaTrollingReady.PassiveLogRus.Add("троллинг готов к использованию");
+
+        CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("У них одни ренжевики!");
+        CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("На Полому!");
+        CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("*Кручусь на месте*");
+        CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("123");
+        CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("321");
+        CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("41");
+        CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("444");
+        CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("123");
+        CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("111");
         //end
     }
 

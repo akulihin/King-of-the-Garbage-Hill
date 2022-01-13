@@ -460,7 +460,29 @@ public class JusticeClass
 
 
     public void AddJusticeNow(InGameStatus status, int howMuchToAdd = 1)
-    {
+    {   
+        
+        //Болевой порог
+        if (status.CharacterName == "Краборак")
+        {
+            var rand = new Random();
+            var max = howMuchToAdd;
+            var extraPoints = 0;
+            for (var i = 0; i < max; i++)
+            {
+                var result = rand.Next(0, 2);
+                if (result != 0) continue;
+                howMuchToAdd--;
+                extraPoints++;
+            }
+
+            if(extraPoints > 0)
+                status.AddBonusPoints(extraPoints, "Болевой порог: ");
+            if(howMuchToAdd == 0)
+                return;
+        }
+        //end Болевой порог
+
         var justricePhrases = new List<string>
         {
             "Ты сможешь!", "Еще немного!", "Верь в себя!", "Верь в мою веру в тебя!",

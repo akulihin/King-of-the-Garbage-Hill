@@ -237,7 +237,7 @@ public class CalculateRound : IServiceSingleton
             }
 
             //if block => no one gets points
-            if (playerIamAttacking.Status.IsBlock && player.Status.IsAbleToWin)
+            if (playerIamAttacking.Status.IsBlock && player.Status.IsAbleToWin || playerIamAttacking.Status.IsSuperBlock)
             {
                 player.Status.IsTargetBlocked = playerIamAttacking.Status.PlayerId;
                 // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);

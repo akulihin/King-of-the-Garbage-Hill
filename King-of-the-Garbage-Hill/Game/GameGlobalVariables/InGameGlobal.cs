@@ -90,6 +90,10 @@ public class InGameGlobal : IServiceSingleton
     public readonly List<Vampyr.ScavengerClass> VampyrScavengerList = new();
 
 
+    public readonly List<WhenToTriggerClass> CraboRackSidewaysBooleTriggeredWhen = new();
+    public readonly List<DeepList.Madness> CraboRackSidewaysBooleList = new();
+    public readonly List<CraboRack.Shell> CraboRackShell = new();
+
     public InGameGlobal(SecureRandom rand)
     {
         _rand = rand;
@@ -315,8 +319,7 @@ public class InGameGlobal : IServiceSingleton
 
                     break;
                 case "DeepList":
-                    DeepListDoubtfulTactic.Add(new FriendsClass(player.Status.PlayerId,
-                        game.GameId));
+                    DeepListDoubtfulTactic.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
 
                     when = GetWhenToTrigger(player, true, 6, 2, false, 6);
                     DeepListSupermindTriggeredWhen.Add(when);
@@ -387,6 +390,16 @@ public class InGameGlobal : IServiceSingleton
                     GlebChallengerTriggeredWhen.Add(when);
                     //end Претендент русского сервера
 
+                    break;
+                case "Краборак":
+                    //Бокобуль
+                    when = GetWhenToTrigger(player, true, 4, 3, true, 10, true);
+                    CraboRackSidewaysBooleTriggeredWhen.Add(when);
+                    //end Бокобуль
+
+                    //Панцирь
+                    CraboRackShell.Add(new CraboRack.Shell(player.Status.PlayerId, game.GameId));
+                    //end Панцирь
                     break;
             }
         }
