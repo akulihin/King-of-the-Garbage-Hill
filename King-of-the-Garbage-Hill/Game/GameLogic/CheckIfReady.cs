@@ -22,7 +22,7 @@ public class CheckIfReady : IServiceSingleton
     private readonly GameUpdateMess _gameUpdateMess;
     private readonly Global _global;
     private readonly HelperFunctions _help;
-    private readonly LoginFromConsole _logs;
+    private readonly Logs _logs;
     private readonly SecureRandom _random;
     private readonly CalculateRound _round;
     private readonly GameUpdateMess _upd;
@@ -30,7 +30,7 @@ public class CheckIfReady : IServiceSingleton
     private bool _looping = false;
 
     public CheckIfReady(Global global, GameUpdateMess upd, CalculateRound round, FinishedGameLog finishedGameLog,
-        GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, LoginFromConsole logs, UserAccounts accounts,
+        GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, Logs logs, UserAccounts accounts,
         InGameGlobal gameGlobal, HelperFunctions help, SecureRandom random)
     {
         _global = global;

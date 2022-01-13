@@ -178,12 +178,12 @@ public sealed class HelperFunctions : IServiceSingleton
 
 
     private readonly Global _global;
-    private readonly LoginFromConsole _logs;
+    private readonly Logs _logs;
     private readonly SecureRandom _secureRandom;
 
 
     public HelperFunctions(Global global, UserAccounts accounts,
-        SecureRandom secureRandom, LoginFromConsole log)
+        SecureRandom secureRandom, Logs log)
     {
         _global = global;
         _accounts = accounts;

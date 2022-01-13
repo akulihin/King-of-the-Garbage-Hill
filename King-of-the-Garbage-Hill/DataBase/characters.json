@@ -585,7 +585,7 @@
       "JusticeForNextRound": 0,
       "IsWonThisRound": false
     },
-    "Avatar": "https://i.imgur.com/r54jtvA.png",
+    "Avatar": "https://cs10.pikabu.ru/post_img/2018/04/27/3/og_og_1524795730222225233.jpg",
     "Passive": [
       {
         "PassiveDescription": "Обороняется от первого нападения каждого уникального врага, получая 3 *Морали* и 30 *Скилла*",
@@ -609,6 +609,6 @@
       }
     ],
     "Description": "Краборак... Говорят он дружит со злой улиткой. \n\n\n",
-    "Tier": 5
+    "Tier": 3
   }
 ]

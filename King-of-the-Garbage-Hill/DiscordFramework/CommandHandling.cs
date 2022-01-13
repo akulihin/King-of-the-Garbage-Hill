@@ -20,13 +20,13 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
     private readonly CommandsInMemory _commandsInMemory;
     private readonly Global _global;
 
-    private readonly LoginFromConsole _log;
+    private readonly Logs _log;
     private readonly Scope _services;
 
 
     public CommandHandling(CommandService commands,
         DiscordShardedClient client, UserAccounts accounts, CommandsInMemory commandsInMemory,
-        Scope scope, LoginFromConsole log, Global global)
+        Scope scope, Logs log, Global global)
     {
         _commands = commands;
         _services = scope;

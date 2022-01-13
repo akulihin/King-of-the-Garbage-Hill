@@ -110,6 +110,7 @@ public class CharactersUniquePhrase
         VampyrNoAttack = new PhraseClass("СОсиновый кол");
         VampyrVampyr = new PhraseClass("Vampyr");
 
+
         SpartanShameMylorik = new PhraseClass("Искусство");
         SpartanDragonSlayer = new PhraseClass("2kxaoc");
         SpartanTheyWontLikeIt = new PhraseClass("Guard Break");
@@ -177,6 +178,8 @@ public class CharactersUniquePhrase
         DarksciLucky = new PhraseClass("Повезло");
         DarksciFuckThisGame = new PhraseClass("Да всё нахуй эту игру");
         DarksciDysmoral = new PhraseClass("Дизмораль");
+
+        CraboRackSidewaysBoolePhrase = new PhraseClass("Бокобуль");
         //end
 
         //add  as many phrases as you wany
@@ -393,12 +396,6 @@ public class CharactersUniquePhrase
         CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("У них одни ренжевики!");
         CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("На Полому!");
         CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("*Кручусь на месте*");
-        CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("123");
-        CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("321");
-        CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("41");
-        CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("444");
-        CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("123");
-        CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("111");
         //end
     }
 

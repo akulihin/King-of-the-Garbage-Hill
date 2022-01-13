@@ -20,14 +20,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     private readonly InGameGlobal _gameGlobal;
     private readonly Global _global;
     private readonly HelperFunctions _helperFunctions;
-    private readonly LoginFromConsole _log;
+    private readonly Logs _log;
 
     private readonly List<Emoji> _playerChoiceAttackList = new()
         { new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣"), new Emoji("4⃣"), new Emoji("5⃣"), new Emoji("6⃣") };
 
 
     public GameUpdateMess(UserAccounts accounts, Global global, InGameGlobal gameGlobal,
-        HelperFunctions helperFunctions, LoginFromConsole log)
+        HelperFunctions helperFunctions, Logs log)
     {
         _accounts = accounts;
         _global = global;

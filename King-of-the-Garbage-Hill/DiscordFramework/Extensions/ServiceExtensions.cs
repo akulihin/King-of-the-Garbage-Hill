@@ -25,7 +25,7 @@ public static class ServiceExtensions
 
         watchSingleton.Stop();
 
-        var log = new LoginFromConsole();
+        var log = new Logs();
         log.Info($"Singleton added count: {singletonServicesCount} ({watchSingleton.Elapsed:m\\:ss\\.ffff}s.)");
         return services;
     }
@@ -45,7 +45,7 @@ public static class ServiceExtensions
 
         watchTransient.Stop();
 
-        var log = new LoginFromConsole();
+        var log = new Logs();
         log.Info($"Transient added count: {transientServicesCount} ({watchTransient.Elapsed:m\\:ss\\.ffff}s.)");
         return services;
     }
@@ -79,7 +79,7 @@ public static class ServiceExtensions
 
         watchTransient.Stop();
 
-        var log = new LoginFromConsole();
+        var log = new Logs();
 
         log.Info(
             $"\nSingleton Initialized count: {singletonServicesCount} ({watchSingleton.Elapsed:m\\:ss\\.ffff}s.)");

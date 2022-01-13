@@ -12,7 +12,7 @@ using Discord;
 
 namespace King_of_the_Garbage_Hill.DiscordFramework;
 
-public sealed class LoginFromConsole : IServiceSingleton
+public sealed class Logs : IServiceSingleton
 {
     private readonly IReadOnlyDictionary<LogSeverity, string> _logAbbreviations =
         new Dictionary<LogSeverity, string>

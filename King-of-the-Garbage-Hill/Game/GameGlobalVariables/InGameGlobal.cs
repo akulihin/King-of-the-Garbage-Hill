@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameLogic;
@@ -13,6 +14,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 public class InGameGlobal : IServiceSingleton
 {
     private readonly SecureRandom _rand;
+    private readonly Logs _logs;
     public readonly List<WhenToTriggerClass> AwdkaAfkTriggeredWhen = new();
 
     public readonly List<Sirinoks.TrainingClass> AwdkaTeachToPlay = new();
@@ -94,9 +96,10 @@ public class InGameGlobal : IServiceSingleton
     public readonly List<DeepList.Madness> CraboRackSidewaysBooleList = new();
     public readonly List<CraboRack.Shell> CraboRackShell = new();
 
-    public InGameGlobal(SecureRandom rand)
+    public InGameGlobal(SecureRandom rand, Logs logs)
     {
         _rand = rand;
+        _logs = logs;
     }
 
     public Task InitializeAsync()
@@ -107,125 +110,63 @@ public class InGameGlobal : IServiceSingleton
     //TODO: 
     // 1) chnage IsManatory to 1 array and 1 loop instead of 3
     // 2) change the switch method to 1 loop
-    public WhenToTriggerClass GetWhenToTrigger(GamePlayerBridgeClass player, bool isMandatory, int maxRandomNumber,
-        int maxTimes, bool isMandatory2 = false, int lastRound = 10, bool isMandatory3 = false)
+    public WhenToTriggerClass GetWhenToTrigger(GamePlayerBridgeClass player, int mandatoryTimes, int maxAdditionalTimes, int range, int lastRound = 10, int firstRound = 1)
     {
+        if (lastRound > 10)
+        {
+            _logs.Critical("CRIT: lastRound > 10");
+            throw new IndexOutOfRangeException("lastRound > 10");
+        }
+        if (firstRound < 1)
+        {
+            _logs.Critical("CRIT: firstRound < 1");
+            throw new IndexOutOfRangeException("firstRound < 1");
+        }
+        if (mandatoryTimes + maxAdditionalTimes > lastRound)
+        {
+            _logs.Critical("CRIT: mandatoryTimes + maxAdditionalTimes > lastRound");
+            throw new IndexOutOfRangeException("mandatoryTimes + maxAdditionalTimes > lastRound");
+        }
+        if (maxAdditionalTimes > range)
+        {
+            _logs.Critical("CRIT: maxAdditionalTimes > range");
+            throw new IndexOutOfRangeException("maxAdditionalTimes > range");
+        }
+        if (mandatoryTimes < 0 || range < 0 || maxAdditionalTimes < 0 || lastRound < 0 )
+        {
+            _logs.Critical($"CRIT: less than 0! mandatoryTimes=={mandatoryTimes}, range=={range}, maxAdditionalTimes=={maxAdditionalTimes}, lastRound=={lastRound}");
+            throw new IndexOutOfRangeException($"CRIT: less than 0! mandatoryTimes=={mandatoryTimes}, range=={range}, maxAdditionalTimes=={maxAdditionalTimes}, lastRound=={lastRound}");
+        }
+
+
         var toTriggerClass = new WhenToTriggerClass(player.Status.PlayerId, player.GameId);
         int when;
-        var check = new List<int>();
 
-        //probably only for mitsuki
-        if (maxRandomNumber == 0)
+        //mandatory times
+        for (var i = 0; i < mandatoryTimes; i++)
         {
-            when = _rand.Random(2, lastRound);
-            if (lastRound >= 11 && when == 3 || when > 10) when = 10;
+            when = _rand.Random(firstRound, lastRound);
+            if (toTriggerClass.WhenToTrigger.Any(x => x == when)) continue;
             toTriggerClass.WhenToTrigger.Add(when);
-            return toTriggerClass;
+            break;
         }
+        //end mandatory times
 
-
-        if (isMandatory)
+        //additional times
+        for (var i = 0; i < maxAdditionalTimes; i++)
         {
-            when = _rand.Random(1, lastRound);
-            if (lastRound >= 11 && when == 3 || when > 10) when = 10;
-            check.Add(when);
-            toTriggerClass.WhenToTrigger.Add(when);
-        }
+            var rand = _rand.Random(1, range);
 
-        if (isMandatory2)
-        {
-            do
+            if (rand != 1) continue;
+            while (true)
             {
-                when = _rand.Random(1, lastRound);
-                if (lastRound >= 11 && when == 3 || when > 10) when = 10;
-            } while (check.Contains(when));
-
-            check.Add(when);
-            toTriggerClass.WhenToTrigger.Add(when);
-        }
-
-        if (isMandatory3)
-        {
-            do
-            {
-                when = _rand.Random(1, lastRound);
-                if (lastRound == 11 && when == 3 || when > 10) when = 10;
-            } while (check.Contains(when));
-
-            check.Add(when);
-            toTriggerClass.WhenToTrigger.Add(when);
-        }
-
-        var rand = _rand.Random(1, maxRandomNumber);
-        var times = 0;
-
-        switch (rand)
-        {
-            case 1 when maxTimes >= 1:
-            {
-                while (times < rand)
-                {
-                    when = _rand.Random(1, lastRound);
-                    if (lastRound == 11 && when == 3 || when > 10) when = 10;
-
-                    if (toTriggerClass.WhenToTrigger.All(x => x != when))
-                    {
-                        toTriggerClass.WhenToTrigger.Add(when);
-                        times++;
-                    }
-                }
-
-                break;
-            }
-            case 2 when maxTimes >= 2:
-            {
-                while (times < rand)
-                {
-                    when = _rand.Random(1, lastRound);
-                    if (lastRound == 11 && when == 3 || when > 10) when = 10;
-
-                    if (toTriggerClass.WhenToTrigger.All(x => x != when))
-                    {
-                        toTriggerClass.WhenToTrigger.Add(when);
-                        times++;
-                    }
-                }
-
-                break;
-            }
-            case 3 when maxTimes >= 3:
-            {
-                while (times < rand)
-                {
-                    when = _rand.Random(1, lastRound);
-                    if (lastRound == 11 && when == 3 || when > 10) when = 10;
-
-                    if (toTriggerClass.WhenToTrigger.All(x => x != when))
-                    {
-                        toTriggerClass.WhenToTrigger.Add(when);
-                        times++;
-                    }
-                }
-
-                break;
-            }
-            case 4 when maxTimes >= 4:
-            {
-                while (times < rand)
-                {
-                    when = _rand.Random(1, lastRound);
-                    if (lastRound == 11 && when == 3 || when > 10) when = 10;
-
-                    if (toTriggerClass.WhenToTrigger.All(x => x != when))
-                    {
-                        toTriggerClass.WhenToTrigger.Add(when);
-                        times++;
-                    }
-                }
-
+                when = _rand.Random(firstRound, lastRound);
+                if (toTriggerClass.WhenToTrigger.Any(x => x == when)) continue;
+                toTriggerClass.WhenToTrigger.Add(when);
                 break;
             }
         }
+        //end additional times
 
         return toTriggerClass;
     }
@@ -321,10 +262,10 @@ public class InGameGlobal : IServiceSingleton
                 case "DeepList":
                     DeepListDoubtfulTactic.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
 
-                    when = GetWhenToTrigger(player, true, 6, 2, false, 6);
+                    when = GetWhenToTrigger(player, 1, 2, 6,  6);
                     DeepListSupermindTriggeredWhen.Add(when);
 
-                    when = GetWhenToTrigger(player, true, 6, 2);
+                    when = GetWhenToTrigger(player, 1, 2, 6);
                     DeepListMadnessTriggeredWhen.Add(when);
 
                     break;
@@ -343,11 +284,11 @@ public class InGameGlobal : IServiceSingleton
                 case "Тигр":
                     TigrTwoBetterList.Add(
                         new FriendsClass(player.Status.PlayerId, game.GameId));
-                    when = GetWhenToTrigger(player, true, 10, 1);
+                    when = GetWhenToTrigger(player, 1, 1, 10, 9);
                     TigrTopWhen.Add(when);
                     break;
                 case "AWDKA":
-                    when = GetWhenToTrigger(player, false, 10, 1);
+                    when = GetWhenToTrigger(player, 0, 1, 10);
                     AwdkaAfkTriggeredWhen.Add(when);
                     AwdkaTrollingList.Add(new Awdka.TrollingClass(player.Status.PlayerId, game.GameId));
                     AwdkaTeachToPlayHistory.Add(
@@ -362,14 +303,14 @@ public class InGameGlobal : IServiceSingleton
                     break;
 
                 case "Mit*suki*":
-                    when = GetWhenToTrigger(player, true, 0, 0);
+                    when = GetWhenToTrigger(player, 1, 0, 0, 10, 2);
                     MitsukiNoPcTriggeredWhen.Add(when);
                     break;
 
                 case "Глеб":
                     GlebTea.Add(new Gleb.GlebTeaClass(player.Status.PlayerId, game.GameId));
                     //Спящее хуйло chance   
-                    when = GetWhenToTrigger(player, true, 3, 3);
+                    when = GetWhenToTrigger(player, 1, 3, 3);
                     GlebSleepingTriggeredWhen.Add(when);
 
                     //Претендент русского сервера
@@ -380,7 +321,7 @@ public class InGameGlobal : IServiceSingleton
                     bool flag;
                     do
                     {
-                        when = GetWhenToTrigger(player, true, 6, 3, true, 12);
+                        when = GetWhenToTrigger(player, 2, 3, 6);
                         flag = false;
                         for (var i = 0; i < li.Count; i++)
                             if (when.WhenToTrigger.Contains(li[i]))
@@ -393,7 +334,7 @@ public class InGameGlobal : IServiceSingleton
                     break;
                 case "Краборак":
                     //Бокобуль
-                    when = GetWhenToTrigger(player, true, 4, 3, true, 10, true);
+                    when = GetWhenToTrigger(player, 3, 3, 4);
                     CraboRackSidewaysBooleTriggeredWhen.Add(when);
                     //end Бокобуль
 

@@ -16,12 +16,12 @@ public class CharacterPassives : IServiceSingleton
     private readonly InGameGlobal _gameGlobal;
     private readonly GameUpdateMess _gameUpdateMess;
     private readonly HelperFunctions _help;
-    private readonly LoginFromConsole _log;
+    private readonly Logs _log;
     private readonly SecureRandom _rand;
 
 
     public CharacterPassives(SecureRandom rand, HelperFunctions help,
-        InGameGlobal gameGlobal, LoginFromConsole log, GameUpdateMess gameUpdateMess)
+        InGameGlobal gameGlobal, Logs log, GameUpdateMess gameUpdateMess)
     {
         _rand = rand;
         _help = help;
@@ -52,6 +52,7 @@ public class CharacterPassives : IServiceSingleton
                 {
                     if (!сraboRackShell.FriendList.Contains(me.Status.PlayerId))
                     {
+                        сraboRackShell.FriendList.Add(me.Status.PlayerId);
                         сraboRackShell.CurrentAttacker = me.Status.PlayerId;
                         target.Character.AddMoral(target.Status, 3, "Панцирь: ", true);
                         target.Character.AddExtraSkill(target.Status,  "Панцирь: ", 30, true);
