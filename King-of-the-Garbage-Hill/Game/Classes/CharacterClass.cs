@@ -18,10 +18,12 @@ public class CharacterClass
         Tier = tier;
         SkillMultiplier = 0;
         SkillFightMultiplier = 1;
+        ExtraWeight = 0;
     }
 
     public string Name { get; set; }
 
+    public int ExtraWeight { get; set; }
     private int Intelligence { get; set; }
     private string IntelligenceExtraText { get; set; }
     private int Psyche { get; set; }
@@ -477,7 +479,7 @@ public class JusticeClass
             }
 
             if(extraPoints > 0)
-                status.AddBonusPoints(extraPoints, "Болевой порог: ");
+                status.AddRegularPoints(extraPoints, "Болевой порог: ");
             if(howMuchToAdd == 0)
                 return;
         }

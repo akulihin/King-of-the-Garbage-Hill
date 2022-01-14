@@ -158,7 +158,7 @@ public class BotsBehavior : IServiceSingleton
             //won and too good
             if (player.Player.Status.WhoToLostEveryRound.Any(x =>
                     x.RoundNo == game.RoundNo - 1 && x.EnemyId == bot.Status.PlayerId && x.IsTooGood))
-                player.AttackPreference += 3;
+                player.AttackPreference += 4;
 
 
             //how many players are attacking the same player

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Characters;
@@ -95,6 +96,7 @@ public class InGameGlobal : IServiceSingleton
     public readonly List<WhenToTriggerClass> CraboRackSidewaysBooleTriggeredWhen = new();
     public readonly List<DeepList.Madness> CraboRackSidewaysBooleList = new();
     public readonly List<CraboRack.Shell> CraboRackShell = new();
+    public readonly List<CraboRack.BakoBoole> CraboRackBakoBoole = new();
 
     public InGameGlobal(SecureRandom rand, Logs logs)
     {
@@ -266,10 +268,10 @@ public class InGameGlobal : IServiceSingleton
                 case "DeepList":
                     DeepListDoubtfulTactic.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
 
-                    when = GetWhenToTrigger(player, 1, 2, 6,  6);
+                    when = GetWhenToTrigger(player, 1, 2, 4,  6);
                     DeepListSupermindTriggeredWhen.Add(when);
 
-                    when = GetWhenToTrigger(player, 1, 2, 6);
+                    when = GetWhenToTrigger(player, 2, 2, 5, 9, 3);
                     DeepListMadnessTriggeredWhen.Add(when);
 
                     break;
@@ -288,11 +290,11 @@ public class InGameGlobal : IServiceSingleton
                 case "Тигр":
                     TigrTwoBetterList.Add(
                         new FriendsClass(player.Status.PlayerId, game.GameId));
-                    when = GetWhenToTrigger(player, 1, 1, 10, 9);
+                    when = GetWhenToTrigger(player, 1, 1, 6, 9);
                     TigrTopWhen.Add(when);
                     break;
                 case "AWDKA":
-                    when = GetWhenToTrigger(player, 0, 1, 10);
+                    when = GetWhenToTrigger(player, 0, 1, 5);
                     AwdkaAfkTriggeredWhen.Add(when);
                     AwdkaTrollingList.Add(new Awdka.TrollingClass(player.Status.PlayerId, game.GameId));
                     AwdkaTeachToPlayHistory.Add(
@@ -314,7 +316,7 @@ public class InGameGlobal : IServiceSingleton
                 case "Глеб":
                     GlebTea.Add(new Gleb.GlebTeaClass(player.Status.PlayerId, game.GameId));
                     //Спящее хуйло chance   
-                    when = GetWhenToTrigger(player, 1, 3, 3);
+                    when = GetWhenToTrigger(player, 2, 2, 2, 9);
                     GlebSleepingTriggeredWhen.Add(when);
 
                     //Претендент русского сервера
@@ -325,7 +327,7 @@ public class InGameGlobal : IServiceSingleton
                     bool flag;
                     do
                     {
-                        when = GetWhenToTrigger(player, 2, 3, 6);
+                        when = GetWhenToTrigger(player, 2, 2, 4);
                         flag = false;
                         for (var i = 0; i < li.Count; i++)
                             if (when.WhenToTrigger.Contains(li[i]))
@@ -338,12 +340,13 @@ public class InGameGlobal : IServiceSingleton
                     break;
                 case "Краборак":
                     //Бокобуль
-                    when = GetWhenToTrigger(player, 3, 3, 4);
+                    when = GetWhenToTrigger(player, 3, 2, 3);
                     CraboRackSidewaysBooleTriggeredWhen.Add(when);
                     //end Бокобуль
 
                     //Панцирь
                     CraboRackShell.Add(new CraboRack.Shell(player.Status.PlayerId, game.GameId));
+                    CraboRackBakoBoole.Add(new CraboRack.BakoBoole(player.Status.PlayerId, game.GameId));
                     //end Панцирь
                     break;
             }

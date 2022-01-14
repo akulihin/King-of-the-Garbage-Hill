@@ -300,8 +300,11 @@ public class CalculateRound : IServiceSingleton
             var skillMultiplierMe = 1;
             var skillMultiplierTarget = 1;
 
+            double contrMultiplier = 1;
+
             if (me.GetClassStatInt() == 0 && target.GetClassStatInt() == 2)
             {
+                contrMultiplier = 1.5;
                 weighingMachine += 2;
                 skillMultiplierMe = 2;
                 isContrLost -= 1;
@@ -309,6 +312,7 @@ public class CalculateRound : IServiceSingleton
 
             if (me.GetClassStatInt() == 1 && target.GetClassStatInt() == 0)
             {
+                contrMultiplier = 1.5;
                 weighingMachine += 2;
                 skillMultiplierMe = 2;
                 isContrLost -= 1;
@@ -316,6 +320,7 @@ public class CalculateRound : IServiceSingleton
 
             if (me.GetClassStatInt() == 2 && target.GetClassStatInt() == 1)
             {
+                contrMultiplier = 1.5;
                 weighingMachine += 2;
                 skillMultiplierMe = 2;
                 isContrLost -= 1;
@@ -344,10 +349,8 @@ public class CalculateRound : IServiceSingleton
             }
 
 
-            var scaleMe = me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() +
-                          me.GetSkill() * skillMultiplierMe / 50;
-            var scaleTarget = target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche() +
-                              target.GetSkill() * skillMultiplierTarget / 50;
+            var scaleMe = me.ExtraWeight + me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() + me.GetSkill() * skillMultiplierMe / 50;
+            var scaleTarget = target.ExtraWeight + target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche() + target.GetSkill() * skillMultiplierTarget / 50;
             weighingMachine += scaleMe - scaleTarget;
 
             switch (WhoIsBetter(player, playerIamAttacking))
@@ -398,13 +401,13 @@ public class CalculateRound : IServiceSingleton
                     break;
             }
 
-            var wtf = scaleMe * (1 + (me.GetSkill() * skillMultiplierMe / 500 -
-                                      target.GetSkill() * skillMultiplierTarget / 500)) - scaleMe;
+            var myWtf = me.GetSkill() * skillMultiplierMe / 500 * contrMultiplier;
+            var targetWtf = target.GetSkill() * skillMultiplierTarget / 500;
+            var wtf = scaleMe * (1 + (myWtf - targetWtf)) - scaleMe;
             weighingMachine += wtf;
 
 
-            weighingMachine += player.Character.Justice.GetJusticeNow() -
-                               playerIamAttacking.Character.Justice.GetJusticeNow();
+            weighingMachine += player.Character.Justice.GetJusticeNow() - playerIamAttacking.Character.Justice.GetJusticeNow();
 
 
             switch (weighingMachine)
@@ -434,8 +437,12 @@ public class CalculateRound : IServiceSingleton
                 var maxRandomNumber = 100;
                 if (player.Character.Justice.GetJusticeNow() > 1 ||
                     playerIamAttacking.Character.Justice.GetJusticeNow() > 1)
-                    maxRandomNumber -= (player.Character.Justice.GetJusticeNow() -
-                                        playerIamAttacking.Character.Justice.GetJusticeNow()) * 5;
+                {
+                    var myJustice = (int)(player.Character.Justice.GetJusticeNow() * contrMultiplier);
+                    var targetJustice = playerIamAttacking.Character.Justice.GetJusticeNow();
+                    maxRandomNumber -= (myJustice - targetJustice) * 5;
+                }
+                    
                 var randomNumber = _rand.Random(1, maxRandomNumber);
                 if (randomNumber <= randomForTooGood) pointsWined++;
                 else pointsWined--;

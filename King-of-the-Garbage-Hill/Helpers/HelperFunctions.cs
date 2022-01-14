@@ -144,7 +144,7 @@ public sealed class HelperFunctions : IServiceSingleton
         "EdgeLordTurtle",
         "PraxisLife",
         "Fleetch85",
-        "GoLdFiNgEr_23",
+        "GoLd23",
         "Absolut Vodka",
         "Elijah.",
         "HOK Slyfoulplay",

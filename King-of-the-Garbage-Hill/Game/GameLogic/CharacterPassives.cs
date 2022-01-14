@@ -54,13 +54,22 @@ public class CharacterPassives : IServiceSingleton
                     {
                         сraboRackShell.FriendList.Add(me.Status.PlayerId);
                         сraboRackShell.CurrentAttacker = me.Status.PlayerId;
-                        target.Character.AddMoral(target.Status, 3, "Панцирь: ", true);
+                        target.Character.AddMoral(target.Status, 1, "Панцирь: ", true);
                         target.Character.AddExtraSkill(target.Status,  "Панцирь: ", 30, true);
                         target.Status.IsSuperBlock = true;
                     }
                 }
                 //end Панцирь
-                break;
+
+                //Бокобуль
+                var сraboBakoBoole = _gameGlobal.CraboRackBakoBoole.Find(x => x.PlayerId == target.Status.PlayerId && target.GameId == x.GameId);
+                if (сraboBakoBoole != null)
+                {
+                    сraboBakoBoole.CurrentAttacker = me.Status.PlayerId;
+                    me.Character.ExtraWeight = me.Character.GetSpeed() * -1;
+                }
+                //end  Бокобуль
+                    break;
 
             case "Братишка":
                 //Ничего не понимает: 
@@ -510,6 +519,14 @@ public class CharacterPassives : IServiceSingleton
 
                 //end Cпарта
                 break;
+            case "Краборак":
+                //Питается водорослями
+                if (target.Status.PlaceAtLeaderBoard >= 4)
+                {
+                    me.Status.AddBonusPoints(1, "Питается водорослями: ");
+                }
+                //end Питается водорослями
+                break;
         }
 
         await Task.CompletedTask;
@@ -703,6 +720,19 @@ public class CharacterPassives : IServiceSingleton
                     }
                 }
                 //end Панцирь
+
+                //Бокобуль
+                var сraboBakoBoole = _gameGlobal.CraboRackBakoBoole.Find(x => x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
+                if (сraboBakoBoole != null)
+                {
+                    if (сraboBakoBoole.CurrentAttacker != Guid.Empty)
+                    {
+                        game.PlayersList.Find(x => x.Status.PlayerId == сraboBakoBoole.CurrentAttacker).Character
+                            .ExtraWeight = 0;
+                        сraboBakoBoole.CurrentAttacker = Guid.Empty;
+                    }
+                }
+                //end  Бокобуль
                 break;
 
 
