@@ -479,7 +479,7 @@ public class JusticeClass
             }
 
             if(extraPoints > 0)
-                status.AddRegularPoints(extraPoints, "Болевой порог: ");
+                status.AddRegularPoints(extraPoints, "Болевой порог");
             if(howMuchToAdd == 0)
                 return;
         }

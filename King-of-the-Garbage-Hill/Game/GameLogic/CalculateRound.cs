@@ -579,19 +579,17 @@ public class CalculateRound : IServiceSingleton
             player.Status.IsAbleToTurn = true;
             player.Status.IsReady = false;
             player.Status.WhoToAttackThisTurn = Guid.Empty;
-            player.Status.CombineRoundScoreAndGameScore(game, _gameGlobal, game.Phrases);
-            player.Status.ClearInGamePersonalLogs();
-            player.Status.InGamePersonalLogsAll += "|||";
-
             player.Status.MoveListPage = 1;
 
             if (player.Character.Justice.IsWonThisRound)
                 player.Character.Justice.SetJusticeNow(player.Status, 0, "Новый Раунд:", false);
-
             player.Character.Justice.IsWonThisRound = false;
-            player.Character.Justice.AddJusticeNow(player.Status,
-                player.Character.Justice.GetJusticeForNextRound());
+            player.Character.Justice.AddJusticeNow(player.Status, player.Character.Justice.GetJusticeForNextRound());
             player.Character.Justice.SetJusticeForNextRound(0);
+
+            player.Status.CombineRoundScoreAndGameScore(game, _gameGlobal, game.Phrases);
+            player.Status.ClearInGamePersonalLogs();
+            player.Status.InGamePersonalLogsAll += "|||";
         }
 
         game.SkipPlayersThisRound = 0;
