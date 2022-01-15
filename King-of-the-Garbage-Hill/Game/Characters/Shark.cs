@@ -19,19 +19,4 @@ public class Shark
         public Guid PlayerId { get; set; }
     }
 
-    public class SharkDontUnderstand
-    {
-        public SharkDontUnderstand(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-            EnemyId = Guid.Empty;
-            IntelligenceToReturn = 0;
-        }
-
-        public ulong GameId { get; set; }
-        public Guid PlayerId { get; set; }
-        public Guid EnemyId { get; set; }
-        public int IntelligenceToReturn { get; set; }
-    }
 }

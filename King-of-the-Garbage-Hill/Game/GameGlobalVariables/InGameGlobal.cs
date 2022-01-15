@@ -67,7 +67,7 @@ public class InGameGlobal : IServiceSingleton
     public readonly List<Octopus.TentaclesClass> OctopusTentaclesList = new();
 
     public readonly List<FriendsClass> SharkBoole = new();
-    public readonly List<Shark.SharkDontUnderstand> SharkDontUnderstand = new();
+
     public readonly List<Shark.SharkLeaderClass> SharkJawsLeader = new();
     public readonly List<FriendsClass> SharkJawsWin = new();
 
@@ -97,6 +97,8 @@ public class InGameGlobal : IServiceSingleton
     public readonly List<DeepList.Madness> CraboRackSidewaysBooleList = new();
     public readonly List<CraboRack.Shell> CraboRackShell = new();
     public readonly List<CraboRack.BakoBoole> CraboRackBakoBoole = new();
+
+    public readonly List<CraboRack.BakoBoole> BtratishkaDontUnderstand = new();
 
     public InGameGlobal(SecureRandom rand, Logs logs)
     {
@@ -219,11 +221,8 @@ public class InGameGlobal : IServiceSingleton
 
                     break;
                 case "Братишка":
-                    SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId,
-                        game.GameId));
-                    SharkDontUnderstand.Add(
-                        new Shark.SharkDontUnderstand(player.Status.PlayerId, game.GameId));
-
+                    SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId, game.GameId));
+                    BtratishkaDontUnderstand.Add(new CraboRack.BakoBoole(player.Status.PlayerId, game.GameId));
                     SharkJawsWin.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
                     SharkBoole.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
                     break;

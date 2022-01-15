@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
@@ -48,7 +49,8 @@ public class StoreReactions : IServiceSingleton
     {
         var buttons = new List<ButtonBuilder>
         {
-            new("Поднять шанс на 1% ", "store-up-1", ButtonStyle.Secondary),
+            new("Поднять шанс на 1%", "store-up-1", ButtonStyle.Secondary),
+            new("Поднять шанс на 10%", "store-up-10", ButtonStyle.Secondary),
             new("Опустить шанс на 1%", "store-down-1", ButtonStyle.Secondary),
             new("Сбросить все изменения", "store-return-character", ButtonStyle.Secondary),
             new("Сбросить все изменения за всех персонажей", "store-return-all-characters", ButtonStyle.Secondary)
@@ -81,12 +83,13 @@ public class StoreReactions : IServiceSingleton
         embed.WithTitle($"Магазин - {characterChance.CharacterName}");
 
         embed.AddField("Персонаж:", $"{characterChance.CharacterName}", true);
-        embed.AddField("Бонусный шанс:", $"{characterChance.Multiplier}", true);
+        embed.AddField("Бонусный шанс:", $"{Math.Round(characterChance.Multiplier, 2)}", true);
         embed.AddField("ZBS Points:", $"{account.ZbsPoints}");
         embed.AddField("Стоимость", $"Уменьшить шанс на 1% - {cost} ZP\n" +
                                     $"Увеличить шанс на 1% - {cost} ZP\n" +
-                                    "Вернуть все ZBS Points за **этого** персонажа - ~~10~~ 0 ZP\n" +
-                                    "Вернуть все ZBS Points за **всех** персонажей - ~~50~~ 0 ZP\n");
+                                    $"Увеличить шанс на 10% - {cost+10} ZP\n" +
+                                    "Вернуть все ZBS Points за **этого** персонажа - 0 ZP\n" +
+                                    "Вернуть все ZBS Points за **всех** персонажей - 0 ZP\n");
 
         embed.WithFooter("WELCOME! Straaanger...");
         embed.WithColor(Color.DarkPurple);
@@ -201,6 +204,28 @@ public class StoreReactions : IServiceSingleton
                     }
 
                     character.Multiplier += 0.01;
+                    character.Changes++;
+                    account.ZbsPoints -= cost;
+
+                    await ModifyStoreMessage(button, character, account);
+                    break;
+                //Увеличить шанс на 10% - 20 ZP
+                case "store-up-10":
+                    if (character.Multiplier >= 2.0)
+                    {
+                        await button.Channel.SendMessageAsync(
+                            $"У персонажа {character.CharacterName} и так максимальный бонусный шанс - {character.Multiplier}");
+                        return;
+                    }
+
+                    cost = cost + 10;
+                    if (account.ZbsPoints < cost)
+                    {
+                        await button.Channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
+                        return;
+                    }
+
+                    character.Multiplier += 0.1;
                     character.Changes++;
                     account.ZbsPoints -= cost;
 
