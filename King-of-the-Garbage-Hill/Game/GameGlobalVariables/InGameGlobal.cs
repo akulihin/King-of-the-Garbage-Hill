@@ -286,10 +286,10 @@ public class InGameGlobal : IServiceSingleton
                 case "DeepList":
                     DeepListDoubtfulTactic.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
 
-                    when = GetWhenToTrigger(player, 1, 2, 6, 6);
+                    when = GetWhenToTrigger(player, 1, 2, 5, 6);
                     DeepListSupermindTriggeredWhen.Add(when);
 
-                    when = GetWhenToTrigger(player, 1, 3, 6, 9, 3);
+                    when = GetWhenToTrigger(player, 2, 2, 5, 7, 3);
                     DeepListMadnessTriggeredWhen.Add(when);
 
                     break;
@@ -308,7 +308,7 @@ public class InGameGlobal : IServiceSingleton
                 case "Тигр":
                     TigrTwoBetterList.Add(
                         new FriendsClass(player.Status.PlayerId, game.GameId));
-                    when = GetWhenToTrigger(player, 1, 1, 6, 9);
+                    when = GetWhenToTrigger(player, 1, 1, 5, 8);
                     TigrTopWhen.Add(when);
                     break;
                 case "AWDKA":
