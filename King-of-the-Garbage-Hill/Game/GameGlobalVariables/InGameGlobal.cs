@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Characters;
@@ -14,8 +13,8 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 
 public class InGameGlobal : IServiceSingleton
 {
-    private readonly SecureRandom _rand;
     private readonly Logs _logs;
+    private readonly SecureRandom _rand;
     public readonly List<WhenToTriggerClass> AwdkaAfkTriggeredWhen = new();
 
     public readonly List<Sirinoks.TrainingClass> AwdkaTeachToPlay = new();
@@ -23,6 +22,14 @@ public class InGameGlobal : IServiceSingleton
     public readonly List<DeepList.Madness> AwdkaTeachToPlayTempStats = new();
     public readonly List<Awdka.TrollingClass> AwdkaTrollingList = new();
     public readonly List<Awdka.TryingClass> AwdkaTryingList = new();
+
+    public readonly List<CraboRack.BakoBoole> BtratishkaDontUnderstand = new();
+    public readonly List<CraboRack.BakoBoole> CraboRackBakoBoole = new();
+    public readonly List<CraboRack.Shell> CraboRackShell = new();
+    public readonly List<DeepList.Madness> CraboRackSidewaysBooleList = new();
+
+
+    public readonly List<WhenToTriggerClass> CraboRackSidewaysBooleTriggeredWhen = new();
 
     public readonly List<Darksci.LuckyClass> DarksciLuckyList = new();
 
@@ -92,14 +99,6 @@ public class InGameGlobal : IServiceSingleton
     public readonly List<Vampyr.HematophagiaClass> VampyrHematophagiaList = new();
     public readonly List<Vampyr.ScavengerClass> VampyrScavengerList = new();
 
-
-    public readonly List<WhenToTriggerClass> CraboRackSidewaysBooleTriggeredWhen = new();
-    public readonly List<DeepList.Madness> CraboRackSidewaysBooleList = new();
-    public readonly List<CraboRack.Shell> CraboRackShell = new();
-    public readonly List<CraboRack.BakoBoole> CraboRackBakoBoole = new();
-
-    public readonly List<CraboRack.BakoBoole> BtratishkaDontUnderstand = new();
-
     public InGameGlobal(SecureRandom rand, Logs logs)
     {
         _rand = rand;
@@ -111,35 +110,39 @@ public class InGameGlobal : IServiceSingleton
         return Task.CompletedTask;
     }
 
-    //TODO: 
-    // 1) chnage IsManatory to 1 array and 1 loop instead of 3
-    // 2) change the switch method to 1 loop
-    public WhenToTriggerClass GetWhenToTrigger(GamePlayerBridgeClass player, int mandatoryTimes, int maxAdditionalTimes, int range, int lastRound = 10, int firstRound = 1)
+    public WhenToTriggerClass GetWhenToTrigger(GamePlayerBridgeClass player, int mandatoryTimes, int maxAdditionalTimes,
+        int range, int lastRound = 10, int firstRound = 1)
     {
         if (lastRound > 10)
         {
             _logs.Critical("CRIT: lastRound > 10");
             throw new IndexOutOfRangeException("lastRound > 10");
         }
+
         if (firstRound < 1)
         {
             _logs.Critical("CRIT: firstRound < 1");
             throw new IndexOutOfRangeException("firstRound < 1");
         }
+
         if (mandatoryTimes + maxAdditionalTimes > lastRound)
         {
             _logs.Critical("CRIT: mandatoryTimes + maxAdditionalTimes > lastRound");
             throw new IndexOutOfRangeException("mandatoryTimes + maxAdditionalTimes > lastRound");
         }
+
         if (maxAdditionalTimes > range)
         {
             _logs.Critical("CRIT: maxAdditionalTimes > range");
             throw new IndexOutOfRangeException("maxAdditionalTimes > range");
         }
-        if (mandatoryTimes < 0 || range < 0 || maxAdditionalTimes < 0 || lastRound < 0 )
+
+        if (mandatoryTimes < 0 || range < 0 || maxAdditionalTimes < 0 || lastRound < 0)
         {
-            _logs.Critical($"CRIT: less than 0! mandatoryTimes=={mandatoryTimes}, range=={range}, maxAdditionalTimes=={maxAdditionalTimes}, lastRound=={lastRound}");
-            throw new IndexOutOfRangeException($"CRIT: less than 0! mandatoryTimes=={mandatoryTimes}, range=={range}, maxAdditionalTimes=={maxAdditionalTimes}, lastRound=={lastRound}");
+            _logs.Critical(
+                $"CRIT: less than 0! mandatoryTimes=={mandatoryTimes}, range=={range}, maxAdditionalTimes=={maxAdditionalTimes}, lastRound=={lastRound}");
+            throw new IndexOutOfRangeException(
+                $"CRIT: less than 0! mandatoryTimes=={mandatoryTimes}, range=={range}, maxAdditionalTimes=={maxAdditionalTimes}, lastRound=={lastRound}");
         }
 
 
@@ -148,7 +151,6 @@ public class InGameGlobal : IServiceSingleton
 
         //mandatory times
         for (var i = 0; i < mandatoryTimes; i++)
-        {
             while (true)
             {
                 when = _rand.Random(firstRound, lastRound);
@@ -156,10 +158,10 @@ public class InGameGlobal : IServiceSingleton
                 toTriggerClass.WhenToTrigger.Add(when);
                 break;
             }
-        }
         //end mandatory times
 
-        //additional times
+        /*
+        //additional times new
         var target = _rand.Random(1, range);
         for (var i = 0; i < maxAdditionalTimes; i++)
         {
@@ -174,6 +176,23 @@ public class InGameGlobal : IServiceSingleton
                 break;
             }
         }
+        //end additional times
+        */
+
+
+        //additional times old
+        var target = _rand.Random(1, range);
+
+        if (target > maxAdditionalTimes) return toTriggerClass;
+
+        for (var i = 0; i < target; i++)
+            while (true)
+            {
+                when = _rand.Random(firstRound, lastRound);
+                if (toTriggerClass.WhenToTrigger.Any(x => x == when)) continue;
+                toTriggerClass.WhenToTrigger.Add(when);
+                break;
+            }
         //end additional times
 
         return toTriggerClass;
@@ -267,10 +286,10 @@ public class InGameGlobal : IServiceSingleton
                 case "DeepList":
                     DeepListDoubtfulTactic.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
 
-                    when = GetWhenToTrigger(player, 1, 2, 4,  6);
+                    when = GetWhenToTrigger(player, 1, 2, 6, 6);
                     DeepListSupermindTriggeredWhen.Add(when);
 
-                    when = GetWhenToTrigger(player, 2, 2, 5, 9, 3);
+                    when = GetWhenToTrigger(player, 1, 3, 6, 9, 3);
                     DeepListMadnessTriggeredWhen.Add(when);
 
                     break;
@@ -315,7 +334,7 @@ public class InGameGlobal : IServiceSingleton
                 case "Глеб":
                     GlebTea.Add(new Gleb.GlebTeaClass(player.Status.PlayerId, game.GameId));
                     //Спящее хуйло chance   
-                    when = GetWhenToTrigger(player, 2, 2, 2, 9);
+                    when = GetWhenToTrigger(player, 1, 3, 3, 9);
                     GlebSleepingTriggeredWhen.Add(when);
 
                     //Претендент русского сервера
@@ -326,7 +345,7 @@ public class InGameGlobal : IServiceSingleton
                     bool flag;
                     do
                     {
-                        when = GetWhenToTrigger(player, 2, 2, 4);
+                        when = GetWhenToTrigger(player, 2, 3, 6);
                         flag = false;
                         for (var i = 0; i < li.Count; i++)
                             if (when.WhenToTrigger.Contains(li[i]))
@@ -339,7 +358,7 @@ public class InGameGlobal : IServiceSingleton
                     break;
                 case "Краборак":
                     //Бокобуль
-                    when = GetWhenToTrigger(player, 3, 2, 3);
+                    when = GetWhenToTrigger(player, 3, 3, 10);
                     CraboRackSidewaysBooleTriggeredWhen.Add(when);
                     //end Бокобуль
 

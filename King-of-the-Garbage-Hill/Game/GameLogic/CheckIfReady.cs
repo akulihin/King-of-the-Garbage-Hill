@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
-using Discord;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
@@ -26,8 +25,8 @@ public class CheckIfReady : IServiceSingleton
     private readonly SecureRandom _random;
     private readonly CalculateRound _round;
     private readonly GameUpdateMess _upd;
+    private bool _looping;
     public Timer LoopingTimer;
-    private bool _looping = false;
 
     public CheckIfReady(Global global, GameUpdateMess upd, CalculateRound round, FinishedGameLog finishedGameLog,
         GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, Logs logs, UserAccounts accounts,
@@ -325,7 +324,6 @@ public class CheckIfReady : IServiceSingleton
 
         _global.GamesList.Remove(game);
         NotifyOwner(game);
-
     }
 
     private async void NotifyOwner(GameClass game)
@@ -350,14 +348,11 @@ public class CheckIfReady : IServiceSingleton
             //
         }
     }
-    
+
 
     private async void CheckIfEveryoneIsReady(object sender, ElapsedEventArgs e)
     {
-        if (_looping)
-        {
-            return;
-        }
+        if (_looping) return;
         _looping = true;
 
         var games = _global.GamesList;
@@ -369,10 +364,14 @@ public class CheckIfReady : IServiceSingleton
             //protection against double calculations
             if (!game.IsCheckIfReady) continue;
 
+            //Calculating the game
+            game.IsCheckIfReady = false;
+
             //round 11 is the end of the game, no fights on round 11
             if (game.RoundNo == 11)
             {
                 HandleLastRound(game);
+                game.IsCheckIfReady = true;
                 continue;
             }
 
@@ -381,20 +380,21 @@ public class CheckIfReady : IServiceSingleton
             var readyCount = 0;
             foreach (var player in players.Where(x => !x.IsBot()))
             {
-                if (game.TimePassed.Elapsed.TotalSeconds < 3)
-                    continue;
-                if (game.TimePassed.Elapsed.TotalSeconds < 30 && !player.Status.ConfirmedSkip)
-                    continue;
+                if (game.TimePassed.Elapsed.TotalSeconds < 3) continue;
+
+                if (game.TimePassed.Elapsed.TotalSeconds < 30 && !player.Status.ConfirmedSkip) continue;
                 if (player.Status.IsReady && player.Status.ConfirmedPredict)
                     readyCount++;
             }
 
 
             if (readyCount != readyTargetCount &&
-                !(game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond)) continue;
+                !(game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond))
+            {
+                game.IsCheckIfReady = true;
+                continue;
+            }
 
-            //Calculating the game
-            game.IsCheckIfReady = false;
 
             //handle bots
             foreach (var t in players.Where(x => x.IsBot()))
@@ -429,18 +429,15 @@ public class CheckIfReady : IServiceSingleton
                     t.Status.WhoToAttackThisTurn = game.PlayersList[0].Status.PlayerId;
 
                     if (t.Status.WhoToAttackThisTurn == t.Status.PlayerId)
-                    {
                         t.Status.WhoToAttackThisTurn = game.PlayersList[_random.Random(1, 5)].Status.PlayerId;
-                    }
 
-                    t.Status.AddInGamePersonalLogs($"Ты напал на игрока {game.PlayersList.Find(x => x.Status.PlayerId == t.Status.WhoToAttackThisTurn).DiscordUsername} (Auto)\n");
+                    t.Status.AddInGamePersonalLogs(
+                        $"Ты напал на игрока {game.PlayersList.Find(x => x.Status.PlayerId == t.Status.WhoToAttackThisTurn).DiscordUsername} (Auto)\n");
                 }
                 else
                 {
                     t.Status.AddInGamePersonalLogs("Ты поставил блок (Auto)\n");
                 }
-
-                
             }
 
             //If did do anything - LvL up a random stat
