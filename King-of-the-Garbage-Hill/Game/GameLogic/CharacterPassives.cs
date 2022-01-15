@@ -1107,8 +1107,8 @@ public class CharacterPassives : IServiceSingleton
 
                             if (enemy.WinsSeries >= 3 && enemy.IsUnique)
                             {
-                                player.Status.AddRegularPoints(2, "3-0 обоссан");
-                                player.Character.AddExtraSkill(player.Status, "3-0 обоссан: ", 20);
+                                player.Status.AddRegularPoints(3, "3-0 обоссан");
+                                player.Character.AddExtraSkill(player.Status, "3-0 обоссан: ", 30);
 
 
                                 var enemyAcc = game.PlayersList.Find(x =>
@@ -1628,8 +1628,9 @@ public class CharacterPassives : IServiceSingleton
                 case "Осьминожка":
 
                     //привет со дна
-                    if (game.SkipPlayersThisRound > 0)
-                        player.Status.AddBonusPoints(game.SkipPlayersThisRound, "привет со дна");
+                    var extraPoints = game.SkipPlayersThisRound + game.PlayersList.Count(p => p.Status.IsBlock);
+                    if (extraPoints > 0)
+                        player.Status.AddBonusPoints(extraPoints, "привет со дна");
                     //end привет со дна
 
 
