@@ -383,7 +383,7 @@
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219764223209490/darksci2.png",
     "Passive": [
       {
-        "PassiveDescription": "Теряет 1 Психики за каждое поражение.",
+        "PassiveDescription": "Начинает игру с 40 Скилла, но теряет 1 Психики за каждое поражение.",
         "PassiveName": "Не повезло",
         "Visible": true
       },
@@ -588,7 +588,7 @@
     "Avatar": "https://cs10.pikabu.ru/post_img/2018/04/27/3/og_og_1524795730222225233.jpg",
     "Passive": [
       {
-        "PassiveDescription": "Обороняется от первого нападения каждого уникального врага, получая 1 *Мораль* и 30 *Скилла*",
+        "PassiveDescription": "Обороняется от первого нападения каждого уникального врага, получая 3 *Мораль* и 30 *Скилла*",
         "PassiveName": "Панцирь",
         "Visible": true
       },

@@ -54,7 +54,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         сraboRackShell.FriendList.Add(me.Status.PlayerId);
                         сraboRackShell.CurrentAttacker = me.Status.PlayerId;
-                        target.Character.AddMoral(target.Status, 1, "Панцирь: ");
+                        target.Character.AddMoral(target.Status, 3, "Панцирь: ");
                         target.Character.AddExtraSkill(target.Status, "Панцирь: ", 30);
                         target.Status.IsSuperBlock = true;
                     }

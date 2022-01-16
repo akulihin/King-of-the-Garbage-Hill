@@ -56,7 +56,7 @@ public class CheckIfReady : IServiceSingleton
         LoopingTimer = new Timer
         {
             AutoReset = true,
-            Interval = 1000,
+            Interval = 3000,
             Enabled = true
         };
 
@@ -364,14 +364,11 @@ public class CheckIfReady : IServiceSingleton
             //protection against double calculations
             if (!game.IsCheckIfReady) continue;
 
-            //Calculating the game
-            game.IsCheckIfReady = false;
 
             //round 11 is the end of the game, no fights on round 11
             if (game.RoundNo == 11)
             {
                 HandleLastRound(game);
-                game.IsCheckIfReady = true;
                 continue;
             }
 
@@ -390,11 +387,10 @@ public class CheckIfReady : IServiceSingleton
 
             if (readyCount != readyTargetCount &&
                 !(game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond))
-            {
-                game.IsCheckIfReady = true;
                 continue;
-            }
 
+            //Calculating the game
+            game.IsCheckIfReady = false;
 
             //handle bots
             foreach (var t in players.Where(x => x.IsBot()))

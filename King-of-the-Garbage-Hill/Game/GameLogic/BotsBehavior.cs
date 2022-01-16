@@ -120,66 +120,89 @@ public class BotsBehavior : IServiceSingleton
         //end local variables
 
         //calculation Tens
-        foreach (var player in allPlayers.Nanobots)
+        foreach (var target in allPlayers.Nanobots)
         {
             //if justice is the same
-            if (bot.Character.Justice.GetJusticeNow() == player.Player.Character.Justice.GetJusticeNow())
-                player.AttackPreference -= 5;
+            if (bot.Character.Justice.GetJusticeNow() == target.Player.Character.Justice.GetJusticeNow())
+                target.AttackPreference -= 5;
             //if bot justice less than platers
-            else if (bot.Character.Justice.GetJusticeNow() < player.Player.Character.Justice.GetJusticeNow())
-                player.AttackPreference -= 6;
+            else if (bot.Character.Justice.GetJusticeNow() < target.Player.Character.Justice.GetJusticeNow())
+                target.AttackPreference -= 6;
 
             //if player is first
-            if (player.Player.Status.PlaceAtLeaderBoard == 1)
-                player.AttackPreference -= 1;
+            if (target.Player.Status.PlaceAtLeaderBoard == 1)
+                target.AttackPreference -= 1;
 
             //if player is second when we are first
-            if (bot.Status.PlaceAtLeaderBoard == 1 && player.Player.Status.PlaceAtLeaderBoard == 2)
-                player.AttackPreference -= 1;
+            if (bot.Status.PlaceAtLeaderBoard == 1 && target.Player.Status.PlaceAtLeaderBoard == 2)
+                target.AttackPreference -= 1;
 
             //lost last round + toogood
             if (bot.Status.WhoToLostEveryRound.Any(x =>
-                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == player.Player.Status.PlayerId && x.IsTooGood))
-                player.AttackPreference -= 7;
+                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.Player.Status.PlayerId && x.IsTooGood))
+                target.AttackPreference -= 7;
             //lost last round-1 toogood
             else if (bot.Status.WhoToLostEveryRound.Any(x =>
-                         x.RoundNo == game.RoundNo - 2 && x.EnemyId == player.Player.Status.PlayerId && x.IsTooGood))
-                player.AttackPreference -= 7;
+                         x.RoundNo == game.RoundNo - 2 && x.EnemyId == target.Player.Status.PlayerId && x.IsTooGood))
+                target.AttackPreference -= 7;
             //lost last round 
             else if (bot.Status.WhoToLostEveryRound.Any(x =>
-                         x.RoundNo == game.RoundNo - 1 && x.EnemyId == player.Player.Status.PlayerId))
-                player.AttackPreference -= 5;
+                         x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.Player.Status.PlayerId))
+                target.AttackPreference -= 5;
             //lost last round-1
             else if (bot.Status.WhoToLostEveryRound.Any(x =>
-                         x.RoundNo == game.RoundNo - 2 && x.EnemyId == player.Player.Status.PlayerId))
-                player.AttackPreference -= 5;
+                         x.RoundNo == game.RoundNo - 2 && x.EnemyId == target.Player.Status.PlayerId))
+                target.AttackPreference -= 5;
 
 
             //won and too good
-            if (player.Player.Status.WhoToLostEveryRound.Any(x =>
+            if (target.Player.Status.WhoToLostEveryRound.Any(x =>
                     x.RoundNo == game.RoundNo - 1 && x.EnemyId == bot.Status.PlayerId && x.IsTooGood))
-                player.AttackPreference += 4;
+                target.AttackPreference += 4;
 
 
             //how many players are attacking the same player
-            var count = game.PlayersList.FindAll(x => x.Status.WhoToAttackThisTurn == player.Player.Status.PlayerId)
+            var count = game.PlayersList.FindAll(x => x.Status.WhoToAttackThisTurn == target.Player.Status.PlayerId)
                 .Count;
-            player.AttackPreference -= count;
+            target.AttackPreference -= count;
 
             //custom bot behavior
             switch (bot.Character.Name)
             {
+                case "Краборак":
+                    if (target.PlaceAtLeaderBoard < 4)
+                    {
+                        target.AttackPreference -= 4;
+                    }
+
+                    if (target.Player.Character.Name == "HardKitty")
+                    {
+                        target.AttackPreference -= 1;
+                    }
+
+                    break;
+
+                case "Братишка":
+                    if (target.PlaceAtLeaderBoard == bot.Status.PlaceAtLeaderBoard + 1 ||
+                        target.PlaceAtLeaderBoard == bot.Status.PlaceAtLeaderBoard - 1)
+                    {
+                        if (target.AttackPreference > 1) target.AttackPreference += 2;
+
+                        if (target.AttackPreference >= 5) target.AttackPreference += 3;
+                    }
+
+                    break;
                 case "Sirinoks":
-                {
+
                     var siriFriends = _gameGlobal.SirinoksFriendsList.Find(x =>
                         x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
 
                     if (siriFriends != null)
                     {
                         //+5 к значению тех, кто еще не друг.
-                        if (!siriFriends.FriendList.Contains(player.Player.Status.PlayerId) &&
-                            player.AttackPreference > 0)
-                            player.AttackPreference += 5;
+                        if (!siriFriends.FriendList.Contains(target.Player.Status.PlayerId) &&
+                            target.AttackPreference > 0)
+                            target.AttackPreference += 5;
 
 
                         //До начала 5го хода может нападать только на одну цель. Если значение цели 0 - то блок.
@@ -187,16 +210,16 @@ public class BotsBehavior : IServiceSingleton
                         {
                             var sirisFried = game.PlayersList.Find(x => x.Status.PlayerId == siriFriends.FriendList[0]);
 
-                            if (player.Player.Status.PlayerId != sirisFried.Status.PlayerId)
+                            if (target.Player.Status.PlayerId != sirisFried.Status.PlayerId)
                             {
-                                player.AttackPreference = 0;
+                                target.AttackPreference = 0;
                             }
                             else
                             {
-                                if (player.AttackPreference > 3)
+                                if (target.AttackPreference > 3)
                                     mandatoryAttack = sirisFried.Status.PlaceAtLeaderBoard;
                                 else
-                                    player.AttackPreference = 0;
+                                    target.AttackPreference = 0;
                             }
                         }
 
@@ -211,33 +234,30 @@ public class BotsBehavior : IServiceSingleton
                         if (nonFiendsLeft == roundsLeft)
                             if (allNotFriends is { Count: > 0 })
                                 mandatoryAttack = allNotFriends.FirstOrDefault().Status.PlaceAtLeaderBoard;
-
-                        if (game.RoundNo == 10) isBlock = 99999;
                     }
-                }
+
                     break;
                 case "Толя":
                     //Jew
                     foreach (var v in game.PlayersList)
-                        if (v.Status.WhoToAttackThisTurn == player.Player.Status.PlayerId)
-                            player.AttackPreference += 6;
+                        if (v.Status.WhoToAttackThisTurn == target.Player.Status.PlayerId)
+                            target.AttackPreference += 6;
                     //end Jew
                     break;
 
                 case "LeCrisp":
                     //Jew
                     foreach (var v in game.PlayersList)
-                        if (v.Status.WhoToAttackThisTurn == player.Player.Status.PlayerId)
-                            player.AttackPreference += 6;
+                        if (v.Status.WhoToAttackThisTurn == target.Player.Status.PlayerId)
+                            target.AttackPreference += 6;
                     //end Jew
                     break;
 
-                case "Глеб":
-                {
-                    isBlock = 99999;
 
-                    if (player.Player.Status.IsSkip)
-                        player.AttackPreference = 0;
+                case "Глеб":
+
+                    if (target.Player.Status.IsSkip)
+                        target.AttackPreference = 0;
 
                     //Во время претендента забывает о всех -5 и -7 за луз по статам, но вспоминает после окончания претендента.
                     var glebAcc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
@@ -247,19 +267,12 @@ public class BotsBehavior : IServiceSingleton
                         if (glebAcc.WhenToTrigger.Contains(game.RoundNo))
                         {
                             if (bot.Status.WhoToLostEveryRound.Any(x =>
-                                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == player.Player.Status.PlayerId &&
+                                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.Player.Status.PlayerId &&
                                     x.IsTooGood))
-                                player.AttackPreference += 7;
+                                target.AttackPreference += 7;
                             else if (bot.Status.WhoToLostEveryRound.Any(x =>
-                                         x.RoundNo == game.RoundNo - 1 && x.EnemyId == player.Player.Status.PlayerId))
-                                player.AttackPreference += 5;
-
-
-                            //Под претендентом не ставит блок.
-                            {
-                                minimumRandomNumberForBlock = 0;
-                                maximumRandomNumberForBlock = 0;
-                            }
+                                         x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.Player.Status.PlayerId))
+                                target.AttackPreference += 5;
 
 
                             //Под претендентом автоматически выбирает цель с наибольшим значением. 
@@ -267,73 +280,70 @@ public class BotsBehavior : IServiceSingleton
 
                             mandatoryAttack = sorted[0].Player.Status.PlaceAtLeaderBoard;
                         }
-                }
+
                     break;
                 case "Загадочный Спартанец в маске":
-                {
-                    /*
-                                            
-                    
-                                            //"Они позорят военное искусство"
-                                            var Spartan = _gameGlobal.SpartanShame.Find(x =>
-                                                x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
-                                            if (!Spartan.FriendList.Contains(p.Player.Status.PlayerId)) p.AttackPreference += 4;
-                                            //end "Они позорят военное искусство"
-                    
-                                            //Первым ходом выбирает только тех, кого точно победит. (кто побеждает его по статам, тем 10 = 0)
-                    
-                    
-                                            //end Первым ходом выбирает только тех, кого точно победит. (кто побеждает его по статам, тем 10 = 0)
-                    
-                    
-                                            //holy fuck, how can I read it!?!?
-                                            //автоматически выбирает целью помеченного МЕТКОЙ врага, если превосходит его по статам и НЕ УСТУПАЕТ в Справедливости. то есть > или =
-                                            var Spartan1 = _gameGlobal.SpartanMark.Find(x =>
-                                                x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
-                    
-                                            if (Spartan1.FriendList.Contains(p.Player.Status.PlayerId))
-                                                if (p.Player.Character.GetSpeed() + p.Player.Character.GetStrength() +
-                                                    p.Player.Character.GetIntelligence() + p.Player.Character.GetPsyche()
-                                                    -
-                                                    bot.Character.GetStrength() - bot.Character.GetSpeed() -
-                                                    bot.Character.GetIntelligence() - bot.Character.GetPsyche() < 0)
-                                                    if (bot.Character.Justice.GetJusticeNow() >= p.Player.Character.Justice.GetJusticeNow())
-                                                        mandatoryAttack = p.Player.Status.PlaceAtLeaderBoard;
-                                            //end автоматически выбирает целью помеченного МЕТКОЙ врага, если превосходит его по статам и НЕ УСТУПАЕТ в Справедливости. то есть > или =
-                                       */
-                }
                     break;
             }
             //end custom bot behavior
 
 
             //custom enemy
-            switch (player.Player.Character.Name)
+            switch (target.Player.Character.Name)
             {
                 case "Darksci":
                     if (game.RoundNo == 9 ||
                         game.RoundNo == 10 && game.GetAllGlobalLogs().Contains("Нахуй эту игру"))
-                        player.AttackPreference = 0;
+                        target.AttackPreference = 0;
                     break;
             }
             //end custom enemy
 
             //self always = 0
-            if (bot.Status.PlayerId == player.Player.Status.PlayerId) player.AttackPreference = 0;
+            if (bot.Status.PlayerId == target.Player.Status.PlayerId) target.AttackPreference = 0;
 
-            if (player.AttackPreference <= 0)
+            if (target.AttackPreference <= 0)
             {
                 isBlock--;
-                player.AttackPreference = 0;
+                target.AttackPreference = 0;
             }
 
-            maxRandomNumber += player.AttackPreference;
+            maxRandomNumber += target.AttackPreference;
         }
         //end calculation Tens
 
         //custom behaviour After calculation Tens
         switch (bot.Character.Name)
         {
+            case "Братишка":
+                if (bot.Character.Justice.GetJusticeNow() != 5)
+                    minimumRandomNumberForBlock += 1;
+                var min = game.PlayersList.Where(x => x.Status.PlayerId != bot.Status.PlayerId).Min(x => x.Character.Justice.GetJusticeNow());
+                var check = game.PlayersList.Find(x => x.Status.PlayerId != bot.Status.PlayerId && x.Character.Justice.GetJusticeNow() == min);
+
+                if (check.Character.Justice.GetJusticeNow() >= bot.Character.Justice.GetJusticeNow())
+                    minimumRandomNumberForBlock += 1;
+
+                break;
+            case "Осьминожка":
+                isBlock = 99999;
+                break;
+            case "HardKitty":
+                isBlock = 99999;
+                break;
+            case "Глеб":
+                isBlock = 99999;
+                break;
+            case "Краборак":
+                isBlock = 99999;
+                break;
+            case "mylorik":
+                isBlock = 99999;
+                break;
+            case "Sirinoks":
+                if (game.RoundNo == 10 || game.RoundNo == 1)
+                    isBlock = 99999;
+                break;
             case "Загадочный Спартанец в маске":
                 //на последнем ходу блок -2 (от 3 до 5)
                 if (game.RoundNo == 10) minimumRandomNumberForBlock += 2;
@@ -351,6 +361,7 @@ public class BotsBehavior : IServiceSingleton
             case "LeCrisp":
                 //block chances
                 if (game.RoundNo is >= 2 and <= 4) minimumRandomNumberForBlock += 1;
+                if (game.RoundNo == 1) minimumRandomNumberForBlock += 2;
 
                 var assassinsCount = game.PlayersList
                     .FindAll(x => bot.Character.GetStrength() - x.Character.GetStrength() <= -2).Count;
@@ -497,9 +508,17 @@ public class BotsBehavior : IServiceSingleton
                 return;
             }
 
+            if (player.Character.Name == "Братишка" && strength < 10) skillNumber = 2;
             if (player.Character.Name == "LeCrisp" && strength < 10) skillNumber = 2;
             if (player.Character.Name == "Darksci" && psyche < 10) skillNumber = 4;
-            if (player.Character.Name == "Тигр" && psyche < 10 && game.RoundNo <= 6) skillNumber = 4;
+            if (player.Character.Name == "Тигр" && psyche < 10 && player.Status.PlaceAtLeaderBoard == 1) skillNumber = 1;
+            if (player.Character.Name == "Тигр" && psyche < 10 && player.Status.PlaceAtLeaderBoard != 1) skillNumber = 4;
+            if (player.Character.Name == "mylorik" && speed < 10 && game.RoundNo <= 3) skillNumber = 3;
+            if (player.Character.Name == "mylorik" && psyche < 10  && game.RoundNo > 3) skillNumber = 4;
+            if (player.Character.Name == "Глеб" && strength < 10) skillNumber = 2;
+            if (player.Character.Name == "Загадочный Спартанец в маске" && psyche < 10  && game.RoundNo <= 3) skillNumber = 4;
+            if (player.Character.Name == "Загадочный Спартанец в маске" && speed < 10  && game.RoundNo > 3) skillNumber = 3;
+
 
             await _gameReaction.HandleLvlUp(player, null, skillNumber);
         } while (player.Status.LvlUpPoints > 1);

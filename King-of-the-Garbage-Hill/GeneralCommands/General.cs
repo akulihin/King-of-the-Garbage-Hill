@@ -327,6 +327,15 @@ public class General : ModuleBaseCustom
         }
         //end Дерзкая школота
 
+
+        //Не повезло
+        if (playersList.Any(x => x.Character.Name == "Darksci"))
+        {
+            var darksciTemp = playersList.Find(x => x.Character.Name == "Darksci");
+            darksciTemp.Character.AddExtraSkill(darksciTemp.Status, "Не повезло: ", 40);
+        }
+        //end Не повезло
+
         return playersList;
     }
 

@@ -105,12 +105,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         for (var i = 0; i < playersList.Count; i++)
         {
             players += CustomLeaderBoardBeforeNumber(player, playersList[i], game, i + 1);
-            var sanitizedDiscordUsername = playersList[i].DiscordUsername
-                .Replace("_", "")
-                .Replace("*", "")
-                .Replace("~", "")
-                .Replace("`", "")
-                .Replace(">", "");
+            var sanitizedDiscordUsername = playersList[i].DiscordUsername.Replace("_", "\\_")
+                .Replace("*", "\\*")
+                .Replace("~", "\\~")
+                .Replace("`", "\\`");
             players +=
                 $"{i + 1}. {sanitizedDiscordUsername}";
 
