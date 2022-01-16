@@ -166,6 +166,12 @@ public class BotsBehavior : IServiceSingleton
                 .Count;
             target.AttackPreference -= count;
 
+
+            //justice diff
+            if (game.PlayersList.Where(x => x.Status.PlayerId != bot.Status.PlayerId).All(x => x.Character.Justice.GetJusticeNow() < bot.Character.Justice.GetJusticeNow()))
+                target.AttackPreference += bot.Character.Justice.GetJusticeNow() - target.Player.Character.Justice.GetJusticeNow();
+
+            var hhhuj = 1;
             //custom bot behavior
             switch (bot.Character.Name)
             {
@@ -277,7 +283,6 @@ public class BotsBehavior : IServiceSingleton
 
                             //Под претендентом автоматически выбирает цель с наибольшим значением. 
                             var sorted = allPlayers.Nanobots.OrderByDescending(x => x.AttackPreference).ToList();
-
                             mandatoryAttack = sorted[0].Player.Status.PlaceAtLeaderBoard;
                         }
 
@@ -333,6 +338,8 @@ public class BotsBehavior : IServiceSingleton
                 break;
             case "Глеб":
                 isBlock = 99999;
+
+
                 break;
             case "Краборак":
                 isBlock = 99999;

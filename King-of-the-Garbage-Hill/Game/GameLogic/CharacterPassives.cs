@@ -469,7 +469,7 @@ public class CharacterPassives : IServiceSingleton
                 //end Падальщик
                 break;
             case "mylorik":
-                // Cпарта
+                // Спарта
                 var mylorikSpartan =
                     _gameGlobal.MylorikSpartan.Find(x => x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
                 var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.Status.PlayerId);
