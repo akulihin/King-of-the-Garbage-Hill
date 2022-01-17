@@ -5,7 +5,6 @@ a= 10 (не меньше нуля)
 -5 more sts
 -7 tg-
 +4 tg+
--1 higher
 -1 top1
 -1 top2 (если ты top1)
 -1 sametarget
