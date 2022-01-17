@@ -195,6 +195,11 @@ public sealed class HelperFunctions : IServiceSingleton
         return Task.CompletedTask;
     }
 
+    public string ReplaceLastOccurrence(string source, string find, string replace)
+    {
+        var place = source.LastIndexOf(find, StringComparison.Ordinal);
+        return place == -1 ? source : source.Remove(place, find.Length).Insert(place, replace);
+    }
 
     public async Task SendMsgAndDeleteItAfterRound(GamePlayerBridgeClass player, string msg)
     {

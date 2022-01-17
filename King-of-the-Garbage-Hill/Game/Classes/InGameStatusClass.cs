@@ -37,11 +37,14 @@ public class InGameStatus
         KnownPlayerClass = new List<KnownPlayerClassClass>();
         ConfirmedPredict = true;
         ConfirmedSkip = true;
+        IsAbleToChangeMind = true;
         IsTargetSkipped = Guid.NewGuid();
         IsTargetBlocked = Guid.NewGuid();
         CharacterName = characterName;
         PlaceAtLeaderBoardHistory = new List<PlaceAtLeaderBoardHistoryClass>();
+        ChangeMindWhat = "";
     }
+
 
     public int MoveListPage { get; set; }
     /*
@@ -78,6 +81,8 @@ public class InGameStatus
     public List<KnownPlayerClassClass> KnownPlayerClass { get; set; }
     public bool ConfirmedPredict { get; set; }
     public bool ConfirmedSkip { get; set; }
+    public bool IsAbleToChangeMind { get; set; }
+    public string ChangeMindWhat  { get; set;}
     public string CharacterName { get; set; }
     public List<PlaceAtLeaderBoardHistoryClass> PlaceAtLeaderBoardHistory { get; set; }
 
@@ -95,6 +100,11 @@ public class InGameStatus
     public string GetInGamePersonalLogs()
     {
         return InGamePersonalLogs;
+    }
+
+    public void SetInGamePersonalLogs(string newInGamePersonalLogs)
+    {
+        InGamePersonalLogs = newInGamePersonalLogs;
     }
 
 

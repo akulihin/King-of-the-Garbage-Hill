@@ -789,16 +789,20 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     public ButtonBuilder GetPlaceHolderButton(GamePlayerBridgeClass player, GameClass game)
     {
         if (!player.Status.ConfirmedPredict)
-            return new ButtonBuilder("Я подтверждаю свои предположения", "confirm-prefict", ButtonStyle.Primary,
-                isDisabled: false, emote:
-                Emote.Parse("<a:bratishka:900962522276958298>"));
+            return new ButtonBuilder("Я подтверждаю свои предположения", "confirm-prefict", ButtonStyle.Primary, isDisabled: false, emote: Emote.Parse("<a:bratishka:900962522276958298>"));
         if (!player.Status.ConfirmedSkip)
-            return new ButtonBuilder("Я подтверждаю пропуск хода", "confirm-skip", ButtonStyle.Primary,
-                isDisabled: false, emote:
-                Emote.Parse("<a:bratishka:900962522276958298>"));
-        return new ButtonBuilder("Братишка валяется почему-то...", "boole", ButtonStyle.Secondary, isDisabled: true,
-            emote:
-            Emote.Parse("<a:bratishka:900962522276958298>"));
+            return new ButtonBuilder("Я подтверждаю пропуск хода", "confirm-skip", ButtonStyle.Primary, isDisabled: false, emote: Emote.Parse("<a:bratishka:900962522276958298>"));
+        
+        
+        if (player.Status.IsReady && player.Status.IsAbleToChangeMind && !player.Status.IsSkip)
+            return new ButtonBuilder("Изменить свой выбор", "change-mind", ButtonStyle.Secondary, isDisabled: false);
+
+        return new ButtonBuilder("Изменить свой выбор", "change-mind", ButtonStyle.Secondary, isDisabled: true);
+    }
+
+    public ButtonBuilder GetAutoMoveButton(GamePlayerBridgeClass player, GameClass game)
+    {
+        return new ButtonBuilder("Авто Ход", "auto-move", ButtonStyle.Secondary, isDisabled: true);
     }
 
     public async Task UpdateMessage(GamePlayerBridgeClass player)
@@ -819,7 +823,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 builder.WithButton(GetEndGameButton());
                 builder.WithSelectMenu(GetAttackMenu(player, game), 1);
                 builder.WithButton(GetPlaceHolderButton(player, game), 2);
-                builder.WithSelectMenu(GetPredictMenu(player, game), 3);
+                //builder.WithButton(GetAutoMoveButton(player, game), 2);
+                builder.WithSelectMenu(GetPredictMenu(player, game), 4);
                 break;
             case 2:
                 // RESERVED

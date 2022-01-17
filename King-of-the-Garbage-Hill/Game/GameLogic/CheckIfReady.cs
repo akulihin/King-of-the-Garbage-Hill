@@ -56,7 +56,7 @@ public class CheckIfReady : IServiceSingleton
         LoopingTimer = new Timer
         {
             AutoReset = true,
-            Interval = 500,
+            Interval = 100,
             Enabled = true
         };
 
@@ -377,12 +377,14 @@ public class CheckIfReady : IServiceSingleton
             var readyCount = 0;
             foreach (var player in players.Where(x => !x.IsBot()))
             {
-                if (game.TimePassed.Elapsed.TotalSeconds < 3) continue;
+                if (game.TimePassed.Elapsed.TotalSeconds < 5) continue;
 
                 if (game.TimePassed.Elapsed.TotalSeconds < 30 && !player.Status.ConfirmedSkip) continue;
                 if (player.Status.IsReady && player.Status.ConfirmedPredict)
                     readyCount++;
             }
+
+
 
 
             if (readyCount != readyTargetCount &&

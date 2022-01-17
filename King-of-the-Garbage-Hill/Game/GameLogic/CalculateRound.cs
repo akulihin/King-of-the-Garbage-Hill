@@ -555,6 +555,7 @@ Speed => Strength
             player.Status.IsReady = false;
             player.Status.WhoToAttackThisTurn = Guid.Empty;
             player.Status.MoveListPage = 1;
+            player.Status.IsAbleToChangeMind = true;
 
             if (player.Character.Justice.IsWonThisRound)
                 player.Character.Justice.SetJusticeNow(player.Status, 0, "Новый Раунд:", false);

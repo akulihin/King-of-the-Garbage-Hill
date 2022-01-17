@@ -55,17 +55,51 @@ public sealed class GameReaction : IServiceSingleton
 
                 switch (button.Data.CustomId)
                 {
-                    case "confirm-skip":
-                        player.Status.ConfirmedSkip = true;
+                    case "change-mind":
+                        if (player.Status.IsSkip || !player.Status.IsReady)
+                        {
+                            return;
+                        }
+                        player.Status.IsAbleToChangeMind = false;
+
+                        player.Status.IsAbleToTurn = true;
+                        player.Status.IsReady = false;
+                        player.Status.IsBlock = false;
+                        player.Status.WhoToAttackThisTurn = Guid.Empty;
+
+                        var newInGameLogs = player.Status.GetInGamePersonalLogs().Replace(status.ChangeMindWhat, $"~~{status.ChangeMindWhat.Replace("\n", "~~\n")}");
+                        player.Status.InGamePersonalLogsAll = _help.ReplaceLastOccurrence(player.Status.InGamePersonalLogsAll, status.ChangeMindWhat, $"~~{status.ChangeMindWhat.Replace("\n", "~~\n")}");
+                        player.Status.SetInGamePersonalLogs(newInGameLogs);
+
                         embed = _upd.FightPage(player);
-                        embed.WithFooter($"{_upd.GetTimeLeft(player)} |{embed.Length}|");
+                        embed.WithFooter($"{_upd.GetTimeLeft(player)}");
 
                         builder.WithButton(_upd.GetBlockButton(player, game));
                         builder.WithButton(_upd.GetMoralButton(player, game));
                         builder.WithButton(_upd.GetEndGameButton());
                         builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
                         builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
-                        builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 3);
+                        //builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
+                        builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 4);
+                        await button.Message.ModifyAsync(message =>
+                        {
+                            message.Embed = embed.Build();
+                            message.Components = builder.Build();
+                        });
+                        break;
+
+                    case "confirm-skip":
+                        player.Status.ConfirmedSkip = true;
+                        embed = _upd.FightPage(player);
+                        embed.WithFooter($"{_upd.GetTimeLeft(player)}");
+
+                        builder.WithButton(_upd.GetBlockButton(player, game));
+                        builder.WithButton(_upd.GetMoralButton(player, game));
+                        builder.WithButton(_upd.GetEndGameButton());
+                        builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
+                        builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
+                        //builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
+                        builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 4);
                         await button.Message.ModifyAsync(message =>
                         {
                             message.Embed = embed.Build();
@@ -81,14 +115,15 @@ public sealed class GameReaction : IServiceSingleton
 
 
                         embed = _upd.FightPage(player);
-                        embed.WithFooter($"{_upd.GetTimeLeft(player)} |{embed.Length}|");
+                        embed.WithFooter($"{_upd.GetTimeLeft(player)}");
 
                         builder.WithButton(_upd.GetBlockButton(player, game));
                         builder.WithButton(_upd.GetMoralButton(player, game));
                         builder.WithButton(_upd.GetEndGameButton());
                         builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
                         builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
-                        builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 3);
+                        //builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
+                        builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 4);
                         await button.Message.ModifyAsync(message =>
                         {
                             message.Embed = embed.Build();
@@ -129,7 +164,9 @@ public sealed class GameReaction : IServiceSingleton
                         status.IsBlock = true;
                         status.IsAbleToTurn = false;
                         status.IsReady = true;
-                        status.AddInGamePersonalLogs("Ты поставил блок\n");
+                        var text = "Ты поставил блок\n";
+                        status.AddInGamePersonalLogs(text);
+                        status.ChangeMindWhat = text;
 
                         _upd.UpdateMessage(player);
                         break;
@@ -229,7 +266,8 @@ public sealed class GameReaction : IServiceSingleton
         builder.WithButton(_upd.GetEndGameButton());
         builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
         builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
-        builder.WithSelectMenu(predictMenu, 3);
+        //builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
+        builder.WithSelectMenu(predictMenu, 4);
 
 
         await button.Message.ModifyAsync(message => { message.Components = builder.Build(); });
@@ -243,14 +281,15 @@ public sealed class GameReaction : IServiceSingleton
 
 
         embed = _upd.FightPage(player);
-        embed.WithFooter($"{_upd.GetTimeLeft(player)} |{embed.Length}|");
+        embed.WithFooter($"{_upd.GetTimeLeft(player)}");
 
         builder.WithButton(_upd.GetBlockButton(player, game));
         builder.WithButton(_upd.GetMoralButton(player, game));
         builder.WithButton(_upd.GetEndGameButton());
         builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
         builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
-        builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 3);
+        //builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
+        builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 4);
 
         var splitted = string.Join("", button.Data.Values).Split("||spb||");
 
@@ -383,8 +422,9 @@ public sealed class GameReaction : IServiceSingleton
             status.IsAbleToTurn = false;
             status.IsReady = true;
             status.IsBlock = false;
-            player.Status.AddInGamePersonalLogs(
-                $"Ты напал на игрока {whoToAttack.DiscordUsername}\n");
+            var text = $"Ты напал на игрока {whoToAttack.DiscordUsername}\n";
+            player.Status.AddInGamePersonalLogs(text);
+            player.Status.ChangeMindWhat = text;
             return true;
         }
 
