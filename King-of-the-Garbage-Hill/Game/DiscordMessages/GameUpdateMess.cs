@@ -568,8 +568,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                               "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                               $"*Справедливость: **{character.Justice.GetJusticeNow()}***\n" +
                               $"*Мораль: {character.GetMoral()}*\n" +
-                              $"*Скилл: {character.GetSkill()} (Мишень: **{character.GetCurrentSkillTarget()}**)*\n" +
-                              $"*Класс:* {character.GetClassStatString()}\n" +
+                              $"*Скилл: {character.GetSkill()} (Мишень: **{character.GetCurrentSkillClassTarget()}**)*\n" +
+                              $"*Класс:* {character.GetClassStatDisplayText()}\n" +
                               "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                               $"Множитель очков: **x{multiplier}**\n" +
                               "<:e_:562879579694301184>\n" +

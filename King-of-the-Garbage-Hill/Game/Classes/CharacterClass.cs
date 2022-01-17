@@ -47,33 +47,42 @@ public class CharacterClass
     public int Tier { get; set; }
 
 
-    public string GetClassStatString()
+    public string GetClassStatDisplayText()
     {
         if (Intelligence == 0 && Strength == 0 && Speed == 0) return "***Братишка***... буль-буль...";
         if (Intelligence >= Strength && Intelligence >= Speed)
             return "***Умный*** нападает на тех, кто без *Справедливости*.";
         if (Strength >= Intelligence && Strength >= Speed) return "***Сильный*** побеждает!";
         if (Speed >= Intelligence && Speed >= Strength) return "***Быстрый*** успевает во все битвы...";
-        return "404";
+        return "***Братишка***... буль-буль...";
     }
 
-    /*
-     001
-     010
-     100
+     /*
      Intelligence => Speed
      Strength => Intelligence
      Speed => Strength
      */
 
-    public int GetClassStatInt()
+     public string GetSkillClass()
     {
-        if (Intelligence == 0 && Strength == 0 && Speed == 0) return 3;
+        if (Intelligence == 0 && Strength == 0 && Speed == 0) return "Буль";
 
-        if (Intelligence >= Strength && Intelligence >= Speed) return 0;
-        if (Strength >= Intelligence && Strength >= Speed) return 1;
-        if (Speed >= Intelligence && Speed >= Strength) return 2;
-        return 3;
+        if (Intelligence >= Strength && Intelligence >= Speed) return "Интеллект";
+        if (Strength >= Intelligence && Strength >= Speed) return "Сила";
+        if (Speed >= Intelligence && Speed >= Strength) return "Скорость";
+
+        return "Буль";
+    }
+
+    public string GetWhoIContre()
+    {
+        if (Intelligence == 0 && Strength == 0 && Speed == 0) return "Буль";
+
+        if (Intelligence >= Strength && Intelligence >= Speed) return "Скорость";
+        if (Strength >= Intelligence && Strength >= Speed) return "Интеллект";
+        if (Speed >= Intelligence && Speed >= Strength) return "Сила";
+
+        return "Буль";
     }
 
 
@@ -92,12 +101,12 @@ public class CharacterClass
         BonusPointsFromMoral += newBonusPointsFromMoral;
     }
 
-    public string GetCurrentSkillTarget()
+    public string GetCurrentSkillClassTarget()
     {
         return CurrentSkillTarget;
     }
 
-    public void RollCurrentSkillTarget()
+    public void RollSkillTargetForNextRound()
     {
         switch (CurrentSkillTarget)
         {
@@ -111,16 +120,11 @@ public class CharacterClass
                 CurrentSkillTarget = "Интеллект";
                 break;
             case "Ничего":
-                CurrentSkillTarget = RandomCurrentSkillTarget();
+                var skillsSet = new List<string> { "Интеллект", "Скорость", "Сила" };
+                var rand = new Random();
+                CurrentSkillTarget = skillsSet[rand.Next(0, 2)];
                 break;
         }
-    }
-
-    public string RandomCurrentSkillTarget()
-    {
-        var skillsSet = new List<string> { "Интеллект", "Скорость", "Сила" };
-        var rand = new Random();
-        return skillsSet[rand.Next(0, 2)];
     }
 
 

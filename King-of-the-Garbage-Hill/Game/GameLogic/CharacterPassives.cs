@@ -996,23 +996,9 @@ public class CharacterPassives : IServiceSingleton
                         _ => 0
                     };
 
-                    switch (player.Character.GetCurrentSkillTarget())
+                    if (player.Character.GetCurrentSkillClassTarget() == playerIamAttacking.Character.GetSkillClass())
                     {
-                        case "Интеллект":
-                            if (playerIamAttacking.Character.GetClassStatInt() == 0)
-                                player.Character.AddExtraSkill(player.Status, "Много выебывается: ",
-                                    howMuchToAdd * 2);
-                            break;
-                        case "Сила":
-                            if (playerIamAttacking.Character.GetClassStatInt() == 1)
-                                player.Character.AddExtraSkill(player.Status, "Много выебывается: ",
-                                    howMuchToAdd * 2);
-                            break;
-                        case "Скорость":
-                            if (playerIamAttacking.Character.GetClassStatInt() == 2)
-                                player.Character.AddExtraSkill(player.Status, "Много выебывается: ",
-                                    howMuchToAdd * 2);
-                            break;
+                        player.Character.AddExtraSkill(player.Status, "Много выебывается: ", howMuchToAdd * 2);
                     }
                 }
 

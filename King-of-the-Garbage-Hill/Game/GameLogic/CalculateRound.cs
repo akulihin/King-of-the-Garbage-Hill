@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Helpers;
@@ -15,6 +16,7 @@ public class CalculateRound : IServiceSingleton
     private readonly InGameGlobal _gameGlobal;
     private readonly Global _global;
     private readonly Logs _logs;
+
 
 
     private readonly SecureRandom _rand;
@@ -34,26 +36,28 @@ public class CalculateRound : IServiceSingleton
         await Task.CompletedTask;
     }
 
+    /*
+Intelligence => Speed
+Strength => Intelligence
+Speed => Strength
+*/
     public string GetLostContrText(GamePlayerBridgeClass me, GamePlayerBridgeClass target)
     {
-        if (me.Character.GetClassStatInt() == 0 && target.Character.GetClassStatInt() == 2)
+        if (me.Character.GetSkillClass() == "Интеллект" && target.Character.GetSkillClass() == "Скорость")
         {
-            target.Status.KnownPlayerClass.Add(
-                new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Умный** ?) "));
+            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Умный** ?) "));
             return "вас обманул";
         }
 
-        if (me.Character.GetClassStatInt() == 1 && target.Character.GetClassStatInt() == 0)
+        if (me.Character.GetSkillClass() == "Сила" && target.Character.GetSkillClass() == "Интеллект")
         {
-            target.Status.KnownPlayerClass.Add(
-                new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Сильный** ?) "));
+            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Сильный** ?) "));
             return "вас пресанул";
         }
 
-        if (me.Character.GetClassStatInt() == 2 && target.Character.GetClassStatInt() == 1)
+        if (me.Character.GetSkillClass() == "Скорость" && target.Character.GetSkillClass() == "Сила")
         {
-            target.Status.KnownPlayerClass.Add(
-                new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Быстрый** ?) "));
+            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Быстрый** ?) "));
             return "вас обогнал";
         }
 
@@ -133,8 +137,7 @@ public class CalculateRound : IServiceSingleton
 
 
             //умный
-            if (player.Character.GetClassStatInt() == 0 &&
-                playerIamAttacking.Character.Justice.GetJusticeNow() == 0)
+            if (player.Character.GetSkillClass() == "Интеллект" && playerIamAttacking.Character.Justice.GetJusticeNow() == 0)
                 player.Character.AddExtraSkill(player.Status, "Класс: ", 6);
 
 
@@ -146,60 +149,49 @@ public class CalculateRound : IServiceSingleton
                 $"{player.DiscordUsername} <:war:561287719838547981> {playerIamAttacking.DiscordUsername}",
                 "");
 
-
             //add skill
-
-            switch (player.Character.GetCurrentSkillTarget())
+            if (player.Character.GetCurrentSkillClassTarget() == playerIamAttacking.Character.GetSkillClass())
             {
-                case "Интеллект":
-                    if (playerIamAttacking.Character.GetClassStatInt() == 0)
-                    {
-                        player.Character.AddMainSkill(player.Status, "**умного**");
-                        var known = player.Status.KnownPlayerClass.Find(x =>
-                            x.EnemyId == playerIamAttacking.Status.PlayerId);
-                        if (known != null)
-                            player.Status.KnownPlayerClass.Remove(known);
-                        player.Status.KnownPlayerClass.Add(
-                            new InGameStatus.KnownPlayerClassClass(playerIamAttacking.Status.PlayerId,
-                                "(**Умный** ?) "));
-                    }
+                var text1 = "";
+                var text2 = "";
 
-                    break;
-                case "Сила":
-                    if (playerIamAttacking.Character.GetClassStatInt() == 1)
-                    {
-                        player.Character.AddMainSkill(player.Status, "**сильного**");
-                        var known = player.Status.KnownPlayerClass.Find(x =>
-                            x.EnemyId == playerIamAttacking.Status.PlayerId);
-                        if (known != null)
-                            player.Status.KnownPlayerClass.Remove(known);
-                        player.Status.KnownPlayerClass.Add(
-                            new InGameStatus.KnownPlayerClassClass(playerIamAttacking.Status.PlayerId,
-                                "(**Сильный** ?) "));
-                    }
+                if (playerIamAttacking.Character.GetSkillClass() == "Интеллект")
+                {
+                    text1 = "**умного**";
+                    text2 = "(**Умный** ?) ";
+                }
+                else if (playerIamAttacking.Character.GetSkillClass() == "Сила")
+                {
+                    text1 = "**сильного**";
+                    text2 = "(**Сильный** ?) ";
+                }
+                else if (playerIamAttacking.Character.GetSkillClass() == "Скорость")
+                {
+                    text1 = "**быстрого**";
+                    text2 = "(**Быстрый** ?) ";
+                }
+                else
+                {
+                    text1 = "**буля**";
+                    text2 = "(**БУЛЬ** ?!) ";
+                }
 
-                    break;
-                case "Скорость":
-                    if (playerIamAttacking.Character.GetClassStatInt() == 2)
-                    {
-                        player.Character.AddMainSkill(player.Status, "**быстрого**");
-                        var known = player.Status.KnownPlayerClass.Find(x =>
-                            x.EnemyId == playerIamAttacking.Status.PlayerId);
-                        if (known != null)
-                            player.Status.KnownPlayerClass.Remove(known);
-                        player.Status.KnownPlayerClass.Add(
-                            new InGameStatus.KnownPlayerClassClass(playerIamAttacking.Status.PlayerId,
-                                "(**Быстрый** ?) "));
-                    }
-
-                    break;
+                player.Character.AddMainSkill(player.Status, text1);
+                var known = player.Status.KnownPlayerClass.Find(x =>
+                    x.EnemyId == playerIamAttacking.Status.PlayerId);
+                if (known != null)
+                    player.Status.KnownPlayerClass.Remove(known);
+                player.Status.KnownPlayerClass.Add(
+                    new InGameStatus.KnownPlayerClassClass(playerIamAttacking.Status.PlayerId,
+                        text2));
             }
 
+
             //check skill text
-            switch (player.Character.GetCurrentSkillTarget())
+            switch (player.Character.GetCurrentSkillClassTarget())
             {
                 case "Интеллект":
-                    if (playerIamAttacking.Character.GetClassStatInt() != 0)
+                    if (playerIamAttacking.Character.GetSkillClass() != "Интеллект")
                     {
                         var knownEnemy =
                             player.Status.KnownPlayerClass.Find(
@@ -211,7 +203,7 @@ public class CalculateRound : IServiceSingleton
 
                     break;
                 case "Сила":
-                    if (playerIamAttacking.Character.GetClassStatInt() != 1)
+                    if (playerIamAttacking.Character.GetSkillClass() != "Сила")
                     {
                         var knownEnemy =
                             player.Status.KnownPlayerClass.Find(
@@ -223,13 +215,25 @@ public class CalculateRound : IServiceSingleton
 
                     break;
                 case "Скорость":
-                    if (playerIamAttacking.Character.GetClassStatInt() != 2)
+                    if (playerIamAttacking.Character.GetSkillClass() != "Скорость")
                     {
                         var knownEnemy =
                             player.Status.KnownPlayerClass.Find(
                                 x => x.EnemyId == playerIamAttacking.Status.PlayerId);
                         if (knownEnemy != null)
                             if (knownEnemy.Text.Contains("Быстрый"))
+                                player.Status.KnownPlayerClass.Remove(knownEnemy);
+                    }
+
+                    break;
+                case "Буль":
+                    if (playerIamAttacking.Character.GetSkillClass() != "Буль")
+                    {
+                        var knownEnemy =
+                            player.Status.KnownPlayerClass.Find(
+                                x => x.EnemyId == playerIamAttacking.Status.PlayerId);
+                        if (knownEnemy != null)
+                            if (knownEnemy.Text.Contains("БУЛЬ"))
                                 player.Status.KnownPlayerClass.Remove(knownEnemy);
                     }
 
@@ -246,7 +250,7 @@ public class CalculateRound : IServiceSingleton
 
                 game.AddGlobalLogs(logMess);
 
-
+                
                 if (player.Character.Name != "mylorik")
                 {
                     if (player.Character.Justice.GetJusticeNow() > 0)
@@ -284,10 +288,10 @@ public class CalculateRound : IServiceSingleton
 
 
             //быстрый
-            if (playerIamAttacking.Character.GetClassStatInt() == 2)
+            if (playerIamAttacking.Character.GetSkillClass() == "Скорость")
                 playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, "Класс: ", 2);
 
-            if (player.Character.GetClassStatInt() == 2)
+            if (player.Character.GetSkillClass() == "Скорость")
                 player.Character.AddExtraSkill(player.Status, "Класс: ", 2);
 
 
@@ -302,23 +306,7 @@ public class CalculateRound : IServiceSingleton
 
             double contrMultiplier = 1;
 
-            if (me.GetClassStatInt() == 0 && target.GetClassStatInt() == 2)
-            {
-                contrMultiplier = 1.5;
-                weighingMachine += 2;
-                skillMultiplierMe = 2;
-                isContrLost -= 1;
-            }
-
-            if (me.GetClassStatInt() == 1 && target.GetClassStatInt() == 0)
-            {
-                contrMultiplier = 1.5;
-                weighingMachine += 2;
-                skillMultiplierMe = 2;
-                isContrLost -= 1;
-            }
-
-            if (me.GetClassStatInt() == 2 && target.GetClassStatInt() == 1)
+            if (me.GetWhoIContre() == target.GetSkillClass())
             {
                 contrMultiplier = 1.5;
                 weighingMachine += 2;
@@ -327,26 +315,13 @@ public class CalculateRound : IServiceSingleton
             }
 
 
-            if (target.GetClassStatInt() == 0 && me.GetClassStatInt() == 2)
+            if (target.GetWhoIContre() ==  me.GetSkillClass())
             {
                 weighingMachine -= 2;
                 skillMultiplierTarget = 2;
                 isContrLost += 1;
             }
 
-            if (target.GetClassStatInt() == 1 && me.GetClassStatInt() == 0)
-            {
-                weighingMachine -= 2;
-                skillMultiplierTarget = 2;
-                isContrLost += 1;
-            }
-
-            if (target.GetClassStatInt() == 2 && me.GetClassStatInt() == 1)
-            {
-                weighingMachine -= 2;
-                skillMultiplierTarget = 2;
-                isContrLost += 1;
-            }
 
 
             var scaleMe = me.ExtraWeight + me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() + me.GetSkill() * skillMultiplierMe / 50;
@@ -457,7 +432,7 @@ public class CalculateRound : IServiceSingleton
             if (pointsWined >= 1)
             {
                 //сильный
-                if (player.Character.GetClassStatInt() == 1)
+                if (player.Character.GetSkillClass() == "Сила")
                     player.Character.AddExtraSkill(player.Status, "Класс: ", 4);
 
                 isContrLost -= 1;
@@ -496,7 +471,7 @@ public class CalculateRound : IServiceSingleton
             else
             {
                 //сильный
-                if (playerIamAttacking.Character.GetClassStatInt() == 1)
+                if (playerIamAttacking.Character.GetSkillClass() == "Сила")
                     playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, "Класс: ", 4);
 
                 if (isTooGoodLost == -1)
@@ -649,7 +624,7 @@ public class CalculateRound : IServiceSingleton
             if (game.RoundNo == 3 || game.RoundNo == 5 || game.RoundNo == 7 || game.RoundNo == 9)
                 game.PlayersList[i].Status.MoveListPage = 3;
             game.PlayersList[i].Status.PlaceAtLeaderBoard = i + 1;
-            game.PlayersList[i].Character.RollCurrentSkillTarget();
+            game.PlayersList[i].Character.RollSkillTargetForNextRound();
             game.PlayersList[i].Status.PlaceAtLeaderBoardHistory.Add(
                 new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo,
                     game.PlayersList[i].Status.PlaceAtLeaderBoard));

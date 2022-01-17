@@ -167,14 +167,36 @@ public class BotsBehavior : IServiceSingleton
             target.AttackPreference -= count;
 
 
+            //target
+            if (target.AttackPreference >= 5)
+            {
+                if (bot.Character.GetCurrentSkillClassTarget() == target.Player.Character.GetSkillClass())
+                {
+                    target.AttackPreference += 1;
+                }
+            }
+
+            //contr
+            if (target.AttackPreference >= 5)
+            {
+                if (bot.Character.GetWhoIContre() == target.Player.Character.GetSkillClass())
+                {
+                    target.AttackPreference += 3;
+                }
+            }
+
+
+
             //justice diff
             if (game.PlayersList.Where(x => x.Status.PlayerId != bot.Status.PlayerId).All(x => x.Character.Justice.GetJusticeNow() < bot.Character.Justice.GetJusticeNow()))
                 target.AttackPreference += bot.Character.Justice.GetJusticeNow() - target.Player.Character.Justice.GetJusticeNow();
 
-            var hhhuj = 1;
             //custom bot behavior
             switch (bot.Character.Name)
             {
+                case "mylorik":
+
+                    break;
                 case "Краборак":
                     if (target.PlaceAtLeaderBoard < 4)
                     {
@@ -199,6 +221,15 @@ public class BotsBehavior : IServiceSingleton
 
                     break;
                 case "Sirinoks":
+
+                    //После первого хода:  преференс -3 всем, кто не подходит под текущую мишень (мишень скилла).
+                    if (game.RoundNo > 1)
+                    {
+                        if (bot.Character.GetCurrentSkillClassTarget() != target.Player.Character.GetSkillClass())
+                        {
+                            target.AttackPreference -= 3;
+                        }
+                    }
 
                     var siriFriends = _gameGlobal.SirinoksFriendsList.Find(x =>
                         x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
@@ -301,6 +332,27 @@ public class BotsBehavior : IServiceSingleton
                         game.RoundNo == 10 && game.GetAllGlobalLogs().Contains("Нахуй эту игру"))
                         target.AttackPreference = 0;
                     break;
+                case "HardKitty":
+                    if (game.RoundNo <= 4)
+                    {
+                        target.AttackPreference = (int)target.AttackPreference / 5;
+                    }
+                    break;
+                case "Sirinoks":
+                    if (game.RoundNo <= 4)
+                    {
+                        target.AttackPreference -= 4;
+                    }
+
+                    if (game.RoundNo == 10)
+                    {
+                        target.AttackPreference -= 1;
+                    }
+                    break;
+                case "Вампур":
+                    if (bot.Character.Justice.GetJusticeNow() <= target.Player.Character.Justice.GetJusticeNow())
+                        target.AttackPreference += 3;
+                    break;
             }
             //end custom enemy
 
@@ -338,8 +390,6 @@ public class BotsBehavior : IServiceSingleton
                 break;
             case "Глеб":
                 isBlock = 99999;
-
-
                 break;
             case "Краборак":
                 isBlock = 99999;
@@ -488,12 +538,8 @@ public class BotsBehavior : IServiceSingleton
             };
 
             stats = stats.OrderByDescending(x => x.StatCount).ToList();
-
-            if (stats[1].StatCount < 7)
-            {
-                skillNumber = stats[1].StatIndex;
-            }
-            else if (stats[0].StatCount < 10)
+            
+            if (stats[0].StatCount < 10)
             {
                 skillNumber = stats[0].StatIndex;
             }
@@ -511,8 +557,7 @@ public class BotsBehavior : IServiceSingleton
             }
             else
             {
-                player.Status.MoveListPage = 1;
-                return;
+                skillNumber = 4;
             }
 
             if (player.Character.Name == "Братишка" && strength < 10) skillNumber = 2;
