@@ -56,7 +56,7 @@ public class CheckIfReady : IServiceSingleton
         LoopingTimer = new Timer
         {
             AutoReset = true,
-            Interval = 3000,
+            Interval = 500,
             Enabled = true
         };
 

@@ -2792,8 +2792,7 @@ public class CharacterPassives : IServiceSingleton
         return 1;
     }
 
-    public bool HandleOctopus(GamePlayerBridgeClass octopusPlayer, GamePlayerBridgeClass playerAttackedOctopus,
-        GameClass game)
+    public bool HandleOctopus(GamePlayerBridgeClass octopusPlayer, GamePlayerBridgeClass playerAttackedOctopus, GameClass game)
     {
         if (octopusPlayer.Character.Name != "Осьминожка") return true;
         if (playerAttackedOctopus.Character.Name == "DeepList")
@@ -2822,9 +2821,7 @@ public class CharacterPassives : IServiceSingleton
 
         playerAttackedOctopus.Status.IsWonThisCalculation = octopusPlayer.Status.PlayerId;
         octopusPlayer.Status.IsLostThisCalculation = playerAttackedOctopus.Status.PlayerId;
-        octopusPlayer.Status.WhoToLostEveryRound.Add(
-            new InGameStatus.WhoToLostPreviousRoundClass(playerAttackedOctopus.Status.PlayerId, game.RoundNo,
-                false));
+        octopusPlayer.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerAttackedOctopus.Status.PlayerId, game.RoundNo, false, false, false, false));
 
         var octo = _gameGlobal.OctopusInkList.Find(x =>
             x.PlayerId == octopusPlayer.Status.PlayerId && x.GameId == game.GameId);

@@ -110,8 +110,10 @@ Speed => Strength
         {
             var pointsWined = 0;
             var randomForTooGood = 50;
-            var isTooGoodPlayer = false;
+            var isTooGoodMe = false;
             var isTooGoodEnemy = false;
+            var isStatsBetterMe = false;
+            var isStatsBettterEnemy = false;
             var isContrLost = 0;
             var isTooGoodLost = 0;
             var playerIamAttacking = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
@@ -365,7 +367,7 @@ Speed => Strength
             switch (weighingMachine)
             {
                 case >= 13:
-                    isTooGoodPlayer = true;
+                    isTooGoodMe = true;
                     randomForTooGood = 68;
                     isTooGoodLost = 1;
                     break;
@@ -390,10 +392,12 @@ Speed => Strength
                 case > 0:
                     pointsWined++;
                     isContrLost -= 1;
+                    isStatsBetterMe = true;
                     break;
                 case < 0:
                     pointsWined--;
                     isContrLost += 1;
+                    isStatsBettterEnemy = true;
                     break;
             }
             //end round 1
@@ -464,9 +468,7 @@ Speed => Strength
 
                 player.Status.IsWonThisCalculation = playerIamAttacking.Status.PlayerId;
                 playerIamAttacking.Status.IsLostThisCalculation = player.Status.PlayerId;
-                playerIamAttacking.Status.WhoToLostEveryRound.Add(
-                    new InGameStatus.WhoToLostPreviousRoundClass(player.Status.PlayerId, game.RoundNo,
-                        isTooGoodPlayer));
+                playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.Status.PlayerId, game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy, isStatsBettterEnemy));
             }
             else
             {
@@ -507,9 +509,7 @@ Speed => Strength
 
                     playerIamAttacking.Status.IsWonThisCalculation = player.Status.PlayerId;
                     player.Status.IsLostThisCalculation = playerIamAttacking.Status.PlayerId;
-                    player.Status.WhoToLostEveryRound.Add(
-                        new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.Status.PlayerId,
-                            game.RoundNo, isTooGoodEnemy));
+                    player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.Status.PlayerId, game.RoundNo, isTooGoodEnemy, isStatsBettterEnemy, isTooGoodMe, isStatsBetterMe));
                 }
             }
 
