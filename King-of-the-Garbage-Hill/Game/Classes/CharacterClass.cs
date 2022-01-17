@@ -225,8 +225,16 @@ public class CharacterClass
         Moral = howMuchToSet;
     }
 
-    public void AddMoral(InGameStatus status, int howMuchToAdd, string skillName, bool isLog = true)
+    public void AddMoral(InGameStatus status, int howMuchToAdd, string skillName, bool isLog = true, bool isMoralPoints = false)
     {
+        //привет со дна
+        if (howMuchToAdd < 0 && status.CharacterName == "Осьминожка" && !isMoralPoints)
+        {
+            return;
+        }
+        //end привет со дна
+
+
         if (howMuchToAdd > 0 && isLog)
             status.AddInGamePersonalLogs($"{skillName}+{howMuchToAdd} *Морали*\n");
         if (howMuchToAdd < 0 && Moral == 0)

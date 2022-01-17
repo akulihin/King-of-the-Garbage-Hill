@@ -797,6 +797,7 @@ public class CharacterPassives : IServiceSingleton
 
                 //end Стёб
                 break;
+
             case "mylorik":
                 //Месть
                 //enemyIdLostTo may be 0
@@ -1044,6 +1045,15 @@ public class CharacterPassives : IServiceSingleton
                 //Я пытаюсь!
                 break;
             case "Осьминожка":
+
+                //привет со дна
+                if (player.Status.IsWonThisCalculation != Guid.Empty)
+                {
+                    var moral = player.Status.PlaceAtLeaderBoard - game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Status.PlaceAtLeaderBoard;
+                    if(moral > 0) 
+                        player.Character.AddMoral(player.Status, moral, "Привет со дна: ");
+                }
+                //end привет со дна
 
                 break;
             case "Darksci":
@@ -1827,8 +1837,7 @@ public class CharacterPassives : IServiceSingleton
                     var vampyr = _gameGlobal.VampyrHematophagiaList.Find(x =>
                         x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
                     if (vampyr.Hematophagia.Count > 0)
-                        if (game.RoundNo == 2 || game.RoundNo == 4 || game.RoundNo == 6 || game.RoundNo == 8 ||
-                            game.RoundNo == 10)
+                        if (true)
                             player.Character.AddMoral(player.Status, vampyr.Hematophagia.Count, "Вампуризм: ");
                     //end Вампуризм
                     break;
@@ -2018,6 +2027,7 @@ public class CharacterPassives : IServiceSingleton
                             if (enemy.Times >= 2 && enemy.IsUnique == false)
                             {
                                 player.Status.LvlUpPoints += 2;
+                                player.Character.AddExtraSkill(player.Status, "Я пытаюсь!: ", 20, true);
                                 await _gameUpdateMess.UpdateMessage(player);
                                 enemy.IsUnique = true;
                                 game.Phrases.AwdkaTrying.SendLog(player, true);

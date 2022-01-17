@@ -139,26 +139,26 @@ public sealed class GameReaction : IServiceSingleton
 
                         if (player.Character.GetMoral() >= 15)
                         {
-                            player.Character.AddMoral(player.Status, -15, "Обмен Морали: ");
+                            player.Character.AddMoral(player.Status, -15, "Обмен Морали: ", true, true);
                             player.Character.AddBonusPointsFromMoral(10);
                             _help.SendMsgAndDeleteItAfterRound(player,
                                 "Мораль: Я БОГ ЭТОГО МИРА + 10 __бонунсых__ очков");
                         }
                         else if (player.Character.GetMoral() >= 10)
                         {
-                            player.Character.AddMoral(player.Status, -10, "Обмен Морали: ");
+                            player.Character.AddMoral(player.Status, -10, "Обмен Морали: ", true, true);
                             player.Character.AddBonusPointsFromMoral(8);
                             _help.SendMsgAndDeleteItAfterRound(player, "Мораль: МВП + 6 __бонунсых__ очков");
                         }
                         else if (player.Character.GetMoral() >= 5)
                         {
-                            player.Character.AddMoral(player.Status, -5, "Обмен Морали: ");
+                            player.Character.AddMoral(player.Status, -5, "Обмен Морали: ", true, true);
                             player.Character.AddBonusPointsFromMoral(2);
                             _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Изи катка + 2 __бонунсых__ очка");
                         }
                         else if (player.Character.GetMoral() >= 3)
                         {
-                            player.Character.AddMoral(player.Status, -3, "Обмен Морали: ");
+                            player.Character.AddMoral(player.Status, -3, "Обмен Морали: ", true, true);
                             player.Character.AddBonusPointsFromMoral(1);
                             _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Ойвей + 1  __бонунсых__ очка");
                         }

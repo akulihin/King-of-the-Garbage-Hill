@@ -75,25 +75,25 @@ public class BotsBehavior : IServiceSingleton
         //прожать всю момаль
         if (moral >= 15)
         {
-            bot.Character.AddMoral(bot.Status, -15, "Обмен Морали: ", false);
+            bot.Character.AddMoral(bot.Status, -15, "Обмен Морали: ", false, true);
             bot.Character.AddBonusPointsFromMoral(10);
         }
 
         if (moral >= 10)
         {
-            bot.Character.AddMoral(bot.Status, -10, "Обмен Морали: ", false);
+            bot.Character.AddMoral(bot.Status, -10, "Обмен Морали: ", false, true);
             bot.Character.AddBonusPointsFromMoral(6);
         }
 
         if (moral >= 5)
         {
-            bot.Character.AddMoral(bot.Status, -5, "Обмен Морали: ", false);
+            bot.Character.AddMoral(bot.Status, -5, "Обмен Морали: ", false, true);
             bot.Character.AddBonusPointsFromMoral(2);
         }
 
         if (moral >= 3)
         {
-            bot.Character.AddMoral(bot.Status, -3, "Обмен Морали: ", false);
+            bot.Character.AddMoral(bot.Status, -3, "Обмен Морали: ", false, true);
             bot.Character.AddBonusPointsFromMoral(1);
         }
         /*
@@ -219,9 +219,9 @@ public class BotsBehavior : IServiceSingleton
                         {
                             //Если на врагах еще не запрокан луз мести - их преференс +5. 
                             target.AttackPreference += 5;
-                            if (game.RoundNo <= 4 && bot.Character.Justice.GetJusticeNow() > target.Player.Character.Justice.GetJusticeNow())
-                                //Первые 4 хода: + 10 тем у кого справедливости больше чем у тебя, если на них не запрокан луз мести.
-                                target.AttackPreference += 10;
+                            if (game.RoundNo <= 4 && bot.Character.Justice.GetJusticeNow() < target.Player.Character.Justice.GetJusticeNow())
+                                //Первые 4 хода: + 17 тем у кого справедливости больше чем у тебя, если на них не запрокан луз мести.
+                                target.AttackPreference += 17;
                         }
                     }
 
