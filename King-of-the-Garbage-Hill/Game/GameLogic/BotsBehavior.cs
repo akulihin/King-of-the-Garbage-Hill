@@ -28,11 +28,6 @@ public class BotsBehavior : IServiceSingleton
 
     public async Task HandleBotBehavior(GamePlayerBridgeClass player, GameClass game)
     {
-        var timeOffest = 0;
-        if (!player.IsBot() || player.Status.IsReady && player.Status.MoveListPage != 3) return;
-        var realPlayers = game.PlayersList.FindAll(x => !x.IsBot() && !x.Status.IsReady).ToList().Count;
-        if (realPlayers > 0 && game.TimePassed.Elapsed.Seconds < game.TurnLengthInSecond - timeOffest) return;
-
         HandleBotMoral(player, game);
         if (player.Status.MoveListPage == 3) await HandleLvlUpBot(player, game);
         if (player.Status.MoveListPage == 1) await HandleBotAttack(player, game);

@@ -55,12 +55,36 @@ public sealed class GameReaction : IServiceSingleton
 
                 switch (button.Data.CustomId)
                 {
+                    case "auto-move":
+                        player.Status.IsAutoMove = true;
+                        player.Status.IsReady = true;
+                        var textAutomove = $"Ты использовал Авто Ход\n";
+                        player.Status.AddInGamePersonalLogs(textAutomove);
+                        player.Status.ChangeMindWhat = textAutomove;
+
+                        embed = _upd.FightPage(player);
+                        embed.WithFooter($"{_upd.GetTimeLeft(player)}");
+
+                        builder.WithButton(_upd.GetBlockButton(player, game));
+                        builder.WithButton(_upd.GetMoralButton(player, game));
+                        builder.WithButton(_upd.GetEndGameButton());
+                        builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
+                        builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
+                        builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
+                        builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 4);
+                        await button.Message.ModifyAsync(message =>
+                        {
+                            message.Embed = embed.Build();
+                            message.Components = builder.Build();
+                        });
+                        break;
                     case "change-mind":
                         if (player.Status.IsSkip || !player.Status.IsReady)
                         {
                             return;
                         }
                         player.Status.IsAbleToChangeMind = false;
+                        player.Status.IsAutoMove = false;
 
                         player.Status.IsAbleToTurn = true;
                         player.Status.IsReady = false;
@@ -79,7 +103,7 @@ public sealed class GameReaction : IServiceSingleton
                         builder.WithButton(_upd.GetEndGameButton());
                         builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
                         builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
-                        //builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
+                        builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
                         builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 4);
                         await button.Message.ModifyAsync(message =>
                         {
@@ -98,7 +122,7 @@ public sealed class GameReaction : IServiceSingleton
                         builder.WithButton(_upd.GetEndGameButton());
                         builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
                         builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
-                        //builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
+                        builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
                         builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 4);
                         await button.Message.ModifyAsync(message =>
                         {
@@ -122,7 +146,7 @@ public sealed class GameReaction : IServiceSingleton
                         builder.WithButton(_upd.GetEndGameButton());
                         builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
                         builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
-                        //builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
+                        builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
                         builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 4);
                         await button.Message.ModifyAsync(message =>
                         {
@@ -266,7 +290,7 @@ public sealed class GameReaction : IServiceSingleton
         builder.WithButton(_upd.GetEndGameButton());
         builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
         builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
-        //builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
+        builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
         builder.WithSelectMenu(predictMenu, 4);
 
 
@@ -288,7 +312,7 @@ public sealed class GameReaction : IServiceSingleton
         builder.WithButton(_upd.GetEndGameButton());
         builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
         builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
-        //builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
+        builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
         builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 4);
 
         var splitted = string.Join("", button.Data.Values).Split("||spb||");
@@ -327,7 +351,7 @@ public sealed class GameReaction : IServiceSingleton
 
     public async Task HandleLvlUp(GamePlayerBridgeClass player, SocketMessageComponent button, int botChoice = -1)
     {
-        var emoteNum = !player.IsBot() ? Convert.ToInt32(string.Join("", button.Data.Values)) : botChoice;
+        var emoteNum = !player.IsBot() && !player.Status.IsAutoMove  ? Convert.ToInt32(string.Join("", button.Data.Values)) : botChoice;
         await GetLvlUp(player, emoteNum);
     }
 
@@ -336,7 +360,7 @@ public sealed class GameReaction : IServiceSingleton
     {
         var status = player.Status;
 
-        var emoteNum = !player.IsBot() ? Convert.ToInt32(string.Join("", button.Data.Values)) : botChoice;
+        var emoteNum = !player.IsBot() && !player.Status.IsAutoMove ? Convert.ToInt32(string.Join("", button.Data.Values)) : botChoice;
 
         if (botChoice == -10)
         {

@@ -264,27 +264,30 @@ public class CheckIfReady : IServiceSingleton
                 account.ZbsPoints += 4;
             */
 
+            var zbsPointsToGive = 0;
             switch (player.Status.PlaceAtLeaderBoard)
             {
                 case 1:
-                    account.ZbsPoints += 100;
+                    zbsPointsToGive = 100;
                     break;
                 case 2:
-                    account.ZbsPoints += 50;
+                    zbsPointsToGive = 50;
                     break;
                 case 3:
-                    account.ZbsPoints += 40;
+                    zbsPointsToGive = 40;
                     break;
                 case 4:
-                    account.ZbsPoints += 30;
+                    zbsPointsToGive = 30;
                     break;
                 case 5:
-                    account.ZbsPoints += 20;
+                    zbsPointsToGive = 20;
                     break;
                 case 6:
-                    account.ZbsPoints += 10;
+                    zbsPointsToGive = 10;
                     break;
             }
+
+            account.ZbsPoints += zbsPointsToGive;
 
             var characterStatistics =
                 account.CharacterStatistics.Find(x =>
@@ -314,7 +317,7 @@ public class CheckIfReady : IServiceSingleton
             try
             {
                 if (!player.IsBot())
-                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync("Спасибо за игру!");
+                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync($"Спасибо за игру!\nВы заработали **{zbsPointsToGive}** ZBS points!\n\nВы можете потратить их в нашем магазине - напишите команду `*store`");
             }
             catch (Exception ee)
             {
@@ -377,14 +380,11 @@ public class CheckIfReady : IServiceSingleton
             var readyCount = 0;
             foreach (var player in players.Where(x => !x.IsBot()))
             {
-                if (game.TimePassed.Elapsed.TotalSeconds < 5) continue;
-
+                //if (game.TimePassed.Elapsed.TotalSeconds < 30) continue;
                 if (game.TimePassed.Elapsed.TotalSeconds < 30 && !player.Status.ConfirmedSkip) continue;
                 if (player.Status.IsReady && player.Status.ConfirmedPredict)
                     readyCount++;
             }
-
-
 
 
             if (readyCount != readyTargetCount &&
@@ -395,7 +395,7 @@ public class CheckIfReady : IServiceSingleton
             game.IsCheckIfReady = false;
 
             //handle bots
-            foreach (var t in players.Where(x => x.IsBot()))
+            foreach (var t in players.Where(x => x.IsBot() || x.Status.IsAutoMove))
                 try
                 {
                     await _botsBehavior.HandleBotBehavior(t, game);

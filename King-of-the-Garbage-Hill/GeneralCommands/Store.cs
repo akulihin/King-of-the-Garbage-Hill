@@ -43,10 +43,21 @@ public class Store : ModuleBaseCustom
         foreach (var b in _storeReactionHandling.GetStoreButtons())
         {
             i++;
-            if (i > 2)
-                builder.WithButton(b, 1);
-            else
-                builder.WithButton(b);
+            switch (i)
+            {
+                case > 0 and <= 2:
+                    builder.WithButton(b, 0);
+                    break;
+                case > 2 and <= 4:
+                    builder.WithButton(b, 1);
+                    break;
+                case > 4 and <= 6:
+                    builder.WithButton(b, 2);
+                    break;
+                case > 6:
+                    builder.WithButton(b, 3);
+                    break;
+            }
         }
 
         builder.WithSelectMenu(_storeReactionHandling.GetStoreCharacterSelectMenu(account), 2);

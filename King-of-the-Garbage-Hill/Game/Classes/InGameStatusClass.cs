@@ -22,6 +22,7 @@ public class InGameStatus
         WhoToAttackThisTurn = Guid.Empty;
 
         IsReady = false;
+        IsAutoMove = false;
         IsAbleToWin = true;
         WonTimes = 0;
         IsWonThisCalculation = Guid.Empty;
@@ -61,6 +62,7 @@ public class InGameStatus
 
     public bool IsSuperBlock { get; set; }
     public bool IsSkip { get; set; }
+    public bool IsAutoMove { get; set; }
     public bool IsAbleToTurn { get; set; }
     public bool IsAbleToWin { get; set; }
     public int PlaceAtLeaderBoard { get; set; }

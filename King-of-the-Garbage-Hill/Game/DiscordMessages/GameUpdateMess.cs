@@ -114,10 +114,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
             players += CustomLeaderBoardAfterPlayer(player, playersList[i], game);
 
-            //TODO: REMOVE || playersList[i].IsBot()
             if (player.Status.PlayerId == playersList[i].Status.PlayerId)
-                players +=
-                    $" = **{playersList[i].Status.GetScore()} Score**";
+                players += $" = **{playersList[i].Status.GetScore()} Score**";
 
 
             players += "\n";
@@ -650,6 +648,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         if (player.Status.IsBlock) placeHolder = "Ты поставил блок!";
 
+        if (player.Status.IsAutoMove) placeHolder = "Ты использовал Авто Ход!";
+
         if (game.RoundNo > 10) placeHolder = "gg wp";
 
         if (player.Status.IsReady)
@@ -802,7 +802,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public ButtonBuilder GetAutoMoveButton(GamePlayerBridgeClass player, GameClass game)
     {
-        return new ButtonBuilder("Авто Ход", "auto-move", ButtonStyle.Secondary, isDisabled: true);
+        var enabled = player.Status.IsAutoMove || player.Status.IsSkip || player.Status.IsBlock;
+
+        return new ButtonBuilder("Авто Ход", "auto-move", ButtonStyle.Secondary, isDisabled: enabled);
     }
 
     public async Task UpdateMessage(GamePlayerBridgeClass player)
@@ -823,7 +825,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 builder.WithButton(GetEndGameButton());
                 builder.WithSelectMenu(GetAttackMenu(player, game), 1);
                 builder.WithButton(GetPlaceHolderButton(player, game), 2);
-                //builder.WithButton(GetAutoMoveButton(player, game), 2);
+                builder.WithButton(GetAutoMoveButton(player, game), 2);
                 builder.WithSelectMenu(GetPredictMenu(player, game), 4);
                 break;
             case 2:

@@ -16,7 +16,7 @@ public class StoreReactions : IServiceSingleton
     private readonly CharactersPull _charactersPull;
     private readonly SecureRandom _random;
     private readonly UserAccounts _userAccounts;
-
+    private readonly int _basePrice = 10;
     public StoreReactions(UserAccounts userAccounts, CharactersPull charactersPull, SecureRandom random)
     {
         _userAccounts = userAccounts;
@@ -52,6 +52,7 @@ public class StoreReactions : IServiceSingleton
             new("Поднять шанс на 1%", "store-up-1", ButtonStyle.Secondary),
             new("Поднять шанс на 10%", "store-up-10", ButtonStyle.Secondary),
             new("Опустить шанс на 1%", "store-down-1", ButtonStyle.Secondary),
+            new("Опустить шанс на 10%", "store-down-10", ButtonStyle.Secondary),
             new("Сбросить все изменения", "store-return-character", ButtonStyle.Secondary),
             new("Сбросить все изменения за всех персонажей", "store-return-all-characters", ButtonStyle.Secondary)
         };
@@ -77,7 +78,12 @@ public class StoreReactions : IServiceSingleton
         var characterChance = account.CharacterChance.Find(x => x.CharacterName == characterName);
         var character = allCharacters.Find(x => x.Name == characterName);
         var embed = new EmbedBuilder();
-        var cost = 10 + characterChance.Changes;
+        var cost = _basePrice + characterChance.Changes;
+        var cost10 = 0;
+        for (var i = 0; i < 10; i++)
+        {
+            cost10 += _basePrice + characterChance.Changes + i;
+        }
 
 
         embed.WithTitle($"Магазин - {characterChance.CharacterName}");
@@ -86,8 +92,9 @@ public class StoreReactions : IServiceSingleton
         embed.AddField("Бонусный шанс:", $"{Math.Round(characterChance.Multiplier, 2)}", true);
         embed.AddField("ZBS Points:", $"{account.ZbsPoints}");
         embed.AddField("Стоимость", $"Уменьшить шанс на 1% - {cost} ZP\n" +
+                                    $"Уменьшить шанс на 10% - {cost10} ZP\n\n" +
                                     $"Увеличить шанс на 1% - {cost} ZP\n" +
-                                    $"Увеличить шанс на 10% - {cost+10} ZP\n" +
+                                    $"Увеличить шанс на 10% - {cost10} ZP\n\n" +
                                     "Вернуть все ZBS Points за **этого** персонажа - 0 ZP\n" +
                                     "Вернуть все ZBS Points за **всех** персонажей - 0 ZP\n");
 
@@ -110,10 +117,21 @@ public class StoreReactions : IServiceSingleton
         foreach (var b in GetStoreButtons())
         {
             i++;
-            if (i > 2)
-                builder.WithButton(b, 1);
-            else
-                builder.WithButton(b);
+            switch (i)
+            {
+                case > 0 and <= 2:
+                    builder.WithButton(b, 0);
+                    break;
+                case > 2 and <= 4:
+                    builder.WithButton(b, 1);
+                    break;
+                case > 4 and <= 6:
+                    builder.WithButton(b, 2);
+                    break;
+                case > 6:
+                    builder.WithButton(b, 3);
+                    break;
+            }
         }
 
         builder.WithSelectMenu(GetStoreCharacterSelectMenu(account), 2);
@@ -155,7 +173,12 @@ public class StoreReactions : IServiceSingleton
                 return;
             }
 
-            var cost = 10 + character.Changes;
+            var cost = _basePrice + character.Changes;
+            var cost10 = 0;
+            for (var i = 0; i < 10; i++)
+            {
+                cost10 += _basePrice + character.Changes + i;
+            }
 
             switch (button.Data.CustomId)
             {
@@ -183,6 +206,28 @@ public class StoreReactions : IServiceSingleton
                     character.Multiplier -= 0.01;
                     character.Changes++;
                     account.ZbsPoints -= cost;
+
+                    await ModifyStoreMessage(button, character, account);
+                    break;
+
+                case "store-down-10":
+
+                    if (character.Multiplier <= 0.0)
+                    {
+                        await button.Channel.SendMessageAsync(
+                            $"У персонажа {character.CharacterName} и так минимальный бонусный шанс - {character.Multiplier}");
+                        return;
+                    }
+
+                    if (account.ZbsPoints < cost10)
+                    {
+                        await button.Channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost10}.");
+                        return;
+                    }
+
+                    character.Multiplier -= 0.1;
+                    character.Changes += 10;
+                    account.ZbsPoints -= cost10;
 
                     await ModifyStoreMessage(button, character, account);
                     break;
@@ -218,16 +263,17 @@ public class StoreReactions : IServiceSingleton
                         return;
                     }
 
-                    cost = cost + 10;
-                    if (account.ZbsPoints < cost)
+
+                    
+                    if (account.ZbsPoints < cost10)
                     {
-                        await button.Channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
+                        await button.Channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost10}.");
                         return;
                     }
 
                     character.Multiplier += 0.1;
-                    character.Changes++;
-                    account.ZbsPoints -= cost;
+                    character.Changes += 10;
+                    account.ZbsPoints -= cost10;
 
                     await ModifyStoreMessage(button, character, account);
                     break;
@@ -241,11 +287,16 @@ public class StoreReactions : IServiceSingleton
                         return;
                     }
 
+                    var zbsPointsToReturn = 0;
+
+                    for (var i = 1; i < character.Changes+1; i++)
+                    {
+                        zbsPointsToReturn += _basePrice + character.Changes - i;
+                    }
+
                     character.Multiplier = 1.0;
-                    var zbsPointsToReturn = character.Changes * 20;
-                    account.ZbsPoints += zbsPointsToReturn;
-                    account.ZbsPoints -= cost;
                     character.Changes = 0;
+                    account.ZbsPoints += zbsPointsToReturn;
 
 
                     await ModifyStoreMessage(button, character, account);
@@ -261,12 +312,14 @@ public class StoreReactions : IServiceSingleton
                     }
 
                     zbsPointsToReturn = 0;
-                    account.ZbsPoints -= cost;
 
                     foreach (var c in account.CharacterChance)
                     {
+                        for (var i = 1; i < c.Changes + 1; i++)
+                        {
+                            zbsPointsToReturn += _basePrice + c.Changes - i;
+                        }
                         c.Multiplier = 1.0;
-                        zbsPointsToReturn += c.Changes * 20;
                         c.Changes = 0;
                     }
 
