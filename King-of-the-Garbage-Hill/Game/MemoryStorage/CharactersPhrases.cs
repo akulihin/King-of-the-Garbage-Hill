@@ -253,7 +253,6 @@ public class CharactersUniquePhrase
         DeepListMadnessPhrase.PassiveLogRus.Add("БАСЛОВУШКА");
         DeepListMadnessPhrase.PassiveLogRus.Add("Доктор, у меня проблема: Я слышу голоса, но сейчас их нет...");
         DeepListMadnessPhrase.PassiveLogRus.Add("Доктор Чо");
-        DeepListMadnessPhrase.PassiveLogRus.Add("!");
         
 
 
