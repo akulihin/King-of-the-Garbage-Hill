@@ -220,6 +220,8 @@ public class CharactersUniquePhrase
         SpartanTheyWontLikeIt.PassiveLogRus.Add("Твой щит - ничто для моего копья!");
         SpartanTheyWontLikeIt.PassiveLogRus.Add("Настакал blackcleaver!");
         SpartanTheyWontLikeIt.PassiveLogRus.Add("Мое копье создано что бы пронзить НЕБЕСА!");
+        SpartanTheyWontLikeIt.PassiveLogRus.Add("Кину копье, напрыгну, отхуярю щитом");
+
 
         TigrTwoBetter.PassiveLogRus.Add("Лучше с двумя, чем с адекватными");
         TigrTwoBetter.PassiveLogRus.Add("Добро пожаловать в мой клан!");
@@ -243,6 +245,16 @@ public class CharactersUniquePhrase
         DeepListMadnessPhrase.PassiveLogRus.Add("Хаха. Ха. АХАХАХАХАХАХАХ!");
         DeepListMadnessPhrase.PassiveLogRus.Add("Стоп, кто... я?");
         DeepListMadnessPhrase.PassiveLogRus.Add("Заткнитесь!");
+        DeepListMadnessPhrase.PassiveLogRus.Add("Да бля бля Сука бля");
+        DeepListMadnessPhrase.PassiveLogRus.Add("Какая полезная филактерия);
+        DeepListMadnessPhrase.PassiveLogRus.Add("Невидимый волк. Он пришел за мной!!!");
+        DeepListMadnessPhrase.PassiveLogRus.Add("Я самый хитрый таракан");
+        DeepListMadnessPhrase.PassiveLogRus.Add("Покажите звук");
+        DeepListMadnessPhrase.PassiveLogRus.Add("БАСЛОВУШКА");
+        DeepListMadnessPhrase.PassiveLogRus.Add("Доктор, у меня проблема: Я слышу голоса, но сейчас их нет...");
+        DeepListMadnessPhrase.PassiveLogRus.Add("Доктор Чо");
+        DeepListMadnessPhrase.PassiveLogRus.Add("!");
+        
 
 
         DeepListPokePhrase.PassiveLogRus.Add("Хехе");
@@ -254,18 +266,44 @@ public class CharactersUniquePhrase
         DeepListPokePhrase.PassiveLogRus.Add("Скобочка");
         DeepListPokePhrase.PassiveLogRus.Add("It's a joke. You got it?");
         DeepListPokePhrase.PassiveLogRus.Add("Где импакт!?");
+        DeepListPokePhrase.PassiveLogRus.Add("Вариан?");
+        DeepListPokePhrase.PassiveLogRus.Add("Барон!");
+        DeepListPokePhrase.PassiveLogRus.Add("Задень головой");
+        DeepListPokePhrase.PassiveLogRus.Add("Хуле ты встал?");
+        DeepListPokePhrase.PassiveLogRus.Add("Не руби сук");
+        DeepListPokePhrase.PassiveLogRus.Add("Обмылки");
+        DeepListPokePhrase.PassiveLogRus.Add("Ты жирный");
+        DeepListPokePhrase.PassiveLogRus.Add("Ты тоже");
+        DeepListPokePhrase.PassiveLogRus.Add("Как говорит мясник: Люди делятся");
+        DeepListPokePhrase.PassiveLogRus.Add("#");
+        DeepListPokePhrase.PassiveLogRus.Add("Прекрати пиздеть!");
+        DeepListPokePhrase.PassiveLogRus.Add("Молоко в пакете");
+        DeepListPokePhrase.PassiveLogRus.Add("Где рецензия на др. Стоуна?");
+        DeepListPokePhrase.PassiveLogRus.Add("Ты змея очковая, и дело не в очках!");
+        DeepListPokePhrase.PassiveLogRus.Add("Тыква. Выква. Мыква."); 
+        DeepListPokePhrase.PassiveLogRus.Add("Крисп.");
+        DeepListPokePhrase.PassiveLogRus.Add("сложно быть гением в дебилтернете"); 
+        DeepListPokePhrase.PassiveLogRus.Add("Из Загары вышел хороший тиммейт");  
+        DeepListPokePhrase.PassiveLogRus.Add("Я проиграл");  
+        DeepListPokePhrase.PassiveLogRus.Add("Large wave of angry zergs");  
+        
+        
 
         DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Everything is going according to my plan");
         DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("My superior tactic will win");
         DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Я всё рассчитал, это работает.");
         DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Napoleon Wonnafcuk");
         DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Техника скрытого Листа - Гамбит");
+        
 
         DeepListDoubtfulTacticFirstLostPhrase.PassiveLogRus.Add("Скоро...");
         DeepListDoubtfulTacticFirstLostPhrase.PassiveLogRus.Add("Тише едешь, дальше будешь");
         DeepListDoubtfulTacticFirstLostPhrase.PassiveLogRus.Add("Я называю это \"Гамбит\"");
         DeepListDoubtfulTacticFirstLostPhrase.PassiveLogRus.Add("Привилегия даумондов");
         DeepListDoubtfulTacticFirstLostPhrase.PassiveLogRus.Add("Это лишь часть моего плана");
+        DeepListDoubtfulTacticFirstLostPhrase.PassiveLogRus.Add("На нашей стороне ТЕОРИЯ НЕВЕРОЯТНОСТИ!");
+        DeepListDoubtfulTacticFirstLostPhrase.PassiveLogRus.Add("Вижу хуету и я в деле!");
+        
 
 
         DeepListSuperMindPhrase.PassiveLogRus.Add("Поделив энтропию на ноль, вы поняли, что ");
@@ -278,14 +316,22 @@ public class CharactersUniquePhrase
         MylorikRevengeLostPhrase.PassiveLogRus.Add("ПРРРРРРУ");
         MylorikRevengeLostPhrase.PassiveLogRus.Add("Понерфайте!");
         MylorikRevengeLostPhrase.PassiveLogRus.Add("РАААЗЪЫБУ!");
-        MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Вот так!");
+        MylorikRevengeLostPhrase.PassiveLogRus.Add("Понерфайте!");
         MylorikRevengeVictoryPhrase.PassiveLogRus.Add("ЭТО СПАРТА");
         MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Показал как надо");
         MylorikRevengeVictoryPhrase.PassiveLogRus.Add("ММ!");
         MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Слабый персонаж!");
+        MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Лезу");
+        MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Го вирт");
+        MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Доктор Чо");
+        MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Молоко в пакете");
+
+
         MylorikSpanishPhrase.PassiveLogRus.Add("Ааарива!");
         MylorikSpanishPhrase.PassiveLogRus.Add("Буэнос ночес!");
         MylorikSpanishPhrase.PassiveLogRus.Add("Ale handro!");
+        MylorikSpanishPhrase.PassiveLogRus.Add("НЕ ТРОГАЙ МОЮ ДВЕРЬ!"); 
+        MylorikSpanishPhrase.PassiveLogRus.Add("noob team");
         MylorikBoolePhrase.PassiveLogRus.Add("Буль");
 
 
@@ -299,8 +345,11 @@ public class CharactersUniquePhrase
         GlebChallengerSeparatePhrase.PassiveLogRus.Add("OVER 9000");
         GlebChallengerSeparatePhrase.PassiveLogRus.Add("JA - PRETENDENT!");
         GlebChallengerSeparatePhrase.PassiveLogRus.Add("IT'S NASHORS TIME!");
+        GlebChallengerSeparatePhrase.PassiveLogRus.Add("NORMALNO. U MENJA EST HEAL!");
+        GlebChallengerSeparatePhrase.PassiveLogRus.Add("IGRAEM IGRAEM!");
         GlebChallengerSeparatePhrase.PassiveLogRus.Add("DOMOJ GAMBIT!");
-
+        GlebChallengerSeparatePhrase.PassiveLogRus.Add("POSTAVTE WARD!");
+        
 
         GlebSleepyPhrase.PassiveLogRus.Add("Zzzz...");
         GlebSleepyPhrase.PassiveLogRus.Add("Я... Я тут...");
@@ -314,17 +363,31 @@ public class CharactersUniquePhrase
 
 
         LeCrispJewPhrase.PassiveLogRus.Add("Я жру деньги!");
-        LeCrispJewPhrase.PassiveLogRus.Add("Kill secure");
+        LeCrispJewPhrase.PassiveLogRus.Add("Kill secure"); 
+        LeCrispJewPhrase.PassiveLogRus.Add("ОЙ ВЕЙ!");
+        LeCrispJewPhrase.PassiveLogRus.Add("Кошерно");
+        LeCrispJewPhrase.PassiveLogRus.Add("ОЙ ВЕЙ!");                                        
         LeCrispBoolingPhrase.PassiveLogRus.Add("Why are you bulling me?");
         LeCrispBoolingPhrase.PassiveLogRus.Add("fuk u");
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Гребанные ассассины");
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Эх, жизнь АДК");
+        LeCrispAssassinsPhrase.PassiveLogRus.Add("Моя жопа не смогла съесть змею. (с)");
+        LeCrispAssassinsPhrase.PassiveLogRus.Add("Женская собака приседает и писает");
+
         LeCrispImpactPhrase.PassiveLogRus.Add("Импакт!");
         LeCrispImpactPhrase.PassiveLogRus.Add("шпещьмен");
-
+        LeCrispImpactPhrase.PassiveLogRus.Add("Забрал кэмп!");
+        LeCrispImpactPhrase.PassiveLogRus.Add("Я MVP, Я MVP!");    
+        LeCrispImpactPhrase.PassiveLogRus.Add("Хорошее позицианирование");       
+        LeCrispImpactPhrase.PassiveLogRus.Add("Это просто навык");                                          
+        LeCrispImpactPhrase.PassiveLogRus.Add("Хумус");                                                    
+        LeCrispImpactPhrase.PassiveLogRus.Add("Анус");                                                      
+                                                
+                                                
 
         TolyaJewPhrase.PassiveLogRus.Add("Easy money");
         TolyaJewPhrase.PassiveLogRus.Add("Worth");
+        TolyaJewPhrase.PassiveLogRus.Add("Кошерно");
         TolyaCountReadyPhrase.PassiveLogRus.Add("Я готов это просчитать");
         TolyaCountPhrase.PassiveLogRus.Add("Ха! Подстчет!");
         TolyaCountPhrase.PassiveLogRus.Add("Так и знал!");
