@@ -246,7 +246,7 @@ public class CharactersUniquePhrase
         DeepListMadnessPhrase.PassiveLogRus.Add("Стоп, кто... я?");
         DeepListMadnessPhrase.PassiveLogRus.Add("Заткнитесь!");
         DeepListMadnessPhrase.PassiveLogRus.Add("Да бля бля Сука бля");
-        DeepListMadnessPhrase.PassiveLogRus.Add("Какая полезная филактерия);
+        DeepListMadnessPhrase.PassiveLogRus.Add("Какая полезная филактерия");
         DeepListMadnessPhrase.PassiveLogRus.Add("Невидимый волк. Он пришел за мной!!!");
         DeepListMadnessPhrase.PassiveLogRus.Add("Я самый хитрый таракан");
         DeepListMadnessPhrase.PassiveLogRus.Add("Покажите звук");
@@ -274,7 +274,7 @@ public class CharactersUniquePhrase
         DeepListPokePhrase.PassiveLogRus.Add("Ты жирный");
         DeepListPokePhrase.PassiveLogRus.Add("Ты тоже");
         DeepListPokePhrase.PassiveLogRus.Add("Как говорит мясник: Люди делятся");
-        DeepListPokePhrase.PassiveLogRus.Add("#");
+        //DeepListPokePhrase.PassiveLogRus.Add("#");
         DeepListPokePhrase.PassiveLogRus.Add("Прекрати пиздеть!");
         DeepListPokePhrase.PassiveLogRus.Add("Молоко в пакете");
         DeepListPokePhrase.PassiveLogRus.Add("Где рецензия на др. Стоуна?");
@@ -329,7 +329,6 @@ public class CharactersUniquePhrase
         MylorikSpanishPhrase.PassiveLogRus.Add("Ааарива!");
         MylorikSpanishPhrase.PassiveLogRus.Add("Буэнос ночес!");
         MylorikSpanishPhrase.PassiveLogRus.Add("Ale handro!");
-        MylorikSpanishPhrase.PassiveLogRus.Add("НЕ ТРОГАЙ МОЮ ДВЕРЬ!"); 
         MylorikSpanishPhrase.PassiveLogRus.Add("noob team");
         MylorikBoolePhrase.PassiveLogRus.Add("Буль");
 
@@ -380,7 +379,7 @@ public class CharactersUniquePhrase
         LeCrispImpactPhrase.PassiveLogRus.Add("Хорошее позицианирование");       
         LeCrispImpactPhrase.PassiveLogRus.Add("Это просто навык");                                          
         LeCrispImpactPhrase.PassiveLogRus.Add("Хумус");                                                    
-        LeCrispImpactPhrase.PassiveLogRus.Add("Анус");                                                      
+        //LeCrispImpactPhrase.PassiveLogRus.Add("Анус");                                                      
                                                 
                                                 
 
