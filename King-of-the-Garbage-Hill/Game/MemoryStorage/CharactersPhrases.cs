@@ -308,6 +308,8 @@ public class CharactersUniquePhrase
         DeepListSuperMindPhrase.PassiveLogRus.Add("Поделив энтропию на ноль, вы поняли, что ");
         DeepListSuperMindPhrase.PassiveLogRus.Add("Используя свою дедукцию, вы поняли, что ");
         DeepListSuperMindPhrase.PassiveLogRus.Add("Сложив 2+2, вы каким-то чудом догадались, что ");
+        DeepListSuperMindPhrase.PassiveLogRus.Add("Всё ясно. Героин - Марихуана, а ");
+        
 
 
         MylorikRevengeLostPhrase.PassiveLogRus.Add("Ах вы суки блять!");
