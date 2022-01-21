@@ -226,8 +226,8 @@ public class CharactersUniquePhrase
         TigrTwoBetter.PassiveLogRus.Add("Лучше с двумя, чем с адекватными");
         TigrTwoBetter.PassiveLogRus.Add("Добро пожаловать в мой клан!");
 
-        /*TigrThreeZero.PassiveLogRus.Add("Го 1v1");
-        TigrThreeZero.PassiveLogRus.Add("2:0");*/
+        TigrThreeZero.PassiveLogRus.Add("Го 1v1");
+        TigrThreeZero.PassiveLogRus.Add("2:0");
         TigrThreeZero.PassiveLogRus.Add("Изи 3-0, обоссан");
         TigrTop.PassiveLogRus.Add("Тигр топ, а ты холоп!");
         TigrTop.PassiveLogRus.Add("Я - ТОП1 БЕРСЕРК НА СЕРВЕРЕ!!!");
@@ -274,7 +274,7 @@ public class CharactersUniquePhrase
         DeepListPokePhrase.PassiveLogRus.Add("Ты жирный");
         DeepListPokePhrase.PassiveLogRus.Add("Ты тоже");
         DeepListPokePhrase.PassiveLogRus.Add("Как говорит мясник: Люди делятся");
-        //DeepListPokePhrase.PassiveLogRus.Add("#");
+        DeepListPokePhrase.PassiveLogRus.Add("#");
         DeepListPokePhrase.PassiveLogRus.Add("Прекрати пиздеть!");
         DeepListPokePhrase.PassiveLogRus.Add("Молоко в пакете");
         DeepListPokePhrase.PassiveLogRus.Add("Где рецензия на др. Стоуна?");
@@ -381,8 +381,9 @@ public class CharactersUniquePhrase
         LeCrispImpactPhrase.PassiveLogRus.Add("Хорошее позицианирование");       
         LeCrispImpactPhrase.PassiveLogRus.Add("Это просто навык");                                          
         LeCrispImpactPhrase.PassiveLogRus.Add("Хумус");                                                    
-        //LeCrispImpactPhrase.PassiveLogRus.Add("Анус");                                                      
-                                                
+        LeCrispImpactPhrase.PassiveLogRus.Add("Анус");                                                      
+        LeCrispImpactPhrase.PassiveLogRus.Add("Нимфоманка!"); 
+        LeCrispImpactPhrase.PassiveLogRus.Add("Я прям вижу как он зонит");                                   
                                                 
 
         TolyaJewPhrase.PassiveLogRus.Add("Easy money");
