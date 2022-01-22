@@ -123,7 +123,7 @@ public class CharactersUniquePhrase
 
         DeepListMadnessPhrase = new PhraseClass("Безумие");
 
-        DeepListPokePhrase = new PhraseClass("Стёб");
+        DeepListPokePhrase = new PhraseClass("__Стёб__");
         DeepListDoubtfulTacticPhrase = new PhraseClass("Сомнительная тактика");
         DeepListDoubtfulTacticFirstLostPhrase = new PhraseClass("Сомнительная тактика");
         DeepListSuperMindPhrase = new PhraseClass("Сверхразум");
