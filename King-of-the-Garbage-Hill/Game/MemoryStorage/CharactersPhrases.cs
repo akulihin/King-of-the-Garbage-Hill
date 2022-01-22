@@ -340,6 +340,8 @@ public class CharactersUniquePhrase
         GlebChallengerPhrase.PassiveLogRus.Add("Глебка залетает!");
         GlebChallengerPhrase.PassiveLogRus.Add("В Претендентмобиль!");
         GlebChallengerPhrase.PassiveLogRus.Add("ЛИИИИРОЙ ДЖЕНКИНС");
+        GlebChallengerPhrase.PassiveLogRus.Add("FLASH IN THE NIGhT! Я как вспышка в ночи!");
+
 
         GlebChallengerSeparatePhrase.PassiveLogRus.Add("FULL POWER!!!");
         GlebChallengerSeparatePhrase.PassiveLogRus.Add("OVER 9000");
