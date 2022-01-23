@@ -188,7 +188,7 @@
     "Name": "HardKitty",
     "Intelligence": 3,
     "Psyche": 7,
-    "Speed": 4,
+    "Speed": 6,
     "Strength": 5,
     "Justice": {
       "JusticeNow": 0,
@@ -198,7 +198,7 @@
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218646126616617/amumu.png",
     "Passive": [
       {
-        "PassiveDescription": "Получает очко каждый раунд, когда на него нападет хоть кто-то...",
+        "PassiveDescription": "Получает очко каждый раp, когда на него нападет хоть кто-то...",
         "PassiveName": "Одиночество",
         "Visible": true
       },
