@@ -198,7 +198,7 @@
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218646126616617/amumu.png",
     "Passive": [
       {
-        "PassiveDescription": "Получает очко каждый ~~.rar~~ раз, когда на него нападет хоть кто-то...",
+        "PassiveDescription": "Получает очко каждый раз, когда на него нападет хоть кто-то...",
         "PassiveName": "Одиночество",
         "Visible": true
       },
