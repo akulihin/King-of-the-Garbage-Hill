@@ -377,6 +377,7 @@ public class CharactersUniquePhrase
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Женская собака приседает и писает");
 
         LeCrispImpactPhrase.PassiveLogRus.Add("Импакт!");
+        LeCrispImpactPhrase.PassiveLogRus.Add("Это импакт?");
         LeCrispImpactPhrase.PassiveLogRus.Add("шпещьмен");
         LeCrispImpactPhrase.PassiveLogRus.Add("Забрал кэмп!");
         LeCrispImpactPhrase.PassiveLogRus.Add("Я MVP, Я MVP!");    
