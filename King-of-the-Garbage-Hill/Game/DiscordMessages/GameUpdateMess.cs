@@ -10,6 +10,7 @@ using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
+#pragma warning disable CS4014
 
 namespace King_of_the_Garbage_Hill.Game.DiscordMessages;
 
@@ -536,6 +537,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var embed = new EmbedBuilder();
         embed.WithColor(Color.Blue);
         embed.WithTitle("King of the Garbage Hill");
+        embed.WithFooter($"{GetTimeLeft(player)}");
         var roundNumber = game.RoundNo;
 
 
@@ -667,7 +669,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (!player.Status.ConfirmedSkip)
         {
             isDisabled = true;
-            placeHolder = "Подтвердите пропуск хода, для проодолжения игры";
+            placeHolder = "Что-то заставило тебя скипнуть...";
         }
 
         if (!player.Status.ConfirmedSkip && player.Character.Name == "Тигр")
@@ -744,7 +746,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 .WithCustomId("char-select")
                 .WithPlaceholder("\"Выбор\" прокачки")
                 .AddOption("Психика", "4");
-            await _helperFunctions.SendMsgAndDeleteItAfterRound(player, "Riot Games: бери smite и не выебывайся");
+            _helperFunctions.SendMsgAndDeleteItAfterRound(player, "Riot Games: бери smite и не выебывайся");
         }
         //end Да всё нахуй эту игру: Part #4
 
@@ -753,25 +755,74 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     }
 
 
-    public ButtonBuilder GetMoralButton(GamePlayerBridgeClass player, GameClass game)
+    public ButtonBuilder GetMoralToPointsButton(GamePlayerBridgeClass player, GameClass game)
     {
         var disabled = game is not { RoundNo: <= 10 };
         var extraText = "";
         if (game.RoundNo == 10) extraText = " (Конец игры)";
 
-        if (player.Character.GetMoral() >= 15)
-            return new ButtonBuilder($"Обменять 15 Морали на 10 бонусных очков{extraText}", "moral",
-                ButtonStyle.Secondary, isDisabled: disabled);
-        if (player.Character.GetMoral() >= 10)
-            return new ButtonBuilder($"Обменять 10 Морали на 6 бонусных очков{extraText}", "moral",
-                ButtonStyle.Secondary, isDisabled: disabled);
+        if (player.Character.GetMoral() >= 20)
+            return new ButtonBuilder($"на 14 бонусных очков{extraText}", "moral", ButtonStyle.Secondary, isDisabled: disabled);
+        if (player.Character.GetMoral() >= 13)
+            return new ButtonBuilder($"на 8 бонусных очков{extraText}", "moral", ButtonStyle.Secondary, isDisabled: disabled);
+        if (player.Character.GetMoral() >= 8)
+            return new ButtonBuilder($"на 4 бонусных очков{extraText}", "moral", ButtonStyle.Secondary, isDisabled: disabled);
         if (player.Character.GetMoral() >= 5)
-            return new ButtonBuilder($"Обменять 5 Морали на 2 бонусных очка{extraText}", "moral",
-                ButtonStyle.Secondary, isDisabled: disabled);
+            return new ButtonBuilder($"на 2 бонусных очка{extraText}", "moral", ButtonStyle.Secondary, isDisabled: disabled);
         if (player.Character.GetMoral() >= 3)
-            return new ButtonBuilder($"Обменять 3 Морали на 1 бонусное очко{extraText}", "moral",
-                ButtonStyle.Secondary, isDisabled: disabled);
-        return new ButtonBuilder("Недостаточно очков морали", "moral", ButtonStyle.Secondary, isDisabled: true);
+            return new ButtonBuilder($"на 1 бонусное очко{extraText}", "moral", ButtonStyle.Secondary, isDisabled: disabled);
+        return new ButtonBuilder("Недостаточно очков Морали", "moral", ButtonStyle.Secondary, isDisabled: true);
+    }
+
+    public ButtonBuilder GetMoralToSkillButton(GamePlayerBridgeClass player, GameClass game)
+    {
+        if (!player.Status.ConfirmedPredict)
+            return new ButtonBuilder("Я подтверждаю свои предположения", "confirm-prefict", ButtonStyle.Primary, isDisabled: false, emote: Emote.Parse("<a:bratishka:900962522276958298>"));
+        if (!player.Status.ConfirmedSkip)
+            return new ButtonBuilder("Я подтверждаю пропуск хода", "confirm-skip", ButtonStyle.Primary, isDisabled: false, emote: Emote.Parse("<a:bratishka:900962522276958298>"));
+
+
+        var disabled = game is not { RoundNo: <= 10 };
+        var extraText = "";
+        if (game.RoundNo == 10) extraText = " (Конец игры)";
+
+        if (player.Character.GetMoral() >= 20)
+            return new ButtonBuilder($"Обменять 20 Морали на 114 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
+        if (player.Character.GetMoral() >= 13)
+            return new ButtonBuilder($"Обменять 13 Морали на 69 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
+        if (player.Character.GetMoral() >= 8)
+            return new ButtonBuilder($"Обменять 8 Морали на 39 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
+        if (player.Character.GetMoral() >= 5)
+            return new ButtonBuilder($"Обменять 5 Морали на 24 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
+        if (player.Character.GetMoral() >= 3)
+            return new ButtonBuilder($"Обменять 3 Морали на 14 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
+        if (player.Character.GetMoral() >= 2)
+            return new ButtonBuilder($"Обменять 2 Морали на 9 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
+        if (player.Character.GetMoral() >= 1)
+            return new ButtonBuilder($"Обменять 1 Морали на 4 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
+
+
+        return new ButtonBuilder("Недостаточно очков Морали", "skill", ButtonStyle.Secondary, isDisabled: true);
+    }
+
+    public ComponentBuilder GetGameButtons(GamePlayerBridgeClass player, GameClass game, SelectMenuBuilder predictMenu = null)
+    {
+        var components = new ComponentBuilder();
+        components.WithButton(GetBlockButton(player, game));
+        components.WithButton(GetAutoMoveButton(player, game));
+        components.WithButton(GetChangeMindButton(player, game));
+        components.WithButton(GetEndGameButton());
+
+        components.WithSelectMenu(GetAttackMenu(player, game), 1);
+
+        
+        components.WithButton(GetMoralToSkillButton(player, game), 2);
+        if(player.Character.GetMoral() >= 3)
+            if (player.Status.ConfirmedPredict && player.Status.ConfirmedSkip)
+                components.WithButton(GetMoralToPointsButton(player, game), 2);
+
+        components.WithSelectMenu(predictMenu ?? GetPredictMenu(player, game), 3);
+        return components;
     }
 
 
@@ -786,14 +837,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         return new ButtonBuilder("Завершить Игру", "end", ButtonStyle.Danger);
     }
 
-    public ButtonBuilder GetPlaceHolderButton(GamePlayerBridgeClass player, GameClass game)
+    public ButtonBuilder GetChangeMindButton(GamePlayerBridgeClass player, GameClass game)
     {
-        if (!player.Status.ConfirmedPredict)
-            return new ButtonBuilder("Я подтверждаю свои предположения", "confirm-prefict", ButtonStyle.Primary, isDisabled: false, emote: Emote.Parse("<a:bratishka:900962522276958298>"));
-        if (!player.Status.ConfirmedSkip)
-            return new ButtonBuilder("Я подтверждаю пропуск хода", "confirm-skip", ButtonStyle.Primary, isDisabled: false, emote: Emote.Parse("<a:bratishka:900962522276958298>"));
-        
-        
         if (player.Status.IsReady && player.Status.IsAbleToChangeMind && !player.Status.IsSkip)
             return new ButtonBuilder("Изменить свой выбор", "change-mind", ButtonStyle.Secondary, isDisabled: false);
 
@@ -819,14 +864,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         {
             case 1:
                 embed = FightPage(player);
-                builder = new ComponentBuilder();
-                builder.WithButton(GetBlockButton(player, game));
-                builder.WithButton(GetMoralButton(player, game));
-                builder.WithButton(GetEndGameButton());
-                builder.WithSelectMenu(GetAttackMenu(player, game), 1);
-                builder.WithButton(GetPlaceHolderButton(player, game), 2);
-                builder.WithButton(GetAutoMoveButton(player, game), 2);
-                builder.WithSelectMenu(GetPredictMenu(player, game), 4);
+                builder = GetGameButtons(player, game);
                 break;
             case 2:
                 // RESERVED
@@ -845,30 +883,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 //end Да всё нахуй эту игру: Part #5
                 break;
         }
-
-        embed.WithFooter($"{GetTimeLeft(player)}");
-
-        await UpdateMessageWithEmbed(player, embed, builder);
+        await _helperFunctions.ModifyGameMessage(player, embed, builder);
     }
 
 
-    public async Task UpdateMessageWithEmbed(GamePlayerBridgeClass player, EmbedBuilder embed,
-        ComponentBuilder builder)
-    {
-        try
-        {
-            if (!player.IsBot() && !embed.Footer.Text.Contains("ERROR"))
-                await player.Status.SocketMessageFromBot.ModifyAsync(message =>
-                {
-                    message.Embed = embed.Build();
-                    message.Components = builder.Build();
-                });
-        }
-        catch (Exception e)
-        {
-            _log.Critical(e.StackTrace);
-        }
-    }
+
 
 
     public string GetTimeLeft(GamePlayerBridgeClass player)

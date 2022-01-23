@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Discord;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
@@ -201,12 +202,43 @@ public sealed class HelperFunctions : IServiceSingleton
         return place == -1 ? source : source.Remove(place, find.Length).Insert(place, replace);
     }
 
+
+    public async Task ModifyGameMessage(GamePlayerBridgeClass player, EmbedBuilder embed, ComponentBuilder components)
+    {
+        try
+        {
+            if (!player.IsBot() && !embed.Footer.Text.Contains("ERROR"))
+            {
+                var now = DateTimeOffset.UtcNow;
+                if ((now - player.Status.LastMessageUpdate).TotalMilliseconds < 1000)
+                {
+                    await Task.Delay(1000);
+                }
+
+
+                await player.Status.SocketMessageFromBot.ModifyAsync(message =>
+                {
+                    message.Embed = embed.Build();
+                    message.Components = components.Build();
+                });
+
+                player.Status.LastMessageUpdate = DateTimeOffset.UtcNow;
+            }
+        }
+        catch (Exception e)
+        {
+            _logs.Critical(e.StackTrace);
+        }
+    }
+
+
     public async Task SendMsgAndDeleteItAfterRound(GamePlayerBridgeClass player, string msg)
     {
         try
         {
             if (!player.IsBot())
             {
+                await Task.Delay(750);
                 var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(msg);
                 player.DeleteMessages.Add(mess2.Id);
             }

@@ -590,6 +590,7 @@ public class CharactersUniquePhrase
                 PassiveLogRus.Remove(description);
             try
             {
+                await Task.Delay(500);
                 var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(description);
                 player.DeleteMessages.Add(mess2.Id);
             }

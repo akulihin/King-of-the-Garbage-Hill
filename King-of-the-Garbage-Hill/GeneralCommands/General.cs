@@ -304,7 +304,7 @@ public class General : ModuleBaseCustom
                 playersList[tigrIndex] = playersList[0];
                 playersList[0] = tigrTemp;
                 tigr.TimeCount--;
-                //await game.Phrases.TigrTop.SendLog(tigrTemp);
+                //game.Phrases.TigrTop.SendLog(tigrTemp);
             }
         }
         //Тигр топ, а ты холоп

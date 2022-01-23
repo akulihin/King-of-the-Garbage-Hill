@@ -381,7 +381,7 @@ public class CheckIfReady : IServiceSingleton
             foreach (var player in players.Where(x => !x.IsBot()))
             {
                 //if (game.TimePassed.Elapsed.TotalSeconds < 30) continue;
-                if (game.TimePassed.Elapsed.TotalSeconds < 30 && !player.Status.ConfirmedSkip) continue;
+                if (game.TimePassed.Elapsed.TotalSeconds < 50 && !player.Status.ConfirmedSkip) continue;
                 if (player.Status.IsReady && player.Status.ConfirmedPredict)
                     readyCount++;
             }
@@ -393,6 +393,29 @@ public class CheckIfReady : IServiceSingleton
 
             //Calculating the game
             game.IsCheckIfReady = false;
+
+
+
+
+            //If did do anything - Block
+            foreach (var t in players.Where(t => !t.IsBot() && !t.Status.IsAutoMove && t.Status.WhoToAttackThisTurn == Guid.Empty && t.Status.IsBlock == false && t.Status.IsSkip == false))
+            {
+                _logs.Warning($"\nWARN: {t.DiscordUsername} didn't do anything - Auto Move!\n");
+                t.Status.IsAutoMove = true;
+                var textAutomove = $"Ты не походил. Использовался Авто Ход\n";
+                t.Status.AddInGamePersonalLogs(textAutomove);
+                t.Status.ChangeMindWhat = textAutomove;
+            }
+
+            //If did do anything - LvL up a random stat
+            foreach (var t in players.Where(t => !t.IsBot() && t.Status.MoveListPage == 3))
+            {
+                _logs.Warning($"\nWARN: {t.DiscordUsername} didn't do anything - Auto LvL!\n");
+                t.Status.IsAutoMove = true;
+                var textAutomove = $"Ты не походил. Использовался Авто Ход\n";
+                t.Status.AddInGamePersonalLogs(textAutomove);
+                t.Status.ChangeMindWhat = textAutomove;
+            }
 
             //handle bots
             foreach (var t in players.Where(x => x.IsBot() || x.Status.IsAutoMove))
@@ -408,80 +431,25 @@ public class CheckIfReady : IServiceSingleton
                                           $"{exception.StackTrace}\n");
                 }
 
-
-            //If did do anything - Block
-            foreach (var t in players.Where(t =>
-                         t.Status.WhoToAttackThisTurn == Guid.Empty && t.Status.IsBlock == false &&
-                         t.Status.IsSkip == false))
+            foreach (var t in players.Where(t => t.Status.WhoToAttackThisTurn == Guid.Empty && t.Status.IsBlock == false && t.Status.IsSkip == false))
             {
-                _logs.Critical($"\nWARN: {t.DiscordUsername} didn't do anything!\n");
-
-
-                t.Status.IsBlock = true;
-                t.Status.IsReady = true;
-                t.Status.IsAbleToTurn = false;
-                var randomIndex = _random.Random(1, 10);
-                if (t.Character.Name == "mylorik" || randomIndex > 5)
-                {
-                    t.Status.IsBlock = false;
-                    t.Status.WhoToAttackThisTurn = game.PlayersList[0].Status.PlayerId;
-
-                    if (t.Status.WhoToAttackThisTurn == t.Status.PlayerId)
-                        t.Status.WhoToAttackThisTurn = game.PlayersList[_random.Random(1, 5)].Status.PlayerId;
-
-                    t.Status.AddInGamePersonalLogs(
-                        $"Ты напал на игрока {game.PlayersList.Find(x => x.Status.PlayerId == t.Status.WhoToAttackThisTurn).DiscordUsername} (Auto)\n");
-                }
-                else
-                {
-                    t.Status.AddInGamePersonalLogs("Ты поставил блок (Auto)\n");
-                }
-            }
-
-            //If did do anything - LvL up a random stat
-            foreach (var t in players.Where(t => t.Status.MoveListPage == 3))
-            {
-                do
-                {
-                    var randomStat = _random.Random(1, 4);
-                    switch (randomStat)
-                    {
-                        case 1:
-                            t.Character.AddIntelligence(t.Status, 1, "Прокачка (Auto): ");
-                            break;
-                        case 2:
-                            t.Character.AddStrength(t.Status, 1, "Прокачка (Auto): ");
-                            break;
-                        case 3:
-                            t.Character.AddSpeed(t.Status, 1, "Прокачка (Auto): ");
-                            break;
-                        case 4:
-                            t.Character.AddPsyche(t.Status, 1, "Прокачка (Auto): ");
-                            break;
-                    }
-
-                    if (t.Status.LvlUpPoints > 1)
-                        t.Status.LvlUpPoints--;
-                } while (t.Status.LvlUpPoints > 1);
-
-                t.Status.MoveListPage = 1;
+                _logs.Critical($"\nCRIT: {t.DiscordUsername} didn't do anything  and auto move didn't as well.!\n");
             }
 
             //delete messages from prev round. No await.
-            foreach (var player in game.PlayersList) _help.DeleteItAfterRound(player);
+                foreach (var player in game.PlayersList) _help.DeleteItAfterRound(player);
 
             await _round.CalculateAllFights(game);
 
             foreach (var t in players.Where(x => !x.IsBot()))
                 try
                 {
-                    if (game.RoundNo <= 10) await _help.SendMsgAndDeleteItAfterRound(t, $"Раунд #{game.RoundNo}");
+                    if (game.RoundNo <= 10) _help.SendMsgAndDeleteItAfterRound(t, $"Раунд #{game.RoundNo}");
 
                     if (game.RoundNo == 8)
                     {
                         t.Status.ConfirmedPredict = false;
-                        await _help.SendMsgAndDeleteItAfterRound(t,
-                            "Это последний раунд, когда можно сделать **предложение**!");
+                         _help.SendMsgAndDeleteItAfterRound(t, "Это последний раунд, когда можно сделать **предложение**!");
                     }
 
                     if (game.RoundNo == 9) t.Status.ConfirmedPredict = true;

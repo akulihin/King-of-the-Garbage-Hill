@@ -47,11 +47,19 @@ public sealed class GameReaction : IServiceSingleton
                     x.Status.SocketMessageFromBot.Id == button.Message.Id))
             {
                 var player = _global.GetGameAccount(button.User.Id, t.PlayersList.FirstOrDefault().GameId);
+                
+                var now = DateTimeOffset.UtcNow;
+                if ((now - player.Status.LastButtonPress).TotalMilliseconds < 1500)
+                {
+                    button.RespondAsync("Ошибка: Слишком быстро! Нажми на кнопку еще раз.", ephemeral:true);
+                    return;
+                }
+
                 var status = player.Status;
-                var builder = new ComponentBuilder();
+                var components = new ComponentBuilder();
                 var embed = new EmbedBuilder();
                 var game = _global.GamesList.Find(x => x.GameId == player.GameId);
-                // if (!discordAccount.IsAbleToTurn){return;}
+                
 
                 switch (button.Data.CustomId)
                 {
@@ -63,25 +71,13 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.ChangeMindWhat = textAutomove;
 
                         embed = _upd.FightPage(player);
-                        embed.WithFooter($"{_upd.GetTimeLeft(player)}");
-
-                        builder.WithButton(_upd.GetBlockButton(player, game));
-                        builder.WithButton(_upd.GetMoralButton(player, game));
-                        builder.WithButton(_upd.GetEndGameButton());
-                        builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
-                        builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
-                        builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
-                        builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 4);
-                        await button.Message.ModifyAsync(message =>
-                        {
-                            message.Embed = embed.Build();
-                            message.Components = builder.Build();
-                        });
+                        components = _upd.GetGameButtons(player, game);
+                        _help.ModifyGameMessage(player, embed, components);
                         break;
                     case "change-mind":
                         if (player.Status.IsSkip || !player.Status.IsReady)
                         {
-                            return;
+                            break;
                         }
                         player.Status.IsAbleToChangeMind = false;
                         player.Status.IsAutoMove = false;
@@ -96,66 +92,26 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.SetInGamePersonalLogs(newInGameLogs);
 
                         embed = _upd.FightPage(player);
-                        embed.WithFooter($"{_upd.GetTimeLeft(player)}");
 
-                        builder.WithButton(_upd.GetBlockButton(player, game));
-                        builder.WithButton(_upd.GetMoralButton(player, game));
-                        builder.WithButton(_upd.GetEndGameButton());
-                        builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
-                        builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
-                        builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
-                        builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 4);
-                        await button.Message.ModifyAsync(message =>
-                        {
-                            message.Embed = embed.Build();
-                            message.Components = builder.Build();
-                        });
+                        components = _upd.GetGameButtons(player, game);
+                        _help.ModifyGameMessage(player, embed, components);
+                        _help.SendMsgAndDeleteItAfterRound(player, "I've changed my mind, coming back");
                         break;
 
                     case "confirm-skip":
                         player.Status.ConfirmedSkip = true;
                         embed = _upd.FightPage(player);
-                        embed.WithFooter($"{_upd.GetTimeLeft(player)}");
-
-                        builder.WithButton(_upd.GetBlockButton(player, game));
-                        builder.WithButton(_upd.GetMoralButton(player, game));
-                        builder.WithButton(_upd.GetEndGameButton());
-                        builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
-                        builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
-                        builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
-                        builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 4);
-                        await button.Message.ModifyAsync(message =>
-                        {
-                            message.Embed = embed.Build();
-                            message.Components = builder.Build();
-                        });
+                        components = _upd.GetGameButtons(player, game);
+                        _help.ModifyGameMessage(player, embed, components);
                         break;
 
                     case "confirm-prefict":
                         player.Status.ConfirmedPredict = true;
-                        builder = new ComponentBuilder();
-                        embed = new EmbedBuilder();
                         game = _global.GamesList.Find(x => x.GameId == player.GameId);
-
-
                         embed = _upd.FightPage(player);
-                        embed.WithFooter($"{_upd.GetTimeLeft(player)}");
-
-                        builder.WithButton(_upd.GetBlockButton(player, game));
-                        builder.WithButton(_upd.GetMoralButton(player, game));
-                        builder.WithButton(_upd.GetEndGameButton());
-                        builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
-                        builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
-                        builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
-                        builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 4);
-                        await button.Message.ModifyAsync(message =>
-                        {
-                            message.Embed = embed.Build();
-                            message.Components = builder.Build();
-                        });
+                        components = _upd.GetGameButtons(player, game);
+                        _help.ModifyGameMessage(player, embed, components);
                         break;
-
-
                     case "end":
                         var dm = await button.User.CreateDMChannelAsync();
                         await _upd.EndGame(button);
@@ -175,13 +131,13 @@ public sealed class GameReaction : IServiceSingleton
                         if (status.MoveListPage == 3)
                         {
                             _help.SendMsgAndDeleteItAfterRound(player, "Ходить нельзя, Апни лвл!");
-                            return;
+                            break;
                         }
 
                         if (player.Character.Name == "mylorik")
                         {
                             _help.SendMsgAndDeleteItAfterRound(player, "Спартанцы не капитулируют!!");
-                            return;
+                            break;
                         }
 
 
@@ -198,44 +154,90 @@ public sealed class GameReaction : IServiceSingleton
                     case "moral":
                         var tempMoral = player.Character.GetMoral();
 
-                        if (player.Character.GetMoral() >= 15)
+
+                        if (player.Character.GetMoral() >= 20)
                         {
-                            player.Character.AddMoral(player.Status, -15, "Обмен Морали: ", true, true);
-                            player.Character.AddBonusPointsFromMoral(10);
-                            _help.SendMsgAndDeleteItAfterRound(player,
-                                "Мораль: Я БОГ ЭТОГО МИРА + 10 __бонунсых__ очков");
+                            player.Character.AddMoral(player.Status, -20, "Обмен Морали: ", true, true);
+                            player.Character.AddBonusPointsFromMoral(14);
+                            _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Я БОГ ЭТОГО МИРА +14 __бонунсых__ очков");
                         }
-                        else if (player.Character.GetMoral() >= 10)
+                        else if (player.Character.GetMoral() >= 13)
                         {
-                            player.Character.AddMoral(player.Status, -10, "Обмен Морали: ", true, true);
+                            player.Character.AddMoral(player.Status, -13, "Обмен Морали: ", true, true);
                             player.Character.AddBonusPointsFromMoral(8);
-                            _help.SendMsgAndDeleteItAfterRound(player, "Мораль: МВП + 6 __бонунсых__ очков");
+                            _help.SendMsgAndDeleteItAfterRound(player, "Мораль: МВП +8 __бонунсых__ очков");
+                        }
+                        else if (player.Character.GetMoral() >= 8)
+                        {
+                            player.Character.AddMoral(player.Status, -8, "Обмен Морали: ", true, true);
+                            player.Character.AddBonusPointsFromMoral(4);
+                            _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Я богач! +4 __бонунсых__ очков");
                         }
                         else if (player.Character.GetMoral() >= 5)
                         {
                             player.Character.AddMoral(player.Status, -5, "Обмен Морали: ", true, true);
                             player.Character.AddBonusPointsFromMoral(2);
-                            _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Изи катка + 2 __бонунсых__ очка");
+                            _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Изи катка +2 __бонунсых__ очка");
                         }
                         else if (player.Character.GetMoral() >= 3)
                         {
                             player.Character.AddMoral(player.Status, -3, "Обмен Морали: ", true, true);
                             player.Character.AddBonusPointsFromMoral(1);
-                            _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Ойвей + 1  __бонунсых__ очка");
-                        }
-                        else
-                        {
-                            _help.SendMsgAndDeleteItAfterRound(player,
-                                "У тебя недосточно *Морали*, чтобы поменять ее на бонусные очки.\n" +
-                                "3 морали =  1 бонусное очко\n" +
-                                "5 морали = 2 бонусных очка\n" +
-                                "10 морали = 6 бонусных очков\n" +
-                                "15 морали = 10 бонусных очков");
+                            _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Ойвей +1  __бонунсых__ очка");
                         }
 
                         if (tempMoral >= 3)
                             _upd.UpdateMessage(t.PlayersList.Find(x => x.DiscordId == player.DiscordId));
+                        break;
+                    case "skill":
+                        var tempSkill = player.Character.GetMoral();
 
+
+                        if (player.Character.GetMoral() >= 20)
+                        {
+                            player.Character.AddMoral(player.Status, -20, "Обмен Морали: ", true, true);
+                            player.Character.AddExtraSkill(player.Status, "Обмен Морали: ", 114);
+                            _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Я БОГ ЭТОГО МИРА!!! +114 *Скилла*");
+                        }
+                        else if (player.Character.GetMoral() >= 13)
+                        {
+                            player.Character.AddMoral(player.Status, -13, "Обмен Морали: ", true, true);
+                            player.Character.AddExtraSkill(player.Status, "Обмен Морали: ", 69);
+                            _help.SendMsgAndDeleteItAfterRound(player, "Мораль: MVP! +69 *Скилла*");
+                        }
+                        else if (player.Character.GetMoral() >= 8)
+                        {
+                            player.Character.AddMoral(player.Status, -8, "Обмен Морали: ", true, true);
+                            player.Character.AddExtraSkill(player.Status, "Обмен Морали: ", 39);
+                            _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Я художник! +39 *Скилла*");
+                        }
+                        else if (player.Character.GetMoral() >= 5)
+                        {
+                            player.Character.AddMoral(player.Status, -5, "Обмен Морали: ", true, true);
+                            player.Character.AddExtraSkill(player.Status, "Обмен Морали: ", 24);
+                            _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Изи катка +24 *Скилла*");
+                        }
+                        else if (player.Character.GetMoral() >= 3)
+                        {
+                            player.Character.AddMoral(player.Status, -3, "Обмен Морали: ", true, true);
+                            player.Character.AddExtraSkill(player.Status, "Обмен Морали: ", 14);
+                            _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Набрался *Скилла*, так сказать. +14 *Скилла*");
+                        }
+                        else if (player.Character.GetMoral() >= 2)
+                        {
+                            player.Character.AddMoral(player.Status, -2, "Обмен Морали: ", true, true);
+                            player.Character.AddExtraSkill(player.Status, "Обмен Морали: ", 9);
+                            _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Так вот как в это играть. +9 *Скилла*");
+                        }
+                        else if (player.Character.GetMoral() >= 1)
+                        {
+                            player.Character.AddMoral(player.Status, -1, "Обмен Морали: ", true, true);
+                            player.Character.AddExtraSkill(player.Status, "Обмен Морали: ", 4);
+                            _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Это что? +4 *Скилла*");
+                        }
+
+                        if (tempSkill >= 1)
+                            _upd.UpdateMessage(t.PlayersList.Find(x => x.DiscordId == player.DiscordId));
                         break;
 
                     case "char-select":
@@ -255,7 +257,8 @@ public sealed class GameReaction : IServiceSingleton
                         HandlePredic2(player, button);
                         break;
                 }
-
+                player.Status.LastButtonPress = DateTimeOffset.UtcNow;
+                
                 return;
             }
     }
@@ -284,17 +287,13 @@ public sealed class GameReaction : IServiceSingleton
             predictMenu.AddOption(character, string.Join("", button.Data.Values) + "||spb||" + character);
         }
 
+        builder = _upd.GetGameButtons(player, game, predictMenu);
 
-        builder.WithButton(_upd.GetBlockButton(player, game));
-        builder.WithButton(_upd.GetMoralButton(player, game));
-        builder.WithButton(_upd.GetEndGameButton());
-        builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
-        builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
-        builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
-        builder.WithSelectMenu(predictMenu, 4);
+        var embed = new EmbedBuilder();
+        embed = _upd.FightPage(player);
+        
 
-
-        await button.Message.ModifyAsync(message => { message.Components = builder.Build(); });
+        _help.ModifyGameMessage(player, embed, builder);
     }
 
     public async Task HandlePredic2(GamePlayerBridgeClass player, SocketMessageComponent button)
@@ -302,28 +301,15 @@ public sealed class GameReaction : IServiceSingleton
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         var builder = new ComponentBuilder();
         var embed = new EmbedBuilder();
-
-
         embed = _upd.FightPage(player);
-        embed.WithFooter($"{_upd.GetTimeLeft(player)}");
 
-        builder.WithButton(_upd.GetBlockButton(player, game));
-        builder.WithButton(_upd.GetMoralButton(player, game));
-        builder.WithButton(_upd.GetEndGameButton());
-        builder.WithSelectMenu(_upd.GetAttackMenu(player, game), 1);
-        builder.WithButton(_upd.GetPlaceHolderButton(player, game), 2);
-        builder.WithButton(_upd.GetAutoMoveButton(player, game), 2);
-        builder.WithSelectMenu(_upd.GetPredictMenu(player, game), 4);
+        builder = _upd.GetGameButtons(player, game);
 
         var splitted = string.Join("", button.Data.Values).Split("||spb||");
 
         if (splitted[0] == "prev-page")
         {
-            await button.Message.ModifyAsync(message =>
-            {
-                message.Embed = embed.Build();
-                message.Components = builder.Build();
-            });
+            _help.ModifyGameMessage(player, embed, builder);
             return;
         }
 
@@ -341,11 +327,7 @@ public sealed class GameReaction : IServiceSingleton
 
 
         embed = _upd.FightPage(player);
-        await button.Message.ModifyAsync(message =>
-        {
-            message.Embed = embed.Build();
-            message.Components = builder.Build();
-        });
+        _help.ModifyGameMessage(player, embed, builder);
     }
 
 
@@ -431,7 +413,7 @@ public sealed class GameReaction : IServiceSingleton
                     x.RoundNo == game.RoundNo - 1 && x.EnemyId == status.WhoToAttackThisTurn))
             {
                 status.WhoToAttackThisTurn = Guid.Empty;
-                await game.Phrases.VampyrNoAttack.SendLogSeparate(player, false);
+                game.Phrases.VampyrNoAttack.SendLogSeparate(player, false);
                 return false;
             }
 

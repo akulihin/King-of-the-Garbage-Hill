@@ -615,7 +615,7 @@ Speed => Strength
                 game.PlayersList[tigrIndex] = game.PlayersList[0];
                 game.PlayersList[0] = tigrTemp;
                 tigr.TimeCount--;
-                // await game.Phrases.TigrTop.SendLog(tigrTemp);
+                // game.Phrases.TigrTop.SendLog(tigrTemp);
             }
         }
         //end Tigr Unique

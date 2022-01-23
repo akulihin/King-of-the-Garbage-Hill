@@ -245,6 +245,7 @@ public class AdminPanel : ModuleBaseCustom
             return;
         }
 
+
         var game = _global.GamesList.Find(
             l => l.PlayersList.Any(x => x.DiscordId == Context.User.Id));
 

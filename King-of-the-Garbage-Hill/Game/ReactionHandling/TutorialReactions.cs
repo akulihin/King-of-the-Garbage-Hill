@@ -807,6 +807,7 @@ public class TutorialReactions : IServiceSingleton
                         message.Components = builder.Build();
                     });
 
+
                     await DeleteMessagesNextRoundTutorial(game);
 
                     if (game.RoundNumber != 3 && game.RoundNumber != 7) await SendMessageTutorial(game);

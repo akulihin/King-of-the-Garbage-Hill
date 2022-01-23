@@ -8,6 +8,7 @@ using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Helpers;
+#pragma warning disable CS4014
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
@@ -323,7 +324,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         target.Status.IsAbleToWin = false;
                         game.AddGlobalLogs("**Я DRAGONSLAYER!**\n" +
-                                           $"\"{me.DiscordUsername}\" побеждает дракона и забирает **1000 голды**!");
+                                           $"{me.DiscordUsername} побеждает дракона и забирает **1000 голды**!");
                         foreach (var p in game.PlayersList) game.Phrases.SpartanDragonSlayer.SendLog(p, false);
                     }
                 //end DragonSlayer
@@ -1068,10 +1069,10 @@ public class CharacterPassives : IServiceSingleton
                     {
                         player.Character.AddPsyche(player.Status, -1);
                         player.MinusPsycheLog(game);
-                        await game.Phrases.DarksciNotLucky.SendLog(player);
+                        game.Phrases.DarksciNotLucky.SendLog(player);
                     }
                     else
-                        await game.Phrases.ThirdСommandment.SendLog(player);*/
+                        game.Phrases.ThirdСommandment.SendLog(player);*/
                     player.Character.AddPsyche(player.Status, -1, "Не повезло: ");
                     player.MinusPsycheLog(game);
                     game.Phrases.DarksciNotLucky.SendLog(player, false);
@@ -2220,7 +2221,7 @@ public class CharacterPassives : IServiceSingleton
                             gleb.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
 
                             game.Phrases.GlebChallengerPhrase.SendLog(player, true);
-                            await game.Phrases.GlebChallengerSeparatePhrase.SendLogSeparate(player, true);
+                            game.Phrases.GlebChallengerSeparatePhrase.SendLogSeparate(player, true);
                         }
 
                     //end Претендент русского сервера
@@ -2290,7 +2291,7 @@ public class CharacterPassives : IServiceSingleton
                             else
                                 check.KnownPlayers.Add(randPlayer.Status.PlayerId);
 
-                            await game.Phrases.DeepListSuperMindPhrase.SendLog(player, randPlayer, true);
+                            game.Phrases.DeepListSuperMindPhrase.SendLog(player, randPlayer, true);
                         }
                     //end Сверхразум
 
