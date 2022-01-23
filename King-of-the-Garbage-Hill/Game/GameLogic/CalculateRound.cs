@@ -443,7 +443,7 @@ Speed => Strength
                 game.AddGlobalLogs($" ⟶ {player.DiscordUsername}");
 
                 //еврей
-                var point = _characterPassives.HandleJews(player, game);
+                var point = await _characterPassives.HandleJews(player, game);
 
                 if (point == 0) player.Status.AddInGamePersonalLogs("Евреи...\n");
                 //end еврей
@@ -483,7 +483,7 @@ Speed => Strength
                 isContrLost += 1;
 
                 //octopus  // playerIamAttacking is octopus
-                var check = _characterPassives.HandleOctopus(playerIamAttacking, player, game);
+                var check =await _characterPassives.HandleOctopus(playerIamAttacking, player, game);
                 //end octopus
 
                 if (check)

@@ -209,12 +209,6 @@ public sealed class HelperFunctions : IServiceSingleton
         {
             if (!player.IsBot() && !embed.Footer.Text.Contains("ERROR"))
             {
-                var now = DateTimeOffset.UtcNow;
-                if ((now - player.Status.LastMessageUpdate).TotalMilliseconds < 1000)
-                {
-                    await Task.Delay(1000);
-                }
-
 
                 await player.Status.SocketMessageFromBot.ModifyAsync(message =>
                 {
@@ -238,7 +232,6 @@ public sealed class HelperFunctions : IServiceSingleton
         {
             if (!player.IsBot())
             {
-                await Task.Delay(750);
                 var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(msg);
                 player.DeleteMessages.Add(mess2.Id);
             }

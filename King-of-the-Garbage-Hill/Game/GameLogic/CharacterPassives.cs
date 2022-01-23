@@ -174,7 +174,8 @@ public class CharacterPassives : IServiceSingleton
                     {
                         target.Status.AddRegularPoints(1, "Одиночество");
                         game.Phrases.HardKittyLonelyPhrase.SendLog(target, true);
-                        hard.Activated = true;
+                        //uncomment it when DeepList desides to make it 1 per round again...
+                        //hard.Activated = true;
                         var hardEnemy = hard.AttackHistory.Find(x => x.EnemyId == me.Status.PlayerId);
                         if (hardEnemy == null)
                         {
@@ -563,10 +564,13 @@ public class CharacterPassives : IServiceSingleton
 
                     if (scavenger.EnemyId == target.Status.PlayerId)
                     {
-                        target.Character.Justice.SetJusticeNow(target.Status, scavenger.EnemyJustice, "Падальщик: ",
-                            false);
+                        target.Character.Justice.SetJusticeNow(target.Status, scavenger.EnemyJustice, "Падальщик: ", false);
                         scavenger.EnemyId = Guid.Empty;
                         scavenger.EnemyJustice = 0;
+                        if (me.Status.IsWonThisCalculation == target.Status.PlayerId)
+                        {
+                            me.Character.AddMoral(me.Status, 3, "Падальщик: ");
+                        }
                     }
                 }
                 //end Падальщик
@@ -934,7 +938,7 @@ public class CharacterPassives : IServiceSingleton
                     if (found != null)
                         if (found.Series > 0)
                         {
-                            player.Status.AddRegularPoints(found.Series, "Доебаться");
+                            player.Status.AddRegularPoints(found.Series*2, "Доебаться");
                             game.Phrases.HardKittyDoebatsyaPhrase.SendLog(player, false);
                             found.Series = 0;
                         }
@@ -1693,8 +1697,7 @@ public class CharacterPassives : IServiceSingleton
 
                 case "HardKitty":
                     //Одиночество
-                    var hard = _gameGlobal.HardKittyLoneliness.Find(x => x.GameId == player.GameId &&
-                                                                         x.PlayerId == player.Status.PlayerId);
+                    var hard = _gameGlobal.HardKittyLoneliness.Find(x => x.GameId == player.GameId && x.PlayerId == player.Status.PlayerId);
                     if (hard != null) hard.Activated = false;
                     //Одиночество
 
@@ -1838,7 +1841,7 @@ public class CharacterPassives : IServiceSingleton
                     var vampyr = _gameGlobal.VampyrHematophagiaList.Find(x =>
                         x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
                     if (vampyr.Hematophagia.Count > 0)
-                        if (true)
+                        if (game.RoundNo is 2 or 4 or 6 or 8 or 10)
                             player.Character.AddMoral(player.Status, vampyr.Hematophagia.Count, "Вампуризм: ");
                     //end Вампуризм
                     break;
@@ -2221,7 +2224,7 @@ public class CharacterPassives : IServiceSingleton
                             gleb.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
 
                             game.Phrases.GlebChallengerPhrase.SendLog(player, true);
-                            game.Phrases.GlebChallengerSeparatePhrase.SendLogSeparate(player, true);
+                            await game.Phrases.GlebChallengerSeparatePhrase.SendLogSeparate(player, true);
                         }
 
                     //end Претендент русского сервера
@@ -2575,6 +2578,9 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Darksci":
+                    //Не повезло
+                    player.Character.AddExtraSkill(player.Status, "Не повезло: ", 15);
+                    //end Не повезло
 
                     if (game.RoundNo == 9)
                     {
@@ -2735,7 +2741,7 @@ public class CharacterPassives : IServiceSingleton
         await Task.CompletedTask;
     }
 
-    public int HandleJews(GamePlayerBridgeClass player, GameClass game)
+    public async Task<int> HandleJews(GamePlayerBridgeClass player, GameClass game)
     {
         //Еврей
         if (!game.PlayersList.Any(x => x.Character.Name is "LeCrisp" or "Толя")) return 1;
@@ -2757,7 +2763,7 @@ public class CharacterPassives : IServiceSingleton
                 if (!leCrisp.IsBot())
                     try
                     {
-                        _help.SendMsgAndDeleteItAfterRound(leCrisp, "МЫ жрём деньги!");
+                        await _help.SendMsgAndDeleteItAfterRound(leCrisp, "МЫ жрём деньги!");
                     }
                     catch (Exception e)
                     {
@@ -2767,7 +2773,7 @@ public class CharacterPassives : IServiceSingleton
                 if (!tolya.IsBot())
                     try
                     {
-                        _help.SendMsgAndDeleteItAfterRound(tolya, "МЫ жрём деньги!");
+                        await _help.SendMsgAndDeleteItAfterRound(tolya, "МЫ жрём деньги!");
                     }
                     catch (Exception e)
                     {
@@ -2803,7 +2809,7 @@ public class CharacterPassives : IServiceSingleton
         return 1;
     }
 
-    public bool HandleOctopus(GamePlayerBridgeClass octopusPlayer, GamePlayerBridgeClass playerAttackedOctopus, GameClass game)
+    public async Task<bool> HandleOctopus(GamePlayerBridgeClass octopusPlayer, GamePlayerBridgeClass playerAttackedOctopus, GameClass game)
     {
         if (octopusPlayer.Character.Name != "Осьминожка") return true;
         if (playerAttackedOctopus.Character.Name == "DeepList")
@@ -2820,7 +2826,7 @@ public class CharacterPassives : IServiceSingleton
         game.AddGlobalLogs($" ⟶ {playerAttackedOctopus.DiscordUsername}");
 
         //еврей
-        var point = HandleJews(playerAttackedOctopus, game);
+        var point = await HandleJews(playerAttackedOctopus, game);
         //end еврей
 
         playerAttackedOctopus.Status.AddRegularPoints(point, "Победа");

@@ -289,7 +289,7 @@ public class InGameGlobal : IServiceSingleton
                     when = GetWhenToTrigger(player, 1, 2, 5, 6);
                     DeepListSupermindTriggeredWhen.Add(when);
 
-                    when = GetWhenToTrigger(player, 2, 2, 5, 7, 3);
+                    when = GetWhenToTrigger(player, 2, 1, 4, 7, 3);
                     DeepListMadnessTriggeredWhen.Add(when);
 
                     break;

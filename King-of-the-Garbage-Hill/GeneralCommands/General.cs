@@ -277,8 +277,8 @@ public class General : ModuleBaseCustom
         if (playersList.Any(x => x.Character.Name == "HardKitty"))
         {
             var tempHard = playersList.Find(x => x.Character.Name == "HardKitty");
-            tempHard.Status.HardKittyMinus(-10, "Никому не нужен: ");
-            tempHard.Status.AddInGamePersonalLogs("Никому не нужен: -50 *Морали*\n");
+            tempHard.Status.HardKittyMinus(-70, "Никому не нужен: ");
+            tempHard.Status.AddInGamePersonalLogs("Никому не нужен: -70 *Морали*\n");
             var hardIndex = playersList.IndexOf(tempHard);
 
             for (var i = hardIndex; i < playersList.Count - 1; i++)
@@ -332,7 +332,7 @@ public class General : ModuleBaseCustom
         if (playersList.Any(x => x.Character.Name == "Darksci"))
         {
             var darksciTemp = playersList.Find(x => x.Character.Name == "Darksci");
-            darksciTemp.Character.AddExtraSkill(darksciTemp.Status, "Не повезло: ", 40);
+            darksciTemp.Character.AddExtraSkill(darksciTemp.Status, "Не повезло: ", 15);
         }
         //end Не повезло
 

@@ -746,7 +746,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 .WithCustomId("char-select")
                 .WithPlaceholder("\"Выбор\" прокачки")
                 .AddOption("Психика", "4");
-            _helperFunctions.SendMsgAndDeleteItAfterRound(player, "Riot Games: бери smite и не выебывайся");
+            await _helperFunctions.SendMsgAndDeleteItAfterRound(player, "Riot Games: бери smite и не выебывайся");
         }
         //end Да всё нахуй эту игру: Part #4
 
@@ -784,7 +784,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         var disabled = game is not { RoundNo: <= 10 };
         var extraText = "";
-        if (game.RoundNo == 10) extraText = " (Конец игры)";
+        if (game.RoundNo == 10 && player.Character.GetMoral() < 3) extraText = " (Конец игры)";
 
         if (player.Character.GetMoral() >= 20)
             return new ButtonBuilder($"Обменять 20 Морали на 114 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
@@ -847,7 +847,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public ButtonBuilder GetAutoMoveButton(GamePlayerBridgeClass player, GameClass game)
     {
-        var enabled = player.Status.IsAutoMove || player.Status.IsSkip || player.Status.IsBlock;
+        var enabled = player.Status.IsAutoMove || player.Status.IsSkip || player.Status.IsReady;
 
         return new ButtonBuilder("Авто Ход", "auto-move", ButtonStyle.Secondary, isDisabled: enabled);
     }

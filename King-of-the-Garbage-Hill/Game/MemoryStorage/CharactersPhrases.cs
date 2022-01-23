@@ -527,7 +527,7 @@ public class CharactersUniquePhrase
             player.Status.AddInGamePersonalLogs($"{description}\n");
         }
 
-        public async Task SendLog(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, bool delete)
+        public void SendLog(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, bool delete)
         {
             if (player.Character.Name == "DeepList")
             {
@@ -560,7 +560,6 @@ public class CharactersUniquePhrase
                 player.Status.AddInGamePersonalLogs($"{description}\n");
             }
 
-            await Task.CompletedTask;
         }
 
         public async Task SendLogSeparate(GamePlayerBridgeClass player, bool delete)
