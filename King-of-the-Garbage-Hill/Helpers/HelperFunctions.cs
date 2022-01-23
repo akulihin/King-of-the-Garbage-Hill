@@ -181,7 +181,8 @@ public sealed class HelperFunctions : IServiceSingleton
     private readonly Global _global;
     private readonly Logs _logs;
     private readonly SecureRandom _secureRandom;
-
+    private readonly List<Guid> _embedQueue = new();
+    private readonly List<Guid> _messageQueue = new();
 
     public HelperFunctions(Global global, UserAccounts accounts,
         SecureRandom secureRandom, Logs log)
@@ -212,6 +213,12 @@ public sealed class HelperFunctions : IServiceSingleton
             if (!player.IsBot() && !embed.Footer.Text.Contains("ERROR"))
             {
 
+                while (_embedQueue.Contains(player.Status.PlayerId))
+                {
+                    await Task.Delay(200);
+                }
+                _embedQueue.Add(player.Status.PlayerId);
+
                 await player.Status.SocketMessageFromBot.ModifyAsync(message =>
                 {
                     message.Embed = embed.Build();
@@ -222,6 +229,8 @@ public sealed class HelperFunctions : IServiceSingleton
                 {
                     await SendMsgAndDeleteItAfterRound(player, extraText);
                 }
+
+                _embedQueue.Remove(player.Status.PlayerId);
             }
         }
         catch (Exception e)
@@ -237,8 +246,16 @@ public sealed class HelperFunctions : IServiceSingleton
         {
             if (!player.IsBot())
             {
+                while (_messageQueue.Contains(player.Status.PlayerId))
+                {
+                    await Task.Delay(200);
+                }
+                _messageQueue.Add(player.Status.PlayerId);
+
                 var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(msg);
                 player.DeleteMessages.Add(mess2.Id);
+
+                _messageQueue.Remove(player.Status.PlayerId);
             }
         }
         catch (Exception e)
@@ -258,7 +275,6 @@ public sealed class HelperFunctions : IServiceSingleton
                     var m = await player.Status.SocketMessageFromBot.Channel.GetMessageAsync(player.DeleteMessages[i]);
                     await m.DeleteAsync();
                     player.DeleteMessages.RemoveAt(i);
-                    await Task.Delay(200);
                 }
         }
         catch (Exception e)
