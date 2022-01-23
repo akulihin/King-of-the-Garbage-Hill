@@ -49,17 +49,18 @@ public sealed class GameReaction : IServiceSingleton
                 var player = _global.GetGameAccount(button.User.Id, t.PlayersList.FirstOrDefault().GameId);
                 
                 var now = DateTimeOffset.UtcNow;
-                if ((now - player.Status.LastButtonPress).TotalMilliseconds < 1500)
+                if ((now - player.Status.LastButtonPress).TotalMilliseconds < 1000)
                 {
                     button.RespondAsync("Ошибка: Слишком быстро! Нажми на кнопку еще раз.", ephemeral:true);
                     return;
                 }
+                player.Status.LastButtonPress = DateTimeOffset.UtcNow;
 
                 var status = player.Status;
                 var components = new ComponentBuilder();
                 var embed = new EmbedBuilder();
                 var game = _global.GamesList.Find(x => x.GameId == player.GameId);
-                
+                var extraText = "";
 
                 switch (button.Data.CustomId)
                 {
@@ -94,8 +95,7 @@ public sealed class GameReaction : IServiceSingleton
                         embed = _upd.FightPage(player);
 
                         components = _upd.GetGameButtons(player, game);
-                        await _help.ModifyGameMessage(player, embed, components);
-                        await _help.SendMsgAndDeleteItAfterRound(player, "I've changed my mind, coming back");
+                        await _help.ModifyGameMessage(player, embed, components, "I've changed my mind, coming back");
                         break;
 
                     case "confirm-skip":
@@ -130,13 +130,13 @@ public sealed class GameReaction : IServiceSingleton
                     case "block" when status.IsAbleToTurn:
                         if (status.MoveListPage == 3)
                         {
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Ходить нельзя, Апни лвл!");
+                            _help.SendMsgAndDeleteItAfterRound(player, "Ходить нельзя, Апни лвл!") ;
                             break;
                         }
 
                         if (player.Character.Name == "mylorik")
                         {
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Спартанцы не капитулируют!!");
+                            _help.SendMsgAndDeleteItAfterRound(player, "Спартанцы не капитулируют!!");
                             break;
                         }
 
@@ -159,35 +159,35 @@ public sealed class GameReaction : IServiceSingleton
                         {
                             player.Character.AddMoral(player.Status, -20, "Обмен Морали: ", true, true);
                             player.Character.AddBonusPointsFromMoral(14);
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Я БОГ ЭТОГО МИРА +14 __бонунсых__ очков");
+                            extraText = "Мораль: Я БОГ ЭТОГО МИРА +14 __бонунсых__ очков";
                         }
                         else if (player.Character.GetMoral() >= 13)
                         {
                             player.Character.AddMoral(player.Status, -13, "Обмен Морали: ", true, true);
                             player.Character.AddBonusPointsFromMoral(8);
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Мораль: МВП +8 __бонунсых__ очков");
+                            extraText = "Мораль: МВП +8 __бонунсых__ очков";
                         }
                         else if (player.Character.GetMoral() >= 8)
                         {
                             player.Character.AddMoral(player.Status, -8, "Обмен Морали: ", true, true);
                             player.Character.AddBonusPointsFromMoral(4);
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Я богач! +4 __бонунсых__ очков");
+                            extraText = "Мораль: Я богач! +4 __бонунсых__ очков";
                         }
                         else if (player.Character.GetMoral() >= 5)
                         {
                             player.Character.AddMoral(player.Status, -5, "Обмен Морали: ", true, true);
                             player.Character.AddBonusPointsFromMoral(2);
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Изи катка +2 __бонунсых__ очка");
+                            extraText = "Мораль: Изи катка +2 __бонунсых__ очка";
                         }
                         else if (player.Character.GetMoral() >= 3)
                         {
                             player.Character.AddMoral(player.Status, -3, "Обмен Морали: ", true, true);
                             player.Character.AddBonusPointsFromMoral(1);
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Ойвей +1  __бонунсых__ очка");
+                            extraText = "Мораль: Ойвей +1  __бонунсых__ очка";
                         }
 
                         if (tempMoral >= 3)
-                            _upd.UpdateMessage(t.PlayersList.Find(x => x.DiscordId == player.DiscordId));
+                            _upd.UpdateMessage(t.PlayersList.Find(x => x.DiscordId == player.DiscordId), extraText);
                         break;
                     case "skill":
                         var tempSkill = player.Character.GetMoral();
@@ -197,47 +197,47 @@ public sealed class GameReaction : IServiceSingleton
                         {
                             player.Character.AddMoral(player.Status, -20, "Обмен Морали: ", true, true);
                             player.Character.AddExtraSkill(player.Status, "Обмен Морали: ", 114);
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Я БОГ ЭТОГО МИРА!!! +114 *Скилла*");
+                            extraText = "Мораль: Я БОГ ЭТОГО МИРА!!! +114 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 13)
                         {
                             player.Character.AddMoral(player.Status, -13, "Обмен Морали: ", true, true);
                             player.Character.AddExtraSkill(player.Status, "Обмен Морали: ", 69);
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Мораль: MVP! +69 *Скилла*");
+                            extraText = "Мораль: MVP! +69 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 8)
                         {
                             player.Character.AddMoral(player.Status, -8, "Обмен Морали: ", true, true);
                             player.Character.AddExtraSkill(player.Status, "Обмен Морали: ", 39);
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Я художник! +39 *Скилла*");
+                            extraText = "Мораль: Я художник! +39 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 5)
                         {
                             player.Character.AddMoral(player.Status, -5, "Обмен Морали: ", true, true);
                             player.Character.AddExtraSkill(player.Status, "Обмен Морали: ", 24);
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Изи катка +24 *Скилла*");
+                            extraText = "Мораль: Изи катка +24 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 3)
                         {
                             player.Character.AddMoral(player.Status, -3, "Обмен Морали: ", true, true);
                             player.Character.AddExtraSkill(player.Status, "Обмен Морали: ", 14);
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Набрался *Скилла*, так сказать. +14 *Скилла*");
+                            extraText = "Мораль: Набрался *Скилла*, так сказать. +14 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 2)
                         {
                             player.Character.AddMoral(player.Status, -2, "Обмен Морали: ", true, true);
                             player.Character.AddExtraSkill(player.Status, "Обмен Морали: ", 9);
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Так вот как в это играть. +9 *Скилла*");
+                            extraText = "Мораль: Так вот как в это играть. +9 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 1)
                         {
                             player.Character.AddMoral(player.Status, -1, "Обмен Морали: ", true, true);
                             player.Character.AddExtraSkill(player.Status, "Обмен Морали: ", 4);
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Мораль: Это что? +4 *Скилла*");
+                            extraText = "Мораль: Это что? +4 *Скилла*";
                         }
 
                         if (tempSkill >= 1)
-                            _upd.UpdateMessage(t.PlayersList.Find(x => x.DiscordId == player.DiscordId));
+                            _upd.UpdateMessage(t.PlayersList.Find(x => x.DiscordId == player.DiscordId), extraText);
                         break;
 
                     case "char-select":
@@ -257,7 +257,6 @@ public sealed class GameReaction : IServiceSingleton
                         HandlePredic2(player, button);
                         break;
                 }
-                player.Status.LastButtonPress = DateTimeOffset.UtcNow;
                 
                 return;
             }
@@ -337,8 +336,7 @@ public sealed class GameReaction : IServiceSingleton
         await GetLvlUp(player, emoteNum);
     }
 
-    public async Task<bool> HandleAttack(GamePlayerBridgeClass player, SocketMessageComponent button,
-        int botChoice = -1)
+    public async Task<bool> HandleAttack(GamePlayerBridgeClass player, SocketMessageComponent button, int botChoice = -1)
     {
         var status = player.Status;
 
@@ -384,8 +382,7 @@ public sealed class GameReaction : IServiceSingleton
                 game.RoundNo == 10)
             {
                 status.WhoToAttackThisTurn = Guid.Empty;
-                await _help.SendMsgAndDeleteItAfterRound(player,
-                    "Выбранный игрок недоступен в связи с баном за нарушение правил");
+                await _help.SendMsgAndDeleteItAfterRound(player, "Выбранный игрок недоступен в связи с баном за нарушение правил");
                 return false;
             }
             /*

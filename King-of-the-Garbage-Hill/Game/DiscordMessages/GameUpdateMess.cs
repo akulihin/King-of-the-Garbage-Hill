@@ -852,7 +852,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         return new ButtonBuilder("Авто Ход", "auto-move", ButtonStyle.Secondary, isDisabled: enabled);
     }
 
-    public async Task UpdateMessage(GamePlayerBridgeClass player)
+    public async Task UpdateMessage(GamePlayerBridgeClass player, string extraText = "")
     {
         if (player.IsBot()) return;
 
@@ -883,7 +883,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 //end Да всё нахуй эту игру: Part #5
                 break;
         }
-        await _helperFunctions.ModifyGameMessage(player, embed, builder);
+        await _helperFunctions.ModifyGameMessage(player, embed, builder, extraText);
     }
 
 

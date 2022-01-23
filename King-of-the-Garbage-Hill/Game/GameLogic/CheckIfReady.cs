@@ -444,17 +444,18 @@ public class CheckIfReady : IServiceSingleton
             foreach (var t in players.Where(x => !x.IsBot()))
                 try
                 {
-                    if (game.RoundNo <= 10) await _help.SendMsgAndDeleteItAfterRound(t, $"Раунд #{game.RoundNo}");
+                    var extraText = "";
+                    if (game.RoundNo <= 10) extraText = $"Раунд #{game.RoundNo}";
 
                     if (game.RoundNo == 8)
                     {
                         t.Status.ConfirmedPredict = false;
-                        await _help.SendMsgAndDeleteItAfterRound(t, "Это последний раунд, когда можно сделать **предложение**!");
+                        extraText = "Это последний раунд, когда можно сделать **предложение**!";
                     }
 
                     if (game.RoundNo == 9) t.Status.ConfirmedPredict = true;
 
-                    await _upd.UpdateMessage(t);
+                    await _upd.UpdateMessage(t, extraText);
                 }
                 catch (Exception f)
                 {

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
+using Discord.Rest;
+using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
@@ -203,7 +205,7 @@ public sealed class HelperFunctions : IServiceSingleton
     }
 
 
-    public async Task ModifyGameMessage(GamePlayerBridgeClass player, EmbedBuilder embed, ComponentBuilder components)
+    public async Task ModifyGameMessage(GamePlayerBridgeClass player, EmbedBuilder embed, ComponentBuilder components, string extraText = "")
     {
         try
         {
@@ -216,7 +218,10 @@ public sealed class HelperFunctions : IServiceSingleton
                     message.Components = components.Build();
                 });
 
-                player.Status.LastMessageUpdate = DateTimeOffset.UtcNow;
+                if (extraText.Length > 0)
+                {
+                    await SendMsgAndDeleteItAfterRound(player, extraText);
+                }
             }
         }
         catch (Exception e)
@@ -253,6 +258,7 @@ public sealed class HelperFunctions : IServiceSingleton
                     var m = await player.Status.SocketMessageFromBot.Channel.GetMessageAsync(player.DeleteMessages[i]);
                     await m.DeleteAsync();
                     player.DeleteMessages.RemoveAt(i);
+                    await Task.Delay(200);
                 }
         }
         catch (Exception e)

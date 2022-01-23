@@ -80,6 +80,7 @@ public sealed class DiscordEventDispatcher : IServiceSingleton
         _storeReactionHandling.ReactionAddedStore(button);
         _tutorialReactions.ReactionAddedTutorial(button);
         _loreReactions.ReactionAddedLore(button);
+        
     }
 
     private async Task _client_ButtonExecuted(SocketMessageComponent button)
@@ -89,6 +90,7 @@ public sealed class DiscordEventDispatcher : IServiceSingleton
         _storeReactionHandling.ReactionAddedStore(button);
         _tutorialReactions.ReactionAddedTutorial(button);
         _loreReactions.ReactionAddedLore(button);
+        
     }
 
     private async Task UserIsTyping(Cacheable<IUser, ulong> arg1, Cacheable<IMessageChannel, ulong> arg2)
