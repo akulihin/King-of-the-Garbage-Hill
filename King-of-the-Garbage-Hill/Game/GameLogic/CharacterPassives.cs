@@ -472,8 +472,7 @@ public class CharacterPassives : IServiceSingleton
                 break;
             case "mylorik":
                 // Спарта
-                var mylorikSpartan =
-                    _gameGlobal.MylorikSpartan.Find(x => x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
+                var mylorikSpartan = _gameGlobal.MylorikSpartan.Find(x => x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
                 var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.Status.PlayerId);
                 if (mylorikEnemy == null)
                 {
@@ -648,8 +647,7 @@ public class CharacterPassives : IServiceSingleton
                 // Cпарта
                 if (me.Status.WhoToAttackThisTurn == target.Status.PlayerId)
                 {
-                    var mylorikSpartan = _gameGlobal.MylorikSpartan.Find(x =>
-                        x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
+                    var mylorikSpartan = _gameGlobal.MylorikSpartan.Find(x => x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
                     var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.Status.PlayerId);
                     if (mylorikEnemy == null)
                     {
@@ -823,9 +821,7 @@ public class CharacterPassives : IServiceSingleton
                         if (mylorik.EnemyListPlayerIds.All(x =>
                                 x.EnemyPlayerId != player.Status.IsLostThisCalculation))
                         {
-                            mylorik.EnemyListPlayerIds.Add(
-                                new Mylorik.MylorikRevengeClassSub(player.Status.IsLostThisCalculation,
-                                    game.RoundNo));
+                            mylorik.EnemyListPlayerIds.Add(new Mylorik.MylorikRevengeClassSub(player.Status.IsLostThisCalculation, game.RoundNo));
                             game.Phrases.MylorikRevengeLostPhrase.SendLog(player, true);
                         }
                     }
@@ -2752,8 +2748,7 @@ public class CharacterPassives : IServiceSingleton
 
 
         if (leCrisp != null && tolya != null)
-            if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn &&
-                tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
+            if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn && tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
             {
                 leCrisp.Status.AddRegularPoints(1, "Еврей");
                 tolya.Status.AddRegularPoints(1, "Еврей");
@@ -2763,7 +2758,7 @@ public class CharacterPassives : IServiceSingleton
                 if (!leCrisp.IsBot())
                     try
                     {
-                        await _help.SendMsgAndDeleteItAfterRound(leCrisp, "МЫ жрём деньги!");
+                        _help.SendMsgAndDeleteItAfterRound(leCrisp, "МЫ жрём деньги!");
                     }
                     catch (Exception e)
                     {
@@ -2773,7 +2768,7 @@ public class CharacterPassives : IServiceSingleton
                 if (!tolya.IsBot())
                     try
                     {
-                        await _help.SendMsgAndDeleteItAfterRound(tolya, "МЫ жрём деньги!");
+                        _help.SendMsgAndDeleteItAfterRound(tolya, "МЫ жрём деньги!");
                     }
                     catch (Exception e)
                     {

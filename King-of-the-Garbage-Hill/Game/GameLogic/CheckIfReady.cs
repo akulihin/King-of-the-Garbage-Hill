@@ -317,7 +317,7 @@ public class CheckIfReady : IServiceSingleton
             try
             {
                 if (!player.IsBot())
-                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync($"Спасибо за игру!\nВы заработали **{zbsPointsToGive}** ZBS points!\n\nВы можете потратить их в нашем магазине - напишите команду `*store`");
+                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync($"Спасибо за игру!\nВы заработали **{zbsPointsToGive}** ZBS points!\n\nВы можете потратить их в магазине - `*store`\nА вы знали? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганв его! Например `*st @Boole`");
             }
             catch (Exception ee)
             {

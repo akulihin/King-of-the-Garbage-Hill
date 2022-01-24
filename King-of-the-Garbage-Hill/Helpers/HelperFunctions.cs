@@ -215,7 +215,7 @@ public sealed class HelperFunctions : IServiceSingleton
 
                 while (_embedQueue.Contains(player.Status.PlayerId))
                 {
-                    await Task.Delay(200);
+                    await Task.Delay(100);
                 }
                 _embedQueue.Add(player.Status.PlayerId);
 

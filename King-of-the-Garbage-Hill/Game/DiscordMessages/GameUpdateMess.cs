@@ -417,7 +417,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
         //  await socketMsg.DeleteAsync();
-        await globalAccount.SendMessageAsync("Спасибо за игру!");
+        await globalAccount.SendMessageAsync("Спасибо за игру!\nА вы знали? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганв его! Например `*st @Boole`");
     }
 
     private static IEnumerable<string> Split(string str, int chunkSize)
@@ -435,8 +435,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 if (p.Status.PlayerId == player.Status.PlayerId)
                     continue;
                 foreach (var passive in p.Character.Passive)
-                    if (passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса" &&
-                        passive.PassiveName != "Еврей")
+                    if (passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса" && passive.PassiveName != "Еврей" && passive.PassiveName != "2kxaoc")
                         text = text.Replace($"{passive.PassiveName}", "❓");
             }
 
@@ -746,7 +745,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 .WithCustomId("char-select")
                 .WithPlaceholder("\"Выбор\" прокачки")
                 .AddOption("Психика", "4");
-            await _helperFunctions.SendMsgAndDeleteItAfterRound(player, "Riot Games: бери smite и не выебывайся");
+            _helperFunctions.SendMsgAndDeleteItAfterRound(player, "Riot Games: бери smite и не выебывайся");
         }
         //end Да всё нахуй эту игру: Part #4
 
@@ -883,7 +882,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 //end Да всё нахуй эту игру: Part #5
                 break;
         }
-        await _helperFunctions.ModifyGameMessage(player, embed, builder, extraText);
+        _helperFunctions.ModifyGameMessage(player, embed, builder, extraText);
     }
 
 

@@ -67,13 +67,47 @@ public sealed class GameReaction : IServiceSingleton
                     case "auto-move":
                         player.Status.IsAutoMove = true;
                         player.Status.IsReady = true;
+                        player.Status.AutoMoveTimes++;
+                        switch (player.Status.AutoMoveTimes)
+                        {
+                            case 1:
+                                game.Phrases.AutoMove1.SendLogSeparate(player, false);
+                                break;
+                            case 2:
+                                game.Phrases.AutoMove2.SendLogSeparate(player, false);
+                                break;
+                            case 3:
+                                game.Phrases.AutoMove3.SendLogSeparate(player, false);
+                                break;
+                            case 4:
+                                game.Phrases.AutoMove4.SendLogSeparate(player, false);
+                                break;
+                            case 5:
+                                game.Phrases.AutoMove5.SendLogSeparate(player, false);
+                                break;
+                            case 6:
+                                game.Phrases.AutoMove6.SendLogSeparate(player, false);
+                                break;
+                            case 7:
+                                game.Phrases.AutoMove7.SendLogSeparate(player, false);
+                                break;
+                            case 8:
+                                game.Phrases.AutoMove8.SendLogSeparate(player, false);
+                                break;
+                            case 9:
+                                game.Phrases.AutoMove9.SendLogSeparate(player, false);
+                                break;
+                            case 10:
+                                game.Phrases.AutoMove10.SendLogSeparate(player, false);
+                                break;
+                        }
                         var textAutomove = $"Ты использовал Авто Ход\n";
                         player.Status.AddInGamePersonalLogs(textAutomove);
                         player.Status.ChangeMindWhat = textAutomove;
 
                         embed = _upd.FightPage(player);
                         components = _upd.GetGameButtons(player, game);
-                        await _help.ModifyGameMessage(player, embed, components);
+                        _help.ModifyGameMessage(player, embed, components);
                         break;
                     case "change-mind":
                         if (player.Status.IsSkip || !player.Status.IsReady)
@@ -88,6 +122,11 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.IsBlock = false;
                         player.Status.WhoToAttackThisTurn = Guid.Empty;
 
+                        if (status.ChangeMindWhat.Contains("Ты использовал Авто Ход"))
+                        {
+                            player.Status.AutoMoveTimes--;
+                        }
+
                         var newInGameLogs = player.Status.GetInGamePersonalLogs().Replace(status.ChangeMindWhat, $"~~{status.ChangeMindWhat.Replace("\n", "~~\n")}");
                         player.Status.InGamePersonalLogsAll = _help.ReplaceLastOccurrence(player.Status.InGamePersonalLogsAll, status.ChangeMindWhat, $"~~{status.ChangeMindWhat.Replace("\n", "~~\n")}");
                         player.Status.SetInGamePersonalLogs(newInGameLogs);
@@ -95,14 +134,14 @@ public sealed class GameReaction : IServiceSingleton
                         embed = _upd.FightPage(player);
 
                         components = _upd.GetGameButtons(player, game);
-                        await _help.ModifyGameMessage(player, embed, components, "I've changed my mind, coming back");
+                        _help.ModifyGameMessage(player, embed, components, "I've changed my mind, coming back");
                         break;
 
                     case "confirm-skip":
                         player.Status.ConfirmedSkip = true;
                         embed = _upd.FightPage(player);
                         components = _upd.GetGameButtons(player, game);
-                        await _help.ModifyGameMessage(player, embed, components);
+                        _help.ModifyGameMessage(player, embed, components);
                         break;
 
                     case "confirm-prefict":
@@ -110,7 +149,7 @@ public sealed class GameReaction : IServiceSingleton
                         game = _global.GamesList.Find(x => x.GameId == player.GameId);
                         embed = _upd.FightPage(player);
                         components = _upd.GetGameButtons(player, game);
-                        await _help.ModifyGameMessage(player, embed, components);
+                        _help.ModifyGameMessage(player, embed, components);
                         break;
                     case "end":
                         var dm = await button.User.CreateDMChannelAsync();
@@ -292,7 +331,7 @@ public sealed class GameReaction : IServiceSingleton
         embed = _upd.FightPage(player);
 
 
-        await _help.ModifyGameMessage(player, embed, builder);
+        _help.ModifyGameMessage(player, embed, builder);
     }
 
     public async Task HandlePredic2(GamePlayerBridgeClass player, SocketMessageComponent button)
@@ -308,7 +347,7 @@ public sealed class GameReaction : IServiceSingleton
 
         if (splitted[0] == "prev-page")
         {
-            await _help.ModifyGameMessage(player, embed, builder);
+            _help.ModifyGameMessage(player, embed, builder);
             return;
         }
 
@@ -326,7 +365,7 @@ public sealed class GameReaction : IServiceSingleton
 
 
         embed = _upd.FightPage(player);
-        await _help.ModifyGameMessage(player, embed, builder);
+        _help.ModifyGameMessage(player, embed, builder);
     }
 
 
@@ -344,6 +383,9 @@ public sealed class GameReaction : IServiceSingleton
 
         if (botChoice == -10)
         {
+            var text = "Ты поставил блок\n";
+            status.AddInGamePersonalLogs(text);
+            status.ChangeMindWhat = text;
             status.IsBlock = true;
             status.IsAbleToTurn = false;
             status.IsReady = true;
@@ -353,7 +395,7 @@ public sealed class GameReaction : IServiceSingleton
 
         if (!status.IsAbleToTurn)
         {
-            await _help.SendMsgAndDeleteItAfterRound(player,
+            _help.SendMsgAndDeleteItAfterRound(player,
                 player.Status.IsSkip
                     ? "Что-то заставило тебя пропустить этот ход..."
                     : "Ходить нельзя, пока идет подсчёт.");
@@ -382,7 +424,7 @@ public sealed class GameReaction : IServiceSingleton
                 game.RoundNo == 10)
             {
                 status.WhoToAttackThisTurn = Guid.Empty;
-                await _help.SendMsgAndDeleteItAfterRound(player, "Выбранный игрок недоступен в связи с баном за нарушение правил");
+                _help.SendMsgAndDeleteItAfterRound(player, "Выбранный игрок недоступен в связи с баном за нарушение правил");
                 return false;
             }
             /*
@@ -418,7 +460,7 @@ public sealed class GameReaction : IServiceSingleton
             if (status.WhoToAttackThisTurn == status.PlayerId)
             {
                 status.WhoToAttackThisTurn = Guid.Empty;
-                await _help.SendMsgAndDeleteItAfterRound(player, "Зачем ты себя бьешь?");
+                _help.SendMsgAndDeleteItAfterRound(player, "Зачем ты себя бьешь?");
                 return false;
             }
 
@@ -439,7 +481,7 @@ public sealed class GameReaction : IServiceSingleton
     public async Task LvlUp10(GamePlayerBridgeClass player)
 #pragma warning restore 1998
     {
-        await _help.SendMsgAndDeleteItAfterRound(player, "10 максимум, выбери другой стат"); //not awaited 
+        _help.SendMsgAndDeleteItAfterRound(player, "10 максимум, выбери другой стат"); //not awaited 
     }
 
 
@@ -525,7 +567,7 @@ public sealed class GameReaction : IServiceSingleton
             try
             {
                 if (!player.IsBot())
-                    await _help.SendMsgAndDeleteItAfterRound(player, $"Осталось еще {player.Status.LvlUpPoints} очков характеристик. Пытайся!");
+                    _help.SendMsgAndDeleteItAfterRound(player, $"Осталось еще {player.Status.LvlUpPoints} очков характеристик. Пытайся!");
             }
             catch (Exception e)
             {

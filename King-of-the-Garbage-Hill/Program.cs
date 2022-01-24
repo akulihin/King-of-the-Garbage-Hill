@@ -50,7 +50,7 @@ public class ProgramKingOfTheGarbageHill
 
         await _services.InitializeServicesAsync();
 
-        await _client.SetGameAsync("Кто такой?");
+        await _client.SetGameAsync("*st - Запустить игру");
 
         await _client.LoginAsync(TokenType.Bot, _services.GetRequiredService<Config>().Token);
         await _client.StartAsync();

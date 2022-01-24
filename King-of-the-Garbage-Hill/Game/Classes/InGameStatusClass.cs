@@ -44,6 +44,7 @@ public class InGameStatus
         CharacterName = characterName;
         PlaceAtLeaderBoardHistory = new List<PlaceAtLeaderBoardHistoryClass>();
         ChangeMindWhat = "";
+        AutoMoveTimes = 0;
     }
 
 
@@ -63,6 +64,7 @@ public class InGameStatus
     public bool IsSuperBlock { get; set; }
     public bool IsSkip { get; set; }
     public bool IsAutoMove { get; set; }
+    public int AutoMoveTimes { get; set; }
     public bool IsAbleToTurn { get; set; }
     public bool IsAbleToWin { get; set; }
     public int PlaceAtLeaderBoard { get; set; }
@@ -122,8 +124,20 @@ public class InGameStatus
     public void AddRegularPoints(int regularPoints, string reason, bool isLog = true)
     {
         ScoresToGiveAtEndOfRound += regularPoints;
-        if (isLog)
+        if (!isLog) return;
+
+        if (regularPoints >= 0)
+        {
             ScoreSource += $"{reason}+";
+        }
+        else
+        {
+            if (ScoreSource.Length > 0)
+            {
+                ScoreSource = ScoreSource.Remove(ScoreSource.Length - 1, 1);
+            }
+            ScoreSource += $"-{reason}+";
+        }
     }
 
     public void HardKittyMinus(int scoreToAdd, string skillName)
@@ -189,10 +203,11 @@ public class InGameStatus
             score = score * 4;
 
         if ((int)score > 0)
-            AddInGamePersonalLogs(
-                $"+{(int)score} **обычных** очков ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
+            AddInGamePersonalLogs($"+{(int)score} **обычных** очков ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
         else if ((int)score < 0)
-            AddInGamePersonalLogs($"{(int)score} очков... ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
+            AddInGamePersonalLogs($"{(int)score} **очков**... ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
+        else if(score == 0 && ScoreSource.Length > 0)
+            AddInGamePersonalLogs($"{(int)score} **очков**!? ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
         Score += (int)score;
     }
 

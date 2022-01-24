@@ -343,8 +343,7 @@ public class General : ModuleBaseCustom
     [Command("игра")]
     [Alias("st", "start", "start game")]
     [Summary("запуск игры")]
-    public async Task StartGame(IUser player2 = null, IUser player3 = null, IUser player4 = null, IUser player5 = null,
-        IUser player6 = null)
+    public async Task StartGame(IUser player2 = null, IUser player3 = null, IUser player4 = null, IUser player5 = null, IUser player6 = null)
     {
         var contextPlayer = _accounts.GetAccount(Context.User);
 
@@ -357,7 +356,6 @@ public class General : ModuleBaseCustom
         //_userAccounts.GetAccount(player.PlayerId).PassedTutorial = true;
         var players = new List<IUser>
         {
-            Context.User,
             player2,
             player3,
             player4,
@@ -365,16 +363,30 @@ public class General : ModuleBaseCustom
             player6
         };
 
+        if (players.Contains(Context.User))
+        {
+            players.Remove(Context.User);
+            players.Add(null);
+        }
+
+        if (players.Contains(_global.Client.CurrentUser))
+        {
+            await SendMessAsync($"https://upload.wikimedia.org/wikipedia/commons/c/cc/Digital_rain_animation_medium_letters_shine.gif");
+            return;
+        }
+
+        players.Add(Context.User);
+
         foreach (var player in players.Where(player => player != null).Where(player => player.IsBot))
         {
-            await SendMessAsync($"ERROR: {player.Mention}  is a bot!");
+            await SendMessAsync($"{player.Mention} незарегистрированный бот. По поводу франшизы пишите разработчикам игры!");
             return;
         }
 
         foreach (var player in players.Where(player => player != null && player.Id != Context.User.Id))
             if (_accounts.GetAccount(player.Id).IsPlaying)
             {
-                await SendMessAsync($"ERROR: {player.Mention}  сейчас играет!");
+                await SendMessAsync($"{player.Mention} сейчас играет! Подождите его!");
                 return;
             }
 

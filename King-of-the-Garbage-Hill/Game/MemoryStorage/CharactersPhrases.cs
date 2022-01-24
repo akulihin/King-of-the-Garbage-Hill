@@ -94,9 +94,30 @@ public class CharactersUniquePhrase
 
     public PhraseClass CraboRackSidewaysBoolePhrase;
     //end
+    public PhraseClass AutoMove1;
+    public PhraseClass AutoMove2;
+    public PhraseClass AutoMove3;
+    public PhraseClass AutoMove4;
+    public PhraseClass AutoMove5;
+    public PhraseClass AutoMove6;
+    public PhraseClass AutoMove7;
+    public PhraseClass AutoMove8;
+    public PhraseClass AutoMove9;
+    public PhraseClass AutoMove10;
 
     public CharactersUniquePhrase()
     {
+        AutoMove1 = new PhraseClass("Авто Ход");
+        AutoMove2 = new PhraseClass("Авто Ход");
+        AutoMove3 = new PhraseClass("Авто Ход");
+        AutoMove4 = new PhraseClass("Авто Ход");
+        AutoMove5 = new PhraseClass("Авто Ход");
+        AutoMove6 = new PhraseClass("Авто Ход");
+        AutoMove7 = new PhraseClass("Авто Ход");
+        AutoMove8 = new PhraseClass("Авто Ход");
+        AutoMove9 = new PhraseClass("Авто Ход");
+        AutoMove10 = new PhraseClass("Авто Ход");
+
         //add values
         FirstСommandment = new PhraseClass("Первая заповедь");
         FirstСommandmentLost = new PhraseClass("Первая заповедь");
@@ -181,6 +202,19 @@ public class CharactersUniquePhrase
 
         CraboRackSidewaysBoolePhrase = new PhraseClass("Бокобуль");
         //end
+
+        //
+        AutoMove1.PassiveLogRus.Add("Ты что, бот?");
+        AutoMove2.PassiveLogRus.Add("А ну играй сам! Я для кого игру делал?");
+        AutoMove3.PassiveLogRus.Add("Слышь, не трогай эту кнопку, она для админов");
+        AutoMove4.PassiveLogRus.Add("Сложно самому походить что ли?");
+        AutoMove5.PassiveLogRus.Add("Серьезно, уже пора показывать скилл. САМОМУ.");
+        AutoMove6.PassiveLogRus.Add("Я щас заблокирую это кнопку, если еще раз нажмешь.");
+        AutoMove7.PassiveLogRus.Add("Нет, я щас лучше тебя заблокирую. Будешь как Тигр сидеть");
+        AutoMove8.PassiveLogRus.Add("Давай-давай, игра уже щас закончится... Ну же... Ну... НУ!!! ПОХОДИ");
+        AutoMove9.PassiveLogRus.Add("ДАВАЙ, ВСЕГО ОДИН ХОД");
+        AutoMove10.PassiveLogRus.Add("Пиздец. Всю игру просидел в автоходе... Ты там вообще живой? Может ты умер?... Глеб?");
+        //
 
         //add  as many phrases as you wany
         FirstСommandment.PassiveLogRus.Add("Если фидишь то пропушь, если пушишь то нафидь");
@@ -590,7 +624,6 @@ public class CharactersUniquePhrase
                 PassiveLogRus.Remove(description);
             try
             {
-                await Task.Delay(500);
                 var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(description);
                 player.DeleteMessages.Add(mess2.Id);
             }
