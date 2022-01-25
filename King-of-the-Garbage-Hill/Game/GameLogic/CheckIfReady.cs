@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
@@ -197,6 +198,7 @@ public class CheckIfReady : IServiceSingleton
                         "Загадочный Спартанец в маске" => "Спатанец Затроллился!? А-я-йо...",
                         "Вампур" => "ВампYр Затроллился",
                         "Тигр" => "Тигр Обоссался, и кто теперь обоссан!?",
+                        "Краборак" => "За**Краборак**чился",
                         _ => ""
                     };
 
@@ -326,14 +328,39 @@ public class CheckIfReady : IServiceSingleton
         }
 
         _global.GamesList.Remove(game);
-        NotifyOwner(game);
+        await NotifyOwner(game);
     }
 
-    private async void NotifyOwner(GameClass game)
+    private async Task NotifyOwner(GameClass game)
     {
+
+        foreach (var player in game.PlayersList)
+        {
+            var winrate = _global.WinRates.Find(x => x.CharacterName == player.Character.Name);
+            if (winrate == null)
+            {
+                if (player.Status.PlaceAtLeaderBoard == 1)
+                {
+                    _global.WinRates.Add(new Global.WinRateClass(player.Character.Name, 1, 1));
+                }
+                else
+                {
+                    _global.WinRates.Add(new Global.WinRateClass(player.Character.Name, 1, 0));
+                }
+            }
+            else
+            {
+                winrate.GameTimes++;
+                if (player.Status.PlaceAtLeaderBoard == 1)
+                {
+                    winrate.WinTimes++;
+                }
+            }
+        }
+
         try
         {
-            if (game.GameMode == "Bot")
+            if (game.GameMode == "ShowResult")
             {
                 var channel = _global.Client.GetGuild(561282595799826432).GetTextChannel(930706511632691222);
                 await channel.SendMessageAsync($"Game #{game.GameId}\n" +
@@ -440,6 +467,7 @@ public class CheckIfReady : IServiceSingleton
                 foreach (var player in game.PlayersList) _help.DeleteItAfterRound(player);
 
             await _round.CalculateAllFights(game);
+            //await Task.Delay(1);
 
             foreach (var t in players.Where(x => !x.IsBot()))
                 try
@@ -469,4 +497,6 @@ public class CheckIfReady : IServiceSingleton
 
         _looping = false;
     }
+
+
 }

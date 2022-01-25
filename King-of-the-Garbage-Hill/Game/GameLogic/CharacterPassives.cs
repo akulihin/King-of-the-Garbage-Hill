@@ -1317,16 +1317,20 @@ public class CharacterPassives : IServiceSingleton
                             switch (target.StatIndex)
                             {
                                 case 1:
-                                    player.Character.AddIntelligence(player.Status, -2, "Гематофагия: ");
+                                    player.Character.AddIntelligence(player.Status, -2, "СОсиновый кол: ");
+                                    player.Status.AddRegularPoints(-1, "СОсиновый кол");
                                     break;
                                 case 2:
-                                    player.Character.AddStrength(player.Status, -2, "Гематофагия: ");
+                                    player.Character.AddStrength(player.Status, -2, "СОсиновый кол: ");
+                                    player.Status.AddRegularPoints(-1, "СОсиновый кол");
                                     break;
                                 case 3:
-                                    player.Character.AddSpeed(player.Status, -2, "Гематофагия: ");
+                                    player.Character.AddSpeed(player.Status, -2, "СОсиновый кол: ");
+                                    player.Status.AddRegularPoints(-1, "СОсиновый кол");
                                     break;
                                 case 4:
-                                    player.Character.AddPsyche(player.Status, -2, "Гематофагия: ");
+                                    player.Character.AddPsyche(player.Status, -2, "СОсиновый кол: ");
+                                    player.Status.AddRegularPoints(-1, "СОсиновый кол");
                                     break;
                             }
                         }
@@ -2189,18 +2193,13 @@ public class CharacterPassives : IServiceSingleton
                     if (acc != null)
                         if (acc.WhenToTrigger.Contains(game.RoundNo))
                         {
-                            var gleb = _gameGlobal.GlebChallengerList.Find(x =>
-                                x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                            var gleb = _gameGlobal.GlebChallengerList.Find(x => x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
                             //just check
                             if (gleb != null) _gameGlobal.GlebChallengerList.Remove(gleb);
 
-                            _gameGlobal.GlebChallengerList.Add(new DeepList.Madness(player.Status.PlayerId,
-                                game.GameId, game.RoundNo));
-                            gleb = _gameGlobal.GlebChallengerList.Find(x =>
-                                x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
-                            gleb.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.GetIntelligence(),
-                                player.Character.GetStrength(), player.Character.GetSpeed(),
-                                player.Character.GetPsyche()));
+                            _gameGlobal.GlebChallengerList.Add(new DeepList.Madness(player.Status.PlayerId, game.GameId, game.RoundNo));
+                            gleb = _gameGlobal.GlebChallengerList.Find(x => x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                            gleb.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.GetIntelligence(), player.Character.GetStrength(), player.Character.GetSpeed(), player.Character.GetPsyche()));
 
                             //  var randomNumber =  _rand.Random(1, 100);
 

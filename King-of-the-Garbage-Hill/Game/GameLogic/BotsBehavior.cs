@@ -14,12 +14,14 @@ public class BotsBehavior : IServiceSingleton
     private readonly InGameGlobal _gameGlobal;
     private readonly GameReaction _gameReaction;
     private readonly SecureRandom _rand;
+    private readonly Global _global;
 
-    public BotsBehavior(SecureRandom rand, GameReaction gameReaction, InGameGlobal gameGlobal)
+    public BotsBehavior(SecureRandom rand, GameReaction gameReaction, InGameGlobal gameGlobal, Global @global)
     {
         _rand = rand;
         _gameReaction = gameReaction;
         _gameGlobal = gameGlobal;
+        _global = global;
     }
 
     public Task InitializeAsync()
@@ -260,6 +262,7 @@ public class BotsBehavior : IServiceSingleton
         var minimumRandomNumberForBlock = 1;
         var maximumRandomNumberForBlock = 4;
         var mandatoryAttack = -1;
+        var noBlock = 99999;
         //end local variables
 
         //calculation Tens
@@ -333,10 +336,8 @@ public class BotsBehavior : IServiceSingleton
 
 
             //justice diff
-            if (game.PlayersList.Where(x => x.Status.PlayerId != bot.Status.PlayerId).All(x =>
-                    x.Character.Justice.GetJusticeNow() < bot.Character.Justice.GetJusticeNow()))
-                target.AttackPreference += bot.Character.Justice.GetJusticeNow() -
-                                           target.Player.Character.Justice.GetJusticeNow();
+            if (game.PlayersList.Where(x => x.Status.PlayerId != bot.Status.PlayerId).All(x => x.Character.Justice.GetJusticeNow() < bot.Character.Justice.GetJusticeNow()))
+                target.AttackPreference += bot.Character.Justice.GetJusticeNow() - target.Player.Character.Justice.GetJusticeNow();
 
             //custom bot behavior
             switch (bot.Character.Name)
@@ -371,14 +372,6 @@ public class BotsBehavior : IServiceSingleton
 
                         if (revengeEnemy != null)
                         {
-                            if (target.Player.Character.Name == "Осьминожка" && !revengeEnemy.IsUnique)
-                            {
-                                target.AttackPreference = 1;
-                                break;
-                            }
-
-
-
                             //Если кол-во оставшихся ходов = незапроканных побед (но с лузом), то х2 преф
                             if (revengeEnemy.IsUnique)
                             {
@@ -409,11 +402,6 @@ public class BotsBehavior : IServiceSingleton
                         }
                         else
                         {
-                            if (target.Player.Character.Name == "Осьминожка")
-                            {
-                                target.AttackPreference = 0;
-                                break;
-                            }
 
                             //на первых 4х ходах если у врага больше справедливости и не запрокана ни одна метка, то преф +2 * разницу в вашей справедливости ( с положительным знаком)
                             if (game.RoundNo <= 4)
@@ -432,14 +420,7 @@ public class BotsBehavior : IServiceSingleton
                                 target.AttackPreference += 17;
                         }
                     }
-                    else
-                    {
-                        if (target.Player.Character.Name == "Осьминожка")
-                        {
-                            target.AttackPreference = 0;
-                            break;
-                        }
-                    }
+
 
                     //"-5 за more stats" и "-7 за toogood" из базовых условий десяток   / 1 + кол-во стаков сломанного щита
                     if (game.RoundNo >= 5)
@@ -473,8 +454,16 @@ public class BotsBehavior : IServiceSingleton
 
                     break;
                 case "Краборак":
-                    if (target.PlaceAtLeaderBoard < 4) target.AttackPreference -= 4;
-
+                    
+                    if (allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 6).AttackPreference > 0 
+                        || allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 5).AttackPreference > 0 
+                        || allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 4).AttackPreference > 0)
+                    {
+                        if (target.PlaceAtLeaderBoard < 4) 
+                            target.AttackPreference -= 4;
+                    }
+                    
+                    
                     if (target.Player.Character.Name == "HardKitty") target.AttackPreference -= 1;
 
                     break;
@@ -609,13 +598,19 @@ public class BotsBehavior : IServiceSingleton
             //custom enemy
             switch (target.Player.Character.Name)
             {
+                case "Тигр":
+                    if (game.RoundNo == 10)
+                    {
+                        target.AttackPreference = 0;
+                    }
+                    break;
                 case "Darksci":
                     if (game.RoundNo == 9 ||
                         game.RoundNo == 10 && game.GetAllGlobalLogs().Contains("Нахуй эту игру"))
                         target.AttackPreference = 0;
                     break;
                 case "HardKitty":
-                    if (game.RoundNo <= 4) target.AttackPreference = target.AttackPreference / 5;
+                    if (game.RoundNo <= 4) target.AttackPreference /= 5;
                     break;
                 case "Sirinoks":
                     if (game.RoundNo <= 4) target.AttackPreference -= 4;
@@ -686,21 +681,21 @@ public class BotsBehavior : IServiceSingleton
 
                 break;
             case "Осьминожка":
-                isBlock = 99999;
+                isBlock = noBlock;
                 break;
             case "HardKitty":
-                isBlock = 99999;
+                isBlock = noBlock;
                 break;
             case "Глеб":
-                isBlock = 99999;
+                isBlock = noBlock;
                 break;
             case "Краборак":
-                isBlock = 99999;
+                isBlock = noBlock;
                 break;
             case "Mit*suki*":
                 if (game.RoundNo < 8)
                 {
-                    isBlock = 99999;
+                    isBlock = noBlock;
                 }
 
                 if (game.RoundNo == 10)
@@ -709,22 +704,26 @@ public class BotsBehavior : IServiceSingleton
                 }
                 break;
             case "mylorik":
-                isBlock = 99999;
+                isBlock = noBlock;
                 //Если кол-во врагов с запроканным лузом но без победы = кол-во оставшихся ходов, то преференс ДРУГИХ врагов / 2
                 var mylorikRevenge = _gameGlobal.MylorikRevenge.Find(x => x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
                 if (mylorikRevenge != null)
                 {
+                    
                     var totalFinishedRevenges = mylorikRevenge.EnemyListPlayerIds.FindAll(x => x.IsUnique).Count;
                     var roundsLeft = 11 - game.RoundNo;
                     if (totalFinishedRevenges >= roundsLeft)
                     {
+                        maxRandomNumber = 0;
                         foreach (var target in allPlayers.Nanobots)
                         {
                             if (!mylorikRevenge.EnemyListPlayerIds.Any(x =>
                                     x.IsUnique && x.EnemyPlayerId == target.Player.Status.PlayerId))
                             {
-                                target.AttackPreference /= 2;
+                                if (target.AttackPreference >= 2)
+                                    target.AttackPreference /= 2;
                             }
+                            maxRandomNumber += target.AttackPreference;
                         }
                     }
                 }
@@ -732,7 +731,7 @@ public class BotsBehavior : IServiceSingleton
                 break;
             case "Sirinoks":
                 if (game.RoundNo == 10 || game.RoundNo == 1)
-                    isBlock = 99999;
+                    isBlock = noBlock;
                 else if (_gameGlobal.SirinoksTraining.Find(x => x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId) == null)
                 {
                     var siriFriends = _gameGlobal.SirinoksFriendsList.Find(x => x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
@@ -842,9 +841,50 @@ public class BotsBehavior : IServiceSingleton
             isAttacked = await AttackPlayer(bot, whoToAttack);
         }
 
+        if (!isAttacked && isBlock == noBlock)
+        {
+            var cont = true;
+            do
+            {
+                whoToAttack = allPlayers.Nanobots[_rand.Random(0, 5)].PlaceAtLeaderBoard;
+                if (whoToAttack != bot.Status.PlaceAtLeaderBoard)
+                {
+                    cont = false;
+                }
 
-        if (!isAttacked)
+                if (game.RoundNo == 10 &&
+                    allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == whoToAttack).Player.Character.Name == "Тигр")
+                {
+                    cont = true;
+                }
+
+            } while (cont);
+            isAttacked = await AttackPlayer(bot, whoToAttack);
+            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync($"**{bot.Character.Name}** Поставил блок, а ему нельзя. {randomNumber}/{maxRandomNumber} <= {player1.AttackPreference + player2.AttackPreference + player3.AttackPreference + player4.AttackPreference + player5.AttackPreference + player6.AttackPreference}\n" +
+                $"Round: {game.RoundNo}\n" +
+                $"1. {player1.Player.Character.Name}: {player1.AttackPreference}\n" +
+                $"2. {player2.Player.Character.Name}: {player2.AttackPreference}\n" +
+                $"3. {player3.Player.Character.Name}: {player3.AttackPreference}\n" +
+                $"4. {player4.Player.Character.Name}: {player4.AttackPreference}\n" +
+                $"5. {player5.Player.Character.Name}: {player5.AttackPreference}\n" +
+                $"6. {player6.Player.Character.Name}: {player6.AttackPreference}\n" +
+                $"Randomly Attacking {allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == whoToAttack).Player.Character.Name}");
+
+            
+
+        }
+        else if (!isAttacked)
+        {
+            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync($"**{bot.Character.Name}** не напал ни на кого.\n" +
+                $"Round: {game.RoundNo}\n" +
+                $"1. {player1.Player.Character.Name}: {player1.AttackPreference}\n" +
+                $"2. {player2.Player.Character.Name}: {player2.AttackPreference}\n" +
+                $"3. {player3.Player.Character.Name}: {player3.AttackPreference}\n" +
+                $"4. {player4.Player.Character.Name}: {player4.AttackPreference}\n" +
+                $"5. {player5.Player.Character.Name}: {player5.AttackPreference}\n" +
+                $"6. {player6.Player.Character.Name}: {player6.AttackPreference}\n");
             await _gameReaction.HandleAttack(bot, null, -10);
+        }
 
         ResetTens(allPlayers);
     }

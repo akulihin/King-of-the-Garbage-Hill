@@ -127,6 +127,16 @@ Speed => Strength
                 continue;
             }
 
+            if (playerIamAttacking == null)
+            {
+                await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync($"playerIamAttacking == null\n" +
+                    $"Round: {game.RoundNo}\n" +
+                    $"{player.Status.CharacterName} | {player.DiscordUsername}\n");
+                _characterPassives.HandleCharacterAfterFight(player, game);
+                ResetFight(player);
+                continue;
+            }
+
 
             playerIamAttacking.Status.IsFighting = player.Status.PlayerId;
             player.Status.IsFighting = playerIamAttacking.Status.PlayerId;

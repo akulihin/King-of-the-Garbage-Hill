@@ -29,12 +29,13 @@ public class General : ModuleBaseCustom
 
     private readonly SecureRandom _secureRandom;
     private readonly GameUpdateMess _upd;
+    private readonly CheckIfReady _checkIfReady;
 
 
     public General(UserAccounts accounts, SecureRandom secureRandom,
         HelperFunctions helperFunctions, CommandsInMemory commandsInMemory,
         Global global, GameUpdateMess upd, CharactersPull charactersPull, CharacterPassives characterPassives,
-        CharactersUniquePhrase phrase, InGameGlobal gameGlobal)
+        CharactersUniquePhrase phrase, InGameGlobal gameGlobal, CheckIfReady checkIfReady)
     {
         _accounts = accounts;
         _secureRandom = secureRandom;
@@ -45,6 +46,7 @@ public class General : ModuleBaseCustom
         _charactersPull = charactersPull;
         _characterPassives = characterPassives;
         _gameGlobal = gameGlobal;
+        _checkIfReady = checkIfReady;
     }
 
 
@@ -339,6 +341,30 @@ public class General : ModuleBaseCustom
         return playersList;
     }
 
+    [Command("wr")]
+    [Summary("WinRateClass")]
+    private async Task WinRate()
+    {
+        if (_global.WinRates.Count == 0)
+        {
+            await SendMessAsync("No Games Played.");
+            return;
+        }
+
+        foreach (var winRate in _global.WinRates)
+        {
+            winRate.WinRate = (double)winRate.WinTimes / winRate.GameTimes * 100;
+        }
+
+        var winRates = _global.WinRates.OrderByDescending(x => x.WinRate).ToList();
+        var text = $"Total Games: {_global.GetLastGamePlayingAndId()}\n";
+        foreach (var winRate in winRates)
+        {
+            text += $"{winRate.CharacterName} - {winRate.WinRate.ToString("0.##")}% ({winRate.WinTimes}/{winRate.GameTimes})\n";
+        }
+        await SendMessAsync(text);
+    }
+
 
     [Command("игра")]
     [Alias("st", "start", "start game")]
@@ -436,9 +462,22 @@ public class General : ModuleBaseCustom
 
     [Command("stb")]
     [Summary("запуск игры")]
-    public async Task StartGame()
+    public async Task StartGame(string mode = "ShowResult", uint times = 10)
     {
-        for (int jj = 0; jj < 10; jj++)
+        if (mode != "ShowResult" && mode != "Normal")
+        {
+            await SendMessAsync($"Mode **{mode}** is not supported. Only **ShowResult** and **Normal** are available");
+            return;
+        }
+
+        if (times > 10 && mode == "ShowResult")
+        {
+            await SendMessAsync($"Mode **{mode}** Can be executed only 10 times. {times} is too much.");
+            return;
+        }
+
+
+        for (var jj = 0; jj < times; jj++)
         {
             var contextPlayer = _accounts.GetAccount(Context.User);
 
@@ -498,7 +537,7 @@ public class General : ModuleBaseCustom
             foreach (var player in playersList) await _upd.WaitMess(player, playersList);
 
             //создаем игру
-            var game = new GameClass(playersList, gameId, Context.User.Id, 300, "Bot") { IsCheckIfReady = false };
+            var game = new GameClass(playersList, gameId, Context.User.Id, 300, mode) { IsCheckIfReady = false };
 
 
             //start the timer

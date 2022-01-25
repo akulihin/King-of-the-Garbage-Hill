@@ -31,6 +31,8 @@ public sealed class Global : IServiceSingleton
     public uint TotalCommandsChanged { get; set; }
     private ulong GamePlayingAndId { get; set; }
 
+    public List<WinRateClass> WinRates { get; set; } = new();
+
     public Task InitializeAsync()
     {
         return Task.CompletedTask;
@@ -52,5 +54,20 @@ public sealed class Global : IServiceSingleton
     {
         GamePlayingAndId++;
         return GamePlayingAndId;
+    }
+
+    public class WinRateClass
+    {
+        public WinRateClass(string characterName, int gameTimes, int winTimes)
+        {
+            GameTimes = gameTimes;
+            WinTimes = winTimes;
+            CharacterName = characterName;
+        }
+
+        public string CharacterName { get; set; }
+        public int WinTimes { get; set; }
+        public int GameTimes { get; set; }
+        public double WinRate { get; set; }
     }
 }
