@@ -437,7 +437,6 @@ public class CharactersUniquePhrase
         TolyaJewPhrase.PassiveLogRus.Add("Хехе, спиздил");
         TolyaJewPhrase.PassiveLogRus.Add("Одна медная!");
         TolyaJewPhrase.PassiveLogRus.Add("Ыыыы");
-        TolyaJewPhrase.PassiveLogRus.Add("Должны, да не обязанны");
         TolyaJewPhrase.PassiveLogRus.Add("Настоящий еврей знает свой толк");        
 
         TolyaCountReadyPhrase.PassiveLogRus.Add("Я готов это просчитать");
@@ -448,6 +447,7 @@ public class CharactersUniquePhrase
         
         TolyaRammusPhrase.PassiveLogRus.Add("Okay.");
         TolyaRammusPhrase.PassiveLogRus.Add("Hm.");
+        TolyaRammusPhrase.PassiveLogRus.Add("Должны, да не обязанны");
         TolyaRammus2Phrase.PassiveLogRus.Add("Я живу и горю");
         TolyaRammus3Phrase.PassiveLogRus.Add("Изи разбайтил");
         TolyaRammus4Phrase.PassiveLogRus.Add("Посмотри сколько я поднял за раз!");
