@@ -16,6 +16,7 @@ public sealed class UserAccounts : IServiceSingleton
     private readonly ConcurrentDictionary<ulong, DiscordAccountClass> _userAccountsDictionary;
     private readonly UserAccountsDataStorage _usersDataStorage;
     private Timer _loopingTimer;
+    private bool _saving = false;
 
     public UserAccounts(DiscordShardedClient client, UserAccountsDataStorage usersDataStorage)
     {
@@ -90,8 +91,11 @@ public sealed class UserAccounts : IServiceSingleton
 
     private void SaveAllAccounts(object sender, ElapsedEventArgs e)
     {
+        if(_saving) return;
+        _saving = true;
         foreach (var a in _userAccountsDictionary)
             _usersDataStorage.SaveAccountSettings(a.Value, a.Key);
+        _saving = false;
     }
 
 

@@ -233,9 +233,10 @@ public sealed class HelperFunctions : IServiceSingleton
                 _embedQueue.Remove(player.Status.PlayerId);
             }
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            _logs.Critical(e.StackTrace);
+            _logs.Critical(exception.Message);
+            _logs.Critical(exception.StackTrace);
         }
     }
 
@@ -258,9 +259,10 @@ public sealed class HelperFunctions : IServiceSingleton
                 _messageQueue.Remove(player.Status.PlayerId);
             }
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            _logs.Critical(e.StackTrace);
+            _logs.Critical(exception.Message);
+            _logs.Critical(exception.StackTrace);
         }
     }
 
@@ -277,9 +279,10 @@ public sealed class HelperFunctions : IServiceSingleton
                     player.DeleteMessages.RemoveAt(i);
                 }
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            _logs.Critical(e.StackTrace);
+            _logs.Critical(exception.Message);
+            _logs.Critical(exception.StackTrace);
         }
     }
 

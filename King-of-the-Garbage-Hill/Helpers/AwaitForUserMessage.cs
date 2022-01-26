@@ -1,16 +1,19 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
 using Discord.WebSocket;
+using King_of_the_Garbage_Hill.DiscordFramework;
 
 namespace King_of_the_Garbage_Hill.Helpers;
 
 public sealed class AwaitForUserMessage : IServiceSingleton
 {
     private readonly Global _global;
+    private readonly Logs _logs;
 
-    public AwaitForUserMessage(Global global)
+    public AwaitForUserMessage(Global global, Logs logs)
     {
         _global = global;
+        _logs = logs;
     }
 
     public Task InitializeAsync()
@@ -29,8 +32,10 @@ public sealed class AwaitForUserMessage : IServiceSingleton
         {
             await waiter;
         }
-        catch (TaskCanceledException)
+        catch (TaskCanceledException exception)
         {
+            _logs.Critical(exception.Message);
+            _logs.Critical(exception.StackTrace);
         }
 
         _global.Client.MessageReceived -= OnMessageReceived;

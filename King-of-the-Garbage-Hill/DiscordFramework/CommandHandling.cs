@@ -57,11 +57,12 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
                 _commandsInMemory.CommandList.RemoveAt(index);
             }
 
-            await Task.CompletedTask;
+            
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            _log.Critical(e.Message);
+            _log.Critical(exception.Message);
+            _log.Critical(exception.StackTrace);
         }
     }
 
@@ -211,6 +212,6 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
         }
 
 
-        await Task.CompletedTask;
+        
     }
 }

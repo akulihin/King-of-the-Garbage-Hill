@@ -54,9 +54,10 @@ internal class SendMessagesUsingConsole
                 Console.WriteLine("Отправлено!");
             }
         }
-        catch
+        catch (Exception exception)
         {
-            Console.WriteLine("Осьминожки не могут сюда писать()");
+            Console.Write(exception.Message);
+            Console.Write(exception.StackTrace);
         }
     }
 

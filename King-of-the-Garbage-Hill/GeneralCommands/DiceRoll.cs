@@ -1,7 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
+using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 using King_of_the_Garbage_Hill.Helpers;
 
@@ -10,10 +12,12 @@ namespace King_of_the_Garbage_Hill.GeneralCommands;
 public class DiceRollCommands : ModuleBaseCustom
 {
     private readonly SecureRandom _secureRandom;
+    private readonly Logs _logs;
 
-    public DiceRollCommands(SecureRandom secureRandom)
+    public DiceRollCommands(SecureRandom secureRandom, Logs logs)
     {
         _secureRandom = secureRandom;
+        _logs = logs;
     }
 
     [Command("rst")]
@@ -100,11 +104,10 @@ public class DiceRollCommands : ModuleBaseCustom
 
             await SendMessAsync(embed);
         }
-        catch
+        catch (Exception exception)
         {
-            //   await ReplyAsync(
-            //       "boo... An error just appear >_< \nTry to use this command properly: **roll [times] [max_value_of_roll]**\n" +
-            //       "Alias: Роллл, Ролл");
+            _logs.Critical(exception.Message);
+            _logs.Critical(exception.StackTrace);
         }
     }
 

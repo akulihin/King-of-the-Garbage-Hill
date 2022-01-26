@@ -8,6 +8,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 
 public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
 {
+
     protected async Task DeleteMessage(IUserMessage userMessage,
         int timeInSeconds)
     {
@@ -28,9 +29,9 @@ public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
 
                 UpdateGlobalCommandList(message, Context);
 
-#pragma warning disable 4014
-                if (delete > 0) DeleteMessage(message, delete);
-#pragma warning restore 4014
+
+                if (delete > 0) await DeleteMessage(message, delete);
+
                 return message;
             }
             case "edit":
@@ -65,9 +66,9 @@ public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
                 var message = await Context.Channel.SendMessageAsync($"{regularMess}");
 
                 UpdateGlobalCommandList(message, Context);
-#pragma warning disable 4014
-                if (delete > 0) DeleteMessage(message, delete);
-#pragma warning restore 4014
+
+                if (delete > 0) await DeleteMessage(message, delete);
+
                 return message;
             }
             case "edit":
@@ -136,9 +137,10 @@ public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
                 context.CommandsInMemory.CommandList.RemoveAt(
                     (int)context.CommandsInMemory.MaximumCommandsInRam - 1);
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            Console.WriteLine(e.Message);
+            Console.Write(exception.Message);
+            Console.Write(exception.StackTrace);
         }
     }
 }

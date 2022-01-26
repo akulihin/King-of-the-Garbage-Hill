@@ -8,15 +8,17 @@ namespace King_of_the_Garbage_Hill;
 
 public sealed class Config : IServiceSingleton
 {
+
     public Config(Logs log)
     {
         try
         {
             JsonConvert.PopulateObject(File.ReadAllText(@"DataBase/config.json"), this);
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            log.Critical(ex);
+            log.Critical(exception.Message);
+            log.Critical(exception.StackTrace);
             Console.ReadKey();
             Environment.Exit(-1);
         }

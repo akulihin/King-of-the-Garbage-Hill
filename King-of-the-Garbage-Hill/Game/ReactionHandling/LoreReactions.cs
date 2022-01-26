@@ -1,6 +1,8 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
+using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
@@ -13,12 +15,14 @@ public class LoreReactions : IServiceSingleton
     private readonly CharactersPull _charactersPull;
     private readonly SecureRandom _random;
     private readonly UserAccounts _userAccounts;
+    private readonly Logs _logs;
 
-    public LoreReactions(UserAccounts userAccounts, CharactersPull charactersPull, SecureRandom random)
+    public LoreReactions(UserAccounts userAccounts, CharactersPull charactersPull, SecureRandom random, Logs logs)
     {
         _userAccounts = userAccounts;
         _charactersPull = charactersPull;
         _random = random;
+        _logs = logs;
     }
 
     public Task InitializeAsync()
@@ -112,9 +116,10 @@ public class LoreReactions : IServiceSingleton
                     break;
             }
         }
-        catch
+        catch (Exception exception)
         {
-            //ingored
+            _logs.Critical(exception.Message);
+            _logs.Critical(exception.StackTrace);
         }
     }
 }

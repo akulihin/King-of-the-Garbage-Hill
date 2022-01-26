@@ -122,10 +122,12 @@ public class CheckIfReady : IServiceSingleton
 
         if (playerWhoWon.Status.PlaceAtLeaderBoardHistory.Find(x => x.GameRound == 10).Place != 1)
             game.AddGlobalLogs($"**{playerWhoWon.DiscordUsername}** вырывает **очко** на последних секундах!");
+
+        
     }
 
 
-    private async void HandleLastRound(GameClass game)
+    private async Task HandleLastRound(GameClass game)
     {
         game.IsCheckIfReady = false;
         //predict
@@ -218,11 +220,10 @@ public class CheckIfReady : IServiceSingleton
             //end //trolling
         }
 
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
-                .SendMessageAsync("AWDKA trolling\n" +
-                                  $"{ex.StackTrace}");
+            _logs.Critical(exception.Message);
+            _logs.Critical(exception.StackTrace);
         }
 
 
@@ -321,43 +322,43 @@ public class CheckIfReady : IServiceSingleton
                 if (!player.IsBot())
                     await player.Status.SocketMessageFromBot.Channel.SendMessageAsync($"Спасибо за игру!\nВы заработали **{zbsPointsToGive}** ZBS points!\n\nВы можете потратить их в магазине - `*store`\nА вы знали? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганв его! Например `*st @Boole`");
             }
-            catch (Exception ee)
+            catch (Exception exception)
             {
-                _logs.Critical(ee.StackTrace);
+                _logs.Critical(exception.Message);
+                _logs.Critical(exception.StackTrace);
             }
         }
 
-        _global.GamesList.Remove(game);
         await NotifyOwner(game);
+        _global.GamesList.Remove(game);
     }
 
     private async Task NotifyOwner(GameClass game)
     {
-
+        _logs.Error(game.GameId);
         foreach (var player in game.PlayersList)
         {
-            var winrate = _global.WinRates.Find(x => x.CharacterName == player.Character.Name);
+            _global.WinRates.TryGetValue(player.Character.Name, out var winrate);
+
+            
             if (winrate == null)
             {
-                if (player.Status.PlaceAtLeaderBoard == 1)
-                {
-                    _global.WinRates.Add(new Global.WinRateClass(player.Character.Name, 1, 1));
-                }
-                else
-                {
-                    _global.WinRates.Add(new Global.WinRateClass(player.Character.Name, 1, 0));
-                }
+                var value = new Global.WinRateClass(0, 0);
+                _global.WinRates.AddOrUpdate(player.Character.Name, value, (_, _) => value);
             }
-            else
-            {
-                winrate.GameTimes++;
-                if (player.Status.PlaceAtLeaderBoard == 1)
-                {
-                    winrate.WinTimes++;
-                }
-            }
-        }
 
+            _global.WinRates.TryGetValue(player.Character.Name, out winrate);
+            winrate.GameTimes++;
+            if (player.Status.PlaceAtLeaderBoard == 1)
+            {
+                winrate.WinTimes++;
+            }
+            winrate.WinRate = (double)winrate.WinTimes / winrate.GameTimes * 100;
+            winrate.CharacterName = player.Character.Name;
+            _global.WinRates.AddOrUpdate(player.Character.Name, winrate, (_, _) => winrate);
+
+        }
+        _logs.Error(game.GameId);
         try
         {
             if (game.GameMode == "ShowResult")
@@ -373,9 +374,10 @@ public class CheckIfReady : IServiceSingleton
                                                $"6. {game.PlayersList[5].Character.Name} - {game.PlayersList[5].Status.GetScore()}\n<:e_:562879579694301184>\n");
             }
         }
-        catch
+        catch (Exception exception)
         {
-            //
+            _logs.Critical(exception.Message);
+            _logs.Critical(exception.StackTrace);
         }
     }
 
@@ -394,11 +396,10 @@ public class CheckIfReady : IServiceSingleton
             //protection against double calculations
             if (!game.IsCheckIfReady) continue;
 
-
             //round 11 is the end of the game, no fights on round 11
             if (game.RoundNo == 11)
             {
-                HandleLastRound(game);
+                await HandleLastRound(game);
                 continue;
             }
 
@@ -420,7 +421,6 @@ public class CheckIfReady : IServiceSingleton
 
             //Calculating the game
             game.IsCheckIfReady = false;
-
 
 
 
@@ -452,10 +452,8 @@ public class CheckIfReady : IServiceSingleton
                 }
                 catch (Exception exception)
                 {
-                    await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
-                        .SendMessageAsync($"handle bot {t.Character.Name}\n" +
-                                          $"{exception.Message}\n" +
-                                          $"{exception.StackTrace}\n");
+                    _logs.Critical(exception.Message);
+                    _logs.Critical(exception.StackTrace);
                 }
 
             foreach (var t in players.Where(t => t.Status.WhoToAttackThisTurn == Guid.Empty && t.Status.IsBlock == false && t.Status.IsSkip == false))
@@ -464,7 +462,7 @@ public class CheckIfReady : IServiceSingleton
             }
 
             //delete messages from prev round. No await.
-                foreach (var player in game.PlayersList) _help.DeleteItAfterRound(player);
+                foreach (var player in game.PlayersList) await _help.DeleteItAfterRound(player);
 
             await _round.CalculateAllFights(game);
             //await Task.Delay(1);
@@ -485,11 +483,10 @@ public class CheckIfReady : IServiceSingleton
 
                     await _upd.UpdateMessage(t, extraText);
                 }
-                catch (Exception f)
+                catch (Exception exception)
                 {
-                    await _global.Client.GetUser(181514288278536193).CreateDMChannelAsync().Result
-                        .SendMessageAsync("CheckIfEveryoneIsReady ==>  await _round.CalculateAllFights(game);\n" +
-                                          $"{f.StackTrace}");
+                    _logs.Critical(exception.Message);
+                    _logs.Critical(exception.StackTrace);
                 }
 
             game.IsCheckIfReady = true;

@@ -61,8 +61,10 @@ public class ProgramKingOfTheGarbageHill
         {
             await Task.Delay(-1, _services.GetRequiredService<CancellationTokenSource>().Token);
         }
-        catch (TaskCanceledException)
+        catch (Exception exception)
         {
+            Console.Write(exception.Message);
+            Console.Write(exception.StackTrace);
         }
     }
 }

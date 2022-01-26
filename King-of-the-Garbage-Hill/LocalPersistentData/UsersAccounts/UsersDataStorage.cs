@@ -12,11 +12,11 @@ public sealed class UserAccountsDataStorage : IServiceSingleton
 {
     //Save all DiscordAccountClass
 
-    private readonly Logs _log;
+    private readonly Logs _logs;
 
     public UserAccountsDataStorage(Logs log)
     {
-        _log = log;
+        _logs = log;
     }
 
     public async Task InitializeAsync()
@@ -32,9 +32,10 @@ public sealed class UserAccountsDataStorage : IServiceSingleton
         {
             File.WriteAllText(filePath, json);
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            _log.Critical($"Save USER DiscordAccountClass (3 params): {e.Message}");
+            _logs.Critical(exception.Message);
+            _logs.Critical(exception.StackTrace);
         }
     }
 
@@ -47,9 +48,10 @@ public sealed class UserAccountsDataStorage : IServiceSingleton
             var json = JsonConvert.SerializeObject(accounts, Formatting.Indented);
             File.WriteAllText(filePath, json);
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            _log.Critical($"Save USER DiscordAccountClass (2 params): {e.Message}");
+            _logs.Critical(exception.Message);
+            _logs.Critical(exception.StackTrace);
         }
     }
 
@@ -72,9 +74,10 @@ public sealed class UserAccountsDataStorage : IServiceSingleton
                 var acc = JsonConvert.DeserializeObject<DiscordAccountClass>(json);
                 dick.GetOrAdd(id, acc);
             }
-            catch (Exception e)
+            catch (Exception exception)
             {
-                _log.Critical($"LoadAccountSettings, BACK UP CREATED: {e}");
+                _logs.Critical(exception.Message);
+                _logs.Critical(exception.StackTrace);
 
                 var newList = new DiscordAccountClass();
                 SaveAccountSettings(newList, $"{id}-BACK_UP", json);

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -265,6 +266,10 @@ public class BotsBehavior : IServiceSingleton
         var noBlock = 99999;
         //end local variables
 
+        //character variables
+        var DarksciTheOne = Guid.Empty;
+        //end character variables
+
         //calculation Tens
         foreach (var target in allPlayers.Nanobots)
         {
@@ -342,6 +347,83 @@ public class BotsBehavior : IServiceSingleton
             //custom bot behavior
             switch (bot.Character.Name)
             {
+                case "Darksci":
+                    if (game.RoundNo < 8)
+                    {
+                        if (target.Player.Character.Justice.GetJusticeNow() > bot.Character.Justice.GetJusticeNow())
+                        {
+                            target.AttackPreference -= 3;
+                        }
+                    }
+
+                    var darksciLucky = _gameGlobal.DarksciLuckyList.Find(x => x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
+                    if (darksciLucky != null)
+                    {
+                        if (!darksciLucky.TouchedPlayers.Contains(target.Player.Status.PlayerId))
+                        {
+                            if (target.AttackPreference > 1)
+                            {
+                                target.AttackPreference += 3;
+                                if (game.RoundNo < 5)
+                                {
+                                    target.AttackPreference += 3;
+                                }
+                            }
+
+                        }
+
+                        if (!darksciLucky.TouchedPlayers.Contains(target.Player.Status.PlayerId) && darksciLucky.TouchedPlayers.Count == 4)
+                        {
+                            target.AttackPreference = 0;
+                        }
+
+                        // Если ОДИН из тех, на ком не запрокан стак, уже побеждал даркси ПО СТАТАМ, то его значение = 0.
+                        if (target.Player.Status.PlayerId != bot.Status.PlayerId)
+                        {
+                            if (!darksciLucky.TouchedPlayers.Contains(target.Player.Status.PlayerId))
+                            {
+                                var darksciLuckyTheOne = bot.Status.WhoToLostEveryRound.Find(x => x.EnemyId == target.Player.Status.PlayerId && x.IsStatsBetterEnemy);
+                                if (darksciLuckyTheOne != null && DarksciTheOne == Guid.Empty)
+                                {
+                                    DarksciTheOne = target.Player.Status.PlayerId;
+                                    target.AttackPreference = 0;
+                                }
+                            }
+                        }
+
+                        //Если незапроканных стаков = кол-во оставшихся ходов - 3, то выбирает цель только из них. (пока не останется 1) 
+                        
+                        var notTouched = 5 - darksciLucky.TouchedPlayers.Count;
+                        var roundsLeft = 11 - (game.RoundNo+3);
+                        if (notTouched >= roundsLeft)
+                        {
+                            if (darksciLucky.TouchedPlayers.Count < 5)
+                            {
+                                if (darksciLucky.TouchedPlayers.Contains(target.Player.Status.PlayerId))
+                                {
+                                    target.AttackPreference = 0;
+                                }
+                            }
+                        }
+
+
+                        if (game.RoundNo == 7 && bot.Character.GetPsyche() < 4)
+                        {
+                            if (!darksciLucky.TouchedPlayers.Contains(target.Player.Status.PlayerId) && darksciLucky.TouchedPlayers.Count == 4)
+                            {
+                                mandatoryAttack = target.PlaceAtLeaderBoard();
+                            }
+                        }
+                        if (game.RoundNo >= 8)
+                        {
+                            if (!darksciLucky.TouchedPlayers.Contains(target.Player.Status.PlayerId) && darksciLucky.TouchedPlayers.Count == 4)
+                            {
+                                mandatoryAttack = target.PlaceAtLeaderBoard();
+                            }
+                        }
+                    }
+
+                    break;
                 case "Mit*suki*":
                     if (target.AttackPreference >= 5)
                     {
@@ -357,7 +439,7 @@ public class BotsBehavior : IServiceSingleton
 
                         if (game.RoundNo > 5 && target.Player.Character.Name == "HardKitty" && target.AttackPreference >= 5)
                         {
-                            mandatoryAttack = target.PlaceAtLeaderBoard;
+                            mandatoryAttack = target.PlaceAtLeaderBoard();
                         }
                     }
                     break;
@@ -398,6 +480,17 @@ public class BotsBehavior : IServiceSingleton
                             if (!revengeEnemy.IsUnique && totalFinishedRevenges < 5)
                             {
                                 target.AttackPreference -= 4;
+                            }
+
+
+                            if (game.RoundNo > 5)
+                            {
+                                //после 5го хода: преф игроков С Лузом но БЕЗ победы не может опуститься ниже 4 
+                                if (revengeEnemy.IsUnique)
+                                {
+                                    if(target.AttackPreference < 4)
+                                        target.AttackPreference = 4;
+                                }
                             }
                         }
                         else
@@ -455,12 +548,14 @@ public class BotsBehavior : IServiceSingleton
                     break;
                 case "Краборак":
                     
-                    if (allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 6).AttackPreference > 0 
-                        || allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 5).AttackPreference > 0 
-                        || allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 4).AttackPreference > 0)
+                    if (allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard() == 6).AttackPreference > 0 
+                        || allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard() == 5).AttackPreference > 0 
+                        || allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard() == 4).AttackPreference > 0)
                     {
-                        if (target.PlaceAtLeaderBoard < 4) 
+                        if (target.PlaceAtLeaderBoard() < 4)
+                        {
                             target.AttackPreference -= 4;
+                        }
                     }
                     
                     
@@ -469,8 +564,8 @@ public class BotsBehavior : IServiceSingleton
                     break;
 
                 case "Братишка":
-                    if (target.PlaceAtLeaderBoard == bot.Status.PlaceAtLeaderBoard + 1 ||
-                        target.PlaceAtLeaderBoard == bot.Status.PlaceAtLeaderBoard - 1)
+                    if (target.PlaceAtLeaderBoard() == bot.Status.PlaceAtLeaderBoard + 1 ||
+                        target.PlaceAtLeaderBoard() == bot.Status.PlaceAtLeaderBoard - 1)
                     {
                         if (target.AttackPreference > 1) target.AttackPreference += 2;
 
@@ -591,6 +686,12 @@ public class BotsBehavior : IServiceSingleton
                     break;
                 case "Загадочный Спартанец в маске":
                     break;
+                case "Вампур":
+                    if (bot.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.Player.Status.PlayerId))
+                    {
+                        target.AttackPreference = 0;
+                    }
+                    break;
             }
             //end custom bot behavior
 
@@ -668,16 +769,64 @@ public class BotsBehavior : IServiceSingleton
         //custom behaviour After calculation Tens
         switch (bot.Character.Name)
         {
+            case "Darksci":
+                minimumRandomNumberForBlock += 1;
+                if (game.RoundNo > 1 && bot.Character.Justice.GetJusticeNow() == 0)
+                {
+                    minimumRandomNumberForBlock += 1;
+                }
+
+                if (game.RoundNo == 3 || game.RoundNo == 5 || game.RoundNo == 9)
+                {
+                    if (bot.Character.GetPsyche() <= 1)
+                    {
+                        minimumRandomNumberForBlock = 4;
+                        maximumRandomNumberForBlock = 5;
+                    }
+                }
+
+                var darksciLucky = _gameGlobal.DarksciLuckyList.Find(x => x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
+                if (darksciLucky != null)
+                {
+                    var notTouched = 5 - darksciLucky.TouchedPlayers.Count;
+                    var roundsLeft = 11 - (game.RoundNo + 3);
+                    if (notTouched >= roundsLeft)
+                    {
+                        if (darksciLucky.TouchedPlayers.Count < 5)
+                        {
+                            if (allPlayers.Nanobots[0].AttackPreference == 0 &&
+                                allPlayers.Nanobots[1].AttackPreference == 0 &&
+                                allPlayers.Nanobots[2].AttackPreference == 0 &&
+                                allPlayers.Nanobots[3].AttackPreference == 0 &&
+                                allPlayers.Nanobots[4].AttackPreference == 0 &&
+                                allPlayers.Nanobots[5].AttackPreference == 0 &&
+                                mandatoryAttack == -1)
+                            {
+                                mandatoryAttack = allPlayers.Nanobots.FirstOrDefault(x => x.Player.Status.PlayerId != bot.Status.PlayerId &&
+                                        !darksciLucky.TouchedPlayers.Contains(x.Player.Status.PlayerId))
+                                    .PlaceAtLeaderBoard();
+                            }
+
+                        }
+                    }
+                }
+
+                break;
             case "Братишка":
                 if (bot.Character.Justice.GetJusticeNow() != 5)
-                    minimumRandomNumberForBlock += 1;
+                {
+                    minimumRandomNumberForBlock = 2;
+                    maximumRandomNumberForBlock = 4;
+                }
                 var min = game.PlayersList.Where(x => x.Status.PlayerId != bot.Status.PlayerId)
                     .Min(x => x.Character.Justice.GetJusticeNow());
                 var check = game.PlayersList.Find(x =>
                     x.Status.PlayerId != bot.Status.PlayerId && x.Character.Justice.GetJusticeNow() == min);
 
                 if (check.Character.Justice.GetJusticeNow() >= bot.Character.Justice.GetJusticeNow())
+                {
                     minimumRandomNumberForBlock += 1;
+                }
 
                 break;
             case "Осьминожка":
@@ -700,7 +849,8 @@ public class BotsBehavior : IServiceSingleton
 
                 if (game.RoundNo == 10)
                 {
-                    minimumRandomNumberForBlock += 2;
+                    minimumRandomNumberForBlock = 3;
+                    maximumRandomNumberForBlock = 4;
                 }
                 break;
             case "mylorik":
@@ -717,8 +867,7 @@ public class BotsBehavior : IServiceSingleton
                         maxRandomNumber = 0;
                         foreach (var target in allPlayers.Nanobots)
                         {
-                            if (!mylorikRevenge.EnemyListPlayerIds.Any(x =>
-                                    x.IsUnique && x.EnemyPlayerId == target.Player.Status.PlayerId))
+                            if (!mylorikRevenge.EnemyListPlayerIds.Any(x => x.IsUnique && x.EnemyPlayerId == target.Player.Status.PlayerId))
                             {
                                 if (target.AttackPreference >= 2)
                                     target.AttackPreference /= 2;
@@ -743,23 +892,40 @@ public class BotsBehavior : IServiceSingleton
                 }
                 break;
             case "Загадочный Спартанец в маске":
-                //на последнем ходу блок -2 (от 3 до 5)
-                if (game.RoundNo == 10) minimumRandomNumberForBlock += 2;
-                // end на последнем ходу блок -2 (от 3 до 5)
+                //на последнем ходу блок -2 (от 2 до 5)
+                if (game.RoundNo == 10)
+                {
+                    minimumRandomNumberForBlock = 2;
+                    maximumRandomNumberForBlock = 4;
+                }
+                // end на последнем ходу блок -2 (от 2 до 5)
                 break;
 
             case "Толя":
                 //rammus
                 var count = allPlayers.Nanobots.FindAll(x => x.AttackPreference >= 10).Count;
-                if (count <= 0) minimumRandomNumberForBlock += 2;
+                if (count <= 0)
+                {
+                    minimumRandomNumberForBlock = 2;
+                    maximumRandomNumberForBlock = 4;
+                }
                 //end rammus
                 break;
 
 
             case "LeCrisp":
                 //block chances
-                if (game.RoundNo is >= 2 and <= 4) minimumRandomNumberForBlock += 1;
-                if (game.RoundNo == 1) minimumRandomNumberForBlock += 2;
+                if (game.RoundNo  <= 4)
+                {
+                    minimumRandomNumberForBlock = 2;
+                    maximumRandomNumberForBlock = 4;
+                }
+
+                if (game.RoundNo == 1)
+                {
+                    minimumRandomNumberForBlock = 3;
+                    maximumRandomNumberForBlock = 4;
+                }
 
                 var assassinsCount = game.PlayersList
                     .FindAll(x => bot.Character.GetStrength() - x.Character.GetStrength() <= -2).Count;
@@ -792,12 +958,12 @@ public class BotsBehavior : IServiceSingleton
         //"random" attack
         var randomNumber = _rand.Random(1, maxRandomNumber);
 
-        var player1 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 1);
-        var player2 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 2);
-        var player3 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 3);
-        var player4 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 4);
-        var player5 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 5);
-        var player6 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == 6);
+        var player1 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard() == 1);
+        var player2 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard() == 2);
+        var player3 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard() == 3);
+        var player4 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard() == 4);
+        var player5 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard() == 5);
+        var player6 = allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard() == 6);
 
         int whoToAttack;
 
@@ -846,21 +1012,21 @@ public class BotsBehavior : IServiceSingleton
             var cont = true;
             do
             {
-                whoToAttack = allPlayers.Nanobots[_rand.Random(0, 5)].PlaceAtLeaderBoard;
-                if (whoToAttack != bot.Status.PlaceAtLeaderBoard)
-                {
-                    cont = false;
-                }
+                var players = game.PlayersList.Where(x => x.Status.PlayerId != bot.Status.PlayerId).ToList();
 
-                if (game.RoundNo == 10 &&
-                    allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == whoToAttack).Player.Character.Name == "Тигр")
+                whoToAttack = players[_rand.Random(0, 4)].Status.PlaceAtLeaderBoard;
+
+                cont = false;
+
+                if (game.RoundNo == 10 && allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard() == whoToAttack).Player.Character.Name == "Тигр")
                 {
                     cont = true;
                 }
 
             } while (cont);
-            isAttacked = await AttackPlayer(bot, whoToAttack);
-            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync($"**{bot.Character.Name}** Поставил блок, а ему нельзя. {randomNumber}/{maxRandomNumber} <= {player1.AttackPreference + player2.AttackPreference + player3.AttackPreference + player4.AttackPreference + player5.AttackPreference + player6.AttackPreference}\n" +
+            
+            if(maxRandomNumber > 0)
+                await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync($"**{bot.Character.Name}** Поставил блок, а ему нельзя. {randomNumber}/{maxRandomNumber} <= {player1.AttackPreference + player2.AttackPreference + player3.AttackPreference + player4.AttackPreference + player5.AttackPreference + player6.AttackPreference}\n" +
                 $"Round: {game.RoundNo}\n" +
                 $"1. {player1.Player.Character.Name}: {player1.AttackPreference}\n" +
                 $"2. {player2.Player.Character.Name}: {player2.AttackPreference}\n" +
@@ -868,10 +1034,9 @@ public class BotsBehavior : IServiceSingleton
                 $"4. {player4.Player.Character.Name}: {player4.AttackPreference}\n" +
                 $"5. {player5.Player.Character.Name}: {player5.AttackPreference}\n" +
                 $"6. {player6.Player.Character.Name}: {player6.AttackPreference}\n" +
-                $"Randomly Attacking {allPlayers.Nanobots.Find(x => x.PlaceAtLeaderBoard == whoToAttack).Player.Character.Name}");
-
+                $"Randomly Attacking {game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == whoToAttack).Character.Name}");
             
-
+            await AttackPlayer(bot, whoToAttack);
         }
         else if (!isAttacked)
         {
@@ -970,7 +1135,7 @@ public class BotsBehavior : IServiceSingleton
     public class Nanobot
     {
         public int AttackPreference;
-        public int PlaceAtLeaderBoard;
+
         public GamePlayerBridgeClass Player;
 
 
@@ -978,7 +1143,11 @@ public class BotsBehavior : IServiceSingleton
         {
             Player = player;
             AttackPreference = 10;
-            PlaceAtLeaderBoard = player.Status.PlaceAtLeaderBoard;
+        }
+
+        public int PlaceAtLeaderBoard()
+        {
+            return Player.Status.PlaceAtLeaderBoard;
         }
     }
 

@@ -142,10 +142,10 @@ Speed => Strength
             player.Status.IsFighting = playerIamAttacking.Status.PlayerId;
 
 
-            await _characterPassives.HandleCharacterWithKnownEnemyBeforeFight(player, game);
-            await _characterPassives.HandleCharacterWithKnownEnemyBeforeFight(playerIamAttacking, game);
-            await _characterPassives.HandleDefenseBeforeFight(playerIamAttacking, player, game);
-            await _characterPassives.HandleAttackBeforeFight(player, playerIamAttacking, game);
+            _characterPassives.HandleCharacterWithKnownEnemyBeforeFight(player, game);
+            _characterPassives.HandleCharacterWithKnownEnemyBeforeFight(playerIamAttacking, game);
+            _characterPassives.HandleDefenseBeforeFight(playerIamAttacking, player, game);
+            _characterPassives.HandleAttackBeforeFight(player, playerIamAttacking, game);
 
 
             //умный
@@ -493,7 +493,7 @@ Speed => Strength
                 isContrLost += 1;
 
                 //octopus  // playerIamAttacking is octopus
-                var check =await _characterPassives.HandleOctopus(playerIamAttacking, player, game);
+                var check = await  _characterPassives.HandleOctopus(playerIamAttacking, player, game);
                 //end octopus
 
                 if (check)
@@ -525,10 +525,10 @@ Speed => Strength
 
 
             //т.е. он получил урон, какие у него дебаффы на этот счет 
-            await _characterPassives.HandleDefenseAfterFight(playerIamAttacking, player, game);
+            _characterPassives.HandleDefenseAfterFight(playerIamAttacking, player, game);
 
             //т.е. я его аттакую, какие у меня бонусы на это
-            await _characterPassives.HandleAttackAfterFight(player, playerIamAttacking, game);
+            _characterPassives.HandleAttackAfterFight(player, playerIamAttacking, game);
 
             //TODO: merge top 2 methods and 2 below... they are the same... or no?
 
@@ -548,13 +548,13 @@ Speed => Strength
             _characterPassives.HandleCharacterAfterFight(player, game);
 
             _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game);
-            await _characterPassives.HandleShark(game); //used only for shark...
+            _characterPassives.HandleShark(game); //used only for shark...
 
             ResetFight(player, playerIamAttacking);
         }
 
 
-        await _characterPassives.HandleEndOfRound(game);
+        _characterPassives.HandleEndOfRound(game);
 
         foreach (var player in game.PlayersList)
         {
@@ -652,7 +652,7 @@ Speed => Strength
             $"Finished calculating game #{game.GameId} (round# {game.RoundNo - 1}). || {watch.Elapsed.TotalSeconds}s");
         _logs.Critical("");
         watch.Stop();
-        await Task.CompletedTask;
+        
     }
 
     /*

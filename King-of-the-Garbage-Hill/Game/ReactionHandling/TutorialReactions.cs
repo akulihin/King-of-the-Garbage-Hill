@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
+using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
@@ -15,6 +16,7 @@ public class TutorialReactions : IServiceSingleton
 {
     private readonly CharactersPull _charactersPull;
     private readonly InGameGlobal _gameGlobal;
+    private readonly Logs _logs;
 
     private readonly List<Emoji> _playerChoiceAttackList = new()
         { new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣"), new Emoji("4⃣"), new Emoji("5⃣"), new Emoji("6⃣") };
@@ -23,12 +25,13 @@ public class TutorialReactions : IServiceSingleton
     private readonly UserAccounts _userAccounts;
 
     public TutorialReactions(UserAccounts userAccounts, CharactersPull charactersPull, SecureRandom random,
-        InGameGlobal gameGlobal)
+        InGameGlobal gameGlobal, Logs logs)
     {
         _userAccounts = userAccounts;
         _charactersPull = charactersPull;
         _random = random;
         _gameGlobal = gameGlobal;
+        _logs = logs;
     }
 
     public Task InitializeAsync()
@@ -122,7 +125,7 @@ public class TutorialReactions : IServiceSingleton
 
         if (game.RoundNumber > 5)
         {
-            var classText = "";
+         
             if (player.Intelligence >= player.Strength && player.Intelligence >= player.Speed)
                 player.ClassString = "**Умный**";
             else if (player.Strength >= player.Intelligence && player.Strength >= player.Speed)
@@ -1019,9 +1022,10 @@ public class TutorialReactions : IServiceSingleton
                     break;
             }
         }
-        catch
+        catch (Exception exception)
         {
-            //ingored
+            _logs.Critical(exception.Message);
+            _logs.Critical(exception.StackTrace);
         }
     }
 

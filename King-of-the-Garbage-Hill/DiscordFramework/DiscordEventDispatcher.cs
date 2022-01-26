@@ -170,8 +170,7 @@ public sealed class DiscordEventDispatcher : IServiceSingleton
     {
         if (message.Author.IsBot)
             return;
-        _global.TimeSpendOnLastMessage.AddOrUpdate(message.Author.Id, Stopwatch.StartNew(),
-            (key, oldValue) => Stopwatch.StartNew());
+        _global.TimeSpendOnLastMessage.AddOrUpdate(message.Author.Id, Stopwatch.StartNew(), (key, oldValue) => Stopwatch.StartNew());
         _commandHandler.HandleCommandAsync(message);
     }
 
@@ -184,8 +183,7 @@ public sealed class DiscordEventDispatcher : IServiceSingleton
             return;
 
 
-        _global.TimeSpendOnLastMessage.AddOrUpdate(messageAfter.Author.Id, Stopwatch.StartNew(),
-            (key, oldValue) => Stopwatch.StartNew());
+        _global.TimeSpendOnLastMessage.AddOrUpdate(messageAfter.Author.Id, Stopwatch.StartNew(), (key, oldValue) => Stopwatch.StartNew());
 
 
         _commandHandler._client_MessageUpdated(cacheMessageBefore, messageAfter, channel);

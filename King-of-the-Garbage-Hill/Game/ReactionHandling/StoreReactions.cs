@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
+using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
@@ -17,11 +18,13 @@ public class StoreReactions : IServiceSingleton
     private readonly SecureRandom _random;
     private readonly UserAccounts _userAccounts;
     private readonly int _basePrice = 10;
-    public StoreReactions(UserAccounts userAccounts, CharactersPull charactersPull, SecureRandom random)
+    private readonly Logs _logs;
+    public StoreReactions(UserAccounts userAccounts, CharactersPull charactersPull, SecureRandom random, Logs logs)
     {
         _userAccounts = userAccounts;
         _charactersPull = charactersPull;
         _random = random;
+        _logs = logs;
     }
 
     public Task InitializeAsync()
@@ -330,9 +333,10 @@ public class StoreReactions : IServiceSingleton
                     break;
             }
         }
-        catch
+        catch (Exception exception)
         {
-            //ingored
+            _logs.Critical(exception.Message);
+            _logs.Critical(exception.StackTrace);
         }
     }
 }

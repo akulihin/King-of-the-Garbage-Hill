@@ -649,9 +649,10 @@ public class CharactersUniquePhrase
                 var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(description);
                 player.DeleteMessages.Add(mess2.Id);
             }
-            catch (Exception e)
+            catch (Exception exception)
             {
-                Console.WriteLine(e.StackTrace);
+                Console.Write(exception.Message);
+                Console.Write(exception.StackTrace);
             }
         }
     }

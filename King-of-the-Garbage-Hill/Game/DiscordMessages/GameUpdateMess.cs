@@ -10,7 +10,6 @@ using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
-#pragma warning disable CS4014
 
 namespace King_of_the_Garbage_Hill.Game.DiscordMessages;
 
@@ -513,6 +512,23 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             text = temp;
         }
 
+
+        if (text.Contains("**очков**"))
+        {
+            var temp = "";
+            var jewSplit = text.Split('\n');
+
+            foreach (var line in jewSplit)
+                if (!line.Contains("**очков**"))
+                    temp += line + "\n";
+
+            foreach (var line in jewSplit)
+                if (line.Contains("**очков**"))
+                    temp += line + "\n";
+
+            text = temp;
+        }
+
         return text.Replace("\n\n", "\n");
     }
 
@@ -745,7 +761,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 .WithCustomId("char-select")
                 .WithPlaceholder("\"Выбор\" прокачки")
                 .AddOption("Психика", "4");
-            _helperFunctions.SendMsgAndDeleteItAfterRound(player, "Riot Games: бери smite и не выебывайся");
+            await _helperFunctions.SendMsgAndDeleteItAfterRound(player, "Riot Games: бери smite и не выебывайся");
         }
         //end Да всё нахуй эту игру: Part #4
 
@@ -882,7 +898,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 //end Да всё нахуй эту игру: Part #5
                 break;
         }
-        _helperFunctions.ModifyGameMessage(player, embed, builder, extraText);
+        await _helperFunctions.ModifyGameMessage(player, embed, builder, extraText);
     }
 
 

@@ -8,7 +8,6 @@ using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Helpers;
-#pragma warning disable CS4014
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
@@ -38,7 +37,7 @@ public class CharacterPassives : IServiceSingleton
 
 
     //handle during fight
-    public async Task HandleDefenseBeforeFight(GamePlayerBridgeClass target,
+    public void HandleDefenseBeforeFight(GamePlayerBridgeClass target,
         GamePlayerBridgeClass me,
         GameClass game)
     {
@@ -230,11 +229,11 @@ public class CharacterPassives : IServiceSingleton
                 break;
         }
 
-        await Task.CompletedTask;
+        
     }
 
 
-    public async Task HandleDefenseAfterFight(GamePlayerBridgeClass target,
+    public void HandleDefenseAfterFight(GamePlayerBridgeClass target,
         GamePlayerBridgeClass me, GameClass game)
     {
         var characterName = target.Character.Name;
@@ -291,11 +290,11 @@ public class CharacterPassives : IServiceSingleton
                 break;
         }
 
-        await Task.CompletedTask;
+        
     }
 
 
-    public async Task HandleAttackBeforeFight(GamePlayerBridgeClass me,
+    public void HandleAttackBeforeFight(GamePlayerBridgeClass me,
         GamePlayerBridgeClass target,
         GameClass game)
     {
@@ -516,10 +515,10 @@ public class CharacterPassives : IServiceSingleton
                 break;
         }
 
-        await Task.CompletedTask;
+        
     }
 
-    public async Task HandleAttackAfterFight(GamePlayerBridgeClass me,
+    public void HandleAttackAfterFight(GamePlayerBridgeClass me,
         GamePlayerBridgeClass target, GameClass game)
     {
         var characterName = me.Character.Name;
@@ -666,7 +665,7 @@ public class CharacterPassives : IServiceSingleton
                 break;
         }
 
-        await Task.CompletedTask;
+        
     }
 
 
@@ -1344,7 +1343,7 @@ public class CharacterPassives : IServiceSingleton
     //end handle during fight
 
     //this should not exist, but it works, so don't touch
-    public async Task HandleCharacterWithKnownEnemyBeforeFight(GamePlayerBridgeClass player, GameClass game)
+    public void HandleCharacterWithKnownEnemyBeforeFight(GamePlayerBridgeClass player, GameClass game)
     {
         var characterName = player.Character.Name;
         switch (characterName)
@@ -1387,13 +1386,13 @@ public class CharacterPassives : IServiceSingleton
         }
 
 
-        await Task.CompletedTask;
+        
     }
     //
 
     //after all fight
 
-    public async Task HandleEndOfRound(GameClass game)
+    public void HandleEndOfRound(GameClass game)
     {
         foreach (var player in game.PlayersList)
         {
@@ -1848,7 +1847,7 @@ public class CharacterPassives : IServiceSingleton
             }
         }
 
-        await Task.CompletedTask;
+        
     }
 
 
@@ -2397,7 +2396,7 @@ public class CharacterPassives : IServiceSingleton
                         player.Character.AddExtraSkill(player.Status, "Дракон: ",
                             (int)player.Character.GetSkill());
 
-                        var pointsToGive = (int)(player.Character.GetSkill() / 15);
+                        var pointsToGive = (int)(player.Character.GetSkill() / 20);
 
 
                         var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
@@ -2714,7 +2713,7 @@ public class CharacterPassives : IServiceSingleton
     //end after all fight
 
     //unique
-    public async Task HandleShark(GameClass game)
+    public void HandleShark(GameClass game)
     {
         //shark Лежит на дне:
         if (game.PlayersList.Any(x => x.Character.Name == "Братишка"))
@@ -2733,7 +2732,7 @@ public class CharacterPassives : IServiceSingleton
         }
         //end Лежит на дне:
 
-        await Task.CompletedTask;
+        
     }
 
     public async Task<int> HandleJews(GamePlayerBridgeClass player, GameClass game)
@@ -2757,21 +2756,23 @@ public class CharacterPassives : IServiceSingleton
                 if (!leCrisp.IsBot())
                     try
                     {
-                        _help.SendMsgAndDeleteItAfterRound(leCrisp, "МЫ жрём деньги!");
+                        await _help.SendMsgAndDeleteItAfterRound(leCrisp, "МЫ жрём деньги!");
                     }
-                    catch (Exception e)
+                    catch (Exception exception)
                     {
-                        _log.Critical(e.StackTrace);
+                        _log.Critical(exception.Message);
+                        _log.Critical(exception.StackTrace);
                     }
 
                 if (!tolya.IsBot())
                     try
                     {
-                        _help.SendMsgAndDeleteItAfterRound(tolya, "МЫ жрём деньги!");
+                        await _help.SendMsgAndDeleteItAfterRound(tolya, "МЫ жрём деньги!");
                     }
-                    catch (Exception e)
+                    catch (Exception exception)
                     {
-                        _log.Critical(e.StackTrace);
+                        _log.Critical(exception.Message);
+                        _log.Critical(exception.StackTrace);
                     }
 
                 return 0;
@@ -2799,7 +2800,6 @@ public class CharacterPassives : IServiceSingleton
                 game.Phrases.TolyaJewPhrase.SendLog(tolya, true);
                 return 0;
             }
-
         return 1;
     }
 

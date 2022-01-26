@@ -16,8 +16,7 @@ public sealed class Global : IServiceSingleton
 
     public List<GameClass> GamesList = new();
 
-    public ConcurrentDictionary<ulong, Stopwatch> TimeSpendOnLastMessage =
-        new();
+    public ConcurrentDictionary<ulong, Stopwatch> TimeSpendOnLastMessage = new();
 
 
     public Global(DiscordShardedClient client)
@@ -31,7 +30,8 @@ public sealed class Global : IServiceSingleton
     public uint TotalCommandsChanged { get; set; }
     private ulong GamePlayingAndId { get; set; }
 
-    public List<WinRateClass> WinRates { get; set; } = new();
+    public ConcurrentDictionary<string, WinRateClass> WinRates = new();
+
 
     public Task InitializeAsync()
     {
@@ -58,14 +58,13 @@ public sealed class Global : IServiceSingleton
 
     public class WinRateClass
     {
-        public WinRateClass(string characterName, int gameTimes, int winTimes)
+        public string CharacterName { get; set; }
+        public WinRateClass( int gameTimes, int winTimes)
         {
             GameTimes = gameTimes;
             WinTimes = winTimes;
-            CharacterName = characterName;
         }
 
-        public string CharacterName { get; set; }
         public int WinTimes { get; set; }
         public int GameTimes { get; set; }
         public double WinRate { get; set; }

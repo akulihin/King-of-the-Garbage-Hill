@@ -351,14 +351,10 @@ public class General : ModuleBaseCustom
             return;
         }
 
-        foreach (var winRate in _global.WinRates)
-        {
-            winRate.WinRate = (double)winRate.WinTimes / winRate.GameTimes * 100;
-        }
+        var winRates = _global.WinRates.Values.ToList();
 
-        var winRates = _global.WinRates.OrderByDescending(x => x.WinRate).ToList();
         var text = $"Total Games: {_global.GetLastGamePlayingAndId()}\n";
-        foreach (var winRate in winRates)
+        foreach (var winRate in winRates.OrderByDescending(x => x.WinRate))
         {
             text += $"{winRate.CharacterName} - {winRate.WinRate.ToString("0.##")}% ({winRate.WinTimes}/{winRate.GameTimes})\n";
         }
@@ -479,15 +475,7 @@ public class General : ModuleBaseCustom
 
         for (var jj = 0; jj < times; jj++)
         {
-            var contextPlayer = _accounts.GetAccount(Context.User);
 
-            /*if (!contextPlayer.PassedTutorial)
-            {
-                await SendMessAsync($"Извините! Для запуска игры, пожалуйста, сперва пройдите обучение - `*обучение`");
-                return;
-            }*/
-
-            //_userAccounts.GetAccount(player.PlayerId).PassedTutorial = true;
             var players = new List<IUser>
         {
             null,
@@ -497,19 +485,6 @@ public class General : ModuleBaseCustom
             null,
             null
         };
-
-            foreach (var player in players.Where(player => player != null).Where(player => player.IsBot))
-            {
-                await SendMessAsync($"ERROR: {player.Mention}  is a bot!");
-                return;
-            }
-
-            foreach (var player in players.Where(player => player != null && player.Id != Context.User.Id))
-                if (_accounts.GetAccount(player.Id).IsPlaying)
-                {
-                    await SendMessAsync($"ERROR: {player.Mention}  сейчас играет!");
-                    return;
-                }
 
 
             //Заменить игрока на бота
@@ -550,7 +525,6 @@ public class General : ModuleBaseCustom
             //handle round #0
             await _characterPassives.HandleNextRound(game);
 
-            foreach (var player in playersList) await _upd.UpdateMessage(player);
             game.IsCheckIfReady = true;
         }
     }

@@ -12,11 +12,11 @@ public sealed class FinishedGameLogDataStorage : IServiceSingleton
 {
     //Save all DiscordAccountClass
 
-    private readonly Logs _log;
+    private readonly Logs _logs;
 
     public FinishedGameLogDataStorage(Logs log)
     {
-        _log = log;
+        _logs = log;
     }
 
     public async Task InitializeAsync()
@@ -34,9 +34,10 @@ public sealed class FinishedGameLogDataStorage : IServiceSingleton
             var json = JsonConvert.SerializeObject(accounts, Formatting.Indented);
             File.WriteAllText(filePath, json);
         }
-        catch
+        catch (Exception exception)
         {
-            _log.Critical("Failed To ReadFile(SaveAccountSettings). Will ty in 5 sec.");
+            _logs.Critical(exception.Message);
+            _logs.Critical(exception.StackTrace);
         }
     }
 
@@ -57,9 +58,10 @@ public sealed class FinishedGameLogDataStorage : IServiceSingleton
         {
             return JsonConvert.DeserializeObject<List<GameLogsClass>>(json);
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            _log.Critical($"LoadAccountSettings, BACK UP CREATED: {e}");
+            _logs.Critical(exception.Message);
+            _logs.Critical(exception.StackTrace);
         }
 
         return new List<GameLogsClass>();
