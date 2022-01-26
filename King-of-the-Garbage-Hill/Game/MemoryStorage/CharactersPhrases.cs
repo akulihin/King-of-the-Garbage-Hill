@@ -319,7 +319,7 @@ public class CharactersUniquePhrase
         DeepListPokePhrase.PassiveLogRus.Add("Из Загары вышел хороший тиммейт");  
         DeepListPokePhrase.PassiveLogRus.Add("Я проиграл");  
         DeepListPokePhrase.PassiveLogRus.Add("Large wave of angry zergs");  
-        
+        DeepListPokePhrase.PassiveLogRus.Add("LeCringe");  
         
 
         DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Everything is going according to my plan");
