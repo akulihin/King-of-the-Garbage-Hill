@@ -320,6 +320,9 @@ public class CharactersUniquePhrase
         DeepListPokePhrase.PassiveLogRus.Add("Я проиграл");  
         DeepListPokePhrase.PassiveLogRus.Add("Large wave of angry zergs");  
         DeepListPokePhrase.PassiveLogRus.Add("LeCringe");  
+        DeepListPokePhrase.PassiveLogRus.Add("Кто **Там**?"); 
+        
+        
         
 
         DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Everything is going according to my plan");
@@ -367,6 +370,7 @@ public class CharactersUniquePhrase
         MylorikSpanishPhrase.PassiveLogRus.Add("Ale handro!");
         MylorikSpanishPhrase.PassiveLogRus.Add("noob team");
         MylorikBoolePhrase.PassiveLogRus.Add("Буль");
+        MylorikBoolePhrase.PassiveLogRus.Add("Там... **Кенч**");
 
 
         GlebChallengerPhrase.PassiveLogRus.Add("А? БАРОН?!");
