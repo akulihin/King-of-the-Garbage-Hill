@@ -430,8 +430,8 @@ public class CharactersUniquePhrase
         LeCrispImpactPhrase.PassiveLogRus.Add("Нимфоманка!"); 
         LeCrispImpactPhrase.PassiveLogRus.Add("Я прям вижу как он зонит");                                   
         LeCrispImpactPhrase.PassiveLogRus.Add("Импакт!");
-        
-        
+        LeCrispImpactPhrase.PassiveLogRus.Add("Тихо, тихо... Без импакта не стреляй...");
+        LeCrispImpactPhrase.PassiveLogRus.Add("Стреляй только когда точно добьешь!");
         
         
 
