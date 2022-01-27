@@ -864,6 +864,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         var enabled = player.Status.IsAutoMove || player.Status.IsSkip || player.Status.IsReady;
 
+        if (game.TimePassed.Elapsed.TotalSeconds < 29 && player.DiscordId != 238337696316129280 && player.DiscordId != 181514288278536193) enabled = true;
+
         return new ButtonBuilder("Авто Ход", "auto-move", ButtonStyle.Secondary, isDisabled: enabled);
     }
 
@@ -910,9 +912,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
         if (game == null) return "ERROR";
-        var time = $"({game.TimePassed.Elapsed.Seconds}/{game.TurnLengthInSecond}с)";
+        var time = $"({(int)game.TimePassed.Elapsed.TotalSeconds}/{game.TurnLengthInSecond}с)";
         if (player.Status.IsReady)
             return $"Ожидаем других игроков • {time} | {game.GameVersion}";
-        return $"{time} | {game.GameVersion}";
+        var toReturn = $"{time} | {game.GameVersion}";
+        if (player.Character.Name == "mylorik" || player.Character.Name == "DeepList")
+        {
+            toReturn += " | (x+х)*19";
+        }
+        return toReturn;
     }
 }

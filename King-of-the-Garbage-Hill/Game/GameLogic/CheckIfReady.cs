@@ -409,6 +409,38 @@ public class CheckIfReady : IServiceSingleton
             foreach (var player in players.Where(x => !x.IsBot()))
             {
                 //if (game.TimePassed.Elapsed.TotalSeconds < 30) continue;
+
+                if (game.TimePassed.Elapsed.TotalSeconds > 30 && player.Status.TimesUpdated == 0)
+                {
+                    player.Status.TimesUpdated++;
+                    await _upd.UpdateMessage(player);
+                }
+                if (game.TimePassed.Elapsed.TotalSeconds > 60 && player.Status.TimesUpdated == 1)
+                {
+                    player.Status.TimesUpdated++;
+                    await _upd.UpdateMessage(player);
+                }
+                if (game.TimePassed.Elapsed.TotalSeconds > 90 && player.Status.TimesUpdated == 2)
+                {
+                    player.Status.TimesUpdated++;
+                    await _upd.UpdateMessage(player);
+                }
+                if (game.TimePassed.Elapsed.TotalSeconds > 120 && player.Status.TimesUpdated == 3)
+                {
+                    player.Status.TimesUpdated++;
+                    await _upd.UpdateMessage(player);
+                }
+                if (game.TimePassed.Elapsed.TotalSeconds > 150 && player.Status.TimesUpdated == 4)
+                {
+                    player.Status.TimesUpdated++;
+                    await _upd.UpdateMessage(player);
+                }
+                if (game.TimePassed.Elapsed.TotalSeconds > 180 && player.Status.TimesUpdated == 5)
+                {
+                    player.Status.TimesUpdated++;
+                    await _upd.UpdateMessage(player);
+                }
+
                 if (game.TimePassed.Elapsed.TotalSeconds < 50 && !player.Status.ConfirmedSkip) continue;
                 if (player.Status.IsReady && player.Status.ConfirmedPredict)
                     readyCount++;

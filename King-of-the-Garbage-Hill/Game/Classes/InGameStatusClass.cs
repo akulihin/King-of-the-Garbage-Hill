@@ -45,6 +45,7 @@ public class InGameStatus
         PlaceAtLeaderBoardHistory = new List<PlaceAtLeaderBoardHistoryClass>();
         ChangeMindWhat = "";
         AutoMoveTimes = 0;
+        TimesUpdated = 0;
     }
 
 
@@ -88,6 +89,7 @@ public class InGameStatus
     public bool IsAbleToChangeMind { get; set; }
     public string ChangeMindWhat  { get; set;}
     public string CharacterName { get; set; }
+    public int TimesUpdated { get; set; }
     public List<PlaceAtLeaderBoardHistoryClass> PlaceAtLeaderBoardHistory { get; set; }
     public DateTimeOffset LastMessageUpdate { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset LastButtonPress { get; set; } = DateTimeOffset.UtcNow;

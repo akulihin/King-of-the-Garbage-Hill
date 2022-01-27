@@ -558,6 +558,7 @@ Speed => Strength
 
         foreach (var player in game.PlayersList)
         {
+            player.Status.TimesUpdated = 0;
             player.Status.IsAutoMove = false;
             player.Status.IsBlock = false;
             player.Status.IsAbleToWin = true;
