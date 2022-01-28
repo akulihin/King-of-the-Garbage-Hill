@@ -413,11 +413,16 @@ public class CharactersUniquePhrase
 
         LeCrispBoolingPhrase.PassiveLogRus.Add("Why are you bulling me?");
         LeCrispBoolingPhrase.PassiveLogRus.Add("fuk u");
-
+        LeCrispBoolingPhrase.PassiveLogRus.Add("У тебя учусь");
+        LeCrispBoolingPhrase.PassiveLogRus.Add("DeepList - это заменитель мозга");
+        LeCrispBoolingPhrase.PassiveLogRus.Add("Как Адепт");
+        
+        
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Гребанные ассассины");
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Эх, жизнь АДК");
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Моя жопа не смогла съесть змею. (с)");
-        LeCrispAssassinsPhrase.PassiveLogRus.Add("Женская собака приседает и писает");        
+        LeCrispAssassinsPhrase.PassiveLogRus.Add("Женская собака приседает и писает");      
+        LeCrispAssassinsPhrase.PassiveLogRus.Add("Голова арбуза"); 
 
 
         LeCrispImpactPhrase.PassiveLogRus.Add("Импакт!");
