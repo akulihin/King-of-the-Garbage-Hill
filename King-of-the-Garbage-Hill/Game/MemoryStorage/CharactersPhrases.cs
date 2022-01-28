@@ -288,6 +288,7 @@ public class CharactersUniquePhrase
         DeepListMadnessPhrase.PassiveLogRus.Add("Доктор, у меня проблема: Я слышу голоса, но сейчас их нет...");
         DeepListMadnessPhrase.PassiveLogRus.Add("Доктор Чо");
         DeepListMadnessPhrase.PassiveLogRus.Add("*Звуки губной гармошки*");
+        DeepListMadnessPhrase.PassiveLogRus.Add("*Звуки расстроенной гитары*");
 
 
         DeepListPokePhrase.PassiveLogRus.Add("Хехе");
@@ -322,7 +323,7 @@ public class CharactersUniquePhrase
         DeepListPokePhrase.PassiveLogRus.Add("LeCringe");  
         DeepListPokePhrase.PassiveLogRus.Add("Кто **Там**?"); 
         DeepListPokePhrase.PassiveLogRus.Add("Дэусманс, придурки"); 
-        
+
         
         
 
