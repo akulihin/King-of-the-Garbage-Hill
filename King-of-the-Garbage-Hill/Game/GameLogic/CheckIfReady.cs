@@ -147,11 +147,12 @@ public class CheckIfReady : IServiceSingleton
             if (game.GetAllGlobalLogs().Contains("Толя запизделся"))
                 bot.Status.AddBonusPoints(3, "Предположение: ");
 
+            if (bot.Character.Name == "AWDKA") bot.Status.AddBonusPoints(6, "Предположение: ");
+
             if (game.PlayersList.All(x => _accounts.GetAccount(x.DiscordId).TotalPlays >= 50))
             {
                 bot.Status.AddBonusPoints(3, "Предположение: ");
-                if (bot.Character.Name == "DeepList") bot.Status.AddBonusPoints(3, "Предположение: ");
-                if (bot.Character.Name == "AWDKA") bot.Status.AddBonusPoints(6, "Предположение: ");
+                //if (bot.Character.Name == "DeepList") bot.Status.AddBonusPoints(3, "Предположение: ");
             }
         }
         //end bot

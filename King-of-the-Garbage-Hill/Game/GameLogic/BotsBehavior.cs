@@ -153,7 +153,7 @@ public class BotsBehavior : IServiceSingleton
         if (moral >= 20)
         {
             bot.Character.AddMoral(bot.Status, -20, "Обмен Морали: ", true, true);
-            bot.Character.AddBonusPointsFromMoral(14);
+            bot.Character.AddBonusPointsFromMoral(13);
         }
 
         if (moral >= 13)
@@ -370,6 +370,22 @@ public class BotsBehavior : IServiceSingleton
                 //custom bot behavior
                 switch (bot.Character.Name)
                 {
+                    case "AWDKA":
+                        target.AttackPreference += 1;
+
+                        break;
+                    case "HardKitty":
+                        if (game.RoundNo < 5)
+                        {
+                            mandatoryAttack = allTargets.First().PlaceAtLeaderBoard();
+                        }
+
+                        if (target.PlaceAtLeaderBoard() == 1)
+                        {
+                            target.AttackPreference += 1;
+                        }
+
+                        break;
                     case "Darksci":
                         if (game.RoundNo < 8)
                         {
@@ -877,6 +893,26 @@ public class BotsBehavior : IServiceSingleton
                     break;
                 case "HardKitty":
                     isBlock = noBlock;
+                    var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
+                        x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
+
+                    if (allTargets.All(x => x.AttackPreference <= 3) && mandatoryAttack == -1)
+                    {
+
+                        var doebatsya = hardKitty.LostSeries.Where(x => allTargets.Any(y => y.Player.Status.PlayerId == x.EnemyPlayerId)).ToList();
+                        var doebathsyaTarget = doebatsya.OrderByDescending(x => x.Series).First();
+                        mandatoryAttack = allTargets.Find(x => x.Player.Status.PlayerId == doebathsyaTarget.EnemyPlayerId).PlaceAtLeaderBoard();
+                    }
+
+                    if (allTargets.Any(x => x.AttackPreference > 5) && mandatoryAttack == -1)
+                    {
+                        var doebathsyaTargets = allTargets.Where(x => x.AttackPreference > 5).OrderByDescending(x => x.AttackPreference).ToList();
+                        var doebatsya = hardKitty.LostSeries.Where(x => doebathsyaTargets.Any(y => y.Player.Status.PlayerId == x.EnemyPlayerId)).ToList();
+                        var doebathsyaTarget = doebatsya.OrderByDescending(x => x.Series).First();
+                        mandatoryAttack = allTargets.Find(x => x.Player.Status.PlayerId == doebathsyaTarget.EnemyPlayerId).PlaceAtLeaderBoard();
+                    }
+
+
                     break;
                 case "Глеб":
                     isBlock = noBlock;

@@ -833,6 +833,7 @@ public class CharacterPassives : IServiceSingleton
                     if (find != null && find.RoundNumber != game.RoundNo)
                     {
                         player.Status.AddRegularPoints(2, "Месть");
+                        player.Character.AddMoral(player.Status, 3, "Месть: ");
                         player.Character.AddPsyche(player.Status, 1, "Месть: ");
                         find.IsUnique = false;
                         game.Phrases.MylorikRevengeVictoryPhrase.SendLog(player, true);
@@ -851,6 +852,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         boole.Times = 0;
                         player.Character.AddPsyche(player.Status, -1, "Испанец: ");
+                        player.Character.AddExtraSkill(player.Status,  "Испанец: ", 10);
                         //player.Character.AddExtraSkill(player.Status,  "Испанец: ", 5);
                         player.MinusPsycheLog(game);
                         game.Phrases.MylorikSpanishPhrase.SendLog(player, false);
@@ -1896,7 +1898,8 @@ public class CharacterPassives : IServiceSingleton
 
                 case "mylorik":
                     //Буль
-                    var random = _rand.Random(1, 2 + player.Character.GetPsyche() * 3);
+                    
+                    var random = _rand.Random(1, 2 + player.Character.GetPsyche() * 6);
 
                     if (random == 2)
                     {

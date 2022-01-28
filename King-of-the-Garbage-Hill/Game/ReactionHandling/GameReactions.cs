@@ -196,8 +196,8 @@ public sealed class GameReaction : IServiceSingleton
                         if (player.Character.GetMoral() >= 20)
                         {
                             player.Character.AddMoral(player.Status, -20, "Обмен Морали: ", true, true);
-                            player.Character.AddBonusPointsFromMoral(14);
-                            extraText = "Мораль: Я БОГ ЭТОГО МИРА +14 __бонунсых__ очков";
+                            player.Character.AddBonusPointsFromMoral(13);
+                            extraText = "Мораль: Я БОГ ЭТОГО МИРА +13 __бонунсых__ очков";
                         }
                         else if (player.Character.GetMoral() >= 13)
                         {
