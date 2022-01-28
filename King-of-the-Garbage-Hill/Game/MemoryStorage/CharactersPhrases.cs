@@ -373,6 +373,7 @@ public class CharactersUniquePhrase
         MylorikSpanishPhrase.PassiveLogRus.Add("noob team");
         MylorikBoolePhrase.PassiveLogRus.Add("Буль");
         MylorikBoolePhrase.PassiveLogRus.Add("Там... **Кенч**");
+        MylorikBoolePhrase.PassiveLogRus.Add("А вы заметили? Айсика научилась играть...");
 
 
         GlebChallengerPhrase.PassiveLogRus.Add("А? БАРОН?!");
