@@ -1,14 +1,26 @@
 ## Streamers to add:
+- [x] Forsen  
 - [x] Greekgodx  
 - [ ] XQC  
-- [ ] Forsen  
+- [ ] Reckful  
 - [ ] Nymn  
 - [ ] Pokelawls  
 - [ ] Pokimaine  
 - [ ] Doc  
+- [ ] Vadikus  
+- [ ] Tyler1  
 
 # Characters
 
+
+## Forsen
+
+Every game!:
+Breaks the game in some way
+Instead of getting points gains stats and the other way around
+
+God gamer:
+Gets skill somehow
 
 ## Greek god x
 
@@ -22,3 +34,10 @@ Fit greek:
 Gets extra points for being either the lowest or the highest in the table.
 
 
+## XQC
+OW pro:
+??
+
+
+
+## Reckful
