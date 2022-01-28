@@ -8,7 +8,8 @@
 - [ ] Pokimaine  
 - [ ] Doc  
 - [ ] Vadikus  
-- [ ] Tyler1  
+- [ ] Twitch Chat  
+- [ ] Destiny  
 
 # Characters
 
@@ -50,23 +51,41 @@ OW pro:
 
 
 ## Reckful
-Let's be friends:
+Let's be friends:  
 Randomly can be friendly and give someone a point
 
+Calculated:  
+Толин подсчёт
 
 ## Vadikus
-Stream sniper:
+Stream sniper:  
 EITHER
 Can't be blocked
 OR
-Says in chat someone's identity randomly
+Says in chat someone's identity randomly  
 
-- If attacks Forsen, gets blocked. First attack works, all the later ones get skipped. 
-> You were banned from Chat 
+- If attacks Forsen, gets blocked. First attack works, all the later ones get skipped.  
+> You were banned from Chat.  
+Global:  
+> MODS, ban Vadikus and Samme1g. Permaban.  
 
 ## Pokimaine
-Ruthless businesswoman:
-Gets something for winning/being higher than someone on the ladder
-OR
-Gets extra points if ends up higher on the ladder than the person she fought and won
+Ruthless businesswoman:  
+Gets something for winning/being higher than someone on the ladder  
+OR  
+Gets extra points if ends up higher on the ladder than the person she fought and won  
 
+## Pokelawls
+High:  
+??
+
+## Doc
+Transparent:  
+??
+
+## Destiny
+Debate:  
+When defeats someone they lose -1 mental
+
+Research:  
+Can figure out someone's class with a chance
