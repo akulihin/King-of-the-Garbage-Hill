@@ -82,6 +82,9 @@ Gets something for winning/being higher than someone on the ladder
 OR  
 Gets extra points if ends up higher on the ladder than the person she fought and won  
 
+Army of SIMPS:  
+The person she loses to gets attacked with an army of SIMPS. ??
+
 ## Pokelawls
 High:  
 ??
