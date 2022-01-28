@@ -2,15 +2,15 @@
 - [x] Forsen  
 - [x] Greekgodx  
 - [ ] XQC  
-- [ ] Reckful  
+- [x] Reckful  
 - [ ] Nymn  
 - [ ] Pokelawls  
-- [ ] Pokimaine  
+- [x] Pokimaine  
 - [ ] Doc  
-- [ ] Vadikus  
-- [ ] Twitch Chat  
-- [ ] Destiny  
-- [ ] Tyler1
+- [x] Vadikus  
+- [x] Twitch Chat  
+- [x] Destiny  
+- [x] Tyler1
 
 # Characters
 
