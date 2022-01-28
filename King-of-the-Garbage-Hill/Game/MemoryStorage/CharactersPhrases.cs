@@ -367,6 +367,7 @@ public class CharactersUniquePhrase
         MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Алексич... я твой фанат... Я Пантеон.");
 
         MylorikSpanishPhrase.PassiveLogRus.Add("Ааарива!");
+        MylorikSpanishPhrase.PassiveLogRus.Add("НЕ ТРОГАЙ МОЮ ДВЕРЬ");
         MylorikSpanishPhrase.PassiveLogRus.Add("Буэнос ночес!");
         MylorikSpanishPhrase.PassiveLogRus.Add("Ale handro!");
         MylorikSpanishPhrase.PassiveLogRus.Add("noob team");
