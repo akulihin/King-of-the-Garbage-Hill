@@ -11,6 +11,10 @@ Gets extra points for being either the lowest or the highest in the table.
 
 
 Streamers to add:
-- Xqc
-- Forsen
-- 
+[x] Greekgodx
+[ ] XQC
+[ ] Forsen
+[ ] Nymn
+[ ] Pokelawls
+[ ] Pokimaine
+[ ] Doc
