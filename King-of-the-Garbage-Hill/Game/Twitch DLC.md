@@ -10,6 +10,7 @@
 - [ ] Vadikus  
 - [ ] Twitch Chat  
 - [ ] Destiny  
+- [ ] Tyler1
 
 # Characters
 
@@ -25,6 +26,9 @@ Gets skill somehow
 
 Unlucky:
 ??
+
+Defined Twitch meta:
+Some interaction with twitch chat
 
 #### Phrases
 Cringe jokes:
@@ -56,6 +60,9 @@ Randomly can be friendly and give someone a point
 
 Calculated:  
 Толин подсчёт
+
+Defined Twitch meta:
+Some interaction with twitch chat
 
 ## Vadikus
 Stream sniper:  
@@ -89,3 +96,25 @@ When defeats someone they lose -1 mental
 
 Research:  
 Can figure out someone's class with a chance
+
+## Tyler1
+??:  
+The more mental he has, the more strength he has.  
+
+FIX THE GAME:
+If mental is 0, gets a shit ton of stats
+> FIX THE GAME! IT SUCKS PLAYING THIS SHIT! AND I'M FUCKING ADDICTED SO I CAN'T QUIT
+
+
+I'm not a bitch:
+If blocks, loses
+
+## Twitch chat [bot]
+Cancer:  
+Makes people lose mental 
+
+React:  
+Reacts based on what happened during the game
+
+Twitch chat can make decisions with a poll?  
+Whoever won the last round, those chat will be twitch chat next game  
