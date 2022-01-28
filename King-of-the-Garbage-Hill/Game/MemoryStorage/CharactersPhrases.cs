@@ -288,6 +288,7 @@ public class CharactersUniquePhrase
         DeepListMadnessPhrase.PassiveLogRus.Add("Доктор, у меня проблема: Я слышу голоса, но сейчас их нет...");
         DeepListMadnessPhrase.PassiveLogRus.Add("Доктор Чо");
         DeepListMadnessPhrase.PassiveLogRus.Add("*Звуки губной гармошки*");
+        DeepListMadnessPhrase.PassiveLogRus.Add("*Звуки расстроенной гитары*");
 
 
         DeepListPokePhrase.PassiveLogRus.Add("Хехе");
@@ -322,7 +323,7 @@ public class CharactersUniquePhrase
         DeepListPokePhrase.PassiveLogRus.Add("LeCringe");  
         DeepListPokePhrase.PassiveLogRus.Add("Кто **Там**?"); 
         DeepListPokePhrase.PassiveLogRus.Add("Дэусманс, придурки"); 
-        
+
         
         
 
@@ -373,6 +374,7 @@ public class CharactersUniquePhrase
         MylorikSpanishPhrase.PassiveLogRus.Add("noob team");
         MylorikBoolePhrase.PassiveLogRus.Add("Буль");
         MylorikBoolePhrase.PassiveLogRus.Add("Там... **Кенч**");
+        MylorikBoolePhrase.PassiveLogRus.Add("А вы заметили? Айсика научилась играть...");
 
 
         GlebChallengerPhrase.PassiveLogRus.Add("А? БАРОН?!");
@@ -440,7 +442,7 @@ public class CharactersUniquePhrase
         LeCrispImpactPhrase.PassiveLogRus.Add("Тихо, тихо... Без импакта не стреляй...");
         LeCrispImpactPhrase.PassiveLogRus.Add("Стреляй только когда точно добьешь!");
         LeCrispImpactPhrase.PassiveLogRus.Add("Я хочу чтобы моя девушка была немножко cringe");
-        
+        LeCrispImpactPhrase.PassiveLogRus.Add("Как Надо!");
         
 
         TolyaJewPhrase.PassiveLogRus.Add("Easy money");
