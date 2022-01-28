@@ -118,3 +118,6 @@ Reacts based on what happened during the game
 
 Twitch chat can make decisions with a poll?  
 Whoever won the last round, those chat will be twitch chat next game  
+
+Be racist:  
+Chat can vote to be racist. They will harshly reduce mental, but will get banned
