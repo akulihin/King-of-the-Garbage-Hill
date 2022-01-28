@@ -1,3 +1,15 @@
+## Streamers to add:
+- [x] Greekgodx  
+- [ ] XQC  
+- [ ] Forsen  
+- [ ] Nymn  
+- [ ] Pokelawls  
+- [ ] Pokimaine  
+- [ ] Doc  
+
+# Characters
+
+
 ## Greek god x
 
 Leech: 
@@ -10,11 +22,3 @@ Fit greek:
 Gets extra points for being either the lowest or the highest in the table.
 
 
-Streamers to add:
-- [x] Greekgodx  
-- [ ] XQC  
-- [ ] Forsen  
-- [ ] Nymn  
-- [ ] Pokelawls  
-- [ ] Pokimaine  
-- [ ] Doc  
