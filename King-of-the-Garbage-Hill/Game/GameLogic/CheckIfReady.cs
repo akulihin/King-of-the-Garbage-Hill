@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
@@ -67,7 +66,7 @@ public class CheckIfReady : IServiceSingleton
 
     private void HandlePostGameEvents(GameClass game)
     {
-        var playerWhoWon = game.PlayersList[0];
+        var playerWhoWon = game.PlayersList.First();
 
         //if won phrases
         switch (playerWhoWon.Character.Name)
@@ -135,7 +134,7 @@ public class CheckIfReady : IServiceSingleton
                  from predict in player.Predict
                  let enemy = game.PlayersList.Find(x => x.Status.PlayerId == predict.PlayerId)
                  where enemy.Character.Name == predict.CharacterName
-                 select player) player.Status.AddBonusPoints(3, "Предположение: ");
+                 select player) player.Status.AddBonusPoints(3, "Предположение");
         // predict
 
 
@@ -145,14 +144,14 @@ public class CheckIfReady : IServiceSingleton
             if (!bot.IsBot()) continue;
 
             if (game.GetAllGlobalLogs().Contains("Толя запизделся"))
-                bot.Status.AddBonusPoints(3, "Предположение: ");
+                bot.Status.AddBonusPoints(3, "Предположение");
 
-            if (bot.Character.Name == "AWDKA") bot.Status.AddBonusPoints(6, "Предположение: ");
+            if (bot.Character.Name == "AWDKA") bot.Status.AddBonusPoints(6, "Предположение");
 
             if (game.PlayersList.All(x => _accounts.GetAccount(x.DiscordId).TotalPlays >= 50))
             {
-                bot.Status.AddBonusPoints(3, "Предположение: ");
-                //if (bot.Character.Name == "DeepList") bot.Status.AddBonusPoints(3, "Предположение: ");
+                bot.Status.AddBonusPoints(3, "Предположение");
+                //if (bot.Character.Name == "DeepList") bot.Status.AddBonusPoints(3, "Предположение");
             }
         }
         //end bot
@@ -215,7 +214,7 @@ public class CheckIfReady : IServiceSingleton
                     game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
                 //end sorting
 
-                if (enemy != null && game.PlayersList[0].Character.Name == "AWDKA")
+                if (enemy != null && game.PlayersList.First().Character.Name == "AWDKA")
                     game.AddGlobalLogs($"**Произошел Троллинг:** {trolledText} ");
             }
             //end //trolling
@@ -228,19 +227,22 @@ public class CheckIfReady : IServiceSingleton
         }
 
 
-        for (var k = 0; k < game.PlayersList.Count; k++)
-            game.PlayersList[k].Status.PlaceAtLeaderBoardHistory.Add(
-                new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo,
-                    game.PlayersList[k].Status.PlaceAtLeaderBoard));
+        foreach (var t in game.PlayersList)
+            t.Status.PlaceAtLeaderBoardHistory.Add(new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo, t.Status.PlaceAtLeaderBoard));
 
-        game.WhoWon = game.PlayersList[0].Status.PlayerId;
+        game.WhoWon = game.PlayersList.First().Status.PlayerId;
         HandlePostGameEvents(game);
 
+        if (game.PlayersList.First().Status.AutoMoveTimes >= 10)
+        {
+            game.PlayersList.First().DiscordUsername = "Нанобот";
+        }
+
         game.AddGlobalLogs(
-            game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList[0].Status.GetScore())
+            game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList.First().Status.GetScore())
                 .Count > 1
                 ? "\n**Ничья**"
-                : $"\n**{game.PlayersList[0].DiscordUsername}** победил, играя за **{game.PlayersList[0].Character.Name}**");
+                : $"\n**{game.PlayersList.First().DiscordUsername}** победил, играя за **{game.PlayersList.First().Character.Name}**");
 
 
         _finishedGameLog.CreateNewLog(game);
@@ -367,7 +369,7 @@ public class CheckIfReady : IServiceSingleton
                 var channel = _global.Client.GetGuild(561282595799826432).GetTextChannel(930706511632691222);
                 await channel.SendMessageAsync($"Game #{game.GameId}\n" +
                                                $"Vesrion: {game.GameVersion}\n" +
-                                               $"1. **{game.PlayersList[0].Character.Name} - {game.PlayersList[0].Status.GetScore()}**\n" +
+                                               $"1. **{game.PlayersList.First().Character.Name} - {game.PlayersList.First().Status.GetScore()}**\n" +
                                                $"2. {game.PlayersList[1].Character.Name} - {game.PlayersList[1].Status.GetScore()}\n" +
                                                $"3. {game.PlayersList[2].Character.Name} - {game.PlayersList[2].Status.GetScore()}\n" +
                                                $"4. {game.PlayersList[3].Character.Name} - {game.PlayersList[3].Status.GetScore()}\n" +

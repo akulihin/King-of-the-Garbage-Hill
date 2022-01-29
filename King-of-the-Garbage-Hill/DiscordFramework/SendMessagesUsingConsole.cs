@@ -25,7 +25,7 @@ internal class SendMessagesUsingConsole
     {
         try
         {
-            Console.WriteLine("Guilds: ");
+            Console.WriteLine("Guilds");
             var guild = GetSelectedGuild(client.Guilds);
             var textChannel = GetSelectedTextChannel(guild.TextChannels);
             var msg = string.Empty;
@@ -33,14 +33,14 @@ internal class SendMessagesUsingConsole
 
             while (msg != null && msg.Trim() == string.Empty)
             {
-                Console.WriteLine("Сообщение: ");
+                Console.WriteLine("Сообщение");
                 msg = Console.ReadLine();
             }
 
 
             if (msg == null) return;
             var prefixCheck = msg.ToCharArray();
-            if (prefixCheck[0] == '*')
+            if (prefixCheck.First() == '*')
             {
                 var mesToDel = await textChannel.SendMessageAsync(msg);
                 await mesToDel.DeleteAsync();

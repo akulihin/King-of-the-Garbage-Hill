@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
-using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Helpers;
@@ -150,7 +149,7 @@ Speed => Strength
 
             //умный
             if (player.Character.GetSkillClass() == "Интеллект" && playerIamAttacking.Character.Justice.GetJusticeNow() == 0)
-                player.Character.AddExtraSkill(player.Status, "Класс: ", 6);
+                player.Character.AddExtraSkill(player.Status,  6, "Класс");
 
 
             if (!player.Status.IsAbleToWin) pointsWined = -50;
@@ -267,7 +266,7 @@ Speed => Strength
                 {
                     if (player.Character.Justice.GetJusticeNow() > 0)
                         player.Character.Justice.AddJusticeForNextRound(-1);
-                    player.Status.AddBonusPoints(-1, "Блок: ");
+                    player.Status.AddBonusPoints(-1, "Блок");
                 }
 
                 playerIamAttacking.Character.Justice.AddJusticeForNextRound();
@@ -301,10 +300,10 @@ Speed => Strength
 
             //быстрый
             if (playerIamAttacking.Character.GetSkillClass() == "Скорость")
-                playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, "Класс: ", 2);
+                playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status,  2, "Класс");
 
             if (player.Character.GetSkillClass() == "Скорость")
-                player.Character.AddExtraSkill(player.Status, "Класс: ", 2);
+                player.Character.AddExtraSkill(player.Status,  2, "Класс");
 
 
             //main formula:
@@ -447,7 +446,7 @@ Speed => Strength
             {
                 //сильный
                 if (player.Character.GetSkillClass() == "Сила")
-                    player.Character.AddExtraSkill(player.Status, "Класс: ", 4);
+                    player.Character.AddExtraSkill(player.Status,  4, "Класс");
 
                 isContrLost -= 1;
                 game.AddGlobalLogs($" ⟶ {player.DiscordUsername}");
@@ -469,8 +468,8 @@ Speed => Strength
                 if (player.Status.PlaceAtLeaderBoard > playerIamAttacking.Status.PlaceAtLeaderBoard &&
                     game.RoundNo > 1)
                 {
-                    player.Character.AddMoral(player.Status, moral, "Победа: ");
-                    playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Поражение: ");
+                    player.Character.AddMoral(player.Status, moral, "Победа");
+                    playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Поражение");
                 }
 
 
@@ -484,7 +483,7 @@ Speed => Strength
             {
                 //сильный
                 if (playerIamAttacking.Character.GetSkillClass() == "Сила")
-                    playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, "Класс: ", 4);
+                    playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status,  4, "Класс");
 
                 if (isTooGoodLost == -1)
                     player.Status.AddInGamePersonalLogs(
@@ -508,8 +507,8 @@ Speed => Strength
                     if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard &&
                         game.RoundNo > 1)
                     {
-                        player.Character.AddMoral(player.Status, moral, "Поражение: ");
-                        playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Победа: ");
+                        player.Character.AddMoral(player.Status, moral, "Поражение");
+                        playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Победа");
                     }
 
                     if (playerIamAttacking.Character.Name == "Толя" && playerIamAttacking.Status.IsBlock)
@@ -589,7 +588,7 @@ Speed => Strength
         //Handle Moral
         foreach (var p in game.PlayersList)
         {
-            p.Status.AddBonusPoints(p.Character.GetBonusPointsFromMoral(), "Мораль: ");
+            p.Status.AddBonusPoints(p.Character.GetBonusPointsFromMoral(), "Мораль");
             p.Character.SetBonusPointsFromMoral(0);
         }
         //end Moral
@@ -623,7 +622,7 @@ Speed => Strength
             {
                 var tigrIndex = game.PlayersList.IndexOf(tigrTemp);
 
-                game.PlayersList[tigrIndex] = game.PlayersList[0];
+                game.PlayersList[tigrIndex] = game.PlayersList.First();
                 game.PlayersList[0] = tigrTemp;
                 tigr.TimeCount--;
                 // game.Phrases.TigrTop.SendLog(tigrTemp);
@@ -707,7 +706,7 @@ I: 1 | St: 9 | Sp: 9 | Ps: 1
         var extraGameLogs = "\n";
         var logsSplit = game.GetGlobalLogs().Split("\n").ToList();
         logsSplit.RemoveAll(x => x.Length <= 2);
-        sortedGameLogs += $"{logsSplit[0]}\n";
+        sortedGameLogs += $"{logsSplit.First()}\n";
         logsSplit.RemoveAt(0);
 
         for (var i = 0; i < logsSplit.Count; i++)
@@ -727,11 +726,11 @@ I: 1 | St: 9 | Sp: 9 | Ps: 1
 
                     var fightLineSplit = fightLine.Split("⟶");
 
-                    var fightLineSplitSplit = fightLineSplit[0].Split("<:war:561287719838547981>");
+                    var fightLineSplitSplit = fightLineSplit.First().Split("<:war:561287719838547981>");
 
-                    fightLine = fightLineSplitSplit[0].Contains($"{player.DiscordUsername}")
-                        ? $"{fightLineSplitSplit[0]} <:war:561287719838547981> {fightLineSplitSplit[1]}"
-                        : $"{fightLineSplitSplit[1]} <:war:561287719838547981> {fightLineSplitSplit[0]}";
+                    fightLine = fightLineSplitSplit.First().Contains($"{player.DiscordUsername}")
+                        ? $"{fightLineSplitSplit.First()} <:war:561287719838547981> {fightLineSplitSplit[1]}"
+                        : $"{fightLineSplitSplit[1]} <:war:561287719838547981> {fightLineSplitSplit.First()}";
 
 
                     fightLine += $" ⟶ {fightLineSplit[1]}";

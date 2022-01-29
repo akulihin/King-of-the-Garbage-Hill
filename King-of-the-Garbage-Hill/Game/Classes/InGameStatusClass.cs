@@ -96,6 +96,27 @@ public class InGameStatus
 
     public void AddInGamePersonalLogs(string str)
     {
+        var previous = InGamePersonalLogs.Split("\n");
+        if (previous.Length > 1)
+        {
+            var currentSkills = str.Split(": ");
+            if (currentSkills.Length > 0)
+            {
+                var currentSkill = currentSkills[0];
+                var previousSkills = previous[^2].Split(": ");
+                if (previousSkills.Length > 0)
+                {
+                    var previousSkill = previousSkills[0];
+                    if (previousSkill == currentSkill)
+                    {
+                        str = str.Replace($"{previousSkill}: ", ". ");
+                        InGamePersonalLogs = InGamePersonalLogs.Remove(InGamePersonalLogs.Length - 1, 1);
+                        InGamePersonalLogsAll = InGamePersonalLogsAll.Remove(InGamePersonalLogsAll.Length - 1, 1);
+                    }
+                }
+            }
+        }
+
         InGamePersonalLogs += str;
         InGamePersonalLogsAll += str;
     }
@@ -145,15 +166,15 @@ public class InGameStatus
     public void HardKittyMinus(int scoreToAdd, string skillName)
     {
         Score += scoreToAdd;
-        AddInGamePersonalLogs($"{skillName} {scoreToAdd} очков\n");
+        AddInGamePersonalLogs($"{skillName}: {scoreToAdd} очков\n");
     }
 
 
     public void AddBonusPoints(int bonusPoints = 1, string skillName = "")
     {
         if (bonusPoints > 0)
-            AddInGamePersonalLogs($"{skillName}+{bonusPoints} __**бонусных**__ очков\n");
-        else if (bonusPoints < 0) AddInGamePersonalLogs($"{skillName}{bonusPoints} __**бонусных**__ очков\n");
+            AddInGamePersonalLogs($"{skillName}: +{bonusPoints} __**бонусных**__ очков\n");
+        else if (bonusPoints < 0) AddInGamePersonalLogs($"{skillName}: {bonusPoints} __**бонусных**__ очков\n");
 
         Score += bonusPoints;
 

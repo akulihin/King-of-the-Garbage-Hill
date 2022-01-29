@@ -194,7 +194,7 @@ public class TutorialReactions : IServiceSingleton
             .WithDisabled(isDisabled)
             .WithPlaceholder("Сделать предположение");
 
-        predictMenu.AddOption("MegaVova99 " + " это...", "MegaVova99", emote: _playerChoiceAttackList[0]);
+        predictMenu.AddOption("MegaVova99 " + " это...", "MegaVova99", emote: _playerChoiceAttackList.First());
 
         return predictMenu;
     }

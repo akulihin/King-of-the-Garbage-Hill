@@ -612,8 +612,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         embed.AddField("События этого раунда:", text);
 
 
-        if (character.Avatar != null)
-            embed.WithThumbnailUrl(character.Avatar);
+       
+        embed.WithThumbnailUrl(character.AvatarCurrent);
 
         return embed;
     }
@@ -649,8 +649,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             $"3. **Скорость:** {character.GetSpeed()}\n" +
             $"4. **Психика:** {character.GetPsyche()}\n");
 
-        if (character.Avatar != null)
-            embed.WithThumbnailUrl(character.Avatar);
+        
+        embed.WithThumbnailUrl(character.AvatarCurrent);
 
         return embed;
     }

@@ -256,31 +256,31 @@ public class AdminPanel : ModuleBaseCustom
         {
             case "in":
                 player.Character
-                    .SetIntelligence(player.Status, number, "Читы: ");
+                    .SetIntelligence(player.Status, number, "Читы");
                 break;
             case "sp":
                 player.Character
-                    .SetSpeed(player.Status, number, "Читы: ");
+                    .SetSpeed(player.Status, number, "Читы");
                 break;
             case "st":
                 player.Character
-                    .SetStrength(player.Status, number, "Читы: ");
+                    .SetStrength(player.Status, number, "Читы");
                 break;
             case "ps":
                 player.Character
-                    .SetPsyche(player.Status, number, "Читы: ");
+                    .SetPsyche(player.Status, number, "Читы");
                 break;
             case "js":
                 player.Character
-                    .Justice.SetJusticeNow(player.Status, number, "Читы: ");
+                    .Justice.SetJusticeNow(player.Status, number, "Читы");
                 break;
             case "sk":
                 player.Character
-                    .SetMainSkill(player.Status, number, "Читы: ");
+                    .SetMainSkill(player.Status, number, "Читы");
                 break;
             case "mr":
                 player.Character
-                    .SetMoral(player.Status, number, "Читы: ");
+                    .SetMoral(player.Status, number, "Читы");
                 break;
             default:
                 return;

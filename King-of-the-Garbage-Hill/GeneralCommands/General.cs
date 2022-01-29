@@ -279,7 +279,7 @@ public class General : ModuleBaseCustom
         if (playersList.Any(x => x.Character.Name == "HardKitty"))
         {
             var tempHard = playersList.Find(x => x.Character.Name == "HardKitty");
-            tempHard.Status.HardKittyMinus(-50, "Никому не нужен: ");
+            tempHard.Status.HardKittyMinus(-50, "Никому не нужен");
             tempHard.Status.AddInGamePersonalLogs("Никому не нужен: -50 *Морали*\n");
             var hardIndex = playersList.IndexOf(tempHard);
 
@@ -303,8 +303,8 @@ public class General : ModuleBaseCustom
             {
                 var tigrIndex = playersList.IndexOf(tigrTemp);
 
-                playersList[tigrIndex] = playersList[0];
-                playersList[0] = tigrTemp;
+                playersList[tigrIndex] = playersList.First();
+                playersList[0]= tigrTemp;
                 tigr.TimeCount--;
                 //game.Phrases.TigrTop.SendLog(tigrTemp);
             }
@@ -315,7 +315,7 @@ public class General : ModuleBaseCustom
         if (playersList.Any(x => x.Character.Name == "Mit*suki*"))
         {
             var mitsukiTemp = playersList.Find(x => x.Character.Name == "Mit*suki*");
-            mitsukiTemp.Character.AddExtraSkill(mitsukiTemp.Status, "Дерзкая школота: ", 100);
+            mitsukiTemp.Character.AddExtraSkill(mitsukiTemp.Status,  100, "Дерзкая школота");
         }
 
 
@@ -324,7 +324,7 @@ public class General : ModuleBaseCustom
             var tempHard = playersList.Find(x => x.Character.Name == "Mit*suki*");
             var hardIndex = playersList.IndexOf(tempHard);
 
-            playersList[hardIndex] = playersList[0];
+            playersList[hardIndex] = playersList.First();
             playersList[0] = tempHard;
         }
         //end Дерзкая школота
@@ -334,7 +334,7 @@ public class General : ModuleBaseCustom
         if (playersList.Any(x => x.Character.Name == "Darksci"))
         {
             var darksciTemp = playersList.Find(x => x.Character.Name == "Darksci");
-            darksciTemp.Character.AddExtraSkill(darksciTemp.Status, "Не повезло: ", 15);
+            darksciTemp.Character.AddExtraSkill(darksciTemp.Status,  15, "Не повезло");
         }
         //end Не повезло
 

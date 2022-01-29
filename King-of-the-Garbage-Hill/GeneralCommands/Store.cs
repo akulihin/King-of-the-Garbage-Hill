@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Linq;
+using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
@@ -34,7 +35,7 @@ public class Store : ModuleBaseCustom
         }
 
 
-        var character = account.CharacterChance.Find(x => x.CharacterName == account.SeenCharacters[0]);
+        var character = account.CharacterChance.Find(x => x.CharacterName == account.SeenCharacters.First());
 
         var builder = new ComponentBuilder();
         var embed = _storeReactionHandling.GetStoreEmbed(Context.User, character.CharacterName);

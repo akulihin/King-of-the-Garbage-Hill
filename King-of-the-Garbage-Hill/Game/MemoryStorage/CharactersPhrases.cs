@@ -593,9 +593,7 @@ public class CharactersUniquePhrase
                 }
             }
 
-            player.Status.AddInGamePersonalLogs($"{PassiveNameRus}: {prefix}");
-
-            player.Status.AddInGamePersonalLogs($"{description}\n");
+            player.Status.AddInGamePersonalLogs($"{PassiveNameRus}: {prefix}{description}\n");
         }
 
         public void SendLog(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, bool delete)
@@ -625,10 +623,7 @@ public class CharactersUniquePhrase
                 description += $"{player2.DiscordUsername} - {player2.Character.Name}";
 
 
-                player.Status.AddInGamePersonalLogs($"{PassiveNameRus}: ");
-
-
-                player.Status.AddInGamePersonalLogs($"{description}\n");
+                player.Status.AddInGamePersonalLogs($"{PassiveNameRus}: {description}\n");
             }
 
         }

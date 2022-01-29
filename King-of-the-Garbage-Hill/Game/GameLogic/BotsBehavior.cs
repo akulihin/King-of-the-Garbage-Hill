@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
@@ -68,44 +67,44 @@ public class BotsBehavior : IServiceSingleton
         //прожать всю момаль
         if (moral >= 20)
         {
-            bot.Character.AddMoral(bot.Status, -20, "Обмен Морали: ", true, true);
-            bot.Character.AddExtraSkill(bot.Status, "Обмен Морали: ", 114);
+            bot.Character.AddMoral(bot.Status, -20, "Обмен Морали", true, true);
+            bot.Character.AddExtraSkill(bot.Status,  114, "Обмен Морали");
         }
 
         if (moral >= 13)
         {
-            bot.Character.AddMoral(bot.Status, -13, "Обмен Морали: ", true, true);
-            bot.Character.AddExtraSkill(bot.Status, "Обмен Морали: ", 69);
+            bot.Character.AddMoral(bot.Status, -13, "Обмен Морали", true, true);
+            bot.Character.AddExtraSkill(bot.Status,  69, "Обмен Морали");
         }
 
         if (moral >= 8)
         {
-            bot.Character.AddMoral(bot.Status, -8, "Обмен Морали: ", true, true);
-            bot.Character.AddExtraSkill(bot.Status, "Обмен Морали: ", 39);
+            bot.Character.AddMoral(bot.Status, -8, "Обмен Морали", true, true);
+            bot.Character.AddExtraSkill(bot.Status,  39, "Обмен Морали");
         }
 
         if (moral >= 5)
         {
-            bot.Character.AddMoral(bot.Status, -5, "Обмен Морали: ", true, true);
-            bot.Character.AddExtraSkill(bot.Status, "Обмен Морали: ", 24);
+            bot.Character.AddMoral(bot.Status, -5, "Обмен Морали", true, true);
+            bot.Character.AddExtraSkill(bot.Status,  24, "Обмен Морали");
         }
 
         if (moral >= 3)
         {
-            bot.Character.AddMoral(bot.Status, -3, "Обмен Морали: ", true, true);
-            bot.Character.AddExtraSkill(bot.Status, "Обмен Морали: ", 14);
+            bot.Character.AddMoral(bot.Status, -3, "Обмен Морали", true, true);
+            bot.Character.AddExtraSkill(bot.Status,  14, "Обмен Морали");
         }
 
         if (moral >= 2)
         {
-            bot.Character.AddMoral(bot.Status, -2, "Обмен Морали: ", true, true);
-            bot.Character.AddExtraSkill(bot.Status, "Обмен Морали: ", 9);
+            bot.Character.AddMoral(bot.Status, -2, "Обмен Морали", true, true);
+            bot.Character.AddExtraSkill(bot.Status,  9, "Обмен Морали");
         }
 
         if (moral >= 1)
         {
-            bot.Character.AddMoral(bot.Status, -1, "Обмен Морали: ", true, true);
-            bot.Character.AddExtraSkill(bot.Status, "Обмен Морали: ", 4);
+            bot.Character.AddMoral(bot.Status, -1, "Обмен Морали", true, true);
+            bot.Character.AddExtraSkill(bot.Status,  4, "Обмен Морали");
         }
         //end прожать всю момаль
     }
@@ -152,31 +151,31 @@ public class BotsBehavior : IServiceSingleton
         //прожать всю момаль
         if (moral >= 20)
         {
-            bot.Character.AddMoral(bot.Status, -20, "Обмен Морали: ", true, true);
+            bot.Character.AddMoral(bot.Status, -20, "Обмен Морали", true, true);
             bot.Character.AddBonusPointsFromMoral(13);
         }
 
         if (moral >= 13)
         {
-            bot.Character.AddMoral(bot.Status, -13, "Обмен Морали: ", true, true);
+            bot.Character.AddMoral(bot.Status, -13, "Обмен Морали", true, true);
             bot.Character.AddBonusPointsFromMoral(8);
         }
 
         if (moral >= 8)
         {
-            bot.Character.AddMoral(bot.Status, -8, "Обмен Морали: ", true, true);
+            bot.Character.AddMoral(bot.Status, -8, "Обмен Морали", true, true);
             bot.Character.AddBonusPointsFromMoral(4);
         }
 
         if (moral >= 5)
         {
-            bot.Character.AddMoral(bot.Status, -5, "Обмен Морали: ", true, true);
+            bot.Character.AddMoral(bot.Status, -5, "Обмен Морали", true, true);
             bot.Character.AddBonusPointsFromMoral(2);
         }
 
         if (moral >= 3)
         {
-            bot.Character.AddMoral(bot.Status, -3, "Обмен Морали: ", true, true);
+            bot.Character.AddMoral(bot.Status, -3, "Обмен Морали", true, true);
             bot.Character.AddBonusPointsFromMoral(1);
         }
         //end прожать всю момаль
@@ -630,7 +629,7 @@ public class BotsBehavior : IServiceSingleton
                             //До начала 6го хода может нападать только на одну цель. Если значение цели 0 - то блок.
                             if (siriFriends.FriendList.Count == 1 && game.RoundNo < 6)
                             {
-                                var sirisFried = allTargets.Find(x => x.Player.Status.PlayerId == siriFriends.FriendList[0]);
+                                var sirisFried = allTargets.Find(x => x.Player.Status.PlayerId == siriFriends.FriendList.First());
 
                                 if (target.Player.Status.PlayerId != sirisFried.Player.Status.PlayerId)
                                 {
@@ -717,7 +716,7 @@ public class BotsBehavior : IServiceSingleton
 
                                 //Под претендентом автоматически выбирает цель с наибольшим значением. 
                                 var sorted = allTargets.OrderByDescending(x => x.AttackPreference).ToList();
-                                mandatoryAttack = sorted[0].Player.Status.PlaceAtLeaderBoard;
+                                mandatoryAttack = sorted.First().Player.Status.PlaceAtLeaderBoard;
                             }
 
                         break;
@@ -865,7 +864,7 @@ public class BotsBehavior : IServiceSingleton
                                     var listofTargets = allTargets.Where(x => !darksciLucky.TouchedPlayers.Contains(x.Player.Status.PlayerId)).ToList();
 
                                     if (listofTargets.Count > 0)
-                                        mandatoryAttack = listofTargets[0].PlaceAtLeaderBoard();
+                                        mandatoryAttack = listofTargets.First().PlaceAtLeaderBoard();
                                 }
                             }
                         }
@@ -1114,8 +1113,8 @@ public class BotsBehavior : IServiceSingleton
 
             stats = stats.OrderByDescending(x => x.StatCount).ToList();
 
-            if (stats[0].StatCount < 10)
-                skillNumber = stats[0].StatIndex;
+            if (stats.First().StatCount < 10)
+                skillNumber = stats.First().StatIndex;
             else if (stats[1].StatCount < 10)
                 skillNumber = stats[1].StatIndex;
             else if (stats[2].StatCount < 10)
@@ -1186,7 +1185,7 @@ public class BotsBehavior : IServiceSingleton
 
         public NanobotClass(IReadOnlyList<GamePlayerBridgeClass> players)
         {
-            GameId = players[0].GameId;
+            GameId = players.First().GameId;
             foreach (var t in players) Nanobots.Add(new Nanobot(t));
         }
     }

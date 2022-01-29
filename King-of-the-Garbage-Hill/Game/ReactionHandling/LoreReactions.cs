@@ -76,8 +76,8 @@ public class LoreReactions : IServiceSingleton
 
         embed.WithColor(Color.Orange);
 
-        if (character.Avatar != null)
-            embed.WithThumbnailUrl(character.Avatar);
+        
+        embed.WithThumbnailUrl(character.AvatarCurrent);
 
 
         return embed;

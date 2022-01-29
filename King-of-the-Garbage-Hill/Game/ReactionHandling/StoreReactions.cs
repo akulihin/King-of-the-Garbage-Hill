@@ -103,8 +103,8 @@ public class StoreReactions : IServiceSingleton
 
         embed.WithFooter("WELCOME! Straaanger...");
         embed.WithColor(Color.DarkPurple);
-        if (character.Avatar != null)
-            embed.WithThumbnailUrl(character.Avatar);
+        
+        embed.WithThumbnailUrl(character.AvatarCurrent);
         embed.WithImageUrl(GetMerchantGif());
 
         return embed;
@@ -165,7 +165,7 @@ public class StoreReactions : IServiceSingleton
                 //await channel.SendMessageAsync("ERROR: Embed Title len < 2");
                 return;
 
-            if (title[0] != "Магазин") return;
+            if (title.First() != "Магазин") return;
 
             var account = _userAccounts.GetAccount(button.User.Id);
             var character = account.CharacterChance.Find(x => x.CharacterName == title[1]);
