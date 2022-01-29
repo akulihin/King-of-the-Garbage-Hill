@@ -357,6 +357,8 @@ public class CharactersUniquePhrase
         MylorikRevengeLostPhrase.PassiveLogRus.Add("Понерфайте!");
         MylorikRevengeLostPhrase.PassiveLogRus.Add("РАААЗЪЫБУ!");
         MylorikRevengeLostPhrase.PassiveLogRus.Add("Понерфайте!");
+        MylorikRevengeLostPhrase.PassiveLogRus.Add("Я принял решение");
+
         MylorikRevengeVictoryPhrase.PassiveLogRus.Add("ЭТО СПАРТА");
         MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Показал как надо");
         MylorikRevengeVictoryPhrase.PassiveLogRus.Add("ММ!");
