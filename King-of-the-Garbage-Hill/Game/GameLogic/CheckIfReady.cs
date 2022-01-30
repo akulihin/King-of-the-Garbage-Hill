@@ -195,7 +195,7 @@ public class CheckIfReady : IServiceSingleton
                         "Mit*suki*" => "МитСУКИ Затроллился",
                         "AWDKA" => "AWDKA Затроллился сам по себе...",
                         "Осьминожка" => "Осьминожка Забулькался",
-                        "Darksci" => "Даркси Не Повезло...",
+                        "Darksci" => "Даркси Нe Повезло...",
                         "Братишка" => "Братишка Забулькался",
                         "Загадочный Спартанец в маске" => "Спатанец Затроллился!? А-я-йо...",
                         "Вампур" => "ВампYр Затроллился",
@@ -235,7 +235,7 @@ public class CheckIfReady : IServiceSingleton
 
         if (game.PlayersList.First().Status.AutoMoveTimes >= 10)
         {
-            game.PlayersList.First().DiscordUsername = "Нанобот";
+            game.PlayersList.First().DiscordUsername = "НейроБот";
         }
 
         game.AddGlobalLogs(
@@ -338,7 +338,6 @@ public class CheckIfReady : IServiceSingleton
 
     private async Task NotifyOwner(GameClass game)
     {
-        _logs.Error(game.GameId);
         foreach (var player in game.PlayersList)
         {
             _global.WinRates.TryGetValue(player.Character.Name, out var winrate);
@@ -346,20 +345,25 @@ public class CheckIfReady : IServiceSingleton
             
             if (winrate == null)
             {
-                var value = new Global.WinRateClass(0, 0);
-                _global.WinRates.AddOrUpdate(player.Character.Name, value, (_, _) => value);
+                var wins = 0;
+                if (player.Status.PlaceAtLeaderBoard == 1)
+                {
+                    wins++;
+                }
+                var value = new Global.WinRateClass(1, wins);
+                _global.WinRates.Add(player.Character.Name, value);
             }
-
-            _global.WinRates.TryGetValue(player.Character.Name, out winrate);
-            winrate.GameTimes++;
-            if (player.Status.PlaceAtLeaderBoard == 1)
+            else
             {
-                winrate.WinTimes++;
+                winrate.GameTimes++;
+                if (player.Status.PlaceAtLeaderBoard == 1)
+                {
+                    winrate.WinTimes++;
+                }
+                winrate.WinRate = (double)winrate.WinTimes / winrate.GameTimes * 100;
+                winrate.CharacterName = player.Character.Name;
+                //_global.WinRates.AddOrUpdate(player.Character.Name, winrate, (_, _) => winrate);
             }
-            winrate.WinRate = (double)winrate.WinTimes / winrate.GameTimes * 100;
-            winrate.CharacterName = player.Character.Name;
-            _global.WinRates.AddOrUpdate(player.Character.Name, winrate, (_, _) => winrate);
-
         }
         _logs.Error(game.GameId);
         try

@@ -260,9 +260,6 @@ public class BotsBehavior : IServiceSingleton
     {
         try
         {
-            var x = 0;
-            var х = 0;
-            var result = (x + х) * 19;
             //local variables
             var allTargets = _gameGlobal.NanobotsList.Find(x => x.GameId == game.GameId).Nanobots.Where(x => x.Player.Status.PlayerId != bot.Status.PlayerId).ToList();
 
@@ -279,7 +276,7 @@ public class BotsBehavior : IServiceSingleton
                 }
             }
 
-            var maxRandomNumber = 0;
+            double maxRandomNumber = 0;
             var isBlock = allTargets.Count;
             var minimumRandomNumberForBlock = 1;
             var maximumRandomNumberForBlock = 4;
@@ -289,6 +286,7 @@ public class BotsBehavior : IServiceSingleton
 
             //character variables
             var DarksciTheOne = Guid.Empty;
+            var AwdkaFirst = 0;
             //end character variables
 
             //calculation Tens
@@ -369,8 +367,78 @@ public class BotsBehavior : IServiceSingleton
                 //custom bot behavior
                 switch (bot.Character.Name)
                 {
+
                     case "AWDKA":
-                        target.AttackPreference += 1;
+                        
+                        //авдка получает +1 к преференсу на всех всегда.
+                        //target.AttackPreference += 1;
+                        //На первом ходу нападает на того, кто имет максимально высокий стат. (например 10 силы)
+                        
+                        if (game.RoundNo == 1)
+                        {
+                            if (target.Player.Character.GetIntelligence() > AwdkaFirst)
+                            {
+                                AwdkaFirst = target.Player.Character.GetIntelligence();
+                                mandatoryAttack = target.PlaceAtLeaderBoard();
+                            }
+                            if (target.Player.Character.GetStrength() > AwdkaFirst)
+                            {
+                                AwdkaFirst = target.Player.Character.GetStrength();
+                                mandatoryAttack = target.PlaceAtLeaderBoard();
+                            }
+                            if (target.Player.Character.GetSpeed() > AwdkaFirst)
+                            {
+                                AwdkaFirst = target.Player.Character.GetSpeed();
+                                mandatoryAttack = target.PlaceAtLeaderBoard();
+                            }
+                            if (target.Player.Character.GetPsyche() > AwdkaFirst)
+                            {
+                                AwdkaFirst = target.Player.Character.GetPsyche();
+                                mandatoryAttack = target.PlaceAtLeaderBoard();
+                            }
+                        }
+
+                        
+                        var awdkaTrying = _gameGlobal.AwdkaTryingList.Find(x => x.PlayerId == bot.Status.PlayerId && game.GameId == x.GameId);
+                        if (awdkaTrying != null)
+                        {
+                            var awdkaTryingTarget = awdkaTrying.TryingList.Find(x => x.EnemyPlayerId == target.Player.Status.PlayerId);
+                            if (awdkaTryingTarget != null)
+                            {
+                                //-2 тем, на ком есть стак платины(до тех пор, пока он еще не на всех)
+                                if (awdkaTrying.TryingList.Count(x => x.IsUnique) < 5)
+                                {
+                                    if (awdkaTryingTarget.IsUnique)
+                                        target.AttackPreference -= 2;
+                                }
+
+                                //Если номер хода < = 5: +3 ко всем, на ком есть стак бронзы, но еще нет стака платины
+                                if (game.RoundNo <= 5)
+                                {
+                                    if (!awdkaTryingTarget.IsUnique)
+                                        target.AttackPreference += 3;
+                                }
+                            }
+                        }
+
+                        
+                        //Авдака запоминает на каком ходу была последняя победа над каждым из игроков. дальше формула: Преференс - 3 + Номера текущего хода - Номер хода последней победы
+                        var triggered = false;
+                        for (var i = target.Player.Status.WhoToLostEveryRound.Count - 1; i >= 0; i--)
+                        {
+                            var won = target.Player.Status.WhoToLostEveryRound[0];
+                            if (won.EnemyId == bot.Status.PlayerId)
+                            {
+                                target.AttackPreference = target.AttackPreference * ((game.RoundNo - won.RoundNo)/2);
+                                triggered = true;
+                                break;
+                            }
+                        }
+                        if (!triggered)
+                        {
+                            target.AttackPreference = target.AttackPreference * (game.RoundNo / 2);
+                        }
+                        
 
                         break;
                     case "HardKitty":
@@ -834,6 +902,9 @@ public class BotsBehavior : IServiceSingleton
             //custom behaviour After calculation Tens
             switch (bot.Character.Name)
             {
+                case "AWDKA":
+                    isBlock = noBlock;
+                    break;
                 case "Darksci":
                     minimumRandomNumberForBlock += 1;
                     if (game.RoundNo > 1 && bot.Character.Justice.GetJusticeNow() == 0)
@@ -1036,15 +1107,15 @@ public class BotsBehavior : IServiceSingleton
             }
 
             //"random" attack
-            var randomNumber = _rand.Random(1, maxRandomNumber);
+            var randomNumber = _rand.Random(1, (int)Math.Ceiling(maxRandomNumber));
 
-            var totalPreference = 0;
+            double totalPreference = 0;
             int whoToAttack;
             foreach (var target in allTargets)
             {
                 totalPreference += target.AttackPreference;
-
-                if (randomNumber > totalPreference || isAttacked) continue;
+                var rounded = (int)Math.Ceiling(totalPreference);
+                if (randomNumber > rounded || isAttacked) continue;
                 whoToAttack = target.Player.Status.PlaceAtLeaderBoard;
                 isAttacked = await AttackPlayer(bot, whoToAttack);
             }
@@ -1161,7 +1232,7 @@ public class BotsBehavior : IServiceSingleton
 
     public class Nanobot
     {
-        public int AttackPreference;
+        public double AttackPreference;
 
         public GamePlayerBridgeClass Player;
 

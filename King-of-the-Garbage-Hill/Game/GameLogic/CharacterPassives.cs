@@ -633,7 +633,7 @@ public class CharacterPassives : IServiceSingleton
 
                 if (darscsi.TouchedPlayers.Count == game.PlayersList.Count - 1 && darscsi.Triggered == false)
                 {
-                    me.Status.AddBonusPoints(me.Status.GetScore() * 3, "Повезло");
+                    me.Status.AddBonusPoints(me.Status.GetScore() * 2, "Повезло");
 
                     me.Character.AddPsyche(me.Status, 3, "Повезло");
                     darscsi.Triggered = true;

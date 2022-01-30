@@ -151,8 +151,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         return customString + " ";
     }
 
-    public string CustomLeaderBoardAfterPlayer(GamePlayerBridgeClass me, GamePlayerBridgeClass other,
-        GameClass game)
+    public string CustomLeaderBoardAfterPlayer(GamePlayerBridgeClass me, GamePlayerBridgeClass other, GameClass game)
     {
         var customString = "";
         //|| me.DiscordId == 238337696316129280 || me.DiscordId == 181514288278536193

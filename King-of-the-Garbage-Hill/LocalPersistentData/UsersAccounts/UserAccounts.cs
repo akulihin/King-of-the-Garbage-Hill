@@ -91,7 +91,7 @@ public sealed class UserAccounts : IServiceSingleton
 
     private void SaveAllAccounts(object sender, ElapsedEventArgs e)
     {
-        if(_saving) return;
+        if (_saving) return;
         _saving = true;
         foreach (var a in _userAccountsDictionary)
             _usersDataStorage.SaveAccountSettings(a.Value, a.Key);

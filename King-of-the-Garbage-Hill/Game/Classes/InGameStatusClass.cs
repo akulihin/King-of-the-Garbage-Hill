@@ -96,8 +96,9 @@ public class InGameStatus
 
     public void AddInGamePersonalLogs(string str)
     {
+
         var previous = InGamePersonalLogs.Split("\n");
-        if (previous.Length > 1)
+        if (previous.Length > 1 && !str.Contains("Предположение"))
         {
             var currentSkills = str.Split(": ");
             if (currentSkills.Length > 0)
