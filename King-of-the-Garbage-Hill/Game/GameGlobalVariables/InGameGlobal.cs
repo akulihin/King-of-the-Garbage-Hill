@@ -228,10 +228,8 @@ public class InGameGlobal : IServiceSingleton
                     LolGodUdyrList.Add(new LolGod.Udyr(player.Status.PlayerId, game.GameId));
                     break;
                 case "Вампур":
-                    VampyrHematophagiaList.Add(
-                        new Vampyr.HematophagiaClass(player.Status.PlayerId, game.GameId));
-                    VampyrScavengerList.Add(new Vampyr.ScavengerClass(player.Status.PlayerId,
-                        game.GameId));
+                    VampyrHematophagiaList.Add(new Vampyr.HematophagiaClass(player.Status.PlayerId, game.GameId));
+                    VampyrScavengerList.Add(new Vampyr.ScavengerClass(player.Status.PlayerId, game.GameId));
                     break;
                 case "Sirinoks":
                     SirinoksFriendsList.Add(new FriendsClass(player.Status.PlayerId, game.GameId));

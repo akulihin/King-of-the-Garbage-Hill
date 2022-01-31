@@ -557,8 +557,7 @@ public class CharacterPassives : IServiceSingleton
                 //Падальщик
                 if (target.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
                 {
-                    var scavenger = _gameGlobal.VampyrScavengerList.Find(x =>
-                        x.PlayerId == me.Status.PlayerId && x.GameId == game.GameId);
+                    var scavenger = _gameGlobal.VampyrScavengerList.Find(x => x.PlayerId == me.Status.PlayerId && x.GameId == game.GameId);
 
                     if (scavenger.EnemyId == target.Status.PlayerId)
                     {
@@ -1273,8 +1272,7 @@ public class CharacterPassives : IServiceSingleton
                             }
                         }
 
-                        vampyr.Hematophagia.Add(new Vampyr.HematophagiaSubClass(statIndex,
-                            player.Status.IsWonThisCalculation));
+                        vampyr.Hematophagia.Add(new Vampyr.HematophagiaSubClass(statIndex, player.Status.IsWonThisCalculation));
                     }
                 }
 

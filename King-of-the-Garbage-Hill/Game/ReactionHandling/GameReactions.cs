@@ -484,7 +484,6 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.AddInGamePersonalLogs($"#life: Я прокачал Интеллект на {player.Character.GetIntelligence()}!\n");
                         break;
                     case "Вампур":
-                        game.Phrases.VampyrSucks.SendLog(player, true, "-1 Интеллект, ");
                         player.Character.AddIntelligence(player.Status, -2, "Прокачка", false);
                         break;
                     default:
@@ -511,7 +510,6 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.AddInGamePersonalLogs($"#life: Я прокачал Силу на {player.Character.GetStrength()}!\n");
                         break;
                     case "Вампур":
-                        game.Phrases.VampyrSucks.SendLog(player, true, "-1 Сила, ");
                         player.Character.AddStrength(player.Status, -2, "Прокачка", false);
                         break;
                     default:
@@ -539,7 +537,6 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.AddInGamePersonalLogs($"#life: Я прокачал Cкорость на {player.Character.GetSpeed()}!\n");
                         break;
                     case "Вампур":
-                        game.Phrases.VampyrSucks.SendLog(player, true, "-1 Cкорость, ");
                         player.Character.AddSpeed(player.Status, -2, "Прокачка", false);
                         break;
                     default:
@@ -566,7 +563,6 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.AddInGamePersonalLogs($"#life: Я прокачал Психику на {player.Character.GetPsyche()}!\n");
                         break;
                     case "Вампур":
-                        game.Phrases.VampyrSucks.SendLog(player, true, "-1 Психика, ");
                         player.Character.AddPsyche(player.Status, -2, "Прокачка", false);
                         break;
                     default:

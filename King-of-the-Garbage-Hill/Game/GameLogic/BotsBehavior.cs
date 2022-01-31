@@ -309,10 +309,6 @@ public class BotsBehavior : IServiceSingleton
             foreach (var target in allTargets)
             {
                 var targetJustice = target.Player.Character.Justice.GetFightJusticeNow();
-                if (target.Player.Character.Name == "Вампур")
-                {
-                    var kek = 0;
-                }
 
                 //if justice is the same
                 if (botJustice == targetJustice)

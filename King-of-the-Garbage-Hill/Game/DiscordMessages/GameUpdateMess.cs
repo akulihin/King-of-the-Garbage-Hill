@@ -21,19 +21,22 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     private readonly Global _global;
     private readonly HelperFunctions _helperFunctions;
     private readonly Logs _log;
+    private readonly SecureRandom _random;
+    private readonly List<string> _vampyrGarlic = new() { "Никаких статов для тебя, поешь чеснока", "Иди отсюда, Вампур позорный", "А ну хватит кусаться!", "Клыки наточил?" };
 
     private readonly List<Emoji> _playerChoiceAttackList = new()
         { new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣"), new Emoji("4⃣"), new Emoji("5⃣"), new Emoji("6⃣") };
 
 
     public GameUpdateMess(UserAccounts accounts, Global global, InGameGlobal gameGlobal,
-        HelperFunctions helperFunctions, Logs log)
+        HelperFunctions helperFunctions, Logs log, SecureRandom random)
     {
         _accounts = accounts;
         _global = global;
         _gameGlobal = gameGlobal;
         _helperFunctions = helperFunctions;
         _log = log;
+        _random = random;
     }
 
     public Task InitializeAsync()
@@ -637,12 +640,16 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         var character = player.Character;
         var embed = new EmbedBuilder();
-
+        var text = "__Подними один из статов на 1:__";
+        if (player.Character.Name == "Вампур")
+        {
+            text = "**Понизить** один из статов на 1!";
+        }
         embed.WithColor(Color.Blue);
         embed.WithFooter($"{GetTimeLeft(player)}");
         embed.WithCurrentTimestamp();
         embed.AddField("_____",
-            "__Подними один из статов на 1:__\n \n" +
+            $"{text}\n \n" +
             $"1. **Интеллект:** {character.GetIntelligence()}\n" +
             $"2. **Сила:** {character.GetStrength()}\n" +
             $"3. **Скорость:** {character.GetSpeed()}\n" +
@@ -740,11 +747,16 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public async Task<SelectMenuBuilder> GetLvlUpMenu(GamePlayerBridgeClass player, GameClass game)
     {
+        var placeholderText = "Выбор прокачки";
+        if (player.Character.Name == "Вампур")
+        {
+            placeholderText = _vampyrGarlic[_random.Random(0, _vampyrGarlic.Count - 1)];
+        }
         var charMenu = new SelectMenuBuilder()
             .WithMinValues(1)
             .WithMaxValues(1)
             .WithCustomId("char-select")
-            .WithPlaceholder("Выбор прокачки")
+            .WithPlaceholder(placeholderText)
             .AddOption("Интеллект", "1")
             .AddOption("Сила", "2")
             .AddOption("Скорость", "3")
