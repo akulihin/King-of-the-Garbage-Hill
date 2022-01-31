@@ -483,19 +483,43 @@ public class JusticeClass
 {
     public JusticeClass()
     {
-        JusticeNow = 0;
-        JusticeForNextRound = 0;
+        FullJusticeNow = 0;
+        FightJusticeNow = 0;
+        JusticeForNextRoundFromFights = 0;
+        JusticeForNextRoundFromSkills = 0;
         IsWonThisRound = false;
     }
 
-    private int JusticeNow { get; set; }
-    private int JusticeForNextRound { get; set; }
+    private int FullJusticeNow { get; set; }
+    private int FightJusticeNow { get; set; }
+    private int JusticeForNextRoundFromFights { get; set; }
+    private int JusticeForNextRoundFromSkills{ get; set; }
     public bool IsWonThisRound { get; set; }
 
 
-    public void AddJusticeNow(InGameStatus status, int howMuchToAdd = 1)
-    {   
-        
+    public void HandleEndOfRoundJustice(InGameStatus status)
+    {
+        if (IsWonThisRound)
+        {
+            FullJusticeNow = 0;
+            FightJusticeNow = 0;
+        }
+
+        var howMuchToAdd = JusticeForNextRoundFromFights + JusticeForNextRoundFromSkills;
+
+        FightJusticeNow += JusticeForNextRoundFromFights;
+        JusticeForNextRoundFromFights = 0;
+        JusticeForNextRoundFromSkills = 0;
+        IsWonThisRound = false;
+
+        var justricePhrases = new List<string>
+        {
+            "Ты сможешь!", "Еще немного!", "Верь в себя!", "Верь в мою веру в тебя!",
+            "Не повeзло, но всё получится!",
+            "Справедливость на нашей стороне!", "Мы им покажем!"
+        };
+
+
         //Болевой порог
         if (status.CharacterName == "Краборак")
         {
@@ -510,61 +534,63 @@ public class JusticeClass
                 extraPoints++;
             }
 
-            if(extraPoints > 0)
+            if (extraPoints > 0)
                 status.AddRegularPoints(extraPoints, "Болевой порог");
-            if(howMuchToAdd == 0)
+            if (howMuchToAdd == 0)
                 return;
         }
         //end Болевой порог
 
-        var justricePhrases = new List<string>
-        {
-            "Ты сможешь!", "Еще немного!", "Верь в себя!", "Верь в мою веру в тебя!",
-            "Не повeзло, но всё получится!",
-            "Справедливость на нашей стороне!", "Мы им покажем!"
-        };
-        JusticeNow += howMuchToAdd;
+
+
+        FullJusticeNow += howMuchToAdd;
+        if (FullJusticeNow < 0)
+            FullJusticeNow = 0;
+        if (FullJusticeNow > 5)
+            FullJusticeNow = 5;
 
         if (howMuchToAdd > 0)
             status.AddInGamePersonalLogs(
                 $"*Справедливость*: ***+ {howMuchToAdd}!***<:e_:562879579694301184>{justricePhrases[new Random().Next(0, justricePhrases.Count)]}\n");
-
-        if (JusticeNow < 0)
-            JusticeNow = 0;
-        if (JusticeNow > 5)
-            JusticeNow = 5;
     }
 
-    public int GetJusticeNow()
+
+    public int GetFullJusticeNow()
     {
-        return JusticeNow;
+        return FullJusticeNow;
     }
 
-    public void SetJusticeNow(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
+    public int GetFightJusticeNow()
+    {
+        return FightJusticeNow;
+    }
+
+
+    public void AddFullJusticeNow(int howMuchToAdd = 1)
+    {
+        FullJusticeNow += howMuchToAdd;
+
+        if (FullJusticeNow < 0)
+            FullJusticeNow = 0;
+        if (FullJusticeNow > 5)
+            FullJusticeNow = 5;
+    }
+
+    public void SetFullJusticeNow(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
     {
         if (isLog)
             status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} Справедливости\n");
-        JusticeNow = howMuchToSet;
+        FullJusticeNow = howMuchToSet;
     }
 
-    public void AddJusticeForNextRound(int howMuchToAdd = 1)
+    public void AddJusticeForNextRoundFromFight(int howMuchToAdd = 1)
     {
-        JusticeForNextRound += howMuchToAdd;
-
-        if (JusticeForNextRound < 0)
-            JusticeForNextRound = 0;
-
-        if (JusticeForNextRound > 10)
-            JusticeForNextRound = 10;
+        JusticeForNextRoundFromFights += howMuchToAdd;
     }
 
-    public int GetJusticeForNextRound()
+    public void AddJusticeForNextRoundFromSkill(int howMuchToAdd = 1)
     {
-        return JusticeForNextRound;
+        JusticeForNextRoundFromSkills += howMuchToAdd;
     }
 
-    public void SetJusticeForNextRound(int newJusticeForNextRound)
-    {
-        JusticeForNextRound = newJusticeForNextRound;
-    }
 }

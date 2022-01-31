@@ -463,8 +463,8 @@ public class CharacterPassives : IServiceSingleton
                     var scavenger = _gameGlobal.VampyrScavengerList.Find(x =>
                         x.PlayerId == me.Status.PlayerId && x.GameId == game.GameId);
                     scavenger.EnemyId = target.Status.PlayerId;
-                    scavenger.EnemyJustice = target.Character.Justice.GetJusticeNow();
-                    target.Character.Justice.AddJusticeNow(target.Status, -1);
+                    scavenger.EnemyJustice = target.Character.Justice.GetFullJusticeNow();
+                    target.Character.Justice.SetFullJusticeNow(target.Status, scavenger.EnemyJustice-1, "Падальщик", false);
                 }
 
                 //end Падальщик
@@ -562,7 +562,7 @@ public class CharacterPassives : IServiceSingleton
 
                     if (scavenger.EnemyId == target.Status.PlayerId)
                     {
-                        target.Character.Justice.SetJusticeNow(target.Status, scavenger.EnemyJustice, "Падальщик", false);
+                        target.Character.Justice.SetFullJusticeNow(target.Status, scavenger.EnemyJustice, "Падальщик", false);
                         scavenger.EnemyId = Guid.Empty;
                         scavenger.EnemyJustice = 0;
                         if (me.Status.IsWonThisCalculation == target.Status.PlayerId)
@@ -575,7 +575,7 @@ public class CharacterPassives : IServiceSingleton
 
                 //Вампуризм
                 if (me.Status.IsWonThisCalculation == target.Status.PlayerId)
-                    me.Character.Justice.AddJusticeForNextRound(target.Character.Justice.GetJusticeNow());
+                    me.Character.Justice.AddJusticeForNextRoundFromSkill(target.Character.Justice.GetFullJusticeNow());
                 //Вампуризм
 
                 break;
@@ -671,7 +671,6 @@ public class CharacterPassives : IServiceSingleton
 
     public void HandleCharacterAfterFight(GamePlayerBridgeClass player, GameClass game)
     {
-        //TODO: test it
         //Подсчет
         if (player.Status.IsLostThisCalculation != Guid.Empty && player.Character.Name != "Толя" &&
             game.PlayersList.Any(x => x.Character.Name == "Толя"))
@@ -682,11 +681,10 @@ public class CharacterPassives : IServiceSingleton
                 x.PlayerId == tolyaAcc.Status.PlayerId && x.GameId == game.GameId);
 
 
-            if (tolyaCount.TargetList.Any(x =>
-                    x.RoundNumber == game.RoundNo - 1 && x.Target == player.Status.PlayerId))
+            if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == player.Status.PlayerId))
             {
                 tolyaAcc.Status.AddRegularPoints(2, "Подсчет");
-                tolyaAcc.Character.Justice.AddJusticeForNextRound(2);
+                tolyaAcc.Character.Justice.AddJusticeForNextRoundFromSkill(2);
                 game.Phrases.TolyaCountPhrase.SendLog(tolyaAcc, false);
             }
         }
@@ -776,9 +774,9 @@ public class CharacterPassives : IServiceSingleton
                                 player.Status.AddRegularPoints(1, "Стёб");
                                 game.Phrases.DeepListPokePhrase.SendLog(player, true);
                                 if (target.Character.GetPsyche() < 4)
-                                    if (target.Character.Justice.GetJusticeNow() > 0)
+                                    if (target.Character.Justice.GetFullJusticeNow() > 0)
                                         if (target.Character.Name != "LeCrisp")
-                                            target.Character.Justice.AddJusticeForNextRound(-1);
+                                            target.Character.Justice.AddJusticeForNextRoundFromSkill(-1);
                             }
                         }
                         else
@@ -1146,7 +1144,7 @@ public class CharacterPassives : IServiceSingleton
                 /*//Тигр топ, а ты холоп: 
                 if (player.Status.IsLostThisCalculation != Guid.Empty && player.Status.PlaceAtLeaderBoard == 1)
                 {
-                    player.Character.Justice.AddJusticeForNextRound(-1);
+                    player.Character.Justice.AddJusticeForNextRoundFromSkill(-1);
                 }
                 //end //Тигр топ, а ты холоп*/
                 break;
@@ -1204,8 +1202,7 @@ public class CharacterPassives : IServiceSingleton
                 //Это привилегия - умереть от моей руки
                 if (player.Status.IsWonThisCalculation != Guid.Empty && game.RoundNo > 4)
                 {
-                    game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Character
-                        .Justice.AddJusticeForNextRound();
+                    game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Character.Justice.AddJusticeForNextRoundFromSkill();
                     player.Character.AddIntelligence(player.Status, -1, "Это привилегия");
                 }
                 //end Это привилегия - умереть от моей руки
@@ -1544,7 +1541,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         leImpact.ImpactTimes += 1;
                         player.Status.AddBonusPoints(1, "Импакт");
-                        player.Character.Justice.AddJusticeForNextRound();
+                        player.Character.Justice.AddJusticeForNextRoundFromSkill();
                         game.Phrases.LeCrispImpactPhrase.SendLog(player, false, $"(x{leImpact.ImpactTimes}) ");
                     }
 
@@ -1601,23 +1598,23 @@ public class CharacterPassives : IServiceSingleton
                         {
                             case 1:
                                 game.Phrases.TolyaRammusPhrase.SendLog(player, false);
-                                player.Character.Justice.AddJusticeForNextRound();
+                                player.Character.Justice.AddJusticeForNextRoundFromSkill();
                                 break;
                             case 2:
                                 game.Phrases.TolyaRammus2Phrase.SendLog(player, false);
-                                player.Character.Justice.AddJusticeForNextRound(2);
+                                player.Character.Justice.AddJusticeForNextRoundFromSkill(2);
                                 break;
                             case 3:
                                 game.Phrases.TolyaRammus3Phrase.SendLog(player, false);
-                                player.Character.Justice.AddJusticeForNextRound(3);
+                                player.Character.Justice.AddJusticeForNextRoundFromSkill(3);
                                 break;
                             case 4:
                                 game.Phrases.TolyaRammus4Phrase.SendLog(player, false);
-                                player.Character.Justice.AddJusticeForNextRound(4);
+                                player.Character.Justice.AddJusticeForNextRoundFromSkill(4);
                                 break;
                             case 5:
                                 game.Phrases.TolyaRammus5Phrase.SendLog(player, false);
-                                player.Character.Justice.AddJusticeForNextRound(5);
+                                player.Character.Justice.AddJusticeForNextRoundFromSkill(5);
                                 break;
                         }
 
@@ -1997,7 +1994,7 @@ public class CharacterPassives : IServiceSingleton
                             player.Status.WhoToAttackThisTurn = Guid.Empty;
 
                             game.Phrases.MitsukiSchoolboy.SendLog(player, true);
-                            player.Character.Justice.AddJusticeForNextRound(5);
+                            player.Character.Justice.AddJusticeForNextRoundFromSkill(5);
                         }
 
                     //end Школьник
@@ -2474,7 +2471,7 @@ public class CharacterPassives : IServiceSingleton
                 case "Братишка":
                     //Булькает:
                     if (player.Status.PlaceAtLeaderBoard != 1)
-                        player.Character.Justice.AddJusticeNow(player.Status);
+                        player.Character.Justice.AddFullJusticeNow();
                     //end Булькает:
 
                     //Челюсти:
@@ -2497,10 +2494,10 @@ public class CharacterPassives : IServiceSingleton
                 case "Тигр":
                     //Тигр топ, а ты холоп: 
                     if (player.Status.PlaceAtLeaderBoard == 1 && game.RoundNo > 1)
-                        if (game.RoundNo != 10)
+                        if (game.RoundNo < 10)
                         {
                             player.Character.AddPsyche(player.Status, 1, "Тигр топ, а ты холоп");
-                            //player.Character.AddMoral(player.Status, 1, "Тигр топ, а ты холоп");
+                            player.Character.AddMoral(player.Status, 3, "Тигр топ, а ты холоп");
                             game.Phrases.TigrTop.SendLog(player, false);
                         }
 
@@ -2681,42 +2678,6 @@ public class CharacterPassives : IServiceSingleton
             }
         }
 
-        //Если фидишь то пропушь, если пушишь то нафидь
-        var god = game.PlayersList.Find(x => x.Character.Name == "Бог ЛоЛа");
-        if (god != null && game.RoundNo >= 2)
-        {
-            var players = _gameGlobal.LolGodPushAndDieSubList.Find(x =>
-                x.GameId == game.GameId && x.PlayerId == god.Status.PlayerId);
-
-            players.PlayersEveryRound.Add(new LolGod.PushAndDieSubClass(game.RoundNo, game.PlayersList));
-
-            var playersLastRound = players.PlayersEveryRound.Find(x => x.RoundNo == game.RoundNo - 1).PlayerList;
-            var playersThisRound = players.PlayersEveryRound.Find(x => x.RoundNo == game.RoundNo).PlayerList;
-
-            var top1ThisRound = playersThisRound.Find(x => x.PlayerPlaceAtLeaderBoard == 1).PlayerId;
-            var isTop1LastRound =
-                playersLastRound.Find(x => x.PlayerId == top1ThisRound).PlayerPlaceAtLeaderBoard == 1;
-            if (!isTop1LastRound)
-                game.PlayersList.Find(x => x.Status.PlayerId == top1ThisRound).Status
-                    .AddRegularPoints(-1, "Если фидишь то пропушь, если пушишь то нафидь");
-
-
-            foreach (var player in game.PlayersList)
-            {
-                var placeAtLastRound = playersLastRound.Find(x => x.PlayerId == player.Status.PlayerId)
-                    .PlayerPlaceAtLeaderBoard;
-                var placeAtThisRound = playersThisRound.Find(x => x.PlayerId == player.Status.PlayerId)
-                    .PlayerPlaceAtLeaderBoard;
-
-                if (placeAtLastRound > placeAtThisRound)
-                {
-                    player.Character.Justice.AddJusticeForNextRound();
-                    game.Phrases.FirstСommandmentLost.SendLog(player, false);
-                }
-            }
-        }
-
-        //end Если фидишь то пропушь, если пушишь то нафидь
     }
 
 
@@ -2838,11 +2799,11 @@ public class CharacterPassives : IServiceSingleton
         playerAttackedOctopus.Status.WonTimes++;
         playerAttackedOctopus.Character.Justice.IsWonThisRound = true;
 
-        octopusPlayer.Character.Justice.AddJusticeForNextRound();
+        octopusPlayer.Character.Justice.AddJusticeForNextRoundFromFight();
 
         playerAttackedOctopus.Status.IsWonThisCalculation = octopusPlayer.Status.PlayerId;
         octopusPlayer.Status.IsLostThisCalculation = playerAttackedOctopus.Status.PlayerId;
-        octopusPlayer.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerAttackedOctopus.Status.PlayerId, game.RoundNo, false, false, false, false));
+        octopusPlayer.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerAttackedOctopus.Status.PlayerId, game.RoundNo, false, false, false, false, playerAttackedOctopus.Status.PlayerId));
 
         var octo = _gameGlobal.OctopusInkList.Find(x =>
             x.PlayerId == octopusPlayer.Status.PlayerId && x.GameId == game.GameId);

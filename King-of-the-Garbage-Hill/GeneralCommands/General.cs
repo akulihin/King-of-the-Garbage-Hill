@@ -341,25 +341,6 @@ public class General : ModuleBaseCustom
         return playersList;
     }
 
-    [Command("wr")]
-    [Summary("WinRateClass")]
-    private async Task WinRate()
-    {
-        if (_global.WinRates.Count == 0)
-        {
-            await SendMessAsync("No Games Played.");
-            return;
-        }
-
-        var winRates = _global.WinRates.Values.ToList();
-
-        var text = $"Total Games: {_global.GetLastGamePlayingAndId()}\n";
-        foreach (var winRate in winRates.OrderByDescending(x => x.WinRate))
-        {
-            text += $"{winRate.CharacterName} - {winRate.WinRate.ToString("0.##")}% ({winRate.WinTimes}/{winRate.GameTimes})\n";
-        }
-        await SendMessAsync(text);
-    }
 
 
     [Command("игра")]

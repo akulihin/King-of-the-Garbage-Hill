@@ -30,7 +30,8 @@ public sealed class Global : IServiceSingleton
     public uint TotalCommandsChanged { get; set; }
     private ulong GamePlayingAndId { get; set; }
 
-    public Dictionary<string, WinRateClass> WinRates = new();
+    public ConcurrentDictionary<string, WinRateClass> WinRates = new();
+    public ConcurrentDictionary<ulong, GameClass> FinishedGamesList = new();
 
 
     public Task InitializeAsync()

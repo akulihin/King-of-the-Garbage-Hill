@@ -148,7 +148,7 @@ Speed => Strength
 
 
             //умный
-            if (player.Character.GetSkillClass() == "Интеллект" && playerIamAttacking.Character.Justice.GetJusticeNow() == 0)
+            if (player.Character.GetSkillClass() == "Интеллект" && playerIamAttacking.Character.Justice.GetFullJusticeNow() == 0)
                 player.Character.AddExtraSkill(player.Status,  6, "Класс");
 
 
@@ -264,12 +264,10 @@ Speed => Strength
                 
                 if (player.Character.Name != "mylorik")
                 {
-                    if (player.Character.Justice.GetJusticeNow() > 0)
-                        player.Character.Justice.AddJusticeForNextRound(-1);
                     player.Status.AddBonusPoints(-1, "Блок");
                 }
 
-                playerIamAttacking.Character.Justice.AddJusticeForNextRound();
+                playerIamAttacking.Character.Justice.AddJusticeForNextRoundFromFight();
 
                 _characterPassives.HandleCharacterAfterFight(player, game);
                 _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game);
@@ -393,7 +391,7 @@ Speed => Strength
             weighingMachine += wtf;
 
 
-            weighingMachine += player.Character.Justice.GetJusticeNow() - playerIamAttacking.Character.Justice.GetJusticeNow();
+            weighingMachine += player.Character.Justice.GetFullJusticeNow() - playerIamAttacking.Character.Justice.GetFullJusticeNow();
 
 
             switch (weighingMachine)
@@ -413,9 +411,9 @@ Speed => Strength
 
 
             //round 2 (Justice)
-            if (player.Character.Justice.GetJusticeNow() > playerIamAttacking.Character.Justice.GetJusticeNow())
+            if (player.Character.Justice.GetFullJusticeNow() > playerIamAttacking.Character.Justice.GetFullJusticeNow())
                 pointsWined++;
-            if (player.Character.Justice.GetJusticeNow() < playerIamAttacking.Character.Justice.GetJusticeNow())
+            if (player.Character.Justice.GetFullJusticeNow() < playerIamAttacking.Character.Justice.GetFullJusticeNow())
                 pointsWined--;
             //end round 2
 
@@ -423,11 +421,11 @@ Speed => Strength
             if (pointsWined == 0)
             {
                 var maxRandomNumber = 100;
-                if (player.Character.Justice.GetJusticeNow() > 1 ||
-                    playerIamAttacking.Character.Justice.GetJusticeNow() > 1)
+                if (player.Character.Justice.GetFullJusticeNow() > 1 ||
+                    playerIamAttacking.Character.Justice.GetFullJusticeNow() > 1)
                 {
-                    var myJustice = (int)(player.Character.Justice.GetJusticeNow() * contrMultiplier);
-                    var targetJustice = playerIamAttacking.Character.Justice.GetJusticeNow();
+                    var myJustice = (int)(player.Character.Justice.GetFullJusticeNow() * contrMultiplier);
+                    var targetJustice = playerIamAttacking.Character.Justice.GetFullJusticeNow();
                     maxRandomNumber -= (myJustice - targetJustice) * 5;
                 }
                     
@@ -473,11 +471,11 @@ Speed => Strength
                 }
 
 
-                playerIamAttacking.Character.Justice.AddJusticeForNextRound();
+                playerIamAttacking.Character.Justice.AddJusticeForNextRoundFromFight();
 
                 player.Status.IsWonThisCalculation = playerIamAttacking.Status.PlayerId;
                 playerIamAttacking.Status.IsLostThisCalculation = player.Status.PlayerId;
-                playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.Status.PlayerId, game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy, isStatsBettterEnemy));
+                playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.Status.PlayerId, game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy, isStatsBettterEnemy, player.Status.PlayerId));
             }
             else
             {
@@ -514,11 +512,11 @@ Speed => Strength
                     if (playerIamAttacking.Character.Name == "Толя" && playerIamAttacking.Status.IsBlock)
                         playerIamAttacking.Character.Justice.IsWonThisRound = false;
 
-                    player.Character.Justice.AddJusticeForNextRound();
+                    player.Character.Justice.AddJusticeForNextRoundFromFight();
 
                     playerIamAttacking.Status.IsWonThisCalculation = player.Status.PlayerId;
                     player.Status.IsLostThisCalculation = playerIamAttacking.Status.PlayerId;
-                    player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.Status.PlayerId, game.RoundNo, isTooGoodEnemy, isStatsBettterEnemy, isTooGoodMe, isStatsBetterMe));
+                    player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.Status.PlayerId, game.RoundNo, isTooGoodEnemy, isStatsBettterEnemy, isTooGoodMe, isStatsBetterMe, player.Status.PlayerId));
                 }
             }
 
@@ -568,11 +566,7 @@ Speed => Strength
             player.Status.MoveListPage = 1;
             player.Status.IsAbleToChangeMind = true;
 
-            if (player.Character.Justice.IsWonThisRound)
-                player.Character.Justice.SetJusticeNow(player.Status, 0, "Новый Раунд:", false);
-            player.Character.Justice.IsWonThisRound = false;
-            player.Character.Justice.AddJusticeNow(player.Status, player.Character.Justice.GetJusticeForNextRound());
-            player.Character.Justice.SetJusticeForNextRound(0);
+            player.Character.Justice.HandleEndOfRoundJustice(player.Status);
 
             player.Status.CombineRoundScoreAndGameScore(game, _gameGlobal, game.Phrases);
             player.Status.ClearInGamePersonalLogs();

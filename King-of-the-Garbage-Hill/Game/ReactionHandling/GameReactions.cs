@@ -6,6 +6,7 @@ using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -18,6 +19,7 @@ public sealed class GameReaction : IServiceSingleton
     private readonly HelperFunctions _help;
     private readonly Logs _logs;
     private readonly GameUpdateMess _upd;
+   
 
     public GameReaction(UserAccounts accounts,
         Global global,
@@ -29,6 +31,7 @@ public sealed class GameReaction : IServiceSingleton
         _upd = upd;
         _help = help;
         _logs = logs;
+        
         //  _gameGlobal = gameGlobal;
     }
 
@@ -458,6 +461,7 @@ public sealed class GameReaction : IServiceSingleton
 
     private async Task GetLvlUp(GamePlayerBridgeClass player, int skillNumber)
     {
+        var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         switch (skillNumber)
         {
             case 1:
@@ -465,34 +469,55 @@ public sealed class GameReaction : IServiceSingleton
                 if (player.Character.GetIntelligence() >= 10 && player.Character.GetPsyche() <= 9 &&
                     player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
                 {
-                    await LvlUp10(player);
-                    return;
+                    if (player.Character.Name != "Вампур")
+                    {
+                        await LvlUp10(player);
+                        return;
+                    }
                 }
 
                 player.Character.AddIntelligence(player.Status, 1, "Прокачка", false);
 
-                if (player.Character.Name == "HardKitty")
-                    player.Status.AddInGamePersonalLogs(
-                        $"#life: Я прокачал Интеллект на {player.Character.GetIntelligence()}!\n");
-                else
-                    player.Status.AddInGamePersonalLogs(
-                        $"Ты улучшил Интеллект до {player.Character.GetIntelligence()}\n");
+                switch (player.Character.Name)
+                {
+                    case "HardKitty":
+                        player.Status.AddInGamePersonalLogs($"#life: Я прокачал Интеллект на {player.Character.GetIntelligence()}!\n");
+                        break;
+                    case "Вампур":
+                        game.Phrases.VampyrSucks.SendLog(player, true, "-1 Интеллект, ");
+                        player.Character.AddIntelligence(player.Status, -2, "Прокачка", false);
+                        break;
+                    default:
+                        player.Status.AddInGamePersonalLogs($"Ты улучшил Интеллект до {player.Character.GetIntelligence()}\n");
+                        break;
+                }
                 break;
             case 2:
 
                 if (player.Character.GetStrength() >= 10 && player.Character.GetPsyche() <= 9 &&
                     player.Character.GetIntelligence() <= 9 && player.Character.GetSpeed() <= 9)
                 {
-                    await LvlUp10(player);
-                    return;
+                    if (player.Character.Name != "Вампур")
+                    {
+                        await LvlUp10(player);
+                        return;
+                    }
                 }
 
                 player.Character.AddStrength(player.Status, 1, "Прокачка", false);
-                if (player.Character.Name == "HardKitty")
-                    player.Status.AddInGamePersonalLogs(
-                        $"#life: Я прокачал Силу на {player.Character.GetStrength()}!\n");
-                else
-                    player.Status.AddInGamePersonalLogs($"Ты улучшил Силу до {player.Character.GetStrength()}\n");
+                switch (player.Character.Name)
+                {
+                    case "HardKitty":
+                        player.Status.AddInGamePersonalLogs($"#life: Я прокачал Силу на {player.Character.GetStrength()}!\n");
+                        break;
+                    case "Вампур":
+                        game.Phrases.VampyrSucks.SendLog(player, true, "-1 Сила, ");
+                        player.Character.AddStrength(player.Status, -2, "Прокачка", false);
+                        break;
+                    default:
+                        player.Status.AddInGamePersonalLogs($"Ты улучшил Силу до {player.Character.GetStrength()}\n");
+                        break;
+                }
 
                 break;
             case 3:
@@ -500,33 +525,54 @@ public sealed class GameReaction : IServiceSingleton
                 if (player.Character.GetSpeed() >= 10 && player.Character.GetPsyche() <= 9 &&
                     player.Character.GetStrength() <= 9 && player.Character.GetIntelligence() <= 9)
                 {
-                    await LvlUp10(player);
-                    return;
+                    if (player.Character.Name != "Вампур")
+                    {
+                        await LvlUp10(player);
+                        return;
+                    }
                 }
 
                 player.Character.AddSpeed(player.Status, 1, "Прокачка", false);
-                if (player.Character.Name == "HardKitty")
-                    player.Status.AddInGamePersonalLogs(
-                        $"#life: Я прокачал Cкорость на {player.Character.GetSpeed()}!\n");
-                else
-                    player.Status.AddInGamePersonalLogs($"Ты улучшил Скорость до {player.Character.GetSpeed()}\n");
+                switch (player.Character.Name)
+                {
+                    case "HardKitty":
+                        player.Status.AddInGamePersonalLogs($"#life: Я прокачал Cкорость на {player.Character.GetSpeed()}!\n");
+                        break;
+                    case "Вампур":
+                        game.Phrases.VampyrSucks.SendLog(player, true, "-1 Cкорость, ");
+                        player.Character.AddSpeed(player.Status, -2, "Прокачка", false);
+                        break;
+                    default:
+                        player.Status.AddInGamePersonalLogs($"Ты улучшил Скорость до {player.Character.GetSpeed()}\n");
+                        break;
+                }
 
                 break;
             case 4:
 
-                if (player.Character.GetPsyche() >= 10 && player.Character.GetIntelligence() <= 9 &&
-                    player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
+                if (player.Character.GetPsyche() >= 10 && player.Character.GetIntelligence() <= 9 && player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
                 {
-                    await LvlUp10(player);
-                    return;
+                    if (player.Character.Name != "Вампур")
+                    {
+                        await LvlUp10(player);
+                        return;
+                    }
                 }
 
                 player.Character.AddPsyche(player.Status, 1, "Прокачка", false);
-                if (player.Character.Name == "HardKitty")
-                    player.Status.AddInGamePersonalLogs(
-                        $"#life: Я прокачал Психику на {player.Character.GetPsyche()}!\n");
-                else
-                    player.Status.AddInGamePersonalLogs($"Ты улучшил Психику до {player.Character.GetPsyche()}\n");
+                switch (player.Character.Name)
+                {
+                    case "HardKitty":
+                        player.Status.AddInGamePersonalLogs($"#life: Я прокачал Психику на {player.Character.GetPsyche()}!\n");
+                        break;
+                    case "Вампур":
+                        game.Phrases.VampyrSucks.SendLog(player, true, "-1 Психика, ");
+                        player.Character.AddPsyche(player.Status, -2, "Прокачка", false);
+                        break;
+                    default:
+                        player.Status.AddInGamePersonalLogs($"Ты улучшил Психику до {player.Character.GetPsyche()}\n");
+                        break;
+                }
 
                 break;
         }
@@ -554,7 +600,7 @@ public sealed class GameReaction : IServiceSingleton
 
 
         //Дизмораль
-        var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+        
         if (player.Character.Name == "Darksci")
         {
             if (game.RoundNo == 9)

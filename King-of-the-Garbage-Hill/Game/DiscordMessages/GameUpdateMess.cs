@@ -288,7 +288,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         customString +=
                             $" PS: - {other.Character.Name} (I: {other.Character.GetIntelligence()} | " +
                             $"St: {other.Character.GetStrength()} | Sp: {other.Character.GetSpeed()} | " +
-                            $"Ps: {other.Character.GetPsyche()} | J: {other.Character.Justice.GetJusticeNow()})";
+                            $"Ps: {other.Character.GetPsyche()} | J: {other.Character.Justice.GetFullJusticeNow()})";
                 //end сверхразум
 
 
@@ -580,7 +580,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                               $"**Скорость:** {character.GetSpeedString()}\n" +
                               $"**Психика:** {character.GetPsycheString()}\n" +
                               "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                              $"*Справедливость: **{character.Justice.GetJusticeNow()}***\n" +
+                              $"*Справедливость: **{character.Justice.GetFullJusticeNow()}***\n" +
                               $"*Мораль: {character.GetMoral()}*\n" +
                               $"*Скилл: {character.GetSkill()} (Мишень: **{character.GetCurrentSkillClassTarget()}**)*\n" +
                               $"*Класс:* {character.GetClassStatDisplayText()}\n" +

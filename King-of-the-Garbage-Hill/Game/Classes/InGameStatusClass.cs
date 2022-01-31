@@ -253,8 +253,9 @@ public class InGameStatus
         public bool IsStatsBetterEnemy;
         public bool IsTooGoodMe;
         public bool IsStatsBetterMe;
+        public Guid WhoAttacked;
 
-        public WhoToLostPreviousRoundClass(Guid enemyId, int roundNo, bool isTooGoodEnemy, bool isStatsBetterEnemy, bool isTooGoodMe, bool isStatsBetterMe)
+        public WhoToLostPreviousRoundClass(Guid enemyId, int roundNo, bool isTooGoodEnemy, bool isStatsBetterEnemy, bool isTooGoodMe, bool isStatsBetterMe, Guid whoAttacked)
         {
             EnemyId = enemyId;
             RoundNo = roundNo;
@@ -262,6 +263,7 @@ public class InGameStatus
             IsStatsBetterEnemy = isStatsBetterEnemy;
             IsTooGoodMe = isTooGoodMe;
             IsStatsBetterMe = isStatsBetterMe;
+            WhoAttacked = whoAttacked;
         }
     }
 
