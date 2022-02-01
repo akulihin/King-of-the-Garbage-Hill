@@ -417,6 +417,7 @@ public class CharactersUniquePhrase
         LeCrispJewPhrase.PassiveLogRus.Add("Кошерно"); 
         LeCrispJewPhrase.PassiveLogRus.Add("ОЙ ВЕЙ!");     
         LeCrispJewPhrase.PassiveLogRus.Add("Хава Нагила"); 
+        LeCrispJewPhrase.PassiveLogRus.Add("Призываю Иуду"); 
 
         LeCrispBoolingPhrase.PassiveLogRus.Add("Why are you bulling me?");
         LeCrispBoolingPhrase.PassiveLogRus.Add("fuk u");
@@ -429,9 +430,10 @@ public class CharactersUniquePhrase
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Эх, жизнь АДК");
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Моя жопа не смогла съесть змею. (с)");
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Женская собака приседает и писает");      
+        LeCrispAssassinsPhrase.PassiveLogRus.Add("Аль тигий ли ба делет"); 
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Голова арбуза"); 
 
-
+        
         LeCrispImpactPhrase.PassiveLogRus.Add("Импакт!");
         LeCrispImpactPhrase.PassiveLogRus.Add("Это импакт?");
         LeCrispImpactPhrase.PassiveLogRus.Add("шпещьмен");
