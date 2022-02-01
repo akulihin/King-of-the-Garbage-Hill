@@ -237,38 +237,38 @@ public sealed class GameReaction : IServiceSingleton
                         if (player.Character.GetMoral() >= 20)
                         {
                             player.Character.AddMoral(player.Status, -20, "Обмен Морали", true, true);
-                            player.Character.AddExtraSkill(player.Status,  114, "Обмен Морали");
-                            extraText = "Мораль: Я БОГ ЭТОГО МИРА!!! +114 *Скилла*";
+                            player.Character.AddExtraSkill(player.Status,  130, "Обмен Морали");
+                            extraText = "Мораль: Я БОГ ЭТОГО МИРА!!! +130 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 13)
                         {
                             player.Character.AddMoral(player.Status, -13, "Обмен Морали", true, true);
-                            player.Character.AddExtraSkill(player.Status,  69, "Обмен Морали");
-                            extraText = "Мораль: MVP! +69 *Скилла*";
+                            player.Character.AddExtraSkill(player.Status,  80, "Обмен Морали");
+                            extraText = "Мораль: MVP! +80 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 8)
                         {
                             player.Character.AddMoral(player.Status, -8, "Обмен Морали", true, true);
-                            player.Character.AddExtraSkill(player.Status,  39, "Обмен Морали");
-                            extraText = "Мораль: Я художник! +39 *Скилла*";
+                            player.Character.AddExtraSkill(player.Status,  46, "Обмен Морали");
+                            extraText = "Мораль: Я художник! +46 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 5)
                         {
                             player.Character.AddMoral(player.Status, -5, "Обмен Морали", true, true);
-                            player.Character.AddExtraSkill(player.Status,  24, "Обмен Морали");
-                            extraText = "Мораль: Изи катка +24 *Скилла*";
+                            player.Character.AddExtraSkill(player.Status, 28, "Обмен Морали");
+                            extraText = "Мораль: Изи катка +28 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 3)
                         {
                             player.Character.AddMoral(player.Status, -3, "Обмен Морали", true, true);
-                            player.Character.AddExtraSkill(player.Status,  14, "Обмен Морали");
-                            extraText = "Мораль: Набрался *Скилла*, так сказать. +14 *Скилла*";
+                            player.Character.AddExtraSkill(player.Status,  16, "Обмен Морали");
+                            extraText = "Мораль: Набрался *Скилла*, так сказать. +16 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 2)
                         {
                             player.Character.AddMoral(player.Status, -2, "Обмен Морали", true, true);
-                            player.Character.AddExtraSkill(player.Status,  9, "Обмен Морали");
-                            extraText = "Мораль: Так вот как в это играть. +9 *Скилла*";
+                            player.Character.AddExtraSkill(player.Status,  10, "Обмен Морали");
+                            extraText = "Мораль: Так вот как в это играть. +10 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 1)
                         {
@@ -356,7 +356,7 @@ public sealed class GameReaction : IServiceSingleton
         var predictedPlayerUsername = splitted.First();
         var predictedCharacterName = splitted[1];
         var predictedPlayerId =
-            game.PlayersList.Find(x => x.DiscordUsername == predictedPlayerUsername).Status.PlayerId;
+            game.PlayersList.Find(x => x.DiscordUsername == predictedPlayerUsername).GetPlayerId();
 
         var predicted = player.Predict.Find(x => x.PlayerId == predictedPlayerId);
 
@@ -414,7 +414,7 @@ public sealed class GameReaction : IServiceSingleton
             if (whoToAttack == null) 
                 return false;
 
-            status.WhoToAttackThisTurn = whoToAttack.Status.PlayerId;
+            status.WhoToAttackThisTurn = whoToAttack.GetPlayerId();
 
             if (game.PlayersList.Any(x => x.Character.Name == "Тигр" && x.Status.PlaceAtLeaderBoard == emoteNum) && game.RoundNo == 10)
             {
@@ -432,7 +432,7 @@ public sealed class GameReaction : IServiceSingleton
             }
 
 
-            if (status.WhoToAttackThisTurn == status.PlayerId)
+            if (status.WhoToAttackThisTurn == player.GetPlayerId())
             {
                 status.WhoToAttackThisTurn = Guid.Empty;
                 await _help.SendMsgAndDeleteItAfterRound(player, "Зачем ты себя бьешь?");

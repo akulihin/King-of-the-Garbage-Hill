@@ -44,19 +44,19 @@ Speed => Strength
     {
         if (me.Character.GetSkillClass() == "Интеллект" && target.Character.GetSkillClass() == "Скорость")
         {
-            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Умный** ?) "));
+            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Умный** ?) "));
             return "вас обманул";
         }
 
         if (me.Character.GetSkillClass() == "Сила" && target.Character.GetSkillClass() == "Интеллект")
         {
-            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Сильный** ?) "));
+            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Сильный** ?) "));
             return "вас пресанул";
         }
 
         if (me.Character.GetSkillClass() == "Скорость" && target.Character.GetSkillClass() == "Сила")
         {
-            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.Status.PlayerId, "(**Быстрый** ?) "));
+            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Быстрый** ?) "));
             return "вас обогнал";
         }
 
@@ -115,7 +115,7 @@ Speed => Strength
             var isStatsBettterEnemy = false;
             var isContrLost = 0;
             var isTooGoodLost = 0;
-            var playerIamAttacking = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.WhoToAttackThisTurn);
+            var playerIamAttacking = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.WhoToAttackThisTurn);
 
 
             //if block => no one gets points, and no redundant playerAttacked variable
@@ -137,8 +137,8 @@ Speed => Strength
             }
 
 
-            playerIamAttacking.Status.IsFighting = player.Status.PlayerId;
-            player.Status.IsFighting = playerIamAttacking.Status.PlayerId;
+            playerIamAttacking.Status.IsFighting = player.GetPlayerId();
+            player.Status.IsFighting = playerIamAttacking.GetPlayerId();
 
 
             _characterPassives.HandleCharacterWithKnownEnemyBeforeFight(player, game);
@@ -187,13 +187,18 @@ Speed => Strength
                     text2 = "(**БУЛЬ** ?!) ";
                 }
 
-                player.Character.AddMainSkill(player.Status, text1);
+                if (player.Character.Name != "Братишка")
+                {
+                    player.Character.AddMainSkill(player.Status, text1);
+                }
+                
+                
                 var known = player.Status.KnownPlayerClass.Find(x =>
-                    x.EnemyId == playerIamAttacking.Status.PlayerId);
+                    x.EnemyId == playerIamAttacking.GetPlayerId());
                 if (known != null)
                     player.Status.KnownPlayerClass.Remove(known);
                 player.Status.KnownPlayerClass.Add(
-                    new InGameStatus.KnownPlayerClassClass(playerIamAttacking.Status.PlayerId,
+                    new InGameStatus.KnownPlayerClassClass(playerIamAttacking.GetPlayerId(),
                         text2));
             }
 
@@ -206,7 +211,7 @@ Speed => Strength
                     {
                         var knownEnemy =
                             player.Status.KnownPlayerClass.Find(
-                                x => x.EnemyId == playerIamAttacking.Status.PlayerId);
+                                x => x.EnemyId == playerIamAttacking.GetPlayerId());
                         if (knownEnemy != null)
                             if (knownEnemy.Text.Contains("Умный"))
                                 player.Status.KnownPlayerClass.Remove(knownEnemy);
@@ -218,7 +223,7 @@ Speed => Strength
                     {
                         var knownEnemy =
                             player.Status.KnownPlayerClass.Find(
-                                x => x.EnemyId == playerIamAttacking.Status.PlayerId);
+                                x => x.EnemyId == playerIamAttacking.GetPlayerId());
                         if (knownEnemy != null)
                             if (knownEnemy.Text.Contains("Сильный"))
                                 player.Status.KnownPlayerClass.Remove(knownEnemy);
@@ -230,7 +235,7 @@ Speed => Strength
                     {
                         var knownEnemy =
                             player.Status.KnownPlayerClass.Find(
-                                x => x.EnemyId == playerIamAttacking.Status.PlayerId);
+                                x => x.EnemyId == playerIamAttacking.GetPlayerId());
                         if (knownEnemy != null)
                             if (knownEnemy.Text.Contains("Быстрый"))
                                 player.Status.KnownPlayerClass.Remove(knownEnemy);
@@ -242,7 +247,7 @@ Speed => Strength
                     {
                         var knownEnemy =
                             player.Status.KnownPlayerClass.Find(
-                                x => x.EnemyId == playerIamAttacking.Status.PlayerId);
+                                x => x.EnemyId == playerIamAttacking.GetPlayerId());
                         if (knownEnemy != null)
                             if (knownEnemy.Text.Contains("БУЛЬ"))
                                 player.Status.KnownPlayerClass.Remove(knownEnemy);
@@ -254,7 +259,7 @@ Speed => Strength
             //if block => no one gets points
             if (playerIamAttacking.Status.IsBlock && player.Status.IsAbleToWin || playerIamAttacking.Status.IsSuperBlock)
             {
-                player.Status.IsTargetBlocked = playerIamAttacking.Status.PlayerId;
+                player.Status.IsTargetBlocked = playerIamAttacking.GetPlayerId();
                 // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
 
                 var logMess = " ⟶ *Бой не состоялся (Блок)...*";
@@ -281,7 +286,7 @@ Speed => Strength
             // if skip => something
             if (playerIamAttacking.Status.IsSkip)
             {
-                player.Status.IsTargetSkipped = playerIamAttacking.Status.PlayerId;
+                player.Status.IsTargetSkipped = playerIamAttacking.GetPlayerId();
                 game.SkipPlayersThisRound++;
                 game.AddGlobalLogs(" ⟶ *Бой не состоялся (Скип)...*");
 
@@ -375,12 +380,12 @@ Speed => Strength
             {
                 case >= 13:
                     isTooGoodMe = true;
-                    randomForTooGood = 68;
+                    randomForTooGood = 75;
                     isTooGoodLost = 1;
                     break;
                 case <= -13:
                     isTooGoodEnemy = true;
-                    randomForTooGood = 32;
+                    randomForTooGood = 25;
                     isTooGoodLost = -1;
                     break;
             }
@@ -473,9 +478,9 @@ Speed => Strength
 
                 playerIamAttacking.Character.Justice.AddJusticeForNextRoundFromFight();
 
-                player.Status.IsWonThisCalculation = playerIamAttacking.Status.PlayerId;
-                playerIamAttacking.Status.IsLostThisCalculation = player.Status.PlayerId;
-                playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.Status.PlayerId, game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy, isStatsBettterEnemy, player.Status.PlayerId));
+                player.Status.IsWonThisCalculation = playerIamAttacking.GetPlayerId();
+                playerIamAttacking.Status.IsLostThisCalculation = player.GetPlayerId();
+                playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.GetPlayerId(), game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy, isStatsBettterEnemy, player.GetPlayerId()));
             }
             else
             {
@@ -514,9 +519,9 @@ Speed => Strength
 
                     player.Character.Justice.AddJusticeForNextRoundFromFight();
 
-                    playerIamAttacking.Status.IsWonThisCalculation = player.Status.PlayerId;
-                    player.Status.IsLostThisCalculation = playerIamAttacking.Status.PlayerId;
-                    player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.Status.PlayerId, game.RoundNo, isTooGoodEnemy, isStatsBettterEnemy, isTooGoodMe, isStatsBetterMe, player.Status.PlayerId));
+                    playerIamAttacking.Status.IsWonThisCalculation = player.GetPlayerId();
+                    player.Status.IsLostThisCalculation = playerIamAttacking.GetPlayerId();
+                    player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.GetPlayerId(), game.RoundNo, isTooGoodEnemy, isStatsBettterEnemy, isTooGoodMe, isStatsBetterMe, player.GetPlayerId()));
                 }
             }
 
@@ -610,7 +615,7 @@ Speed => Strength
             var tigrTemp = game.PlayersList.Find(x => x.Character.Name == "Тигр");
 
             var tigr = _gameGlobal.TigrTop.Find(x =>
-                x.GameId == game.GameId && x.PlayerId == tigrTemp.Status.PlayerId);
+                x.GameId == game.GameId && x.PlayerId == tigrTemp.GetPlayerId());
 
             if (tigr is { TimeCount: > 0 })
             {

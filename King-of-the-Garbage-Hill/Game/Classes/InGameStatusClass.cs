@@ -199,7 +199,7 @@ public class InGameStatus
             var tolyaAcc = game.PlayersList.Find(x => x.Character.Name == "Толя");
 
             var tolyaCount = gameGlobal.TolyaCount.Find(x =>
-                x.PlayerId == tolyaAcc.Status.PlayerId && x.GameId == game.GameId);
+                x.PlayerId == tolyaAcc.GetPlayerId() && x.GameId == game.GameId);
 
 
             if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == PlayerId))

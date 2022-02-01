@@ -75,14 +75,14 @@ public class CheckIfReady : IServiceSingleton
                 game.AddGlobalLogs("HarDKitty больше не одинок! Как много друзей!!!");
 
                 var hard = _gameGlobal.HardKittyLoneliness.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == playerWhoWon.Status.PlayerId);
+                    x.GameId == game.GameId && x.PlayerId == playerWhoWon.GetPlayerId());
 
                 if (hard != null)
                     foreach (var enemy in game.PlayersList)
                     {
-                        var hardEnemy = hard.AttackHistory.Find(x => x.EnemyId == enemy.Status.PlayerId);
+                        var hardEnemy = hard.AttackHistory.Find(x => x.EnemyId == enemy.GetPlayerId());
                         if (hardEnemy != null)
-                            game.PlayersList.Find(x => x.Status.PlayerId == hardEnemy.EnemyId).Status
+                            game.PlayersList.Find(x => x.GetPlayerId() == hardEnemy.EnemyId).Status
                                 .AddInGamePersonalLogs(
                                     $"HarDKitty больше не одинок! Вы принесли ему {hardEnemy.Times} очков.\n");
                     }
@@ -132,7 +132,7 @@ public class CheckIfReady : IServiceSingleton
         //predict
         foreach (var player in from player in game.PlayersList
                  from predict in player.Predict
-                 let enemy = game.PlayersList.Find(x => x.Status.PlayerId == predict.PlayerId)
+                 let enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId)
                  where enemy.Character.Name == predict.CharacterName
                  select player) player.Status.AddBonusPoints(3, "Предположение");
         // predict
@@ -147,11 +147,15 @@ public class CheckIfReady : IServiceSingleton
                 bot.Status.AddBonusPoints(3, "Предположение");
 
             if (bot.Character.Name == "AWDKA") bot.Status.AddBonusPoints(9, "Предположение");
+            if (bot.Character.Name == "DeepList")
+            {
+                var deepListTemp = _gameGlobal.DeepListSupermindTriggeredWhen.Find(x => x.PlayerId == bot.GetPlayerId() && game.GameId == x.GameId);
+                //bot.Status.AddBonusPoints(deepListTemp.WhenToTrigger.Count*3, "Предположение");
+            }
 
             if (game.PlayersList.All(x => _accounts.GetAccount(x.DiscordId).TotalPlays >= 50))
             {
                 bot.Status.AddBonusPoints(3, "Предположение");
-                //if (bot.Character.Name == "DeepList") bot.Status.AddBonusPoints(3, "Предположение");
             }
         }
         //end bot
@@ -171,16 +175,16 @@ public class CheckIfReady : IServiceSingleton
             {
                 var awdkaTroll = _gameGlobal.AwdkaTrollingList.Find(x =>
                     x.GameId == AWDKA.GameId &&
-                    x.PlayerId == AWDKA.Status.PlayerId);
+                    x.PlayerId == AWDKA.GetPlayerId());
 
 
                 var enemy = awdkaTroll.EnemyList.Find(x =>
-                    x.EnemyId == game.PlayersList.Find(y => y.Status.PlaceAtLeaderBoard == 1).Status.PlayerId);
+                    x.EnemyId == game.PlayersList.Find(y => y.Status.PlaceAtLeaderBoard == 1).GetPlayerId());
 
                 var trolledText = "";
                 if (enemy != null)
                 {
-                    var tolled = game.PlayersList.Find(x => x.Status.PlayerId == enemy.EnemyId);
+                    var tolled = game.PlayersList.Find(x => x.GetPlayerId() == enemy.EnemyId);
 
                     trolledText = tolled.Character.Name switch
                     {
@@ -228,7 +232,7 @@ public class CheckIfReady : IServiceSingleton
         foreach (var t in game.PlayersList)
             t.Status.PlaceAtLeaderBoardHistory.Add(new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo, t.Status.PlaceAtLeaderBoard));
 
-        game.WhoWon = game.PlayersList.First().Status.PlayerId;
+        game.WhoWon = game.PlayersList.First().GetPlayerId();
         HandlePostGameEvents(game);
 
 

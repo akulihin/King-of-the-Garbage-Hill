@@ -146,7 +146,7 @@ public class InGameGlobal : IServiceSingleton
         }
 
 
-        var toTriggerClass = new WhenToTriggerClass(player.Status.PlayerId, player.GameId);
+        var toTriggerClass = new WhenToTriggerClass(player.GetPlayerId(), player.GameId);
         int when;
 
         //mandatory times
@@ -208,40 +208,40 @@ public class InGameGlobal : IServiceSingleton
             switch (characterName)
             {
                 case "HardKitty":
-                    HardKittyMute.Add(new HardKitty.MuteClass(player.Status.PlayerId, game.GameId));
+                    HardKittyMute.Add(new HardKitty.MuteClass(player.GetPlayerId(), game.GameId));
                     HardKittyLoneliness.Add(
-                        new HardKitty.LonelinessClass(player.Status.PlayerId, game.GameId));
-                    HardKittyDoebatsya.Add(new HardKitty.DoebatsyaClass(player.Status.PlayerId,
+                        new HardKitty.LonelinessClass(player.GetPlayerId(), game.GameId));
+                    HardKittyDoebatsya.Add(new HardKitty.DoebatsyaClass(player.GetPlayerId(),
                         game.GameId));
                     break;
                 case "Осьминожка":
-                    OctopusTentaclesList.Add(new Octopus.TentaclesClass(player.Status.PlayerId,
+                    OctopusTentaclesList.Add(new Octopus.TentaclesClass(player.GetPlayerId(),
                         game.GameId));
                     break;
                 case "Darksci":
-                    DarksciLuckyList.Add(new Darksci.LuckyClass(player.Status.PlayerId,
+                    DarksciLuckyList.Add(new Darksci.LuckyClass(player.GetPlayerId(),
                         game.GameId));
                     break;
                 case "Бог ЛоЛа":
                     LolGodPushAndDieSubList.Add(
-                        new LolGod.PushAndDieClass(player.Status.PlayerId, game.GameId, game.PlayersList));
-                    LolGodUdyrList.Add(new LolGod.Udyr(player.Status.PlayerId, game.GameId));
+                        new LolGod.PushAndDieClass(player.GetPlayerId(), game.GameId, game.PlayersList));
+                    LolGodUdyrList.Add(new LolGod.Udyr(player.GetPlayerId(), game.GameId));
                     break;
                 case "Вампур":
-                    VampyrHematophagiaList.Add(new Vampyr.HematophagiaClass(player.Status.PlayerId, game.GameId));
-                    VampyrScavengerList.Add(new Vampyr.ScavengerClass(player.Status.PlayerId, game.GameId));
+                    VampyrHematophagiaList.Add(new Vampyr.HematophagiaClass(player.GetPlayerId(), game.GameId));
+                    VampyrScavengerList.Add(new Vampyr.ScavengerClass(player.GetPlayerId(), game.GameId));
                     break;
                 case "Sirinoks":
-                    SirinoksFriendsList.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                    SirinoksFriendsList.Add(new FriendsClass(player.GetPlayerId(), game.GameId));
                     SirinoksFriendsAttack.Add(
-                        new Sirinoks.SirinoksFriendsClass(player.Status.PlayerId, game.GameId));
+                        new Sirinoks.SirinoksFriendsClass(player.GetPlayerId(), game.GameId));
 
                     break;
                 case "Братишка":
-                    SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId, game.GameId));
-                    BtratishkaDontUnderstand.Add(new CraboRack.BakoBoole(player.Status.PlayerId, game.GameId));
-                    SharkJawsWin.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
-                    SharkBoole.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                    SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.GetPlayerId(), game.GameId));
+                    BtratishkaDontUnderstand.Add(new CraboRack.BakoBoole(player.GetPlayerId(), game.GameId));
+                    SharkJawsWin.Add(new FriendsClass(player.GetPlayerId(), game.GameId));
+                    SharkBoole.Add(new FriendsClass(player.GetPlayerId(), game.GameId));
                     break;
                 case "Загадочный Спартанец в маске":
 
@@ -253,75 +253,75 @@ public class InGameGlobal : IServiceSingleton
                     do
                     {
                         var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
-                        enemy1 = game.PlayersList[randIndex].Status.PlayerId;
+                        enemy1 = game.PlayersList[randIndex].GetPlayerId();
                         if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "mylorik" or
                             "Загадочный Спартанец в маске")
-                            enemy1 = player.Status.PlayerId;
-                    } while (enemy1 == player.Status.PlayerId);
+                            enemy1 = player.GetPlayerId();
+                    } while (enemy1 == player.GetPlayerId());
 
                     do
                     {
                         var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
-                        enemy2 = game.PlayersList[randIndex].Status.PlayerId;
+                        enemy2 = game.PlayersList[randIndex].GetPlayerId();
                         if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "mylorik" or
                             "Загадочный Спартанец в маске")
-                            enemy2 = player.Status.PlayerId;
+                            enemy2 = player.GetPlayerId();
                         if (enemy2 == enemy1)
-                            enemy2 = player.Status.PlayerId;
-                    } while (enemy2 == player.Status.PlayerId);
+                            enemy2 = player.GetPlayerId();
+                    } while (enemy2 == player.GetPlayerId());
 
-                    SpartanMark.Add(new Spartan.TheyWontLikeIt(player.Status.PlayerId, game.GameId, enemy1));
+                    SpartanMark.Add(new Spartan.TheyWontLikeIt(player.GetPlayerId(), game.GameId, enemy1));
                     var Spartan = SpartanMark.Find(x =>
-                        x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                        x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
                     Spartan.FriendList.Add(enemy2);
                     //end Им это не понравится
 
-                    SpartanShame.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
-                    SpartanFirstBlood.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                    SpartanShame.Add(new FriendsClass(player.GetPlayerId(), game.GameId));
+                    SpartanFirstBlood.Add(new FriendsClass(player.GetPlayerId(), game.GameId));
 
 
                     break;
                 case "DeepList":
-                    DeepListDoubtfulTactic.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                    DeepListDoubtfulTactic.Add(new FriendsClass(player.GetPlayerId(), game.GameId));
 
-                    when = GetWhenToTrigger(player, 1, 2, 5, 6);
+                    when = GetWhenToTrigger(player, 1, 2, 5, 5);
                     DeepListSupermindTriggeredWhen.Add(when);
 
-                    when = GetWhenToTrigger(player, 2, 1, 4, 7, 3);
+                    when = GetWhenToTrigger(player, 2, 1, 3, 7, 4);
                     DeepListMadnessTriggeredWhen.Add(when);
 
                     break;
                 case "mylorik":
                     MylorikSpartan.Add(
-                        new Mylorik.MylorikSpartanClass(player.Status.PlayerId, game.GameId));
+                        new Mylorik.MylorikSpartanClass(player.GetPlayerId(), game.GameId));
                     MylorikSpanish.Add(
-                        new Mylorik.MylorikSpanishClass(player.Status.PlayerId, game.GameId));
+                        new Mylorik.MylorikSpanishClass(player.GetPlayerId(), game.GameId));
                     break;
                 case "LeCrisp":
-                    LeCrispAssassins.Add(new LeCrisp.LeCrispAssassins(player.Status.PlayerId,
+                    LeCrispAssassins.Add(new LeCrisp.LeCrispAssassins(player.GetPlayerId(),
                         game.GameId));
-                    LeCrispImpact.Add(new LeCrisp.LeCrispImpactClass(player.Status.PlayerId,
+                    LeCrispImpact.Add(new LeCrisp.LeCrispImpactClass(player.GetPlayerId(),
                         game.GameId));
                     break;
                 case "Тигр":
                     TigrTwoBetterList.Add(
-                        new FriendsClass(player.Status.PlayerId, game.GameId));
+                        new FriendsClass(player.GetPlayerId(), game.GameId));
                     when = GetWhenToTrigger(player, 1, 1, 5, 8);
                     TigrTopWhen.Add(when);
                     break;
                 case "AWDKA":
                     when = GetWhenToTrigger(player, 0, 1, 5);
                     AwdkaAfkTriggeredWhen.Add(when);
-                    AwdkaTrollingList.Add(new Awdka.TrollingClass(player.Status.PlayerId, game.GameId));
+                    AwdkaTrollingList.Add(new Awdka.TrollingClass(player.GetPlayerId(), game.GameId));
                     AwdkaTeachToPlayHistory.Add(
-                        new Awdka.TeachToPlayHistory(player.Status.PlayerId, game.GameId));
-                    AwdkaTryingList.Add(new Awdka.TryingClass(player.Status.PlayerId, game.GameId));
+                        new Awdka.TeachToPlayHistory(player.GetPlayerId(), game.GameId));
+                    AwdkaTryingList.Add(new Awdka.TryingClass(player.GetPlayerId(), game.GameId));
                     break;
 
                 case "Толя":
-                    TolyaCount.Add(new Tolya.TolyaCountClass(game.GameId, player.Status.PlayerId));
-                    TolyaTalked.Add(new Tolya.TolyaTalkedlClass(game.GameId, player.Status.PlayerId));
-                    TolyaRammusTimes.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                    TolyaCount.Add(new Tolya.TolyaCountClass(game.GameId, player.GetPlayerId()));
+                    TolyaTalked.Add(new Tolya.TolyaTalkedlClass(game.GameId, player.GetPlayerId()));
+                    TolyaRammusTimes.Add(new FriendsClass(player.GetPlayerId(), game.GameId));
                     break;
 
                 case "Mit*suki*":
@@ -330,7 +330,7 @@ public class InGameGlobal : IServiceSingleton
                     break;
 
                 case "Глеб":
-                    GlebTea.Add(new Gleb.GlebTeaClass(player.Status.PlayerId, game.GameId));
+                    GlebTea.Add(new Gleb.GlebTeaClass(player.GetPlayerId(), game.GameId));
                     //Спящее хуйло chance   
                     when = GetWhenToTrigger(player, 1, 3, 3, 9);
                     GlebSleepingTriggeredWhen.Add(when);
@@ -361,8 +361,8 @@ public class InGameGlobal : IServiceSingleton
                     //end Бокобуль
 
                     //Панцирь
-                    CraboRackShell.Add(new CraboRack.Shell(player.Status.PlayerId, game.GameId));
-                    CraboRackBakoBoole.Add(new CraboRack.BakoBoole(player.Status.PlayerId, game.GameId));
+                    CraboRackShell.Add(new CraboRack.Shell(player.GetPlayerId(), game.GameId));
+                    CraboRackBakoBoole.Add(new CraboRack.BakoBoole(player.GetPlayerId(), game.GameId));
                     //end Панцирь
                     break;
             }

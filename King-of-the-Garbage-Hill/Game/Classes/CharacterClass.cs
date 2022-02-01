@@ -211,7 +211,10 @@ public class CharacterClass
                 status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} *Cкилла*\n");
         }
 
-        SkillExtra += howMuchToAdd;
+        if (status.CharacterName != "Братишка")
+        {
+            SkillExtra += howMuchToAdd;
+        }
     }
 
     public int GetMoral()

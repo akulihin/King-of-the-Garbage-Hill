@@ -211,11 +211,11 @@ public sealed class HelperFunctions : IServiceSingleton
             if (!player.IsBot() && !embed.Footer.Text.Contains("ERROR"))
             {
 
-                while (_embedQueue.Contains(player.Status.PlayerId))
+                while (_embedQueue.Contains(player.GetPlayerId()))
                 {
                     await Task.Delay(100);
                 }
-                _embedQueue.Add(player.Status.PlayerId);
+                _embedQueue.Add(player.GetPlayerId());
 
                 await player.Status.SocketMessageFromBot.ModifyAsync(message =>
                 {
@@ -228,7 +228,7 @@ public sealed class HelperFunctions : IServiceSingleton
                     await SendMsgAndDeleteItAfterRound(player, extraText);
                 }
 
-                _embedQueue.Remove(player.Status.PlayerId);
+                _embedQueue.Remove(player.GetPlayerId());
             }
         }
         catch (Exception exception)
@@ -245,16 +245,16 @@ public sealed class HelperFunctions : IServiceSingleton
         {
             if (!player.IsBot())
             {
-                while (_messageQueue.Contains(player.Status.PlayerId))
+                while (_messageQueue.Contains(player.GetPlayerId()))
                 {
                     await Task.Delay(200);
                 }
-                _messageQueue.Add(player.Status.PlayerId);
+                _messageQueue.Add(player.GetPlayerId());
 
                 var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(msg);
                 player.DeleteMessages.Add(mess2.Id);
 
-                _messageQueue.Remove(player.Status.PlayerId);
+                _messageQueue.Remove(player.GetPlayerId());
             }
         }
         catch (Exception exception)

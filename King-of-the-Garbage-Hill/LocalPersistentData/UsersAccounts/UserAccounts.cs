@@ -1,5 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Net.Mime;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Timers;
 using Discord;
@@ -17,6 +19,7 @@ public sealed class UserAccounts : IServiceSingleton
     private readonly UserAccountsDataStorage _usersDataStorage;
     private Timer _loopingTimer;
     private bool _saving = false;
+    private string _executionPath;
 
     public UserAccounts(DiscordShardedClient client, UserAccountsDataStorage usersDataStorage)
     {
@@ -25,6 +28,7 @@ public sealed class UserAccounts : IServiceSingleton
         _userAccountsDictionary = _usersDataStorage.LoadAllAccounts();
         ClearPlayingStatus();
         SaveAllAccountsTimer();
+        _executionPath = System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location);
     }
 
 
@@ -91,7 +95,11 @@ public sealed class UserAccounts : IServiceSingleton
 
     private void SaveAllAccounts(object sender, ElapsedEventArgs e)
     {
-        if (_saving) return;
+        
+        if("D:\\git\\King-of-the-Garbage-Hill\\King-of-the-Garbage-Hill\\bin\\Debug\\net6.0" == _executionPath) 
+            return;
+        if (_saving) 
+            return;
         _saving = true;
         foreach (var a in _userAccountsDictionary)
             _usersDataStorage.SaveAccountSettings(a.Value, a.Key);

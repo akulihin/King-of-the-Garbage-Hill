@@ -297,7 +297,7 @@ public class General : ModuleBaseCustom
             var tigrTemp = playersList.Find(x => x.Character.Name == "Тигр");
 
             var tigr = _gameGlobal.TigrTop.Find(x =>
-                x.GameId == tigrTemp.GameId && x.PlayerId == tigrTemp.Status.PlayerId);
+                x.GameId == tigrTemp.GameId && x.PlayerId == tigrTemp.GetPlayerId());
 
             if (tigr != null && tigr.TimeCount > 0)
             {
@@ -337,6 +337,14 @@ public class General : ModuleBaseCustom
             darksciTemp.Character.AddExtraSkill(darksciTemp.Status,  15, "Не повезло");
         }
         //end Не повезло
+
+        //Повторяет за myloran
+        if (playersList.Any(x => x.Character.Name == "mylorik"))
+        {
+            var mylorikTemp = playersList.Find(x => x.Character.Name == "mylorik");
+            mylorikTemp.Character.AddStrength(mylorikTemp.Status, (mylorikTemp.Character.GetStrength()*-1)+3, "Повторяет за myloran", true);
+        }
+        //end Повторяет за myloran
 
         return playersList;
     }

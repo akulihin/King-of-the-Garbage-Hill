@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
@@ -14,11 +15,11 @@ public class BotsBehavior : IServiceSingleton
 {
     private readonly InGameGlobal _gameGlobal;
     private readonly GameReaction _gameReaction;
-    private readonly SecureRandom _rand;
     private readonly Global _global;
     private readonly Logs _logs;
+    private readonly SecureRandom _rand;
 
-    public BotsBehavior(SecureRandom rand, GameReaction gameReaction, InGameGlobal gameGlobal, Global @global, Logs logs)
+    public BotsBehavior(SecureRandom rand, GameReaction gameReaction, InGameGlobal gameGlobal, Global global, Logs logs)
     {
         _rand = rand;
         _gameReaction = gameReaction;
@@ -35,83 +36,112 @@ public class BotsBehavior : IServiceSingleton
     public async Task HandleBotBehavior(GamePlayerBridgeClass player, GameClass game)
     {
         HandleBotMoral(player, game);
-        if (player.Status.MoveListPage == 3) await HandleLvlUpBot(player, game);
-        if (player.Status.MoveListPage == 1) await HandleBotAttack(player, game);
+        if (player.Status.MoveListPage == 3) 
+            await HandleLvlUpBot(player, game);
+        if (player.Status.MoveListPage == 1) 
+            await HandleBotAttack(player, game);
     }
 
     public void HandleBotMoralForSkill(GamePlayerBridgeClass bot, GameClass game)
     {
-        var moral = bot.Character.GetMoral();
         //логика до 10го раунда
         if (game.RoundNo < 10)
         {
-            if (bot.Character.Name == "Sirinoks" && game.RoundNo < 9)
+            var overwrite = false;
+
+            if (bot.Character.Name == "Sirinoks")
             {
-                if (bot.Status.PlaceAtLeaderBoard == 6 && moral < 21)
+                if (game.RoundNo == 9)
                 {
-                    return;
-                }
-                if (bot.Status.PlaceAtLeaderBoard is 5 or 4 && moral < 13)
-                {
-                    return;
-                }
-                if (bot.Status.PlaceAtLeaderBoard == 3 && moral < 8)
-                {
-                    return;
+                    overwrite = true;
                 }
             }
 
+            if (bot.Character.Name == "DeepList")
+            {
+                var deepList = _gameGlobal.DeepListMadnessTriggeredWhen.Find(x => x.PlayerId == bot.GetPlayerId() && x.GameId == game.GameId);
+                if (deepList != null)
+                    if (deepList.WhenToTrigger.Contains(game.RoundNo))
+                    {
+                        overwrite = true;
+                    }
+            }
+
+            //если хардкитти или осьминожка  или Вампур - всегда ждет 21 морали
+            if (bot.Character.Name is "HardKitty" or "Осьминожка" or "Вампур")
+                if (bot.Character.GetMoral() < 20)
+                    return;
+
+            //Начиная с 6го хода Darksci меняет всю мораль на очки
+            if (bot.Character.Name == "Darksci")
+                if (game.RoundNo >= 6)
+                    overwrite = true;
+
+            //если бот на последнем месте - ждет 21
+            if (bot.Status.PlaceAtLeaderBoard == 6 && bot.Character.GetMoral() < 21 && !overwrite)
+                return;
+            //если бот на 5м месте то ждет 13
+            if (bot.Status.PlaceAtLeaderBoard == 5 && bot.Character.GetMoral() < 13 && !overwrite)
+                return;
+            //если бот на 4м месте то ждет 8
+            if (bot.Status.PlaceAtLeaderBoard == 4 && bot.Character.GetMoral() < 8 && !overwrite)
+                return;
+            //если бот на 3м месте то ждет 5
+            if (bot.Status.PlaceAtLeaderBoard == 3 && bot.Character.GetMoral() < 5 && !overwrite)
+                return;
+            //если бот на 2м месте то ждет 3
+            if (bot.Status.PlaceAtLeaderBoard == 2 && bot.Character.GetMoral() < 3 && !overwrite)
+                return;
         }
         //end логика до 10го раунда
 
         //прожать всю момаль
-        if (moral >= 20)
+        if (bot.Character.GetMoral() >= 20)
         {
             bot.Character.AddMoral(bot.Status, -20, "Обмен Морали", true, true);
-            bot.Character.AddExtraSkill(bot.Status,  114, "Обмен Морали");
+            bot.Character.AddExtraSkill(bot.Status, 130, "Обмен Морали");
         }
 
-        if (moral >= 13)
+        if (bot.Character.GetMoral() >= 13)
         {
             bot.Character.AddMoral(bot.Status, -13, "Обмен Морали", true, true);
-            bot.Character.AddExtraSkill(bot.Status,  69, "Обмен Морали");
+            bot.Character.AddExtraSkill(bot.Status, 80, "Обмен Морали");
         }
 
-        if (moral >= 8)
+        if (bot.Character.GetMoral() >= 8)
         {
             bot.Character.AddMoral(bot.Status, -8, "Обмен Морали", true, true);
-            bot.Character.AddExtraSkill(bot.Status,  39, "Обмен Морали");
+            bot.Character.AddExtraSkill(bot.Status, 46, "Обмен Морали");
         }
 
-        if (moral >= 5)
+        if (bot.Character.GetMoral() >= 5)
         {
             bot.Character.AddMoral(bot.Status, -5, "Обмен Морали", true, true);
-            bot.Character.AddExtraSkill(bot.Status,  24, "Обмен Морали");
+            bot.Character.AddExtraSkill(bot.Status, 28, "Обмен Морали");
         }
 
-        if (moral >= 3)
+        if (bot.Character.GetMoral() >= 3)
         {
             bot.Character.AddMoral(bot.Status, -3, "Обмен Морали", true, true);
-            bot.Character.AddExtraSkill(bot.Status,  14, "Обмен Морали");
+            bot.Character.AddExtraSkill(bot.Status, 16, "Обмен Морали");
         }
 
-        if (moral >= 2)
+        if (bot.Character.GetMoral() >= 2)
         {
             bot.Character.AddMoral(bot.Status, -2, "Обмен Морали", true, true);
-            bot.Character.AddExtraSkill(bot.Status,  9, "Обмен Морали");
+            bot.Character.AddExtraSkill(bot.Status, 10, "Обмен Морали");
         }
 
-        if (moral >= 1)
+        if (bot.Character.GetMoral() >= 1)
         {
             bot.Character.AddMoral(bot.Status, -1, "Обмен Морали", true, true);
-            bot.Character.AddExtraSkill(bot.Status,  4, "Обмен Морали");
+            bot.Character.AddExtraSkill(bot.Status, 4, "Обмен Морали");
         }
         //end прожать всю момаль
     }
 
     public void HandleBotMoralForPoints(GamePlayerBridgeClass bot, GameClass game)
     {
-        var moral = bot.Character.GetMoral();
         //логика до 10го раунда
         if (game.RoundNo < 10)
         {
@@ -119,61 +149,58 @@ public class BotsBehavior : IServiceSingleton
 
             //если хардкитти или осьминожка  или Вампур - всегда ждет 21 морали
             if (bot.Character.Name is "HardKitty" or "Осьминожка" or "Вампур")
-                if (moral < 21)
+                if (bot.Character.GetMoral() < 20)
                     return;
 
             //Начиная с 6го хода Darksci меняет всю мораль на очки
             if (bot.Character.Name == "Darksci")
-            {
                 if (game.RoundNo >= 6)
                     overwrite = true;
-            }
 
             //если бот на последнем месте - ждет 21
-            if (bot.Status.PlaceAtLeaderBoard == 6 && moral < 21 && !overwrite)
+            if (bot.Status.PlaceAtLeaderBoard == 6 && bot.Character.GetMoral() < 21 && !overwrite)
                 return;
             //если бот на 5м месте то ждет 13
-            if (bot.Status.PlaceAtLeaderBoard == 5 && moral < 13 && !overwrite)
+            if (bot.Status.PlaceAtLeaderBoard == 5 && bot.Character.GetMoral() < 13 && !overwrite)
                 return;
             //если бот на 4м месте то ждет 8
-            if (bot.Status.PlaceAtLeaderBoard == 4 && moral < 8 && !overwrite)
+            if (bot.Status.PlaceAtLeaderBoard == 4 && bot.Character.GetMoral() < 8 && !overwrite)
                 return;
             //если бот на 3м месте то ждет 5
-            if (bot.Status.PlaceAtLeaderBoard == 3 && moral < 5 && !overwrite)
+            if (bot.Status.PlaceAtLeaderBoard == 3 && bot.Character.GetMoral() < 5 && !overwrite)
                 return;
             //если бот на 2м месте то ждет 3
-            if (bot.Status.PlaceAtLeaderBoard == 2 && moral < 3 && !overwrite)
+            if (bot.Status.PlaceAtLeaderBoard == 2 && bot.Character.GetMoral() < 3 && !overwrite)
                 return;
-
         }
         //end логика до 10го раунда
 
         //прожать всю момаль
-        if (moral >= 20)
+        if (bot.Character.GetMoral() >= 20)
         {
             bot.Character.AddMoral(bot.Status, -20, "Обмен Морали", true, true);
             bot.Character.AddBonusPointsFromMoral(13);
         }
 
-        if (moral >= 13)
+        if (bot.Character.GetMoral() >= 13)
         {
             bot.Character.AddMoral(bot.Status, -13, "Обмен Морали", true, true);
             bot.Character.AddBonusPointsFromMoral(8);
         }
 
-        if (moral >= 8)
+        if (bot.Character.GetMoral() >= 8)
         {
             bot.Character.AddMoral(bot.Status, -8, "Обмен Морали", true, true);
             bot.Character.AddBonusPointsFromMoral(4);
         }
 
-        if (moral >= 5)
+        if (bot.Character.GetMoral() >= 5)
         {
             bot.Character.AddMoral(bot.Status, -5, "Обмен Морали", true, true);
             bot.Character.AddBonusPointsFromMoral(2);
         }
 
-        if (moral >= 3)
+        if (bot.Character.GetMoral() >= 3)
         {
             bot.Character.AddMoral(bot.Status, -3, "Обмен Морали", true, true);
             bot.Character.AddBonusPointsFromMoral(1);
@@ -183,6 +210,7 @@ public class BotsBehavior : IServiceSingleton
 
     public void HandleBotMoral(GamePlayerBridgeClass bot, GameClass game)
     {
+
         if (bot.Status.PlaceAtLeaderBoard == 1)
         {
             HandleBotMoralForSkill(bot, game);
@@ -191,15 +219,17 @@ public class BotsBehavior : IServiceSingleton
 
         if (bot.Character.Name == "Sirinoks")
         {
+            //логика до 10го раунда
             HandleBotMoralForSkill(bot, game);
+            //end логика до 10го раунда
             return;
         }
 
-        if (bot.Character.Name == "Вампур" && game.RoundNo == 5)
+        /*if (bot.Character.Name == "Вампур" && game.RoundNo == 5)
         {
             HandleBotMoralForSkill(bot, game);
             return;
-        }
+        }*/
 
         if (bot.Character.Name == "LeCrisp" && game.RoundNo <= 5)
         {
@@ -215,25 +245,19 @@ public class BotsBehavior : IServiceSingleton
 
         if (bot.Character.Name == "DeepList")
         {
-           var deepList = _gameGlobal.DeepListMadnessTriggeredWhen.Find(x => x.PlayerId == bot.Status.PlayerId && x.GameId == game.GameId);
-           if (deepList != null)
-           {
-               if (deepList.WhenToTrigger.Contains(game.RoundNo))
-               {
-                   HandleBotMoralForSkill(bot, game);
-                   return;
-               }
-           }
+            HandleBotMoralForSkill(bot, game);
+            return;
         }
 
         if (bot.Character.Name == "mylorik")
         {
-            var mylorikRevenge = _gameGlobal.MylorikRevenge.Find(x => x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
+            var mylorikRevenge =
+                _gameGlobal.MylorikRevenge.Find(x => x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId());
             if (mylorikRevenge != null)
             {
                 var totalNotFinishedRevenges = mylorikRevenge.EnemyListPlayerIds.FindAll(x => x.IsUnique).Count;
                 var totalRevenges = mylorikRevenge.EnemyListPlayerIds.Count;
-                
+
                 //если на всех уже был запрокан луз или победа, то меняет мораль на скилл
                 if (totalRevenges == 5)
                 {
@@ -261,20 +285,14 @@ public class BotsBehavior : IServiceSingleton
         try
         {
             //local variables
-            var allTargets = _gameGlobal.NanobotsList.Find(x => x.GameId == game.GameId).Nanobots.Where(x => x.Player.Status.PlayerId != bot.Status.PlayerId).ToList();
+            var allTargets = _gameGlobal.NanobotsList.Find(x => x.GameId == game.GameId).Nanobots
+                .Where(x => x.GetPlayerId() != bot.GetPlayerId()).ToList();
 
-            if (game.RoundNo == 10)
-            {
-                allTargets = allTargets.Where(x => x.Player.Character.Name != "Тигр").ToList();
-            }
+            if (game.RoundNo == 10) allTargets = allTargets.Where(x => x.Player.Character.Name != "Тигр").ToList();
 
             if (game.RoundNo == 9 || game.RoundNo == 10)
-            {
                 if (game.GetAllGlobalLogs().Contains("Нахуй эту игру"))
-                {
                     allTargets = allTargets.Where(x => x.Player.Character.Name != "Darksci").ToList();
-                }
-            }
 
             double maxRandomNumber = 0;
             var isBlock = allTargets.Count;
@@ -289,9 +307,19 @@ public class BotsBehavior : IServiceSingleton
             //character variables
             var DarksciTheOne = Guid.Empty;
             var AwdkaFirst = 0;
+            double SpartanTarget = 0;
             //end character variables
 
             //local varaibles
+            var isTargetTooGoodNumber = 7;
+            var isLostLastRoundAndTargetIsBetterNumber = 5;
+            var isJusticeTheSameNumber = 5;
+            var isJusticeLessThanTargetNumber = 7;
+            var isTargetFirstNumber = 1;
+            var isTargetSecondWhenBotFirstNumber = 1;
+            var isBotWonAndTooGoodNumber = 4;
+            var isTargetContrNumber = 3;
+            var isTargetTaretNumber = 1;
             var isTargetTooGood = false;
             var isJusticeTheSame = false;
             var isJusticeLessThanTarget = false;
@@ -313,83 +341,80 @@ public class BotsBehavior : IServiceSingleton
                 //if justice is the same
                 if (botJustice == targetJustice)
                 {
-                    target.AttackPreference -= 5;
+                    target.AttackPreference -= isJusticeTheSameNumber;
                     isJusticeTheSame = true;
                 }
                 //if bot justice less than platers
                 else if (botJustice < targetJustice)
                 {
-                    target.AttackPreference -= 7;
+                    target.AttackPreference -= isJusticeLessThanTargetNumber;
                     isJusticeLessThanTarget = true;
                 }
 
                 //if player is first
                 if (target.Player.Status.PlaceAtLeaderBoard == 1)
                 {
-                    target.AttackPreference -= 1;
+                    target.AttackPreference -= isTargetFirstNumber;
                     isTargetFirst = true;
                 }
 
                 //if player is second when we are first
                 if (bot.Status.PlaceAtLeaderBoard == 1 && target.Player.Status.PlaceAtLeaderBoard == 2)
                 {
-                    target.AttackPreference -= 1;
+                    target.AttackPreference -= isTargetSecondWhenBotFirstNumber;
                     isTargetSecondWhenBotFirst = true;
                 }
 
 
-                //bug: WARNING!
-                //IMPORTANT:
-                //mylorik и Глеб имеют эту же запись у себя, где они это меняют
-                //если меняешь что-то тут, то нужно менять у mylorik и Глеб руками!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
                 //если на прошлом бою враг был toogood
                 //-= 7
                 if (bot.Status.WhoToLostEveryRound.Any(x =>
-                        x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.Player.Status.PlayerId &&
+                        x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.GetPlayerId() &&
                         x.IsTooGoodEnemy))
                 {
-                    target.AttackPreference -= 7;
+                    target.AttackPreference -= isTargetTooGoodNumber;
                     isTargetTooGood = true;
                 }
                 else if (target.Player.Status.WhoToLostEveryRound.Any(x =>
-                             x.RoundNo == game.RoundNo - 1 && x.EnemyId == bot.Status.PlayerId && x.IsTooGoodMe))
+                             x.RoundNo == game.RoundNo - 1 && x.EnemyId == bot.GetPlayerId() && x.IsTooGoodMe))
                 {
-                    target.AttackPreference -= 7;
+                    target.AttackPreference -= isTargetTooGoodNumber;
                     isTargetTooGood = true;
                 }
                 //если на прошлом ты проиграл И у врага больше статов
                 //-= 5
                 else if (bot.Status.WhoToLostEveryRound.Any(x =>
-                             x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.Player.Status.PlayerId &&
+                             x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.GetPlayerId() &&
                              x.IsStatsBetterEnemy))
                 {
-                    target.AttackPreference -= 5;
+                    target.AttackPreference -= isLostLastRoundAndTargetIsBetterNumber;
                     isLostLastRoundAndTargetIsBetter = true;
                 }
                 //если на прошлом-1 ты проиграл И у врага больше статов
                 //-= 5
                 else if (bot.Status.WhoToLostEveryRound.Any(x =>
-                             x.RoundNo == game.RoundNo - 2 && x.EnemyId == target.Player.Status.PlayerId &&
+                             x.RoundNo == game.RoundNo - 2 && x.EnemyId == target.GetPlayerId() &&
                              x.IsStatsBetterEnemy))
                 {
-                    target.AttackPreference -= 5;
+                    target.AttackPreference -= isLostLastRoundAndTargetIsBetterNumber;
                     isLostLastRoundAndTargetIsBetter = true;
                 }
-                //bug: warning ends here.
+           
 
 
                 //won and too good
                 if (target.Player.Status.WhoToLostEveryRound.Any(x =>
-                        x.RoundNo == game.RoundNo - 1 && x.EnemyId == bot.Status.PlayerId && x.IsTooGoodEnemy))
+                        x.RoundNo == game.RoundNo - 1 && x.EnemyId == bot.GetPlayerId() && x.IsTooGoodEnemy))
                 {
-                    target.AttackPreference += 4;
+                    target.AttackPreference += isBotWonAndTooGoodNumber;
                     isBotWonAndTooGood = true;
                 }
 
 
                 //how many players are attacking the same player
-                howManyAttackingTheSameTarget = allTargets.FindAll(x => x.Player.Status.WhoToAttackThisTurn == target.Player.Status.PlayerId).Count;
+                howManyAttackingTheSameTarget = allTargets
+                    .FindAll(x => x.Player.Status.WhoToAttackThisTurn == target.GetPlayerId()).Count;
                 target.AttackPreference -= howManyAttackingTheSameTarget;
 
 
@@ -397,7 +422,7 @@ public class BotsBehavior : IServiceSingleton
                 if (target.AttackPreference >= 5)
                     if (bot.Character.GetCurrentSkillClassTarget() == target.Player.Character.GetSkillClass())
                     {
-                        target.AttackPreference += 1;
+                        target.AttackPreference += isTargetTaretNumber;
                         isTargetTaret = true;
                     }
 
@@ -405,7 +430,7 @@ public class BotsBehavior : IServiceSingleton
                 if (target.AttackPreference >= 5)
                     if (bot.Character.GetWhoIContre() == target.Player.Character.GetSkillClass())
                     {
-                        target.AttackPreference += 3;
+                        target.AttackPreference += isTargetContrNumber;
                         isTargetContr = true;
                     }
 
@@ -420,47 +445,54 @@ public class BotsBehavior : IServiceSingleton
                 //custom bot behavior
                 switch (bot.Character.Name)
                 {
+                    case "DeepList":
+                        var deepListMadness = _gameGlobal.DeepListMadnessTriggeredWhen.Find(x => x.PlayerId == bot.GetPlayerId() && x.GameId == game.GameId);
+                        if (deepListMadness.WhenToTrigger.Contains(game.RoundNo))
+                        {
+                            if (bot.Character.GetCurrentSkillClassTarget() == target.Player.Character.GetSkillClass())
+                            {
+                                target.AttackPreference += 3;
+                            }
+                        }
+                        break;
                     case "Тигр":
 
-                        var tigr = _gameGlobal.TigrThreeZeroList.Find(x => x.PlayerId == bot.Status.PlayerId && x.GameId == game.GameId);
+                        var tigr = _gameGlobal.TigrThreeZeroList.Find(x => x.PlayerId == bot.GetPlayerId() && x.GameId == game.GameId);
                         if (tigr != null)
                         {
                             if (target.AttackPreference <= 3)
                             {
-                                if (tigr.FriendList.Any(x => x.EnemyPlayerId == target.Player.Status.PlayerId && x.WinsSeries == 1 && x.IsUnique))
-                                {
+                                if (tigr.FriendList.Any(x =>
+                                        x.EnemyPlayerId == target.GetPlayerId() && x.WinsSeries == 1 && x.IsUnique))
                                     target.AttackPreference -= 2;
-                                }
-                                if (tigr.FriendList.Any(x => x.EnemyPlayerId == target.Player.Status.PlayerId && x.WinsSeries == 2 && x.IsUnique))
-                                {
+                                if (tigr.FriendList.Any(x =>
+                                        x.EnemyPlayerId == target.GetPlayerId() && x.WinsSeries == 2 && x.IsUnique))
                                     target.AttackPreference = 0;
-                                }
                             }
 
                             switch (target.AttackPreference)
                             {
                                 case >= 8:
                                 {
-                                    if (tigr.FriendList.Any(x => x.EnemyPlayerId == target.Player.Status.PlayerId && x.WinsSeries >= 1 && x.IsUnique))
-                                    {
+                                    if (tigr.FriendList.Any(x =>
+                                            x.EnemyPlayerId == target.GetPlayerId() && x.WinsSeries >= 1 && x.IsUnique))
                                         target.AttackPreference += 9;
-                                    }
 
                                     break;
                                 }
                                 case >= 6:
                                 {
-                                    if (tigr.FriendList.Any(x => x.EnemyPlayerId == target.Player.Status.PlayerId && x.WinsSeries >= 1 && x.IsUnique))
-                                    {
+                                    if (tigr.FriendList.Any(x =>
+                                            x.EnemyPlayerId == target.GetPlayerId() && x.WinsSeries >= 1 && x.IsUnique))
                                         target.AttackPreference += 3;
-                                    }
 
                                     break;
                                 }
                             }
                         }
+
                         break;
-                    
+
 
                     case "AWDKA":
 
@@ -471,16 +503,19 @@ public class BotsBehavior : IServiceSingleton
                                 AwdkaFirst = target.Player.Character.GetIntelligence();
                                 mandatoryAttack = target.PlaceAtLeaderBoard();
                             }
+
                             if (target.Player.Character.GetStrength() > AwdkaFirst)
                             {
                                 AwdkaFirst = target.Player.Character.GetStrength();
                                 mandatoryAttack = target.PlaceAtLeaderBoard();
                             }
+
                             if (target.Player.Character.GetSpeed() > AwdkaFirst)
                             {
                                 AwdkaFirst = target.Player.Character.GetSpeed();
                                 mandatoryAttack = target.PlaceAtLeaderBoard();
                             }
+
                             if (target.Player.Character.GetPsyche() > AwdkaFirst)
                             {
                                 AwdkaFirst = target.Player.Character.GetPsyche();
@@ -488,37 +523,30 @@ public class BotsBehavior : IServiceSingleton
                             }
                         }
 
-                        
-                        var awdkaTrying = _gameGlobal.AwdkaTryingList.Find(x => x.PlayerId == bot.Status.PlayerId && game.GameId == x.GameId);
+
+                        var awdkaTrying = _gameGlobal.AwdkaTryingList.Find(x =>
+                            x.PlayerId == bot.GetPlayerId() && game.GameId == x.GameId);
                         if (awdkaTrying != null)
                         {
-                            var awdkaTryingTarget = awdkaTrying.TryingList.Find(x => x.EnemyPlayerId == target.Player.Status.PlayerId);
+                            var awdkaTryingTarget =
+                                awdkaTrying.TryingList.Find(x => x.EnemyPlayerId == target.GetPlayerId());
                             if (awdkaTryingTarget != null)
                             {
                                 //-2 тем, на ком есть стак платины(до тех пор, пока он еще не на всех)
                                 if (awdkaTrying.TryingList.Count(x => x.IsUnique) < 5)
-                                {
                                     if (awdkaTryingTarget.IsUnique)
                                         target.AttackPreference -= 2;
-                                }
 
                                 if (game.RoundNo <= 4)
-                                {
                                     if (!awdkaTryingTarget.IsUnique)
                                         target.AttackPreference = 15 - target.AttackPreference;
-                                }
                                 if (game.RoundNo <= 5)
-                                {
                                     if (!awdkaTryingTarget.IsUnique)
                                         target.AttackPreference += 5;
-                                }
                             }
                             else
                             {
-                                if (game.RoundNo <= 5)
-                                {
-                                    target.AttackPreference += 5;
-                                }
+                                if (game.RoundNo <= 5) target.AttackPreference += 5;
                             }
                         }
 
@@ -527,122 +555,88 @@ public class BotsBehavior : IServiceSingleton
 
                         if (game.RoundNo > 5)
                         {
-
-                            var wons = target.Player.Status.WhoToLostEveryRound.OrderByDescending(x => x.RoundNo).ToList();
+                            var wons = target.Player.Status.WhoToLostEveryRound.OrderByDescending(x => x.RoundNo)
+                                .ToList();
                             foreach (var won in wons)
-                            {
-                                if (won.EnemyId == bot.Status.PlayerId && won.WhoAttacked == bot.Status.PlayerId)
+                                if (won.EnemyId == bot.GetPlayerId() && won.WhoAttacked == bot.GetPlayerId())
                                 {
                                     var places = 6;
-                                    if (target.PlaceAtLeaderBoard() == 6)
-                                    {
-                                        places = 7;
-                                    }
-                                    target.AttackPreference = target.AttackPreference * ((game.RoundNo - won.RoundNo + (double)((places - target.PlaceAtLeaderBoard()) * (game.RoundNo - won.RoundNo - 1))) / 2);
+                                    if (target.PlaceAtLeaderBoard() == 6) places = 7;
+                                    target.AttackPreference = target.AttackPreference * ((game.RoundNo - won.RoundNo +
+                                        (double)((places - target.PlaceAtLeaderBoard()) *
+                                                 (game.RoundNo - won.RoundNo - 1))) / 2);
                                     triggered = true;
                                     break;
                                 }
-                            }
-                            
+
 
                             if (!triggered)
                             {
                                 var places = 6;
-                                if (target.PlaceAtLeaderBoard() == 6)
-                                {
-                                    places = 7;
-                                }
-                                target.AttackPreference = target.AttackPreference * ((game.RoundNo + (double)(places - target.PlaceAtLeaderBoard()) * (game.RoundNo - 1)) / 2);
+                                if (target.PlaceAtLeaderBoard() == 6) places = 7;
+                                target.AttackPreference = target.AttackPreference *
+                                                          ((game.RoundNo +
+                                                            (double)(places - target.PlaceAtLeaderBoard()) *
+                                                            (game.RoundNo - 1)) / 2);
                             }
                         }
-    
+
                         break;
                     case "HardKitty":
-                        if (game.RoundNo < 5)
-                        {
-                            mandatoryAttack = allTargets.First().PlaceAtLeaderBoard();
-                        }
+                        if (game.RoundNo < 5) mandatoryAttack = allTargets.First().PlaceAtLeaderBoard();
 
-                        if (target.PlaceAtLeaderBoard() == 1)
-                        {
-                            target.AttackPreference += 1;
-                        }
+                        if (target.PlaceAtLeaderBoard() == 1) target.AttackPreference += 1;
 
                         break;
                     case "Darksci":
                         if (game.RoundNo < 8)
-                        {
                             if (targetJustice > botJustice)
-                            {
                                 target.AttackPreference -= 3;
-                            }
-                        }
 
-                        var darksciLucky = _gameGlobal.DarksciLuckyList.Find(x => x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
+                        var darksciLucky = _gameGlobal.DarksciLuckyList.Find(x =>
+                            x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId());
                         if (darksciLucky != null)
                         {
-                            if (!darksciLucky.TouchedPlayers.Contains(target.Player.Status.PlayerId))
-                            {
+                            if (!darksciLucky.TouchedPlayers.Contains(target.GetPlayerId()))
                                 if (target.AttackPreference > 1)
                                 {
                                     target.AttackPreference += 3;
-                                    if (game.RoundNo < 5)
-                                    {
-                                        target.AttackPreference += 3;
-                                    }
+                                    if (game.RoundNo < 5) target.AttackPreference += 3;
                                 }
 
-                            }
-
-                            if (!darksciLucky.TouchedPlayers.Contains(target.Player.Status.PlayerId) && darksciLucky.TouchedPlayers.Count == 4)
-                            {
-                                target.AttackPreference = 0;
-                            }
+                            if (!darksciLucky.TouchedPlayers.Contains(target.GetPlayerId()) &&
+                                darksciLucky.TouchedPlayers.Count == 4) target.AttackPreference = 0;
 
                             // Если ОДИН из тех, на ком не запрокан стак, уже побеждал даркси ПО СТАТАМ, то его значение = 0.
                             if (darksciLucky.TouchedPlayers.Count != 5)
-                            {
-                                if (!darksciLucky.TouchedPlayers.Contains(target.Player.Status.PlayerId))
+                                if (!darksciLucky.TouchedPlayers.Contains(target.GetPlayerId()))
                                 {
-                                    var darksciLuckyTheOne = bot.Status.WhoToLostEveryRound.Find(x => x.EnemyId == target.Player.Status.PlayerId && x.IsStatsBetterEnemy);
+                                    var darksciLuckyTheOne = bot.Status.WhoToLostEveryRound.Find(x =>
+                                        x.EnemyId == target.GetPlayerId() && x.IsStatsBetterEnemy);
                                     if (darksciLuckyTheOne != null && DarksciTheOne == Guid.Empty)
                                     {
-                                        DarksciTheOne = target.Player.Status.PlayerId;
+                                        DarksciTheOne = target.GetPlayerId();
                                         target.AttackPreference = 0;
                                     }
                                 }
-                            }
 
                             //Если незапроканных стаков = кол-во оставшихся ходов - 3, то выбирает цель только из них. (пока не останется 1) 
 
                             var notTouched = 5 - darksciLucky.TouchedPlayers.Count;
                             var roundsLeft = 11 - (game.RoundNo + 3);
                             if (notTouched >= roundsLeft)
-                            {
                                 if (darksciLucky.TouchedPlayers.Count < 5)
-                                {
-                                    if (darksciLucky.TouchedPlayers.Contains(target.Player.Status.PlayerId))
-                                    {
+                                    if (darksciLucky.TouchedPlayers.Contains(target.GetPlayerId()))
                                         target.AttackPreference = 0;
-                                    }
-                                }
-                            }
 
 
-                            if (game.RoundNo == 7 && bot.Character.GetPsyche() < 4 && darksciLucky.TouchedPlayers.Count != 5)
-                            {
-                                if (!darksciLucky.TouchedPlayers.Contains(target.Player.Status.PlayerId))
-                                {
+                            if (game.RoundNo == 7 && bot.Character.GetPsyche() < 4 &&
+                                darksciLucky.TouchedPlayers.Count != 5)
+                                if (!darksciLucky.TouchedPlayers.Contains(target.GetPlayerId()))
                                     mandatoryAttack = target.PlaceAtLeaderBoard();
-                                }
-                            }
                             if (game.RoundNo >= 8 && darksciLucky.TouchedPlayers.Count != 5)
-                            {
-                                if (!darksciLucky.TouchedPlayers.Contains(target.Player.Status.PlayerId))
-                                {
+                                if (!darksciLucky.TouchedPlayers.Contains(target.GetPlayerId()))
                                     mandatoryAttack = target.PlaceAtLeaderBoard();
-                                }
-                            }
                         }
 
                         break;
@@ -650,28 +644,27 @@ public class BotsBehavior : IServiceSingleton
                         if (target.AttackPreference >= 5)
                         {
                             if (bot.Character.GetCurrentSkillClassTarget() == target.Player.Character.GetSkillClass())
-                            {
                                 target.AttackPreference += 3;
-                            }
 
                             if (game.RoundNo < 5 && target.Player.Character.Name == "HardKitty")
-                            {
                                 target.AttackPreference = 0;
-                            }
 
-                            if (game.RoundNo > 5 && target.Player.Character.Name == "HardKitty" && target.AttackPreference >= 5)
-                            {
-                                mandatoryAttack = target.PlaceAtLeaderBoard();
-                            }
+                            if (game.RoundNo > 5 && target.Player.Character.Name == "HardKitty" &&
+                                target.AttackPreference >= 5) mandatoryAttack = target.PlaceAtLeaderBoard();
                         }
+
                         break;
                     case "mylorik":
-                        var mylorikRevenge = _gameGlobal.MylorikRevenge.Find(x => x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
+                        var mylorikRevenge = _gameGlobal.MylorikRevenge.Find(x =>
+                            x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId());
                         if (mylorikRevenge != null)
                         {
-                            var revengeEnemy = mylorikRevenge.EnemyListPlayerIds.Find(x => x.EnemyPlayerId == target.Player.Status.PlayerId);
-                            var totalFinishedRevenges = mylorikRevenge.EnemyListPlayerIds.FindAll(x => !x.IsUnique).Count;
-                            var totalNotFinishedRevenges = mylorikRevenge.EnemyListPlayerIds.FindAll(x => x.IsUnique).Count;
+                            var revengeEnemy =
+                                mylorikRevenge.EnemyListPlayerIds.Find(x => x.EnemyPlayerId == target.GetPlayerId());
+                            var totalFinishedRevenges =
+                                mylorikRevenge.EnemyListPlayerIds.FindAll(x => !x.IsUnique).Count;
+                            var totalNotFinishedRevenges =
+                                mylorikRevenge.EnemyListPlayerIds.FindAll(x => x.IsUnique).Count;
 
 
                             if (revengeEnemy != null)
@@ -680,10 +673,7 @@ public class BotsBehavior : IServiceSingleton
                                 if (revengeEnemy.IsUnique)
                                 {
                                     var leftRound = 11 - game.RoundNo;
-                                    if (totalNotFinishedRevenges >= leftRound)
-                                    {
-                                        target.AttackPreference *= 3;
-                                    }
+                                    if (totalNotFinishedRevenges >= leftRound) target.AttackPreference *= 3;
                                 }
 
                                 //первые 4 хода, Не нападает на тех, на ком уже запрокан луз мести, но не запрокана победа мести. если запроканы еще не все 
@@ -699,33 +689,21 @@ public class BotsBehavior : IServiceSingleton
                                     target.AttackPreference += 10;
 
                                 //преф - 4 тем, на ком уже запрокана ПОБЕДА мести, если запроканы еще не все
-                                if (!revengeEnemy.IsUnique && totalFinishedRevenges < 5)
-                                {
-                                    target.AttackPreference -= 4;
-                                }
+                                if (!revengeEnemy.IsUnique && totalFinishedRevenges < 5) target.AttackPreference -= 4;
 
 
                                 if (game.RoundNo > 5)
-                                {
                                     //после 5го хода: преф игроков С Лузом но БЕЗ победы не может опуститься ниже 4 
                                     if (revengeEnemy.IsUnique)
-                                    {
                                         if (target.AttackPreference < 4)
                                             target.AttackPreference = 4;
-                                    }
-                                }
                             }
                             else
                             {
-
                                 //на первых 4х ходах если у врага больше справедливости и не запрокана ни одна метка, то преф +2 * разницу в вашей справедливости ( с положительным знаком)
                                 if (game.RoundNo <= 4)
-                                {
                                     if (targetJustice > botJustice)
-                                    {
                                         target.AttackPreference += 2 * (targetJustice - botJustice);
-                                    }
-                                }
 
                                 //Если на врагах еще не запрокан луз мести - их преференс +5-игроки с запроканым лузом или победой. 
                                 target.AttackPreference += 5 - mylorikRevenge.EnemyListPlayerIds.Count;
@@ -740,28 +718,18 @@ public class BotsBehavior : IServiceSingleton
                         //"-5 за more stats" и "-7 за toogood" из базовых условий десяток   / 1 + кол-во стаков сломанного щита
                         if (game.RoundNo >= 5)
                         {
-                            var mylorikSpartan = _gameGlobal.MylorikSpartan.Find(x => x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
+                            var mylorikSpartan = _gameGlobal.MylorikSpartan.Find(x =>
+                                x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId());
 
                             if (mylorikSpartan != null)
                             {
-                                var spartanEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.Player.Status.PlayerId);
+                                var spartanEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.GetPlayerId());
                                 if (spartanEnemy != null)
                                 {
-                                    //mylorik это делит тортиками
-                                    //если на прошлом бою враг был toogood
-                                    //-= 7
-                                    if (bot.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.Player.Status.PlayerId && x.IsTooGoodEnemy))
-                                        target.AttackPreference += 7 - 7 / (1 + spartanEnemy.LostTimes);
-                                    else if (target.Player.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 && x.EnemyId == bot.Status.PlayerId && x.IsTooGoodMe))
-                                        target.AttackPreference += 7 - 7 / (1 + spartanEnemy.LostTimes);
-                                    //если на прошлом ты проиграл И у врага больше статов
-                                    //-= 5
-                                    else if (bot.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.Player.Status.PlayerId && x.IsStatsBetterEnemy))
-                                        target.AttackPreference += 5 - 5 / (1 + spartanEnemy.LostTimes);
-                                    //если на прошлом-1 ты проиграл И у врага больше статов
-                                    //-= 5
-                                    else if (bot.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 2 && x.EnemyId == target.Player.Status.PlayerId && x.IsStatsBetterEnemy))
-                                        target.AttackPreference += 5 - 5 / (1 + spartanEnemy.LostTimes);
+                                    if (isTargetTooGood)
+                                        target.AttackPreference += isTargetTooGoodNumber - isTargetTooGoodNumber / (1 + spartanEnemy.LostTimes);
+                                    else if (isLostLastRoundAndTargetIsBetter)
+                                        target.AttackPreference += isLostLastRoundAndTargetIsBetterNumber - isLostLastRoundAndTargetIsBetterNumber / (1 + spartanEnemy.LostTimes);
                                 }
                             }
                         }
@@ -771,12 +739,8 @@ public class BotsBehavior : IServiceSingleton
                     case "Краборак":
 
                         if (allTargets.Any(x => x.PlaceAtLeaderBoard() >= 4 && x.AttackPreference > 0))
-                        {
                             if (target.PlaceAtLeaderBoard() < 4)
-                            {
                                 target.AttackPreference -= 4;
-                            }
-                        }
 
 
                         if (target.Player.Character.Name == "HardKitty") target.AttackPreference -= 1;
@@ -797,34 +761,52 @@ public class BotsBehavior : IServiceSingleton
 
                         //После первого хода:  преференс -3 всем, кто не подходит под текущую мишень (мишень скилла).
                         if (game.RoundNo > 1)
+                        {
                             if (bot.Character.GetCurrentSkillClassTarget() != target.Player.Character.GetSkillClass())
+                            {
                                 target.AttackPreference -= 3;
+                            }
+                            else
+                            {
+                                target.AttackPreference += 3;
+                            }
+                        }
 
-                        var siriFriends = _gameGlobal.SirinoksFriendsList.Find(x => x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
+                        var siriFriends = _gameGlobal.SirinoksFriendsList.Find(x => x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId());
 
                         if (siriFriends != null)
                         {
                             //+5 к значению тех, кто еще не друг.
-                            if (!siriFriends.FriendList.Contains(target.Player.Status.PlayerId) &&
-                                target.AttackPreference > 0)
-                                target.AttackPreference += 5;
-
-
-                            //До начала 6го хода может нападать только на одну цель. Если значение цели 0 - то блок.
-                            if (siriFriends.FriendList.Count == 1 && game.RoundNo < 6)
+                            if (!siriFriends.FriendList.Contains(target.GetPlayerId()) && target.AttackPreference > 0)
                             {
-                                var sirisFried = allTargets.Find(x => x.Player.Status.PlayerId == siriFriends.FriendList.First());
+                                target.AttackPreference += 5;
+                            }
 
-                                if (target.Player.Status.PlayerId != sirisFried.Player.Status.PlayerId)
+
+                            //До начала 5го хода может нападать только на одну цель. Если значение цели 0 - то блок.
+                            if (siriFriends.FriendList.Count == 1 && game.RoundNo < 5)
+                            {
+                                var sirisFried = allTargets.Find(x => x.GetPlayerId() == siriFriends.FriendList.First());
+
+                                if (target.GetPlayerId() != sirisFried.GetPlayerId())
                                 {
                                     target.AttackPreference = 0;
                                 }
                                 else
                                 {
                                     if (target.AttackPreference > 3)
-                                        mandatoryAttack = sirisFried.Player.Status.PlaceAtLeaderBoard;
+                                    {
+                                        mandatoryAttack = target.Player.Status.PlaceAtLeaderBoard;
+                                    }
                                     else
+                                    {
                                         target.AttackPreference = 0;
+                                    }
+
+                                    if (bot.Character.GetCurrentSkillClassTarget() == target.Player.Character.GetSkillClass())
+                                    {
+                                        mandatoryAttack = target.PlaceAtLeaderBoard();
+                                    }
                                 }
                             }
 
@@ -832,7 +814,8 @@ public class BotsBehavior : IServiceSingleton
                             //Если кол-во оставшихся ходов == кол-во незапроканных друзей, то выбирает цель только из тех, кто еще не друг.
                             var nonFiendsLeft = 5 - siriFriends.FriendList.Count;
                             var roundsLeft = 11 - game.RoundNo;
-                            var allNotFriends = allTargets.FindAll(x => !siriFriends.FriendList.Contains(x.Player.Status.PlayerId));
+                            var allNotFriends =
+                                allTargets.FindAll(x => !siriFriends.FriendList.Contains(x.GetPlayerId()));
 
 
                             if (nonFiendsLeft >= roundsLeft)
@@ -841,29 +824,27 @@ public class BotsBehavior : IServiceSingleton
                         }
 
                         if (game.RoundNo == 1 && target.Player.Character.Name == "Осьминожка")
-                        {
                             target.AttackPreference = 0;
-                        }
                         break;
                     case "Толя":
 
-                        var tolyaCount = _gameGlobal.TolyaCount.Find(x => x.PlayerId == bot.Status.PlayerId && x.GameId == game.GameId);
-                        
-                        if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == target.Player.Status.PlayerId))
+                        var tolyaCount = _gameGlobal.TolyaCount.Find(x =>
+                            x.PlayerId == bot.GetPlayerId() && x.GameId == game.GameId);
+
+                        if (tolyaCount.TargetList.Any(x =>
+                                x.RoundNumber == game.RoundNo - 1 && x.Target == target.GetPlayerId()))
                         {
-                            if(target.AttackPreference >= 5)
+                            if (target.AttackPreference >= 5)
                                 target.AttackPreference += 3;
                             target.AttackPreference += 2;
                             if (bot.Status.WhoToLostEveryRound.Any(x =>
-                                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.Player.Status.PlayerId))
-                            {
+                                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.GetPlayerId()))
                                 target.AttackPreference += 5;
-                            }
                         }
 
                         if (tolyaCount.IsReadyToUse)
                         {
-                            if(!isTargetTooGood)
+                            if (!isTargetTooGood)
                                 target.AttackPreference = 13 - target.AttackPreference;
                         }
                         else
@@ -874,7 +855,7 @@ public class BotsBehavior : IServiceSingleton
 
                             //Jew
                             foreach (var v in allTargets)
-                                if (v.Player.Status.WhoToAttackThisTurn == target.Player.Status.PlayerId)
+                                if (v.Player.Status.WhoToAttackThisTurn == target.GetPlayerId())
                                     target.AttackPreference += jewAamount;
                             //end Jew
                         }
@@ -884,7 +865,7 @@ public class BotsBehavior : IServiceSingleton
                     case "LeCrisp":
                         //Jew
                         foreach (var v in allTargets)
-                            if (v.Player.Status.WhoToAttackThisTurn == target.Player.Status.PlayerId)
+                            if (v.Player.Status.WhoToAttackThisTurn == target.GetPlayerId())
                                 target.AttackPreference += 6;
                         //end Jew
                         break;
@@ -896,35 +877,15 @@ public class BotsBehavior : IServiceSingleton
                             target.AttackPreference = 0;
 
                         //Во время претендента забывает о всех -5 и -7 за луз по статам, но вспоминает после окончания претендента.
-                        var glebAcc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
-                            x.PlayerId == bot.Status.PlayerId && game.GameId == x.GameId);
+                        var glebAcc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x => x.PlayerId == bot.GetPlayerId() && game.GameId == x.GameId);
 
                         if (glebAcc != null)
                             if (glebAcc.WhenToTrigger.Contains(game.RoundNo))
                             {
-                                //глеб это анулирует
-                                //если на прошлом бою враг был toogood
-                                //-= 7
-                                if (bot.Status.WhoToLostEveryRound.Any(x =>
-                                        x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.Player.Status.PlayerId &&
-                                        x.IsTooGoodEnemy))
-                                    target.AttackPreference += 7;
-                                else if (target.Player.Status.WhoToLostEveryRound.Any(x =>
-                                             x.RoundNo == game.RoundNo - 1 && x.EnemyId == bot.Status.PlayerId &&
-                                             x.IsTooGoodMe))
-                                    target.AttackPreference += 7;
-                                //если на прошлом ты проиграл И у врага больше статов
-                                //-= 5
-                                else if (bot.Status.WhoToLostEveryRound.Any(x =>
-                                             x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.Player.Status.PlayerId &&
-                                             x.IsStatsBetterEnemy))
-                                    target.AttackPreference += 5;
-                                //если на прошлом-1 ты проиграл И у врага больше статов
-                                //-= 5
-                                else if (bot.Status.WhoToLostEveryRound.Any(x =>
-                                             x.RoundNo == game.RoundNo - 2 && x.EnemyId == target.Player.Status.PlayerId &&
-                                             x.IsStatsBetterEnemy))
-                                    target.AttackPreference += 5;
+                                if (isTargetTooGood)
+                                    target.AttackPreference += isTargetTooGoodNumber;
+                                else if (isLostLastRoundAndTargetIsBetter)
+                                    target.AttackPreference += isLostLastRoundAndTargetIsBetterNumber;
 
                                 //Под претендентом автоматически выбирает цель с наибольшим значением. 
                                 var sorted = allTargets.OrderByDescending(x => x.AttackPreference).ToList();
@@ -933,12 +894,84 @@ public class BotsBehavior : IServiceSingleton
 
                         break;
                     case "Загадочный Спартанец в маске":
+                        /*if (game.RoundNo == 10)
+                            if (target.Player.Character.Name == "Sirinoks")
+                                mandatoryAttack = target.PlaceAtLeaderBoard();
+                        */
+
+                        var spartanMark = _gameGlobal.SpartanMark.Find(x =>
+                            x.PlayerId == bot.GetPlayerId() && game.GameId == x.GameId);
+                        var spartanShame = _gameGlobal.SpartanShame.Find(x =>
+                            x.PlayerId == bot.GetPlayerId() && game.GameId == x.GameId);
+                        if (spartanMark != null && spartanShame != null)
+                        {
+                            if (game.RoundNo <= 4)
+                            {
+                                if (spartanShame.FriendList.Contains(target.GetPlayerId()))
+                                {
+                                    target.AttackPreference -= 3;
+                                }
+                                else
+                                {
+                                    if (spartanMark.FriendList.Contains(target.GetPlayerId()))
+                                        target.AttackPreference += 10;
+                                }
+                            }
+                            else
+                            {
+                                if (!spartanMark.FriendList.Contains(target.GetPlayerId()))
+                                {
+                                    target.AttackPreference -= 4;
+                                }
+                                else
+                                {
+                                    if (bot.Character.Justice.GetFullJusticeNow() > targetJustice && !isTargetTooGood)
+                                        if (target.AttackPreference > SpartanTarget)
+                                        {
+                                            mandatoryAttack = target.PlaceAtLeaderBoard();
+                                            SpartanTarget = target.AttackPreference;
+                                        }
+                                }
+                            }
+                        }
+
+
                         break;
                     case "Вампур":
-                        if (bot.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.Player.Status.PlayerId))
+                        if (target.Player.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
                         {
-                            target.AttackPreference = 0;
+                            if (isJusticeTheSame)
+                            {
+                                //Вампур не получает -5 same jst если враг проиграл на прошлом ходу
+                                target.AttackPreference += isJusticeTheSameNumber;
+                            }
+
+                            if (isJusticeLessThanTarget)
+                            {
+                                //Вампур меняет -7 more jst на -4   если враг проиграл на прошлом ходу
+                                target.AttackPreference += isJusticeLessThanTargetNumber;
+                                target.AttackPreference -= 4;
+                            }
                         }
+                        //Преференс врагов += (их справедливость *2)
+                        target.AttackPreference += targetJustice * 2;
+
+                        var vampyrHematophagiaList = _gameGlobal.VampyrHematophagiaList.Find(x => x.PlayerId == bot.GetPlayerId() && game.GameId == x.GameId);
+                        
+                        if (vampyrHematophagiaList != null)
+                        {
+                            if (vampyrHematophagiaList.Hematophagia.Count < 5)
+                            {
+                                if (vampyrHematophagiaList.Hematophagia.Any(x => x.EnemyId == target.GetPlayerId()))
+                                {
+                                    //Вампур получает -3 всем на ком запрокан укус, если укусов еще не 5.
+                                    target.AttackPreference -= 3;
+                                }
+                            }
+                        }
+
+                        if (bot.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.GetPlayerId()))
+                            target.AttackPreference = 0;
                         break;
                 }
                 //end custom bot behavior
@@ -950,41 +983,34 @@ public class BotsBehavior : IServiceSingleton
                     case "Darksci":
                         if (game.RoundNo == 9)
                         {
-                            if (target.AttackPreference > 5)
-                            {
-                                target.AttackPreference += 5;
-                            }
-                            if (target.AttackPreference > 7)
-                            {
-                                target.AttackPreference += 5;
-                            }
+                            if (target.AttackPreference > 5) target.AttackPreference += 5;
+                            if (target.AttackPreference > 7) target.AttackPreference += 5;
                         }
 
-                        if (game.GetAllGlobalLogs().Contains($"Толя запизделся и спалил, что {target.Player.DiscordUsername} - {target.Player.Character.Name}"))
+                        if (game.GetAllGlobalLogs()
+                            .Contains(
+                                $"Толя запизделся и спалил, что {target.Player.DiscordUsername} - {target.Player.Character.Name}"))
                         {
-                            if (target.AttackPreference > 5)
-                            {
-                                target.AttackPreference += 5;
-                            }
-                            if (target.AttackPreference > 7)
-                            {
-                                target.AttackPreference += 5;
-                            }
+                            if (target.AttackPreference > 5) target.AttackPreference += 5;
+                            if (target.AttackPreference > 7) target.AttackPreference += 5;
                         }
 
                         if (game.PlayersList.Any(x => x.Character.Name == "mylorik"))
                         {
                             var mylorik = game.PlayersList.Find(x => x.Character.Name == "mylorik");
-                            if (game.GetAllGlobalLogs().Contains($"{target.Player.DiscordUsername} психанул") && game.GetAllGlobalLogs().Contains($"{mylorik.DiscordUsername} психанул"))
+                            if (game.GetAllGlobalLogs().Contains($"{target.Player.DiscordUsername} психанул") &&
+                                game.GetAllGlobalLogs().Contains($"{mylorik.DiscordUsername} психанул"))
                             {
-                                if (target.AttackPreference > 5)
-                                {
-                                    target.AttackPreference += 5;
-                                }
-                                if (target.AttackPreference > 7)
-                                {
-                                    target.AttackPreference += 5;
-                                }
+                                if (target.AttackPreference > 5) target.AttackPreference += 5;
+                                if (target.AttackPreference > 7) target.AttackPreference += 5;
+                            }
+                        }
+
+                        if (bot.Character.Name == "DeepList" || bot.Character.Name == "AWDKA")
+                        {
+                            if (target.AttackPreference >= 7)
+                            {
+                                target.AttackPreference += 4;
                             }
                         }
 
@@ -1002,78 +1028,98 @@ public class BotsBehavior : IServiceSingleton
                             target.AttackPreference += 3;
                         break;
                     case "Глеб":
-                        var glebChallender = _gameGlobal.GlebChallengerTriggeredWhen.Find(x => x.GameId == game.GameId && x.PlayerId == target.Player.Status.PlayerId);
-                        var glebSleeping = _gameGlobal.GlebSleepingTriggeredWhen.Find(x => x.GameId == game.GameId && x.PlayerId == target.Player.Status.PlayerId);
+                        var glebChallender = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
+                            x.GameId == game.GameId && x.PlayerId == target.GetPlayerId());
+                        var glebSleeping = _gameGlobal.GlebSleepingTriggeredWhen.Find(x =>
+                            x.GameId == game.GameId && x.PlayerId == target.GetPlayerId());
 
                         var totalChallengers = 0;
                         var totalSleeps = 0;
 
                         for (var i = 1; i < game.RoundNo + 1; i++)
-                        {
                             if (glebChallender.WhenToTrigger.Contains(i))
-                            {
                                 totalChallengers++;
-                            }
-                        }
                         for (var i = 1; i < game.RoundNo + 1; i++)
-                        {
                             if (glebSleeping.WhenToTrigger.Contains(i))
-                            {
                                 totalSleeps++;
-                            }
-                        }
 
-                        if (totalChallengers >= 1 && totalSleeps >= 2)
-                        {
-                            target.AttackPreference /= 2;
-                        }
+                        if (totalChallengers >= 1 && totalSleeps >= 2) target.AttackPreference /= 2;
 
                         break;
                 }
                 //end custom enemy
+            }
 
-
-                if (target.AttackPreference <= 0)
+            
+            foreach (var target2 in allTargets)
+            {
+                if(target2.AttackPreference >= 6)
                 {
-                    isBlock--;
-                    target.AttackPreference = 0;
+                    if (allTargets.Where(x => x.GetPlayerId() != target2.GetPlayerId()).ToList()
+                        .All(x => x.AttackPreference < target2.AttackPreference))
+                    {
+                        target2.AttackPreference += 2;
+                    }
                 }
 
-                maxRandomNumber += target.AttackPreference;
+
+                switch (bot.Character.Name)
+                {
+                    case "mylorik":
+                        //Если кол-во врагов с запроканным лузом но без победы = кол-во оставшихся ходов, то преференс ДРУГИХ врагов / 2
+                        var mylorikRevenge = _gameGlobal.MylorikRevenge.Find(x => x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId());
+                        if (mylorikRevenge != null)
+                        {
+                            var totalFinishedRevenges = mylorikRevenge.EnemyListPlayerIds.FindAll(x => x.IsUnique).Count;
+                            var roundsLeft = 11 - game.RoundNo;
+                            if (totalFinishedRevenges >= roundsLeft)
+                            {
+                                if (!mylorikRevenge.EnemyListPlayerIds.Any(x => x.IsUnique && x.EnemyPlayerId == target2.GetPlayerId()))
+                                {
+                                    if (target2.AttackPreference >= 2)
+                                    {
+                                        target2.AttackPreference /= 2;
+                                    }
+                                }
+                            }
+                        }
+                        break;
+                }
+
+                if (target2.AttackPreference <= 0)
+                {
+                    isBlock--;
+                    target2.AttackPreference = 0;
+                }
+
+                maxRandomNumber += target2.AttackPreference;
             }
+
             //end calculation Tens
+
 
             //custom behaviour After calculation Tens
             switch (bot.Character.Name)
             {
                 case "Тигр":
-                    var tigr = _gameGlobal.TigrThreeZeroList.Find(x => x.PlayerId == bot.Status.PlayerId && x.GameId == game.GameId);
+                    var tigr = _gameGlobal.TigrThreeZeroList.Find(x =>
+                        x.PlayerId == bot.GetPlayerId() && x.GameId == game.GameId);
                     if (tigr != null)
                     {
                         if (game.RoundNo == 4)
-                        {
                             if (tigr.FriendList.Any(x => x.WinsSeries == 2 && x.IsUnique))
-                            {
                                 isBlock = yesBlock;
-                            }
-                        }
 
                         var lowRates = allTargets.Where(x => x.AttackPreference <= 3).ToList();
                         var countLowRate = 0;
                         if (lowRates.Count() >= 2)
                         {
                             foreach (var lowRate in lowRates)
-                            {
-                                if (tigr.FriendList.Any(x => x.EnemyPlayerId == lowRate.Player.Status.PlayerId && x.WinsSeries == 2 && x.IsUnique))
-                                {
+                                if (tigr.FriendList.Any(x =>
+                                        x.EnemyPlayerId == lowRate.GetPlayerId() && x.WinsSeries == 2 && x.IsUnique))
                                     countLowRate++;
-                                }
-                            }
 
-                            if (countLowRate >= 2)
-                            {
-                                isBlock = yesBlock;
-                            }
+                            if (countLowRate >= 2) isBlock = yesBlock;
                         }
                     }
 
@@ -1084,38 +1130,31 @@ public class BotsBehavior : IServiceSingleton
                     break;
                 case "Darksci":
                     minimumRandomNumberForBlock += 1;
-                    if (game.RoundNo > 1 && botJustice == 0)
-                    {
-                        minimumRandomNumberForBlock += 1;
-                    }
+                    if (game.RoundNo > 1 && botJustice == 0) minimumRandomNumberForBlock += 1;
 
                     if (game.RoundNo is 3 or 5 or 9)
-                    {
                         if (bot.Character.GetPsyche() <= 1)
                         {
                             minimumRandomNumberForBlock = 4;
                             maximumRandomNumberForBlock = 5;
                         }
-                    }
 
-                    var darksciLucky = _gameGlobal.DarksciLuckyList.Find(x => x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
+                    var darksciLucky = _gameGlobal.DarksciLuckyList.Find(x =>
+                        x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId());
                     if (darksciLucky != null)
                     {
                         var notTouched = 5 - darksciLucky.TouchedPlayers.Count;
                         var roundsLeft = 11 - (game.RoundNo + 3);
                         if (notTouched >= roundsLeft)
-                        {
                             if (darksciLucky.TouchedPlayers.Count < 5)
-                            {
                                 if (mandatoryAttack == -1)
                                 {
-                                    var listofTargets = allTargets.Where(x => !darksciLucky.TouchedPlayers.Contains(x.Player.Status.PlayerId)).ToList();
+                                    var listofTargets = allTargets.Where(x =>
+                                        !darksciLucky.TouchedPlayers.Contains(x.GetPlayerId())).ToList();
 
                                     if (listofTargets.Count > 0)
                                         mandatoryAttack = listofTargets.First().PlaceAtLeaderBoard();
                                 }
-                            }
-                        }
                     }
 
                     break;
@@ -1125,14 +1164,13 @@ public class BotsBehavior : IServiceSingleton
                         minimumRandomNumberForBlock = 2;
                         maximumRandomNumberForBlock = 4;
                     }
+
                     var min = allTargets.Min(x => x.Player.Character.Justice.GetFightJusticeNow());
                     var check = allTargets.Find(x =>
                         x.Player.Character.Justice.GetFightJusticeNow() == min);
 
                     if (check.Player.Character.Justice.GetFightJusticeNow() >= botJustice)
-                    {
                         minimumRandomNumberForBlock += 1;
-                    }
 
                     break;
                 case "Осьминожка":
@@ -1141,22 +1179,26 @@ public class BotsBehavior : IServiceSingleton
                 case "HardKitty":
                     isBlock = noBlock;
                     var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
-                        x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
+                        x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId());
 
                     if (allTargets.All(x => x.AttackPreference <= 3) && mandatoryAttack == -1)
                     {
-
-                        var doebatsya = hardKitty.LostSeries.Where(x => allTargets.Any(y => y.Player.Status.PlayerId == x.EnemyPlayerId)).ToList();
+                        var doebatsya = hardKitty.LostSeries
+                            .Where(x => allTargets.Any(y => y.GetPlayerId() == x.EnemyPlayerId)).ToList();
                         var doebathsyaTarget = doebatsya.OrderByDescending(x => x.Series).First();
-                        mandatoryAttack = allTargets.Find(x => x.Player.Status.PlayerId == doebathsyaTarget.EnemyPlayerId).PlaceAtLeaderBoard();
+                        mandatoryAttack = allTargets.Find(x => x.GetPlayerId() == doebathsyaTarget.EnemyPlayerId)
+                            .PlaceAtLeaderBoard();
                     }
 
                     if (allTargets.Any(x => x.AttackPreference > 5) && mandatoryAttack == -1)
                     {
-                        var doebathsyaTargets = allTargets.Where(x => x.AttackPreference > 5).OrderByDescending(x => x.AttackPreference).ToList();
-                        var doebatsya = hardKitty.LostSeries.Where(x => doebathsyaTargets.Any(y => y.Player.Status.PlayerId == x.EnemyPlayerId)).ToList();
+                        var doebathsyaTargets = allTargets.Where(x => x.AttackPreference > 5)
+                            .OrderByDescending(x => x.AttackPreference).ToList();
+                        var doebatsya = hardKitty.LostSeries
+                            .Where(x => doebathsyaTargets.Any(y => y.GetPlayerId() == x.EnemyPlayerId)).ToList();
                         var doebathsyaTarget = doebatsya.OrderByDescending(x => x.Series).First();
-                        mandatoryAttack = allTargets.Find(x => x.Player.Status.PlayerId == doebathsyaTarget.EnemyPlayerId).PlaceAtLeaderBoard();
+                        mandatoryAttack = allTargets.Find(x => x.GetPlayerId() == doebathsyaTarget.EnemyPlayerId)
+                            .PlaceAtLeaderBoard();
                     }
 
 
@@ -1182,50 +1224,41 @@ public class BotsBehavior : IServiceSingleton
                     break;
                 case "mylorik":
                     isBlock = noBlock;
-                    //Если кол-во врагов с запроканным лузом но без победы = кол-во оставшихся ходов, то преференс ДРУГИХ врагов / 2
-                    var mylorikRevenge = _gameGlobal.MylorikRevenge.Find(x => x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
-                    if (mylorikRevenge != null)
-                    {
-
-                        var totalFinishedRevenges = mylorikRevenge.EnemyListPlayerIds.FindAll(x => x.IsUnique).Count;
-                        var roundsLeft = 11 - game.RoundNo;
-                        if (totalFinishedRevenges >= roundsLeft)
-                        {
-                            maxRandomNumber = 0;
-                            foreach (var target in allTargets)
-                            {
-                                if (!mylorikRevenge.EnemyListPlayerIds.Any(x => x.IsUnique && x.EnemyPlayerId == target.Player.Status.PlayerId))
-                                {
-                                    if (target.AttackPreference >= 2)
-                                        target.AttackPreference /= 2;
-                                }
-                                maxRandomNumber += target.AttackPreference;
-                            }
-                        }
-                    }
-
                     break;
                 case "Sirinoks":
                     if (game.RoundNo is 10 or 1)
-                        isBlock = noBlock;
-                    else if (_gameGlobal.SirinoksTraining.Find(x => x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId) == null)
                     {
-                        var siriFriends = _gameGlobal.SirinoksFriendsList.Find(x => x.GameId == game.GameId && x.PlayerId == bot.Status.PlayerId);
-                        var siriFriend = allTargets.Find(x => x.Player.Status.PlayerId == siriFriends?.FriendList.FirstOrDefault());
-                        if (siriFriend.Player.Character.Name != "Осьминожка")
-                        {
-                            mandatoryAttack = siriFriend.Player.Status.PlaceAtLeaderBoard;
-                        }
+                        isBlock = noBlock;
                     }
+                    else if (_gameGlobal.SirinoksTraining.Find(x =>
+                                 x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId()) == null)
+                    {
+                        var siriFriends = _gameGlobal.SirinoksFriendsList.Find(x =>
+                            x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId());
+                        var siriFriend =
+                            allTargets.Find(x => x.GetPlayerId() == siriFriends?.FriendList.FirstOrDefault());
+                        if (siriFriend.Player.Character.Name != "Осьминожка")
+                            mandatoryAttack = siriFriend.Player.Status.PlaceAtLeaderBoard;
+                    }
+
                     break;
 
                 case "Загадочный Спартанец в маске":
                     //на последнем ходу блок -2 (от 2 до 5)
-                    if (game.RoundNo == 10)
+                    if (game.RoundNo < 9)
                     {
-                        minimumRandomNumberForBlock = 2;
-                        maximumRandomNumberForBlock = 4;
+                        isBlock = noBlock;
                     }
+
+                    if (allTargets.All(x =>
+                            bot.Character.Justice.GetFullJusticeNow() <=
+                            x.Player.Character.Justice.GetFightJusticeNow()))
+                        if (game.RoundNo == 10)
+                        {
+                            minimumRandomNumberForBlock = 2;
+                            maximumRandomNumberForBlock = 4;
+                        }
+
                     // end на последнем ходу блок -2 (от 2 до 5)
                     break;
 
@@ -1239,13 +1272,12 @@ public class BotsBehavior : IServiceSingleton
                     }
                     //end rammus
 
-                    var tolyaCount = _gameGlobal.TolyaCount.Find(x => x.PlayerId == bot.Status.PlayerId && x.GameId == game.GameId);
- 
+                    var tolyaCount =
+                        _gameGlobal.TolyaCount.Find(x => x.PlayerId == bot.GetPlayerId() && x.GameId == game.GameId);
+
                     if (tolyaCount.IsReadyToUse)
                         if (game.RoundNo is 3 or 8)
-                        {
                             isBlock = yesBlock;
-                        }
                     break;
 
 
@@ -1312,16 +1344,18 @@ public class BotsBehavior : IServiceSingleton
                 whoToAttack = players[_rand.Random(0, players.Count - 1)].Player.Status.PlaceAtLeaderBoard;
 
                 if (maxRandomNumber > 0)
-                    await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync($"**{bot.Character.Name}** Поставил блок, а ему нельзя. {randomNumber}/{maxRandomNumber} <= {totalPreference}\n" +
-                    $"Round: {game.RoundNo}\n" +
-
-                    $"Randomly Attacking {allTargets.Find(x => x.Player.Status.PlaceAtLeaderBoard == whoToAttack).Player.Character.Name}");
+                    await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340)
+                        .SendMessageAsync(
+                            $"**{bot.Character.Name}** Поставил блок, а ему нельзя. {randomNumber}/{maxRandomNumber} <= {totalPreference}\n" +
+                            $"Round: {game.RoundNo}\n" +
+                            $"Randomly Attacking {allTargets.Find(x => x.Player.Status.PlaceAtLeaderBoard == whoToAttack).Player.Character.Name}");
 
                 await AttackPlayer(bot, whoToAttack);
             }
             else if (!isAttacked)
             {
-                await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync($"**{bot.Character.Name}** не напал ни на кого.\n" +
+                await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(
+                    $"**{bot.Character.Name}** не напал ни на кого.\n" +
                     $"Round: {game.RoundNo}\n");
                 await _gameReaction.HandleAttack(bot, null, -10);
             }
@@ -1330,11 +1364,11 @@ public class BotsBehavior : IServiceSingleton
         }
         catch (Exception e)
         {
-            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync($"{e.Message}\n{e.StackTrace}");
+            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340)
+                .SendMessageAsync($"{e.Message}\n{e.StackTrace}");
             _logs.Critical(e.Message);
             _logs.Critical(e.StackTrace);
         }
-
     }
 
     public async Task<bool> AttackPlayer(GamePlayerBridgeClass bot, int whoToAttack)
@@ -1385,16 +1419,15 @@ public class BotsBehavior : IServiceSingleton
             if (player.Character.Name == "Братишка" && strength < 10) skillNumber = 2;
             if (player.Character.Name == "LeCrisp" && strength < 10) skillNumber = 2;
             if (player.Character.Name == "Darksci" && psyche < 10) skillNumber = 4;
+            if (player.Character.Name == "HardKitty" && speed < 10) skillNumber = 3;
 
 
             if (player.Character.Name == "Тигр" && player.Character.GetPsyche() >= game.RoundNo) skillNumber = 1;
             if (player.Character.Name == "Тигр" && player.Character.GetPsyche() < game.RoundNo) skillNumber = 4;
             if (player.Character.Name == "mylorik" && psyche < 10) skillNumber = 4;
             if (player.Character.Name == "Глеб" && strength < 10) skillNumber = 2;
-            if (player.Character.Name == "Загадочный Спартанец в маске" && psyche < 10 && game.RoundNo <= 3)
-                skillNumber = 4;
-            if (player.Character.Name == "Загадочный Спартанец в маске" && speed < 10 && game.RoundNo > 3)
-                skillNumber = 3;
+            if (player.Character.Name == "Загадочный Спартанец в маске" && psyche < 10 && game.RoundNo <= 3) skillNumber = 4;
+            if (player.Character.Name == "Загадочный Спартанец в маске" && speed < 10 && game.RoundNo > 3) skillNumber = 3;
 
 
             await _gameReaction.HandleLvlUp(player, null, skillNumber);
@@ -1431,6 +1464,11 @@ public class BotsBehavior : IServiceSingleton
         public int PlaceAtLeaderBoard()
         {
             return Player.Status.PlaceAtLeaderBoard;
+        }
+
+        public Guid GetPlayerId()
+        {
+            return Player.Status.PlayerId;
         }
     }
 

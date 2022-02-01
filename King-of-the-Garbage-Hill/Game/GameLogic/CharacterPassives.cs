@@ -48,12 +48,12 @@ public class CharacterPassives : IServiceSingleton
             case "Краборак":
                 //Панцирь
                 var сraboRackShell = _gameGlobal.CraboRackShell.Find(x =>
-                    x.PlayerId == target.Status.PlayerId && target.GameId == x.GameId);
+                    x.PlayerId == target.GetPlayerId() && target.GameId == x.GameId);
                 if (сraboRackShell != null)
-                    if (!сraboRackShell.FriendList.Contains(me.Status.PlayerId))
+                    if (!сraboRackShell.FriendList.Contains(me.GetPlayerId()))
                     {
-                        сraboRackShell.FriendList.Add(me.Status.PlayerId);
-                        сraboRackShell.CurrentAttacker = me.Status.PlayerId;
+                        сraboRackShell.FriendList.Add(me.GetPlayerId());
+                        сraboRackShell.CurrentAttacker = me.GetPlayerId();
                         target.Character.AddMoral(target.Status, 3, "Панцирь");
                         target.Character.AddExtraSkill(target.Status,  30, "Панцирь");
                         target.Status.IsSuperBlock = true;
@@ -62,10 +62,10 @@ public class CharacterPassives : IServiceSingleton
 
                 //Бокобуль
                 var сraboBakoBoole = _gameGlobal.CraboRackBakoBoole.Find(x =>
-                    x.PlayerId == target.Status.PlayerId && target.GameId == x.GameId);
+                    x.PlayerId == target.GetPlayerId() && target.GameId == x.GameId);
                 if (сraboBakoBoole != null)
                 {
-                    сraboBakoBoole.CurrentAttacker = me.Status.PlayerId;
+                    сraboBakoBoole.CurrentAttacker = me.GetPlayerId();
                     me.Character.ExtraWeight = me.Character.GetSpeed() * -1;
                 }
 
@@ -75,12 +75,12 @@ public class CharacterPassives : IServiceSingleton
             case "Братишка":
                 //Ничего не понимает: 
                 var shark = _gameGlobal.SharkBoole.Find(x =>
-                    x.PlayerId == target.Status.PlayerId &&
+                    x.PlayerId == target.GetPlayerId() &&
                     game.GameId == x.GameId);
 
-                if (!shark.FriendList.Contains(me.Status.PlayerId))
+                if (!shark.FriendList.Contains(me.GetPlayerId()))
                 {
-                    shark.FriendList.Add(me.Status.PlayerId);
+                    shark.FriendList.Add(me.GetPlayerId());
                     me.Character.AddIntelligence(me.Status, -1, "Ничего не понимает");
                 }
                 //end Ничего не понимает: 
@@ -88,10 +88,10 @@ public class CharacterPassives : IServiceSingleton
                 
                 // Ничего не понимает
                 var bratishkaDontUnderstand = _gameGlobal.BtratishkaDontUnderstand.Find(x =>
-                    x.PlayerId == target.Status.PlayerId && target.GameId == x.GameId);
+                    x.PlayerId == target.GetPlayerId() && target.GameId == x.GameId);
                 if (bratishkaDontUnderstand != null)
                 {
-                    bratishkaDontUnderstand.CurrentAttacker = me.Status.PlayerId;
+                    bratishkaDontUnderstand.CurrentAttacker = me.GetPlayerId();
                     me.Character.ExtraWeight = me.Character.GetSpeed() * -1;
                 }
                 //end  Ничего не понимает
@@ -104,7 +104,7 @@ public class CharacterPassives : IServiceSingleton
                 if (rand == 1)
                 {
                     var acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
-                        x.PlayerId == target.Status.PlayerId &&
+                        x.PlayerId == target.GetPlayerId() &&
                         target.GameId == x.GameId);
 
                     if (acc != null)
@@ -116,7 +116,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         target.Status.IsSkip = true;
                         _gameGlobal.GlebSkipList.Add(
-                            new Gleb.GlebSkipClass(target.Status.PlayerId, game.GameId));
+                            new Gleb.GlebSkipClass(target.GetPlayerId(), game.GameId));
                         game.Phrases.GlebComeBackPhrase.SendLog(target, true);
                     }
                 }
@@ -129,10 +129,10 @@ public class CharacterPassives : IServiceSingleton
                 //Гребанные ассассин + Сомнительная тактика
                 var ok = true;
                 var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
-                    x.PlayerId == target.Status.PlayerId && game.GameId == x.GameId);
+                    x.PlayerId == target.GetPlayerId() && game.GameId == x.GameId);
 
                 if (deep != null)
-                    if (!deep.FriendList.Contains(me.Status.PlayerId))
+                    if (!deep.FriendList.Contains(me.GetPlayerId()))
                         ok = false;
 
 
@@ -157,8 +157,8 @@ public class CharacterPassives : IServiceSingleton
                     me.Status.IsAbleToWin = false;
                     var tolya = _gameGlobal.TolyaRammusTimes.Find(x =>
                         x.GameId == target.GameId &&
-                        x.PlayerId == target.Status.PlayerId);
-                    tolya.FriendList.Add(me.Status.PlayerId);
+                        x.PlayerId == target.GetPlayerId());
+                    tolya.FriendList.Add(me.GetPlayerId());
                 }
                 //end Раммус мейн
 
@@ -167,7 +167,7 @@ public class CharacterPassives : IServiceSingleton
             case "HardKitty":
                 //Одиночество
                 var hard = _gameGlobal.HardKittyLoneliness.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == target.Status.PlayerId);
+                    x.GameId == game.GameId && x.PlayerId == target.GetPlayerId());
                 if (hard != null)
                     if (!hard.Activated)
                     {
@@ -175,11 +175,11 @@ public class CharacterPassives : IServiceSingleton
                         game.Phrases.HardKittyLonelyPhrase.SendLog(target, true);
                         //uncomment it when DeepList desides to make it 1 per round again...
                         //hard.Activated = true;
-                        var hardEnemy = hard.AttackHistory.Find(x => x.EnemyId == me.Status.PlayerId);
+                        var hardEnemy = hard.AttackHistory.Find(x => x.EnemyId == me.GetPlayerId());
                         if (hardEnemy == null)
                         {
-                            hard.AttackHistory.Add(new HardKitty.LonelinessSubClass(me.Status.PlayerId));
-                            hardEnemy = hard.AttackHistory.Find(x => x.EnemyId == me.Status.PlayerId);
+                            hard.AttackHistory.Add(new HardKitty.LonelinessSubClass(me.GetPlayerId()));
+                            hardEnemy = hard.AttackHistory.Find(x => x.EnemyId == me.GetPlayerId());
                         }
 
                         switch (game.RoundNo)
@@ -209,20 +209,20 @@ public class CharacterPassives : IServiceSingleton
             case "Mit*suki*":
                 //Запах мусора
                 var mitsuki = _gameGlobal.MitsukiGarbageList.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == target.Status.PlayerId);
+                    x.GameId == game.GameId && x.PlayerId == target.GetPlayerId());
 
                 if (mitsuki == null)
                 {
-                    _gameGlobal.MitsukiGarbageList.Add(new Mitsuki.GarbageClass(target.Status.PlayerId, game.GameId,
-                        me.Status.PlayerId));
+                    _gameGlobal.MitsukiGarbageList.Add(new Mitsuki.GarbageClass(target.GetPlayerId(), game.GameId,
+                        me.GetPlayerId()));
                 }
                 else
                 {
-                    var found = mitsuki.Training.Find(x => x.EnemyId == me.Status.PlayerId);
+                    var found = mitsuki.Training.Find(x => x.EnemyId == me.GetPlayerId());
                     if (found != null)
                         found.Times++;
                     else
-                        mitsuki.Training.Add(new Mitsuki.GarbageSubClass(me.Status.PlayerId));
+                        mitsuki.Training.Add(new Mitsuki.GarbageSubClass(me.GetPlayerId()));
                 }
 
                 //end Запах мусора
@@ -252,7 +252,7 @@ public class CharacterPassives : IServiceSingleton
                 else
                 {
                     var leCrip = _gameGlobal.LeCrispAssassins.Find(x =>
-                        x.PlayerId == target.Status.PlayerId && game.GameId == x.GameId);
+                        x.PlayerId == target.GetPlayerId() && game.GameId == x.GameId);
                     leCrip.AdditionalPsycheForNextRound += 1;
                 }
                 //end Гребанные ассассин
@@ -261,7 +261,7 @@ public class CharacterPassives : IServiceSingleton
                 if (target.Status.IsLostThisCalculation != Guid.Empty)
                 {
                     var lePuska = _gameGlobal.LeCrispImpact.Find(x =>
-                        x.PlayerId == target.Status.PlayerId && x.GameId == game.GameId);
+                        x.PlayerId == target.GetPlayerId() && x.GameId == game.GameId);
 
                     lePuska.IsLost = true;
                 }
@@ -273,13 +273,13 @@ public class CharacterPassives : IServiceSingleton
                 if (target.Status.IsLostThisCalculation != Guid.Empty)
                 {
                     var hardKittyMute = _gameGlobal.HardKittyMute.Find(x =>
-                        x.PlayerId == target.Status.PlayerId &&
+                        x.PlayerId == target.GetPlayerId() &&
                         x.GameId == game.GameId);
 
 
-                    if (!hardKittyMute.UniquePlayers.Contains(me.Status.PlayerId))
+                    if (!hardKittyMute.UniquePlayers.Contains(me.GetPlayerId()))
                     {
-                        hardKittyMute.UniquePlayers.Add(me.Status.PlayerId);
+                        hardKittyMute.UniquePlayers.Add(me.GetPlayerId());
                         me.Status.AddRegularPoints(1, "Mute");
                         game.Phrases.HardKittyMutedPhrase.SendLog(target, false);
                     }
@@ -306,11 +306,11 @@ public class CharacterPassives : IServiceSingleton
 
                 //Им это не понравится:
                 var spartanMark =
-                    _gameGlobal.SpartanMark.Find(x => x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
+                    _gameGlobal.SpartanMark.Find(x => x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
                 if (spartanMark != null)
-                    if (target.Status.IsBlock && spartanMark.FriendList.Contains(target.Status.PlayerId))
+                    if (target.Status.IsBlock && spartanMark.FriendList.Contains(target.GetPlayerId()))
                     {
-                        spartanMark.BlockedPlayer = target.Status.PlayerId;
+                        spartanMark.BlockedPlayer = target.GetPlayerId();
                         target.Status.IsAbleToWin = false;
                         target.Status.IsBlock = false;
                         game.Phrases.SpartanTheyWontLikeIt.SendLog(me, false);
@@ -332,28 +332,28 @@ public class CharacterPassives : IServiceSingleton
 
                 //Первая кровь: 
                 var pant = _gameGlobal.SpartanFirstBlood.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
-                if (pant.FriendList.Count == 0) pant.FriendList.Add(target.Status.PlayerId);
+                    x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
+                if (pant.FriendList.Count == 0) pant.FriendList.Add(target.GetPlayerId());
 
 
                 //end Первая кровь: 
 
                 //Они позорят военное искусство:
                 var Spartan = _gameGlobal.SpartanShame.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
+                    x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
 
 
-                if (target.Character.Name == "mylorik" && !Spartan.FriendList.Contains(target.Status.PlayerId))
+                if (target.Character.Name == "mylorik" && !Spartan.FriendList.Contains(target.GetPlayerId()))
                 {
-                    Spartan.FriendList.Add(target.Status.PlayerId);
+                    Spartan.FriendList.Add(target.GetPlayerId());
                     me.Character.AddPsyche(me.Status, 1, "ОН уважает военное искусство!");
                     target.Character.AddPsyche(target.Status, 1, "ОН уважает военное искусство!");
                     game.Phrases.SpartanShameMylorik.SendLog(me, false);
                 }
 
-                if (!Spartan.FriendList.Contains(target.Status.PlayerId))
+                if (!Spartan.FriendList.Contains(target.GetPlayerId()))
                 {
-                    Spartan.FriendList.Add(target.Status.PlayerId);
+                    Spartan.FriendList.Add(target.GetPlayerId());
                     target.Character.AddStrength(target.Status, -1, "Они позорят военное искусство");
                     target.Character.AddSpeed(target.Status, -1, "Они позорят военное искусство");
                 }
@@ -366,7 +366,7 @@ public class CharacterPassives : IServiceSingleton
             case "Глеб":
                 // Я за чаем:
                 var geblTea =
-                    _gameGlobal.GlebTea.Find(x => x.PlayerId == me.Status.PlayerId && game.GameId == x.GameId);
+                    _gameGlobal.GlebTea.Find(x => x.PlayerId == me.GetPlayerId() && game.GameId == x.GameId);
 
                 if (geblTea.Ready && me.Status.WhoToAttackThisTurn != Guid.Empty)
                 {
@@ -384,29 +384,29 @@ public class CharacterPassives : IServiceSingleton
 
                 //Заводить друзей
                 var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
+                    x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
                 var siriAttack = _gameGlobal.SirinoksFriendsAttack.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
+                    x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
 
                 if (siri != null && siriAttack != null)
-                    if (siri.FriendList.Contains(target.Status.PlayerId) && target.Status.IsBlock)
+                    if (siri.FriendList.Contains(target.GetPlayerId()) && target.Status.IsBlock)
                     {
                         target.Status.IsBlock = false;
-                        siriAttack.EnemyId = target.Status.PlayerId;
+                        siriAttack.EnemyId = target.GetPlayerId();
                         siriAttack.IsBlock = true;
                     }
 
                 if (siri != null && siriAttack != null)
-                    if (siri.FriendList.Contains(target.Status.PlayerId) && target.Status.IsSkip)
+                    if (siri.FriendList.Contains(target.GetPlayerId()) && target.Status.IsSkip)
                     {
                         target.Status.IsSkip = false;
-                        siriAttack.EnemyId = target.Status.PlayerId;
+                        siriAttack.EnemyId = target.GetPlayerId();
                         siriAttack.IsSkip = true;
                     }
 
-                if (!siri.FriendList.Contains(target.Status.PlayerId))
+                if (!siri.FriendList.Contains(target.GetPlayerId()))
                 {
-                    siri.FriendList.Add(target.Status.PlayerId);
+                    siri.FriendList.Add(target.GetPlayerId());
                     me.Status.AddRegularPoints(1, "Заводить друзей");
                     game.Phrases.SirinoksFriendsPhrase.SendLog(me, true);
                 }
@@ -419,9 +419,9 @@ public class CharacterPassives : IServiceSingleton
 
                 //Научите играть
                 var awdka = _gameGlobal.AwdkaTeachToPlay.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
+                    x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
                 var awdkaHistory = _gameGlobal.AwdkaTeachToPlayHistory.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
+                    x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
 
                 var player2Stats = new List<Sirinoks.TrainingSubClass>
                 {
@@ -433,16 +433,16 @@ public class CharacterPassives : IServiceSingleton
                 var sup = player2Stats.OrderByDescending(x => x.StatNumber).ToList().First();
 
                 if (awdka == null)
-                    _gameGlobal.AwdkaTeachToPlay.Add(new Sirinoks.TrainingClass(me.Status.PlayerId, game.GameId,
+                    _gameGlobal.AwdkaTeachToPlay.Add(new Sirinoks.TrainingClass(me.GetPlayerId(), game.GameId,
                         sup.StatIndex, sup.StatNumber, Guid.Empty));
                 else
                     awdka.Training.Add(new Sirinoks.TrainingSubClass(sup.StatIndex, sup.StatNumber));
 
 
-                var enemy = awdkaHistory.History.Find(x => x.EnemyPlayerId == target.Status.PlayerId);
+                var enemy = awdkaHistory.History.Find(x => x.EnemyPlayerId == target.GetPlayerId());
                 if (enemy == null)
                 {
-                    awdkaHistory.History.Add(new Awdka.TeachToPlayHistoryListClass(target.Status.PlayerId,
+                    awdkaHistory.History.Add(new Awdka.TeachToPlayHistoryListClass(target.GetPlayerId(),
                         $"{sup.StatIndex}", sup.StatNumber));
                 }
                 else
@@ -461,8 +461,8 @@ public class CharacterPassives : IServiceSingleton
                 if (target.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
                 {
                     var scavenger = _gameGlobal.VampyrScavengerList.Find(x =>
-                        x.PlayerId == me.Status.PlayerId && x.GameId == game.GameId);
-                    scavenger.EnemyId = target.Status.PlayerId;
+                        x.PlayerId == me.GetPlayerId() && x.GameId == game.GameId);
+                    scavenger.EnemyId = target.GetPlayerId();
                     scavenger.EnemyJustice = target.Character.Justice.GetFullJusticeNow();
                     target.Character.Justice.SetFullJusticeNow(target.Status, scavenger.EnemyJustice-1, "Падальщик", false);
                 }
@@ -471,15 +471,15 @@ public class CharacterPassives : IServiceSingleton
                 break;
             case "mylorik":
                 // Спарта
-                var mylorikSpartan = _gameGlobal.MylorikSpartan.Find(x => x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
-                var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.Status.PlayerId);
+                var mylorikSpartan = _gameGlobal.MylorikSpartan.Find(x => x.GameId == me.GameId && x.PlayerId == me.GetPlayerId());
+                var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.GetPlayerId());
                 if (mylorikEnemy == null)
                 {
-                    mylorikSpartan.Enemies.Add(new Mylorik.MylorikSpartanSubClass(target.Status.PlayerId));
-                    mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.Status.PlayerId);
+                    mylorikSpartan.Enemies.Add(new Mylorik.MylorikSpartanSubClass(target.GetPlayerId()));
+                    mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.GetPlayerId());
                 }
 
-                if (me.Status.WhoToAttackThisTurn == target.Status.PlayerId)
+                if (me.Status.WhoToAttackThisTurn == target.GetPlayerId())
                     //set FightMultiplier
                     switch (mylorikEnemy.LostTimes)
                     {
@@ -530,9 +530,9 @@ public class CharacterPassives : IServiceSingleton
 
                 //Им это не понравится:
                 var spartanMark =
-                    _gameGlobal.SpartanMark.Find(x => x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
+                    _gameGlobal.SpartanMark.Find(x => x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
                 if (spartanMark != null)
-                    if (spartanMark.BlockedPlayer == target.Status.PlayerId)
+                    if (spartanMark.BlockedPlayer == target.GetPlayerId())
                     {
                         target.Status.IsAbleToWin = true;
                         target.Status.IsBlock = true;
@@ -549,22 +549,22 @@ public class CharacterPassives : IServiceSingleton
                 break;
             case "Бог ЛоЛа":
                 _gameGlobal.LolGodUdyrList.Find(x =>
-                        x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId)
-                    .EnemyPlayerId = target.Status.PlayerId;
+                        x.GameId == game.GameId && x.PlayerId == me.GetPlayerId())
+                    .EnemyPlayerId = target.GetPlayerId();
                 game.Phrases.SecondСommandmentBan.SendLog(me, false);
                 break;
             case "Вампур":
                 //Падальщик
                 if (target.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
                 {
-                    var scavenger = _gameGlobal.VampyrScavengerList.Find(x => x.PlayerId == me.Status.PlayerId && x.GameId == game.GameId);
+                    var scavenger = _gameGlobal.VampyrScavengerList.Find(x => x.PlayerId == me.GetPlayerId() && x.GameId == game.GameId);
 
-                    if (scavenger.EnemyId == target.Status.PlayerId)
+                    if (scavenger.EnemyId == target.GetPlayerId())
                     {
                         target.Character.Justice.SetFullJusticeNow(target.Status, scavenger.EnemyJustice, "Падальщик", false);
                         scavenger.EnemyId = Guid.Empty;
                         scavenger.EnemyJustice = 0;
-                        if (me.Status.IsWonThisCalculation == target.Status.PlayerId)
+                        if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                         {
                             me.Character.AddMoral(me.Status, 3, "Падальщик");
                         }
@@ -573,7 +573,7 @@ public class CharacterPassives : IServiceSingleton
                 //end Падальщик
 
                 //Вампуризм
-                if (me.Status.IsWonThisCalculation == target.Status.PlayerId)
+                if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                     me.Character.Justice.AddJusticeForNextRoundFromSkill(target.Character.Justice.GetFullJusticeNow());
                 //Вампуризм
 
@@ -586,11 +586,11 @@ public class CharacterPassives : IServiceSingleton
                 {
                     var octo = _gameGlobal.OctopusInvulnerabilityList.Find(x =>
                         x.GameId == me.GameId &&
-                        x.PlayerId == me.Status.PlayerId);
+                        x.PlayerId == me.GetPlayerId());
 
                     if (octo == null)
                         _gameGlobal.OctopusInvulnerabilityList.Add(
-                            new Octopus.InvulnerabilityClass(me.Status.PlayerId, game.GameId));
+                            new Octopus.InvulnerabilityClass(me.GetPlayerId(), game.GameId));
                     else
                         octo.Count++;
                 }
@@ -602,10 +602,10 @@ public class CharacterPassives : IServiceSingleton
 
                 //Заводить друзей
                 var siriAttack = _gameGlobal.SirinoksFriendsAttack.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == me.Status.PlayerId);
+                    x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
 
                 if (siriAttack != null)
-                    if (siriAttack.EnemyId == target.Status.PlayerId)
+                    if (siriAttack.EnemyId == target.GetPlayerId())
                     {
                         if (siriAttack.IsSkip)
                             target.Status.IsSkip = true;
@@ -625,10 +625,10 @@ public class CharacterPassives : IServiceSingleton
                 //Повезло
                 var darscsi = _gameGlobal.DarksciLuckyList.Find(x =>
                     x.GameId == me.GameId &&
-                    x.PlayerId == me.Status.PlayerId);
+                    x.PlayerId == me.GetPlayerId());
 
-                if (!darscsi.TouchedPlayers.Contains(target.Status.PlayerId))
-                    darscsi.TouchedPlayers.Add(target.Status.PlayerId);
+                if (!darscsi.TouchedPlayers.Contains(target.GetPlayerId()))
+                    darscsi.TouchedPlayers.Add(target.GetPlayerId());
 
                 if (darscsi.TouchedPlayers.Count == game.PlayersList.Count - 1 && darscsi.Triggered == false)
                 {
@@ -643,14 +643,14 @@ public class CharacterPassives : IServiceSingleton
                 break;
             case "mylorik":
                 // Cпарта
-                if (me.Status.WhoToAttackThisTurn == target.Status.PlayerId)
+                if (me.Status.WhoToAttackThisTurn == target.GetPlayerId())
                 {
-                    var mylorikSpartan = _gameGlobal.MylorikSpartan.Find(x => x.GameId == me.GameId && x.PlayerId == me.Status.PlayerId);
-                    var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.Status.PlayerId);
+                    var mylorikSpartan = _gameGlobal.MylorikSpartan.Find(x => x.GameId == me.GameId && x.PlayerId == me.GetPlayerId());
+                    var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.GetPlayerId());
                     if (mylorikEnemy == null)
                     {
-                        mylorikSpartan.Enemies.Add(new Mylorik.MylorikSpartanSubClass(target.Status.PlayerId));
-                        mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.Status.PlayerId);
+                        mylorikSpartan.Enemies.Add(new Mylorik.MylorikSpartanSubClass(target.GetPlayerId()));
+                        mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.GetPlayerId());
                     }
 
                     if (me.Status.IsLostThisCalculation == me.Status.WhoToAttackThisTurn) mylorikEnemy.LostTimes++;
@@ -677,10 +677,10 @@ public class CharacterPassives : IServiceSingleton
             var tolyaAcc = game.PlayersList.Find(x => x.Character.Name == "Толя");
 
             var tolyaCount = _gameGlobal.TolyaCount.Find(x =>
-                x.PlayerId == tolyaAcc.Status.PlayerId && x.GameId == game.GameId);
+                x.PlayerId == tolyaAcc.GetPlayerId() && x.GameId == game.GameId);
 
 
-            if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == player.Status.PlayerId))
+            if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == player.GetPlayerId()))
             {
                 tolyaAcc.Status.AddRegularPoints(2, "Подсчет");
                 tolyaAcc.Character.Justice.AddJusticeForNextRoundFromSkill(2);
@@ -696,7 +696,7 @@ public class CharacterPassives : IServiceSingleton
             case "Краборак":
                 //Панцирь
                 var сraboRackShell = _gameGlobal.CraboRackShell.Find(x =>
-                    x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
+                    x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
                 if (сraboRackShell != null)
                     if (сraboRackShell.CurrentAttacker != Guid.Empty)
                     {
@@ -707,11 +707,11 @@ public class CharacterPassives : IServiceSingleton
 
                 //Бокобуль
                 var сraboBakoBoole = _gameGlobal.CraboRackBakoBoole.Find(x =>
-                    x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
+                    x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
                 if (сraboBakoBoole != null)
                     if (сraboBakoBoole.CurrentAttacker != Guid.Empty)
                     {
-                        game.PlayersList.Find(x => x.Status.PlayerId == сraboBakoBoole.CurrentAttacker).Character.ExtraWeight = 0;
+                        game.PlayersList.Find(x => x.GetPlayerId() == сraboBakoBoole.CurrentAttacker).Character.ExtraWeight = 0;
                         сraboBakoBoole.CurrentAttacker = Guid.Empty;
                     }
 
@@ -721,7 +721,7 @@ public class CharacterPassives : IServiceSingleton
             case "DeepList":
                 //Сомнительная тактика
                 var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
-                    x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
+                    x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
 
                 if (deep != null)
                     if (!deep.FriendList.Contains(player.Status.IsFighting) &&
@@ -737,6 +737,7 @@ public class CharacterPassives : IServiceSingleton
                         if (player.Status.IsWonThisCalculation != Guid.Empty)
                         {
                             player.Status.AddRegularPoints(1, "Сомнительная тактика");
+                            //player.Status.AddBonusPoints(1, "Сомнительная тактика");
                             game.Phrases.DeepListDoubtfulTacticPhrase.SendLog(player, false);
                         }
                 //end Сомнительная тактика
@@ -745,15 +746,15 @@ public class CharacterPassives : IServiceSingleton
                 if (player.Status.IsWonThisCalculation != Guid.Empty)
                 {
                     var target =
-                        game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation);
+                        game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation);
                     //Стёб
                     var currentDeepList = _gameGlobal.DeepListMockeryList.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
+                        x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
 
                     if (currentDeepList != null)
                     {
                         var currentDeepList2 =
-                            currentDeepList.WhoWonTimes.Find(x => x.EnemyPlayerId == target.Status.PlayerId);
+                            currentDeepList.WhoWonTimes.Find(x => x.EnemyPlayerId == target.GetPlayerId());
 
                         if (currentDeepList2 != null)
                         {
@@ -780,14 +781,14 @@ public class CharacterPassives : IServiceSingleton
                         }
                         else
                         {
-                            currentDeepList.WhoWonTimes.Add(new DeepList.MockerySub(target.Status.PlayerId, 1));
+                            currentDeepList.WhoWonTimes.Add(new DeepList.MockerySub(target.GetPlayerId(), 1));
                         }
                     }
                     else
                     {
                         var toAdd = new DeepList.Mockery(
-                            new List<DeepList.MockerySub> { new(target.Status.PlayerId, 1) }, game.GameId,
-                            player.Status.PlayerId);
+                            new List<DeepList.MockerySub> { new(target.GetPlayerId(), 1) }, game.GameId,
+                            player.GetPlayerId());
                         _gameGlobal.DeepListMockeryList.Add(toAdd);
                     }
 
@@ -801,14 +802,14 @@ public class CharacterPassives : IServiceSingleton
                 //Месть
                 //enemyIdLostTo may be 0
                 var mylorik = _gameGlobal.MylorikRevenge.Find(x =>
-                    x.GameId == player.GameId && x.PlayerId == player.Status.PlayerId);
+                    x.GameId == player.GameId && x.PlayerId == player.GetPlayerId());
 
                 if (player.Status.IsLostThisCalculation != Guid.Empty)
                 {
                     //check if very first lost
                     if (mylorik == null)
                     {
-                        _gameGlobal.MylorikRevenge.Add(new Mylorik.MylorikRevengeClass(player.Status.PlayerId,
+                        _gameGlobal.MylorikRevenge.Add(new Mylorik.MylorikRevengeClass(player.GetPlayerId(),
                             player.GameId, player.Status.IsLostThisCalculation, game.RoundNo));
                         game.Phrases.MylorikRevengeLostPhrase.SendLog(player, true);
                     }
@@ -843,7 +844,7 @@ public class CharacterPassives : IServiceSingleton
                 {
                     var rand = _rand.Random(1, 2);
                     var boole = _gameGlobal.MylorikSpanish.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                        x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
                     if (rand == 1)
                     {
@@ -873,7 +874,7 @@ public class CharacterPassives : IServiceSingleton
             case "Глеб":
                 //Спящее хуйло
                 var skip = _gameGlobal.GlebSkipList.Find(x =>
-                    x.PlayerId == player.Status.PlayerId && x.GameId == player.GameId);
+                    x.PlayerId == player.GetPlayerId() && x.GameId == player.GameId);
                 if (skip != null && player.Status.WhoToAttackThisTurn != Guid.Empty)
                 {
                     player.Status.IsSkip = false;
@@ -889,7 +890,7 @@ public class CharacterPassives : IServiceSingleton
                 if (player.Status.IsWonThisCalculation != Guid.Empty)
                 {
                     var lePuska = _gameGlobal.LeCrispImpact.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                        x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
 
                     player.Character.AddMoral(player.Status, lePuska.ImpactTimes + 1, "Импакт");
@@ -900,14 +901,14 @@ public class CharacterPassives : IServiceSingleton
             case "Толя":
                 //Раммус мейн
                 if (player.Status.IsBlock && player.Status.IsWonThisCalculation != Guid.Empty)
-                    game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Status
+                    game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation).Status
                         .IsAbleToWin = true;
                 //end Раммус мейн
                 break;
             case "HardKitty":
                 //Доебаться
                 var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
-                    x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
+                    x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
 
                 if (player.Status.WhoToAttackThisTurn != Guid.Empty)
                     if (player.Status.IsLostThisCalculation == player.Status.WhoToAttackThisTurn ||
@@ -943,13 +944,13 @@ public class CharacterPassives : IServiceSingleton
             case "Sirinoks":
                 //Обучение
                 var siri = _gameGlobal.SirinoksTraining.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                    x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
 
 
                 if (player.Status.IsLostThisCalculation != Guid.Empty)
                 {
                     var playerSheLostLastTime =
-                        game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsLostThisCalculation);
+                        game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsLostThisCalculation);
                     var intel = new List<Sirinoks.StatsClass>
                     {
                         new(1, playerSheLostLastTime.Character.GetIntelligence()),
@@ -962,8 +963,8 @@ public class CharacterPassives : IServiceSingleton
 
                     if (siri == null)
                     {
-                        _gameGlobal.SirinoksTraining.Add(new Sirinoks.TrainingClass(player.Status.PlayerId,
-                            game.GameId, best.Index, best.Number, playerSheLostLastTime.Status.PlayerId));
+                        _gameGlobal.SirinoksTraining.Add(new Sirinoks.TrainingClass(player.GetPlayerId(),
+                            game.GameId, best.Index, best.Number, playerSheLostLastTime.GetPlayerId()));
                     }
                     else
                     {
@@ -980,7 +981,7 @@ public class CharacterPassives : IServiceSingleton
                     player.Status.WhoToAttackThisTurn == player.Status.IsWonThisCalculation)
                 {
                     var playerIamAttacking =
-                        game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation);
+                        game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation);
 
                     var howMuchToAdd = player.Character.GetSkillMainOnly() switch
                     {
@@ -1011,18 +1012,18 @@ public class CharacterPassives : IServiceSingleton
                 {
                     var awdka = _gameGlobal.AwdkaTrollingList.Find(x =>
                         x.GameId == player.GameId &&
-                        x.PlayerId == player.Status.PlayerId);
+                        x.PlayerId == player.GetPlayerId());
 
                     var enemy = awdka.EnemyList.Find(x => x.EnemyId == player.Status.IsWonThisCalculation);
 
                     if (enemy == null)
                         awdka.EnemyList.Add(new Awdka.TrollingSubClass(player.Status.IsWonThisCalculation,
-                            game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation)
+                            game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation)
                                 .Status
                                 .GetScore()));
                     else
                         enemy.Score = game.PlayersList
-                            .Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation)
+                            .Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation)
                             .Status.GetScore();
                 }
                 //end Произошел троллинг:
@@ -1031,7 +1032,7 @@ public class CharacterPassives : IServiceSingleton
                 if (player.Status.IsLostThisCalculation != Guid.Empty)
                 {
                     var awdka = _gameGlobal.AwdkaTryingList.Find(x =>
-                        x.GameId == player.GameId && x.PlayerId == player.Status.PlayerId);
+                        x.GameId == player.GameId && x.PlayerId == player.GetPlayerId());
 
 
                     var enemy = awdka.TryingList.Find(x => x.EnemyPlayerId == player.Status.IsLostThisCalculation);
@@ -1048,7 +1049,7 @@ public class CharacterPassives : IServiceSingleton
                 //привет со дна
                 if (player.Status.IsWonThisCalculation != Guid.Empty)
                 {
-                    var moral = player.Status.PlaceAtLeaderBoard - game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Status.PlaceAtLeaderBoard;
+                    var moral = player.Status.PlaceAtLeaderBoard - game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation).Status.PlaceAtLeaderBoard;
                     if(moral > 0) 
                         player.Character.AddMoral(player.Status, moral, "Привет со дна");
                 }
@@ -1063,7 +1064,7 @@ public class CharacterPassives : IServiceSingleton
                     /*
                     if (game.PlayersList.All(x => x.Character.Name != "Бог ЛоЛа") || _gameGlobal.LolGodUdyrList.Any(
                             x =>
-                                x.GameId == game.GameId && x.EnemyDiscordId == player.Status.PlayerId))
+                                x.GameId == game.GameId && x.EnemyDiscordId == player.GetPlayerId()))
                     {
                         player.Character.AddPsyche(player.Status, -1);
                         player.MinusPsycheLog(game);
@@ -1083,12 +1084,12 @@ public class CharacterPassives : IServiceSingleton
                 if (player.Status.IsWonThisCalculation != Guid.Empty)
                 {
                     var tigr = _gameGlobal.TigrThreeZeroList.Find(x =>
-                        x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                        x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
 
 
                     if (tigr == null)
                     {
-                        _gameGlobal.TigrThreeZeroList.Add(new Tigr.ThreeZeroClass(player.Status.PlayerId,
+                        _gameGlobal.TigrThreeZeroList.Add(new Tigr.ThreeZeroClass(player.GetPlayerId(),
                             game.GameId,
                             player.Status.IsWonThisCalculation));
                     }
@@ -1107,7 +1108,7 @@ public class CharacterPassives : IServiceSingleton
 
 
                                 var enemyAcc = game.PlayersList.Find(x =>
-                                    x.Status.PlayerId == player.Status.IsWonThisCalculation);
+                                    x.GetPlayerId() == player.Status.IsWonThisCalculation);
 
                                 if (enemyAcc != null)
                                 {
@@ -1131,7 +1132,7 @@ public class CharacterPassives : IServiceSingleton
                 else
                 {
                     var tigr = _gameGlobal.TigrThreeZeroList.Find(x =>
-                        x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                        x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
 
                     var enemy = tigr?.FriendList.Find(x => x.EnemyPlayerId == player.Status.IsLostThisCalculation);
 
@@ -1152,7 +1153,7 @@ public class CharacterPassives : IServiceSingleton
                 if (player.Status.IsWonThisCalculation != Guid.Empty)
                 {
                     var shark = _gameGlobal.SharkJawsWin.Find(x =>
-                        x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                        x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
 
 
                     if (!shark.FriendList.Contains(player.Status.IsWonThisCalculation))
@@ -1164,11 +1165,11 @@ public class CharacterPassives : IServiceSingleton
                 //end Челюсти: 
 
                 //ничего не понимает
-                var btratishkaDontUnderstand = _gameGlobal.BtratishkaDontUnderstand.Find(x => x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
+                var btratishkaDontUnderstand = _gameGlobal.BtratishkaDontUnderstand.Find(x => x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
                 if (btratishkaDontUnderstand != null)
                     if (btratishkaDontUnderstand.CurrentAttacker != Guid.Empty)
                     {
-                        game.PlayersList.Find(x => x.Status.PlayerId == btratishkaDontUnderstand.CurrentAttacker).Character.ExtraWeight = 0;
+                        game.PlayersList.Find(x => x.GetPlayerId() == btratishkaDontUnderstand.CurrentAttacker).Character.ExtraWeight = 0;
                         btratishkaDontUnderstand.CurrentAttacker = Guid.Empty;
                     }
 
@@ -1178,7 +1179,7 @@ public class CharacterPassives : IServiceSingleton
             case "Загадочный Спартанец в маске":
                 //Первая кровь: 
                 var Spartan = _gameGlobal.SpartanFirstBlood.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                    x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
 
                 if (Spartan.FriendList.Count == 1)
                 {
@@ -1190,7 +1191,7 @@ public class CharacterPassives : IServiceSingleton
                     else if (Spartan.FriendList.Contains(player.Status.IsLostThisCalculation))
                     {
                         var ene = game.PlayersList.Find(x =>
-                            x.Status.PlayerId == player.Status.IsLostThisCalculation);
+                            x.GetPlayerId() == player.Status.IsLostThisCalculation);
                         ene.Character.AddSpeed(ene.Status, 1, "Первая кровь");
                     }
 
@@ -1201,14 +1202,14 @@ public class CharacterPassives : IServiceSingleton
                 //Это привилегия - умереть от моей руки
                 if (player.Status.IsWonThisCalculation != Guid.Empty && game.RoundNo > 4)
                 {
-                    game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsWonThisCalculation).Character.Justice.AddJusticeForNextRoundFromSkill();
+                    game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation).Character.Justice.AddJusticeForNextRoundFromSkill();
                     player.Character.AddIntelligence(player.Status, -1, "Это привилегия");
                 }
                 //end Это привилегия - умереть от моей руки
 
                 //Им это не понравится: 
                 var SpartanTheyWontLikeIt = _gameGlobal.SpartanMark.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                    x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
 
                 if (SpartanTheyWontLikeIt.FriendList.Contains(player.Status.IsWonThisCalculation))
                 {
@@ -1222,7 +1223,7 @@ public class CharacterPassives : IServiceSingleton
                 //Гематофагия
 
                 var vampyr = _gameGlobal.VampyrHematophagiaList.Find(x =>
-                    x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                    x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
                 if (player.Status.IsWonThisCalculation != Guid.Empty)
                 {
@@ -1350,7 +1351,7 @@ public class CharacterPassives : IServiceSingleton
                 //Подсчет
                 var tolya = _gameGlobal.TolyaCount.Find(x =>
                     x.GameId == player.GameId &&
-                    x.PlayerId == player.Status.PlayerId);
+                    x.PlayerId == player.GetPlayerId());
 
                 if (tolya.IsReadyToUse && player.Status.WhoToAttackThisTurn != Guid.Empty)
                 {
@@ -1366,13 +1367,13 @@ public class CharacterPassives : IServiceSingleton
             case "DeepList":
                 //Сомнительная тактика
                 var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
-                    x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
+                    x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
 
 
                 if (deep != null)
                     if (player.Status.IsFighting != Guid.Empty)
                     {
-                        var target = game.PlayersList.Find(x => x.Status.PlayerId == player.Status.IsFighting);
+                        var target = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsFighting);
                         if (!deep.FriendList.Contains(player.Status.IsFighting) && !target.Status.IsSkip &&
                             !target.Status.IsBlock) player.Status.IsAbleToWin = false;
                     }
@@ -1409,11 +1410,11 @@ public class CharacterPassives : IServiceSingleton
                             t.Character.GetPsyche() == player.Character.GetPsyche())
                         {
                             var tigr = _gameGlobal.TigrTwoBetterList.Find(x =>
-                                x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                                x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
-                            if (!tigr.FriendList.Contains(t.Status.PlayerId))
+                            if (!tigr.FriendList.Contains(t.GetPlayerId()))
                             {
-                                tigr.FriendList.Add(t.Status.PlayerId);
+                                tigr.FriendList.Add(t.GetPlayerId());
                                 // me.Status.AddRegularPoints();
                                 player.Status.AddBonusPoints(3, "Лучше с двумя, чем с адекватными");
                                 game.Phrases.TigrTwoBetter.SendLog(player, false);
@@ -1428,7 +1429,7 @@ public class CharacterPassives : IServiceSingleton
 
                     //Безумие
                     var madd = _gameGlobal.DeepListMadnessList.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId &&
+                        x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId &&
                         x.RoundItTriggered == game.RoundNo);
 
                     if (madd != null)
@@ -1457,7 +1458,7 @@ public class CharacterPassives : IServiceSingleton
                 case "Глеб":
                     //Претендент русского сервера
                     var glebChall = _gameGlobal.GlebChallengerList.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId &&
+                        x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId &&
                         x.RoundItTriggered == game.RoundNo);
 
                     if (glebChall != null)
@@ -1494,7 +1495,7 @@ public class CharacterPassives : IServiceSingleton
                 case "Краборак":
                     //Бокобуль:
                     var craboRack = _gameGlobal.CraboRackSidewaysBooleList.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId &&
+                        x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId &&
                         x.RoundItTriggered == game.RoundNo);
 
                     if (craboRack != null)
@@ -1513,7 +1514,7 @@ public class CharacterPassives : IServiceSingleton
 
                     //Гребанные ассассин
                     var leCrip = _gameGlobal.LeCrispAssassins.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
+                        x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
 
                     if (leCrip.AdditionalPsycheCurrent > 0)
                         player.Character.AddPsyche(player.Status, leCrip.AdditionalPsycheCurrent * -1,
@@ -1529,7 +1530,7 @@ public class CharacterPassives : IServiceSingleton
 
                     //Импакт
                     var leImpact = _gameGlobal.LeCrispImpact.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                        x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
                     if (leImpact.IsLost)
                     {
@@ -1557,29 +1558,29 @@ public class CharacterPassives : IServiceSingleton
                         if (randNum == 1)
                         {
                             var tolyaTalked = _gameGlobal.TolyaTalked.Find(x =>
-                                x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                                x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
                             if (tolyaTalked.PlayerHeTalkedAbout.Count < 2)
                             {
                                 var randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
 
-                                while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.Status.PlayerId))
+                                while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.GetPlayerId()))
                                     randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
 
 
-                                if (randomPlayer.Status.PlayerId == player.Status.PlayerId)
+                                if (randomPlayer.GetPlayerId() == player.GetPlayerId())
                                     do
                                     {
                                         randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
-                                    } while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.Status.PlayerId));
+                                    } while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.GetPlayerId()));
 
-                                if (randomPlayer.Status.PlayerId == player.Status.PlayerId)
+                                if (randomPlayer.GetPlayerId() == player.GetPlayerId())
                                     do
                                     {
                                         randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
-                                    } while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.Status.PlayerId));
+                                    } while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.GetPlayerId()));
 
 
-                                tolyaTalked.PlayerHeTalkedAbout.Add(randomPlayer.Status.PlayerId);
+                                tolyaTalked.PlayerHeTalkedAbout.Add(randomPlayer.GetPlayerId());
                                 game.AddGlobalLogs($"Толя запизделся и спалил, что {randomPlayer.DiscordUsername} - {randomPlayer.Character.Name}");
                             }
                         }
@@ -1589,7 +1590,7 @@ public class CharacterPassives : IServiceSingleton
                     //Раммус мейн
                     var tolya = _gameGlobal.TolyaRammusTimes.Find(x =>
                         x.GameId == player.GameId &&
-                        x.PlayerId == player.Status.PlayerId);
+                        x.PlayerId == player.GetPlayerId());
                     if (tolya != null)
                     {
                         switch (tolya.FriendList.Count)
@@ -1637,7 +1638,7 @@ public class CharacterPassives : IServiceSingleton
                     //Обучение
 
                     var siri = _gameGlobal.SirinoksTraining.Find(x =>
-                        x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                        x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
 
                     if (siri != null && siri.Training.Count >= 1)
                     {
@@ -1693,20 +1694,20 @@ public class CharacterPassives : IServiceSingleton
 
                 case "HardKitty":
                     //Одиночество
-                    var hard = _gameGlobal.HardKittyLoneliness.Find(x => x.GameId == player.GameId && x.PlayerId == player.Status.PlayerId);
+                    var hard = _gameGlobal.HardKittyLoneliness.Find(x => x.GameId == player.GameId && x.PlayerId == player.GetPlayerId());
                     if (hard != null) hard.Activated = false;
                     //Одиночество
 
 
                     //Доебаться
                     var hardKittyDoebatsya = _gameGlobal.HardKittyDoebatsya.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                        x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
                     foreach (var target in game.PlayersList)
-                        if (target.Status.WhoToAttackThisTurn == player.Status.PlayerId)
+                        if (target.Status.WhoToAttackThisTurn == player.GetPlayerId())
                         {
                             var found = hardKittyDoebatsya.LostSeries.Find(x =>
-                                x.EnemyPlayerId == target.Status.PlayerId);
+                                x.EnemyPlayerId == target.GetPlayerId());
                             if (found != null)
                                 if (found.Series > 0)
                                 {
@@ -1725,7 +1726,7 @@ public class CharacterPassives : IServiceSingleton
                     if (game.RoundNo == 2 || game.RoundNo == 4 || game.RoundNo == 6 || game.RoundNo == 8)
                     {
                         var Spartan = _gameGlobal.SpartanMark.Find(x =>
-                            x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                            x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
                         Spartan.FriendList.Clear();
 
                         Guid enemy1;
@@ -1734,30 +1735,30 @@ public class CharacterPassives : IServiceSingleton
                         do
                         {
                             var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
-                            enemy1 = game.PlayersList[randIndex].Status.PlayerId;
+                            enemy1 = game.PlayersList[randIndex].GetPlayerId();
                             if (game.PlayersList[randIndex].Character.Name is "Глеб" or "mylorik" or
                                 "Загадочный Спартанец в маске")
-                                enemy1 = player.Status.PlayerId;
+                                enemy1 = player.GetPlayerId();
                             if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" && game.RoundNo < 4)
-                                enemy1 = player.Status.PlayerId;
+                                enemy1 = player.GetPlayerId();
                             if (game.PlayersList[randIndex].Character.Name is "Вампур" && game.RoundNo >= 4)
-                                enemy1 = player.Status.PlayerId;
-                        } while (enemy1 == player.Status.PlayerId);
+                                enemy1 = player.GetPlayerId();
+                        } while (enemy1 == player.GetPlayerId());
 
                         do
                         {
                             var randIndex = _rand.Random(0, game.PlayersList.Count - 1);
-                            enemy2 = game.PlayersList[randIndex].Status.PlayerId;
+                            enemy2 = game.PlayersList[randIndex].GetPlayerId();
                             if (game.PlayersList[randIndex].Character.Name is "Глеб" or "mylorik" or
                                 "Загадочный Спартанец в маске")
-                                enemy2 = player.Status.PlayerId;
+                                enemy2 = player.GetPlayerId();
                             if (game.PlayersList[randIndex].Character.Name is "Mit*suki*" && game.RoundNo < 4)
-                                enemy2 = player.Status.PlayerId;
+                                enemy2 = player.GetPlayerId();
                             if (game.PlayersList[randIndex].Character.Name is "Вампур" && game.RoundNo >= 4)
-                                enemy2 = player.Status.PlayerId;
+                                enemy2 = player.GetPlayerId();
                             if (enemy2 == enemy1)
-                                enemy2 = player.Status.PlayerId;
-                        } while (enemy2 == player.Status.PlayerId);
+                                enemy2 = player.GetPlayerId();
+                        } while (enemy2 == player.GetPlayerId());
 
 
                         Spartan.FriendList.Add(enemy2);
@@ -1818,8 +1819,8 @@ public class CharacterPassives : IServiceSingleton
 
                         foreach (var target in game.PlayersList)
                         {
-                            if (target.Status.PlayerId == player.Status.PlayerId) continue;
-                            if (target.Status.WhoToAttackThisTurn == player.Status.PlayerId)
+                            if (target.GetPlayerId() == player.GetPlayerId()) continue;
+                            if (target.Status.WhoToAttackThisTurn == player.GetPlayerId())
                                 noAttack = false;
                         }
 
@@ -1835,7 +1836,7 @@ public class CharacterPassives : IServiceSingleton
                 case "Вампур":
                     //Вампуризм
                     var vampyr = _gameGlobal.VampyrHematophagiaList.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                        x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
                     if (vampyr.Hematophagia.Count > 0)
                         if (game.RoundNo is 2 or 4 or 6 or 8 or 10)
                             player.Character.AddMoral(player.Status, vampyr.Hematophagia.Count, "Вампуризм");
@@ -1865,14 +1866,14 @@ public class CharacterPassives : IServiceSingleton
                         if (octopusInk != null)
                             foreach (var t in octopusInk.RealScoreList)
                             {
-                                var pl = game.PlayersList.Find(x => x.Status.PlayerId == t.PlayerId);
+                                var pl = game.PlayersList.Find(x => x.GetPlayerId() == t.PlayerId);
                                 pl?.Status.AddBonusPoints(t.RealScore, "🐙");
                             }
 
                         if (octopusInv != null)
                         {
                             var octoPlayer =
-                                game.PlayersList.Find(x => x.Status.PlayerId == octopusInv.PlayerId);
+                                game.PlayersList.Find(x => x.GetPlayerId() == octopusInv.PlayerId);
                             octoPlayer.Status.AddBonusPoints(octopusInv.Count, "🐙");
                         }
 
@@ -1893,21 +1894,39 @@ public class CharacterPassives : IServiceSingleton
 
                 case "mylorik":
                     //Буль
-                    
-                    var random = _rand.Random(1, 2 + player.Character.GetPsyche() * 6);
-
-                    if (random == 2)
+                    if (player.Character.GetPsyche() < 7)
                     {
-                        player.Status.IsSkip = true;
-                        player.Status.ConfirmedSkip = false;
-                        player.Status.IsBlock = false;
-                        player.Status.IsAbleToTurn = false;
-                        player.Status.IsReady = true;
-                        player.Status.WhoToAttackThisTurn = Guid.Empty;
+                        var random = _rand.Random(1, 4 + player.Character.GetPsyche() * 6);
 
-                        game.Phrases.MylorikBoolePhrase.SendLog(player, false);
+                        if (random == 2)
+                        {
+                            player.Status.IsSkip = true;
+                            player.Status.ConfirmedSkip = false;
+                            player.Status.IsBlock = false;
+                            player.Status.IsAbleToTurn = false;
+                            player.Status.IsReady = true;
+                            player.Status.WhoToAttackThisTurn = Guid.Empty;
+
+                            game.Phrases.MylorikBoolePhrase.SendLog(player, false);
+                        }
                     }
                     //end Буль
+
+                    // Повторяет за myloran
+                    if (game.RoundNo == 5)
+                    {
+                        player.Status.AddInGamePersonalLogs("ZaRDaK: Ты никогда не возьмешь даймонд, Лорик. Удачи в промо.");
+                        player.Status.AddInGamePersonalLogs("\nmylorik: ММММММММММ!!!!!  +5 Силы.\n");
+                        player.Character.AddStrength(player.Status, 5, "Повторяет за myloran", false);
+                    }
+
+                    if (game.RoundNo == 10)
+                    {
+                        player.Status.AddInGamePersonalLogs("ZaRDaK: Ты так и не апнул чалланджер? Хах, неудивительно. ");
+                        player.Status.AddInGamePersonalLogs("\nmylorik закупился у продавца сомнительных тактик: +228 *Скилла*!\n");
+                        player.Character.AddExtraSkill(player.Status, 228, "Повторяет за myloran", false);
+                    }
+                    //end Повторяет за myloran
 
                     break;
 
@@ -1935,23 +1954,23 @@ public class CharacterPassives : IServiceSingleton
                     //Тигр топ, а ты холоп:
 
                     var tigr = _gameGlobal.TigrTopWhen.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId &&
+                        x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId &&
                         x.WhenToTrigger.Contains(game.RoundNo));
 
                     if (tigr != null)
                     {
                         var tigr2 = _gameGlobal.TigrTop.Find(x =>
-                            x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                            x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
                         if (tigr2 == null)
                         {
-                            _gameGlobal.TigrTop.Add(new Tigr.TigrTopClass(player.Status.PlayerId,
+                            _gameGlobal.TigrTop.Add(new Tigr.TigrTopClass(player.GetPlayerId(),
                                 game.GameId));
                         }
                         else
                         {
                             _gameGlobal.TigrTop.Remove(tigr2);
-                            _gameGlobal.TigrTop.Add(new Tigr.TigrTopClass(player.Status.PlayerId,
+                            _gameGlobal.TigrTop.Add(new Tigr.TigrTopClass(player.GetPlayerId(),
                                 game.GameId));
                         }
                     }
@@ -1979,7 +1998,7 @@ public class CharacterPassives : IServiceSingleton
 
                     //Школьник
                     var acc = _gameGlobal.MitsukiNoPcTriggeredWhen.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
+                        x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
 
                     if (acc != null)
                         if (acc.WhenToTrigger.Contains(game.RoundNo))
@@ -2002,7 +2021,7 @@ public class CharacterPassives : IServiceSingleton
                     //АФКА
 
                     var awdkaaa = _gameGlobal.AwdkaAfkTriggeredWhen.Find(x =>
-                        x.GameId == player.GameId && x.PlayerId == player.Status.PlayerId);
+                        x.GameId == player.GameId && x.PlayerId == player.GetPlayerId());
 
                     if (awdkaaa != null)
                         if (awdkaaa.WhenToTrigger.Contains(game.RoundNo))
@@ -2021,7 +2040,7 @@ public class CharacterPassives : IServiceSingleton
                     //Я пытаюсь!:
                     var awdkaa = _gameGlobal.AwdkaTryingList.Find(x =>
                         x.GameId == player.GameId &&
-                        x.PlayerId == player.Status.PlayerId);
+                        x.PlayerId == player.GetPlayerId());
 
                     foreach (var enemy in awdkaa.TryingList)
                         if (enemy != null)
@@ -2038,10 +2057,10 @@ public class CharacterPassives : IServiceSingleton
 
                     //Научите играть 
                     var awdkaTempStats = _gameGlobal.AwdkaTeachToPlayTempStats.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                        x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
                     var awdka = _gameGlobal.AwdkaTeachToPlay.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                        x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
                     //remove stats from previos time
                     if (awdkaTempStats != null)
@@ -2074,11 +2093,11 @@ public class CharacterPassives : IServiceSingleton
                     //end if there..
 
                     //crazy shit
-                    _gameGlobal.AwdkaTeachToPlayTempStats.Add(new DeepList.Madness(player.Status.PlayerId,
+                    _gameGlobal.AwdkaTeachToPlayTempStats.Add(new DeepList.Madness(player.GetPlayerId(),
                         game.GameId, game.RoundNo));
 
                     awdkaTempStats = _gameGlobal.AwdkaTeachToPlayTempStats.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                        x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
                     awdkaTempStats.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.GetIntelligence(),
                         player.Character.GetStrength(), player.Character.GetSpeed(), player.Character.GetPsyche()));
@@ -2145,7 +2164,7 @@ public class CharacterPassives : IServiceSingleton
                     var rand = _rand.Random(1, 8);
 
                     var glebChalleger = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
+                        x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
 
                     if (glebChalleger != null)
                         if (glebChalleger.WhenToTrigger.Contains(game.RoundNo))
@@ -2154,7 +2173,7 @@ public class CharacterPassives : IServiceSingleton
 
                     var geblTea =
                         _gameGlobal.GlebTea.Find(x =>
-                            x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
+                            x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
 
                     if (rand == 1) geblTea.Ready = true;
 
@@ -2164,7 +2183,7 @@ public class CharacterPassives : IServiceSingleton
 
 
                     //Спящее хуйло:
-                    acc = _gameGlobal.GlebSleepingTriggeredWhen.Find(x => x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
+                    acc = _gameGlobal.GlebSleepingTriggeredWhen.Find(x => x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
 
                     if (acc != null)
                         if (acc.WhenToTrigger.Contains(game.RoundNo))
@@ -2193,17 +2212,17 @@ public class CharacterPassives : IServiceSingleton
 
                     //Претендент русского сервера: 
                     acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
+                        x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
 
                     if (acc != null)
                         if (acc.WhenToTrigger.Contains(game.RoundNo))
                         {
-                            var gleb = _gameGlobal.GlebChallengerList.Find(x => x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                            var gleb = _gameGlobal.GlebChallengerList.Find(x => x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
                             //just check
                             if (gleb != null) _gameGlobal.GlebChallengerList.Remove(gleb);
 
-                            _gameGlobal.GlebChallengerList.Add(new DeepList.Madness(player.Status.PlayerId, game.GameId, game.RoundNo));
-                            gleb = _gameGlobal.GlebChallengerList.Find(x => x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                            _gameGlobal.GlebChallengerList.Add(new DeepList.Madness(player.GetPlayerId(), game.GameId, game.RoundNo));
+                            gleb = _gameGlobal.GlebChallengerList.Find(x => x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
                             gleb.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.GetIntelligence(), player.Character.GetStrength(), player.Character.GetSpeed(), player.Character.GetPsyche()));
 
                             //  var randomNumber =  _rand.Random(1, 100);
@@ -2233,19 +2252,19 @@ public class CharacterPassives : IServiceSingleton
                 case "Краборак":
                     //Бокобуль:
                     acc = _gameGlobal.CraboRackSidewaysBooleTriggeredWhen.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && player.GameId == x.GameId);
+                        x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
                     if (acc != null)
                         if (acc.WhenToTrigger.Contains(game.RoundNo))
                         {
                             var craboRack = _gameGlobal.CraboRackSidewaysBooleList.Find(x =>
-                                x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                                x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
                             //just check
                             if (craboRack != null) _gameGlobal.CraboRackSidewaysBooleList.Remove(craboRack);
 
-                            _gameGlobal.CraboRackSidewaysBooleList.Add(new DeepList.Madness(player.Status.PlayerId,
+                            _gameGlobal.CraboRackSidewaysBooleList.Add(new DeepList.Madness(player.GetPlayerId(),
                                 game.GameId, game.RoundNo));
                             craboRack = _gameGlobal.CraboRackSidewaysBooleList.Find(x =>
-                                x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                                x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
                             craboRack.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.GetIntelligence(),
                                 player.Character.GetStrength(), player.Character.GetSpeed(),
                                 player.Character.GetPsyche()));
@@ -2265,7 +2284,7 @@ public class CharacterPassives : IServiceSingleton
 
                     //Сверхразум
                     var currentDeepList = _gameGlobal.DeepListSupermindTriggeredWhen.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
+                        x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
 
                     if (currentDeepList != null)
                         if (currentDeepList.WhenToTrigger.Any(x => x == game.RoundNo))
@@ -2277,22 +2296,22 @@ public class CharacterPassives : IServiceSingleton
                                 randPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Count - 1)];
 
                                 var check1 = _gameGlobal.DeepListSupermindKnown.Find(x =>
-                                    x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                                    x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
                                 if (check1 != null)
-                                    if (check1.KnownPlayers.Contains(randPlayer.Status.PlayerId))
+                                    if (check1.KnownPlayers.Contains(randPlayer.GetPlayerId()))
                                         randPlayer = player;
-                            } while (randPlayer.Status.PlayerId == player.Status.PlayerId);
+                            } while (randPlayer.GetPlayerId() == player.GetPlayerId());
 
                             var check = _gameGlobal.DeepListSupermindKnown.Find(x =>
-                                x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                                x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
                             if (check == null)
                                 _gameGlobal.DeepListSupermindKnown.Add(new DeepList.SuperMindKnown(
-                                    player.Status.PlayerId, game.GameId,
-                                    randPlayer.Status.PlayerId));
+                                    player.GetPlayerId(), game.GameId,
+                                    randPlayer.GetPlayerId()));
                             else
-                                check.KnownPlayers.Add(randPlayer.Status.PlayerId);
+                                check.KnownPlayers.Add(randPlayer.GetPlayerId());
 
                             game.Phrases.DeepListSuperMindPhrase.SendLog(player, randPlayer, true);
                         }
@@ -2301,7 +2320,7 @@ public class CharacterPassives : IServiceSingleton
                     //Безумие
 
                     var madd = _gameGlobal.DeepListMadnessTriggeredWhen.Find(x =>
-                        x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                        x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
                     if (madd != null)
                         if (madd.WhenToTrigger.Contains(game.RoundNo))
@@ -2310,14 +2329,14 @@ public class CharacterPassives : IServiceSingleton
                             //player.Status.AddBonusPoints(-3, "Безумие");
 
                             var curr = _gameGlobal.DeepListMadnessList.Find(x =>
-                                x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                                x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
                             //just check
                             if (curr != null) _gameGlobal.DeepListMadnessList.Remove(curr);
 
                             _gameGlobal.DeepListMadnessList.Add(
-                                new DeepList.Madness(player.Status.PlayerId, game.GameId, game.RoundNo));
+                                new DeepList.Madness(player.GetPlayerId(), game.GameId, game.RoundNo));
                             curr = _gameGlobal.DeepListMadnessList.Find(x =>
-                                x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId);
+                                x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
                             curr.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.GetIntelligence(),
                                 player.Character.GetStrength(), player.Character.GetSpeed(),
                                 player.Character.GetPsyche()));
@@ -2330,6 +2349,7 @@ public class CharacterPassives : IServiceSingleton
 
                             for (var i = 0; i < 4; i++)
                             {
+                                /*
                                 var randomNumber = _rand.Random(1, 100);
                                 var statNumber = 0;
                                 switch (randomNumber)
@@ -2364,7 +2384,8 @@ public class CharacterPassives : IServiceSingleton
                                     case int n when n >= 97:
                                         statNumber = 10;
                                         break;
-                                }
+                                }*/
+                                var statNumber = _rand.Random(0, 10);
 
                                 if (i == 0)
                                     intel = statNumber;
@@ -2381,6 +2402,7 @@ public class CharacterPassives : IServiceSingleton
                             player.Character.SetPsyche(player.Status, pshy, "Безумие");
                             //2 это х3
                             player.Character.SetSkillMultiplier(3);
+                            player.Status.AddBonusPoints(-3, "Безумие");
 
                             game.Phrases.DeepListMadnessPhrase.SendLog(player, true);
                             curr.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
@@ -2405,13 +2427,13 @@ public class CharacterPassives : IServiceSingleton
 
 
                         var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
-                            x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                            x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
 
                         if (siri != null)
                             for (var i = player.Status.PlaceAtLeaderBoard + 1; i < game.PlayersList.Count + 1; i++)
                             {
                                 var player2 = game.PlayersList[i - 1];
-                                if (siri.FriendList.Contains(player2.Status.PlayerId))
+                                if (siri.FriendList.Contains(player2.GetPlayerId()))
                                     pointsToGive -= 1;
                             }
 
@@ -2438,7 +2460,7 @@ public class CharacterPassives : IServiceSingleton
 
             //Я за чаем
             var isSkip = _gameGlobal.GlebTeaTriggeredWhen.Find(x =>
-                x.PlayerId == player.Status.PlayerId && x.GameId == game.GameId &&
+                x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId &&
                 x.WhenToTrigger.Contains(game.RoundNo));
 
             if (isSkip != null)
@@ -2476,7 +2498,7 @@ public class CharacterPassives : IServiceSingleton
                     if (game.RoundNo > 1)
                     {
                         var shark = _gameGlobal.SharkJawsLeader.Find(x =>
-                            x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                            x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
 
 
                         if (!shark.FriendList.Contains(player.Status.PlaceAtLeaderBoard))
@@ -2517,13 +2539,13 @@ public class CharacterPassives : IServiceSingleton
                     if (game.RoundNo == 11)
                     {
                         var mitsuki = _gameGlobal.MitsukiGarbageList.Find(x =>
-                            x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                            x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
                         if (mitsuki != null)
                         {
                             var count = 0;
                             foreach (var t in mitsuki.Training.Where(x => x.Times >= 2))
                             {
-                                var player2 = game.PlayersList.Find(x => x.Status.PlayerId == t.EnemyId);
+                                var player2 = game.PlayersList.Find(x => x.GetPlayerId() == t.EnemyId);
                                 if (player2 != null)
                                 {
                                     player2.Status.AddBonusPoints(-5, "Запах мусора");
@@ -2545,7 +2567,7 @@ public class CharacterPassives : IServiceSingleton
                     if (game.RoundNo > 1)
                     {
                         var octo = _gameGlobal.OctopusTentaclesList.Find(x =>
-                            x.GameId == game.GameId && x.PlayerId == player.Status.PlayerId);
+                            x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
                         if (!octo.LeaderboardPlace.Contains(player.Status.PlaceAtLeaderBoard))
                         {
                             octo.LeaderboardPlace.Add(player.Status.PlaceAtLeaderBoard);
@@ -2560,16 +2582,16 @@ public class CharacterPassives : IServiceSingleton
                     if (game.RoundNo is 9 or 7 or 5 or 3)
                     {
                         var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
-                            x.PlayerId == player.Status.PlayerId && game.GameId == x.GameId);
+                            x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
                         foreach (var target in game.PlayersList)
                         {
-                            if (player.Status.PlayerId == target.Status.PlayerId) continue;
-                            var found = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == target.Status.PlayerId);
+                            if (player.GetPlayerId() == target.GetPlayerId()) continue;
+                            var found = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == target.GetPlayerId());
 
                             if (found != null)
                                 found.Series += 1;
                             else
-                                hardKitty.LostSeries.Add(new HardKitty.DoebatsyaSubClass(target.Status.PlayerId));
+                                hardKitty.LostSeries.Add(new HardKitty.DoebatsyaSubClass(target.GetPlayerId()));
                         }
                     }
 
@@ -2578,7 +2600,7 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Darksci":
                     //Не повезло
-                    player.Character.AddExtraSkill(player.Status,  15, "Не повезло");
+                    player.Character.AddExtraSkill(player.Status,  5, "Не повезло");
                     //end Не повезло
 
                     if (game.RoundNo == 9)
@@ -2648,7 +2670,7 @@ public class CharacterPassives : IServiceSingleton
                     //Подсчет
                     var tolya = _gameGlobal.TolyaCount.Find(x =>
                         x.GameId == player.GameId &&
-                        x.PlayerId == player.Status.PlayerId);
+                        x.PlayerId == player.GetPlayerId());
 
                     tolya.Cooldown--;
 
@@ -2664,10 +2686,10 @@ public class CharacterPassives : IServiceSingleton
                     if (player.Character.GetPsyche() == 10)
                     {
                         player.Character.Name = "Братишка";
-                        _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.Status.PlayerId, game.GameId));
+                        _gameGlobal.SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.GetPlayerId(), game.GameId));
 
-                        _gameGlobal.SharkJawsWin.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
-                        _gameGlobal.SharkBoole.Add(new FriendsClass(player.Status.PlayerId, game.GameId));
+                        _gameGlobal.SharkJawsWin.Add(new FriendsClass(player.GetPlayerId(), game.GameId));
+                        _gameGlobal.SharkBoole.Add(new FriendsClass(player.GetPlayerId(), game.GameId));
                         player.Status.AddInGamePersonalLogs(
                             "Братишка: **Буууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууль**\n");
                     }
@@ -2778,10 +2800,10 @@ public class CharacterPassives : IServiceSingleton
         if (playerAttackedOctopus.Character.Name == "DeepList")
         {
             var doubtfull = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
-                x.PlayerId == playerAttackedOctopus.Status.PlayerId && x.GameId == game.GameId);
+                x.PlayerId == playerAttackedOctopus.GetPlayerId() && x.GameId == game.GameId);
 
             if (doubtfull != null)
-                if (!doubtfull.FriendList.Contains(octopusPlayer.Status.PlayerId))
+                if (!doubtfull.FriendList.Contains(octopusPlayer.GetPlayerId()))
                     return true;
         }
 
@@ -2799,26 +2821,26 @@ public class CharacterPassives : IServiceSingleton
 
         octopusPlayer.Character.Justice.AddJusticeForNextRoundFromFight();
 
-        playerAttackedOctopus.Status.IsWonThisCalculation = octopusPlayer.Status.PlayerId;
-        octopusPlayer.Status.IsLostThisCalculation = playerAttackedOctopus.Status.PlayerId;
-        octopusPlayer.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerAttackedOctopus.Status.PlayerId, game.RoundNo, false, false, false, false, playerAttackedOctopus.Status.PlayerId));
+        playerAttackedOctopus.Status.IsWonThisCalculation = octopusPlayer.GetPlayerId();
+        octopusPlayer.Status.IsLostThisCalculation = playerAttackedOctopus.GetPlayerId();
+        octopusPlayer.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerAttackedOctopus.GetPlayerId(), game.RoundNo, false, false, false, false, playerAttackedOctopus.GetPlayerId()));
 
         var octo = _gameGlobal.OctopusInkList.Find(x =>
-            x.PlayerId == octopusPlayer.Status.PlayerId && x.GameId == game.GameId);
+            x.PlayerId == octopusPlayer.GetPlayerId() && x.GameId == game.GameId);
 
         if (octo == null)
         {
-            _gameGlobal.OctopusInkList.Add(new Octopus.InkClass(octopusPlayer.Status.PlayerId, game,
-                playerAttackedOctopus.Status.PlayerId));
+            _gameGlobal.OctopusInkList.Add(new Octopus.InkClass(octopusPlayer.GetPlayerId(), game,
+                playerAttackedOctopus.GetPlayerId()));
         }
         else
         {
-            var enemyRealScore = octo.RealScoreList.Find(x => x.PlayerId == playerAttackedOctopus.Status.PlayerId);
-            var octoRealScore = octo.RealScoreList.Find(x => x.PlayerId == octopusPlayer.Status.PlayerId);
+            var enemyRealScore = octo.RealScoreList.Find(x => x.PlayerId == playerAttackedOctopus.GetPlayerId());
+            var octoRealScore = octo.RealScoreList.Find(x => x.PlayerId == octopusPlayer.GetPlayerId());
 
             if (enemyRealScore == null)
             {
-                octo.RealScoreList.Add(new Octopus.InkSubClass(playerAttackedOctopus.Status.PlayerId, game.RoundNo,
+                octo.RealScoreList.Add(new Octopus.InkSubClass(playerAttackedOctopus.GetPlayerId(), game.RoundNo,
                     -1));
                 octoRealScore.AddRealScore(game.RoundNo);
             }
