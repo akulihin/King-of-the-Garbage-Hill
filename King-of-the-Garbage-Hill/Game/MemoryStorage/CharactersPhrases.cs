@@ -431,6 +431,7 @@ public class CharactersUniquePhrase
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Моя жопа не смогла съесть змею. (с)");
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Женская собака приседает и писает");      
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Аль тигий ли ба делет"); 
+        LeCrispAssassinsPhrase.PassiveLogRus.Add("Малфит подкинул, Ясуо ультанул..."); 
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Голова арбуза"); 
 
         
