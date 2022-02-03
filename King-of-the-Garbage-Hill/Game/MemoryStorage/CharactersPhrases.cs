@@ -436,6 +436,7 @@ public class CharactersUniquePhrase
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Аль тигий ли ба делет"); 
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Малфит подкинул, Ясуо ультанул..."); 
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Голова арбуза"); 
+        LeCrispAssassinsPhrase.PassiveLogRus.Add("Я трахался на летних каникулах. Никому это не понравилось "); 
 
         
         LeCrispImpactPhrase.PassiveLogRus.Add("Импакт!");
