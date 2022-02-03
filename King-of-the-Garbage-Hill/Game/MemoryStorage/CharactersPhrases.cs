@@ -325,7 +325,7 @@ public class CharactersUniquePhrase
         DeepListPokePhrase.PassiveLogRus.Add("LeCringe");  
         DeepListPokePhrase.PassiveLogRus.Add("Кто **Там**?"); 
         DeepListPokePhrase.PassiveLogRus.Add("Дэусманс, придурки"); 
-
+        DeepListPokePhrase.PassiveLogRus.Add("I hate Sirinokses!"); 
         
         
 
