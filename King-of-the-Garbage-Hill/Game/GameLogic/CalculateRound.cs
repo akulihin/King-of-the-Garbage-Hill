@@ -17,7 +17,6 @@ public class CalculateRound : IServiceSingleton
     private readonly Logs _logs;
 
 
-
     private readonly SecureRandom _rand;
 
     public CalculateRound(SecureRandom rand, CharacterPassives characterPassives,
@@ -44,19 +43,22 @@ Speed => Strength
     {
         if (me.Character.GetSkillClass() == "Интеллект" && target.Character.GetSkillClass() == "Скорость")
         {
-            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Умный** ?) "));
+            target.Status.KnownPlayerClass.Add(
+                new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Умный** ?) "));
             return "вас обманул";
         }
 
         if (me.Character.GetSkillClass() == "Сила" && target.Character.GetSkillClass() == "Интеллект")
         {
-            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Сильный** ?) "));
+            target.Status.KnownPlayerClass.Add(
+                new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Сильный** ?) "));
             return "вас пресанул";
         }
 
         if (me.Character.GetSkillClass() == "Скорость" && target.Character.GetSkillClass() == "Сила")
         {
-            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Быстрый** ?) "));
+            target.Status.KnownPlayerClass.Add(
+                new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Быстрый** ?) "));
             return "вас обогнал";
         }
 
@@ -128,7 +130,8 @@ Speed => Strength
 
             if (playerIamAttacking == null)
             {
-                await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync($"playerIamAttacking == null\n" +
+                await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(
+                    "playerIamAttacking == null\n" +
                     $"Round: {game.RoundNo}\n" +
                     $"{player.Status.CharacterName} | {player.DiscordUsername}\n");
                 _characterPassives.HandleCharacterAfterFight(player, game);
@@ -148,8 +151,9 @@ Speed => Strength
 
 
             //умный
-            if (player.Character.GetSkillClass() == "Интеллект" && playerIamAttacking.Character.Justice.GetFullJusticeNow() == 0)
-                player.Character.AddExtraSkill(player.Status,  6, "Класс");
+            if (player.Character.GetSkillClass() == "Интеллект" &&
+                playerIamAttacking.Character.Justice.GetFullJusticeNow() == 0)
+                player.Character.AddExtraSkill(player.Status, 6, "Класс");
 
 
             if (!player.Status.IsAbleToWin) pointsWined = -50;
@@ -187,12 +191,9 @@ Speed => Strength
                     text2 = "(**БУЛЬ** ?!) ";
                 }
 
-                if (player.Character.Name != "Братишка")
-                {
-                    player.Character.AddMainSkill(player.Status, text1);
-                }
-                
-                
+                if (player.Character.Name != "Братишка") player.Character.AddMainSkill(player.Status, text1);
+
+
                 var known = player.Status.KnownPlayerClass.Find(x =>
                     x.EnemyId == playerIamAttacking.GetPlayerId());
                 if (known != null)
@@ -266,16 +267,14 @@ Speed => Strength
 
                 game.AddGlobalLogs(logMess);
 
-                
-                if (player.Character.Name != "mylorik")
-                {
-                    player.Status.AddBonusPoints(-1, "Блок");
-                }
+
+                if (player.Character.Name != "mylorik") player.Status.AddBonusPoints(-1, "Блок");
 
                 playerIamAttacking.Character.Justice.AddJusticeForNextRoundFromFight();
 
                 _characterPassives.HandleCharacterAfterFight(player, game);
                 _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game);
+                _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
 
                 ResetFight(player, playerIamAttacking);
 
@@ -303,10 +302,10 @@ Speed => Strength
 
             //быстрый
             if (playerIamAttacking.Character.GetSkillClass() == "Скорость")
-                playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status,  2, "Класс");
+                playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, 2, "Класс");
 
             if (player.Character.GetSkillClass() == "Скорость")
-                player.Character.AddExtraSkill(player.Status,  2, "Класс");
+                player.Character.AddExtraSkill(player.Status, 2, "Класс");
 
 
             //main formula:
@@ -329,7 +328,7 @@ Speed => Strength
             }
 
 
-            if (target.GetWhoIContre() ==  me.GetSkillClass())
+            if (target.GetWhoIContre() == me.GetSkillClass())
             {
                 weighingMachine -= 2;
                 skillMultiplierTarget = 2;
@@ -337,9 +336,10 @@ Speed => Strength
             }
 
 
-
-            var scaleMe = me.ExtraWeight + me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() + me.GetSkill() * skillMultiplierMe / 50;
-            var scaleTarget = target.ExtraWeight + target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche() + target.GetSkill() * skillMultiplierTarget / 50;
+            var scaleMe = me.ExtraWeight + me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() +
+                          me.GetSkill() * skillMultiplierMe / 50;
+            var scaleTarget = target.ExtraWeight + target.GetIntelligence() + target.GetStrength() + target.GetSpeed() +
+                              target.GetPsyche() + target.GetSkill() * skillMultiplierTarget / 50;
             weighingMachine += scaleMe - scaleTarget;
 
             switch (WhoIsBetter(player, playerIamAttacking))
@@ -396,7 +396,8 @@ Speed => Strength
             weighingMachine += wtf;
 
 
-            weighingMachine += player.Character.Justice.GetFullJusticeNow() - playerIamAttacking.Character.Justice.GetFullJusticeNow();
+            weighingMachine += player.Character.Justice.GetFullJusticeNow() -
+                               playerIamAttacking.Character.Justice.GetFullJusticeNow();
 
 
             switch (weighingMachine)
@@ -433,7 +434,7 @@ Speed => Strength
                     var targetJustice = playerIamAttacking.Character.Justice.GetFullJusticeNow();
                     maxRandomNumber -= (myJustice - targetJustice) * 5;
                 }
-                    
+
                 var randomNumber = _rand.Random(1, maxRandomNumber);
                 if (randomNumber <= randomForTooGood) pointsWined++;
                 else pointsWined--;
@@ -443,13 +444,16 @@ Speed => Strength
 
             var moral = player.Status.PlaceAtLeaderBoard - playerIamAttacking.Status.PlaceAtLeaderBoard;
 
+            //octopus  // playerIamAttacking is octopus
+            if (pointsWined <= 0) pointsWined =  _characterPassives.HandleOctopus(playerIamAttacking, player, game);
+            //end octopus
 
             //CheckIfWin to remove Justice
             if (pointsWined >= 1)
             {
                 //сильный
                 if (player.Character.GetSkillClass() == "Сила")
-                    player.Character.AddExtraSkill(player.Status,  4, "Класс");
+                    player.Character.AddExtraSkill(player.Status, 4, "Класс");
 
                 isContrLost -= 1;
                 game.AddGlobalLogs($" ⟶ {player.DiscordUsername}");
@@ -480,13 +484,15 @@ Speed => Strength
 
                 player.Status.IsWonThisCalculation = playerIamAttacking.GetPlayerId();
                 playerIamAttacking.Status.IsLostThisCalculation = player.GetPlayerId();
-                playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.GetPlayerId(), game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy, isStatsBettterEnemy, player.GetPlayerId()));
+                playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(
+                    player.GetPlayerId(), game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy,
+                    isStatsBettterEnemy, player.GetPlayerId()));
             }
             else
             {
                 //сильный
                 if (playerIamAttacking.Character.GetSkillClass() == "Сила")
-                    playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status,  4, "Класс");
+                    playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, 4, "Класс");
 
                 if (isTooGoodLost == -1)
                     player.Status.AddInGamePersonalLogs(
@@ -494,40 +500,37 @@ Speed => Strength
 
                 isContrLost += 1;
 
-                //octopus  // playerIamAttacking is octopus
-                var check = await  _characterPassives.HandleOctopus(playerIamAttacking, player, game);
-                //end octopus
 
-                if (check)
+                game.AddGlobalLogs($" ⟶ {playerIamAttacking.DiscordUsername}");
+
+                playerIamAttacking.Status.AddRegularPoints(1, "Победа");
+
+                player.Status.WonTimes++;
+                playerIamAttacking.Character.Justice.IsWonThisRound = true;
+
+                if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard &&
+                    game.RoundNo > 1)
                 {
-                    game.AddGlobalLogs($" ⟶ {playerIamAttacking.DiscordUsername}");
-
-                    playerIamAttacking.Status.AddRegularPoints(1, "Победа");
-
-                    player.Status.WonTimes++;
-                    playerIamAttacking.Character.Justice.IsWonThisRound = true;
-
-                    if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard &&
-                        game.RoundNo > 1)
-                    {
-                        player.Character.AddMoral(player.Status, moral, "Поражение");
-                        playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Победа");
-                    }
-
-                    if (playerIamAttacking.Character.Name == "Толя" && playerIamAttacking.Status.IsBlock)
-                        playerIamAttacking.Character.Justice.IsWonThisRound = false;
-
-                    player.Character.Justice.AddJusticeForNextRoundFromFight();
-
-                    playerIamAttacking.Status.IsWonThisCalculation = player.GetPlayerId();
-                    player.Status.IsLostThisCalculation = playerIamAttacking.GetPlayerId();
-                    player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.GetPlayerId(), game.RoundNo, isTooGoodEnemy, isStatsBettterEnemy, isTooGoodMe, isStatsBetterMe, player.GetPlayerId()));
+                    player.Character.AddMoral(player.Status, moral, "Поражение");
+                    playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Победа");
                 }
+
+                if (playerIamAttacking.Character.Name == "Толя" && playerIamAttacking.Status.IsBlock)
+                    playerIamAttacking.Character.Justice.IsWonThisRound = false;
+
+                player.Character.Justice.AddJusticeForNextRoundFromFight();
+
+                playerIamAttacking.Status.IsWonThisCalculation = player.GetPlayerId();
+                player.Status.IsLostThisCalculation = playerIamAttacking.GetPlayerId();
+                player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(
+                    playerIamAttacking.GetPlayerId(), game.RoundNo, isTooGoodEnemy, isStatsBettterEnemy, isTooGoodMe,
+                    isStatsBetterMe, player.GetPlayerId()));
             }
 
 
             //т.е. он получил урон, какие у него дебаффы на этот счет 
             _characterPassives.HandleDefenseAfterFight(playerIamAttacking, player, game);
+            _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
 
             //т.е. я его аттакую, какие у меня бонусы на это
             _characterPassives.HandleAttackAfterFight(player, playerIamAttacking, game);
@@ -651,7 +654,6 @@ Speed => Strength
             $"Finished calculating game #{game.GameId} (round# {game.RoundNo - 1}). || {watch.Elapsed.TotalSeconds}s");
         _logs.Critical("");
         watch.Stop();
-        
     }
 
     /*

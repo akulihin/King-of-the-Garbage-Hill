@@ -232,20 +232,15 @@ public class CharacterPassives : IServiceSingleton
         
     }
 
-
-    public void HandleDefenseAfterFight(GamePlayerBridgeClass target,
-        GamePlayerBridgeClass me, GameClass game)
+    public void HandleDefenseAfterBlockOrFight(GamePlayerBridgeClass target, GamePlayerBridgeClass me, GameClass game)
     {
         var characterName = target.Character.Name;
-
 
         switch (characterName)
         {
             case "LeCrisp":
                 //Гребанные ассассин
-                if (me.Character.GetStrength() - target.Character.GetStrength() >= 2
-                    && !target.Status.IsBlock
-                    && !target.Status.IsSkip)
+                if (me.Character.GetStrength() - target.Character.GetStrength() >= 2 && !target.Status.IsBlock && !target.Status.IsSkip)
                 {
                     target.Status.IsAbleToWin = true;
                 }
@@ -256,7 +251,18 @@ public class CharacterPassives : IServiceSingleton
                     leCrip.AdditionalPsycheForNextRound += 1;
                 }
                 //end Гребанные ассассин
+                break;
+        }
+    }
 
+    public void HandleDefenseAfterFight(GamePlayerBridgeClass target, GamePlayerBridgeClass me, GameClass game)
+    {
+        var characterName = target.Character.Name;
+
+
+        switch (characterName)
+        {
+            case "LeCrisp":
                 //Импакт:
                 if (target.Status.IsLostThisCalculation != Guid.Empty)
                 {
@@ -1394,7 +1400,7 @@ public class CharacterPassives : IServiceSingleton
     {
         foreach (var player in game.PlayersList)
         {
-            if (player == null) _log.Critical("HandleEndOfRound - octopusPlayer == null");
+            if (player == null) _log.Critical("HandleEndOfRound - octopus == null");
 
             var characterName = player?.Character.Name;
             if (characterName == null) return;
@@ -1461,11 +1467,11 @@ public class CharacterPassives : IServiceSingleton
                         x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId &&
                         x.RoundItTriggered == game.RoundNo);
 
+                    
                     if (glebChall != null)
                     {
                         //x3 point:
-                        player.Status.SetScoresToGiveAtEndOfRound(
-                            (int)player.Status.GetScoresToGiveAtEndOfRound() * 3, "Претендент русского сервера");
+                        player.Status.SetScoresToGiveAtEndOfRound((int)player.Status.GetScoresToGiveAtEndOfRound() * 3, "Претендент русского сервера");
                         //end x3 point:
 
                         var regularStats = glebChall.MadnessList.Find(x => x.Index == 1);
@@ -1478,14 +1484,10 @@ public class CharacterPassives : IServiceSingleton
                         var psy = player.Character.GetPsyche() - madStats.Psyche;
 
 
-                        player.Character.SetIntelligence(player.Status, regularStats.Intel + intel,
-                            "Претендент русского сервера", false);
-                        player.Character.SetStrength(player.Status, regularStats.Str + str,
-                            "Претендент русского сервера", false);
-                        player.Character.SetSpeed(player.Status, regularStats.Speed + speed,
-                            "Претендент русского сервера", false);
-                        player.Character.SetPsyche(player.Status, regularStats.Psyche + psy,
-                            "Претендент русского сервера", false);
+                        player.Character.SetIntelligence(player.Status, regularStats.Intel + intel, "Претендент русского сервера", false);
+                        player.Character.SetStrength(player.Status, regularStats.Str + str, "Претендент русского сервера", false);
+                        player.Character.SetSpeed(player.Status, regularStats.Speed + speed, "Претендент русского сервера", false);
+                        player.Character.SetPsyche(player.Status, regularStats.Psyche + psy, "Претендент русского сервера", false);
                         player.Character.AddExtraSkill(player.Status,  -100, "Претендент русского сервера", false);
                         _gameGlobal.GlebChallengerList.Remove(glebChall);
                     }
@@ -1513,15 +1515,12 @@ public class CharacterPassives : IServiceSingleton
 
 
                     //Гребанные ассассин
-                    var leCrip = _gameGlobal.LeCrispAssassins.Find(x =>
-                        x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
+                    var leCrip = _gameGlobal.LeCrispAssassins.Find(x => x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
 
                     if (leCrip.AdditionalPsycheCurrent > 0)
-                        player.Character.AddPsyche(player.Status, leCrip.AdditionalPsycheCurrent * -1,
-                            "Гребанные ассассины", false);
+                        player.Character.AddPsyche(player.Status, leCrip.AdditionalPsycheCurrent * -1, "Гребанные ассассины", false);
                     if (leCrip.AdditionalPsycheForNextRound > 0)
-                        player.Character.AddPsyche(player.Status, leCrip.AdditionalPsycheForNextRound,
-                            "Гребанные ассассины");
+                        player.Character.AddPsyche(player.Status, leCrip.AdditionalPsycheForNextRound, "Гребанные ассассины");
 
                     leCrip.AdditionalPsycheCurrent = leCrip.AdditionalPsycheForNextRound;
                     leCrip.AdditionalPsycheForNextRound = 0;
@@ -2481,7 +2480,7 @@ public class CharacterPassives : IServiceSingleton
     {
         foreach (var player in game.PlayersList)
         {
-            if (player == null) _log.Critical("HandleNextRoundAfterSorting - octopusPlayer == null");
+            if (player == null) _log.Critical("HandleNextRoundAfterSorting - octopus == null");
 
             var characterName = player?.Character.Name;
             if (characterName == null) return;
@@ -2600,7 +2599,8 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Darksci":
                     //Не повезло
-                    player.Character.AddExtraSkill(player.Status,  5, "Не повезло");
+                    player.Character.AddExtraSkill(player.Status, 5, "Не повезло");
+
                     //end Не повезло
 
                     if (game.RoundNo == 9)
@@ -2794,68 +2794,47 @@ public class CharacterPassives : IServiceSingleton
         return 1;
     }
 
-    public async Task<bool> HandleOctopus(GamePlayerBridgeClass octopusPlayer, GamePlayerBridgeClass playerAttackedOctopus, GameClass game)
+    public int HandleOctopus(GamePlayerBridgeClass octopus, GamePlayerBridgeClass attacker, GameClass game)
     {
-        if (octopusPlayer.Character.Name != "Осьминожка") return true;
-        if (playerAttackedOctopus.Character.Name == "DeepList")
-        {
-            var doubtfull = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
-                x.PlayerId == playerAttackedOctopus.GetPlayerId() && x.GameId == game.GameId);
+        if (octopus.Character.Name != "Осьминожка") return 0;
 
-            if (doubtfull != null)
-                if (!doubtfull.FriendList.Contains(octopusPlayer.GetPlayerId()))
-                    return true;
+        if (attacker.Character.Name == "DeepList")
+        {
+            var deepListDoubtfulTactic = _gameGlobal.DeepListDoubtfulTactic.Find(x => x.PlayerId == attacker.GetPlayerId() && x.GameId == game.GameId);
+
+            if (deepListDoubtfulTactic != null)
+            {
+                if (!deepListDoubtfulTactic.FriendList.Contains(octopus.GetPlayerId()))
+                {
+                    return 0;
+                }
+            }
         }
 
+        var octopusInkList = _gameGlobal.OctopusInkList.Find(x => x.PlayerId == octopus.GetPlayerId() && x.GameId == game.GameId);
 
-        game.AddGlobalLogs($" ⟶ {playerAttackedOctopus.DiscordUsername}");
-
-        //еврей
-        var point = await HandleJews(playerAttackedOctopus, game);
-        //end еврей
-
-        playerAttackedOctopus.Status.AddRegularPoints(point, "Победа");
-
-        playerAttackedOctopus.Status.WonTimes++;
-        playerAttackedOctopus.Character.Justice.IsWonThisRound = true;
-
-        octopusPlayer.Character.Justice.AddJusticeForNextRoundFromFight();
-
-        playerAttackedOctopus.Status.IsWonThisCalculation = octopusPlayer.GetPlayerId();
-        octopusPlayer.Status.IsLostThisCalculation = playerAttackedOctopus.GetPlayerId();
-        octopusPlayer.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerAttackedOctopus.GetPlayerId(), game.RoundNo, false, false, false, false, playerAttackedOctopus.GetPlayerId()));
-
-        var octo = _gameGlobal.OctopusInkList.Find(x =>
-            x.PlayerId == octopusPlayer.GetPlayerId() && x.GameId == game.GameId);
-
-        if (octo == null)
+        if (octopusInkList == null)
         {
-            _gameGlobal.OctopusInkList.Add(new Octopus.InkClass(octopusPlayer.GetPlayerId(), game,
-                playerAttackedOctopus.GetPlayerId()));
+            _gameGlobal.OctopusInkList.Add(new Octopus.InkClass(octopus.GetPlayerId(), game, attacker.GetPlayerId()));
         }
         else
         {
-            var enemyRealScore = octo.RealScoreList.Find(x => x.PlayerId == playerAttackedOctopus.GetPlayerId());
-            var octoRealScore = octo.RealScoreList.Find(x => x.PlayerId == octopusPlayer.GetPlayerId());
+            var enemyRealScore = octopusInkList.RealScoreList.Find(x => x.PlayerId == attacker.GetPlayerId());
+            var octopusRealScore = octopusInkList.RealScoreList.Find(x => x.PlayerId == octopus.GetPlayerId());
 
             if (enemyRealScore == null)
             {
-                octo.RealScoreList.Add(new Octopus.InkSubClass(playerAttackedOctopus.GetPlayerId(), game.RoundNo,
-                    -1));
-                octoRealScore.AddRealScore(game.RoundNo);
+                octopusInkList.RealScoreList.Add(new Octopus.InkSubClass(attacker.GetPlayerId(), game.RoundNo, -1));
+                octopusRealScore.AddRealScore(game.RoundNo);
             }
             else
             {
                 enemyRealScore.AddRealScore(game.RoundNo, -1);
-                octoRealScore.AddRealScore(game.RoundNo);
+                octopusRealScore.AddRealScore(game.RoundNo);
             }
         }
 
-        //octopusPlayer.Status.AddRegularPoints(1, "Чернильная завеса");
-        //playerAttackedOctopus.Status.AddRegularPoints(-1, "Чернильная завеса");
-
-
-        return false;
+        return 1;
     }
     //end unique
 }
