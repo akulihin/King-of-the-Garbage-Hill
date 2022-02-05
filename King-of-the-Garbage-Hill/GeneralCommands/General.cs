@@ -334,7 +334,7 @@ public class General : ModuleBaseCustom
         if (playersList.Any(x => x.Character.Name == "Darksci"))
         {
             var darksciTemp = playersList.Find(x => x.Character.Name == "Darksci");
-            darksciTemp.Character.AddExtraSkill(darksciTemp.Status,  15, "Не повезло");
+            darksciTemp.Character.AddExtraSkill(darksciTemp.Status,  5, "Не повезло");
         }
         //end Не повезло
 

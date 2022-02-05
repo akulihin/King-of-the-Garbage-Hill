@@ -298,8 +298,7 @@ public class InGameGlobal : IServiceSingleton
                         new Mylorik.MylorikSpanishClass(player.GetPlayerId(), game.GameId));
                     break;
                 case "LeCrisp":
-                    LeCrispAssassins.Add(new LeCrisp.LeCrispAssassins(player.GetPlayerId(),
-                        game.GameId));
+                    LeCrispAssassins.Add(new LeCrisp.LeCrispAssassins(player.GetPlayerId(), game.GameId));
                     LeCrispImpact.Add(new LeCrisp.LeCrispImpactClass(player.GetPlayerId(),
                         game.GameId));
                     break;

@@ -486,6 +486,23 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         }
 
 
+        if (text.Contains("__**бонусных**__ очков"))
+        {
+            var temp = "";
+            var jewSplit = text.Split('\n');
+
+            foreach (var line in jewSplit)
+                if (!line.Contains("__**бонусных**__ очков"))
+                    temp += line + "\n";
+
+            foreach (var line in jewSplit)
+                if (line.Contains("__**бонусных**__ очков"))
+                    temp += line + "\n";
+
+            text = temp;
+        }
+
+
         if (text.Contains("Евреи..."))
         {
             var temp = "";
@@ -502,7 +519,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             text = temp;
         }
 
-
+        
         if (text.Contains("**обычных** очков"))
         {
             var temp = "";

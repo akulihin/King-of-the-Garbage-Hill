@@ -1245,7 +1245,7 @@ public class BotsBehavior : IServiceSingleton
 
                 case "Загадочный Спартанец в маске":
                     //на последнем ходу блок -2 (от 2 до 5)
-                    if (game.RoundNo < 9)
+                    if (game.RoundNo < 10)
                     {
                         isBlock = noBlock;
                     }

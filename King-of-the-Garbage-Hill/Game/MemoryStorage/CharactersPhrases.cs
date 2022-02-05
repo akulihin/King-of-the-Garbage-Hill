@@ -14,7 +14,6 @@ public class CharactersUniquePhrase
     public PhraseClass AwdkaAfk;
     public PhraseClass AwdkaTeachToPlay;
     public PhraseClass AwdkaTrolling;
-    public PhraseClass AwdkaTrollingReady;
     public PhraseClass AwdkaTrying;
 
     public PhraseClass DarksciDysmoral;
@@ -159,7 +158,7 @@ public class CharactersUniquePhrase
         GlebSleepyPhrase = new PhraseClass("Спящее хуйло");
         GlebComeBackPhrase = new PhraseClass("Я щас приду");
         GlebTeaPhrase = new PhraseClass("Я за чаем");
-        GlebTeaReadyPhrase = new PhraseClass("Я за чаем");
+        GlebTeaReadyPhrase = new PhraseClass("__**Я за чаем**");
 
         LeCrispJewPhrase = new PhraseClass("Еврей");
         LeCrispBoolingPhrase = new PhraseClass("Булинг");
@@ -168,7 +167,7 @@ public class CharactersUniquePhrase
 
         TolyaJewPhrase = new PhraseClass("Еврей");
         TolyaCountPhrase = new PhraseClass("Подсчет");
-        TolyaCountReadyPhrase = new PhraseClass("Подсчет");
+        TolyaCountReadyPhrase = new PhraseClass("__**Подсчет**");
         TolyaRammusPhrase = new PhraseClass("Раммус мейн");
         TolyaRammus2Phrase = new PhraseClass("Раммус мейн");
         TolyaRammus3Phrase = new PhraseClass("Раммус мейн");
@@ -193,7 +192,7 @@ public class CharactersUniquePhrase
         AwdkaTrolling = new PhraseClass("Произошел троллинг");
         AwdkaTrying = new PhraseClass("Я пытаюсь!");
         AwdkaAfk = new PhraseClass("АФКА");
-        AwdkaTrollingReady = new PhraseClass("Произошел троллинг");
+
 
         DarksciNotLucky = new PhraseClass("Не повезло");
         DarksciLucky = new PhraseClass("Повезло");
@@ -410,8 +409,8 @@ public class CharactersUniquePhrase
         GlebComeBackPhrase.PassiveLogRus.Add("Я щас приду");
         GlebComeBackPhrase.PassiveLogRus.Add("Без меня не начина...");
         GlebTeaPhrase.PassiveLogRus.Add("Какао белого цвета");
-        GlebTeaReadyPhrase.PassiveLogRus.Add("U menja est' lishnij chaj!");
-        GlebTeaReadyPhrase.PassiveLogRus.Add("Chaj zavarilsa!");
+        GlebTeaReadyPhrase.PassiveLogRus.Add("U menja est' lishnij chaj!__");
+        GlebTeaReadyPhrase.PassiveLogRus.Add("Chaj zavarilsa!__");
 
 
         LeCrispJewPhrase.PassiveLogRus.Add("Я жру деньги!");
@@ -465,7 +464,7 @@ public class CharactersUniquePhrase
         TolyaJewPhrase.PassiveLogRus.Add("Ыыыы");
         TolyaJewPhrase.PassiveLogRus.Add("Настоящий еврей знает свой толк");        
 
-        TolyaCountReadyPhrase.PassiveLogRus.Add("Я готов это просчитать");
+        TolyaCountReadyPhrase.PassiveLogRus.Add("Я готов это просчитать__");
         TolyaCountPhrase.PassiveLogRus.Add("Ха! Подстчет!");
         TolyaCountPhrase.PassiveLogRus.Add("Так и знал!");
         TolyaCountPhrase.PassiveLogRus.Add("Предиктед");
@@ -540,7 +539,7 @@ public class CharactersUniquePhrase
         AwdkaTrying.PassiveLogRus.Add("Почти...");
         AwdkaTrying.PassiveLogRus.Add("В киберспорт!");
         AwdkaAfk.PassiveLogRus.Add("AFKA");
-        AwdkaTrollingReady.PassiveLogRus.Add("троллинг готов к использованию");
+
 
         CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("У них одни ренжевики!");
         CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("На Полому!");
