@@ -299,8 +299,7 @@ public class InGameGlobal : IServiceSingleton
                     break;
                 case "LeCrisp":
                     LeCrispAssassins.Add(new LeCrisp.LeCrispAssassins(player.GetPlayerId(), game.GameId));
-                    LeCrispImpact.Add(new LeCrisp.LeCrispImpactClass(player.GetPlayerId(),
-                        game.GameId));
+                    LeCrispImpact.Add(new LeCrisp.LeCrispImpactClass(player.GetPlayerId(), game.GameId));
                     break;
                 case "Тигр":
                     TigrTwoBetterList.Add(

@@ -54,7 +54,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         сraboRackShell.FriendList.Add(me.GetPlayerId());
                         сraboRackShell.CurrentAttacker = me.GetPlayerId();
-                        target.Character.AddMoral(target.Status, 3, "Панцирь");
+                        target.Character.AddMoral(target.Status, 6, "Панцирь");
                         target.Character.AddExtraSkill(target.Status,  30, "Панцирь");
                         target.Status.IsSuperBlock = true;
                     }
@@ -240,14 +240,13 @@ public class CharacterPassives : IServiceSingleton
         {
             case "LeCrisp":
                 //Гребанные ассассин
-                if (me.Character.GetStrength() - target.Character.GetStrength() >= 2 && !target.Status.IsBlock && !target.Status.IsSkip)
+                if (me.Character.GetStrength() - target.Character.GetStrength() >= 3 && !target.Status.IsBlock && !target.Status.IsSkip)
                 {
                     target.Status.IsAbleToWin = true;
                 }
                 else
                 {
-                    var leCrip = _gameGlobal.LeCrispAssassins.Find(x =>
-                        x.PlayerId == target.GetPlayerId() && game.GameId == x.GameId);
+                    var leCrip = _gameGlobal.LeCrispAssassins.Find(x => x.PlayerId == target.GetPlayerId() && game.GameId == x.GameId);
                     leCrip.AdditionalPsycheForNextRound += 1;
                 }
                 //end Гребанные ассассин
@@ -2747,7 +2746,7 @@ public class CharacterPassives : IServiceSingleton
                 if (!leCrisp.IsBot())
                     try
                     {
-                        await _help.SendMsgAndDeleteItAfterRound(leCrisp, "МЫ жрём деньги!");
+                        await _help.SendMsgAndDeleteItAfterRound(leCrisp, "__**МЫ**__ жрём деньги!");
                     }
                     catch (Exception exception)
                     {
@@ -2758,7 +2757,7 @@ public class CharacterPassives : IServiceSingleton
                 if (!tolya.IsBot())
                     try
                     {
-                        await _help.SendMsgAndDeleteItAfterRound(tolya, "МЫ жрём деньги!");
+                        await _help.SendMsgAndDeleteItAfterRound(tolya, "__**МЫ**__ жрём деньги!");
                     }
                     catch (Exception exception)
                     {
@@ -2794,10 +2793,11 @@ public class CharacterPassives : IServiceSingleton
         return 1;
     }
 
-    public int HandleOctopus(GamePlayerBridgeClass octopus, GamePlayerBridgeClass attacker, GameClass game)
+    public async Task<int> HandleOctopus(GamePlayerBridgeClass octopus, GamePlayerBridgeClass attacker, GameClass game)
     {
         if (octopus.Character.Name != "Осьминожка") return 0;
 
+        //deeplist
         if (attacker.Character.Name == "DeepList")
         {
             var deepListDoubtfulTactic = _gameGlobal.DeepListDoubtfulTactic.Find(x => x.PlayerId == attacker.GetPlayerId() && x.GameId == game.GameId);
@@ -2810,27 +2810,52 @@ public class CharacterPassives : IServiceSingleton
                 }
             }
         }
+        //end deeplist
 
-        var octopusInkList = _gameGlobal.OctopusInkList.Find(x => x.PlayerId == octopus.GetPlayerId() && x.GameId == game.GameId);
+        var enemyIds = new List<Guid> { attacker.GetPlayerId() };
 
-        if (octopusInkList == null)
+        //jew
+        var point = await HandleJews(attacker, game);
+        
+        if (point == 0)
         {
-            _gameGlobal.OctopusInkList.Add(new Octopus.InkClass(octopus.GetPlayerId(), game, attacker.GetPlayerId()));
-        }
-        else
-        {
-            var enemyRealScore = octopusInkList.RealScoreList.Find(x => x.PlayerId == attacker.GetPlayerId());
-            var octopusRealScore = octopusInkList.RealScoreList.Find(x => x.PlayerId == octopus.GetPlayerId());
+            var jews  = game.PlayersList.FindAll(x => x.Character.Name is "Толя" or "LeCrisp");
 
-            if (enemyRealScore == null)
+            switch (jews.Count)
             {
-                octopusInkList.RealScoreList.Add(new Octopus.InkSubClass(attacker.GetPlayerId(), game.RoundNo, -1));
-                octopusRealScore.AddRealScore(game.RoundNo);
+                case 1:
+                    enemyIds = new List<Guid> { jews.FirstOrDefault()!.Status.PlayerId };
+                    break;
+                case 2:
+                    enemyIds.Clear();
+                    enemyIds.AddRange(jews.Where(x => x.Status.ScoreSource.Contains("Еврей")).Select(j => j.Status.PlayerId));
+                    break;
+            }
+        }
+        //end jew
+
+        foreach (var enemyId in enemyIds)
+        {
+            var octopusInkList = _gameGlobal.OctopusInkList.Find(x => x.PlayerId == octopus.GetPlayerId() && x.GameId == game.GameId);
+            if (octopusInkList == null)
+            {
+                _gameGlobal.OctopusInkList.Add(new Octopus.InkClass(octopus.GetPlayerId(), game, enemyId));
             }
             else
             {
-                enemyRealScore.AddRealScore(game.RoundNo, -1);
-                octopusRealScore.AddRealScore(game.RoundNo);
+                var enemyRealScore = octopusInkList.RealScoreList.Find(x => x.PlayerId == enemyId);
+                var octopusRealScore = octopusInkList.RealScoreList.Find(x => x.PlayerId == octopus.GetPlayerId());
+
+                if (enemyRealScore == null)
+                {
+                    octopusInkList.RealScoreList.Add(new Octopus.InkSubClass(enemyId, game.RoundNo, -1));
+                    octopusRealScore.AddRealScore(game.RoundNo);
+                }
+                else
+                {
+                    enemyRealScore.AddRealScore(game.RoundNo, -1);
+                    octopusRealScore.AddRealScore(game.RoundNo);
+                }
             }
         }
 

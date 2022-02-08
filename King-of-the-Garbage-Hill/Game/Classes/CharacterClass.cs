@@ -35,7 +35,7 @@ public class CharacterClass
     private string StrengthExtraText { get; set; }
     private double SkillMain { get; set; }
     private double SkillExtra { get; set; }
-    private int SkillMultiplier { get; set; }
+    private double SkillMultiplier { get; set; }
     private int SkillFightMultiplier { get; set; }
     private string CurrentSkillTarget { get; set; } = "Ничего";
     private int Moral { get; set; }
@@ -135,7 +135,7 @@ public class CharacterClass
     }
 
 
-    public void SetSkillMultiplier(int skillMultiplier = 0)
+    public void SetSkillMultiplier(double skillMultiplier = 0)
     {
         SkillMultiplier = skillMultiplier;
     }
@@ -191,7 +191,7 @@ public class CharacterClass
 
         var total = howMuchToAdd + howMuchToAdd;
 
-        var multiplier = total * SkillMultiplier;
+        var multiplier = (int) (total * SkillMultiplier);
         total += multiplier;
         SkillExtra += multiplier;
 
@@ -202,7 +202,7 @@ public class CharacterClass
     public void AddExtraSkill(InGameStatus status, int howMuchToAdd, string skillName, bool isLog = true)
     {
         if (SkillMultiplier > 0 && howMuchToAdd > 0)
-            howMuchToAdd *= SkillMultiplier + 1;
+            howMuchToAdd *= (int)(SkillMultiplier + 1);
         if (isLog)
         {
             if (howMuchToAdd > 0)

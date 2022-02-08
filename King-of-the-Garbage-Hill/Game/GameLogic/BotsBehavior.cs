@@ -67,7 +67,7 @@ public class BotsBehavior : IServiceSingleton
                     }
             }
 
-            //если хардкитти или осьминожка  или Вампур - всегда ждет 21 морали
+            //если хардкитти или осьминожка  или Вампур - всегда ждет 20 морали
             if (bot.Character.Name is "HardKitty" or "Осьминожка" or "Вампур")
                 if (bot.Character.GetMoral() < 20)
                     return;
@@ -77,8 +77,8 @@ public class BotsBehavior : IServiceSingleton
                 if (game.RoundNo >= 6)
                     overwrite = true;
 
-            //если бот на последнем месте - ждет 21
-            if (bot.Status.PlaceAtLeaderBoard == 6 && bot.Character.GetMoral() < 21 && !overwrite)
+            //если бот на последнем месте - ждет 20
+            if (bot.Status.PlaceAtLeaderBoard == 6 && bot.Character.GetMoral() < 20 && !overwrite)
                 return;
             //если бот на 5м месте то ждет 13
             if (bot.Status.PlaceAtLeaderBoard == 5 && bot.Character.GetMoral() < 13 && !overwrite)
@@ -99,43 +99,43 @@ public class BotsBehavior : IServiceSingleton
         if (bot.Character.GetMoral() >= 20)
         {
             bot.Character.AddMoral(bot.Status, -20, "Обмен Морали", true, true);
-            bot.Character.AddExtraSkill(bot.Status, 130, "Обмен Морали");
+            bot.Character.AddExtraSkill(bot.Status, 100, "Обмен Морали");
         }
 
         if (bot.Character.GetMoral() >= 13)
         {
             bot.Character.AddMoral(bot.Status, -13, "Обмен Морали", true, true);
-            bot.Character.AddExtraSkill(bot.Status, 80, "Обмен Морали");
+            bot.Character.AddExtraSkill(bot.Status, 50, "Обмен Морали");
         }
 
         if (bot.Character.GetMoral() >= 8)
         {
             bot.Character.AddMoral(bot.Status, -8, "Обмен Морали", true, true);
-            bot.Character.AddExtraSkill(bot.Status, 46, "Обмен Морали");
+            bot.Character.AddExtraSkill(bot.Status, 30, "Обмен Морали");
         }
 
         if (bot.Character.GetMoral() >= 5)
         {
             bot.Character.AddMoral(bot.Status, -5, "Обмен Морали", true, true);
-            bot.Character.AddExtraSkill(bot.Status, 28, "Обмен Морали");
+            bot.Character.AddExtraSkill(bot.Status, 18, "Обмен Морали");
         }
 
         if (bot.Character.GetMoral() >= 3)
         {
             bot.Character.AddMoral(bot.Status, -3, "Обмен Морали", true, true);
-            bot.Character.AddExtraSkill(bot.Status, 16, "Обмен Морали");
+            bot.Character.AddExtraSkill(bot.Status, 10, "Обмен Морали");
         }
 
         if (bot.Character.GetMoral() >= 2)
         {
             bot.Character.AddMoral(bot.Status, -2, "Обмен Морали", true, true);
-            bot.Character.AddExtraSkill(bot.Status, 10, "Обмен Морали");
+            bot.Character.AddExtraSkill(bot.Status, 6, "Обмен Морали");
         }
 
         if (bot.Character.GetMoral() >= 1)
         {
             bot.Character.AddMoral(bot.Status, -1, "Обмен Морали", true, true);
-            bot.Character.AddExtraSkill(bot.Status, 4, "Обмен Морали");
+            bot.Character.AddExtraSkill(bot.Status, 2, "Обмен Морали");
         }
         //end прожать всю момаль
     }
@@ -147,18 +147,40 @@ public class BotsBehavior : IServiceSingleton
         {
             var overwrite = false;
 
-            //если хардкитти или осьминожка  или Вампур - всегда ждет 21 морали
-            if (bot.Character.Name is "HardKitty" or "Осьминожка" or "Вампур")
+            if (bot.Character.Name == "Осьминожка")
+            {
+                return;
+            }
+
+            //если хардкитти  или Вампур - всегда ждет 20 морали
+            if (bot.Character.Name is "HardKitty")
                 if (bot.Character.GetMoral() < 20)
                     return;
+
+            if (bot.Character.Name is "Вампур")
+            {
+                if (bot.Status.PlaceAtLeaderBoard >= 5)
+                    return;
+                if (bot.Status.PlaceAtLeaderBoard <= 2)
+                {
+                    if (bot.Character.GetMoral() < 13)
+                        return;
+                }
+                else
+                {
+                    if (bot.Character.GetMoral() < 20)
+                        return;
+                }
+            }
+            
 
             //Начиная с 6го хода Darksci меняет всю мораль на очки
             if (bot.Character.Name == "Darksci")
                 if (game.RoundNo >= 6)
                     overwrite = true;
 
-            //если бот на последнем месте - ждет 21
-            if (bot.Status.PlaceAtLeaderBoard == 6 && bot.Character.GetMoral() < 21 && !overwrite)
+            //если бот на последнем месте - ждет 20
+            if (bot.Status.PlaceAtLeaderBoard == 6 && bot.Character.GetMoral() < 20 && !overwrite)
                 return;
             //если бот на 5м месте то ждет 13
             if (bot.Status.PlaceAtLeaderBoard == 5 && bot.Character.GetMoral() < 13 && !overwrite)
@@ -169,9 +191,6 @@ public class BotsBehavior : IServiceSingleton
             //если бот на 3м месте то ждет 5
             if (bot.Status.PlaceAtLeaderBoard == 3 && bot.Character.GetMoral() < 5 && !overwrite)
                 return;
-            //если бот на 2м месте то ждет 3
-            if (bot.Status.PlaceAtLeaderBoard == 2 && bot.Character.GetMoral() < 3 && !overwrite)
-                return;
         }
         //end логика до 10го раунда
 
@@ -179,30 +198,24 @@ public class BotsBehavior : IServiceSingleton
         if (bot.Character.GetMoral() >= 20)
         {
             bot.Character.AddMoral(bot.Status, -20, "Обмен Морали", true, true);
-            bot.Character.AddBonusPointsFromMoral(13);
+            bot.Character.AddBonusPointsFromMoral(10);
         }
 
         if (bot.Character.GetMoral() >= 13)
         {
             bot.Character.AddMoral(bot.Status, -13, "Обмен Морали", true, true);
-            bot.Character.AddBonusPointsFromMoral(8);
+            bot.Character.AddBonusPointsFromMoral(5);
         }
 
         if (bot.Character.GetMoral() >= 8)
         {
             bot.Character.AddMoral(bot.Status, -8, "Обмен Морали", true, true);
-            bot.Character.AddBonusPointsFromMoral(4);
+            bot.Character.AddBonusPointsFromMoral(2);
         }
 
         if (bot.Character.GetMoral() >= 5)
         {
             bot.Character.AddMoral(bot.Status, -5, "Обмен Морали", true, true);
-            bot.Character.AddBonusPointsFromMoral(2);
-        }
-
-        if (bot.Character.GetMoral() >= 3)
-        {
-            bot.Character.AddMoral(bot.Status, -3, "Обмен Морали", true, true);
             bot.Character.AddBonusPointsFromMoral(1);
         }
         //end прожать всю момаль
@@ -211,10 +224,13 @@ public class BotsBehavior : IServiceSingleton
     public void HandleBotMoral(GamePlayerBridgeClass bot, GameClass game)
     {
 
-        if (bot.Status.PlaceAtLeaderBoard == 1)
+        if (bot.Status.PlaceAtLeaderBoard <= 2)
         {
-            HandleBotMoralForSkill(bot, game);
-            return;
+            if (bot.Character.GetMoral() < 5)
+            {
+                HandleBotMoralForSkill(bot, game);
+                return;
+            }
         }
 
         if (bot.Character.Name == "Sirinoks")
@@ -1235,10 +1251,10 @@ public class BotsBehavior : IServiceSingleton
                     {
                         var siriFriends = _gameGlobal.SirinoksFriendsList.Find(x =>
                             x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId());
-                        var siriFriend =
-                            allTargets.Find(x => x.GetPlayerId() == siriFriends?.FriendList.FirstOrDefault());
-                        if (siriFriend.Player.Character.Name != "Осьминожка")
-                            mandatoryAttack = siriFriend.Player.Status.PlaceAtLeaderBoard;
+                        var siriFriend = allTargets.Find(x => x.GetPlayerId() == siriFriends?.FriendList.FirstOrDefault());
+                        if(siriFriend != null)
+                            if (siriFriend.Player.Character.Name != "Осьминожка")
+                                mandatoryAttack = siriFriend.Player.Status.PlaceAtLeaderBoard;
                     }
 
                     break;

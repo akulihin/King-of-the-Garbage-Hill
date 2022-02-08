@@ -663,7 +663,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var character = player.Character;
         var embed = new EmbedBuilder();
         var text = "__Подними один из статов на 1:__";
-        if (player.Character.Name == "Вампур")
+        if (player.Character.Name == "Вампур_")
         {
             text = "**Понизить** один из статов на 1!";
         }
@@ -770,7 +770,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     public async Task<SelectMenuBuilder> GetLvlUpMenu(GamePlayerBridgeClass player, GameClass game)
     {
         var placeholderText = "Выбор прокачки";
-        if (player.Character.Name == "Вампур")
+        if (player.Character.Name == "Вампур_")
         {
             placeholderText = _vampyrGarlic[_random.Random(0, _vampyrGarlic.Count - 1)];
         }
@@ -815,15 +815,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             return new ButtonBuilder($"Интересует только скилл", "moral", ButtonStyle.Secondary, isDisabled: true);
 
         if (player.Character.GetMoral() >= 20)
-            return new ButtonBuilder($"на 14 бонусных очков{extraText}", "moral", ButtonStyle.Secondary, isDisabled: disabled);
+            return new ButtonBuilder($"на 10 бонусных очков{extraText}", "moral", ButtonStyle.Secondary, isDisabled: disabled);
         if (player.Character.GetMoral() >= 13)
-            return new ButtonBuilder($"на 8 бонусных очков{extraText}", "moral", ButtonStyle.Secondary, isDisabled: disabled);
+            return new ButtonBuilder($"на 5 бонусных очков{extraText}", "moral", ButtonStyle.Secondary, isDisabled: disabled);
         if (player.Character.GetMoral() >= 8)
-            return new ButtonBuilder($"на 4 бонусных очков{extraText}", "moral", ButtonStyle.Secondary, isDisabled: disabled);
+            return new ButtonBuilder($"на 2 бонусных очков{extraText}", "moral", ButtonStyle.Secondary, isDisabled: disabled);
         if (player.Character.GetMoral() >= 5)
-            return new ButtonBuilder($"на 2 бонусных очка{extraText}", "moral", ButtonStyle.Secondary, isDisabled: disabled);
-        if (player.Character.GetMoral() >= 3)
-            return new ButtonBuilder($"на 1 бонусное очко{extraText}", "moral", ButtonStyle.Secondary, isDisabled: disabled);
+            return new ButtonBuilder($"на 1 бонусных очка{extraText}", "moral", ButtonStyle.Secondary, isDisabled: disabled);
         return new ButtonBuilder("Недостаточно очков Морали", "moral", ButtonStyle.Secondary, isDisabled: true);
     }
 
@@ -843,17 +841,17 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         //    return new ButtonBuilder($"Ничего не понимает...", "skill", ButtonStyle.Secondary, isDisabled: true);
 
         if (player.Character.GetMoral() >= 20)
-            return new ButtonBuilder($"Обменять 20 Морали на 130 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
+            return new ButtonBuilder($"Обменять 20 Морали на 100 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
         if (player.Character.GetMoral() >= 13)
-            return new ButtonBuilder($"Обменять 13 Морали на 80 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
+            return new ButtonBuilder($"Обменять 13 Морали на 50 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
         if (player.Character.GetMoral() >= 8)
-            return new ButtonBuilder($"Обменять 8 Морали на 46 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
+            return new ButtonBuilder($"Обменять 8 Морали на 30 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
         if (player.Character.GetMoral() >= 5)
-            return new ButtonBuilder($"Обменять 5 Морали на 28 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
+            return new ButtonBuilder($"Обменять 5 Морали на 18 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
         if (player.Character.GetMoral() >= 3)
-            return new ButtonBuilder($"Обменять 3 Морали на 16 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
+            return new ButtonBuilder($"Обменять 3 Морали на 10 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
         if (player.Character.GetMoral() >= 2)
-            return new ButtonBuilder($"Обменять 2 Морали на 10 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
+            return new ButtonBuilder($"Обменять 2 Морали на 6 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
         if (player.Character.GetMoral() >= 1)
             return new ButtonBuilder($"Обменять 1 Морали на 4 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
 

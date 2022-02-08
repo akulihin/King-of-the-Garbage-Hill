@@ -30,7 +30,7 @@ public class GameClass
         WhoWon = Guid.Empty;
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "версия 1.7";
+        GameVersion = "версия 1.8";
         GameMode = gameMode;
         CreatorId = creatorId;
     }

@@ -445,7 +445,7 @@ Speed => Strength
             var moral = player.Status.PlaceAtLeaderBoard - playerIamAttacking.Status.PlaceAtLeaderBoard;
 
             //octopus  // playerIamAttacking is octopus
-            if (pointsWined <= 0) pointsWined =  _characterPassives.HandleOctopus(playerIamAttacking, player, game);
+            if (pointsWined <= 0) pointsWined =  await _characterPassives.HandleOctopus(playerIamAttacking, player, game);
             //end octopus
 
             //CheckIfWin to remove Justice
@@ -465,7 +465,14 @@ Speed => Strength
                 //end еврей
 
                 //add regular points
-                player.Status.AddRegularPoints(point, "Победа");
+                if (player.Character.Name == "HardKitty")
+                {
+                    player.Status.AddRegularPoints(point*-1, "Победа");
+                }
+                else
+                {
+                    player.Status.AddRegularPoints(point, "Победа");
+                }
 
 
                 player.Status.WonTimes++;
