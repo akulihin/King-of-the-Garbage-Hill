@@ -325,7 +325,11 @@ public class CharactersUniquePhrase
         DeepListPokePhrase.PassiveLogRus.Add("Кто **Там**?"); 
         DeepListPokePhrase.PassiveLogRus.Add("Дэусманс, придурки"); 
         DeepListPokePhrase.PassiveLogRus.Add("I hate Sirinokses!"); 
-        
+        DeepListPokePhrase.PassiveLogRus.Add("Надеваю кепку."); 
+        DeepListPokePhrase.PassiveLogRus.Add("I DC'd again."); 
+        DeepListPokePhrase.PassiveLogRus.Add("Mit*SUKI*"); 
+
+
         
 
         DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Everything is going according to my plan");
