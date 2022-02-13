@@ -279,8 +279,8 @@ public class General : ModuleBaseCustom
         if (playersList.Any(x => x.Character.Name == "HardKitty"))
         {
             var tempHard = playersList.Find(x => x.Character.Name == "HardKitty");
-            tempHard.Status.HardKittyMinus(-50, "Никому не нужен");
-            tempHard.Status.AddInGamePersonalLogs("Никому не нужен: -50 *Морали*\n");
+            tempHard.Status.HardKittyMinus(-30, "Никому не нужен");
+            tempHard.Status.AddInGamePersonalLogs("Никому не нужен: -30 *Морали*\n");
             var hardIndex = playersList.IndexOf(tempHard);
 
             for (var i = hardIndex; i < playersList.Count - 1; i++)
@@ -297,7 +297,7 @@ public class General : ModuleBaseCustom
             var tigrTemp = playersList.Find(x => x.Character.Name == "Тигр");
 
             var tigr = _gameGlobal.TigrTop.Find(x =>
-                x.GameId == tigrTemp.GameId && x.PlayerId == tigrTemp.Status.PlayerId);
+                x.GameId == tigrTemp.GameId && x.PlayerId == tigrTemp.GetPlayerId());
 
             if (tigr != null && tigr.TimeCount > 0)
             {
@@ -334,32 +334,21 @@ public class General : ModuleBaseCustom
         if (playersList.Any(x => x.Character.Name == "Darksci"))
         {
             var darksciTemp = playersList.Find(x => x.Character.Name == "Darksci");
-            darksciTemp.Character.AddExtraSkill(darksciTemp.Status,  15, "Не повезло");
+            darksciTemp.Character.AddExtraSkill(darksciTemp.Status,  5, "Не повезло");
         }
         //end Не повезло
+
+        //Повторяет за myloran
+        if (playersList.Any(x => x.Character.Name == "mylorik"))
+        {
+            var mylorikTemp = playersList.Find(x => x.Character.Name == "mylorik");
+            mylorikTemp.Character.AddStrength(mylorikTemp.Status, (mylorikTemp.Character.GetStrength()*-1)+3, "Повторяет за myloran", true);
+        }
+        //end Повторяет за myloran
 
         return playersList;
     }
 
-    [Command("wr")]
-    [Summary("WinRateClass")]
-    private async Task WinRate()
-    {
-        if (_global.WinRates.Count == 0)
-        {
-            await SendMessAsync("No Games Played.");
-            return;
-        }
-
-        var winRates = _global.WinRates.Values.ToList();
-
-        var text = $"Total Games: {_global.GetLastGamePlayingAndId()}\n";
-        foreach (var winRate in winRates.OrderByDescending(x => x.WinRate))
-        {
-            text += $"{winRate.CharacterName} - {winRate.WinRate.ToString("0.##")}% ({winRate.WinTimes}/{winRate.GameTimes})\n";
-        }
-        await SendMessAsync(text);
-    }
 
 
     [Command("игра")]

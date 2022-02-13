@@ -24,9 +24,11 @@ public class SecureRandom : IServiceTransient
         uint ui;
         do
         {
-            ui = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(24), 0);
+            var randomBytes = RandomNumberGenerator.GetBytes(555);
+            ui = BitConverter.ToUInt32(randomBytes, 0);
         } while (ui >= upperBound);
 
-        return (int)(minValue + ui % diff);
+        var result = (int)(minValue + ui % diff);
+        return result;
     }
 }

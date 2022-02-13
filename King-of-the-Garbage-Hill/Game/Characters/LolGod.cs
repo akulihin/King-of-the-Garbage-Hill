@@ -44,7 +44,7 @@ public class LolGod
         {
             RoundNo = roundNo;
             foreach (var player in players)
-                PlayerList.Add(new PushAndDieSubSubClass(player.Status.PlayerId, player.Status.PlaceAtLeaderBoard));
+                PlayerList.Add(new PushAndDieSubSubClass(player.GetPlayerId(), player.Status.PlaceAtLeaderBoard));
         }
 
         public int RoundNo { get; set; }

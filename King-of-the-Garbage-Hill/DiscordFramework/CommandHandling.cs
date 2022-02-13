@@ -40,9 +40,7 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
 
     public async Task InitializeAsync()
     {
-        await _commands.AddModulesAsync(
-            Assembly.GetEntryAssembly(),
-            _services);
+        await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
     }
 
     public async Task _client_MessageDeleted(Cacheable<IMessage, ulong> cacheMessage, IMessageChannel channel)

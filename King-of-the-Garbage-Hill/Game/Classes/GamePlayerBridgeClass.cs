@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
@@ -32,5 +33,10 @@ public class GamePlayerBridgeClass
     public void MinusPsycheLog(GameClass game)
     {
         game.AddGlobalLogs($"\n{DiscordUsername} психанул");
+    }
+
+    public Guid GetPlayerId()
+    {
+        return Status.PlayerId;
     }
 }

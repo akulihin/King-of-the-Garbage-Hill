@@ -272,7 +272,7 @@ public class AdminPanel : ModuleBaseCustom
                 break;
             case "js":
                 player.Character
-                    .Justice.SetJusticeNow(player.Status, number, "Читы");
+                    .Justice.SetFullJusticeNow(player.Status, number, "Читы");
                 break;
             case "sk":
                 player.Character

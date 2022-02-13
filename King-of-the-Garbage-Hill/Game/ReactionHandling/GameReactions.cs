@@ -6,6 +6,7 @@ using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -18,6 +19,7 @@ public sealed class GameReaction : IServiceSingleton
     private readonly HelperFunctions _help;
     private readonly Logs _logs;
     private readonly GameUpdateMess _upd;
+   
 
     public GameReaction(UserAccounts accounts,
         Global global,
@@ -29,6 +31,7 @@ public sealed class GameReaction : IServiceSingleton
         _upd = upd;
         _help = help;
         _logs = logs;
+        
         //  _gameGlobal = gameGlobal;
     }
 
@@ -196,32 +199,26 @@ public sealed class GameReaction : IServiceSingleton
                         if (player.Character.GetMoral() >= 20)
                         {
                             player.Character.AddMoral(player.Status, -20, "Обмен Морали", true, true);
-                            player.Character.AddBonusPointsFromMoral(13);
-                            extraText = "Мораль: Я БОГ ЭТОГО МИРА +13 __бонунсых__ очков";
+                            player.Character.AddBonusPointsFromMoral(10);
+                            extraText = "Мораль: Я БОГ ЭТОГО МИРА +10 __бонунсых__ очков";
                         }
                         else if (player.Character.GetMoral() >= 13)
                         {
                             player.Character.AddMoral(player.Status, -13, "Обмен Морали", true, true);
-                            player.Character.AddBonusPointsFromMoral(8);
-                            extraText = "Мораль: МВП +8 __бонунсых__ очков";
+                            player.Character.AddBonusPointsFromMoral(5);
+                            extraText = "Мораль: МВП +5 __бонунсых__ очков";
                         }
                         else if (player.Character.GetMoral() >= 8)
                         {
                             player.Character.AddMoral(player.Status, -8, "Обмен Морали", true, true);
-                            player.Character.AddBonusPointsFromMoral(4);
-                            extraText = "Мораль: Я богач! +4 __бонунсых__ очков";
+                            player.Character.AddBonusPointsFromMoral(2);
+                            extraText = "Мораль: Я богач! +2 __бонунсых__ очков";
                         }
                         else if (player.Character.GetMoral() >= 5)
                         {
                             player.Character.AddMoral(player.Status, -5, "Обмен Морали", true, true);
-                            player.Character.AddBonusPointsFromMoral(2);
-                            extraText = "Мораль: Изи катка +2 __бонунсых__ очка";
-                        }
-                        else if (player.Character.GetMoral() >= 3)
-                        {
-                            player.Character.AddMoral(player.Status, -3, "Обмен Морали", true, true);
                             player.Character.AddBonusPointsFromMoral(1);
-                            extraText = "Мораль: Ойвей +1  __бонунсых__ очка";
+                            extraText = "Мораль: Ойвей +1 __бонунсых__ очка";
                         }
 
                         if (tempMoral >= 3)
@@ -234,44 +231,44 @@ public sealed class GameReaction : IServiceSingleton
                         if (player.Character.GetMoral() >= 20)
                         {
                             player.Character.AddMoral(player.Status, -20, "Обмен Морали", true, true);
-                            player.Character.AddExtraSkill(player.Status,  114, "Обмен Морали");
-                            extraText = "Мораль: Я БОГ ЭТОГО МИРА!!! +114 *Скилла*";
+                            player.Character.AddExtraSkill(player.Status,  100, "Обмен Морали");
+                            extraText = "Мораль: Я БОГ ЭТОГО МИРА!!! +100 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 13)
                         {
                             player.Character.AddMoral(player.Status, -13, "Обмен Морали", true, true);
-                            player.Character.AddExtraSkill(player.Status,  69, "Обмен Морали");
-                            extraText = "Мораль: MVP! +69 *Скилла*";
+                            player.Character.AddExtraSkill(player.Status,  50, "Обмен Морали");
+                            extraText = "Мораль: MVP! +50 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 8)
                         {
                             player.Character.AddMoral(player.Status, -8, "Обмен Морали", true, true);
-                            player.Character.AddExtraSkill(player.Status,  39, "Обмен Морали");
-                            extraText = "Мораль: Я художник! +39 *Скилла*";
+                            player.Character.AddExtraSkill(player.Status,  30, "Обмен Морали");
+                            extraText = "Мораль: Я художник! +30 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 5)
                         {
                             player.Character.AddMoral(player.Status, -5, "Обмен Морали", true, true);
-                            player.Character.AddExtraSkill(player.Status,  24, "Обмен Морали");
-                            extraText = "Мораль: Изи катка +24 *Скилла*";
+                            player.Character.AddExtraSkill(player.Status, 18, "Обмен Морали");
+                            extraText = "Мораль: Изи катка +18 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 3)
                         {
                             player.Character.AddMoral(player.Status, -3, "Обмен Морали", true, true);
-                            player.Character.AddExtraSkill(player.Status,  14, "Обмен Морали");
-                            extraText = "Мораль: Набрался *Скилла*, так сказать. +14 *Скилла*";
+                            player.Character.AddExtraSkill(player.Status,  10, "Обмен Морали");
+                            extraText = "Мораль: Набрался *Скилла*, так сказать. +10 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 2)
                         {
                             player.Character.AddMoral(player.Status, -2, "Обмен Морали", true, true);
-                            player.Character.AddExtraSkill(player.Status,  9, "Обмен Морали");
-                            extraText = "Мораль: Так вот как в это играть. +9 *Скилла*";
+                            player.Character.AddExtraSkill(player.Status,  6, "Обмен Морали");
+                            extraText = "Мораль: Так вот как в это играть. +6 *Скилла*";
                         }
                         else if (player.Character.GetMoral() >= 1)
                         {
                             player.Character.AddMoral(player.Status, -1, "Обмен Морали", true, true);
-                            player.Character.AddExtraSkill(player.Status,  4, "Обмен Морали");
-                            extraText = "Мораль: Это что? +4 *Скилла*";
+                            player.Character.AddExtraSkill(player.Status,  2, "Обмен Морали");
+                            extraText = "Мораль: Это что? +2 *Скилла*";
                         }
 
                         if (tempSkill >= 1)
@@ -353,7 +350,7 @@ public sealed class GameReaction : IServiceSingleton
         var predictedPlayerUsername = splitted.First();
         var predictedCharacterName = splitted[1];
         var predictedPlayerId =
-            game.PlayersList.Find(x => x.DiscordUsername == predictedPlayerUsername).Status.PlayerId;
+            game.PlayersList.Find(x => x.DiscordUsername == predictedPlayerUsername).GetPlayerId();
 
         var predicted = player.Predict.Find(x => x.PlayerId == predictedPlayerId);
 
@@ -411,7 +408,7 @@ public sealed class GameReaction : IServiceSingleton
             if (whoToAttack == null) 
                 return false;
 
-            status.WhoToAttackThisTurn = whoToAttack.Status.PlayerId;
+            status.WhoToAttackThisTurn = whoToAttack.GetPlayerId();
 
             if (game.PlayersList.Any(x => x.Character.Name == "Тигр" && x.Status.PlaceAtLeaderBoard == emoteNum) && game.RoundNo == 10)
             {
@@ -429,7 +426,7 @@ public sealed class GameReaction : IServiceSingleton
             }
 
 
-            if (status.WhoToAttackThisTurn == status.PlayerId)
+            if (status.WhoToAttackThisTurn == player.GetPlayerId())
             {
                 status.WhoToAttackThisTurn = Guid.Empty;
                 await _help.SendMsgAndDeleteItAfterRound(player, "Зачем ты себя бьешь?");
@@ -458,6 +455,7 @@ public sealed class GameReaction : IServiceSingleton
 
     private async Task GetLvlUp(GamePlayerBridgeClass player, int skillNumber)
     {
+        var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         switch (skillNumber)
         {
             case 1:
@@ -465,34 +463,53 @@ public sealed class GameReaction : IServiceSingleton
                 if (player.Character.GetIntelligence() >= 10 && player.Character.GetPsyche() <= 9 &&
                     player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
                 {
-                    await LvlUp10(player);
-                    return;
+                    if (player.Character.Name != "Вампур_")
+                    {
+                        await LvlUp10(player);
+                        return;
+                    }
                 }
 
                 player.Character.AddIntelligence(player.Status, 1, "Прокачка", false);
 
-                if (player.Character.Name == "HardKitty")
-                    player.Status.AddInGamePersonalLogs(
-                        $"#life: Я прокачал Интеллект на {player.Character.GetIntelligence()}!\n");
-                else
-                    player.Status.AddInGamePersonalLogs(
-                        $"Ты улучшил Интеллект до {player.Character.GetIntelligence()}\n");
+                switch (player.Character.Name)
+                {
+                    case "HardKitty":
+                        player.Status.AddInGamePersonalLogs($"#life: Я прокачал Интеллект на {player.Character.GetIntelligence()}!\n");
+                        break;
+                    case "Вампур":
+                        player.Character.AddIntelligence(player.Status, -1, "Прокачка", false);
+                        break;
+                    default:
+                        player.Status.AddInGamePersonalLogs($"Ты улучшил Интеллект до {player.Character.GetIntelligence()}\n");
+                        break;
+                }
                 break;
             case 2:
 
                 if (player.Character.GetStrength() >= 10 && player.Character.GetPsyche() <= 9 &&
                     player.Character.GetIntelligence() <= 9 && player.Character.GetSpeed() <= 9)
                 {
-                    await LvlUp10(player);
-                    return;
+                    if (player.Character.Name != "Вампур_")
+                    {
+                        await LvlUp10(player);
+                        return;
+                    }
                 }
 
                 player.Character.AddStrength(player.Status, 1, "Прокачка", false);
-                if (player.Character.Name == "HardKitty")
-                    player.Status.AddInGamePersonalLogs(
-                        $"#life: Я прокачал Силу на {player.Character.GetStrength()}!\n");
-                else
-                    player.Status.AddInGamePersonalLogs($"Ты улучшил Силу до {player.Character.GetStrength()}\n");
+                switch (player.Character.Name)
+                {
+                    case "HardKitty":
+                        player.Status.AddInGamePersonalLogs($"#life: Я прокачал Силу на {player.Character.GetStrength()}!\n");
+                        break;
+                    case "Вампур":
+                        player.Character.AddStrength(player.Status, -1, "Прокачка", false);
+                        break;
+                    default:
+                        player.Status.AddInGamePersonalLogs($"Ты улучшил Силу до {player.Character.GetStrength()}\n");
+                        break;
+                }
 
                 break;
             case 3:
@@ -500,33 +517,52 @@ public sealed class GameReaction : IServiceSingleton
                 if (player.Character.GetSpeed() >= 10 && player.Character.GetPsyche() <= 9 &&
                     player.Character.GetStrength() <= 9 && player.Character.GetIntelligence() <= 9)
                 {
-                    await LvlUp10(player);
-                    return;
+                    if (player.Character.Name != "Вампур_")
+                    {
+                        await LvlUp10(player);
+                        return;
+                    }
                 }
 
                 player.Character.AddSpeed(player.Status, 1, "Прокачка", false);
-                if (player.Character.Name == "HardKitty")
-                    player.Status.AddInGamePersonalLogs(
-                        $"#life: Я прокачал Cкорость на {player.Character.GetSpeed()}!\n");
-                else
-                    player.Status.AddInGamePersonalLogs($"Ты улучшил Скорость до {player.Character.GetSpeed()}\n");
+                switch (player.Character.Name)
+                {
+                    case "HardKitty":
+                        player.Status.AddInGamePersonalLogs($"#life: Я прокачал Cкорость на {player.Character.GetSpeed()}!\n");
+                        break;
+                    case "Вампур":
+                        player.Character.AddSpeed(player.Status, -1, "Прокачка", false);
+                        break;
+                    default:
+                        player.Status.AddInGamePersonalLogs($"Ты улучшил Скорость до {player.Character.GetSpeed()}\n");
+                        break;
+                }
 
                 break;
             case 4:
 
-                if (player.Character.GetPsyche() >= 10 && player.Character.GetIntelligence() <= 9 &&
-                    player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
+                if (player.Character.GetPsyche() >= 10 && player.Character.GetIntelligence() <= 9 && player.Character.GetStrength() <= 9 && player.Character.GetSpeed() <= 9)
                 {
-                    await LvlUp10(player);
-                    return;
+                    if (player.Character.Name != "Вампур_")
+                    {
+                        await LvlUp10(player);
+                        return;
+                    }
                 }
 
                 player.Character.AddPsyche(player.Status, 1, "Прокачка", false);
-                if (player.Character.Name == "HardKitty")
-                    player.Status.AddInGamePersonalLogs(
-                        $"#life: Я прокачал Психику на {player.Character.GetPsyche()}!\n");
-                else
-                    player.Status.AddInGamePersonalLogs($"Ты улучшил Психику до {player.Character.GetPsyche()}\n");
+                switch (player.Character.Name)
+                {
+                    case "HardKitty":
+                        player.Status.AddInGamePersonalLogs($"#life: Я прокачал Психику на {player.Character.GetPsyche()}!\n");
+                        break;
+                    case "Вампур":
+                        player.Character.AddPsyche(player.Status, -1, "Прокачка", false);
+                        break;
+                    default:
+                        player.Status.AddInGamePersonalLogs($"Ты улучшил Психику до {player.Character.GetPsyche()}\n");
+                        break;
+                }
 
                 break;
         }
@@ -554,7 +590,7 @@ public sealed class GameReaction : IServiceSingleton
 
 
         //Дизмораль
-        var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+        
         if (player.Character.Name == "Darksci")
         {
             if (game.RoundNo == 9)

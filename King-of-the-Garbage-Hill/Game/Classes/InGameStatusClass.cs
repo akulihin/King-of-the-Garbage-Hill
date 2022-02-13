@@ -96,8 +96,9 @@ public class InGameStatus
 
     public void AddInGamePersonalLogs(string str)
     {
+
         var previous = InGamePersonalLogs.Split("\n");
-        if (previous.Length > 1)
+        if (previous.Length > 1 && !str.Contains("Предположение") && !str.Contains("Безумие") && !str.Contains("Дракон") && !str.Contains("Претендент русского сервера"))
         {
             var currentSkills = str.Split(": ");
             if (currentSkills.Length > 0)
@@ -198,7 +199,7 @@ public class InGameStatus
             var tolyaAcc = game.PlayersList.Find(x => x.Character.Name == "Толя");
 
             var tolyaCount = gameGlobal.TolyaCount.Find(x =>
-                x.PlayerId == tolyaAcc.Status.PlayerId && x.GameId == game.GameId);
+                x.PlayerId == tolyaAcc.GetPlayerId() && x.GameId == game.GameId);
 
 
             if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == PlayerId))
@@ -252,8 +253,9 @@ public class InGameStatus
         public bool IsStatsBetterEnemy;
         public bool IsTooGoodMe;
         public bool IsStatsBetterMe;
+        public Guid WhoAttacked;
 
-        public WhoToLostPreviousRoundClass(Guid enemyId, int roundNo, bool isTooGoodEnemy, bool isStatsBetterEnemy, bool isTooGoodMe, bool isStatsBetterMe)
+        public WhoToLostPreviousRoundClass(Guid enemyId, int roundNo, bool isTooGoodEnemy, bool isStatsBetterEnemy, bool isTooGoodMe, bool isStatsBetterMe, Guid whoAttacked)
         {
             EnemyId = enemyId;
             RoundNo = roundNo;
@@ -261,6 +263,7 @@ public class InGameStatus
             IsStatsBetterEnemy = isStatsBetterEnemy;
             IsTooGoodMe = isTooGoodMe;
             IsStatsBetterMe = isStatsBetterMe;
+            WhoAttacked = whoAttacked;
         }
     }
 

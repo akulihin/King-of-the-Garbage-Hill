@@ -14,7 +14,6 @@ public class CharactersUniquePhrase
     public PhraseClass AwdkaAfk;
     public PhraseClass AwdkaTeachToPlay;
     public PhraseClass AwdkaTrolling;
-    public PhraseClass AwdkaTrollingReady;
     public PhraseClass AwdkaTrying;
 
     public PhraseClass DarksciDysmoral;
@@ -129,8 +128,8 @@ public class CharactersUniquePhrase
         VampyrHematophagy = new PhraseClass("Гематофагия");
         VampyrSuckspenStake = new PhraseClass("СОсиновый кол");
         VampyrNoAttack = new PhraseClass("СОсиновый кол");
-        VampyrVampyr = new PhraseClass("Vampyr");
-
+        VampyrVampyr = new PhraseClass("VampУr");
+        
 
         SpartanShameMylorik = new PhraseClass("Искусство");
         SpartanDragonSlayer = new PhraseClass("2kxaoc");
@@ -159,7 +158,7 @@ public class CharactersUniquePhrase
         GlebSleepyPhrase = new PhraseClass("Спящее хуйло");
         GlebComeBackPhrase = new PhraseClass("Я щас приду");
         GlebTeaPhrase = new PhraseClass("Я за чаем");
-        GlebTeaReadyPhrase = new PhraseClass("Я за чаем");
+        GlebTeaReadyPhrase = new PhraseClass("__**Я за чаем**");
 
         LeCrispJewPhrase = new PhraseClass("Еврей");
         LeCrispBoolingPhrase = new PhraseClass("Булинг");
@@ -168,7 +167,7 @@ public class CharactersUniquePhrase
 
         TolyaJewPhrase = new PhraseClass("Еврей");
         TolyaCountPhrase = new PhraseClass("Подсчет");
-        TolyaCountReadyPhrase = new PhraseClass("Подсчет");
+        TolyaCountReadyPhrase = new PhraseClass("__**Подсчет**");
         TolyaRammusPhrase = new PhraseClass("Раммус мейн");
         TolyaRammus2Phrase = new PhraseClass("Раммус мейн");
         TolyaRammus3Phrase = new PhraseClass("Раммус мейн");
@@ -193,7 +192,7 @@ public class CharactersUniquePhrase
         AwdkaTrolling = new PhraseClass("Произошел троллинг");
         AwdkaTrying = new PhraseClass("Я пытаюсь!");
         AwdkaAfk = new PhraseClass("АФКА");
-        AwdkaTrollingReady = new PhraseClass("Произошел троллинг");
+
 
         DarksciNotLucky = new PhraseClass("Не повезло");
         DarksciLucky = new PhraseClass("Повезло");
@@ -248,6 +247,8 @@ public class CharactersUniquePhrase
         VampyrNoAttack.PassiveLogRus.Add("Это Хельсинг, начальнике");
         VampyrNoAttack.PassiveLogRus.Add("От него пахнет чесноком!");
         VampyrNoAttack.PassiveLogRus.Add("Он мне кол в жопу засунул");
+
+
 
         SpartanShameMylorik.PassiveLogRus.Add("ОН уважает военное искуство!");
         SpartanDragonSlayer.PassiveLogRus.Add("*Oторвался от остальных на 2000 голды*");
@@ -323,8 +324,12 @@ public class CharactersUniquePhrase
         DeepListPokePhrase.PassiveLogRus.Add("LeCringe");  
         DeepListPokePhrase.PassiveLogRus.Add("Кто **Там**?"); 
         DeepListPokePhrase.PassiveLogRus.Add("Дэусманс, придурки"); 
+        DeepListPokePhrase.PassiveLogRus.Add("I hate Sirinokses!"); 
+        DeepListPokePhrase.PassiveLogRus.Add("Надеваю кепку."); 
+        DeepListPokePhrase.PassiveLogRus.Add("I DC'd again."); 
+        DeepListPokePhrase.PassiveLogRus.Add("Mit*SUKI*"); 
 
-        
+
         
 
         DeepListDoubtfulTacticPhrase.PassiveLogRus.Add("Everything is going according to my plan");
@@ -365,14 +370,16 @@ public class CharactersUniquePhrase
         MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Слабый персонаж!");
         MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Лезу");
         MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Го вирт");
-        MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Доктор Чо");
         MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Молоко в пакете");
         MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Алексич... я твой фанат... Я Пантеон.");
         MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Берём.");
-        MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Берём.");
+        MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Вьетнамская тристана!");
+        MylorikRevengeVictoryPhrase.PassiveLogRus.Add("Вьетнамская тристана!!!");
+        MylorikRevengeVictoryPhrase.PassiveLogRus.Add("ВЬЕТНАМСКАЯ ТРИСТАНА!!!");
 
+        
+        
         MylorikSpanishPhrase.PassiveLogRus.Add("Ааарива!");
-        MylorikSpanishPhrase.PassiveLogRus.Add("НЕ ТРОГАЙ МОЮ ДВЕРЬ");
         MylorikSpanishPhrase.PassiveLogRus.Add("Буэнос ночес!");
         MylorikSpanishPhrase.PassiveLogRus.Add("Ale handro!");
         MylorikSpanishPhrase.PassiveLogRus.Add("noob team");
@@ -406,8 +413,8 @@ public class CharactersUniquePhrase
         GlebComeBackPhrase.PassiveLogRus.Add("Я щас приду");
         GlebComeBackPhrase.PassiveLogRus.Add("Без меня не начина...");
         GlebTeaPhrase.PassiveLogRus.Add("Какао белого цвета");
-        GlebTeaReadyPhrase.PassiveLogRus.Add("U menja est' lishnij chaj!");
-        GlebTeaReadyPhrase.PassiveLogRus.Add("Chaj zavarilsa!");
+        GlebTeaReadyPhrase.PassiveLogRus.Add("U menja est' lishnij chaj!__");
+        GlebTeaReadyPhrase.PassiveLogRus.Add("Chaj zavarilsa!__");
 
 
         LeCrispJewPhrase.PassiveLogRus.Add("Я жру деньги!");
@@ -416,6 +423,7 @@ public class CharactersUniquePhrase
         LeCrispJewPhrase.PassiveLogRus.Add("Кошерно"); 
         LeCrispJewPhrase.PassiveLogRus.Add("ОЙ ВЕЙ!");     
         LeCrispJewPhrase.PassiveLogRus.Add("Хава Нагила"); 
+        LeCrispJewPhrase.PassiveLogRus.Add("Призываю Иуду"); 
 
         LeCrispBoolingPhrase.PassiveLogRus.Add("Why are you bulling me?");
         LeCrispBoolingPhrase.PassiveLogRus.Add("fuk u");
@@ -428,9 +436,12 @@ public class CharactersUniquePhrase
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Эх, жизнь АДК");
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Моя жопа не смогла съесть змею. (с)");
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Женская собака приседает и писает");      
+        LeCrispAssassinsPhrase.PassiveLogRus.Add("Аль тигий ли ба делет"); 
+        LeCrispAssassinsPhrase.PassiveLogRus.Add("Малфит подкинул, Ясуо ультанул..."); 
         LeCrispAssassinsPhrase.PassiveLogRus.Add("Голова арбуза"); 
+        LeCrispAssassinsPhrase.PassiveLogRus.Add("Я трахался на летних каникулах. Никому это не понравилось "); 
 
-
+        
         LeCrispImpactPhrase.PassiveLogRus.Add("Импакт!");
         LeCrispImpactPhrase.PassiveLogRus.Add("Это импакт?");
         LeCrispImpactPhrase.PassiveLogRus.Add("шпещьмен");
@@ -457,7 +468,7 @@ public class CharactersUniquePhrase
         TolyaJewPhrase.PassiveLogRus.Add("Ыыыы");
         TolyaJewPhrase.PassiveLogRus.Add("Настоящий еврей знает свой толк");        
 
-        TolyaCountReadyPhrase.PassiveLogRus.Add("Я готов это просчитать");
+        TolyaCountReadyPhrase.PassiveLogRus.Add("Я готов это просчитать__");
         TolyaCountPhrase.PassiveLogRus.Add("Ха! Подстчет!");
         TolyaCountPhrase.PassiveLogRus.Add("Так и знал!");
         TolyaCountPhrase.PassiveLogRus.Add("Предиктед");
@@ -532,7 +543,7 @@ public class CharactersUniquePhrase
         AwdkaTrying.PassiveLogRus.Add("Почти...");
         AwdkaTrying.PassiveLogRus.Add("В киберспорт!");
         AwdkaAfk.PassiveLogRus.Add("AFKA");
-        AwdkaTrollingReady.PassiveLogRus.Add("троллинг готов к использованию");
+
 
         CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("У них одни ренжевики!");
         CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("На Полому!");
