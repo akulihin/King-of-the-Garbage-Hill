@@ -3,6 +3,9 @@
 # Discord Server 
 https://discord.gg/YZFWdqD
 
+# Add This Game
+https://discord.com/oauth2/authorize?client_id=901706293977432124&permissions=0&scope=bot
+
 # English
 
 **Game Description:**
