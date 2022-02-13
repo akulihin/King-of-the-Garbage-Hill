@@ -25,6 +25,6 @@ ________________________________________________________________________________
 ________________________________________________________________________________________________________________________________________
 # Game Screenshots
 
-![DeepList Gameplay 1](https://github.com/mylorik/King-of-the-Garbage-Hill/blob/master/King-of-the-Garbage-Hill/DataBase/art/screenshots/Discord_91jjLIM2aa.png?raw=true)
-![DeepList Gameplay 2](https://github.com/mylorik/King-of-the-Garbage-Hill/blob/master/King-of-the-Garbage-Hill/DataBase/art/screenshots/Discord_EseZqrK4cs.png?raw=true)
-![DeepList Gameplay 3](https://github.com/mylorik/King-of-the-Garbage-Hill/blob/master/King-of-the-Garbage-Hill/DataBase/art/screenshots/Discord_dig62yy9XQ.png?raw=true)
+![DeepList Gameplay 1](https://github.com/mylorik/King-of-the-Garbage-Hill/blob/master/King-of-the-Garbage-Hill/DataBase/art/screenshots/Discord_AjkMQKubty.png?raw=true)
+![DeepList Gameplay 2](https://github.com/mylorik/King-of-the-Garbage-Hill/blob/master/King-of-the-Garbage-Hill/DataBase/art/screenshots/Discord_rmOOrNRL7W.png?raw=true)
+
