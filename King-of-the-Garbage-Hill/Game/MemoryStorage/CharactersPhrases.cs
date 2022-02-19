@@ -290,7 +290,9 @@ public class CharactersUniquePhrase
         DeepListMadnessPhrase.PassiveLogRus.Add("Доктор Чо");
         DeepListMadnessPhrase.PassiveLogRus.Add("*Звуки губной гармошки*");
         DeepListMadnessPhrase.PassiveLogRus.Add("*Звуки расстроенной гитары*");
+        
 
+        
 
         DeepListPokePhrase.PassiveLogRus.Add("Хехе");
         DeepListPokePhrase.PassiveLogRus.Add("Чисто постЕбаться");
@@ -328,6 +330,7 @@ public class CharactersUniquePhrase
         DeepListPokePhrase.PassiveLogRus.Add("Надеваю кепку."); 
         DeepListPokePhrase.PassiveLogRus.Add("I DC'd again."); 
         DeepListPokePhrase.PassiveLogRus.Add("Mit*SUKI*"); 
+        DeepListPokePhrase.PassiveLogRus.Add("Почему гиены смеются? Потому что смешно!"); 
 
 
         
@@ -354,6 +357,8 @@ public class CharactersUniquePhrase
         DeepListSuperMindPhrase.PassiveLogRus.Add("Сложив 2+2, вы каким-то чудом догадались, что ");
         DeepListSuperMindPhrase.PassiveLogRus.Add("Всё ясно. Героин - Марихуана, а ");
         DeepListSuperMindPhrase.PassiveLogRus.Add("Враг спалился! Но я это понял еще давно. ");
+        DeepListSuperMindPhrase.PassiveLogRus.Add("Пст... у меня есть информация, что ");
+
 
 
         MylorikRevengeLostPhrase.PassiveLogRus.Add("Ах вы суки блять!");
@@ -462,7 +467,8 @@ public class CharactersUniquePhrase
 
         TolyaJewPhrase.PassiveLogRus.Add("Easy money");
         TolyaJewPhrase.PassiveLogRus.Add("Worth");
-        TolyaJewPhrase.PassiveLogRus.Add("Кошерно");
+        TolyaJewPhrase.PassiveLogRus.Add("Таки кошерно");
+        TolyaJewPhrase.PassiveLogRus.Add("Я пока еще не втянулся в эти ваши еврейские схемы");
         TolyaJewPhrase.PassiveLogRus.Add("Хехе, спиздил");
         TolyaJewPhrase.PassiveLogRus.Add("Одна медная!");
         TolyaJewPhrase.PassiveLogRus.Add("Ыыыы");
@@ -473,6 +479,7 @@ public class CharactersUniquePhrase
         TolyaCountPhrase.PassiveLogRus.Add("Так и знал!");
         TolyaCountPhrase.PassiveLogRus.Add("Предиктед");
         TolyaCountPhrase.PassiveLogRus.Add("Справедливо"); 
+        TolyaCountPhrase.PassiveLogRus.Add("Для победы мне нужны: листочек, еврейсто и ручка"); 
         
         TolyaRammusPhrase.PassiveLogRus.Add("Okay.");
         TolyaRammusPhrase.PassiveLogRus.Add("Hm.");
