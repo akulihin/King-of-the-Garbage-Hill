@@ -102,7 +102,15 @@ public class General : ModuleBaseCustom
         {
             account.IsPlaying = true;
 
-            account.DiscordUserName = players.Find(x => x.Id == account.DiscordId).Username;
+            try
+            {
+                account.DiscordUserName = players.Find(x => x.Id == account.DiscordId).Username;
+            }
+            catch
+            {
+                //ignored
+            }
+            
 
             //выдать персонажей если их нет на аккаунте
             foreach (var character in from character in allCharacters2
