@@ -268,7 +268,7 @@ Speed => Strength
                 game.AddGlobalLogs(logMess);
 
 
-                if (player.Character.Name != "mylorik") player.Status.AddBonusPoints(-1, "Блок");
+                player.Status.AddBonusPoints(-1, "Блок");
 
                 playerIamAttacking.Character.Justice.AddJusticeForNextRoundFromFight();
 
@@ -448,6 +448,19 @@ Speed => Strength
             if (pointsWined <= 0) pointsWined =  await _characterPassives.HandleOctopus(playerIamAttacking, player, game);
             //end octopus
 
+
+            //team
+            var teamMate = false;
+            if (game.Teams.Any(x => x.TeamPlayers.Contains(player.Status.PlayerId)))
+            {
+                var playerTeam = game.Teams.Find(x => x.TeamPlayers.Contains(player.Status.PlayerId)).TeamId;
+                var playerIamAttackingTeam = game.Teams.Find(x => x.TeamPlayers.Contains(playerIamAttacking.Status.PlayerId)).TeamId;
+                if (playerTeam == playerIamAttackingTeam)
+                {
+                    teamMate = true;
+                }
+            }
+
             //CheckIfWin to remove Justice
             if (pointsWined >= 1)
             {
@@ -464,6 +477,9 @@ Speed => Strength
                 if (point == 0) player.Status.AddInGamePersonalLogs("Евреи...\n");
                 //end еврей
 
+                if (teamMate)
+                    point = 0; 
+
                 //add regular points
                 if (player.Character.Name == "HardKitty")
                 {
@@ -479,11 +495,13 @@ Speed => Strength
                 player.Character.Justice.IsWonThisRound = true;
 
 
-                if (player.Status.PlaceAtLeaderBoard > playerIamAttacking.Status.PlaceAtLeaderBoard &&
-                    game.RoundNo > 1)
+                if (player.Status.PlaceAtLeaderBoard > playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
                 {
-                    player.Character.AddMoral(player.Status, moral, "Победа");
-                    playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Поражение");
+                    if (!teamMate)
+                    {
+                        player.Character.AddMoral(player.Status, moral, "Победа");
+                        playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Поражение");
+                    }
                 }
 
 
@@ -515,11 +533,13 @@ Speed => Strength
                 player.Status.WonTimes++;
                 playerIamAttacking.Character.Justice.IsWonThisRound = true;
 
-                if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard &&
-                    game.RoundNo > 1)
+                if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
                 {
-                    player.Character.AddMoral(player.Status, moral, "Поражение");
-                    playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Победа");
+                    if (!teamMate)
+                    {
+                        player.Character.AddMoral(player.Status, moral, "Поражение");
+                        playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Победа");
+                    }
                 }
 
                 if (playerIamAttacking.Character.Name == "Толя" && playerIamAttacking.Status.IsBlock)

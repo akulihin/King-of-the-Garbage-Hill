@@ -7,7 +7,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes;
 
 public class GameClass
 {
-    public GameClass(List<GamePlayerBridgeClass> playersList, ulong gameId, ulong creatorId, int turnLengthInSecond = 200, string gameMode = "Normal")
+    public GameClass(List<GamePlayerBridgeClass> playersList, ulong gameId, ulong creatorId, int turnLengthInSecond = 300, string gameMode = "Normal")
     {
         RoundNo = 1;
         Phrases = new CharactersUniquePhrase();
@@ -30,10 +30,12 @@ public class GameClass
         WhoWon = Guid.Empty;
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "версия 1.8";
+        GameVersion = "версия 1.9";
         GameMode = gameMode;
         CreatorId = creatorId;
+        Teams = new List<TeamPlay>();
     }
+
 
     public int RoundNo { get; set; }
     public List<GamePlayerBridgeClass> PlayersList { get; set; }
@@ -58,6 +60,8 @@ public class GameClass
     public string GameMode { get; set; }
     public ulong CreatorId { get; set; }
     public Guid WhoWon { get; set; }
+    public List<TeamPlay> Teams { get; set; }
+
 
     public void AddGlobalLogs(string str, string newLine = "\n")
     {
@@ -78,5 +82,19 @@ public class GameClass
     public void SetGlobalLogs(string str)
     {
         GlobalLogs = str;
+    }
+
+    public class TeamPlay
+    {
+        public TeamPlay(int teamId)
+        {
+            TeamId = teamId;
+            TeamPlayers = new List<Guid>();
+            TeamPlayersUsernames = new List<string>();
+        }
+
+        public int TeamId { get; set; }
+        public List<Guid> TeamPlayers { get; set; }
+        public List<string> TeamPlayersUsernames { get; set; }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
@@ -104,7 +105,12 @@ public class General : ModuleBaseCustom
 
             try
             {
-                account.DiscordUserName = players.Find(x => x.Id == account.DiscordId).Username;
+                if (!account.IsBot())
+                {
+                    var temp = players.Where(x => x != null).ToList().Find(x => x.Id == account.DiscordId);
+                    if(temp != null)
+                        account.DiscordUserName = temp.Username;
+                }
             }
             catch
             {
@@ -362,23 +368,11 @@ public class General : ModuleBaseCustom
     }
 
 
-
-    [Command("игра")]
-    [Alias("st", "start", "start game")]
-    [Summary("запуск игры")]
-    public async Task StartGame(IUser player2 = null, IUser player3 = null, IUser player4 = null, IUser player5 = null, IUser player6 = null)
+    public async Task StartGame(int teamCount = 0, IUser player1 = null, IUser player2 = null, IUser player3 = null, IUser player4 = null, IUser player5 = null, IUser player6 = null)
     {
-        var contextPlayer = _accounts.GetAccount(Context.User);
-
-        /*if (!contextPlayer.PassedTutorial)
-        {
-            await SendMessageAsync($"Извините! Для запуска игры, пожалуйста, сперва пройдите обучение - `*обучение`");
-            return;
-        }*/
-
-        //_userAccounts.GetAccount(player.PlayerId).PassedTutorial = true;
         var players = new List<IUser>
         {
+            player1,
             player2,
             player3,
             player4,
@@ -386,19 +380,11 @@ public class General : ModuleBaseCustom
             player6
         };
 
-        if (players.Contains(Context.User))
-        {
-            players.Remove(Context.User);
-            players.Add(null);
-        }
-
         if (players.Contains(_global.Client.CurrentUser))
         {
             await SendMessageAsync($"https://upload.wikimedia.org/wikipedia/commons/c/cc/Digital_rain_animation_medium_letters_shine.gif");
             return;
         }
-
-        players.Add(Context.User);
 
         foreach (var player in players.Where(player => player != null).Where(player => player.IsBot))
         {
@@ -423,7 +409,6 @@ public class General : ModuleBaseCustom
         //ролл персонажей для игры
         var playersList = HandleCharacterRoll(players, gameId);
 
-
         //тасуем игроков
         playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
         playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
@@ -435,12 +420,97 @@ public class General : ModuleBaseCustom
         //это нужно для ботов
         _gameGlobal.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
 
+        //командная игра
+        var teamPool = new List<GamePlayerBridgeClass> { playersList[0], playersList[1], playersList[2], playersList[3], playersList[4], playersList[5] };
+        var team1 = new GameClass.TeamPlay(1);
+        var team2 = new GameClass.TeamPlay(2);
+        var team3 = new GameClass.TeamPlay(3);
+        var teamList = new List<GameClass.TeamPlay> { team1, team2, team3 };
+        var count = 0;
+        var teamId = 1;
+        switch (teamCount)
+        {
+            case 2:
+                foreach (var player in players)
+                {
+                    count++;
+                    if (count > 2)
+                        teamId = 2;
+                    if (count > 4)
+                        teamId = 3;
+                    if (player != null)
+                    {
+                        var teamPooler = teamPool.Find(x => x.DiscordId == player.Id);
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.Status.PlayerId);
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
+                        teamPool.Remove(teamPooler);
+                    }
+                    else
+                    {
+                        var teamPooler = teamPool.First(x => x.IsBot());
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.Status.PlayerId);
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
+                        teamPool.Remove(teamPooler);
+                    }
+                }
+                break;
+            case 3:
+                foreach (var player in players)
+                {
+                    count++;
+                    if (count > 3)
+                        teamId = 2;
+                    if (player != null)
+                    {
+                        var teamPooler = teamPool.Find(x => x.DiscordId == player.Id);
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.Status.PlayerId);
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
+                        teamPool.Remove(teamPooler);
+                    }
+                    else
+                    {
+                        var teamPooler = teamPool.First(x => x.IsBot());
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.Status.PlayerId);
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
+                        teamPool.Remove(teamPooler);
+                    }
+                }
+                break;
+            case 4:
+                foreach (var player in players)
+                {
+                    count++;
+                    if (count > 2)
+                        teamId = 2;
+                    if (player != null)
+                    {
+                        var teamPooler = teamPool.Find(x => x.DiscordId == player.Id);
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.Status.PlayerId);
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
+                        teamPool.Remove(teamPooler);
+                    }
+                    else
+                    {
+                        var teamPooler = teamPool.First(x => x.IsBot());
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.Status.PlayerId);
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
+                        teamPool.Remove(teamPooler);
+                    }
+                }
+                break;
+        }
+
         //отправить меню игры
         foreach (var player in playersList) await _upd.WaitMess(player, playersList);
 
         //создаем игру
         var game = new GameClass(playersList, gameId, Context.User.Id) { IsCheckIfReady = false };
 
+        //добавляем команды
+        foreach (var team in teamList.Where(x => x.TeamPlayers.Count > 0))
+        {
+            game.Teams.Add(team);
+        }
 
         //start the timer
         game.TimePassed.Start();
@@ -455,6 +525,29 @@ public class General : ModuleBaseCustom
         foreach (var player in playersList) await _upd.UpdateMessage(player);
         game.IsCheckIfReady = true;
     }
+
+
+
+    [Command("игра")]
+    [Alias("stt", "start", "start game")]
+    [Summary("запуск игры")]
+    public async Task StartGameNormal(IUser player1 = null, IUser player2 = null, IUser player3 = null, IUser player4 = null,
+        IUser player5 = null, IUser player6 = null)
+    {
+        player1 ??= Context.User;
+        await StartGame(0, player1, player2, player3, player4, player5, player6);
+    }
+
+    [Command("игра")]
+    [Alias("stt", "start", "start game")]
+    [Summary("запуск игры")]
+    public async Task StartGameTeam(int team, IUser player1 = null, IUser player2 = null, IUser player3 = null, IUser player4 = null,
+        IUser player5 = null, IUser player6 = null)
+    {
+        player1 ??= Context.User;
+        await StartGame(team, player1, player2, player3, player4, player5, player6);
+    }
+
 
 
     [Command("stb")]

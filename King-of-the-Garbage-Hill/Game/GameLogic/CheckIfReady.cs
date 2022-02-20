@@ -454,12 +454,26 @@ public class CheckIfReady : IServiceSingleton
                     player.Status.TimesUpdated++;
                     await _upd.UpdateMessage(player);
                 }
-                if (game.TimePassed.Elapsed.TotalSeconds > 90 && player.Status.TimesUpdated == 2)
+
+                if (game.TimePassed.Elapsed.TotalSeconds > 90 && player.Status.TimesUpdated == 4)
                 {
                     player.Status.TimesUpdated++;
                     await _upd.UpdateMessage(player);
                 }
+
                 if (game.TimePassed.Elapsed.TotalSeconds > 150 && player.Status.TimesUpdated == 4)
+                {
+                    player.Status.TimesUpdated++;
+                    await _upd.UpdateMessage(player);
+                }
+
+                if (game.TimePassed.Elapsed.TotalSeconds > 210 && player.Status.TimesUpdated == 4)
+                {
+                    player.Status.TimesUpdated++;
+                    await _upd.UpdateMessage(player);
+                }
+
+                if (game.TimePassed.Elapsed.TotalSeconds > 270 && player.Status.TimesUpdated == 4)
                 {
                     player.Status.TimesUpdated++;
                     await _upd.UpdateMessage(player);

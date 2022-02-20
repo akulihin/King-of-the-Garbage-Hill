@@ -117,8 +117,17 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 .Replace("*", "\\*")
                 .Replace("~", "\\~")
                 .Replace("`", "\\`");
-            players +=
-                $"{i + 1}. {sanitizedDiscordUsername}";
+
+            var teamString = "";
+            if (game.Teams.Any(x => x.TeamPlayers.Contains(playersList[i].Status.PlayerId)))
+            {
+                var teamId = game.Teams.Find(x => x.TeamPlayers.Contains(playersList[i].Status.PlayerId))!.TeamId;
+                teamString = $"[{teamId}] ";
+                if(teamId == game.Teams.Find(x => x.TeamPlayers.Contains(player.Status.PlayerId))!.TeamId)
+                    teamString = $"**[{teamId}]** ";
+            }
+
+            players += $"{teamString}{i + 1}. {sanitizedDiscordUsername}";
 
             players += CustomLeaderBoardAfterPlayer(player, playersList[i], game);
 
