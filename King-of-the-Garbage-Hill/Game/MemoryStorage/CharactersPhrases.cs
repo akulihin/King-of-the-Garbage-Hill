@@ -242,6 +242,8 @@ public class CharactersUniquePhrase
         VampyrSuckspenStake.PassiveLogRus.Add("Мое Вампурское сердце не выдержит");
         VampyrSuckspenStake.PassiveLogRus.Add("Ниеееет!");
         VampyrSuckspenStake.PassiveLogRus.Add("Пфхаааш!");
+        VampyrSuckspenStake.PassiveLogRus.Add("Прибавляется, отнимается, прибавляется, отнимается");
+
         VampyrNoAttack.PassiveLogRus.Add("Не хочу, не буду");
         VampyrNoAttack.PassiveLogRus.Add("Аа я баюс его");
         VampyrNoAttack.PassiveLogRus.Add("Это Хельсинг, начальнике");
