@@ -151,6 +151,12 @@ public class CheckIfReady : IServiceSingleton
         {
             if (!bot.IsBot()) continue;
 
+            if (game.Teams.Count > 0)
+            {
+                bot.Status.AddBonusPoints(15, "Предположение");
+                continue;
+            }
+
             if (game.GetAllGlobalLogs().Contains("Толя запизделся"))
                 bot.Status.AddBonusPoints(3, "Предположение");
 
@@ -254,6 +260,9 @@ public class CheckIfReady : IServiceSingleton
         }
 
         var isTeam = false;
+        var wonScore = 0;
+        var lostScore1 = 0;
+        var lostScore2 = 0;
         var team1Score = 0;
         var team2Score = 0;
         var team3Score = 0;
@@ -288,12 +297,30 @@ public class CheckIfReady : IServiceSingleton
             else
             {
                 if (team1Score > team2Score && team1Score > team3Score)
+                {
                     wonTeam = 1;
+                    wonScore = team1Score;
+                    lostScore1 = team2Score;
+                    lostScore2 = team3Score;
+                }
+
                 if (team2Score > team1Score && team2Score > team3Score)
+                {
                     wonTeam = 2;
+                    wonScore = team2Score;
+                    lostScore1 = team1Score;
+                    lostScore2 = team3Score;
+                }
+
                 if (team3Score > team1Score && team3Score > team2Score)
+                {
                     wonTeam = 3;
-                game.AddGlobalLogs($"\n**Команда #{wonTeam}** победила!");
+                    wonScore = team3Score;
+                    lostScore1 = team2Score;
+                    lostScore2 = team1Score;
+                }
+
+                game.AddGlobalLogs($"\n**Команда #{wonTeam}** победила набрав {wonScore} ({lostScore1}, {lostScore2})!");
             }
 
         }

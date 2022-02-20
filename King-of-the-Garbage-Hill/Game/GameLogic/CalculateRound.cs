@@ -451,7 +451,7 @@ Speed => Strength
 
             //team
             var teamMate = false;
-            if (game.Teams.Any(x => x.TeamPlayers.Contains(player.Status.PlayerId)))
+            if (game.Teams.Count > 0)
             {
                 var playerTeam = game.Teams.Find(x => x.TeamPlayers.Contains(player.Status.PlayerId)).TeamId;
                 var playerIamAttackingTeam = game.Teams.Find(x => x.TeamPlayers.Contains(playerIamAttacking.Status.PlayerId)).TeamId;
@@ -464,6 +464,7 @@ Speed => Strength
             //CheckIfWin to remove Justice
             if (pointsWined >= 1)
             {
+                var point = 1;
                 //сильный
                 if (player.Character.GetSkillClass() == "Сила")
                     player.Character.AddExtraSkill(player.Status, 4, "Класс");
@@ -472,27 +473,28 @@ Speed => Strength
                 game.AddGlobalLogs($" ⟶ {player.DiscordUsername}");
 
                 //еврей
-                var point = await _characterPassives.HandleJews(player, game);
-
+                if (!teamMate)
+                    point = await _characterPassives.HandleJews(player, game);
                 if (point == 0) player.Status.AddInGamePersonalLogs("Евреи...\n");
                 //end еврей
 
-                if (teamMate)
-                    point = 0; 
 
                 //add regular points
-                if (player.Character.Name == "HardKitty")
-                {
-                    player.Status.AddRegularPoints(point*-1, "Победа");
-                }
-                else
-                {
-                    player.Status.AddRegularPoints(point, "Победа");
-                }
+                if (!teamMate) 
+                    if (player.Character.Name == "HardKitty")
+                    {
+                        player.Status.AddRegularPoints(point*-1, "Победа");
+                    }
+                    else
+                    {
+                        player.Status.AddRegularPoints(point, "Победа");
+                    }
 
 
                 player.Status.WonTimes++;
-                player.Character.Justice.IsWonThisRound = true;
+
+                if(!teamMate)
+                    player.Character.Justice.IsWonThisRound = true;
 
 
                 if (player.Status.PlaceAtLeaderBoard > playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
@@ -504,8 +506,8 @@ Speed => Strength
                     }
                 }
 
-
-                playerIamAttacking.Character.Justice.AddJusticeForNextRoundFromFight();
+                if (!teamMate)
+                    playerIamAttacking.Character.Justice.AddJusticeForNextRoundFromFight();
 
                 player.Status.IsWonThisCalculation = playerIamAttacking.GetPlayerId();
                 playerIamAttacking.Status.IsLostThisCalculation = player.GetPlayerId();
@@ -528,10 +530,12 @@ Speed => Strength
 
                 game.AddGlobalLogs($" ⟶ {playerIamAttacking.DiscordUsername}");
 
-                playerIamAttacking.Status.AddRegularPoints(1, "Победа");
+                if (!teamMate)
+                    playerIamAttacking.Status.AddRegularPoints(1, "Победа");
 
                 player.Status.WonTimes++;
-                playerIamAttacking.Character.Justice.IsWonThisRound = true;
+                if (!teamMate)
+                    playerIamAttacking.Character.Justice.IsWonThisRound = true;
 
                 if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
                 {
@@ -543,9 +547,11 @@ Speed => Strength
                 }
 
                 if (playerIamAttacking.Character.Name == "Толя" && playerIamAttacking.Status.IsBlock)
-                    playerIamAttacking.Character.Justice.IsWonThisRound = false;
+                    if (!teamMate)
+                        playerIamAttacking.Character.Justice.IsWonThisRound = false;
 
-                player.Character.Justice.AddJusticeForNextRoundFromFight();
+                if (!teamMate)
+                    player.Character.Justice.AddJusticeForNextRoundFromFight();
 
                 playerIamAttacking.Status.IsWonThisCalculation = player.GetPlayerId();
                 player.Status.IsLostThisCalculation = playerIamAttacking.GetPlayerId();
