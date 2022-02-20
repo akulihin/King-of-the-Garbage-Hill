@@ -240,7 +240,6 @@ public class CheckIfReady : IServiceSingleton
         foreach (var t in game.PlayersList)
             t.Status.PlaceAtLeaderBoardHistory.Add(new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo, t.Status.PlaceAtLeaderBoard));
 
-        game.WhoWon = game.PlayersList.First().GetPlayerId();
         HandlePostGameEvents(game);
 
 
@@ -254,11 +253,58 @@ public class CheckIfReady : IServiceSingleton
             game.PlayersList.First().DiscordUsername = "НейроБот";
         }
 
-        game.AddGlobalLogs(
-            game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList.First().Status.GetScore())
-                .Count > 1
-                ? "\n**Ничья**"
-                : $"\n**{game.PlayersList.First().DiscordUsername}** победил, играя за **{game.PlayersList.First().Character.Name}**");
+        var isTeam = false;
+        var team1Score = 0;
+        var team2Score = 0;
+        var team3Score = 0;
+        var wonTeam = 0;
+        if (game.Teams.Count > 0)
+        {
+            isTeam = true;
+            foreach (var player in game.PlayersList)
+            {
+                if (game.Teams.Find(x => x.TeamPlayers.Contains(player.Status.PlayerId))!.TeamId == 1)
+                {
+                    team1Score += player.Status.GetScore();
+                }
+                else if (game.Teams.Find(x => x.TeamPlayers.Contains(player.Status.PlayerId))!.TeamId == 2)
+                {
+                    team2Score += player.Status.GetScore();
+                }
+                else
+                {
+                    team3Score += player.Status.GetScore();
+                }
+            }
+
+            if (team1Score == team2Score && team3Score == 0)
+            {
+                game.AddGlobalLogs("\n**Ничья**");
+            }
+            else if (team1Score == team2Score && team1Score == team3Score)
+            {
+                game.AddGlobalLogs("\n**Ничья**");
+            }
+            else
+            {
+                if (team1Score > team2Score && team1Score > team3Score)
+                    wonTeam = 1;
+                if (team2Score > team1Score && team2Score > team3Score)
+                    wonTeam = 2;
+                if (team3Score > team1Score && team3Score > team2Score)
+                    wonTeam = 3;
+                game.AddGlobalLogs($"\n**Команда #{wonTeam}** победила!");
+            }
+
+        }
+        else
+        {
+            game.AddGlobalLogs(
+                game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList.First().Status.GetScore())
+                    .Count > 1
+                    ? "\n**Ничья**"
+                    : $"\n**{game.PlayersList.First().DiscordUsername}** победил, играя за **{game.PlayersList.First().Character.Name}**");
+        }
 
         //todo: need to redo this system
         //_finishedGameLog.CreateNewLog(game);
@@ -310,6 +356,14 @@ public class CheckIfReady : IServiceSingleton
             }
             if(player.Status.GetScore() == game.PlayersList.First().Status.GetScore())
                 zbsPointsToGive = 100;
+
+            if (isTeam)
+            {
+                if(game.Teams.Find(x => x.TeamId == wonTeam).TeamPlayers.Contains(player.Status.PlayerId))
+                    zbsPointsToGive = 100;
+                else
+                    zbsPointsToGive = 50;
+            }
 
             account.ZbsPoints += zbsPointsToGive;
 

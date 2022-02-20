@@ -43,7 +43,7 @@ public sealed class FinishedGameLog : IServiceSingleton
                 player.Status.GetScore(), player.Character.GetIntelligence(), player.Character.GetStrength(),
                 player.Character.GetSpeed(), player.Character.GetPsyche(), player.Status.InGamePersonalLogsAll));
 
-        var log = new GameLogsClass(game.GameId, game.WhoWon, playerList, game.GetAllGlobalLogs());
-        AddLog(log);
+       // var log = new GameLogsClass(game.GameId, game.WhoWon, playerList, game.GetAllGlobalLogs());
+        //AddLog(log);
     }
 }

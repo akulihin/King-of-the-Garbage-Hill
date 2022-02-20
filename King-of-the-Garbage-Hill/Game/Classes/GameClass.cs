@@ -27,7 +27,7 @@ public class GameClass
             "Арт Дизайнер - <@!207707809339539457>\n" +
             "GitHub <:e_:562879579694301184><:e_:562879579694301184><:e_:562879579694301184>- https://github.com/mylorik/King-of-the-Garbage-Hill" +
             "\n\n<:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567>\n";
-        WhoWon = Guid.Empty;
+    
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
         GameVersion = "версия 1.9";
@@ -59,7 +59,6 @@ public class GameClass
     private string GlobalLogs { get; set; }
     public string GameMode { get; set; }
     public ulong CreatorId { get; set; }
-    public Guid WhoWon { get; set; }
     public List<TeamPlay> Teams { get; set; }
 
 
