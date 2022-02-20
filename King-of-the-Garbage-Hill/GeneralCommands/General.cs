@@ -529,7 +529,7 @@ public class General : ModuleBaseCustom
 
 
     [Command("игра")]
-    [Alias("stt", "start", "start game")]
+    [Alias("st", "start", "start game")]
     [Summary("запуск игры")]
     public async Task StartGameNormal(IUser player1 = null, IUser player2 = null, IUser player3 = null, IUser player4 = null,
         IUser player5 = null, IUser player6 = null)
@@ -539,7 +539,7 @@ public class General : ModuleBaseCustom
     }
 
     [Command("игра")]
-    [Alias("stt", "start", "start game")]
+    [Alias("st", "start", "start game")]
     [Summary("запуск игры")]
     public async Task StartGameTeam(int team, IUser player1 = null, IUser player2 = null, IUser player3 = null, IUser player4 = null,
         IUser player5 = null, IUser player6 = null)
