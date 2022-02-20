@@ -486,6 +486,7 @@ public class CharacterPassives : IServiceSingleton
 
                 if (me.Status.WhoToAttackThisTurn == target.GetPlayerId())
                     //set FightMultiplier
+                {
                     switch (mylorikEnemy.LostTimes)
                     {
                         case 1:
@@ -505,11 +506,18 @@ public class CharacterPassives : IServiceSingleton
                         case 9:
                         case 10:
                             me.Character.SetSkillFightMultiplier(16);
+                            game.AddGlobalLogs($"mylorik: Айсик, можно тортик? У меня {me.Character.GetSkill()} *Скилла*!");
                             break;
                         default:
                             me.Character.SetSkillFightMultiplier();
                             break;
                     }
+
+                    if (me.Character.GetSkillFightMultiplier() > 1)
+                    {
+                        me.Status.AddInGamePersonalLogs($"Спарта: {me.Character.GetSkill()} *Скилла* против {target.DiscordUsername}\n");
+                    }
+                }
 
                 //end Cпарта
                 break;

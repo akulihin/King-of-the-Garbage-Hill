@@ -24,6 +24,7 @@ public class DiscordAccountClass
     public ulong TotalWins { get; set; }
 
     public string CharacterToGiveNextTime { get; set; }
+    public string CharacterPlayedLastTime { get; set; }
 
     /*
     0 == Normal

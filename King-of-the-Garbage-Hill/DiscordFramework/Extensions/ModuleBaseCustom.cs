@@ -17,7 +17,7 @@ public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
         await userMessage.DeleteAsync();
     }
 
-    protected virtual async Task<IUserMessage> SendMessAsync(EmbedBuilder embed, int delete = 0,
+    protected virtual async Task<IUserMessage> SendMessageAsync(EmbedBuilder embed, int delete = 0,
         MessageComponent components = null)
     {
         switch (Context.MessageContentForEdit)
@@ -56,7 +56,7 @@ public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
     }
 
 
-    protected virtual async Task<IUserMessage> SendMessAsync([Remainder] string regularMess = null,
+    protected virtual async Task<IUserMessage> SendMessageAsync([Remainder] string regularMess = null,
         int delete = 0)
     {
         switch (Context.MessageContentForEdit)
@@ -93,7 +93,7 @@ public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
     }
 
 
-    protected virtual async Task<IUserMessage> SendMessAsync([Remainder] string regularMess,
+    protected virtual async Task<IUserMessage> SendMessageAsync([Remainder] string regularMess,
         SocketCommandContextCustom context)
     {
         switch (context.MessageContentForEdit)

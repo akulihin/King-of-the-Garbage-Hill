@@ -73,7 +73,7 @@ public class HelpModule : ModuleBaseCustom
             }
         }
 
-        await SendMessAsync(builder);
+        await SendMessageAsync(builder);
     }
 
 
@@ -109,7 +109,7 @@ public class HelpModule : ModuleBaseCustom
             builder.AddField(GetModuleName(module), GetShortModuleInfo(module));
         }
 
-        await SendMessAsync(builder);
+        await SendMessageAsync(builder);
     }
 
 

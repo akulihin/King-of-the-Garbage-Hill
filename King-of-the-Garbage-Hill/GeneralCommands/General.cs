@@ -102,6 +102,8 @@ public class General : ModuleBaseCustom
         {
             account.IsPlaying = true;
 
+            account.DiscordUserName = players.Find(x => x.Id == account.DiscordId).Username;
+
             //выдать персонажей если их нет на аккаунте
             foreach (var character in from character in allCharacters2
                      let knownCharacter = account.CharacterChance.Find(x => x.CharacterName == character.Name)
@@ -116,13 +118,13 @@ public class General : ModuleBaseCustom
                 playersList.Add(new GamePlayerBridgeClass
                 {
                     Character = reservedCharacters.Find(x => x.Name == account.CharacterToGiveNextTime),
-                    Status = new InGameStatus(reservedCharacters.Find(x => x.Name == account.CharacterToGiveNextTime)
-                        .Name),
+                    Status = new InGameStatus(reservedCharacters.Find(x => x.Name == account.CharacterToGiveNextTime).Name),
                     DiscordId = account.DiscordId,
                     GameId = gameId,
                     DiscordUsername = account.DiscordUserName,
                     PlayerType = account.PlayerType
                 });
+                account.CharacterPlayedLastTime = account.CharacterToGiveNextTime;
                 account.CharacterToGiveNextTime = null;
                 continue;
             }
@@ -131,7 +133,8 @@ public class General : ModuleBaseCustom
             var allAvailableCharacters = new List<DiscordAccountClass.CharacterRollClass>();
             var totalPool = 1;
 
-            foreach (var character in allCharacters)
+            var allCharactersExclusive = allCharacters.Where(x => x.Name != account.CharacterPlayedLastTime).ToList();
+            foreach (var character in allCharactersExclusive)
             {
                 var range = GetRangeFromTier(character.Tier);
                 if (character.Tier == 4 && account.IsBot()) range *= 3;
@@ -142,20 +145,20 @@ public class General : ModuleBaseCustom
 
             var randomIndex = _secureRandom.Random(1, totalPool-1);
             var rolledCharacter = allAvailableCharacters.Find(x => randomIndex >= x.CharacterRangeMin && randomIndex <= x.CharacterRangeMax);
-            var characterToAssign = allCharacters.Find(x => x.Name == rolledCharacter.CharacterName);
+            var characterToAssign = allCharactersExclusive.Find(x => x.Name == rolledCharacter.CharacterName);
 
             switch (characterToAssign.Name)
             {
                 case "LeCrisp":
                 {
-                    var characterToRemove = allCharacters.Find(x => x.Name == "Толя");
+                    var characterToRemove = allCharactersExclusive.Find(x => x.Name == "Толя");
                     if (characterToRemove != null)
                         allCharacters.Remove(characterToRemove);
                     break;
                 }
                 case "Толя":
                 {
-                    var characterToRemove = allCharacters.Find(x => x.Name == "LeCrisp");
+                    var characterToRemove = allCharactersExclusive.Find(x => x.Name == "LeCrisp");
                     if (characterToRemove != null)
                         allCharacters.Remove(characterToRemove);
                     break;
@@ -171,6 +174,7 @@ public class General : ModuleBaseCustom
                 DiscordUsername = account.DiscordUserName,
                 PlayerType = account.PlayerType
             });
+            account.CharacterPlayedLastTime = characterToAssign.Name;
             allCharacters.Remove(characterToAssign);
         }
 
@@ -279,8 +283,8 @@ public class General : ModuleBaseCustom
         if (playersList.Any(x => x.Character.Name == "HardKitty"))
         {
             var tempHard = playersList.Find(x => x.Character.Name == "HardKitty");
-            tempHard.Status.HardKittyMinus(-30, "Никому не нужен");
-            tempHard.Status.AddInGamePersonalLogs("Никому не нужен: -30 *Морали*\n");
+            tempHard.Status.HardKittyMinus(-20, "Никому не нужен");
+            tempHard.Status.AddInGamePersonalLogs("Никому не нужен: -20 *Морали*\n");
             var hardIndex = playersList.IndexOf(tempHard);
 
             for (var i = hardIndex; i < playersList.Count - 1; i++)
@@ -360,7 +364,7 @@ public class General : ModuleBaseCustom
 
         /*if (!contextPlayer.PassedTutorial)
         {
-            await SendMessAsync($"Извините! Для запуска игры, пожалуйста, сперва пройдите обучение - `*обучение`");
+            await SendMessageAsync($"Извините! Для запуска игры, пожалуйста, сперва пройдите обучение - `*обучение`");
             return;
         }*/
 
@@ -382,7 +386,7 @@ public class General : ModuleBaseCustom
 
         if (players.Contains(_global.Client.CurrentUser))
         {
-            await SendMessAsync($"https://upload.wikimedia.org/wikipedia/commons/c/cc/Digital_rain_animation_medium_letters_shine.gif");
+            await SendMessageAsync($"https://upload.wikimedia.org/wikipedia/commons/c/cc/Digital_rain_animation_medium_letters_shine.gif");
             return;
         }
 
@@ -390,14 +394,14 @@ public class General : ModuleBaseCustom
 
         foreach (var player in players.Where(player => player != null).Where(player => player.IsBot))
         {
-            await SendMessAsync($"{player.Mention} незарегистрированный бот. По поводу франшизы пишите разработчикам игры!");
+            await SendMessageAsync($"{player.Mention} незарегистрированный бот. По поводу франшизы пишите разработчикам игры!");
             return;
         }
 
         foreach (var player in players.Where(player => player != null && player.Id != Context.User.Id))
             if (_accounts.GetAccount(player.Id).IsPlaying)
             {
-                await SendMessAsync($"{player.Mention} сейчас играет! Подождите его!");
+                await SendMessageAsync($"{player.Mention} сейчас играет! Подождите его!");
                 return;
             }
 
@@ -451,13 +455,13 @@ public class General : ModuleBaseCustom
     {
         if (mode != "ShowResult" && mode != "Normal")
         {
-            await SendMessAsync($"Mode **{mode}** is not supported. Only **ShowResult** and **Normal** are available");
+            await SendMessageAsync($"Mode **{mode}** is not supported. Only **ShowResult** and **Normal** are available");
             return;
         }
 
         if (times > 10 && mode == "ShowResult")
         {
-            await SendMessAsync($"Mode **{mode}** Can be executed only 10 times. {times} is too much.");
+            await SendMessageAsync($"Mode **{mode}** Can be executed only 10 times. {times} is too much.");
             return;
         }
 
@@ -528,14 +532,14 @@ public class General : ModuleBaseCustom
         if (account.PlayerType == 0)
         {
             account.PlayerType = 1;
-            await SendMessAsync("Готово. Ваша сложность теперь \"**Казуальная**\".\n" +
+            await SendMessageAsync("Готово. Ваша сложность теперь \"**Казуальная**\".\n" +
                                 "Эта сложность показывает больше информации, чем в обычноый сложности. Она упрощает механику **предположений**.\n" +
                                 "Для смены сложности, просто напишите `*Сложность`");
         }
         else if (account.PlayerType == 1)
         {
             account.PlayerType = 0;
-            await SendMessAsync("Готово. Ваша сложность теперь \"**Обычная**\".\n" +
+            await SendMessageAsync("Готово. Ваша сложность теперь \"**Обычная**\".\n" +
                                 "Эта сложность показывает столько информации, сколько было задумано разработчиками.\n" +
                                 "Для смены сложности, просто напишите `*Сложность`");
         }
@@ -566,7 +570,7 @@ public class General : ModuleBaseCustom
                              $"Время потрачено на обработку этой команды: {watch?.Elapsed:m\\:ss\\.ffff}s\n" +
                              "(Время считается с момента получения команды бота не включая задержки клиента и божественное вмешательство)\n");
 
-        await SendMessAsync(embed);
+        await SendMessageAsync(embed);
         // Context.User.GetAvatarUrl()
     }
 
@@ -581,7 +585,7 @@ public class General : ModuleBaseCustom
         {
             var myAccountPrefix = account.MyPrefix ?? "You don't have own prefix yet";
 
-            await SendMessAsync(
+            await SendMessageAsync(
                 $"Your prefix: **{myAccountPrefix}**");
             return;
         }
@@ -591,18 +595,18 @@ public class General : ModuleBaseCustom
             account.MyPrefix = prefix;
             if (prefix.Contains("everyone") || prefix.Contains("here"))
             {
-                await SendMessAsync(
+                await SendMessageAsync(
                     "No `here` or `everyone` prefix allowed.");
                 return;
             }
 
 
-            await SendMessAsync(
+            await SendMessageAsync(
                 $"Your own prefix is now **{prefix}**");
         }
         else
         {
-            await SendMessAsync(
+            await SendMessageAsync(
                 "Prefix have to be less than 100 characters");
         }
     }
@@ -612,7 +616,7 @@ public class General : ModuleBaseCustom
     [Summary("Персональные статы")]
     public async Task GameStatsPersonal(IUser user = null)
     {
-        await SendMessAsync(GetStatsEmbed(_accounts.GetAccount(user?.Id ?? Context.User.Id)));
+        await SendMessageAsync(GetStatsEmbed(_accounts.GetAccount(user?.Id ?? Context.User.Id)));
     }
 
 
@@ -620,6 +624,6 @@ public class General : ModuleBaseCustom
     [Summary("Персональные статы")]
     public async Task GameStatsPersonal(ulong id)
     {
-        await SendMessAsync(GetStatsEmbed(_accounts.GetAccount(id)));
+        await SendMessageAsync(GetStatsEmbed(_accounts.GetAccount(id)));
     }
 }

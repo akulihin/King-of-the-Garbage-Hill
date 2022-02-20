@@ -67,6 +67,7 @@ public class CheckIfReady : IServiceSingleton
     private void HandlePostGameEvents(GameClass game)
     {
         var playerWhoWon = game.PlayersList.First();
+        var genius = false;
 
         //if won phrases
         switch (playerWhoWon.Character.Name)
@@ -112,17 +113,24 @@ public class CheckIfReady : IServiceSingleton
             var mylorik = game.PlayersList.Find(x => x.Character.Name == "mylorik");
             var deepList = game.PlayersList.Find(x => x.Character.Name == "DeepList");
 
-            foreach (var deepListPredict in deepList.Predict)
-                if (mylorik.Predict.Any(x =>
-                        x.PlayerId == deepListPredict.PlayerId && x.CharacterName == deepListPredict.CharacterName))
-                    game.AddGlobalLogs(
-                        "DeepList & mylorik: Гении мыслят одинакого или одно целое уничтожает воду.");
+            foreach (var _ in deepList.Predict.Where(deepListPredict => mylorik.Predict.Any(x =>
+                         x.PlayerId == deepListPredict.PlayerId && x.CharacterName == deepListPredict.CharacterName)).Where(_ => !genius))
+            {
+                game.AddGlobalLogs("DeepList & mylorik: Гении мыслят одинакого или одно целое уничтожает воду.");
+                genius = true;
+            }
         }
 
+        //
         if (playerWhoWon.Status.PlaceAtLeaderBoardHistory.Find(x => x.GameRound == 10).Place != 1)
-            game.AddGlobalLogs($"**{playerWhoWon.DiscordUsername}** вырывает **очко** на последних секундах!");
+        {
+            if (game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 1).Status.GetScore() !=
+                game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 2).Status.GetScore())
+            {
+                game.AddGlobalLogs($"**{playerWhoWon.DiscordUsername}** вырывает **очко** на последних секундах!");
+            }
+        }
 
-        
     }
 
 
@@ -300,6 +308,8 @@ public class CheckIfReady : IServiceSingleton
                     zbsPointsToGive = 10;
                     break;
             }
+            if(player.Status.GetScore() == game.PlayersList.First().Status.GetScore())
+                zbsPointsToGive = 100;
 
             account.ZbsPoints += zbsPointsToGive;
 

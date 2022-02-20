@@ -62,7 +62,7 @@ public class DiceRollCommands : ModuleBaseCustom
         embed.WithTitle($"Roll {times} times:");
         embed.WithDescription($"{mess}");
 
-        await SendMessAsync(embed);
+        await SendMessageAsync(embed);
     }
 
     [Command("Ролл")]
@@ -75,7 +75,7 @@ public class DiceRollCommands : ModuleBaseCustom
             var mess = "";
             if (times > 100)
             {
-                await SendMessAsync(
+                await SendMessageAsync(
                     "Boole! We are not going to roll that many times!");
 
 
@@ -84,7 +84,7 @@ public class DiceRollCommands : ModuleBaseCustom
 
             if (number > 999999999)
             {
-                await SendMessAsync(
+                await SendMessageAsync(
                     "Boole! This numbers is way too big for us :c");
 
 
@@ -102,7 +102,7 @@ public class DiceRollCommands : ModuleBaseCustom
             embed.WithTitle($"Roll {times} times:");
             embed.WithDescription($"{mess}");
 
-            await SendMessAsync(embed);
+            await SendMessageAsync(embed);
         }
         catch (Exception exception)
         {
@@ -118,7 +118,7 @@ public class DiceRollCommands : ModuleBaseCustom
     {
         var randomIndexRoll = _secureRandom.Random(1, number);
 
-        await SendMessAsync($"It's a {randomIndexRoll}!");
+        await SendMessageAsync($"It's a {randomIndexRoll}!");
     }
 
     public class StatsStruct

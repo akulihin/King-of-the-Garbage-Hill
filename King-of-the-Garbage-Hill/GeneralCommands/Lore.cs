@@ -37,6 +37,6 @@ public class Lore : ModuleBaseCustom
 
         builder.WithSelectMenu(_loreReactions.GetLoreCharacterSelectMenu(account));
 
-        await SendMessAsync(embed, components: builder.Build());
+        await SendMessageAsync(embed, components: builder.Build());
     }
 }

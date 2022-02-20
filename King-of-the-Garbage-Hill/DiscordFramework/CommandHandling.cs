@@ -198,7 +198,7 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
 
 
             if (!resultTask.Result.ErrorReason.Contains("Unknown command"))
-                await SendMessAsync($"Error! {resultTask.Result.ErrorReason}", context);
+                await SendMessageAsync($"Error! {resultTask.Result.ErrorReason}", context);
         }
         else
         {

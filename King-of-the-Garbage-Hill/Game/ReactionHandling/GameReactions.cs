@@ -477,7 +477,7 @@ public sealed class GameReaction : IServiceSingleton
                     case "HardKitty":
                         player.Status.AddInGamePersonalLogs($"#life: Я прокачал Интеллект на {player.Character.GetIntelligence()}!\n");
                         break;
-                    case "Вампур":
+                    case "Вампур_":
                         player.Character.AddIntelligence(player.Status, -1, "Прокачка", false);
                         break;
                     default:
@@ -503,7 +503,7 @@ public sealed class GameReaction : IServiceSingleton
                     case "HardKitty":
                         player.Status.AddInGamePersonalLogs($"#life: Я прокачал Силу на {player.Character.GetStrength()}!\n");
                         break;
-                    case "Вампур":
+                    case "Вампур_":
                         player.Character.AddStrength(player.Status, -1, "Прокачка", false);
                         break;
                     default:
@@ -530,7 +530,7 @@ public sealed class GameReaction : IServiceSingleton
                     case "HardKitty":
                         player.Status.AddInGamePersonalLogs($"#life: Я прокачал Cкорость на {player.Character.GetSpeed()}!\n");
                         break;
-                    case "Вампур":
+                    case "Вампур_":
                         player.Character.AddSpeed(player.Status, -1, "Прокачка", false);
                         break;
                     default:
@@ -556,7 +556,7 @@ public sealed class GameReaction : IServiceSingleton
                     case "HardKitty":
                         player.Status.AddInGamePersonalLogs($"#life: Я прокачал Психику на {player.Character.GetPsyche()}!\n");
                         break;
-                    case "Вампур":
+                    case "Вампур_":
                         player.Character.AddPsyche(player.Status, -1, "Прокачка", false);
                         break;
                     default:

@@ -145,10 +145,27 @@ public class CharacterClass
         SkillFightMultiplier = skillFightMultiplier;
     }
 
+    public int GetSkillFightMultiplier()
+    {
+        return SkillFightMultiplier;
+    }
+
 
     public double GetSkill()
     {
         return (SkillMain + SkillExtra) * SkillFightMultiplier;
+    }
+
+    public string GetSkillDisplay()
+    {
+        var skillText= $"{SkillMain + SkillExtra}";
+        
+        /*if (SkillFightMultiplier > 1)
+        {
+            skillText += $", **x{SkillFightMultiplier}**";
+        }*/
+
+        return skillText;
     }
 
     public double GetSkillMainOnly()

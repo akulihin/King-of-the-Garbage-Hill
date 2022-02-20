@@ -43,6 +43,18 @@ public class AdminPanel : ModuleBaseCustom
         _general = general;
     }
 
+    [Command("restart")]
+    [Alias("reboot")]
+    [Summary("Restarts")]
+    public async Task Restart()
+    {
+        if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
+        {
+            return;
+        }
+        await SendMessageAsync("Exiting... try running *uptime in 30 seconds.");
+        Environment.Exit(228);
+    }
 
     [Command("игра")]
     [Alias("st", "start", "start game")]
@@ -51,7 +63,7 @@ public class AdminPanel : ModuleBaseCustom
     {
         if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
         {
-            await SendMessAsync("only owners can use this command");
+            await SendMessageAsync("only owners can use this command");
             return;
         }
 
@@ -59,7 +71,7 @@ public class AdminPanel : ModuleBaseCustom
 
         if (choice + 1 > allCharacters.Count)
         {
-            await SendMessAsync(
+            await SendMessageAsync(
                 $"ERROR: 404 - no such Character. Please select between 0 and {allCharacters.Count - 1}");
             return;
         }
@@ -126,7 +138,7 @@ public class AdminPanel : ModuleBaseCustom
     {
         if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
         {
-            await SendMessAsync("only owners can use this command");
+            await SendMessageAsync("only owners can use this command");
             return;
         }
 
@@ -140,13 +152,13 @@ public class AdminPanel : ModuleBaseCustom
         if (foundCharacter == null)
         {
             var extra = allCharacters.Aggregate("", (current, c) => current + $"`{c.Name}`\n");
-            await SendMessAsync($"ERROR: 404 - No Such Character ({character})\nAvailable:\n{extra}");
+            await SendMessageAsync($"ERROR: 404 - No Such Character ({character})\nAvailable:\n{extra}");
             return;
         }
 
         account.CharacterToGiveNextTime = foundCharacter.Name;
 
-        await SendMessAsync($"Done. {player.Mention} будет играть на {foundCharacter.Name} в следующей игре");
+        await SendMessageAsync($"Done. {player.Mention} будет играть на {foundCharacter.Name} в следующей игре");
     }
 
 
@@ -156,7 +168,7 @@ public class AdminPanel : ModuleBaseCustom
     {
         if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
         {
-            await SendMessAsync("only owners can use this command");
+            await SendMessageAsync("only owners can use this command");
             return;
         }
 
@@ -164,7 +176,7 @@ public class AdminPanel : ModuleBaseCustom
 
         if (userType != 0 && userType != 1 && userType != 2)
         {
-            await SendMessAsync("0 == **Normal**\n" +
+            await SendMessageAsync("0 == **Normal**\n" +
                                 "1 == **Casual**\n" +
                                 "2 == **Admin**\n" +
                                 "are the only available options");
@@ -179,7 +191,7 @@ public class AdminPanel : ModuleBaseCustom
             playing.PlayerType = userType;
         }
 
-        await SendMessAsync($"done. {user.Username} is now **{userType}**");
+        await SendMessageAsync($"done. {user.Username} is now **{userType}**");
     }
 
 
@@ -190,13 +202,13 @@ public class AdminPanel : ModuleBaseCustom
     {
         if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
         {
-            await SendMessAsync("only owners can use this command");
+            await SendMessageAsync("only owners can use this command");
             return;
         }
 
         if (roundNo < 1 || roundNo > 10)
         {
-            await SendMessAsync("select between 1 and 10");
+            await SendMessageAsync("select between 1 and 10");
             return;
         }
 
@@ -217,7 +229,7 @@ public class AdminPanel : ModuleBaseCustom
     {
         if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
         {
-            await SendMessAsync("only owners can use this command");
+            await SendMessageAsync("only owners can use this command");
             return;
         }
 
@@ -241,7 +253,7 @@ public class AdminPanel : ModuleBaseCustom
     {
         if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
         {
-            await SendMessAsync("only owners can use this command");
+            await SendMessageAsync("only owners can use this command");
             return;
         }
 

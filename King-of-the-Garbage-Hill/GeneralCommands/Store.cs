@@ -30,7 +30,7 @@ public class Store : ModuleBaseCustom
 
         if (account.SeenCharacters.Count == 0)
         {
-            await SendMessAsync("Ты еще ни разу не сыграл! Магазин закрыт.");
+            await SendMessageAsync("Ты еще ни разу не сыграл! Магазин закрыт.");
             return;
         }
 
@@ -63,7 +63,7 @@ public class Store : ModuleBaseCustom
 
         builder.WithSelectMenu(_storeReactionHandling.GetStoreCharacterSelectMenu(account), 2);
 
-        await SendMessAsync(embed, components: builder.Build());
+        await SendMessageAsync(embed, components: builder.Build());
     }
 
     public class StoreChoice
