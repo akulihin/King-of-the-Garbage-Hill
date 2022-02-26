@@ -333,7 +333,7 @@ public class CharactersUniquePhrase
         DeepListPokePhrase.PassiveLogRus.Add("I DC'd again."); 
         DeepListPokePhrase.PassiveLogRus.Add("Mit*SUKI*"); 
         DeepListPokePhrase.PassiveLogRus.Add("Почему гиены смеются? Потому что смешно!"); 
-
+        DeepListPokePhrase.PassiveLogRus.Add("**Лол** коронный, **Кек** похоронный"); 
 
         
 
