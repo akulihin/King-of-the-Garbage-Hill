@@ -283,7 +283,7 @@ public class General : ModuleBaseCustom
     }
 
 
-    public List<GamePlayerBridgeClass> HandleEventsBeforeFirstRound(List<GamePlayerBridgeClass> playersList)
+    public async Task <List<GamePlayerBridgeClass>> HandleEventsBeforeFirstRound(List<GamePlayerBridgeClass> playersList)
     {
         //Загадочный Спартанец в маске
         if (playersList.Any(x => x.Character.Name == "Загадочный Спартанец в маске"))
@@ -348,14 +348,6 @@ public class General : ModuleBaseCustom
         //end Дерзкая школота
 
 
-        //Не повезло
-        if (playersList.Any(x => x.Character.Name == "Darksci"))
-        {
-            var darksciTemp = playersList.Find(x => x.Character.Name == "Darksci");
-            darksciTemp.Character.AddExtraSkill(darksciTemp.Status,  5, "Не повезло");
-        }
-        //end Не повезло
-
         //Повторяет за myloran
         if (playersList.Any(x => x.Character.Name == "mylorik"))
         {
@@ -412,7 +404,7 @@ public class General : ModuleBaseCustom
         //тасуем игроков
         playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
         playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-        playersList = HandleEventsBeforeFirstRound(playersList);
+        playersList = await HandleEventsBeforeFirstRound(playersList);
 
         //выдаем место в таблице
         for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
@@ -594,7 +586,7 @@ public class General : ModuleBaseCustom
             //тасуем игроков
             playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
             playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-            playersList = HandleEventsBeforeFirstRound(playersList);
+            playersList = await HandleEventsBeforeFirstRound(playersList);
 
             //выдаем место в таблице
             for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;

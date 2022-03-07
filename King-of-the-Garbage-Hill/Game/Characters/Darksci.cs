@@ -19,4 +19,22 @@ public class Darksci
             Triggered = false;
         }
     }
+
+    public class DarksciType
+    {
+        public ulong GameId;
+        public Guid PlayerId;
+        public bool  IsStableType;
+        public bool Triggered;
+        public bool Sent;
+
+        public DarksciType(Guid playerId, ulong gameId)
+        {
+            PlayerId = playerId;
+            GameId = gameId;
+            IsStableType = false;
+            Triggered = false;
+            Sent = false;
+        }
+    }
 }

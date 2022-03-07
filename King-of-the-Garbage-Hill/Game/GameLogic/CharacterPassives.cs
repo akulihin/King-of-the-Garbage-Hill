@@ -645,7 +645,11 @@ public class CharacterPassives : IServiceSingleton
 
                 if (darscsi.TouchedPlayers.Count == game.PlayersList.Count - 1 && darscsi.Triggered == false)
                 {
-                    me.Status.AddBonusPoints(me.Status.GetScore() * 2, "Повезло");
+                    var darksciType = _gameGlobal.DarksciTypeList.Find(x => x.PlayerId == me.GetPlayerId() && game.GameId == x.GameId);
+                    if(darksciType.IsStableType)
+                        me.Status.AddBonusPoints(me.Status.GetScore(), "Повезло");
+                    else
+                        me.Status.AddBonusPoints(me.Status.GetScore() * 3, "Повезло");
 
                     me.Character.AddPsyche(me.Status, 3, "Повезло");
                     darscsi.Triggered = true;
@@ -2408,7 +2412,7 @@ public class CharacterPassives : IServiceSingleton
                             player.Character.SetPsyche(player.Status, pshy, "Безумие");
                             //2 это х3
                             player.Character.SetSkillMultiplier(3);
-                            player.Status.AddBonusPoints(-3, "Безумие");
+                            //player.Status.AddBonusPoints(-3, "Безумие");
 
                             game.Phrases.DeepListMadnessPhrase.SendLog(player, true);
                             curr.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
@@ -2606,7 +2610,10 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Darksci":
                     //Не повезло
-                    player.Character.AddExtraSkill(player.Status, 5, "Не повезло");
+                    var darksciType = _gameGlobal.DarksciTypeList.Find(x => x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
+
+                    if(darksciType.IsStableType) 
+                        player.Character.AddExtraSkill(player.Status, 20, "Не повезло");
 
                     //end Не повезло
 

@@ -32,6 +32,8 @@ public class InGameGlobal : IServiceSingleton
     public readonly List<WhenToTriggerClass> CraboRackSidewaysBooleTriggeredWhen = new();
 
     public readonly List<Darksci.LuckyClass> DarksciLuckyList = new();
+    public readonly List<Darksci.DarksciType> DarksciTypeList = new();
+
 
     public readonly List<FriendsClass> DeepListDoubtfulTactic = new();
     public readonly List<DeepList.Madness> DeepListMadnessList = new();
@@ -219,8 +221,8 @@ public class InGameGlobal : IServiceSingleton
                         game.GameId));
                     break;
                 case "Darksci":
-                    DarksciLuckyList.Add(new Darksci.LuckyClass(player.GetPlayerId(),
-                        game.GameId));
+                    DarksciLuckyList.Add(new Darksci.LuckyClass(player.GetPlayerId(), game.GameId));
+                    DarksciTypeList.Add(new Darksci.DarksciType(player.GetPlayerId(), game.GameId));
                     break;
                 case "Бог ЛоЛа":
                     LolGodPushAndDieSubList.Add(
@@ -330,7 +332,7 @@ public class InGameGlobal : IServiceSingleton
                 case "Глеб":
                     GlebTea.Add(new Gleb.GlebTeaClass(player.GetPlayerId(), game.GameId));
                     //Спящее хуйло chance   
-                    when = GetWhenToTrigger(player, 1, 3, 3, 9);
+                    when = GetWhenToTrigger(player, 2, 2, 4, 9);
                     GlebSleepingTriggeredWhen.Add(when);
 
                     //Претендент русского сервера
@@ -341,7 +343,7 @@ public class InGameGlobal : IServiceSingleton
                     bool flag;
                     do
                     {
-                        when = GetWhenToTrigger(player, 2, 3, 6);
+                        when = GetWhenToTrigger(player, when.WhenToTrigger.Count, 0, 0, 10, 3);
                         flag = false;
                         for (var i = 0; i < li.Count; i++)
                             if (when.WhenToTrigger.Contains(li[i]))

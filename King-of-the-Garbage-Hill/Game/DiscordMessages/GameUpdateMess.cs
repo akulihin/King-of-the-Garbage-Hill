@@ -868,7 +868,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         return new ButtonBuilder("Недостаточно очков Морали", "skill", ButtonStyle.Secondary, isDisabled: true);
     }
 
-    public ComponentBuilder GetGameButtons(GamePlayerBridgeClass player, GameClass game, SelectMenuBuilder predictMenu = null)
+    public async Task<ComponentBuilder> GetGameButtons(GamePlayerBridgeClass player, GameClass game, SelectMenuBuilder predictMenu = null)
     {
         var components = new ComponentBuilder();
         components.WithButton(GetBlockButton(player, game));
@@ -885,6 +885,24 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 components.WithButton(GetMoralToPointsButton(player, game), 2);
 
         components.WithSelectMenu(predictMenu ?? GetPredictMenu(player, game), 3);
+
+        switch (player.Character.Name)
+        {
+            case "Darksci":
+                var darksciType = _gameGlobal.DarksciTypeList.Find(x => x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
+                if (game.RoundNo == 1 && !darksciType.Triggered)
+                {
+                    components.WithButton(new ButtonBuilder("Мне никогда не везёт...", "stable-Darksci", ButtonStyle.Primary), 4);
+                    components.WithButton(new ButtonBuilder("Мне сегодня повезёт!", "not-stable-Darksci", ButtonStyle.Danger), 4);
+                    if (!darksciType.Sent)
+                    {
+                        darksciType.Sent = true;
+                        await _helperFunctions.SendMsgAndDeleteItAfterRound(player, "Нажмешь синюю кнопку - и сказке конец. Выберешь красную - и узнаешь насколько глубока нора Даркси.");
+                    }
+                }
+                break;
+        }
+
         return components;
     }
 
@@ -929,7 +947,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         {
             case 1:
                 embed = FightPage(player);
-                builder = GetGameButtons(player, game);
+                builder = await GetGameButtons(player, game);
                 break;
             case 2:
                 // RESERVED
@@ -959,7 +977,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
-        if (game == null) return "ERROR";
+        if (game == null) 
+            return "ERROR";
         var time = $"({(int)game.TimePassed.Elapsed.TotalSeconds}/{game.TurnLengthInSecond}с)";
         if (player.Status.IsReady)
             return $"Ожидаем других игроков • {time} | {game.GameVersion}";

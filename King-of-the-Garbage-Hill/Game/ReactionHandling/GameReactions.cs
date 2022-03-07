@@ -6,6 +6,7 @@ using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
@@ -19,11 +20,12 @@ public sealed class GameReaction : IServiceSingleton
     private readonly HelperFunctions _help;
     private readonly Logs _logs;
     private readonly GameUpdateMess _upd;
+    private readonly InGameGlobal _gameGlobal;
    
 
     public GameReaction(UserAccounts accounts,
         Global global,
-        GameUpdateMess upd, HelperFunctions help, Logs logs)
+        GameUpdateMess upd, HelperFunctions help, Logs logs, InGameGlobal inGameGlobal)
     {
         _accounts = accounts;
         _global = global;
@@ -31,7 +33,8 @@ public sealed class GameReaction : IServiceSingleton
         _upd = upd;
         _help = help;
         _logs = logs;
-        
+        _gameGlobal = inGameGlobal;
+
         //  _gameGlobal = gameGlobal;
     }
 
@@ -51,7 +54,7 @@ public sealed class GameReaction : IServiceSingleton
                 var player = _global.GetGameAccount(button.User.Id, t.PlayersList.FirstOrDefault().GameId);
                 
                 var now = DateTimeOffset.UtcNow;
-                if ((now - player.Status.LastButtonPress).TotalMilliseconds < 1000)
+                if ((now - player.Status.LastButtonPress).TotalMilliseconds < 700)
                 {
                     await button.RespondAsync("Ошибка: Слишком быстро! Нажми на кнопку еще раз.", ephemeral:true);
                     return;
@@ -108,7 +111,7 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.ChangeMindWhat = textAutomove;
 
                         embed = _upd.FightPage(player);
-                        components = _upd.GetGameButtons(player, game);
+                        components = await _upd.GetGameButtons(player, game);
                         await _help.ModifyGameMessage(player, embed, components);
                         break;
                     case "change-mind":
@@ -135,14 +138,37 @@ public sealed class GameReaction : IServiceSingleton
 
                         embed = _upd.FightPage(player);
 
-                        components = _upd.GetGameButtons(player, game);
+                        components = await _upd.GetGameButtons(player, game);
                         await _help.ModifyGameMessage(player, embed, components, "I've changed my mind, coming back");
                         break;
 
                     case "confirm-skip":
                         player.Status.ConfirmedSkip = true;
                         embed = _upd.FightPage(player);
-                        components = _upd.GetGameButtons(player, game);
+                        components = await _upd.GetGameButtons(player, game);
+                        await _help.ModifyGameMessage(player, embed, components);
+                        break;
+
+                    case "stable-Darksci":
+                        var darksciType = _gameGlobal.DarksciTypeList.Find(x => x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
+                        darksciType.Triggered = true;
+                        darksciType.IsStableType = true;
+                        player.Character.AddExtraSkill(player.Status, 20, "Не повезло");
+                        player.Status.AddInGamePersonalLogs("Ну, сегодня мне не повезёт...\n");
+
+                        embed = _upd.FightPage(player);
+                        components = await _upd.GetGameButtons(player, game);
+                        await _help.ModifyGameMessage(player, embed, components);
+                        break;
+
+                    case "not-stable-Darksci":
+                        darksciType = _gameGlobal.DarksciTypeList.Find(x => x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
+                        darksciType.Triggered = true;
+                        darksciType.IsStableType = false;
+                        player.Status.AddInGamePersonalLogs("Я чувствую удачу!\n");
+
+                        embed = _upd.FightPage(player);
+                        components = await _upd.GetGameButtons(player, game);
                         await _help.ModifyGameMessage(player, embed, components);
                         break;
 
@@ -150,7 +176,7 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.ConfirmedPredict = true;
                         game = _global.GamesList.Find(x => x.GameId == player.GameId);
                         embed = _upd.FightPage(player);
-                        components = _upd.GetGameButtons(player, game);
+                        components = await _upd.GetGameButtons(player, game);
                         await _help.ModifyGameMessage(player, embed, components);
                         break;
                     case "end":
@@ -321,7 +347,7 @@ public sealed class GameReaction : IServiceSingleton
             predictMenu.AddOption(character, string.Join("", button.Data.Values) + "||spb||" + character);
         }
 
-        builder = _upd.GetGameButtons(player, game, predictMenu);
+        builder = await _upd.GetGameButtons(player, game, predictMenu);
 
         var embed = new EmbedBuilder();
         embed = _upd.FightPage(player);
@@ -337,7 +363,7 @@ public sealed class GameReaction : IServiceSingleton
         var embed = new EmbedBuilder();
         embed = _upd.FightPage(player);
 
-        builder = _upd.GetGameButtons(player, game);
+        builder = await _upd.GetGameButtons(player, game);
 
         var splitted = string.Join("", button.Data.Values).Split("||spb||");
 
