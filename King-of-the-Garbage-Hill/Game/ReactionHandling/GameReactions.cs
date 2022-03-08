@@ -154,6 +154,7 @@ public sealed class GameReaction : IServiceSingleton
                         darksciType.Triggered = true;
                         darksciType.IsStableType = true;
                         player.Character.AddExtraSkill(player.Status, 20, "Не повезло");
+                        player.Character.AddMoral(player.Status, 2, "Не повезло");
                         player.Status.AddInGamePersonalLogs("Ну, сегодня мне не повезёт...\n");
 
                         embed = _upd.FightPage(player);

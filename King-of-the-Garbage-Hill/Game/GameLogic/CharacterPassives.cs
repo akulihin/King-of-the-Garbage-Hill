@@ -2612,8 +2612,11 @@ public class CharacterPassives : IServiceSingleton
                     //Не повезло
                     var darksciType = _gameGlobal.DarksciTypeList.Find(x => x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
 
-                    if(darksciType.IsStableType) 
+                    if (darksciType.IsStableType)
+                    {
                         player.Character.AddExtraSkill(player.Status, 20, "Не повезло");
+                        player.Character.AddMoral(player.Status, 2, "Не повезло");
+                    }
 
                     //end Не повезло
 
