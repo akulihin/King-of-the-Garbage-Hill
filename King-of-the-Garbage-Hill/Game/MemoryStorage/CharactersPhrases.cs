@@ -465,6 +465,8 @@ public class CharactersUniquePhrase
         LeCrispImpactPhrase.PassiveLogRus.Add("Стреляй только когда точно добьешь!");
         LeCrispImpactPhrase.PassiveLogRus.Add("Я хочу чтобы моя девушка была немножко cringe");
         LeCrispImpactPhrase.PassiveLogRus.Add("Как Надо!");
+        LeCrispImpactPhrase.PassiveLogRus.Add("OnlyFans... Почему здесь всё стоит денег?");
+
         
 
         TolyaJewPhrase.PassiveLogRus.Add("Easy money");
