@@ -360,7 +360,7 @@ public class CharactersUniquePhrase
         DeepListSuperMindPhrase.PassiveLogRus.Add("Всё ясно. Героин - Марихуана, а ");
         DeepListSuperMindPhrase.PassiveLogRus.Add("Враг спалился! Но я это понял еще давно. ");
         DeepListSuperMindPhrase.PassiveLogRus.Add("Пст... у меня есть информация, что ");
-
+        DeepListSuperMindPhrase.PassiveLogRus.Add("Здравствуйте, я ваш заменитель мозга. И кстати, ");
 
 
         MylorikRevengeLostPhrase.PassiveLogRus.Add("Ах вы суки блять!");
