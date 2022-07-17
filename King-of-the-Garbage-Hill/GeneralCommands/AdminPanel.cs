@@ -57,7 +57,7 @@ public class AdminPanel : ModuleBaseCustom
     }
 
     [Command("игра")]
-    [Alias("st", "start", "start game")]
+    [Alias("st")]
     [Summary("запуск игры (Admin only)")]
     public async Task StartGameTestMode(int choice)
     {

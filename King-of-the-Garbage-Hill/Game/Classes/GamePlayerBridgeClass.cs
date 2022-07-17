@@ -39,4 +39,10 @@ public class GamePlayerBridgeClass
     {
         return Status.PlayerId;
     }
+
+    public bool isTeamMember(GameClass game, Guid player2)
+    {
+        var team = game.Teams.Find(x => x.TeamPlayers.Contains(GetPlayerId()));
+        return team.TeamPlayers.Contains(player2);
+    }
 }

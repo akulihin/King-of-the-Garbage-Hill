@@ -320,7 +320,10 @@ public class CheckIfReady : IServiceSingleton
                     lostScore2 = team1Score;
                 }
 
-                game.AddGlobalLogs($"\n**Команда #{wonTeam}** победила набрав {wonScore} ({lostScore1}, {lostScore2})!");
+                game.AddGlobalLogs($"\n**Команда #{wonTeam}** победила набрав {wonScore} Очков!");
+                game.AddGlobalLogs($"\n**Команда #{wonTeam}** Набрала {lostScore1} Очков.");
+                if (team3Score > 0)
+                    game.AddGlobalLogs($"\n**Команда #{wonTeam}** Набрала {lostScore2} Очков.");
             }
 
         }

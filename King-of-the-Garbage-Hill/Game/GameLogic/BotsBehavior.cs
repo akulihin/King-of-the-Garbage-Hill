@@ -1111,6 +1111,171 @@ public class BotsBehavior : IServiceSingleton
                 maxRandomNumber += target2.AttackPreference;
             }
 
+            if (game.Teams.Count > 0)
+            {
+                //team bot behavior. target == team member
+                foreach (var target in allTargets)
+                {
+                    if (!bot.isTeamMember(game, target.GetPlayerId()))
+                        continue;
+
+                    var realAttackPreference = target.AttackPreference;
+                    target.AttackPreference = 0;
+
+                    //custom bot behavior in teams. target == team member
+                    switch (bot.Character.Name)
+                    {
+                        case "DeepList":
+                            var deepListMockeryList =
+                                _gameGlobal.DeepListMockeryList.Find(x => x.PlayerId == bot.GetPlayerId() && game.GameId == x.GameId);
+
+                            var currentDeepList2 =
+                                deepListMockeryList?.WhoWonTimes.Find(x => x.EnemyPlayerId == target.GetPlayerId());
+
+                            if (currentDeepList2 is { Times: 1 }) target.AttackPreference = realAttackPreference;
+
+                            break;
+                        case "Тигр":
+                            break;
+                        case "AWDKA":
+                            target.AttackPreference = realAttackPreference;
+                            break;
+                        case "HardKitty":
+                            break;
+                        case "Darksci":
+                            var darksciLucky = _gameGlobal.DarksciLuckyList.Find(x => x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId());
+                            if (darksciLucky != null)
+                            {
+                               if(!darksciLucky.TouchedPlayers.Contains(target.GetPlayerId()))
+                                   target.AttackPreference = realAttackPreference;
+                            }
+                            break;
+                        case "Mit*suki*":
+                            break;
+                        case "mylorik":
+                            var mylorikRevenge = _gameGlobal.MylorikRevenge.Find(x => x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId());
+                            if (mylorikRevenge != null)
+                            {
+                                var revengeEnemy = mylorikRevenge.EnemyListPlayerIds.Find(x => x.EnemyPlayerId == target.GetPlayerId());
+
+                                //ноль выключается если союзнику можно отмстить
+                                if (revengeEnemy is { IsUnique: true }) target.AttackPreference = realAttackPreference;
+
+                                //если отмстил уже всем врагам, то выключается ноль на союзниках, которым еще не мстил
+                                var finishedRevenges = mylorikRevenge.EnemyListPlayerIds.FindAll(x => !x.IsUnique);
+                                var teamCount = game.GetTeammates(bot).Count;
+                                if (finishedRevenges.Count >= 5 - teamCount)
+                                {
+                                    if (finishedRevenges.All(x => x.EnemyPlayerId != target.GetPlayerId()))
+                                    {
+                                        target.AttackPreference = realAttackPreference;
+                                    }
+                                }
+                            }
+                            break;
+                        case "Краборак":
+                            break;
+                        case "Братишка":
+                            break;
+                        case "Sirinoks":
+                            //До начала 5го хода может нападать только на одну цель - союзника
+                            var siriFriends = _gameGlobal.SirinoksFriendsList.Find(x => x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId());
+                            if (siriFriends.FriendList.Count == 1 && game.RoundNo < 5)
+                            {
+                                if (siriFriends.FriendList.Contains(target.GetPlayerId()))
+                                    mandatoryAttack = target.PlaceAtLeaderBoard();
+
+                            }
+                            else if (game.RoundNo < 5)
+                            {
+                                var teammates = game.GetTeammates(bot);
+                                mandatoryAttack = game.PlayersList.Find(x => x.GetPlayerId() == teammates[0]).Status.PlaceAtLeaderBoard;
+                            }
+                            else
+                            {
+                                //. снимается ноль с тех, кто не в друзьях.
+                                if (!siriFriends.FriendList.Contains(target.GetPlayerId()))
+                                    target.AttackPreference = realAttackPreference;
+
+                                //снимается 0 со всех тех, кто подходит под мишень.
+                                if (bot.Character.GetCurrentSkillClassTarget() == target.Player.Character.GetSkillClass())
+                                    target.AttackPreference = realAttackPreference;
+
+                                //если кол-во оставшихся ходов - 3 <= союзникам в друзьях, то нападает только на союзников которых можно добавить в друзья. (выбирает из них по мишени. если под мишень не подходит, то выбирает рандомно)
+                                if (game.RoundNo < 9)
+                                {
+                                    if (!siriFriends.FriendList.Contains(target.GetPlayerId()))
+                                        if (bot.Character.GetCurrentSkillClassTarget() == target.Player.Character.GetSkillClass())
+                                            mandatoryAttack = target.PlaceAtLeaderBoard();
+                                }
+                            }
+
+                            break;
+                        case "Толя":
+                            var enemyCount = allTargets.Count(x => x.Player.Status.WhoToAttackThisTurn == target.GetPlayerId());
+                            if (enemyCount >= 2)
+                                target.AttackPreference = realAttackPreference;
+                            break;
+                        case "LeCrisp":
+                            enemyCount = allTargets.Count(x => x.Player.Status.WhoToAttackThisTurn == target.GetPlayerId());
+                            if (enemyCount >= 2)
+                                target.AttackPreference = realAttackPreference;
+                            break;
+                        case "Глеб":
+                            break;
+                        case "Загадочный Спартанец в маске":
+                            break;
+                        case "Вампур":
+                            var vampyrHematophagiaList = _gameGlobal.VampyrHematophagiaList.Find(x => x.PlayerId == bot.GetPlayerId() && game.GameId == x.GameId);
+
+                            if (vampyrHematophagiaList != null)
+                            {
+                                if (vampyrHematophagiaList.Hematophagia.All(x => x.EnemyId != target.GetPlayerId()))
+                                {
+                                    target.AttackPreference = realAttackPreference;
+                                }
+                            }
+                            break;
+                    }
+                    //end custom bot behavior
+                }
+
+                
+                //team bot behavior. target == enemy
+                foreach (var target in allTargets)
+                {
+                    if (bot.isTeamMember(game, target.GetPlayerId()))
+                        continue;
+
+                    //custom bot behavior in teams. target == enemy
+                    switch (bot.Character.Name)
+                    {
+                        case "AWDKA":
+                            var platCount = 0;
+                            var teamCount = 0;
+
+                            // 0 на всех врагов, нападает только на союзников, чтобы проебать им, пока платина не будет на всех союзниках, либо пока не наступит 7ой ход
+                            var awdkaTrying = _gameGlobal.AwdkaTryingList.Find(x => x.PlayerId == bot.GetPlayerId() && game.GameId == x.GameId);
+                            if (awdkaTrying != null)
+                            {
+                                foreach (var teammate in game.GetTeammates(bot))
+                                {
+                                    teamCount++;
+                                    var awdkaTryingTarget = awdkaTrying.TryingList.Find(x => x.EnemyPlayerId == teammate);
+                                    if (awdkaTryingTarget is { IsUnique: true })
+                                    {
+                                        platCount++;
+                                    }
+                                }
+                            }
+                            if (platCount != teamCount && game.RoundNo < 7)
+                                target.AttackPreference = 0;
+                            break;
+                    }
+                    //end custom bot behavior
+                }
+            }
+
             //end calculation Tens
 
 

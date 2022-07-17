@@ -73,10 +73,15 @@ public class General : ModuleBaseCustom
     }
 
 
-    public List<GamePlayerBridgeClass> HandleCharacterRoll(List<IUser> players, ulong gameId)
+    public List<GamePlayerBridgeClass> HandleCharacterRoll(List<IUser> players, ulong gameId, int team = 0)
     {
         var allCharacters2 = _charactersPull.GetAllCharacters();
         var allCharacters = _charactersPull.GetAllCharacters();
+        if (team > 0)
+        {
+            allCharacters2 = allCharacters2.Where(x => x.Name != "HardKitty").ToList();
+            allCharacters = allCharacters.Where(x => x.Name != "HardKitty").ToList();
+        }
         var reservedCharacters = new List<CharacterClass>();
         var playersList = new List<GamePlayerBridgeClass>();
 
@@ -399,7 +404,7 @@ public class General : ModuleBaseCustom
         var gameId = _global.GetNewtGamePlayingAndId();
 
         //ролл персонажей для игры
-        var playersList = HandleCharacterRoll(players, gameId);
+        var playersList = HandleCharacterRoll(players, gameId, teamCount);
 
         //тасуем игроков
         playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
@@ -433,14 +438,14 @@ public class General : ModuleBaseCustom
                     if (player != null)
                     {
                         var teamPooler = teamPool.Find(x => x.DiscordId == player.Id);
-                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.Status.PlayerId);
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.GetPlayerId());
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
                         teamPool.Remove(teamPooler);
                     }
                     else
                     {
                         var teamPooler = teamPool.First(x => x.IsBot());
-                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.Status.PlayerId);
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.GetPlayerId());
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
                         teamPool.Remove(teamPooler);
                     }
@@ -455,14 +460,14 @@ public class General : ModuleBaseCustom
                     if (player != null)
                     {
                         var teamPooler = teamPool.Find(x => x.DiscordId == player.Id);
-                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.Status.PlayerId);
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.GetPlayerId());
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
                         teamPool.Remove(teamPooler);
                     }
                     else
                     {
                         var teamPooler = teamPool.First(x => x.IsBot());
-                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.Status.PlayerId);
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.GetPlayerId());
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
                         teamPool.Remove(teamPooler);
                     }
@@ -477,19 +482,35 @@ public class General : ModuleBaseCustom
                     if (player != null)
                     {
                         var teamPooler = teamPool.Find(x => x.DiscordId == player.Id);
-                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.Status.PlayerId);
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.GetPlayerId());
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
                         teamPool.Remove(teamPooler);
                     }
                     else
                     {
                         var teamPooler = teamPool.First(x => x.IsBot());
-                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.Status.PlayerId);
+                        teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.GetPlayerId());
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
                         teamPool.Remove(teamPooler);
                     }
                 }
                 break;
+        }
+
+        if (teamCount > 0)
+        {
+            foreach (var teamPayer in playersList)
+            {
+                var playerTeam = teamList.Find(x => x.TeamPlayers.Any(y => y == teamPayer.GetPlayerId()));
+
+                foreach (var teamMemberId in playerTeam.TeamPlayers)
+                {
+                    var teamMember = playersList.Find(x => x.GetPlayerId() == teamMemberId);
+                    if (teamPayer.GetPlayerId() == teamMember.GetPlayerId()) continue;
+
+                    teamPayer.Predict.Add(new PredictClass(teamMember.Character.Name, teamMember.GetPlayerId()));
+                }
+            }
         }
 
         //отправить меню игры

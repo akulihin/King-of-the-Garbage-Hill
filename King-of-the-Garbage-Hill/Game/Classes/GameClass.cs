@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
@@ -30,7 +31,7 @@ public class GameClass
     
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "версия 1.9";
+        GameVersion = "версия 2.0";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -60,6 +61,7 @@ public class GameClass
     public string GameMode { get; set; }
     public ulong CreatorId { get; set; }
     public List<TeamPlay> Teams { get; set; }
+    public int TeamSplit { get; set; } = 0;
 
 
     public void AddGlobalLogs(string str, string newLine = "\n")
@@ -95,5 +97,10 @@ public class GameClass
         public int TeamId { get; set; }
         public List<Guid> TeamPlayers { get; set; }
         public List<string> TeamPlayersUsernames { get; set; }
+    }
+
+    internal List<Guid> GetTeammates(GamePlayerBridgeClass player)
+    {
+        return Teams.Find(x => x.TeamPlayers.Contains(player.GetPlayerId()))?.TeamPlayers.Where(y => y != player.GetPlayerId()).ToList();
     }
 }
