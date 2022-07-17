@@ -69,7 +69,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         //if (character.Avatar != null)
         //     embed.WithImageUrl(character.Avatar);
         embed.AddField("Твой Персонаж:", $"Name: {character.Name}\n" +
-                                         $"Интеллект: {character.GetIntelligence()}\n" +
+                                         $"Интеллект: {character.GetIntelligenceString()}\n" +
                                          $"Сила: {character.GetStrength()}\n" +
                                          $"Скорость: {character.GetSpeed()}\n" +
                                          $"Психика: {character.GetPsyche()}\n");
@@ -695,7 +695,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public SelectMenuBuilder GetAttackMenu(GamePlayerBridgeClass player, GameClass game)
     {
-        var isDisabled = player.Status.IsSkip || player.Status.IsReady || game.RoundNo > 10;
+        var isDisabled = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady || game.RoundNo > 10;
         var placeHolder = "Выбрать цель";
 
         if (player.Status.IsSkip) placeHolder = "Что-то заставило тебя скипнуть...";
@@ -737,6 +737,55 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             .WithDisabled(isDisabled)
             .WithPlaceholder(placeHolder);
 
+
+        if (game != null)
+            for (var i = 0; i < _playerChoiceAttackList.Count; i++)
+            {
+                var playerToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == i + 1);
+                if (playerToAttack == null) continue;
+                if (playerToAttack.DiscordId != player.DiscordId)
+                    attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, $"{i + 1}",
+                        emote: _playerChoiceAttackList[i]);
+            }
+
+        return attackMenu;
+    }
+    
+    public SelectMenuBuilder GetDopaMenu(GamePlayerBridgeClass player, GameClass game)
+    {
+        var isDisabled = !(player.Status.IsBlock || player.Status.WhoToAttackThisTurn != Guid.Empty);
+
+        var placeHolder = "Второе Действие";
+
+        if (player.Status.IsSkip) placeHolder = "당신을 건너 뛰게 만든 무언가"; //сон
+
+        if (game.RoundNo > 10) placeHolder = "ㅈㅈ"; //gg
+
+        if (player.Status.IsReady)
+        {
+            var target = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.WhoToAttackThisTurn);
+            if (target != null) placeHolder = $"Ты напал на {target.DiscordUsername}";
+        }
+
+        if (!player.Status.ConfirmedPredict)
+        {
+            isDisabled = true;
+            placeHolder = "Подтвердите свои предложение перед атакой!";
+        }
+
+        if (!player.Status.ConfirmedSkip)
+        {
+            isDisabled = true;
+            placeHolder = "당신을 건너 뛰게 만든 무언가"; //сон
+        }
+
+
+        var attackMenu = new SelectMenuBuilder()
+            .WithMinValues(1)
+            .WithMaxValues(1)
+            .WithCustomId("dopa-attack-select")
+            .WithDisabled(isDisabled)
+            .WithPlaceholder(placeHolder);
 
         if (game != null)
             for (var i = 0; i < _playerChoiceAttackList.Count; i++)
@@ -878,8 +927,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         components.WithSelectMenu(GetAttackMenu(player, game), 1);
 
-        
         components.WithButton(GetMoralToSkillButton(player, game), 2);
+
         if(player.Character.GetMoral() >= 3)
             if (player.Status.ConfirmedPredict && player.Status.ConfirmedSkip)
                 components.WithButton(GetMoralToPointsButton(player, game), 2);
@@ -901,6 +950,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     }
                 }
                 break;
+
+            case "Dopa":
+                components.WithSelectMenu(GetDopaMenu(player, game), 4);
+                break;
         }
 
         return components;
@@ -909,7 +962,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public ButtonBuilder GetBlockButton(GamePlayerBridgeClass player, GameClass game)
     {
-        var playerIsReady = player.Status.IsSkip || player.Status.IsReady || game.RoundNo > 10;
+        var playerIsReady = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady || game.RoundNo > 10;
         return new ButtonBuilder("Блок", "block", ButtonStyle.Success, isDisabled: playerIsReady);
     }
 
@@ -920,6 +973,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public ButtonBuilder GetChangeMindButton(GamePlayerBridgeClass player, GameClass game)
     {
+        if(player.Character.Name == "Dopa")
+            return new ButtonBuilder("선택 변경", "change-mind", ButtonStyle.Secondary, isDisabled: true);
+
         if (player.Status.IsReady && player.Status.IsAbleToChangeMind && !player.Status.IsSkip)
             return new ButtonBuilder("Изменить свой выбор", "change-mind", ButtonStyle.Secondary, isDisabled: false);
 
@@ -928,7 +984,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public ButtonBuilder GetAutoMoveButton(GamePlayerBridgeClass player, GameClass game)
     {
-        var enabled = player.Status.IsAutoMove || player.Status.IsSkip || player.Status.IsReady;
+        var enabled = player.Status.IsAutoMove || player.Status.IsSkip || player.Status.IsReady || player.Character.Name == "Dopa";
 
         if (game.TimePassed.Elapsed.TotalSeconds < 29 && player.DiscordId != 238337696316129280 && player.DiscordId != 181514288278536193) enabled = true;
 

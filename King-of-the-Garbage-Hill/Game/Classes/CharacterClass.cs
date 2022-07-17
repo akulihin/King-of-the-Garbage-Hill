@@ -300,6 +300,9 @@ public class CharacterClass
 
     public string GetIntelligenceString()
     {
+        if (Name == "Dopa")
+            return "200IQ";
+
         return $"{Intelligence}{IntelligenceExtraText}";
     }
 

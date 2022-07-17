@@ -212,13 +212,13 @@ public sealed class GameReaction : IServiceSingleton
                         status.IsBlock = true;
                         status.IsAbleToTurn = false;
                         status.IsReady = true;
+
                         var text = "Ты поставил блок\n";
                         status.AddInGamePersonalLogs(text);
                         status.ChangeMindWhat = text;
 
                         await _upd.UpdateMessage(player);
                         break;
-
                     case "moral":
                         var tempMoral = player.Character.GetMoral();
 
