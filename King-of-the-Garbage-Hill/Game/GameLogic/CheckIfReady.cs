@@ -67,7 +67,6 @@ public class CheckIfReady : IServiceSingleton
     private void HandlePostGameEvents(GameClass game)
     {
         var playerWhoWon = game.PlayersList.First();
-        var genius = false;
 
         //if won phrases
         switch (playerWhoWon.Character.Name)
@@ -107,17 +106,21 @@ public class CheckIfReady : IServiceSingleton
             }
 
         //unique
-        if (game.PlayersList.Any(x => x.Character.Name == "DeepList") &&
-            game.PlayersList.Any(x => x.Character.Name == "mylorik"))
+        if (game.PlayersList.Any(x => x.Character.Name == "DeepList") && game.PlayersList.Any(x => x.Character.Name == "mylorik"))
         {
             var mylorik = game.PlayersList.Find(x => x.Character.Name == "mylorik");
             var deepList = game.PlayersList.Find(x => x.Character.Name == "DeepList");
 
-            foreach (var _ in deepList.Predict.Where(deepListPredict => mylorik.Predict.Any(x =>
-                         x.PlayerId == deepListPredict.PlayerId && x.CharacterName == deepListPredict.CharacterName)).Where(_ => !genius))
+            var genius = true;
+            foreach (var deepListPredict in deepList.Predict)
+            {
+                genius = mylorik.Predict.Any(x =>
+                    x.PlayerId == deepListPredict.PlayerId && x.CharacterName == deepListPredict.CharacterName);
+            }
+
+            if (genius)
             {
                 game.AddGlobalLogs("DeepList & mylorik: Гении мыслят одинакого или одно целое уничтожает воду.");
-                genius = true;
             }
         }
 
@@ -261,8 +264,6 @@ public class CheckIfReady : IServiceSingleton
 
         var isTeam = false;
         var wonScore = 0;
-        var lostScore1 = 0;
-        var lostScore2 = 0;
         var team1Score = 0;
         var team2Score = 0;
         var team3Score = 0;
@@ -300,30 +301,31 @@ public class CheckIfReady : IServiceSingleton
                 {
                     wonTeam = 1;
                     wonScore = team1Score;
-                    lostScore1 = team2Score;
-                    lostScore2 = team3Score;
                 }
 
                 if (team2Score > team1Score && team2Score > team3Score)
                 {
                     wonTeam = 2;
                     wonScore = team2Score;
-                    lostScore1 = team1Score;
-                    lostScore2 = team3Score;
                 }
 
                 if (team3Score > team1Score && team3Score > team2Score)
                 {
                     wonTeam = 3;
                     wonScore = team3Score;
-                    lostScore1 = team2Score;
-                    lostScore2 = team1Score;
                 }
 
+                
+                
                 game.AddGlobalLogs($"\n**Команда #{wonTeam}** победила набрав {wonScore} Очков!");
-                game.AddGlobalLogs($"\n**Команда #{wonTeam}** Набрала {lostScore1} Очков.");
-                if (team3Score > 0)
-                    game.AddGlobalLogs($"\n**Команда #{wonTeam}** Набрала {lostScore2} Очков.");
+
+                if (wonTeam != 1)
+                    game.AddGlobalLogs($"\nКоманда #1 Набрала {team1Score} Очков.");
+                if (wonTeam != 2)
+                    game.AddGlobalLogs($"Команда #2 Набрала {team2Score} Очков.");
+                if (wonTeam != 3) 
+                    if (team3Score > 0)
+                        game.AddGlobalLogs($"Команда #3 Набрала {team3Score} Очков.");
             }
 
         }
@@ -425,7 +427,7 @@ public class CheckIfReady : IServiceSingleton
             try
             {
                 if (!player.IsBot())
-                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync($"Спасибо за игру!\nВы заработали **{zbsPointsToGive}** ZBS points!\n\nВы можете потратить их в магазине - `*store`\nА вы знали? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганв его! Например `*st @Boole`");
+                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync($"Спасибо за игру!\nВы заработали **{zbsPointsToGive}** ZBS points!\n\nВы можете потратить их в магазине - `*store`\nА вы знали? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганув его! Например `*st @Boole`");
             }
             catch (Exception exception)
             {
@@ -599,6 +601,22 @@ public class CheckIfReady : IServiceSingleton
             }
 
             //handle bots
+
+            //AWDKA last
+            if (game.PlayersList.Any(x => x.Character.Name == "AWDKA"))
+            {
+                var tempHard = game.PlayersList.Find(x => x.Character.Name == "AWDKA");
+                var hardIndex = game.PlayersList.IndexOf(tempHard);
+
+                for (var k = hardIndex; k < game.PlayersList.Count - 1; k++)
+                    game.PlayersList[k] = game.PlayersList[k + 1];
+
+                game.PlayersList[^1] = tempHard;
+            }
+            //выдаем место в таблице
+            for (var k = 0; k < game.PlayersList.Count; k++) game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
+            //end //AWDKA last
+
             foreach (var t in players.Where(x => x.IsBot() || x.Status.IsAutoMove))
                 try
                 {
@@ -609,6 +627,21 @@ public class CheckIfReady : IServiceSingleton
                     _logs.Critical(exception.Message);
                     _logs.Critical(exception.StackTrace);
                 }
+
+            if (game.PlayersList.Any(x => x.Character.Name == "HardKitty"))
+            {
+                var tempHard = game.PlayersList.Find(x => x.Character.Name == "HardKitty");
+                var hardIndex = game.PlayersList.IndexOf(tempHard);
+
+                for (var k = hardIndex; k < game.PlayersList.Count - 1; k++)
+                    game.PlayersList[k] = game.PlayersList[k + 1];
+
+                game.PlayersList[^1] = tempHard;
+            }
+            //выдаем место в таблице
+            for (var k = 0; k < game.PlayersList.Count; k++) game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
+            //end //AWDKA last
+
 
             foreach (var t in players.Where(t => t.Status.WhoToAttackThisTurn == Guid.Empty && t.Status.IsBlock == false && t.Status.IsSkip == false))
             {

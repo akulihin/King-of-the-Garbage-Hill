@@ -13,12 +13,12 @@ public class Tolya
         public Guid PlayerId;
         public List<TolyaCountSubClass> TargetList = new();
 
-        public TolyaCountClass(ulong gameId, Guid playerId)
+        public TolyaCountClass(ulong gameId, Guid playerId, int cooldown)
         {
             GameId = gameId;
             PlayerId = playerId;
             IsReadyToUse = false;
-            Cooldown = 2;
+            Cooldown = cooldown;
         }
     }
 

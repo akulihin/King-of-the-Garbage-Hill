@@ -248,8 +248,17 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 {
                     var lostSeries = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == other.GetPlayerId());
                     if (lostSeries != null)
-                        if (lostSeries.Series > 0)
-                            customString += $" <:393:563063205811847188> - {lostSeries.Series}";
+                    {
+                        switch (lostSeries.Series)
+                        {
+                            case > 9:
+                                customString += $" <:LoveLetter:998306315342454884> - {lostSeries.Series}";
+                                break;
+                            case > 0:
+                                customString += $" <:393:563063205811847188> - {lostSeries.Series}";
+                                break;
+                        }
+                    }
                 }
 
                 break;

@@ -86,7 +86,7 @@ Speed => Strength
 
 
     //пристрій судного дня
-    public async Task CalculateAllFights(GameClass game)
+    public async Task CalculateAllFights(GameClass game)    
     {
         _logs.Critical("");
         _logs.Info($"calculating game #{game.GameId}, round #{game.RoundNo}");

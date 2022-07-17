@@ -42,6 +42,7 @@ public class CharactersUniquePhrase
 
 
     public PhraseClass HardKittyDoebatsyaPhrase;
+    public PhraseClass HardKittyDoebatsyaLovePhrase;
     public PhraseClass HardKittyLonelyPhrase;
     public PhraseClass HardKittyMutedPhrase;
 
@@ -176,6 +177,7 @@ public class CharactersUniquePhrase
 
         HardKittyLonelyPhrase = new PhraseClass("Одиночество");
         HardKittyDoebatsyaPhrase = new PhraseClass("Доебаться");
+        HardKittyDoebatsyaLovePhrase = new PhraseClass("Доебаться");
         HardKittyMutedPhrase = new PhraseClass("Mute");
         HardKittyDoebatsyaAnswerPhrase = new PhraseClass("Доебаться");
 
@@ -503,6 +505,8 @@ public class CharactersUniquePhrase
         HardKittyDoebatsyaPhrase.PassiveLogRus.Add("Что лучше взять на MF?");
         HardKittyDoebatsyaPhrase.PassiveLogRus.Add("Эй, э-эй...");
         HardKittyDoebatsyaPhrase.PassiveLogRus.Add("Как работает твой бот?");
+        HardKittyDoebatsyaLovePhrase.PassiveLogRus.Add("**ЭТО МОЕ ГОВНИЩЕ**, я доебывал его всю свою жизнь...");
+
         HardKittyDoebatsyaAnswerPhrase.PassiveLogRus.Add("Вам ответили на письмо!");
         HardKittyMutedPhrase.PassiveLogRus.Add("Muted");
 

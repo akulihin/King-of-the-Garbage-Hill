@@ -291,6 +291,16 @@ public class CharacterPassives : IServiceSingleton
                 }
                 //Mute passive end
 
+                //Доебаться
+                var hardKittyDoebatsya = _gameGlobal.HardKittyDoebatsya.Find(x => x.PlayerId == target.GetPlayerId() && x.GameId == game.GameId);
+
+                var found = hardKittyDoebatsya.LostSeries.Find(x => x.EnemyPlayerId == me.GetPlayerId());
+                if (found != null)
+                {
+                    found.Series = 0;
+                    game.Phrases.HardKittyDoebatsyaAnswerPhrase.SendLog(target, false);
+                }
+                //end Доебаться
 
                 break;
         }
@@ -950,8 +960,20 @@ public class CharacterPassives : IServiceSingleton
                     if (found != null)
                         if (found.Series > 0)
                         {
+                            if (found.Series >= 10)
+                            {
+                                found.Series += 10;
+                            }
                             player.Status.AddRegularPoints(found.Series*2, "Доебаться");
-                            game.Phrases.HardKittyDoebatsyaPhrase.SendLog(player, false);
+
+                            if (found.Series >= 10)
+                            {
+                                game.Phrases.HardKittyDoebatsyaLovePhrase.SendLog(player, false);
+                            }
+                            else
+                            {
+                                game.Phrases.HardKittyDoebatsyaPhrase.SendLog(player, false);
+                            }
                             found.Series = 0;
                         }
                 }
@@ -1375,7 +1397,7 @@ public class CharacterPassives : IServiceSingleton
                     tolya.TargetList.Add(new Tolya.TolyaCountSubClass(player.Status.WhoToAttackThisTurn,
                         game.RoundNo));
                     tolya.IsReadyToUse = false;
-                    tolya.Cooldown = 4;
+                    tolya.Cooldown = _rand.Random(4, 5);
                 }
 
                 //Подсчет end
@@ -1707,26 +1729,6 @@ public class CharacterPassives : IServiceSingleton
                     var hard = _gameGlobal.HardKittyLoneliness.Find(x => x.GameId == player.GameId && x.PlayerId == player.GetPlayerId());
                     if (hard != null) hard.Activated = false;
                     //Одиночество
-
-
-                    //Доебаться
-                    var hardKittyDoebatsya = _gameGlobal.HardKittyDoebatsya.Find(x =>
-                        x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
-
-                    foreach (var target in game.PlayersList)
-                        if (target.Status.WhoToAttackThisTurn == player.GetPlayerId())
-                        {
-                            var found = hardKittyDoebatsya.LostSeries.Find(x =>
-                                x.EnemyPlayerId == target.GetPlayerId());
-                            if (found != null)
-                                if (found.Series > 0)
-                                {
-                                    found.Series = 0;
-                                    game.Phrases.HardKittyDoebatsyaAnswerPhrase.SendLog(player, false);
-                                }
-                        }
-
-                    //end Доебаться
                     break;
 
 

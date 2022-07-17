@@ -319,7 +319,7 @@ public class InGameGlobal : IServiceSingleton
                     break;
 
                 case "Толя":
-                    TolyaCount.Add(new Tolya.TolyaCountClass(game.GameId, player.GetPlayerId()));
+                    TolyaCount.Add(new Tolya.TolyaCountClass(game.GameId, player.GetPlayerId(), _rand.Random(2, 3)));
                     TolyaTalked.Add(new Tolya.TolyaTalkedlClass(game.GameId, player.GetPlayerId()));
                     TolyaRammusTimes.Add(new FriendsClass(player.GetPlayerId(), game.GameId));
                     break;
