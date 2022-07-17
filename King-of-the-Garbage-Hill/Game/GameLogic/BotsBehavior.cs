@@ -1101,26 +1101,18 @@ public class BotsBehavior : IServiceSingleton
                         }
                         break;
                 }
-
-                if (target2.AttackPreference <= 0)
-                {
-                    isBlock--;
-                    target2.AttackPreference = 0;
-                }
-
-                maxRandomNumber += target2.AttackPreference;
             }
 
             if (game.Teams.Count > 0)
             {
                 //team bot behavior. target == team member
-                foreach (var target in allTargets)
+                foreach (var target3 in allTargets)
                 {
-                    if (!bot.isTeamMember(game, target.GetPlayerId()))
+                    if (!bot.isTeamMember(game, target3.GetPlayerId()))
                         continue;
 
-                    var realAttackPreference = target.AttackPreference;
-                    target.AttackPreference = 0;
+                    var realAttackPreference = target3.AttackPreference;
+                    target3.AttackPreference = 0;
 
                     //custom bot behavior in teams. target == team member
                     switch (bot.Character.Name)
@@ -1130,15 +1122,15 @@ public class BotsBehavior : IServiceSingleton
                                 _gameGlobal.DeepListMockeryList.Find(x => x.PlayerId == bot.GetPlayerId() && game.GameId == x.GameId);
 
                             var currentDeepList2 =
-                                deepListMockeryList?.WhoWonTimes.Find(x => x.EnemyPlayerId == target.GetPlayerId());
+                                deepListMockeryList?.WhoWonTimes.Find(x => x.EnemyPlayerId == target3.GetPlayerId());
 
-                            if (currentDeepList2 is { Times: 1 }) target.AttackPreference = realAttackPreference;
+                            if (currentDeepList2 is { Times: 1 }) target3.AttackPreference = realAttackPreference;
 
                             break;
                         case "Тигр":
                             break;
                         case "AWDKA":
-                            target.AttackPreference = realAttackPreference;
+                            target3.AttackPreference = realAttackPreference;
                             break;
                         case "HardKitty":
                             break;
@@ -1146,8 +1138,8 @@ public class BotsBehavior : IServiceSingleton
                             var darksciLucky = _gameGlobal.DarksciLuckyList.Find(x => x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId());
                             if (darksciLucky != null)
                             {
-                               if(!darksciLucky.TouchedPlayers.Contains(target.GetPlayerId()))
-                                   target.AttackPreference = realAttackPreference;
+                               if(!darksciLucky.TouchedPlayers.Contains(target3.GetPlayerId()))
+                                   target3.AttackPreference = realAttackPreference;
                             }
                             break;
                         case "Mit*suki*":
@@ -1156,19 +1148,19 @@ public class BotsBehavior : IServiceSingleton
                             var mylorikRevenge = _gameGlobal.MylorikRevenge.Find(x => x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId());
                             if (mylorikRevenge != null)
                             {
-                                var revengeEnemy = mylorikRevenge.EnemyListPlayerIds.Find(x => x.EnemyPlayerId == target.GetPlayerId());
+                                var revengeEnemy = mylorikRevenge.EnemyListPlayerIds.Find(x => x.EnemyPlayerId == target3.GetPlayerId());
 
                                 //ноль выключается если союзнику можно отмстить
-                                if (revengeEnemy is { IsUnique: true }) target.AttackPreference = realAttackPreference;
+                                if (revengeEnemy is { IsUnique: true }) target3.AttackPreference = realAttackPreference;
 
                                 //если отмстил уже всем врагам, то выключается ноль на союзниках, которым еще не мстил
                                 var finishedRevenges = mylorikRevenge.EnemyListPlayerIds.FindAll(x => !x.IsUnique);
                                 var teamCount = game.GetTeammates(bot).Count;
                                 if (finishedRevenges.Count >= 5 - teamCount)
                                 {
-                                    if (finishedRevenges.All(x => x.EnemyPlayerId != target.GetPlayerId()))
+                                    if (finishedRevenges.All(x => x.EnemyPlayerId != target3.GetPlayerId()))
                                     {
-                                        target.AttackPreference = realAttackPreference;
+                                        target3.AttackPreference = realAttackPreference;
                                     }
                                 }
                             }
@@ -1182,8 +1174,8 @@ public class BotsBehavior : IServiceSingleton
                             var siriFriends = _gameGlobal.SirinoksFriendsList.Find(x => x.GameId == game.GameId && x.PlayerId == bot.GetPlayerId());
                             if (siriFriends.FriendList.Count == 1 && game.RoundNo < 5)
                             {
-                                if (siriFriends.FriendList.Contains(target.GetPlayerId()))
-                                    mandatoryAttack = target.PlaceAtLeaderBoard();
+                                if (siriFriends.FriendList.Contains(target3.GetPlayerId()))
+                                    mandatoryAttack = target3.PlaceAtLeaderBoard();
 
                             }
                             else if (game.RoundNo < 5)
@@ -1194,32 +1186,32 @@ public class BotsBehavior : IServiceSingleton
                             else
                             {
                                 //. снимается ноль с тех, кто не в друзьях.
-                                if (!siriFriends.FriendList.Contains(target.GetPlayerId()))
-                                    target.AttackPreference = realAttackPreference;
+                                if (!siriFriends.FriendList.Contains(target3.GetPlayerId()))
+                                    target3.AttackPreference = realAttackPreference;
 
                                 //снимается 0 со всех тех, кто подходит под мишень.
-                                if (bot.Character.GetCurrentSkillClassTarget() == target.Player.Character.GetSkillClass())
-                                    target.AttackPreference = realAttackPreference;
+                                if (bot.Character.GetCurrentSkillClassTarget() == target3.Player.Character.GetSkillClass())
+                                    target3.AttackPreference = realAttackPreference;
 
                                 //если кол-во оставшихся ходов - 3 <= союзникам в друзьях, то нападает только на союзников которых можно добавить в друзья. (выбирает из них по мишени. если под мишень не подходит, то выбирает рандомно)
                                 if (game.RoundNo < 9)
                                 {
-                                    if (!siriFriends.FriendList.Contains(target.GetPlayerId()))
-                                        if (bot.Character.GetCurrentSkillClassTarget() == target.Player.Character.GetSkillClass())
-                                            mandatoryAttack = target.PlaceAtLeaderBoard();
+                                    if (!siriFriends.FriendList.Contains(target3.GetPlayerId()))
+                                        if (bot.Character.GetCurrentSkillClassTarget() == target3.Player.Character.GetSkillClass())
+                                            mandatoryAttack = target3.PlaceAtLeaderBoard();
                                 }
                             }
 
                             break;
                         case "Толя":
-                            var enemyCount = allTargets.Count(x => x.Player.Status.WhoToAttackThisTurn == target.GetPlayerId());
+                            var enemyCount = allTargets.Count(x => x.Player.Status.WhoToAttackThisTurn == target3.GetPlayerId());
                             if (enemyCount >= 2)
-                                target.AttackPreference = realAttackPreference;
+                                target3.AttackPreference = realAttackPreference;
                             break;
                         case "LeCrisp":
-                            enemyCount = allTargets.Count(x => x.Player.Status.WhoToAttackThisTurn == target.GetPlayerId());
+                            enemyCount = allTargets.Count(x => x.Player.Status.WhoToAttackThisTurn == target3.GetPlayerId());
                             if (enemyCount >= 2)
-                                target.AttackPreference = realAttackPreference;
+                                target3.AttackPreference = realAttackPreference;
                             break;
                         case "Глеб":
                             break;
@@ -1230,9 +1222,9 @@ public class BotsBehavior : IServiceSingleton
 
                             if (vampyrHematophagiaList != null)
                             {
-                                if (vampyrHematophagiaList.Hematophagia.All(x => x.EnemyId != target.GetPlayerId()))
+                                if (vampyrHematophagiaList.Hematophagia.All(x => x.EnemyId != target3.GetPlayerId()))
                                 {
-                                    target.AttackPreference = realAttackPreference;
+                                    target3.AttackPreference = realAttackPreference;
                                 }
                             }
                             break;
@@ -1242,9 +1234,9 @@ public class BotsBehavior : IServiceSingleton
 
                 
                 //team bot behavior. target == enemy
-                foreach (var target in allTargets)
+                foreach (var target4 in allTargets)
                 {
-                    if (bot.isTeamMember(game, target.GetPlayerId()))
+                    if (bot.isTeamMember(game, target4.GetPlayerId()))
                         continue;
 
                     //custom bot behavior in teams. target == enemy
@@ -1269,11 +1261,24 @@ public class BotsBehavior : IServiceSingleton
                                 }
                             }
                             if (platCount != teamCount && game.RoundNo < 7)
-                                target.AttackPreference = 0;
+                                target4.AttackPreference = 0;
                             break;
                     }
                     //end custom bot behavior
                 }
+            }
+
+
+            //count maxRandomNumber and isBlock
+            foreach (var target2 in allTargets)
+            {
+                if (target2.AttackPreference <= 0)
+                {
+                    isBlock--;
+                    target2.AttackPreference = 0;
+                }
+
+                maxRandomNumber += target2.AttackPreference;
             }
 
             //end calculation Tens
