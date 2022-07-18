@@ -21,11 +21,12 @@ public class Gleb
         public ulong GameId;
         public Guid PlayerId;
         public bool Ready = false;
-
+        public int TimesRolled;
         public GlebTeaClass(Guid playerId, ulong gameId)
         {
             PlayerId = playerId;
             GameId = gameId;
+            TimesRolled = 0;
         }
     }
 }

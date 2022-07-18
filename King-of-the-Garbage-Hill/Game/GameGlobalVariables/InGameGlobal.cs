@@ -48,10 +48,12 @@ public class InGameGlobal : IServiceSingleton
     public readonly List<WhenToTriggerClass> GlebSleepingTriggeredWhen = new();
     public readonly List<Gleb.GlebTeaClass> GlebTea = new();
     public readonly List<WhenToTriggerClass> GlebTeaTriggeredWhen = new();
+    public readonly List<FriendsClass> GlebSkipFriendList = new();
+
     public readonly List<HardKitty.DoebatsyaClass> HardKittyDoebatsya = new();
     public readonly List<HardKitty.LonelinessClass> HardKittyLoneliness = new();
-
     public readonly List<HardKitty.MuteClass> HardKittyMute = new();
+
     public readonly List<LeCrisp.LeCrispAssassins> LeCrispAssassins = new();
 
     public readonly List<LeCrisp.LeCrispImpactClass> LeCrispImpact = new();
@@ -330,6 +332,7 @@ public class InGameGlobal : IServiceSingleton
                     break;
 
                 case "Глеб":
+                    GlebSkipFriendList.Add(new FriendsClass(player.GetPlayerId(), game.GameId));
                     GlebTea.Add(new Gleb.GlebTeaClass(player.GetPlayerId(), game.GameId));
                     //Спящее хуйло chance   
                     when = GetWhenToTrigger(player, 2, 2, 4, 9);

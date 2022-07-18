@@ -100,26 +100,38 @@ public class CharacterPassives : IServiceSingleton
 
             case "Глеб":
                 //Я щас приду:
-                var rand = _rand.Random(1, 8);
+                var rand = _rand.Random(1, 9);
                 if (rand == 1)
                 {
-                    var acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
-                        x.PlayerId == target.GetPlayerId() &&
-                        target.GameId == x.GameId);
+                    var acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x => x.PlayerId == target.GetPlayerId() && target.GameId == x.GameId);
 
-                    if (acc != null)
-                        if (acc.WhenToTrigger.Contains(game.RoundNo))
-                            return;
+                   
+                    if (acc.WhenToTrigger.Contains(game.RoundNo))
+                        return;
 
 
                     if (!target.Status.IsSkip)
                     {
                         target.Status.IsSkip = true;
-                        _gameGlobal.GlebSkipList.Add(
-                            new Gleb.GlebSkipClass(target.GetPlayerId(), game.GameId));
+                        _gameGlobal.GlebSkipList.Add(new Gleb.GlebSkipClass(target.GetPlayerId(), game.GameId));
                         game.Phrases.GlebComeBackPhrase.SendLog(target, true);
+                        
+                        var glebSkipFriendList = _gameGlobal.GlebSkipFriendList.Find(x => x.PlayerId == target.GetPlayerId() && game.GameId == x.GameId);
+                        if(!glebSkipFriendList.FriendList.Contains(me.GetPlayerId()))
+                            glebSkipFriendList.FriendList.Add(me.GetPlayerId());
                     }
                 }
+                else
+                {
+                    var glebSkipFriendList = _gameGlobal.GlebSkipFriendList.Find(x => x.PlayerId == target.GetPlayerId() && game.GameId == x.GameId);
+                    if (glebSkipFriendList.FriendList.Contains(me.GetPlayerId()))
+                    {
+                        glebSkipFriendList.FriendList.Remove(me.GetPlayerId());
+                        me.Character.AddMoral(me.Status, 9, "Я щас приду", false);
+                        me.Status.AddInGamePersonalLogs("Я щас приду: +9 *Морали*. Вы дождались Глеба!!! Празднуем!");
+                    }
+                }
+
 
                 //end Я щас приду:
                 break;
@@ -1521,7 +1533,7 @@ public class CharacterPassives : IServiceSingleton
                         player.Character.SetStrength(player.Status, regularStats.Str + str, "Претендент русского сервера", false);
                         player.Character.SetSpeed(player.Status, regularStats.Speed + speed, "Претендент русского сервера", false);
                         player.Character.SetPsyche(player.Status, regularStats.Psyche + psy, "Претендент русского сервера", false);
-                        player.Character.AddExtraSkill(player.Status,  -100, "Претендент русского сервера", false);
+                        player.Character.AddExtraSkill(player.Status,  -99, "Претендент русского сервера", false);
                         _gameGlobal.GlebChallengerList.Remove(glebChall);
                     }
                     //end Претендент русского сервера
@@ -2178,18 +2190,28 @@ public class CharacterPassives : IServiceSingleton
                     var glebChalleger = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
                         x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
 
-                    if (glebChalleger != null)
-                        if (glebChalleger.WhenToTrigger.Contains(game.RoundNo))
-                            rand = _rand.Random(1, 7);
+                    
+                    if (glebChalleger.WhenToTrigger.Contains(game.RoundNo))
+                        rand = _rand.Random(1, 7);
 
 
-                    var geblTea =
+                    var glebTea =
                         _gameGlobal.GlebTea.Find(x =>
                             x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
 
-                    if (rand == 1) geblTea.Ready = true;
+                    if (rand == 1)
+                    {
+                        glebTea.Ready = true;
+                        glebTea.TimesRolled++;
+                    }
 
-                    if (geblTea.Ready)
+                    if (game.RoundNo == 9 && glebTea.TimesRolled == 0)
+                    {
+                        glebTea.Ready = true;
+                        player.Status.AddInGamePersonalLogs("Я за чаем: Глебка чай не пропускает!");
+                    }
+
+                    if (glebTea.Ready)
                         game.Phrases.GlebTeaReadyPhrase.SendLog(player, true);
                     //end  Я за чаем:
 
@@ -2207,6 +2229,8 @@ public class CharacterPassives : IServiceSingleton
                             player.Status.IsReady = true;
                             player.Status.WhoToAttackThisTurn = Guid.Empty;
 
+                            player.Character.AddExtraSkill(player.Status, -20, "Спящее хуйло");
+
                             player.Character.AvatarCurrent = player.Character.AvatarEvent.Find(x => x.EventName == "Спящее хуйло").Url;
                             game.Phrases.GlebSleepyPhrase.SendLog(player, false);
                         }
@@ -2223,40 +2247,48 @@ public class CharacterPassives : IServiceSingleton
                     //end Спящее хуйло:
 
                     //Претендент русского сервера: 
-                    acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
-                        x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
+                    acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x => x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
 
-                    if (acc != null)
-                        if (acc.WhenToTrigger.Contains(game.RoundNo))
+                    if (game.RoundNo == 10 && !acc.WhenToTrigger.Contains(game.RoundNo) && player.Status.PlaceAtLeaderBoard > 2)
+                    {
+                        // шанс = 1 / (40 - место глеба в таблице * 4)
+                        var bonusChallenger = _rand.Random(1, (40 - player.Status.PlaceAtLeaderBoard * 4));
+                        if (bonusChallenger == 15)
                         {
-                            var gleb = _gameGlobal.GlebChallengerList.Find(x => x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
-                            //just check
-                            if (gleb != null) _gameGlobal.GlebChallengerList.Remove(gleb);
-
-                            _gameGlobal.GlebChallengerList.Add(new DeepList.Madness(player.GetPlayerId(), game.GameId, game.RoundNo));
-                            gleb = _gameGlobal.GlebChallengerList.Find(x => x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
-                            gleb.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.GetIntelligence(), player.Character.GetStrength(), player.Character.GetSpeed(), player.Character.GetPsyche()));
-
-                            //  var randomNumber =  _rand.Random(1, 100);
-
-                            var intel = player.Character.GetIntelligence() >= 10 ? 10 : 9;
-                            var str = player.Character.GetStrength() >= 10 ? 10 : 9;
-                            var speed = player.Character.GetSpeed() >= 10 ? 10 : 9;
-                            var pshy = player.Character.GetPsyche() >= 10 ? 10 : 9;
-
-
-                            player.Character.SetIntelligence(player.Status, intel, "Претендент русского сервера");
-                            player.Character.SetStrength(player.Status, str, "Претендент русского сервера");
-                            player.Character.SetSpeed(player.Status, speed, "Претендент русского сервера");
-                            player.Character.SetPsyche(player.Status, pshy, "Претендент русского сервера");
-                            player.Character.AddExtraSkill(player.Status,  100, "Претендент русского сервера");
-
-
-                            gleb.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
-
-                            game.Phrases.GlebChallengerPhrase.SendLog(player, true);
-                            await game.Phrases.GlebChallengerSeparatePhrase.SendLogSeparate(player, true);
+                            acc.WhenToTrigger.Add(game.RoundNo);
                         }
+                    }
+
+                    if (acc.WhenToTrigger.Contains(game.RoundNo))
+                    {
+                        var gleb = _gameGlobal.GlebChallengerList.Find(x => x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
+                        //just check
+                        if (gleb != null) _gameGlobal.GlebChallengerList.Remove(gleb);
+
+                        _gameGlobal.GlebChallengerList.Add(new DeepList.Madness(player.GetPlayerId(), game.GameId, game.RoundNo));
+                        gleb = _gameGlobal.GlebChallengerList.Find(x => x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
+                        gleb.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.GetIntelligence(), player.Character.GetStrength(), player.Character.GetSpeed(), player.Character.GetPsyche()));
+
+                        //  var randomNumber =  _rand.Random(1, 100);
+
+                        var intel = player.Character.GetIntelligence() >= 10 ? 10 : 9;
+                        var str = player.Character.GetStrength() >= 10 ? 10 : 9;
+                        var speed = player.Character.GetSpeed() >= 10 ? 10 : 9;
+                        var pshy = player.Character.GetPsyche() >= 10 ? 10 : 9;
+
+
+                        player.Character.SetIntelligence(player.Status, intel, "Претендент русского сервера");
+                        player.Character.SetStrength(player.Status, str, "Претендент русского сервера");
+                        player.Character.SetSpeed(player.Status, speed, "Претендент русского сервера");
+                        player.Character.SetPsyche(player.Status, pshy, "Претендент русского сервера");
+                        player.Character.AddExtraSkill(player.Status,  99, "Претендент русского сервера");
+
+
+                        gleb.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
+
+                        game.Phrases.GlebChallengerPhrase.SendLog(player, true);
+                        await game.Phrases.GlebChallengerSeparatePhrase.SendLogSeparate(player, true);
+                    }
 
                     //end Претендент русского сервера
                     break;

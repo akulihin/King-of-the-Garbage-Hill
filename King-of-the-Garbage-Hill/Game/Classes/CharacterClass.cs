@@ -137,7 +137,14 @@ public class CharacterClass
 
     public void SetSkillMultiplier(double skillMultiplier = 0)
     {
+        //2 это х3
         SkillMultiplier = skillMultiplier;
+    }
+
+    public void AddSkillMultiplier(double skillMultiplier = 0)
+    {
+        //2 это х3
+        SkillMultiplier += skillMultiplier;
     }
 
     public void SetSkillFightMultiplier(int skillFightMultiplier = 1)

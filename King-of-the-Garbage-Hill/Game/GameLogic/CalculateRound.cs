@@ -191,7 +191,32 @@ Speed => Strength
                     text2 = "(**БУЛЬ** ?!) ";
                 }
 
-                if (player.Character.Name != "Братишка") player.Character.AddMainSkill(player.Status, text1);
+                if (player.Character.Name != "Братишка")
+                {
+                    //Претендент русского сервера:
+                    if (player.Character.Name == "Gleb")
+                    {
+                       var acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
+                            x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
+                       if (acc != null)
+                            if (acc.WhenToTrigger.Contains(game.RoundNo))
+                                player.Character.AddSkillMultiplier(2);
+                    }
+                    //end Претендент русского сервера:
+
+                    player.Character.AddMainSkill(player.Status, text1);
+
+                    //Претендент русского сервера:
+                    if (player.Character.Name == "Gleb")
+                    {
+                        var acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
+                            x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
+                        
+                        if (acc.WhenToTrigger.Contains(game.RoundNo))
+                            player.Character.AddSkillMultiplier(-2);
+                    }
+                    //end Претендент русского сервера:
+                }
 
 
                 var known = player.Status.KnownPlayerClass.Find(x =>

@@ -895,18 +895,18 @@ public class BotsBehavior : IServiceSingleton
                         //Во время претендента забывает о всех -5 и -7 за луз по статам, но вспоминает после окончания претендента.
                         var glebAcc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x => x.PlayerId == bot.GetPlayerId() && game.GameId == x.GameId);
 
-                        if (glebAcc != null)
-                            if (glebAcc.WhenToTrigger.Contains(game.RoundNo))
-                            {
-                                if (isTargetTooGood)
-                                    target.AttackPreference += isTargetTooGoodNumber;
-                                else if (isLostLastRoundAndTargetIsBetter)
-                                    target.AttackPreference += isLostLastRoundAndTargetIsBetterNumber;
+                       
+                        if (glebAcc.WhenToTrigger.Contains(game.RoundNo))
+                        {
+                            if (isTargetTooGood)
+                                target.AttackPreference += isTargetTooGoodNumber;
+                            else if (isLostLastRoundAndTargetIsBetter)
+                                target.AttackPreference += isLostLastRoundAndTargetIsBetterNumber;
 
-                                //Под претендентом автоматически выбирает цель с наибольшим значением. 
-                                var sorted = allTargets.OrderByDescending(x => x.AttackPreference).ToList();
-                                mandatoryAttack = sorted.First().Player.Status.PlaceAtLeaderBoard;
-                            }
+                            //Под претендентом автоматически выбирает цель с наибольшим значением. 
+                            var sorted = allTargets.OrderByDescending(x => x.AttackPreference).ToList();
+                            mandatoryAttack = sorted.First().Player.Status.PlaceAtLeaderBoard;
+                        }
 
                         break;
                     case "Загадочный Спартанец в маске":
