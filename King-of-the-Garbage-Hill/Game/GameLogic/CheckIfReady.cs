@@ -336,6 +336,10 @@ public class CheckIfReady : IServiceSingleton
                     .Count > 1
                     ? "\n**Ничья**"
                     : $"\n**{game.PlayersList.First().DiscordUsername}** победил, играя за **{game.PlayersList.First().Character.Name}**");
+            if (!game.PlayersList.First().IsBot())
+            {
+                game.PlayersList.First().Status.SocketMessageFromBot.Channel.SendMessageAsync("__**Победа! Теперь ты Король этой Мусорной Горы. Пока-что...**__");
+            }
         }
 
         //todo: need to redo this system

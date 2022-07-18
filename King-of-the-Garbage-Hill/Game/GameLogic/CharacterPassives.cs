@@ -56,7 +56,7 @@ public class CharacterPassives : IServiceSingleton
                         сraboRackShell.CurrentAttacker = me.GetPlayerId();
                         target.Character.AddMoral(target.Status, 6, "Панцирь");
                         target.Character.AddExtraSkill(target.Status,  30, "Панцирь");
-                        target.Status.IsSuperBlock = true;
+                        target.Status.IsBlock = true;
                     }
                 //end Панцирь
 
@@ -740,7 +740,7 @@ public class CharacterPassives : IServiceSingleton
                     if (сraboRackShell.CurrentAttacker != Guid.Empty)
                     {
                         сraboRackShell.CurrentAttacker = Guid.Empty;
-                        player.Status.IsSuperBlock = false;
+                        player.Status.IsBlock = false;
                     }
                 //end Панцирь
 

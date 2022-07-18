@@ -191,32 +191,31 @@ Speed => Strength
                     text2 = "(**БУЛЬ** ?!) ";
                 }
 
-                if (player.Character.Name != "Братишка")
+    
+                //Претендент русского сервера:
+                if (player.Character.Name == "Gleb")
                 {
-                    //Претендент русского сервера:
-                    if (player.Character.Name == "Gleb")
-                    {
-                       var acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
-                            x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
-                       if (acc != null)
-                            if (acc.WhenToTrigger.Contains(game.RoundNo))
-                                player.Character.AddSkillMultiplier(2);
-                    }
-                    //end Претендент русского сервера:
-
-                    player.Character.AddMainSkill(player.Status, text1);
-
-                    //Претендент русского сервера:
-                    if (player.Character.Name == "Gleb")
-                    {
-                        var acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
-                            x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
-                        
+                    var acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
+                        x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
+                    if (acc != null)
                         if (acc.WhenToTrigger.Contains(game.RoundNo))
-                            player.Character.AddSkillMultiplier(-2);
-                    }
-                    //end Претендент русского сервера:
+                            player.Character.SetSkillMultiplier(2);
                 }
+                //end Претендент русского сервера:
+
+                player.Character.AddMainSkill(player.Status, text1);
+
+                //Претендент русского сервера:
+                if (player.Character.Name == "Gleb")
+                {
+                    var acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
+                        x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
+                        
+                    if (acc.WhenToTrigger.Contains(game.RoundNo))
+                        player.Character.SetSkillMultiplier();
+                }
+                //end Претендент русского сервера:
+            
 
 
                 var known = player.Status.KnownPlayerClass.Find(x =>
@@ -283,7 +282,7 @@ Speed => Strength
             }
 
             //if block => no one gets points
-            if (playerIamAttacking.Status.IsBlock && player.Status.IsAbleToWin || playerIamAttacking.Status.IsSuperBlock)
+            if (playerIamAttacking.Status.IsBlock && player.Status.IsAbleToWin)
             {
                 player.Status.IsTargetBlocked = playerIamAttacking.GetPlayerId();
                 // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);

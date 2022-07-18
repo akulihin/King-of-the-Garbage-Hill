@@ -290,11 +290,20 @@ public class General : ModuleBaseCustom
 
     public async Task <List<GamePlayerBridgeClass>> HandleEventsBeforeFirstRound(List<GamePlayerBridgeClass> playersList)
     {
+        //
+        if (playersList.Any(x => x.Character.Name == "mylorik"))
+        {
+            var mylorik = playersList.Find(x => x.Character.Name == "mylorik");
+            mylorik.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*");
+        }
+        //
+
         //Загадочный Спартанец в маске
         if (playersList.Any(x => x.Character.Name == "Загадочный Спартанец в маске"))
         {
             var spartan = playersList.Find(x => x.Character.Name == "Загадочный Спартанец в маске");
             spartan.Character.SetSkillMultiplier(1);
+            spartan.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*");
         }
         //end Загадочный Спартанец в маске
 

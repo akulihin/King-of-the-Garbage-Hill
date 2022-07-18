@@ -193,7 +193,7 @@ public class StoreReactions : IServiceSingleton
                 //Уменьшить шанс на 1% - 20 ZP
                 case "store-down-1":
 
-                    if (character.Multiplier <= 0.0)
+                    if (character.Multiplier <= 0.5)
                     {
                         await button.Channel.SendMessageAsync(
                             $"У персонажа {character.CharacterName} и так минимальный бонусный шанс - {character.Multiplier}");
@@ -215,7 +215,7 @@ public class StoreReactions : IServiceSingleton
 
                 case "store-down-10":
 
-                    if (character.Multiplier <= 0.0)
+                    if (character.Multiplier <= 0.5)
                     {
                         await button.Channel.SendMessageAsync(
                             $"У персонажа {character.CharacterName} и так минимальный бонусный шанс - {character.Multiplier}");

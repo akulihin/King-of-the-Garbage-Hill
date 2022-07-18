@@ -195,6 +195,8 @@ public class CharacterClass
 
     public void AddMainSkill(InGameStatus status, string skillName, bool isLog = true)
     {
+        if (status.CharacterName == "Братишка")
+            return;
         var howMuchToAdd = SkillMain switch
         {
             0 => 10,
@@ -225,20 +227,18 @@ public class CharacterClass
 
     public void AddExtraSkill(InGameStatus status, int howMuchToAdd, string skillName, bool isLog = true)
     {
+        if (status.CharacterName == "Братишка")
+            return;
         if (SkillMultiplier > 0 && howMuchToAdd > 0)
             howMuchToAdd *= (int)(SkillMultiplier + 1);
         if (isLog)
         {
-            if (howMuchToAdd > 0)
-                status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} *Cкилла*\n");
-            else
-                status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} *Cкилла*\n");
+            status.AddInGamePersonalLogs(howMuchToAdd > 0
+                ? $"{skillName}: +{howMuchToAdd} *Cкилла*\n"
+                : $"{skillName}: {howMuchToAdd} *Cкилла*\n");
         }
 
-        if (status.CharacterName != "Братишка")
-        {
-            SkillExtra += howMuchToAdd;
-        }
+        SkillExtra += howMuchToAdd;
     }
 
     public int GetMoral()
@@ -261,6 +261,8 @@ public class CharacterClass
 
     public void AddMoral(InGameStatus status, int howMuchToAdd, string skillName, bool isLog = true, bool isMoralPoints = false)
     {
+        if (status.CharacterName == "Братишка")
+            return;
         //привет со дна
         if (howMuchToAdd < 0 && status.CharacterName == "Осьминожка" && !isMoralPoints)
         {

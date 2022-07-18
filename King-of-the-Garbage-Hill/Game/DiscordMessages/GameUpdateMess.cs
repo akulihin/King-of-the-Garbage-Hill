@@ -441,7 +441,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
         //  await socketMsg.DeleteAsync();
-        await globalAccount.SendMessageAsync("Спасибо за игру!\nА вы знали? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганв его! Например `*st @Boole`");
+        await globalAccount.SendMessageAsync("Спасибо за игру!\nА вы знали? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганув его! Например `*st @Boole`");
     }
 
     private static IEnumerable<string> Split(string str, int chunkSize)
@@ -904,8 +904,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var extraText = "";
         if (game.RoundNo == 10 && player.Character.GetMoral() < 3) extraText = " (Конец игры)";
 
-        //if (player.Character.Name == "Братишка")
-        //    return new ButtonBuilder($"Ничего не понимает...", "skill", ButtonStyle.Secondary, isDisabled: true);
+        if (player.Character.Name == "Братишка")
+            return new ButtonBuilder($"Ничего не понимает...", "skill", ButtonStyle.Secondary, isDisabled: true, emote: Emote.Parse("<a:bratishka:900962522276958298>"));
 
         if (player.Character.GetMoral() >= 20)
             return new ButtonBuilder($"Обменять 20 Морали на 100 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
