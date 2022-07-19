@@ -43,22 +43,20 @@ Speed => Strength
     {
         if (me.Character.GetSkillClass() == "Интеллект" && target.Character.GetSkillClass() == "Скорость")
         {
-            target.Status.KnownPlayerClass.Add(
-                new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Умный** ?) "));
+            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Умный** ?) "));
+
             return "вас обманул";
         }
 
         if (me.Character.GetSkillClass() == "Сила" && target.Character.GetSkillClass() == "Интеллект")
         {
-            target.Status.KnownPlayerClass.Add(
-                new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Сильный** ?) "));
+            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Сильный** ?) "));
             return "вас пресанул";
         }
 
         if (me.Character.GetSkillClass() == "Скорость" && target.Character.GetSkillClass() == "Сила")
         {
-            target.Status.KnownPlayerClass.Add(
-                new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Быстрый** ?) "));
+            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Быстрый** ?) "));
             return "вас обогнал";
         }
 
@@ -704,7 +702,7 @@ Speed => Strength
 
         SortGameLogs(game);
         _characterPassives.HandleNextRoundAfterSorting(game);
-
+        _characterPassives.HandleBotPredict(game);
         game.TimePassed.Reset();
         game.TimePassed.Start();
         _logs.Info(

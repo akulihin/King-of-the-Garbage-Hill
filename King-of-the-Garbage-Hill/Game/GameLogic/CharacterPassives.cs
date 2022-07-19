@@ -121,17 +121,6 @@ public class CharacterPassives : IServiceSingleton
                             glebSkipFriendList.FriendList.Add(me.GetPlayerId());
                     }
                 }
-                else
-                {
-                    var glebSkipFriendList = _gameGlobal.GlebSkipFriendList.Find(x => x.PlayerId == target.GetPlayerId() && game.GameId == x.GameId);
-                    if (glebSkipFriendList.FriendList.Contains(me.GetPlayerId()))
-                    {
-                        glebSkipFriendList.FriendList.Remove(me.GetPlayerId());
-                        me.Character.AddMoral(me.Status, 9, "Я щас приду", false);
-                        me.Status.AddInGamePersonalLogs("Я щас приду: +9 *Морали*. Вы дождались Глеба!!! Празднуем!");
-                    }
-                }
-
 
                 //end Я щас приду:
                 break;
@@ -273,6 +262,17 @@ public class CharacterPassives : IServiceSingleton
 
         switch (characterName)
         {
+            case "Глеб":
+                //Я щас приду:
+                var glebSkipFriendList = _gameGlobal.GlebSkipFriendList.Find(x => x.PlayerId == target.GetPlayerId() && game.GameId == x.GameId);
+                if (glebSkipFriendList.FriendList.Contains(me.GetPlayerId()))
+                {
+                    glebSkipFriendList.FriendList.Remove(me.GetPlayerId());
+                    me.Character.AddMoral(me.Status, 9, "Я щас приду", false);
+                    me.Status.AddInGamePersonalLogs("Я щас приду: +9 *Морали*. Вы дождались Глеба!!! Празднуем!");
+                }
+                //end Я щас приду:
+                break;
             case "LeCrisp":
                 //Импакт:
                 if (target.Status.IsLostThisCalculation != Guid.Empty)
@@ -553,14 +553,24 @@ public class CharacterPassives : IServiceSingleton
         
     }
 
-    public void HandleAttackAfterFight(GamePlayerBridgeClass me,
-        GamePlayerBridgeClass target, GameClass game)
+    public void HandleAttackAfterFight(GamePlayerBridgeClass me, GamePlayerBridgeClass target, GameClass game)
     {
         var characterName = me.Character.Name;
 
 
         switch (characterName)
         {
+            case "Глеб":
+                //Я щас приду:
+                var glebSkipFriendList = _gameGlobal.GlebSkipFriendList.Find(x => x.PlayerId == me.GetPlayerId() && game.GameId == x.GameId);
+                if (glebSkipFriendList.FriendList.Contains(target.GetPlayerId()))
+                {
+                    glebSkipFriendList.FriendList.Remove(target.GetPlayerId());
+                    target.Character.AddMoral(target.Status, 9, "Я щас приду", false);
+                    target.Status.AddInGamePersonalLogs("Я щас приду: +9 *Морали*. Вы дождались Глеба!!! Празднуем!");
+                }
+                //end Я щас приду:
+                break;
             case "Загадочный Спартанец в маске":
 
                 //Им это не понравится:
@@ -732,6 +742,7 @@ public class CharacterPassives : IServiceSingleton
         var characterName = player.Character.Name;
         switch (characterName)
         {
+
             case "Краборак":
                 //Панцирь
                 var сraboRackShell = _gameGlobal.CraboRackShell.Find(x =>
@@ -919,9 +930,8 @@ public class CharacterPassives : IServiceSingleton
                     player.Status.IsSkip = false;
                     _gameGlobal.GlebSkipList.Remove(skip);
                 }
-
-
                 //end Спящее хуйло
+
                 break;
             case "LeCrisp":
 
@@ -2229,7 +2239,7 @@ public class CharacterPassives : IServiceSingleton
                             player.Status.IsReady = true;
                             player.Status.WhoToAttackThisTurn = Guid.Empty;
 
-                            player.Character.AddExtraSkill(player.Status, -20, "Спящее хуйло");
+                            player.Character.AddExtraSkill(player.Status, -30, "Спящее хуйло");
 
                             player.Character.AvatarCurrent = player.Character.AvatarEvent.Find(x => x.EventName == "Спящее хуйло").Url;
                             game.Phrases.GlebSleepyPhrase.SendLog(player, false);
@@ -2753,6 +2763,327 @@ public class CharacterPassives : IServiceSingleton
 
 
     //end after all fight
+
+    //predict bot
+
+    public List<string> GetCharactersBasedOnClassAndRound(string characterClass, int round)
+    {
+        //Умный => Сильный => Быстрый
+        var characters = new List<string>();
+        switch (characterClass)
+        {
+            case "(**Умный** ?) ":
+                characters = new List<string>{ "DeepList", "Глеб", "LeCrisp", "Толя" };
+                switch (round)
+                {
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                    case 7:
+                    case 8:
+                        break;
+                }
+                break;
+            case "(**Сильный** ?) ":
+                characters = new List<string> { "HardKitty", "Тигр", "Загадочный Спартанец в маске" };
+                switch (round)
+                {
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                    case 7:
+                    case 8:
+                        break;
+                }
+                break;
+            case "(**Быстрый** ?) ":
+                characters = new List<string> { "mylorik", "Осьминожка", "Darksci", "Братишка", "Краборак" };
+                switch (round)
+                {
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                    case 7:
+                    case 8:
+                        break;
+                }
+                break;
+        }
+
+        characters.Add("Sirinoks");
+        characters.Add("Mit*suki*");
+        characters.Add("AWDKA");
+        characters.Add("Вампур");
+
+
+        return characters;
+    }
+    public void HandleBotPredict(GameClass game)
+    {
+        //
+        foreach (var player in game.PlayersList)
+        {
+            try
+            {
+                if (!player.IsBot()) continue;
+
+                var splitLogs = player.Status.InGamePersonalLogsAll.Split("|||");
+
+                var lastRoundEvents = "";
+                if (splitLogs.Length > 1 && splitLogs[^2].Length > 3 && game.RoundNo > 1)
+                {
+                    lastRoundEvents = splitLogs[^2];
+                }
+                var personalLogs = player.Status.GetInGamePersonalLogs();
+                var globalLogs = game.GetGlobalLogs();
+                var leaderboard = _gameUpdateMess.LeaderBoard(player);
+                var knownCLass = player.Status.KnownPlayerClass;
+
+
+                switch (player.Character.Name)
+                {
+                    case "AWDKA":
+                        try
+                        {
+                            if (lastRoundEvents.Contains("напал на игрока"))
+                            {
+                                var playerName = lastRoundEvents.Split("напал на игрока")[1].Split("\n")[0].TrimStart();
+                                var playerClass = game.PlayersList.Find(x => x.DiscordUsername == playerName);
+
+                                if (player.Character.GetIntelligenceString().Contains(":volibir:"))
+                                {
+                                    var stat = Convert.ToInt32(player.Character.GetIntelligenceString().Replace("Интеллект ", "").Split(" (")[0]);
+                                    switch (stat)
+                                    {
+                                        case 10:
+                                            if(player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
+                                                player.Predict.Add(new PredictClass("DeepList", playerClass.GetPlayerId()));
+                                            break;
+                                        case 9:
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
+                                                player.Predict.Add(new PredictClass("Mit*suki*", playerClass.GetPlayerId()));
+                                            break;
+                                        case 8:
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
+                                                player.Predict.Add(new PredictClass("Толя", playerClass.GetPlayerId()));
+                                            break;
+                                        case 7:
+                                            break;
+                                        case 6:
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
+                                                player.Predict.Add(new PredictClass("Вампур", playerClass.GetPlayerId()));
+                                            break;
+                                        case 5:
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
+                                                player.Predict.Add(new PredictClass("Sirinoks", playerClass.GetPlayerId()));
+                                            break;
+                                    }
+                                    
+                                }
+                                if (player.Character.GetStrengthString().Contains(":volibir:"))
+                                {
+                                    var stat = Convert.ToInt32(player.Character.GetStrengthString().Replace("Сила ", "").Split(" (")[0]);
+                                    switch (stat)
+                                    {
+                                        case 10:
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
+                                                player.Predict.Add(new PredictClass("Загадочный Спартанец в маске", playerClass.GetPlayerId()));
+                                            break;
+                                        case 9:
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
+                                                player.Predict.Add(new PredictClass("Тигр", playerClass.GetPlayerId()));
+                                            break;
+                                        case 8:
+                                            break;
+                                        case 7:
+                                            break;
+                                        case 6:
+                                            break;
+                                        case 5:
+                                            break;
+                                    }
+                                }
+                                if (player.Character.GetSpeedString().Contains(":volibir:"))
+                                {
+                                    var stat = Convert.ToInt32(player.Character.GetSpeedString().Replace("Скорость ", "").Split(" (")[0]);
+                                    switch (stat)
+                                    {
+                                        case 10:
+                                            break;
+                                        case 9:
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
+                                                player.Predict.Add(new PredictClass("mylorik", playerClass.GetPlayerId()));
+                                            break;
+                                        case 8:
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
+                                                player.Predict.Add(new PredictClass("Darksci", playerClass.GetPlayerId()));
+                                            break;
+                                        case 7:
+                                            break;
+                                        case 6:
+                                            break;
+                                        case 5:
+                                            break;
+                                    }
+                                }
+                                if (player.Character.GetPsycheString().Contains(":volibir:"))
+                                {
+                                    var stat = Convert.ToInt32(player.Character.GetPsycheString().Replace("Психика ", "").Split(" (")[0]);
+                                    switch (stat)
+                                    {
+                                        case 10:
+                                            var random = _rand.Random(0, 1);
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) && random == 1)
+                                                player.Predict.Add(new PredictClass("Осьминожка", playerClass.GetPlayerId()));
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
+                                                player.Predict.Add(new PredictClass("Братишка", playerClass.GetPlayerId()));
+                                            break;
+                                        case 9:
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
+                                                player.Predict.Add(new PredictClass("Краборак", playerClass.GetPlayerId()));
+                                            break;
+                                        case 8:
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) && playerClass.Status.PlaceAtLeaderBoard == 6)
+                                                player.Predict.Add(new PredictClass("HardKitty", playerClass.GetPlayerId()));
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
+                                                player.Predict.Add(new PredictClass("Глеб", playerClass.GetPlayerId()));
+                                            break;
+                                        case 7:
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
+                                                player.Predict.Add(new PredictClass("LeCrisp", playerClass.GetPlayerId()));
+                                            break;
+                                        case 6:
+                        
+                                            break;
+                                        case 5:
+                                            break;
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception exception)
+                        {
+                            _log.Critical(exception.Message);
+                            _log.Critical(exception.StackTrace);
+                        }
+                        break;
+                    case "DeepList":
+                       var deepList = _gameGlobal.DeepListSupermindKnown.Find(x =>
+                            x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
+
+                       if (deepList != null)
+                       {
+                           foreach (var knownPlayer in deepList.KnownPlayers)
+                           {
+                               var playerClass = game.PlayersList.Find(x => x.GetPlayerId() == knownPlayer);
+
+                               if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) && playerClass.GetPlayerId() != player.GetPlayerId())
+                                   player.Predict.Add(new PredictClass(playerClass.Character.Name, playerClass.GetPlayerId()));
+                           }
+                       }
+                       break;
+                }
+
+                //game.AddGlobalLogs($"Толя запизделся и спалил, что {randomPlayer.DiscordUsername} - {randomPlayer.Character.Name}");
+                //100%
+                if (globalLogs.Contains("Толя запизделся"))
+                {
+                    var playerName = globalLogs.Split("запизделся и спалил")[1].Replace(", что ", "").Split(" - ")[^2];
+                    var playerCharacter = globalLogs.Split("запизделся и спалил")[1].Replace(", что ", "").Split(" - ")[^1].Replace("\n", "");
+                    var playerClass = game.PlayersList.Find(x => x.DiscordUsername == playerName);
+                    if (playerClass.GetPlayerId() != player.GetPlayerId())
+                    {
+                        if (player.Predict.Any(x => x.PlayerId == playerClass.GetPlayerId()))
+                        {
+                            player.Predict.Remove(player.Predict.Find(x => x.PlayerId == playerClass.GetPlayerId()));
+                        }
+                        player.Predict.Add(new PredictClass(playerCharacter, playerClass.GetPlayerId()));
+                    }
+                }
+
+                //100%
+                if (lastRoundEvents.Contains("Ничего не понимает"))
+                {
+                    var playerName = lastRoundEvents.Split(" напал на игрока ")[1].Split("\n")[0];
+                    var playerClass = game.PlayersList.Find(x => x.DiscordUsername == playerName);
+                    
+                    if (player.Predict.Any(x => x.PlayerId == playerClass.GetPlayerId()))
+                    {
+                        player.Predict.Remove(player.Predict.Find(x => x.PlayerId == playerClass.GetPlayerId()));
+                    }
+                    player.Predict.Add(new PredictClass("Братишка", playerClass.GetPlayerId()));
+                }
+
+                //not 100%
+                if (lastRoundEvents.Contains("Они позорят военное искусство"))
+                {
+                    var removedTimes = 0;
+                    foreach (var line in globalLogs.Split("\n"))
+                    {
+                        if(!line.Contains("⟶")) continue;
+                        if(!line.Contains(player.DiscordUsername)) continue;
+                        string playerName;
+                        if (lastRoundEvents.Contains(" напал на игрока "))
+                        {
+                            playerName = lastRoundEvents.Split(" напал на игрока ")[1].Split("\n")[0];
+                            if (line.Contains(playerName) && removedTimes == 0)
+                            {
+                                removedTimes++;
+                                continue;
+                            }
+                        }
+                        playerName = line.Split("  ⟶")[0].Replace($"{player.DiscordUsername}  ", "")
+                            .Replace($" {player.DiscordUsername}", "").Replace("<:war:561287719838547981>", "").Trim();
+                        var playerClass = game.PlayersList.Find(x => x.DiscordUsername == playerName);
+                        if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) && playerClass.GetPlayerId() != player.GetPlayerId())
+                            player.Predict.Add(new PredictClass("Загадочный Спартанец в маске", playerClass.GetPlayerId()));
+                    }
+                }
+
+                //not 100%
+                if (lastRoundEvents.Contains("Стёб"))
+                {
+                    var removedTimes = 0;
+                    foreach (var line in globalLogs.Split("\n"))
+                    {
+                        if (!line.Contains("⟶")) continue;
+                        if (!line.Contains(player.DiscordUsername)) continue;
+                        string playerName;
+                        if (lastRoundEvents.Contains(" напал на игрока "))
+                        {
+                            playerName = lastRoundEvents.Split(" напал на игрока ")[1].Split("\n")[0];
+                            if (line.Contains(playerName) && removedTimes == 0)
+                            {
+                                removedTimes++;
+                                continue;
+                            }
+                        }
+                        playerName = line.Split("  ⟶")[0].Replace($"{player.DiscordUsername}  ", "")
+                            .Replace($" {player.DiscordUsername}", "").Replace("<:war:561287719838547981>", "").Trim();
+                        var playerClass = game.PlayersList.Find(x => x.DiscordUsername == playerName);
+                        if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) && playerClass.GetPlayerId() != player.GetPlayerId())
+                            player.Predict.Add(new PredictClass("DeepList", playerClass.GetPlayerId()));
+                    }
+                }
+
+            }
+            catch (Exception exception)
+            {
+                _log.Critical(exception.Message);
+                _log.Critical(exception.StackTrace);
+            }
+        }
+    }
+    //end predict bot
 
     //unique
     public void HandleShark(GameClass game)

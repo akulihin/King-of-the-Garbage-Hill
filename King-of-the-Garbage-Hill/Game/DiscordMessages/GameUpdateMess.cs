@@ -911,6 +911,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             return new ButtonBuilder($"Обменять 20 Морали на 100 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
         if (player.Character.GetMoral() >= 13)
             return new ButtonBuilder($"Обменять 13 Морали на 50 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
+        if (player.Character.GetMoral() >= 7 && player.Character.Name is "Толя" or "LeCrisp")
+            return new ButtonBuilder($"Обменять 7 Морали на 40 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
         if (player.Character.GetMoral() >= 8)
             return new ButtonBuilder($"Обменять 8 Морали на 30 Cкилла{extraText}", "skill", ButtonStyle.Secondary, isDisabled: disabled);
         if (player.Character.GetMoral() >= 5)

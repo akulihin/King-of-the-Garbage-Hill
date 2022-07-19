@@ -294,7 +294,7 @@ public class General : ModuleBaseCustom
         if (playersList.Any(x => x.Character.Name == "mylorik"))
         {
             var mylorik = playersList.Find(x => x.Character.Name == "mylorik");
-            mylorik.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*");
+            mylorik.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*\n");
         }
         //
 
@@ -303,7 +303,7 @@ public class General : ModuleBaseCustom
         {
             var spartan = playersList.Find(x => x.Character.Name == "Загадочный Спартанец в маске");
             spartan.Character.SetSkillMultiplier(1);
-            spartan.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*");
+            spartan.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*\n");
         }
         //end Загадочный Спартанец в маске
 
@@ -543,6 +543,7 @@ public class General : ModuleBaseCustom
 
         //handle round #0
         await _characterPassives.HandleNextRound(game);
+        _characterPassives.HandleBotPredict(game);
 
         foreach (var player in playersList) await _upd.UpdateMessage(player);
         game.IsCheckIfReady = true;

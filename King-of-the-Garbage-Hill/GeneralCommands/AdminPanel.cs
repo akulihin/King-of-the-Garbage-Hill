@@ -126,6 +126,7 @@ public class AdminPanel : ModuleBaseCustom
 
         //handle round #0
         await _characterPassives.HandleNextRound(game);
+        _characterPassives.HandleBotPredict(game);
 
         foreach (var player in playersList) await _upd.UpdateMessage(player);
         game.IsCheckIfReady = true;

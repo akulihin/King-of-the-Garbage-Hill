@@ -145,10 +145,17 @@ public class CheckIfReady : IServiceSingleton
                  from predict in player.Predict
                  let enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId)
                  where enemy.Character.Name == predict.CharacterName
-                 select player) player.Status.AddBonusPoints(3, "Предположение");
+                 select player)
+        {
+            if (player.Character.Name == "AWDKA")
+            {
+                var dd = 0;
+            }
+            player.Status.AddBonusPoints(3, "Предположение");
+        }
         // predict
 
-
+        /*
         //predict bot
         foreach (var bot in game.PlayersList)
         {
@@ -157,7 +164,7 @@ public class CheckIfReady : IServiceSingleton
             if (game.Teams.Count > 0)
             {
                 bot.Status.AddBonusPoints(15, "Предположение");
-                continue;
+                continue;   
             }
 
             if (game.GetAllGlobalLogs().Contains("Толя запизделся"))
@@ -176,6 +183,7 @@ public class CheckIfReady : IServiceSingleton
             }
         }
         //end bot
+        */
 
         //sort
         game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();

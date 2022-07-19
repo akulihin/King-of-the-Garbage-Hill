@@ -267,6 +267,12 @@ public sealed class GameReaction : IServiceSingleton
                             player.Character.AddExtraSkill(player.Status,  50, "Обмен Морали");
                             extraText = "Мораль: MVP! +50 *Скилла*";
                         }
+                        else if (!player.IsBot() && player.Character.GetMoral() >= 7 && player.Character.Name is "Толя" or "LeCrisp")
+                        {
+                            player.Character.AddMoral(player.Status, -7, "Обмен Морали", true, true);
+                            player.Character.AddExtraSkill(player.Status, 40, "Обмен Морали");
+                            extraText = "Мораль: 7:40! Время танцевать! +40 *Скилла*";
+                        }
                         else if (player.Character.GetMoral() >= 8)
                         {
                             player.Character.AddMoral(player.Status, -8, "Обмен Морали", true, true);
