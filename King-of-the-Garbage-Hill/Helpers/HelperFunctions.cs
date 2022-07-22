@@ -167,7 +167,7 @@ public sealed class HelperFunctions : IServiceSingleton
         "Ticklebutt",
         "Pebbles",
         "Bandit",
-        "T-Dawg",
+        "TDawg",
         "Boo Bear",
         "Anvil",
         "Gumdrop",

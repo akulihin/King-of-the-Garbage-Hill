@@ -2835,6 +2835,7 @@ public class CharacterPassives : IServiceSingleton
             try
             {
                 if (!player.IsBot()) continue;
+                if(game.RoundNo >= 9) continue;
 
                 var splitLogs = player.Status.InGamePersonalLogsAll.Split("|||");
 
