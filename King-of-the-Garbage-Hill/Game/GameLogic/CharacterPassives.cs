@@ -45,6 +45,17 @@ public class CharacterPassives : IServiceSingleton
 
         switch (characterName)
         {
+            case "Осьминожка":
+                // Неуязвимость
+                var octopusInvulnerability = _gameGlobal.OctopusInvulnerability.Find(x =>
+                    x.PlayerId == target.GetPlayerId() && target.GameId == x.GameId);
+                if (octopusInvulnerability != null)
+                {
+                    octopusInvulnerability.CurrentAttacker = me.GetPlayerId();
+                    me.Character.ExtraWeight = me.Character.GetStrength() * -1;
+                }
+                //end Неуязвимость
+                break;
             case "Краборак":
                 //Панцирь
                 var сraboRackShell = _gameGlobal.CraboRackShell.Find(x =>
@@ -60,7 +71,7 @@ public class CharacterPassives : IServiceSingleton
                     }
                 //end Панцирь
 
-                //Бокобуль
+                // Хождение боком
                 var сraboBakoBoole = _gameGlobal.CraboRackBakoBoole.Find(x =>
                     x.PlayerId == target.GetPlayerId() && target.GameId == x.GameId);
                 if (сraboBakoBoole != null)
@@ -69,7 +80,7 @@ public class CharacterPassives : IServiceSingleton
                     me.Character.ExtraWeight = me.Character.GetSpeed() * -1;
                 }
 
-                //end  Бокобуль
+                //end Хождение боком
                 break;
 
             case "Братишка":
@@ -87,12 +98,12 @@ public class CharacterPassives : IServiceSingleton
 
 
                 // Ничего не понимает
-                var bratishkaDontUnderstand = _gameGlobal.BtratishkaDontUnderstand.Find(x =>
+                var bratishkaDontUnderstand = _gameGlobal.SharkDontUnderstand.Find(x =>
                     x.PlayerId == target.GetPlayerId() && target.GameId == x.GameId);
                 if (bratishkaDontUnderstand != null)
                 {
                     bratishkaDontUnderstand.CurrentAttacker = me.GetPlayerId();
-                    me.Character.ExtraWeight = me.Character.GetSpeed() * -1;
+                    me.Character.ExtraWeight = me.Character.GetIntelligence() * -1;
                 }
                 //end  Ничего не понимает
 
@@ -761,18 +772,17 @@ public class CharacterPassives : IServiceSingleton
                     }
                 //end Панцирь
 
-                //Бокобуль
+                //Хождение боком
                 var сraboBakoBoole = _gameGlobal.CraboRackBakoBoole.Find(x =>
                     x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
                 if (сraboBakoBoole != null)
                     if (сraboBakoBoole.CurrentAttacker != Guid.Empty)
                     {
-                        game.PlayersList.Find(x => x.GetPlayerId() == сraboBakoBoole.CurrentAttacker).Character
-                            .ExtraWeight = 0;
+                        game.PlayersList.Find(x => x.GetPlayerId() == сraboBakoBoole.CurrentAttacker).Character.ExtraWeight = 0;
                         сraboBakoBoole.CurrentAttacker = Guid.Empty;
                     }
 
-                //end  Бокобуль
+                //end Хождение боком
                 break;
 
             case "DeepList":
@@ -1106,7 +1116,7 @@ public class CharacterPassives : IServiceSingleton
                 break;
             case "Осьминожка":
 
-                //привет со дна
+                /*//привет со дна
                 if (player.Status.IsWonThisCalculation != Guid.Empty)
                 {
                     var moral = player.Status.PlaceAtLeaderBoard - game.PlayersList
@@ -1114,7 +1124,18 @@ public class CharacterPassives : IServiceSingleton
                     if (moral > 0)
                         player.Character.AddMoral(player.Status, moral, "Привет со дна");
                 }
-                //end привет со дна
+                //end привет со дна*/
+
+                //Неуязвимость
+                var octopusInvulnerability = _gameGlobal.OctopusInvulnerability.Find(x =>
+                    x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
+                if (octopusInvulnerability != null)
+                    if (octopusInvulnerability.CurrentAttacker != Guid.Empty)
+                    {
+                        game.PlayersList.Find(x => x.GetPlayerId() == octopusInvulnerability.CurrentAttacker).Character.ExtraWeight = 0;
+                        octopusInvulnerability.CurrentAttacker = Guid.Empty;
+                    }
+                //end Неуязвимость
 
                 break;
             case "Darksci":
@@ -1226,13 +1247,12 @@ public class CharacterPassives : IServiceSingleton
                 //end Челюсти: 
 
                 //ничего не понимает
-                var btratishkaDontUnderstand = _gameGlobal.BtratishkaDontUnderstand.Find(x =>
+                var btratishkaDontUnderstand = _gameGlobal.SharkDontUnderstand.Find(x =>
                     x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
                 if (btratishkaDontUnderstand != null)
                     if (btratishkaDontUnderstand.CurrentAttacker != Guid.Empty)
                     {
-                        game.PlayersList.Find(x => x.GetPlayerId() == btratishkaDontUnderstand.CurrentAttacker)
-                            .Character.ExtraWeight = 0;
+                        game.PlayersList.Find(x => x.GetPlayerId() == btratishkaDontUnderstand.CurrentAttacker).Character.ExtraWeight = 0;
                         btratishkaDontUnderstand.CurrentAttacker = Guid.Empty;
                     }
 
@@ -1556,7 +1576,7 @@ public class CharacterPassives : IServiceSingleton
 
                     break;
                 case "Краборак":
-                    //Бокобуль:
+                    //Хождение боком:
                     var craboRack = _gameGlobal.CraboRackSidewaysBooleList.Find(x =>
                         x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId &&
                         x.RoundItTriggered == game.RoundNo);
@@ -1566,11 +1586,11 @@ public class CharacterPassives : IServiceSingleton
                         var regularStats = craboRack.MadnessList.Find(x => x.Index == 1);
                         var madStats = craboRack.MadnessList.Find(x => x.Index == 2);
                         var speed = player.Character.GetSpeed() - madStats.Speed;
-                        player.Character.SetSpeed(player.Status, regularStats.Speed + speed, "Бокобуль", false);
+                        player.Character.SetSpeed(player.Status, regularStats.Speed + speed, "Хождение боком", false);
                         _gameGlobal.CraboRackSidewaysBooleList.Remove(craboRack);
                     }
 
-                    //end Бокобуль
+                    //end Хождение боком
                     break;
                 case "LeCrisp":
 
@@ -2322,7 +2342,7 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Краборак":
-                    //Бокобуль:
+                    //Хождение боком:
                     acc = _gameGlobal.CraboRackSidewaysBooleTriggeredWhen.Find(x =>
                         x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
                     if (acc != null)
@@ -2344,13 +2364,13 @@ public class CharacterPassives : IServiceSingleton
 
                             var speed = 10;
 
-                            player.Character.SetSpeed(player.Status, speed, "Бокобуль");
+                            player.Character.SetSpeed(player.Status, speed, "Хождение боком");
                             craboRack.MadnessList.Add(new DeepList.MadnessSub(2, player.Character.GetIntelligence(),
                                 player.Character.GetStrength(), speed, player.Character.GetPsyche()));
                             game.Phrases.CraboRackSidewaysBoolePhrase.SendLog(player, true);
                         }
 
-                    //end Бокобуль
+                    //end Хождение боком
                     break;
                 case "DeepList":
 

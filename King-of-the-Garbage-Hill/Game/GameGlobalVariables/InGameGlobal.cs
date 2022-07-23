@@ -15,20 +15,17 @@ public class InGameGlobal : IServiceSingleton
 {
     private readonly Logs _logs;
     private readonly SecureRandom _rand;
-    public readonly List<WhenToTriggerClass> AwdkaAfkTriggeredWhen = new();
 
+    public readonly List<WhenToTriggerClass> AwdkaAfkTriggeredWhen = new();
     public readonly List<Sirinoks.TrainingClass> AwdkaTeachToPlay = new();
     public readonly List<Awdka.TeachToPlayHistory> AwdkaTeachToPlayHistory = new();
     public readonly List<DeepList.Madness> AwdkaTeachToPlayTempStats = new();
     public readonly List<Awdka.TrollingClass> AwdkaTrollingList = new();
     public readonly List<Awdka.TryingClass> AwdkaTryingList = new();
 
-    public readonly List<CraboRack.BakoBoole> BtratishkaDontUnderstand = new();
     public readonly List<CraboRack.BakoBoole> CraboRackBakoBoole = new();
     public readonly List<CraboRack.Shell> CraboRackShell = new();
     public readonly List<DeepList.Madness> CraboRackSidewaysBooleList = new();
-
-
     public readonly List<WhenToTriggerClass> CraboRackSidewaysBooleTriggeredWhen = new();
 
     public readonly List<Darksci.LuckyClass> DarksciLuckyList = new();
@@ -55,7 +52,6 @@ public class InGameGlobal : IServiceSingleton
     public readonly List<HardKitty.MuteClass> HardKittyMute = new();
 
     public readonly List<LeCrisp.LeCrispAssassins> LeCrispAssassins = new();
-
     public readonly List<LeCrisp.LeCrispImpactClass> LeCrispImpact = new();
 
 
@@ -70,17 +66,15 @@ public class InGameGlobal : IServiceSingleton
     public readonly List<Mylorik.MylorikSpanishClass> MylorikSpanish = new();
     public readonly List<Mylorik.MylorikSpartanClass> MylorikSpartan = new();
 
-    public readonly List<BotsBehavior.NanobotClass> NanobotsList = new();
-
-
     public readonly List<Octopus.InkClass> OctopusInkList = new();
     public readonly List<Octopus.InvulnerabilityClass> OctopusInvulnerabilityList = new();
     public readonly List<Octopus.TentaclesClass> OctopusTentaclesList = new();
+    public readonly List<CraboRack.BakoBoole> OctopusInvulnerability = new();
 
     public readonly List<FriendsClass> SharkBoole = new();
-
     public readonly List<Shark.SharkLeaderClass> SharkJawsLeader = new();
     public readonly List<FriendsClass> SharkJawsWin = new();
+    public readonly List<CraboRack.BakoBoole> SharkDontUnderstand = new();
 
     public readonly List<Sirinoks.SirinoksFriendsClass> SirinoksFriendsAttack = new();
     public readonly List<FriendsClass> SirinoksFriendsList = new();
@@ -98,10 +92,12 @@ public class InGameGlobal : IServiceSingleton
     public readonly List<Tolya.TolyaCountClass> TolyaCount = new();
     public readonly List<FriendsClass> TolyaRammusTimes = new();
     public readonly List<Tolya.TolyaTalkedlClass> TolyaTalked = new();
-    public readonly List<TutorialReactions.TutorialGame> Tutorials = new();
 
     public readonly List<Vampyr.HematophagiaClass> VampyrHematophagiaList = new();
     public readonly List<Vampyr.ScavengerClass> VampyrScavengerList = new();
+
+    public readonly List<TutorialReactions.TutorialGame> Tutorials = new();
+    public readonly List<BotsBehavior.NanobotClass> NanobotsList = new();
 
     public InGameGlobal(SecureRandom rand, Logs logs)
     {
@@ -219,8 +215,8 @@ public class InGameGlobal : IServiceSingleton
                         game.GameId));
                     break;
                 case "Осьминожка":
-                    OctopusTentaclesList.Add(new Octopus.TentaclesClass(player.GetPlayerId(),
-                        game.GameId));
+                    OctopusTentaclesList.Add(new Octopus.TentaclesClass(player.GetPlayerId(), game.GameId));
+                    OctopusInvulnerability.Add(new CraboRack.BakoBoole(player.GetPlayerId(), game.GameId));
                     break;
                 case "Darksci":
                     DarksciLuckyList.Add(new Darksci.LuckyClass(player.GetPlayerId(), game.GameId));
@@ -243,7 +239,7 @@ public class InGameGlobal : IServiceSingleton
                     break;
                 case "Братишка":
                     SharkJawsLeader.Add(new Shark.SharkLeaderClass(player.GetPlayerId(), game.GameId));
-                    BtratishkaDontUnderstand.Add(new CraboRack.BakoBoole(player.GetPlayerId(), game.GameId));
+                    SharkDontUnderstand.Add(new CraboRack.BakoBoole(player.GetPlayerId(), game.GameId));
                     SharkJawsWin.Add(new FriendsClass(player.GetPlayerId(), game.GameId));
                     SharkBoole.Add(new FriendsClass(player.GetPlayerId(), game.GameId));
                     break;
@@ -358,10 +354,10 @@ public class InGameGlobal : IServiceSingleton
 
                     break;
                 case "Краборак":
-                    //Бокобуль
+                    //Хождение боком
                     when = GetWhenToTrigger(player, 3, 3, 10);
                     CraboRackSidewaysBooleTriggeredWhen.Add(when);
-                    //end Бокобуль
+                    //end Хождение боком
 
                     //Панцирь
                     CraboRackShell.Add(new CraboRack.Shell(player.GetPlayerId(), game.GameId));

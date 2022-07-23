@@ -268,6 +268,11 @@ public class CharacterClass
         {
             return;
         }
+
+        if (status.CharacterName == "Осьминожка")
+        {
+            howMuchToAdd = 4;   
+        }
         //end привет со дна
 
 

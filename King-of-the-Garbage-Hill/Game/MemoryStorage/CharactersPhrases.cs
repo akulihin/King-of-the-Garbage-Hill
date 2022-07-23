@@ -201,7 +201,7 @@ public class CharactersUniquePhrase
         DarksciFuckThisGame = new PhraseClass("Да всё нахуй эту игру");
         DarksciDysmoral = new PhraseClass("Дизмораль");
 
-        CraboRackSidewaysBoolePhrase = new PhraseClass("Бокобуль");
+        CraboRackSidewaysBoolePhrase = new PhraseClass("Хождение боком");
         //end
 
         //
