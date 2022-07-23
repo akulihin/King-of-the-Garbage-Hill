@@ -31,6 +31,7 @@ public sealed class Global : IServiceSingleton
     private ulong GamePlayingAndId { get; set; }
 
     public ConcurrentDictionary<string, WinRateClass> WinRates = new();
+
     public ConcurrentDictionary<ulong, GameClass> FinishedGamesList = new();
 
 
@@ -60,14 +61,19 @@ public sealed class Global : IServiceSingleton
     public class WinRateClass
     {
         public string CharacterName { get; set; }
-        public WinRateClass( int gameTimes, int winTimes)
+        public WinRateClass( string characterName)
         {
-            GameTimes = gameTimes;
-            WinTimes = winTimes;
+            CharacterName = characterName;
         }
 
-        public int WinTimes { get; set; }
-        public int GameTimes { get; set; }
+        public double Top1 { get; set; }
+        public double Top2 { get; set; }
+        public double Top3 { get; set; }
+        public double Top4 { get; set; }
+        public double Top5 { get; set; }
+        public double Top6 { get; set; }
+        public double GameTimes { get; set; }
         public double WinRate { get; set; }
+        public double Elo { get; set; }
     }
 }

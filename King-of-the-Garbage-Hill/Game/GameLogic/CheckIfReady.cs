@@ -1,14 +1,14 @@
-﻿using King_of_the_Garbage_Hill.DiscordFramework;
+﻿using System;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Timers;
+using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.FinishedGameLog;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
-using System;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Timers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
@@ -26,6 +26,9 @@ public class CheckIfReady : IServiceSingleton
     private readonly CalculateRound _round;
     private readonly GameUpdateMess _upd;
     private bool _looping;
+
+
+    private int finishedGames;
     public Timer LoopingTimer;
 
     public CheckIfReady(Global global, GameUpdateMess upd, CalculateRound round, FinishedGameLog finishedGameLog,
@@ -106,34 +109,26 @@ public class CheckIfReady : IServiceSingleton
             }
 
         //unique
-        if (game.PlayersList.Any(x => x.Character.Name == "DeepList") && game.PlayersList.Any(x => x.Character.Name == "mylorik"))
+        if (game.PlayersList.Any(x => x.Character.Name == "DeepList") &&
+            game.PlayersList.Any(x => x.Character.Name == "mylorik"))
         {
             var mylorik = game.PlayersList.Find(x => x.Character.Name == "mylorik");
             var deepList = game.PlayersList.Find(x => x.Character.Name == "DeepList");
 
             var genius = true;
             foreach (var deepListPredict in deepList.Predict)
-            {
                 genius = mylorik.Predict.Any(x =>
                     x.PlayerId == deepListPredict.PlayerId && x.CharacterName == deepListPredict.CharacterName);
-            }
 
             if (genius)
-            {
                 game.AddGlobalLogs("DeepList & mylorik: Гении мыслят одинакого или одно целое уничтожает воду.");
-            }
         }
 
         //
         if (playerWhoWon.Status.PlaceAtLeaderBoardHistory.Find(x => x.GameRound == 10).Place != 1)
-        {
             if (game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 1).Status.GetScore() !=
                 game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 2).Status.GetScore())
-            {
                 game.AddGlobalLogs($"**{playerWhoWon.DiscordUsername}** вырывает **очко** на последних секундах!");
-            }
-        }
-
     }
 
 
@@ -147,10 +142,6 @@ public class CheckIfReady : IServiceSingleton
                  where enemy.Character.Name == predict.CharacterName
                  select player)
         {
-            if (player.Character.Name == "AWDKA")
-            {
-                var dd = 0;
-            }
             player.Status.AddBonusPoints(3, "Предположение");
         }
         // predict
@@ -255,20 +246,16 @@ public class CheckIfReady : IServiceSingleton
         }
 
         foreach (var t in game.PlayersList)
-            t.Status.PlaceAtLeaderBoardHistory.Add(new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo, t.Status.PlaceAtLeaderBoard));
+            t.Status.PlaceAtLeaderBoardHistory.Add(
+                new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo, t.Status.PlaceAtLeaderBoard));
 
         HandlePostGameEvents(game);
 
 
-        if (game.PlayersList.First().Status.AutoMoveTimes >= 10)
-        {
-            game.PlayersList.First().DiscordUsername = "НейроБот";
-        }
+        if (game.PlayersList.First().Status.AutoMoveTimes >= 10) game.PlayersList.First().DiscordUsername = "НейроБот";
 
         if (game.PlayersList.First().Status.AutoMoveTimes >= 9 && game.PlayersList.First().Character.Name == "Тигр")
-        {
             game.PlayersList.First().DiscordUsername = "НейроБот";
-        }
 
         var isTeam = false;
         var wonScore = 0;
@@ -280,20 +267,12 @@ public class CheckIfReady : IServiceSingleton
         {
             isTeam = true;
             foreach (var player in game.PlayersList)
-            {
                 if (game.Teams.Find(x => x.TeamPlayers.Contains(player.Status.PlayerId))!.TeamId == 1)
-                {
                     team1Score += player.Status.GetScore();
-                }
                 else if (game.Teams.Find(x => x.TeamPlayers.Contains(player.Status.PlayerId))!.TeamId == 2)
-                {
                     team2Score += player.Status.GetScore();
-                }
                 else
-                {
                     team3Score += player.Status.GetScore();
-                }
-            }
 
             if (team1Score == team2Score && team3Score == 0)
             {
@@ -323,19 +302,17 @@ public class CheckIfReady : IServiceSingleton
                     wonScore = team3Score;
                 }
 
-                
-                
+
                 game.AddGlobalLogs($"\n**Команда #{wonTeam}** победила набрав {wonScore} Очков!");
 
                 if (wonTeam != 1)
                     game.AddGlobalLogs($"\nКоманда #1 Набрала {team1Score} Очков.");
                 if (wonTeam != 2)
                     game.AddGlobalLogs($"Команда #2 Набрала {team2Score} Очков.");
-                if (wonTeam != 3) 
+                if (wonTeam != 3)
                     if (team3Score > 0)
                         game.AddGlobalLogs($"Команда #3 Набрала {team3Score} Очков.");
             }
-
         }
         else
         {
@@ -345,9 +322,8 @@ public class CheckIfReady : IServiceSingleton
                     ? "\n**Ничья**"
                     : $"\n**{game.PlayersList.First().DiscordUsername}** победил, играя за **{game.PlayersList.First().Character.Name}**");
             if (!game.PlayersList.First().IsBot())
-            {
-                game.PlayersList.First().Status.SocketMessageFromBot.Channel.SendMessageAsync("__**Победа! Теперь ты Король этой Мусорной Горы. Пока-что...**__");
-            }
+                game.PlayersList.First().Status.SocketMessageFromBot.Channel
+                    .SendMessageAsync("__**Победа! Теперь ты Король этой Мусорной Горы. Пока-что...**__");
         }
 
         //todo: need to redo this system
@@ -398,12 +374,13 @@ public class CheckIfReady : IServiceSingleton
                     zbsPointsToGive = 10;
                     break;
             }
-            if(player.Status.GetScore() == game.PlayersList.First().Status.GetScore())
+
+            if (player.Status.GetScore() == game.PlayersList.First().Status.GetScore())
                 zbsPointsToGive = 100;
 
             if (isTeam)
             {
-                if(game.Teams.Find(x => x.TeamId == wonTeam).TeamPlayers.Contains(player.Status.PlayerId))
+                if (game.Teams.Find(x => x.TeamId == wonTeam).TeamPlayers.Contains(player.Status.PlayerId))
                     zbsPointsToGive = 100;
                 else
                     zbsPointsToGive = 50;
@@ -439,7 +416,8 @@ public class CheckIfReady : IServiceSingleton
             try
             {
                 if (!player.IsBot())
-                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync($"Спасибо за игру!\nВы заработали **{zbsPointsToGive}** ZBS points!\n\nВы можете потратить их в магазине - `*store`\nА вы знали? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганув его! Например `*st @Boole`");
+                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                        $"Спасибо за игру!\nВы заработали **{zbsPointsToGive}** ZBS points!\n\nВы можете потратить их в магазине - `*store`\nА вы знали? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганув его! Например `*st @Boole`");
             }
             catch (Exception exception)
             {
@@ -452,49 +430,80 @@ public class CheckIfReady : IServiceSingleton
         _global.GamesList.Remove(game);
     }
 
-
-    private int finishedGames = 0;
     private async Task NotifyOwner(GameClass game)
     {
-       
         foreach (var player in game.PlayersList)
         {
             _global.WinRates.TryGetValue(player.Character.Name, out var winrate);
-
             if (winrate == null)
-            {
-                var wins = 0;
-                if (player.Status.PlaceAtLeaderBoard == 1)
-                {
-                    wins++;
-                }
-                var value = new Global.WinRateClass(1, wins);
-                _global.WinRates.TryAdd(player.Character.Name, value);
-            }
-            else
-            {
-                winrate.GameTimes++;
-                if (player.Status.PlaceAtLeaderBoard == 1)
-                {
-                    winrate.WinTimes++;
-                }
-                winrate.WinRate = (double)winrate.WinTimes / winrate.GameTimes * 100;
-                winrate.CharacterName = player.Character.Name;
-            }
-        }
+                _global.WinRates.TryAdd(player.Character.Name, new Global.WinRateClass(player.Character.Name));
+            _global.WinRates.TryGetValue(player.Character.Name, out winrate);
 
+
+            winrate.GameTimes++;
+
+            switch (player.Status.PlaceAtLeaderBoard)
+            {
+                case 1:
+                    winrate.Top1++;
+                    break;
+                case 2:
+                    winrate.Top2++;
+                    break;
+                case 3:
+                    winrate.Top3++;
+                    break;
+                case 4:
+                    winrate.Top4++;
+                    break;
+                case 5:
+                    winrate.Top5++;
+                    break;
+                case 6:
+                    winrate.Top6++;
+                    break;
+            }
+
+            winrate.WinRate = winrate.Top1 / winrate.GameTimes * 100;
+            winrate.CharacterName = player.Character.Name;
+            winrate.Elo = winrate.Top1 / winrate.GameTimes * 100 * 3 + winrate.Top2 / winrate.GameTimes * 100 * 2 + winrate.Top3 / winrate.GameTimes * 100 - winrate.Top4 / winrate.GameTimes * 100 - winrate.Top5 / winrate.GameTimes * 100 * 2 - winrate.Top6 / winrate.GameTimes * 100 * 3;
+        }
         finishedGames++;
+
+        //top1 winrate
         if (finishedGames % 1000 == 0)
         {
             var winRates = _global.WinRates.Values.ToList();
 
-            var text = $"Total Games: {_global.GetLastGamePlayingAndId()}\n";
+            var text = $"**--------------------------------------------------------------------**\nTotal Games: {_global.GetLastGamePlayingAndId()}\n**TOP1**\n";
+
+            var index = 1;
             foreach (var winRate in winRates.OrderByDescending(x => x.WinRate))
             {
-                text += $"{winRate.CharacterName} - {winRate.WinRate.ToString("0.##")}% ({winRate.WinTimes}/{winRate.GameTimes})\n";
+                text += $"{index}. {winRate.CharacterName}: {winRate.WinRate.ToString("0.##")}% ({winRate.Top1}/{winRate.GameTimes})\n";
+                index++;
             }
+
             await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(text);
         }
+
+        //elo winrate
+        if (finishedGames % 1000 == 0)
+        {
+            var winRates = _global.WinRates.Values.ToList();
+
+
+            var text = $"**____**\n**ELO**\n";
+            var index = 1;
+            foreach (var winRate in winRates.OrderByDescending(x => x.Elo))
+            {
+                text += $"{index}. {winRate.CharacterName}: {(int)winRate.Elo}\n";
+                index++;
+            }
+            text += "**--------------------------------------------------------------------**";
+            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(text);
+        }
+        //elo winrate end
 
         try
         {
@@ -516,6 +525,7 @@ public class CheckIfReady : IServiceSingleton
             _logs.Critical(exception.Message);
             _logs.Critical(exception.StackTrace);
         }
+        //top1 winrate end
     }
 
 
@@ -591,13 +601,14 @@ public class CheckIfReady : IServiceSingleton
             game.IsCheckIfReady = false;
 
 
-
             //If did do anything - Block
-            foreach (var t in players.Where(t => !t.IsBot() && !t.Status.IsAutoMove && t.Status.WhoToAttackThisTurn == Guid.Empty && t.Status.IsBlock == false && t.Status.IsSkip == false))
+            foreach (var t in players.Where(t =>
+                         !t.IsBot() && !t.Status.IsAutoMove && t.Status.WhoToAttackThisTurn == Guid.Empty &&
+                         t.Status.IsBlock == false && t.Status.IsSkip == false))
             {
                 _logs.Warning($"\nWARN: {t.DiscordUsername} didn't do anything - Auto Move!\n");
                 t.Status.IsAutoMove = true;
-                var textAutomove = $"Ты не походил. Использовался Авто Ход\n";
+                var textAutomove = "Ты не походил. Использовался Авто Ход\n";
                 t.Status.AddInGamePersonalLogs(textAutomove);
                 t.Status.ChangeMindWhat = textAutomove;
             }
@@ -607,7 +618,7 @@ public class CheckIfReady : IServiceSingleton
             {
                 _logs.Warning($"\nWARN: {t.DiscordUsername} didn't do anything - Auto LvL!\n");
                 t.Status.IsAutoMove = true;
-                var textAutomove = $"Ты не походил. Использовался Авто Ход\n";
+                var textAutomove = "Ты не походил. Использовался Авто Ход\n";
                 t.Status.AddInGamePersonalLogs(textAutomove);
                 t.Status.ChangeMindWhat = textAutomove;
             }
@@ -625,6 +636,7 @@ public class CheckIfReady : IServiceSingleton
 
                 game.PlayersList[^1] = tempHard;
             }
+
             //выдаем место в таблице
             for (var k = 0; k < game.PlayersList.Count; k++) game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
             //end //AWDKA last
@@ -650,18 +662,19 @@ public class CheckIfReady : IServiceSingleton
 
                 game.PlayersList[^1] = tempHard;
             }
+
             //выдаем место в таблице
             for (var k = 0; k < game.PlayersList.Count; k++) game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
             //end //AWDKA last
 
 
-            foreach (var t in players.Where(t => t.Status.WhoToAttackThisTurn == Guid.Empty && t.Status.IsBlock == false && t.Status.IsSkip == false))
-            {
+            foreach (var t in players.Where(t =>
+                         t.Status.WhoToAttackThisTurn == Guid.Empty && t.Status.IsBlock == false &&
+                         t.Status.IsSkip == false))
                 _logs.Critical($"\nCRIT: {t.DiscordUsername} didn't do anything  and auto move didn't as well.!\n");
-            }
 
             //delete messages from prev round. No await.
-                foreach (var player in game.PlayersList) await _help.DeleteItAfterRound(player);
+            foreach (var player in game.PlayersList) await _help.DeleteItAfterRound(player);
 
             await _round.CalculateAllFights(game);
             //await Task.Delay(1);
@@ -693,6 +706,4 @@ public class CheckIfReady : IServiceSingleton
 
         _looping = false;
     }
-
-
 }

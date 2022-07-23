@@ -55,7 +55,7 @@ public class CharacterPassives : IServiceSingleton
                         сraboRackShell.FriendList.Add(me.GetPlayerId());
                         сraboRackShell.CurrentAttacker = me.GetPlayerId();
                         target.Character.AddMoral(target.Status, 6, "Панцирь");
-                        target.Character.AddExtraSkill(target.Status,  30, "Панцирь");
+                        target.Character.AddExtraSkill(target.Status, 30, "Панцирь");
                         target.Status.IsBlock = true;
                     }
                 //end Панцирь
@@ -85,7 +85,7 @@ public class CharacterPassives : IServiceSingleton
                 }
                 //end Ничего не понимает: 
 
-                
+
                 // Ничего не понимает
                 var bratishkaDontUnderstand = _gameGlobal.BtratishkaDontUnderstand.Find(x =>
                     x.PlayerId == target.GetPlayerId() && target.GameId == x.GameId);
@@ -95,7 +95,7 @@ public class CharacterPassives : IServiceSingleton
                     me.Character.ExtraWeight = me.Character.GetSpeed() * -1;
                 }
                 //end  Ничего не понимает
-                
+
                 break;
 
             case "Глеб":
@@ -103,9 +103,10 @@ public class CharacterPassives : IServiceSingleton
                 var rand = _rand.Random(1, 9);
                 if (rand == 1)
                 {
-                    var acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x => x.PlayerId == target.GetPlayerId() && target.GameId == x.GameId);
+                    var acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
+                        x.PlayerId == target.GetPlayerId() && target.GameId == x.GameId);
 
-                   
+
                     if (acc.WhenToTrigger.Contains(game.RoundNo))
                         return;
 
@@ -115,9 +116,10 @@ public class CharacterPassives : IServiceSingleton
                         target.Status.IsSkip = true;
                         _gameGlobal.GlebSkipList.Add(new Gleb.GlebSkipClass(target.GetPlayerId(), game.GameId));
                         game.Phrases.GlebComeBackPhrase.SendLog(target, true);
-                        
-                        var glebSkipFriendList = _gameGlobal.GlebSkipFriendList.Find(x => x.PlayerId == target.GetPlayerId() && game.GameId == x.GameId);
-                        if(!glebSkipFriendList.FriendList.Contains(me.GetPlayerId()))
+
+                        var glebSkipFriendList = _gameGlobal.GlebSkipFriendList.Find(x =>
+                            x.PlayerId == target.GetPlayerId() && game.GameId == x.GameId);
+                        if (!glebSkipFriendList.FriendList.Contains(me.GetPlayerId()))
                             glebSkipFriendList.FriendList.Add(me.GetPlayerId());
                     }
                 }
@@ -229,8 +231,6 @@ public class CharacterPassives : IServiceSingleton
                 //end Запах мусора
                 break;
         }
-
-        
     }
 
     public void HandleDefenseAfterBlockOrFight(GamePlayerBridgeClass target, GamePlayerBridgeClass me, GameClass game)
@@ -241,15 +241,18 @@ public class CharacterPassives : IServiceSingleton
         {
             case "LeCrisp":
                 //Гребанные ассассин
-                if (me.Character.GetStrength() - target.Character.GetStrength() >= 3 && !target.Status.IsBlock && !target.Status.IsSkip)
+                if (me.Character.GetStrength() - target.Character.GetStrength() >= 3 && !target.Status.IsBlock &&
+                    !target.Status.IsSkip)
                 {
                     target.Status.IsAbleToWin = true;
                 }
                 else
                 {
-                    var leCrip = _gameGlobal.LeCrispAssassins.Find(x => x.PlayerId == target.GetPlayerId() && game.GameId == x.GameId);
+                    var leCrip = _gameGlobal.LeCrispAssassins.Find(x =>
+                        x.PlayerId == target.GetPlayerId() && game.GameId == x.GameId);
                     leCrip.AdditionalPsycheForNextRound += 1;
                 }
+
                 //end Гребанные ассассин
                 break;
         }
@@ -264,13 +267,15 @@ public class CharacterPassives : IServiceSingleton
         {
             case "Глеб":
                 //Я щас приду:
-                var glebSkipFriendList = _gameGlobal.GlebSkipFriendList.Find(x => x.PlayerId == target.GetPlayerId() && game.GameId == x.GameId);
+                var glebSkipFriendList = _gameGlobal.GlebSkipFriendList.Find(x =>
+                    x.PlayerId == target.GetPlayerId() && game.GameId == x.GameId);
                 if (glebSkipFriendList.FriendList.Contains(me.GetPlayerId()))
                 {
                     glebSkipFriendList.FriendList.Remove(me.GetPlayerId());
                     me.Character.AddMoral(me.Status, 9, "Я щас приду", false);
                     me.Status.AddInGamePersonalLogs("Я щас приду: +9 *Морали*. Вы дождались Глеба!!! Празднуем!");
                 }
+
                 //end Я щас приду:
                 break;
             case "LeCrisp":
@@ -304,7 +309,8 @@ public class CharacterPassives : IServiceSingleton
                 //Mute passive end
 
                 //Доебаться
-                var hardKittyDoebatsya = _gameGlobal.HardKittyDoebatsya.Find(x => x.PlayerId == target.GetPlayerId() && x.GameId == game.GameId);
+                var hardKittyDoebatsya = _gameGlobal.HardKittyDoebatsya.Find(x =>
+                    x.PlayerId == target.GetPlayerId() && x.GameId == game.GameId);
 
                 var found = hardKittyDoebatsya.LostSeries.Find(x => x.EnemyPlayerId == me.GetPlayerId());
                 if (found != null)
@@ -316,8 +322,6 @@ public class CharacterPassives : IServiceSingleton
 
                 break;
         }
-
-        
     }
 
 
@@ -491,14 +495,16 @@ public class CharacterPassives : IServiceSingleton
                         x.PlayerId == me.GetPlayerId() && x.GameId == game.GameId);
                     scavenger.EnemyId = target.GetPlayerId();
                     scavenger.EnemyJustice = target.Character.Justice.GetFullJusticeNow();
-                    target.Character.Justice.SetFullJusticeNow(target.Status, scavenger.EnemyJustice-1, "Падальщик", false);
+                    target.Character.Justice.SetFullJusticeNow(target.Status, scavenger.EnemyJustice - 1, "Падальщик",
+                        false);
                 }
 
                 //end Падальщик
                 break;
             case "mylorik":
                 // Спарта
-                var mylorikSpartan = _gameGlobal.MylorikSpartan.Find(x => x.GameId == me.GameId && x.PlayerId == me.GetPlayerId());
+                var mylorikSpartan =
+                    _gameGlobal.MylorikSpartan.Find(x => x.GameId == me.GameId && x.PlayerId == me.GetPlayerId());
                 var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.GetPlayerId());
                 if (mylorikEnemy == null)
                 {
@@ -528,7 +534,8 @@ public class CharacterPassives : IServiceSingleton
                         case 9:
                         case 10:
                             me.Character.SetSkillFightMultiplier(16);
-                            game.AddGlobalLogs($"mylorik: Айсик, можно тортик? У меня {me.Character.GetSkill()} *Скилла*!");
+                            game.AddGlobalLogs(
+                                $"mylorik: Айсик, можно тортик? У меня {me.Character.GetSkill()} *Скилла*!");
                             break;
                         default:
                             me.Character.SetSkillFightMultiplier();
@@ -536,9 +543,8 @@ public class CharacterPassives : IServiceSingleton
                     }
 
                     if (me.Character.GetSkillFightMultiplier() > 1)
-                    {
-                        me.Status.AddInGamePersonalLogs($"Спарта: {me.Character.GetSkill()} *Скилла* против {target.DiscordUsername}\n");
-                    }
+                        me.Status.AddInGamePersonalLogs(
+                            $"Спарта: {me.Character.GetSkill()} *Скилла* против {target.DiscordUsername}\n");
                 }
 
                 //end Cпарта
@@ -549,8 +555,6 @@ public class CharacterPassives : IServiceSingleton
                 //end Питается водорослями
                 break;
         }
-
-        
     }
 
     public void HandleAttackAfterFight(GamePlayerBridgeClass me, GamePlayerBridgeClass target, GameClass game)
@@ -562,13 +566,15 @@ public class CharacterPassives : IServiceSingleton
         {
             case "Глеб":
                 //Я щас приду:
-                var glebSkipFriendList = _gameGlobal.GlebSkipFriendList.Find(x => x.PlayerId == me.GetPlayerId() && game.GameId == x.GameId);
+                var glebSkipFriendList =
+                    _gameGlobal.GlebSkipFriendList.Find(x => x.PlayerId == me.GetPlayerId() && game.GameId == x.GameId);
                 if (glebSkipFriendList.FriendList.Contains(target.GetPlayerId()))
                 {
                     glebSkipFriendList.FriendList.Remove(target.GetPlayerId());
                     target.Character.AddMoral(target.Status, 9, "Я щас приду", false);
                     target.Status.AddInGamePersonalLogs("Я щас приду: +9 *Морали*. Вы дождались Глеба!!! Празднуем!");
                 }
+
                 //end Я щас приду:
                 break;
             case "Загадочный Спартанец в маске":
@@ -602,17 +608,17 @@ public class CharacterPassives : IServiceSingleton
                 //Падальщик
                 if (target.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
                 {
-                    var scavenger = _gameGlobal.VampyrScavengerList.Find(x => x.PlayerId == me.GetPlayerId() && x.GameId == game.GameId);
+                    var scavenger = _gameGlobal.VampyrScavengerList.Find(x =>
+                        x.PlayerId == me.GetPlayerId() && x.GameId == game.GameId);
 
                     if (scavenger.EnemyId == target.GetPlayerId())
                     {
-                        target.Character.Justice.SetFullJusticeNow(target.Status, scavenger.EnemyJustice, "Падальщик", false);
+                        target.Character.Justice.SetFullJusticeNow(target.Status, scavenger.EnemyJustice, "Падальщик",
+                            false);
                         scavenger.EnemyId = Guid.Empty;
                         scavenger.EnemyJustice = 0;
                         if (me.Status.IsWonThisCalculation == target.GetPlayerId())
-                        {
                             me.Character.AddMoral(me.Status, 3, "Падальщик");
-                        }
                     }
                 }
                 //end Падальщик
@@ -677,8 +683,10 @@ public class CharacterPassives : IServiceSingleton
 
                 if (darscsi.TouchedPlayers.Count == game.PlayersList.Count - 1 && darscsi.Triggered == false)
                 {
-                    var darksciType = _gameGlobal.DarksciTypeList.Find(x => x.PlayerId == me.GetPlayerId() && game.GameId == x.GameId);
-                    if(darksciType.IsStableType)
+                    var darksciType =
+                        _gameGlobal.DarksciTypeList.Find(x =>
+                            x.PlayerId == me.GetPlayerId() && game.GameId == x.GameId);
+                    if (darksciType.IsStableType)
                         me.Status.AddBonusPoints(me.Status.GetScore(), "Повезло");
                     else
                         me.Status.AddBonusPoints(me.Status.GetScore() * 3, "Повезло");
@@ -694,7 +702,8 @@ public class CharacterPassives : IServiceSingleton
                 // Cпарта
                 if (me.Status.WhoToAttackThisTurn == target.GetPlayerId())
                 {
-                    var mylorikSpartan = _gameGlobal.MylorikSpartan.Find(x => x.GameId == me.GameId && x.PlayerId == me.GetPlayerId());
+                    var mylorikSpartan =
+                        _gameGlobal.MylorikSpartan.Find(x => x.GameId == me.GameId && x.PlayerId == me.GetPlayerId());
                     var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == target.GetPlayerId());
                     if (mylorikEnemy == null)
                     {
@@ -712,8 +721,6 @@ public class CharacterPassives : IServiceSingleton
                 //end Cпарта
                 break;
         }
-
-        
     }
 
 
@@ -742,7 +749,6 @@ public class CharacterPassives : IServiceSingleton
         var characterName = player.Character.Name;
         switch (characterName)
         {
-
             case "Краборак":
                 //Панцирь
                 var сraboRackShell = _gameGlobal.CraboRackShell.Find(x =>
@@ -761,7 +767,8 @@ public class CharacterPassives : IServiceSingleton
                 if (сraboBakoBoole != null)
                     if (сraboBakoBoole.CurrentAttacker != Guid.Empty)
                     {
-                        game.PlayersList.Find(x => x.GetPlayerId() == сraboBakoBoole.CurrentAttacker).Character.ExtraWeight = 0;
+                        game.PlayersList.Find(x => x.GetPlayerId() == сraboBakoBoole.CurrentAttacker).Character
+                            .ExtraWeight = 0;
                         сraboBakoBoole.CurrentAttacker = Guid.Empty;
                     }
 
@@ -868,7 +875,8 @@ public class CharacterPassives : IServiceSingleton
                         if (mylorik.EnemyListPlayerIds.All(x =>
                                 x.EnemyPlayerId != player.Status.IsLostThisCalculation))
                         {
-                            mylorik.EnemyListPlayerIds.Add(new Mylorik.MylorikRevengeClassSub(player.Status.IsLostThisCalculation, game.RoundNo));
+                            mylorik.EnemyListPlayerIds.Add(
+                                new Mylorik.MylorikRevengeClassSub(player.Status.IsLostThisCalculation, game.RoundNo));
                             game.Phrases.MylorikRevengeLostPhrase.SendLog(player, true);
                         }
                     }
@@ -900,7 +908,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         boole.Times = 0;
                         player.Character.AddPsyche(player.Status, -1, "Испанец");
-                        player.Character.AddExtraSkill(player.Status,   10, "Испанец");
+                        player.Character.AddExtraSkill(player.Status, 10, "Испанец");
                         player.MinusPsycheLog(game);
                         game.Phrases.MylorikSpanishPhrase.SendLog(player, false);
                     }
@@ -912,7 +920,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             boole.Times = 0;
                             player.Character.AddPsyche(player.Status, -1, "Испанец");
-                            player.Character.AddExtraSkill(player.Status,  10, "Испанец");
+                            player.Character.AddExtraSkill(player.Status, 10, "Испанец");
                             player.MinusPsycheLog(game);
                             game.Phrases.MylorikSpanishPhrase.SendLog(player, false);
                         }
@@ -982,20 +990,13 @@ public class CharacterPassives : IServiceSingleton
                     if (found != null)
                         if (found.Series > 0)
                         {
-                            if (found.Series >= 10)
-                            {
-                                found.Series += 10;
-                            }
-                            player.Status.AddRegularPoints(found.Series*2, "Доебаться");
+                            if (found.Series >= 10) found.Series += 10;
+                            player.Status.AddRegularPoints(found.Series * 2, "Доебаться");
 
                             if (found.Series >= 10)
-                            {
                                 game.Phrases.HardKittyDoebatsyaLovePhrase.SendLog(player, false);
-                            }
                             else
-                            {
                                 game.Phrases.HardKittyDoebatsyaPhrase.SendLog(player, false);
-                            }
                             found.Series = 0;
                         }
                 }
@@ -1059,9 +1060,7 @@ public class CharacterPassives : IServiceSingleton
                     };
 
                     if (player.Character.GetCurrentSkillClassTarget() == playerIamAttacking.Character.GetSkillClass())
-                    {
-                        player.Character.AddExtraSkill(player.Status,  howMuchToAdd * 2, "Много выебывается");
-                    }
+                        player.Character.AddExtraSkill(player.Status, howMuchToAdd * 2, "Много выебывается");
                 }
 
                 //end Много выебывается
@@ -1110,8 +1109,9 @@ public class CharacterPassives : IServiceSingleton
                 //привет со дна
                 if (player.Status.IsWonThisCalculation != Guid.Empty)
                 {
-                    var moral = player.Status.PlaceAtLeaderBoard - game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation).Status.PlaceAtLeaderBoard;
-                    if(moral > 0) 
+                    var moral = player.Status.PlaceAtLeaderBoard - game.PlayersList
+                        .Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation).Status.PlaceAtLeaderBoard;
+                    if (moral > 0)
                         player.Character.AddMoral(player.Status, moral, "Привет со дна");
                 }
                 //end привет со дна
@@ -1165,7 +1165,7 @@ public class CharacterPassives : IServiceSingleton
                             if (enemy.WinsSeries >= 3 && enemy.IsUnique)
                             {
                                 player.Status.AddRegularPoints(3, "3-0 обоссан");
-                                player.Character.AddExtraSkill(player.Status,  30, "3-0 обоссан");
+                                player.Character.AddExtraSkill(player.Status, 30, "3-0 обоссан");
 
 
                                 var enemyAcc = game.PlayersList.Find(x =>
@@ -1226,11 +1226,13 @@ public class CharacterPassives : IServiceSingleton
                 //end Челюсти: 
 
                 //ничего не понимает
-                var btratishkaDontUnderstand = _gameGlobal.BtratishkaDontUnderstand.Find(x => x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
+                var btratishkaDontUnderstand = _gameGlobal.BtratishkaDontUnderstand.Find(x =>
+                    x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
                 if (btratishkaDontUnderstand != null)
                     if (btratishkaDontUnderstand.CurrentAttacker != Guid.Empty)
                     {
-                        game.PlayersList.Find(x => x.GetPlayerId() == btratishkaDontUnderstand.CurrentAttacker).Character.ExtraWeight = 0;
+                        game.PlayersList.Find(x => x.GetPlayerId() == btratishkaDontUnderstand.CurrentAttacker)
+                            .Character.ExtraWeight = 0;
                         btratishkaDontUnderstand.CurrentAttacker = Guid.Empty;
                     }
 
@@ -1263,7 +1265,8 @@ public class CharacterPassives : IServiceSingleton
                 //Это привилегия - умереть от моей руки
                 if (player.Status.IsWonThisCalculation != Guid.Empty && game.RoundNo > 4)
                 {
-                    game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation).Character.Justice.AddJusticeForNextRoundFromSkill();
+                    game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation).Character.Justice
+                        .AddJusticeForNextRoundFromSkill();
                     player.Character.AddIntelligence(player.Status, -1, "Это привилегия");
                 }
                 //end Это привилегия - умереть от моей руки
@@ -1334,7 +1337,8 @@ public class CharacterPassives : IServiceSingleton
                             }
                         }
 
-                        vampyr.Hematophagia.Add(new Vampyr.HematophagiaSubClass(statIndex, player.Status.IsWonThisCalculation));
+                        vampyr.Hematophagia.Add(new Vampyr.HematophagiaSubClass(statIndex,
+                            player.Status.IsWonThisCalculation));
                     }
                 }
 
@@ -1443,9 +1447,6 @@ public class CharacterPassives : IServiceSingleton
                 //end Сомнительная тактика
                 break;
         }
-
-
-        
     }
     //
 
@@ -1522,11 +1523,12 @@ public class CharacterPassives : IServiceSingleton
                         x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId &&
                         x.RoundItTriggered == game.RoundNo);
 
-                    
+
                     if (glebChall != null)
                     {
                         //x3 point:
-                        player.Status.SetScoresToGiveAtEndOfRound((int)player.Status.GetScoresToGiveAtEndOfRound() * 3, "Претендент русского сервера");
+                        player.Status.SetScoresToGiveAtEndOfRound((int)player.Status.GetScoresToGiveAtEndOfRound() * 3,
+                            "Претендент русского сервера");
                         //end x3 point:
 
                         var regularStats = glebChall.MadnessList.Find(x => x.Index == 1);
@@ -1539,11 +1541,15 @@ public class CharacterPassives : IServiceSingleton
                         var psy = player.Character.GetPsyche() - madStats.Psyche;
 
 
-                        player.Character.SetIntelligence(player.Status, regularStats.Intel + intel, "Претендент русского сервера", false);
-                        player.Character.SetStrength(player.Status, regularStats.Str + str, "Претендент русского сервера", false);
-                        player.Character.SetSpeed(player.Status, regularStats.Speed + speed, "Претендент русского сервера", false);
-                        player.Character.SetPsyche(player.Status, regularStats.Psyche + psy, "Претендент русского сервера", false);
-                        player.Character.AddExtraSkill(player.Status,  -99, "Претендент русского сервера", false);
+                        player.Character.SetIntelligence(player.Status, regularStats.Intel + intel,
+                            "Претендент русского сервера", false);
+                        player.Character.SetStrength(player.Status, regularStats.Str + str,
+                            "Претендент русского сервера", false);
+                        player.Character.SetSpeed(player.Status, regularStats.Speed + speed,
+                            "Претендент русского сервера", false);
+                        player.Character.SetPsyche(player.Status, regularStats.Psyche + psy,
+                            "Претендент русского сервера", false);
+                        player.Character.AddExtraSkill(player.Status, -99, "Претендент русского сервера", false);
                         _gameGlobal.GlebChallengerList.Remove(glebChall);
                     }
                     //end Претендент русского сервера
@@ -1570,12 +1576,15 @@ public class CharacterPassives : IServiceSingleton
 
 
                     //Гребанные ассассин
-                    var leCrip = _gameGlobal.LeCrispAssassins.Find(x => x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
+                    var leCrip = _gameGlobal.LeCrispAssassins.Find(x =>
+                        x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
 
                     if (leCrip.AdditionalPsycheCurrent > 0)
-                        player.Character.AddPsyche(player.Status, leCrip.AdditionalPsycheCurrent * -1, "Гребанные ассассины", false);
+                        player.Character.AddPsyche(player.Status, leCrip.AdditionalPsycheCurrent * -1,
+                            "Гребанные ассассины", false);
                     if (leCrip.AdditionalPsycheForNextRound > 0)
-                        player.Character.AddPsyche(player.Status, leCrip.AdditionalPsycheForNextRound, "Гребанные ассассины");
+                        player.Character.AddPsyche(player.Status, leCrip.AdditionalPsycheForNextRound,
+                            "Гребанные ассассины");
 
                     leCrip.AdditionalPsycheCurrent = leCrip.AdditionalPsycheForNextRound;
                     leCrip.AdditionalPsycheForNextRound = 0;
@@ -1635,7 +1644,8 @@ public class CharacterPassives : IServiceSingleton
 
 
                                 tolyaTalked.PlayerHeTalkedAbout.Add(randomPlayer.GetPlayerId());
-                                game.AddGlobalLogs($"Толя запизделся и спалил, что {randomPlayer.DiscordUsername} - {randomPlayer.Character.Name}");
+                                game.AddGlobalLogs(
+                                    $"Толя запизделся и спалил, что {randomPlayer.DiscordUsername} - {randomPlayer.Character.Name}");
                             }
                         }
                     }
@@ -1748,7 +1758,8 @@ public class CharacterPassives : IServiceSingleton
 
                 case "HardKitty":
                     //Одиночество
-                    var hard = _gameGlobal.HardKittyLoneliness.Find(x => x.GameId == player.GameId && x.PlayerId == player.GetPlayerId());
+                    var hard = _gameGlobal.HardKittyLoneliness.Find(x =>
+                        x.GameId == player.GameId && x.PlayerId == player.GetPlayerId());
                     if (hard != null) hard.Activated = false;
                     //Одиночество
                     break;
@@ -1806,7 +1817,7 @@ public class CharacterPassives : IServiceSingleton
                     //Дерзкая школота:
                     if (!player.Status.IsSkip)
                     {
-                        player.Character.AddExtraSkill(player.Status,  -20, "Дерзкая школота");
+                        player.Character.AddExtraSkill(player.Status, -20, "Дерзкая школота");
 
                         var randStat1 = _rand.Random(1, 4);
                         var randStat2 = _rand.Random(1, 4);
@@ -1878,8 +1889,6 @@ public class CharacterPassives : IServiceSingleton
                     break;
             }
         }
-
-        
     }
 
 
@@ -1949,15 +1958,18 @@ public class CharacterPassives : IServiceSingleton
                     // Повторяет за myloran
                     if (game.RoundNo == 5)
                     {
-                        player.Status.AddInGamePersonalLogs("ZaRDaK: Ты никогда не возьмешь даймонд, Лорик. Удачи в промо.");
+                        player.Status.AddInGamePersonalLogs(
+                            "ZaRDaK: Ты никогда не возьмешь даймонд, Лорик. Удачи в промо.");
                         player.Status.AddInGamePersonalLogs("\nmylorik: ММММММММММ!!!!!  +5 Силы.\n");
                         player.Character.AddStrength(player.Status, 5, "Повторяет за myloran", false);
                     }
 
                     if (game.RoundNo == 10)
                     {
-                        player.Status.AddInGamePersonalLogs("ZaRDaK: Ты так и не апнул чалланджер? Хах, неудивительно. ");
-                        player.Status.AddInGamePersonalLogs("\nmylorik закупился у продавца сомнительных тактик: +228 *Скилла*!\n");
+                        player.Status.AddInGamePersonalLogs(
+                            "ZaRDaK: Ты так и не апнул чалланджер? Хах, неудивительно. ");
+                        player.Status.AddInGamePersonalLogs(
+                            "\nmylorik закупился у продавца сомнительных тактик: +228 *Скилла*!\n");
                         player.Character.AddExtraSkill(player.Status, 228, "Повторяет за myloran", false);
                     }
                     //end Повторяет за myloran
@@ -2081,7 +2093,7 @@ public class CharacterPassives : IServiceSingleton
                             if (enemy.Times >= 2 && enemy.IsUnique == false)
                             {
                                 player.Status.LvlUpPoints += 2;
-                                player.Character.AddExtraSkill(player.Status,  20, "Я пытаюсь!", true);
+                                player.Character.AddExtraSkill(player.Status, 20, "Я пытаюсь!");
                                 await _gameUpdateMess.UpdateMessage(player);
                                 enemy.IsUnique = true;
                                 game.Phrases.AwdkaTrying.SendLog(player, true);
@@ -2200,7 +2212,7 @@ public class CharacterPassives : IServiceSingleton
                     var glebChalleger = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
                         x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
 
-                    
+
                     if (glebChalleger.WhenToTrigger.Contains(game.RoundNo))
                         rand = _rand.Random(1, 7);
 
@@ -2227,7 +2239,8 @@ public class CharacterPassives : IServiceSingleton
 
 
                     //Спящее хуйло:
-                    acc = _gameGlobal.GlebSleepingTriggeredWhen.Find(x => x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
+                    acc = _gameGlobal.GlebSleepingTriggeredWhen.Find(x =>
+                        x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
 
                     if (acc != null)
                         if (acc.WhenToTrigger.Contains(game.RoundNo))
@@ -2241,7 +2254,8 @@ public class CharacterPassives : IServiceSingleton
 
                             player.Character.AddExtraSkill(player.Status, -30, "Спящее хуйло");
 
-                            player.Character.AvatarCurrent = player.Character.AvatarEvent.Find(x => x.EventName == "Спящее хуйло").Url;
+                            player.Character.AvatarCurrent = player.Character.AvatarEvent
+                                .Find(x => x.EventName == "Спящее хуйло").Url;
                             game.Phrases.GlebSleepyPhrase.SendLog(player, false);
                         }
                         else
@@ -2251,33 +2265,37 @@ public class CharacterPassives : IServiceSingleton
 
                     if (game.RoundNo == 11)
                     {
-                        player.Character.AvatarCurrent = player.Character.AvatarEvent.Find(x => x.EventName == "Спящее хуйло").Url;
+                        player.Character.AvatarCurrent =
+                            player.Character.AvatarEvent.Find(x => x.EventName == "Спящее хуйло").Url;
                         game.Phrases.GlebSleepyPhrase.SendLog(player, false);
                     }
                     //end Спящее хуйло:
 
                     //Претендент русского сервера: 
-                    acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x => x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
+                    acc = _gameGlobal.GlebChallengerTriggeredWhen.Find(x =>
+                        x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
 
-                    if (game.RoundNo == 10 && !acc.WhenToTrigger.Contains(game.RoundNo) && player.Status.PlaceAtLeaderBoard > 2)
+                    if (game.RoundNo == 10 && !acc.WhenToTrigger.Contains(game.RoundNo) &&
+                        player.Status.PlaceAtLeaderBoard > 2)
                     {
                         // шанс = 1 / (40 - место глеба в таблице * 4)
-                        var bonusChallenger = _rand.Random(1, (40 - player.Status.PlaceAtLeaderBoard * 4));
-                        if (bonusChallenger == 15)
-                        {
-                            acc.WhenToTrigger.Add(game.RoundNo);
-                        }
+                        var bonusChallenger = _rand.Random(1, 40 - player.Status.PlaceAtLeaderBoard * 4);
+                        if (bonusChallenger == 15) acc.WhenToTrigger.Add(game.RoundNo);
                     }
 
                     if (acc.WhenToTrigger.Contains(game.RoundNo))
                     {
-                        var gleb = _gameGlobal.GlebChallengerList.Find(x => x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
+                        var gleb = _gameGlobal.GlebChallengerList.Find(x =>
+                            x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
                         //just check
                         if (gleb != null) _gameGlobal.GlebChallengerList.Remove(gleb);
 
-                        _gameGlobal.GlebChallengerList.Add(new DeepList.Madness(player.GetPlayerId(), game.GameId, game.RoundNo));
-                        gleb = _gameGlobal.GlebChallengerList.Find(x => x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
-                        gleb.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.GetIntelligence(), player.Character.GetStrength(), player.Character.GetSpeed(), player.Character.GetPsyche()));
+                        _gameGlobal.GlebChallengerList.Add(new DeepList.Madness(player.GetPlayerId(), game.GameId,
+                            game.RoundNo));
+                        gleb = _gameGlobal.GlebChallengerList.Find(x =>
+                            x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
+                        gleb.MadnessList.Add(new DeepList.MadnessSub(1, player.Character.GetIntelligence(),
+                            player.Character.GetStrength(), player.Character.GetSpeed(), player.Character.GetPsyche()));
 
                         //  var randomNumber =  _rand.Random(1, 100);
 
@@ -2291,7 +2309,7 @@ public class CharacterPassives : IServiceSingleton
                         player.Character.SetStrength(player.Status, str, "Претендент русского сервера");
                         player.Character.SetSpeed(player.Status, speed, "Претендент русского сервера");
                         player.Character.SetPsyche(player.Status, pshy, "Претендент русского сервера");
-                        player.Character.AddExtraSkill(player.Status,  99, "Претендент русского сервера");
+                        player.Character.AddExtraSkill(player.Status, 99, "Претендент русского сервера");
 
 
                         gleb.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
@@ -2475,7 +2493,7 @@ public class CharacterPassives : IServiceSingleton
                         player.Character.SetSpeed(player.Status, 10, "Дракон");
                         player.Character.SetPsyche(player.Status, 10, "Дракон");
 
-                        player.Character.AddExtraSkill(player.Status,  (int)player.Character.GetSkill(), "Дракон");
+                        player.Character.AddExtraSkill(player.Status, (int)player.Character.GetSkill(), "Дракон");
 
                         var pointsToGive = (int)(player.Character.GetSkill() / 20);
 
@@ -2654,7 +2672,8 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Darksci":
                     //Не повезло
-                    var darksciType = _gameGlobal.DarksciTypeList.Find(x => x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
+                    var darksciType = _gameGlobal.DarksciTypeList.Find(x =>
+                        x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
 
                     if (darksciType.IsStableType)
                     {
@@ -2758,7 +2777,6 @@ public class CharacterPassives : IServiceSingleton
                     break;
             }
         }
-
     }
 
 
@@ -2773,7 +2791,7 @@ public class CharacterPassives : IServiceSingleton
         switch (characterClass)
         {
             case "(**Умный** ?) ":
-                characters = new List<string>{ "DeepList", "Глеб", "LeCrisp", "Толя" };
+                characters = new List<string> { "DeepList", "Глеб", "LeCrisp", "Толя" };
                 switch (round)
                 {
                     case 1:
@@ -2786,6 +2804,7 @@ public class CharacterPassives : IServiceSingleton
                     case 8:
                         break;
                 }
+
                 break;
             case "(**Сильный** ?) ":
                 characters = new List<string> { "HardKitty", "Тигр", "Загадочный Спартанец в маске" };
@@ -2801,6 +2820,7 @@ public class CharacterPassives : IServiceSingleton
                     case 8:
                         break;
                 }
+
                 break;
             case "(**Быстрый** ?) ":
                 characters = new List<string> { "mylorik", "Осьминожка", "Darksci", "Братишка", "Краборак" };
@@ -2816,6 +2836,7 @@ public class CharacterPassives : IServiceSingleton
                     case 8:
                         break;
                 }
+
                 break;
         }
 
@@ -2827,23 +2848,22 @@ public class CharacterPassives : IServiceSingleton
 
         return characters;
     }
+
     public void HandleBotPredict(GameClass game)
     {
         //
         foreach (var player in game.PlayersList)
-        {
             try
             {
+                continue;
                 if (!player.IsBot()) continue;
-                if(game.RoundNo >= 9) continue;
+                if (game.RoundNo >= 9) continue;
 
                 var splitLogs = player.Status.InGamePersonalLogsAll.Split("|||");
 
                 var lastRoundEvents = "";
                 if (splitLogs.Length > 1 && splitLogs[^2].Length > 3 && game.RoundNo > 1)
-                {
                     lastRoundEvents = splitLogs[^2];
-                }
                 var personalLogs = player.Status.GetInGamePersonalLogs();
                 var globalLogs = game.GetGlobalLogs();
                 var leaderboard = _gameUpdateMess.LeaderBoard(player);
@@ -2862,16 +2882,19 @@ public class CharacterPassives : IServiceSingleton
 
                                 if (player.Character.GetIntelligenceString().Contains(":volibir:"))
                                 {
-                                    var stat = Convert.ToInt32(player.Character.GetIntelligenceString().Replace("Интеллект ", "").Split(" (")[0]);
+                                    var stat = Convert.ToInt32(player.Character.GetIntelligenceString()
+                                        .Replace("Интеллект ", "").Split(" (")[0]);
                                     switch (stat)
                                     {
                                         case 10:
-                                            if(player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
-                                                player.Predict.Add(new PredictClass("DeepList", playerClass.GetPlayerId()));
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
+                                                player.Predict.Add(new PredictClass("DeepList",
+                                                    playerClass.GetPlayerId()));
                                             break;
                                         case 9:
                                             if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
-                                                player.Predict.Add(new PredictClass("Mit*suki*", playerClass.GetPlayerId()));
+                                                player.Predict.Add(new PredictClass("Mit*suki*",
+                                                    playerClass.GetPlayerId()));
                                             break;
                                         case 8:
                                             if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
@@ -2881,23 +2904,27 @@ public class CharacterPassives : IServiceSingleton
                                             break;
                                         case 6:
                                             if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
-                                                player.Predict.Add(new PredictClass("Вампур", playerClass.GetPlayerId()));
+                                                player.Predict.Add(
+                                                    new PredictClass("Вампур", playerClass.GetPlayerId()));
                                             break;
                                         case 5:
                                             if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
-                                                player.Predict.Add(new PredictClass("Sirinoks", playerClass.GetPlayerId()));
+                                                player.Predict.Add(new PredictClass("Sirinoks",
+                                                    playerClass.GetPlayerId()));
                                             break;
                                     }
-                                    
                                 }
+
                                 if (player.Character.GetStrengthString().Contains(":volibir:"))
                                 {
-                                    var stat = Convert.ToInt32(player.Character.GetStrengthString().Replace("Сила ", "").Split(" (")[0]);
+                                    var stat = Convert.ToInt32(player.Character.GetStrengthString().Replace("Сила ", "")
+                                        .Split(" (")[0]);
                                     switch (stat)
                                     {
                                         case 10:
                                             if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
-                                                player.Predict.Add(new PredictClass("Загадочный Спартанец в маске", playerClass.GetPlayerId()));
+                                                player.Predict.Add(new PredictClass("Загадочный Спартанец в маске",
+                                                    playerClass.GetPlayerId()));
                                             break;
                                         case 9:
                                             if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
@@ -2913,20 +2940,24 @@ public class CharacterPassives : IServiceSingleton
                                             break;
                                     }
                                 }
+
                                 if (player.Character.GetSpeedString().Contains(":volibir:"))
                                 {
-                                    var stat = Convert.ToInt32(player.Character.GetSpeedString().Replace("Скорость ", "").Split(" (")[0]);
+                                    var stat = Convert.ToInt32(player.Character.GetSpeedString()
+                                        .Replace("Скорость ", "").Split(" (")[0]);
                                     switch (stat)
                                     {
                                         case 10:
                                             break;
                                         case 9:
                                             if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
-                                                player.Predict.Add(new PredictClass("mylorik", playerClass.GetPlayerId()));
+                                                player.Predict.Add(new PredictClass("mylorik",
+                                                    playerClass.GetPlayerId()));
                                             break;
                                         case 8:
                                             if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
-                                                player.Predict.Add(new PredictClass("Darksci", playerClass.GetPlayerId()));
+                                                player.Predict.Add(new PredictClass("Darksci",
+                                                    playerClass.GetPlayerId()));
                                             break;
                                         case 7:
                                             break;
@@ -2936,34 +2967,43 @@ public class CharacterPassives : IServiceSingleton
                                             break;
                                     }
                                 }
+
                                 if (player.Character.GetPsycheString().Contains(":volibir:"))
                                 {
-                                    var stat = Convert.ToInt32(player.Character.GetPsycheString().Replace("Психика ", "").Split(" (")[0]);
+                                    var stat = Convert.ToInt32(player.Character.GetPsycheString()
+                                        .Replace("Психика ", "").Split(" (")[0]);
                                     switch (stat)
                                     {
                                         case 10:
                                             var random = _rand.Random(0, 1);
-                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) && random == 1)
-                                                player.Predict.Add(new PredictClass("Осьминожка", playerClass.GetPlayerId()));
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) &&
+                                                random == 1)
+                                                player.Predict.Add(new PredictClass("Осьминожка",
+                                                    playerClass.GetPlayerId()));
                                             if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
-                                                player.Predict.Add(new PredictClass("Братишка", playerClass.GetPlayerId()));
+                                                player.Predict.Add(new PredictClass("Братишка",
+                                                    playerClass.GetPlayerId()));
                                             break;
                                         case 9:
                                             if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
-                                                player.Predict.Add(new PredictClass("Краборак", playerClass.GetPlayerId()));
+                                                player.Predict.Add(new PredictClass("Краборак",
+                                                    playerClass.GetPlayerId()));
                                             break;
                                         case 8:
-                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) && playerClass.Status.PlaceAtLeaderBoard == 6)
-                                                player.Predict.Add(new PredictClass("HardKitty", playerClass.GetPlayerId()));
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) &&
+                                                playerClass.Status.PlaceAtLeaderBoard == 6)
+                                                player.Predict.Add(new PredictClass("HardKitty",
+                                                    playerClass.GetPlayerId()));
                                             if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
                                                 player.Predict.Add(new PredictClass("Глеб", playerClass.GetPlayerId()));
                                             break;
                                         case 7:
                                             if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
-                                                player.Predict.Add(new PredictClass("LeCrisp", playerClass.GetPlayerId()));
+                                                player.Predict.Add(new PredictClass("LeCrisp",
+                                                    playerClass.GetPlayerId()));
                                             break;
                                         case 6:
-                        
+
                                             break;
                                         case 5:
                                             break;
@@ -2976,37 +3016,41 @@ public class CharacterPassives : IServiceSingleton
                             _log.Critical(exception.Message);
                             _log.Critical(exception.StackTrace);
                         }
+
                         break;
                     case "DeepList":
-                       var deepList = _gameGlobal.DeepListSupermindKnown.Find(x =>
+                        continue;
+                        var deepList = _gameGlobal.DeepListSupermindKnown.Find(x =>
                             x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
-                       if (deepList != null)
-                       {
-                           foreach (var knownPlayer in deepList.KnownPlayers)
-                           {
-                               var playerClass = game.PlayersList.Find(x => x.GetPlayerId() == knownPlayer);
+                        if (deepList != null)
+                            foreach (var knownPlayer in deepList.KnownPlayers)
+                            {
+                                var playerClass = game.PlayersList.Find(x => x.GetPlayerId() == knownPlayer);
 
-                               if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) && playerClass.GetPlayerId() != player.GetPlayerId())
-                                   player.Predict.Add(new PredictClass(playerClass.Character.Name, playerClass.GetPlayerId()));
-                           }
-                       }
-                       break;
+                                if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) &&
+                                    playerClass.GetPlayerId() != player.GetPlayerId())
+                                    player.Predict.Add(new PredictClass(playerClass.Character.Name,
+                                        playerClass.GetPlayerId()));
+                            }
+
+                        break;
                 }
 
+                continue;
                 //game.AddGlobalLogs($"Толя запизделся и спалил, что {randomPlayer.DiscordUsername} - {randomPlayer.Character.Name}");
                 //100%
                 if (globalLogs.Contains("Толя запизделся"))
                 {
                     var playerName = globalLogs.Split("запизделся и спалил")[1].Replace(", что ", "").Split(" - ")[^2];
-                    var playerCharacter = globalLogs.Split("запизделся и спалил")[1].Replace(", что ", "").Split(" - ")[^1].Replace("\n", "");
+                    var playerCharacter =
+                        globalLogs.Split("запизделся и спалил")[1].Replace(", что ", "").Split(" - ")[^1]
+                            .Replace("\n", "");
                     var playerClass = game.PlayersList.Find(x => x.DiscordUsername == playerName);
                     if (playerClass.GetPlayerId() != player.GetPlayerId())
                     {
                         if (player.Predict.Any(x => x.PlayerId == playerClass.GetPlayerId()))
-                        {
                             player.Predict.Remove(player.Predict.Find(x => x.PlayerId == playerClass.GetPlayerId()));
-                        }
                         player.Predict.Add(new PredictClass(playerCharacter, playerClass.GetPlayerId()));
                     }
                 }
@@ -3016,11 +3060,9 @@ public class CharacterPassives : IServiceSingleton
                 {
                     var playerName = lastRoundEvents.Split(" напал на игрока ")[1].Split("\n")[0];
                     var playerClass = game.PlayersList.Find(x => x.DiscordUsername == playerName);
-                    
+
                     if (player.Predict.Any(x => x.PlayerId == playerClass.GetPlayerId()))
-                    {
                         player.Predict.Remove(player.Predict.Find(x => x.PlayerId == playerClass.GetPlayerId()));
-                    }
                     player.Predict.Add(new PredictClass("Братишка", playerClass.GetPlayerId()));
                 }
 
@@ -3030,8 +3072,8 @@ public class CharacterPassives : IServiceSingleton
                     var removedTimes = 0;
                     foreach (var line in globalLogs.Split("\n"))
                     {
-                        if(!line.Contains("⟶")) continue;
-                        if(!line.Contains(player.DiscordUsername)) continue;
+                        if (!line.Contains("⟶")) continue;
+                        if (!line.Contains(player.DiscordUsername)) continue;
                         string playerName;
                         if (lastRoundEvents.Contains(" напал на игрока "))
                         {
@@ -3042,11 +3084,14 @@ public class CharacterPassives : IServiceSingleton
                                 continue;
                             }
                         }
+
                         playerName = line.Split("  ⟶")[0].Replace($"{player.DiscordUsername}  ", "")
                             .Replace($" {player.DiscordUsername}", "").Replace("<:war:561287719838547981>", "").Trim();
                         var playerClass = game.PlayersList.Find(x => x.DiscordUsername == playerName);
-                        if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) && playerClass.GetPlayerId() != player.GetPlayerId())
-                            player.Predict.Add(new PredictClass("Загадочный Спартанец в маске", playerClass.GetPlayerId()));
+                        if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) &&
+                            playerClass.GetPlayerId() != player.GetPlayerId())
+                            player.Predict.Add(new PredictClass("Загадочный Спартанец в маске",
+                                playerClass.GetPlayerId()));
                     }
                 }
 
@@ -3068,21 +3113,21 @@ public class CharacterPassives : IServiceSingleton
                                 continue;
                             }
                         }
+
                         playerName = line.Split("  ⟶")[0].Replace($"{player.DiscordUsername}  ", "")
                             .Replace($" {player.DiscordUsername}", "").Replace("<:war:561287719838547981>", "").Trim();
                         var playerClass = game.PlayersList.Find(x => x.DiscordUsername == playerName);
-                        if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) && playerClass.GetPlayerId() != player.GetPlayerId())
+                        if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) &&
+                            playerClass.GetPlayerId() != player.GetPlayerId())
                             player.Predict.Add(new PredictClass("DeepList", playerClass.GetPlayerId()));
                     }
                 }
-
             }
             catch (Exception exception)
             {
                 _log.Critical(exception.Message);
                 _log.Critical(exception.StackTrace);
             }
-        }
     }
     //end predict bot
 
@@ -3105,8 +3150,6 @@ public class CharacterPassives : IServiceSingleton
                 shark.Status.AddRegularPoints(1, "Лежит на дне");
         }
         //end Лежит на дне:
-
-        
     }
 
     public async Task<int> HandleJews(GamePlayerBridgeClass player, GameClass game)
@@ -3120,7 +3163,8 @@ public class CharacterPassives : IServiceSingleton
 
 
         if (leCrisp != null && tolya != null)
-            if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn && tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
+            if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn &&
+                tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
             {
                 leCrisp.Status.AddRegularPoints(1, "Еврей");
                 tolya.Status.AddRegularPoints(1, "Еврей");
@@ -3174,6 +3218,7 @@ public class CharacterPassives : IServiceSingleton
                 game.Phrases.TolyaJewPhrase.SendLog(tolya, true);
                 return 0;
             }
+
         return 1;
     }
 
@@ -3184,15 +3229,13 @@ public class CharacterPassives : IServiceSingleton
         //deeplist
         if (attacker.Character.Name == "DeepList")
         {
-            var deepListDoubtfulTactic = _gameGlobal.DeepListDoubtfulTactic.Find(x => x.PlayerId == attacker.GetPlayerId() && x.GameId == game.GameId);
+            var deepListDoubtfulTactic =
+                _gameGlobal.DeepListDoubtfulTactic.Find(x =>
+                    x.PlayerId == attacker.GetPlayerId() && x.GameId == game.GameId);
 
             if (deepListDoubtfulTactic != null)
-            {
                 if (!deepListDoubtfulTactic.FriendList.Contains(octopus.GetPlayerId()))
-                {
                     return 0;
-                }
-            }
         }
         //end deeplist
 
@@ -3200,10 +3243,10 @@ public class CharacterPassives : IServiceSingleton
 
         //jew
         var point = await HandleJews(attacker, game);
-        
+
         if (point == 0)
         {
-            var jews  = game.PlayersList.FindAll(x => x.Character.Name is "Толя" or "LeCrisp");
+            var jews = game.PlayersList.FindAll(x => x.Character.Name is "Толя" or "LeCrisp");
 
             switch (jews.Count)
             {
@@ -3212,7 +3255,8 @@ public class CharacterPassives : IServiceSingleton
                     break;
                 case 2:
                     enemyIds.Clear();
-                    enemyIds.AddRange(jews.Where(x => x.Status.ScoreSource.Contains("Еврей")).Select(j => j.Status.PlayerId));
+                    enemyIds.AddRange(jews.Where(x => x.Status.ScoreSource.Contains("Еврей"))
+                        .Select(j => j.Status.PlayerId));
                     break;
             }
         }
@@ -3220,7 +3264,8 @@ public class CharacterPassives : IServiceSingleton
 
         foreach (var enemyId in enemyIds)
         {
-            var octopusInkList = _gameGlobal.OctopusInkList.Find(x => x.PlayerId == octopus.GetPlayerId() && x.GameId == game.GameId);
+            var octopusInkList =
+                _gameGlobal.OctopusInkList.Find(x => x.PlayerId == octopus.GetPlayerId() && x.GameId == game.GameId);
             if (octopusInkList == null)
             {
                 _gameGlobal.OctopusInkList.Add(new Octopus.InkClass(octopus.GetPlayerId(), game, enemyId));

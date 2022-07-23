@@ -63,16 +63,33 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             pass += "\n";
         }
 
+        if (pass.Length == 0)
+        {
+            pass = "Их нет...\n";
+        }
+
+        var int_str = "Интеллект";
+        var str_str = "Сила";
+        var spe_str = "Скорость";
+        var psy_str = "Психика";
+        if (character.Name == "Sakura")
+        {
+            int_str = "Сексуальность";
+            str_str = "Грубость";
+            spe_str = "Скорость";
+            psy_str = "Нытье";
+        }
+
 
         var embed = new EmbedBuilder();
         embed.WithColor(Color.DarkOrange);
         //if (character.Avatar != null)
         //     embed.WithImageUrl(character.Avatar);
         embed.AddField("Твой Персонаж:", $"Name: {character.Name}\n" +
-                                         $"Интеллект: {character.GetIntelligenceString()}\n" +
-                                         $"Сила: {character.GetStrength()}\n" +
-                                         $"Скорость: {character.GetSpeed()}\n" +
-                                         $"Психика: {character.GetPsyche()}\n");
+                                         $"{int_str}: {character.GetIntelligenceString()}\n" +
+                                         $"{str_str}: {character.GetStrength()}\n" +
+                                         $"{spe_str}: {character.GetSpeed()}\n" +
+                                         $"{psy_str}: {character.GetPsyche()}\n");
         embed.AddField("Пассивки", $"{pass}");
 
         //if(character.Description.Length > 1)
@@ -615,13 +632,24 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         var desc = HandleIsNewPlayerDescription(game.GetGlobalLogs(), player);
 
+        var int_str = "Интеллект";
+        var str_str = "Сила";
+        var spe_str = "Скорость";
+        var psy_str = "Психика";
+        if (character.Name == "Sakura")
+        {
+            int_str = "Сексуальность";
+            str_str = "Грубость";
+            spe_str = "Скорость";
+            psy_str = "Нытье";
+        }
 
         embed.WithDescription($"{desc}" +
                               "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                              $"**Интеллект:** {character.GetIntelligenceString()}\n" +
-                              $"**Сила:** {character.GetStrengthString()}\n" +
-                              $"**Скорость:** {character.GetSpeedString()}\n" +
-                              $"**Психика:** {character.GetPsycheString()}\n" +
+                              $"**{int_str}:** {character.GetIntelligenceString()}\n" +
+                              $"**{str_str}:** {character.GetStrengthString()}\n" +
+                              $"**{spe_str}:** {character.GetSpeedString()}\n" +
+                              $"**{psy_str}:** {character.GetPsycheString()}\n" +
                               "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                               $"*Справедливость: **{character.Justice.GetFullJusticeNow()}***\n" +
                               $"*Мораль: {character.GetMoral()}*\n" +
