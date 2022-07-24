@@ -161,7 +161,7 @@ public class CharacterClass
 
         var text = $"{spacing}<:spe:1000844429856346174> {SpeedQualityResist}";;
         if (SpeedQualityRangeBonus)
-            text += " **(+1 Speed Resist)**";
+            text += " **(+1 Kite Distance)**";
         return text;
     }
 
