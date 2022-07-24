@@ -68,22 +68,6 @@ public class CharacterClass
     public int Tier { get; set; }
 
 
-    private static string GetQualityResist(int resist, string icon = "O")
-    {
-        var text = "";
-        for (var i = 0; i < resist; i++)
-        {
-            text += $"{icon}";
-        }
-
-        if (text.Length == 0)
-        {
-            text = "No Resist";
-        }
-
-        return text;
-    }
-
     public void LowerQualityResist(string discordUsername, GameClass game, InGameStatus status, int howMuch, bool strengthBonus)
     {
         if (game.RoundNo == 1) return;
@@ -174,7 +158,11 @@ public class CharacterClass
         }
         if(Speed < 10 && (Strength == 10 || Intelligence == 10 || Psyche == 10))
             spacing += $"{s}{s}";
-        return $"{spacing}<:spe:1000844429856346174> {SpeedQualityResist}";
+
+        var text = $"{spacing}<:spe:1000844429856346174> {SpeedQualityResist}";;
+        if (SpeedQualityRangeBonus)
+            text += " **(+1 Speed Resist)**";
+        return text;
     }
 
     public string GetPsycheQualityResist()
@@ -344,7 +332,7 @@ public class CharacterClass
         {
             >= 0 and <= 3 => 1,
             >= 4 and <= 7 => 2,
-            >= 8 => 3,
+            >= 8 => 5,
             _ => resistOld
         };
 
@@ -352,7 +340,7 @@ public class CharacterClass
         {
             >= 0 and <= 3 => 1,
             >= 4 and <= 7 => 2,
-            >= 8 => 3,
+            >= 8 => 5,
             _ => resistNew
         };
 

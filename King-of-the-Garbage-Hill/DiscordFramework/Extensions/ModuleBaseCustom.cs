@@ -130,7 +130,7 @@ public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
 
     protected virtual async Task<IUserMessage> SendMessageAsync([Remainder] string regularMess, SocketCommandContextCustom context)
     {
-        if (Context.SlashCommand != null)
+        /*if (Context.SlashCommand != null)
         {
             await Context.SlashCommand.RespondAsync(regularMess, ephemeral: true);
             return null;
@@ -140,7 +140,7 @@ public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
         {
             await Context.ContextSlash.RespondAsync(regularMess, ephemeral: true);
             return null;
-        }
+        }*/
 
         switch (context.MessageContentForEdit)
         {
