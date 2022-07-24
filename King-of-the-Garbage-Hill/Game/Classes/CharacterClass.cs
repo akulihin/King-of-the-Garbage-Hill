@@ -48,12 +48,12 @@ public class CharacterClass
 
     private int PsycheQualityResist { get; set; }
 
-    private int IntelligenceQualitySkillBonus { get; set; }
-    private int StrengthQualityDropBonus { get; set; }
-    private int SpeedQualityRangeBonus { get; set; }
-    private int PsycheQualityMoralBonus { get; set; }
+    private bool IntelligenceQualitySkillBonus { get; set; }
+    private bool StrengthQualityDropBonus { get; set; }
+    private bool SpeedQualityRangeBonus { get; set; }
+    private bool PsycheQualityMoralBonus { get; set; }
     private int IntelligenceQualitySkillDebuff { get; set; }
-    private bool StrengthQualityDropDebuff { get; set; }
+    private int StrengthQualityDropDebuff { get; set; }
     private int PsycheQualityMoralDebuff { get; set; }
 
 
@@ -68,59 +68,141 @@ public class CharacterClass
     public int Tier { get; set; }
 
 
-    private static string GetQualityResist(int resist)
+    private static string GetQualityResist(int resist, string icon = "O")
     {
         var text = "";
-        const string icon = "O";
         for (var i = 0; i < resist; i++)
         {
             text += $"{icon}";
         }
+
+        if (text.Length == 0)
+        {
+            text = "No Resist";
+        }
+
         return text;
     }
 
-    public void LowerQualityResist(int howMuch = 1)
+    public void LowerQualityResist(string discordUsername, GameClass game, InGameStatus status, int howMuch, bool strengthBonus)
     {
+        if (game.RoundNo == 1) return;
+
         IntelligenceQualityResist -= howMuch;
-        StrengthQualityResist -= howMuch;
         PsycheQualityResist -= howMuch;
+        if(strengthBonus)
+            StrengthQualityResist -= howMuch+1;
+        else
+            StrengthQualityResist -= howMuch;
 
         if (IntelligenceQualityResist < 0)
         {
-            UpdateIntelligenceResist();
+            SetIntelligenceResist();
             IntelligenceQualitySkillDebuff++;
+            //status.AddInGamePersonalLogs($"Quality: -10% *Скиллa*\n"); //english "a" so it wouldn't combine with all other "skill" logs
         }
 
         if (StrengthQualityResist < 0)
         {
-            UpdateStrengthResist();
-            StrengthQualityDropDebuff = true;
+            SetStrengthResist();
+            if (status.PlaceAtLeaderBoard != 6)
+            {
+                StrengthQualityDropDebuff = game.RoundNo;
+                status.AddBonusPoints(-1, "Quality");
+                game.AddGlobalLogs($"Они скинули **{discordUsername}**! Сволочи!");
+            }
         }
 
         if (PsycheQualityResist < 0)
         {
-            UpdatePsycheResist();
+            SetPsycheResist();
             PsycheQualityMoralDebuff++;
+            //status.AddInGamePersonalLogs($"Quality: -10% *Морaли*\n"); //english "a" so it wouldn't combine with all other "skill" logs
         }
     }
 
 
     public string GetIntelligenceQualityResist()
     {
-        var text = GetQualityResist(IntelligenceQualityResist);
-        if (IntelligenceQualitySkillDebuff > 0)
-            text += $" **(-{IntelligenceQualitySkillDebuff*10}% Skill)**";
+        var spacing = " ";
+        var s = "  ";
+        for (var i = 0; i < 14; i++)
+        {
+            spacing += s;
+        }
+        if (Intelligence < 10 && (Strength == 10 || Psyche == 10 || Speed == 10))
+            spacing += $"{s}{s}";
+        var text = $"{spacing}<:int:1000844463066841128> {IntelligenceQualityResist}";
+        var debuffTemp = IntelligenceQualitySkillDebuff;
+        if (IntelligenceQualitySkillBonus)
+            debuffTemp -= 1;
+        switch (debuffTemp)
+        {
+            case > 0:
+                text += $" **(-{debuffTemp * 10}% Skill)**";
+                break;
+            case < 0:
+                text += $" **(+{debuffTemp * 10 * -1}% Skill)**";
+                break;
+        }
         return text;
     }
 
     public string GetStrengthQualityResist()
     {
-        return GetQualityResist(StrengthQualityResist);
+        var spacing = " ";
+        var s = " ";
+        for (var i = 0; i < 21; i++)
+        {
+            spacing += s;
+        }
+        if (Strength < 10 && (Speed == 10 || Intelligence == 10 || Psyche == 10))
+            spacing += $"{s}{s}";
+        var text = $"{spacing}<:str:1000844441629757610> {StrengthQualityResist}";
+        if (StrengthQualityDropBonus)
+            text += " **(+1 Drop Power)**";
+        return text;
     }
 
     public string GetSpeedQualityResist()
     {
-        return GetQualityResist(SpeedQualityResist);
+        var spacing = "  ";
+        var s = " ";
+        for (var i = 0; i < 12; i++)
+        {
+            spacing += s;
+        }
+        if(Speed < 10 && (Strength == 10 || Intelligence == 10 || Psyche == 10))
+            spacing += $"{s}{s}";
+        return $"{spacing}<:spe:1000844429856346174> {SpeedQualityResist}";
+    }
+
+    public string GetPsycheQualityResist()
+    {
+        var spacing = " ";
+        var s = " ";
+        for (var i = 0; i < 14; i++)
+        {
+            spacing += s;
+        }
+        if (Psyche < 10 && (Strength == 10 || Intelligence == 10 || Speed == 10))
+            spacing += $"{s}{s}";
+        var text = $"{spacing}<:psy:1000844454049091654> {PsycheQualityResist}";
+
+        var debuffTemp = PsycheQualityMoralDebuff;
+        if (PsycheQualityMoralBonus)
+            debuffTemp -= 1;
+        switch (debuffTemp)
+        {
+            case > 0:
+                text += $" **(-{debuffTemp * 10}% Moral)**";
+                break;
+            case < 0:
+                text += $" **(+{debuffTemp * 10 * -1}% Moral)**";
+                break;
+        }
+
+        return text;
     }
 
     public int GetSpeedQualityResistInt()
@@ -128,64 +210,211 @@ public class CharacterClass
         return SpeedQualityResist;
     }
 
-    public string GetPsycheQualityResist()
+    public void SetIntelligenceResist()
     {
-        var text = GetQualityResist(PsycheQualityResist);
-        if (PsycheQualityMoralDebuff > 0)
-            text += $" **(-{PsycheQualityMoralDebuff*10}% Moral)**";
-        return text;
-    }
+        IntelligenceQualitySkillBonus = false;
 
-    public void UpdateIntelligenceResist()
-    {
-        IntelligenceQualitySkillBonus = 0;
-        if (Intelligence > 0)
-            IntelligenceQualityResist = 1;
-        if (Intelligence > 3)
-            IntelligenceQualityResist = 2;
-        if (Intelligence > 7)
-            IntelligenceQualityResist = 3;
+        IntelligenceQualityResist = Intelligence switch
+        {
+            >= 0 and <= 3 => 1,
+            >= 4 and <= 7 => 2,
+            >= 8 => 3,
+            _ => IntelligenceQualityResist
+        };
+
         if (Intelligence > 9)
-            IntelligenceQualitySkillBonus = 1;
+            IntelligenceQualitySkillBonus = true;
     }
-    public void UpdateStrengthResist()
+    public void SetStrengthResist()
     {
-        StrengthQualityDropBonus = 0;
-        if (Strength > 0)
-            StrengthQualityResist = 1;
-        if (Strength > 3)
-            StrengthQualityResist = 2;
-        if (Strength > 7)
-            StrengthQualityResist = 3;
+        StrengthQualityDropBonus = false;
+
+        StrengthQualityResist = Strength switch
+        {
+            >= 0 and <= 3 => 1,
+            >= 4 and <= 7 => 2,
+            >= 8 => 3,
+            _ => StrengthQualityResist
+        };
+
         if (Strength > 9)
-            StrengthQualityDropBonus = 1;
+            StrengthQualityDropBonus = true;
     }
 
-    public void UpdateSpeedResist()
+    public void SetSpeedResist()
     {
-        SpeedQualityRangeBonus = 0;
-        if (Speed > 0)
-            SpeedQualityResist = 1;
-        if (Speed > 3)
-            SpeedQualityResist = 2;
-        if (Speed > 7)
-            SpeedQualityResist = 3;
+        SpeedQualityRangeBonus = false;
+
+        SpeedQualityResist = Speed switch
+        {
+            >= 0 and <= 3 => 1,
+            >= 4 and <= 7 => 2,
+            >= 8 => 5,
+            _ => SpeedQualityResist
+        };
+
         if (Speed > 9)
-            SpeedQualityRangeBonus = 1;
+            SpeedQualityRangeBonus = true;
     }
 
-    public void UpdatePsycheResist()
+    public void SetPsycheResist()
     {
-        PsycheQualityMoralBonus = 0;
-        if (Psyche > 0)
-            PsycheQualityResist = 1;
-        if (Psyche > 3)
-            PsycheQualityResist = 2;
-        if (Psyche > 7)
-            PsycheQualityResist = 3;
+        PsycheQualityMoralBonus = false;
+
+        PsycheQualityResist = Psyche switch
+        {
+            >= 0 and <= 3 => 1,
+            >= 4 and <= 7 => 2,
+            >= 8 => 3,
+            _ => PsycheQualityResist
+        };
+
         if (Psyche > 9)
-            PsycheQualityMoralBonus = 1;
+            PsycheQualityMoralBonus = true;
     }
+
+    public void UpdateIntelligenceResist(int statOld, int statNew)
+    {
+        IntelligenceQualitySkillBonus = false;
+
+        var resistOld = 0;
+        var resistNew = 0;
+
+        resistOld = statOld switch
+        {
+            >= 0 and <= 3 => 1,
+            >= 4 and <= 7 => 2,
+            >= 8 => 3,
+            _ => resistOld
+        };
+
+        resistNew = statNew switch
+        {
+            >= 0 and <= 3 => 1,
+            >= 4 and <= 7 => 2,
+            >= 8 => 3,
+            _ => resistNew
+        };
+
+        var resistDiff = resistNew - resistOld;
+        IntelligenceQualityResist += resistDiff;
+
+        if (statNew > 9)
+            IntelligenceQualitySkillBonus = true;
+    }
+
+    public void UpdateStrengthResist(int statOld, int statNew)
+    {
+        StrengthQualityDropBonus = false;
+
+        var resistOld = 0;
+        var resistNew = 0;
+
+        resistOld = statOld switch
+        {
+            >= 0 and <= 3 => 1,
+            >= 4 and <= 7 => 2,
+            >= 8 => 3,
+            _ => resistOld
+        };
+
+        resistNew = statNew switch
+        {
+            >= 0 and <= 3 => 1,
+            >= 4 and <= 7 => 2,
+            >= 8 => 3,
+            _ => resistNew
+        };
+
+        var resistDiff = resistNew - resistOld;
+        StrengthQualityResist += resistDiff;
+
+        if (statNew > 9)
+            StrengthQualityDropBonus = true;
+    }
+
+    public void UpdateSpeedResist(int statOld, int statNew)
+    {
+        SpeedQualityRangeBonus = false;
+
+        var resistOld = 0;
+        var resistNew = 0;
+
+        resistOld = statOld switch
+        {
+            >= 0 and <= 3 => 1,
+            >= 4 and <= 7 => 2,
+            >= 8 => 3,
+            _ => resistOld
+        };
+
+        resistNew = statNew switch
+        {
+            >= 0 and <= 3 => 1,
+            >= 4 and <= 7 => 2,
+            >= 8 => 3,
+            _ => resistNew
+        };
+
+        var resistDiff = resistNew - resistOld;
+        SpeedQualityResist += resistDiff;
+
+        if (statNew > 9)
+            SpeedQualityRangeBonus = true;
+    }
+
+    public void UpdatePsycheResist(int statOld, int statNew)
+    {
+        PsycheQualityMoralBonus = false;
+
+        var resistOld = 0;
+        var resistNew = 0;
+
+        resistOld = statOld switch
+        {
+            >= 0 and <= 3 => 1,
+            >= 4 and <= 7 => 2,
+            >= 8 => 3,
+            _ => resistOld
+        };
+
+        resistNew = statNew switch
+        {
+            >= 0 and <= 3 => 1,
+            >= 4 and <= 7 => 2,
+            >= 8 => 3,
+            _ => resistNew
+        };
+
+        var resistDiff = resistNew - resistOld;
+        PsycheQualityResist += resistDiff;
+
+        if (statNew > 9)
+            PsycheQualityMoralBonus = true;
+    }
+
+    public bool GetIntelligenceQualitySkillBonus()
+    {
+        return IntelligenceQualitySkillBonus;
+    }
+    public bool GetStrengthQualityDropBonus()
+    {
+        return StrengthQualityDropBonus;
+    }
+    public bool GetSpeedQualityRangeBonus()
+    {
+        return SpeedQualityRangeBonus;
+    }
+    public bool GetPsycheQualityMoralBonus()
+    {
+        return PsycheQualityMoralBonus;
+    }
+
+    public int GetStrengthQualityDropDebuff()
+    {
+        return StrengthQualityDropDebuff;
+    }
+
 
     public string GetClassStatDisplayText()
     {
@@ -298,19 +527,14 @@ public class CharacterClass
         {
             skillDebuff -= 0.1;
         }
+        if(GetIntelligenceQualitySkillBonus())
+            skillDebuff += 0.1;
         return (SkillMain + SkillExtra) * SkillFightMultiplier * skillDebuff;
     }
 
     public string GetSkillDisplay()
     {
-        var skillText= $"{SkillMain + SkillExtra}";
-        
-        /*if (SkillFightMultiplier > 1)
-        {
-            skillText += $", **x{SkillFightMultiplier}**";
-        }*/
-
-        return skillText;
+        return $"{(int)GetSkill()}";
     }
 
     public double GetSkillMainOnly()
@@ -386,9 +610,12 @@ public class CharacterClass
         {
             moralDebuff -= 0.1;
         }
+        if (GetPsycheQualityMoralBonus())
+            moralDebuff += 0.1;
 
         return (int) (Moral* moralDebuff);
     }
+
 
     public void SetMoral(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
     {
@@ -444,8 +671,11 @@ public class CharacterClass
             status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Интеллект\n");
         else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} Интеллект\n");
 
-
+        var intelligenceOld = Intelligence;
         Intelligence += howMuchToAdd;
+        var intelligenceNew = Intelligence;
+
+        UpdateIntelligenceResist(intelligenceOld, intelligenceNew);
 
         if (Intelligence < 0)
             Intelligence = 0;
@@ -476,7 +706,12 @@ public class CharacterClass
             else if (diff < 0) status.AddInGamePersonalLogs($"{skillName}: {diff} Интеллект\n");
         }
 
+        var intelligenceOld = Intelligence;
         Intelligence = howMuchToSet;
+        var intelligenceNew = Intelligence;
+
+        UpdateIntelligenceResist(intelligenceOld, intelligenceNew);
+
         if (Intelligence < 0)
             Intelligence = 0;
         if (Intelligence > 10)
@@ -495,7 +730,11 @@ public class CharacterClass
         else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} Психика\n");
 
 
+        var psycheOld = Psyche;
         Psyche += howMuchToAdd;
+        var psycheNew = Psyche;
+
+        UpdatePsycheResist(psycheOld, psycheNew);
 
         if (Psyche < 0)
             Psyche = 0;
@@ -523,7 +762,12 @@ public class CharacterClass
             else if (diff < 0) status.AddInGamePersonalLogs($"{skillName}: {diff} Психика\n");
         }
 
+        var psycheOld = Psyche;
         Psyche = howMuchToSet;
+        var psycheNew = Psyche;
+
+        UpdatePsycheResist(psycheOld, psycheNew);
+
         if (Psyche < 0)
             Psyche = 0;
         if (Psyche > 10)
@@ -541,8 +785,12 @@ public class CharacterClass
             status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Скорость\n");
         else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} Скорость\n");
 
-
+        var speedOld = Speed;
         Speed += howMuchToAdd;
+        var speedNew = Speed;
+
+        UpdateSpeedResist(speedOld, speedNew);
+
         if (Speed < 0)
             Speed = 0;
         if (Speed > 10)
@@ -569,7 +817,12 @@ public class CharacterClass
             else if (diff < 0) status.AddInGamePersonalLogs($"{skillName}: {diff} Скорость\n");
         }
 
+        var speedOld = Speed;
         Speed = howMuchToSet;
+        var speedNew = Speed;
+
+        UpdateSpeedResist(speedOld, speedNew);
+
         if (Speed < 0)
             Speed = 0;
         if (Speed > 10)
@@ -587,8 +840,12 @@ public class CharacterClass
             status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Сила\n");
         else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} Сила\n");
 
-
+        var strengthOld = Strength;
         Strength += howMuchToAdd;
+        var strengthNew = Strength;
+
+        UpdateStrengthResist(strengthOld, strengthNew);
+
         if (Strength < 0)
             Strength = 0;
         if (Strength > 10)
@@ -615,7 +872,12 @@ public class CharacterClass
             else if (diff < 0) status.AddInGamePersonalLogs($"{skillName}: {diff} Сила\n");
         }
 
+        var strengthOld = Strength;
         Strength = howMuchToSet;
+        var strengthNew = Strength;
+
+        UpdateStrengthResist(strengthOld, strengthNew);
+
         if (Strength < 0)
             Strength = 0;
         if (Strength > 10)

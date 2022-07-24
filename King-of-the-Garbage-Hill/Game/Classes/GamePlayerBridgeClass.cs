@@ -13,10 +13,10 @@ public class GamePlayerBridgeClass
         GameId = gameId;
         DiscordUsername = discordUsername;
         PlayerType = playerType;
-        character.UpdateIntelligenceResist();
-        character.UpdateStrengthResist();
-        character.UpdateSpeedResist();
-        character.UpdatePsycheResist();
+        character.SetIntelligenceResist();
+        character.SetStrengthResist();
+        character.SetSpeedResist();
+        character.SetPsycheResist();
     }
     public CharacterClass Character { get; set; }
 

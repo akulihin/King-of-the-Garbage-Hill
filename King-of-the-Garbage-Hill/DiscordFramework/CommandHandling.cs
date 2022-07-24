@@ -96,7 +96,7 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
                 return;
             _global.TotalCommandsChanged++;
             var account = _accounts.GetAccount(messageAfter.Author);
-            var context = new SocketCommandContextCustom(_client, message, _commandsInMemory, "edit", "ru");
+            var context = new SocketCommandContextCustom(_client, message, _commandsInMemory, message.Author, message.Channel, "edit");
             var argPos = 0;
 
 
@@ -147,7 +147,7 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
         var message = msg as SocketUserMessage;
         if (message == null) return;
         var account = _accounts.GetAccount(msg.Author);
-        var context = new SocketCommandContextCustom(_client, message, _commandsInMemory, null, "ru");
+        var context = new SocketCommandContextCustom(_client, message, _commandsInMemory, message.Author, message.Channel);
         var argPos = 0;
 
         if (message.Author is SocketGuildUser userCheck && userCheck.IsMuted)
@@ -155,8 +155,6 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
 
         if (msg.Author.IsBot)
             return;
-
-        var isDm = ((SocketChannel)msg.Channel).Users.Count == 2;
 
         if (message.HasStringPrefix("*", ref argPos) || message.HasStringPrefix("*" + " ",
                                                          ref argPos)
@@ -166,16 +164,10 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
                                                          ref argPos)
                                                      || message.HasStringPrefix(account.MyPrefix,
                                                          ref argPos)
-                                                     || isDm)
+                                                     || context.GuildName == "DM")
         {
-            var resultTask = _commands.ExecuteAsync(
-                context,
-                argPos,
-                _services);
-
-
-            await resultTask.ContinueWith(async task =>
-                await CommandResults(task, context));
+            var resultTask = _commands.ExecuteAsync(context, argPos, _services);
+            await resultTask.ContinueWith(async task => await CommandResults(task, context));
         }
     }
 
@@ -184,16 +176,12 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
     {
         _global.TimeSpendOnLastMessage.Remove(context.User.Id, out var watch);
 
-        var speedText = "";
-        speedText = watch != null ? $"{watch.Elapsed:m\\:ss\\.ffff}" : "???";
-
-        var guildName = context.Guild == null ? "DM" : $"{context.Guild.Name}({context.Guild.Id})";
 
         if (!resultTask.Result.IsSuccess)
         {
             _log.Warning(
-                $"Command [{context.Message.Content}] by [{context.User}] [{guildName}] after {speedText}s.\n" +
-                $"Reason: {resultTask.Result.ErrorReason}", "CommandHandling");
+                $"Command [{context.Command}] by [{context.User}] [{context.GuildName}] after {watch?.Elapsed:m\\:ss\\.ffff}s.\n" +
+                $"Reason: {resultTask.Result.ErrorReason}");
             _log.Error(resultTask.Result.ErrorReason);
 
 
@@ -205,11 +193,7 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
             _global.TotalCommandsIssued++;
 
             _log.Info(
-                $"Command [{context.Message.Content}] by [{context.User}] [{guildName}] after {speedText}s.",
-                "CommandHandling");
+                $"Command [{context.Command}] by [{context.User}] [{context.GuildName}] after {watch?.Elapsed:m\\:ss\\.ffff}s.");
         }
-
-
-        
     }
 }

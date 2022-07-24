@@ -461,8 +461,7 @@ public class CharacterPassives : IServiceSingleton
 
                 //Научите играть
                 var awdka = _gameGlobal.AwdkaTeachToPlay.Find(x => x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
-                var awdkaHistory = _gameGlobal.AwdkaTeachToPlayHistory.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
+                var awdkaHistory = _gameGlobal.AwdkaTeachToPlayHistory.Find(x => x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
 
                 var player2Stats = new List<Sirinoks.TrainingSubClass>
                 {
@@ -2131,11 +2130,9 @@ public class CharacterPassives : IServiceSingleton
 
 
                     //Научите играть 
-                    var awdkaTempStats = _gameGlobal.AwdkaTeachToPlayTempStats.Find(x =>
-                        x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
+                    var awdkaTempStats = _gameGlobal.AwdkaTeachToPlayTempStats.Find(x => x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
-                    var awdka = _gameGlobal.AwdkaTeachToPlay.Find(x =>
-                        x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
+                    var awdka = _gameGlobal.AwdkaTeachToPlay.Find(x => x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
                     //remove stats from previos time
                     if (awdkaTempStats != null)

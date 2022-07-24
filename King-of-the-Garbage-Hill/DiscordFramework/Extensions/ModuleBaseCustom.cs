@@ -8,7 +8,6 @@ namespace King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 
 public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
 {
-
     protected async Task DeleteMessage(IUserMessage userMessage,
         int timeInSeconds)
     {
@@ -17,110 +16,157 @@ public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
         await userMessage.DeleteAsync();
     }
 
-    protected virtual async Task<IUserMessage> SendMessageAsync(EmbedBuilder embed, int delete = 0,
-        MessageComponent components = null)
+    protected virtual async Task SendMessageAsync(EmbedBuilder embed, int delete = 0, MessageComponent components = null)
     {
+        if (Context.SlashCommand != null)
+        {
+            await Context.SlashCommand.RespondAsync(embed: embed.Build(), ephemeral: true);
+            return;
+        }
+
+        if (Context.ContextSlash != null)
+        {
+            await Context.ContextSlash.RespondAsync(embed: embed.Build(), ephemeral: true);
+            return;
+        }
+
         switch (Context.MessageContentForEdit)
         {
             case null:
-            {
-                var message = await Context.Channel.SendMessageAsync("", false, embed.Build(), components: components);
-
-
-                UpdateGlobalCommandList(message, Context);
-
-
-                if (delete > 0) await DeleteMessage(message, delete);
-
-                return message;
-            }
-            case "edit":
-            {
-                foreach (var t in Context.CommandsInMemory.CommandList.Where(t =>
-                             t.MessageUserId == Context.Message.Id))
                 {
-                    await t.BotSocketMsg.ModifyAsync(message =>
+                    IUserMessage message;
+                    if (Context.DmChannel == null)
                     {
-                        message.Content = "";
-                        message.Embed = null;
-                        message.Embed = embed.Build();
-                    });
-                    return t.BotSocketMsg;
-                }
+                        message = await Context.Channel.SendMessageAsync("", false, embed.Build(), components: components);
+                    }
+                    else
+                    {
+                        message = await Context.DmChannel.SendMessageAsync("", false, embed.Build(), components: components);
+                    }
 
-                return null;
-            }
+
+
+                    UpdateGlobalCommandList(message, Context);
+
+#pragma warning disable 4014
+                    if (delete > 0) DeleteMessage(message, delete);
+#pragma warning restore 4014
+                    break;
+                }
+            case "edit":
+                {
+                    foreach (var t in Context.CommandsInMemory.CommandList.Where(t =>
+                                 t.MessageUserId == Context.Message.Id))
+                        await t.BotSocketMsg.ModifyAsync(message =>
+                        {
+                            message.Content = "";
+                            message.Embed = null;
+                            message.Embed = embed.Build();
+                            message.Components = components;
+                        });
+                    break;
+                }
+        }
+    }
+
+
+    protected virtual async Task<IUserMessage> SendMessageAsync([Remainder] string regularMess = null, int delete = 0, MessageComponent components = null)
+    {
+        if (Context.SlashCommand != null)
+        {
+            await Context.SlashCommand.RespondAsync(regularMess, components: components, ephemeral: true);
+            return null;
+        }
+
+        if (Context.ContextSlash != null)
+        {
+            await Context.ContextSlash.RespondAsync(regularMess, components: components, ephemeral: true);
+            return null;
+        }
+
+        switch (Context.MessageContentForEdit)
+        {
+            case null:
+                {
+                    IUserMessage message;
+                    if (Context.DmChannel == null)
+                    {
+                        message = await Context.Channel.SendMessageAsync($"{regularMess}", components: components);
+                    }
+                    else
+                    {
+                        message = await Context.DmChannel.SendMessageAsync($"{regularMess}", components: components);
+                    }
+
+
+                    UpdateGlobalCommandList(message, Context);
+#pragma warning disable 4014
+                    if (delete > 0) DeleteMessage(message, delete);
+#pragma warning restore 4014
+                    return message;
+                }
+            case "edit":
+                {
+                    foreach (var t in Context.CommandsInMemory.CommandList.Where(t =>
+                                 t.MessageUserId == Context.Message.Id))
+                    {
+                        await t.BotSocketMsg.ModifyAsync(message =>
+                        {
+                            message.Content = "";
+                            message.Embed = null;
+                            if (regularMess != null) message.Content = regularMess;
+                            message.Components = components;
+                        });
+                        return t.BotSocketMsg;
+                    }
+
+                    break;
+                }
         }
 
         return null;
     }
 
 
-    protected virtual async Task<IUserMessage> SendMessageAsync([Remainder] string regularMess = null,
-        int delete = 0)
+    protected virtual async Task<IUserMessage> SendMessageAsync([Remainder] string regularMess, SocketCommandContextCustom context)
     {
-        switch (Context.MessageContentForEdit)
+        if (Context.SlashCommand != null)
         {
-            case null:
-            {
-                var message = await Context.Channel.SendMessageAsync($"{regularMess}");
-
-                UpdateGlobalCommandList(message, Context);
-
-                if (delete > 0) await DeleteMessage(message, delete);
-
-                return message;
-            }
-            case "edit":
-            {
-                foreach (var t in Context.CommandsInMemory.CommandList.Where(t =>
-                             t.MessageUserId == Context.Message.Id))
-                {
-                    await t.BotSocketMsg.ModifyAsync(message =>
-                    {
-                        message.Content = "";
-                        message.Embed = null;
-                        if (regularMess != null) message.Content = regularMess;
-                    });
-                    return t.BotSocketMsg;
-                }
-
-                break;
-            }
+            await Context.SlashCommand.RespondAsync(regularMess, ephemeral: true);
+            return null;
         }
 
-        return null;
-    }
+        if (Context.ContextSlash != null)
+        {
+            await Context.ContextSlash.RespondAsync(regularMess, ephemeral: true);
+            return null;
+        }
 
-
-    protected virtual async Task<IUserMessage> SendMessageAsync([Remainder] string regularMess,
-        SocketCommandContextCustom context)
-    {
         switch (context.MessageContentForEdit)
         {
             case null:
-            {
-                var message = await context.Channel.SendMessageAsync($"{regularMess}");
-
-                UpdateGlobalCommandList(message, context);
-                return message;
-            }
-            case "edit":
-            {
-                foreach (var t in context.CommandsInMemory.CommandList.Where(t =>
-                             t.MessageUserId == context.Message.Id))
                 {
-                    await t.BotSocketMsg.ModifyAsync(message =>
-                    {
-                        message.Content = "";
-                        message.Embed = null;
-                        if (regularMess != null) message.Content = regularMess;
-                    });
-                    return t.BotSocketMsg;
-                }
+                    var message = await context.Channel.SendMessageAsync($"{regularMess}");
 
-                break;
-            }
+                    UpdateGlobalCommandList(message, context);
+                    return message;
+                }
+            case "edit":
+                {
+                    foreach (var t in context.CommandsInMemory.CommandList.Where(t =>
+                                 t.MessageUserId == context.Message.Id))
+                    {
+                        await t.BotSocketMsg.ModifyAsync(message =>
+                        {
+                            message.Content = "";
+                            message.Embed = null;
+                            if (regularMess != null) message.Content = regularMess;
+                        });
+                        return t.BotSocketMsg;
+                    }
+
+                    break;
+                }
         }
 
         return null;
@@ -137,10 +183,9 @@ public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
                 context.CommandsInMemory.CommandList.RemoveAt(
                     (int)context.CommandsInMemory.MaximumCommandsInRam - 1);
         }
-        catch (Exception exception)
+        catch (Exception e)
         {
-            Console.Write(exception.Message);
-            Console.Write(exception.StackTrace);
+            Console.WriteLine(e.Message);
         }
     }
 }

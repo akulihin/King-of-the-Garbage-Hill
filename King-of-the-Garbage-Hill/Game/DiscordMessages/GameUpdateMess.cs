@@ -646,10 +646,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         embed.WithDescription($"{desc}" +
                               "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                              $"**{int_str}:** {character.GetIntelligenceString()} | {character.GetIntelligenceQualityResist()}\n" +
-                              $"**{str_str}:** {character.GetStrengthString()} | {character.GetStrengthQualityResist()}\n" +
-                              $"**{spe_str}:** {character.GetSpeedString()} | {character.GetSpeedQualityResist()}\n" +
-                              $"**{psy_str}:** {character.GetPsycheString()} | {character.GetPsycheQualityResist()}\n" +
+                              $"**{int_str}:** {character.GetIntelligenceString()}{character.GetIntelligenceQualityResist()}\n" +
+                              $"**{str_str}:** {character.GetStrengthString()}{character.GetStrengthQualityResist()}\n" +
+                              $"**{spe_str}:** {character.GetSpeedString()}{character.GetSpeedQualityResist()}\n" +
+                              $"**{psy_str}:** {character.GetPsycheString()}{character.GetPsycheQualityResist()}\n" +
                               "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                               $"*Справедливость: **{character.Justice.GetFullJusticeNow()}***\n" +
                               $"*Мораль: {character.GetMoral()}*\n" +

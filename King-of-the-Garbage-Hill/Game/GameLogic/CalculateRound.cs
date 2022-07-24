@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -527,15 +528,15 @@ Speed => Strength
 
                 //Quality
                 var range = player.Character.GetSpeedQualityResistInt();
-                if (range > 2)
-                    range = 5;
+                if (playerIamAttacking.Character.GetSpeedQualityRangeBonus())
+                    range -= 1;
                 var placeDiff = player.Status.PlaceAtLeaderBoard - playerIamAttacking.Status.PlaceAtLeaderBoard;
                 if (placeDiff < 0)
                     placeDiff *= -1;
 
                 if (placeDiff <= range)
                 {
-                    playerIamAttacking.Character.LowerQualityResist();
+                    playerIamAttacking.Character.LowerQualityResist(playerIamAttacking.DiscordUsername, game, playerIamAttacking.Status, 1, player.Character.GetStrengthQualityDropBonus());
                 }
                 
                 //end Quality
@@ -633,7 +634,7 @@ Speed => Strength
             player.Status.IsAbleToChangeMind = true;
             player.Status.RoundNumber = game.RoundNo+1;
 
-            player.Character.UpdateSpeedResist();
+            player.Character.SetSpeedResist();
 
             player.Character.Justice.HandleEndOfRoundJustice(player.Status);
 
@@ -659,6 +660,26 @@ Speed => Strength
         game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
 
 
+        //Tigr Unique
+        if (game.PlayersList.Any(x => x.Character.Name == "Тигр"))
+        {
+            var tigrTemp = game.PlayersList.Find(x => x.Character.Name == "Тигр");
+
+            var tigr = _gameGlobal.TigrTop.Find(x => x.GameId == game.GameId && x.PlayerId == tigrTemp.GetPlayerId());
+
+            if (tigr is { TimeCount: > 0 })
+            {
+                var tigrIndex = game.PlayersList.IndexOf(tigrTemp);
+
+                game.PlayersList[tigrIndex] = game.PlayersList.First();
+                game.PlayersList[0] = tigrTemp;
+                tigr.TimeCount--;
+                // game.Phrases.TigrTop.SendLog(tigrTemp);
+            }
+        }
+        //end Tigr Unique
+
+
         //HardKitty unique
         if (game.PlayersList.Any(x => x.Character.Name == "HardKitty"))
         {
@@ -673,26 +694,6 @@ Speed => Strength
         //end //HardKitty unique
 
 
-        //Tigr Unique
-        if (game.PlayersList.Any(x => x.Character.Name == "Тигр"))
-        {
-            var tigrTemp = game.PlayersList.Find(x => x.Character.Name == "Тигр");
-
-            var tigr = _gameGlobal.TigrTop.Find(x =>
-                x.GameId == game.GameId && x.PlayerId == tigrTemp.GetPlayerId());
-
-            if (tigr is { TimeCount: > 0 })
-            {
-                var tigrIndex = game.PlayersList.IndexOf(tigrTemp);
-
-                game.PlayersList[tigrIndex] = game.PlayersList.First();
-                game.PlayersList[0] = tigrTemp;
-                tigr.TimeCount--;
-                // game.Phrases.TigrTop.SendLog(tigrTemp);
-            }
-        }
-        //end Tigr Unique
-
         //sort
         for (var i = 0; i < game.PlayersList.Count; i++)
         {
@@ -700,11 +701,32 @@ Speed => Strength
                 game.PlayersList[i].Status.MoveListPage = 3;
             game.PlayersList[i].Status.PlaceAtLeaderBoard = i + 1;
             game.PlayersList[i].Character.RollSkillTargetForNextRound();
-            game.PlayersList[i].Status.PlaceAtLeaderBoardHistory.Add(
-                new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo,
-                    game.PlayersList[i].Status.PlaceAtLeaderBoard));
+            game.PlayersList[i].Status.PlaceAtLeaderBoardHistory.Add(new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo, game.PlayersList[i].Status.PlaceAtLeaderBoard));
         }
         //end sorting
+
+        //Quality Drop
+        var droppedPlayers = game.PlayersList.Where(x => x.Character.GetStrengthQualityDropDebuff() + 1 == game.RoundNo && x.Status.PlaceAtLeaderBoard != 6).OrderByDescending(x => x.Status.PlaceAtLeaderBoard).ToList();
+        foreach (var player in droppedPlayers)
+        {
+            var oldIndex = game.PlayersList.IndexOf(player);
+            var newIndex = oldIndex + 1;
+
+            if(newIndex == 5 && game.PlayersList[newIndex].Character.Name == "HardKitty")
+                continue;
+
+            game.PlayersList[oldIndex] = game.PlayersList[newIndex];
+            game.PlayersList[newIndex] = player;
+        }
+
+        if (droppedPlayers.Count > 0)
+        {
+            for (var i = 0; i < game.PlayersList.Count; i++)
+            {
+                game.PlayersList[i].Status.PlaceAtLeaderBoard = i + 1;
+            }
+        }
+        //end //Quality Drop
 
         SortGameLogs(game);
         _characterPassives.HandleNextRoundAfterSorting(game);
@@ -717,11 +739,34 @@ Speed => Strength
         watch.Stop();
     }
 
-    /*
-I: 4 | St: 8 | Sp: 9 | Ps: 3
-I: 1 | St: 9 | Sp: 9 | Ps: 1
-1-1
-     */
+    public void Move<T>(List<T> list, int oldIndex, int newIndex)
+    {
+        // exit if positions are equal or outside array
+        if ((oldIndex == newIndex) || (0 > oldIndex) || (oldIndex >= list.Count) || (0 > newIndex) ||
+            (newIndex >= list.Count)) return;
+        // local variables
+        var i = 0;
+        T tmp = list[oldIndex];
+        // move element down and shift other elements up
+        if (oldIndex < newIndex)
+        {
+            for (i = oldIndex; i < newIndex; i++)
+            {
+                list[i] = list[i + 1];
+            }
+        }
+        // move element up and shift other elements down
+        else
+        {
+            for (i = oldIndex; i > newIndex; i--)
+            {
+                list[i] = list[i - 1];
+            }
+        }
+        // put element from position 1 to destination
+        list[newIndex] = tmp;
+    }
+
 
     public int WhoIsBetter(GamePlayerBridgeClass meClass, GamePlayerBridgeClass targetClass)
     {
