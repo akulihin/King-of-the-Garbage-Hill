@@ -87,6 +87,7 @@ public class InGameStatus
     public string ChangeMindWhat  { get; set;}
     public string CharacterName { get; set; }
     public int TimesUpdated { get; set; }
+    public int RoundNumber { get; set; }
     public List<PlaceAtLeaderBoardHistoryClass> PlaceAtLeaderBoardHistory { get; set; }
     public DateTimeOffset LastMessageUpdate { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset LastButtonPress { get; set; } = DateTimeOffset.UtcNow;

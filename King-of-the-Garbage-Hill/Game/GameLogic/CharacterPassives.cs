@@ -460,8 +460,7 @@ public class CharacterPassives : IServiceSingleton
             case "AWDKA":
 
                 //Научите играть
-                var awdka = _gameGlobal.AwdkaTeachToPlay.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
+                var awdka = _gameGlobal.AwdkaTeachToPlay.Find(x => x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
                 var awdkaHistory = _gameGlobal.AwdkaTeachToPlayHistory.Find(x =>
                     x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
 
@@ -492,9 +491,16 @@ public class CharacterPassives : IServiceSingleton
                     enemy.Text = $"{sup.StatIndex}";
                     enemy.Stat = sup.StatNumber;
                 }
-
-
                 //end Научите играть
+
+                //Я пытаюсь
+                var awdkaTrying = _gameGlobal.AwdkaTryingList.Find(x => x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
+                var awdkaTryingTarget = awdkaTrying?.TryingList.Find(x => x.EnemyPlayerId == target.GetPlayerId());
+                if (awdkaTryingTarget is { IsUnique: true })
+                {
+                    me.Character.SetSkillFightMultiplier(2);
+                }
+                //end Я пытаюсь
 
                 break;
             case "Вампур":
@@ -727,9 +733,14 @@ public class CharacterPassives : IServiceSingleton
                     if (me.Status.IsWonThisCalculation == me.Status.WhoToAttackThisTurn) mylorikEnemy.LostTimes = 0;
                 }
 
-                //reset FightMultiplier
+                //Cпарта reset FightMultiplier
                 me.Character.SetSkillFightMultiplier();
                 //end Cпарта
+                break;
+            case "AWDKA":
+                //Я пытаюсь reset FightMultiplier
+                me.Character.SetSkillFightMultiplier();
+                //end Я пытаюсь
                 break;
         }
     }
@@ -2085,22 +2096,20 @@ public class CharacterPassives : IServiceSingleton
                 case "AWDKA":
 
                     //АФКА
+                    var afkaChance = 32 - (game.RoundNo - player.Character.LastMoralRound) * 4;
+                    if (afkaChance <= 0)
+                        afkaChance = 1;
+                    if (_rand.Random(1, afkaChance) == 1)
+                    {
+                        player.Status.IsSkip = true;
+                        player.Status.ConfirmedSkip = false;
+                        player.Status.IsBlock = false;
+                        player.Status.IsAbleToTurn = false;
+                        player.Status.IsReady = true;
+                        player.Status.WhoToAttackThisTurn = Guid.Empty;
 
-                    var awdkaaa = _gameGlobal.AwdkaAfkTriggeredWhen.Find(x =>
-                        x.GameId == player.GameId && x.PlayerId == player.GetPlayerId());
-
-                    if (awdkaaa != null)
-                        if (awdkaaa.WhenToTrigger.Contains(game.RoundNo))
-                        {
-                            player.Status.IsSkip = true;
-                            player.Status.ConfirmedSkip = false;
-                            player.Status.IsBlock = false;
-                            player.Status.IsAbleToTurn = false;
-                            player.Status.IsReady = true;
-                            player.Status.WhoToAttackThisTurn = Guid.Empty;
-
-                            game.Phrases.AwdkaAfk.SendLog(player, true);
-                        }
+                        game.Phrases.AwdkaAfk.SendLog(player, true);
+                    }
                     //end АФКА
 
                     //Я пытаюсь!:
@@ -2875,7 +2884,6 @@ public class CharacterPassives : IServiceSingleton
         foreach (var player in game.PlayersList)
             try
             {
-                continue;
                 if (!player.IsBot()) continue;
                 if (game.RoundNo >= 9) continue;
 
@@ -2968,6 +2976,9 @@ public class CharacterPassives : IServiceSingleton
                                     switch (stat)
                                     {
                                         case 10:
+                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
+                                                player.Predict.Add(new PredictClass("Краборак",
+                                                    playerClass.GetPlayerId()));
                                             break;
                                         case 9:
                                             if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
@@ -2995,14 +3006,9 @@ public class CharacterPassives : IServiceSingleton
                                     switch (stat)
                                     {
                                         case 10:
-                                            var random = _rand.Random(0, 1);
-                                            if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) &&
-                                                random == 1)
-                                                player.Predict.Add(new PredictClass("Осьминожка",
-                                                    playerClass.GetPlayerId()));
+
                                             if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
-                                                player.Predict.Add(new PredictClass("Братишка",
-                                                    playerClass.GetPlayerId()));
+                                                player.Predict.Add(new PredictClass("Осьминожка", playerClass.GetPlayerId()));
                                             break;
                                         case 9:
                                             if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()))
@@ -3039,7 +3045,6 @@ public class CharacterPassives : IServiceSingleton
 
                         break;
                     case "DeepList":
-                        continue;
                         var deepList = _gameGlobal.DeepListSupermindKnown.Find(x =>
                             x.PlayerId == player.GetPlayerId() && x.GameId == game.GameId);
 
@@ -3057,7 +3062,6 @@ public class CharacterPassives : IServiceSingleton
                         break;
                 }
 
-                continue;
                 //game.AddGlobalLogs($"Толя запизделся и спалил, что {randomPlayer.DiscordUsername} - {randomPlayer.Character.Name}");
                 //100%
                 if (globalLogs.Contains("Толя запизделся"))

@@ -616,6 +616,7 @@ Speed => Strength
             player.Status.WhoToAttackThisTurn = Guid.Empty;
             player.Status.MoveListPage = 1;
             player.Status.IsAbleToChangeMind = true;
+            player.Status.RoundNumber = game.RoundNo+1;
 
             player.Character.Justice.HandleEndOfRoundJustice(player.Status);
 

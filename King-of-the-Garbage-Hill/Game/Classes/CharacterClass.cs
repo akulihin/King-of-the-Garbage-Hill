@@ -40,6 +40,7 @@ public class CharacterClass
     private string CurrentSkillTarget { get; set; } = "Ничего";
     private int Moral { get; set; }
     private int BonusPointsFromMoral { get; set; }
+    public int LastMoralRound { get; set; } = 1;
 
     public JusticeClass Justice { get; set; }
 
@@ -256,6 +257,7 @@ public class CharacterClass
             else if (diff < 0) status.AddInGamePersonalLogs($"{skillName}: {diff} *Морали*\n");
         }
 
+        LastMoralRound = status.RoundNumber;
         Moral = howMuchToSet;
     }
 
@@ -281,6 +283,7 @@ public class CharacterClass
         if (howMuchToAdd < 0 && Moral == 0)
             isLog = false;
 
+        LastMoralRound = status.RoundNumber;
         Moral += howMuchToAdd;
 
         if (Moral < 0)

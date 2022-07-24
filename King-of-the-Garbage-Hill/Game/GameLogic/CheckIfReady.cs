@@ -223,7 +223,18 @@ public class CheckIfReady : IServiceSingleton
                         _ => ""
                     };
 
-                    AWDKA.Status.AddBonusPoints((enemy.Score + 1) / 2, $"**Произошел Троллинг:** {trolledText} ");
+                    var bonusTrolling = 0;
+
+                    foreach (var predict in AWDKA.Predict)
+                    {
+                        var found = game.PlayersList.Find(x => predict.PlayerId == x.GetPlayerId() && predict.CharacterName == x.Character.Name);
+                        if (found != null)
+                        {
+                            bonusTrolling += 2;
+                        }
+                    }
+
+                    AWDKA.Status.AddBonusPoints(bonusTrolling + ((enemy.Score + 1) / 2), $"**Произошел Троллинг:** {trolledText} ");
                     game.Phrases.AwdkaTrolling.SendLog(AWDKA, true);
                 }
 

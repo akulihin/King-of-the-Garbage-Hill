@@ -16,7 +16,6 @@ public class InGameGlobal : IServiceSingleton
     private readonly Logs _logs;
     private readonly SecureRandom _rand;
 
-    public readonly List<WhenToTriggerClass> AwdkaAfkTriggeredWhen = new();
     public readonly List<Sirinoks.TrainingClass> AwdkaTeachToPlay = new();
     public readonly List<Awdka.TeachToPlayHistory> AwdkaTeachToPlayHistory = new();
     public readonly List<DeepList.Madness> AwdkaTeachToPlayTempStats = new();
@@ -308,8 +307,6 @@ public class InGameGlobal : IServiceSingleton
                     TigrTopWhen.Add(when);
                     break;
                 case "AWDKA":
-                    when = GetWhenToTrigger(player, 0, 1, 5);
-                    AwdkaAfkTriggeredWhen.Add(when);
                     AwdkaTrollingList.Add(new Awdka.TrollingClass(player.GetPlayerId(), game.GameId));
                     AwdkaTeachToPlayHistory.Add(
                         new Awdka.TeachToPlayHistory(player.GetPlayerId(), game.GameId));
