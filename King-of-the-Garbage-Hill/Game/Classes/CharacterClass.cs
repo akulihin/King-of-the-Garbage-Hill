@@ -42,6 +42,21 @@ public class CharacterClass
     private int BonusPointsFromMoral { get; set; }
     public int LastMoralRound { get; set; } = 1;
 
+    private int IntelligenceQualityResist { get; set; }
+    private int StrengthQualityResist { get; set; }
+    private int SpeedQualityResist { get; set; }
+
+    private int PsycheQualityResist { get; set; }
+
+    private int IntelligenceQualitySkillBonus { get; set; }
+    private int StrengthQualityDropBonus { get; set; }
+    private int SpeedQualityRangeBonus { get; set; }
+    private int PsycheQualityMoralBonus { get; set; }
+    private int IntelligenceQualitySkillDebuff { get; set; }
+    private bool StrengthQualityDropDebuff { get; set; }
+    private int PsycheQualityMoralDebuff { get; set; }
+
+
     public JusticeClass Justice { get; set; }
 
     public List<AvatarEventClass> AvatarEvent = new();
@@ -51,9 +66,126 @@ public class CharacterClass
     public List<Passive> Passive { get; set; }
     public string Description { get; set; }
     public int Tier { get; set; }
-    
 
 
+    private static string GetQualityResist(int resist)
+    {
+        var text = "";
+        const string icon = "O";
+        for (var i = 0; i < resist; i++)
+        {
+            text += $"{icon}";
+        }
+        return text;
+    }
+
+    public void LowerQualityResist(int howMuch = 1)
+    {
+        IntelligenceQualityResist -= howMuch;
+        StrengthQualityResist -= howMuch;
+        PsycheQualityResist -= howMuch;
+
+        if (IntelligenceQualityResist < 0)
+        {
+            UpdateIntelligenceResist();
+            IntelligenceQualitySkillDebuff++;
+        }
+
+        if (StrengthQualityResist < 0)
+        {
+            UpdateStrengthResist();
+            StrengthQualityDropDebuff = true;
+        }
+
+        if (PsycheQualityResist < 0)
+        {
+            UpdatePsycheResist();
+            PsycheQualityMoralDebuff++;
+        }
+    }
+
+
+    public string GetIntelligenceQualityResist()
+    {
+        var text = GetQualityResist(IntelligenceQualityResist);
+        if (IntelligenceQualitySkillDebuff > 0)
+            text += $" **(-{IntelligenceQualitySkillDebuff*10}% Skill)**";
+        return text;
+    }
+
+    public string GetStrengthQualityResist()
+    {
+        return GetQualityResist(StrengthQualityResist);
+    }
+
+    public string GetSpeedQualityResist()
+    {
+        return GetQualityResist(SpeedQualityResist);
+    }
+
+    public int GetSpeedQualityResistInt()
+    {
+        return SpeedQualityResist;
+    }
+
+    public string GetPsycheQualityResist()
+    {
+        var text = GetQualityResist(PsycheQualityResist);
+        if (PsycheQualityMoralDebuff > 0)
+            text += $" **(-{PsycheQualityMoralDebuff*10}% Moral)**";
+        return text;
+    }
+
+    public void UpdateIntelligenceResist()
+    {
+        IntelligenceQualitySkillBonus = 0;
+        if (Intelligence > 0)
+            IntelligenceQualityResist = 1;
+        if (Intelligence > 3)
+            IntelligenceQualityResist = 2;
+        if (Intelligence > 7)
+            IntelligenceQualityResist = 3;
+        if (Intelligence > 9)
+            IntelligenceQualitySkillBonus = 1;
+    }
+    public void UpdateStrengthResist()
+    {
+        StrengthQualityDropBonus = 0;
+        if (Strength > 0)
+            StrengthQualityResist = 1;
+        if (Strength > 3)
+            StrengthQualityResist = 2;
+        if (Strength > 7)
+            StrengthQualityResist = 3;
+        if (Strength > 9)
+            StrengthQualityDropBonus = 1;
+    }
+
+    public void UpdateSpeedResist()
+    {
+        SpeedQualityRangeBonus = 0;
+        if (Speed > 0)
+            SpeedQualityResist = 1;
+        if (Speed > 3)
+            SpeedQualityResist = 2;
+        if (Speed > 7)
+            SpeedQualityResist = 3;
+        if (Speed > 9)
+            SpeedQualityRangeBonus = 1;
+    }
+
+    public void UpdatePsycheResist()
+    {
+        PsycheQualityMoralBonus = 0;
+        if (Psyche > 0)
+            PsycheQualityResist = 1;
+        if (Psyche > 3)
+            PsycheQualityResist = 2;
+        if (Psyche > 7)
+            PsycheQualityResist = 3;
+        if (Psyche > 9)
+            PsycheQualityMoralBonus = 1;
+    }
 
     public string GetClassStatDisplayText()
     {
@@ -161,7 +293,12 @@ public class CharacterClass
 
     public double GetSkill()
     {
-        return (SkillMain + SkillExtra) * SkillFightMultiplier;
+        double skillDebuff = 1;
+        for (var i = 0; i < IntelligenceQualitySkillDebuff; i++)
+        {
+            skillDebuff -= 0.1;
+        }
+        return (SkillMain + SkillExtra) * SkillFightMultiplier * skillDebuff;
     }
 
     public string GetSkillDisplay()
@@ -244,14 +381,20 @@ public class CharacterClass
 
     public int GetMoral()
     {
-        return Moral;
+        double moralDebuff = 1;
+        for (var i = 0; i < PsycheQualityMoralDebuff; i++)
+        {
+            moralDebuff -= 0.1;
+        }
+
+        return (int) (Moral* moralDebuff);
     }
 
     public void SetMoral(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
     {
         if (isLog)
         {
-            var diff = howMuchToSet - Moral;
+            var diff = howMuchToSet - GetMoral();
             if (diff > 0)
                 status.AddInGamePersonalLogs($"{skillName}: +{diff} *Морали*\n");
             else if (diff < 0) status.AddInGamePersonalLogs($"{skillName}: {diff} *Морали*\n");
@@ -280,18 +423,18 @@ public class CharacterClass
 
         if (howMuchToAdd > 0 && isLog)
             status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} *Морали*\n");
-        if (howMuchToAdd < 0 && Moral == 0)
+        if (howMuchToAdd < 0 && GetMoral() == 0)
             isLog = false;
 
         LastMoralRound = status.RoundNumber;
         Moral += howMuchToAdd;
 
-        if (Moral < 0)
-            howMuchToAdd = Moral * -1 + howMuchToAdd;
+        if (GetMoral() < 0)
+            howMuchToAdd = GetMoral() * -1 + howMuchToAdd;
 
         if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} *Морали*\n");
 
-        if (Moral < 0) Moral = 0;
+        if (GetMoral() < 0) Moral = 0;
     }
 
 

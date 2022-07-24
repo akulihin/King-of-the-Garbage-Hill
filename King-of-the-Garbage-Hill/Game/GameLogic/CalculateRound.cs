@@ -524,6 +524,21 @@ Speed => Strength
                 playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(
                     player.GetPlayerId(), game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy,
                     isStatsBettterEnemy, player.GetPlayerId()));
+
+                //Quality
+                var range = player.Character.GetSpeedQualityResistInt();
+                if (range > 2)
+                    range = 5;
+                var placeDiff = player.Status.PlaceAtLeaderBoard - playerIamAttacking.Status.PlaceAtLeaderBoard;
+                if (placeDiff < 0)
+                    placeDiff *= -1;
+
+                if (placeDiff <= range)
+                {
+                    playerIamAttacking.Character.LowerQualityResist();
+                }
+                
+                //end Quality
             }
             else
             {
@@ -617,6 +632,8 @@ Speed => Strength
             player.Status.MoveListPage = 1;
             player.Status.IsAbleToChangeMind = true;
             player.Status.RoundNumber = game.RoundNo+1;
+
+            player.Character.UpdateSpeedResist();
 
             player.Character.Justice.HandleEndOfRoundJustice(player.Status);
 

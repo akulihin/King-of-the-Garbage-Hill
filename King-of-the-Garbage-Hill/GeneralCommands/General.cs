@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
@@ -21,6 +20,7 @@ public class General : ModuleBaseCustom
     private readonly UserAccounts _accounts;
     private readonly CharacterPassives _characterPassives;
     private readonly CharactersPull _charactersPull;
+    private readonly CheckIfReady _checkIfReady;
 
     private readonly CommandsInMemory _commandsInMemory;
     private readonly InGameGlobal _gameGlobal;
@@ -30,7 +30,6 @@ public class General : ModuleBaseCustom
 
     private readonly SecureRandom _secureRandom;
     private readonly GameUpdateMess _upd;
-    private readonly CheckIfReady _checkIfReady;
 
 
     public General(UserAccounts accounts, SecureRandom secureRandom,
@@ -82,6 +81,7 @@ public class General : ModuleBaseCustom
             allCharacters2 = allCharacters2.Where(x => x.Name != "HardKitty").ToList();
             allCharacters = allCharacters.Where(x => x.Name != "HardKitty").ToList();
         }
+
         var reservedCharacters = new List<CharacterClass>();
         var playersList = new List<GamePlayerBridgeClass>();
 
@@ -113,7 +113,7 @@ public class General : ModuleBaseCustom
                 if (!account.IsBot())
                 {
                     var temp = players.Where(x => x != null).ToList().Find(x => x.Id == account.DiscordId);
-                    if(temp != null)
+                    if (temp != null)
                         account.DiscordUserName = temp.Username;
                 }
             }
@@ -121,7 +121,7 @@ public class General : ModuleBaseCustom
             {
                 //ignored
             }
-            
+
 
             //выдать персонажей если их нет на аккаунте
             foreach (var character in from character in allCharacters2
@@ -135,14 +135,13 @@ public class General : ModuleBaseCustom
             if (account.CharacterToGiveNextTime != null)
             {
                 playersList.Add(new GamePlayerBridgeClass
-                {
-                    Character = reservedCharacters.Find(x => x.Name == account.CharacterToGiveNextTime),
-                    Status = new InGameStatus(reservedCharacters.Find(x => x.Name == account.CharacterToGiveNextTime).Name),
-                    DiscordId = account.DiscordId,
-                    GameId = gameId,
-                    DiscordUsername = account.DiscordUserName,
-                    PlayerType = account.PlayerType
-                });
+                    (reservedCharacters.Find(x => x.Name == account.CharacterToGiveNextTime),
+                        new InGameStatus(reservedCharacters.Find(x => x.Name == account.CharacterToGiveNextTime).Name),
+                        account.DiscordId,
+                        gameId,
+                        account.DiscordUserName,
+                        account.PlayerType)
+                );
                 account.CharacterPlayedLastTime = account.CharacterToGiveNextTime;
                 account.CharacterToGiveNextTime = null;
                 continue;
@@ -158,13 +157,16 @@ public class General : ModuleBaseCustom
                 var range = GetRangeFromTier(character.Tier);
                 if (character.Tier == 4 && account.IsBot()) range *= 3;
                 if (character.Tier < 4 && account.IsBot()) continue;
-                var temp = totalPool + Convert.ToInt32(range * account.CharacterChance.Find(x => x.CharacterName == character.Name).Multiplier) - 1;
+                var temp = totalPool +
+                    Convert.ToInt32(range * account.CharacterChance.Find(x => x.CharacterName == character.Name)
+                        .Multiplier) - 1;
                 allAvailableCharacters.Add(new DiscordAccountClass.CharacterRollClass(character.Name, totalPool, temp));
                 totalPool = temp + 1;
             }
 
-            var randomIndex = _secureRandom.Random(1, totalPool-1);
-            var rolledCharacter = allAvailableCharacters.Find(x => randomIndex >= x.CharacterRangeMin && randomIndex <= x.CharacterRangeMax);
+            var randomIndex = _secureRandom.Random(1, totalPool - 1);
+            var rolledCharacter = allAvailableCharacters.Find(x =>
+                randomIndex >= x.CharacterRangeMin && randomIndex <= x.CharacterRangeMax);
             var characterToAssign = allCharactersExclusive.Find(x => x.Name == rolledCharacter.CharacterName);
 
             switch (characterToAssign.Name)
@@ -186,14 +188,14 @@ public class General : ModuleBaseCustom
             }
 
             playersList.Add(new GamePlayerBridgeClass
-            {
-                Character = characterToAssign,
-                Status = new InGameStatus(characterToAssign.Name),
-                DiscordId = account.DiscordId,
-                GameId = gameId,
-                DiscordUsername = account.DiscordUserName,
-                PlayerType = account.PlayerType
-            });
+            (
+                characterToAssign,
+                new InGameStatus(characterToAssign.Name),
+                account.DiscordId,
+                gameId,
+                account.DiscordUserName,
+                account.PlayerType
+            ));
             account.CharacterPlayedLastTime = characterToAssign.Name;
             allCharacters.Remove(characterToAssign);
         }
@@ -289,7 +291,7 @@ public class General : ModuleBaseCustom
     }
 
 
-    public async Task <List<GamePlayerBridgeClass>> HandleEventsBeforeFirstRound(List<GamePlayerBridgeClass> playersList)
+    public async Task<List<GamePlayerBridgeClass>> HandleEventsBeforeFirstRound(List<GamePlayerBridgeClass> playersList)
     {
         //
         if (playersList.Any(x => x.Character.Name == "mylorik"))
@@ -337,7 +339,7 @@ public class General : ModuleBaseCustom
                 var tigrIndex = playersList.IndexOf(tigrTemp);
 
                 playersList[tigrIndex] = playersList.First();
-                playersList[0]= tigrTemp;
+                playersList[0] = tigrTemp;
                 tigr.TimeCount--;
                 //game.Phrases.TigrTop.SendLog(tigrTemp);
             }
@@ -348,7 +350,7 @@ public class General : ModuleBaseCustom
         if (playersList.Any(x => x.Character.Name == "Mit*suki*"))
         {
             var mitsukiTemp = playersList.Find(x => x.Character.Name == "Mit*suki*");
-            mitsukiTemp.Character.AddExtraSkill(mitsukiTemp.Status,  100, "Дерзкая школота");
+            mitsukiTemp.Character.AddExtraSkill(mitsukiTemp.Status, 100, "Дерзкая школота");
         }
 
 
@@ -367,7 +369,8 @@ public class General : ModuleBaseCustom
         if (playersList.Any(x => x.Character.Name == "mylorik"))
         {
             var mylorikTemp = playersList.Find(x => x.Character.Name == "mylorik");
-            mylorikTemp.Character.AddStrength(mylorikTemp.Status, (mylorikTemp.Character.GetStrength()*-1)+3, "Повторяет за myloran", true);
+            mylorikTemp.Character.AddStrength(mylorikTemp.Status, mylorikTemp.Character.GetStrength() * -1 + 3,
+                "Повторяет за myloran");
         }
         //end Повторяет за myloran
 
@@ -375,7 +378,8 @@ public class General : ModuleBaseCustom
     }
 
 
-    public async Task StartGame(int teamCount = 0, IUser player1 = null, IUser player2 = null, IUser player3 = null, IUser player4 = null, IUser player5 = null, IUser player6 = null)
+    public async Task StartGame(int teamCount = 0, IUser player1 = null, IUser player2 = null, IUser player3 = null,
+        IUser player4 = null, IUser player5 = null, IUser player6 = null)
     {
         var players = new List<IUser>
         {
@@ -389,13 +393,15 @@ public class General : ModuleBaseCustom
 
         if (players.Contains(_global.Client.CurrentUser))
         {
-            await SendMessageAsync($"https://upload.wikimedia.org/wikipedia/commons/c/cc/Digital_rain_animation_medium_letters_shine.gif");
+            await SendMessageAsync(
+                "https://upload.wikimedia.org/wikipedia/commons/c/cc/Digital_rain_animation_medium_letters_shine.gif");
             return;
         }
 
         foreach (var player in players.Where(player => player != null).Where(player => player.IsBot))
         {
-            await SendMessageAsync($"{player.Mention} незарегистрированный бот. По поводу франшизы пишите разработчикам игры!");
+            await SendMessageAsync(
+                $"{player.Mention} незарегистрированный бот. По поводу франшизы пишите разработчикам игры!");
             return;
         }
 
@@ -428,7 +434,8 @@ public class General : ModuleBaseCustom
         _gameGlobal.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
 
         //командная игра
-        var teamPool = new List<GamePlayerBridgeClass> { playersList[0], playersList[1], playersList[2], playersList[3], playersList[4], playersList[5] };
+        var teamPool = new List<GamePlayerBridgeClass>
+            { playersList[0], playersList[1], playersList[2], playersList[3], playersList[4], playersList[5] };
         var team1 = new GameClass.TeamPlay(1);
         var team2 = new GameClass.TeamPlay(2);
         var team3 = new GameClass.TeamPlay(3);
@@ -460,6 +467,7 @@ public class General : ModuleBaseCustom
                         teamPool.Remove(teamPooler);
                     }
                 }
+
                 break;
             case 3:
                 foreach (var player in players)
@@ -482,6 +490,7 @@ public class General : ModuleBaseCustom
                         teamPool.Remove(teamPooler);
                     }
                 }
+
                 break;
             case 4:
                 foreach (var player in players)
@@ -504,11 +513,11 @@ public class General : ModuleBaseCustom
                         teamPool.Remove(teamPooler);
                     }
                 }
+
                 break;
         }
 
         if (teamCount > 0)
-        {
             foreach (var teamPayer in playersList)
             {
                 var playerTeam = teamList.Find(x => x.TeamPlayers.Any(y => y == teamPayer.GetPlayerId()));
@@ -521,7 +530,6 @@ public class General : ModuleBaseCustom
                     teamPayer.Predict.Add(new PredictClass(teamMember.Character.Name, teamMember.GetPlayerId()));
                 }
             }
-        }
 
         //отправить меню игры
         foreach (var player in playersList) await _upd.WaitMess(player, playersList);
@@ -530,10 +538,7 @@ public class General : ModuleBaseCustom
         var game = new GameClass(playersList, gameId, Context.User.Id) { IsCheckIfReady = false };
 
         //добавляем команды
-        foreach (var team in teamList.Where(x => x.TeamPlayers.Count > 0))
-        {
-            game.Teams.Add(team);
-        }
+        foreach (var team in teamList.Where(x => x.TeamPlayers.Count > 0)) game.Teams.Add(team);
 
         //start the timer
         game.TimePassed.Start();
@@ -551,11 +556,11 @@ public class General : ModuleBaseCustom
     }
 
 
-
     [Command("игра")]
     [Alias("st", "start", "start game")]
     [Summary("запуск игры")]
-    public async Task StartGameNormal(IUser player1 = null, IUser player2 = null, IUser player3 = null, IUser player4 = null,
+    public async Task StartGameNormal(IUser player1 = null, IUser player2 = null, IUser player3 = null,
+        IUser player4 = null,
         IUser player5 = null, IUser player6 = null)
     {
         player1 ??= Context.User;
@@ -565,13 +570,13 @@ public class General : ModuleBaseCustom
     [Command("игра")]
     [Alias("st", "start", "start game")]
     [Summary("запуск игры")]
-    public async Task StartGameTeam(int team, IUser player1 = null, IUser player2 = null, IUser player3 = null, IUser player4 = null,
+    public async Task StartGameTeam(int team, IUser player1 = null, IUser player2 = null, IUser player3 = null,
+        IUser player4 = null,
         IUser player5 = null, IUser player6 = null)
     {
         player1 ??= Context.User;
         await StartGame(team, player1, player2, player3, player4, player5, player6);
     }
-
 
 
     [Command("stb")]
@@ -580,7 +585,8 @@ public class General : ModuleBaseCustom
     {
         if (mode != "ShowResult" && mode != "Normal")
         {
-            await SendMessageAsync($"Mode **{mode}** is not supported. Only **ShowResult** and **Normal** are available");
+            await SendMessageAsync(
+                $"Mode **{mode}** is not supported. Only **ShowResult** and **Normal** are available");
             return;
         }
 
@@ -593,16 +599,15 @@ public class General : ModuleBaseCustom
 
         for (var jj = 0; jj < times; jj++)
         {
-
             var players = new List<IUser>
-        {
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
-        };
+            {
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+            };
 
 
             //Заменить игрока на бота
@@ -658,15 +663,15 @@ public class General : ModuleBaseCustom
         {
             account.PlayerType = 1;
             await SendMessageAsync("Готово. Ваша сложность теперь \"**Казуальная**\".\n" +
-                                "Эта сложность показывает больше информации, чем в обычноый сложности. Она упрощает механику **предположений**.\n" +
-                                "Для смены сложности, просто напишите `*Сложность`");
+                                   "Эта сложность показывает больше информации, чем в обычноый сложности. Она упрощает механику **предположений**.\n" +
+                                   "Для смены сложности, просто напишите `*Сложность`");
         }
         else if (account.PlayerType == 1)
         {
             account.PlayerType = 0;
             await SendMessageAsync("Готово. Ваша сложность теперь \"**Обычная**\".\n" +
-                                "Эта сложность показывает столько информации, сколько было задумано разработчиками.\n" +
-                                "Для смены сложности, просто напишите `*Сложность`");
+                                   "Эта сложность показывает столько информации, сколько было задумано разработчиками.\n" +
+                                   "Для смены сложности, просто напишите `*Сложность`");
         }
     }
 
