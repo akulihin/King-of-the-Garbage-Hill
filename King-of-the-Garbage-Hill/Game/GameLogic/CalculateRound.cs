@@ -638,7 +638,7 @@ Speed => Strength
 
             player.Character.Justice.HandleEndOfRoundJustice(player.Status);
 
-            player.Status.CombineRoundScoreAndGameScore(game, _gameGlobal, game.Phrases);
+            player.Status.CombineRoundScoreAndGameScore(game, _gameGlobal);
             player.Status.ClearInGamePersonalLogs();
             player.Status.InGamePersonalLogsAll += "|||";
         }

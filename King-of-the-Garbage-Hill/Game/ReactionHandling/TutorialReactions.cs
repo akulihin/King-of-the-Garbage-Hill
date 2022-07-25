@@ -173,7 +173,7 @@ public class TutorialReactions : IServiceSingleton
 
         embed.WithColor(Color.Blue);
 
-        embed.WithCurrentTimestamp();
+        //embed.WithCurrentTimestamp();
         embed.AddField("_____",
             "__Подними один из статов на 1:__\n \n" +
             $"1. **Интеллект:** {player.Intelligence}\n" +

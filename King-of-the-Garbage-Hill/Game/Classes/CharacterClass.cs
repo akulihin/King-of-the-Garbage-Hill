@@ -116,7 +116,7 @@ public class CharacterClass
         }
         if (Intelligence < 10 && (Strength == 10 || Psyche == 10 || Speed == 10))
             spacing += $"{s}{s}";
-        var text = $"{spacing}<:int:1000844463066841128> {IntelligenceQualityResist}";
+        var text = $"{spacing}<:Anal:1000841467935338518> {IntelligenceQualityResist}";
         var debuffTemp = IntelligenceQualitySkillDebuff;
         if (IntelligenceQualitySkillBonus)
             debuffTemp -= 1;
@@ -142,7 +142,7 @@ public class CharacterClass
         }
         if (Strength < 10 && (Speed == 10 || Intelligence == 10 || Psyche == 10))
             spacing += $"{s}{s}";
-        var text = $"{spacing}<:str:1000844441629757610> {StrengthQualityResist}";
+        var text = $"{spacing}<:Usto:1000845686872473611> {StrengthQualityResist}";
         if (StrengthQualityDropBonus)
             text += " **(+1 Drop Power)**";
         return text;
@@ -159,7 +159,7 @@ public class CharacterClass
         if(Speed < 10 && (Strength == 10 || Intelligence == 10 || Psyche == 10))
             spacing += $"{s}{s}";
 
-        var text = $"{spacing}<:spe:1000844429856346174> {SpeedQualityResist}";;
+        var text = $"{spacing}<:Mobi:1000841939500925118> {SpeedQualityResist}";;
         if (SpeedQualityRangeBonus)
             text += " **(+1 Kite Distance)**";
         return text;
@@ -175,7 +175,7 @@ public class CharacterClass
         }
         if (Psyche < 10 && (Strength == 10 || Intelligence == 10 || Speed == 10))
             spacing += $"{s}{s}";
-        var text = $"{spacing}<:psy:1000844454049091654> {PsycheQualityResist}";
+        var text = $"{spacing}<:Spok:1000842206145413210> {PsycheQualityResist}";
 
         var debuffTemp = PsycheQualityMoralDebuff;
         if (PsycheQualityMoralBonus)
@@ -577,15 +577,23 @@ public class CharacterClass
 
     public void AddExtraSkill(InGameStatus status, int howMuchToAdd, string skillName, bool isLog = true)
     {
+        var skillText = "Cкилла"; //russian "а"
+        if (skillName != "Обмен Морали" && skillName != "Класс")
+        {
+            skillName = $"|>boole<|{skillName}";
+            skillText = "Cкиллa"; // english "a"
+        }
+
         if (status.CharacterName == "Братишка")
             return;
+
         if (SkillMultiplier > 0 && howMuchToAdd > 0)
             howMuchToAdd *= (int)(SkillMultiplier + 1);
         if (isLog)
         {
             status.AddInGamePersonalLogs(howMuchToAdd > 0
-                ? $"{skillName}: +{howMuchToAdd} *Cкилла*\n"
-                : $"{skillName}: {howMuchToAdd} *Cкилла*\n");
+                ? $"{skillName}: +{howMuchToAdd} *{skillText}*\n"
+                : $"{skillName}: {howMuchToAdd} *{skillText}*\n");
         }
 
         SkillExtra += howMuchToAdd;
@@ -607,6 +615,10 @@ public class CharacterClass
 
     public void SetMoral(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
     {
+        if (skillName != "Прокачка" && skillName != "Читы")
+        {
+            skillName = $"|>boole<|{skillName}";
+        }
         if (isLog)
         {
             var diff = howMuchToSet - GetMoral();
@@ -621,6 +633,10 @@ public class CharacterClass
 
     public void AddMoral(InGameStatus status, int howMuchToAdd, string skillName, bool isLog = true, bool isMoralPoints = false)
     {
+        if (skillName != "Обмен Морали" && skillName != "Победа" && skillName != "Поражение")
+        {
+            skillName = $"|>boole<|{skillName}";
+        }
         if (status.CharacterName == "Братишка")
             return;
         //привет со дна
@@ -655,6 +671,10 @@ public class CharacterClass
 
     public void AddIntelligence(InGameStatus status, int howMuchToAdd, string skillName, bool isLog = true)
     {
+        if (skillName != "Прокачка" && skillName != "Читы")
+        {
+            skillName = $"|>boole<|{skillName}";
+        }
         if (howMuchToAdd > 0 && isLog)
             status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Интеллект\n");
         else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} Интеллект\n");
@@ -686,6 +706,10 @@ public class CharacterClass
 
     public void SetIntelligence(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
     {
+        if (skillName != "Прокачка" && skillName != "Читы")
+        {
+            skillName = $"|>boole<|{skillName}";
+        }
         if (isLog)
         {
             var diff = howMuchToSet - Intelligence;
@@ -713,6 +737,10 @@ public class CharacterClass
 
     public void AddPsyche(InGameStatus status, int howMuchToAdd, string skillName, bool isLog = true)
     {
+        if (skillName != "Прокачка" && skillName != "Читы")
+        {
+            skillName = $"|>boole<|{skillName}";
+        }
         if (howMuchToAdd > 0 && isLog)
             status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Психика\n");
         else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} Психика\n");
@@ -742,6 +770,10 @@ public class CharacterClass
 
     public void SetPsyche(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
     {
+        if (skillName != "Прокачка" && skillName != "Читы")
+        {
+            skillName = $"|>boole<|{skillName}";
+        }
         if (isLog)
         {
             var diff = howMuchToSet - Psyche;
@@ -769,6 +801,10 @@ public class CharacterClass
 
     public void AddSpeed(InGameStatus status, int howMuchToAdd, string skillName, bool isLog = true)
     {
+        if (skillName != "Прокачка" && skillName != "Читы")
+        {
+            skillName = $"|>boole<|{skillName}";
+        }
         if (howMuchToAdd > 0 && isLog)
             status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Скорость\n");
         else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} Скорость\n");
@@ -797,6 +833,10 @@ public class CharacterClass
 
     public void SetSpeed(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
     {
+        if (skillName != "Прокачка" && skillName != "Читы")
+        {
+            skillName = $"|>boole<|{skillName}";
+        }
         if (isLog)
         {
             var diff = howMuchToSet - Speed;
@@ -824,6 +864,10 @@ public class CharacterClass
 
     public void AddStrength(InGameStatus status, int howMuchToAdd, string skillName, bool isLog = true)
     {
+        if (skillName != "Прокачка" && skillName != "Читы")
+        {
+            skillName = $"|>boole<|{skillName}";
+        }
         if (howMuchToAdd > 0 && isLog)
             status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Сила\n");
         else if (howMuchToAdd < 0 && isLog) status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} Сила\n");
@@ -852,6 +896,10 @@ public class CharacterClass
 
     public void SetStrength(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
     {
+        if (skillName != "Прокачка" && skillName != "Читы")
+        {
+            skillName = $"|>boole<|{skillName}";
+        }
         if (isLog)
         {
             var diff = howMuchToSet - Strength;
@@ -1011,6 +1059,10 @@ public class JusticeClass
 
     public void SetFullJusticeNow(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
     {
+        if (skillName != "Прокачка" && skillName != "Читы")
+        {
+            skillName = $"|>boole<|{skillName}";
+        }
         if (isLog)
             status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} Справедливости\n");
         FullJusticeNow = howMuchToSet;

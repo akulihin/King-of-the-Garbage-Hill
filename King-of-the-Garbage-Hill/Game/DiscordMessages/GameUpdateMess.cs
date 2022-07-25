@@ -468,127 +468,68 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     }
 
 
-    public string HandleCasualNormalSkillShow(string text, GamePlayerBridgeClass player, GameClass game)
+    public string SortLogs(string textOriginal, GamePlayerBridgeClass player, GameClass game)
     {
-        if (player.PlayerType == 0)
-            foreach (var p in game.PlayersList)
+        var text = textOriginal;
+        if (player.PlayerType == 0) text = game.PlayersList.Where(p => p.GetPlayerId() != player.GetPlayerId()).Aggregate(text, (current1, p) => p.Character.Passive.Where(passive => passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса" && passive.PassiveName != "Еврей" && passive.PassiveName != "2kxaoc").Aggregate(current1, (current, passive) => current.Replace($"{passive.PassiveName}", "❓")));
+
+        var phrases = false;
+        var orderedList = new List<string> {"|>boole<|", "Ты напал", "Ты поставил", "Поражение:", "Победа:", "Обмен", "Ты улучшил", "Читы", "Справедливость", "Класс:", "Cкилла", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**" };
+
+        foreach (var keyword in orderedList)
+        {
+            switch (keyword)
             {
-                if (p.GetPlayerId() == player.GetPlayerId())
-                    continue;
-                foreach (var passive in p.Character.Passive)
-                    if (passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса" && passive.PassiveName != "Еврей" && passive.PassiveName != "2kxaoc")
-                        text = text.Replace($"{passive.PassiveName}", "❓");
+                case "Класс:" when text.Contains(keyword):
+                {
+                    var temp = "";
+                    var jewSplit = text.Split('\n');
+                    var totalClass = 0;
+
+                    foreach (var line in jewSplit)
+                        if (!line.Contains("Класс:"))
+                        {
+                            temp += line + "\n";
+                        }
+                        else
+                        {
+                            var classText = line.Split(' ')[1].Replace("+", "");
+                            totalClass += Convert.ToInt32(classText);
+                        }
+
+                    temp = temp.Remove(temp.Length - 1);
+                    temp += $"Класс: +{totalClass} *Cкилла*\n";
+                    text = temp;
+                    break;
+                }
+                case "|>boole<|" when text.Contains(keyword):
+                {
+                    phrases = true;
+                    var jewSplit = text.Split('\n');
+                    var temp = jewSplit.Where(line => !line.Contains(keyword)).Aggregate("", (current, line) => current + (line.Replace("|>boole<|", "") + "\n"));
+                    temp = jewSplit.Where(line => line.Contains(keyword)).Aggregate(temp, (current, line) => current + (line.Replace("|>boole<|", "") + "\n"));
+
+                    text = temp;
+                    break;
+                }
+                default:
+                    if (text.Contains(keyword))
+                    {
+                        var jewSplit = text.Split('\n');
+                        var temp = jewSplit.Where(line => !line.Contains(keyword)).Aggregate("", (current, line) => current + (line + "\n"));
+                        temp = jewSplit.Where(line => line.Contains(keyword)).Aggregate(temp, (current, line) => current + (line + "\n"));
+
+                        text = temp;
+                    } 
+                    break;
             }
 
-
-        if (text.Contains("Класс:"))
-        {
-            var temp = "";
-            var jewSplit = text.Split('\n');
-            var totalClass = 0;
-
-            foreach (var line in jewSplit)
-                if (!line.Contains("Класс:"))
-                {
-                    temp += line + "\n";
-                }
-                else
-                {
-                    var classText = line.Split(' ')[1].Replace("+", "");
-                    totalClass += Convert.ToInt32(classText);
-                }
-
-            temp = temp.Remove(temp.Length - 1);
-            temp += $"Класс: +{totalClass} *Cкилла*\n";
-            text = temp;
+            if (!phrases) continue;
+            phrases = false;
+            text += "　\n";
         }
-
-
-        if (text.Contains("Cкилла"))
-        {
-            var temp = "";
-            var jewSplit = text.Split('\n');
-
-            foreach (var line in jewSplit)
-                if (!line.Contains("Cкилла"))
-                    temp += line + "\n";
-
-            foreach (var line in jewSplit)
-                if (line.Contains("Cкилла"))
-                    temp += line + "\n";
-
-            text = temp;
-        }
-
-
-        if (text.Contains("__**бонусных**__ очков"))
-        {
-            var temp = "";
-            var jewSplit = text.Split('\n');
-
-            foreach (var line in jewSplit)
-                if (!line.Contains("__**бонусных**__ очков"))
-                    temp += line + "\n";
-
-            foreach (var line in jewSplit)
-                if (line.Contains("__**бонусных**__ очков"))
-                    temp += line + "\n";
-
-            text = temp;
-        }
-
-
-        if (text.Contains("Евреи..."))
-        {
-            var temp = "";
-            var jewSplit = text.Split('\n');
-
-            foreach (var line in jewSplit)
-                if (!line.Contains("Евреи..."))
-                    temp += line + "\n";
-
-            foreach (var line in jewSplit)
-                if (line.Contains("Евреи..."))
-                    temp += line + "\n";
-
-            text = temp;
-        }
-
         
-        if (text.Contains("**обычных** очков"))
-        {
-            var temp = "";
-            var jewSplit = text.Split('\n');
-
-            foreach (var line in jewSplit)
-                if (!line.Contains("**обычных** очков"))
-                    temp += line + "\n";
-
-            foreach (var line in jewSplit)
-                if (line.Contains("**обычных** очков"))
-                    temp += line + "\n";
-
-            text = temp;
-        }
-
-
-        if (text.Contains("**очков**"))
-        {
-            var temp = "";
-            var jewSplit = text.Split('\n');
-
-            foreach (var line in jewSplit)
-                if (!line.Contains("**очков**"))
-                    temp += line + "\n";
-
-            foreach (var line in jewSplit)
-                if (line.Contains("**очков**"))
-                    temp += line + "\n";
-
-            text = temp;
-        }
-
-        return text.Replace("\n\n", "\n");
+        return text.Replace("\n\n", "\n").Split('\n').Where(line => line != "" && line != " ").Aggregate("", (current, line) => current + (line + "\n"));
     }
 
 
@@ -667,7 +608,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (splitLogs.Length > 1 && splitLogs[^2].Length > 3 && game.RoundNo > 1)
         {
             text = splitLogs[^2];
-            text = HandleCasualNormalSkillShow(text, player, game);
+            text = SortLogs(text, player, game);
             embed.AddField("События прошлого раунда:", $"{text}");
         }
         else
@@ -678,7 +619,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         text = player.Status.GetInGamePersonalLogs().Length >= 2
             ? $"{player.Status.GetInGamePersonalLogs()}"
             : "Еще ничего не произошло. Наверное...";
-        text = HandleCasualNormalSkillShow(text, player, game);
+        text = SortLogs(text, player, game);
+
         embed.AddField("События этого раунда:", text);
 
 
@@ -715,7 +657,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         }
         embed.WithColor(Color.Blue);
         embed.WithFooter($"{GetTimeLeft(player)}");
-        embed.WithCurrentTimestamp();
+        //embed.WithCurrentTimestamp();
         embed.AddField("_____",
             $"{text}\n \n" +
             $"1. **Интеллект:** {character.GetIntelligence()}\n" +

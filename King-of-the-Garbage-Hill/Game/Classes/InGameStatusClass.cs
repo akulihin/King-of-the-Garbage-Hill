@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Discord;
 using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
-using King_of_the_Garbage_Hill.Game.MemoryStorage;
+
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
@@ -186,8 +186,7 @@ public class InGameStatus
         return ScoresToGiveAtEndOfRound;
     }
 
-    public void CombineRoundScoreAndGameScore(GameClass game, InGameGlobal gameGlobal,
-        CharactersUniquePhrase phrase)
+    public void CombineRoundScoreAndGameScore(GameClass game, InGameGlobal gameGlobal)
     {
         var roundNumber = game.RoundNo;
 
@@ -218,18 +217,27 @@ public class InGameStatus
         10 х4
         */
         if (roundNumber <= 4)
-            score = score * 1; // Why????????????????????????
+            score *= 1; // Why????????????????????????
         else if (roundNumber <= 9)
-            score = score * 2;
+            score *= 2;
         else if (roundNumber == 10)
-            score = score * 4;
+            score *= 4;
 
-        if ((int)score > 0)
-            AddInGamePersonalLogs($"+{(int)score} **обычных** очков ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
-        else if ((int)score < 0)
-            AddInGamePersonalLogs($"{(int)score} **очков**... ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
-        else if(score == 0 && ScoreSource.Length > 0)
-            AddInGamePersonalLogs($"{(int)score} **очков**!? ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
+        switch ((int)score)
+        {
+            case > 0:
+                AddInGamePersonalLogs($"+{(int)score} **обычных** очков ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
+                break;
+            case < 0:
+                AddInGamePersonalLogs($"{(int)score} **очков**... ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
+                break;
+            default:
+            {
+                if(score == 0 && ScoreSource.Length > 0)
+                    AddInGamePersonalLogs($"{(int)score} **очков**!? ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
+                break;
+            }
+        }
         Score += (int)score;
     }
 

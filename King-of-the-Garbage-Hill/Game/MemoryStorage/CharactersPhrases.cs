@@ -622,7 +622,7 @@ public class CharactersUniquePhrase
                 }
             }
 
-            player.Status.AddInGamePersonalLogs($"{PassiveNameRus}: {prefix}{description}\n");
+            player.Status.AddInGamePersonalLogs($"|>boole<|{PassiveNameRus}: {prefix}{description}\n");
         }
 
         public void SendLog(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, bool delete)
@@ -652,7 +652,7 @@ public class CharactersUniquePhrase
                 description += $"{player2.DiscordUsername} - {player2.Character.Name}";
 
 
-                player.Status.AddInGamePersonalLogs($"{PassiveNameRus}: {description}\n");
+                player.Status.AddInGamePersonalLogs($"|>boole<|{PassiveNameRus}: {description}\n");
             }
 
         }

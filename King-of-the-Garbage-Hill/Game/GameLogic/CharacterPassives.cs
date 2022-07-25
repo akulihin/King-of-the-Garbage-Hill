@@ -1999,7 +1999,7 @@ public class CharacterPassives : IServiceSingleton
                         player.Status.AddInGamePersonalLogs(
                             "ZaRDaK: Ты так и не апнул чалланджер? Хах, неудивительно. ");
                         player.Status.AddInGamePersonalLogs(
-                            "\nmylorik закупился у продавца сомнительных тактик: +228 *Скилла*!\n");
+                            "\n|>boole<|mylorik закупился у продавца сомнительных тактик: +228 *Скилла*!\n");
                         player.Character.AddExtraSkill(player.Status, 228, "Повторяет за myloran", false);
                     }
                     //end Повторяет за myloran
@@ -2256,7 +2256,6 @@ public class CharacterPassives : IServiceSingleton
                     if (game.RoundNo == 9 && glebTea.TimesRolled == 0)
                     {
                         glebTea.Ready = true;
-                        player.Status.AddInGamePersonalLogs("Я за чаем: Глебка чай не пропускает!");
                     }
 
                     if (glebTea.Ready)
