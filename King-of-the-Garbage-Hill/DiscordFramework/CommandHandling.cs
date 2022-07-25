@@ -40,7 +40,7 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
         _global = global;
         _client = client;
         _accounts = accounts;
-     
+
         _commandsInMemory = commandsInMemory;
     }
 
@@ -117,16 +117,15 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
                 return;
             }
 
-         
 
             if (message.HasStringPrefix("*", ref argPos) || message.HasStringPrefix("*" + " ",
-                                                                      ref argPos)
-                                                                  || message.HasMentionPrefix(_client.CurrentUser,
-                                                                      ref argPos)
-                                                                  || message.HasStringPrefix(account.MyPrefix + " ",
-                                                                      ref argPos)
-                                                                  || message.HasStringPrefix(account.MyPrefix,
-                                                                      ref argPos))
+                                                             ref argPos)
+                                                         || message.HasMentionPrefix(_client.CurrentUser,
+                                                             ref argPos)
+                                                         || message.HasStringPrefix(account.MyPrefix + " ",
+                                                             ref argPos)
+                                                         || message.HasStringPrefix(account.MyPrefix,
+                                                             ref argPos))
             {
                 var resultTask = Task.FromResult(await _commands.ExecuteAsync(
                     context,
@@ -158,6 +157,10 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
         if (!(msg is SocketUserMessage message)) return;
 
         var account = _accounts.GetAccount(msg.Author);
+        var myPrefix = "*";
+
+        if (account.MyPrefix != null)
+            myPrefix = account.MyPrefix;
 
         var context =
             new SocketCommandContextCustom(_client, message, _commandsInMemory, message.Author, message.Channel);
@@ -167,19 +170,17 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
         if (msg.Author.IsBot)
             return;
 
-     
-
-
         if (message.HasStringPrefix("*", ref argPos) || message.HasStringPrefix("*" + " ",
                                                          ref argPos)
                                                      || message.HasMentionPrefix(_client.CurrentUser,
                                                          ref argPos)
-                                                     || message.HasStringPrefix(account.MyPrefix + " ",
+                                                     || message.HasStringPrefix(myPrefix + " ",
                                                          ref argPos)
-                                                     || message.HasStringPrefix(account.MyPrefix,
-                                                         ref argPos)
-                                                     || context.GuildName == "DM")
+                                                     || message.HasStringPrefix(myPrefix, ref argPos)
+                                                     || context.GuildName == "DM"
+           )
         {
+            _log.Critical("huh??");
             var resultTask = _commands.ExecuteAsync(context, argPos, _services);
             await resultTask.ContinueWith(async task => await CommandResults(task, context));
         }
@@ -261,14 +262,12 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
 
         return option1.Value != option2.Value;
     }
+
     private static bool AreOptionsEqual(RestApplicationCommand command1, SlashCommandProperties command2)
     {
         var equal = true;
 
-        if (!command2.Options.IsSpecified)
-        {
-            return command1.Options.Count == 0;
-        }
+        if (!command2.Options.IsSpecified) return command1.Options.Count == 0;
 
         var options1 = command1.Options.ToList();
         var options2 = command2.Options.Value;
@@ -276,10 +275,9 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
         if (options1.Count != options2.Count)
             return false;
 
-        foreach (var _ in options1.Where(o => options2.All(x => x.Name != o.Name || x.Description != o.Description || x.Type != o.Type || AreOptionsRequired(x.IsRequired, o.IsRequired))))
-        {
-            equal = false;
-        }
+        foreach (var _ in options1.Where(o => options2.All(x =>
+                     x.Name != o.Name || x.Description != o.Description || x.Type != o.Type ||
+                     AreOptionsRequired(x.IsRequired, o.IsRequired)))) equal = false;
 
         return equal;
     }
@@ -293,36 +291,38 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
             var commandsCount = 0;
             var allCommands = new List<SlashCommandProperties>();
             foreach (var module in commandModules)
-                foreach (var command in module.Commands)
-                {
-                    var guildCommand = new SlashCommandBuilder();
-                    var commandName = command.Module.Group != null
-                        ? $"{command.Module.Group} {command.Name}"
-                        : command.Name;
-                    var moduleName = module.Remarks != null ? $"{module.Remarks} {module.Name}" : module.Name;
-                    var summary = command.Summary;
+            foreach (var command in module.Commands)
+            {
+                var guildCommand = new SlashCommandBuilder();
+                var commandName = command.Module.Group != null
+                    ? $"{command.Module.Group} {command.Name}"
+                    : command.Name;
+                var moduleName = module.Remarks != null ? $"{module.Remarks} {module.Name}" : module.Name;
+                var summary = command.Summary;
 
-                    if (moduleName != "General" && moduleName != "Top" && moduleName != "DiceRollCommands" &&
-                        moduleName != "BlackList" && moduleName != "RandomOctopus" && moduleName != "StatsUser" &&
-                        moduleName != "Reminder")
-                        continue;
-                    if (string.IsNullOrEmpty(command.Summary))
-                        continue;
+                if (moduleName != "General" && moduleName != "Top" && moduleName != "DiceRollCommands" &&
+                    moduleName != "BlackList" && moduleName != "RandomOctopus" && moduleName != "StatsUser" &&
+                    moduleName != "Reminder")
+                    continue;
+                if (string.IsNullOrEmpty(command.Summary))
+                    continue;
 
-                    if (summary.Length > 100)
-                        summary = summary[..97] + "...";
+                if (summary.Length > 100)
+                    summary = summary[..97] + "...";
 
-                    guildCommand.WithDescription(summary);
-                    guildCommand.WithName(commandName.ToLower());
+                guildCommand.WithDescription(summary);
+                guildCommand.WithName(commandName.ToLower());
 
-                    foreach (var parameter in command.Parameters)
-                        guildCommand.AddOption(parameter.Name.ToLower(), HandleParameterInfo(parameter), "_",
-                            !parameter.IsOptional);
+                foreach (var parameter in command.Parameters)
+                    guildCommand.AddOption(parameter.Name.ToLower(), HandleParameterInfo(parameter), "_",
+                        !parameter.IsOptional);
 
-                    allCommands.Add(guildCommand.Build());
-                }
+                allCommands.Add(guildCommand.Build());
+            }
 
-            foreach (var command in allCommands.Where(command => !existingCommands.Any(x => x.Name == command.Name.Value && x.Description == command.Description.Value && AreOptionsEqual(x, command))))
+            foreach (var command in allCommands.Where(command => !existingCommands.Any(x =>
+                         x.Name == command.Name.Value && x.Description == command.Description.Value &&
+                         AreOptionsEqual(x, command))))
             {
                 await _client.Rest.CreateGuildCommand(command, 372150439728381953);
                 commandsCount++;

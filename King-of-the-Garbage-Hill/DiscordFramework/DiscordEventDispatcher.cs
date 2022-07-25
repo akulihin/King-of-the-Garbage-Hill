@@ -170,8 +170,9 @@ public sealed class DiscordEventDispatcher : IServiceSingleton
     {
         if (message.Author.IsBot)
             return;
-        _global.TimeSpendOnLastMessage.AddOrUpdate(message.Author.Id, Stopwatch.StartNew(), (key, oldValue) => Stopwatch.StartNew());
-        _commandHandler.HandleCommandAsync(message);
+        _global.TimeSpendOnLastMessage.AddOrUpdate(message.Author.Id, Stopwatch.StartNew(),
+            (_, _) => Stopwatch.StartNew());
+        _commandHandler.Client_HandleCommandAsync(message);
     }
 
     private async Task MessageUpdated(Cacheable<IMessage, ulong> cacheMessageBefore, SocketMessage messageAfter,
