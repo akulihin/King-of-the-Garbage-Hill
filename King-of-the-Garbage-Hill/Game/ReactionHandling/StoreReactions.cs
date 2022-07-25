@@ -18,8 +18,8 @@ public class StoreReactions : IServiceSingleton
     private readonly SecureRandom _random;
     private readonly UserAccounts _userAccounts;
     private readonly int _basePrice = 10;
-    private readonly Logs _logs;
-    public StoreReactions(UserAccounts userAccounts, CharactersPull charactersPull, SecureRandom random, Logs logs)
+    private readonly LoginFromConsole _logs;
+    public StoreReactions(UserAccounts userAccounts, CharactersPull charactersPull, SecureRandom random, LoginFromConsole logs)
     {
         _userAccounts = userAccounts;
         _charactersPull = charactersPull;

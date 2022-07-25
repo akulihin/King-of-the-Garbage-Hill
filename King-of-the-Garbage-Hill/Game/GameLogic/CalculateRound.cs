@@ -15,13 +15,13 @@ public class CalculateRound : IServiceSingleton
     private readonly CharacterPassives _characterPassives;
     private readonly InGameGlobal _gameGlobal;
     private readonly Global _global;
-    private readonly Logs _logs;
+    private readonly LoginFromConsole _logs;
 
 
     private readonly SecureRandom _rand;
 
     public CalculateRound(SecureRandom rand, CharacterPassives characterPassives,
-        InGameGlobal gameGlobal, Global global, Logs logs)
+        InGameGlobal gameGlobal, Global global, LoginFromConsole logs)
     {
         _rand = rand;
         _characterPassives = characterPassives;

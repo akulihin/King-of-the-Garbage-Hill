@@ -12,9 +12,9 @@ namespace King_of_the_Garbage_Hill.GeneralCommands;
 public class DiceRollCommands : ModuleBaseCustom
 {
     private readonly SecureRandom _secureRandom;
-    private readonly Logs _logs;
+    private readonly LoginFromConsole _logs;
 
-    public DiceRollCommands(SecureRandom secureRandom, Logs logs)
+    public DiceRollCommands(SecureRandom secureRandom, LoginFromConsole logs)
     {
         _secureRandom = secureRandom;
         _logs = logs;

@@ -8,9 +8,9 @@ namespace King_of_the_Garbage_Hill.Helpers;
 public sealed class AwaitForUserMessage : IServiceSingleton
 {
     private readonly Global _global;
-    private readonly Logs _logs;
+    private readonly LoginFromConsole _logs;
 
-    public AwaitForUserMessage(Global global, Logs logs)
+    public AwaitForUserMessage(Global global, LoginFromConsole logs)
     {
         _global = global;
         _logs = logs;

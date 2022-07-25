@@ -16,10 +16,10 @@ public class BotsBehavior : IServiceSingleton
     private readonly InGameGlobal _gameGlobal;
     private readonly GameReaction _gameReaction;
     private readonly Global _global;
-    private readonly Logs _logs;
+    private readonly LoginFromConsole _logs;
     private readonly SecureRandom _rand;
 
-    public BotsBehavior(SecureRandom rand, GameReaction gameReaction, InGameGlobal gameGlobal, Global global, Logs logs)
+    public BotsBehavior(SecureRandom rand, GameReaction gameReaction, InGameGlobal gameGlobal, Global global, LoginFromConsole logs)
     {
         _rand = rand;
         _gameReaction = gameReaction;

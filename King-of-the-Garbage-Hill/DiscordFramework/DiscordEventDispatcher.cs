@@ -14,14 +14,14 @@ public sealed class DiscordEventDispatcher : IServiceSingleton
     private readonly DiscordShardedClient _client;
     private readonly CommandHandling _commandHandler;
     private readonly GameReaction _gameReaction;
-    private readonly Logs _log;
+    private readonly LoginFromConsole _log;
     private readonly Global _global;
     private readonly StoreReactions _storeReactionHandling;
     private readonly TutorialReactions _tutorialReactions;
     private readonly LoreReactions _loreReactions;
 
     public DiscordEventDispatcher(DiscordShardedClient client, CommandHandling commandHandler,
-        GameReaction gameReaction, Logs log, Global global, StoreReactions storeReactionHandling,
+        GameReaction gameReaction, LoginFromConsole log, Global global, StoreReactions storeReactionHandling,
         TutorialReactions tutorialReactions, LoreReactions loreReactions)
     {
         _client = client;

@@ -177,13 +177,13 @@ public sealed class HelperFunctions : IServiceSingleton
 
 
     private readonly Global _global;
-    private readonly Logs _logs;
+    private readonly LoginFromConsole _logs;
     private readonly SecureRandom _secureRandom;
     private readonly List<Guid> _embedQueue = new();
     private readonly List<Guid> _messageQueue = new();
 
     public HelperFunctions(Global global, UserAccounts accounts,
-        SecureRandom secureRandom, Logs log)
+        SecureRandom secureRandom, LoginFromConsole log)
     {
         _global = global;
         _accounts = accounts;

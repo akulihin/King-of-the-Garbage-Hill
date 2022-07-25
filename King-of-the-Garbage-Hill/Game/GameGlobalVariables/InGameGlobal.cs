@@ -13,7 +13,7 @@ namespace King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 
 public class InGameGlobal : IServiceSingleton
 {
-    private readonly Logs _logs;
+    private readonly LoginFromConsole _logs;
     private readonly SecureRandom _rand;
 
     public readonly List<Sirinoks.TrainingClass> AwdkaTeachToPlay = new();
@@ -98,7 +98,7 @@ public class InGameGlobal : IServiceSingleton
     public readonly List<TutorialReactions.TutorialGame> Tutorials = new();
     public readonly List<BotsBehavior.NanobotClass> NanobotsList = new();
 
-    public InGameGlobal(SecureRandom rand, Logs logs)
+    public InGameGlobal(SecureRandom rand, LoginFromConsole logs)
     {
         _rand = rand;
         _logs = logs;

@@ -16,12 +16,12 @@ public class CharacterPassives : IServiceSingleton
     private readonly InGameGlobal _gameGlobal;
     private readonly GameUpdateMess _gameUpdateMess;
     private readonly HelperFunctions _help;
-    private readonly Logs _log;
+    private readonly LoginFromConsole _log;
     private readonly SecureRandom _rand;
 
 
     public CharacterPassives(SecureRandom rand, HelperFunctions help,
-        InGameGlobal gameGlobal, Logs log, GameUpdateMess gameUpdateMess)
+        InGameGlobal gameGlobal, LoginFromConsole log, GameUpdateMess gameUpdateMess)
     {
         _rand = rand;
         _help = help;

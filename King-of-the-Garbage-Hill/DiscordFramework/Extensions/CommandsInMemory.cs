@@ -6,7 +6,7 @@ namespace King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 
 public class CommandsInMemory : IServiceSingleton
 {
-    public uint MaximumCommandsInRam = 1000;
+    public uint MaximumCommandsInRam = 100;
 
 
     //not data

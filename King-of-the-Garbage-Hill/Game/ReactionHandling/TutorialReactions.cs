@@ -16,7 +16,7 @@ public class TutorialReactions : IServiceSingleton
 {
     private readonly CharactersPull _charactersPull;
     private readonly InGameGlobal _gameGlobal;
-    private readonly Logs _logs;
+    private readonly LoginFromConsole _logs;
 
     private readonly List<Emoji> _playerChoiceAttackList = new()
         { new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣"), new Emoji("4⃣"), new Emoji("5⃣"), new Emoji("6⃣") };
@@ -25,7 +25,7 @@ public class TutorialReactions : IServiceSingleton
     private readonly UserAccounts _userAccounts;
 
     public TutorialReactions(UserAccounts userAccounts, CharactersPull charactersPull, SecureRandom random,
-        InGameGlobal gameGlobal, Logs logs)
+        InGameGlobal gameGlobal, LoginFromConsole logs)
     {
         _userAccounts = userAccounts;
         _charactersPull = charactersPull;

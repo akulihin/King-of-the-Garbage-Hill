@@ -21,7 +21,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     private readonly InGameGlobal _gameGlobal;
     private readonly Global _global;
     private readonly HelperFunctions _helperFunctions;
-    private readonly Logs _log;
+    private readonly LoginFromConsole _log;
     private readonly SecureRandom _random;
     private readonly CharactersPull _charactersPull;
     private readonly List<string> _vampyrGarlic = new() { "Никаких статов для тебя, поешь чеснока", "Иди отсюда, Вампур позорный", "А ну хватит кусаться!", "Клыки наточил?" };
@@ -31,7 +31,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
     public GameUpdateMess(UserAccounts accounts, Global global, InGameGlobal gameGlobal,
-        HelperFunctions helperFunctions, Logs log, SecureRandom random, CharactersPull charactersPull)
+        HelperFunctions helperFunctions, LoginFromConsole log, SecureRandom random, CharactersPull charactersPull)
     {
         _accounts = accounts;
         _global = global;

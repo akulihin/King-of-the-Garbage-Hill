@@ -15,9 +15,9 @@ public class LoreReactions : IServiceSingleton
     private readonly CharactersPull _charactersPull;
     private readonly SecureRandom _random;
     private readonly UserAccounts _userAccounts;
-    private readonly Logs _logs;
+    private readonly LoginFromConsole _logs;
 
-    public LoreReactions(UserAccounts userAccounts, CharactersPull charactersPull, SecureRandom random, Logs logs)
+    public LoreReactions(UserAccounts userAccounts, CharactersPull charactersPull, SecureRandom random, LoginFromConsole logs)
     {
         _userAccounts = userAccounts;
         _charactersPull = charactersPull;

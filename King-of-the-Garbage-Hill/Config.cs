@@ -9,7 +9,7 @@ namespace King_of_the_Garbage_Hill;
 public sealed class Config : IServiceSingleton
 {
 
-    public Config(Logs log)
+    public Config(LoginFromConsole log)
     {
         try
         {

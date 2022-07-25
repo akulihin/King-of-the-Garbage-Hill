@@ -12,9 +12,9 @@ public sealed class UserAccountsDataStorage : IServiceSingleton
 {
     //Save all DiscordAccountClass
 
-    private readonly Logs _logs;
+    private readonly LoginFromConsole _logs;
 
-    public UserAccountsDataStorage(Logs log)
+    public UserAccountsDataStorage(LoginFromConsole log)
     {
         _logs = log;
     }

@@ -18,14 +18,14 @@ public sealed class GameReaction : IServiceSingleton
     private readonly UserAccounts _accounts;
     private readonly Global _global;
     private readonly HelperFunctions _help;
-    private readonly Logs _logs;
+    private readonly LoginFromConsole _logs;
     private readonly GameUpdateMess _upd;
     private readonly InGameGlobal _gameGlobal;
    
 
     public GameReaction(UserAccounts accounts,
         Global global,
-        GameUpdateMess upd, HelperFunctions help, Logs logs, InGameGlobal inGameGlobal)
+        GameUpdateMess upd, HelperFunctions help, LoginFromConsole logs, InGameGlobal inGameGlobal)
     {
         _accounts = accounts;
         _global = global;
