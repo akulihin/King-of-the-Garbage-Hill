@@ -468,6 +468,7 @@ public class CharactersUniquePhrase
         LeCrispImpactPhrase.PassiveLogRus.Add("Я хочу чтобы моя девушка была немножко cringe");
         LeCrispImpactPhrase.PassiveLogRus.Add("Как Надо!");
         LeCrispImpactPhrase.PassiveLogRus.Add("OnlyFans... Почему здесь всё стоит денег?");
+        LeCrispImpactPhrase.PassiveLogRus.Add("Стреляю редко, но метко");
 
         
 
