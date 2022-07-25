@@ -560,7 +560,7 @@ public class CharacterPassives : IServiceSingleton
 
                     if (me.Character.GetSkillFightMultiplier() > 1)
                         me.Status.AddInGamePersonalLogs(
-                            $"Спарта: {me.Character.GetSkill()} *Скилла* против {target.DiscordUsername}\n");
+                            $"Спарта: {(int)me.Character.GetSkill()} *Скилла* против {target.DiscordUsername}\n");
                 }
 
                 //end Cпарта
