@@ -180,7 +180,6 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
                                                      || context.GuildName == "DM"
            )
         {
-            _log.Critical("huh??");
             var resultTask = _commands.ExecuteAsync(context, argPos, _services);
             await resultTask.ContinueWith(async task => await CommandResults(task, context));
         }

@@ -48,11 +48,11 @@ public class CharacterClass
 
     private int PsycheQualityResist { get; set; }
 
-    private bool IntelligenceQualitySkillBonus { get; set; }
+    private bool IsIntelligenceQualitySkillBonus { get; set; }
+    private int IntelligenceQualitySkillBonus { get; set; }
     private bool StrengthQualityDropBonus { get; set; }
     private bool SpeedQualityRangeBonus { get; set; }
     private bool PsycheQualityMoralBonus { get; set; }
-    private int IntelligenceQualitySkillDebuff { get; set; }
     private int StrengthQualityDropDebuff { get; set; }
     private int PsycheQualityMoralDebuff { get; set; }
 
@@ -82,7 +82,7 @@ public class CharacterClass
         if (IntelligenceQualityResist < 0)
         {
             SetIntelligenceResist();
-            IntelligenceQualitySkillDebuff++;
+            IntelligenceQualitySkillBonus--;
             //status.AddInGamePersonalLogs($"Quality: -10% *Скиллa*\n"); //english "a" so it wouldn't combine with all other "skill" logs
         }
 
@@ -117,16 +117,14 @@ public class CharacterClass
         if (Intelligence < 10 && (Strength == 10 || Psyche == 10 || Speed == 10))
             spacing += $"{s}{s}";
         var text = $"{spacing}<:Anal:1000841467935338518> {IntelligenceQualityResist}";
-        var debuffTemp = IntelligenceQualitySkillDebuff;
-        if (IntelligenceQualitySkillBonus)
-            debuffTemp -= 1;
-        switch (debuffTemp)
+
+        switch (IntelligenceQualitySkillBonus)
         {
             case > 0:
-                text += $" **(-{debuffTemp * 10}% Skill)**";
+                text += $" **(+{IntelligenceQualitySkillBonus * 10}% Skill)**";
                 break;
             case < 0:
-                text += $" **(+{debuffTemp * 10 * -1}% Skill)**";
+                text += $" **({IntelligenceQualitySkillBonus * 10}% Skill)**";
                 break;
         }
         return text;
@@ -200,8 +198,6 @@ public class CharacterClass
 
     public void SetIntelligenceResist()
     {
-        IntelligenceQualitySkillBonus = false;
-
         IntelligenceQualityResist = Intelligence switch
         {
             >= 0 and <= 3 => 1,
@@ -210,8 +206,7 @@ public class CharacterClass
             _ => IntelligenceQualityResist
         };
 
-        if (Intelligence > 9)
-            IntelligenceQualitySkillBonus = true;
+        IsIntelligenceQualitySkillBonus = Intelligence > 9;
     }
     public void SetStrengthResist()
     {
@@ -263,8 +258,6 @@ public class CharacterClass
 
     public void UpdateIntelligenceResist(int statOld, int statNew)
     {
-        IntelligenceQualitySkillBonus = false;
-
         var resistOld = 0;
         var resistNew = 0;
 
@@ -287,8 +280,7 @@ public class CharacterClass
         var resistDiff = resistNew - resistOld;
         IntelligenceQualityResist += resistDiff;
 
-        if (statNew > 9)
-            IntelligenceQualitySkillBonus = true;
+        IsIntelligenceQualitySkillBonus = Intelligence > 9;
     }
 
     public void UpdateStrengthResist(int statOld, int statNew)
@@ -381,9 +373,40 @@ public class CharacterClass
             PsycheQualityMoralBonus = true;
     }
 
-    public bool GetIntelligenceQualitySkillBonus()
+    public void AddIntelligenceQualitySkillBonus(int howMuchToAdd)
     {
-        return IntelligenceQualitySkillBonus;
+        IntelligenceQualitySkillBonus += howMuchToAdd;
+    }
+
+    public double GetIntelligenceQualitySkillBonus()
+    {
+        double toReturn = 1;
+
+        var index = IntelligenceQualitySkillBonus;
+        if (IsIntelligenceQualitySkillBonus) index++;
+
+        switch (index)
+        {
+            case > 0:
+            {
+                for (var i = 0; i < index; i++)
+                {
+                    toReturn += 0.1;
+                }
+                break;
+            }
+            case < 0:
+            {
+                index *= -1;
+                for (var i = 0; i < index; i++)
+                {
+                    toReturn -= 0.1;
+                }
+                break;
+            }
+        }
+
+        return toReturn;
     }
     public bool GetStrengthQualityDropBonus()
     {
@@ -510,14 +533,7 @@ public class CharacterClass
 
     public double GetSkill()
     {
-        double skillDebuff = 1;
-        for (var i = 0; i < IntelligenceQualitySkillDebuff; i++)
-        {
-            skillDebuff -= 0.1;
-        }
-        if(GetIntelligenceQualitySkillBonus())
-            skillDebuff += 0.1;
-        return (SkillMain + SkillExtra) * SkillFightMultiplier * skillDebuff;
+        return (SkillMain + SkillExtra) * SkillFightMultiplier * GetIntelligenceQualitySkillBonus();
     }
 
     public string GetSkillDisplay()

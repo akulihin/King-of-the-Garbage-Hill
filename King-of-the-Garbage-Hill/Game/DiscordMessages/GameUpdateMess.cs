@@ -472,7 +472,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public string SortLogs(string textOriginal, GamePlayerBridgeClass player, GameClass game)
     {
-        var text = textOriginal;
+        var text = textOriginal.Replace("\n\n", "\n").Split('\n').Where(line => line != "" && line != " ")
+            .Aggregate("", (current, line) => current + line + "\n");
         if (player.PlayerType == 0)
             text = game.PlayersList.Where(p => p.GetPlayerId() != player.GetPlayerId()).Aggregate(text,
                 (current1, p) => p.Character.Passive
@@ -484,8 +485,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var phrases = false;
         var orderedList = new List<string>
         {
-            "|>boole<|", "Ты напал", "Ты поставил", "Поражение:", "Победа:", "Обмен Морали", "Ты улучшил", "Читы",
-            "Справедливость", "Класс:", "Cкилла", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**"
+            "|>boole<|", "Ты напал", "Ты поставил", "Поражение:", "Победа:", "Обмен Морали", "Ты улучшил", "Читы", "Справедливость", "Класс:", "Cкилла", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**"
         };
 
         foreach (var keyword in orderedList)

@@ -1025,8 +1025,7 @@ public class CharacterPassives : IServiceSingleton
                 break;
             case "Sirinoks":
                 //Обучение
-                var siri = _gameGlobal.SirinoksTraining.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
+                var siri = _gameGlobal.SirinoksTraining.Find(x => x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
 
 
                 if (player.Status.IsLostThisCalculation != Guid.Empty)
@@ -1045,8 +1044,7 @@ public class CharacterPassives : IServiceSingleton
 
                     if (siri == null)
                     {
-                        _gameGlobal.SirinoksTraining.Add(new Sirinoks.TrainingClass(player.GetPlayerId(),
-                            game.GameId, best.Index, best.Number, playerSheLostLastTime.GetPlayerId()));
+                        _gameGlobal.SirinoksTraining.Add(new Sirinoks.TrainingClass(player.GetPlayerId(), game.GameId, best.Index, best.Number, playerSheLostLastTime.GetPlayerId()));
                     }
                     else
                     {
@@ -1746,6 +1744,7 @@ public class CharacterPassives : IServiceSingleton
                                     if (!siri.TriggeredBonusFromStat.Contains(stats.StatIndex))
                                     {
                                         player.Character.AddMoral(player.Status, 3, "Обучение");
+                                        player.Character.AddIntelligenceQualitySkillBonus(1);
                                         siri.TriggeredBonusFromStat.Add(stats.StatIndex);
                                     }
 
@@ -1756,6 +1755,7 @@ public class CharacterPassives : IServiceSingleton
                                     if (!siri.TriggeredBonusFromStat.Contains(stats.StatIndex))
                                     {
                                         player.Character.AddMoral(player.Status, 3, "Обучение");
+                                        player.Character.AddIntelligenceQualitySkillBonus(1);
                                         siri.TriggeredBonusFromStat.Add(stats.StatIndex);
                                     }
 
@@ -1766,6 +1766,7 @@ public class CharacterPassives : IServiceSingleton
                                     if (!siri.TriggeredBonusFromStat.Contains(stats.StatIndex))
                                     {
                                         player.Character.AddMoral(player.Status, 3, "Обучение");
+                                        player.Character.AddIntelligenceQualitySkillBonus(1);
                                         siri.TriggeredBonusFromStat.Add(stats.StatIndex);
                                     }
 
@@ -1776,6 +1777,7 @@ public class CharacterPassives : IServiceSingleton
                                     if (!siri.TriggeredBonusFromStat.Contains(stats.StatIndex))
                                     {
                                         player.Character.AddMoral(player.Status, 3, "Обучение");
+                                        player.Character.AddIntelligenceQualitySkillBonus(1);
                                         siri.TriggeredBonusFromStat.Add(stats.StatIndex);
                                     }
 
