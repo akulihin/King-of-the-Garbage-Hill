@@ -328,16 +328,16 @@ Speed => Strength
             //main formula:
             var me = player.Character;
             var target = playerIamAttacking.Character;
-            double weighingMachine = 0;
+            decimal weighingMachine = 0;
 
             var skillMultiplierMe = 1;
             var skillMultiplierTarget = 1;
 
-            double contrMultiplier = 1;
+            decimal contrMultiplier = 1;
 
             if (me.GetWhoIContre() == target.GetSkillClass())
             {
-                contrMultiplier = 1.5;
+                contrMultiplier = (decimal)1.5;
                 weighingMachine += 2;
                 skillMultiplierMe = 2;
                 isContrLost -= 1;

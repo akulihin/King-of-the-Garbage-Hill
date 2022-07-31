@@ -74,7 +74,7 @@ public class InGameStatus
     public Guid IsTargetSkipped { get; set; }
     public Guid IsTargetBlocked { get; set; }
     public Guid IsFighting { get; set; }
-    private double ScoresToGiveAtEndOfRound { get; set; }
+    private decimal ScoresToGiveAtEndOfRound { get; set; }
     public int LvlUpPoints { get; set; }
     private string InGamePersonalLogs { get; set; }
     public string InGamePersonalLogsAll { get; set; }
@@ -181,7 +181,7 @@ public class InGameStatus
             Score = 0;
     }
 
-    public double GetScoresToGiveAtEndOfRound()
+    public decimal GetScoresToGiveAtEndOfRound()
     {
         return ScoresToGiveAtEndOfRound;
     }
@@ -209,7 +209,7 @@ public class InGameStatus
         ScoreSource = "";
     }
 
-    private void AddScore(double score, int roundNumber)
+    private void AddScore(decimal score, int roundNumber)
     {
         /*
         1-4 х1

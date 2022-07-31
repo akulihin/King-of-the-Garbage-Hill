@@ -551,7 +551,7 @@ public class CheckIfReady : IServiceSingleton
         {
             var game = games[i];
 
-            //protection against double calculations
+            //protection against decimal calculations
             if (!game.IsCheckIfReady) continue;
 
             //round 11 is the end of the game, no fights on round 11
@@ -605,7 +605,7 @@ public class CheckIfReady : IServiceSingleton
 
 
             if (readyCount != readyTargetCount &&
-                !(game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond))
+                !((decimal)game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond))
                 continue;
 
             //Calculating the game

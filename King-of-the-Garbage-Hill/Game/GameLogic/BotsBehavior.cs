@@ -310,7 +310,7 @@ public class BotsBehavior : IServiceSingleton
                 if (game.GetAllGlobalLogs().Contains("Нахуй эту игру"))
                     allTargets = allTargets.Where(x => x.Player.Character.Name != "Darksci").ToList();
 
-            double maxRandomNumber = 0;
+            decimal maxRandomNumber = 0;
             var isBlock = allTargets.Count;
             var minimumRandomNumberForBlock = 1;
             var maximumRandomNumberForBlock = 4;
@@ -323,7 +323,7 @@ public class BotsBehavior : IServiceSingleton
             //character variables
             var DarksciTheOne = Guid.Empty;
             var AwdkaFirst = 0;
-            double SpartanTarget = 0;
+            decimal SpartanTarget = 0;
             //end character variables
 
             //local varaibles
@@ -579,7 +579,7 @@ public class BotsBehavior : IServiceSingleton
                                     var places = 6;
                                     if (target.PlaceAtLeaderBoard() == 6) places = 7;
                                     target.AttackPreference = target.AttackPreference * ((game.RoundNo - won.RoundNo +
-                                        (double)((places - target.PlaceAtLeaderBoard()) *
+                                        (decimal)((places - target.PlaceAtLeaderBoard()) *
                                                  (game.RoundNo - won.RoundNo - 1))) / 2);
                                     triggered = true;
                                     break;
@@ -592,7 +592,7 @@ public class BotsBehavior : IServiceSingleton
                                 if (target.PlaceAtLeaderBoard() == 6) places = 7;
                                 target.AttackPreference = target.AttackPreference *
                                                           ((game.RoundNo +
-                                                            (double)(places - target.PlaceAtLeaderBoard()) *
+                                                            (decimal)(places - target.PlaceAtLeaderBoard()) *
                                                             (game.RoundNo - 1)) / 2);
                             }
                         }
@@ -1512,7 +1512,7 @@ public class BotsBehavior : IServiceSingleton
             //"random" attack
             var randomNumber = _rand.Random(1, (int)Math.Ceiling(maxRandomNumber));
 
-            double totalPreference = 0;
+            decimal totalPreference = 0;
             int whoToAttack;
             foreach (var target in allTargets)
             {
@@ -1636,7 +1636,7 @@ public class BotsBehavior : IServiceSingleton
 
     public class Nanobot
     {
-        public double AttackPreference;
+        public decimal AttackPreference;
 
         public GamePlayerBridgeClass Player;
 

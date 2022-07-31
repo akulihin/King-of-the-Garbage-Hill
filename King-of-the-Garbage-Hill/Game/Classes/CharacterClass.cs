@@ -33,9 +33,9 @@ public class CharacterClass
     private string SpeedExtraText { get; set; }
     private int Strength { get; set; }
     private string StrengthExtraText { get; set; }
-    private double SkillMain { get; set; }
-    private double SkillExtra { get; set; }
-    private double SkillMultiplier { get; set; }
+    private decimal SkillMain { get; set; }
+    private decimal SkillExtra { get; set; }
+    private decimal SkillMultiplier { get; set; }
     private int SkillFightMultiplier { get; set; }
     private string CurrentSkillTarget { get; set; } = "Ничего";
     private int Moral { get; set; }
@@ -118,14 +118,14 @@ public class CharacterClass
             spacing += $"{s}{s}";
         var text = $"{spacing}<:Anal:1000841467935338518> {IntelligenceQualityResist}";
 
-        switch (IntelligenceQualitySkillBonus)
+        if (GetIntelligenceQualitySkillBonus() != (decimal)1.0)
         {
-            case > 0:
-                text += $" **(+{IntelligenceQualitySkillBonus * 10}% Skill)**";
-                break;
-            case < 0:
-                text += $" **({IntelligenceQualitySkillBonus * 10}% Skill)**";
-                break;
+            var skillBonus = GetIntelligenceQualitySkillBonus();
+            var skillBonusPrecent = (skillBonus - 1) * 100;
+            var plus = "";
+            if (skillBonusPrecent > 0)
+                plus = "+";
+            text += $" **({plus}{(int)skillBonusPrecent}% Skill)**";
         }
         return text;
     }
@@ -378,9 +378,9 @@ public class CharacterClass
         IntelligenceQualitySkillBonus += howMuchToAdd;
     }
 
-    public double GetIntelligenceQualitySkillBonus()
+    public decimal GetIntelligenceQualitySkillBonus()
     {
-        double toReturn = 1;
+        decimal toReturn = 1;
 
         var index = IntelligenceQualitySkillBonus;
         if (IsIntelligenceQualitySkillBonus) index++;
@@ -391,7 +391,7 @@ public class CharacterClass
             {
                 for (var i = 0; i < index; i++)
                 {
-                    toReturn += 0.1;
+                    toReturn += (decimal) 0.1;
                 }
                 break;
             }
@@ -400,7 +400,7 @@ public class CharacterClass
                 index *= -1;
                 for (var i = 0; i < index; i++)
                 {
-                    toReturn -= 0.1;
+                    toReturn -= (decimal) 0.1;
                 }
                 break;
             }
@@ -508,13 +508,13 @@ public class CharacterClass
     }
 
 
-    public void SetSkillMultiplier(double skillMultiplier = 0)
+    public void SetSkillMultiplier(decimal skillMultiplier = 0)
     {
         //2 это х3
         SkillMultiplier = skillMultiplier;
     }
 
-    public void AddSkillMultiplier(double skillMultiplier = 0)
+    public void AddSkillMultiplier(decimal skillMultiplier = 0)
     {
         //2 это х3
         SkillMultiplier += skillMultiplier;
@@ -531,7 +531,7 @@ public class CharacterClass
     }
 
 
-    public double GetSkill()
+    public decimal GetSkill()
     {
         return (SkillMain + SkillExtra) * SkillFightMultiplier * GetIntelligenceQualitySkillBonus();
     }
@@ -541,12 +541,12 @@ public class CharacterClass
         return $"{(int)GetSkill()}";
     }
 
-    public double GetSkillMainOnly()
+    public decimal GetSkillMainOnly()
     {
         return SkillMain;
     }
 
-    public void SetMainSkill(InGameStatus status, double howMuchToSet, string skillName, bool isLog = true)
+    public void SetMainSkill(InGameStatus status, decimal howMuchToSet, string skillName, bool isLog = true)
     {
         if (isLog)
         {
@@ -617,13 +617,13 @@ public class CharacterClass
 
     public int GetMoral()
     {
-        double moralDebuff = 1;
+        decimal moralDebuff = 1;
         for (var i = 0; i < PsycheQualityMoralDebuff; i++)
         {
-            moralDebuff -= 0.1;
+            moralDebuff -= (decimal)0.1;
         }
         if (GetPsycheQualityMoralBonus())
-            moralDebuff += 0.1;
+            moralDebuff += (decimal)0.1;
 
         return (int) (Moral* moralDebuff);
     }

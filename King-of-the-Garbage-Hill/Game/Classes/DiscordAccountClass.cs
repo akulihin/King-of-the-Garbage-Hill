@@ -45,10 +45,10 @@ public class DiscordAccountClass
     {
         public int Changes;
         public string CharacterName;
-        public double Multiplier;
+        public decimal Multiplier;
         public int Tier;
 
-        public CharacterChances(string characterName, int tier, double multiplier = 1.0)
+        public CharacterChances(string characterName, int tier, decimal multiplier = (decimal)1.0)
         {
             CharacterName = characterName;
             Tier = tier;
