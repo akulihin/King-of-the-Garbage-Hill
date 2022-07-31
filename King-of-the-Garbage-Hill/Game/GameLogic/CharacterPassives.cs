@@ -662,10 +662,62 @@ public class CharacterPassives : IServiceSingleton
                         octo.Count++;
                 }
                 //end Неуязвимость
-
                 break;
 
             case "Sirinoks":
+                //Обучение
+                var siri = _gameGlobal.SirinoksTraining.Find(x => x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
+
+                if (me.Status.IsLostThisCalculation != Guid.Empty && me.Status.IsLostThisCalculation == me.Status.WhoToAttackThisTurn)
+                {
+                    var playerSheLostLastTime = game.PlayersList.Find(x => x.GetPlayerId() == me.Status.IsLostThisCalculation);
+                    var intel = new List<Sirinoks.StatsClass>
+                    {
+                        new(1, playerSheLostLastTime.Character.GetIntelligence()),
+                        new(2, playerSheLostLastTime.Character.GetStrength()),
+                        new(3, playerSheLostLastTime.Character.GetSpeed()),
+                        new(4, playerSheLostLastTime.Character.GetPsyche())
+                    };
+
+                    var intel2 = new List<Sirinoks.StatsClass>();
+                    foreach (var i in intel)
+                    {
+                        switch (i.Index)
+                        {
+                            case 1:
+                                if (me.Character.GetIntelligence() < 10)
+                                    intel2.Add(i);
+                                break;
+                            case 2:
+                                if (me.Character.GetStrength() < 10)
+                                    intel2.Add(i);
+                                break;
+                            case 3:
+                                if (me.Character.GetSpeed() < 10)
+                                    intel2.Add(i);
+                                break;
+                            case 4:
+                                if (me.Character.GetPsyche() < 10)
+                                    intel2.Add(i);
+                                break;
+                        }
+                    }
+                    var best = intel2.OrderByDescending(x => x.Number).ToList().First();
+
+
+                    if (siri == null)
+                    {
+                        _gameGlobal.SirinoksTraining.Add(new Sirinoks.TrainingClass(me.GetPlayerId(), game.GameId, best.Index, best.Number, playerSheLostLastTime.GetPlayerId()));
+                    }
+                    else
+                    {
+                        if (siri.Training.Count == 0)
+                        {
+                            siri.Training.Add(new Sirinoks.TrainingSubClass(best.Index, best.Number));
+                        }
+                    }
+                }
+                //Обучение end
 
                 //Заводить друзей
                 var siriAttack = _gameGlobal.SirinoksFriendsAttack.Find(x =>
@@ -1023,38 +1075,6 @@ public class CharacterPassives : IServiceSingleton
 
                 //end Доебаться
                 break;
-            case "Sirinoks":
-                //Обучение
-                var siri = _gameGlobal.SirinoksTraining.Find(x => x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
-
-
-                if (player.Status.IsLostThisCalculation != Guid.Empty)
-                {
-                    var playerSheLostLastTime =
-                        game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsLostThisCalculation);
-                    var intel = new List<Sirinoks.StatsClass>
-                    {
-                        new(1, playerSheLostLastTime.Character.GetIntelligence()),
-                        new(2, playerSheLostLastTime.Character.GetStrength()),
-                        new(3, playerSheLostLastTime.Character.GetSpeed()),
-                        new(4, playerSheLostLastTime.Character.GetPsyche())
-                    };
-                    var best = intel.OrderByDescending(x => x.Number).ToList().First();
-
-
-                    if (siri == null)
-                    {
-                        _gameGlobal.SirinoksTraining.Add(new Sirinoks.TrainingClass(player.GetPlayerId(), game.GameId, best.Index, best.Number, playerSheLostLastTime.GetPlayerId()));
-                    }
-                    else
-                    {
-                        siri.Training.Clear();
-                        siri.Training.Add(new Sirinoks.TrainingSubClass(best.Index, best.Number));
-                    }
-                }
-
-                //Обучение end
-                break;
             case "Mit*suki*":
                 //Много выебывается
                 if (player.Status.WhoToAttackThisTurn != Guid.Empty &&
@@ -1078,7 +1098,7 @@ public class CharacterPassives : IServiceSingleton
                     };
 
                     if (player.Character.GetCurrentSkillClassTarget() == playerIamAttacking.Character.GetSkillClass())
-                        player.Character.AddExtraSkill(player.Status, howMuchToAdd * 2, "Много выебывается");
+                        player.Character.AddExtraSkill(player.Status, howMuchToAdd * 3, "Много выебывается");
                 }
 
                 //end Много выебывается
@@ -1746,6 +1766,7 @@ public class CharacterPassives : IServiceSingleton
                                         player.Character.AddMoral(player.Status, 3, "Обучение");
                                         player.Character.AddIntelligenceQualitySkillBonus(1);
                                         siri.TriggeredBonusFromStat.Add(stats.StatIndex);
+                                        siri.Training.Clear();
                                     }
 
                                 break;
@@ -1757,6 +1778,7 @@ public class CharacterPassives : IServiceSingleton
                                         player.Character.AddMoral(player.Status, 3, "Обучение");
                                         player.Character.AddIntelligenceQualitySkillBonus(1);
                                         siri.TriggeredBonusFromStat.Add(stats.StatIndex);
+                                        siri.Training.Clear();
                                     }
 
                                 break;
@@ -1768,6 +1790,7 @@ public class CharacterPassives : IServiceSingleton
                                         player.Character.AddMoral(player.Status, 3, "Обучение");
                                         player.Character.AddIntelligenceQualitySkillBonus(1);
                                         siri.TriggeredBonusFromStat.Add(stats.StatIndex);
+                                        siri.Training.Clear();
                                     }
 
                                 break;
@@ -1779,6 +1802,7 @@ public class CharacterPassives : IServiceSingleton
                                         player.Character.AddMoral(player.Status, 3, "Обучение");
                                         player.Character.AddIntelligenceQualitySkillBonus(1);
                                         siri.TriggeredBonusFromStat.Add(stats.StatIndex);
+                                        siri.Training.Clear();
                                     }
 
                                 break;

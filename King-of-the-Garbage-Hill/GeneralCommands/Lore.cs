@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Linq;
+using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
@@ -29,7 +30,7 @@ public class Lore : ModuleBaseCustom
     {
         var account = _accounts.GetAccount(Context.User);
 
-        var allCharacters = _charactersPull.GetAllCharacters();
+        var allCharacters = _charactersPull.GetAllCharacters().Where(x => x.Name != "Sakura").ToList();
         var character = allCharacters.Find(x => x.Name == "DeepList");
 
         var builder = new ComponentBuilder();

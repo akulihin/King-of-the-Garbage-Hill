@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
@@ -40,7 +41,7 @@ public class LoreReactions : IServiceSingleton
             .WithPlaceholder("Выбрать персонажа");
 
 
-        foreach (var character in _charactersPull.GetAllCharacters())
+        foreach (var character in _charactersPull.GetAllCharacters().Where(x => x.Name != "Sakura"))
             characterMenu.AddOption(character.Name, character.Name);
 
         return characterMenu;

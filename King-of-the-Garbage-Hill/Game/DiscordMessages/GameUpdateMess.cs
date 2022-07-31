@@ -472,20 +472,26 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public string SortLogs(string textOriginal, GamePlayerBridgeClass player, GameClass game)
     {
-        var text = textOriginal.Replace("\n\n", "\n").Split('\n').Where(line => line != "" && line != " ")
-            .Aggregate("", (current, line) => current + line + "\n");
+        var text = textOriginal;
         if (player.PlayerType == 0)
             text = game.PlayersList.Where(p => p.GetPlayerId() != player.GetPlayerId()).Aggregate(text,
                 (current1, p) => p.Character.Passive
                     .Where(passive =>
                         passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса" &&
                         passive.PassiveName != "Еврей" && passive.PassiveName != "2kxaoc").Aggregate(current1,
-                        (current, passive) => current.Replace($"{passive.PassiveName}", "❓")));
+                        (current, passive) => current.Replace($"{passive.PassiveName}", "Неизвестно")));
+        else
+            text = game.PlayersList.Where(p => p.GetPlayerId() != player.GetPlayerId()).Aggregate(text,
+                (current1, p) => p.Character.Passive
+                    .Where(passive =>
+                        passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса" &&
+                        passive.PassiveName != "Еврей" && passive.PassiveName != "2kxaoc").Aggregate(current1,
+                        (current, passive) => current.Replace($"{passive.PassiveName}", $"❓ {passive.PassiveName}")));
 
         var phrases = false;
         var orderedList = new List<string>
         {
-            "|>boole<|", "Ты напал", "Ты поставил", "Поражение:", "Победа:", "Обмен Морали", "Ты улучшил", "Читы", "Справедливость", "Класс:", "Cкилла", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**"
+            "|>boole<|", "Ты напал", "Ты поставил", "Поражение:", "Победа:", "Обмен Морали", "Ты улучшил", "Читы", "Справедливость", "Класс:", "Мишень", "Cкилла", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**"
         };
 
         foreach (var keyword in orderedList)

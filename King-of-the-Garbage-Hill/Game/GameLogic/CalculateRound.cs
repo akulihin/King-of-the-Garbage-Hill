@@ -274,8 +274,9 @@ Speed => Strength
                 player.Status.IsTargetBlocked = playerIamAttacking.GetPlayerId();
                 // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
 
-                var logMess = " ⟶ *Бой не состоялся (Блок)...*";
-
+                var logMess = " ⟶ *Бой не состоялся...*";
+                if(game.PlayersList.Any(x => x.PlayerType == 1))
+                    logMess = " ⟶ *Бой не состоялся (Блок)...*";
                 game.AddGlobalLogs(logMess);
 
 
@@ -298,7 +299,11 @@ Speed => Strength
             {
                 player.Status.IsTargetSkipped = playerIamAttacking.GetPlayerId();
                 game.SkipPlayersThisRound++;
-                game.AddGlobalLogs(" ⟶ *Бой не состоялся (Скип)...*");
+
+                var logMess = " ⟶ *Бой не состоялся...*";
+                if (game.PlayersList.Any(x => x.PlayerType == 1))
+                    logMess = " ⟶ *Бой не состоялся (Скип)...*";
+                game.AddGlobalLogs(logMess);
 
                 _characterPassives.HandleCharacterAfterFight(player, game);
                 _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game);

@@ -588,7 +588,7 @@ public class CharacterClass
         SkillExtra += multiplier;
 
         if (isLog)
-            status.AddInGamePersonalLogs($"Класс: +{total} *Cкилла* (за {skillName} врага)\n");
+            status.AddInGamePersonalLogs($"Мишень: +{total} *Cкилла* (за {skillName} врага)\n");
     }
 
     public void AddExtraSkill(InGameStatus status, int howMuchToAdd, string skillName, bool isLog = true)
