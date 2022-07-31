@@ -66,14 +66,14 @@ public sealed class Global : IServiceSingleton
             CharacterName = characterName;
         }
 
-        public decimal Top1 { get; set; }
-        public decimal Top2 { get; set; }
-        public decimal Top3 { get; set; }
-        public decimal Top4 { get; set; }
-        public decimal Top5 { get; set; }
-        public decimal Top6 { get; set; }
-        public decimal GameTimes { get; set; }
-        public decimal WinRate { get; set; }
-        public decimal Elo { get; set; }
+        public double Top1 { get; set; }
+        public double Top2 { get; set; }
+        public double Top3 { get; set; }
+        public double Top4 { get; set; }
+        public double Top5 { get; set; }
+        public double Top6 { get; set; }
+        public double GameTimes { get; set; }
+        public double WinRate { get; set; }
+        public double Elo { get; set; }
     }
 }

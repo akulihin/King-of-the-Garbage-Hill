@@ -41,7 +41,7 @@ public class GameClass
     public int RoundNo { get; set; }
     public List<GamePlayerBridgeClass> PlayersList { get; set; }
     public ulong GameId { get; set; }
-    public decimal TurnLengthInSecond { get; set; }
+    public double TurnLengthInSecond { get; set; }
     public string GameVersion { get; set; }
     public Stopwatch TimePassed { get; set; }
 

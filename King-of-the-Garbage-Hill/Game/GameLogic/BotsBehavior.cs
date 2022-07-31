@@ -578,9 +578,9 @@ public class BotsBehavior : IServiceSingleton
                                 {
                                     var places = 6;
                                     if (target.PlaceAtLeaderBoard() == 6) places = 7;
-                                    target.AttackPreference = target.AttackPreference * ((game.RoundNo - won.RoundNo +
-                                        (decimal)((places - target.PlaceAtLeaderBoard()) *
-                                                 (game.RoundNo - won.RoundNo - 1))) / 2);
+                                    target.AttackPreference *= ((game.RoundNo - won.RoundNo +
+                                                                 (decimal)((places - target.PlaceAtLeaderBoard()) *
+                                                                           (game.RoundNo - won.RoundNo - 1))) / 2);
                                     triggered = true;
                                     break;
                                 }
@@ -590,10 +590,9 @@ public class BotsBehavior : IServiceSingleton
                             {
                                 var places = 6;
                                 if (target.PlaceAtLeaderBoard() == 6) places = 7;
-                                target.AttackPreference = target.AttackPreference *
-                                                          ((game.RoundNo +
-                                                            (decimal)(places - target.PlaceAtLeaderBoard()) *
-                                                            (game.RoundNo - 1)) / 2);
+                                target.AttackPreference *= ((game.RoundNo +
+                                                             (decimal)(places - target.PlaceAtLeaderBoard()) *
+                                                             (game.RoundNo - 1)) / 2);
                             }
                         }
 

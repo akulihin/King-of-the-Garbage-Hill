@@ -193,7 +193,7 @@ public class StoreReactions : IServiceSingleton
                 //Уменьшить шанс на 1% - 20 ZP
                 case "store-down-1":
 
-                    if (character.Multiplier <= (decimal)0.5)
+                    if (character.Multiplier <= 0.5)
                     {
                         await button.Channel.SendMessageAsync(
                             $"У персонажа {character.CharacterName} и так минимальный бонусный шанс - {character.Multiplier}");
@@ -206,7 +206,7 @@ public class StoreReactions : IServiceSingleton
                         return;
                     }
 
-                    character.Multiplier -= (decimal)0.01;
+                    character.Multiplier -= 0.01;
                     character.Changes++;
                     account.ZbsPoints -= cost;
 
@@ -215,7 +215,7 @@ public class StoreReactions : IServiceSingleton
 
                 case "store-down-10":
 
-                    if (character.Multiplier <= (decimal)0.5)
+                    if (character.Multiplier <= 0.5)
                     {
                         await button.Channel.SendMessageAsync(
                             $"У персонажа {character.CharacterName} и так минимальный бонусный шанс - {character.Multiplier}");
@@ -228,7 +228,7 @@ public class StoreReactions : IServiceSingleton
                         return;
                     }
 
-                    character.Multiplier -= (decimal)0.1;
+                    character.Multiplier -= 0.1;
                     character.Changes += 10;
                     account.ZbsPoints -= cost10;
 
@@ -238,7 +238,7 @@ public class StoreReactions : IServiceSingleton
                 //Увеличить шанс на 1% - 20 ZP
                 case "store-up-1":
 
-                    if (character.Multiplier >= (decimal)2.0)
+                    if (character.Multiplier >= 2.0)
                     {
                         await button.Channel.SendMessageAsync(
                             $"У персонажа {character.CharacterName} и так максимальный бонусный шанс - {character.Multiplier}");
@@ -251,7 +251,7 @@ public class StoreReactions : IServiceSingleton
                         return;
                     }
 
-                    character.Multiplier += (decimal)0.01;
+                    character.Multiplier += 0.01;
                     character.Changes++;
                     account.ZbsPoints -= cost;
 
@@ -259,7 +259,7 @@ public class StoreReactions : IServiceSingleton
                     break;
                 //Увеличить шанс на 10% - 20 ZP
                 case "store-up-10":
-                    if (character.Multiplier >= (decimal)2.0)
+                    if (character.Multiplier >= 2.0)
                     {
                         await button.Channel.SendMessageAsync(
                             $"У персонажа {character.CharacterName} и так максимальный бонусный шанс - {character.Multiplier}");
@@ -274,7 +274,7 @@ public class StoreReactions : IServiceSingleton
                         return;
                     }
 
-                    character.Multiplier += (decimal)0.1;
+                    character.Multiplier += 0.1;
                     character.Changes += 10;
                     account.ZbsPoints -= cost10;
 
@@ -297,7 +297,7 @@ public class StoreReactions : IServiceSingleton
                         zbsPointsToReturn += _basePrice + character.Changes - i;
                     }
 
-                    character.Multiplier = (decimal)1.0;
+                    character.Multiplier = 1.0;
                     character.Changes = 0;
                     account.ZbsPoints += zbsPointsToReturn;
 
@@ -322,7 +322,7 @@ public class StoreReactions : IServiceSingleton
                         {
                             zbsPointsToReturn += _basePrice + c.Changes - i;
                         }
-                        c.Multiplier = (decimal)1.0;
+                        c.Multiplier = 1.0;
                         c.Changes = 0;
                     }
 

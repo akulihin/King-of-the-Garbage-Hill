@@ -45,11 +45,11 @@ public class Octopus
         public InkSubClass(Guid playerDiscordId, int roundNo, int realScore)
         {
             if (roundNo <= 4)
-                realScore = realScore * 1; // Why????????????????????????
+                realScore *= 1; // Why????????????????????????
             else if (roundNo <= 9)
-                realScore = realScore * 2;
+                realScore *= 2;
             else if (roundNo == 10)
-                realScore = realScore * 4;
+                realScore *= 4;
 
             PlayerId = playerDiscordId;
             RealScore = realScore;
@@ -58,11 +58,11 @@ public class Octopus
         public void AddRealScore(int roundNo, int realScore = 1)
         {
             if (roundNo <= 4)
-                realScore = realScore * 1; // Why????????????????????????
+                realScore *= 1; // Why????????????????????????
             else if (roundNo <= 9)
-                realScore = realScore * 2;
+                realScore *= 2;
             else if (roundNo == 10)
-                realScore = realScore * 4;
+                realScore *= 4;
 
             RealScore += realScore;
         }

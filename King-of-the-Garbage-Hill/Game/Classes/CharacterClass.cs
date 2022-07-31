@@ -35,7 +35,7 @@ public class CharacterClass
     private string StrengthExtraText { get; set; }
     private decimal SkillMain { get; set; }
     private decimal SkillExtra { get; set; }
-    private decimal SkillMultiplier { get; set; }
+    private int SkillMultiplier { get; set; }
     private int SkillFightMultiplier { get; set; }
     private string CurrentSkillTarget { get; set; } = "Ничего";
     private int Moral { get; set; }
@@ -508,13 +508,13 @@ public class CharacterClass
     }
 
 
-    public void SetSkillMultiplier(decimal skillMultiplier = 0)
+    public void SetSkillMultiplier(int skillMultiplier = 0)
     {
         //2 это х3
         SkillMultiplier = skillMultiplier;
     }
 
-    public void AddSkillMultiplier(decimal skillMultiplier = 0)
+    public void AddSkillMultiplier(int skillMultiplier = 0)
     {
         //2 это х3
         SkillMultiplier += skillMultiplier;
@@ -583,7 +583,7 @@ public class CharacterClass
 
         var total = howMuchToAdd + howMuchToAdd;
 
-        var multiplier = (int) (total * SkillMultiplier);
+        var multiplier = total * SkillMultiplier;
         total += multiplier;
         SkillExtra += multiplier;
 
@@ -604,7 +604,7 @@ public class CharacterClass
             return;
 
         if (SkillMultiplier > 0 && howMuchToAdd > 0)
-            howMuchToAdd *= (int)(SkillMultiplier + 1);
+            howMuchToAdd *= SkillMultiplier + 1;
         if (isLog)
         {
             status.AddInGamePersonalLogs(howMuchToAdd > 0
