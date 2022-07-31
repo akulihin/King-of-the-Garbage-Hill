@@ -714,6 +714,7 @@ public class CharacterPassives : IServiceSingleton
                         if (siri.Training.Count == 0)
                         {
                             siri.Training.Add(new Sirinoks.TrainingSubClass(best.Index, best.Number));
+                            siri.EnemyId = playerSheLostLastTime.GetPlayerId();
                         }
                     }
                 }
