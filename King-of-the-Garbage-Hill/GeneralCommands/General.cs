@@ -461,6 +461,7 @@ public class General : ModuleBaseCustom
                         var teamPooler = teamPool.Find(x => x.DiscordId == player.Id);
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.GetPlayerId());
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
+                        teamPooler.TeamId = teamId;
                         teamPool.Remove(teamPooler);
                     }
                     else
@@ -468,6 +469,7 @@ public class General : ModuleBaseCustom
                         var teamPooler = teamPool.First(x => x.IsBot());
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.GetPlayerId());
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
+                        teamPooler.TeamId = teamId;
                         teamPool.Remove(teamPooler);
                     }
                 }
@@ -484,6 +486,7 @@ public class General : ModuleBaseCustom
                         var teamPooler = teamPool.Find(x => x.DiscordId == player.Id);
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.GetPlayerId());
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
+                        teamPooler.TeamId = teamId;
                         teamPool.Remove(teamPooler);
                     }
                     else
@@ -491,6 +494,7 @@ public class General : ModuleBaseCustom
                         var teamPooler = teamPool.First(x => x.IsBot());
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.GetPlayerId());
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
+                        teamPooler.TeamId = teamId;
                         teamPool.Remove(teamPooler);
                     }
                 }
@@ -507,6 +511,7 @@ public class General : ModuleBaseCustom
                         var teamPooler = teamPool.Find(x => x.DiscordId == player.Id);
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.GetPlayerId());
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
+                        teamPooler.TeamId = teamId;
                         teamPool.Remove(teamPooler);
                     }
                     else
@@ -514,6 +519,7 @@ public class General : ModuleBaseCustom
                         var teamPooler = teamPool.First(x => x.IsBot());
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayers.Add(teamPooler.GetPlayerId());
                         teamList.Find(x => x.TeamId == teamId)?.TeamPlayersUsernames.Add(teamPooler.DiscordUsername);
+                        teamPooler.TeamId = teamId;
                         teamPool.Remove(teamPooler);
                     }
                 }

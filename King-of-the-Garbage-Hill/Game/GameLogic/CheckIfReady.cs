@@ -285,7 +285,7 @@ public class CheckIfReady : IServiceSingleton
                 }
 
 
-                game.AddGlobalLogs($"\n**Команда #{wonTeam}** победила набрав {wonScore} Очков!");
+                game.AddGlobalLogs($"\nКоманда #{wonTeam} победила набрав {wonScore} Очков!");
 
                 if (wonTeam != 1)
                     game.AddGlobalLogs($"\nКоманда #1 Набрала {team1Score} Очков.");
@@ -362,10 +362,7 @@ public class CheckIfReady : IServiceSingleton
 
             if (isTeam)
             {
-                if (game.Teams.Find(x => x.TeamId == wonTeam).TeamPlayers.Contains(player.Status.PlayerId))
-                    zbsPointsToGive = 100;
-                else
-                    zbsPointsToGive = 50;
+                zbsPointsToGive = game.Teams.Find(x => x.TeamId == wonTeam).TeamPlayers.Contains(player.Status.PlayerId) ? 100 : 50;
             }
 
             account.ZbsPoints += zbsPointsToGive;

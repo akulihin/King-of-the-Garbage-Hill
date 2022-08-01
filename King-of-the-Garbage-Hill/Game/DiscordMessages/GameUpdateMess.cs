@@ -139,12 +139,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 .Replace("`", "\\`");
 
             var teamString = "";
-            if (game.Teams.Any(x => x.TeamPlayers.Contains(playersList[i].Status.PlayerId)))
+            if (playersList[i].TeamId > 0)
             {
-                var teamId = game.Teams.Find(x => x.TeamPlayers.Contains(playersList[i].Status.PlayerId))!.TeamId;
-                teamString = $"[{teamId}] ";
-                if (teamId == game.Teams.Find(x => x.TeamPlayers.Contains(player.Status.PlayerId))!.TeamId)
-                    teamString = $"**[{teamId}]** ";
+                teamString = player.TeamId == playersList[i].TeamId ? $"**[{playersList[i].TeamId}]** " : $"[{playersList[i].TeamId}] ";
             }
 
             players += $"{teamString}{i + 1}. {sanitizedDiscordUsername}";
@@ -673,6 +670,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
         var desc = HandleIsNewPlayerDescription(game.GetGlobalLogs(), player);
+
+        if (player.TeamId > 0)
+        {
+            desc = desc.Replace($"Команда #{player.TeamId}", $"**Команда #{player.TeamId}**");
+        }
 
         var int_str = "Интеллект";
         var str_str = "Сила";

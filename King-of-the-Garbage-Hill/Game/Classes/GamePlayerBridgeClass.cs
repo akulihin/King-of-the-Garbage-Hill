@@ -37,6 +37,8 @@ public class GamePlayerBridgeClass
     public List<ulong> DeleteMessages { get; set; } = new();
     public List<PredictClass> Predict { get; set; } = new();
 
+    public int TeamId { get; set; }
+
 
     public bool IsBot()
     {

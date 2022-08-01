@@ -73,4 +73,19 @@ public class Mylorik
             Times = 0;
         }
     }
+
+    public class MylorikBooleClass
+    {
+        public ulong GameId;
+        public Guid PlayerId;
+        public bool IsBoole;
+
+        public MylorikBooleClass(Guid playerId, ulong gameId)
+        {
+            PlayerId = playerId;
+            GameId = gameId;
+            IsBoole = false;
+        }
+    }
+
 }

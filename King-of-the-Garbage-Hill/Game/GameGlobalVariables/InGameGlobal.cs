@@ -64,6 +64,7 @@ public class InGameGlobal : IServiceSingleton
     public readonly List<Mylorik.MylorikRevengeClass> MylorikRevenge = new();
     public readonly List<Mylorik.MylorikSpanishClass> MylorikSpanish = new();
     public readonly List<Mylorik.MylorikSpartanClass> MylorikSpartan = new();
+    public readonly List<Mylorik.MylorikBooleClass> MylorikBoole = new();
 
     public readonly List<Octopus.InkClass> OctopusInkList = new();
     public readonly List<Octopus.InvulnerabilityClass> OctopusInvulnerabilityList = new();
@@ -291,10 +292,9 @@ public class InGameGlobal : IServiceSingleton
 
                     break;
                 case "mylorik":
-                    MylorikSpartan.Add(
-                        new Mylorik.MylorikSpartanClass(player.GetPlayerId(), game.GameId));
-                    MylorikSpanish.Add(
-                        new Mylorik.MylorikSpanishClass(player.GetPlayerId(), game.GameId));
+                    MylorikSpartan.Add(new Mylorik.MylorikSpartanClass(player.GetPlayerId(), game.GameId));
+                    MylorikSpanish.Add(new Mylorik.MylorikSpanishClass(player.GetPlayerId(), game.GameId));
+                    MylorikBoole.Add(new Mylorik.MylorikBooleClass(player.GetPlayerId(), game.GameId));
                     break;
                 case "LeCrisp":
                     LeCrispAssassins.Add(new LeCrisp.LeCrispAssassins(player.GetPlayerId(), game.GameId));

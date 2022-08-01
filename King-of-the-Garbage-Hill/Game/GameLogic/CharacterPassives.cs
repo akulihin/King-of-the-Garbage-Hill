@@ -65,8 +65,8 @@ public class CharacterPassives : IServiceSingleton
                     {
                         сraboRackShell.FriendList.Add(me.GetPlayerId());
                         сraboRackShell.CurrentAttacker = me.GetPlayerId();
-                        target.Character.AddMoral(target.Status, 6, "Панцирь");
-                        target.Character.AddExtraSkill(target.Status, 30, "Панцирь");
+                        target.Character.AddMoral(target.Status, 3, "Панцирь");
+                        target.Character.AddExtraSkill(target.Status, 33, "Панцирь");
                         target.Status.IsBlock = true;
                     }
                 //end Панцирь
@@ -2019,10 +2019,19 @@ public class CharacterPassives : IServiceSingleton
                         }
                     }
 
-                    if (player.Character.GetPsyche() <= 0)
+                    var boole = _gameGlobal.MylorikBoole.Find(x => x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
+                    if (boole.IsBoole && player.Character.GetPsyche() > 0)
+                    {
+                        player.Character.AddStrength(player.Status, -2, "Буль", false);
+                        player.Character.AddExtraSkill(player.Status, -22, "Буль", false);
+                        boole.IsBoole = !boole.IsBoole;
+                    }
+
+                    if (!boole.IsBoole && player.Character.GetPsyche() <= 0)
                     {
                         player.Character.AddStrength(player.Status, 2, "Буль");
                         player.Character.AddExtraSkill(player.Status, 22, "Буль");
+                        boole.IsBoole = !boole.IsBoole;
                     }
                     //end Буль
 
@@ -2114,8 +2123,7 @@ public class CharacterPassives : IServiceSingleton
                     //end Дерзкая школота
 
                     //Школьник
-                    var acc = _gameGlobal.MitsukiNoPcTriggeredWhen.Find(x =>
-                        x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
+                    var acc = _gameGlobal.MitsukiNoPcTriggeredWhen.Find(x => x.PlayerId == player.GetPlayerId() && player.GameId == x.GameId);
 
                     if (acc != null)
                         if (acc.WhenToTrigger.Contains(game.RoundNo))
@@ -3154,8 +3162,7 @@ public class CharacterPassives : IServiceSingleton
                             .Replace($" {player.DiscordUsername}", "").Replace("<:war:561287719838547981>", "").Trim();
                         var playerClass = game.PlayersList.Find(x => x.DiscordUsername == playerName);
                         if (player.Predict.All(x => x.PlayerId != playerClass.GetPlayerId()) && playerClass.GetPlayerId() != player.GetPlayerId())
-                            player.Predict.Add(new PredictClass("Загадочный Спартанец в маске",
-                                playerClass.GetPlayerId()));
+                            player.Predict.Add(new PredictClass("Загадочный Спартанец в маске", playerClass.GetPlayerId()));
                     }
                 }
 
