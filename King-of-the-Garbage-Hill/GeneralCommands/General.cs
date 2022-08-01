@@ -20,7 +20,6 @@ public class General : ModuleBaseCustom
     private readonly UserAccounts _accounts;
     private readonly CharacterPassives _characterPassives;
     private readonly CharactersPull _charactersPull;
-    private readonly CheckIfReady _checkIfReady;
 
     private readonly CommandsInMemory _commandsInMemory;
     private readonly InGameGlobal _gameGlobal;
@@ -35,7 +34,7 @@ public class General : ModuleBaseCustom
     public General(UserAccounts accounts, SecureRandom secureRandom,
         HelperFunctions helperFunctions, CommandsInMemory commandsInMemory,
         Global global, GameUpdateMess upd, CharactersPull charactersPull, CharacterPassives characterPassives,
-        CharactersUniquePhrase phrase, InGameGlobal gameGlobal, CheckIfReady checkIfReady)
+        CharactersUniquePhrase phrase, InGameGlobal gameGlobal)
     {
         _accounts = accounts;
         _secureRandom = secureRandom;
@@ -46,7 +45,6 @@ public class General : ModuleBaseCustom
         _charactersPull = charactersPull;
         _characterPassives = characterPassives;
         _gameGlobal = gameGlobal;
-        _checkIfReady = checkIfReady;
     }
 
 
@@ -86,7 +84,7 @@ public class General : ModuleBaseCustom
         var playersList = new List<GamePlayerBridgeClass>();
 
 
-        players = players.OrderBy(x => Guid.NewGuid()).ToList();
+        players = players.OrderBy(_ => Guid.NewGuid()).ToList();
 
         //handle custom selected character part #1
         foreach (var character in from player in players
@@ -151,8 +149,7 @@ public class General : ModuleBaseCustom
             var allAvailableCharacters = new List<DiscordAccountClass.CharacterRollClass>();
             var totalPool = 1;
 
-            var allCharactersExclusive = allCharacters.Where(x => x.Name != account.CharacterPlayedLastTime).ToList();
-            foreach (var character in allCharactersExclusive)
+            foreach (var character in allCharacters.Where(x => x.Name != account.CharacterPlayedLastTime).ToList())
             {
                 var range = GetRangeFromTier(character.Tier);
                 if (character.Tier == 4 && account.IsBot()) range *= 3;
@@ -167,24 +164,31 @@ public class General : ModuleBaseCustom
             var randomIndex = _secureRandom.Random(1, totalPool - 1);
             var rolledCharacter = allAvailableCharacters.Find(x =>
                 randomIndex >= x.CharacterRangeMin && randomIndex <= x.CharacterRangeMax);
-            var characterToAssign = allCharactersExclusive.Find(x => x.Name == rolledCharacter.CharacterName);
+            var characterToAssign = allCharacters.Find(x => x.Name == rolledCharacter.CharacterName);
 
             switch (characterToAssign.Name)
             {
                 case "LeCrisp":
                 {
-                    var characterToRemove = allCharactersExclusive.Find(x => x.Name == "Толя");
+                    var characterToRemove = allCharacters.Find(x => x.Name == "Толя");
                     if (characterToRemove != null)
                         allCharacters.Remove(characterToRemove);
                     break;
                 }
                 case "Толя":
                 {
-                    var characterToRemove = allCharactersExclusive.Find(x => x.Name == "LeCrisp");
+                    var characterToRemove = allCharacters.Find(x => x.Name == "LeCrisp");
                     if (characterToRemove != null)
                         allCharacters.Remove(characterToRemove);
                     break;
                 }
+            }
+
+            switch (characterToAssign.Tier)
+            {
+                case 4:
+                    allCharacters = allCharacters.Where(x => x.Tier != 4).ToList();
+                    break;
             }
 
             playersList.Add(new GamePlayerBridgeClass
@@ -581,12 +585,12 @@ public class General : ModuleBaseCustom
 
     [Command("stb")]
     [Summary("запуск игры")]
-    public async Task StartGame(string mode = "ShowResult", uint times = 10)
+    public async Task StartGame(string mode = "Bot", uint times = 1000)
     {
-        if (mode != "ShowResult" && mode != "Normal")
+        if (mode != "ShowResult" && mode != "Normal" && mode != "Bot")
         {
             await SendMessageAsync(
-                $"Mode **{mode}** is not supported. Only **ShowResult** and **Normal** are available");
+                $"Mode **{mode}** is not supported. Only **ShowResult**, **Bot** and **Normal** are available");
             return;
         }
 
@@ -644,6 +648,18 @@ public class General : ModuleBaseCustom
 
             //get all the chances before the game starts
             _gameGlobal.CalculatePassiveChances(game);
+
+            //handle predict
+            if (mode == "Bot")
+            {
+                foreach (var player in game.PlayersList)
+                {
+                    foreach (var enemy in game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()))
+                    {
+                        player.Predict.Add(new PredictClass(enemy.Character.Name, enemy.GetPlayerId()));
+                    }
+                }
+            }
 
             //handle round #0
             await _characterPassives.HandleNextRound(game);

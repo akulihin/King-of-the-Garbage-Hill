@@ -207,7 +207,7 @@ public class AdminPanel : ModuleBaseCustom
             return;
         }
 
-        if (roundNo < 1 || roundNo > 10)
+        if (roundNo is < 1 or > 10)
         {
             await SendMessageAsync("select between 1 and 10");
             return;

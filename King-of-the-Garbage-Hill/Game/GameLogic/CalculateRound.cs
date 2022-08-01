@@ -533,11 +533,19 @@ Speed => Strength
 
                 //Quality
                 var range = player.Character.GetSpeedQualityResistInt();
-                if (playerIamAttacking.Character.GetSpeedQualityRangeBonus())
-                    range -= 1;
+                range -= playerIamAttacking.Character.GetSpeedQualityRangeBonus();
+
                 var placeDiff = player.Status.PlaceAtLeaderBoard - playerIamAttacking.Status.PlaceAtLeaderBoard;
                 if (placeDiff < 0)
                     placeDiff *= -1;
+
+                //Много выебывается
+                if (playerIamAttacking.Character.Name == "Mit*suki*" && playerIamAttacking.Status.PlaceAtLeaderBoard == 1 && playerIamAttacking.Character.GetSkill() < player.Character.GetSkill())
+                {
+                    playerIamAttacking.Status.AddInGamePersonalLogs("Много выебывается: Да блять, я не бущенный!\n");
+                    playerIamAttacking.Character.HandleDrop(playerIamAttacking.DiscordUsername, game, playerIamAttacking.Status);
+                }
+                //end Много выебывается
 
                 if (placeDiff <= range)
                 {
@@ -702,8 +710,11 @@ Speed => Strength
         //sort
         for (var i = 0; i < game.PlayersList.Count; i++)
         {
-            if (game.RoundNo == 3 || game.RoundNo == 5 || game.RoundNo == 7 || game.RoundNo == 9)
+            if (game.RoundNo is 3 or 5 or 7 or 9)
+            {
+                game.PlayersList[i].Status.LvlUpPoints++;
                 game.PlayersList[i].Status.MoveListPage = 3;
+            }
             game.PlayersList[i].Status.PlaceAtLeaderBoard = i + 1;
             game.PlayersList[i].Character.RollSkillTargetForNextRound();
             game.PlayersList[i].Status.PlaceAtLeaderBoardHistory.Add(new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo, game.PlayersList[i].Status.PlaceAtLeaderBoard));

@@ -400,6 +400,11 @@ public sealed class GameReaction : IServiceSingleton
 
     public async Task HandleLvlUp(GamePlayerBridgeClass player, SocketMessageComponent button, int botChoice = -1)
     {
+        if (player.Status.LvlUpPoints <= 0)
+        {
+            await _upd.UpdateMessage(player);
+            return;
+        }
         var emoteNum = !player.IsBot() && !player.Status.IsAutoMove  ? Convert.ToInt32(string.Join("", button.Data.Values)) : botChoice;
         await GetLvlUp(player, emoteNum);
     }
@@ -600,10 +605,12 @@ public sealed class GameReaction : IServiceSingleton
                 break;
         }
 
-        //Я пытаюсь!
-        if (player.Status.LvlUpPoints > 1)
+        player.Status.LvlUpPoints--;
+
+        
+        if (player.Status.LvlUpPoints > 0)
         {
-            player.Status.LvlUpPoints--;
+            //Я пытаюсь!
             try
             {
                 if (!player.IsBot())
@@ -614,16 +621,15 @@ public sealed class GameReaction : IServiceSingleton
                 _logs.Critical(exception.Message);
                 _logs.Critical(exception.StackTrace);
             }
+            //end Я пытаюсь!
         }
         else
         {
             player.Status.MoveListPage = 1;
         }
-        //end Я пытаюсь!
-
+        
 
         //Дизмораль
-        
         if (player.Character.Name == "Darksci")
         {
             if (game.RoundNo == 9)
@@ -632,7 +638,7 @@ public sealed class GameReaction : IServiceSingleton
             //end Дизмораль Part #2
 
             //Да всё нахуй эту игру: Part #2
-            if (game.RoundNo == 9 || game.RoundNo == 7 || game.RoundNo == 5 || game.RoundNo == 3)
+            if (game.RoundNo is 9 or 7 or 5 or 3)
                 if (player.Character.GetPsyche() <= 0)
                 {
                     player.Status.IsSkip = true;
@@ -647,6 +653,5 @@ public sealed class GameReaction : IServiceSingleton
         //end Дизмораль
 
        await _upd.UpdateMessage(player);
-        
     }
 }

@@ -146,35 +146,6 @@ public class CheckIfReady : IServiceSingleton
         }
         // predict
 
-        /*
-        //predict bot
-        foreach (var bot in game.PlayersList)
-        {
-            if (!bot.IsBot()) continue;
-
-            if (game.Teams.Count > 0)
-            {
-                bot.Status.AddBonusPoints(15, "Предположение");
-                continue;   
-            }
-
-            if (game.GetAllGlobalLogs().Contains("Толя запизделся"))
-                bot.Status.AddBonusPoints(3, "Предположение");
-
-            if (bot.Character.Name == "AWDKA") bot.Status.AddBonusPoints(9, "Предположение");
-            if (bot.Character.Name == "DeepList")
-            {
-                var deepListTemp = _gameGlobal.DeepListSupermindTriggeredWhen.Find(x => x.PlayerId == bot.GetPlayerId() && game.GameId == x.GameId);
-                //bot.Status.AddBonusPoints(deepListTemp.WhenToTrigger.Count*3, "Предположение");
-            }
-
-            if (game.PlayersList.All(x => _accounts.GetAccount(x.DiscordId).TotalPlays >= 50))
-            {
-                bot.Status.AddBonusPoints(3, "Предположение");
-            }
-        }
-        //end bot
-        */
 
         //sort
         game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
@@ -508,7 +479,7 @@ public class CheckIfReady : IServiceSingleton
             var index = 1;
             foreach (var winRate in winRates.OrderByDescending(x => x.Elo))
             {
-                text += $"{index}. {winRate.CharacterName}: {(int)winRate.Elo}\n";
+                text += $"{index}. {winRate.CharacterName}: {(int)(winRate.Elo*10)}\n";
                 index++;
             }
             text += "**--------------------------------------------------------------------**";

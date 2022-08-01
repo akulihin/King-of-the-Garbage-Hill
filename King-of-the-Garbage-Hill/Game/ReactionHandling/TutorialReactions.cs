@@ -686,7 +686,7 @@ public class TutorialReactions : IServiceSingleton
                     var builder = new ComponentBuilder();
 
 
-                    if (game.RoundNumber == 1 || game.RoundNumber == 2)
+                    if (game.RoundNumber is 1 or 2)
                     {
                         embed.WithTitle(GetTitleTutorial());
                         embed.WithDescription(GetDescriptionTutorial(game));

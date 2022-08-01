@@ -281,13 +281,37 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                 break;
             case "Sirinoks":
-                var siri = _gameGlobal.SirinoksFriendsList.Find(x =>
-                    x.GameId == me.GameId && x.PlayerId == me.GetPlayerId());
+                var siri = _gameGlobal.SirinoksFriendsList.Find(x => x.GameId == me.GameId && x.PlayerId == me.GetPlayerId());
+
+                var siriTraining = _gameGlobal.SirinoksTraining.Find(x => x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
+                if (siriTraining != null && siriTraining.Training.Count > 0)
+                {
+                    var training = siriTraining.Training.First();
+                    if (other.GetPlayerId() == siriTraining.EnemyId)
+                    {
+                        switch (training.StatIndex)
+                        {
+                            case 1:
+                                customString += $" Int - {training.StatNumber}";
+                                break;
+                            case 2:
+                                customString += $" str - {training.StatNumber}";
+                                break;
+                            case 3:
+                                customString += $" spe - {training.StatNumber}";
+                                break;
+                            case 4:
+                                customString += $" psy - {training.StatNumber}";
+                                break;
+                        }
+                    }
+                }
 
                 if (siri != null)
-                    if (!siri.FriendList.Contains(other.GetPlayerId()) &&
-                        other.GetPlayerId() != me.GetPlayerId())
+                {
+                    if (!siri.FriendList.Contains(other.GetPlayerId()) && other.GetPlayerId() != me.GetPlayerId())
                         customString += " <:fr:563063244097585162>";
+                }
                 break;
             case "Загадочный Спартанец в маске":
 
@@ -1110,7 +1134,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (player.Status.IsReady)
             return $"Ожидаем других игроков • {time} | {game.GameVersion}";
         var toReturn = $"{time} | {game.GameVersion}";
-        if (player.Character.Name == "mylorik" || player.Character.Name == "DeepList") toReturn += " | (x+х)*19";
+        if (player.Character.Name is "mylorik" or "DeepList") toReturn += " | (x+х)*19";
         return toReturn;
     }
 }

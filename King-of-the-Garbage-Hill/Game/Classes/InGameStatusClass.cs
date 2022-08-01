@@ -12,7 +12,7 @@ public class InGameStatus
     public InGameStatus(string characterName)
     {
         MoveListPage = 1;
-        LvlUpPoints = 1;
+        LvlUpPoints = 0;
         SocketMessageFromBot = null;
         Score = 0;
         IsBlock = false;

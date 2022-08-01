@@ -306,7 +306,7 @@ public class BotsBehavior : IServiceSingleton
 
             if (game.RoundNo == 10) allTargets = allTargets.Where(x => x.Player.Character.Name != "Тигр").ToList();
 
-            if (game.RoundNo == 9 || game.RoundNo == 10)
+            if (game.RoundNo is 9 or 10)
                 if (game.GetAllGlobalLogs().Contains("Нахуй эту игру"))
                     allTargets = allTargets.Where(x => x.Player.Character.Name != "Darksci").ToList();
 
@@ -1021,7 +1021,7 @@ public class BotsBehavior : IServiceSingleton
                             }
                         }
 
-                        if (bot.Character.Name == "DeepList" || bot.Character.Name == "AWDKA")
+                        if (bot.Character.Name is "DeepList" or "AWDKA")
                         {
                             if (target.AttackPreference >= 7)
                             {
@@ -1599,24 +1599,35 @@ public class BotsBehavior : IServiceSingleton
             else
                 skillNumber = 4;
 
+            //game.RoundNo is 3 or 5 or 7 or 9
+
             if (player.Character.Name == "Толя" && strength < 8) skillNumber = 2;
-            if (player.Character.Name == "Mit*suki*" && strength < 10) skillNumber = 2;
+            if (player.Character.Name == "Sirinoks" && intelligence < 10) skillNumber = 1;
+            if (player.Character.Name == "Вампур" && psyche < 10) skillNumber = 4;
+            if (player.Character.Name == "mylorik" && psyche < 10) skillNumber = 4;
             if (player.Character.Name == "Братишка" && strength < 10) skillNumber = 2;
             if (player.Character.Name == "LeCrisp" && strength < 10) skillNumber = 2;
             if (player.Character.Name == "Darksci" && psyche < 10) skillNumber = 4;
-            if (player.Character.Name == "HardKitty" && speed < 10) skillNumber = 3;
 
+            if (player.Character.Name == "Mit*suki*" && strength < 10) skillNumber = 2;
+            if (player.Character.Name == "Mit*suki*" && intelligence == 9) skillNumber = 1;
+            if (player.Character.Name == "Mit*suki*" && strength == 10 && intelligence < 10) skillNumber = 1;
 
-            if (player.Character.Name == "Тигр" && player.Character.GetPsyche() >= game.RoundNo) skillNumber = 1;
-            if (player.Character.Name == "Тигр" && player.Character.GetPsyche() < game.RoundNo) skillNumber = 4;
-            if (player.Character.Name == "mylorik" && psyche < 10) skillNumber = 4;
+            if (player.Character.Name == "HardKitty" && speed < 10 && game.RoundNo < 6) skillNumber = 3;
+            if (player.Character.Name == "HardKitty" && psyche < 10 && game.RoundNo > 6) skillNumber = 4;
+
+            if (player.Character.Name == "Тигр" && psyche >= game.RoundNo) skillNumber = 1;
+            if (player.Character.Name == "Тигр" && psyche < game.RoundNo) skillNumber = 4;
+
             if (player.Character.Name == "Глеб" && strength < 10) skillNumber = 2;
+            if (player.Character.Name == "Глеб" && intelligence == 9) skillNumber = 1;
+
             if (player.Character.Name == "Загадочный Спартанец в маске" && psyche < 10 && game.RoundNo <= 3) skillNumber = 4;
             if (player.Character.Name == "Загадочный Спартанец в маске" && speed < 10 && game.RoundNo > 3) skillNumber = 3;
 
 
             await _gameReaction.HandleLvlUp(player, null, skillNumber);
-        } while (player.Status.LvlUpPoints > 1);
+        } while (player.Status.LvlUpPoints > 0);
 
         player.Status.MoveListPage = 1;
     }

@@ -320,7 +320,7 @@ public class InGameGlobal : IServiceSingleton
                     break;
 
                 case "Mit*suki*":
-                    when = GetWhenToTrigger(player, 1, 0, 0, 10, 2);
+                    when = GetWhenToTrigger(player, 1, 0, 0, 9, 2);
                     MitsukiNoPcTriggeredWhen.Add(when);
                     break;
 
