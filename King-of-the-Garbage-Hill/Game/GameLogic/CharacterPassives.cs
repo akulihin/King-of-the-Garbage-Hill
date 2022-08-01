@@ -666,8 +666,7 @@ public class CharacterPassives : IServiceSingleton
 
             case "Sirinoks":
                 //Обучение
-                if (game.RoundNo < 10)
-                {
+
                     var siri = _gameGlobal.SirinoksTraining.Find(x => x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
 
                     if (me.Status.IsLostThisCalculation != Guid.Empty && me.Status.IsLostThisCalculation == me.Status.WhoToAttackThisTurn)
@@ -705,23 +704,25 @@ public class CharacterPassives : IServiceSingleton
                             }
                         }
 
-                        var best = intel2.OrderByDescending(x => x.Number).ToList().First();
-
-
-                        if (siri == null)
+                        if (intel2.Count > 0)
                         {
-                            _gameGlobal.SirinoksTraining.Add(new Sirinoks.TrainingClass(me.GetPlayerId(), game.GameId, best.Index, best.Number, playerSheLostLastTime.GetPlayerId()));
-                        }
-                        else
-                        {
-                            if (siri.Training.Count == 0)
+                            var best = intel2.OrderByDescending(x => x.Number).ToList().First();
+
+                            if (siri == null)
                             {
-                                siri.Training.Add(new Sirinoks.TrainingSubClass(best.Index, best.Number));
-                                siri.EnemyId = playerSheLostLastTime.GetPlayerId();
+                                _gameGlobal.SirinoksTraining.Add(new Sirinoks.TrainingClass(me.GetPlayerId(), game.GameId, best.Index, best.Number, playerSheLostLastTime.GetPlayerId()));
+                            }
+                            else
+                            {
+                                if (siri.Training.Count == 0)
+                                {
+                                    siri.Training.Add(new Sirinoks.TrainingSubClass(best.Index, best.Number));
+                                    siri.EnemyId = playerSheLostLastTime.GetPlayerId();
+                                }
                             }
                         }
                     }
-                }
+                
                 //Обучение end
 
                 //Заводить друзей
@@ -2003,7 +2004,7 @@ public class CharacterPassives : IServiceSingleton
                     //Буль
                     if (player.Character.GetPsyche() < 7)
                     {
-                        var random = _rand.Random(1, 4 + player.Character.GetPsyche() * 6);
+                        var random = _rand.Random(1, 5 + player.Character.GetPsyche() * 6);
 
                         if (random == 2)
                         {
@@ -2016,6 +2017,12 @@ public class CharacterPassives : IServiceSingleton
 
                             game.Phrases.MylorikBoolePhrase.SendLog(player, false);
                         }
+                    }
+
+                    if (player.Character.GetPsyche() <= 0)
+                    {
+                        player.Character.AddStrength(player.Status, 2, "Буль");
+                        player.Character.AddExtraSkill(player.Status, 22, "Буль");
                     }
                     //end Буль
 

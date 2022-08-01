@@ -549,7 +549,7 @@ Speed => Strength
 
                 if (placeDiff <= range)
                 {
-                    playerIamAttacking.Character.LowerQualityResist(playerIamAttacking.DiscordUsername, game, playerIamAttacking.Status, 1, player.Character.GetStrengthQualityDropBonus());
+                    playerIamAttacking.Character.LowerQualityResist(playerIamAttacking.DiscordUsername, game, playerIamAttacking.Status, player.Character.GetStrengthQualityDropBonus());
                 }
                 
                 //end Quality

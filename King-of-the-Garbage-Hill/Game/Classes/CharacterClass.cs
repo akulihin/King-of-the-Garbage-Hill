@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
@@ -79,9 +80,11 @@ public class CharacterClass
         status.AddBonusPoints(-1, "Quality");
         game.AddGlobalLogs($"Они скинули **{discordUsername}**! Сволочи!");
     }
-    public void LowerQualityResist(string discordUsername, GameClass game, InGameStatus status, int howMuch, bool strengthBonus)
+    public void LowerQualityResist(string discordUsername, GameClass game, InGameStatus status, bool strengthBonus)
     {
         if (game.RoundNo == 1) return;
+        
+        var howMuch = 1;
 
         IntelligenceQualityResist -= howMuch;
         PsycheQualityResist -= howMuch;
@@ -93,20 +96,54 @@ public class CharacterClass
         if (IntelligenceQualityResist < 0)
         {
             SetIntelligenceResist();
-            IntelligenceQualitySkillBonus--;
-            //status.AddInGamePersonalLogs($"Quality: -10% *Скиллa*\n"); //english "a" so it wouldn't combine with all other "skill" logs
+
+            //Испанец
+            if (status.CharacterName == "mylorik")
+            {
+                var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == status.PlayerId);
+                mylorik.Character.AddMoral(mylorik.Status, 1, "То, что мертво, умереть не может!");
+            }
+            //end Испанец
+            else
+            {
+                IntelligenceQualitySkillBonus--;
+            }
+            
         }
 
         if (StrengthQualityResist < 0)
         {
-            HandleDrop(discordUsername, game, status);
+            SetStrengthResist();
+
+            //Испанец
+            if (status.CharacterName == "mylorik") 
+            {
+                var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == status.PlayerId);
+                mylorik.Character.AddMoral(mylorik.Status, 1, "То, что мертво, умереть не может!");
+            }
+            //end Испанец
+            else
+            {
+                HandleDrop(discordUsername, game, status);
+            }
+                
         }
 
         if (PsycheQualityResist < 0)
         {
             SetPsycheResist();
-            PsycheQualityMoralDebuff++;
-            //status.AddInGamePersonalLogs($"Quality: -10% *Морaли*\n"); //english "a" so it wouldn't combine with all other "skill" logs
+
+            //Испанец
+            if (status.CharacterName == "mylorik")
+            {
+                var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == status.PlayerId);
+                mylorik.Character.AddMoral(mylorik.Status, 1, "То, что мертво, умереть не может!");
+            }
+            //end Испанец
+            else
+            {
+                PsycheQualityMoralDebuff++;
+            }
         }
     }
 
@@ -305,6 +342,11 @@ public class CharacterClass
         var resistDiff = resistNew - resistOld;
         IntelligenceQualityResist += resistDiff;
 
+        if(IntelligenceQualityResist < 0)
+        {
+            IntelligenceQualityResist = 0;
+        }
+
         IsIntelligenceQualitySkillBonus = Intelligence > 9;
     }
 
@@ -332,7 +374,11 @@ public class CharacterClass
         var resistDiff = resistNew - resistOld;
         StrengthQualityResist += resistDiff;
 
-   
+        if (StrengthQualityResist < 0)
+        {
+            StrengthQualityResist = 0;
+        }
+
         StrengthQualityDropBonus = Strength > 9;
     }
 
@@ -386,6 +432,11 @@ public class CharacterClass
 
         var resistDiff = resistNew - resistOld;
         PsycheQualityResist += resistDiff;
+
+        if (PsycheQualityResist < 0)
+        {
+            PsycheQualityResist = 0;
+        }
 
         PsycheQualityMoralBonus = Psyche > 9;
     }
