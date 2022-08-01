@@ -292,18 +292,20 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         switch (training.StatIndex)
                         {
                             case 1:
-                                customString += $" Int - {training.StatNumber}";
+                                customString += $" <:edu:1003751490290204753> - {training.StatNumber}";
                                 break;
                             case 2:
-                                customString += $" str - {training.StatNumber}";
+                                customString += $" <:edu:1003751490290204753> - {training.StatNumber}";
                                 break;
                             case 3:
-                                customString += $" spe - {training.StatNumber}";
+                                customString += $" <:edu:1003751490290204753> - {training.StatNumber}";
                                 break;
-                            case 4:
-                                customString += $" psy - {training.StatNumber}";
+                            case 4:                 
+                                customString += $" <:edu:1003751490290204753> - {training.StatNumber}";
                                 break;
                         }
+                        if(other.Character.Name is "Братишка" or "Осьминожка" or "Краборак" or "mylorik")
+                            customString += $" **Буль!**";
                     }
                 }
 

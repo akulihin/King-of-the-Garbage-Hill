@@ -652,6 +652,59 @@ public sealed class GameReaction : IServiceSingleton
         }
         //end Дизмораль
 
-       await _upd.UpdateMessage(player);
+        //Обучение
+        //There is a second part in "HandleEndOfRound"!!!!!!!!!! <<<<<<<<<<
+        if (player.Character.Name == "Sirinoks")
+        {
+            var siriTraining = _gameGlobal.SirinoksTraining.Find(x => x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
+            if (siriTraining != null)
+            {
+                if (siriTraining.Training.Count > 0)
+                {
+                    var training = siriTraining.Training.First();
+
+                    switch (training.StatIndex)
+                    {
+                        case 1:
+                            if (player.Character.GetIntelligence() >= training.StatNumber)
+                            {
+                                player.Character.AddMoral(player.Status, 3, "Обучение");
+                                player.Character.AddIntelligenceQualitySkillBonus(player.Status, 1, "Обучение");
+                                siriTraining.Training.Clear();
+                            }
+                            break;
+                        case 2:
+                            if (player.Character.GetStrength() >= training.StatNumber)
+                            {
+                                player.Character.AddMoral(player.Status, 3, "Обучение");
+                                player.Character.AddIntelligenceQualitySkillBonus(player.Status, 1, "Обучение");
+                                siriTraining.Training.Clear();
+                            }
+                            break;
+                        case 3:
+                            if (player.Character.GetSpeed() >= training.StatNumber)
+                            {
+                                player.Character.AddMoral(player.Status, 3, "Обучение");
+                                player.Character.AddIntelligenceQualitySkillBonus(player.Status, 1, "Обучение");
+                                siriTraining.Training.Clear();
+                            }
+                            break;
+                        case 4:
+                            if (player.Character.GetPsyche() >= training.StatNumber)
+                            {
+                                player.Character.AddMoral(player.Status, 3, "Обучение");
+                                player.Character.AddIntelligenceQualitySkillBonus(player.Status, 1, "Обучение");
+                                siriTraining.Training.Clear();
+                            }
+                            break;
+                    }
+
+
+                }
+            }
+        }
+        //end Обучение
+
+        await _upd.UpdateMessage(player);
     }
 }

@@ -1762,7 +1762,7 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Sirinoks":
                     //Обучение
-
+                    //There is a second part in "GetLvlUp()" !!!!!!!!!! <<<<<<<<<<
                     var siri = _gameGlobal.SirinoksTraining.Find(x =>
                         x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
 
