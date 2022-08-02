@@ -1089,34 +1089,6 @@ public class CharacterPassives : IServiceSingleton
 
                 //end Доебаться
                 break;
-            case "Mit*suki*":
-                //Много выебывается
-                if (player.Status.WhoToAttackThisTurn != Guid.Empty &&
-                    player.Status.WhoToAttackThisTurn == player.Status.IsWonThisCalculation)
-                {
-                    var playerIamAttacking =
-                        game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation);
-
-                    var howMuchToAdd = player.Character.GetSkillMainOnly() switch
-                    {
-                        10 => 10,
-                        19 => 9,
-                        27 => 8,
-                        34 => 7,
-                        40 => 6,
-                        45 => 5,
-                        49 => 4,
-                        52 => 3,
-                        54 => 2,
-                        _ => 0
-                    };
-
-                    if (player.Character.GetCurrentSkillClassTarget() == playerIamAttacking.Character.GetSkillClass())
-                        player.Character.AddExtraSkill(player.Status, howMuchToAdd * 3, "Много выебывается");
-                }
-
-                //end Много выебывается
-                break;
             case "AWDKA":
                 //Произошел троллинг:
                 if (player.Status.IsWonThisCalculation != Guid.Empty &&
@@ -1574,7 +1546,7 @@ public class CharacterPassives : IServiceSingleton
                         player.Character.SetStrength(player.Status, regularStats.Str + str, "Безумие", false);
                         player.Character.SetSpeed(player.Status, regularStats.Speed + speed, "Безумие", false);
                         player.Character.SetPsyche(player.Status, regularStats.Psyche + psy, "Безумие", false);
-                        player.Character.SetSkillMultiplier();
+                        player.Character.SetAnySkillMultiplier();
                         _gameGlobal.DeepListMadnessList.Remove(madd);
                     }
 
@@ -1590,8 +1562,7 @@ public class CharacterPassives : IServiceSingleton
                     if (glebChall != null)
                     {
                         //x3 point:
-                        player.Status.SetScoresToGiveAtEndOfRound((int)player.Status.GetScoresToGiveAtEndOfRound() * 3,
-                            "Претендент русского сервера");
+                        player.Status.SetScoresToGiveAtEndOfRound((int)player.Status.GetScoresToGiveAtEndOfRound() * 3, "Претендент русского сервера");
                         //end x3 point:
 
                         var regularStats = glebChall.MadnessList.Find(x => x.Index == 1);
@@ -1604,16 +1575,14 @@ public class CharacterPassives : IServiceSingleton
                         var psy = player.Character.GetPsyche() - madStats.Psyche;
 
 
-                        player.Character.SetIntelligence(player.Status, regularStats.Intel + intel,
-                            "Претендент русского сервера", false);
-                        player.Character.SetStrength(player.Status, regularStats.Str + str,
-                            "Претендент русского сервера", false);
-                        player.Character.SetSpeed(player.Status, regularStats.Speed + speed,
-                            "Претендент русского сервера", false);
-                        player.Character.SetPsyche(player.Status, regularStats.Psyche + psy,
-                            "Претендент русского сервера", false);
+                        player.Character.SetIntelligence(player.Status, regularStats.Intel + intel, "Претендент русского сервера", false);
+                        player.Character.SetStrength(player.Status, regularStats.Str + str, "Претендент русского сервера", false);
+                        player.Character.SetSpeed(player.Status, regularStats.Speed + speed, "Претендент русского сервера", false);
+                        player.Character.SetPsyche(player.Status, regularStats.Psyche + psy, "Претендент русского сервера", false);
                         player.Character.AddExtraSkill(player.Status, -99, "Претендент русского сервера", false);
+                        player.Character.SetAnySkillMultiplier();
                         _gameGlobal.GlebChallengerList.Remove(glebChall);
+                        
                     }
                     //end Претендент русского сервера
 
@@ -2384,6 +2353,7 @@ public class CharacterPassives : IServiceSingleton
                         player.Character.SetSpeed(player.Status, speed, "Претендент русского сервера");
                         player.Character.SetPsyche(player.Status, pshy, "Претендент русского сервера");
                         player.Character.AddExtraSkill(player.Status, 99, "Претендент русского сервера");
+                        player.Character.SetAnySkillMultiplier(2);
 
 
                         gleb.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
@@ -2547,7 +2517,7 @@ public class CharacterPassives : IServiceSingleton
                             player.Character.SetSpeed(player.Status, speed, "Безумие");
                             player.Character.SetPsyche(player.Status, pshy, "Безумие");
                             //2 это х3
-                            player.Character.SetSkillMultiplier(3);
+                            player.Character.SetAnySkillMultiplier(3);
                             //player.Status.AddBonusPoints(-3, "Безумие");
 
                             game.Phrases.DeepListMadnessPhrase.SendLog(player, true);

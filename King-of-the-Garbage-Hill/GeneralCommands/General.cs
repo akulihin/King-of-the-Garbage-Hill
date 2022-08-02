@@ -297,19 +297,21 @@ public class General : ModuleBaseCustom
 
     public async Task<List<GamePlayerBridgeClass>> HandleEventsBeforeFirstRound(List<GamePlayerBridgeClass> playersList)
     {
-        //
+        //mylorik
         if (playersList.Any(x => x.Character.Name == "mylorik"))
         {
             var mylorik = playersList.Find(x => x.Character.Name == "mylorik");
             mylorik.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*\n");
         }
-        //
+        //end mylorik
+
+
 
         //Загадочный Спартанец в маске
         if (playersList.Any(x => x.Character.Name == "Загадочный Спартанец в маске"))
         {
             var spartan = playersList.Find(x => x.Character.Name == "Загадочный Спартанец в маске");
-            spartan.Character.SetSkillMultiplier(1);
+            spartan.Character.SetAnySkillMultiplier(1);
             spartan.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*\n");
         }
         //end Загадочный Спартанец в маске
@@ -350,23 +352,21 @@ public class General : ModuleBaseCustom
         }
         //Тигр топ, а ты холоп
 
-        //Дерзкая школота
+        //Дерзкая школота + Много выебывается
         if (playersList.Any(x => x.Character.Name == "Mit*suki*"))
         {
             var mitsukiTemp = playersList.Find(x => x.Character.Name == "Mit*suki*");
             mitsukiTemp.Character.AddExtraSkill(mitsukiTemp.Status, 100, "Дерзкая школота");
-        }
 
-
-        if (playersList.Any(x => x.Character.Name == "Mit*suki*"))
-        {
-            var tempHard = playersList.Find(x => x.Character.Name == "Mit*suki*");
-            var hardIndex = playersList.IndexOf(tempHard);
-
+            //first place
+            var hardIndex = playersList.IndexOf(mitsukiTemp);
             playersList[hardIndex] = playersList.First();
-            playersList[0] = tempHard;
+            playersList[0] = mitsukiTemp;
+
+            //x3 class for target
+            mitsukiTemp.Character.SetTargetSkillMultiplier(2);
         }
-        //end Дерзкая школота
+        //end Дерзкая школота + Много выебывается
 
 
         //Повторяет за myloran

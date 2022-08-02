@@ -16,7 +16,8 @@ public class CharacterClass
         Name = name;
         Description = description;
         Tier = tier;
-        SkillMultiplier = 0;
+        TargetSkillMultiplier = 0;
+        ExtraSkillMultiplier = 0;
         SkillFightMultiplier = 1;
         ExtraWeight = 0;
         Avatar = avatar;
@@ -36,7 +37,8 @@ public class CharacterClass
     private string StrengthExtraText { get; set; }
     private decimal SkillMain { get; set; }
     private decimal SkillExtra { get; set; }
-    private int SkillMultiplier { get; set; }
+    private int TargetSkillMultiplier { get; set; }
+    private int ExtraSkillMultiplier { get; set; }
     private int SkillFightMultiplier { get; set; }
     private string CurrentSkillTarget { get; set; } = "Ничего";
     private int Moral { get; set; }
@@ -45,17 +47,16 @@ public class CharacterClass
 
     private int IntelligenceQualityResist { get; set; }
     private int StrengthQualityResist { get; set; }
-    private int SpeedQualityResist { get; set; }
-
+    private int SpeedQualityBonus { get; set; }
     private int PsycheQualityResist { get; set; }
 
     private bool IsIntelligenceQualitySkillBonus { get; set; }
     private int IntelligenceQualitySkillBonus { get; set; }
     private bool StrengthQualityDropBonus { get; set; }
-    private bool IsSpeedQualityRangeBonus { get; set; }
-    private int SpeedQualityRangeBonus { get; set; }
-    private bool PsycheQualityMoralBonus { get; set; }
     private int StrengthQualityDropDebuff { get; set; }
+    private bool IsSpeedQualityKiteBonus { get; set; }
+    private int SpeedQualityKiteBonus { get; set; }
+    private bool PsycheQualityMoralBonus { get; set; }
     private int PsycheQualityMoralDebuff { get; set; }
 
 
@@ -68,7 +69,6 @@ public class CharacterClass
     public List<Passive> Passive { get; set; }
     public string Description { get; set; }
     public int Tier { get; set; }
-
 
 
     public void HandleDrop(string discordUsername, GameClass game, InGameStatus status)
@@ -205,15 +205,15 @@ public class CharacterClass
             spacing += $"{s}{s}";
 
         var text = $"{spacing}<:Mobi:1000841939500925118> {GetSpeedQualityResistInt()}";;
-        if (GetSpeedQualityRangeBonus() > 0)
-            text += $" **(+{GetSpeedQualityRangeBonus()} Kite Distance)**";
+        if (GetSpeedQualityKiteBonus() > 0)
+            text += $" **(+{GetSpeedQualityKiteBonus()} Kite Distance)**";
         return text;
     }
 
-    public int GetSpeedQualityRangeBonus()
+    public int GetSpeedQualityKiteBonus()
     {
-        var toReturn = SpeedQualityRangeBonus;
-        if (GetIsSpeedQualityRangeBonus())
+        var toReturn = SpeedQualityKiteBonus;
+        if (GetIsSpeedQualityKiteBonus())
             toReturn++;
 
         //Импакт
@@ -226,7 +226,7 @@ public class CharacterClass
 
     public void AddSpeedQualityRangeBonus(int howMuchToAdd)
     {
-        SpeedQualityRangeBonus += howMuchToAdd;
+        SpeedQualityKiteBonus += howMuchToAdd;
     }
 
     public string GetPsycheQualityResist()
@@ -261,10 +261,10 @@ public class CharacterClass
     {
         //Импакт
         if (Name == "LeCrisp")
-            SpeedQualityResist = 6;
+            SpeedQualityBonus = 6;
         //end Импакт
 
-        return SpeedQualityResist;
+        return SpeedQualityBonus;
     }
 
     public void SetIntelligenceResist()
@@ -294,7 +294,7 @@ public class CharacterClass
 
     public void SetSpeedResist()
     {
-        SpeedQualityResist = Speed switch
+        SpeedQualityBonus = Speed switch
         {
             >= 0 and <= 3 => 1,
             >= 4 and <= 7 => 2,
@@ -302,7 +302,7 @@ public class CharacterClass
             _ => GetSpeedQualityResistInt()
         };
 
-        IsSpeedQualityRangeBonus = Speed > 9;
+        IsSpeedQualityKiteBonus = Speed > 9;
     }
 
     public void SetPsycheResist()
@@ -404,9 +404,9 @@ public class CharacterClass
         };
 
         var resistDiff = resistNew - resistOld;
-        SpeedQualityResist += resistDiff;
+        SpeedQualityBonus += resistDiff;
 
-        IsSpeedQualityRangeBonus = Speed > 9;
+        IsSpeedQualityKiteBonus = Speed > 9;
     }
 
     public void UpdatePsycheResist(int statOld, int statNew)
@@ -488,9 +488,9 @@ public class CharacterClass
     {
         return StrengthQualityDropBonus;
     }
-    public bool GetIsSpeedQualityRangeBonus()
+    public bool GetIsSpeedQualityKiteBonus()
     {
-        return IsSpeedQualityRangeBonus;
+        return IsSpeedQualityKiteBonus;
     }
     public bool GetPsycheQualityMoralBonus()
     {
@@ -584,16 +584,33 @@ public class CharacterClass
     }
 
 
-    public void SetSkillMultiplier(int skillMultiplier = 0)
+    public void SetTargetSkillMultiplier(int targetSkillMultiplier = 0)
     {
         //2 это х3
-        SkillMultiplier = skillMultiplier;
+        TargetSkillMultiplier = targetSkillMultiplier;
     }
 
-    public void AddSkillMultiplier(int skillMultiplier = 0)
+    public void SetExtraSkillMultiplier(int extraSkillMultiplier = 0)
     {
         //2 это х3
-        SkillMultiplier += skillMultiplier;
+        ExtraSkillMultiplier = extraSkillMultiplier;
+    }
+
+    public void SetAnySkillMultiplier(int extraAnyMultiplier = 0)
+    {
+        //2 это х3
+        SetTargetSkillMultiplier(extraAnyMultiplier);
+        SetExtraSkillMultiplier(extraAnyMultiplier);
+    }
+
+    public int GetTargetSkillMultiplier()
+    {
+        return TargetSkillMultiplier;
+    }
+
+    public int GetExtraSkillMultiplier()
+    {
+        return ExtraSkillMultiplier;
     }
 
     public void SetSkillFightMultiplier(int skillFightMultiplier = 1)
@@ -659,7 +676,7 @@ public class CharacterClass
 
         var total = howMuchToAdd + howMuchToAdd;
 
-        var multiplier = total * SkillMultiplier;
+        var multiplier = total * TargetSkillMultiplier;
         total += multiplier;
         SkillExtra += multiplier;
 
@@ -679,8 +696,9 @@ public class CharacterClass
         if (status.CharacterName == "Братишка")
             return;
 
-        if (SkillMultiplier > 0 && howMuchToAdd > 0)
-            howMuchToAdd *= SkillMultiplier + 1;
+        if (ExtraSkillMultiplier > 0 && howMuchToAdd > 0)
+            howMuchToAdd *= ExtraSkillMultiplier + 1;
+        
         if (isLog)
         {
             status.AddInGamePersonalLogs(howMuchToAdd > 0

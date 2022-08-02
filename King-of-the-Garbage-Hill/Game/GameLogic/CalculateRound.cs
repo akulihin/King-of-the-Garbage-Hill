@@ -150,8 +150,7 @@ Speed => Strength
 
 
             //умный
-            if (player.Character.GetSkillClass() == "Интеллект" &&
-                playerIamAttacking.Character.Justice.GetFullJusticeNow() == 0)
+            if (player.Character.GetSkillClass() == "Интеллект" && playerIamAttacking.Character.Justice.GetFullJusticeNow() == 0)
                 player.Character.AddExtraSkill(player.Status, 6, "Класс");
 
 
@@ -159,15 +158,13 @@ Speed => Strength
             if (!playerIamAttacking.Status.IsAbleToWin) pointsWined = 50;
 
 
-            game.AddGlobalLogs(
-                $"{player.DiscordUsername} <:war:561287719838547981> {playerIamAttacking.DiscordUsername}",
-                "");
+            game.AddGlobalLogs($"{player.DiscordUsername} <:war:561287719838547981> {playerIamAttacking.DiscordUsername}", "");
 
             //add skill
             if (player.Character.GetCurrentSkillClassTarget() == playerIamAttacking.Character.GetSkillClass())
             {
-                var text1 = "";
-                var text2 = "";
+                string text1;
+                string text2;
 
                 if (playerIamAttacking.Character.GetSkillClass() == "Интеллект")
                 {
@@ -190,28 +187,12 @@ Speed => Strength
                     text2 = "(**БУЛЬ** ?!) ";
                 }
 
-
-                //Претендент русского сервера
-                if (player.Status.GetInGamePersonalLogs().Contains("Претендент русского сервера"))
-                    player.Character.SetSkillMultiplier(2);
-                //end Претендент русского сервера
-
                 player.Character.AddMainSkill(player.Status, text1);
 
-                //Претендент русского сервера
-                if (player.Status.GetInGamePersonalLogs().Contains("Претендент русского сервера"))
-                    player.Character.SetSkillMultiplier();
-                //end Претендент русского сервера
-
-
-
-                var known = player.Status.KnownPlayerClass.Find(x =>
-                    x.EnemyId == playerIamAttacking.GetPlayerId());
+                var known = player.Status.KnownPlayerClass.Find(x => x.EnemyId == playerIamAttacking.GetPlayerId());
                 if (known != null)
                     player.Status.KnownPlayerClass.Remove(known);
-                player.Status.KnownPlayerClass.Add(
-                    new InGameStatus.KnownPlayerClassClass(playerIamAttacking.GetPlayerId(),
-                        text2));
+                player.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(playerIamAttacking.GetPlayerId(), text2));
             }
 
 
@@ -533,7 +514,7 @@ Speed => Strength
 
                 //Quality
                 var range = player.Character.GetSpeedQualityResistInt();
-                range -= playerIamAttacking.Character.GetSpeedQualityRangeBonus();
+                range -= playerIamAttacking.Character.GetSpeedQualityKiteBonus();
 
                 var placeDiff = player.Status.PlaceAtLeaderBoard - playerIamAttacking.Status.PlaceAtLeaderBoard;
                 if (placeDiff < 0)

@@ -688,6 +688,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             psy_str = "Нытье";
         }
 
+        var skillExtraText = "";
+        var targetExtraText = "";
+        if (player.Character.GetExtraSkillMultiplier() > 0) skillExtraText = $" (Множитель: **x{player.Character.GetExtraSkillMultiplier() + 1}**)";
+        if (player.Character.GetTargetSkillMultiplier() > 0) targetExtraText = $" (Множитель: **x{player.Character.GetTargetSkillMultiplier() + 1}**)";
+
         embed.WithDescription($"{desc}" +
                               "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                               $"**{int_str}:** {character.GetIntelligenceString()}{character.GetIntelligenceQualityResist()}\n" +
@@ -697,7 +702,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                               "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                               $"*Справедливость: **{character.Justice.GetFullJusticeNow()}***\n" +
                               $"*Мораль: {character.GetMoral()}*\n" +
-                              $"*Скилл: {character.GetSkillDisplay()} (Мишень: **{character.GetCurrentSkillClassTarget()}**)*\n" +
+                              $"*Скилл: {character.GetSkillDisplay()}{skillExtraText}*\n" +
+                              $"*Мишень: **{character.GetCurrentSkillClassTarget()}**{targetExtraText}*\n" +
                               $"*Класс:* {character.GetClassStatDisplayText()}\n" +
                               "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                               $"Множитель очков: **x{multiplier}**\n" +
