@@ -85,9 +85,6 @@ Speed => Strength
     //пристрій судного дня
     public async Task CalculateAllFights(GameClass game)    
     {
-        //_logs.Critical("");
-        //_logs.Info($"calculating game #{game.GameId}, round #{game.RoundNo}");
-
         var watch = new Stopwatch();
         watch.Start();
 
@@ -728,8 +725,10 @@ Speed => Strength
         _characterPassives.HandleBotPredict(game);
         game.TimePassed.Reset();
         game.TimePassed.Start();
-        //_logs.Info($"Finished calculating game #{game.GameId} (round# {game.RoundNo - 1}). || {watch.Elapsed.TotalSeconds}s");
-        //_logs.Critical("");
+
+        if(game.GameMode == "Normal")
+            _logs.Info($"Finished calculating game #{game.GameId} (round# {game.RoundNo - 1}). || {watch.Elapsed.TotalSeconds}s");
+
         watch.Stop();
     }
 
