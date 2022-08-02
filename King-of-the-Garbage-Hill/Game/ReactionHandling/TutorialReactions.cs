@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework;
-using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
+using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
@@ -15,7 +15,8 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling;
 public class TutorialReactions : IServiceSingleton
 {
     private readonly CharactersPull _charactersPull;
-    private readonly InGameGlobal _gameGlobal;
+    private readonly TutorialClass _tutorialClass;
+
     private readonly LoginFromConsole _logs;
 
     private readonly List<Emoji> _playerChoiceAttackList = new()
@@ -25,13 +26,14 @@ public class TutorialReactions : IServiceSingleton
     private readonly UserAccounts _userAccounts;
 
     public TutorialReactions(UserAccounts userAccounts, CharactersPull charactersPull, SecureRandom random,
-        InGameGlobal gameGlobal, LoginFromConsole logs)
+       LoginFromConsole logs, TutorialClass tutorialClass)
     {
         _userAccounts = userAccounts;
         _charactersPull = charactersPull;
         _random = random;
-        _gameGlobal = gameGlobal;
+  
         _logs = logs;
+        _tutorialClass = tutorialClass;
     }
 
     public Task InitializeAsync()
@@ -656,7 +658,7 @@ public class TutorialReactions : IServiceSingleton
             switch (button.Data.CustomId)
             {
                 case "attack-select-tutorial":
-                    var game = _gameGlobal.Tutorials.Find(x => x.DiscordPlayerId == button.User.Id);
+                    var game = _tutorialClass.Tutorials.Find(x => x.DiscordPlayerId == button.User.Id);
                     if (game == null) return;
                     var attackSelection = string.Join("", button.Data.Values);
 
@@ -817,7 +819,7 @@ public class TutorialReactions : IServiceSingleton
 
                     break;
                 case "lvlup-select-tutorial":
-                    game = _gameGlobal.Tutorials.Find(x => x.DiscordPlayerId == button.User.Id);
+                    game = _tutorialClass.Tutorials.Find(x => x.DiscordPlayerId == button.User.Id);
                     if (game == null) return;
                     var lvlupSelection = Convert.ToUInt64(string.Join("", button.Data.Values));
                     player = game.PlayersList.Find(x => x.PlayerId == button.User.Id);
@@ -892,7 +894,7 @@ public class TutorialReactions : IServiceSingleton
 
                     break;
                 case "moral-tutorial":
-                    game = _gameGlobal.Tutorials.Find(x => x.DiscordPlayerId == button.User.Id);
+                    game = _tutorialClass.Tutorials.Find(x => x.DiscordPlayerId == button.User.Id);
                     if (game == null) return;
                     player = game.PlayersList.Find(x => x.PlayerId == button.User.Id);
 
@@ -958,7 +960,7 @@ public class TutorialReactions : IServiceSingleton
                     break;
 
                 case "block-tutorial":
-                    game = _gameGlobal.Tutorials.Find(x => x.DiscordPlayerId == button.User.Id);
+                    game = _tutorialClass.Tutorials.Find(x => x.DiscordPlayerId == button.User.Id);
                     if (game == null) return;
 
                     embed = new EmbedBuilder();
@@ -983,7 +985,7 @@ public class TutorialReactions : IServiceSingleton
                     break;
 
                 case "predict-tutorial-1":
-                    game = _gameGlobal.Tutorials.Find(x => x.DiscordPlayerId == button.User.Id);
+                    game = _tutorialClass.Tutorials.Find(x => x.DiscordPlayerId == button.User.Id);
                     if (game == null) return;
                     player = game.PlayersList.Find(x => x.PlayerId == button.User.Id);
 
@@ -1002,7 +1004,7 @@ public class TutorialReactions : IServiceSingleton
                     await game.SocketMessageFromBot.ModifyAsync(message => { message.Components = builder.Build(); });
                     break;
                 case "predict-tutorial-2":
-                    game = _gameGlobal.Tutorials.Find(x => x.DiscordPlayerId == button.User.Id);
+                    game = _tutorialClass.Tutorials.Find(x => x.DiscordPlayerId == button.User.Id);
                     if (game == null) return;
                     player = game.PlayersList.Find(x => x.PlayerId == button.User.Id);
                     player.Predicted = true;

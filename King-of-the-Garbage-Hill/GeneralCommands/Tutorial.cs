@@ -2,21 +2,20 @@
 using Discord;
 using Discord.Commands;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
-using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
+using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 
 namespace King_of_the_Garbage_Hill.GeneralCommands;
 
 public class Tutorial : ModuleBaseCustom
 {
-    private readonly InGameGlobal _gameGlobal;
     private readonly TutorialReactions _tutorial;
+    private readonly TutorialClass _tutorialClass;
 
-
-    public Tutorial(InGameGlobal gameGlobal, TutorialReactions tutorial)
+    public Tutorial(TutorialReactions tutorial, TutorialClass tutorialClass)
     {
-        _gameGlobal = gameGlobal;
         _tutorial = tutorial;
+        _tutorialClass = tutorialClass;
     }
 
 
@@ -25,13 +24,13 @@ public class Tutorial : ModuleBaseCustom
     [Summary("Обучение игры")]
     public async Task TutorialCommand()
     {
-        var game = _gameGlobal.Tutorials.Find(x => x.DiscordPlayerId == Context.User.Id);
+        var game = _tutorialClass.Tutorials.Find(x => x.DiscordPlayerId == Context.User.Id);
         if (game != null)
-            _gameGlobal.Tutorials.Remove(game);
+            _tutorialClass.Tutorials.Remove(game);
 
         var botMsg = await Context.User.CreateDMChannelAsync().Result.SendMessageAsync("Boole!");
-        _gameGlobal.Tutorials.Add(new TutorialReactions.TutorialGame(Context.User, botMsg));
-        game = _gameGlobal.Tutorials.Find(x => x.DiscordPlayerId == Context.User.Id);
+        _tutorialClass.Tutorials.Add(new TutorialReactions.TutorialGame(Context.User, botMsg));
+        game = _tutorialClass.Tutorials.Find(x => x.DiscordPlayerId == Context.User.Id);
 
         var embed = new EmbedBuilder();
         var builder = new ComponentBuilder();

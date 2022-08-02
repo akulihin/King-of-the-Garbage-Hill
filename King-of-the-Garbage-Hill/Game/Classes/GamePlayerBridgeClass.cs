@@ -10,6 +10,7 @@ public class GamePlayerBridgeClass
         Character = character;
         Status = status;
         DiscordId = discordId;
+        Passives = new PassivesClass(this);
         GameId = gameId;
         DiscordUsername = discordUsername;
         PlayerType = playerType;
@@ -21,6 +22,8 @@ public class GamePlayerBridgeClass
     public CharacterClass Character { get; set; }
 
     public InGameStatus Status { get; set; }
+
+    public PassivesClass Passives { get; set; }
 
     public ulong DiscordId { get; set; }
     public ulong GameId { get; set; }

@@ -8,16 +8,7 @@ public class LolGod
 {
     public class Udyr
     {
-        public Udyr(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-            EnemyPlayerId = Guid.Empty;
-        }
-
-        public ulong GameId { get; set; }
-        public Guid PlayerId { get; set; }
-        public Guid EnemyPlayerId { get; set; }
+        public Guid EnemyPlayerId { get; set; } = Guid.Empty;
     }
 
 
@@ -25,15 +16,10 @@ public class LolGod
     {
         public List<PushAndDieSubClass> PlayersEveryRound = new();
 
-        public PushAndDieClass(Guid playerId, ulong gameId, IEnumerable<GamePlayerBridgeClass> players)
+        public PushAndDieClass(IEnumerable<GamePlayerBridgeClass> players)
         {
-            PlayerId = playerId;
-            GameId = gameId;
             PlayersEveryRound.Add(new PushAndDieSubClass(1, players));
         }
-
-        public ulong GameId { get; set; }
-        public Guid PlayerId { get; set; }
     }
 
     public class PushAndDieSubClass

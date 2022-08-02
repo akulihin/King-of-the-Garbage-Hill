@@ -6,8 +6,6 @@ using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
-using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
-using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -20,22 +18,14 @@ public sealed class GameReaction : IServiceSingleton
     private readonly HelperFunctions _help;
     private readonly LoginFromConsole _logs;
     private readonly GameUpdateMess _upd;
-    private readonly InGameGlobal _gameGlobal;
-   
 
-    public GameReaction(UserAccounts accounts,
-        Global global,
-        GameUpdateMess upd, HelperFunctions help, LoginFromConsole logs, InGameGlobal inGameGlobal)
+    public GameReaction(UserAccounts accounts, Global global, GameUpdateMess upd, HelperFunctions help, LoginFromConsole logs)
     {
         _accounts = accounts;
         _global = global;
-
         _upd = upd;
         _help = help;
         _logs = logs;
-        _gameGlobal = inGameGlobal;
-
-        //  _gameGlobal = gameGlobal;
     }
 
     public Task InitializeAsync()
@@ -150,7 +140,7 @@ public sealed class GameReaction : IServiceSingleton
                         break;
 
                     case "stable-Darksci":
-                        var darksciType = _gameGlobal.DarksciTypeList.Find(x => x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
+                        var darksciType = player.Passives.DarksciTypeList;
                         darksciType.Triggered = true;
                         darksciType.IsStableType = true;
                         player.Character.AddExtraSkill(player.Status, 20, "Не повезло");
@@ -163,7 +153,7 @@ public sealed class GameReaction : IServiceSingleton
                         break;
 
                     case "not-stable-Darksci":
-                        darksciType = _gameGlobal.DarksciTypeList.Find(x => x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
+                        darksciType = player.Passives.DarksciTypeList;
                         darksciType.Triggered = true;
                         darksciType.IsStableType = false;
                         player.Status.AddInGamePersonalLogs("Я чувствую удачу!\n");
@@ -656,7 +646,7 @@ public sealed class GameReaction : IServiceSingleton
         //There is a second part in "HandleEndOfRound"!!!!!!!!!! <<<<<<<<<<
         if (player.Character.Name == "Sirinoks")
         {
-            var siriTraining = _gameGlobal.SirinoksTraining.Find(x => x.GameId == game.GameId && x.PlayerId == player.GetPlayerId());
+            var siriTraining = player.Passives.SirinoksTraining;
             if (siriTraining != null)
             {
                 if (siriTraining.Training.Count > 0)

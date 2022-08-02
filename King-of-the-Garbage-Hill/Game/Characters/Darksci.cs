@@ -7,34 +7,15 @@ public class Darksci
 {
     public class LuckyClass
     {
-        public ulong GameId;
-        public Guid PlayerId;
         public List<Guid> TouchedPlayers = new();
-        public bool Triggered;
-
-        public LuckyClass(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-            Triggered = false;
-        }
+        public bool Triggered = false;
     }
 
     public class DarksciType
     {
-        public ulong GameId;
-        public Guid PlayerId;
-        public bool  IsStableType;
-        public bool Triggered;
-        public bool Sent;
+        public bool  IsStableType = false;
+        public bool Triggered = false;
+        public bool Sent = false;
 
-        public DarksciType(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-            IsStableType = false;
-            Triggered = false;
-            Sent = false;
-        }
     }
 }

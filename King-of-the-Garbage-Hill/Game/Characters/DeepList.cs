@@ -7,16 +7,7 @@ public class DeepList
 {
     public class Mockery
     {
-        public ulong GameId;
-        public Guid PlayerId;
-        public List<MockerySub> WhoWonTimes;
-
-        public Mockery(List<MockerySub> whoWonTimes, ulong gameId, Guid playerId)
-        {
-            WhoWonTimes = whoWonTimes;
-            GameId = gameId;
-            PlayerId = playerId;
-        }
+        public List<MockerySub> WhoWonTimes = new();
     }
 
     public class MockerySub
@@ -35,31 +26,13 @@ public class DeepList
 
     public class SuperMindKnown
     {
-        public ulong GameId;
         public List<Guid> KnownPlayers = new();
-        public Guid PlayerId;
-
-        public SuperMindKnown(Guid playerId, ulong gameId, Guid player2Id)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-            KnownPlayers.Add(player2Id);
-        }
     }
 
     public class Madness
     {
-        public ulong GameId;
         public List<MadnessSub> MadnessList = new();
-        public Guid PlayerId;
-        public int RoundItTriggered;
-
-        public Madness(Guid playerId, ulong gameId, int roundItTriggered)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-            RoundItTriggered = roundItTriggered;
-        }
+        public int RoundItTriggered = 0;
     }
 
     public class MadnessSub

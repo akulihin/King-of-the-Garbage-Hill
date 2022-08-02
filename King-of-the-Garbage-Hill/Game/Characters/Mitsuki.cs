@@ -7,16 +7,7 @@ public class Mitsuki
 {
     public class GarbageClass
     {
-        public ulong GameId;
-        public Guid PlayerId;
         public List<GarbageSubClass> Training = new();
-
-        public GarbageClass(Guid playerId, ulong gameId, Guid enemyId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-            Training.Add(new GarbageSubClass(enemyId));
-        }
     }
 
     public class GarbageSubClass

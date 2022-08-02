@@ -8,15 +8,6 @@ public class Awdka
     public class TrollingClass
     {
         public List<TrollingSubClass> EnemyList = new();
-
-        public ulong GameId;
-        public Guid PlayerId;
-
-        public TrollingClass(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-        }
     }
 
     public class TrollingSubClass
@@ -33,15 +24,7 @@ public class Awdka
 
     public class TeachToPlayHistory
     {
-        public ulong GameId;
         public List<TeachToPlayHistoryListClass> History = new();
-        public Guid PlayerId;
-
-        public TeachToPlayHistory(Guid playerId, ulong gameId)
-        {
-            GameId = gameId;
-            PlayerId = playerId;
-        }
     }
 
     public class TeachToPlayHistoryListClass
@@ -60,15 +43,7 @@ public class Awdka
 
     public class TryingClass
     {
-        public ulong GameId;
-        public Guid PlayerId;
         public List<TryingSubClass> TryingList = new();
-
-        public TryingClass(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-        }
     }
 
     public class TryingSubClass

@@ -5,9 +5,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
-using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
@@ -18,11 +16,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 {
     private readonly UserAccounts _accounts;
     private readonly CharactersPull _charactersPull;
-
-    private readonly InGameGlobal _gameGlobal;
     private readonly Global _global;
     private readonly HelperFunctions _helperFunctions;
-    private readonly LoginFromConsole _log;
 
     private readonly List<Emoji> _playerChoiceAttackList = new()
         { new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣"), new Emoji("4⃣"), new Emoji("5⃣"), new Emoji("6⃣") };
@@ -36,14 +31,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     };
 
 
-    public GameUpdateMess(UserAccounts accounts, Global global, InGameGlobal gameGlobal,
-        HelperFunctions helperFunctions, LoginFromConsole log, SecureRandom random, CharactersPull charactersPull)
+    public GameUpdateMess(UserAccounts accounts, Global global, HelperFunctions helperFunctions, SecureRandom random, CharactersPull charactersPull)
     {
         _accounts = accounts;
         _global = global;
-        _gameGlobal = gameGlobal;
+
         _helperFunctions = helperFunctions;
-        _log = log;
+ 
         _random = random;
         _charactersPull = charactersPull;
     }
@@ -166,19 +160,15 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         switch (player1.Character.Name)
         {
             case "Осьминожка":
-                var octoTentacles = _gameGlobal.OctopusTentaclesList.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == player1.GetPlayerId());
 
-                if (!octoTentacles.LeaderboardPlace.Contains(number)) customString += "🐙";
+                if (!player1.Passives.OctopusTentaclesList.LeaderboardPlace.Contains(number)) customString += "🐙";
 
 
                 break;
 
             case "Братишка":
-                var shark = _gameGlobal.SharkJawsLeader.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == player1.GetPlayerId());
 
-                if (!shark.FriendList.Contains(number)) customString += "🐙";
+                if (!player1.Passives.SharkJawsLeader.FriendList.Contains(number)) customString += "🐙";
                 break;
         }
 
@@ -196,10 +186,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             case "AWDKA":
                 if (other.GetPlayerId() == me.GetPlayerId()) break;
 
-                var awdka = _gameGlobal.AwdkaTryingList.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
-                var awdkaTrainingHistory = _gameGlobal.AwdkaTeachToPlayHistory.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
+                var awdka = me.Passives.AwdkaTryingList;
+                var awdkaTrainingHistory = me.Passives.AwdkaTeachToPlayHistory;
 
                 var awdkaTrying = awdka.TryingList.Find(x => x.EnemyPlayerId == other.GetPlayerId());
 
@@ -212,8 +200,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                 if (awdkaTrainingHistory != null)
                 {
-                    var awdkaTrainingHistoryEnemy =
-                        awdkaTrainingHistory.History.Find(x => x.EnemyPlayerId == other.GetPlayerId());
+                    var awdkaTrainingHistoryEnemy = awdkaTrainingHistory.History.Find(x => x.EnemyPlayerId == other.GetPlayerId());
                     if (awdkaTrainingHistoryEnemy != null)
                     {
                         var statText = awdkaTrainingHistoryEnemy.Text switch
@@ -232,17 +219,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                 break;
             case "Братишка":
-                var shark = _gameGlobal.SharkJawsWin.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
-                if (!shark.FriendList.Contains(other.GetPlayerId()) &&
-                    other.GetPlayerId() != me.GetPlayerId())
+                var shark = me.Passives.SharkJawsWin;
+                if (!shark.FriendList.Contains(other.GetPlayerId()) && other.GetPlayerId() != me.GetPlayerId())
                     customString += " <:jaws:565741834219945986>";
                 break;
 
             case "Darksci":
-                var dar = _gameGlobal.DarksciLuckyList.Find(x =>
-                    x.GameId == game.GameId &&
-                    x.PlayerId == me.GetPlayerId());
+                var dar = me.Passives.DarksciLuckyList;
 
                 if (!dar.TouchedPlayers.Contains(other.GetPlayerId()) &&
                     other.GetPlayerId() != me.GetPlayerId())
@@ -251,16 +234,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                 break;
             case "Вампур":
-                var vamp = _gameGlobal.VampyrHematophagiaList.Find(x =>
-                    x.GameId == me.GameId && x.PlayerId == me.GetPlayerId());
+                var vamp = me.Passives.VampyrHematophagiaList;
                 var target = vamp.Hematophagia.Find(x => x.EnemyId == other.GetPlayerId());
                 if (target != null)
                     customString += " <:Y_:562885385395634196>";
                 break;
 
             case "HardKitty":
-                var hardKitty = _gameGlobal.HardKittyDoebatsya.Find(x =>
-                    x.GameId == me.GameId && x.PlayerId == me.GetPlayerId());
+                var hardKitty = me.Passives.HardKittyDoebatsya;
                 if (hardKitty != null)
                 {
                     var lostSeries = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == other.GetPlayerId());
@@ -278,9 +259,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                 break;
             case "Sirinoks":
-                var siri = _gameGlobal.SirinoksFriendsList.Find(x => x.GameId == me.GameId && x.PlayerId == me.GetPlayerId());
+                var siri = me.Passives.SirinoksFriendsList;
 
-                var siriTraining = _gameGlobal.SirinoksTraining.Find(x => x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
+                var siriTraining = me.Passives.SirinoksTraining;
                 if (siriTraining != null && siriTraining.Training.Count > 0)
                 {
                     var training = siriTraining.Training.First();
@@ -314,8 +295,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 break;
             case "Загадочный Спартанец в маске":
 
-                var SpartanShame = _gameGlobal.SpartanShame.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == me.GetPlayerId());
+                var SpartanShame = me.Passives.SpartanShame;
 
                 if (!SpartanShame.FriendList.Contains(other.GetPlayerId()) &&
                     other.GetPlayerId() != me.GetPlayerId())
@@ -326,8 +306,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     customString += " <:Spartaneon:899847724936089671>";
 
 
-                var SpartanMark = _gameGlobal.SpartanMark.Find(x =>
-                    x.GameId == me.GameId && x.PlayerId == me.GetPlayerId());
+                var SpartanMark = me.Passives.SpartanMark;
 
                 if (SpartanMark.FriendList.Contains(other.GetPlayerId()))
                     customString += " <:sparta:561287745675329567>";
@@ -339,8 +318,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             case "DeepList":
 
                 //tactic
-                var deep = _gameGlobal.DeepListDoubtfulTactic.Find(x =>
-                    x.PlayerId == me.GetPlayerId() && me.GameId == x.GameId);
+                var deep = me.Passives.DeepListDoubtfulTactic;
                 if (deep != null)
                     if (deep.FriendList.Contains(other.GetPlayerId()) &&
                         other.GetPlayerId() != me.GetPlayerId())
@@ -348,8 +326,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 //end tactic
 
                 //сверхразум
-                var currentList = _gameGlobal.DeepListSupermindKnown.Find(x =>
-                    x.PlayerId == me.GetPlayerId() && x.GameId == me.GameId);
+                var currentList = me.Passives.DeepListSupermindKnown;
                 if (currentList != null)
                     if (currentList.KnownPlayers.Contains(other.GetPlayerId()))
                         customString +=
@@ -360,9 +337,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
                 //стёб
-                var currentDeepList =
-                    _gameGlobal.DeepListMockeryList.Find(x =>
-                        x.PlayerId == me.GetPlayerId() && game.GameId == x.GameId);
+                var currentDeepList = me.Passives.DeepListMockeryList;
 
                 if (currentDeepList != null)
                 {
@@ -384,16 +359,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 break;
 
             case "mylorik":
-                var mylorik = _gameGlobal.MylorikRevenge.Find(x =>
-                    x.GameId == me.GameId && x.PlayerId == me.GetPlayerId());
+                var mylorik = me.Passives.MylorikRevenge;
                 var find = mylorik?.EnemyListPlayerIds.Find(x =>
                     x.EnemyPlayerId == other.GetPlayerId());
 
                 if (find != null && find.IsUnique) customString += " <:sparta:561287745675329567>";
                 if (find != null && !find.IsUnique) customString += " ❌";
 
-                var mylorikSpartan =
-                    _gameGlobal.MylorikSpartan.Find(x => x.GameId == me.GameId && x.PlayerId == me.GetPlayerId());
+                var mylorikSpartan = me.Passives.MylorikSpartan;
 
                 var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == other.GetPlayerId());
 
@@ -426,16 +399,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                 break;
             case "Тигр":
-                var tigr1 = _gameGlobal.TigrTwoBetterList.Find(x =>
-                    x.PlayerId == me.GetPlayerId() && x.GameId == me.GameId);
+                var tigr1 = me.Passives.TigrTwoBetterList;
 
                 if (tigr1 != null)
                     //if (tigr1.FriendList.Contains(other.GetPlayerId()) && other.GetPlayerId() != me.GetPlayerId())
                     if (tigr1.FriendList.Contains(other.GetPlayerId()))
                         customString += " <:pepe_down:896514760823144478>";
 
-                var tigr2 = _gameGlobal.TigrThreeZeroList.Find(x =>
-                    x.GameId == me.GameId && x.PlayerId == me.GetPlayerId());
+                var tigr2 = me.Passives.TigrThreeZeroList;
 
                 var enemy = tigr2?.FriendList.Find(x => x.EnemyPlayerId == other.GetPlayerId());
 
@@ -1038,9 +1009,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         switch (player.Character.Name)
         {
             case "Darksci":
-                var darksciType =
-                    _gameGlobal.DarksciTypeList.Find(x =>
-                        x.PlayerId == player.GetPlayerId() && game.GameId == x.GameId);
+                var darksciType = player.Passives.DarksciTypeList;
                 if (game.RoundNo == 1 && !darksciType.Triggered)
                 {
                     components.WithButton(new ButtonBuilder("Мне никогда не везёт...", "stable-Darksci"), 4);

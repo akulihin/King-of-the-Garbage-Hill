@@ -7,15 +7,7 @@ public class HardKitty
 {
     public class DoebatsyaClass
     {
-        public ulong GameId;
         public List<DoebatsyaSubClass> LostSeries = new();
-        public Guid PlayerId;
-
-        public DoebatsyaClass(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-        }
     }
 
     public class DoebatsyaSubClass
@@ -33,31 +25,14 @@ public class HardKitty
 
     public class MuteClass
     {
-        public ulong GameId;
-        public Guid PlayerId;
         public List<Guid> UniquePlayers = new();
-
-        public MuteClass(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-        }
     }
 
     public class LonelinessClass
     {
-        public bool Activated;
-        public List<LonelinessSubClass> AttackHistory;
-        public ulong GameId;
-        public Guid PlayerId;
+        public bool Activated = false;
+        public List<LonelinessSubClass> AttackHistory = new();
 
-        public LonelinessClass(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-            Activated = false;
-            AttackHistory = new List<LonelinessSubClass>();
-        }
     }
 
     public class LonelinessSubClass

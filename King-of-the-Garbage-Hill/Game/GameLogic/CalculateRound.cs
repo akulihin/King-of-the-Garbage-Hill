@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
@@ -13,19 +12,18 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic;
 public class CalculateRound : IServiceSingleton
 {
     private readonly CharacterPassives _characterPassives;
-    private readonly InGameGlobal _gameGlobal;
+    
     private readonly Global _global;
     private readonly LoginFromConsole _logs;
 
 
     private readonly SecureRandom _rand;
 
-    public CalculateRound(SecureRandom rand, CharacterPassives characterPassives,
-        InGameGlobal gameGlobal, Global global, LoginFromConsole logs)
+    public CalculateRound(SecureRandom rand, CharacterPassives characterPassives, Global global, LoginFromConsole logs)
     {
         _rand = rand;
         _characterPassives = characterPassives;
-        _gameGlobal = gameGlobal;
+
         _global = global;
         _logs = logs;
     }
@@ -87,8 +85,8 @@ Speed => Strength
     //пристрій судного дня
     public async Task CalculateAllFights(GameClass game)    
     {
-        _logs.Critical("");
-        _logs.Info($"calculating game #{game.GameId}, round #{game.RoundNo}");
+        //_logs.Critical("");
+        //_logs.Info($"calculating game #{game.GameId}, round #{game.RoundNo}");
 
         var watch = new Stopwatch();
         watch.Start();
@@ -632,7 +630,7 @@ Speed => Strength
 
             player.Character.Justice.HandleEndOfRoundJustice(player.Status);
 
-            player.Status.CombineRoundScoreAndGameScore(game, _gameGlobal);
+            player.Status.CombineRoundScoreAndGameScore(game);
             player.Status.ClearInGamePersonalLogs();
             player.Status.InGamePersonalLogsAll += "|||";
         }
@@ -659,7 +657,7 @@ Speed => Strength
         {
             var tigrTemp = game.PlayersList.Find(x => x.Character.Name == "Тигр");
 
-            var tigr = _gameGlobal.TigrTop.Find(x => x.GameId == game.GameId && x.PlayerId == tigrTemp.GetPlayerId());
+            var tigr = tigrTemp.Passives.TigrTop;
 
             if (tigr is { TimeCount: > 0 })
             {
@@ -730,9 +728,8 @@ Speed => Strength
         _characterPassives.HandleBotPredict(game);
         game.TimePassed.Reset();
         game.TimePassed.Start();
-        _logs.Info(
-            $"Finished calculating game #{game.GameId} (round# {game.RoundNo - 1}). || {watch.Elapsed.TotalSeconds}s");
-        _logs.Critical("");
+        //_logs.Info($"Finished calculating game #{game.GameId} (round# {game.RoundNo - 1}). || {watch.Elapsed.TotalSeconds}s");
+        //_logs.Critical("");
         watch.Stop();
     }
 

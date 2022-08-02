@@ -7,7 +7,6 @@ using Discord.Commands;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
-using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
@@ -20,21 +19,18 @@ public class General : ModuleBaseCustom
     private readonly UserAccounts _accounts;
     private readonly CharacterPassives _characterPassives;
     private readonly CharactersPull _charactersPull;
-
     private readonly CommandsInMemory _commandsInMemory;
-    private readonly InGameGlobal _gameGlobal;
     private readonly Global _global;
     private readonly HelperFunctions _helperFunctions;
-
-
     private readonly SecureRandom _secureRandom;
     private readonly GameUpdateMess _upd;
+    private readonly SecureRandom _rand;
 
 
     public General(UserAccounts accounts, SecureRandom secureRandom,
         HelperFunctions helperFunctions, CommandsInMemory commandsInMemory,
         Global global, GameUpdateMess upd, CharactersPull charactersPull, CharacterPassives characterPassives,
-        CharactersUniquePhrase phrase, InGameGlobal gameGlobal)
+        SecureRandom rand)
     {
         _accounts = accounts;
         _secureRandom = secureRandom;
@@ -44,7 +40,7 @@ public class General : ModuleBaseCustom
         _upd = upd;
         _charactersPull = charactersPull;
         _characterPassives = characterPassives;
-        _gameGlobal = gameGlobal;
+        _rand = rand;
     }
 
 
@@ -300,8 +296,8 @@ public class General : ModuleBaseCustom
         //mylorik
         if (playersList.Any(x => x.Character.Name == "mylorik"))
         {
-            var mylorik = playersList.Find(x => x.Character.Name == "mylorik");
-            mylorik.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*\n");
+            var player = playersList.Find(x => x.Character.Name == "mylorik");
+            player.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*\n");
         }
         //end mylorik
 
@@ -310,24 +306,55 @@ public class General : ModuleBaseCustom
         //Загадочный Спартанец в маске
         if (playersList.Any(x => x.Character.Name == "Загадочный Спартанец в маске"))
         {
-            var spartan = playersList.Find(x => x.Character.Name == "Загадочный Спартанец в маске");
-            spartan.Character.SetAnySkillMultiplier(1);
-            spartan.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*\n");
+            var player = playersList.Find(x => x.Character.Name == "Загадочный Спартанец в маске");
+            player.Character.SetAnySkillMultiplier(1);
+            player.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*\n");
         }
         //end Загадочный Спартанец в маске
+
+
+        //Им это не понравится
+        if (playersList.Any(x => x.Character.Name == "Загадочный Спартанец в маске"))
+        {
+            var player = playersList.Find(x => x.Character.Name == "Загадочный Спартанец в маске");
+            Guid enemy1;
+            Guid enemy2;
+
+            do
+            {
+                var randIndex = _rand.Random(0, playersList.Count - 1);
+                enemy1 = playersList[randIndex].GetPlayerId();
+                if (playersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "mylorik" or "Загадочный Спартанец в маске")
+                    enemy1 = player.GetPlayerId();
+            } while (enemy1 == player.GetPlayerId());
+
+            do
+            {
+                var randIndex = _rand.Random(0, playersList.Count - 1);
+                enemy2 = playersList[randIndex].GetPlayerId();
+                if (playersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "mylorik" or "Загадочный Спартанец в маске")
+                    enemy2 = player.GetPlayerId();
+                if (enemy2 == enemy1)
+                    enemy2 = player.GetPlayerId();
+            } while (enemy2 == player.GetPlayerId());
+
+            player.Passives.SpartanMark.FriendList.Add(enemy1);
+            player.Passives.SpartanMark.FriendList.Add(enemy2);
+        }
+        //end Им это не понравится
 
         //Никому не нужен
         if (playersList.Any(x => x.Character.Name == "HardKitty"))
         {
-            var tempHard = playersList.Find(x => x.Character.Name == "HardKitty");
-            tempHard.Status.HardKittyMinus(-20, "Никому не нужен");
-            tempHard.Status.AddInGamePersonalLogs("Никому не нужен: -20 *Морали*\n");
-            var hardIndex = playersList.IndexOf(tempHard);
+            var player = playersList.Find(x => x.Character.Name == "HardKitty");
+            player.Status.HardKittyMinus(-20, "Никому не нужен");
+            player.Status.AddInGamePersonalLogs("Никому не нужен: -20 *Морали*\n");
+            var hardIndex = playersList.IndexOf(player);
 
             for (var i = hardIndex; i < playersList.Count - 1; i++)
                 playersList[i] = playersList[i + 1];
 
-            playersList[^1] = tempHard;
+            playersList[^1] = player;
         }
         //end Никому не нужен
 
@@ -335,17 +362,15 @@ public class General : ModuleBaseCustom
         //Тигр топ, а ты холоп
         if (playersList.Any(x => x.Character.Name == "Тигр"))
         {
-            var tigrTemp = playersList.Find(x => x.Character.Name == "Тигр");
-
-            var tigr = _gameGlobal.TigrTop.Find(x =>
-                x.GameId == tigrTemp.GameId && x.PlayerId == tigrTemp.GetPlayerId());
+            var player = playersList.Find(x => x.Character.Name == "Тигр");
+            var tigr = player.Passives.TigrTop;
 
             if (tigr != null && tigr.TimeCount > 0)
             {
-                var tigrIndex = playersList.IndexOf(tigrTemp);
+                var tigrIndex = playersList.IndexOf(player);
 
                 playersList[tigrIndex] = playersList.First();
-                playersList[0] = tigrTemp;
+                playersList[0] = player;
                 tigr.TimeCount--;
                 //game.Phrases.TigrTop.SendLog(tigrTemp);
             }
@@ -355,16 +380,16 @@ public class General : ModuleBaseCustom
         //Дерзкая школота + Много выебывается
         if (playersList.Any(x => x.Character.Name == "Mit*suki*"))
         {
-            var mitsukiTemp = playersList.Find(x => x.Character.Name == "Mit*suki*");
-            mitsukiTemp.Character.AddExtraSkill(mitsukiTemp.Status, 100, "Дерзкая школота");
+            var player = playersList.Find(x => x.Character.Name == "Mit*suki*");
+            player.Character.AddExtraSkill(player.Status, 100, "Дерзкая школота");
 
             //first place
-            var hardIndex = playersList.IndexOf(mitsukiTemp);
+            var hardIndex = playersList.IndexOf(player);
             playersList[hardIndex] = playersList.First();
-            playersList[0] = mitsukiTemp;
+            playersList[0] = player;
 
             //x3 class for target
-            mitsukiTemp.Character.SetTargetSkillMultiplier(2);
+            player.Character.SetTargetSkillMultiplier(2);
         }
         //end Дерзкая школота + Много выебывается
 
@@ -372,9 +397,8 @@ public class General : ModuleBaseCustom
         //Повторяет за myloran
         if (playersList.Any(x => x.Character.Name == "mylorik"))
         {
-            var mylorikTemp = playersList.Find(x => x.Character.Name == "mylorik");
-            mylorikTemp.Character.AddStrength(mylorikTemp.Status, mylorikTemp.Character.GetStrength() * -1 + 3,
-                "Повторяет за myloran");
+            var player = playersList.Find(x => x.Character.Name == "mylorik");
+            player.Character.AddStrength(player.Status, player.Character.GetStrength() * -1 + 3, "Повторяет за myloran");
         }
         //end Повторяет за myloran
 
@@ -434,8 +458,7 @@ public class General : ModuleBaseCustom
         //выдаем место в таблице
         for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
 
-        //это нужно для ботов
-        _gameGlobal.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
+
 
         //командная игра
         var teamPool = new List<GamePlayerBridgeClass>
@@ -547,6 +570,9 @@ public class General : ModuleBaseCustom
         //создаем игру
         var game = new GameClass(playersList, gameId, Context.User.Id) { IsCheckIfReady = false };
 
+        //это нужно для ботов
+        game.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
+
         //добавляем команды
         foreach (var team in teamList.Where(x => x.TeamPlayers.Count > 0)) game.Teams.Add(team);
 
@@ -554,8 +580,6 @@ public class General : ModuleBaseCustom
         game.TimePassed.Start();
         _global.GamesList.Add(game);
 
-        //get all the chances before the game starts
-        _gameGlobal.CalculatePassiveChances(game);
 
         //handle round #0
         await _characterPassives.HandleNextRound(game);
@@ -638,22 +662,21 @@ public class General : ModuleBaseCustom
             //выдаем место в таблице
             for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
 
-            //это нужно для ботов
-            _gameGlobal.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
-
             //отправить меню игры
             foreach (var player in playersList) await _upd.WaitMess(player, playersList);
 
             //создаем игру
             var game = new GameClass(playersList, gameId, Context.User.Id, 300, mode) { IsCheckIfReady = false };
 
+            game.TestFightNumber = times;
+
+            //это нужно для ботов
+            game.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
 
             //start the timer
             game.TimePassed.Start();
             _global.GamesList.Add(game);
 
-            //get all the chances before the game starts
-            _gameGlobal.CalculatePassiveChances(game);
 
             //handle predict
             if (mode == "Bot")

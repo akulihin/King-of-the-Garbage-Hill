@@ -1,32 +1,11 @@
-﻿using System;
-
-namespace King_of_the_Garbage_Hill.Game.Characters;
+﻿namespace King_of_the_Garbage_Hill.Game.Characters;
 
 public class Gleb
 {
-    public class GlebSkipClass
-    {
-        public ulong GameId;
-        public Guid PlayerId;
-
-        public GlebSkipClass(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-        }
-    }
 
     public class GlebTeaClass
     {
-        public ulong GameId;
-        public Guid PlayerId;
         public bool Ready = false;
-        public int TimesRolled;
-        public GlebTeaClass(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-            TimesRolled = 0;
-        }
+        public int TimesRolled = 0;
     }
 }

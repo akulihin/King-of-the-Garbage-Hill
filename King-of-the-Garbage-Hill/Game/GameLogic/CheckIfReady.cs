@@ -5,7 +5,6 @@ using System.Timers;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
-using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.FinishedGameLog;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
@@ -17,7 +16,7 @@ public class CheckIfReady : IServiceSingleton
     private readonly UserAccounts _accounts;
     private readonly BotsBehavior _botsBehavior;
     private readonly FinishedGameLog _finishedGameLog;
-    private readonly InGameGlobal _gameGlobal;
+    
     private readonly GameUpdateMess _gameUpdateMess;
     private readonly Global _global;
     private readonly HelperFunctions _help;
@@ -28,12 +27,12 @@ public class CheckIfReady : IServiceSingleton
     private bool _looping;
 
 
-    private int finishedGames;
+    private int _finishedGames;
     public Timer LoopingTimer;
 
     public CheckIfReady(Global global, GameUpdateMess upd, CalculateRound round, FinishedGameLog finishedGameLog,
         GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, LoginFromConsole logs, UserAccounts accounts,
-        InGameGlobal gameGlobal, HelperFunctions help, SecureRandom random)
+        HelperFunctions help, SecureRandom random)
     {
         _global = global;
         _upd = upd;
@@ -43,7 +42,6 @@ public class CheckIfReady : IServiceSingleton
         _botsBehavior = botsBehavior;
         _logs = logs;
         _accounts = accounts;
-        _gameGlobal = gameGlobal;
         _help = help;
         _random = random;
         CheckTimer();
@@ -77,8 +75,7 @@ public class CheckIfReady : IServiceSingleton
             case "HardKitty":
                 game.AddGlobalLogs("HarDKitty больше не одинок! Как много друзей!!!");
 
-                var hard = _gameGlobal.HardKittyLoneliness.Find(x =>
-                    x.GameId == game.GameId && x.PlayerId == playerWhoWon.GetPlayerId());
+                var hard = playerWhoWon.Passives.HardKittyLoneliness;
 
                 if (hard != null)
                     foreach (var enemy in game.PlayersList)
@@ -160,9 +157,7 @@ public class CheckIfReady : IServiceSingleton
             //trolling
             if (AWDKA != null)
             {
-                var awdkaTroll = _gameGlobal.AwdkaTrollingList.Find(x =>
-                    x.GameId == AWDKA.GameId &&
-                    x.PlayerId == AWDKA.GetPlayerId());
+                var awdkaTroll = AWDKA.Passives.AwdkaTrollingList;
 
 
                 var enemy = awdkaTroll.EnemyList.Find(x =>
@@ -447,10 +442,10 @@ public class CheckIfReady : IServiceSingleton
             winrate.CharacterName = player.Character.Name;
             winrate.Elo = winrate.Top1 / winrate.GameTimes * 100 * 3 + winrate.Top2 / winrate.GameTimes * 100 * 2 + winrate.Top3 / winrate.GameTimes * 100 - winrate.Top4 / winrate.GameTimes * 100 - winrate.Top5 / winrate.GameTimes * 100 * 2 - winrate.Top6 / winrate.GameTimes * 100 * 3;
         }
-        finishedGames++;
+        _finishedGames++;
 
         //top1 winrate
-        if (finishedGames % 1000 == 0)
+        if (_finishedGames == game.TestFightNumber)
         {
             var winRates = _global.WinRates.Values.ToList();
 
@@ -467,8 +462,9 @@ public class CheckIfReady : IServiceSingleton
         }
 
         //elo winrate
-        if (finishedGames % 1000 == 0)
+        if (_finishedGames == game.TestFightNumber)
         {
+            _finishedGames = 0;
             var winRates = _global.WinRates.Values.ToList();
 
 

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
@@ -61,7 +62,10 @@ public class GameClass
     public string GameMode { get; set; }
     public ulong CreatorId { get; set; }
     public List<TeamPlay> Teams { get; set; }
+    public uint TestFightNumber { get; set; }
     public int TeamSplit { get; set; } = 0;
+
+    public List<BotsBehavior.NanobotClass> NanobotsList { get; set; } = new();
 
 
     public void AddGlobalLogs(string str, string newLine = "\n")

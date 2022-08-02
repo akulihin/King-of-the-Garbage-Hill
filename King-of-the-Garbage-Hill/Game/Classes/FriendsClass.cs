@@ -7,19 +7,11 @@ public class FriendsClass
 {
     public List<Guid> FriendList = new();
 
-    public FriendsClass(Guid playerId, ulong gameId, Guid enemyPlayerId)
+    public FriendsClass(Guid enemyPlayerId)
     {
-        PlayerId = playerId;
-        GameId = gameId;
         FriendList.Add(enemyPlayerId);
     }
-
-    public FriendsClass(Guid playerId, ulong gameId)
+    public FriendsClass()
     {
-        PlayerId = playerId;
-        GameId = gameId;
     }
-
-    public ulong GameId { get; set; }
-    public Guid PlayerId { get; set; }
 }

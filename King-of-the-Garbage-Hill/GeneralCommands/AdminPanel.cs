@@ -7,7 +7,6 @@ using Discord.Commands;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
-using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
@@ -20,7 +19,7 @@ public class AdminPanel : ModuleBaseCustom
     private readonly UserAccounts _accounts;
     private readonly CharacterPassives _characterPassives;
     private readonly CharactersPull _charactersPull;
-    private readonly InGameGlobal _gameGlobal;
+    
     private readonly General _general;
     private readonly Global _global;
     private readonly HelperFunctions _helperFunctions;
@@ -29,17 +28,14 @@ public class AdminPanel : ModuleBaseCustom
 
     public AdminPanel(UserAccounts accounts, HelperFunctions helperFunctions,
         Global global, GameUpdateMess upd, CharactersPull charactersPull, CharacterPassives characterPassives,
-        CharactersUniquePhrase phrase, InGameGlobal gameGlobal, General general)
+        General general)
     {
         _accounts = accounts;
-
         _helperFunctions = helperFunctions;
-
         _global = global;
         _upd = upd;
         _charactersPull = charactersPull;
         _characterPassives = characterPassives;
-        _gameGlobal = gameGlobal;
         _general = general;
     }
 
@@ -107,22 +103,19 @@ public class AdminPanel : ModuleBaseCustom
         //выдаем место в таблице
         for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
 
-        //это нужно для ботов
-        _gameGlobal.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
-
         //отправить меню игры
         foreach (var player in playersList) await _upd.WaitMess(player, playersList);
 
         //создаем игру
         var game = new GameClass(playersList, gameId, Context.User.Id) { IsCheckIfReady = false };
-
+        
+        //это нужно для ботов
+        game.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
 
         //start the timer
         game.TimePassed.Start();
         _global.GamesList.Add(game);
 
-        //get all the chances before the game starts
-        _gameGlobal.CalculatePassiveChances(game);
 
         //handle round #0
         await _characterPassives.HandleNextRound(game);

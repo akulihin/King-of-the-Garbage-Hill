@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Discord;
-using King_of_the_Garbage_Hill.Game.GameGlobalVariables;
 
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
@@ -186,7 +185,7 @@ public class InGameStatus
         return ScoresToGiveAtEndOfRound;
     }
 
-    public void CombineRoundScoreAndGameScore(GameClass game, InGameGlobal gameGlobal)
+    public void CombineRoundScoreAndGameScore(GameClass game)
     {
         var roundNumber = game.RoundNo;
 
@@ -195,8 +194,7 @@ public class InGameStatus
         {
             var tolyaAcc = game.PlayersList.Find(x => x.Character.Name == "Толя");
 
-            var tolyaCount = gameGlobal.TolyaCount.Find(x =>
-                x.PlayerId == tolyaAcc.GetPlayerId() && x.GameId == game.GameId);
+            var tolyaCount = tolyaAcc.Passives.TolyaCount;
 
 
             if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == PlayerId))

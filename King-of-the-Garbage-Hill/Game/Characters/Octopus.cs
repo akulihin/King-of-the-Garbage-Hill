@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using King_of_the_Garbage_Hill.Game.Classes;
 
 namespace King_of_the_Garbage_Hill.Game.Characters;
 
@@ -8,39 +7,18 @@ public class Octopus
 {
     public class InvulnerabilityClass
     {
-        public int Count;
-        public ulong GameId;
-        public Guid PlayerId;
-
-
-        public InvulnerabilityClass(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-            Count = 1;
-        }
+        public int Count = 0;
     }
 
     public class InkClass
     {
-        public ulong GameId;
-        public Guid PlayerId;
         public List<InkSubClass> RealScoreList = new();
-
-        public InkClass(Guid playerId, GameClass game, Guid enemyPlayerId)
-        {
-            PlayerId = playerId;
-            GameId = game.GameId;
-            RealScoreList.Add(new InkSubClass(enemyPlayerId, game.RoundNo, -1));
-            RealScoreList.Add(new InkSubClass(playerId, game.RoundNo, 1));
-        }
     }
 
     public class InkSubClass
     {
         public Guid PlayerId;
         public int RealScore;
-
 
         public InkSubClass(Guid playerDiscordId, int roundNo, int realScore)
         {
@@ -70,14 +48,6 @@ public class Octopus
 
     public class TentaclesClass
     {
-        public ulong GameId;
         public List<int> LeaderboardPlace = new();
-        public Guid PlayerId;
-
-        public TentaclesClass(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-        }
     }
 }

@@ -7,30 +7,13 @@ public class Tigr
 {
     public class TigrTopClass
     {
-        public ulong GameId;
-        public Guid PlayerId;
-        public int TimeCount;
-
-        public TigrTopClass(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-            TimeCount = 3;
-        }
+        public int TimeCount = 3;
     }
 
     public class ThreeZeroClass
     {
         public List<ThreeZeroSubClass> FriendList = new();
-        public ulong GameId;
-        public Guid PlayerId;
 
-        public ThreeZeroClass(Guid playerId, ulong gameId, Guid enemyId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-            FriendList.Add(new ThreeZeroSubClass(enemyId));
-        }
     }
 
     public class ThreeZeroSubClass

@@ -576,7 +576,7 @@ public class CharactersUniquePhrase
         public string PassiveNameEng;
         public string PassiveNameRus;
 
-        public int Random(int minValue, int maxValue)
+        private int Random(int minValue, int maxValue)
         {
             maxValue += 1;
             if (minValue == maxValue) return minValue;
@@ -589,10 +589,12 @@ public class CharactersUniquePhrase
             uint ui;
             do
             {
-                ui = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(24), 0);
+                var randomBytes = RandomNumberGenerator.GetBytes(555);
+                ui = BitConverter.ToUInt32(randomBytes, 0);
             } while (ui >= upperBound);
 
-            return (int)(minValue + ui % diff);
+            var result = (int)(minValue + ui % diff);
+            return result;
         }
 
         public PhraseClass(string passiveNameRus, string passiveNameEng = "")

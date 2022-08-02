@@ -7,16 +7,7 @@ public class Mylorik
 {
     public class MylorikRevengeClass
     {
-        public List<MylorikRevengeClassSub> EnemyListPlayerIds;
-        public ulong GameId;
-        public Guid PlayerId;
-
-        public MylorikRevengeClass(Guid playerId, ulong gameId, Guid firstLost, int roundNumber)
-        {
-            PlayerId = playerId;
-            EnemyListPlayerIds = new List<MylorikRevengeClassSub> { new(firstLost, roundNumber) };
-            GameId = gameId;
-        }
+        public List<MylorikRevengeClassSub> EnemyListPlayerIds = new();
     }
 
     public class MylorikRevengeClassSub
@@ -35,16 +26,7 @@ public class Mylorik
 
     public class MylorikSpartanClass
     {
-        public List<MylorikSpartanSubClass> Enemies;
-        public ulong GameId;
-        public Guid PlayerId;
-
-        public MylorikSpartanClass(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-            Enemies = new List<MylorikSpartanSubClass>();
-        }
+        public List<MylorikSpartanSubClass> Enemies = new();
     }
 
     public class MylorikSpartanSubClass
@@ -62,30 +44,12 @@ public class Mylorik
 
     public class MylorikSpanishClass
     {
-        public ulong GameId;
-        public Guid PlayerId;
-        public int Times;
-
-        public MylorikSpanishClass(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-            Times = 0;
-        }
+        public int Times = 0;
     }
 
     public class MylorikBooleClass
     {
-        public ulong GameId;
-        public Guid PlayerId;
-        public bool IsBoole;
-
-        public MylorikBooleClass(Guid playerId, ulong gameId)
-        {
-            PlayerId = playerId;
-            GameId = gameId;
-            IsBoole = false;
-        }
+        public bool IsBoole = false;
     }
 
 }
