@@ -112,7 +112,7 @@ public class CharacterPassives : IServiceSingleton
                     if (!target.Status.IsSkip)
                     {
                         target.Status.IsSkip = true;
-                     
+                        target.Passives.GlebSkip = true;
                         game.Phrases.GlebComeBackPhrase.SendLog(target, true);
 
                         var glebSkipFriendList = target.Passives.GlebSkipFriendList;
@@ -377,7 +377,7 @@ public class CharacterPassives : IServiceSingleton
                 if (geblTea.Ready && me.Status.WhoToAttackThisTurn != Guid.Empty)
                 {
                     geblTea.Ready = false;
-                    me.Passives.GlebTeaTriggeredWhen = new WhenToTriggerClass(game.RoundNo + 1);
+                    target.Passives.GlebTeaTriggeredWhen = new WhenToTriggerClass(game.RoundNo + 1);
                     me.Status.AddRegularPoints(1, "Я за чаем");
                     game.Phrases.GlebTeaPhrase.SendLog(me, true);
                 }
@@ -824,7 +824,7 @@ public class CharacterPassives : IServiceSingleton
 
                                 var howMuchToAdd = -1;
 
-                                if (target.Character.Name != "Mit*suki*")
+                                if (target.Character.Name == "Mit*suki*")
                                 {
                                     howMuchToAdd = -2;
                                     target.Status.AddInGamePersonalLogs("MitSUKI: __Да сука, я щас ливну, заебали токсики!__\nDeepList: *хохочет*\n");
@@ -918,6 +918,13 @@ public class CharacterPassives : IServiceSingleton
                 //end Испанец
                 break;
             case "Глеб":
+                //Спящее хуйло
+                if (player.Passives.GlebSkip && player.Status.WhoToAttackThisTurn != Guid.Empty)
+                {
+                    player.Status.IsSkip = false;
+                    player.Passives.GlebSkip = false;
+                }
+                //end Спящее хуйло
                 break;
             case "LeCrisp":
 
@@ -1849,18 +1856,13 @@ public class CharacterPassives : IServiceSingleton
                     // Повторяет за myloran
                     if (game.RoundNo == 5)
                     {
-                        player.Status.AddInGamePersonalLogs(
-                            "ZaRDaK: Ты никогда не возьмешь даймонд, Лорик. Удачи в промо.");
-                        player.Status.AddInGamePersonalLogs("\nmylorik: ММММММММММ!!!!!  +5 Силы.\n");
+                        player.Status.AddInGamePersonalLogs("ZaRDaK: Ты никогда не возьмешь даймонд, Лорик. Удачи в промо.\nmylorik: ММММММММММ!!!!!  +5 Силы.\n");
                         player.Character.AddStrength(player.Status, 5, "Повторяет за myloran", false);
                     }
 
                     if (game.RoundNo == 10)
                     {
-                        player.Status.AddInGamePersonalLogs(
-                            "ZaRDaK: Ты так и не апнул чалланджер? Хах, неудивительно. ");
-                        player.Status.AddInGamePersonalLogs(
-                            "\n|>boole<|mylorik закупился у продавца сомнительных тактик: +228 *Скилла*!\n");
+                        player.Status.AddInGamePersonalLogs("ZaRDaK: Ты так и не апнул чалланджер? Хах, неудивительно.\nmylorik закупился у продавца сомнительных тактик: +228 *Скилла*!\n");
                         player.Character.AddExtraSkill(player.Status, 228, "Повторяет за myloran", false);
                     }
                     //end Повторяет за myloran

@@ -100,7 +100,8 @@ public class CharacterClass
             if (status.CharacterName == "mylorik")
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == status.PlayerId);
-                mylorik.Character.AddMoral(mylorik.Status, 1, "То, что мертво, умереть не может!");
+                mylorik.Character.AddMoral(mylorik.Status, 1, "Испанец", false);
+                mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
             else
@@ -118,7 +119,8 @@ public class CharacterClass
             if (status.CharacterName == "mylorik") 
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == status.PlayerId);
-                mylorik.Character.AddMoral(mylorik.Status, 1, "То, что мертво, умереть не может!");
+                mylorik.Character.AddMoral(mylorik.Status, 1, "Испанец", false);
+                mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
             else
@@ -136,7 +138,8 @@ public class CharacterClass
             if (status.CharacterName == "mylorik")
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == status.PlayerId);
-                mylorik.Character.AddMoral(mylorik.Status, 1, "То, что мертво, умереть не может!");
+                mylorik.Character.AddMoral(mylorik.Status, 1, "Испанец", false);
+                mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
             else

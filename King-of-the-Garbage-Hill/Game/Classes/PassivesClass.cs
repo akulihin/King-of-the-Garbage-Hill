@@ -30,6 +30,7 @@ public class PassivesClass
     public DeepList.SuperMindKnown DeepListSupermindKnown { get; set; } = new();
     public WhenToTriggerClass DeepListSupermindTriggeredWhen { get; set; } = new();
 
+    public bool GlebSkip { get; set; } = new();
     public DeepList.Madness GlebChallengerList { get; set; } = new();
     public WhenToTriggerClass GlebChallengerTriggeredWhen { get; set; } = new();
     public WhenToTriggerClass GlebSleepingTriggeredWhen { get; set; } = new();

@@ -2,7 +2,6 @@
 
 public class Gleb
 {
-
     public class GlebTeaClass
     {
         public bool Ready = false;
