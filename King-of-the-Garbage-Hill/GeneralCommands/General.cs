@@ -365,7 +365,7 @@ public class General : ModuleBaseCustom
             var player = playersList.Find(x => x.Character.Name == "Тигр");
             var tigr = player.Passives.TigrTop;
 
-            if (tigr != null && tigr.TimeCount > 0)
+            if (tigr is { TimeCount: > 0 })
             {
                 var tigrIndex = playersList.IndexOf(player);
 

@@ -48,7 +48,7 @@ public class TutorialReactions : IServiceSingleton
         var player = game.PlayersList.Find(x => x.PlayerId == game.DiscordPlayerId);
         var text = "";
 
-        if (game.RoundNumber >= 5 && game.RoundNumber < 10)
+        if (game.RoundNumber is >= 5 and < 10)
         {
             text += "Множитель очков: **x2**\n";
             text += "<:e_:562879579694301184>\n";

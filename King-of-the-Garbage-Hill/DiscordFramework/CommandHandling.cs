@@ -79,7 +79,7 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
         var after = messageAfter as IUserMessage;
         if (messageAfter.Content == null) return;
 
-        if (messageAfter.Author is SocketGuildUser userCheck && userCheck.IsMuted)
+        if (messageAfter.Author is SocketGuildUser { IsMuted: true })
             return;
 
 

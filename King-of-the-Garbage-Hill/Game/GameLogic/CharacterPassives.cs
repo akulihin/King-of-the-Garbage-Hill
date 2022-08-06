@@ -164,40 +164,39 @@ public class CharacterPassives : IServiceSingleton
             case "HardKitty":
                 //Одиночество
                 var hard = target.Passives.HardKittyLoneliness;
-                if (hard != null)
-                    if (!hard.Activated)
+                if (hard is { Activated: false })
+                {
+                    target.Status.AddRegularPoints(1, "Одиночество");
+                    game.Phrases.HardKittyLonelyPhrase.SendLog(target, true);
+                    //uncomment it when DeepList desides to make it 1 per round again...
+                    //hard.Activated = true;
+                    var hardEnemy = hard.AttackHistory.Find(x => x.EnemyId == me.GetPlayerId());
+                    if (hardEnemy == null)
                     {
-                        target.Status.AddRegularPoints(1, "Одиночество");
-                        game.Phrases.HardKittyLonelyPhrase.SendLog(target, true);
-                        //uncomment it when DeepList desides to make it 1 per round again...
-                        //hard.Activated = true;
-                        var hardEnemy = hard.AttackHistory.Find(x => x.EnemyId == me.GetPlayerId());
-                        if (hardEnemy == null)
-                        {
-                            hard.AttackHistory.Add(new HardKitty.LonelinessSubClass(me.GetPlayerId()));
-                            hardEnemy = hard.AttackHistory.Find(x => x.EnemyId == me.GetPlayerId());
-                        }
-
-                        switch (game.RoundNo)
-                        {
-                            case 1:
-                            case 2:
-                            case 3:
-                            case 4:
-                                hardEnemy.Times += 1;
-                                break;
-                            case 5:
-                            case 6:
-                            case 7:
-                            case 8:
-                            case 9:
-                                hardEnemy.Times += 2;
-                                break;
-                            case 10:
-                                hardEnemy.Times += 4;
-                                break;
-                        }
+                        hard.AttackHistory.Add(new HardKitty.LonelinessSubClass(me.GetPlayerId()));
+                        hardEnemy = hard.AttackHistory.Find(x => x.EnemyId == me.GetPlayerId());
                     }
+
+                    switch (game.RoundNo)
+                    {
+                        case 1:
+                        case 2:
+                        case 3:
+                        case 4:
+                            hardEnemy.Times += 1;
+                            break;
+                        case 5:
+                        case 6:
+                        case 7:
+                        case 8:
+                        case 9:
+                            hardEnemy.Times += 2;
+                            break;
+                        case 10:
+                            hardEnemy.Times += 4;
+                            break;
+                    }
+                }
 
                 //Одиночество
                 break;
@@ -951,37 +950,31 @@ public class CharacterPassives : IServiceSingleton
                 var hardKitty = player.Passives.HardKittyDoebatsya;
 
                 if (player.Status.WhoToAttackThisTurn != Guid.Empty)
-                    if (player.Status.IsLostThisCalculation == player.Status.WhoToAttackThisTurn ||
-                        player.Status.IsTargetBlocked == player.Status.WhoToAttackThisTurn ||
-                        player.Status.IsTargetSkipped == player.Status.WhoToAttackThisTurn)
+                    if (player.Status.IsLostThisCalculation == player.Status.WhoToAttackThisTurn || player.Status.IsTargetBlocked == player.Status.WhoToAttackThisTurn || player.Status.IsTargetSkipped == player.Status.WhoToAttackThisTurn)
                     {
-                        var found = hardKitty.LostSeries.Find(x =>
-                            x.EnemyPlayerId == player.Status.WhoToAttackThisTurn);
+                        var found = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == player.Status.WhoToAttackThisTurn);
 
                         if (found != null)
                             found.Series++;
                         else
-                            hardKitty.LostSeries.Add(
-                                new HardKitty.DoebatsyaSubClass(player.Status.WhoToAttackThisTurn));
+                            hardKitty.LostSeries.Add(new HardKitty.DoebatsyaSubClass(player.Status.WhoToAttackThisTurn));
                     }
 
-                if (player.Status.IsWonThisCalculation != Guid.Empty &&
-                    player.Status.IsWonThisCalculation == player.Status.WhoToAttackThisTurn)
+                if (player.Status.IsWonThisCalculation != Guid.Empty && player.Status.IsWonThisCalculation == player.Status.WhoToAttackThisTurn)
                 {
-                    var found = hardKitty.LostSeries.Find(x =>
-                        x.EnemyPlayerId == player.Status.WhoToAttackThisTurn);
-                    if (found != null)
-                        if (found.Series > 0)
-                        {
-                            if (found.Series >= 10) found.Series += 10;
-                            player.Status.AddRegularPoints(found.Series * 2, "Доебаться");
+                    var found = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == player.Status.WhoToAttackThisTurn);
+                    if (found is { Series: > 0 })
+                    {
+                        if (found.Series >= 10) found.Series += 10;
 
-                            if (found.Series >= 10)
-                                game.Phrases.HardKittyDoebatsyaLovePhrase.SendLog(player, false);
-                            else
-                                game.Phrases.HardKittyDoebatsyaPhrase.SendLog(player, false);
-                            found.Series = 0;
-                        }
+                        player.Status.AddRegularPoints(found.Series * 2, "Доебаться");
+
+                        if (found.Series >= 10)
+                            game.Phrases.HardKittyDoebatsyaLovePhrase.SendLog(player, false);
+                        else
+                            game.Phrases.HardKittyDoebatsyaPhrase.SendLog(player, false);
+                        found.Series = 0;
+                    }
                 }
 
                 //end Доебаться
@@ -1113,7 +1106,7 @@ public class CharacterPassives : IServiceSingleton
 
                     var enemy = tigr?.FriendList.Find(x => x.EnemyPlayerId == player.Status.IsLostThisCalculation);
 
-                    if (enemy != null && enemy.IsUnique) enemy.WinsSeries = 0;
+                    if (enemy is { IsUnique: true }) enemy.WinsSeries = 0;
                 }
 
                 //end 3-0 обоссан: 
@@ -1509,7 +1502,7 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Толя":
                     //Великий Комментатор
-                    if (game.RoundNo >= 3 && game.RoundNo <= 6)
+                    if (game.RoundNo is >= 3 and <= 6)
                     {
                         var randNum = _rand.Random(1, 5);
                         if (randNum == 1)
@@ -2484,7 +2477,7 @@ public class CharacterPassives : IServiceSingleton
                             var found = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == target.GetPlayerId());
 
                             if (found != null)
-                                found.Series += 1;
+                                found.Series++;
                             else
                                 hardKitty.LostSeries.Add(new HardKitty.DoebatsyaSubClass(target.GetPlayerId()));
                         }

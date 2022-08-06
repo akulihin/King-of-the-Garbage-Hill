@@ -363,39 +363,38 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 var find = mylorik?.EnemyListPlayerIds.Find(x =>
                     x.EnemyPlayerId == other.GetPlayerId());
 
-                if (find != null && find.IsUnique) customString += " <:sparta:561287745675329567>";
-                if (find != null && !find.IsUnique) customString += " ❌";
+                if (find is { IsUnique: true }) customString += " <:sparta:561287745675329567>";
+                if (find is { IsUnique: false }) customString += " ❌";
 
                 var mylorikSpartan = me.Passives.MylorikSpartan;
 
                 var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == other.GetPlayerId());
 
-                if (mylorikEnemy != null)
-                    if (mylorikEnemy.LostTimes > 0)
-                        switch (mylorikEnemy.LostTimes)
-                        {
-                            case 1:
-                                customString += " <:broken_shield:902044789917241404>";
-                                break;
-                            case 2:
-                                customString +=
-                                    " <:broken_shield:902044789917241404><:broken_shield:902044789917241404>";
-                                break;
-                            case 3:
-                                customString +=
-                                    " <:broken_shield:902044789917241404><:broken_shield:902044789917241404>🍰🍰";
-                                break;
-                            case 4:
-                            case 5:
-                            case 6:
-                            case 7:
-                            case 8:
-                            case 9:
-                            case 10:
-                                customString +=
-                                    " <:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404>🎂 **НЯМ!**";
-                                break;
-                        }
+                if (mylorikEnemy is { LostTimes: > 0 })
+                    switch (mylorikEnemy.LostTimes)
+                    {
+                        case 1:
+                            customString += " <:broken_shield:902044789917241404>";
+                            break;
+                        case 2:
+                            customString +=
+                                " <:broken_shield:902044789917241404><:broken_shield:902044789917241404>";
+                            break;
+                        case 3:
+                            customString +=
+                                " <:broken_shield:902044789917241404><:broken_shield:902044789917241404>🍰🍰";
+                            break;
+                        case 4:
+                        case 5:
+                        case 6:
+                        case 7:
+                        case 8:
+                        case 9:
+                        case 10:
+                            customString +=
+                                " <:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404>🎂 **НЯМ!**";
+                            break;
+                    }
 
                 break;
             case "Тигр":

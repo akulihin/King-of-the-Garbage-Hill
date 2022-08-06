@@ -89,7 +89,7 @@ public class HelpModule : ModuleBaseCustom
 
         var botPrefix = "`*`";
 
-        if (userAccount.MyPrefix != null && userAccount.MyPrefix.Length >= 1)
+        if (userAccount.MyPrefix is { Length: >= 1 })
             botPrefix += $"**OR** `{userAccount.MyPrefix}`";
 
         var footerMessage =
