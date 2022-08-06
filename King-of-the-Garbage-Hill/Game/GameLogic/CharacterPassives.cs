@@ -734,7 +734,7 @@ public class CharacterPassives : IServiceSingleton
     }
 
 
-    public void HandleCharacterAfterFight(GamePlayerBridgeClass player, GameClass game)
+    public void HandleCharacterAfterFight(GamePlayerBridgeClass player, GameClass game, bool attack, bool defense)
     {
         //Подсчет
         if (player.Status.IsLostThisCalculation != Guid.Empty && player.Character.Name != "Толя" &&
@@ -949,7 +949,7 @@ public class CharacterPassives : IServiceSingleton
                 //Доебаться
                 var hardKitty = player.Passives.HardKittyDoebatsya;
 
-                if (player.Status.WhoToAttackThisTurn != Guid.Empty)
+                if (player.Status.WhoToAttackThisTurn != Guid.Empty && attack)
                     if (player.Status.IsLostThisCalculation == player.Status.WhoToAttackThisTurn || player.Status.IsTargetBlocked == player.Status.WhoToAttackThisTurn || player.Status.IsTargetSkipped == player.Status.WhoToAttackThisTurn)
                     {
                         var found = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == player.Status.WhoToAttackThisTurn);
@@ -960,7 +960,7 @@ public class CharacterPassives : IServiceSingleton
                             hardKitty.LostSeries.Add(new HardKitty.DoebatsyaSubClass(player.Status.WhoToAttackThisTurn));
                     }
 
-                if (player.Status.IsWonThisCalculation != Guid.Empty && player.Status.IsWonThisCalculation == player.Status.WhoToAttackThisTurn)
+                if (player.Status.IsWonThisCalculation != Guid.Empty && player.Status.IsWonThisCalculation == player.Status.WhoToAttackThisTurn && attack)
                 {
                     var found = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == player.Status.WhoToAttackThisTurn);
                     if (found is { Series: > 0 })

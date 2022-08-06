@@ -117,7 +117,7 @@ Speed => Strength
             //if block => no one gets points, and no redundant playerAttacked variable
             if (player.Status.IsBlock || player.Status.IsSkip)
             {
-                _characterPassives.HandleCharacterAfterFight(player, game);
+                _characterPassives.HandleCharacterAfterFight(player, game, true, false);
                 ResetFight(player);
                 continue;
             }
@@ -128,7 +128,7 @@ Speed => Strength
                     "playerIamAttacking == null\n" +
                     $"Round: {game.RoundNo}\n" +
                     $"{player.Status.CharacterName} | {player.DiscordUsername}\n");
-                _characterPassives.HandleCharacterAfterFight(player, game);
+                _characterPassives.HandleCharacterAfterFight(player, game, true, false);
                 ResetFight(player);
                 continue;
             }
@@ -260,8 +260,8 @@ Speed => Strength
 
                 playerIamAttacking.Character.Justice.AddJusticeForNextRoundFromFight();
 
-                _characterPassives.HandleCharacterAfterFight(player, game);
-                _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game);
+                _characterPassives.HandleCharacterAfterFight(player, game, true, false);
+                _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
                 _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
 
                 ResetFight(player, playerIamAttacking);
@@ -281,8 +281,8 @@ Speed => Strength
                     logMess = " ⟶ *Бой не состоялся (Скип)...*";
                 game.AddGlobalLogs(logMess);
 
-                _characterPassives.HandleCharacterAfterFight(player, game);
-                _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game);
+                _characterPassives.HandleCharacterAfterFight(player, game, true, false);
+                _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
 
                 ResetFight(player, playerIamAttacking);
 
@@ -598,9 +598,9 @@ Speed => Strength
                     break;
             }
 
-            _characterPassives.HandleCharacterAfterFight(player, game);
+            _characterPassives.HandleCharacterAfterFight(player, game, true, false);
+            _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
 
-            _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game);
             _characterPassives.HandleShark(game); //used only for shark...
 
             ResetFight(player, playerIamAttacking);
