@@ -737,8 +737,7 @@ public class CharacterPassives : IServiceSingleton
     public void HandleCharacterAfterFight(GamePlayerBridgeClass player, GameClass game, bool attack, bool defense)
     {
         //Подсчет
-        if (player.Status.IsLostThisCalculation != Guid.Empty && player.Character.Name != "Толя" &&
-            game.PlayersList.Any(x => x.Character.Name == "Толя"))
+        if (player.Status.IsLostThisCalculation != Guid.Empty && player.Character.Name != "Толя" && game.PlayersList.Any(x => x.Character.Name == "Толя"))
         {
             var tolyaAcc = game.PlayersList.Find(x => x.Character.Name == "Толя");
 
@@ -1322,8 +1321,6 @@ public class CharacterPassives : IServiceSingleton
                 if (tolya.IsReadyToUse && player.Status.WhoToAttackThisTurn != Guid.Empty)
                 {
                     tolya.TargetList.Add(new Tolya.TolyaCountSubClass(player.Status.WhoToAttackThisTurn, game.RoundNo));
-                    var target = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.WhoToAttackThisTurn).DiscordUsername;
-                    player.Status.AddInGamePersonalLogs($"Подсчет: __Ставлю на то, что {target} получит пизды!__\n");
                     tolya.IsReadyToUse = false;
                     tolya.Cooldown = _rand.Random(4, 5);
                 }
@@ -2571,6 +2568,12 @@ public class CharacterPassives : IServiceSingleton
                     {
                         tolya.IsReadyToUse = true;
                         game.Phrases.TolyaCountReadyPhrase.SendLog(player, false);
+                    }
+
+                    if (tolya.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1))
+                    {
+                        var targetTolya = game.PlayersList.Find(x => x.GetPlayerId() == tolya.TargetList.Find(x => x.RoundNumber == game.RoundNo - 1).Target).DiscordUsername;
+                        player.Status.AddInGamePersonalLogs($"Подсчет: __Ставлю на то, что {targetTolya} получит пизды!__\n");
                     }
 
                     //end Подсчет
