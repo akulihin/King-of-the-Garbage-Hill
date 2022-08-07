@@ -93,6 +93,25 @@ public class CharactersUniquePhrase
     public PhraseClass VampyrVampyr;
 
     public PhraseClass CraboRackSidewaysBoolePhrase;
+
+    public PhraseClass WeedwickRuthlessHunter;
+    public PhraseClass WeedwickValuablePreyPoints1;
+    public PhraseClass WeedwickValuablePreyPoints2;
+    public PhraseClass WeedwickValuablePreyPoints3;
+    public PhraseClass WeedwickValuablePreyPoints4;
+    public PhraseClass WeedwickValuablePreyPoints5;
+    public PhraseClass WeedwickValuablePreyPoints6;
+    public PhraseClass WeedwickValuablePreyPoints7;
+    public PhraseClass WeedwickValuablePreyDrop;
+    public PhraseClass WeedwickWeedYes1;
+    public PhraseClass WeedwickWeedYes2;
+    public PhraseClass WeedwickWeedYes3;
+    public PhraseClass WeedwickWeedYes4;
+    public PhraseClass WeedwickWeedYes5;
+    public PhraseClass WeedwickWeedYes6;
+    public PhraseClass WeedwickWeedNo;
+
+
     //end
     public PhraseClass AutoMove1;
     public PhraseClass AutoMove2;
@@ -202,6 +221,23 @@ public class CharactersUniquePhrase
         DarksciDysmoral = new PhraseClass("Дизмораль");
 
         CraboRackSidewaysBoolePhrase = new PhraseClass("Хождение боком");
+
+        WeedwickRuthlessHunter = new PhraseClass("Безжалостный охотник");
+        WeedwickValuablePreyPoints1 = new PhraseClass("Ценная добыча");
+        WeedwickValuablePreyPoints2 = new PhraseClass("Ценная добыча");
+        WeedwickValuablePreyPoints3 = new PhraseClass("Ценная добыча");
+        WeedwickValuablePreyPoints4 = new PhraseClass("Ценная добыча");
+        WeedwickValuablePreyPoints5 = new PhraseClass("Ценная добыча");
+        WeedwickValuablePreyPoints6 = new PhraseClass("Ценная добыча");
+        WeedwickValuablePreyPoints7 = new PhraseClass("Ценная добыча");
+        WeedwickValuablePreyDrop = new PhraseClass("Ценная добыча");
+        WeedwickWeedYes1 = new PhraseClass("Weed");
+        WeedwickWeedYes2 = new PhraseClass("Weed");
+        WeedwickWeedYes3 = new PhraseClass("Weed");
+        WeedwickWeedYes4 = new PhraseClass("Weed");
+        WeedwickWeedYes5 = new PhraseClass("Weed");
+        WeedwickWeedYes6 = new PhraseClass("Weed");
+        WeedwickWeedNo = new PhraseClass("Weed");
         //end
 
         //
@@ -564,6 +600,37 @@ public class CharactersUniquePhrase
         CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("У них одни ренжевики!");
         CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("На Полому!");
         CraboRackSidewaysBoolePhrase.PassiveLogRus.Add("*Кручусь на месте*");
+
+        WeedwickRuthlessHunter.PassiveLogRus.Add("От меня не спрячешься");
+        WeedwickRuthlessHunter.PassiveLogRus.Add("ВУФ!");
+        WeedwickRuthlessHunter.PassiveLogRus.Add("Псевдособаааакааа");
+        WeedwickRuthlessHunter.PassiveLogRus.Add("Что за запах..?");
+
+        WeedwickValuablePreyPoints1.PassiveLogRus.Add("SHOTDDDDDDOWN");
+        WeedwickValuablePreyPoints2.PassiveLogRus.Add("ГОВОРЯЩАЯ СОБАКА");
+        WeedwickValuablePreyPoints3.PassiveLogRus.Add("ГАФ");
+        WeedwickValuablePreyPoints4.PassiveLogRus.Add("ОМЕГА-ГАФ");
+        WeedwickValuablePreyPoints5.PassiveLogRus.Add("АльфоВолк!");
+        WeedwickValuablePreyPoints6.PassiveLogRus.Add("СААААМАЯ БОГАТАЯ ПСЕВДОСОБАКА");
+        WeedwickValuablePreyPoints7.PassiveLogRus.Add("Не употребляйте наркотики");
+
+        WeedwickValuablePreyDrop.PassiveLogRus.Add("БЛЯТЬ, СУКА, СОБАКА! АУУУУУУУУУФ! СОБАКАСОБАКАСОБАКА!!!");
+        WeedwickValuablePreyDrop.PassiveLogRus.Add("Я - Шиза воплоти!");
+        WeedwickValuablePreyDrop.PassiveLogRus.Add("На нахуй!");
+        WeedwickValuablePreyDrop.PassiveLogRus.Add("Спускайся вниз!");
+        WeedwickValuablePreyDrop.PassiveLogRus.Add("ГАФГАФГАФ РРРРРРРР");
+        WeedwickValuablePreyDrop.PassiveLogRus.Add("Слезай с дерева!!!");
+
+        WeedwickWeedYes1.PassiveLogRus.Add("Weed");
+        WeedwickWeedYes2.PassiveLogRus.Add("Вуф");
+        WeedwickWeedYes3.PassiveLogRus.Add("Авуууу!!!");
+        WeedwickWeedYes4.PassiveLogRus.Add("СКУБИ-ДУБИ-ДУ-УУ!");
+        WeedwickWeedYes5.PassiveLogRus.Add("WEED!");
+        WeedwickWeedYes6.PassiveLogRus.Add("WEEEEEED!!!");
+
+        WeedwickWeedNo.PassiveLogRus.Add("ГДЕ МОЙ WEED СУКИ?");
+        WeedwickWeedNo.PassiveLogRus.Add("ГДЕ ШО");
+        WeedwickWeedNo.PassiveLogRus.Add("228 папиросим, НО ГДЕ???");
         //end
     }
 

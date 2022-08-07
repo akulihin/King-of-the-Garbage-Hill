@@ -63,21 +63,73 @@ Speed => Strength
     }
 
 
-    public void ResetFight(GamePlayerBridgeClass player, GamePlayerBridgeClass playerIamAttacking = null)
+    public void ResetFight(GamePlayerBridgeClass me, GamePlayerBridgeClass target = null)
     {
-        player.Status.IsWonThisCalculation = Guid.Empty;
-        player.Status.IsLostThisCalculation = Guid.Empty;
-        player.Status.IsFighting = Guid.Empty;
-        player.Status.IsTargetSkipped = Guid.Empty;
-        player.Status.IsTargetBlocked = Guid.Empty;
-
-        if (playerIamAttacking != null)
+        var players = new List<GamePlayerBridgeClass> { me, target };
+        foreach (var player in players.Where(p => p != null))
         {
-            playerIamAttacking.Status.IsWonThisCalculation = Guid.Empty;
-            playerIamAttacking.Status.IsLostThisCalculation = Guid.Empty;
-            playerIamAttacking.Status.IsFighting = Guid.Empty;
-            playerIamAttacking.Status.IsTargetSkipped = Guid.Empty;
-            playerIamAttacking.Status.IsTargetBlocked = Guid.Empty;
+
+            if (player.Status.IsWonThisCalculation != Guid.Empty)
+            {
+                player.Status.WonTimes++;
+                player.Status.WinStreak++;
+            }
+
+            if (player.Status.IsLostThisCalculation != Guid.Empty)
+            {
+                player.Status.WinStreak = 0;
+            }
+
+            if (player.Status.IgnoredBlock)
+            {
+                player.Status.IgnoredBlock = false;
+                player.Status.IsBlock = true;
+            }
+
+            if (player.Status.IgnoredSkip)
+            {
+                player.Status.IgnoredSkip = false;
+                player.Status.IsSkip = true;
+            }
+
+            if (player.Status.RealIntelligence != -1)
+            {
+                var returned = player.Character.GetIntelligence() - player.Status.TempIntelligence + player.Status.RealIntelligence;
+                player.Character.SetIntelligence(player.Status, returned, "Reset", false);
+                player.Status.RealIntelligence = -1;
+                player.Status.TempIntelligence = -1;
+            }
+
+            if (player.Status.RealStrength != -1)
+            {
+                var returned = player.Character.GetStrength() - player.Status.TempStrength + player.Status.RealStrength;
+                player.Character.SetStrength(player.Status, returned, "Reset", false);
+                player.Status.RealStrength = -1;
+                player.Status.TempStrength = -1;
+            }
+
+            if (player.Status.RealSpeed != -1)
+            {
+                var returned = player.Character.GetSpeed() - player.Status.TempSpeed + player.Status.RealSpeed;
+                player.Character.SetSpeed(player.Status, returned, "Reset", false);
+                player.Status.RealSpeed = -1;
+                player.Status.TempSpeed = -1;
+            }
+
+            if (player.Status.RealPsyche != -1)
+            {
+                var returned = player.Character.GetPsyche() - player.Status.TempPsyche + player.Status.RealPsyche;
+                player.Character.SetPsyche(player.Status, returned, "Reset", false);
+                player.Status.RealPsyche = -1;
+                player.Status.TempPsyche = -1;
+            }
+
+
+            player.Status.IsWonThisCalculation = Guid.Empty;
+            player.Status.IsLostThisCalculation = Guid.Empty;
+            player.Status.IsFighting = Guid.Empty;
+            player.Status.IsTargetSkipped = Guid.Empty;
+            player.Status.IsTargetBlocked = Guid.Empty;
         }
     }
 
@@ -145,7 +197,7 @@ Speed => Strength
 
 
             //умный
-            if (player.Character.GetSkillClass() == "Интеллект" && playerIamAttacking.Character.Justice.GetFullJusticeNow() == 0)
+            if (player.Character.GetSkillClass() == "Интеллект" && playerIamAttacking.Character.Justice.GetRealJusticeNow() == 0)
                 player.Character.AddExtraSkill(player.Status, 6, "Класс");
 
 
@@ -388,8 +440,8 @@ Speed => Strength
             weighingMachine += wtf;
 
 
-            weighingMachine += player.Character.Justice.GetFullJusticeNow() -
-                               playerIamAttacking.Character.Justice.GetFullJusticeNow();
+            weighingMachine += player.Character.Justice.GetRealJusticeNow() -
+                               playerIamAttacking.Character.Justice.GetRealJusticeNow();
 
 
             switch (weighingMachine)
@@ -409,9 +461,9 @@ Speed => Strength
 
 
             //round 2 (Justice)
-            if (player.Character.Justice.GetFullJusticeNow() > playerIamAttacking.Character.Justice.GetFullJusticeNow())
+            if (player.Character.Justice.GetRealJusticeNow() > playerIamAttacking.Character.Justice.GetRealJusticeNow())
                 pointsWined++;
-            if (player.Character.Justice.GetFullJusticeNow() < playerIamAttacking.Character.Justice.GetFullJusticeNow())
+            if (player.Character.Justice.GetRealJusticeNow() < playerIamAttacking.Character.Justice.GetRealJusticeNow())
                 pointsWined--;
             //end round 2
 
@@ -419,11 +471,11 @@ Speed => Strength
             if (pointsWined == 0)
             {
                 var maxRandomNumber = 100;
-                if (player.Character.Justice.GetFullJusticeNow() > 1 ||
-                    playerIamAttacking.Character.Justice.GetFullJusticeNow() > 1)
+                if (player.Character.Justice.GetRealJusticeNow() > 1 ||
+                    playerIamAttacking.Character.Justice.GetRealJusticeNow() > 1)
                 {
-                    var myJustice = (int)(player.Character.Justice.GetFullJusticeNow() * contrMultiplier);
-                    var targetJustice = playerIamAttacking.Character.Justice.GetFullJusticeNow();
+                    var myJustice = (int)(player.Character.Justice.GetRealJusticeNow() * contrMultiplier);
+                    var targetJustice = playerIamAttacking.Character.Justice.GetRealJusticeNow();
                     maxRandomNumber -= (myJustice - targetJustice) * 5;
                 }
 
@@ -483,9 +535,7 @@ Speed => Strength
                     }
 
 
-                player.Status.WonTimes++;
-
-                if(!teamMate)
+                if (!teamMate)
                     player.Character.Justice.IsWonThisRound = true;
 
 
@@ -548,7 +598,8 @@ Speed => Strength
                 if (!teamMate)
                     playerIamAttacking.Status.AddRegularPoints(1, "Победа");
 
-                player.Status.WonTimes++;
+
+
                 if (!teamMate)
                     playerIamAttacking.Character.Justice.IsWonThisRound = true;
 
@@ -738,7 +789,7 @@ Speed => Strength
         if ((oldIndex == newIndex) || (0 > oldIndex) || (oldIndex >= list.Count) || (0 > newIndex) ||
             (newIndex >= list.Count)) return;
         // local variables
-        var i = 0;
+        int i;
         T tmp = list[oldIndex];
         // move element down and shift other elements up
         if (oldIndex < newIndex)

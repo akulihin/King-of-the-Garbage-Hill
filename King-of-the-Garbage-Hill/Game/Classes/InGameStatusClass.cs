@@ -68,6 +68,7 @@ public class InGameStatus
     public Guid WhoToAttackThisTurn { get; set; }
     public bool IsReady { get; set; }
     public int WonTimes { get; set; }
+    public int WinStreak { get; set; }
     public Guid IsWonThisCalculation { get; set; }
     public Guid IsLostThisCalculation { get; set; }
     public Guid IsTargetSkipped { get; set; }
@@ -87,6 +88,19 @@ public class InGameStatus
     public string CharacterName { get; set; }
     public int TimesUpdated { get; set; }
     public int RoundNumber { get; set; }
+
+    public bool IgnoredBlock { get; set; }
+    public bool IgnoredSkip { get; set; }
+
+    public int RealIntelligence { get; set; } = -1;
+    public int TempIntelligence { get; set; } = -1;
+    public int RealStrength { get; set; } = -1;
+    public int TempStrength { get; set; } = -1;
+    public int RealSpeed { get; set; } = -1;
+    public int TempSpeed { get; set; } = -1;
+    public int RealPsyche { get; set; } = -1;
+    public int TempPsyche { get; set; } = -1;
+
     public List<PlaceAtLeaderBoardHistoryClass> PlaceAtLeaderBoardHistory { get; set; }
     public DateTimeOffset LastMessageUpdate { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset LastButtonPress { get; set; } = DateTimeOffset.UtcNow;

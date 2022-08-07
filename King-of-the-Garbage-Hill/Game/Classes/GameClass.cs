@@ -63,7 +63,6 @@ public class GameClass
     public ulong CreatorId { get; set; }
     public List<TeamPlay> Teams { get; set; }
     public uint TestFightNumber { get; set; }
-    public int TeamSplit { get; set; } = 0;
 
     public List<BotsBehavior.NanobotClass> NanobotsList { get; set; } = new();
 

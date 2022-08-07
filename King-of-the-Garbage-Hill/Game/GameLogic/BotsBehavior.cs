@@ -312,8 +312,20 @@ public class BotsBehavior : IServiceSingleton
             var mandatoryAttack = -1;
             var noBlock = 99999;
             var yesBlock = -99999;
-            var botJustice = bot.Character.Justice.GetFullJusticeNow();
+            var botJustice = bot.Character.Justice.GetRealJusticeNow();
             //end local variables
+
+            //edit block for team
+            switch (game.Teams.Count)
+            {
+                case 2:
+                    isBlock += 1;
+                    break;
+                case 3:
+                    isBlock += 2;
+                    break;
+            }
+            //end
 
             //character variables
             var DarksciTheOne = Guid.Empty;
@@ -347,7 +359,7 @@ public class BotsBehavior : IServiceSingleton
             //calculation Tens
             foreach (var target in allTargets)
             {
-                var targetJustice = target.Player.Character.Justice.GetFightJusticeNow();
+                var targetJustice = target.Player.Character.Justice.GetSeenJusticeNow();
 
                 //if justice is the same
                 if (botJustice == targetJustice)
@@ -447,7 +459,7 @@ public class BotsBehavior : IServiceSingleton
 
 
                 //justice diff
-                if (allTargets.All(x => x.Player.Character.Justice.GetFightJusticeNow() < botJustice))
+                if (allTargets.All(x => x.Player.Character.Justice.GetSeenJusticeNow() < botJustice))
                 {
                     justiceDifference = botJustice - targetJustice;
                     target.AttackPreference += justiceDifference;
@@ -829,14 +841,14 @@ public class BotsBehavior : IServiceSingleton
 
                         var tolyaCount = bot.Passives.TolyaCount;
 
-                        if (tolyaCount.TargetList.Any(x =>
-                                x.RoundNumber == game.RoundNo - 1 && x.Target == target.GetPlayerId()))
+                        if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == target.GetPlayerId()))
                         {
                             if (target.AttackPreference >= 5)
                                 target.AttackPreference += 3;
-                            target.AttackPreference += 2;
-                            if (bot.Status.WhoToLostEveryRound.Any(x =>
-                                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.GetPlayerId()))
+
+                            target.AttackPreference += 4;
+                            
+                            if (bot.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.GetPlayerId()))
                                 target.AttackPreference += 5;
                         }
 
@@ -921,7 +933,7 @@ public class BotsBehavior : IServiceSingleton
                                 }
                                 else
                                 {
-                                    if (bot.Character.Justice.GetFullJusticeNow() > targetJustice && !isTargetTooGood)
+                                    if (bot.Character.Justice.GetRealJusticeNow() > targetJustice && !isTargetTooGood)
                                         if (target.AttackPreference > SpartanTarget)
                                         {
                                             mandatoryAttack = target.PlaceAtLeaderBoard();
@@ -1323,11 +1335,11 @@ public class BotsBehavior : IServiceSingleton
                         maximumRandomNumberForBlock = 4;
                     }
 
-                    var min = allTargets.Min(x => x.Player.Character.Justice.GetFightJusticeNow());
+                    var min = allTargets.Min(x => x.Player.Character.Justice.GetSeenJusticeNow());
                     var check = allTargets.Find(x =>
-                        x.Player.Character.Justice.GetFightJusticeNow() == min);
+                        x.Player.Character.Justice.GetSeenJusticeNow() == min);
 
-                    if (check.Player.Character.Justice.GetFightJusticeNow() >= botJustice)
+                    if (check.Player.Character.Justice.GetSeenJusticeNow() >= botJustice)
                         minimumRandomNumberForBlock += 1;
 
                     break;
@@ -1408,8 +1420,8 @@ public class BotsBehavior : IServiceSingleton
                     }
 
                     if (allTargets.All(x =>
-                            bot.Character.Justice.GetFullJusticeNow() <=
-                            x.Player.Character.Justice.GetFightJusticeNow()))
+                            bot.Character.Justice.GetRealJusticeNow() <=
+                            x.Player.Character.Justice.GetSeenJusticeNow()))
                         if (game.RoundNo == 10)
                         {
                             minimumRandomNumberForBlock = 2;

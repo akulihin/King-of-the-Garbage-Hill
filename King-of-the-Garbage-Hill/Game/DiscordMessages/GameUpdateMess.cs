@@ -332,7 +332,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         customString +=
                             $" PS: - {other.Character.Name} (I: {other.Character.GetIntelligence()} | " +
                             $"St: {other.Character.GetStrength()} | Sp: {other.Character.GetSpeed()} | " +
-                            $"Ps: {other.Character.GetPsyche()} | J: {other.Character.Justice.GetFullJusticeNow()})";
+                            $"Ps: {other.Character.GetPsyche()} | J: {other.Character.Justice.GetRealJusticeNow()})";
                 //end сверхразум
 
 
@@ -670,7 +670,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                               $"**{spe_str}:** {character.GetSpeedString()}{character.GetSpeedQualityResist()}\n" +
                               $"**{psy_str}:** {character.GetPsycheString()}{character.GetPsycheQualityResist()}\n" +
                               "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                              $"*Справедливость: **{character.Justice.GetFullJusticeNow()}***\n" +
+                              $"*Справедливость: **{character.Justice.GetRealJusticeNow()}***\n" +
                               $"*Мораль: {character.GetMoral()}*\n" +
                               $"*Скилл: {character.GetSkillDisplay()} (Мишень: **{character.GetCurrentSkillClassTarget()}**)*\n" +
                               //$"*Скилл: {character.GetSkillDisplay()}{skillExtraText}*\n" +

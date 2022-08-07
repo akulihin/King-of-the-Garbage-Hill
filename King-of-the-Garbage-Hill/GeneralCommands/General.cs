@@ -122,7 +122,7 @@ public class General : ModuleBaseCustom
                      let knownCharacter = account.CharacterChance.Find(x => x.CharacterName == character.Name)
                      where knownCharacter == null
                      select character)
-                account.CharacterChance.Add(new DiscordAccountClass.CharacterChances(character.Name, character.Tier));
+                account.CharacterChance.Add(new DiscordAccountClass.CharacterChances(character.Name));
             //end
 
             //handle custom selected character part #2
@@ -301,7 +301,14 @@ public class General : ModuleBaseCustom
         }
         //end mylorik
 
-
+        // Weedwick
+        if (playersList.Any(x => x.Character.Name == "Weedwick"))
+        {
+            var player = playersList.Find(x => x.Character.Name == "Weedwick");
+            player.Character.SetAnySkillMultiplier(1);
+            player.Status.AddInGamePersonalLogs("Она всегда со мной, куда бы я не пошел...\n");
+        }
+        //end  Weedwick
 
         //Загадочный Спартанец в маске
         if (playersList.Any(x => x.Character.Name == "Загадочный Спартанец в маске"))

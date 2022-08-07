@@ -46,12 +46,10 @@ public class DiscordAccountClass
         public int Changes;
         public string CharacterName;
         public double Multiplier;
-        public int Tier;
 
-        public CharacterChances(string characterName, int tier, double multiplier = 1.0)
+        public CharacterChances(string characterName, double multiplier = 1.0)
         {
             CharacterName = characterName;
-            Tier = tier;
             Multiplier = multiplier;
             Changes = 0;
         }

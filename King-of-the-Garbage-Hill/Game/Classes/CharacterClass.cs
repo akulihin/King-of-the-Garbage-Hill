@@ -1076,15 +1076,15 @@ public class JusticeClass
 {
     public JusticeClass()
     {
-        FullJusticeNow = 0;
-        FightJusticeNow = 0;
+        RealJusticeNow = 0;
+        SeenJusticeNow = 0;
         JusticeForNextRoundFromFights = 0;
         JusticeForNextRoundFromSkills = 0;
         IsWonThisRound = false;
     }
 
-    private int FullJusticeNow { get; set; }
-    private int FightJusticeNow { get; set; }
+    private int RealJusticeNow { get; set; }
+    private int SeenJusticeNow { get; set; }
     private int JusticeForNextRoundFromFights { get; set; }
     private int JusticeForNextRoundFromSkills{ get; set; }
     public bool IsWonThisRound { get; set; }
@@ -1094,13 +1094,13 @@ public class JusticeClass
     {
         if (IsWonThisRound)
         {
-            FullJusticeNow = 0;
-            FightJusticeNow = 0;
+            RealJusticeNow = 0;
+            SeenJusticeNow = 0;
         }
 
         var howMuchToAdd = JusticeForNextRoundFromFights + JusticeForNextRoundFromSkills;
 
-        FightJusticeNow += JusticeForNextRoundFromFights;
+        SeenJusticeNow += JusticeForNextRoundFromFights;
         JusticeForNextRoundFromFights = 0;
         JusticeForNextRoundFromSkills = 0;
         IsWonThisRound = false;
@@ -1136,11 +1136,11 @@ public class JusticeClass
 
 
 
-        FullJusticeNow += howMuchToAdd;
-        if (FullJusticeNow < 0)
-            FullJusticeNow = 0;
-        if (FullJusticeNow > 5)
-            FullJusticeNow = 5;
+        RealJusticeNow += howMuchToAdd;
+        if (RealJusticeNow < 0)
+            RealJusticeNow = 0;
+        if (RealJusticeNow > 5)
+            RealJusticeNow = 5;
 
         if (howMuchToAdd > 0)
             status.AddInGamePersonalLogs(
@@ -1148,28 +1148,28 @@ public class JusticeClass
     }
 
 
-    public int GetFullJusticeNow()
+    public int GetRealJusticeNow()
     {
-        return FullJusticeNow;
+        return RealJusticeNow;
     }
 
-    public int GetFightJusticeNow()
+    public int GetSeenJusticeNow()
     {
-        return FightJusticeNow;
+        return SeenJusticeNow;
     }
 
 
-    public void AddFullJusticeNow(int howMuchToAdd = 1)
+    public void AddRealJusticeNow(int howMuchToAdd = 1)
     {
-        FullJusticeNow += howMuchToAdd;
+        RealJusticeNow += howMuchToAdd;
 
-        if (FullJusticeNow < 0)
-            FullJusticeNow = 0;
-        if (FullJusticeNow > 5)
-            FullJusticeNow = 5;
+        if (RealJusticeNow < 0)
+            RealJusticeNow = 0;
+        if (RealJusticeNow > 5)
+            RealJusticeNow = 5;
     }
 
-    public void SetFullJusticeNow(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
+    public void SetRealJusticeNow(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -1177,7 +1177,7 @@ public class JusticeClass
         }
         if (isLog)
             status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} Справедливости\n");
-        FullJusticeNow = howMuchToSet;
+        RealJusticeNow = howMuchToSet;
     }
 
     public void AddJusticeForNextRoundFromFight(int howMuchToAdd = 1)

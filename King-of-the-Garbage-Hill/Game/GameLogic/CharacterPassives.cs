@@ -150,7 +150,7 @@ public class CharacterPassives : IServiceSingleton
             case "Толя":
 
                 //Раммус мейн
-                if (target.Status.IsBlock)
+                if (target.Status.IsBlock && me.Character.Name != "Weedwick")
                 {
                     // target.Status.IsBlock = false;
                     me.Status.IsAbleToWin = false;
@@ -311,6 +311,45 @@ public class CharacterPassives : IServiceSingleton
 
         switch (characterName)
         {
+            case "Weedwick":
+                // Оборотень
+                var myTempStrength = me.Character.GetStrength();
+                var targetTempStrength = target.Character.GetStrength();
+                me.Character.SetStrength(me.Status, targetTempStrength, "Оборотень", false);
+                target.Character.SetStrength(target.Status, myTempStrength, "Оборотень", false);
+                //end  Оборотень
+
+                //Безжалостный охотник
+                if (target.Status.IsBlock || target.Status.IsSkip)
+                {
+                    game.Phrases.WeedwickRuthlessHunter.SendLog(me, false);
+                }
+
+                if (target.Status.IsBlock)
+                {
+                    target.Status.IgnoredBlock = true;
+                    target.Status.IsBlock = false;
+                }
+
+                if (target.Status.IsSkip)
+                {
+                    target.Status.IgnoredSkip = true;
+                    target.Status.IsSkip = false;
+                }
+
+                if (target.Character.Justice.GetRealJusticeNow() == 0)
+                {
+                    var tempSpeed = me.Character.GetSpeed() * 2;
+
+                    me.Status.RealSpeed = me.Character.GetSpeed();
+                    me.Status.TempSpeed = tempSpeed;
+
+                    me.Character.SetSpeed(me.Status, tempSpeed, "Безжалостный охотник", false);
+                }
+
+                //end Безжалостный охотник
+
+                break;
             case "Загадочный Спартанец в маске":
 
                 //Им это не понравится:
@@ -465,8 +504,8 @@ public class CharacterPassives : IServiceSingleton
                 {
                     var scavenger = me.Passives.VampyrScavengerList;
                     scavenger.EnemyId = target.GetPlayerId();
-                    scavenger.EnemyJustice = target.Character.Justice.GetFullJusticeNow();
-                    target.Character.Justice.SetFullJusticeNow(target.Status, scavenger.EnemyJustice - 1, "Падальщик",
+                    scavenger.EnemyJustice = target.Character.Justice.GetRealJusticeNow();
+                    target.Character.Justice.SetRealJusticeNow(target.Status, scavenger.EnemyJustice - 1, "Падальщик",
                         false);
                 }
 
@@ -534,6 +573,83 @@ public class CharacterPassives : IServiceSingleton
 
         switch (characterName)
         {
+            case "Weedwick":
+                // Оборотень
+                var myTempStrength = me.Character.GetStrength();
+                var targetTempStrength = target.Character.GetStrength();
+                me.Character.SetStrength(me.Status, targetTempStrength, "Оборотень", false);
+                target.Character.SetStrength(target.Status, myTempStrength, "Оборотень", false);
+                //end  Оборотень
+
+                //Ценная добыча
+                if (me.Status.IsWonThisCalculation == target.GetPlayerId())
+                {
+                    me.Status.AddBonusPoints(target.Status.WinStreak, "Ценная добыча");
+                    switch (target.Status.WinStreak)
+                    {
+                        case 0:
+                            break;
+                        case 1:
+                            game.Phrases.WeedwickValuablePreyPoints1.SendLog(me, false);
+                            break;
+                        case 2:
+                            game.Phrases.WeedwickValuablePreyPoints2.SendLog(me, false);
+                            break;
+                        case 3:
+                            game.Phrases.WeedwickValuablePreyPoints3.SendLog(me, false);
+                            break;
+                        case 4:
+                            game.Phrases.WeedwickValuablePreyPoints4.SendLog(me, false);
+                            break;
+                        case 5:
+                            game.Phrases.WeedwickValuablePreyPoints5.SendLog(me, false);
+                            break;
+                        case 6:
+                            game.Phrases.WeedwickValuablePreyPoints6.SendLog(me, false);
+                            break;
+                        default:
+                            game.Phrases.WeedwickValuablePreyPoints7.SendLog(me, false);
+                            break;
+                    }
+                }
+
+                
+                var range = me.Character.GetSpeedQualityResistInt();
+                range -= target.Character.GetSpeedQualityKiteBonus();
+
+                var placeDiff = me.Status.PlaceAtLeaderBoard - target.Status.PlaceAtLeaderBoard;
+                if (placeDiff < 0)
+                    placeDiff *= -1;
+
+
+                if (placeDiff <= range)
+                {
+                    // 1/место в таблице.
+                    var roll = _rand.Random(1, target.Status.PlaceAtLeaderBoard);
+                    if (roll == 1)
+                    {
+                        target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status, me.Character.GetStrengthQualityDropBonus());
+                        game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
+                    }
+                    // 1/10
+                    roll = _rand.Random(1, 10);
+                    if (roll == 1)
+                    {
+                        target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status, me.Character.GetStrengthQualityDropBonus());
+                        game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
+                    }
+
+                    // 1/3 если враг топ1
+                    roll = _rand.Random(1, 3);
+                    if (roll == 1 && target.Status.PlaceAtLeaderBoard == 1)
+                    {
+                        target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status, me.Character.GetStrengthQualityDropBonus());
+                        game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
+                    }
+                }
+                //end Ценная добыча
+
+                break;
             case "Глеб":
                 //Я щас приду:
                 var glebSkipFriendList = me.Passives.GlebSkipFriendList;
@@ -578,7 +694,7 @@ public class CharacterPassives : IServiceSingleton
 
                     if (scavenger.EnemyId == target.GetPlayerId())
                     {
-                        target.Character.Justice.SetFullJusticeNow(target.Status, scavenger.EnemyJustice, "Падальщик",
+                        target.Character.Justice.SetRealJusticeNow(target.Status, scavenger.EnemyJustice, "Падальщик",
                             false);
                         scavenger.EnemyId = Guid.Empty;
                         scavenger.EnemyJustice = 0;
@@ -590,7 +706,7 @@ public class CharacterPassives : IServiceSingleton
 
                 //Вампуризм
                 if (me.Status.IsWonThisCalculation == target.GetPlayerId())
-                    me.Character.Justice.AddJusticeForNextRoundFromSkill(target.Character.Justice.GetFullJusticeNow());
+                    me.Character.Justice.AddJusticeForNextRoundFromSkill(target.Character.Justice.GetRealJusticeNow());
                 //Вампуризм
 
                 break;
@@ -838,7 +954,7 @@ public class CharacterPassives : IServiceSingleton
                                 player.Status.AddRegularPoints(1, "Стёб");
                                 game.Phrases.DeepListPokePhrase.SendLog(player, true);
                                 if (target.Character.GetPsyche() < 4)
-                                    if (target.Character.Justice.GetFullJusticeNow() > 0)
+                                    if (target.Character.Justice.GetRealJusticeNow() > 0)
                                         if (target.Character.Name != "LeCrisp")
                                             target.Character.Justice.AddJusticeForNextRoundFromSkill(-1);
                             }
@@ -940,8 +1056,7 @@ public class CharacterPassives : IServiceSingleton
             case "Толя":
                 //Раммус мейн
                 if (player.Status.IsBlock && player.Status.IsWonThisCalculation != Guid.Empty)
-                    game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation).Status
-                        .IsAbleToWin = true;
+                    game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation).Status.IsAbleToWin = true;
                 //end Раммус мейн
                 break;
             case "HardKitty":
@@ -2381,7 +2496,7 @@ public class CharacterPassives : IServiceSingleton
                 case "Братишка":
                     //Булькает:
                     if (player.Status.PlaceAtLeaderBoard != 1)
-                        player.Character.Justice.AddFullJusticeNow();
+                        player.Character.Justice.AddRealJusticeNow();
                     //end Булькает:
 
                     //Челюсти:
