@@ -291,128 +291,6 @@ public class General : ModuleBaseCustom
     }
 
 
-    public async Task<List<GamePlayerBridgeClass>> HandleEventsBeforeFirstRound(List<GamePlayerBridgeClass> playersList)
-    {
-        //mylorik
-        if (playersList.Any(x => x.Character.Name == "mylorik"))
-        {
-            var player = playersList.Find(x => x.Character.Name == "mylorik");
-            player.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*\n");
-        }
-        //end mylorik
-
-        // Weedwick
-        if (playersList.Any(x => x.Character.Name == "Weedwick"))
-        {
-            var player = playersList.Find(x => x.Character.Name == "Weedwick");
-            player.Character.SetAnySkillMultiplier(1);
-            player.Status.AddInGamePersonalLogs("Она всегда со мной, куда бы я не пошел...\n");
-        }
-        //end  Weedwick
-
-        //Загадочный Спартанец в маске
-        if (playersList.Any(x => x.Character.Name == "Загадочный Спартанец в маске"))
-        {
-            var player = playersList.Find(x => x.Character.Name == "Загадочный Спартанец в маске");
-            player.Character.SetAnySkillMultiplier(1);
-            player.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*\n");
-        }
-        //end Загадочный Спартанец в маске
-
-
-        //Им это не понравится
-        if (playersList.Any(x => x.Character.Name == "Загадочный Спартанец в маске"))
-        {
-            var player = playersList.Find(x => x.Character.Name == "Загадочный Спартанец в маске");
-            Guid enemy1;
-            Guid enemy2;
-
-            do
-            {
-                var randIndex = _rand.Random(0, playersList.Count - 1);
-                enemy1 = playersList[randIndex].GetPlayerId();
-                if (playersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "mylorik" or "Загадочный Спартанец в маске")
-                    enemy1 = player.GetPlayerId();
-            } while (enemy1 == player.GetPlayerId());
-
-            do
-            {
-                var randIndex = _rand.Random(0, playersList.Count - 1);
-                enemy2 = playersList[randIndex].GetPlayerId();
-                if (playersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "mylorik" or "Загадочный Спартанец в маске")
-                    enemy2 = player.GetPlayerId();
-                if (enemy2 == enemy1)
-                    enemy2 = player.GetPlayerId();
-            } while (enemy2 == player.GetPlayerId());
-
-            player.Passives.SpartanMark.FriendList.Add(enemy1);
-            player.Passives.SpartanMark.FriendList.Add(enemy2);
-        }
-        //end Им это не понравится
-
-        //Никому не нужен
-        if (playersList.Any(x => x.Character.Name == "HardKitty"))
-        {
-            var player = playersList.Find(x => x.Character.Name == "HardKitty");
-            player.Status.HardKittyMinus(-20, "Никому не нужен");
-            player.Status.AddInGamePersonalLogs("Никому не нужен: -20 *Морали*\n");
-            var hardIndex = playersList.IndexOf(player);
-
-            for (var i = hardIndex; i < playersList.Count - 1; i++)
-                playersList[i] = playersList[i + 1];
-
-            playersList[^1] = player;
-        }
-        //end Никому не нужен
-
-
-        //Тигр топ, а ты холоп
-        if (playersList.Any(x => x.Character.Name == "Тигр"))
-        {
-            var player = playersList.Find(x => x.Character.Name == "Тигр");
-            var tigr = player.Passives.TigrTop;
-
-            if (tigr is { TimeCount: > 0 })
-            {
-                var tigrIndex = playersList.IndexOf(player);
-
-                playersList[tigrIndex] = playersList.First();
-                playersList[0] = player;
-                tigr.TimeCount--;
-                //game.Phrases.TigrTop.SendLog(tigrTemp);
-            }
-        }
-        //Тигр топ, а ты холоп
-
-        //Дерзкая школота + Много выебывается
-        if (playersList.Any(x => x.Character.Name == "Mit*suki*"))
-        {
-            var player = playersList.Find(x => x.Character.Name == "Mit*suki*");
-            player.Character.AddExtraSkill(player.Status, 100, "Дерзкая школота");
-
-            //first place
-            var hardIndex = playersList.IndexOf(player);
-            playersList[hardIndex] = playersList.First();
-            playersList[0] = player;
-
-            //x3 class for target
-            player.Character.SetTargetSkillMultiplier(2);
-        }
-        //end Дерзкая школота + Много выебывается
-
-
-        //Повторяет за myloran
-        if (playersList.Any(x => x.Character.Name == "mylorik"))
-        {
-            var player = playersList.Find(x => x.Character.Name == "mylorik");
-            player.Character.AddStrength(player.Status, player.Character.GetStrength() * -1 + 3, "Повторяет за myloran");
-        }
-        //end Повторяет за myloran
-
-        return playersList;
-    }
-
-
     public async Task StartGame(int teamCount = 0, IUser player1 = null, IUser player2 = null, IUser player3 = null,
         IUser player4 = null, IUser player5 = null, IUser player6 = null)
     {
@@ -460,7 +338,7 @@ public class General : ModuleBaseCustom
         //тасуем игроков
         playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
         playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-        playersList = await HandleEventsBeforeFirstRound(playersList);
+        playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
 
         //выдаем место в таблице
         for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
@@ -664,7 +542,7 @@ public class General : ModuleBaseCustom
             //тасуем игроков
             playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
             playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-            playersList = await HandleEventsBeforeFirstRound(playersList);
+            playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
 
             //выдаем место в таблице
             for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;

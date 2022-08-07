@@ -98,7 +98,7 @@ public class AdminPanel : ModuleBaseCustom
         //тасуем игроков
         playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
         playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-        playersList = await _general.HandleEventsBeforeFirstRound(playersList);
+        playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
 
         //выдаем место в таблице
         for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;

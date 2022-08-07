@@ -32,6 +32,98 @@ public class CharacterPassives : IServiceSingleton
     }
 
 
+    public List<GamePlayerBridgeClass> HandleEventsBeforeFirstRound(List<GamePlayerBridgeClass> playersList)
+    {
+        foreach (var player in playersList)
+        {
+            switch (player.Character.Name)
+            {
+                case "mylorik":
+                    player.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*\n");
+                    //Повторяет за myloran
+                    player.Character.AddStrength(player.Status, player.Character.GetStrength() * -1 + 3, "Повторяет за myloran");
+                    //end Повторяет за myloran
+                    break;
+                case "Weedwick":
+                    player.Status.AddInGamePersonalLogs("Она всегда со мной, куда бы я не пошел...\n");
+                    break;
+                case "Загадочный Спартанец в маске":
+                    player.Character.SetAnySkillMultiplier(1);
+                    player.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*\n");
+
+                    //Им это не понравится
+                    Guid enemy1;
+                    Guid enemy2;
+
+                    do
+                    {
+                        var randIndex = _rand.Random(0, playersList.Count - 1);
+                        enemy1 = playersList[randIndex].GetPlayerId();
+                        if (playersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "mylorik" or "Загадочный Спартанец в маске")
+                            enemy1 = player.GetPlayerId();
+                    } while (enemy1 == player.GetPlayerId());
+
+                    do
+                    {
+                        var randIndex = _rand.Random(0, playersList.Count - 1);
+                        enemy2 = playersList[randIndex].GetPlayerId();
+                        if (playersList[randIndex].Character.Name is "Mit*suki*" or "Глеб" or "mylorik" or "Загадочный Спартанец в маске")
+                            enemy2 = player.GetPlayerId();
+                        if (enemy2 == enemy1)
+                            enemy2 = player.GetPlayerId();
+                    } while (enemy2 == player.GetPlayerId());
+
+                    player.Passives.SpartanMark.FriendList.Add(enemy1);
+                    player.Passives.SpartanMark.FriendList.Add(enemy2);
+                    //end Им это не понравится
+                    break;
+                case "HardKitty":
+                    //Никому не нужен
+                    player.Status.HardKittyMinus(-20, "Никому не нужен");
+                    player.Status.AddInGamePersonalLogs("Никому не нужен: -20 *Морали*\n");
+                    var hardIndex = playersList.IndexOf(player);
+
+                    for (var i = hardIndex; i < playersList.Count - 1; i++)
+                        playersList[i] = playersList[i + 1];
+
+                    playersList[^1] = player;
+                    //end Никому не нужен
+                    break;
+                case "Тигр":
+                    //Тигр топ, а ты холоп
+                    var tigr = player.Passives.TigrTop;
+
+                    if (tigr is { TimeCount: > 0 })
+                    {
+                        var tigrIndex = playersList.IndexOf(player);
+
+                        playersList[tigrIndex] = playersList.First();
+                        playersList[0] = player;
+                        tigr.TimeCount--;
+                        //game.Phrases.TigrTop.SendLog(tigrTemp);
+                    }
+                    //Тигр топ, а ты холоп
+                    break;
+                case "Mit*suki*":
+                    //Дерзкая школота + Много выебывается
+                    player.Character.AddExtraSkill(player.Status, 100, "Дерзкая школота");
+
+                    //first place
+                    hardIndex = playersList.IndexOf(player);
+                    playersList[hardIndex] = playersList.First();
+                    playersList[0] = player;
+
+                    //x3 class for target
+                    player.Character.SetTargetSkillMultiplier(2);
+                    //end Дерзкая школота + Много выебывается
+                    break;
+            }
+        }
+
+        return playersList;
+    }
+
+
     //handle during fight
     public void HandleDefenseBeforeFight(GamePlayerBridgeClass target, GamePlayerBridgeClass me, GameClass game)
     {
