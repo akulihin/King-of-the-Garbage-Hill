@@ -695,7 +695,7 @@
   },
   {
     "Name": "Кратос",
-    "Intelligence": 2,
+    "Intelligence": 0,
     "Psyche": 0,
     "Speed": 8,
     "Strength": 9,
