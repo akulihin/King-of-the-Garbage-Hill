@@ -88,6 +88,12 @@ public class PassivesClass
     public Vampyr.ScavengerClass VampyrScavengerList { get; set; } = new();
 
 
+    public int WeedwickWeed { get; set; } = 0;
+    public int WeedwickLastRoundWeed { get; set; } = 0;
+
+    public bool KratosIsDead { get; set; } = false;
+
+
     public PassivesClass (GamePlayerBridgeClass player)
     {
         InitializePassives(player);

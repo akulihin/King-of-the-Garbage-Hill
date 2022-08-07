@@ -439,7 +439,7 @@ public sealed class GameReaction : IServiceSingleton
 
             status.WhoToAttackThisTurn.Add(whoToAttack.GetPlayerId());
 
-            if (player.Character.Name == "Кратос")
+            if (player.Character.Name == "Кратос" && game.RoundNo <= 10)
             {
                 var whoToAttack2 = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum-1);
                 var whoToAttack3 = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum + 1);

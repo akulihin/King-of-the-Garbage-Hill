@@ -49,6 +49,8 @@ public class GameClass
     public CharactersUniquePhrase Phrases { get; set; }
 
     public bool IsCheckIfReady { get; set; }
+    public bool IsFinished { get; set; } = false;
+    public bool IsKratosEvent { get; set; } = false;
 
     /*
      * 1 - Turn

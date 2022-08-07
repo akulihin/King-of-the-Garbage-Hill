@@ -183,6 +183,19 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         switch (me.Character.Name)
         {
+            case "Weedwick":
+                if (other.Passives.WeedwickWeed > 0)
+                {
+                    customString += $" <:weed:1005884006866354196>: {other.Passives.WeedwickWeed}";
+                }
+                
+                if (other.GetPlayerId() == me.GetPlayerId()) break;
+                
+                if (other.Character.Justice.GetRealJusticeNow() == 0)
+                {
+                    customString += $" <:WUF:1005886339335598120>";
+                }
+                break;
             case "AWDKA":
                 if (other.GetPlayerId() == me.GetPlayerId()) break;
 
@@ -249,10 +262,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         switch (lostSeries.Series)
                         {
                             case > 9:
-                                customString += $" <:LoveLetter:998306315342454884> - {lostSeries.Series}";
+                                customString += $" <:LoveLetter:998306315342454884>: {lostSeries.Series}";
                                 break;
                             case > 0:
-                                customString += $" <:393:563063205811847188> - {lostSeries.Series}";
+                                customString += $" <:393:563063205811847188>: {lostSeries.Series}";
                                 break;
                         }
                 }
@@ -426,7 +439,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             customString += $" {knownClass.Text}";
 
 
-        if (game.RoundNo == 11)
+        if (game.RoundNo >= 11 && !game.IsKratosEvent)
             customString += $" (as **{other.Character.Name}**) = {other.Status.GetScore()} Score";
 
         if (me.PlayerType == 2)
@@ -750,7 +763,19 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public SelectMenuBuilder GetAttackMenu(GamePlayerBridgeClass player, GameClass game)
     {
-        var isDisabled = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady || game.RoundNo > 10;
+        var isDisabled = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady;
+
+        //Возвращение из мертвых
+        if (game.RoundNo > 10 && game.IsKratosEvent && player.Character.Name == "Кратос")
+        {
+
+        }
+        //end Возвращение из мертвых
+        else if (game.RoundNo > 10)
+        {
+            isDisabled = true;
+        }
+
         var placeHolder = "Выбрать цель";
 
         if (player.Status.IsSkip) placeHolder = "Что-то заставило тебя скипнуть...";
@@ -760,6 +785,17 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (player.Status.IsAutoMove) placeHolder = "Ты использовал Авто Ход!";
 
         if (game.RoundNo > 10) placeHolder = "gg wp";
+
+        //Возвращение из мертвых
+        if (game.IsKratosEvent && player.Character.Name == "Кратос")
+        {
+            placeHolder = "УБИТЬ!";
+        }
+        else if (game.IsKratosEvent)
+        {
+            placeHolder = "ЭТО БОГ ВОЙНЫ! БЕГИ!";
+        }
+        //end Возвращение из мертвых
 
         if (player.Status.IsReady)
         {
@@ -793,15 +829,18 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             .WithPlaceholder(placeHolder);
 
 
-        if (game != null)
-            for (var i = 0; i < _playerChoiceAttackList.Count; i++)
-            {
-                var playerToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == i + 1);
-                if (playerToAttack == null) continue;
-                if (playerToAttack.DiscordId != player.DiscordId)
-                    attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, $"{i + 1}",
-                        emote: _playerChoiceAttackList[i]);
-            }
+        for (var i = 0; i < _playerChoiceAttackList.Count; i++)
+        {
+            var playerToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == i + 1);
+            if (playerToAttack == null) continue;
+            if (playerToAttack.DiscordId != player.DiscordId)
+                attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, $"{i + 1}", emote: _playerChoiceAttackList[i]);
+        }
+
+        if (attackMenu.Options.Count == 0)
+        {
+            attackMenu.AddOption("ТЫ ВСЕХ УБИЛ", "kratos-death");
+        }
 
         return attackMenu;
     }
@@ -864,16 +903,22 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             .WithDisabled(game.RoundNo >= 9)
             .WithPlaceholder("Сделать предположение");
 
-        if (game != null)
-            for (var i = 0; i < _playerChoiceAttackList.Count; i++)
-            {
-                var playerToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == i + 1);
-                if (playerToAttack == null) continue;
-                if (playerToAttack.DiscordId != player.DiscordId)
-                    predictMenu.AddOption(playerToAttack.DiscordUsername + " это...",
-                        playerToAttack.DiscordUsername,
-                        emote: _playerChoiceAttackList[i]);
-            }
+
+        for (var i = 0; i < _playerChoiceAttackList.Count; i++)
+        {
+            var playerToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == i + 1);
+            if (playerToAttack == null) continue;
+            if (playerToAttack.DiscordId != player.DiscordId)
+                predictMenu.AddOption(playerToAttack.DiscordUsername + " это...",
+                    playerToAttack.DiscordUsername,
+                    emote: _playerChoiceAttackList[i]);
+        }
+
+
+        if (predictMenu.Options.Count == 0)
+        {
+            predictMenu.AddOption("ТЫ ВСЕХ УБИЛ", "kratos-death");
+        }
 
 
         return predictMenu;
@@ -1058,13 +1103,12 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public ButtonBuilder GetAutoMoveButton(GamePlayerBridgeClass player, GameClass game)
     {
-        var enabled = player.Status.IsAutoMove || player.Status.IsSkip || player.Status.IsReady ||
-                      player.Character.Name == "Dopa";
+        var disabled = player.Status.IsAutoMove || player.Status.IsSkip || player.Status.IsReady || player.Character.Tier >= 3;
 
         if (game.TimePassed.Elapsed.TotalSeconds < 29 && player.DiscordId != 238337696316129280 &&
-            player.DiscordId != 181514288278536193) enabled = true;
+            player.DiscordId != 181514288278536193) disabled = true;
 
-        return new ButtonBuilder("Авто Ход", "auto-move", ButtonStyle.Secondary, isDisabled: enabled);
+        return new ButtonBuilder("Авто Ход", "auto-move", ButtonStyle.Secondary, isDisabled: disabled);
     }
 
     public async Task UpdateMessage(GamePlayerBridgeClass player, string extraText = "")

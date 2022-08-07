@@ -67,6 +67,7 @@ Speed => Strength
             {
                 player.Status.WonTimes++;
                 player.Status.WinStreak++;
+                player.Passives.WeedwickWeed++;
             }
 
             if (player.Status.IsLostThisCalculation != Guid.Empty)
@@ -138,6 +139,11 @@ Speed => Strength
         var roundNumber = game.RoundNo + 1;
         if (roundNumber > 10) roundNumber = 10;
 
+        //Возвращение из мертвых
+        if (game.IsKratosEvent)
+            roundNumber = game.RoundNo + 1;
+        //end Возвращение из мертвых
+
         /*
         1-4 х1
         5-9 х2
@@ -161,7 +167,7 @@ Speed => Strength
             //if block => no one gets points, and no redundant playerAttacked variable
             if (player.Status.IsBlock || player.Status.IsSkip)
             {
-                _characterPassives.HandleCharacterAfterFight(player, game, true, false);
+                await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
                 ResetFight(player);
                 continue;
             }
@@ -292,8 +298,8 @@ Speed => Strength
 
                     playerIamAttacking.Character.Justice.AddJusticeForNextRoundFromFight();
 
-                    _characterPassives.HandleCharacterAfterFight(player, game, true, false);
-                    _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
+                    await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
+                    await _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
                     _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
 
                     ResetFight(player, playerIamAttacking);
@@ -313,8 +319,8 @@ Speed => Strength
                         logMess = " ⟶ *Бой не состоялся (Скип)...*";
                     game.AddGlobalLogs(logMess);
 
-                    _characterPassives.HandleCharacterAfterFight(player, game, true, false);
-                    _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
+                    await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
+                    await _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
 
                     ResetFight(player, playerIamAttacking);
 
@@ -612,7 +618,7 @@ Speed => Strength
                 _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
 
                 //т.е. я его аттакую, какие у меня бонусы на это
-                _characterPassives.HandleAttackAfterFight(player, playerIamAttacking, game);
+                await _characterPassives.HandleAttackAfterFight(player, playerIamAttacking, game);
 
                 //TODO: merge top 2 methods and 2 below... they are the same... or no?
 
@@ -629,8 +635,8 @@ Speed => Strength
                         break;
                 }
 
-                _characterPassives.HandleCharacterAfterFight(player, game, true, false);
-                _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
+                await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
+                await _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
 
                 _characterPassives.HandleShark(game); //used only for shark...
 
@@ -663,6 +669,16 @@ Speed => Strength
             player.Status.ClearInGamePersonalLogs();
             player.Status.InGamePersonalLogsAll += "|||";
         }
+
+        //Возвращение из мертвых
+        game.PlayersList = game.PlayersList.Where(x => !x.Passives.KratosIsDead).ToList();
+        if (game.PlayersList.Count == 1)
+        {
+            game.IsKratosEvent = false;
+            game.PlayersList[0].Status.AddInGamePersonalLogs("By the gods, what have I become?\n");
+            game.AddGlobalLogs("\nЯ умер как **Воин**, вернулся как **Бог**, а закончил **Королем Мусорной Горы**!");
+        }
+        //end Возвращение из мертвых
 
         game.SkipPlayersThisRound = 0;
         game.RoundNo++;

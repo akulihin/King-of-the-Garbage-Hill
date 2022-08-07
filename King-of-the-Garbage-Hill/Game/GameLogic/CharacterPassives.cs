@@ -39,15 +39,11 @@ public class CharacterPassives : IServiceSingleton
             switch (player.Character.Name)
             {
                 case "Кратос":
-                    player.Status.AddInGamePersonalLogs("*Какая честь - умереть на поле боя... Начнем прямо сейчас!*\n");
-                    
+                    player.Status.AddInGamePersonalLogs("**Zeus! Your son has returned. I bring the destruction of Olympus!**\n");
+                        
                     // Похищение души
-                    player.Character.SetAnySkillMultiplier(1);
+                    player.Character.SetExtraSkillMultiplier(1);
                     //end Похищение души
-
-                    //Охота на богов
-                    player.Character.SetTargetSkillMultiplier(1);
-                    //end Охота на богов
 
                     break;
                 case "mylorik":
@@ -273,7 +269,7 @@ public class CharacterPassives : IServiceSingleton
             case "Толя":
 
                 //Раммус мейн
-                if (target.Status.IsBlock && me.Character.Name != "Weedwick")
+                if (target.Status.IsBlock && me.Character.Name != "Weedwick" && game.RoundNo <= 10)
                 {
                     // target.Status.IsBlock = false;
                     me.Status.IsAbleToWin = false;
@@ -434,6 +430,34 @@ public class CharacterPassives : IServiceSingleton
 
         switch (characterName)
         {
+            case "Кратос":
+                //Возвращение из мертвых
+                if (game.RoundNo >= 10)
+                {
+                    if (target.Status.IsBlock)
+                    {
+                        target.Status.IgnoredBlock = true;
+                        target.Status.IsBlock = false;
+                    }
+
+                    if (target.Status.IsSkip)
+                    {
+                        target.Status.IgnoredSkip = true;
+                        target.Status.IsSkip = false;
+                    }
+                }
+                //end Возвращение из мертвых
+
+                //Охота на богов
+                if (me.Character.GetCurrentSkillClassTarget() == target.Character.GetSkillClass())
+                {
+                    me.Character.SetSkillFightMultiplier(2);
+                    if(game.IsKratosEvent)
+                        me.Character.SetSkillFightMultiplier(4);
+                }
+                //end Охота на богов
+
+                break;
             case "Толя":
 
                 //Подсчет
@@ -704,14 +728,66 @@ public class CharacterPassives : IServiceSingleton
         }
     }
 
-    public void HandleAttackAfterFight(GamePlayerBridgeClass me, GamePlayerBridgeClass target, GameClass game)
+    public async Task HandleAttackAfterFight(GamePlayerBridgeClass me, GamePlayerBridgeClass target, GameClass game)
     {
         var characterName = me.Character.Name;
 
 
         switch (characterName)
         {
+            case "Кратос":
+                //Возвращение из мертвых
+                if (game.IsKratosEvent)
+                {
+                    if (me.Status.IsWonThisCalculation == target.GetPlayerId())
+                    {
+                        target.Passives.KratosIsDead = true;
+                        await target.Status.SocketMessageFromBot.ModifyAsync(x =>
+                        {
+                            x.Embed = null;
+                            x.Content = "Тебя Убили...";
+                        });
+                    }
+                }
+                //end Возвращение из мертвых
+
+                break;
             case "Weedwick":
+                //Weed
+                if (me.Status.IsWonThisCalculation == target.GetPlayerId())
+                {
+                    if (target.Passives.WeedwickWeed > 0)
+                    {
+                        me.Character.AddMoral(me.Status, target.Passives.WeedwickWeed, "Weed");
+                        
+                        switch (target.Passives.WeedwickWeed)
+                        {
+                            case 1:
+                                game.Phrases.WeedwickWeedYes1.SendLog(me, false);
+                                break;
+                            case 2:
+                                game.Phrases.WeedwickWeedYes2.SendLog(me, false);
+                                break;
+                            case 3:
+                                game.Phrases.WeedwickWeedYes3.SendLog(me, false);
+                                break;
+                            case 4:
+                                game.Phrases.WeedwickWeedYes4.SendLog(me, false);
+                                break;
+                            case 5:
+                                game.Phrases.WeedwickWeedYes5.SendLog(me, false);
+                                break;
+                            default:
+                                game.Phrases.WeedwickWeedYes6.SendLog(me, false);
+                                break;
+                        }
+
+                        target.Passives.WeedwickWeed = 0;
+                        me.Passives.WeedwickLastRoundWeed = game.RoundNo;
+                    }
+                }
+                //end Weed
+
                 // Оборотень
                 var myTempStrength = me.Character.GetStrength();
                 var targetTempStrength = target.Character.GetStrength();
@@ -749,40 +825,39 @@ public class CharacterPassives : IServiceSingleton
                             game.Phrases.WeedwickValuablePreyPoints7.SendLog(me, false);
                             break;
                     }
-                }
 
-                
-                var range = me.Character.GetSpeedQualityResistInt();
-                range -= target.Character.GetSpeedQualityKiteBonus();
+                    var range = me.Character.GetSpeedQualityResistInt();
+                    range -= target.Character.GetSpeedQualityKiteBonus();
 
-                var placeDiff = me.Status.PlaceAtLeaderBoard - target.Status.PlaceAtLeaderBoard;
-                if (placeDiff < 0)
-                    placeDiff *= -1;
+                    var placeDiff = me.Status.PlaceAtLeaderBoard - target.Status.PlaceAtLeaderBoard;
+                    if (placeDiff < 0)
+                        placeDiff *= -1;
 
 
-                if (placeDiff <= range)
-                {
-                    // 1/место в таблице.
-                    var roll = _rand.Random(1, target.Status.PlaceAtLeaderBoard);
-                    if (roll == 1)
+                    if (placeDiff <= range)
                     {
-                        target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status, me.Character.GetStrengthQualityDropBonus());
-                        game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
-                    }
-                    // 1/10
-                    roll = _rand.Random(1, 10);
-                    if (roll == 1)
-                    {
-                        target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status, me.Character.GetStrengthQualityDropBonus());
-                        game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
-                    }
+                        // 1/место в таблице.
+                        var roll = _rand.Random(1, target.Status.PlaceAtLeaderBoard);
+                        if (roll == 1)
+                        {
+                            target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status, me.Character.GetStrengthQualityDropBonus());
+                            game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
+                        }
+                        // 1/10
+                        roll = _rand.Random(1, 10);
+                        if (roll == 1)
+                        {
+                            target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status, me.Character.GetStrengthQualityDropBonus());
+                            game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
+                        }
 
-                    // 1/3 если враг топ1
-                    roll = _rand.Random(1, 3);
-                    if (roll == 1 && target.Status.PlaceAtLeaderBoard == 1)
-                    {
-                        target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status, me.Character.GetStrengthQualityDropBonus());
-                        game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
+                        // 1/3 если враг топ1
+                        roll = _rand.Random(1, 3);
+                        if (roll == 1 && target.Status.PlaceAtLeaderBoard == 1)
+                        {
+                            target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status, me.Character.GetStrengthQualityDropBonus());
+                            game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
+                        }
                     }
                 }
                 //end Ценная добыча
@@ -988,7 +1063,7 @@ public class CharacterPassives : IServiceSingleton
     }
 
 
-    public void HandleCharacterAfterFight(GamePlayerBridgeClass player, GameClass game, bool attack, bool defense)
+    public async Task HandleCharacterAfterFight(GamePlayerBridgeClass player, GameClass game, bool attack, bool defense)
     {
         //Подсчет
         if (player.Status.IsLostThisCalculation != Guid.Empty && player.Character.Name != "Толя" && game.PlayersList.Any(x => x.Character.Name == "Толя"))
@@ -1011,6 +1086,39 @@ public class CharacterPassives : IServiceSingleton
         var characterName = player.Character.Name;
         switch (characterName)
         {
+            case "Кратос":
+                //Возвращение из мертвых
+
+                //failed
+                if (game.IsKratosEvent && player.Status.IsLostThisCalculation != Guid.Empty)
+                {
+                    game.IsKratosEvent = false;
+                    player.Passives.KratosIsDead = true;
+                    await game.Phrases.KratosEventFailed.SendLogSeparateWithFile(player, false, "DataBase/art/events/kratos_hell.png", false);
+                }
+
+                //didn't fail but didn't succseed 
+                if (game.IsKratosEvent && player.Status.IsLostThisCalculation == Guid.Empty && game.RoundNo >= 14)
+                {
+                    game.IsKratosEvent = false;
+                    await game.Phrases.KratosEventNo.SendLogSeparateWithFile(player, false, "DataBase/art/events/kratos_death.jpg", false);
+                }
+
+                if (!game.IsKratosEvent && game.RoundNo == 10 && player.Status.IsLostThisCalculation != Guid.Empty)
+                {
+                    game.IsKratosEvent = true;
+                    await game.Phrases.KratosEventYes.SendLogSeparateWithFile(player, false, "DataBase/sound/Kratos_PLAY_ME.mp3", false);
+                    player.Character.SetExtraSkillMultiplier(3);
+                }
+
+                //end Возвращение из мертвых
+
+                //Охота на богов
+                player.Character.SetSkillFightMultiplier();
+                //end Охота на богов
+
+
+                break;
             case "Краборак":
                 //Панцирь
                 var сraboRackShell = player.Passives.CraboRackShell;
@@ -2592,6 +2700,17 @@ public class CharacterPassives : IServiceSingleton
 
             switch (characterName)
             {
+                case "Weedwick":
+                    //Weed
+                    var diff = game.RoundNo - player.Passives.WeedwickLastRoundWeed;
+                    if (diff >= 3)
+                    {
+                        game.Phrases.WeedwickWeedNo.SendLog(player, false);
+                        player.Character.AddPsyche(player.Status, -1, "Weed");
+                        player.MinusPsycheLog(game);
+                    }
+                    //end Weed
+                    break;
                 case "Братишка":
                     //Булькает:
                     if (player.Status.PlaceAtLeaderBoard != 1)

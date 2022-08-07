@@ -117,7 +117,6 @@ public class DiceRollCommands : ModuleBaseCustom
     public async Task Roll(int number)
     {
         var randomIndexRoll = _secureRandom.Random(1, number);
-
         await SendMessageAsync($"It's a {randomIndexRoll}!");
     }
 

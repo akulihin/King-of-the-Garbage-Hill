@@ -112,6 +112,11 @@ public class CharactersUniquePhrase
     public PhraseClass WeedwickWeedNo;
 
 
+    public PhraseClass KratosEventYes;
+    public PhraseClass KratosEventNo;
+    public PhraseClass KratosEventFailed;
+
+
     //end
     public PhraseClass AutoMove1;
     public PhraseClass AutoMove2;
@@ -238,6 +243,10 @@ public class CharactersUniquePhrase
         WeedwickWeedYes5 = new PhraseClass("Weed");
         WeedwickWeedYes6 = new PhraseClass("Weed");
         WeedwickWeedNo = new PhraseClass("Weed");
+
+        KratosEventYes = new PhraseClass("Возвращение из мертвых");
+        KratosEventNo = new PhraseClass("Возвращение из мертвых");
+        KratosEventFailed = new PhraseClass("Возвращение из мертвых");
         //end
 
         //
@@ -631,6 +640,12 @@ public class CharactersUniquePhrase
         WeedwickWeedNo.PassiveLogRus.Add("ГДЕ МОЙ WEED СУКИ?");
         WeedwickWeedNo.PassiveLogRus.Add("ГДЕ ШО");
         WeedwickWeedNo.PassiveLogRus.Add("228 папиросим, НО ГДЕ???");
+
+        KratosEventYes.PassiveLogRus.Add("If all of Olympus will deny me my vengeance, then all of Olympus **will die**!");
+        KratosEventNo.PassiveLogRus.Add("My vengeance ends now!");
+        KratosEventFailed.PassiveLogRus.Add("AAAAAAAAAAAAAAAAAAAAAAAAAAA");
+
+
         //end
     }
 
@@ -757,6 +772,46 @@ public class CharactersUniquePhrase
             {
                 var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(description);
                 player.DeleteMessages.Add(mess2.Id);
+            }
+            catch (Exception exception)
+            {
+                Console.Write(exception.Message);
+                Console.Write(exception.StackTrace);
+            }
+        }
+
+        public async Task SendLogSeparateWithFile(GamePlayerBridgeClass player, bool delete, string filePath, bool clearNextRound)
+        {
+            if (player.IsBot()) return;
+
+            var description = PassiveLogRus[Random(0, PassiveLogRus.Count - 1)];
+            if (delete)
+            {
+                if (PassiveLogRus.Count > 1)
+                    PassiveLogRus.Remove(description);
+            }
+            else
+            {
+                var personalLogs = player.Status.GetInGamePersonalLogs();
+                var i = 0;
+                while (i < 20)
+                {
+                    i++;
+                    if (!personalLogs.Contains(description))
+                        break;
+                    description = PassiveLogRus[Random(0, PassiveLogRus.Count - 1)];
+                }
+            }
+
+
+            if (PassiveLogRus.Count > 1)
+                PassiveLogRus.Remove(description);
+            try
+            {
+                //.SendFileAsync($"DataBase/sound/Kratos_PLAY_ME.mp3", "123");
+                var mess2 = await player.Status.SocketMessageFromBot.Channel.SendFileAsync(filePath, description);
+                if(clearNextRound)
+                    player.DeleteMessages.Add(mess2.Id);
             }
             catch (Exception exception)
             {

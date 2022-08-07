@@ -122,10 +122,18 @@ public class CheckIfReady : IServiceSingleton
         }
 
         //
-        if (playerWhoWon.Status.PlaceAtLeaderBoardHistory.Find(x => x.GameRound == 10).Place != 1)
-            if (game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 1).Status.GetScore() !=
-                game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 2).Status.GetScore())
-                game.AddGlobalLogs($"**{playerWhoWon.DiscordUsername}** вырывает **очко** на последних секундах!");
+        try
+        {
+            if (playerWhoWon.Status.PlaceAtLeaderBoardHistory.Find(x => x.GameRound == 10)!.Place != 1)
+                    if (game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 1)!.Status.GetScore() !=
+                        game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 2)!.Status.GetScore())
+                        game.AddGlobalLogs($"**{playerWhoWon.DiscordUsername}** вырывает **очко** на последних секундах!");
+        }
+        catch
+        {
+            //ignored
+        }
+
     }
 
 
@@ -133,14 +141,15 @@ public class CheckIfReady : IServiceSingleton
     {
         game.IsCheckIfReady = false;
         //predict
-        foreach (var player in from player in game.PlayersList
-                 from predict in player.Predict
-                 let enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId)
-                 where enemy.Character.Name == predict.CharacterName
-                 select player)
-        {
-            player.Status.AddBonusPoints(3, "Предположение");
-        }
+        if(game.PlayersList.Count == 6)
+            foreach (var player in from player in game.PlayersList
+                     from predict in player.Predict
+                     let enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId)
+                     where enemy.Character.Name == predict.CharacterName
+                     select player)
+            {
+                player.Status.AddBonusPoints(3, "Предположение");
+            }
         // predict
 
 
@@ -519,7 +528,12 @@ public class CheckIfReady : IServiceSingleton
             if (!game.IsCheckIfReady) continue;
 
             //round 11 is the end of the game, no fights on round 11
-            if (game.RoundNo == 11)
+            if (game.RoundNo >= 11 && !game.IsKratosEvent)
+            {
+                game.IsFinished = true;
+            }
+
+            if (game.IsFinished)
             {
                 await HandleLastRound(game);
                 continue;
@@ -528,6 +542,20 @@ public class CheckIfReady : IServiceSingleton
             var players = _global.GamesList[i].PlayersList;
             var readyTargetCount = players.Count(x => !x.IsBot());
             var readyCount = 0;
+
+            //Возвращение из мертвых
+            if (game.IsKratosEvent)
+            {
+                foreach (var player in players.Where(x => x.Character.Name != "Кратос"))
+                {
+                    player.Status.IsReady = true;
+                    player.Status.IsBlock = true;
+                    player.Status.IsAbleToTurn = false;
+                }
+            }
+            //end Возвращение из мертвых
+
+
             foreach (var player in players.Where(x => !x.IsBot()))
             {
                 //if (game.TimePassed.Elapsed.TotalSeconds < 30) continue;
@@ -577,9 +605,7 @@ public class CheckIfReady : IServiceSingleton
 
 
             //If did do anything - Block
-            foreach (var t in players.Where(t =>
-                         !t.IsBot() && !t.Status.IsAutoMove && t.Status.WhoToAttackThisTurn.Count == 0 &&
-                         t.Status.IsBlock == false && t.Status.IsSkip == false))
+            foreach (var t in players.Where(t => !t.IsBot() && !t.Status.IsAutoMove && t.Status.WhoToAttackThisTurn.Count == 0 && t.Status.IsBlock == false && t.Status.IsSkip == false))
             {
                 _logs.Warning($"\nWARN: {t.DiscordUsername} didn't do anything - Auto Move!\n");
                 t.Status.IsAutoMove = true;
@@ -616,7 +642,7 @@ public class CheckIfReady : IServiceSingleton
             for (var k = 0; k < game.PlayersList.Count; k++) game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
             //end //AWDKA last
 
-            foreach (var t in players.Where(x => x.IsBot() || x.Status.IsAutoMove))
+            foreach (var t in players.Where(x => !x.Status.IsReady).Where(x => x.IsBot() || x.Status.IsAutoMove))
                 try
                 {
                     await _botsBehavior.HandleBotBehavior(t, game);
