@@ -763,7 +763,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         if (player.Status.IsReady)
         {
-            var target = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.WhoToAttackThisTurn);
+            var target = game.PlayersList.Find(x => player.Status.WhoToAttackThisTurn.Contains(x.GetPlayerId()));
             if (target != null) placeHolder = $"Ты напал на {target.DiscordUsername}";
         }
 
@@ -808,7 +808,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public SelectMenuBuilder GetDopaMenu(GamePlayerBridgeClass player, GameClass game)
     {
-        var isDisabled = !(player.Status.IsBlock || player.Status.WhoToAttackThisTurn != Guid.Empty);
+        var isDisabled = !(player.Status.IsBlock || player.Status.WhoToAttackThisTurn.Count != 0);
 
         var placeHolder = "Второе Действие";
 
@@ -818,7 +818,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         if (player.Status.IsReady)
         {
-            var target = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.WhoToAttackThisTurn);
+            var target = game.PlayersList.Find(x => player.Status.WhoToAttackThisTurn.Contains(x.GetPlayerId()));
             if (target != null) placeHolder = $"Ты напал на {target.DiscordUsername}";
         }
 

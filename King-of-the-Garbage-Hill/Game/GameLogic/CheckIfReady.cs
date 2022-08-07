@@ -578,7 +578,7 @@ public class CheckIfReady : IServiceSingleton
 
             //If did do anything - Block
             foreach (var t in players.Where(t =>
-                         !t.IsBot() && !t.Status.IsAutoMove && t.Status.WhoToAttackThisTurn == Guid.Empty &&
+                         !t.IsBot() && !t.Status.IsAutoMove && t.Status.WhoToAttackThisTurn.Count == 0 &&
                          t.Status.IsBlock == false && t.Status.IsSkip == false))
             {
                 _logs.Warning($"\nWARN: {t.DiscordUsername} didn't do anything - Auto Move!\n");
@@ -644,7 +644,7 @@ public class CheckIfReady : IServiceSingleton
 
 
             foreach (var t in players.Where(t =>
-                         t.Status.WhoToAttackThisTurn == Guid.Empty && t.Status.IsBlock == false &&
+                         t.Status.WhoToAttackThisTurn.Count == 0 && t.Status.IsBlock == false &&
                          t.Status.IsSkip == false))
                 _logs.Critical($"\nCRIT: {t.DiscordUsername} didn't do anything  and auto move didn't as well.!\n");
 

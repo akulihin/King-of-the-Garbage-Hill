@@ -437,7 +437,7 @@ public class BotsBehavior : IServiceSingleton
 
                 //how many players are attacking the same player
                 howManyAttackingTheSameTarget = allTargets
-                    .FindAll(x => x.Player.Status.WhoToAttackThisTurn == target.GetPlayerId()).Count;
+                    .FindAll(x => x.Player.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId())).Count;
                 target.AttackPreference -= howManyAttackingTheSameTarget;
 
 
@@ -865,7 +865,7 @@ public class BotsBehavior : IServiceSingleton
 
                             //Jew
                             foreach (var v in allTargets)
-                                if (v.Player.Status.WhoToAttackThisTurn == target.GetPlayerId())
+                                if (v.Player.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()))
                                     target.AttackPreference += jewAamount;
                             //end Jew
                         }
@@ -875,7 +875,7 @@ public class BotsBehavior : IServiceSingleton
                     case "LeCrisp":
                         //Jew
                         foreach (var v in allTargets)
-                            if (v.Player.Status.WhoToAttackThisTurn == target.GetPlayerId())
+                            if (v.Player.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()))
                                 target.AttackPreference += 6;
                         //end Jew
                         break;
@@ -1193,12 +1193,12 @@ public class BotsBehavior : IServiceSingleton
 
                             break;
                         case "Толя":
-                            var enemyCount = allTargets.Count(x => x.Player.Status.WhoToAttackThisTurn == target3.GetPlayerId());
+                            var enemyCount = allTargets.Count(x => x.Player.Status.WhoToAttackThisTurn.Contains(target3.GetPlayerId()));
                             if (enemyCount >= 2)
                                 target3.AttackPreference = realAttackPreference;
                             break;
                         case "LeCrisp":
-                            enemyCount = allTargets.Count(x => x.Player.Status.WhoToAttackThisTurn == target3.GetPlayerId());
+                            enemyCount = allTargets.Count(x => x.Player.Status.WhoToAttackThisTurn.Contains(target3.GetPlayerId()));
                             if (enemyCount >= 2)
                                 target3.AttackPreference = realAttackPreference;
                             break;

@@ -17,7 +17,7 @@ public class InGameStatus
         IsBlock = false;
         IsAbleToTurn = true;
         PlaceAtLeaderBoard = 0;
-        WhoToAttackThisTurn = Guid.Empty;
+        WhoToAttackThisTurn = new List<Guid>();
 
         IsReady = false;
         IsAutoMove = false;
@@ -65,7 +65,7 @@ public class InGameStatus
     public bool IsAbleToTurn { get; set; }
     public bool IsAbleToWin { get; set; }
     public int PlaceAtLeaderBoard { get; set; }
-    public Guid WhoToAttackThisTurn { get; set; }
+    public List<Guid> WhoToAttackThisTurn { get; set; }
     public bool IsReady { get; set; }
     public int WonTimes { get; set; }
     public int WinStreak { get; set; }

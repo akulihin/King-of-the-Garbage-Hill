@@ -12,19 +12,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic;
 public class CalculateRound : IServiceSingleton
 {
     private readonly CharacterPassives _characterPassives;
-    
-    private readonly Global _global;
     private readonly LoginFromConsole _logs;
-
-
     private readonly SecureRandom _rand;
 
-    public CalculateRound(SecureRandom rand, CharacterPassives characterPassives, Global global, LoginFromConsole logs)
+    public CalculateRound(SecureRandom rand, CharacterPassives characterPassives, LoginFromConsole logs)
     {
         _rand = rand;
         _characterPassives = characterPassives;
-
-        _global = global;
         _logs = logs;
     }
 
@@ -163,8 +157,6 @@ Speed => Strength
             var isStatsBettterEnemy = false;
             var isContrLost = 0;
             var isTooGoodLost = 0;
-            var playerIamAttacking = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.WhoToAttackThisTurn);
-
 
             //if block => no one gets points, and no redundant playerAttacked variable
             if (player.Status.IsBlock || player.Status.IsSkip)
@@ -174,487 +166,476 @@ Speed => Strength
                 continue;
             }
 
-            if (playerIamAttacking == null)
+            foreach (var playerIamAttacking in player.Status.WhoToAttackThisTurn.Select(t => game.PlayersList.Find(x => x.GetPlayerId() == t)))
             {
-                await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(
-                    "playerIamAttacking == null\n" +
-                    $"Round: {game.RoundNo}\n" +
-                    $"{player.Status.CharacterName} | {player.DiscordUsername}\n");
-                _characterPassives.HandleCharacterAfterFight(player, game, true, false);
-                ResetFight(player);
-                continue;
-            }
+                playerIamAttacking.Status.IsFighting = player.GetPlayerId();
+                player.Status.IsFighting = playerIamAttacking.GetPlayerId();
 
 
-            playerIamAttacking.Status.IsFighting = player.GetPlayerId();
-            player.Status.IsFighting = playerIamAttacking.GetPlayerId();
+                _characterPassives.HandleDefenseBeforeFight(playerIamAttacking, player, game);
+                _characterPassives.HandleAttackBeforeFight(player, playerIamAttacking, game);
 
 
-            _characterPassives.HandleCharacterWithKnownEnemyBeforeFight(player, game);
-            _characterPassives.HandleCharacterWithKnownEnemyBeforeFight(playerIamAttacking, game);
-            _characterPassives.HandleDefenseBeforeFight(playerIamAttacking, player, game);
-            _characterPassives.HandleAttackBeforeFight(player, playerIamAttacking, game);
+                //умный
+                if (player.Character.GetSkillClass() == "Интеллект" && playerIamAttacking.Character.Justice.GetRealJusticeNow() == 0)
+                    player.Character.AddExtraSkill(player.Status, 6, "Класс");
 
 
-            //умный
-            if (player.Character.GetSkillClass() == "Интеллект" && playerIamAttacking.Character.Justice.GetRealJusticeNow() == 0)
-                player.Character.AddExtraSkill(player.Status, 6, "Класс");
+                if (!player.Status.IsAbleToWin) pointsWined = -50;
+                if (!playerIamAttacking.Status.IsAbleToWin) pointsWined = 50;
 
 
-            if (!player.Status.IsAbleToWin) pointsWined = -50;
-            if (!playerIamAttacking.Status.IsAbleToWin) pointsWined = 50;
+                game.AddGlobalLogs($"{player.DiscordUsername} <:war:561287719838547981> {playerIamAttacking.DiscordUsername}", "");
 
-
-            game.AddGlobalLogs($"{player.DiscordUsername} <:war:561287719838547981> {playerIamAttacking.DiscordUsername}", "");
-
-            //add skill
-            if (player.Character.GetCurrentSkillClassTarget() == playerIamAttacking.Character.GetSkillClass())
-            {
-                string text1;
-                string text2;
-
-                if (playerIamAttacking.Character.GetSkillClass() == "Интеллект")
+                //add skill
+                if (player.Character.GetCurrentSkillClassTarget() == playerIamAttacking.Character.GetSkillClass())
                 {
-                    text1 = "**умного**";
-                    text2 = "(**Умный** ?) ";
-                }
-                else if (playerIamAttacking.Character.GetSkillClass() == "Сила")
-                {
-                    text1 = "**сильного**";
-                    text2 = "(**Сильный** ?) ";
-                }
-                else if (playerIamAttacking.Character.GetSkillClass() == "Скорость")
-                {
-                    text1 = "**быстрого**";
-                    text2 = "(**Быстрый** ?) ";
-                }
-                else
-                {
-                    text1 = "**буля**";
-                    text2 = "(**БУЛЬ** ?!) ";
-                }
+                    string text1;
+                    string text2;
 
-                player.Character.AddMainSkill(player.Status, text1);
-
-                var known = player.Status.KnownPlayerClass.Find(x => x.EnemyId == playerIamAttacking.GetPlayerId());
-                if (known != null)
-                    player.Status.KnownPlayerClass.Remove(known);
-                player.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(playerIamAttacking.GetPlayerId(), text2));
-            }
-
-
-            //check skill text
-            switch (player.Character.GetCurrentSkillClassTarget())
-            {
-                case "Интеллект":
-                    if (playerIamAttacking.Character.GetSkillClass() != "Интеллект")
+                    if (playerIamAttacking.Character.GetSkillClass() == "Интеллект")
                     {
-                        var knownEnemy =
-                            player.Status.KnownPlayerClass.Find(
-                                x => x.EnemyId == playerIamAttacking.GetPlayerId());
-                        if (knownEnemy != null)
-                            if (knownEnemy.Text.Contains("Умный"))
-                                player.Status.KnownPlayerClass.Remove(knownEnemy);
+                        text1 = "**умного**";
+                        text2 = "(**Умный** ?) ";
                     }
-
-                    break;
-                case "Сила":
-                    if (playerIamAttacking.Character.GetSkillClass() != "Сила")
+                    else if (playerIamAttacking.Character.GetSkillClass() == "Сила")
                     {
-                        var knownEnemy =
-                            player.Status.KnownPlayerClass.Find(
-                                x => x.EnemyId == playerIamAttacking.GetPlayerId());
-                        if (knownEnemy != null)
-                            if (knownEnemy.Text.Contains("Сильный"))
-                                player.Status.KnownPlayerClass.Remove(knownEnemy);
+                        text1 = "**сильного**";
+                        text2 = "(**Сильный** ?) ";
                     }
-
-                    break;
-                case "Скорость":
-                    if (playerIamAttacking.Character.GetSkillClass() != "Скорость")
+                    else if (playerIamAttacking.Character.GetSkillClass() == "Скорость")
                     {
-                        var knownEnemy =
-                            player.Status.KnownPlayerClass.Find(
-                                x => x.EnemyId == playerIamAttacking.GetPlayerId());
-                        if (knownEnemy != null)
-                            if (knownEnemy.Text.Contains("Быстрый"))
-                                player.Status.KnownPlayerClass.Remove(knownEnemy);
-                    }
-
-                    break;
-                case "Буль":
-                    if (playerIamAttacking.Character.GetSkillClass() != "Буль")
-                    {
-                        var knownEnemy =
-                            player.Status.KnownPlayerClass.Find(
-                                x => x.EnemyId == playerIamAttacking.GetPlayerId());
-                        if (knownEnemy != null)
-                            if (knownEnemy.Text.Contains("БУЛЬ"))
-                                player.Status.KnownPlayerClass.Remove(knownEnemy);
-                    }
-
-                    break;
-            }
-
-            //if block => no one gets points
-            if (playerIamAttacking.Status.IsBlock && player.Status.IsAbleToWin)
-            {
-                player.Status.IsTargetBlocked = playerIamAttacking.GetPlayerId();
-                // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
-
-                var logMess = " ⟶ *Бой не состоялся...*";
-                if(game.PlayersList.Any(x => x.PlayerType == 1))
-                    logMess = " ⟶ *Бой не состоялся (Блок)...*";
-                game.AddGlobalLogs(logMess);
-
-
-                player.Status.AddBonusPoints(-1, "Блок");
-
-                playerIamAttacking.Character.Justice.AddJusticeForNextRoundFromFight();
-
-                _characterPassives.HandleCharacterAfterFight(player, game, true, false);
-                _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
-                _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
-
-                ResetFight(player, playerIamAttacking);
-
-                continue;
-            }
-
-
-            // if skip => something
-            if (playerIamAttacking.Status.IsSkip)
-            {
-                player.Status.IsTargetSkipped = playerIamAttacking.GetPlayerId();
-                game.SkipPlayersThisRound++;
-
-                var logMess = " ⟶ *Бой не состоялся...*";
-                if (game.PlayersList.Any(x => x.PlayerType == 1))
-                    logMess = " ⟶ *Бой не состоялся (Скип)...*";
-                game.AddGlobalLogs(logMess);
-
-                _characterPassives.HandleCharacterAfterFight(player, game, true, false);
-                _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
-
-                ResetFight(player, playerIamAttacking);
-
-                continue;
-            }
-
-            //round 1 (contr)
-
-
-            //быстрый
-            if (playerIamAttacking.Character.GetSkillClass() == "Скорость")
-                playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, 2, "Класс");
-
-            if (player.Character.GetSkillClass() == "Скорость")
-                player.Character.AddExtraSkill(player.Status, 2, "Класс");
-
-
-            //main formula:
-            //main formula:
-            var me = player.Character;
-            var target = playerIamAttacking.Character;
-            decimal weighingMachine = 0;
-
-            var skillMultiplierMe = 1;
-            var skillMultiplierTarget = 1;
-
-            decimal contrMultiplier = 1;
-
-            if (me.GetWhoIContre() == target.GetSkillClass())
-            {
-                contrMultiplier = (decimal)1.5;
-                weighingMachine += 2;
-                skillMultiplierMe = 2;
-                isContrLost -= 1;
-            }
-
-
-            if (target.GetWhoIContre() == me.GetSkillClass())
-            {
-                weighingMachine -= 2;
-                skillMultiplierTarget = 2;
-                isContrLost += 1;
-            }
-
-
-            var scaleMe = me.ExtraWeight + me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() +
-                          me.GetSkill() * skillMultiplierMe / 50;
-            var scaleTarget = target.ExtraWeight + target.GetIntelligence() + target.GetStrength() + target.GetSpeed() +
-                              target.GetPsyche() + target.GetSkill() * skillMultiplierTarget / 50;
-            weighingMachine += scaleMe - scaleTarget;
-
-            switch (WhoIsBetter(player, playerIamAttacking))
-            {
-                case 1:
-                    weighingMachine += 5;
-                    break;
-                case 2:
-                    weighingMachine -= 5;
-                    break;
-            }
-
-            var psycheDifference = me.GetPsyche() - target.GetPsyche();
-            switch (psycheDifference)
-            {
-                case > 0 and <= 3:
-                    weighingMachine += 1;
-                    break;
-                case >= 4 and <= 5:
-                    weighingMachine += 2;
-                    break;
-                case >= 6:
-                    weighingMachine += 4;
-                    break;
-                case < 0 and >= -3:
-                    weighingMachine -= 1;
-                    break;
-                case >= -5 and <= -4:
-                    weighingMachine -= 2;
-                    break;
-                case <= -6:
-                    weighingMachine -= 4;
-                    break;
-            }
-
-
-            switch (weighingMachine)
-            {
-                case >= 13:
-                    isTooGoodMe = true;
-                    randomForTooGood = 75;
-                    isTooGoodLost = 1;
-                    break;
-                case <= -13:
-                    isTooGoodEnemy = true;
-                    randomForTooGood = 25;
-                    isTooGoodLost = -1;
-                    break;
-            }
-
-            var myWtf = me.GetSkill() * skillMultiplierMe / 500 * contrMultiplier;
-            var targetWtf = target.GetSkill() * skillMultiplierTarget / 500;
-            var wtf = scaleMe * (1 + (myWtf - targetWtf)) - scaleMe;
-            weighingMachine += wtf;
-
-
-            weighingMachine += player.Character.Justice.GetRealJusticeNow() -
-                               playerIamAttacking.Character.Justice.GetRealJusticeNow();
-
-
-            switch (weighingMachine)
-            {
-                case > 0:
-                    pointsWined++;
-                    isContrLost -= 1;
-                    isStatsBetterMe = true;
-                    break;
-                case < 0:
-                    pointsWined--;
-                    isContrLost += 1;
-                    isStatsBettterEnemy = true;
-                    break;
-            }
-            //end round 1
-
-
-            //round 2 (Justice)
-            if (player.Character.Justice.GetRealJusticeNow() > playerIamAttacking.Character.Justice.GetRealJusticeNow())
-                pointsWined++;
-            if (player.Character.Justice.GetRealJusticeNow() < playerIamAttacking.Character.Justice.GetRealJusticeNow())
-                pointsWined--;
-            //end round 2
-
-            //round 3 (Random)
-            if (pointsWined == 0)
-            {
-                var maxRandomNumber = 100;
-                if (player.Character.Justice.GetRealJusticeNow() > 1 ||
-                    playerIamAttacking.Character.Justice.GetRealJusticeNow() > 1)
-                {
-                    var myJustice = (int)(player.Character.Justice.GetRealJusticeNow() * contrMultiplier);
-                    var targetJustice = playerIamAttacking.Character.Justice.GetRealJusticeNow();
-                    maxRandomNumber -= (myJustice - targetJustice) * 5;
-                }
-
-                var randomNumber = _rand.Random(1, maxRandomNumber);
-                if (randomNumber <= randomForTooGood) pointsWined++;
-                else pointsWined--;
-            }
-            //end round 3
-
-
-            var moral = player.Status.PlaceAtLeaderBoard - playerIamAttacking.Status.PlaceAtLeaderBoard;
-
-            //octopus  // playerIamAttacking is octopus
-            if (pointsWined <= 0) pointsWined =  await _characterPassives.HandleOctopus(playerIamAttacking, player, game);
-            //end octopus
-
-
-            //team
-            var teamMate = false;
-            if (game.Teams.Count > 0)
-            {
-                var playerTeam = game.Teams.Find(x => x.TeamPlayers.Contains(player.Status.PlayerId)).TeamId;
-                var playerIamAttackingTeam = game.Teams.Find(x => x.TeamPlayers.Contains(playerIamAttacking.Status.PlayerId)).TeamId;
-                if (playerTeam == playerIamAttackingTeam)
-                {
-                    teamMate = true;
-                }
-            }
-
-            //CheckIfWin to remove Justice
-            if (pointsWined >= 1)
-            {
-                var point = 1;
-                //сильный
-                if (player.Character.GetSkillClass() == "Сила")
-                    player.Character.AddExtraSkill(player.Status, 4, "Класс");
-
-                isContrLost -= 1;
-                game.AddGlobalLogs($" ⟶ {player.DiscordUsername}");
-
-                //еврей
-                if (!teamMate)
-                    point = await _characterPassives.HandleJews(player, game);
-                if (point == 0) player.Status.AddInGamePersonalLogs("Евреи...\n");
-                //end еврей
-
-
-                //add regular points
-                if (!teamMate) 
-                    if (player.Character.Name == "HardKitty")
-                    {
-                        player.Status.AddRegularPoints(point*-1, "Победа");
+                        text1 = "**быстрого**";
+                        text2 = "(**Быстрый** ?) ";
                     }
                     else
                     {
-                        player.Status.AddRegularPoints(point, "Победа");
+                        text1 = "**буля**";
+                        text2 = "(**БУЛЬ** ?!) ";
                     }
 
+                    player.Character.AddMainSkill(player.Status, text1);
 
-                if (!teamMate)
-                    player.Character.Justice.IsWonThisRound = true;
-
-
-                if (player.Status.PlaceAtLeaderBoard > playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
-                {
-                    if (!teamMate)
-                    {
-                        player.Character.AddMoral(player.Status, moral, "Победа");
-                        playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Поражение");
-                    }
+                    var known = player.Status.KnownPlayerClass.Find(x => x.EnemyId == playerIamAttacking.GetPlayerId());
+                    if (known != null)
+                        player.Status.KnownPlayerClass.Remove(known);
+                    player.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(playerIamAttacking.GetPlayerId(), text2));
                 }
 
-                if (!teamMate)
+
+                //check skill text
+                switch (player.Character.GetCurrentSkillClassTarget())
+                {
+                    case "Интеллект":
+                        if (playerIamAttacking.Character.GetSkillClass() != "Интеллект")
+                        {
+                            var knownEnemy =
+                                player.Status.KnownPlayerClass.Find(
+                                    x => x.EnemyId == playerIamAttacking.GetPlayerId());
+                            if (knownEnemy != null)
+                                if (knownEnemy.Text.Contains("Умный"))
+                                    player.Status.KnownPlayerClass.Remove(knownEnemy);
+                        }
+
+                        break;
+                    case "Сила":
+                        if (playerIamAttacking.Character.GetSkillClass() != "Сила")
+                        {
+                            var knownEnemy =
+                                player.Status.KnownPlayerClass.Find(
+                                    x => x.EnemyId == playerIamAttacking.GetPlayerId());
+                            if (knownEnemy != null)
+                                if (knownEnemy.Text.Contains("Сильный"))
+                                    player.Status.KnownPlayerClass.Remove(knownEnemy);
+                        }
+
+                        break;
+                    case "Скорость":
+                        if (playerIamAttacking.Character.GetSkillClass() != "Скорость")
+                        {
+                            var knownEnemy =
+                                player.Status.KnownPlayerClass.Find(
+                                    x => x.EnemyId == playerIamAttacking.GetPlayerId());
+                            if (knownEnemy != null)
+                                if (knownEnemy.Text.Contains("Быстрый"))
+                                    player.Status.KnownPlayerClass.Remove(knownEnemy);
+                        }
+
+                        break;
+                    case "Буль":
+                        if (playerIamAttacking.Character.GetSkillClass() != "Буль")
+                        {
+                            var knownEnemy =
+                                player.Status.KnownPlayerClass.Find(
+                                    x => x.EnemyId == playerIamAttacking.GetPlayerId());
+                            if (knownEnemy != null)
+                                if (knownEnemy.Text.Contains("БУЛЬ"))
+                                    player.Status.KnownPlayerClass.Remove(knownEnemy);
+                        }
+
+                        break;
+                }
+
+                //if block => no one gets points
+                if (playerIamAttacking.Status.IsBlock && player.Status.IsAbleToWin)
+                {
+                    player.Status.IsTargetBlocked = playerIamAttacking.GetPlayerId();
+                    // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
+
+                    var logMess = " ⟶ *Бой не состоялся...*";
+                    if (game.PlayersList.Any(x => x.PlayerType == 1))
+                        logMess = " ⟶ *Бой не состоялся (Блок)...*";
+                    game.AddGlobalLogs(logMess);
+
+
+                    player.Status.AddBonusPoints(-1, "Блок");
+
                     playerIamAttacking.Character.Justice.AddJusticeForNextRoundFromFight();
 
-                player.Status.IsWonThisCalculation = playerIamAttacking.GetPlayerId();
-                playerIamAttacking.Status.IsLostThisCalculation = player.GetPlayerId();
-                playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(
-                    player.GetPlayerId(), game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy,
-                    isStatsBettterEnemy, player.GetPlayerId()));
+                    _characterPassives.HandleCharacterAfterFight(player, game, true, false);
+                    _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
+                    _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
 
-                //Quality
-                var range = player.Character.GetSpeedQualityResistInt();
-                range -= playerIamAttacking.Character.GetSpeedQualityKiteBonus();
+                    ResetFight(player, playerIamAttacking);
 
-                var placeDiff = player.Status.PlaceAtLeaderBoard - playerIamAttacking.Status.PlaceAtLeaderBoard;
-                if (placeDiff < 0)
-                    placeDiff *= -1;
-
-                //Много выебывается
-                if (playerIamAttacking.Character.Name == "Mit*suki*" && playerIamAttacking.Status.PlaceAtLeaderBoard == 1 && playerIamAttacking.Character.GetSkill() < player.Character.GetSkill())
-                {
-                    playerIamAttacking.Status.AddInGamePersonalLogs("Много выебывается: Да блять, я не бущенный!\n");
-                    playerIamAttacking.Character.HandleDrop(playerIamAttacking.DiscordUsername, game, playerIamAttacking.Status);
+                    continue;
                 }
-                //end Много выебывается
 
-                if (placeDiff <= range)
+
+                // if skip => something
+                if (playerIamAttacking.Status.IsSkip)
                 {
-                    playerIamAttacking.Character.LowerQualityResist(playerIamAttacking.DiscordUsername, game, playerIamAttacking.Status, player.Character.GetStrengthQualityDropBonus());
+                    player.Status.IsTargetSkipped = playerIamAttacking.GetPlayerId();
+                    game.SkipPlayersThisRound++;
+
+                    var logMess = " ⟶ *Бой не состоялся...*";
+                    if (game.PlayersList.Any(x => x.PlayerType == 1))
+                        logMess = " ⟶ *Бой не состоялся (Скип)...*";
+                    game.AddGlobalLogs(logMess);
+
+                    _characterPassives.HandleCharacterAfterFight(player, game, true, false);
+                    _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
+
+                    ResetFight(player, playerIamAttacking);
+
+                    continue;
                 }
-                
-                //end Quality
-            }
-            else
-            {
-                //сильный
-                if (playerIamAttacking.Character.GetSkillClass() == "Сила")
-                    playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, 4, "Класс");
 
-                if (isTooGoodLost == -1)
-                    player.Status.AddInGamePersonalLogs(
-                        $"{playerIamAttacking.DiscordUsername} is __TOO GOOD__ for you\n");
-
-                isContrLost += 1;
+                //round 1 (contr)
 
 
-                game.AddGlobalLogs($" ⟶ {playerIamAttacking.DiscordUsername}");
+                //быстрый
+                if (playerIamAttacking.Character.GetSkillClass() == "Скорость")
+                    playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, 2, "Класс");
 
-                if (!teamMate)
-                    playerIamAttacking.Status.AddRegularPoints(1, "Победа");
+                if (player.Character.GetSkillClass() == "Скорость")
+                    player.Character.AddExtraSkill(player.Status, 2, "Класс");
 
 
+                //main formula:
+                //main formula:
+                var me = player.Character;
+                var target = playerIamAttacking.Character;
+                decimal weighingMachine = 0;
 
-                if (!teamMate)
-                    playerIamAttacking.Character.Justice.IsWonThisRound = true;
+                var skillMultiplierMe = 1;
+                var skillMultiplierTarget = 1;
 
-                if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
+                decimal contrMultiplier = 1;
+
+                if (me.GetWhoIContre() == target.GetSkillClass())
                 {
-                    if (!teamMate)
+                    contrMultiplier = (decimal)1.5;
+                    weighingMachine += 2;
+                    skillMultiplierMe = 2;
+                    isContrLost -= 1;
+                }
+
+
+                if (target.GetWhoIContre() == me.GetSkillClass())
+                {
+                    weighingMachine -= 2;
+                    skillMultiplierTarget = 2;
+                    isContrLost += 1;
+                }
+
+
+                var scaleMe = me.ExtraWeight + me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() +
+                              me.GetSkill() * skillMultiplierMe / 50;
+                var scaleTarget = target.ExtraWeight + target.GetIntelligence() + target.GetStrength() + target.GetSpeed() +
+                                  target.GetPsyche() + target.GetSkill() * skillMultiplierTarget / 50;
+                weighingMachine += scaleMe - scaleTarget;
+
+                switch (WhoIsBetter(player, playerIamAttacking))
+                {
+                    case 1:
+                        weighingMachine += 5;
+                        break;
+                    case 2:
+                        weighingMachine -= 5;
+                        break;
+                }
+
+                var psycheDifference = me.GetPsyche() - target.GetPsyche();
+                switch (psycheDifference)
+                {
+                    case > 0 and <= 3:
+                        weighingMachine += 1;
+                        break;
+                    case >= 4 and <= 5:
+                        weighingMachine += 2;
+                        break;
+                    case >= 6:
+                        weighingMachine += 4;
+                        break;
+                    case < 0 and >= -3:
+                        weighingMachine -= 1;
+                        break;
+                    case >= -5 and <= -4:
+                        weighingMachine -= 2;
+                        break;
+                    case <= -6:
+                        weighingMachine -= 4;
+                        break;
+                }
+
+
+                switch (weighingMachine)
+                {
+                    case >= 13:
+                        isTooGoodMe = true;
+                        randomForTooGood = 75;
+                        isTooGoodLost = 1;
+                        break;
+                    case <= -13:
+                        isTooGoodEnemy = true;
+                        randomForTooGood = 25;
+                        isTooGoodLost = -1;
+                        break;
+                }
+
+                var myWtf = me.GetSkill() * skillMultiplierMe / 500 * contrMultiplier;
+                var targetWtf = target.GetSkill() * skillMultiplierTarget / 500;
+                var wtf = scaleMe * (1 + (myWtf - targetWtf)) - scaleMe;
+                weighingMachine += wtf;
+
+
+                weighingMachine += player.Character.Justice.GetRealJusticeNow() -
+                                   playerIamAttacking.Character.Justice.GetRealJusticeNow();
+
+
+                switch (weighingMachine)
+                {
+                    case > 0:
+                        pointsWined++;
+                        isContrLost -= 1;
+                        isStatsBetterMe = true;
+                        break;
+                    case < 0:
+                        pointsWined--;
+                        isContrLost += 1;
+                        isStatsBettterEnemy = true;
+                        break;
+                }
+                //end round 1
+
+
+                //round 2 (Justice)
+                if (player.Character.Justice.GetRealJusticeNow() > playerIamAttacking.Character.Justice.GetRealJusticeNow())
+                    pointsWined++;
+                if (player.Character.Justice.GetRealJusticeNow() < playerIamAttacking.Character.Justice.GetRealJusticeNow())
+                    pointsWined--;
+                //end round 2
+
+                //round 3 (Random)
+                if (pointsWined == 0)
+                {
+                    var maxRandomNumber = 100;
+                    if (player.Character.Justice.GetRealJusticeNow() > 1 ||
+                        playerIamAttacking.Character.Justice.GetRealJusticeNow() > 1)
                     {
-                        player.Character.AddMoral(player.Status, moral, "Поражение");
-                        playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Победа");
+                        var myJustice = (int)(player.Character.Justice.GetRealJusticeNow() * contrMultiplier);
+                        var targetJustice = playerIamAttacking.Character.Justice.GetRealJusticeNow();
+                        maxRandomNumber -= (myJustice - targetJustice) * 5;
+                    }
+
+                    var randomNumber = _rand.Random(1, maxRandomNumber);
+                    if (randomNumber <= randomForTooGood) pointsWined++;
+                    else pointsWined--;
+                }
+                //end round 3
+
+
+                var moral = player.Status.PlaceAtLeaderBoard - playerIamAttacking.Status.PlaceAtLeaderBoard;
+
+                //octopus  // playerIamAttacking is octopus
+                if (pointsWined <= 0) pointsWined = await _characterPassives.HandleOctopus(playerIamAttacking, player, game);
+                //end octopus
+
+
+                //team
+                var teamMate = false;
+                if (game.Teams.Count > 0)
+                {
+                    var playerTeam = game.Teams.Find(x => x.TeamPlayers.Contains(player.Status.PlayerId)).TeamId;
+                    var playerIamAttackingTeam = game.Teams.Find(x => x.TeamPlayers.Contains(playerIamAttacking.Status.PlayerId)).TeamId;
+                    if (playerTeam == playerIamAttackingTeam)
+                    {
+                        teamMate = true;
                     }
                 }
 
-                if (playerIamAttacking.Character.Name == "Толя" && playerIamAttacking.Status.IsBlock)
+                //CheckIfWin to remove Justice
+                if (pointsWined >= 1)
+                {
+                    var point = 1;
+                    //сильный
+                    if (player.Character.GetSkillClass() == "Сила")
+                        player.Character.AddExtraSkill(player.Status, 4, "Класс");
+
+                    isContrLost -= 1;
+                    game.AddGlobalLogs($" ⟶ {player.DiscordUsername}");
+
+                    //еврей
                     if (!teamMate)
-                        playerIamAttacking.Character.Justice.IsWonThisRound = false;
+                        point = await _characterPassives.HandleJews(player, game);
+                    if (point == 0) player.Status.AddInGamePersonalLogs("Евреи...\n");
+                    //end еврей
 
-                if (!teamMate)
-                    player.Character.Justice.AddJusticeForNextRoundFromFight();
 
-                playerIamAttacking.Status.IsWonThisCalculation = player.GetPlayerId();
-                player.Status.IsLostThisCalculation = playerIamAttacking.GetPlayerId();
-                player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(
-                    playerIamAttacking.GetPlayerId(), game.RoundNo, isTooGoodEnemy, isStatsBettterEnemy, isTooGoodMe,
-                    isStatsBetterMe, player.GetPlayerId()));
+                    //add regular points
+                    if (!teamMate)
+                        if (player.Character.Name == "HardKitty")
+                        {
+                            player.Status.AddRegularPoints(point * -1, "Победа");
+                        }
+                        else
+                        {
+                            player.Status.AddRegularPoints(point, "Победа");
+                        }
+
+
+                    if (!teamMate)
+                        player.Character.Justice.IsWonThisRound = true;
+
+
+                    if (player.Status.PlaceAtLeaderBoard > playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
+                    {
+                        if (!teamMate)
+                        {
+                            player.Character.AddMoral(player.Status, moral, "Победа");
+                            playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Поражение");
+                        }
+                    }
+
+                    if (!teamMate)
+                        playerIamAttacking.Character.Justice.AddJusticeForNextRoundFromFight();
+
+                    player.Status.IsWonThisCalculation = playerIamAttacking.GetPlayerId();
+                    playerIamAttacking.Status.IsLostThisCalculation = player.GetPlayerId();
+                    playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(
+                        player.GetPlayerId(), game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy,
+                        isStatsBettterEnemy, player.GetPlayerId()));
+
+                    //Quality
+                    var range = player.Character.GetSpeedQualityResistInt();
+                    range -= playerIamAttacking.Character.GetSpeedQualityKiteBonus();
+
+                    var placeDiff = player.Status.PlaceAtLeaderBoard - playerIamAttacking.Status.PlaceAtLeaderBoard;
+                    if (placeDiff < 0)
+                        placeDiff *= -1;
+
+                    //Много выебывается
+                    if (playerIamAttacking.Character.Name == "Mit*suki*" && playerIamAttacking.Status.PlaceAtLeaderBoard == 1 && playerIamAttacking.Character.GetSkill() < player.Character.GetSkill())
+                    {
+                        playerIamAttacking.Status.AddInGamePersonalLogs("Много выебывается: Да блять, я не бущенный!\n");
+                        playerIamAttacking.Character.HandleDrop(playerIamAttacking.DiscordUsername, game, playerIamAttacking.Status);
+                    }
+                    //end Много выебывается
+
+                    if (placeDiff <= range)
+                    {
+                        playerIamAttacking.Character.LowerQualityResist(playerIamAttacking.DiscordUsername, game, playerIamAttacking.Status, player.Character.GetStrengthQualityDropBonus());
+                    }
+
+                    //end Quality
+                }
+                else
+                {
+                    //сильный
+                    if (playerIamAttacking.Character.GetSkillClass() == "Сила")
+                        playerIamAttacking.Character.AddExtraSkill(playerIamAttacking.Status, 4, "Класс");
+
+                    if (isTooGoodLost == -1)
+                        player.Status.AddInGamePersonalLogs(
+                            $"{playerIamAttacking.DiscordUsername} is __TOO GOOD__ for you\n");
+
+                    isContrLost += 1;
+
+
+                    game.AddGlobalLogs($" ⟶ {playerIamAttacking.DiscordUsername}");
+
+                    if (!teamMate)
+                        playerIamAttacking.Status.AddRegularPoints(1, "Победа");
+
+
+
+                    if (!teamMate)
+                        playerIamAttacking.Character.Justice.IsWonThisRound = true;
+
+                    if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
+                    {
+                        if (!teamMate)
+                        {
+                            player.Character.AddMoral(player.Status, moral, "Поражение");
+                            playerIamAttacking.Character.AddMoral(playerIamAttacking.Status, moral * -1, "Победа");
+                        }
+                    }
+
+                    if (playerIamAttacking.Character.Name == "Толя" && playerIamAttacking.Status.IsBlock)
+                        if (!teamMate)
+                            playerIamAttacking.Character.Justice.IsWonThisRound = false;
+
+                    if (!teamMate)
+                        player.Character.Justice.AddJusticeForNextRoundFromFight();
+
+                    playerIamAttacking.Status.IsWonThisCalculation = player.GetPlayerId();
+                    player.Status.IsLostThisCalculation = playerIamAttacking.GetPlayerId();
+                    player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(
+                        playerIamAttacking.GetPlayerId(), game.RoundNo, isTooGoodEnemy, isStatsBettterEnemy, isTooGoodMe,
+                        isStatsBetterMe, player.GetPlayerId()));
+                }
+
+
+                //т.е. он получил урон, какие у него дебаффы на этот счет 
+                _characterPassives.HandleDefenseAfterFight(playerIamAttacking, player, game);
+                _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
+
+                //т.е. я его аттакую, какие у меня бонусы на это
+                _characterPassives.HandleAttackAfterFight(player, playerIamAttacking, game);
+
+                //TODO: merge top 2 methods and 2 below... they are the same... or no?
+
+
+                switch (isContrLost)
+                {
+                    case 3:
+                        player.Status.AddInGamePersonalLogs(
+                            $"Поражение: {playerIamAttacking.DiscordUsername} {GetLostContrText(playerIamAttacking, player)}\n");
+                        break;
+                    case -3:
+                        playerIamAttacking.Status.AddInGamePersonalLogs(
+                            $"Поражение: {player.DiscordUsername} {GetLostContrText(player, playerIamAttacking)}\n");
+                        break;
+                }
+
+                _characterPassives.HandleCharacterAfterFight(player, game, true, false);
+                _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
+
+                _characterPassives.HandleShark(game); //used only for shark...
+
+                ResetFight(player, playerIamAttacking);
             }
-
-
-            //т.е. он получил урон, какие у него дебаффы на этот счет 
-            _characterPassives.HandleDefenseAfterFight(playerIamAttacking, player, game);
-            _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
-
-            //т.е. я его аттакую, какие у меня бонусы на это
-            _characterPassives.HandleAttackAfterFight(player, playerIamAttacking, game);
-
-            //TODO: merge top 2 methods and 2 below... they are the same... or no?
-
-
-            switch (isContrLost)
-            {
-                case 3:
-                    player.Status.AddInGamePersonalLogs(
-                        $"Поражение: {playerIamAttacking.DiscordUsername} {GetLostContrText(playerIamAttacking, player)}\n");
-                    break;
-                case -3:
-                    playerIamAttacking.Status.AddInGamePersonalLogs(
-                        $"Поражение: {player.DiscordUsername} {GetLostContrText(player, playerIamAttacking)}\n");
-                    break;
-            }
-
-            _characterPassives.HandleCharacterAfterFight(player, game, true, false);
-            _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
-
-            _characterPassives.HandleShark(game); //used only for shark...
-
-            ResetFight(player, playerIamAttacking);
         }
 
 
@@ -669,7 +650,7 @@ Speed => Strength
             player.Status.IsSkip = false;
             player.Status.IsAbleToTurn = true;
             player.Status.IsReady = false;
-            player.Status.WhoToAttackThisTurn = Guid.Empty;
+            player.Status.WhoToAttackThisTurn = new List<Guid>();
             player.Status.MoveListPage = 1;
             player.Status.IsAbleToChangeMind = true;
             player.Status.RoundNumber = game.RoundNo+1;

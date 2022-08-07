@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
@@ -115,7 +116,7 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.IsAbleToTurn = true;
                         player.Status.IsReady = false;
                         player.Status.IsBlock = false;
-                        player.Status.WhoToAttackThisTurn = Guid.Empty;
+                        player.Status.WhoToAttackThisTurn = new List<Guid>();
 
                         if (status.ChangeMindWhat.Contains("Ты использовал Авто Ход"))
                         {
@@ -436,27 +437,39 @@ public sealed class GameReaction : IServiceSingleton
             if (whoToAttack == null) 
                 return false;
 
-            status.WhoToAttackThisTurn = whoToAttack.GetPlayerId();
+            status.WhoToAttackThisTurn.Add(whoToAttack.GetPlayerId());
+
+            if (player.Character.Name == "Кратос")
+            {
+                var whoToAttack2 = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum-1);
+                var whoToAttack3 = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum + 1);
+                
+                if (whoToAttack2 != null && whoToAttack2.GetPlayerId() != player.GetPlayerId())
+                    status.WhoToAttackThisTurn.Add(whoToAttack2.GetPlayerId());
+                if (whoToAttack3 != null && whoToAttack3.GetPlayerId() != player.GetPlayerId())
+                    status.WhoToAttackThisTurn.Add(whoToAttack3.GetPlayerId());
+            }
+
 
             if (game.PlayersList.Any(x => x.Character.Name == "Тигр" && x.Status.PlaceAtLeaderBoard == emoteNum) && game.RoundNo == 10)
             {
-                status.WhoToAttackThisTurn = Guid.Empty;
+                status.WhoToAttackThisTurn = new List<Guid>();
                 await _help.SendMsgAndDeleteItAfterRound(player, "Выбранный игрок недоступен в связи с баном за нарушение правил");
                 return false;
             }
 
 
-            if (player.Character.Name == "Вампур" && player.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 && x.EnemyId == status.WhoToAttackThisTurn))
+            if (player.Character.Name == "Вампур" && player.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 &&  status.WhoToAttackThisTurn.Contains(x.EnemyId)))
             {
-                status.WhoToAttackThisTurn = Guid.Empty;
+                status.WhoToAttackThisTurn = new List<Guid>();
                 await game.Phrases.VampyrNoAttack.SendLogSeparate(player, false);
                 return false;
             }
 
 
-            if (status.WhoToAttackThisTurn == player.GetPlayerId())
+            if (status.WhoToAttackThisTurn.Contains(player.GetPlayerId()))
             {
-                status.WhoToAttackThisTurn = Guid.Empty;
+                status.WhoToAttackThisTurn = new List<Guid>();
                 await _help.SendMsgAndDeleteItAfterRound(player, "Зачем ты себя бьешь?");
                 return false;
             }
@@ -635,7 +648,7 @@ public sealed class GameReaction : IServiceSingleton
                     player.Status.IsBlock = false;
                     player.Status.IsAbleToTurn = false;
                     player.Status.IsReady = true;
-                    player.Status.WhoToAttackThisTurn = Guid.Empty;
+                    player.Status.WhoToAttackThisTurn = new List<Guid>();
                     game.Phrases.DarksciFuckThisGame.SendLog(player, true);
                 }
             //end Да всё нахуй эту игру: Part #2
