@@ -124,7 +124,8 @@ public class CheckIfReady : IServiceSingleton
         //
         try
         {
-            if (playerWhoWon.Status.PlaceAtLeaderBoardHistory.Find(x => x.GameRound == 10)!.Place != 1)
+            if(game.PlayersList.Count  == 6)
+                if (playerWhoWon.Status.PlaceAtLeaderBoardHistory.Find(x => x.GameRound == 10)!.Place != 1)
                     if (game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 1)!.Status.GetScore() !=
                         game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 2)!.Status.GetScore())
                         game.AddGlobalLogs($"**{playerWhoWon.DiscordUsername}** вырывает **очко** на последних секундах!");
