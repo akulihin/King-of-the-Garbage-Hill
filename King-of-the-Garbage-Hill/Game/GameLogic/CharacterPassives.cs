@@ -163,10 +163,10 @@ public class CharacterPassives : IServiceSingleton
         {
             case "DeepList":
                 //Сомнительная тактика
-                var deep = me.Passives.DeepListDoubtfulTactic;
+                var deep = target.Passives.DeepListDoubtfulTactic;
 
-                if (!deep.FriendList.Contains(target.GetPlayerId()) && !target.Status.IsSkip && !target.Status.IsBlock)
-                    me.Status.IsAbleToWin = false;
+                if (!deep.FriendList.Contains(me.GetPlayerId()))
+                    target.Status.IsAbleToWin = false;
 
                 //end Сомнительная тактика
                 break;
@@ -558,9 +558,8 @@ public class CharacterPassives : IServiceSingleton
 
                 //end Первая кровь: 
 
-                //Они позорят военное искусство:
+                //Они позорят военное искусство
                 var Spartan = me.Passives.SpartanShame;
-
 
                 if (target.Character.Name == "mylorik" && !Spartan.FriendList.Contains(target.GetPlayerId()))
                 {
@@ -570,15 +569,21 @@ public class CharacterPassives : IServiceSingleton
                     game.Phrases.SpartanShameMylorik.SendLog(me, false);
                 }
 
+                if (target.Character.Name == "Кратос" && !Spartan.FriendList.Contains(target.GetPlayerId()))
+                {
+                    Spartan.FriendList.Add(target.GetPlayerId());
+                    me.Character.AddPsyche(me.Status, 1, "Отец?");
+                    target.Character.AddPsyche(target.Status, 1, "Boy?");
+                    game.Phrases.SpartanShameMylorik.SendLog(me, false);
+                }
+
                 if (!Spartan.FriendList.Contains(target.GetPlayerId()))
                 {
                     Spartan.FriendList.Add(target.GetPlayerId());
                     target.Character.AddStrength(target.Status, -1, "Они позорят военное искусство");
                     target.Character.AddSpeed(target.Status, -1, "Они позорят военное искусство");
                 }
-
-
-                //end Они позорят военное искусство:
+                //end Они позорят военное искусство
                 break;
 
 
@@ -3332,19 +3337,18 @@ public class CharacterPassives : IServiceSingleton
         //end Лежит на дне:
     }
 
-    public async Task<int> HandleJews(GamePlayerBridgeClass player, GameClass game)
+    public async Task<int> HandleJews(GamePlayerBridgeClass me, GamePlayerBridgeClass target, GameClass game)
     {
         //Еврей
         if (!game.PlayersList.Any(x => x.Character.Name is "LeCrisp" or "Толя")) return 1;
-        if (player.Character.Name is "LeCrisp" or "Толя") return 1;
+        if (me.Character.Name is "LeCrisp" or "Толя") return 1;
 
         var leCrisp = game.PlayersList.Find(x => x.Character.Name == "LeCrisp");
         var tolya = game.PlayersList.Find(x => x.Character.Name == "Толя");
 
 
         if (leCrisp != null && tolya != null)
-            if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn &&
-                tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
+            if (leCrisp.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()) && tolya.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()))
             {
                 leCrisp.Status.AddRegularPoints(1, "Еврей");
                 tolya.Status.AddRegularPoints(1, "Еврей");
@@ -3378,9 +3382,9 @@ public class CharacterPassives : IServiceSingleton
 
 
         if (leCrisp != null)
-            if (leCrisp.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
+            if (leCrisp.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()))
             {
-                if (player.Character.Name == "DeepList")
+                if (me.Character.Name == "DeepList")
                 {
                     game.Phrases.LeCrispBoolingPhrase.SendLog(leCrisp, false);
                     return 1;
@@ -3392,7 +3396,7 @@ public class CharacterPassives : IServiceSingleton
             }
 
         if (tolya != null)
-            if (tolya.Status.WhoToAttackThisTurn == player.Status.WhoToAttackThisTurn)
+            if (tolya.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()))
             {
                 tolya.Status.AddRegularPoints(1, "Еврей");
                 game.Phrases.TolyaJewPhrase.SendLog(tolya, true);
@@ -3420,7 +3424,7 @@ public class CharacterPassives : IServiceSingleton
         var enemyIds = new List<Guid> { attacker.GetPlayerId() };
 
         //jew
-        var point = await HandleJews(attacker, game);
+        var point = await HandleJews(attacker, octopus, game);
 
         if (point == 0)
         {

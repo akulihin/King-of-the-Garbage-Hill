@@ -468,6 +468,10 @@ public class BotsBehavior : IServiceSingleton
                 //custom bot behavior
                 switch (bot.Character.Name)
                 {
+                    case "Weedwick":
+                        if (target.Player.Character.Name == "DeepList")
+                            target.AttackPreference = 0;
+                        break;
                     case "DeepList":
                         var deepListMadness = bot.Passives.DeepListMadnessTriggeredWhen;
                         if (deepListMadness.WhenToTrigger.Contains(game.RoundNo))
@@ -477,6 +481,9 @@ public class BotsBehavior : IServiceSingleton
                                 target.AttackPreference += 3;
                             }
                         }
+
+                        if (target.Player.Character.Name == "Weedwick")
+                            target.AttackPreference = 0;
                         break;
                     case "Тигр":
 

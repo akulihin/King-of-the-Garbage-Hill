@@ -1115,7 +1115,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public ButtonBuilder GetAutoMoveButton(GamePlayerBridgeClass player, GameClass game)
     {
-        var disabled = player.Status.IsAutoMove || player.Status.IsSkip || player.Status.IsReady || player.Character.Tier >= 3;
+        var disabled = player.Status.IsAutoMove || player.Status.IsSkip || player.Status.IsReady || player.Character.Tier <= 3;
 
         if (game.TimePassed.Elapsed.TotalSeconds < 29 && player.DiscordId != 238337696316129280 &&
             player.DiscordId != 181514288278536193) disabled = true;

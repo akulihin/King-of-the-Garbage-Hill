@@ -642,7 +642,7 @@ public class CheckIfReady : IServiceSingleton
             for (var k = 0; k < game.PlayersList.Count; k++) game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
             //end //AWDKA last
 
-            foreach (var t in players.Where(x => !x.Status.IsReady).Where(x => x.IsBot() || x.Status.IsAutoMove))
+            foreach (var t in players.Where(x => x.IsBot() || x.Status.IsAutoMove))
                 try
                 {
                     await _botsBehavior.HandleBotBehavior(t, game);

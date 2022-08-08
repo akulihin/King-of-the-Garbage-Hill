@@ -504,7 +504,7 @@ Speed => Strength
 
                     //еврей
                     if (!teamMate)
-                        point = await _characterPassives.HandleJews(player, game);
+                        point = await _characterPassives.HandleJews(player, playerIamAttacking, game);
                     if (point == 0) player.Status.AddInGamePersonalLogs("Евреи...\n");
                     //end еврей
 
