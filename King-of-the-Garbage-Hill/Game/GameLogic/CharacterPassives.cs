@@ -52,7 +52,19 @@ public class CharacterPassives : IServiceSingleton
                     player.Character.AddStrength(player.Status, player.Character.GetStrength() * -1 + 3, "Повторяет за myloran");
                     //end Повторяет за myloran
                     break;
+                case "DeepList":
+                    if (playersList.Any(x => x.Character.Name == "Weedwick"))
+                    {
+                        player.Status.AddInGamePersonalLogs("**Чья эта безуманя собака?**: +1 Психики\n");
+                        player.Character.AddPsyche(player.Status, 1, "Чья эта безуманя собака?", false);
+                    }
+                    break;
                 case "Weedwick":
+                    if (playersList.Any(x => x.Character.Name == "DeepList"))
+                    {
+                        player.Status.AddInGamePersonalLogs("**Чья эта безуманя собака?**: +1 Психики\n");
+                        player.Character.AddPsyche(player.Status, 1, "Чья эта безуманя собака?", false);
+                    }
                     player.Status.AddInGamePersonalLogs("Она всегда со мной, куда бы я не пошел...\n");
                     break;
                 case "Загадочный Спартанец в маске":

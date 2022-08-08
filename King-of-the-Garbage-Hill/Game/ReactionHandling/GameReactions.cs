@@ -439,6 +439,8 @@ public sealed class GameReaction : IServiceSingleton
 
             status.WhoToAttackThisTurn.Add(whoToAttack.GetPlayerId());
 
+
+            //Клинки хаоса
             if (player.Character.Name == "Кратос" && game.RoundNo <= 10)
             {
                 var whoToAttack2 = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum-1);
@@ -449,6 +451,29 @@ public sealed class GameReaction : IServiceSingleton
                 if (whoToAttack3 != null && whoToAttack3.GetPlayerId() != player.GetPlayerId())
                     status.WhoToAttackThisTurn.Add(whoToAttack3.GetPlayerId());
             }
+            //end Клинки хаоса
+
+
+            /*
+ (если есть лист то у варвкиа иногда появляются особые фразы: "DeepList: Видвик, ФАС!", "DeepList: Взять их!" 
+ в начале игры видвик и лист получают психику. сообщение: "**Чья эта безуманя собака?**": +1 Психики)
+             */
+
+            //Weedwick
+            if (player.Character.Name == "Weedwick" && whoToAttack.Character.Name == "DeepList")
+            {
+                status.WhoToAttackThisTurn = new List<Guid>();
+                await _help.SendMsgAndDeleteItAfterRound(player, "DeepList: Не нападай на хозяина, глупый пес!");
+                return false;
+            }
+
+            if (player.Character.Name == "DeepList" && whoToAttack.Character.Name == "Weedwick")
+            {
+                status.WhoToAttackThisTurn = new List<Guid>();
+                await _help.SendMsgAndDeleteItAfterRound(player, "Не нападай на свою собаку. Ты чего, совсем уже ебнулся?");
+                return false;
+            }
+            // end Weedwick
 
 
             if (game.PlayersList.Any(x => x.Character.Name == "Тигр" && x.Status.PlaceAtLeaderBoard == emoteNum) && game.RoundNo == 10)

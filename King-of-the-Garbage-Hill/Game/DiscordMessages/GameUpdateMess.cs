@@ -184,17 +184,25 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         switch (me.Character.Name)
         {
             case "Weedwick":
+                if (other.GetPlayerId() == me.GetPlayerId()) break;
+
+                if (other.Character.Name == "DeepList")
+                {
+                    customString += $" [Хозяин]";
+                    break;
+                }
+
                 if (other.Passives.WeedwickWeed > 0)
                 {
                     customString += $" <:weed:1005884006866354196>: {other.Passives.WeedwickWeed}";
                 }
-                
-                if (other.GetPlayerId() == me.GetPlayerId()) break;
-                
+
                 if (other.Character.Justice.GetRealJusticeNow() == 0)
                 {
                     customString += $" <:WUF:1005886339335598120>";
                 }
+
+
                 break;
             case "AWDKA":
                 if (other.GetPlayerId() == me.GetPlayerId()) break;
@@ -329,6 +337,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
             case "DeepList":
+                if (other.Character.Name == "Weedwick")
+                {
+                    customString += $" [Pet]";
+                }
 
                 //tactic
                 var deep = me.Passives.DeepListDoubtfulTactic;
