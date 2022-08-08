@@ -1051,7 +1051,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         components.WithButton(GetBlockButton(player, game));
         components.WithButton(GetAutoMoveButton(player, game));
         components.WithButton(GetChangeMindButton(player, game));
-        components.WithButton(GetEndGameButton());
+        components.WithButton(GetEndGameButton(player, game));
 
         components.WithSelectMenu(GetAttackMenu(player, game), 1);
 
@@ -1093,21 +1093,43 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public ButtonBuilder GetBlockButton(GamePlayerBridgeClass player, GameClass game)
     {
-        var playerIsReady = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady || game.RoundNo > 10;
+        var playerIsReady = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady;
+        //Возвращение из мертвых
+        if (game.RoundNo > 10 && game.IsKratosEvent && player.Character.Name == "Кратос")
+        {
+
+        }
+        //end Возвращение из мертвых
+        else if (game.RoundNo > 10)
+        {
+            playerIsReady = true;
+        }
         return new ButtonBuilder("Блок", "block", ButtonStyle.Success, isDisabled: playerIsReady);
     }
 
-    public ButtonBuilder GetEndGameButton()
+    public ButtonBuilder GetEndGameButton(GamePlayerBridgeClass player, GameClass game)
     {
-        return new ButtonBuilder("Завершить Игру", "end", ButtonStyle.Danger);
+        var disabled = false;
+        //Возвращение из мертвых
+        if (game.RoundNo > 10 && game.IsKratosEvent && player.Character.Name == "Кратос")
+        {
+
+        }
+        //end Возвращение из мертвых
+        else if (game.RoundNo > 10)
+        {
+            disabled = true;
+        }
+        return new ButtonBuilder("Завершить Игру", "end", ButtonStyle.Danger, isDisabled: disabled);
     }
 
     public ButtonBuilder GetChangeMindButton(GamePlayerBridgeClass player, GameClass game)
     {
+
         if (player.Character.Name == "Dopa")
             return new ButtonBuilder("선택 변경", "change-mind", ButtonStyle.Secondary, isDisabled: true);
 
-        if (player.Status.IsReady && player.Status.IsAbleToChangeMind && !player.Status.IsSkip)
+        if (player.Status.IsReady && player.Status.IsAbleToChangeMind && !player.Status.IsSkip && game.RoundNo <= 10)
             return new ButtonBuilder("Изменить свой выбор", "change-mind", ButtonStyle.Secondary, isDisabled: false);
 
         return new ButtonBuilder("Изменить свой выбор", "change-mind", ButtonStyle.Secondary, isDisabled: true);
@@ -1125,7 +1147,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public async Task UpdateMessage(GamePlayerBridgeClass player, string extraText = "")
     {
-        if (player.IsBot()) return;
+        if (player.IsBot() || player.Passives.KratosIsDead) return;
 
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         var embed = new EmbedBuilder();

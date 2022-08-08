@@ -645,7 +645,8 @@ public class CheckIfReady : IServiceSingleton
             foreach (var t in players.Where(x => x.IsBot() || x.Status.IsAutoMove))
                 try
                 {
-                    await _botsBehavior.HandleBotBehavior(t, game);
+                    if (!game.IsKratosEvent)
+                        await _botsBehavior.HandleBotBehavior(t, game);
                 }
                 catch (Exception exception)
                 {

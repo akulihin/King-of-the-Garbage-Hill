@@ -255,26 +255,31 @@ public class CharacterPassives : IServiceSingleton
                 //end Я щас приду:
                 break;
             case "LeCrisp":
-                //Гребанные ассассин
 
-                //Гребанные ассассин + Сомнительная тактика
+                //Гребанные ассассин 
                 var ok = true;
-                deep = target.Passives.DeepListDoubtfulTactic;
 
-                if (deep != null)
-                    if (!deep.FriendList.Contains(me.GetPlayerId()))
-                        ok = false;
+                //Сомнительная тактика
+                if (me.Character.Name == "DeepList")
+                {
+                    deep = me.Passives.DeepListDoubtfulTactic;
+                    if (deep != null)
+                        if (!deep.FriendList.Contains(me.GetPlayerId()))
+                            ok = false;
+                }
+                //end Сомнительная тактика
+
 
 
                 if (me.Character.GetStrength() - target.Character.GetStrength() >= 2
                     && !target.Status.IsBlock
                     && !target.Status.IsSkip
                     && ok)
-                {
+                {   
                     target.Status.IsAbleToWin = false;
                     game.Phrases.LeCrispAssassinsPhrase.SendLog(target, false);
                 }
-                //end Гребанные ассассин
+                //end Гребанные ассассины
 
                 break;
 
@@ -745,7 +750,7 @@ public class CharacterPassives : IServiceSingleton
         }
     }
 
-    public async Task HandleAttackAfterFight(GamePlayerBridgeClass me, GamePlayerBridgeClass target, GameClass game)
+    public void HandleAttackAfterFight(GamePlayerBridgeClass me, GamePlayerBridgeClass target, GameClass game)
     {
         var characterName = me.Character.Name;
 
@@ -754,16 +759,11 @@ public class CharacterPassives : IServiceSingleton
         {
             case "Кратос":
                 //Возвращение из мертвых
-                if (game.IsKratosEvent)
+                if (game.IsKratosEvent && game.RoundNo > 10)
                 {
                     if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                     {
                         target.Passives.KratosIsDead = true;
-                        await target.Status.SocketMessageFromBot.ModifyAsync(x =>
-                        {
-                            x.Embed = null;
-                            x.Content = "Тебя Убили...";
-                        });
                     }
                 }
                 //end Возвращение из мертвых
@@ -1077,6 +1077,7 @@ public class CharacterPassives : IServiceSingleton
                 //end Я пытаюсь
                 break;
         }
+
     }
 
 
@@ -1107,24 +1108,21 @@ public class CharacterPassives : IServiceSingleton
                 //Возвращение из мертвых
 
                 //failed
-                if (game.IsKratosEvent && player.Status.IsLostThisCalculation != Guid.Empty)
+                if (game.RoundNo > 10 && game.IsKratosEvent && player.Status.IsLostThisCalculation != Guid.Empty)
                 {
                     game.IsKratosEvent = false;
                     player.Passives.KratosIsDead = true;
                     await game.Phrases.KratosEventFailed.SendLogSeparateWithFile(player, false, "DataBase/art/events/kratos_hell.png", false);
                 }
-
-                //didn't fail but didn't succseed 
-                if (game.IsKratosEvent && player.Status.IsLostThisCalculation == Guid.Empty && game.RoundNo >= 14)
-                {
-                    game.IsKratosEvent = false;
-                    await game.Phrases.KratosEventNo.SendLogSeparateWithFile(player, false, "DataBase/art/events/kratos_death.jpg", false);
-                }
-
-                if (!game.IsKratosEvent && game.RoundNo == 10 && player.Status.IsLostThisCalculation != Guid.Empty)
+                //start
+                else if (!game.IsKratosEvent && game.RoundNo == 10 && player.Status.IsLostThisCalculation != Guid.Empty)
                 {
                     game.IsKratosEvent = true;
-                    await game.Phrases.KratosEventYes.SendLogSeparateWithFile(player, false, "DataBase/sound/Kratos_PLAY_ME.mp3", false);
+                    foreach (var p in game.PlayersList.Where(x => !x.IsBot()))
+                    {
+                        await game.Phrases.KratosEventYes.SendLogSeparateWithFile(p, false, "DataBase/sound/Kratos_PLAY_ME.mp3", false);
+                    }
+                    
                     player.Character.SetExtraSkillMultiplier(3);
                 }
 
@@ -1688,7 +1686,7 @@ public class CharacterPassives : IServiceSingleton
 
     //after all fight
 
-    public void HandleEndOfRound(GameClass game)
+    public async Task HandleEndOfRound(GameClass game)
     {
         foreach (var player in game.PlayersList)
         {
@@ -1699,6 +1697,18 @@ public class CharacterPassives : IServiceSingleton
 
             switch (characterName)
             {
+                case "Кратос":
+                    //Возвращение из мертвых
+
+                    //didn't fail but didn't succseed   
+                    if (game.IsKratosEvent && game.RoundNo >= 16 && game.PlayersList.Count > 1)
+                    {
+                        game.IsKratosEvent = false;
+                        await game.Phrases.KratosEventNo.SendLogSeparateWithFile(player, false, "DataBase/art/events/kratos_death.jpg", false);
+                    }
+                    //end Возвращение из мертвых
+
+                    break;
                 case "Тигр":
                     //Лучше с двумя, чем с адекватными:
                     for (var i = 0; i < game.PlayersList.Count; i++)
@@ -1800,20 +1810,18 @@ public class CharacterPassives : IServiceSingleton
                     break;
                 case "LeCrisp":
 
-                    //Гребанные ассассин
+                    //Гребанные ассассины
                     var leCrip = player.Passives.LeCrispAssassins;
 
                     if (leCrip.AdditionalPsycheCurrent > 0)
-                        player.Character.AddPsyche(player.Status, leCrip.AdditionalPsycheCurrent * -1,
-                            "Гребанные ассассины", false);
+                        player.Character.AddPsyche(player.Status, leCrip.AdditionalPsycheCurrent * -1, "Гребанные ассассины", false);
                     if (leCrip.AdditionalPsycheForNextRound > 0)
-                        player.Character.AddPsyche(player.Status, leCrip.AdditionalPsycheForNextRound,
-                            "Гребанные ассассины");
+                        player.Character.AddPsyche(player.Status, leCrip.AdditionalPsycheForNextRound, "Гребанные ассассины");
 
                     leCrip.AdditionalPsycheCurrent = leCrip.AdditionalPsycheForNextRound;
                     leCrip.AdditionalPsycheForNextRound = 0;
 
-                    //end Гребанные ассассин
+                    //end Гребанные ассассины
 
                     //Импакт
                     var leImpact = player.Passives.LeCrispImpact;

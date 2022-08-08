@@ -618,7 +618,7 @@ Speed => Strength
                 _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
 
                 //т.е. я его аттакую, какие у меня бонусы на это
-                await _characterPassives.HandleAttackAfterFight(player, playerIamAttacking, game);
+                _characterPassives.HandleAttackAfterFight(player, playerIamAttacking, game);
 
                 //TODO: merge top 2 methods and 2 below... they are the same... or no?
 
@@ -645,7 +645,7 @@ Speed => Strength
         }
 
 
-        _characterPassives.HandleEndOfRound(game);
+        await _characterPassives.HandleEndOfRound(game);
 
         foreach (var player in game.PlayersList)
         {
@@ -671,7 +671,28 @@ Speed => Strength
         }
 
         //Возвращение из мертвых
+        foreach (var player in game.PlayersList.Where(x => x.Passives.KratosIsDead && !x.IsBot()))
+        {
+            if (player.Character.Name == "Кратос")
+            {
+                await player.Status.SocketMessageFromBot.ModifyAsync(x =>
+                {
+                    x.Components = null;
+                    x.Embed = null;
+                    x.Content = "Тебя убили...";
+                });
+            }
+
+            await player.Status.SocketMessageFromBot.ModifyAsync(x =>
+            {
+                x.Components = null;
+                x.Embed = null;
+                x.Content = "Тебя убили...";
+            });
+        }
+
         game.PlayersList = game.PlayersList.Where(x => !x.Passives.KratosIsDead).ToList();
+
         if (game.PlayersList.Count == 1)
         {
             game.IsKratosEvent = false;
@@ -778,34 +799,6 @@ Speed => Strength
             _logs.Info($"Finished calculating game #{game.GameId} (round# {game.RoundNo - 1}). || {watch.Elapsed.TotalSeconds}s");
 
         watch.Stop();
-    }
-
-    public void Move<T>(List<T> list, int oldIndex, int newIndex)
-    {
-        // exit if positions are equal or outside array
-        if ((oldIndex == newIndex) || (0 > oldIndex) || (oldIndex >= list.Count) || (0 > newIndex) ||
-            (newIndex >= list.Count)) return;
-        // local variables
-        int i;
-        T tmp = list[oldIndex];
-        // move element down and shift other elements up
-        if (oldIndex < newIndex)
-        {
-            for (i = oldIndex; i < newIndex; i++)
-            {
-                list[i] = list[i + 1];
-            }
-        }
-        // move element up and shift other elements down
-        else
-        {
-            for (i = oldIndex; i > newIndex; i--)
-            {
-                list[i] = list[i - 1];
-            }
-        }
-        // put element from position 1 to destination
-        list[newIndex] = tmp;
     }
 
 
