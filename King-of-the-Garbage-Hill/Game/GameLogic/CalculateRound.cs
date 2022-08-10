@@ -167,6 +167,7 @@ Speed => Strength
             //if block => no one gets points, and no redundant playerAttacked variable
             if (player.Status.IsBlock || player.Status.IsSkip)
             {
+                //fight Reset
                 await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
                 ResetFight(player);
                 continue;
@@ -298,6 +299,7 @@ Speed => Strength
 
                     playerIamAttacking.Character.Justice.AddJusticeForNextRoundFromFight();
 
+                    //fight Reset
                     await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
                     await _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
                     _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
@@ -319,6 +321,7 @@ Speed => Strength
                         logMess = " ⟶ *Бой не состоялся (Скип)...*";
                     game.AddGlobalLogs(logMess);
 
+                    //fight Reset
                     await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
                     await _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
 
@@ -612,17 +615,7 @@ Speed => Strength
                         isStatsBetterMe, player.GetPlayerId()));
                 }
 
-
-                //т.е. он получил урон, какие у него дебаффы на этот счет 
-                _characterPassives.HandleDefenseAfterFight(playerIamAttacking, player, game);
-                _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
-
-                //т.е. я его аттакую, какие у меня бонусы на это
-                _characterPassives.HandleAttackAfterFight(player, playerIamAttacking, game);
-
-                //TODO: merge top 2 methods and 2 below... they are the same... or no?
-
-
+                
                 switch (isContrLost)
                 {
                     case 3:
@@ -635,9 +628,17 @@ Speed => Strength
                         break;
                 }
 
+                //т.е. он получил урон, какие у него дебаффы на этот счет 
+                _characterPassives.HandleDefenseAfterFight(playerIamAttacking, player, game);
+                _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
+
+                //т.е. я его аттакую, какие у меня бонусы на это
+                _characterPassives.HandleAttackAfterFight(player, playerIamAttacking, game);
+
+                //fight Reset
                 await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
                 await _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
-
+                
                 _characterPassives.HandleShark(game); //used only for shark...
 
                 ResetFight(player, playerIamAttacking);
