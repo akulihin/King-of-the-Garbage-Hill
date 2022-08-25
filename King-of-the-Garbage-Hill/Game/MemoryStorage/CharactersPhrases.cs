@@ -381,6 +381,7 @@ public class CharactersUniquePhrase
         DeepListPokePhrase.PassiveLogRus.Add("Mit*SUKI*"); 
         DeepListPokePhrase.PassiveLogRus.Add("Почему гиены смеются? Потому что смешно!"); 
         DeepListPokePhrase.PassiveLogRus.Add("**Лол** коронный, **Кек** похоронный"); 
+        DeepListPokePhrase.PassiveLogRus.Add("Витамин C содержится в курице и __**БОБАХ**__"); 
 
         
 
