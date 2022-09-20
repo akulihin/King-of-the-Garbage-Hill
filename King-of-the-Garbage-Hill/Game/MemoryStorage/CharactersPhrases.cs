@@ -573,6 +573,9 @@ public class CharactersUniquePhrase
         SirinoksDragonPhrase.PassiveLogRus.Add("ОПЯТЬ ЛИСТ ХУЙНЮ ГОВОРИТ! ROAR");
         SirinoksDragonPhrase.PassiveLogRus.Add("ЛОРИК НИЧЕГО НЕ ПОНИМАЕТ! ROAR");
         SirinoksDragonPhrase.PassiveLogRus.Add("БЛЯТЬ КРИИИИСП! ROAR");
+        SirinoksDragonPhrase.PassiveLogRus.Add("You can fly in a push of a button!");
+        
+        
 
         MitsukiCheekyBriki.PassiveLogRus.Add("Ну чё, ёпта, поиграем?");
         MitsukiTooMuchFucking.PassiveLogRus.Add("Алмаз!");
