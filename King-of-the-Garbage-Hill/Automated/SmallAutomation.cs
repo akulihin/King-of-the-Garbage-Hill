@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
 
-namespace King_of_the_Garbage_Hill.Automation
+namespace King_of_the_Garbage_Hill.Automated
 {
     public class SmallAutomation : IServiceSingleton
     {
