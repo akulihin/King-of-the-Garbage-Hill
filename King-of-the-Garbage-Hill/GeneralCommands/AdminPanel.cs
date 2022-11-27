@@ -192,10 +192,16 @@ public class AdminPanel : ModuleBaseCustom
 
     [Command("SetCharacter")]
     [Summary("set character to roll next game (Admin only)")]
-    public async Task CharacterToGiveNextTime(string character, IUser player = null)
+    public async Task CharacterToGiveNextTime(string character = null, IUser player = null)
     {
         //238337696316129280 == DeepList
-        _accounts.GetAccount(238337696316129280).CharacterToGiveNextTime = "Weedwick";
+        if (character == null)
+        {
+            _accounts.GetAccount(238337696316129280).CharacterToGiveNextTime = "Вампур";
+            _accounts.GetAccount(181514288278536193).CharacterToGiveNextTime = "Братишка";
+            return;
+        }
+
         if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
         {
             await SendMessageAsync("only owners can use this command");

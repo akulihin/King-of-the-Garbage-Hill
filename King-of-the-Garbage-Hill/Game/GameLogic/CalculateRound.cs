@@ -119,6 +119,14 @@ Speed => Strength
                 player.Status.TempPsyche = -1;
             }
 
+            if (player.Status.RealJustice != -1)
+            {
+                var returned = player.Character.Justice.GetRealJusticeNow() - player.Status.TempJustice + player.Status.RealJustice;
+                player.Character.Justice.SetRealJusticeNow(player.Status, returned, "Reset", false);
+                player.Status.RealJustice = -1;
+                player.Status.TempJustice = -1;
+            }
+
 
             player.Status.IsWonThisCalculation = Guid.Empty;
             player.Status.IsLostThisCalculation = Guid.Empty;

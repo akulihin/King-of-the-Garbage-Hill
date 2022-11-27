@@ -100,6 +100,8 @@ public class InGameStatus
     public int TempSpeed { get; set; } = -1;
     public int RealPsyche { get; set; } = -1;
     public int TempPsyche { get; set; } = -1;
+    public int RealJustice { get; set; } = -1;
+    public int TempJustice { get; set; } = -1;
 
     public List<PlaceAtLeaderBoardHistoryClass> PlaceAtLeaderBoardHistory { get; set; }
     public DateTimeOffset LastMessageUpdate { get; set; } = DateTimeOffset.UtcNow;

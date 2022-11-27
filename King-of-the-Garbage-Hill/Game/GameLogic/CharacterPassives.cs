@@ -674,11 +674,7 @@ public class CharacterPassives : IServiceSingleton
                 //Падальщик
                 if (target.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
                 {
-                    var scavenger = me.Passives.VampyrScavengerList;
-                    scavenger.EnemyId = target.GetPlayerId();
-                    scavenger.EnemyJustice = target.Character.Justice.GetRealJusticeNow();
-                    target.Character.Justice.SetRealJusticeNow(target.Status, scavenger.EnemyJustice - 1, "Падальщик",
-                        false);
+                    target.Character.Justice.SetJusticeForOneFight(target.Status, target.Character.Justice.GetRealJusticeNow() - 1, "Падальщик");
                 }
 
                 //end Падальщик
@@ -918,17 +914,8 @@ public class CharacterPassives : IServiceSingleton
                 //Падальщик
                 if (target.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
                 {
-                    var scavenger = me.Passives.VampyrScavengerList;
-
-                    if (scavenger.EnemyId == target.GetPlayerId())
-                    {
-                        target.Character.Justice.SetRealJusticeNow(target.Status, scavenger.EnemyJustice, "Падальщик",
-                            false);
-                        scavenger.EnemyId = Guid.Empty;
-                        scavenger.EnemyJustice = 0;
-                        if (me.Status.IsWonThisCalculation == target.GetPlayerId())
-                            me.Character.AddMoral(me.Status, 3, "Падальщик");
-                    }
+                    if (me.Status.IsWonThisCalculation == target.GetPlayerId())
+                        me.Character.AddMoral(me.Status, 3, "Падальщик");
                 }
                 //end Падальщик
 

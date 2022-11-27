@@ -8,7 +8,6 @@ public class Vampyr
     public class ScavengerClass
     {
         public Guid EnemyId = Guid.Empty;
-        public int EnemyJustice = 0;
     }
 
 

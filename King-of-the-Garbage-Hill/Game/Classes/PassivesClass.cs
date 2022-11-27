@@ -83,7 +83,6 @@ public class PassivesClass
     public Tolya.TolyaTalkedlClass TolyaTalked { get; set; } = new();
 
     public Vampyr.HematophagiaClass VampyrHematophagiaList { get; set; } = new();
-    public Vampyr.ScavengerClass VampyrScavengerList { get; set; } = new();
 
 
     public int WeedwickWeed { get; set; } = 0;

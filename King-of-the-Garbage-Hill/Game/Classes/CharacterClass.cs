@@ -846,6 +846,8 @@ public class CharacterClass
     public void SetIntelligenceForOneFight(InGameStatus status, int howMuchToSet, string skillName)
     {
         //Set Stat only for one fight, not for the whole round!
+        if (howMuchToSet < 0)
+            return;
         status.RealIntelligence = GetIntelligence();
         status.TempIntelligence = howMuchToSet;
         SetIntelligence(status, howMuchToSet, skillName, false);
@@ -918,6 +920,8 @@ public class CharacterClass
     public void SetPsycheForOneFight(InGameStatus status, int howMuchToSet, string skillName)
     {
         //Set Stat only for one fight, not for the whole round!
+        if (howMuchToSet < 0)
+            return;
         status.RealPsyche = GetPsyche();
         status.TempPsyche = howMuchToSet;
         SetPsyche(status, howMuchToSet, skillName, false);
@@ -989,6 +993,8 @@ public class CharacterClass
     public void SetSpeedForOneFight(InGameStatus status, int howMuchToSet, string skillName)
     {
         //Set Stat only for one fight, not for the whole round!
+        if (howMuchToSet < 0)
+            return;
         status.RealSpeed = GetSpeed();
         status.TempSpeed = howMuchToSet;
         SetSpeed(status, howMuchToSet, skillName, false);
@@ -1060,6 +1066,8 @@ public class CharacterClass
     public void SetStrengthForOneFight(InGameStatus status, int howMuchToSet, string skillName)
     {
         //Set Stat only for one fight, not for the whole round!
+        if (howMuchToSet < 0)
+            return;
         status.RealStrength = GetStrength();
         status.TempStrength = howMuchToSet;
         SetStrength(status, howMuchToSet, skillName, false);
@@ -1211,6 +1219,16 @@ public class JusticeClass
         if (isLog)
             status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} Справедливости\n");
         RealJusticeNow = howMuchToSet;
+    }
+
+    public void SetJusticeForOneFight(InGameStatus status, int howMuchToSet, string skillName)
+    {
+        //Set Stat only for one fight, not for the whole round!
+        if (howMuchToSet < 0)
+            return;
+        status.RealJustice = GetRealJusticeNow();
+        status.TempJustice = howMuchToSet;
+        SetRealJusticeNow(status, howMuchToSet, skillName, false);
     }
 
     public void AddJusticeForNextRoundFromFight(int howMuchToAdd = 1)
