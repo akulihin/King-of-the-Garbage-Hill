@@ -31,6 +31,9 @@ public class CharactersUniquePhrase
     public PhraseClass FirstСommandment;
     public PhraseClass FirstСommandmentLost;
     public PhraseClass FourthСommandment;
+    public PhraseClass SecondСommandment;
+    public PhraseClass SecondСommandmentBan;
+    public PhraseClass ThirdСommandment;
 
     public PhraseClass GlebChallengerPhrase;
     public PhraseClass GlebChallengerSeparatePhrase;
@@ -61,8 +64,7 @@ public class CharactersUniquePhrase
     public PhraseClass MylorikRevengeLostPhrase;
     public PhraseClass MylorikRevengeVictoryPhrase;
     public PhraseClass MylorikSpanishPhrase;
-    public PhraseClass SecondСommandment;
-    public PhraseClass SecondСommandmentBan;
+
 
     public PhraseClass SirinoksDragonPhrase;
     public PhraseClass SirinoksFriendsPhrase;
@@ -70,7 +72,7 @@ public class CharactersUniquePhrase
 
     public PhraseClass SpartanShameMylorik;
     public PhraseClass SpartanTheyWontLikeIt;
-    public PhraseClass ThirdСommandment;
+    public PhraseClass SpartanFirstBlood;
 
     public PhraseClass TigrSnipe;
     public PhraseClass TigrThreeZero;
@@ -159,6 +161,7 @@ public class CharactersUniquePhrase
         SpartanShameMylorik = new PhraseClass("Искусство");
         SpartanDragonSlayer = new PhraseClass("2kxaoc");
         SpartanTheyWontLikeIt = new PhraseClass("Guard Break");
+        SpartanFirstBlood = new PhraseClass("Первая кровь");
 
 
         TigrTwoBetter = new PhraseClass("Лучше с двумя, чем с адекватными");
@@ -305,6 +308,7 @@ public class CharactersUniquePhrase
         SpartanTheyWontLikeIt.PassiveLogRus.Add("Настакал blackcleaver!");
         SpartanTheyWontLikeIt.PassiveLogRus.Add("Мое копье создано что бы пронзить НЕБЕСА!");
         SpartanTheyWontLikeIt.PassiveLogRus.Add("Кину копье, напрыгну, отхуярю щитом");
+        SpartanFirstBlood.PassiveLogRus.Add("Кулю на эти деньги сапоги! +1 Скорость");
 
 
         TigrTwoBetter.PassiveLogRus.Add("Лучше с двумя, чем с адекватными");

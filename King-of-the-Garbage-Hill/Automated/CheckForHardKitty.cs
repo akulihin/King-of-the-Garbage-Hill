@@ -47,8 +47,12 @@ public class CheckForHardKitty : IServiceSingleton
     }
 
     public async void CheckForHardKittyStatus(object sender, ElapsedEventArgs e)
-
     {
+        if (System.Reflection.Assembly.GetExecutingAssembly().Location.Contains("D:\\git"))
+        {
+            return;
+        }
+
         if (_running)
             return;
         _running = true;

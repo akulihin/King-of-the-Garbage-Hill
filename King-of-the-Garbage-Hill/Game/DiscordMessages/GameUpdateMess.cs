@@ -188,7 +188,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                 if (other.Character.Name == "DeepList")
                 {
-                    customString += $" [Хозяин]";
+                    customString += $" <:pet:1046330623498911744>";
                     break;
                 }
 
@@ -339,7 +339,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             case "DeepList":
                 if (other.Character.Name == "Weedwick")
                 {
-                    customString += $" [Pet]";
+                    customString += $" <:pet:1046330623498911744>";
                 }
 
                 //tactic

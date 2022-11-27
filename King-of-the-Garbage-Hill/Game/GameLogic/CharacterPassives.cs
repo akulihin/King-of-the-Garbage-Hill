@@ -588,7 +588,7 @@ public class CharacterPassives : IServiceSingleton
                 {
                     Spartan.FriendList.Add(target.GetPlayerId());
                     me.Character.AddPsyche(me.Status, 1, "Отец?");
-                    target.Character.AddPsyche(target.Status, 1, "Boy?");
+                    target.Character.AddPsyche(target.Status, 1, "Boi?");
                     game.Phrases.SpartanShameMylorik.SendLog(me, false);
                 }
 
@@ -964,8 +964,7 @@ public class CharacterPassives : IServiceSingleton
 
                 var siri = me.Passives.SirinoksTraining;
 
-                if (me.Status.IsLostThisCalculation != Guid.Empty &&
-                    me.Status.WhoToAttackThisTurn.Contains(me.Status.IsLostThisCalculation))
+                if (me.Status.IsLostThisCalculation != Guid.Empty && me.Status.WhoToAttackThisTurn.Contains(me.Status.IsLostThisCalculation))
                 {
                     var playerSheLostLastTime =
                         game.PlayersList.Find(x => x.GetPlayerId() == me.Status.IsLostThisCalculation);
@@ -1549,12 +1548,12 @@ public class CharacterPassives : IServiceSingleton
                     if (Spartan.FriendList.Contains(player.Status.IsWonThisCalculation))
                     {
                         player.Character.AddSpeed(player.Status, 1, "Первая кровь");
+                        game.Phrases.SpartanFirstBlood.SendLog(player, false);
                         game.AddGlobalLogs("Они познают войну!\n");
                     }
                     else if (Spartan.FriendList.Contains(player.Status.IsLostThisCalculation))
                     {
-                        var ene = game.PlayersList.Find(x =>
-                            x.GetPlayerId() == player.Status.IsLostThisCalculation);
+                        var ene = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsLostThisCalculation);
                         ene.Character.AddSpeed(ene.Status, 1, "Первая кровь");
                     }
 
@@ -1565,8 +1564,7 @@ public class CharacterPassives : IServiceSingleton
                 //Это привилегия - умереть от моей руки
                 if (player.Status.IsWonThisCalculation != Guid.Empty && game.RoundNo > 4)
                 {
-                    game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation).Character.Justice
-                        .AddJusticeForNextRoundFromSkill();
+                    game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation).Character.Justice.AddJusticeForNextRoundFromSkill();
                     player.Character.AddIntelligence(player.Status, -1, "Это привилегия");
                 }
                 //end Это привилегия - умереть от моей руки
@@ -2478,7 +2476,7 @@ public class CharacterPassives : IServiceSingleton
                         player.Status.IsReady = true;
                         player.Status.WhoToAttackThisTurn = new List<Guid>();
 
-                        player.Character.AddExtraSkill(player.Status, -30, "Спящее хуйло");
+                        player.Character.AddExtraSkill(player.Status, -20, "Спящее хуйло");
 
                         player.Character.AvatarCurrent = player.Character.AvatarEvent
                             .Find(x => x.EventName == "Спящее хуйло").Url;
@@ -2535,7 +2533,7 @@ public class CharacterPassives : IServiceSingleton
                         player.Character.SetSpeed(player.Status, speed, "Претендент русского сервера");
                         player.Character.SetPsyche(player.Status, pshy, "Претендент русского сервера");
                         player.Character.AddExtraSkill(player.Status, 99, "Претендент русского сервера");
-                        player.Character.SetAnySkillMultiplier(2);
+                        player.Character.SetTargetSkillMultiplier(2);
 
 
                         gleb.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));

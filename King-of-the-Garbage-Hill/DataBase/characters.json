@@ -34,7 +34,7 @@
         "Visible": true
       },
       {
-        "PassiveDescription": "Eсли есть Weedwick,то на Weedwick появляется иконка питомца. На него нельзя нападать.",
+        "PassiveDescription": "Eсли есть Weedwick,то на Weedwick появляется иконка питомца (<:pet:1046330623498911744>). На него нельзя нападать.",
         "PassiveName": "Pet",
         "Visible": false
       }
@@ -105,7 +105,7 @@
         "Visible": true
       },
       {
-        "PassiveDescription": "Большой шанс заснуть и пропустить ход. Засыпая, Глеб понимает что уже не молод и теряет 30 *Скилла*.",
+        "PassiveDescription": "Большой шанс заснуть и пропустить ход. Засыпая, Глеб понимает что уже не молод и теряет 20 *Скилла*.",
         "PassiveName": "Спящее хуйло",
         "Visible": true
       },

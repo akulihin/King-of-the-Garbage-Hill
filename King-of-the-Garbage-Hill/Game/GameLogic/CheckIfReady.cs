@@ -304,13 +304,12 @@ public class CheckIfReady : IServiceSingleton
         else
         {
             game.AddGlobalLogs(
-                game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList.First().Status.GetScore())
-                    .Count > 1
+                game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList.First().Status.GetScore()).Count > 1
                     ? "\n**Ничья**"
                     : $"\n**{game.PlayersList.First().DiscordUsername}** победил, играя за **{game.PlayersList.First().Character.Name}**");
             if (!game.PlayersList.First().IsBot())
-                game.PlayersList.First().Status.SocketMessageFromBot.Channel
-                    .SendMessageAsync("__**Победа! Теперь ты Король этой Мусорной Горы. Пока-что...**__");
+                if(game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList.First().Status.GetScore()).Count == 1)
+                    game.PlayersList.First().Status.SocketMessageFromBot.Channel.SendMessageAsync("__**Победа! Теперь ты Король этой Мусорной Горы. Пока-что...**__");
         }
 
         //todo: need to redo this system

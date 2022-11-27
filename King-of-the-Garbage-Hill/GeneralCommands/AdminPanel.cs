@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Principal;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
@@ -32,6 +33,7 @@ public class AdminPanel : ModuleBaseCustom
         Global global, GameUpdateMess upd, CharactersPull charactersPull, CharacterPassives characterPassives,
         General general)
     {
+
         _accounts = accounts;
         _helperFunctions = helperFunctions;
         _global = global;
@@ -192,6 +194,8 @@ public class AdminPanel : ModuleBaseCustom
     [Summary("set character to roll next game (Admin only)")]
     public async Task CharacterToGiveNextTime(string character, IUser player = null)
     {
+        //238337696316129280 == DeepList
+        //_accounts.GetAccount(238337696316129280).CharacterToGiveNextTime = "Sirinoks";
         if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
         {
             await SendMessageAsync("only owners can use this command");
