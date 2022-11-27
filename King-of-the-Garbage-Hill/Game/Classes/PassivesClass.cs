@@ -60,12 +60,10 @@ public class PassivesClass
     public Octopus.InkClass OctopusInkList { get; set; } = new();
     public Octopus.InvulnerabilityClass OctopusInvulnerabilityList { get; set; } = new();
     public Octopus.TentaclesClass OctopusTentaclesList { get; set; } = new();
-    public CraboRack.BokoBoole OctopusInvulnerability { get; set; } = new();
 
     public FriendsClass SharkBoole { get; set; } = new();
     public Shark.SharkLeaderClass SharkJawsLeader { get; set; } = new();
     public FriendsClass SharkJawsWin { get; set; } = new();
-    public CraboRack.BokoBoole SharkDontUnderstand { get; set; } = new();
 
     public Sirinoks.SirinoksFriendsClass SirinoksFriendsAttack { get; set; } = new();
     public FriendsClass SirinoksFriendsList { get; set; } = new();

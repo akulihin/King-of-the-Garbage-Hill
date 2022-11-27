@@ -178,13 +178,7 @@ public class CharacterPassives : IServiceSingleton
                 break;
             case "Осьминожка":
                 // Неуязвимость
-                var octopusInvulnerability = target.Passives.OctopusInvulnerability;
-                if (octopusInvulnerability != null)
-                {
-                    octopusInvulnerability.CurrentAttacker = me.GetPlayerId();
-                    me.Character.ExtraWeight = me.Character.GetStrength() * -1;
-                }
-
+                me.Character.SetStrengthForOneFight(me.Status, 0, "Неуязвимость");
                 //end Неуязвимость
                 break;
             case "Краборак":
@@ -202,13 +196,7 @@ public class CharacterPassives : IServiceSingleton
                 //end Панцирь
 
                 // Хождение боком
-                var сraboBakoBoole = target.Passives.CraboRackBokoBoole;
-                if (сraboBakoBoole != null)
-                {
-                    сraboBakoBoole.CurrentAttacker = me.GetPlayerId();
-                    me.Character.ExtraWeight = me.Character.GetSpeed() * -1;
-                }
-
+                me.Character.SetSpeedForOneFight(me.Status, 0, "Хождение боком");
                 //end Хождение боком
                 break;
 
@@ -225,12 +213,7 @@ public class CharacterPassives : IServiceSingleton
 
 
                 // Ничего не понимает
-                var bratishkaDontUnderstand = target.Passives.SharkDontUnderstand;
-                if (bratishkaDontUnderstand != null)
-                {
-                    bratishkaDontUnderstand.CurrentAttacker = me.GetPlayerId();
-                    me.Character.ExtraWeight = me.Character.GetIntelligence() * -1;
-                }
+                me.Character.SetIntelligenceForOneFight(me.Status, 0, "Ничего не понимает");
                 //end  Ничего не понимает
 
                 break;
@@ -506,8 +489,9 @@ public class CharacterPassives : IServiceSingleton
                 // Оборотень
                 var myTempStrength = me.Character.GetStrength();
                 var targetTempStrength = target.Character.GetStrength();
-                me.Character.SetStrength(me.Status, targetTempStrength, "Оборотень", false);
-                target.Character.SetStrength(target.Status, myTempStrength, "Оборотень", false);
+
+                me.Character.SetStrengthForOneFight(me.Status, targetTempStrength, "Оборотень");
+                target.Character.SetStrengthForOneFight(target.Status, myTempStrength, "Оборотень");
                 //end  Оборотень
 
                 //Безжалостный охотник
@@ -529,11 +513,7 @@ public class CharacterPassives : IServiceSingleton
                 if (target.Character.Justice.GetRealJusticeNow() == 0)
                 {
                     var tempSpeed = me.Character.GetSpeed() * 2;
-
-                    me.Status.RealSpeed = me.Character.GetSpeed();
-                    me.Status.TempSpeed = tempSpeed;
-
-                    me.Character.SetSpeed(me.Status, tempSpeed, "Безжалостный охотник", false);
+                    me.Character.SetSpeedForOneFight(me.Status, tempSpeed, "Безжалостный охотник");
                 }
 
                 //end Безжалостный охотник
@@ -897,12 +877,6 @@ public class CharacterPassives : IServiceSingleton
                 //end Ценная добыча
 
 
-                // Оборотень
-                var myTempStrength = me.Character.GetStrength();
-                var targetTempStrength = target.Character.GetStrength();
-                me.Character.SetStrength(me.Status, targetTempStrength, "Оборотень", false);
-                target.Character.SetStrength(target.Status, myTempStrength, "Оборотень", false);
-                //end  Оборотень
                 break;
             case "Глеб":
                 //Я щас приду:
@@ -969,11 +943,9 @@ public class CharacterPassives : IServiceSingleton
             case "Осьминожка":
                 //Неуязвимость
                 if (me.Status.IsLostThisCalculation != Guid.Empty)
-                {
-                    var octo = me.Passives.OctopusInvulnerabilityList;
-                    octo.Count++;
+                { 
+                    me.Passives.OctopusInvulnerabilityList.Count++;
                 }
-
                 //end Неуязвимость
                 break;
 
@@ -1169,18 +1141,6 @@ public class CharacterPassives : IServiceSingleton
                         player.Status.IsBlock = false;
                     }
                 //end Панцирь
-
-                //Хождение боком
-                var сraboBakoBoole = player.Passives.CraboRackBokoBoole;
-                if (сraboBakoBoole != null)
-                    if (сraboBakoBoole.CurrentAttacker != Guid.Empty)
-                    {
-                        game.PlayersList.Find(x => x.GetPlayerId() == сraboBakoBoole.CurrentAttacker).Character
-                            .ExtraWeight = 0;
-                        сraboBakoBoole.CurrentAttacker = Guid.Empty;
-                    }
-
-                //end Хождение боком
                 break;
 
             case "DeepList":
@@ -1438,16 +1398,6 @@ public class CharacterPassives : IServiceSingleton
                 }
                 //end привет со дна*/
 
-                //Неуязвимость
-                var octopusInvulnerability = player.Passives.OctopusInvulnerability;
-                if (octopusInvulnerability.CurrentAttacker != Guid.Empty)
-                {
-                    game.PlayersList.Find(x => x.GetPlayerId() == octopusInvulnerability.CurrentAttacker).Character
-                        .ExtraWeight = 0;
-                    octopusInvulnerability.CurrentAttacker = Guid.Empty;
-                }
-                //end Неуязвимость
-
                 break;
             case "Darksci":
                 //Не повезло
@@ -1543,18 +1493,6 @@ public class CharacterPassives : IServiceSingleton
                     }
                 }
                 //end Челюсти: 
-
-                //ничего не понимает
-                var btratishkaDontUnderstand = player.Passives.SharkDontUnderstand;
-                if (btratishkaDontUnderstand != null)
-                    if (btratishkaDontUnderstand.CurrentAttacker != Guid.Empty)
-                    {
-                        game.PlayersList.Find(x => x.GetPlayerId() == btratishkaDontUnderstand.CurrentAttacker)
-                            .Character.ExtraWeight = 0;
-                        btratishkaDontUnderstand.CurrentAttacker = Guid.Empty;
-                    }
-
-                //end ничего не понимает
 
                 break;
             case "Загадочный Спартанец в маске":

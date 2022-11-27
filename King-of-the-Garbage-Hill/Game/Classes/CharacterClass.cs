@@ -843,6 +843,14 @@ public class CharacterClass
             Intelligence = 10;
     }
 
+    public void SetIntelligenceForOneFight(InGameStatus status, int howMuchToSet, string skillName)
+    {
+        //Set Stat only for one fight, not for the whole round!
+        status.RealIntelligence = GetIntelligence();
+        status.TempIntelligence = howMuchToSet;
+        SetIntelligence(status, howMuchToSet, skillName, false);
+    }
+
     public void SetIntelligenceExtraText(string newIntelligenceExtraText)
     {
         IntelligenceExtraText = newIntelligenceExtraText;
@@ -905,6 +913,14 @@ public class CharacterClass
             Psyche = 0;
         if (Psyche > 10)
             Psyche = 10;
+    }
+
+    public void SetPsycheForOneFight(InGameStatus status, int howMuchToSet, string skillName)
+    {
+        //Set Stat only for one fight, not for the whole round!
+        status.RealPsyche = GetPsyche();
+        status.TempPsyche = howMuchToSet;
+        SetPsyche(status, howMuchToSet, skillName, false);
     }
 
     public void SetPsycheExtraText(string newPsycheExtraText)
@@ -970,6 +986,14 @@ public class CharacterClass
             Speed = 10;
     }
 
+    public void SetSpeedForOneFight(InGameStatus status, int howMuchToSet, string skillName)
+    {
+        //Set Stat only for one fight, not for the whole round!
+        status.RealSpeed = GetSpeed();
+        status.TempSpeed = howMuchToSet;
+        SetSpeed(status, howMuchToSet, skillName, false);
+    }
+
     public void SetSpeedExtraText(string newSpeedExtraText)
     {
         SpeedExtraText = newSpeedExtraText;
@@ -1031,6 +1055,14 @@ public class CharacterClass
             Strength = 0;
         if (Strength > 10)
             Strength = 10;
+    }
+
+    public void SetStrengthForOneFight(InGameStatus status, int howMuchToSet, string skillName)
+    {
+        //Set Stat only for one fight, not for the whole round!
+        status.RealStrength = GetStrength();
+        status.TempStrength = howMuchToSet;
+        SetStrength(status, howMuchToSet, skillName, false);
     }
 
     public void SetStrengthExtraText(string newStrengthExtraText)

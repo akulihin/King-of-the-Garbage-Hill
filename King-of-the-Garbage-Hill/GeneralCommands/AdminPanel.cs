@@ -195,7 +195,7 @@ public class AdminPanel : ModuleBaseCustom
     public async Task CharacterToGiveNextTime(string character, IUser player = null)
     {
         //238337696316129280 == DeepList
-        //_accounts.GetAccount(238337696316129280).CharacterToGiveNextTime = "Sirinoks";
+        _accounts.GetAccount(238337696316129280).CharacterToGiveNextTime = "Weedwick";
         if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
         {
             await SendMessageAsync("only owners can use this command");
