@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
+using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
@@ -38,6 +39,31 @@ public class AdminPanel : ModuleBaseCustom
         _characterPassives = characterPassives;
         _general = general;
     }
+
+    [Command("getInvite")]
+    [Alias("inv")]
+    [RequireOwner]
+    public async Task GetInviteToTheServer(ulong guildId)
+    {
+        var inviteUrl = _global.Client.GetGuild(guildId).DefaultChannel.CreateInviteAsync();
+        await SendMessageAsync($"{inviteUrl.Result.Url}");
+    }
+
+
+    [Command("ShowGuilds")]
+    [Alias("guilds")]
+    [RequireOwner]
+    public async Task ShowConnectedGuilds()
+    {
+        var guilds = _global.Client.Guilds;
+        var text = "";
+        foreach (var guild in guilds)
+        {
+            text += $"{guild.Name} - {guild.Id}";
+        }
+        await SendMessageAsync($"{text}");
+    }
+
 
     [Command("restart")]
     [Alias("reboot")]
