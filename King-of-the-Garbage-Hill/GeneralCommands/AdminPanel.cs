@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
+using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 using King_of_the_Garbage_Hill.Game.Classes;
@@ -43,6 +44,7 @@ public class AdminPanel : ModuleBaseCustom
     [Command("getInvite")]
     [Alias("inv")]
     [RequireOwner]
+    [Summary("Get invite to a guild")]
     public async Task GetInviteToTheServer(ulong guildId)
     {
         var inviteUrl = _global.Client.GetGuild(guildId).DefaultChannel.CreateInviteAsync();
@@ -50,19 +52,53 @@ public class AdminPanel : ModuleBaseCustom
     }
 
 
+    [Command("leaveGuild")]
+    [Alias("lGuild")]
+    [RequireOwner]
+    [Summary("Leave a guild")]
+    public async Task LeaveGuild(ulong guildId)
+    {
+        var guild = _global.Client.GetGuild(guildId);
+        await guild.LeaveAsync();
+        await SendMessageAsync($"{guild.Name} Left");
+    }
+
+
+    [Command("ShowGuildInfo")]
+    [Alias("guildInfo")]
+    [RequireOwner]
+    [Summary("Show guild/server info")]
+    public async Task ShowGuildInfo(ulong guildId)
+    {
+        var guild = _global.Client.GetGuild(guildId);
+        var bot = guild.GetUser(_global.Client.CurrentUser.Id);
+        var joinedAt = bot.JoinedAt.Value;
+
+        await SendMessageAsync($"{guild.Name} - {guild.Id}\n" +
+            $"Created: {guild.CreatedAt.Day}/{guild.CreatedAt.Month}/{guild.CreatedAt.Year} (Joined on {joinedAt.Day}/{joinedAt.Month}/{joinedAt.Year})\n" +
+            $"Members: {guild.MemberCount}\n" +
+            $"Owner: {guild.Owner.Username} ({guild.Owner.Id})\n" +
+            $"Description: {guild.Description}\n" +
+            $"Banner: {guild.BannerUrl}\n");
+    }
+
+
     [Command("ShowGuilds")]
     [Alias("guilds")]
     [RequireOwner]
+    [Summary("Shows bot's guilds/servers")]
     public async Task ShowConnectedGuilds()
     {
         var guilds = _global.Client.Guilds;
         var text = "";
         foreach (var guild in guilds)
         {
-            text += $"{guild.Name} - {guild.Id}";
+            text += $"{guild.Name} - {guild.Id}\n";
         }
         await SendMessageAsync($"{text}");
     }
+
+
 
 
     [Command("restart")]
