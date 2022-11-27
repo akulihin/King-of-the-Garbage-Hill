@@ -807,12 +807,6 @@ public class CharacterPassives : IServiceSingleton
                     }
                 //end Weed
 
-                // Оборотень
-                var myTempStrength = me.Character.GetStrength();
-                var targetTempStrength = target.Character.GetStrength();
-                me.Character.SetStrength(me.Status, targetTempStrength, "Оборотень", false);
-                target.Character.SetStrength(target.Status, myTempStrength, "Оборотень", false);
-                //end  Оборотень
 
                 //Ценная добыча
                 if (me.Status.IsWonThisCalculation == target.GetPlayerId())
@@ -860,11 +854,13 @@ public class CharacterPassives : IServiceSingleton
                     if (placeDiff <= range)
                     {
                         //обычный дроп (его тут нет, просто так тут это написал)
+                        var harm = 0;
 
                         // 1/место в таблице.
                         var roll = _rand.Random(1, target.Status.PlaceAtLeaderBoard);
                         if (roll == 1)
                         {
+                            harm++;
                             target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status, me.Character.GetStrengthQualityDropBonus());
                             game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
                         }
@@ -873,6 +869,7 @@ public class CharacterPassives : IServiceSingleton
                         roll = _rand.Random(1, 5);
                         if (roll == 1)
                         {
+                            harm++;
                             target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status, me.Character.GetStrengthQualityDropBonus());
                             game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
                         }
@@ -881,13 +878,31 @@ public class CharacterPassives : IServiceSingleton
                         roll = _rand.Random(1, 3);
                         if (roll == 1 && target.Status.PlaceAtLeaderBoard == 1)
                         {
+                            harm++;
                             target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status, me.Character.GetStrengthQualityDropBonus());
                             game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
+                        }
+
+                        if (harm > 0)
+                        {
+                            var bongs = $"Вы нанесли {harm} дополнительного вреда по {target.DiscordUsername} ";
+                            for (var i = 0; i < harm; i++)
+                            {
+                                bongs += "<:bong:1046462826539130950>";
+                            }
+                            me.Status.AddInGamePersonalLogs($"*{bongs}*\n");
                         }
                     }
                 }
                 //end Ценная добыча
 
+
+                // Оборотень
+                var myTempStrength = me.Character.GetStrength();
+                var targetTempStrength = target.Character.GetStrength();
+                me.Character.SetStrength(me.Status, targetTempStrength, "Оборотень", false);
+                target.Character.SetStrength(target.Status, myTempStrength, "Оборотень", false);
+                //end  Оборотень
                 break;
             case "Глеб":
                 //Я щас приду:
