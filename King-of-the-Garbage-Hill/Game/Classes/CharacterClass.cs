@@ -79,6 +79,7 @@ public class CharacterClass
         status.AddBonusPoints(-1, "Quality");
         game.AddGlobalLogs($"Они скинули **{discordUsername}**! Сволочи!");
     }
+
     public void LowerQualityResist(string discordUsername, GameClass game, InGameStatus status, bool strengthBonus)
     {
         if (game.RoundNo == 1) return;

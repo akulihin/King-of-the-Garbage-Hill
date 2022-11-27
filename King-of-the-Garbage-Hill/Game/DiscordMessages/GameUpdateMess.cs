@@ -202,6 +202,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     customString += $" <:WUF:1005886339335598120>";
                 }
 
+                if (other.Status.WinStreak > 0)
+                {
+                    customString += $" <:bong:1046462826539130950>: {other.Status.WinStreak}";
+                }
 
                 break;
             case "AWDKA":

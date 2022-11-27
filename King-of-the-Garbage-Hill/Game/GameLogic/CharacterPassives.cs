@@ -817,7 +817,7 @@ public class CharacterPassives : IServiceSingleton
                 //Ценная добыча
                 if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                 {
-                    me.Status.AddBonusPoints(target.Status.WinStreak, "Ценная добыча");
+                    me.Status.AddRegularPoints(target.Status.WinStreak, "Ценная добыча");
                     switch (target.Status.WinStreak)
                     {
                         case 0:
@@ -845,31 +845,35 @@ public class CharacterPassives : IServiceSingleton
                             break;
                     }
 
+                    //calculate range
                     var range = me.Character.GetSpeedQualityResistInt();
                     range -= target.Character.GetSpeedQualityKiteBonus();
 
                     var placeDiff = me.Status.PlaceAtLeaderBoard - target.Status.PlaceAtLeaderBoard;
                     if (placeDiff < 0)
                         placeDiff *= -1;
+                    //end calculate range
 
+                    //WeedWick ignores range
+                    range = 10;
 
                     if (placeDiff <= range)
                     {
+                        //обычный дроп (его тут нет, просто так тут это написал)
+
                         // 1/место в таблице.
                         var roll = _rand.Random(1, target.Status.PlaceAtLeaderBoard);
                         if (roll == 1)
                         {
-                            target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status,
-                                me.Character.GetStrengthQualityDropBonus());
+                            target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status, me.Character.GetStrengthQualityDropBonus());
                             game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
                         }
 
-                        // 1/10
-                        roll = _rand.Random(1, 10);
+                        // 1/5
+                        roll = _rand.Random(1, 5);
                         if (roll == 1)
                         {
-                            target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status,
-                                me.Character.GetStrengthQualityDropBonus());
+                            target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status, me.Character.GetStrengthQualityDropBonus());
                             game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
                         }
 
@@ -877,8 +881,7 @@ public class CharacterPassives : IServiceSingleton
                         roll = _rand.Random(1, 3);
                         if (roll == 1 && target.Status.PlaceAtLeaderBoard == 1)
                         {
-                            target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status,
-                                me.Character.GetStrengthQualityDropBonus());
+                            target.Character.LowerQualityResist(target.DiscordUsername, game, target.Status, me.Character.GetStrengthQualityDropBonus());
                             game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
                         }
                     }
