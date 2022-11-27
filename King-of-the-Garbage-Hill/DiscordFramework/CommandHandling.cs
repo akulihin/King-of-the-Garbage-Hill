@@ -464,8 +464,7 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
 
         if (!resultTask.Result.IsSuccess)
         {
-            _log.Warning(
-                $"Command [{context.Command}] by [{context.User}] [{context.GuildName}] after {watch?.Elapsed:m\\:ss\\.ffff}s.\n" +
+            _log.Warning($"Command [{context.Command}] by [{context.User}] [{context.GuildName}] after {watch?.Elapsed:m\\:ss\\.ffff}s.\n" +
                 $"Reason: {resultTask.Result.ErrorReason}");
             _log.Error(resultTask.Result.ErrorReason);
 

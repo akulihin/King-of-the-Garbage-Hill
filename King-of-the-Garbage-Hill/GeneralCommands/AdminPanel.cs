@@ -260,33 +260,34 @@ public class AdminPanel : ModuleBaseCustom
         var player = game.PlayersList.Find(x => x.DiscordId == Context.User.Id);
         switch (name.ToLower())
         {
+            case "win":
+                player.Character.SetIntelligence(player.Status, number, "Читы");
+                player.Character.SetSpeed(player.Status, number, "Читы");
+                player.Character.SetStrength(player.Status, number, "Читы");
+                player.Character.SetPsyche(player.Status, number, "Читы");
+                player.Character.Justice.SetRealJusticeNow(player.Status, number, "Читы");
+                player.Character.SetMainSkill(player.Status, number*100, "Читы");
+                break;
             case "in":
-                player.Character
-                    .SetIntelligence(player.Status, number, "Читы");
+                player.Character.SetIntelligence(player.Status, number, "Читы");
                 break;
             case "sp":
-                player.Character
-                    .SetSpeed(player.Status, number, "Читы");
+                player.Character.SetSpeed(player.Status, number, "Читы");
                 break;
             case "st":
-                player.Character
-                    .SetStrength(player.Status, number, "Читы");
+                player.Character.SetStrength(player.Status, number, "Читы");
                 break;
             case "ps":
-                player.Character
-                    .SetPsyche(player.Status, number, "Читы");
+                player.Character.SetPsyche(player.Status, number, "Читы");
                 break;
             case "js":
-                player.Character
-                    .Justice.SetRealJusticeNow(player.Status, number, "Читы");
+                player.Character.Justice.SetRealJusticeNow(player.Status, number, "Читы");
                 break;
             case "sk":
-                player.Character
-                    .SetMainSkill(player.Status, number, "Читы");
+                player.Character.SetMainSkill(player.Status, number, "Читы");
                 break;
             case "mr":
-                player.Character
-                    .SetMoral(player.Status, number, "Читы");
+                player.Character.SetMoral(player.Status, number, "Читы");
                 break;
             default:
                 return;

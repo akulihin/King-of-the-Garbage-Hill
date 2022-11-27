@@ -444,14 +444,21 @@ public class CharacterPassives : IServiceSingleton
     }
 
 
-    public void HandleAttackBeforeFight(GamePlayerBridgeClass me,
-        GamePlayerBridgeClass target,
-        GameClass game)
+    public void HandleAttackBeforeFight(GamePlayerBridgeClass me, GamePlayerBridgeClass target, GameClass game)
     {
         var characterName = me.Character.Name;
 
         switch (characterName)
         {
+            case "DeepList":
+                //Сомнительная тактика
+                var deep = me.Passives.DeepListDoubtfulTactic;
+
+                if (!deep.FriendList.Contains(target.GetPlayerId()))
+                    me.Status.IsAbleToWin = false;
+
+                //end Сомнительная тактика
+                break;  
             case "Кратос":
                 //Возвращение из мертвых
                 if (game.RoundNo >= 10)
@@ -2947,11 +2954,8 @@ public class CharacterPassives : IServiceSingleton
 
                     if (tolya.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1))
                     {
-                        var targetTolya = game.PlayersList.Find(x =>
-                                x.GetPlayerId() == tolya.TargetList.Find(x => x.RoundNumber == game.RoundNo - 1).Target)
-                            .DiscordUsername;
-                        player.Status.AddInGamePersonalLogs(
-                            $"Подсчет: __Ставлю на то, что {targetTolya} получит пизды!__\n");
+                        var targetTolya = game.PlayersList.Find(x =>x.GetPlayerId() == tolya.TargetList.Find(x => x.RoundNumber == game.RoundNo - 1).Target)                            .DiscordUsername;
+                        player.Status.AddInGamePersonalLogs($"Подсчет: __Ставлю на то, что {targetTolya} получит пизды!__\n");
                     }
 
                     //end Подсчет
@@ -3440,7 +3444,7 @@ public class CharacterPassives : IServiceSingleton
         return 1;
     }
 
-    public async Task<int> HandleOctopus(GamePlayerBridgeClass octopus, GamePlayerBridgeClass attacker, GameClass game)
+    public async Task<int> HandleOctopus(GamePlayerBridgeClass octopus, GamePlayerBridgeClass attacker, GameClass game, int pointsWined)
     {
         if (octopus.Character.Name != "Осьминожка") return 0;
 

@@ -478,7 +478,8 @@ Speed => Strength
                 var moral = player.Status.PlaceAtLeaderBoard - playerIamAttacking.Status.PlaceAtLeaderBoard;
 
                 //octopus  // playerIamAttacking is octopus
-                if (pointsWined <= 0) pointsWined = await _characterPassives.HandleOctopus(playerIamAttacking, player, game);
+                if (pointsWined <= 0) 
+                    pointsWined = await _characterPassives.HandleOctopus(playerIamAttacking, player, game, pointsWined);
                 //end octopus
 
 
