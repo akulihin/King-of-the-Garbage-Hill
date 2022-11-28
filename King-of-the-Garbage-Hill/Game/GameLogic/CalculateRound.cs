@@ -402,9 +402,9 @@ Speed => Strength
                 }
 
 
-                var scaleMe = me.ExtraWeight + me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() +
+                var scaleMe = me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() +
                               me.GetSkill() * skillMultiplierMe / 50;
-                var scaleTarget = target.ExtraWeight + target.GetIntelligence() + target.GetStrength() + target.GetSpeed() +
+                var scaleTarget = target.GetIntelligence() + target.GetStrength() + target.GetSpeed() +
                                   target.GetPsyche() + target.GetSkill() * skillMultiplierTarget / 50;
                 weighingMachine += scaleMe - scaleTarget;
 

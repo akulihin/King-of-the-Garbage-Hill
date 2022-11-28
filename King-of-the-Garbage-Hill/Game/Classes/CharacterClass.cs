@@ -18,14 +18,30 @@ public class CharacterClass
         TargetSkillMultiplier = 0;
         ExtraSkillMultiplier = 0;
         SkillFightMultiplier = 1;
-        ExtraWeight = 0;
         Avatar = avatar;
         AvatarCurrent = avatar;
     }
 
+    // PUBLIC
     public string Name { get; set; }
 
-    public int ExtraWeight { get; set; }
+    public int LastMoralRound { get; set; } = 1;
+
+    public JusticeClass Justice { get; set; }
+
+    public List<AvatarEventClass> AvatarEvent = new();
+
+    public string Avatar { get; set; }
+    public string AvatarCurrent { get; set; }
+    public List<Passive> Passive { get; set; }
+    public string Description { get; set; }
+    public int Tier { get; set; }
+
+    public int WonTimes { get; set; }
+    public int WinStreak { get; set; }
+
+    // PRIVATE
+
     private int Intelligence { get; set; }
     private string IntelligenceExtraText { get; set; }
     private int Psyche { get; set; }
@@ -42,7 +58,6 @@ public class CharacterClass
     private string CurrentSkillTarget { get; set; } = "Ничего";
     private int Moral { get; set; }
     private int BonusPointsFromMoral { get; set; }
-    public int LastMoralRound { get; set; } = 1;
 
     private int IntelligenceQualityResist { get; set; }
     private int StrengthQualityResist { get; set; }
@@ -57,20 +72,6 @@ public class CharacterClass
     private int SpeedQualityKiteBonus { get; set; }
     private bool PsycheQualityMoralBonus { get; set; }
     private int PsycheQualityMoralDebuff { get; set; }
-
-
-    public JusticeClass Justice { get; set; }
-
-    public List<AvatarEventClass> AvatarEvent = new();
-
-    public string Avatar { get; set; }
-    public string AvatarCurrent { get; set; }
-    public List<Passive> Passive { get; set; }
-    public string Description { get; set; }
-    public int Tier { get; set; }
-
-    public int WonTimes { get; set; }
-    public int WinStreak { get; set; }
 
 
     public void HandleDrop(string discordUsername, GameClass game, InGameStatus status)
@@ -285,6 +286,7 @@ public class CharacterClass
 
         IsIntelligenceQualitySkillBonus = Intelligence > 9;
     }
+
     public void SetStrengthResist()
     {
         StrengthQualityResist = Strength switch
@@ -490,14 +492,17 @@ public class CharacterClass
 
         return toReturn;
     }
+
     public bool GetStrengthQualityDropBonus()
     {
         return StrengthQualityDropBonus;
     }
+
     public bool GetIsSpeedQualityKiteBonus()
     {
         return IsSpeedQualityKiteBonus;
     }
+
     public bool GetPsycheQualityMoralBonus()
     {
         return PsycheQualityMoralBonus;
@@ -507,7 +512,6 @@ public class CharacterClass
     {
         return StrengthQualityDropDebuff;
     }
-
 
     public string GetClassStatDisplayText()
     {
@@ -525,7 +529,7 @@ public class CharacterClass
      Speed => Strength
      */
 
-     public string GetSkillClass()
+    public string GetSkillClass()
     {
         if (Intelligence == 0 && Strength == 0 && Speed == 0) return "Буль";
 
@@ -546,7 +550,6 @@ public class CharacterClass
 
         return "Буль";
     }
-
 
     public int GetBonusPointsFromMoral()
     {
@@ -589,7 +592,6 @@ public class CharacterClass
         }
     }
 
-
     public void SetTargetSkillMultiplier(int targetSkillMultiplier = 0)
     {
         //2 это х3
@@ -628,7 +630,6 @@ public class CharacterClass
     {
         return SkillFightMultiplier;
     }
-
 
     public decimal GetSkill()
     {
@@ -728,7 +729,6 @@ public class CharacterClass
         return (int) (Moral* moralDebuff);
     }
 
-
     public void SetMoral(InGameStatus status, int howMuchToSet, string skillName, bool isLog = true)
     {
         if (skillName != "Прокачка" && skillName != "Читы")
@@ -783,8 +783,7 @@ public class CharacterClass
 
         if (GetMoral() < 0) Moral = 0;
     }
-
-
+    
     public void AddIntelligence(InGameStatus status, int howMuchToAdd, string skillName, bool isLog = true)
     {
         if (skillName != "Прокачка" && skillName != "Читы")
