@@ -139,7 +139,7 @@ Speed => Strength
 
     public T CloneJson<T>(T source)
     {
-        if (ReferenceEquals(source, null)) return default;
+        //if (ReferenceEquals(source, null)) return default;
         var deserializeSettings = new JsonSerializerSettings { ObjectCreationHandling = ObjectCreationHandling.Replace };
         return JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(source), deserializeSettings);
     }
