@@ -309,7 +309,7 @@ public class CheckIfReady : IServiceSingleton
                     : $"\n**{game.PlayersList.First().DiscordUsername}** победил, играя за **{game.PlayersList.First().Character.Name}**");
             if (!game.PlayersList.First().IsBot())
                 if(game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList.First().Status.GetScore()).Count == 1)
-                    game.PlayersList.First().Status.SocketMessageFromBot.Channel.SendMessageAsync("__**Победа! Теперь ты Король этой Мусорной Горы. Пока-что...**__");
+                    game.PlayersList.First().DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync("__**Победа! Теперь ты Король этой Мусорной Горы. Пока-что...**__");
         }
 
         //todo: need to redo this system
@@ -399,7 +399,7 @@ public class CheckIfReady : IServiceSingleton
             try
             {
                 if (!player.IsBot())
-                    await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(
+                    await player.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync(
                         $"Спасибо за игру!\nВы заработали **{zbsPointsToGive}** ZBS points!\n\nВы можете потратить их в магазине - `*store`\nА вы знали? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганув его! Например `*st @Boole`");
             }
             catch (Exception exception)

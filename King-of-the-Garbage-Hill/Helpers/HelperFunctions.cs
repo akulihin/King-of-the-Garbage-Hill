@@ -217,7 +217,7 @@ public sealed class HelperFunctions : IServiceSingleton
                 }
                 _embedQueue.Add(player.GetPlayerId());
 
-                await player.Status.SocketMessageFromBot.ModifyAsync(message =>
+                await player.DiscordStatus.SocketMessageFromBot.ModifyAsync(message =>
                 {
                     message.Embed = embed.Build();
                     message.Components = components.Build();
@@ -251,7 +251,7 @@ public sealed class HelperFunctions : IServiceSingleton
                 }
                 _messageQueue.Add(player.GetPlayerId());
 
-                var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(msg);
+                var mess2 = await player.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync(msg);
                 player.DeleteMessages.Add(mess2.Id);
 
                 _messageQueue.Remove(player.GetPlayerId());
@@ -272,7 +272,7 @@ public sealed class HelperFunctions : IServiceSingleton
             if (!player.IsBot())
                 for (var i = player.DeleteMessages.Count - 1; i >= 0; i--)
                 {
-                    var m = await player.Status.SocketMessageFromBot.Channel.GetMessageAsync(player.DeleteMessages[i]);
+                    var m = await player.DiscordStatus.SocketMessageFromBot.Channel.GetMessageAsync(player.DeleteMessages[i]);
                     await m.DeleteAsync();
                     player.DeleteMessages.RemoveAt(i);
                 }
@@ -298,7 +298,7 @@ public sealed class HelperFunctions : IServiceSingleton
         leftUser.DiscordId = freeBot.DiscordId;
         leftUser.DiscordUsername = freeBot.DiscordUserName;
         leftUser.PlayerType = freeBot.PlayerType;
-        leftUser.Status.SocketMessageFromBot = null;
+        leftUser.DiscordStatus.SocketMessageFromBot = null;
         freeBot.IsPlaying = true;
     }
 

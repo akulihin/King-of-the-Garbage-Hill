@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Helpers;
+using Newtonsoft.Json;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
@@ -136,6 +137,30 @@ Speed => Strength
         }
     }
 
+
+    public T CloneJson<T>(T source)
+    {
+        //if (ReferenceEquals(source, null)) return default;
+        var deserializeSettings = new JsonSerializerSettings { ObjectCreationHandling = ObjectCreationHandling.Replace };
+        return JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(source), deserializeSettings);
+    }
+
+    public void UpdateRealCharacters(GameClass game)
+    {
+        //watch to be removed
+        var watch = new Stopwatch();
+        watch.Start();
+
+        foreach (var player in game.PlayersList)
+        {
+            //player.GameCharacter = CloneJson(player.RoundCharacter);
+            //player.GameStatus = CloneJson(player.RoundStatus);
+        }
+
+        _logs.Info($"Finished Copy || {watch.Elapsed.TotalSeconds}s");
+        watch.Stop();
+        var boole = 1;
+    }
 
     //пристрій судного дня
     public async Task CalculateAllFights(GameClass game)    
@@ -685,7 +710,7 @@ Speed => Strength
         {
             if (player.Character.Name == "Кратос")
             {
-                await player.Status.SocketMessageFromBot.ModifyAsync(x =>
+                await player.DiscordStatus.SocketMessageFromBot.ModifyAsync(x =>
                 {
                     x.Components = null;
                     x.Embed = null;
@@ -693,7 +718,7 @@ Speed => Strength
                 });
             }
 
-            await player.Status.SocketMessageFromBot.ModifyAsync(x =>
+            await player.DiscordStatus.SocketMessageFromBot.ModifyAsync(x =>
             {
                 x.Components = null;
                 x.Embed = null;

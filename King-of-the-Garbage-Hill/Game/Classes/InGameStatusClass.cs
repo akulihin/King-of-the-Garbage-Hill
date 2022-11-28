@@ -12,7 +12,6 @@ public class InGameStatus
     {
         MoveListPage = 1;
         LvlUpPoints = 0;
-        SocketMessageFromBot = null;
         Score = 0;
         IsBlock = false;
         IsAbleToTurn = true;
@@ -53,8 +52,6 @@ public class InGameStatus
      * 2 = Log   
      * 3 = lvlUp     (what stat to update)
      */
-
-    public IUserMessage SocketMessageFromBot { get; set; }
 
     private int Score { get; set; }
     public Guid PlayerId { get; set; }

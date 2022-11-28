@@ -14,6 +14,7 @@ public class GamePlayerBridgeClass
         GameId = gameId;
         DiscordUsername = discordUsername;
         PlayerType = playerType;
+        DiscordStatus = new InGameDiscordStatus();
         character.SetIntelligenceResist();
         character.SetStrengthResist();
         character.SetSpeedResist();
@@ -24,6 +25,7 @@ public class GamePlayerBridgeClass
     public InGameStatus Status { get; set; }
 
     public PassivesClass Passives { get; set; }
+    public InGameDiscordStatus DiscordStatus { get; set; }
 
     public ulong DiscordId { get; set; }
     public ulong GameId { get; set; }
@@ -45,7 +47,7 @@ public class GamePlayerBridgeClass
 
     public bool IsBot()
     {
-        return PlayerType == 404 || Status.SocketMessageFromBot == null;
+        return PlayerType == 404 || DiscordStatus.SocketMessageFromBot == null;
     }
 
     public void MinusPsycheLog(GameClass game)

@@ -779,7 +779,7 @@ public class CharactersUniquePhrase
                 PassiveLogRus.Remove(description);
             try
             {
-                var mess2 = await player.Status.SocketMessageFromBot.Channel.SendMessageAsync(description);
+                var mess2 = await player.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync(description);
                 player.DeleteMessages.Add(mess2.Id);
             }
             catch (Exception exception)
@@ -818,7 +818,7 @@ public class CharactersUniquePhrase
             try
             {
                 //.SendFileAsync($"DataBase/sound/Kratos_PLAY_ME.mp3", "123");
-                var mess2 = await player.Status.SocketMessageFromBot.Channel.SendFileAsync(filePath, description);
+                var mess2 = await player.DiscordStatus.SocketMessageFromBot.Channel.SendFileAsync(filePath, description);
                 if(clearNextRound)
                     player.DeleteMessages.Add(mess2.Id);
             }

@@ -114,7 +114,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         var socketMsg = await globalAccount.SendMessageAsync("", false, mainPage.Build());
 
-        player.Status.SocketMessageFromBot = socketMsg;
+        player.DiscordStatus.SocketMessageFromBot = socketMsg;
     }
 
     public string LeaderBoard(GamePlayerBridgeClass player)

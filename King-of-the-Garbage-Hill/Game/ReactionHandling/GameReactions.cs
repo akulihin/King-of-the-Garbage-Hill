@@ -40,7 +40,7 @@ public sealed class GameReaction : IServiceSingleton
         foreach (var t in _global.GamesList)
             if (t.PlayersList.Any(x =>
                     x.DiscordId == button.User.Id &&
-                    x.Status.SocketMessageFromBot.Id == button.Message.Id))
+                    x.DiscordStatus.SocketMessageFromBot.Id == button.Message.Id))
             {
                 var player = _global.GetGameAccount(button.User.Id, t.PlayersList.FirstOrDefault().GameId);
                 
