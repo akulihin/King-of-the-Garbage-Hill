@@ -25,22 +25,20 @@ public class CharacterClass
     // PUBLIC
     public string Name { get; set; }
 
-    public int LastMoralRound { get; set; } = 1;
-
     public JusticeClass Justice { get; set; }
 
     public List<AvatarEventClass> AvatarEvent = new();
-
     public string Avatar { get; set; }
     public string AvatarCurrent { get; set; }
     public List<Passive> Passive { get; set; }
     public string Description { get; set; }
     public int Tier { get; set; }
 
-    public int WonTimes { get; set; }
-    public int WinStreak { get; set; }
-
+    
     // PRIVATE
+    private int LastMoralRound { get; set; } = 1;
+    private int WonTimes { get; set; }
+    private int WinStreak { get; set; }
 
     private int Intelligence { get; set; }
     private string IntelligenceExtraText { get; set; }
@@ -73,6 +71,45 @@ public class CharacterClass
     private bool PsycheQualityMoralBonus { get; set; }
     private int PsycheQualityMoralDebuff { get; set; }
 
+    public int GetLastMoralRound()
+    {
+        return LastMoralRound;
+    }
+
+    public void SetLastMoralRound(int howMuchToSet)
+    {
+        LastMoralRound = howMuchToSet;
+    }
+
+    public int GetWinStreak()
+    {
+        return WinStreak;
+    }
+
+    public void AddWinStreak(int howMuchToAdd = 1)
+    {
+        WinStreak += howMuchToAdd;
+        WonTimes += howMuchToAdd;
+    }
+    public void SetWinStreak(int howMuchToSet = 0)
+    {
+        WinStreak = howMuchToSet;
+    }
+
+    public int GetWonTimes()
+    {
+        return WonTimes;
+    }
+
+    public void AddWonTimes(int howMuchToAdd = 1)
+    {
+        WonTimes += howMuchToAdd;
+    }
+
+    public void SetWonTimes(int howMuchToSet)
+    {
+        WonTimes = howMuchToSet;
+    }
 
     public void HandleDrop(string discordUsername, GameClass game, InGameStatus status)
     {

@@ -66,14 +66,13 @@ Speed => Strength
 
             if (player.Status.IsWonThisCalculation != Guid.Empty)
             {
-                player.Character.WonTimes++;
-                player.Character.WinStreak++;
+                player.Character.AddWinStreak();
                 player.Passives.WeedwickWeed++;
             }
 
             if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
-                player.Character.WinStreak = 0;
+                player.Character.SetWinStreak();
             }
 
             if (player.Status.IgnoredBlock)

@@ -787,8 +787,8 @@ public class CharacterPassives : IServiceSingleton
                 //Ценная добыча
                 if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                 {
-                    me.Status.AddRegularPoints(target.Character.WinStreak, "Ценная добыча");
-                    switch (target.Character.WinStreak)
+                    me.Status.AddRegularPoints(target.Character.GetWinStreak(), "Ценная добыча");
+                    switch (target.Character.GetWinStreak())
                     {
                         case 0:
                             break;
@@ -2247,7 +2247,7 @@ public class CharacterPassives : IServiceSingleton
                 case "AWDKA":
 
                     //АФКА
-                    var afkaChance = 32 - (game.RoundNo - player.Character.LastMoralRound) * 4;
+                    var afkaChance = 32 - (game.RoundNo - player.Character.GetLastMoralRound()) * 4;
                     if (afkaChance <= 0)
                         afkaChance = 1;
                     if (_rand.Random(1, afkaChance) == 1)
