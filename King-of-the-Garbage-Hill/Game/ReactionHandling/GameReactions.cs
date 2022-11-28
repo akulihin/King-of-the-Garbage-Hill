@@ -141,7 +141,7 @@ public sealed class GameReaction : IServiceSingleton
                         break;
 
                     case "stable-Darksci":
-                        var darksciType = player.Passives.DarksciTypeList;
+                        var darksciType = player.Character.Passives.DarksciTypeList;
                         darksciType.Triggered = true;
                         darksciType.IsStableType = true;
                         player.Character.AddExtraSkill(player.Status, 20, "Не повезло");
@@ -154,7 +154,7 @@ public sealed class GameReaction : IServiceSingleton
                         break;
 
                     case "not-stable-Darksci":
-                        darksciType = player.Passives.DarksciTypeList;
+                        darksciType = player.Character.Passives.DarksciTypeList;
                         darksciType.Triggered = true;
                         darksciType.IsStableType = false;
                         player.Status.AddInGamePersonalLogs("Я чувствую удачу!\n");
@@ -684,7 +684,7 @@ public sealed class GameReaction : IServiceSingleton
         //There is a second part in "HandleEndOfRound"!!!!!!!!!! <<<<<<<<<<
         if (player.Character.Name == "Sirinoks")
         {
-            var siriTraining = player.Passives.SirinoksTraining;
+            var siriTraining = player.Character.Passives.SirinoksTraining;
             if (siriTraining != null)
             {
                 if (siriTraining.Training.Count > 0)

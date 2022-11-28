@@ -75,7 +75,7 @@ public class CheckIfReady : IServiceSingleton
             case "HardKitty":
                 game.AddGlobalLogs("HarDKitty больше не одинок! Как много друзей!!!");
 
-                var hard = playerWhoWon.Passives.HardKittyLoneliness;
+                var hard = playerWhoWon.Character.Passives.HardKittyLoneliness;
 
                 if (hard != null)
                     foreach (var enemy in game.PlayersList)
@@ -167,7 +167,7 @@ public class CheckIfReady : IServiceSingleton
             //trolling
             if (AWDKA != null)
             {
-                var awdkaTroll = AWDKA.Passives.AwdkaTrollingList;
+                var awdkaTroll = AWDKA.Character.Passives.AwdkaTrollingList;
 
 
                 var enemy = awdkaTroll.EnemyList.Find(x =>

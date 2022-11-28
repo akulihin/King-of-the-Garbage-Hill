@@ -67,7 +67,7 @@ Speed => Strength
             if (player.Status.IsWonThisCalculation != Guid.Empty)
             {
                 player.Character.AddWinStreak();
-                player.Passives.WeedwickWeed++;
+                player.Character.Passives.WeedwickWeed++;
             }
 
             if (player.Status.IsLostThisCalculation != Guid.Empty)
@@ -705,7 +705,7 @@ Speed => Strength
         }
 
         //Возвращение из мертвых
-        foreach (var player in game.PlayersList.Where(x => x.Passives.KratosIsDead && !x.IsBot()))
+        foreach (var player in game.PlayersList.Where(x => x.Character.Passives.KratosIsDead && !x.IsBot()))
         {
             if (player.Character.Name == "Кратос")
             {
@@ -725,7 +725,7 @@ Speed => Strength
             });
         }
 
-        game.PlayersList = game.PlayersList.Where(x => !x.Passives.KratosIsDead).ToList();
+        game.PlayersList = game.PlayersList.Where(x => !x.Character.Passives.KratosIsDead).ToList();
 
         if (game.PlayersList.Count == 1)
         {
@@ -757,7 +757,7 @@ Speed => Strength
         {
             var tigrTemp = game.PlayersList.Find(x => x.Character.Name == "Тигр");
 
-            var tigr = tigrTemp.Passives.TigrTop;
+            var tigr = tigrTemp.Character.Passives.TigrTop;
 
             if (tigr is { TimeCount: > 0 })
             {

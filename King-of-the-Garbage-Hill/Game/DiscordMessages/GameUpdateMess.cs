@@ -161,14 +161,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         {
             case "Осьминожка":
 
-                if (!player1.Passives.OctopusTentaclesList.LeaderboardPlace.Contains(number)) customString += "🐙";
+                if (!player1.Character.Passives.OctopusTentaclesList.LeaderboardPlace.Contains(number)) customString += "🐙";
 
 
                 break;
 
             case "Братишка":
 
-                if (!player1.Passives.SharkJawsLeader.FriendList.Contains(number)) customString += "🐙";
+                if (!player1.Character.Passives.SharkJawsLeader.FriendList.Contains(number)) customString += "🐙";
                 break;
         }
 
@@ -192,9 +192,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     break;
                 }
 
-                if (other.Passives.WeedwickWeed > 0)
+                if (other.Character.Passives.WeedwickWeed > 0)
                 {
-                    customString += $" <:weed:1005884006866354196>: {other.Passives.WeedwickWeed}";
+                    customString += $" <:weed:1005884006866354196>: {other.Character.Passives.WeedwickWeed}";
                 }
 
                 if (other.Character.Justice.GetRealJusticeNow() == 0)
@@ -211,8 +211,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             case "AWDKA":
                 if (other.GetPlayerId() == me.GetPlayerId()) break;
 
-                var awdka = me.Passives.AwdkaTryingList;
-                var awdkaTrainingHistory = me.Passives.AwdkaTeachToPlayHistory;
+                var awdka = me.Character.Passives.AwdkaTryingList;
+                var awdkaTrainingHistory = me.Character.Passives.AwdkaTeachToPlayHistory;
 
                 var awdkaTrying = awdka.TryingList.Find(x => x.EnemyPlayerId == other.GetPlayerId());
 
@@ -244,13 +244,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                 break;
             case "Братишка":
-                var shark = me.Passives.SharkJawsWin;
+                var shark = me.Character.Passives.SharkJawsWin;
                 if (!shark.FriendList.Contains(other.GetPlayerId()) && other.GetPlayerId() != me.GetPlayerId())
                     customString += " <:jaws:565741834219945986>";
                 break;
 
             case "Darksci":
-                var dar = me.Passives.DarksciLuckyList;
+                var dar = me.Character.Passives.DarksciLuckyList;
 
                 if (!dar.TouchedPlayers.Contains(other.GetPlayerId()) &&
                     other.GetPlayerId() != me.GetPlayerId())
@@ -259,14 +259,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                 break;
             case "Вампур":
-                var vamp = me.Passives.VampyrHematophagiaList;
+                var vamp = me.Character.Passives.VampyrHematophagiaList;
                 var target = vamp.Hematophagia.Find(x => x.EnemyId == other.GetPlayerId());
                 if (target != null)
                     customString += " <:Y_:562885385395634196>";
                 break;
 
             case "HardKitty":
-                var hardKitty = me.Passives.HardKittyDoebatsya;
+                var hardKitty = me.Character.Passives.HardKittyDoebatsya;
                 if (hardKitty != null)
                 {
                     var lostSeries = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == other.GetPlayerId());
@@ -284,9 +284,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                 break;
             case "Sirinoks":
-                var siri = me.Passives.SirinoksFriendsList;
+                var siri = me.Character.Passives.SirinoksFriendsList;
 
-                var siriTraining = me.Passives.SirinoksTraining;
+                var siriTraining = me.Character.Passives.SirinoksTraining;
                 if (siriTraining != null && siriTraining.Training.Count > 0)
                 {
                     var training = siriTraining.Training.First();
@@ -320,7 +320,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 break;
             case "Загадочный Спартанец в маске":
 
-                var SpartanShame = me.Passives.SpartanShame;
+                var SpartanShame = me.Character.Passives.SpartanShame;
 
                 if (!SpartanShame.FriendList.Contains(other.GetPlayerId()) &&
                     other.GetPlayerId() != me.GetPlayerId())
@@ -331,7 +331,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     customString += " <:Spartaneon:899847724936089671>";
 
 
-                var SpartanMark = me.Passives.SpartanMark;
+                var SpartanMark = me.Character.Passives.SpartanMark;
 
                 if (SpartanMark.FriendList.Contains(other.GetPlayerId()))
                     customString += " <:sparta:561287745675329567>";
@@ -347,7 +347,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 }
 
                 //tactic
-                var deep = me.Passives.DeepListDoubtfulTactic;
+                var deep = me.Character.Passives.DeepListDoubtfulTactic;
                 if (deep != null)
                     if (deep.FriendList.Contains(other.GetPlayerId()) &&
                         other.GetPlayerId() != me.GetPlayerId())
@@ -355,7 +355,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 //end tactic
 
                 //сверхразум
-                var currentList = me.Passives.DeepListSupermindKnown;
+                var currentList = me.Character.Passives.DeepListSupermindKnown;
                 if (currentList != null)
                     if (currentList.KnownPlayers.Contains(other.GetPlayerId()))
                         customString +=
@@ -366,7 +366,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
                 //стёб
-                var currentDeepList = me.Passives.DeepListMockeryList;
+                var currentDeepList = me.Character.Passives.DeepListMockeryList;
 
                 if (currentDeepList != null)
                 {
@@ -388,14 +388,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 break;
 
             case "mylorik":
-                var mylorik = me.Passives.MylorikRevenge;
+                var mylorik = me.Character.Passives.MylorikRevenge;
                 var find = mylorik?.EnemyListPlayerIds.Find(x =>
                     x.EnemyPlayerId == other.GetPlayerId());
 
                 if (find is { IsUnique: true }) customString += " <:sparta:561287745675329567>";
                 if (find is { IsUnique: false }) customString += " ❌";
 
-                var mylorikSpartan = me.Passives.MylorikSpartan;
+                var mylorikSpartan = me.Character.Passives.MylorikSpartan;
 
                 var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == other.GetPlayerId());
 
@@ -427,14 +427,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                 break;
             case "Тигр":
-                var tigr1 = me.Passives.TigrTwoBetterList;
+                var tigr1 = me.Character.Passives.TigrTwoBetterList;
 
                 if (tigr1 != null)
                     //if (tigr1.FriendList.Contains(other.GetPlayerId()) && other.GetPlayerId() != me.GetPlayerId())
                     if (tigr1.FriendList.Contains(other.GetPlayerId()))
                         customString += " <:pepe_down:896514760823144478>";
 
-                var tigr2 = me.Passives.TigrThreeZeroList;
+                var tigr2 = me.Character.Passives.TigrThreeZeroList;
 
                 var enemy = tigr2?.FriendList.Find(x => x.EnemyPlayerId == other.GetPlayerId());
 
@@ -1070,7 +1070,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         switch (player.Character.Name)
         {
             case "Darksci":
-                var darksciType = player.Passives.DarksciTypeList;
+                var darksciType = player.Character.Passives.DarksciTypeList;
                 if (game.RoundNo == 1 && !darksciType.Triggered)
                 {
                     components.WithButton(new ButtonBuilder("Мне никогда не везёт...", "stable-Darksci"), 4);
@@ -1151,7 +1151,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public async Task UpdateMessage(GamePlayerBridgeClass player, string extraText = "")
     {
-        if (player.IsBot() || player.Passives.KratosIsDead) return;
+        if (player.IsBot() || player.Character.Passives.KratosIsDead) return;
 
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         var embed = new EmbedBuilder();

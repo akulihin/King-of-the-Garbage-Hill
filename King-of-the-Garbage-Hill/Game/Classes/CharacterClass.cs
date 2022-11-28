@@ -20,6 +20,7 @@ public class CharacterClass
         SkillFightMultiplier = 1;
         Avatar = avatar;
         AvatarCurrent = avatar;
+        Passives = new PassivesClass(this);
     }
 
     // PUBLIC
@@ -34,7 +35,9 @@ public class CharacterClass
     public string Description { get; set; }
     public int Tier { get; set; }
 
-    
+    public PassivesClass Passives { get; set; }
+
+
     // PRIVATE
     private int LastMoralRound { get; set; } = 1;
     private int WonTimes { get; set; }

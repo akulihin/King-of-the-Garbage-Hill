@@ -91,9 +91,9 @@ public class PassivesClass
     public bool KratosIsDead { get; set; } = false;
 
 
-    public PassivesClass (GamePlayerBridgeClass player)
+    public PassivesClass (CharacterClass playerCharacter)
     {
-        InitializePassives(player);
+        InitializePassives(playerCharacter);
     }
 
     private int Random(int minValue, int maxValue)
@@ -172,9 +172,9 @@ public class PassivesClass
     }
 
 
-    public void InitializePassives(GamePlayerBridgeClass player)
+    public void InitializePassives(CharacterClass playerCharacter)
     {
-        var characterName = player.Character.Name;
+        var characterName = playerCharacter.Name;
             WhenToTriggerClass when;
             switch (characterName)
             {
