@@ -69,6 +69,9 @@ public class CharacterClass
     public string Description { get; set; }
     public int Tier { get; set; }
 
+    public int WonTimes { get; set; }
+    public int WinStreak { get; set; }
+
 
     public void HandleDrop(string discordUsername, GameClass game, InGameStatus status)
     {

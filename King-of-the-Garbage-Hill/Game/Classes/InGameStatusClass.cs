@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Discord;
-
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
@@ -21,7 +19,6 @@ public class InGameStatus
         IsReady = false;
         IsAutoMove = false;
         IsAbleToWin = true;
-        WonTimes = 0;
         IsWonThisCalculation = Guid.Empty;
         IsLostThisCalculation = Guid.Empty;
         IsFighting = Guid.Empty;
@@ -64,8 +61,6 @@ public class InGameStatus
     public int PlaceAtLeaderBoard { get; set; }
     public List<Guid> WhoToAttackThisTurn { get; set; }
     public bool IsReady { get; set; }
-    public int WonTimes { get; set; }
-    public int WinStreak { get; set; }
     public Guid IsWonThisCalculation { get; set; }
     public Guid IsLostThisCalculation { get; set; }
     public Guid IsTargetSkipped { get; set; }
@@ -89,6 +84,7 @@ public class InGameStatus
     public bool IgnoredBlock { get; set; }
     public bool IgnoredSkip { get; set; }
 
+    //Real and Temp stats are used only for Round Mechanics (Fighting). They are used mostly to "ignore" or "swap" characteristics during one fight!
     public int RealIntelligence { get; set; } = -1;
     public int TempIntelligence { get; set; } = -1;
     public int RealStrength { get; set; } = -1;
@@ -101,7 +97,6 @@ public class InGameStatus
     public int TempJustice { get; set; } = -1;
 
     public List<PlaceAtLeaderBoardHistoryClass> PlaceAtLeaderBoardHistory { get; set; }
-    public DateTimeOffset LastMessageUpdate { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset LastButtonPress { get; set; } = DateTimeOffset.UtcNow;
 
     public void AddInGamePersonalLogs(string str)

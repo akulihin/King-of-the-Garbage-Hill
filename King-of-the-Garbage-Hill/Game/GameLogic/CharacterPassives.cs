@@ -787,8 +787,8 @@ public class CharacterPassives : IServiceSingleton
                 //Ценная добыча
                 if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                 {
-                    me.Status.AddRegularPoints(target.Status.WinStreak, "Ценная добыча");
-                    switch (target.Status.WinStreak)
+                    me.Status.AddRegularPoints(target.Character.WinStreak, "Ценная добыча");
+                    switch (target.Character.WinStreak)
                     {
                         case 0:
                             break;
