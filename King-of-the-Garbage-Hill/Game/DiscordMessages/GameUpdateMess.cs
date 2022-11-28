@@ -51,7 +51,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     public async Task ShowRulesAndChar(SocketUser user, GamePlayerBridgeClass player)
     {
         var allCharacters = _charactersPull.GetAllCharacters();
-        var character = allCharacters.Find(x => x.Name == player.Character.Name);
+        var character = allCharacters.Find(x => x.Name == player.RoundCharacter.Name);
         var pass = "";
         var characterPassivesList = character.Passive;
         foreach (var passive in characterPassivesList)
@@ -157,18 +157,18 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         var customString = "";
 
-        switch (player1.Character.Name)
+        switch (player1.RoundCharacter.Name)
         {
             case "Осьминожка":
 
-                if (!player1.Character.Passives.OctopusTentaclesList.LeaderboardPlace.Contains(number)) customString += "🐙";
+                if (!player1.Passives.OctopusTentaclesList.LeaderboardPlace.Contains(number)) customString += "🐙";
 
 
                 break;
 
             case "Братишка":
 
-                if (!player1.Character.Passives.SharkJawsLeader.FriendList.Contains(number)) customString += "🐙";
+                if (!player1.Passives.SharkJawsLeader.FriendList.Contains(number)) customString += "🐙";
                 break;
         }
 
@@ -181,38 +181,38 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         //|| me.DiscordId == 238337696316129280 || me.DiscordId == 181514288278536193
 
 
-        switch (me.Character.Name)
+        switch (me.RoundCharacter.Name)
         {
             case "Weedwick":
                 if (other.GetPlayerId() == me.GetPlayerId()) break;
 
-                if (other.Character.Name == "DeepList")
+                if (other.RoundCharacter.Name == "DeepList")
                 {
                     customString += $" <:pet:1046330623498911744>";
                     break;
                 }
 
-                if (other.Character.Passives.WeedwickWeed > 0)
+                if (other.Passives.WeedwickWeed > 0)
                 {
-                    customString += $" <:weed:1005884006866354196>: {other.Character.Passives.WeedwickWeed}";
+                    customString += $" <:weed:1005884006866354196>: {other.Passives.WeedwickWeed}";
                 }
 
-                if (other.Character.Justice.GetRealJusticeNow() == 0)
+                if (other.RoundCharacter.Justice.GetRealJusticeNow() == 0)
                 {
                     customString += $" <:WUF:1005886339335598120>";
                 }
 
-                if (other.Character.GetWinStreak() > 0)
+                if (other.RoundCharacter.GetWinStreak() > 0)
                 {
-                    customString += $" <:bong:1046462826539130950>: {other.Character.GetWinStreak()}";
+                    customString += $" <:bong:1046462826539130950>: {other.RoundCharacter.GetWinStreak()}";
                 }
 
                 break;
             case "AWDKA":
                 if (other.GetPlayerId() == me.GetPlayerId()) break;
 
-                var awdka = me.Character.Passives.AwdkaTryingList;
-                var awdkaTrainingHistory = me.Character.Passives.AwdkaTeachToPlayHistory;
+                var awdka = me.Passives.AwdkaTryingList;
+                var awdkaTrainingHistory = me.Passives.AwdkaTeachToPlayHistory;
 
                 var awdkaTrying = awdka.TryingList.Find(x => x.EnemyPlayerId == other.GetPlayerId());
 
@@ -244,13 +244,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                 break;
             case "Братишка":
-                var shark = me.Character.Passives.SharkJawsWin;
+                var shark = me.Passives.SharkJawsWin;
                 if (!shark.FriendList.Contains(other.GetPlayerId()) && other.GetPlayerId() != me.GetPlayerId())
                     customString += " <:jaws:565741834219945986>";
                 break;
 
             case "Darksci":
-                var dar = me.Character.Passives.DarksciLuckyList;
+                var dar = me.Passives.DarksciLuckyList;
 
                 if (!dar.TouchedPlayers.Contains(other.GetPlayerId()) &&
                     other.GetPlayerId() != me.GetPlayerId())
@@ -259,14 +259,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                 break;
             case "Вампур":
-                var vamp = me.Character.Passives.VampyrHematophagiaList;
+                var vamp = me.Passives.VampyrHematophagiaList;
                 var target = vamp.Hematophagia.Find(x => x.EnemyId == other.GetPlayerId());
                 if (target != null)
                     customString += " <:Y_:562885385395634196>";
                 break;
 
             case "HardKitty":
-                var hardKitty = me.Character.Passives.HardKittyDoebatsya;
+                var hardKitty = me.Passives.HardKittyDoebatsya;
                 if (hardKitty != null)
                 {
                     var lostSeries = hardKitty.LostSeries.Find(x => x.EnemyPlayerId == other.GetPlayerId());
@@ -284,9 +284,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                 break;
             case "Sirinoks":
-                var siri = me.Character.Passives.SirinoksFriendsList;
+                var siri = me.Passives.SirinoksFriendsList;
 
-                var siriTraining = me.Character.Passives.SirinoksTraining;
+                var siriTraining = me.Passives.SirinoksTraining;
                 if (siriTraining != null && siriTraining.Training.Count > 0)
                 {
                     var training = siriTraining.Training.First();
@@ -307,7 +307,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                                 customString += $" <:edu:1003751490290204753>";
                                 break;
                         }
-                        if(other.Character.Name is "Братишка" or "Осьминожка" or "Краборак" or "mylorik")
+                        if(other.RoundCharacter.Name is "Братишка" or "Осьминожка" or "Краборак" or "mylorik")
                             customString += $" **Буль!**";
                     }
                 }
@@ -320,18 +320,18 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 break;
             case "Загадочный Спартанец в маске":
 
-                var SpartanShame = me.Character.Passives.SpartanShame;
+                var SpartanShame = me.Passives.SpartanShame;
 
                 if (!SpartanShame.FriendList.Contains(other.GetPlayerId()) &&
                     other.GetPlayerId() != me.GetPlayerId())
                     customString += " <:yasuo:895819754428833833>";
 
                 if (SpartanShame.FriendList.Contains(other.GetPlayerId()) &&
-                    other.GetPlayerId() != me.GetPlayerId() && other.Character.Name == "mylorik")
+                    other.GetPlayerId() != me.GetPlayerId() && other.RoundCharacter.Name == "mylorik")
                     customString += " <:Spartaneon:899847724936089671>";
 
 
-                var SpartanMark = me.Character.Passives.SpartanMark;
+                var SpartanMark = me.Passives.SpartanMark;
 
                 if (SpartanMark.FriendList.Contains(other.GetPlayerId()))
                     customString += " <:sparta:561287745675329567>";
@@ -341,13 +341,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
             case "DeepList":
-                if (other.Character.Name == "Weedwick")
+                if (other.RoundCharacter.Name == "Weedwick")
                 {
                     customString += $" <:pet:1046330623498911744>";
                 }
 
                 //tactic
-                var deep = me.Character.Passives.DeepListDoubtfulTactic;
+                var deep = me.Passives.DeepListDoubtfulTactic;
                 if (deep != null)
                     if (deep.FriendList.Contains(other.GetPlayerId()) &&
                         other.GetPlayerId() != me.GetPlayerId())
@@ -355,18 +355,18 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 //end tactic
 
                 //сверхразум
-                var currentList = me.Character.Passives.DeepListSupermindKnown;
+                var currentList = me.Passives.DeepListSupermindKnown;
                 if (currentList != null)
                     if (currentList.KnownPlayers.Contains(other.GetPlayerId()))
                         customString +=
-                            $" PS: - {other.Character.Name} (I: {other.Character.GetIntelligence()} | " +
-                            $"St: {other.Character.GetStrength()} | Sp: {other.Character.GetSpeed()} | " +
-                            $"Ps: {other.Character.GetPsyche()} | J: {other.Character.Justice.GetRealJusticeNow()})";
+                            $" PS: - {other.RoundCharacter.Name} (I: {other.RoundCharacter.GetIntelligence()} | " +
+                            $"St: {other.RoundCharacter.GetStrength()} | Sp: {other.RoundCharacter.GetSpeed()} | " +
+                            $"Ps: {other.RoundCharacter.GetPsyche()} | J: {other.RoundCharacter.Justice.GetRealJusticeNow()})";
                 //end сверхразум
 
 
                 //стёб
-                var currentDeepList = me.Character.Passives.DeepListMockeryList;
+                var currentDeepList = me.Passives.DeepListMockeryList;
 
                 if (currentDeepList != null)
                 {
@@ -388,14 +388,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 break;
 
             case "mylorik":
-                var mylorik = me.Character.Passives.MylorikRevenge;
+                var mylorik = me.Passives.MylorikRevenge;
                 var find = mylorik?.EnemyListPlayerIds.Find(x =>
                     x.EnemyPlayerId == other.GetPlayerId());
 
                 if (find is { IsUnique: true }) customString += " <:sparta:561287745675329567>";
                 if (find is { IsUnique: false }) customString += " ❌";
 
-                var mylorikSpartan = me.Character.Passives.MylorikSpartan;
+                var mylorikSpartan = me.Passives.MylorikSpartan;
 
                 var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == other.GetPlayerId());
 
@@ -427,14 +427,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                 break;
             case "Тигр":
-                var tigr1 = me.Character.Passives.TigrTwoBetterList;
+                var tigr1 = me.Passives.TigrTwoBetterList;
 
                 if (tigr1 != null)
                     //if (tigr1.FriendList.Contains(other.GetPlayerId()) && other.GetPlayerId() != me.GetPlayerId())
                     if (tigr1.FriendList.Contains(other.GetPlayerId()))
                         customString += " <:pepe_down:896514760823144478>";
 
-                var tigr2 = me.Character.Passives.TigrThreeZeroList;
+                var tigr2 = me.Passives.TigrThreeZeroList;
 
                 var enemy = tigr2?.FriendList.Find(x => x.EnemyPlayerId == other.GetPlayerId());
 
@@ -451,18 +451,18 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         }
 
         var knownClass = me.Status.KnownPlayerClass.Find(x => x.EnemyId == other.GetPlayerId());
-        if (knownClass != null && me.Character.Name != "AWDKA")
+        if (knownClass != null && me.RoundCharacter.Name != "AWDKA")
             customString += $" {knownClass.Text}";
 
 
         if (game.RoundNo >= 11 && !game.IsKratosEvent)
-            customString += $" (as **{other.Character.Name}**) = {other.Status.GetScore()} Score";
+            customString += $" (as **{other.RoundCharacter.Name}**) = {other.Status.GetScore()} Score";
 
         if (me.PlayerType == 2)
         {
-            customString += $" (as **{other.Character.Name}**) = {other.Status.GetScore()} Score";
+            customString += $" (as **{other.RoundCharacter.Name}**) = {other.Status.GetScore()} Score";
             customString +=
-                $" (I: {other.Character.GetIntelligence()} | St: {other.Character.GetStrength()} | Sp: {other.Character.GetSpeed()} | Ps: {other.Character.GetPsyche()})";
+                $" (I: {other.RoundCharacter.GetIntelligence()} | St: {other.RoundCharacter.GetStrength()} | Sp: {other.RoundCharacter.GetSpeed()} | Ps: {other.RoundCharacter.GetPsyche()})";
         }
 
         var predicted = me.Predict.Find(x => x.PlayerId == other.GetPlayerId());
@@ -497,14 +497,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var text = textOriginal;
         if (player.PlayerType == 0)
             text = game.PlayersList.Where(p => p.GetPlayerId() != player.GetPlayerId()).Aggregate(text,
-                (current1, p) => p.Character.Passive
+                (current1, p) => p.RoundCharacter.Passive
                     .Where(passive =>
                         passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса" &&
                         passive.PassiveName != "Еврей" && passive.PassiveName != "2kxaoc").Aggregate(current1,
                         (current, passive) => current.Replace($"{passive.PassiveName}", "Неизвестно")));
         else
             text = game.PlayersList.Where(p => p.GetPlayerId() != player.GetPlayerId()).Aggregate(text,
-                (current1, p) => p.Character.Passive
+                (current1, p) => p.RoundCharacter.Passive
                     .Where(passive =>
                         passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса" &&
                         passive.PassiveName != "Еврей" && passive.PassiveName != "2kxaoc").Aggregate(current1,
@@ -644,7 +644,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     public EmbedBuilder FightPage(GamePlayerBridgeClass player)
     {
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
-        var character = player.Character;
+        var character = player.RoundCharacter;
 
         var embed = new EmbedBuilder();
         embed.WithColor(Color.Blue);
@@ -689,8 +689,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         var skillExtraText = "";
         var targetExtraText = "";
-        if (player.Character.GetExtraSkillMultiplier() > 0) skillExtraText = $" (Множитель: **x{player.Character.GetExtraSkillMultiplier() + 1}**)";
-        if (player.Character.GetTargetSkillMultiplier() > 0) targetExtraText = $" (Множитель: **x{player.Character.GetTargetSkillMultiplier() + 1}**)";
+        if (player.RoundCharacter.GetExtraSkillMultiplier() > 0) skillExtraText = $" (Множитель: **x{player.RoundCharacter.GetExtraSkillMultiplier() + 1}**)";
+        if (player.RoundCharacter.GetTargetSkillMultiplier() > 0) targetExtraText = $" (Множитель: **x{player.RoundCharacter.GetTargetSkillMultiplier() + 1}**)";
 
         embed.WithDescription($"{desc}" +
                               "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
@@ -756,10 +756,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     //Page 3
     public EmbedBuilder LvlUpPage(GamePlayerBridgeClass player)
     {
-        var character = player.Character;
+        var character = player.RoundCharacter;
         var embed = new EmbedBuilder();
         var text = "__Подними один из статов на 1:__";
-        if (player.Character.Name == "Вампур_") text = "**Понизить** один из статов на 1!";
+        if (player.RoundCharacter.Name == "Вампур_") text = "**Понизить** один из статов на 1!";
         embed.WithColor(Color.Blue);
         embed.WithFooter($"{GetTimeLeft(player)}");
         //embed.WithCurrentTimestamp();
@@ -782,7 +782,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var isDisabled = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady;
 
         //Возвращение из мертвых
-        if (game.RoundNo > 10 && game.IsKratosEvent && player.Character.Name == "Кратос")
+        if (game.RoundNo > 10 && game.IsKratosEvent && player.RoundCharacter.Name == "Кратос")
         {
 
         }
@@ -803,7 +803,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (game.RoundNo > 10) placeHolder = "gg wp";
 
         //Возвращение из мертвых
-        if (game.IsKratosEvent && player.Character.Name == "Кратос")
+        if (game.IsKratosEvent && player.RoundCharacter.Name == "Кратос")
         {
             placeHolder = "УБИТЬ!";
         }
@@ -831,7 +831,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             placeHolder = "Что-то заставило тебя скипнуть...";
         }
 
-        if (!player.Status.ConfirmedSkip && player.Character.Name == "Тигр")
+        if (!player.Status.ConfirmedSkip && player.RoundCharacter.Name == "Тигр")
         {
             isDisabled = true;
             placeHolder = "Обжаловать бан...";
@@ -944,7 +944,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     public async Task<SelectMenuBuilder> GetLvlUpMenu(GamePlayerBridgeClass player, GameClass game)
     {
         var placeholderText = "Выбор прокачки";
-        if (player.Character.Name == "Вампур_")
+        if (player.RoundCharacter.Name == "Вампур_")
             placeholderText = _vampyrGarlic[_random.Random(0, _vampyrGarlic.Count - 1)];
         var charMenu = new SelectMenuBuilder()
             .WithMinValues(1)
@@ -958,7 +958,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
         //Да всё нахуй эту игру Part #4
-        if (game.RoundNo == 9 && player.Character.GetPsyche() == 4 && player.Character.Name == "Darksci")
+        if (game.RoundNo == 9 && player.RoundCharacter.GetPsyche() == 4 && player.RoundCharacter.Name == "Darksci")
         {
             charMenu = new SelectMenuBuilder()
                 .WithMinValues(1)
@@ -981,21 +981,21 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var extraText = "";
         if (game.RoundNo == 10) extraText = " (Конец игры)";
 
-        //if (player.Character.Name == "Братишка")
+        //if (player.RoundCharacter.Name == "Братишка")
         //    return new ButtonBuilder($"Буууууууль", "moral", ButtonStyle.Secondary, isDisabled: true);
-        if (player.Character.Name == "DeepList")
+        if (player.RoundCharacter.Name == "DeepList")
             return new ButtonBuilder("Интересует только скилл", "moral", ButtonStyle.Secondary, isDisabled: true);
 
-        if (player.Character.GetMoral() >= 20)
+        if (player.RoundCharacter.GetMoral() >= 20)
             return new ButtonBuilder($"на 10 бонусных очков{extraText}", "moral", ButtonStyle.Secondary,
                 isDisabled: disabled);
-        if (player.Character.GetMoral() >= 13)
+        if (player.RoundCharacter.GetMoral() >= 13)
             return new ButtonBuilder($"на 5 бонусных очков{extraText}", "moral", ButtonStyle.Secondary,
                 isDisabled: disabled);
-        if (player.Character.GetMoral() >= 8)
+        if (player.RoundCharacter.GetMoral() >= 8)
             return new ButtonBuilder($"на 2 бонусных очков{extraText}", "moral", ButtonStyle.Secondary,
                 isDisabled: disabled);
-        if (player.Character.GetMoral() >= 5)
+        if (player.RoundCharacter.GetMoral() >= 5)
             return new ButtonBuilder($"на 1 бонусных очка{extraText}", "moral", ButtonStyle.Secondary,
                 isDisabled: disabled);
         return new ButtonBuilder("Недостаточно очков Морали", "moral", ButtonStyle.Secondary, isDisabled: true);
@@ -1013,34 +1013,34 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         var disabled = game is not { RoundNo: <= 10 };
         var extraText = "";
-        if (game.RoundNo == 10 && player.Character.GetMoral() < 3) extraText = " (Конец игры)";
+        if (game.RoundNo == 10 && player.RoundCharacter.GetMoral() < 3) extraText = " (Конец игры)";
 
-        if (player.Character.Name == "Братишка")
+        if (player.RoundCharacter.Name == "Братишка")
             return new ButtonBuilder("Ничего не понимает...", "skill", ButtonStyle.Secondary, isDisabled: true,
                 emote: Emote.Parse("<a:bratishka:900962522276958298>"));
 
-        if (player.Character.GetMoral() >= 20)
+        if (player.RoundCharacter.GetMoral() >= 20)
             return new ButtonBuilder($"Обменять 20 Морали на 100 Cкилла{extraText}", "skill", ButtonStyle.Secondary,
                 isDisabled: disabled);
-        if (player.Character.GetMoral() >= 13)
+        if (player.RoundCharacter.GetMoral() >= 13)
             return new ButtonBuilder($"Обменять 13 Морали на 50 Cкилла{extraText}", "skill", ButtonStyle.Secondary,
                 isDisabled: disabled);
-        if (player.Character.GetMoral() >= 7 && player.Character.Name is "Толя" or "LeCrisp")
+        if (player.RoundCharacter.GetMoral() >= 7 && player.RoundCharacter.Name is "Толя" or "LeCrisp")
             return new ButtonBuilder($"Обменять 7 Морали на 40 Cкилла{extraText}", "skill", ButtonStyle.Secondary,
                 isDisabled: disabled);
-        if (player.Character.GetMoral() >= 8)
+        if (player.RoundCharacter.GetMoral() >= 8)
             return new ButtonBuilder($"Обменять 8 Морали на 30 Cкилла{extraText}", "skill", ButtonStyle.Secondary,
                 isDisabled: disabled);
-        if (player.Character.GetMoral() >= 5)
+        if (player.RoundCharacter.GetMoral() >= 5)
             return new ButtonBuilder($"Обменять 5 Морали на 18 Cкилла{extraText}", "skill", ButtonStyle.Secondary,
                 isDisabled: disabled);
-        if (player.Character.GetMoral() >= 3)
+        if (player.RoundCharacter.GetMoral() >= 3)
             return new ButtonBuilder($"Обменять 3 Морали на 10 Cкилла{extraText}", "skill", ButtonStyle.Secondary,
                 isDisabled: disabled);
-        if (player.Character.GetMoral() >= 2)
+        if (player.RoundCharacter.GetMoral() >= 2)
             return new ButtonBuilder($"Обменять 2 Морали на 6 Cкилла{extraText}", "skill", ButtonStyle.Secondary,
                 isDisabled: disabled);
-        if (player.Character.GetMoral() >= 1)
+        if (player.RoundCharacter.GetMoral() >= 1)
             return new ButtonBuilder($"Обменять 1 Морали на 4 Cкилла{extraText}", "skill", ButtonStyle.Secondary,
                 isDisabled: disabled);
 
@@ -1061,16 +1061,16 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         components.WithButton(GetMoralToSkillButton(player, game), 2);
 
-        if (player.Character.GetMoral() >= 3)
+        if (player.RoundCharacter.GetMoral() >= 3)
             if (player.Status.ConfirmedPredict && player.Status.ConfirmedSkip)
                 components.WithButton(GetMoralToPointsButton(player, game), 2);
 
         components.WithSelectMenu(predictMenu ?? GetPredictMenu(player, game), 3);
 
-        switch (player.Character.Name)
+        switch (player.RoundCharacter.Name)
         {
             case "Darksci":
-                var darksciType = player.Character.Passives.DarksciTypeList;
+                var darksciType = player.Passives.DarksciTypeList;
                 if (game.RoundNo == 1 && !darksciType.Triggered)
                 {
                     components.WithButton(new ButtonBuilder("Мне никогда не везёт...", "stable-Darksci"), 4);
@@ -1099,7 +1099,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         var playerIsReady = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady;
         //Возвращение из мертвых
-        if (game.RoundNo > 10 && game.IsKratosEvent && player.Character.Name == "Кратос")
+        if (game.RoundNo > 10 && game.IsKratosEvent && player.RoundCharacter.Name == "Кратос")
         {
 
         }
@@ -1115,7 +1115,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         var disabled = false;
         //Возвращение из мертвых
-        if (game.RoundNo > 10 && game.IsKratosEvent && player.Character.Name == "Кратос")
+        if (game.RoundNo > 10 && game.IsKratosEvent && player.RoundCharacter.Name == "Кратос")
         {
 
         }
@@ -1130,7 +1130,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     public ButtonBuilder GetChangeMindButton(GamePlayerBridgeClass player, GameClass game)
     {
 
-        if (player.Character.Name == "Dopa")
+        if (player.RoundCharacter.Name == "Dopa")
             return new ButtonBuilder("선택 변경", "change-mind", ButtonStyle.Secondary, isDisabled: true);
 
         if (player.Status.IsReady && player.Status.IsAbleToChangeMind && !player.Status.IsSkip && game.RoundNo <= 10)
@@ -1141,7 +1141,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public ButtonBuilder GetAutoMoveButton(GamePlayerBridgeClass player, GameClass game)
     {
-        var disabled = player.Status.IsAutoMove || player.Status.IsSkip || player.Status.IsReady || player.Character.Tier <= 3;
+        var disabled = player.Status.IsAutoMove || player.Status.IsSkip || player.Status.IsReady || player.RoundCharacter.Tier <= 3;
 
         if (game.TimePassed.Elapsed.TotalSeconds < 29 && player.DiscordId != 238337696316129280 &&
             player.DiscordId != 181514288278536193) disabled = true;
@@ -1151,7 +1151,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public async Task UpdateMessage(GamePlayerBridgeClass player, string extraText = "")
     {
-        if (player.IsBot() || player.Character.Passives.KratosIsDead) return;
+        if (player.IsBot() || player.Passives.KratosIsDead) return;
 
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         var embed = new EmbedBuilder();
@@ -1174,7 +1174,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 builder = new ComponentBuilder().WithSelectMenu(await GetLvlUpMenu(player, game));
 
                 //Да всё нахуй эту игру Part #5
-                if (game.RoundNo == 9 && player.Character.GetPsyche() == 4 && player.Character.Name == "Darksci")
+                if (game.RoundNo == 9 && player.RoundCharacter.GetPsyche() == 4 && player.RoundCharacter.Name == "Darksci")
                     builder.WithButton("Riot style \"choice\"", "crutch", row: 1, style: ButtonStyle.Secondary,
                         disabled: true);
                 //end Да всё нахуй эту игру: Part #5
@@ -1195,7 +1195,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (player.Status.IsReady)
             return $"Ожидаем других игроков • {time} | {game.GameVersion}";
         var toReturn = $"{time} | {game.GameVersion}";
-        if (player.Character.Name is "mylorik" or "DeepList") toReturn += " | (x+х)*19";
+        if (player.RoundCharacter.Name is "mylorik" or "DeepList") toReturn += " | (x+х)*19";
         return toReturn;
     }
 }

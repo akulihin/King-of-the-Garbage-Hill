@@ -207,9 +207,9 @@ public class General : ModuleBaseCustom
             var account = _accounts.GetAccount(player);
 
             foreach (var playerInGame in playersList.Where(playerInGame =>
-                         !account.SeenCharacters.Contains(playerInGame.Character.Name)))
+                         !account.SeenCharacters.Contains(playerInGame.RoundCharacter.Name)))
                 if (playerInGame.DiscordId == player.Id)
-                    account.SeenCharacters.Add(playerInGame.Character.Name);
+                    account.SeenCharacters.Add(playerInGame.RoundCharacter.Name);
         }
 
         return playersList;
@@ -445,7 +445,7 @@ public class General : ModuleBaseCustom
                     var teamMember = playersList.Find(x => x.GetPlayerId() == teamMemberId);
                     if (teamPayer.GetPlayerId() == teamMember.GetPlayerId()) continue;
 
-                    teamPayer.Predict.Add(new PredictClass(teamMember.Character.Name, teamMember.GetPlayerId()));
+                    teamPayer.Predict.Add(new PredictClass(teamMember.RoundCharacter.Name, teamMember.GetPlayerId()));
                 }
             }
 
@@ -570,7 +570,7 @@ public class General : ModuleBaseCustom
                 {
                     foreach (var enemy in game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()))
                     {
-                        player.Predict.Add(new PredictClass(enemy.Character.Name, enemy.GetPlayerId()));
+                        player.Predict.Add(new PredictClass(enemy.RoundCharacter.Name, enemy.GetPlayerId()));
                     }
                 }
             }

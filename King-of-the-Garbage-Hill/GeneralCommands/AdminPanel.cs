@@ -132,7 +132,7 @@ public class AdminPanel : ModuleBaseCustom
         if (choice + 1 > allCharacters.Count)
         {
             await SendMessageAsync(
-                $"ERROR: 404 - no such Character. Please select between 0 and {allCharacters.Count - 1}");
+                $"ERROR: 404 - no such RoundCharacter. Please select between 0 and {allCharacters.Count - 1}");
             return;
         }
 
@@ -218,7 +218,7 @@ public class AdminPanel : ModuleBaseCustom
         if (foundCharacter == null)
         {
             var extra = allCharacters.Aggregate("", (current, c) => current + $"`{c.Name}`\n");
-            await SendMessageAsync($"ERROR: 404 - No Such Character ({character})\nAvailable:\n{extra}");
+            await SendMessageAsync($"ERROR: 404 - No Such RoundCharacter ({character})\nAvailable:\n{extra}");
             return;
         }
 
@@ -333,33 +333,33 @@ public class AdminPanel : ModuleBaseCustom
         switch (name.ToLower())
         {
             case "win":
-                player.Character.SetIntelligence(player.Status, number, "Читы");
-                player.Character.SetSpeed(player.Status, number, "Читы");
-                player.Character.SetStrength(player.Status, number, "Читы");
-                player.Character.SetPsyche(player.Status, number, "Читы");
-                player.Character.Justice.SetRealJusticeNow(player.Status, number, "Читы");
-                player.Character.SetMainSkill(player.Status, number*100, "Читы");
+                player.RoundCharacter.SetIntelligence(player.Status, number, "Читы");
+                player.RoundCharacter.SetSpeed(player.Status, number, "Читы");
+                player.RoundCharacter.SetStrength(player.Status, number, "Читы");
+                player.RoundCharacter.SetPsyche(player.Status, number, "Читы");
+                player.RoundCharacter.Justice.SetRealJusticeNow(player.Status, number, "Читы");
+                player.RoundCharacter.SetMainSkill(player.Status, number*100, "Читы");
                 break;
             case "in":
-                player.Character.SetIntelligence(player.Status, number, "Читы");
+                player.RoundCharacter.SetIntelligence(player.Status, number, "Читы");
                 break;
             case "sp":
-                player.Character.SetSpeed(player.Status, number, "Читы");
+                player.RoundCharacter.SetSpeed(player.Status, number, "Читы");
                 break;
             case "st":
-                player.Character.SetStrength(player.Status, number, "Читы");
+                player.RoundCharacter.SetStrength(player.Status, number, "Читы");
                 break;
             case "ps":
-                player.Character.SetPsyche(player.Status, number, "Читы");
+                player.RoundCharacter.SetPsyche(player.Status, number, "Читы");
                 break;
             case "js":
-                player.Character.Justice.SetRealJusticeNow(player.Status, number, "Читы");
+                player.RoundCharacter.Justice.SetRealJusticeNow(player.Status, number, "Читы");
                 break;
             case "sk":
-                player.Character.SetMainSkill(player.Status, number, "Читы");
+                player.RoundCharacter.SetMainSkill(player.Status, number, "Читы");
                 break;
             case "mr":
-                player.Character.SetMoral(player.Status, number, "Читы");
+                player.RoundCharacter.SetMoral(player.Status, number, "Читы");
                 break;
             default:
                 return;

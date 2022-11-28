@@ -20,7 +20,6 @@ public class CharacterClass
         SkillFightMultiplier = 1;
         Avatar = avatar;
         AvatarCurrent = avatar;
-        Passives = new PassivesClass(this);
     }
 
     // PUBLIC
@@ -34,8 +33,6 @@ public class CharacterClass
     public List<Passive> Passive { get; set; }
     public string Description { get; set; }
     public int Tier { get; set; }
-
-    public PassivesClass Passives { get; set; }
 
 
     // PRIVATE
@@ -145,7 +142,7 @@ public class CharacterClass
             if (status.CharacterName == "mylorik")
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == status.PlayerId);
-                mylorik.Character.AddMoral(mylorik.Status, 1, "Испанец", false);
+                mylorik.RoundCharacter.AddMoral(mylorik.Status, 1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
@@ -164,7 +161,7 @@ public class CharacterClass
             if (status.CharacterName == "mylorik") 
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == status.PlayerId);
-                mylorik.Character.AddMoral(mylorik.Status, 1, "Испанец", false);
+                mylorik.RoundCharacter.AddMoral(mylorik.Status, 1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
@@ -183,7 +180,7 @@ public class CharacterClass
             if (status.CharacterName == "mylorik")
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == status.PlayerId);
-                mylorik.Character.AddMoral(mylorik.Status, 1, "Испанец", false);
+                mylorik.RoundCharacter.AddMoral(mylorik.Status, 1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец

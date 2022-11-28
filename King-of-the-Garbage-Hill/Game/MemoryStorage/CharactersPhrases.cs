@@ -721,7 +721,7 @@ public class CharactersUniquePhrase
 
         public void SendLog(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, bool delete)
         {
-            if (player.Character.Name == "DeepList")
+            if (player.RoundCharacter.Name == "DeepList")
             {
                 var description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
 
@@ -743,7 +743,7 @@ public class CharactersUniquePhrase
                     }
                 }
 
-                description += $"{player2.DiscordUsername} - {player2.Character.Name}";
+                description += $"{player2.DiscordUsername} - {player2.RoundCharacter.Name}";
 
 
                 player.Status.AddInGamePersonalLogs($"|>boole<|{PassiveNameRus}: {description}\n");

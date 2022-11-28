@@ -5,21 +5,25 @@ namespace King_of_the_Garbage_Hill.Game.Classes;
 
 public class GamePlayerBridgeClass
 {
-    public GamePlayerBridgeClass(CharacterClass character, InGameStatus status, ulong discordId, ulong gameId, string discordUsername, int playerType)
+    public GamePlayerBridgeClass(CharacterClass roundCharacter, InGameStatus status, ulong discordId, ulong gameId, string discordUsername, int playerType)
     {
-        Character = character;
+        RoundCharacter = roundCharacter;
         Status = status;
         DiscordId = discordId;
         GameId = gameId;
         DiscordUsername = discordUsername;
         PlayerType = playerType;
         DiscordStatus = new InGameDiscordStatus();
-        character.SetIntelligenceResist();
-        character.SetStrengthResist();
-        character.SetSpeedResist();
-        character.SetPsycheResist();
+        roundCharacter.SetIntelligenceResist();
+        roundCharacter.SetStrengthResist();
+        roundCharacter.SetSpeedResist();
+        roundCharacter.SetPsycheResist();
+        Passives = new PassivesClass(this);
     }
-    public CharacterClass Character { get; set; }
+    public CharacterClass RoundCharacter { get; set; }
+    public CharacterClass GameCharacter { get; set; }
+
+    public PassivesClass Passives { get; set; }
 
     public InGameStatus Status { get; set; }
 
