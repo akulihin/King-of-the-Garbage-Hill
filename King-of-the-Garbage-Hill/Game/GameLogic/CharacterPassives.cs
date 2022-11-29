@@ -34,8 +34,8 @@ public class CharacterPassives : IServiceSingleton
 
     public List<GamePlayerBridgeClass> HandleEventsBeforeFirstRound(List<GamePlayerBridgeClass> playersList)
     {
-        foreach (var player in playersList)
-        foreach (var passive in player.GameCharacter.Passive)
+        foreach (var player in playersList.ToList())
+        foreach (var passive in player.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
                 case "God Of War":
