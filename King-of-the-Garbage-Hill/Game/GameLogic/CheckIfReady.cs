@@ -70,7 +70,7 @@ public class CheckIfReady : IServiceSingleton
         var playerWhoWon = game.PlayersList.First();
 
         //if won phrases
-        switch (playerWhoWon.RoundCharacter.Name)
+        switch (playerWhoWon.GameCharacter.Name)
         {
             case "HardKitty":
                 game.AddGlobalLogs("HarDKitty больше не одинок! Как много друзей!!!");
@@ -92,7 +92,7 @@ public class CheckIfReady : IServiceSingleton
 
         //if lost phrases
         foreach (var player in game.PlayersList.Where(x => x.Status.PlaceAtLeaderBoard != 1))
-            switch (player.RoundCharacter.Name)
+            switch (player.GameCharacter.Name)
             {
                 case "HardKitty":
                     player.Status.AddInGamePersonalLogs("Даже имя мое написать нормально не можете");
@@ -106,11 +106,11 @@ public class CheckIfReady : IServiceSingleton
             }
 
         //unique
-        if (game.PlayersList.Any(x => x.RoundCharacter.Name == "DeepList") &&
-            game.PlayersList.Any(x => x.RoundCharacter.Name == "mylorik"))
+        if (game.PlayersList.Any(x => x.GameCharacter.Name == "DeepList") &&
+            game.PlayersList.Any(x => x.GameCharacter.Name == "mylorik"))
         {
-            var mylorik = game.PlayersList.Find(x => x.RoundCharacter.Name == "mylorik");
-            var deepList = game.PlayersList.Find(x => x.RoundCharacter.Name == "DeepList");
+            var mylorik = game.PlayersList.Find(x => x.GameCharacter.Name == "mylorik");
+            var deepList = game.PlayersList.Find(x => x.GameCharacter.Name == "DeepList");
 
             var genius = true;
             foreach (var deepListPredict in deepList.Predict)
@@ -146,7 +146,7 @@ public class CheckIfReady : IServiceSingleton
             foreach (var player in from player in game.PlayersList
                      from predict in player.Predict
                      let enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId)
-                     where enemy.RoundCharacter.Name == predict.CharacterName
+                     where enemy.GameCharacter.Name == predict.CharacterName
                      select player)
             {
                 player.Status.AddBonusPoints(3, "Предположение");
@@ -163,7 +163,7 @@ public class CheckIfReady : IServiceSingleton
         try
         {
             //case "AWDKA":
-            var AWDKA = game.PlayersList.Find(x => x.RoundCharacter.Name == "AWDKA");
+            var AWDKA = game.PlayersList.Find(x => x.GameCharacter.Name == "AWDKA");
             //trolling
             if (AWDKA != null)
             {
@@ -178,7 +178,7 @@ public class CheckIfReady : IServiceSingleton
                 {
                     var tolled = game.PlayersList.Find(x => x.GetPlayerId() == enemy.EnemyId);
 
-                    trolledText = tolled.RoundCharacter.Name switch
+                    trolledText = tolled.GameCharacter.Name switch
                     {
                         "DeepList" => "Лист Затроллился, хех",
                         "mylorik" => "Лорик Затроллился, МММ!",
@@ -203,7 +203,7 @@ public class CheckIfReady : IServiceSingleton
 
                     foreach (var predict in AWDKA.Predict)
                     {
-                        var found = game.PlayersList.Find(x => predict.PlayerId == x.GetPlayerId() && predict.CharacterName == x.RoundCharacter.Name);
+                        var found = game.PlayersList.Find(x => predict.PlayerId == x.GetPlayerId() && predict.CharacterName == x.GameCharacter.Name);
                         if (found != null)
                         {
                             bonusTrolling += 2;
@@ -220,7 +220,7 @@ public class CheckIfReady : IServiceSingleton
                     game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
                 //end sorting
 
-                if (enemy != null && game.PlayersList.First().RoundCharacter.Name == "AWDKA")
+                if (enemy != null && game.PlayersList.First().GameCharacter.Name == "AWDKA")
                     game.AddGlobalLogs($"**Произошел Троллинг:** {trolledText} ");
             }
             //end //trolling
@@ -241,7 +241,7 @@ public class CheckIfReady : IServiceSingleton
 
         if (game.PlayersList.First().Status.AutoMoveTimes >= 10) game.PlayersList.First().DiscordUsername = "НейроБот";
 
-        if (game.PlayersList.First().Status.AutoMoveTimes >= 9 && game.PlayersList.First().RoundCharacter.Name == "Тигр")
+        if (game.PlayersList.First().Status.AutoMoveTimes >= 9 && game.PlayersList.First().GameCharacter.Name == "Тигр")
             game.PlayersList.First().DiscordUsername = "НейроБот";
 
         var isTeam = false;
@@ -306,7 +306,7 @@ public class CheckIfReady : IServiceSingleton
             game.AddGlobalLogs(
                 game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList.First().Status.GetScore()).Count > 1
                     ? "\n**Ничья**"
-                    : $"\n**{game.PlayersList.First().DiscordUsername}** победил, играя за **{game.PlayersList.First().RoundCharacter.Name}**");
+                    : $"\n**{game.PlayersList.First().DiscordUsername}** победил, играя за **{game.PlayersList.First().GameCharacter.Name}**");
             if (!game.PlayersList.First().IsBot())
                 if(game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList.First().Status.GetScore()).Count == 1)
                     game.PlayersList.First().DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync("__**Победа! Теперь ты Король этой Мусорной Горы. Пока-что...**__");
@@ -329,7 +329,7 @@ public class CheckIfReady : IServiceSingleton
             if (account.TotalPlays > 10) account.IsNewPlayer = false;
             account.TotalWins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong)0;
             account.MatchHistory.Add(
-                new DiscordAccountClass.MatchHistoryClass(player.RoundCharacter.Name, player.Status.GetScore(),
+                new DiscordAccountClass.MatchHistoryClass(player.GameCharacter.Name, player.Status.GetScore(),
                     player.Status.PlaceAtLeaderBoard));
 
             /*
@@ -373,12 +373,12 @@ public class CheckIfReady : IServiceSingleton
 
             var characterStatistics =
                 account.CharacterStatistics.Find(x =>
-                    x.CharacterName == player.RoundCharacter.Name);
+                    x.CharacterName == player.GameCharacter.Name);
 
             if (characterStatistics == null)
             {
                 account.CharacterStatistics.Add(
-                    new DiscordAccountClass.CharacterStatisticsClass(player.RoundCharacter.Name,
+                    new DiscordAccountClass.CharacterStatisticsClass(player.GameCharacter.Name,
                         player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong)0));
             }
             else
@@ -417,10 +417,10 @@ public class CheckIfReady : IServiceSingleton
     {
         foreach (var player in game.PlayersList)
         {
-            _global.WinRates.TryGetValue(player.RoundCharacter.Name, out var winrate);
+            _global.WinRates.TryGetValue(player.GameCharacter.Name, out var winrate);
             if (winrate == null)
-                _global.WinRates.TryAdd(player.RoundCharacter.Name, new Global.WinRateClass(player.RoundCharacter.Name));
-            _global.WinRates.TryGetValue(player.RoundCharacter.Name, out winrate);
+                _global.WinRates.TryAdd(player.GameCharacter.Name, new Global.WinRateClass(player.GameCharacter.Name));
+            _global.WinRates.TryGetValue(player.GameCharacter.Name, out winrate);
 
 
             winrate.GameTimes++;
@@ -448,7 +448,7 @@ public class CheckIfReady : IServiceSingleton
             }
 
             winrate.WinRate = winrate.Top1 / winrate.GameTimes * 100;
-            winrate.CharacterName = player.RoundCharacter.Name;
+            winrate.CharacterName = player.GameCharacter.Name;
             winrate.Elo = winrate.Top1 / winrate.GameTimes * 100 * 3 + winrate.Top2 / winrate.GameTimes * 100 * 2 + winrate.Top3 / winrate.GameTimes * 100 - winrate.Top4 / winrate.GameTimes * 100 - winrate.Top5 / winrate.GameTimes * 100 * 2 - winrate.Top6 / winrate.GameTimes * 100 * 3;
         }
         _finishedGames++;
@@ -496,12 +496,12 @@ public class CheckIfReady : IServiceSingleton
                 var channel = _global.Client.GetGuild(561282595799826432).GetTextChannel(930706511632691222);
                 await channel.SendMessageAsync($"Game #{game.GameId}\n" +
                                                $"Vesrion: {game.GameVersion}\n" +
-                                               $"1. **{game.PlayersList.First().RoundCharacter.Name} - {game.PlayersList.First().Status.GetScore()}**\n" +
-                                               $"2. {game.PlayersList[1].RoundCharacter.Name} - {game.PlayersList[1].Status.GetScore()}\n" +
-                                               $"3. {game.PlayersList[2].RoundCharacter.Name} - {game.PlayersList[2].Status.GetScore()}\n" +
-                                               $"4. {game.PlayersList[3].RoundCharacter.Name} - {game.PlayersList[3].Status.GetScore()}\n" +
-                                               $"5. {game.PlayersList[4].RoundCharacter.Name} - {game.PlayersList[4].Status.GetScore()}\n" +
-                                               $"6. {game.PlayersList[5].RoundCharacter.Name} - {game.PlayersList[5].Status.GetScore()}\n<:e_:562879579694301184>\n");
+                                               $"1. **{game.PlayersList.First().GameCharacter.Name} - {game.PlayersList.First().Status.GetScore()}**\n" +
+                                               $"2. {game.PlayersList[1].GameCharacter.Name} - {game.PlayersList[1].Status.GetScore()}\n" +
+                                               $"3. {game.PlayersList[2].GameCharacter.Name} - {game.PlayersList[2].Status.GetScore()}\n" +
+                                               $"4. {game.PlayersList[3].GameCharacter.Name} - {game.PlayersList[3].Status.GetScore()}\n" +
+                                               $"5. {game.PlayersList[4].GameCharacter.Name} - {game.PlayersList[4].Status.GetScore()}\n" +
+                                               $"6. {game.PlayersList[5].GameCharacter.Name} - {game.PlayersList[5].Status.GetScore()}\n<:e_:562879579694301184>\n");
             }
         }
         catch (Exception exception)
@@ -546,7 +546,7 @@ public class CheckIfReady : IServiceSingleton
             //Возвращение из мертвых
             if (game.IsKratosEvent)
             {
-                foreach (var player in players.Where(x => x.RoundCharacter.Name != "Кратос"))
+                foreach (var player in players.Where(x => x.GameCharacter.Name != "Кратос"))
                 {
                     player.Status.IsReady = true;
                     player.Status.IsBlock = true;
@@ -627,9 +627,9 @@ public class CheckIfReady : IServiceSingleton
             //handle bots
 
             //AWDKA last
-            if (game.PlayersList.Any(x => x.RoundCharacter.Name == "AWDKA"))
+            if (game.PlayersList.Any(x => x.GameCharacter.Name == "AWDKA"))
             {
-                var tempHard = game.PlayersList.Find(x => x.RoundCharacter.Name == "AWDKA");
+                var tempHard = game.PlayersList.Find(x => x.GameCharacter.Name == "AWDKA");
                 var hardIndex = game.PlayersList.IndexOf(tempHard);
 
                 for (var k = hardIndex; k < game.PlayersList.Count - 1; k++)
@@ -654,9 +654,9 @@ public class CheckIfReady : IServiceSingleton
                     _logs.Critical(exception.StackTrace);
                 }
 
-            if (game.PlayersList.Any(x => x.RoundCharacter.Name == "HardKitty"))
+            if (game.PlayersList.Any(x => x.GameCharacter.Name == "HardKitty"))
             {
-                var tempHard = game.PlayersList.Find(x => x.RoundCharacter.Name == "HardKitty");
+                var tempHard = game.PlayersList.Find(x => x.GameCharacter.Name == "HardKitty");
                 var hardIndex = game.PlayersList.IndexOf(tempHard);
 
                 for (var k = hardIndex; k < game.PlayersList.Count - 1; k++)
@@ -678,10 +678,9 @@ public class CheckIfReady : IServiceSingleton
             //delete messages from prev round. No await.
             foreach (var player in game.PlayersList) await _help.DeleteItAfterRound(player);
 
-            if(game.RoundNo == 1) 
-                _round.UpdateRealCharacters(game);
+            _round.DeepCopyRoundCharactersToRoundCharacter(game);
             await _round.CalculateAllFights(game);
-            _round.UpdateRealCharacters(game);
+            _round.DeepCopyRoundCharactersToGameCharacter(game);
             //await Task.Delay(1);
 
             foreach (var t in players.Where(x => !x.IsBot()))

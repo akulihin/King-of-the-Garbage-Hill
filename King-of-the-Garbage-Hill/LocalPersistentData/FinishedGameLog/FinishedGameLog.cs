@@ -39,9 +39,9 @@ public sealed class FinishedGameLog : IServiceSingleton
 
         foreach (var player in game.PlayersList)
             playerList.Add(new GameLogsPlayer(player.DiscordId,
-                player.DiscordUsername, player.RoundCharacter.Name,
-                player.Status.GetScore(), player.RoundCharacter.GetIntelligence(), player.RoundCharacter.GetStrength(),
-                player.RoundCharacter.GetSpeed(), player.RoundCharacter.GetPsyche(), player.Status.InGamePersonalLogsAll));
+                player.DiscordUsername, player.GameCharacter.Name,
+                player.Status.GetScore(), player.GameCharacter.GetIntelligence(), player.GameCharacter.GetStrength(),
+                player.GameCharacter.GetSpeed(), player.GameCharacter.GetPsyche(), player.Status.InGamePersonalLogsAll));
 
        // var log = new GameLogsClass(game.GameId, game.WhoWon, playerList, game.GetAllGlobalLogs());
         //AddLog(log);

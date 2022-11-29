@@ -7,7 +7,8 @@ public class HardKitty
 {
     public class DoebatsyaClass
     {
-        public List<DoebatsyaSubClass> LostSeries = new();
+        public List<DoebatsyaSubClass> LostSeriesCurrent = new();
+        public List<Guid> EnemyPlayersLostTo = new();
     }
 
     public class DoebatsyaSubClass

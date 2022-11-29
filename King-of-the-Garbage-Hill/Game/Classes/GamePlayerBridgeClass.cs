@@ -1,14 +1,18 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
 public class GamePlayerBridgeClass
 {
+    
     public GamePlayerBridgeClass(CharacterClass roundCharacter, InGameStatus status, ulong discordId, ulong gameId, string discordUsername, int playerType)
     {
-        RoundCharacter = roundCharacter;
         Status = status;
+        roundCharacter.SetStatus(Status);
+        RoundCharacter = roundCharacter;
+        GameCharacter = roundCharacter.DeepCopy();
         DiscordId = discordId;
         GameId = gameId;
         DiscordUsername = discordUsername;

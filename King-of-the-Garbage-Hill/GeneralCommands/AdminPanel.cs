@@ -197,8 +197,8 @@ public class AdminPanel : ModuleBaseCustom
         //238337696316129280 == DeepList
         if (character == null)
         {
-            _accounts.GetAccount(238337696316129280).CharacterToGiveNextTime = "Вампур";
-            _accounts.GetAccount(181514288278536193).CharacterToGiveNextTime = "Братишка";
+            _accounts.GetAccount(238337696316129280).CharacterToGiveNextTime = "Weedwick";
+            _accounts.GetAccount(181514288278536193).CharacterToGiveNextTime = "Загадочный Спартанец в маске";
             return;
         }
 
@@ -229,7 +229,7 @@ public class AdminPanel : ModuleBaseCustom
 
 
     [Command("SetType")]
-    [Summary("setting type of account: 0, 1, 2  (Admin only)")]
+    [Summary("setting type of account: 0 (Normal), 1 (Casual), 2 (Admin)")]
     public async Task SetType(IUser user, int userType)
     {
         if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
@@ -333,33 +333,33 @@ public class AdminPanel : ModuleBaseCustom
         switch (name.ToLower())
         {
             case "win":
-                player.RoundCharacter.SetIntelligence(player.Status, number, "Читы");
-                player.RoundCharacter.SetSpeed(player.Status, number, "Читы");
-                player.RoundCharacter.SetStrength(player.Status, number, "Читы");
-                player.RoundCharacter.SetPsyche(player.Status, number, "Читы");
-                player.RoundCharacter.Justice.SetRealJusticeNow(player.Status, number, "Читы");
-                player.RoundCharacter.SetMainSkill(player.Status, number*100, "Читы");
+                player.GameCharacter.SetIntelligence(number, "Читы");
+                player.GameCharacter.SetSpeed(number, "Читы");
+                player.GameCharacter.SetStrength(number, "Читы");
+                player.GameCharacter.SetPsyche(number, "Читы");
+                player.GameCharacter.Justice.SetRealJusticeNow(number, "Читы");
+                player.GameCharacter.SetMainSkill(number*100, "Читы");
                 break;
             case "in":
-                player.RoundCharacter.SetIntelligence(player.Status, number, "Читы");
+                player.GameCharacter.SetIntelligence(number, "Читы");
                 break;
             case "sp":
-                player.RoundCharacter.SetSpeed(player.Status, number, "Читы");
+                player.GameCharacter.SetSpeed(number, "Читы");
                 break;
             case "st":
-                player.RoundCharacter.SetStrength(player.Status, number, "Читы");
+                player.GameCharacter.SetStrength(number, "Читы");
                 break;
             case "ps":
-                player.RoundCharacter.SetPsyche(player.Status, number, "Читы");
+                player.GameCharacter.SetPsyche(number, "Читы");
                 break;
             case "js":
-                player.RoundCharacter.Justice.SetRealJusticeNow(player.Status, number, "Читы");
+                player.GameCharacter.Justice.SetRealJusticeNow(number, "Читы");
                 break;
             case "sk":
-                player.RoundCharacter.SetMainSkill(player.Status, number, "Читы");
+                player.GameCharacter.SetMainSkill(number, "Читы");
                 break;
             case "mr":
-                player.RoundCharacter.SetMoral(player.Status, number, "Читы");
+                player.RoundCharacter.SetMoral(number, "Читы");
                 break;
             default:
                 return;

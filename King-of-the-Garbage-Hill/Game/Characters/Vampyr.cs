@@ -13,7 +13,9 @@ public class Vampyr
 
     public class HematophagiaClass
     {
-        public List<HematophagiaSubClass> Hematophagia = new();
+        public List<HematophagiaSubClass> HematophagiaCurrent = new();
+        public List<HematophagiaSubClass> HematophagiaAddEndofRound = new();
+        public List<HematophagiaSubClass> HematophagiaRemoveEndofRound = new();
     }
 
     public class HematophagiaSubClass

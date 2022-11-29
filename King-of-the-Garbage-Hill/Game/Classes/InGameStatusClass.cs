@@ -198,9 +198,9 @@ public class InGameStatus
         var roundNumber = game.RoundNo;
 
         //Подсчет
-        if (game.PlayersList.Any(x => x.RoundCharacter.Name == "Толя"))
+        if (game.PlayersList.Any(x => x.GameCharacter.Name == "Толя"))
         {
-            var tolyaAcc = game.PlayersList.Find(x => x.RoundCharacter.Name == "Толя");
+            var tolyaAcc = game.PlayersList.Find(x => x.GameCharacter.Name == "Толя");
 
             var tolyaCount = tolyaAcc.Passives.TolyaCount;
 

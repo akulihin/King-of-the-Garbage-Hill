@@ -207,9 +207,9 @@ public class General : ModuleBaseCustom
             var account = _accounts.GetAccount(player);
 
             foreach (var playerInGame in playersList.Where(playerInGame =>
-                         !account.SeenCharacters.Contains(playerInGame.RoundCharacter.Name)))
+                         !account.SeenCharacters.Contains(playerInGame.GameCharacter.Name)))
                 if (playerInGame.DiscordId == player.Id)
-                    account.SeenCharacters.Add(playerInGame.RoundCharacter.Name);
+                    account.SeenCharacters.Add(playerInGame.GameCharacter.Name);
         }
 
         return playersList;
@@ -445,7 +445,7 @@ public class General : ModuleBaseCustom
                     var teamMember = playersList.Find(x => x.GetPlayerId() == teamMemberId);
                     if (teamPayer.GetPlayerId() == teamMember.GetPlayerId()) continue;
 
-                    teamPayer.Predict.Add(new PredictClass(teamMember.RoundCharacter.Name, teamMember.GetPlayerId()));
+                    teamPayer.Predict.Add(new PredictClass(teamMember.GameCharacter.Name, teamMember.GetPlayerId()));
                 }
             }
 
@@ -570,7 +570,7 @@ public class General : ModuleBaseCustom
                 {
                     foreach (var enemy in game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()))
                     {
-                        player.Predict.Add(new PredictClass(enemy.RoundCharacter.Name, enemy.GetPlayerId()));
+                        player.Predict.Add(new PredictClass(enemy.GameCharacter.Name, enemy.GetPlayerId()));
                     }
                 }
             }
@@ -619,7 +619,7 @@ public class General : ModuleBaseCustom
             // .WithTitle("My internal statistics")
             .WithColor(Color.DarkGreen)
             .WithCurrentTimestamp()
-            .WithFooter("Версия: 2.0")
+            .WithFooter("Версия: 2.5 ОМЕГА")
             .WithDescription("**Циферки:**\n" +
                              $"Работает: {time.Days}д {time.Hours}ч {time.Minutes}м + {time:ss\\.fff}с\n" +
                              $"Всего команд: {_global.TotalCommandsIssued}\n" +

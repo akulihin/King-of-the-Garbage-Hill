@@ -9,7 +9,7 @@ public class PassivesClass
 {
     public PassivesClass(GamePlayerBridgeClass player)
     {
-        var characterName = player.RoundCharacter.Name;
+        var characterName = player.GameCharacter.Name;
         WhenToTriggerClass when;
         switch (characterName)
         {
