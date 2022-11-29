@@ -1,30 +1,36 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
 public class GamePlayerBridgeClass
 {
     
-    public GamePlayerBridgeClass(CharacterClass roundCharacter, InGameStatus status, ulong discordId, ulong gameId, string discordUsername, int playerType)
+    public GamePlayerBridgeClass(CharacterClass gameCharacter, InGameStatus status, ulong discordId, ulong gameId, string discordUsername, int playerType)
     {
         Status = status;
-        roundCharacter.SetStatus(Status);
-        RoundCharacter = roundCharacter;
-        GameCharacter = roundCharacter.DeepCopy();
+        gameCharacter.SetStatus(Status);
+        GameCharacter = gameCharacter;
+        FightCharacter = GameCharacter.DeepCopy();
+        GameCharacter.IsGameCharacter = true;
+        FightCharacter.IsGameCharacter = false;
+        GameCharacter.Justice.IsGameCharacter = true;
+        FightCharacter.Justice.IsGameCharacter = false;
+
         DiscordId = discordId;
         GameId = gameId;
         DiscordUsername = discordUsername;
         PlayerType = playerType;
         DiscordStatus = new InGameDiscordStatus();
-        roundCharacter.SetIntelligenceResist();
-        roundCharacter.SetStrengthResist();
-        roundCharacter.SetSpeedResist();
-        roundCharacter.SetPsycheResist();
+        GameCharacter.SetIntelligenceResist();
+        GameCharacter.SetStrengthResist();
+        GameCharacter.SetSpeedResist();
+        GameCharacter.SetPsycheResist();
         Passives = new PassivesClass(this);
     }
-    public CharacterClass RoundCharacter { get; set; }
+    public CharacterClass FightCharacter { get; set; }
     public CharacterClass GameCharacter { get; set; }
 
     public PassivesClass Passives { get; set; }

@@ -312,7 +312,7 @@ public class BotsBehavior : IServiceSingleton
             var mandatoryAttack = -1;
             var noBlock = 99999;
             var yesBlock = -99999;
-            var botJustice = bot.RoundCharacter.Justice.GetRealJusticeNow();
+            var botJustice = bot.GameCharacter.Justice.GetRealJusticeNow();
             //end local variables
 
             //edit block for team
@@ -359,7 +359,7 @@ public class BotsBehavior : IServiceSingleton
             //calculation Tens
             foreach (var target in allTargets)
             {
-                var targetJustice = target.Player.RoundCharacter.Justice.GetSeenJusticeNow();
+                var targetJustice = target.Player.GameCharacter.Justice.GetSeenJusticeNow();
 
                 //if justice is the same
                 if (botJustice == targetJustice)
@@ -459,7 +459,7 @@ public class BotsBehavior : IServiceSingleton
 
 
                 //justice diff
-                if (allTargets.All(x => x.Player.RoundCharacter.Justice.GetSeenJusticeNow() < botJustice))
+                if (allTargets.All(x => x.Player.GameCharacter.Justice.GetSeenJusticeNow() < botJustice))
                 {
                     justiceDifference = botJustice - targetJustice;
                     target.AttackPreference += justiceDifference;
@@ -944,7 +944,7 @@ public class BotsBehavior : IServiceSingleton
                                 }
                                 else
                                 {
-                                    if (bot.RoundCharacter.Justice.GetRealJusticeNow() > targetJustice && !isTargetTooGood)
+                                    if (bot.GameCharacter.Justice.GetRealJusticeNow() > targetJustice && !isTargetTooGood)
                                         if (target.AttackPreference > SpartanTarget)
                                         {
                                             mandatoryAttack = target.PlaceAtLeaderBoard();
@@ -1345,11 +1345,11 @@ public class BotsBehavior : IServiceSingleton
                         maximumRandomNumberForBlock = 4;
                     }
 
-                    var min = allTargets.Min(x => x.Player.RoundCharacter.Justice.GetSeenJusticeNow());
+                    var min = allTargets.Min(x => x.Player.GameCharacter.Justice.GetSeenJusticeNow());
                     var check = allTargets.Find(x =>
-                        x.Player.RoundCharacter.Justice.GetSeenJusticeNow() == min);
+                        x.Player.GameCharacter.Justice.GetSeenJusticeNow() == min);
 
-                    if (check.Player.RoundCharacter.Justice.GetSeenJusticeNow() >= botJustice)
+                    if (check.Player.GameCharacter.Justice.GetSeenJusticeNow() >= botJustice)
                         minimumRandomNumberForBlock += 1;
 
                     break;
@@ -1430,8 +1430,8 @@ public class BotsBehavior : IServiceSingleton
                     }
 
                     if (allTargets.All(x =>
-                            bot.RoundCharacter.Justice.GetRealJusticeNow() <=
-                            x.Player.RoundCharacter.Justice.GetSeenJusticeNow()))
+                            bot.GameCharacter.Justice.GetRealJusticeNow() <=
+                            x.Player.GameCharacter.Justice.GetSeenJusticeNow()))
                         if (game.RoundNo == 10)
                         {
                             minimumRandomNumberForBlock = 2;

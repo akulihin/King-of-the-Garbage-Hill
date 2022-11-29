@@ -197,7 +197,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     customString += $" <:weed:1005884006866354196>: {other.Passives.WeedwickWeed}";
                 }
 
-                if (other.RoundCharacter.Justice.GetRealJusticeNow() == 0)
+                if (other.GameCharacter.Justice.GetRealJusticeNow() == 0)
                 {
                     customString += $" <:WUF:1005886339335598120>";
                 }
@@ -361,7 +361,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         customString +=
                             $" PS: - {other.GameCharacter.Name} (I: {other.GameCharacter.GetIntelligence()} | " +
                             $"St: {other.GameCharacter.GetStrength()} | Sp: {other.GameCharacter.GetSpeed()} | " +
-                            $"Ps: {other.GameCharacter.GetPsyche()} | J: {other.RoundCharacter.Justice.GetRealJusticeNow()})";
+                            $"Ps: {other.GameCharacter.GetPsyche()} | J: {other.GameCharacter.Justice.GetRealJusticeNow()})";
                 //end сверхразум
 
 

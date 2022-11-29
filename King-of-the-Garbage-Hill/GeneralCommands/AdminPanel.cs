@@ -132,7 +132,7 @@ public class AdminPanel : ModuleBaseCustom
         if (choice + 1 > allCharacters.Count)
         {
             await SendMessageAsync(
-                $"ERROR: 404 - no such RoundCharacter. Please select between 0 and {allCharacters.Count - 1}");
+                $"ERROR: 404 - no such GameCharacter. Please select between 0 and {allCharacters.Count - 1}");
             return;
         }
 
@@ -218,7 +218,7 @@ public class AdminPanel : ModuleBaseCustom
         if (foundCharacter == null)
         {
             var extra = allCharacters.Aggregate("", (current, c) => current + $"`{c.Name}`\n");
-            await SendMessageAsync($"ERROR: 404 - No Such RoundCharacter ({character})\nAvailable:\n{extra}");
+            await SendMessageAsync($"ERROR: 404 - No Such FightCharacter ({character})\nAvailable:\n{extra}");
             return;
         }
 
@@ -359,7 +359,7 @@ public class AdminPanel : ModuleBaseCustom
                 player.GameCharacter.SetMainSkill(number, "Читы");
                 break;
             case "mr":
-                player.RoundCharacter.SetMoral(number, "Читы");
+                player.GameCharacter.SetMoral(number, "Читы");
                 break;
             default:
                 return;

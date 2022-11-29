@@ -678,9 +678,7 @@ public class CheckIfReady : IServiceSingleton
             //delete messages from prev round. No await.
             foreach (var player in game.PlayersList) await _help.DeleteItAfterRound(player);
 
-            _round.DeepCopyRoundCharactersToRoundCharacter(game);
             await _round.CalculateAllFights(game);
-            _round.DeepCopyRoundCharactersToGameCharacter(game);
             //await Task.Delay(1);
 
             foreach (var t in players.Where(x => !x.IsBot()))

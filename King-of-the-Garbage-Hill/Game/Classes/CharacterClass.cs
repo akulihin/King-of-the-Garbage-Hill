@@ -84,6 +84,7 @@ public class CharacterClass
     public List<Passive> Passive { get; set; }
     public string Description { get; set; }
     public int Tier { get; set; }
+    public bool IsGameCharacter { get; set; }
 
 
     // PRIVATE
@@ -200,7 +201,7 @@ public class CharacterClass
             if (Status.CharacterName == "mylorik")
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik.RoundCharacter.AddMoral(1, "Испанец", false);
+                mylorik.GameCharacter.AddMoral(1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
@@ -219,7 +220,7 @@ public class CharacterClass
             if (Status.CharacterName == "mylorik") 
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik.RoundCharacter.AddMoral( 1, "Испанец", false);
+                mylorik.GameCharacter.AddMoral( 1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
@@ -238,7 +239,7 @@ public class CharacterClass
             if (Status.CharacterName == "mylorik")
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik.RoundCharacter.AddMoral( 1, "Испанец", false);
+                mylorik.GameCharacter.AddMoral( 1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
@@ -942,7 +943,13 @@ public class CharacterClass
 
     public void SetIntelligenceForOneFight(int howMuchToSet, string skillName)
     {
+        if (!IsGameCharacter)
+        {
+            throw new Exception("ForOneFight mechanic used on \"FightCharacter\"!");
+        }
         //Set Stat only for one fight, not for the whole round!
+        //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
+
         if (howMuchToSet < 0)
             return;
         Status.RealIntelligence = GetIntelligence();
@@ -1016,7 +1023,13 @@ public class CharacterClass
 
     public void SetPsycheForOneFight(int howMuchToSet, string skillName)
     {
+        if (!IsGameCharacter)
+        {
+            throw new Exception("ForOneFight mechanic used on \"FightCharacter\"!");
+        }
         //Set Stat only for one fight, not for the whole round!
+        //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
+
         if (howMuchToSet < 0)
             return;
         Status.RealPsyche = GetPsyche();
@@ -1089,7 +1102,13 @@ public class CharacterClass
 
     public void SetSpeedForOneFight(int howMuchToSet, string skillName)
     {
+        if (!IsGameCharacter)
+        {
+            throw new Exception("ForOneFight mechanic used on \"FightCharacter\"!");
+        }
         //Set Stat only for one fight, not for the whole round!
+        //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
+
         if (howMuchToSet < 0)
             return;
         Status.RealSpeed = GetSpeed();
@@ -1162,7 +1181,13 @@ public class CharacterClass
 
     public void SetStrengthForOneFight(int howMuchToSet, string skillName)
     {
+        if (!IsGameCharacter)
+        {
+            throw new Exception("ForOneFight mechanic used on \"FightCharacter\"!");
+        }
         //Set Stat only for one fight, not for the whole round!
+        //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
+
         if (howMuchToSet < 0)
             return;
         Status.RealStrength = GetStrength();
@@ -1244,6 +1269,7 @@ public class JusticeClass
     private int JusticeForNextRoundFromSkills{ get; set; }
     public bool IsWonThisRound { get; set; }
 
+    public bool IsGameCharacter { get; set; }
     private InGameStatus Status { get; set; }
 
     public void SetStatus(InGameStatus status)
@@ -1344,7 +1370,13 @@ public class JusticeClass
 
     public void SetJusticeForOneFight(int howMuchToSet, string skillName)
     {
+        if (!IsGameCharacter)
+        {
+            throw new Exception("ForOneFight mechanic used on \"FightCharacter\"!");
+        }
         //Set Stat only for one fight, not for the whole round!
+        //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
+
         if (howMuchToSet < 0)
             return;
         Status.RealJustice = GetRealJusticeNow();
