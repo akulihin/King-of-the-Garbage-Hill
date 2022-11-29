@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
@@ -28,10 +29,10 @@ public class CharacterClass
 
         //LINKS, not a deep copy
         other.AvatarEvent = AvatarEvent;
-        other.Passive = Passive;
         other.Status = Status;
 
         //Copy
+        other.Passive = Passive.Select(x => x.DeepCopy()).ToList();
         other.Justice = Justice.DeepCopy();
         other.Name = Name;
         other.Avatar = Avatar;
@@ -1206,6 +1207,17 @@ public class Passive
     public string PassiveDescription;
     public string PassiveName;
     public bool Visible;
+
+    public Passive DeepCopy()
+    {
+        var other = (Passive)MemberwiseClone();
+
+        other.PassiveDescription = PassiveDescription;
+        other.PassiveName = PassiveName;
+        other.Visible = Visible;
+
+        return other;
+    }
 
     public Passive()
     {

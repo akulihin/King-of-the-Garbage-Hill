@@ -5,11 +5,6 @@
     "Psyche": 0,
     "Speed": 7,
     "Strength": 5,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898217732078706688/deepList.png",
     "AvatarEvent": [],
     "Passive": [
@@ -34,8 +29,8 @@
         "Visible": true
       },
       {
-        "PassiveDescription": "Eсли есть Weedwick,то на Weedwick появляется иконка питомца (<:pet:1046330623498911744>). На него нельзя нападать.",
-        "PassiveName": "Pet",
+        "PassiveDescription": "Eсли есть Weedwick, то на Weedwick появляется иконка питомца (<:pet:1046330623498911744>). На него нельзя нападать.",
+        "PassiveName": "DeepList Pet",
         "Visible": false
       }
     ],
@@ -48,11 +43,6 @@
     "Psyche": 3,
     "Speed": 9,
     "Strength": 8,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/895072182051430401/945071055188426763/mylorik.png",
     "AvatarEvent": [],
     "Passive": [
@@ -75,6 +65,16 @@
         "PassiveDescription": "Злится как бык и кричит как испанец, когда проигрывает. Большой шанс потерять 1 Психики после поражения, но получить + 10 *Скилла* каким-то образом. Нанесенный Лорику **Вред** превращается в +1 *Мораль*.",
         "PassiveName": "Испанец",
         "Visible": true
+      },
+      {
+        "PassiveDescription": "В начале игры у лорика всего 3 силы, потому что повторяет за myloran, но как только ZaRDaK его затригер лорик орёт и получает Силу или *Скилл*",
+        "PassiveName": "Повторяет за myloran",
+        "Visible": false
+      },
+      {
+        "PassiveDescription": "Казалось бы, при чем тут спартанец?",
+        "PassiveName": "Искусство",
+        "Visible": false
       }
     ],
     "Description": "Любит умирать. Не любит не умирать. Всегда атакует и не делает ничего кроме этого. Постоянно дайвит и фидит, но каким-то образом ему удается при этом выигрывать! Никто никогда не поймет зачем Лорик специально умирает, одному ему известно. Но после поражений он злится и начинает играть еще более агрессивно. Не боится сражаться 1 на 2 или даже 1 на 5. Говорят, раньше он был настолько скилловым и токсичным, что побеждал любого врага. После знакомства с Листом, сомнительные тактики сделали его богом шиноби.\nОднако сейчас он ушел на пенсию, стал пекарем и увлекся подводной живностью. С легкостью выучил программирование и в свободное время пишет никому не нужные мусорные игры.\n\nВходит в тройку чэлленджеров ZBS Gaming'a\n2к эло про\nДайвер \n\n\n",
@@ -86,11 +86,6 @@
     "Psyche": 8,
     "Speed": 1,
     "Strength": 6,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218210082578532/gleb.png",
     "AvatarEvent": [
       {
@@ -129,11 +124,6 @@
     "Psyche": 7,
     "Speed": 5,
     "Strength": 4,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218325300088832/le_crisp.png",
     "AvatarEvent": [],
     "Passive": [
@@ -167,11 +157,6 @@
     "Psyche": 2,
     "Speed": 2,
     "Strength": 5,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218461677907968/tolya.png",
     "AvatarEvent": [],
     "Passive": [
@@ -205,11 +190,6 @@
     "Psyche": 8,
     "Speed": 5,
     "Strength": 5,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218646126616617/amumu.png",
     "AvatarEvent": [],
     "Passive": [
@@ -243,11 +223,6 @@
     "Psyche": 5,
     "Speed": 5,
     "Strength": 1,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219322856595547/sirinoks.png",
     "AvatarEvent": [],
     "Passive": [
@@ -281,11 +256,6 @@
     "Psyche": 9,
     "Speed": 9,
     "Strength": 9,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219463403524116/mitsuki5.png",
     "AvatarEvent": [],
     "Passive": [
@@ -319,11 +289,6 @@
     "Psyche": 6,
     "Speed": 4,
     "Strength": 2,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219562452025384/awdka.png",
     "AvatarEvent": [],
     "Passive": [
@@ -357,11 +322,6 @@
     "Psyche": 10,
     "Speed": 8,
     "Strength": 2,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219652029751316/octopus.png",
     "AvatarEvent": [],
     "Passive": [
@@ -395,11 +355,6 @@
     "Psyche": 4,
     "Speed": 8,
     "Strength": 7,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219764223209490/darksci2.png",
     "AvatarEvent": [],
     "Passive": [
@@ -433,11 +388,6 @@
     "Psyche": 1,
     "Speed": 9,
     "Strength": 9,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219869697343508/tigr.png",
     "AvatarEvent": [],
     "Passive": [
@@ -471,11 +421,6 @@
     "Psyche": 10,
     "Speed": 0,
     "Strength": 0,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219963167424512/bratishka.png",
     "AvatarEvent": [],
     "Passive": [
@@ -509,11 +454,6 @@
     "Psyche": 1,
     "Speed": 6,
     "Strength": 10,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898220034172801094/tain.png",
     "AvatarEvent": [],
     "Passive": [
@@ -562,11 +502,6 @@
     "Psyche": 6,
     "Speed": 6,
     "Strength": 6,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://i.imgur.com/r54jtvA.png",
     "AvatarEvent": [],
     "Passive": [
@@ -605,11 +540,6 @@
     "Psyche": 9,
     "Speed": 1,
     "Strength": 3,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/895072182051430401/937069648724230326/kraborak.png",
     "AvatarEvent": [],
     "Passive": [
@@ -643,11 +573,6 @@
     "Psyche": 10,
     "Speed": 6,
     "Strength": 10,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/895072182051430401/1000045314008432700/unknown.png",
     "AvatarEvent": [],
     "Passive": [
@@ -661,11 +586,6 @@
     "Psyche": 6,
     "Speed": 3,
     "Strength": 3,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/895072182051430401/1003118614754365501/unknown.png",
     "AvatarEvent": [],
     "Passive": [
@@ -688,6 +608,11 @@
         "PassiveDescription": "Победы над опасными врагами - это Weed <:weed:1005884006866354196>, поэтому каждая победа врагов - это Weed <:weed:1005884006866354196>. Победа в нападении сжигает настаканный на цели Weed и дает Видвику *Мораль* за каждый стак. Психует, если дольше одного хода не выкуривал Weed.",
         "PassiveName": "Weed",
         "Visible": true
+      },
+      {
+        "PassiveDescription": "Eсли есть DeepList, то на DeepList появляется иконка хозяина (<:pet:1046330623498911744>). На него нельзя нападать.",
+        "PassiveName": "Weedwick Pet",
+        "Visible": false
       }
     ],
     "Description": "Говорят, это собака какого-то волосатого чела, который постоянно смеется.",
@@ -699,11 +624,6 @@
     "Psyche": 0,
     "Speed": 8,
     "Strength": 9,
-    "Justice": {
-      "JusticeNow": 0,
-      "JusticeForNextRound": 0,
-      "IsWonThisRound": false
-    },
     "Avatar": "https://cdn.discordapp.com/attachments/895072182051430401/1005705251862610012/unknown.png",
     "AvatarEvent": [],
     "Passive": [
@@ -726,9 +646,47 @@
         "PassiveDescription": "При поражение на 10м ходу, Кратос теряет Клинки хаоса и умирает, однако возвращается из мира мертвых, получая 5 дополнительных ходов, чтобы вернуться на вершину! \"Похищение души\" и \"Охота на богов\" работают вдвое эффективнее, а поверженные персонажи падают в бездну и исчезают с таблицы. При проигрыше умирает окончательно.",
         "PassiveName": "Возвращение из мертвых",
         "Visible": true
+      },
+      {
+        "PassiveDescription": "Кратос помнит о своем прошлом...",
+        "PassiveName": "God Of War",
+        "Visible": false
       }
     ],
     "Description": "Говорят, это Бог войны...",
     "Tier": 1
+  },
+  {
+    "Name": "Стая Гоблинов",
+    "Intelligence": 0,
+    "Psyche": 0,
+    "Speed": 10,
+    "Strength": 5,
+    "Avatar": "https://media.discordapp.net/attachments/895072182051430401/1046979595452289154/unknown.png",
+    "AvatarEvent": [],
+    "Passive": [
+      {
+        "PassiveDescription": "Гоблины очень быстры благодаря подземным тоннелям. Если Гоблины проигрывают бой нападающему врагу, то есть большая вероятность, что они просто сбегут по тоннелям, если Скорость Гоблинов хотя бы на 2 больше, чем у врага.",
+        "PassiveName": "Тоннели Гоблинов",
+        "Visible": true
+      },
+      {
+        "PassiveDescription": "Стая Гоблинов растет! Гоблины размножаются, как  Гоблины! При успешном нападении, Гоблины выкрадывают фансервис и размножаются еще больше, особенно если королевство врага было большое. Говорят, каждый шестой Гоблин - Воин. Стая Гоблинов получает +1 Силы за каждого Воина. А по статистике, каждый пятнадцатый Гоблин - Хоб. Стая получает +1 Интеллекта и Психики за каждого Хобгобина, а так же прирост гоблинов увеличивается на 1. Но при любом поражении Гоблины умирают пачками, особенно если враг был опасен.",
+        "PassiveName": "Гоблины",
+        "Visible": true
+      },
+      {
+        "PassiveDescription": "Говорят, каждый десятый Гоблин - Трудяга. Гоблины Трудяги ищут отличный рудник и добывают в нем 1 бонусное очко за каждого Трудягу. Нападая, Гоблины могут обчистить чужие рудники. Так получилось, что на Великой Мусорной Горе есть целых три Отличных рудника: два возле верхушки и один у самого подножья.",
+        "PassiveName": "Отличный рудник",
+        "Visible": true
+      },
+      {
+        "PassiveDescription": "Гоблины не могут ничего изобрести, однако они могут научиться у кого-то другого... Поставив Блок, Гоблины начинают заниматься строительством и возводят Зиккурат, который позволяет им Обучиться одной из Пассивок врага, на которого они нападали ранее. Вот только Зиккурат стоит __очень дорого!__ - вы потратите несколько __бонусных__ очков, а один Гоблин Трудяга аж умрет от такого.\nЗиккурат не позволяет **Скинуть** Гоблинов с их места, что дает им дополнительную Справедливость и Мораль каждый ход. Для постройки необходимо иметь Хотя бы одного Гоблина каждого типа.",
+        "PassiveName": "Гоблины тупые, но не идиоты",
+        "Visible": true
+      }
+    ],
+    "Description": "Говорят, за ними охотится какой-то Пантеон...",
+    "Tier": 2
   }
 ]

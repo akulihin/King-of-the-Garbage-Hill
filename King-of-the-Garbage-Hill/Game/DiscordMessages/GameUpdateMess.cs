@@ -52,23 +52,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         var allCharacters = _charactersPull.GetAllCharacters();
         var character = allCharacters.Find(x => x.Name == player.GameCharacter.Name);
-        var pass = "";
-        var characterPassivesList = character.Passive;
-        foreach (var passive in characterPassivesList)
-        {
-            if (!passive.Visible) continue;
-            pass += $"__**{passive.PassiveName}**__";
-            pass += ": ";
-            pass += passive.PassiveDescription;
-            pass += "\n";
-        }
 
-        if (pass.Length == 0) pass = "Их нет...\n";
 
         var int_str = "Интеллект";
         var str_str = "Сила";
         var spe_str = "Скорость";
         var psy_str = "Психика";
+        
+        //Sakura
         if (character.Name == "Sakura")
         {
             int_str = "Сексуальность";
@@ -76,7 +67,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             spe_str = "Скорость";
             psy_str = "Нытье";
         }
-
+        var sakuraText = "";
+        if (player.GameCharacter.Passive.Count == 0) sakuraText = "\nИх... нет...\n";
+        //end Sakura
 
         var embed = new EmbedBuilder();
         embed.WithColor(Color.DarkOrange);
@@ -86,8 +79,15 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                                          $"{int_str}: {character.GetIntelligenceString()}\n" +
                                          $"{str_str}: {character.GetStrength()}\n" +
                                          $"{spe_str}: {character.GetSpeed()}\n" +
-                                         $"{psy_str}: {character.GetPsyche()}\n");
-        embed.AddField("Пассивки", $"{pass}");
+                                         $"{psy_str}: {character.GetPsyche()}\n" +
+                                         $"\n**Пассивки:**{sakuraText}");
+        
+        foreach (var passive in player.GameCharacter.Passive)
+        {
+            if (!passive.Visible) continue;
+            embed.AddField(passive.PassiveName, passive.PassiveDescription);
+        }
+
 
         //if(character.Description.Length > 1)
         //    embed.WithDescription(character.Description);

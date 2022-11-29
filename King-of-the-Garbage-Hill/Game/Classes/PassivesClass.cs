@@ -73,7 +73,6 @@ public class PassivesClass
     public Awdka.TrollingClass AwdkaTrollingList { get; set; } = new();
     public Awdka.TryingClass AwdkaTryingList { get; set; } = new();
 
-    public CraboRack.BokoBoole CraboRackBokoBoole { get; set; } = new();
     public CraboRack.Shell CraboRackShell { get; set; } = new();
     public DeepList.Madness CraboRackSidewaysBooleList { get; set; } = new();
     public WhenToTriggerClass CraboRackSidewaysBooleTriggeredWhen { get; set; } = new();
