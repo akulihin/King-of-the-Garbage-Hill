@@ -6,15 +6,12 @@ using Discord;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.MemoryStorage;
-using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
 namespace King_of_the_Garbage_Hill.Game.ReactionHandling;
 
 public class TutorialReactions : IServiceSingleton
 {
-    private readonly CharactersPull _charactersPull;
     private readonly TutorialClass _tutorialClass;
 
     private readonly LoginFromConsole _logs;
@@ -22,16 +19,12 @@ public class TutorialReactions : IServiceSingleton
     private readonly List<Emoji> _playerChoiceAttackList = new()
         { new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣"), new Emoji("4⃣"), new Emoji("5⃣"), new Emoji("6⃣") };
 
-    private readonly SecureRandom _random;
     private readonly UserAccounts _userAccounts;
 
-    public TutorialReactions(UserAccounts userAccounts, CharactersPull charactersPull, SecureRandom random,
-       LoginFromConsole logs, TutorialClass tutorialClass)
+    public TutorialReactions(UserAccounts userAccounts, LoginFromConsole logs, TutorialClass tutorialClass)
     {
         _userAccounts = userAccounts;
-        _charactersPull = charactersPull;
-        _random = random;
-  
+
         _logs = logs;
         _tutorialClass = tutorialClass;
     }
@@ -66,29 +59,29 @@ public class TutorialReactions : IServiceSingleton
         {
             var temp4 = game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 4);
             var temp5 = game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 5);
-            player.PlaceAtLeaderBoard = 4;
-            temp4.PlaceAtLeaderBoard = 5;
-            temp5.PlaceAtLeaderBoard = 6;
+            player!.PlaceAtLeaderBoard = 4;
+            temp4!.PlaceAtLeaderBoard = 5;
+            temp5!.PlaceAtLeaderBoard = 6;
         }
 
         if (game.RoundNumber == 11)
         {
             var temp4 = game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 1);
-            player.PlaceAtLeaderBoard = 1;
-            temp4.PlaceAtLeaderBoard = 2;
+            player!.PlaceAtLeaderBoard = 1;
+            temp4!.PlaceAtLeaderBoard = 2;
         }
 
         if (game.RoundNumber == 6)
         {
             var temp4 = game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 2);
-            player.PlaceAtLeaderBoard = 2;
-            temp4.PlaceAtLeaderBoard = 4;
+            player!.PlaceAtLeaderBoard = 2;
+            temp4!.PlaceAtLeaderBoard = 4;
 
-            game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 1).ClassString = "(**Быстрый** ?)";
-            game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 3).ClassString = "(**Умный** ?)";
-            game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 4).ClassString = "(**Сильный** ?)";
-            game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 5).ClassString = "(**Быстрый** ?)";
-            game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 6).ClassString = "(**Сильный** ?)";
+            game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 1)!.ClassString = "(**Быстрый** ?)";
+            game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 3)!.ClassString = "(**Умный** ?)";
+            game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 4)!.ClassString = "(**Сильный** ?)";
+            game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 5)!.ClassString = "(**Быстрый** ?)";
+            game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 6)!.ClassString = "(**Сильный** ?)";
         }
 
 
@@ -98,7 +91,7 @@ public class TutorialReactions : IServiceSingleton
 
             if (p.PlayerId == game.DiscordPlayerId)
                 text += $"{index}. {p.DiscordUsername} = **{p.Score} Score**\n";
-            else if (player.Predicted && p.DiscordUsername == "MegaVova99")
+            else if (player!.Predicted && p.DiscordUsername == "MegaVova99")
                 text += $"{index}. {p.DiscordUsername} {p.ClassString} | AWDKA ?\n";
             else
                 text += $"{index}. {p.DiscordUsername} {p.ClassString}\n";
@@ -119,16 +112,16 @@ public class TutorialReactions : IServiceSingleton
         var title = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬";
 
 
-        if (game.RoundNumber > 0) text += $"*Справедливость: {player.Justice}*\n";
-        if (game.RoundNumber > 2) text += $"*Мораль: {player.Moral}*\n";
+        if (game.RoundNumber > 0) text += $"*Справедливость: {player!.Justice}*\n";
+        if (game.RoundNumber > 2) text += $"*Мораль: {player!.Moral}*\n";
 
-        if (game.RoundNumber == 7) text += $"*Скилл: {player.Skill} (Мишень: **Умный**)*\n";
-        if (game.RoundNumber >= 8) text += $"*Скилл: {player.Skill}*\n";
+        if (game.RoundNumber == 7) text += $"*Скилл: {player!.Skill} (Мишень: **Умный**)*\n";
+        if (game.RoundNumber >= 8) text += $"*Скилл: {player!.Skill}*\n";
 
         if (game.RoundNumber > 5)
         {
          
-            if (player.Intelligence >= player.Strength && player.Intelligence >= player.Speed)
+            if (player!.Intelligence >= player.Strength && player.Intelligence >= player.Speed)
                 player.ClassString = "**Умный**";
             else if (player.Strength >= player.Intelligence && player.Strength >= player.Speed)
                 player.ClassString = "**Сильный**";
@@ -152,7 +145,7 @@ public class TutorialReactions : IServiceSingleton
         var title = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬";
         var player = game.PlayersList.Find(x => x.PlayerId == game.DiscordPlayerId);
         if (game.RoundNumber > 0)
-            text += $"**Интеллект:** {player.Intelligence}\n" +
+            text += $"**Интеллект:** {player!.Intelligence}\n" +
                     $"**Сила:** {player.Strength}\n" +
                     $"**Скорость:** {player.Speed}\n" +
                     $"**Психика:** {player.Psyche}\n";
@@ -178,7 +171,7 @@ public class TutorialReactions : IServiceSingleton
         //embed.WithCurrentTimestamp();
         embed.AddField("_____",
             "__Подними один из статов на 1:__\n \n" +
-            $"1. **Интеллект:** {player.Intelligence}\n" +
+            $"1. **Интеллект:** {player!.Intelligence}\n" +
             $"2. **Сила:** {player.Strength}\n" +
             $"3. **Скорость:** {player.Speed}\n" +
             $"4. **Психика:** {player.Psyche}\n");
@@ -264,7 +257,7 @@ public class TutorialReactions : IServiceSingleton
         var extraText = "";
         if (game.RoundNumber == 10) extraText = " (Конец игры)";
 
-        if (player.Moral >= 15)
+        if (player!.Moral >= 15)
             return new ButtonBuilder($"Обменять 15 Морали на 10 бонусных очков{extraText}", "moral-tutorial",
                 ButtonStyle.Secondary, isDisabled: isDisabled);
         if (player.Moral >= 10)
@@ -296,11 +289,11 @@ public class TutorialReactions : IServiceSingleton
     {
         var text = $"__**Раунд #{game.RoundNumber}:**__\n";
         var player = game.PlayersList.Find(x => x.PlayerId == game.DiscordPlayerId);
-        var target = game.PlayersList.Find(x => x.PlayerId == player.WhoToAttackThisTurn);
+        var target = game.PlayersList.Find(x => x.PlayerId == player!.WhoToAttackThisTurn);
         if (game.RoundNumber == 2)
         {
             text +=
-                $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ {target.DiscordUsername}\n";
+                $"**{player!.DiscordUsername}** <:war:561287719838547981> {target!.DiscordUsername} ⟶ {target.DiscordUsername}\n";
             text += "MegaVova99 <:war:561287719838547981> EloBoost ⟶ EloBoost\n";
             text += "PETYX <:war:561287719838547981> EloBoost ⟶ EloBoost\n";
             text += "EloBoost <:war:561287719838547981> Drone ⟶ EloBoost\n";
@@ -311,7 +304,7 @@ public class TutorialReactions : IServiceSingleton
         if (game.RoundNumber == 3)
         {
             text +=
-                $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ **{player.DiscordUsername}**\n";
+                $"**{player!.DiscordUsername}** <:war:561287719838547981> {target!.DiscordUsername} ⟶ **{player.DiscordUsername}**\n";
             text += "MegaVova99 <:war:561287719838547981> EloBoost ⟶ EloBoost\n";
             text +=
                 $"PETYX <:war:561287719838547981> **{player.DiscordUsername}** ⟶ **{player.DiscordUsername}**\n";
@@ -322,16 +315,16 @@ public class TutorialReactions : IServiceSingleton
 
         if (game.RoundNumber == 4)
         {
-            player.Score += 1;
+            player!.Score += 1;
 
             var target1 = game.PlayersList.Find(x => x.PlayerId == player.WhoToAttackThisTurn);
-            var moral = player.PlaceAtLeaderBoard - target1.PlaceAtLeaderBoard;
+            var moral = player.PlaceAtLeaderBoard - target1!.PlaceAtLeaderBoard;
             if (moral > 0)
                 player.Moral += moral;
 
 
             text +=
-                $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ **{player.DiscordUsername}**\n";
+                $"**{player.DiscordUsername}** <:war:561287719838547981> {target!.DiscordUsername} ⟶ **{player.DiscordUsername}**\n";
             text += "MegaVova99 <:war:561287719838547981> EloBoost ⟶ EloBoost\n";
             text += "PETYX <:war:561287719838547981> EloBoost ⟶ EloBoost\n";
             text += "EloBoost <:war:561287719838547981> Drone ⟶ EloBoost\n";
@@ -342,7 +335,7 @@ public class TutorialReactions : IServiceSingleton
         if (game.RoundNumber == 5)
         {
             text +=
-                $"EloBoost <:war:561287719838547981> **{player.DiscordUsername}**⟶ *Бой не состоялся (Блок)...*\n";
+                $"EloBoost <:war:561287719838547981> **{player!.DiscordUsername}**⟶ *Бой не состоялся (Блок)...*\n";
             text +=
                 $"Drone <:war:561287719838547981> **{player.DiscordUsername}** ⟶ *Бой не состоялся (Блок)...*\n";
             text +=
@@ -353,28 +346,28 @@ public class TutorialReactions : IServiceSingleton
 
         if (game.RoundNumber == 6)
         {
-            player.Score += 6;
+            player!.Score += 6;
             player.Justice = 0;
 
 
             var target1 = game.PlayersList.Find(x => x.PlayerId == player.WhoToAttackThisTurn);
-            var moral = player.PlaceAtLeaderBoard - target1.PlaceAtLeaderBoard;
+            var moral = player.PlaceAtLeaderBoard - target1!.PlaceAtLeaderBoard;
             if (moral > 0)
                 player.Moral += moral;
 
             target1 = game.PlayersList.Find(x => x.DiscordUsername == "PETYX");
-            moral = player.PlaceAtLeaderBoard - target1.PlaceAtLeaderBoard;
+            moral = player.PlaceAtLeaderBoard - target1!.PlaceAtLeaderBoard;
             if (moral > 0)
                 player.Moral += moral;
 
             target1 = game.PlayersList.Find(x => x.DiscordUsername == "YasuoOnly");
-            moral = player.PlaceAtLeaderBoard - target1.PlaceAtLeaderBoard;
+            moral = player.PlaceAtLeaderBoard - target1!.PlaceAtLeaderBoard;
             if (moral > 0)
                 player.Moral += moral;
 
 
             text +=
-                $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ **{player.DiscordUsername}**\n";
+                $"**{player.DiscordUsername}** <:war:561287719838547981> {target!.DiscordUsername} ⟶ **{player.DiscordUsername}**\n";
             text +=
                 $"PETYX <:war:561287719838547981> **{player.DiscordUsername}** ⟶ **{player.DiscordUsername}**\n";
             text +=
@@ -386,20 +379,20 @@ public class TutorialReactions : IServiceSingleton
 
         if (game.RoundNumber == 7)
         {
-            player.Justice = 2;
-            if (player.ClassString.Contains("Умный") && target.ClassString.Contains("Быстрый"))
+            player!.Justice = 2;
+            if (player.ClassString.Contains("Умный") && target!.ClassString.Contains("Быстрый"))
             {
                 text +=
                     $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ **{player.DiscordUsername}** \n";
                 player.Score += 2;
             }
-            else if (player.ClassString.Contains("Быстрый") && target.ClassString.Contains("Сильный"))
+            else if (player.ClassString.Contains("Быстрый") && target!.ClassString.Contains("Сильный"))
             {
                 text +=
                     $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ **{player.DiscordUsername}** \n";
                 player.Score += 2;
             }
-            else if (player.ClassString.Contains("Сильный") && target.ClassString.Contains("Умный"))
+            else if (player.ClassString.Contains("Сильный") && target!.ClassString.Contains("Умный"))
             {
                 text +=
                     $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ **{player.DiscordUsername}** \n";
@@ -408,7 +401,7 @@ public class TutorialReactions : IServiceSingleton
             else
             {
                 text +=
-                    $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ {target.DiscordUsername} \n";
+                    $"**{player.DiscordUsername}** <:war:561287719838547981> {target!.DiscordUsername} ⟶ {target.DiscordUsername} \n";
                 player.Justice += 1;
             }
 
@@ -442,15 +435,15 @@ public class TutorialReactions : IServiceSingleton
 
         if (game.RoundNumber == 8)
         {
-            player.Justice += 2;
+            player!.Justice += 2;
 
             var target1 = game.PlayersList.Find(x => x.PlayerId == player.WhoToAttackThisTurn);
-            var moral = target1.PlaceAtLeaderBoard - player.PlaceAtLeaderBoard;
+            var moral = target1!.PlaceAtLeaderBoard - player.PlaceAtLeaderBoard;
             if (moral > 0)
                 player.Moral -= moral;
 
             target1 = game.PlayersList.Find(x => x.DiscordUsername == "PETYX");
-            moral = target1.PlaceAtLeaderBoard - player.PlaceAtLeaderBoard;
+            moral = target1!.PlaceAtLeaderBoard - player.PlaceAtLeaderBoard;
             if (moral > 0)
                 player.Moral -= moral;
 
@@ -458,7 +451,7 @@ public class TutorialReactions : IServiceSingleton
                 player.Moral = 0;
 
             text +=
-                $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ {target.DiscordUsername}\n";
+                $"**{player.DiscordUsername}** <:war:561287719838547981> {target!.DiscordUsername} ⟶ {target.DiscordUsername}\n";
             text += $"PETYX <:war:561287719838547981> **{player.DiscordUsername}** ⟶ PETYX\n";
             text += "YasuoOnly <:war:561287719838547981> PETYX ⟶ PETYX\n";
             text += "Drone <:war:561287719838547981> PETYX ⟶ Drone\n";
@@ -470,21 +463,21 @@ public class TutorialReactions : IServiceSingleton
 
         if (game.RoundNumber == 9)
         {
-            if (player.ClassString.Contains("Умный") && target.ClassString.Contains("Быстрый"))
+            if (player!.ClassString.Contains("Умный") && target!.ClassString.Contains("Быстрый"))
             {
                 text +=
                     $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ **{player.DiscordUsername}** \n";
                 player.Score += 2;
                 player.Justice = 0;
             }
-            else if (player.ClassString.Contains("Быстрый") && target.ClassString.Contains("Сильный"))
+            else if (player.ClassString.Contains("Быстрый") && target!.ClassString.Contains("Сильный"))
             {
                 text +=
                     $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ **{player.DiscordUsername}** \n";
                 player.Score += 2;
                 player.Justice = 0;
             }
-            else if (player.ClassString.Contains("Сильный") && target.ClassString.Contains("Умный"))
+            else if (player.ClassString.Contains("Сильный") && target!.ClassString.Contains("Умный"))
             {
                 text +=
                     $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ **{player.DiscordUsername}** \n";
@@ -494,7 +487,7 @@ public class TutorialReactions : IServiceSingleton
             else
             {
                 text +=
-                    $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ {target.DiscordUsername} \n";
+                    $"**{player.DiscordUsername}** <:war:561287719838547981> {target!.DiscordUsername} ⟶ {target.DiscordUsername} \n";
                 player.Justice += 1;
             }
 
@@ -509,11 +502,11 @@ public class TutorialReactions : IServiceSingleton
 
         if (game.RoundNumber == 10)
         {
-            player.Justice += 3;
+            player!.Justice += 3;
 
 
             text +=
-                $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ {target.DiscordUsername}\n";
+                $"**{player.DiscordUsername}** <:war:561287719838547981> {target!.DiscordUsername} ⟶ {target.DiscordUsername}\n";
             text += $"PETYX <:war:561287719838547981> **{player.DiscordUsername}** ⟶ PETYX\n";
             text += $"YasuoOnly <:war:561287719838547981> **{player.DiscordUsername}** ⟶ YasuoOnly\n";
             text += "Drone <:war:561287719838547981> PETYX ⟶ Drone\n";
@@ -523,11 +516,11 @@ public class TutorialReactions : IServiceSingleton
 
         if (game.RoundNumber == 11)
         {
-            player.Score += 11;
+            player!.Score += 11;
             player.Justice = 1;
             text = "";
             text +=
-                $"**{player.DiscordUsername}** <:war:561287719838547981> {target.DiscordUsername} ⟶ **{player.DiscordUsername}**\n";
+                $"**{player.DiscordUsername}** <:war:561287719838547981> {target!.DiscordUsername} ⟶ **{player.DiscordUsername}**\n";
             text +=
                 $"MegaVova99 <:war:561287719838547981> **{player.DiscordUsername}** ⟶ **{player.DiscordUsername}**\n";
             text += $"EloBoost <:war:561287719838547981> **{player.DiscordUsername}** ⟶ EloBoost\n";
@@ -561,32 +554,32 @@ public class TutorialReactions : IServiceSingleton
             case 1:
                 var msg = await game.SocketMessageFromBot.Channel.SendMessageAsync(
                     "Выберите цель для нападения, посмотрим что будет...");
-                player.MessageToDeleteNextRound.Add(msg.Id);
+                player!.MessageToDeleteNextRound.Add(msg.Id);
                 break;
             case 2:
                 msg = await game.SocketMessageFromBot.Channel.SendMessageAsync(
                     "Кажется, враг сильнее по Статам... Вы проиграли, но получили *Справедливость* - она повысит шансы на победу против тех, у кого ее меньше. Прибавляется за поражения, но полностью отнимается после победы. Выберите цель из тех, кто победил в прошлом раунде (сбросил) и не проиграл (не получил новую).");
-                player.MessageToDeleteNextRound.Add(msg.Id);
+                player!.MessageToDeleteNextRound.Add(msg.Id);
                 break;
             case 3:
                 msg = await game.SocketMessageFromBot.Channel.SendMessageAsync(
                     "Вы получили *Мораль*! Она дается за победу над вышестоящим в таблице игроком. Но отнимается за поражения против нижестоящих.\nЧем дальше враги по таблице, тем больше *Морали* прибавится или отнимется.\n*Мораль* можно обменять на __бонусные__ очки! Чем больше обмениваем, тем выгоднее!");
-                player.MessageToDeleteNextRound.Add(msg.Id);
+                player!.MessageToDeleteNextRound.Add(msg.Id);
                 break;
             case 4:
                 msg = await game.SocketMessageFromBot.Channel.SendMessageAsync(
                     "Иногда, когда нет *Справедливости* или шансов на победу, выгоднее всего подгадать атаку врага и поставить блок!\n(Вместо нападения вы можете встать в блок, он отнимет у каждого нападающего 1 __бонусное__ очко, атак же заберет у каждого 1 *Справедливости* и прибавит ее вам за каждого напавшего!)");
-                player.MessageToDeleteNextRound.Add(msg.Id);
+                player!.MessageToDeleteNextRound.Add(msg.Id);
                 break;
             case 5:
                 msg = await game.SocketMessageFromBot.Channel.SendMessageAsync(
                     "Ого, кажется множитель очков подъехал! Начиная с пятого хода, получаемые **обычные** очки умножаются в 2 раза! Пришло время атаковать!");
-                player.MessageToDeleteNextRound.Add(msg.Id);
+                player!.MessageToDeleteNextRound.Add(msg.Id);
                 break;
 
             case 6:
                 var classText = "";
-                if (player.Intelligence >= player.Strength && player.Intelligence >= player.Speed)
+                if (player!.Intelligence >= player.Strength && player.Intelligence >= player.Speed)
                     classText = "Умный";
                 else if (player.Strength >= player.Intelligence && player.Strength >= player.Speed)
                     classText = "Сильный";
@@ -599,22 +592,22 @@ public class TutorialReactions : IServiceSingleton
             case 7:
                 msg = await game.SocketMessageFromBot.Channel.SendMessageAsync(
                     "Похоже нам нужно стать чуть-чуть сильнее. Для этого есть *Скилл* - он незначительно увеличивает эффективность всех статов. Эта полезная мелочь может повлиять на исход. Каждый раунд *Скилл* будет предлагать вам *Мишень* - это *Класс* врага, нападение на которого прибавит вам *Скилла*! Сейчас *Мишень* указывает на **Умного**. Если вы узнали кто из врагов **Умный**, вы можете атаковать его и получить *Скилл* за мишень. Сейчас у вас как раз больше *Справедливости*. Самое время получить немного *Скилла*!");
-                player.MessageToDeleteNextRound.Add(msg.Id);
+                player!.MessageToDeleteNextRound.Add(msg.Id);
                 break;
             case 8:
                 msg = await game.SocketMessageFromBot.Channel.SendMessageAsync(
                     "Ого, обратите внимание на верхние логи. Кажется, мы узнали, что MegaVova99  играет за **AWDKA**.\nМы узнали какой персонаж ему выпал. Профессионалы игры могли бы сами это отгадать, но нам помогла болтливость **Толи**. Давайте укажем что  ник бота - это **AWDKA**, в конце игры вы получите по 3 __бонусных__ очка за каждое верное предположение.\nВнизу появился **список предположений**...");
-                player.MessageToDeleteNextRound.Add(msg.Id);
+                player!.MessageToDeleteNextRound.Add(msg.Id);
                 break;
             case 9:
                 msg = await game.SocketMessageFromBot.Channel.SendMessageAsync(
                     "А вот и еще один способ заработать *Скилл* - квест *Класса*. Умный получает *Скилл*, когда атакует врагов, у которых 0 *Справедливости* на момент нападения / Сильный получает за победы / Быстрый за каждое сражение в котором он поучаствовал.");
-                player.MessageToDeleteNextRound.Add(msg.Id);
+                player!.MessageToDeleteNextRound.Add(msg.Id);
                 break;
             case 10:
                 msg = await game.SocketMessageFromBot.Channel.SendMessageAsync(
                     "Вооот она! Последний раунд. *Множитель очков* **x4** !\nСамое время вырваться вперед!");
-                player.MessageToDeleteNextRound.Add(msg.Id);
+                player!.MessageToDeleteNextRound.Add(msg.Id);
                 break;
             case 11:
                 msg = await game.SocketMessageFromBot.Channel.SendMessageAsync(
@@ -625,7 +618,7 @@ public class TutorialReactions : IServiceSingleton
                     "Ваша сложность \"**Обычная**\" - она показывает ровно столько информации, сколько было задумано разработчиками\n" +
                     "Доступная сложность \"**Казуальная**\" - она показывает больше информации упрощая механику **предположений**\n" +
                     "Удачной игры!");
-                player.MessageToDeleteNextRound.Add(msg.Id);
+                player!.MessageToDeleteNextRound.Add(msg.Id);
                 _userAccounts.GetAccount(player.PlayerId).PassedTutorial = true;
                 break;
         }
@@ -635,14 +628,14 @@ public class TutorialReactions : IServiceSingleton
     {
         var player = game.PlayersList.Find(x => x.PlayerId == game.DiscordPlayerId);
         var msg = await game.SocketMessageFromBot.Channel.SendMessageAsync(text);
-        player.MessageToDeleteNextRound.Add(msg.Id);
+        player!.MessageToDeleteNextRound.Add(msg.Id);
     }
 
     public async Task DeleteMessagesNextRoundTutorial(TutorialGame game)
     {
         var player = game.PlayersList.Find(x => x.PlayerId == game.DiscordPlayerId);
 
-        for (var i = player.MessageToDeleteNextRound.Count - 1; i >= 0; i--)
+        for (var i = player!.MessageToDeleteNextRound.Count - 1; i >= 0; i--)
         {
             var m = await game.SocketMessageFromBot.Channel.GetMessageAsync(player.MessageToDeleteNextRound[i]);
             await m.DeleteAsync();
@@ -678,7 +671,7 @@ public class TutorialReactions : IServiceSingleton
 
 
                     var player = game.PlayersList.Find(x => x.PlayerId == button.User.Id);
-                    player.WhoToAttackThisTurn = Convert.ToUInt64(attackSelection);
+                    player!.WhoToAttackThisTurn = Convert.ToUInt64(attackSelection);
                     game.RoundNumber++;
 
                     if (game.RoundNumber == 8)
@@ -827,16 +820,16 @@ public class TutorialReactions : IServiceSingleton
                     switch (lvlupSelection)
                     {
                         case 1:
-                            player.Intelligence++;
+                            player!.Intelligence++;
                             break;
                         case 2:
-                            player.Strength++;
+                            player!.Strength++;
                             break;
                         case 3:
-                            player.Speed++;
+                            player!.Speed++;
                             break;
                         case 4:
-                            player.Psyche++;
+                            player!.Psyche++;
                             break;
                     }
 
@@ -901,7 +894,7 @@ public class TutorialReactions : IServiceSingleton
                     embed = new EmbedBuilder();
                     builder = new ComponentBuilder();
 
-                    if (player.Moral >= 15)
+                    if (player!.Moral >= 15)
                     {
                         player.Score += 10;
                         player.Moral -= 15;
@@ -970,7 +963,7 @@ public class TutorialReactions : IServiceSingleton
                     if (game.RoundNumber == 4)
                     {
                         game.RoundNumber++;
-                        player.Justice = 3;
+                        player!.Justice = 3;
 
                         embed = LvlUpPageTutorial(game);
                         builder.WithSelectMenu(GetLvlUpMenuTutorial(game));
@@ -987,9 +980,8 @@ public class TutorialReactions : IServiceSingleton
                 case "predict-tutorial-1":
                     game = _tutorialClass.Tutorials.Find(x => x.DiscordPlayerId == button.User.Id);
                     if (game == null) return;
-                    player = game.PlayersList.Find(x => x.PlayerId == button.User.Id);
-
-                    embed = new EmbedBuilder();
+                    //player = game.PlayersList.Find(x => x.PlayerId == button.User.Id);
+                    //embed = new EmbedBuilder();
                     builder = new ComponentBuilder();
 
                     if (game.RoundNumber == 8)
@@ -1007,8 +999,8 @@ public class TutorialReactions : IServiceSingleton
                     game = _tutorialClass.Tutorials.Find(x => x.DiscordPlayerId == button.User.Id);
                     if (game == null) return;
                     player = game.PlayersList.Find(x => x.PlayerId == button.User.Id);
-                    player.Predicted = true;
-                    embed = new EmbedBuilder();
+                    player!.Predicted = true;
+                    //embed = new EmbedBuilder();
                     builder = new ComponentBuilder();
 
                     if (game.RoundNumber == 8)

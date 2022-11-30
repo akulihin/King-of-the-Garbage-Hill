@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Principal;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
-using Discord.WebSocket;
-using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
@@ -74,14 +71,18 @@ public class AdminPanel : ModuleBaseCustom
     {
         var guild = _global.Client.GetGuild(guildId);
         var bot = guild.GetUser(_global.Client.CurrentUser.Id);
-        var joinedAt = bot.JoinedAt.Value;
+        var dateTimeOffset = bot!.JoinedAt;
+        if (dateTimeOffset != null)
+        {
+            var joinedAt = dateTimeOffset.Value;
 
-        await SendMessageAsync($"{guild.Name} - {guild.Id}\n" +
-            $"Created: {guild.CreatedAt.Day}/{guild.CreatedAt.Month}/{guild.CreatedAt.Year} (Joined on {joinedAt.Day}/{joinedAt.Month}/{joinedAt.Year})\n" +
-            $"Members: {guild.MemberCount}\n" +
-            $"Owner: {guild.Owner.Username} ({guild.Owner.Id})\n" +
-            $"Description: {guild.Description}\n" +
-            $"Banner: {guild.BannerUrl}\n");
+            await SendMessageAsync($"{guild.Name} - {guild.Id}\n" +
+                                   $"Created: {guild.CreatedAt.Day}/{guild.CreatedAt.Month}/{guild.CreatedAt.Year} (Joined on {joinedAt.Day}/{joinedAt.Month}/{joinedAt.Year})\n" +
+                                   $"Members: {guild.MemberCount}\n" +
+                                   $"Owner: {guild.Owner.Username} ({guild.Owner.Id})\n" +
+                                   $"Description: {guild.Description}\n" +
+                                   $"Banner: {guild.BannerUrl}\n");
+        }
     }
 
 
@@ -160,7 +161,7 @@ public class AdminPanel : ModuleBaseCustom
 
 
         //тасуем игроков
-        playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
+        playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
         playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
         playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
 
@@ -224,7 +225,7 @@ public class AdminPanel : ModuleBaseCustom
 
         account.CharacterToGiveNextTime = foundCharacter.Name;
 
-        await SendMessageAsync($"Done. {player.Mention} будет играть на {foundCharacter.Name} в следующей игре");
+        await SendMessageAsync($"Done. {player!.Mention} будет играть на {foundCharacter.Name} в следующей игре");
     }
 
 
@@ -254,7 +255,7 @@ public class AdminPanel : ModuleBaseCustom
         if (game != null)
         {
             var playing = game.PlayersList.Find(y => y.DiscordId == user.Id);
-            playing.PlayerType = userType;
+            playing!.PlayerType = userType;
         }
 
         await SendMessageAsync($"done. {user.Username} is now **{userType}**");
@@ -305,8 +306,7 @@ public class AdminPanel : ModuleBaseCustom
         if (game == null) return;
 
 
-        game.PlayersList.Find(x => x.DiscordId == Context.User.Id).Status
-            .SetScoreToThisNumber(number);
+        game.PlayersList.Find(x => x.DiscordId == Context.User.Id)!.Status.SetScoreToThisNumber(number);
 
         foreach (var t in game.PlayersList) await _upd.UpdateMessage(t);
     }
@@ -333,7 +333,7 @@ public class AdminPanel : ModuleBaseCustom
         switch (name.ToLower())
         {
             case "win":
-                player.GameCharacter.SetIntelligence(number, "Читы");
+                player!.GameCharacter.SetIntelligence(number, "Читы");
                 player.GameCharacter.SetSpeed(number, "Читы");
                 player.GameCharacter.SetStrength(number, "Читы");
                 player.GameCharacter.SetPsyche(number, "Читы");
@@ -341,25 +341,25 @@ public class AdminPanel : ModuleBaseCustom
                 player.GameCharacter.SetMainSkill(number*100, "Читы");
                 break;
             case "in":
-                player.GameCharacter.SetIntelligence(number, "Читы");
+                player!.GameCharacter.SetIntelligence(number, "Читы");
                 break;
             case "sp":
-                player.GameCharacter.SetSpeed(number, "Читы");
+                player!.GameCharacter.SetSpeed(number, "Читы");
                 break;
             case "st":
-                player.GameCharacter.SetStrength(number, "Читы");
+                player!.GameCharacter.SetStrength(number, "Читы");
                 break;
             case "ps":
-                player.GameCharacter.SetPsyche(number, "Читы");
+                player!.GameCharacter.SetPsyche(number, "Читы");
                 break;
             case "js":
-                player.GameCharacter.Justice.SetRealJusticeNow(number, "Читы");
+                player!.GameCharacter.Justice.SetRealJusticeNow(number, "Читы");
                 break;
             case "sk":
-                player.GameCharacter.SetMainSkill(number, "Читы");
+                player!.GameCharacter.SetMainSkill(number, "Читы");
                 break;
             case "mr":
-                player.GameCharacter.SetMoral(number, "Читы");
+                player!.GameCharacter.SetMoral(number, "Читы");
                 break;
             default:
                 return;

@@ -54,18 +54,18 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var character = allCharacters.Find(x => x.Name == player.GameCharacter.Name);
 
 
-        var int_str = "Интеллект";
-        var str_str = "Сила";
-        var spe_str = "Скорость";
-        var psy_str = "Психика";
+        var intStr = "Интеллект";
+        var strStr = "Сила";
+        var speStr = "Скорость";
+        var psyStr = "Психика";
         
         //Sakura
-        if (character.Name == "Sakura")
+        if (character!.Name == "Sakura")
         {
-            int_str = "Сексуальность";
-            str_str = "Грубость";
-            spe_str = "Скорость";
-            psy_str = "Нытье";
+            intStr = "Сексуальность";
+            strStr = "Грубость";
+            speStr = "Скорость";
+            psyStr = "Нытье";
         }
         var sakuraText = "";
         if (player.GameCharacter.Passive.Count == 0) sakuraText = "\nИх... нет...\n";
@@ -76,10 +76,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         //if (character.Avatar != null)
         //     embed.WithImageUrl(character.Avatar);
         embed.AddField("Твой Персонаж:", $"Name: {character.Name}\n" +
-                                         $"{int_str}: {character.GetIntelligenceString()}\n" +
-                                         $"{str_str}: {character.GetStrength()}\n" +
-                                         $"{spe_str}: {character.GetSpeed()}\n" +
-                                         $"{psy_str}: {character.GetPsyche()}\n" +
+                                         $"{intStr}: {character.GetIntelligenceString()}\n" +
+                                         $"{strStr}: {character.GetStrength()}\n" +
+                                         $"{speStr}: {character.GetSpeed()}\n" +
+                                         $"{psyStr}: {character.GetPsyche()}\n" +
                                          $"\n**Пассивки:**{sakuraText}");
         
         foreach (var passive in player.GameCharacter.Passive)
@@ -320,20 +320,20 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 break;
             case "Загадочный Спартанец в маске":
 
-                var SpartanShame = me.Passives.SpartanShame;
+                var spartanShame = me.Passives.SpartanShame;
 
-                if (!SpartanShame.FriendList.Contains(other.GetPlayerId()) &&
+                if (!spartanShame.FriendList.Contains(other.GetPlayerId()) &&
                     other.GetPlayerId() != me.GetPlayerId())
                     customString += " <:yasuo:895819754428833833>";
 
-                if (SpartanShame.FriendList.Contains(other.GetPlayerId()) &&
+                if (spartanShame.FriendList.Contains(other.GetPlayerId()) &&
                     other.GetPlayerId() != me.GetPlayerId() && other.GameCharacter.Name == "mylorik")
                     customString += " <:Spartaneon:899847724936089671>";
 
 
-                var SpartanMark = me.Passives.SpartanMark;
+                var spartanMark = me.Passives.SpartanMark;
 
-                if (SpartanMark.FriendList.Contains(other.GetPlayerId()))
+                if (spartanMark.FriendList.Contains(other.GetPlayerId()))
                     customString += " <:sparta:561287745675329567>";
 
 
@@ -485,12 +485,12 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             "Спасибо за игру!\nА вы знали? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганув его! Например `*st @Boole`");
     }
 
+    /*
     private static IEnumerable<string> Split(string str, int chunkSize)
     {
-        return Enumerable.Range(0, str.Length / chunkSize)
-            .Select(i => str.Substring(i * chunkSize, chunkSize));
+        return Enumerable.Range(0, str.Length / chunkSize).Select(i => str.Substring(i * chunkSize, chunkSize));
     }
-
+    */
 
     public string SortLogs(string textOriginal, GamePlayerBridgeClass player, GameClass game)
     {
@@ -650,7 +650,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         embed.WithColor(Color.Blue);
         embed.WithTitle("King of the Garbage Hill");
         embed.WithFooter($"{GetTimeLeft(player)}");
-        var roundNumber = game.RoundNo;
+        var roundNumber = game!.RoundNo;
 
 
         if (roundNumber > 10) roundNumber = 10;
@@ -668,36 +668,38 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
 
-        var desc = HandleIsNewPlayerDescription(game.GetGlobalLogs(), player);
+        var desc = HandleIsNewPlayerDescription(game!.GetGlobalLogs(), player);
 
         if (player.TeamId > 0)
         {
             desc = desc.Replace($"Команда #{player.TeamId}", $"**Команда #{player.TeamId}**");
         }
 
-        var int_str = "Интеллект";
-        var str_str = "Сила";
-        var spe_str = "Скорость";
-        var psy_str = "Психика";
+        var intStr = "Интеллект";
+        var strStr = "Сила";
+        var speStr = "Скорость";
+        var psyStr = "Психика";
         if (character.Name == "Sakura")
         {
-            int_str = "Сексуальность";
-            str_str = "Грубость";
-            spe_str = "Скорость";
-            psy_str = "Нытье";
+            intStr = "Сексуальность";
+            strStr = "Грубость";
+            speStr = "Скорость";
+            psyStr = "Нытье";
         }
 
+        /*
         var skillExtraText = "";
         var targetExtraText = "";
         if (player.GameCharacter.GetExtraSkillMultiplier() > 0) skillExtraText = $" (Множитель: **x{player.GameCharacter.GetExtraSkillMultiplier() + 1}**)";
         if (player.GameCharacter.GetTargetSkillMultiplier() > 0) targetExtraText = $" (Множитель: **x{player.GameCharacter.GetTargetSkillMultiplier() + 1}**)";
+        */
 
         embed.WithDescription($"{desc}" +
                               "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
-                              $"**{int_str}:** {character.GetIntelligenceString()}{character.GetIntelligenceQualityResist()}\n" +
-                              $"**{str_str}:** {character.GetStrengthString()}{character.GetStrengthQualityResist()}\n" +
-                              $"**{spe_str}:** {character.GetSpeedString()}{character.GetSpeedQualityResist()}\n" +
-                              $"**{psy_str}:** {character.GetPsycheString()}{character.GetPsycheQualityResist()}\n" +
+                              $"**{intStr}:** {character.GetIntelligenceString()}{character.GetIntelligenceQualityResist()}\n" +
+                              $"**{strStr}:** {character.GetStrengthString()}{character.GetStrengthQualityResist()}\n" +
+                              $"**{speStr}:** {character.GetSpeedString()}{character.GetSpeedQualityResist()}\n" +
+                              $"**{psyStr}:** {character.GetPsycheString()}{character.GetPsycheQualityResist()}\n" +
                               "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                               $"*Справедливость: **{character.Justice.GetRealJusticeNow()}***\n" +
                               $"*Мораль: {character.GetMoral()}*\n" +
@@ -713,7 +715,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         var splitLogs = player.Status.InGamePersonalLogsAll.Split("|||");
 
-        var text = "";
+        string text;
         if (splitLogs.Length > 1 && splitLogs[^2].Length > 3 && game.RoundNo > 1)
         {
             text = splitLogs[^2];
@@ -897,15 +899,15 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             .WithDisabled(isDisabled)
             .WithPlaceholder(placeHolder);
 
-        if (game != null)
-            for (var i = 0; i < _playerChoiceAttackList.Count; i++)
-            {
-                var playerToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == i + 1);
-                if (playerToAttack == null) continue;
-                if (playerToAttack.DiscordId != player.DiscordId)
-                    attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, $"{i + 1}",
-                        emote: _playerChoiceAttackList[i]);
-            }
+     
+        for (var i = 0; i < _playerChoiceAttackList.Count; i++)
+        {
+            var playerToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == i + 1);
+            if (playerToAttack == null) continue;
+            if (playerToAttack.DiscordId != player.DiscordId)
+                attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, $"{i + 1}",
+                    emote: _playerChoiceAttackList[i]);
+        }
 
         return attackMenu;
     }
@@ -1174,7 +1176,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 builder = new ComponentBuilder().WithSelectMenu(await GetLvlUpMenu(player, game));
 
                 //Да всё нахуй эту игру Part #5
-                if (game.RoundNo == 9 && player.GameCharacter.GetPsyche() == 4 && player.GameCharacter.Name == "Darksci")
+                if (game!.RoundNo == 9 && player.GameCharacter.GetPsyche() == 4 && player.GameCharacter.Name == "Darksci")
                     builder.WithButton("Riot style \"choice\"", "crutch", row: 1, style: ButtonStyle.Secondary,
                         disabled: true);
                 //end Да всё нахуй эту игру: Part #5

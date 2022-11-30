@@ -202,7 +202,7 @@ public class CharacterClass
             if (Status.CharacterName == "mylorik")
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik.GameCharacter.AddMoral(1, "Испанец", false);
+                mylorik!.GameCharacter.AddMoral(1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
@@ -221,7 +221,7 @@ public class CharacterClass
             if (Status.CharacterName == "mylorik") 
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik.GameCharacter.AddMoral( 1, "Испанец", false);
+                mylorik!.GameCharacter.AddMoral( 1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
@@ -240,7 +240,7 @@ public class CharacterClass
             if (Status.CharacterName == "mylorik")
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik.GameCharacter.AddMoral( 1, "Испанец", false);
+                mylorik!.GameCharacter.AddMoral( 1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
@@ -308,7 +308,7 @@ public class CharacterClass
         if(Speed < 10 && (Strength == 10 || Intelligence == 10 || Psyche == 10))
             spacing += $"{s}{s}";
 
-        var text = $"{spacing}<:Mobi:1000841939500925118> {GetSpeedQualityResistInt()}";;
+        var text = $"{spacing}<:Mobi:1000841939500925118> {GetSpeedQualityResistInt()}";
         if (GetSpeedQualityKiteBonus() > 0)
             text += $" **(+{GetSpeedQualityKiteBonus()} Kite Distance)**";
         return text;

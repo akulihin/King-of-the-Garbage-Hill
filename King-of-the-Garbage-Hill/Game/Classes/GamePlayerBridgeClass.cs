@@ -1,7 +1,5 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Numerics;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
@@ -72,9 +70,9 @@ public class GamePlayerBridgeClass
         return Status.PlayerId;
     }
 
-    public bool isTeamMember(GameClass game, Guid player2)
+    public bool IsTeamMember(GameClass game, Guid player2)
     {
         var team = game.Teams.Find(x => x.TeamPlayers.Contains(GetPlayerId()));
-        return team.TeamPlayers.Contains(player2);
+        return team!.TeamPlayers.Contains(player2);
     }
 }

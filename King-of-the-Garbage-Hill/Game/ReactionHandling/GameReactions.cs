@@ -42,7 +42,7 @@ public sealed class GameReaction : IServiceSingleton
                     x.DiscordId == button.User.Id &&
                     x.DiscordStatus.SocketMessageFromBot.Id == button.Message.Id))
             {
-                var player = _global.GetGameAccount(button.User.Id, t.PlayersList.FirstOrDefault().GameId);
+                var player = _global.GetGameAccount(button.User.Id, t.PlayersList.FirstOrDefault()!.GameId);
                 
                 var now = DateTimeOffset.UtcNow;
                 if ((now - player.Status.LastButtonPress).TotalMilliseconds < 700)
@@ -53,8 +53,6 @@ public sealed class GameReaction : IServiceSingleton
                 player.Status.LastButtonPress = DateTimeOffset.UtcNow;
 
                 var status = player.Status;
-                var components = new ComponentBuilder();
-                var embed = new EmbedBuilder();
                 var game = _global.GamesList.Find(x => x.GameId == player.GameId);
                 var extraText = "";
 
@@ -67,42 +65,42 @@ public sealed class GameReaction : IServiceSingleton
                         switch (player.Status.AutoMoveTimes)
                         {
                             case 1:
-                                await game.Phrases.AutoMove1.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove1.SendLogSeparate(player, false);
                                 break;
                             case 2:
-                                await game.Phrases.AutoMove2.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove2.SendLogSeparate(player, false);
                                 break;
                             case 3:
-                                await game.Phrases.AutoMove3.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove3.SendLogSeparate(player, false);
                                 break;
                             case 4:
-                                await game.Phrases.AutoMove4.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove4.SendLogSeparate(player, false);
                                 break;
                             case 5:
-                                await game.Phrases.AutoMove5.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove5.SendLogSeparate(player, false);
                                 break;
                             case 6:
-                                await game.Phrases.AutoMove6.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove6.SendLogSeparate(player, false);
                                 break;
                             case 7:
-                                await game.Phrases.AutoMove7.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove7.SendLogSeparate(player, false);
                                 break;
                             case 8:
-                                await game.Phrases.AutoMove8.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove8.SendLogSeparate(player, false);
                                 break;
                             case 9:
-                                await game.Phrases.AutoMove9.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove9.SendLogSeparate(player, false);
                                 break;
                             case 10:
-                                await game.Phrases.AutoMove10.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove10.SendLogSeparate(player, false);
                                 break;
                         }
                         var textAutomove = $"Ты использовал Авто Ход\n";
                         player.Status.AddInGamePersonalLogs(textAutomove);
                         player.Status.ChangeMindWhat = textAutomove;
 
-                        embed = _upd.FightPage(player);
-                        components = await _upd.GetGameButtons(player, game);
+                        var embed = _upd.FightPage(player);
+                        var components = await _upd.GetGameButtons(player, game);
                         await _help.ModifyGameMessage(player, embed, components);
                         break;
                     case "change-mind":
@@ -172,7 +170,7 @@ public sealed class GameReaction : IServiceSingleton
                         await _help.ModifyGameMessage(player, embed, components);
                         break;
                     case "end":
-                        var dm = await button.User.CreateDMChannelAsync();
+                        //var dm = await button.User.CreateDMChannelAsync();
                         await _upd.EndGame(button);
                         break;
 
@@ -326,7 +324,7 @@ public sealed class GameReaction : IServiceSingleton
     {
         var account = _accounts.GetAccount(player.DiscordId);
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
-        var builder = new ComponentBuilder();
+
 
         var predictMenu = new SelectMenuBuilder()
             .WithMinValues(1)
@@ -336,19 +334,16 @@ public sealed class GameReaction : IServiceSingleton
 
         var allCharacters = account.CharacterChance.Select(character => character.CharacterName).Where(x => x != "Sakura").ToList();
 
-        var i = 0;
         predictMenu.AddOption("Предыдущие меню", "prev-page");
         //predictMenu.AddOption("Очистить", "empty");
         foreach (var character in allCharacters)
         {
-            i++;
             predictMenu.AddOption(character, string.Join("", button.Data.Values) + "||spb||" + character);
         }
 
-        builder = await _upd.GetGameButtons(player, game, predictMenu);
+        var builder = await _upd.GetGameButtons(player, game, predictMenu);
 
-        var embed = new EmbedBuilder();
-        embed = _upd.FightPage(player);
+        var embed = _upd.FightPage(player);
 
 
         await _help.ModifyGameMessage(player, embed, builder);
@@ -357,11 +352,9 @@ public sealed class GameReaction : IServiceSingleton
     public async Task HandlePredic2(GamePlayerBridgeClass player, SocketMessageComponent button)
     {
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
-        var builder = new ComponentBuilder();
-        var embed = new EmbedBuilder();
-        embed = _upd.FightPage(player);
 
-        builder = await _upd.GetGameButtons(player, game);
+        var embed  = _upd.FightPage(player);
+        var builder = await _upd.GetGameButtons(player, game);
 
         var splitted = string.Join("", button.Data.Values).Split("||spb||");
 
@@ -374,7 +367,7 @@ public sealed class GameReaction : IServiceSingleton
         var predictedPlayerUsername = splitted.First();
         var predictedCharacterName = splitted[1];
         var predictedPlayerId =
-            game.PlayersList.Find(x => x.DiscordUsername == predictedPlayerUsername).GetPlayerId();
+            game!.PlayersList.Find(x => x.DiscordUsername == predictedPlayerUsername)!.GetPlayerId();
 
         var predicted = player.Predict.Find(x => x.PlayerId == predictedPlayerId);
 
@@ -432,7 +425,7 @@ public sealed class GameReaction : IServiceSingleton
         if (status.MoveListPage == 1)
         {
             var game = _global.GamesList.Find(x => x.GameId == player.GameId);
-            var whoToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum);
+            var whoToAttack = game!.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum);
 
             if (whoToAttack == null) 
                 return false;
@@ -660,7 +653,7 @@ public sealed class GameReaction : IServiceSingleton
         //Дизмораль
         if (player.GameCharacter.Name == "Darksci")
         {
-            if (game.RoundNo == 9)
+            if (game!.RoundNo == 9)
                 //Дизмораль Part #2
                 player.GameCharacter.AddPsyche(-4, "Дизмораль");
             //end Дизмораль Part #2

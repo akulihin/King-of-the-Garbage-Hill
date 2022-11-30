@@ -51,21 +51,27 @@ public sealed class LoginFromConsole : IServiceSingleton
         switch (message.Severity)
         {
             case LogSeverity.Critical:
+                // ReSharper disable once ExplicitCallerInfoArgument
                 Critical(message.Message, message.Source);
                 break;
             case LogSeverity.Error:
+                // ReSharper disable once ExplicitCallerInfoArgument
                 Error(message.Message, message.Source);
                 break;
             case LogSeverity.Warning:
+                // ReSharper disable once ExplicitCallerInfoArgument
                 Warning(message.Message, message.Source);
                 break;
             case LogSeverity.Info:
+                // ReSharper disable once ExplicitCallerInfoArgument
                 Info(message.Message, message.Source);
                 break;
             case LogSeverity.Verbose:
+                // ReSharper disable once ExplicitCallerInfoArgument
                 Verbose(message.Message, message.Source);
                 break;
             case LogSeverity.Debug:
+                // ReSharper disable once ExplicitCallerInfoArgument
                 Debug(message.Message, message.Source);
                 break;
             default:

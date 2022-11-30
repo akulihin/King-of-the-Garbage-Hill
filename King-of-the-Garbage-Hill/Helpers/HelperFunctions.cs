@@ -295,7 +295,7 @@ public sealed class HelperFunctions : IServiceSingleton
         var freeBot = GetFreeBot(prevGame.PlayersList);
         var leftUser = prevGame.PlayersList.Find(x => x.DiscordId == discordId);
 
-        leftUser.DiscordId = freeBot.DiscordId;
+        leftUser!.DiscordId = freeBot.DiscordId;
         leftUser.DiscordUsername = freeBot.DiscordUserName;
         leftUser.PlayerType = freeBot.PlayerType;
         leftUser.DiscordStatus.SocketMessageFromBot = null;

@@ -14,7 +14,7 @@ public sealed class ServerAccounts : IServiceSingleton
     private readonly ConcurrentDictionary<ulong, List<ServerSettings>> _serverAccountsDictionary;
     private readonly ServerDataStorage _serverDataStorage;
     private Timer _loopingTimer;
-    private bool _saving = false;
+    private bool _saving;
 
     public ServerAccounts(ServerDataStorage serversDataStorage)
     {
@@ -64,7 +64,7 @@ public sealed class ServerAccounts : IServiceSingleton
     public List<ServerSettings> GetOrAddServerAccountsForGuild(ulong serverId)
     {
         return _serverAccountsDictionary.GetOrAdd(serverId,
-            x => _serverDataStorage.LoadServerSettings(serverId).ToList());
+            _ => _serverDataStorage.LoadServerSettings(serverId).ToList());
     }
 
     public List<ServerSettings> GetFilteredServerAccounts(Func<ServerSettings, bool> filter)

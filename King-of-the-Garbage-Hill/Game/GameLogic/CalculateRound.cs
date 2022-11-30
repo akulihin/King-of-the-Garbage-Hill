@@ -65,13 +65,13 @@ Speed => Strength
 
             if (player.Status.IsWonThisCalculation != Guid.Empty)
             {
-                player.GameCharacter.AddWinStreak();
+                player.FightCharacter.AddWinStreak();
                 player.Passives.WeedwickWeed++;
             }
 
             if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
-                player.GameCharacter.SetWinStreak();
+                player.FightCharacter.SetWinStreak();
             }
 
             if (player.Status.IgnoredBlock)
@@ -86,6 +86,7 @@ Speed => Strength
                 player.Status.IsSkip = true;
             }
 
+            //OneFight Mechanics, use GameCharacter only
             if (player.Status.RealIntelligence != -1)
             {
                 var returned = player.GameCharacter.GetIntelligence() - player.Status.TempIntelligence + player.Status.RealIntelligence;
@@ -126,7 +127,7 @@ Speed => Strength
                 player.Status.RealJustice = -1;
                 player.Status.TempJustice = -1;
             }
-
+            //end OneFight Mechanics
 
             player.Status.IsWonThisCalculation = Guid.Empty;
             player.Status.IsLostThisCalculation = Guid.Empty;
@@ -408,10 +409,8 @@ Speed => Strength
                 }
 
 
-                var scaleMe = me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() +
-                              me.GetSkill() * skillMultiplierMe / 50;
-                var scaleTarget = target.GetIntelligence() + target.GetStrength() + target.GetSpeed() +
-                                  target.GetPsyche() + target.GetSkill() * skillMultiplierTarget / 50;
+                var scaleMe = me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() + me.GetSkill() * skillMultiplierMe / 50;
+                var scaleTarget = target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche() + target.GetSkill() * skillMultiplierTarget / 50;
                 weighingMachine += scaleMe - scaleTarget;
 
                 switch (WhoIsBetter(player.GameCharacter, playerIamAttacking.GameCharacter))
@@ -581,9 +580,7 @@ Speed => Strength
 
                     player.Status.IsWonThisCalculation = playerIamAttacking.GetPlayerId();
                     playerIamAttacking.Status.IsLostThisCalculation = player.GetPlayerId();
-                    playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(
-                        player.GetPlayerId(), game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy,
-                        isStatsBettterEnemy, player.GetPlayerId()));
+                    playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.GetPlayerId(), game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy, isStatsBettterEnemy, player.GetPlayerId()));
 
                     //Quality
                     var range = player.GameCharacter.GetSpeedQualityResistInt();
@@ -615,8 +612,7 @@ Speed => Strength
                         playerIamAttacking.FightCharacter.AddExtraSkill(4, "Класс");
 
                     if (isTooGoodLost == -1)
-                        player.Status.AddInGamePersonalLogs(
-                            $"{playerIamAttacking.DiscordUsername} is __TOO GOOD__ for you\n");
+                        player.Status.AddInGamePersonalLogs($"{playerIamAttacking.DiscordUsername} is __TOO GOOD__ for you\n");
 
                     isContrLost += 1;
 
@@ -649,21 +645,17 @@ Speed => Strength
 
                     playerIamAttacking.Status.IsWonThisCalculation = player.GetPlayerId();
                     player.Status.IsLostThisCalculation = playerIamAttacking.GetPlayerId();
-                    player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(
-                        playerIamAttacking.GetPlayerId(), game.RoundNo, isTooGoodEnemy, isStatsBettterEnemy, isTooGoodMe,
-                        isStatsBetterMe, player.GetPlayerId()));
+                    player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.GetPlayerId(), game.RoundNo, isTooGoodEnemy, isStatsBettterEnemy, isTooGoodMe, isStatsBetterMe, player.GetPlayerId()));
                 }
 
                 
                 switch (isContrLost)
                 {
                     case 3:
-                        player.Status.AddInGamePersonalLogs(
-                            $"Поражение: {playerIamAttacking.DiscordUsername} {GetLostContrText(playerIamAttacking, player)}\n");
+                        player.Status.AddInGamePersonalLogs($"Поражение: {playerIamAttacking.DiscordUsername} {GetLostContrText(playerIamAttacking, player)}\n");
                         break;
                     case -3:
-                        playerIamAttacking.Status.AddInGamePersonalLogs(
-                            $"Поражение: {player.DiscordUsername} {GetLostContrText(player, playerIamAttacking)}\n");
+                        playerIamAttacking.Status.AddInGamePersonalLogs($"Поражение: {player.DiscordUsername} {GetLostContrText(player, playerIamAttacking)}\n");
                         break;
                 }
 

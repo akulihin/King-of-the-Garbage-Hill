@@ -38,7 +38,7 @@ public class Store : ModuleBaseCustom
         var character = account.CharacterChance.Find(x => x.CharacterName == account.SeenCharacters.First());
 
         var builder = new ComponentBuilder();
-        var embed = _storeReactionHandling.GetStoreEmbed(Context.User, character.CharacterName);
+        var embed = _storeReactionHandling.GetStoreEmbed(Context.User, character!.CharacterName);
 
         var i = 0;
         foreach (var b in _storeReactionHandling.GetStoreButtons())
@@ -47,7 +47,7 @@ public class Store : ModuleBaseCustom
             switch (i)
             {
                 case > 0 and <= 2:
-                    builder.WithButton(b, 0);
+                    builder.WithButton(b);
                     break;
                 case > 2 and <= 4:
                     builder.WithButton(b, 1);

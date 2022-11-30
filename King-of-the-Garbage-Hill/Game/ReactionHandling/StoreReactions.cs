@@ -81,7 +81,7 @@ public class StoreReactions : IServiceSingleton
         var characterChance = account.CharacterChance.Find(x => x.CharacterName == characterName);
         var character = allCharacters.Find(x => x.Name == characterName);
         var embed = new EmbedBuilder();
-        var cost = _basePrice + characterChance.Changes;
+        var cost = _basePrice + characterChance!.Changes;
         var cost10 = 0;
         for (var i = 0; i < 10; i++)
         {
@@ -104,7 +104,7 @@ public class StoreReactions : IServiceSingleton
         embed.WithFooter("WELCOME! Straaanger...");
         embed.WithColor(Color.DarkPurple);
         
-        embed.WithThumbnailUrl(character.AvatarCurrent);
+        embed.WithThumbnailUrl(character!.AvatarCurrent);
         embed.WithImageUrl(GetMerchantGif());
 
         return embed;
@@ -123,7 +123,7 @@ public class StoreReactions : IServiceSingleton
             switch (i)
             {
                 case > 0 and <= 2:
-                    builder.WithButton(b, 0);
+                    builder.WithButton(b);
                     break;
                 case > 2 and <= 4:
                     builder.WithButton(b, 1);
@@ -153,13 +153,13 @@ public class StoreReactions : IServiceSingleton
         {
             if (!button.Data.CustomId.Contains("store")) return;
 
-            var title_str = button.Message.Embeds.FirstOrDefault()?.Title;
+            var titleStr = button.Message.Embeds.FirstOrDefault()?.Title;
 
-            if (title_str == null)
+            if (titleStr == null)
                 //await channel.SendMessageAsync("ERROR: Embed Title == null");
                 return;
 
-            var title = title_str.Split(" - ");
+            var title = titleStr.Split(" - ");
 
             if (title.Length < 2)
                 //await channel.SendMessageAsync("ERROR: Embed Title len < 2");

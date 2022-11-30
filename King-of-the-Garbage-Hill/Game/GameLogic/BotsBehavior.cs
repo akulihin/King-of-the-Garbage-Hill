@@ -6,6 +6,8 @@ using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
+// ReSharper disable RedundantAssignment
+#pragma warning disable CS0219
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
@@ -297,7 +299,7 @@ public class BotsBehavior : IServiceSingleton
         try
         {
             //local variables
-            var allTargets = game.NanobotsList.Find(x => x.GameId == game.GameId).Nanobots.Where(x => x.GetPlayerId() != bot.GetPlayerId()).ToList();
+            var allTargets = game!.NanobotsList.Find(x => x.GameId == game.GameId)!.Nanobots.Where(x => x.GetPlayerId() != bot.GetPlayerId()).ToList();
 
             if (game.RoundNo == 10) allTargets = allTargets.Where(x => x.Player.GameCharacter.Name != "Тигр").ToList();
 
@@ -328,9 +330,9 @@ public class BotsBehavior : IServiceSingleton
             //end
 
             //character variables
-            var DarksciTheOne = Guid.Empty;
-            var AwdkaFirst = 0;
-            decimal SpartanTarget = 0;
+            var darksciTheOne = Guid.Empty;
+            var awdkaFirst = 0;
+            decimal spartanTarget = 0;
             //end character variables
 
             //local varaibles
@@ -532,27 +534,27 @@ public class BotsBehavior : IServiceSingleton
 
                         if (game.RoundNo == 1)
                         {
-                            if (target.Player.GameCharacter.GetIntelligence() > AwdkaFirst)
+                            if (target.Player.GameCharacter.GetIntelligence() > awdkaFirst)
                             {
-                                AwdkaFirst = target.Player.GameCharacter.GetIntelligence();
+                                awdkaFirst = target.Player.GameCharacter.GetIntelligence();
                                 mandatoryAttack = target.PlaceAtLeaderBoard();
                             }
 
-                            if (target.Player.GameCharacter.GetStrength() > AwdkaFirst)
+                            if (target.Player.GameCharacter.GetStrength() > awdkaFirst)
                             {
-                                AwdkaFirst = target.Player.GameCharacter.GetStrength();
+                                awdkaFirst = target.Player.GameCharacter.GetStrength();
                                 mandatoryAttack = target.PlaceAtLeaderBoard();
                             }
 
-                            if (target.Player.GameCharacter.GetSpeed() > AwdkaFirst)
+                            if (target.Player.GameCharacter.GetSpeed() > awdkaFirst)
                             {
-                                AwdkaFirst = target.Player.GameCharacter.GetSpeed();
+                                awdkaFirst = target.Player.GameCharacter.GetSpeed();
                                 mandatoryAttack = target.PlaceAtLeaderBoard();
                             }
 
-                            if (target.Player.GameCharacter.GetPsyche() > AwdkaFirst)
+                            if (target.Player.GameCharacter.GetPsyche() > awdkaFirst)
                             {
-                                AwdkaFirst = target.Player.GameCharacter.GetPsyche();
+                                awdkaFirst = target.Player.GameCharacter.GetPsyche();
                                 mandatoryAttack = target.PlaceAtLeaderBoard();
                             }
                         }
@@ -642,9 +644,9 @@ public class BotsBehavior : IServiceSingleton
                                 {
                                     var darksciLuckyTheOne = bot.Status.WhoToLostEveryRound.Find(x =>
                                         x.EnemyId == target.GetPlayerId() && x.IsStatsBetterEnemy);
-                                    if (darksciLuckyTheOne != null && DarksciTheOne == Guid.Empty)
+                                    if (darksciLuckyTheOne != null && darksciTheOne == Guid.Empty)
                                     {
-                                        DarksciTheOne = target.GetPlayerId();
+                                        darksciTheOne = target.GetPlayerId();
                                         target.AttackPreference = 0;
                                     }
                                 }
@@ -945,10 +947,10 @@ public class BotsBehavior : IServiceSingleton
                                 else
                                 {
                                     if (bot.GameCharacter.Justice.GetRealJusticeNow() > targetJustice && !isTargetTooGood)
-                                        if (target.AttackPreference > SpartanTarget)
+                                        if (target.AttackPreference > spartanTarget)
                                         {
                                             mandatoryAttack = target.PlaceAtLeaderBoard();
-                                            SpartanTarget = target.AttackPreference;
+                                            spartanTarget = target.AttackPreference;
                                         }
                                 }
                             }
@@ -1108,7 +1110,7 @@ public class BotsBehavior : IServiceSingleton
                 //team bot behavior. target == team member
                 foreach (var target3 in allTargets)
                 {
-                    if (!bot.isTeamMember(game, target3.GetPlayerId()))
+                    if (!bot.IsTeamMember(game, target3.GetPlayerId()))
                         continue;
 
                     var realAttackPreference = target3.AttackPreference;
@@ -1235,7 +1237,7 @@ public class BotsBehavior : IServiceSingleton
                 //team bot behavior. target == enemy
                 foreach (var target4 in allTargets)
                 {
-                    if (bot.isTeamMember(game, target4.GetPlayerId()))
+                    if (bot.IsTeamMember(game, target4.GetPlayerId()))
                         continue;
 
                     //custom bot behavior in teams. target == enemy
@@ -1292,17 +1294,17 @@ public class BotsBehavior : IServiceSingleton
                             if (tigr.FriendList.Any(x => x.WinsSeries == 2 && x.IsUnique))
                                 isBlock = yesBlock;
 
-                        var lowRates = allTargets.Where(x => x.AttackPreference <= 3).ToList();
-                        var countLowRate = 0;
-                        if (lowRates.Count() >= 2)
-                        {
-                            foreach (var lowRate in lowRates)
-                                if (tigr.FriendList.Any(x =>
-                                        x.EnemyPlayerId == lowRate.GetPlayerId() && x.WinsSeries == 2 && x.IsUnique))
-                                    countLowRate++;
+                    var lowRates = allTargets.Where(x => x.AttackPreference <= 3).ToList();
+                    var countLowRate = 0;
+                    if (lowRates.Count() >= 2)
+                    {
+                        foreach (var lowRate in lowRates)
+                            if (tigr.FriendList.Any(x =>
+                                    x.EnemyPlayerId == lowRate.GetPlayerId() && x.WinsSeries == 2 && x.IsUnique))
+                                countLowRate++;
 
-                            if (countLowRate >= 2) isBlock = yesBlock;
-                        }
+                        if (countLowRate >= 2) isBlock = yesBlock;
+                    }
                     
 
 

@@ -42,7 +42,7 @@ public class Tutorial : ModuleBaseCustom
 
         builder.WithSelectMenu(_tutorial.GetAttackMenuTutorial(game));
 
-        await game.SocketMessageFromBot.ModifyAsync(message =>
+        await game!.SocketMessageFromBot.ModifyAsync(message =>
         {
             message.Content = "";
             message.Embed = embed.Build();

@@ -184,7 +184,7 @@ public sealed class DiscordEventDispatcher : IServiceSingleton
             return;
 
 
-        _global.TimeSpendOnLastMessage.AddOrUpdate(messageAfter.Author.Id, Stopwatch.StartNew(), (key, oldValue) => Stopwatch.StartNew());
+        _global.TimeSpendOnLastMessage.AddOrUpdate(messageAfter.Author.Id, Stopwatch.StartNew(), (_, _) => Stopwatch.StartNew());
 
 
         _commandHandler._client_MessageUpdated(cacheMessageBefore, messageAfter, channel);

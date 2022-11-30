@@ -24,13 +24,11 @@ public class General : ModuleBaseCustom
     private readonly HelperFunctions _helperFunctions;
     private readonly SecureRandom _secureRandom;
     private readonly GameUpdateMess _upd;
-    private readonly SecureRandom _rand;
 
 
     public General(UserAccounts accounts, SecureRandom secureRandom,
         HelperFunctions helperFunctions, CommandsInMemory commandsInMemory,
-        Global global, GameUpdateMess upd, CharactersPull charactersPull, CharacterPassives characterPassives,
-        SecureRandom rand)
+        Global global, GameUpdateMess upd, CharactersPull charactersPull, CharacterPassives characterPassives)
     {
         _accounts = accounts;
         _secureRandom = secureRandom;
@@ -40,7 +38,6 @@ public class General : ModuleBaseCustom
         _upd = upd;
         _charactersPull = charactersPull;
         _characterPassives = characterPassives;
-        _rand = rand;
     }
 
 
@@ -83,12 +80,13 @@ public class General : ModuleBaseCustom
         players = players.OrderBy(_ => Guid.NewGuid()).ToList();
 
         //handle custom selected character part #1
+        var characters = allCharacters;
         foreach (var character in from player in players
                  where player != null
                  select _accounts.GetAccount(player)
                  into account
                  where account.CharacterToGiveNextTime != null
-                 select allCharacters.Find(x => x.Name == account.CharacterToGiveNextTime))
+                 select characters!.Find(x => x.Name == account.CharacterToGiveNextTime))
         {
             reservedCharacters.Add(character);
             allCharacters.Remove(character);
@@ -160,7 +158,7 @@ public class General : ModuleBaseCustom
             var randomIndex = _secureRandom.Random(1, totalPool - 1);
             var rolledCharacter = allAvailableCharacters.Find(x =>
                 randomIndex >= x.CharacterRangeMin && randomIndex <= x.CharacterRangeMax);
-            var characterToAssign = allCharacters.Find(x => x.Name == rolledCharacter.CharacterName);
+            var characterToAssign = allCharacters.Find(x => x.Name == rolledCharacter!.CharacterName);
 
             switch (characterToAssign.Name)
             {
@@ -336,7 +334,7 @@ public class General : ModuleBaseCustom
         var playersList = HandleCharacterRoll(players, gameId, teamCount);
 
         //тасуем игроков
-        playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
+        playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
         playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
         playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
 
@@ -540,7 +538,7 @@ public class General : ModuleBaseCustom
 
 
             //тасуем игроков
-            playersList = playersList.OrderBy(a => Guid.NewGuid()).ToList();
+            playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
             playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
             playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
 

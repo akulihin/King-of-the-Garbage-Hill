@@ -81,7 +81,7 @@ public sealed class UserAccountsDataStorage : IServiceSingleton
 
                 var newList = new DiscordAccountClass();
                 SaveAccountSettings(newList, $"{id}-BACK_UP", json);
-                dick.GetOrAdd(id, x => newList);
+                dick.GetOrAdd(id, _ => newList);
             }
         }
 

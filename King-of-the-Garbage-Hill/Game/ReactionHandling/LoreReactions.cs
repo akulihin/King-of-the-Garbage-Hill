@@ -6,7 +6,6 @@ using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
-using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
 namespace King_of_the_Garbage_Hill.Game.ReactionHandling;
@@ -14,15 +13,13 @@ namespace King_of_the_Garbage_Hill.Game.ReactionHandling;
 public class LoreReactions : IServiceSingleton
 {
     private readonly CharactersPull _charactersPull;
-    private readonly SecureRandom _random;
     private readonly UserAccounts _userAccounts;
     private readonly LoginFromConsole _logs;
 
-    public LoreReactions(UserAccounts userAccounts, CharactersPull charactersPull, SecureRandom random, LoginFromConsole logs)
+    public LoreReactions(UserAccounts userAccounts, CharactersPull charactersPull, LoginFromConsole logs)
     {
         _userAccounts = userAccounts;
         _charactersPull = charactersPull;
-        _random = random;
         _logs = logs;
     }
 
@@ -107,12 +104,11 @@ public class LoreReactions : IServiceSingleton
         {
             var allCharacters = _charactersPull.GetAllCharacters();
             var account = _userAccounts.GetAccount(button.User.Id);
-            var character = allCharacters.Find(x => x.Name == "DeepList");
 
             switch (button.Data.CustomId)
             {
                 case "lore-select-character":
-                    character = allCharacters.Find(x => x.Name == string.Join("", button.Data.Values));
+                    var character = allCharacters.Find(x => x.Name == string.Join("", button.Data.Values));
                     await ModifyLoreMessage(button, character, account);
                     break;
             }

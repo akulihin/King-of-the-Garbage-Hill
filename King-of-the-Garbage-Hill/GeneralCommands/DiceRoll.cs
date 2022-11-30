@@ -43,7 +43,7 @@ public class DiceRollCommands : ModuleBaseCustom
         for (ulong i = 0; i < times; i++)
         {
             var ran = _secureRandom.Random(1, 10);
-            statsList.Find(x => x.Number == ran).Count += 1;
+            statsList.Find(x => x.Number == ran)!.Count += 1;
         }
 
         var mess = $"{statsList[0].Number} = {statsList[0].Count}\n" +

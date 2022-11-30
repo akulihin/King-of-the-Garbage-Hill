@@ -57,6 +57,7 @@ public sealed class ServerDataStorage : IServiceSingleton
         var filePath = $@"DataBase/ServerAccounts/account-{serverId}.json";
         if (!File.Exists(filePath))
         {
+            // ReSharper disable once CollectionNeverUpdated.Local
             var newList = new List<ServerSettings>();
             SaveServerSettings(newList, serverId);
             return newList;
@@ -72,6 +73,7 @@ public sealed class ServerDataStorage : IServiceSingleton
         {
             _log.Warning($"LoadAccountSettings, BACK UP CREATED: {e}");
 
+            // ReSharper disable once CollectionNeverUpdated.Local
             var newList = new List<ServerSettings>();
             SaveServerSettings(newList, $"{serverId}-BACK_UP", json);
             return newList;
@@ -102,7 +104,7 @@ public sealed class ServerDataStorage : IServiceSingleton
             {
                 var newList = new List<ServerSettings>();
                 SaveServerSettings(newList, userId);
-                allAccounts.AddOrUpdate(userId, newList, (key, oldValue) => newList);
+                allAccounts.AddOrUpdate(userId, newList, (_, _) => newList);
             }
 
 
@@ -111,7 +113,7 @@ public sealed class ServerDataStorage : IServiceSingleton
             try
             {
                 var newList = JsonConvert.DeserializeObject<List<ServerSettings>>(json);
-                allAccounts.AddOrUpdate(userId, newList, (key, oldValue) => newList);
+                allAccounts.AddOrUpdate(userId, newList, (_, _) => newList);
             }
             catch (Exception e)
             {
@@ -119,7 +121,7 @@ public sealed class ServerDataStorage : IServiceSingleton
 
                 var newList = new List<ServerSettings>();
                 SaveServerSettings(newList, $"{userId}-BACK_UP", json);
-                allAccounts.AddOrUpdate(userId, newList, (key, oldValue) => newList);
+                allAccounts.AddOrUpdate(userId, newList, (_, _) => newList);
             }
         }
 

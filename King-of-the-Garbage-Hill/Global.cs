@@ -43,7 +43,7 @@ public sealed class Global : IServiceSingleton
 
     public GamePlayerBridgeClass GetGameAccount(ulong userId, ulong gameId)
     {
-        return GamesList.Find(x => x.GameId == gameId).PlayersList.Find(x => x.DiscordId == userId);
+        return GamesList.Find(x => x.GameId == gameId)!.PlayersList.Find(x => x.DiscordId == userId);
     }
 
 

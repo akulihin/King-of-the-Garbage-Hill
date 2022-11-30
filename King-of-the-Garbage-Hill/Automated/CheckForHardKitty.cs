@@ -4,22 +4,19 @@ using System.Timers;
 using Discord;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.LocalPersistentData.ServerAccounts;
-using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
 namespace King_of_the_Garbage_Hill.Automated;
 
 public class CheckForHardKitty : IServiceSingleton
 {
-    private readonly UserAccounts _accounts;
     private readonly ServerAccounts _server;
     private readonly Global _global;
     private readonly LoginFromConsole _log;
     private Timer _loopingTimer;
     private bool _running;
 
-    public CheckForHardKitty(UserAccounts accounts, Global global, LoginFromConsole log, ServerAccounts server)
+    public CheckForHardKitty( Global global, LoginFromConsole log, ServerAccounts server)
     {
-        _accounts = accounts;
         _global = global;
         _log = log;
         _server = server;

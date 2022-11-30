@@ -17,7 +17,7 @@ public sealed class UserAccounts : IServiceSingleton
     private readonly ConcurrentDictionary<ulong, DiscordAccountClass> _userAccountsDictionary;
     private readonly UserAccountsDataStorage _usersDataStorage;
     private Timer _loopingTimer;
-    private bool _saving = false;
+    private bool _saving;
     private string _executionPath;
 
     public UserAccounts(DiscordShardedClient client, UserAccountsDataStorage usersDataStorage)
