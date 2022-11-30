@@ -12,10 +12,6 @@ public class GamePlayerBridgeClass
         gameCharacter.SetStatus(Status);
         GameCharacter = gameCharacter;
         FightCharacter = GameCharacter.DeepCopy();
-        GameCharacter.IsGameCharacter = true;
-        FightCharacter.IsGameCharacter = false;
-        GameCharacter.Justice.IsGameCharacter = true;
-        FightCharacter.Justice.IsGameCharacter = false;
 
         DiscordId = discordId;
         GameId = gameId;

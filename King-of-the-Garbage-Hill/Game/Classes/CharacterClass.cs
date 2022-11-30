@@ -30,10 +30,11 @@ public class CharacterClass
         //LINKS, not a deep copy
         other.AvatarEvent = AvatarEvent;
         other.Status = Status;
+        other.Justice = Justice;
 
         //Copy
         other.Passive = Passive.Select(x => x.DeepCopy()).ToList();
-        other.Justice = Justice.DeepCopy();
+        //other.Justice = Justice.DeepCopy();
         other.Name = Name;
         other.Avatar = Avatar;
         other.AvatarCurrent = AvatarCurrent;
@@ -85,7 +86,6 @@ public class CharacterClass
     public List<Passive> Passive { get; set; }
     public string Description { get; set; }
     public int Tier { get; set; }
-    public bool IsGameCharacter { get; set; }
 
 
     // PRIVATE
@@ -944,10 +944,6 @@ public class CharacterClass
 
     public void SetIntelligenceForOneFight(int howMuchToSet, string skillName)
     {
-        if (!IsGameCharacter)
-        {
-            throw new Exception("ForOneFight mechanic used on \"FightCharacter\"!");
-        }
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
@@ -1024,10 +1020,6 @@ public class CharacterClass
 
     public void SetPsycheForOneFight(int howMuchToSet, string skillName)
     {
-        if (!IsGameCharacter)
-        {
-            throw new Exception("ForOneFight mechanic used on \"FightCharacter\"!");
-        }
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
@@ -1103,10 +1095,6 @@ public class CharacterClass
 
     public void SetSpeedForOneFight(int howMuchToSet, string skillName)
     {
-        if (!IsGameCharacter)
-        {
-            throw new Exception("ForOneFight mechanic used on \"FightCharacter\"!");
-        }
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
@@ -1182,10 +1170,6 @@ public class CharacterClass
 
     public void SetStrengthForOneFight(int howMuchToSet, string skillName)
     {
-        if (!IsGameCharacter)
-        {
-            throw new Exception("ForOneFight mechanic used on \"FightCharacter\"!");
-        }
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
@@ -1280,9 +1264,8 @@ public class JusticeClass
     private int JusticeForNextRoundFromFights { get; set; }
     private int JusticeForNextRoundFromSkills{ get; set; }
     public bool IsWonThisRound { get; set; }
-
-    public bool IsGameCharacter { get; set; }
     private InGameStatus Status { get; set; }
+
 
     public void SetStatus(InGameStatus status)
     {
@@ -1382,10 +1365,6 @@ public class JusticeClass
 
     public void SetJusticeForOneFight(int howMuchToSet, string skillName)
     {
-        if (!IsGameCharacter)
-        {
-            throw new Exception("ForOneFight mechanic used on \"FightCharacter\"!");
-        }
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 

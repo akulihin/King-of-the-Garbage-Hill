@@ -441,17 +441,8 @@ public class CharacterPassives : IServiceSingleton
                 //Возвращение из мертвых
                 if (game.RoundNo >= 10)
                 {
-                    if (target.Status.IsBlock)
-                    {
-                        target.Status.IgnoredBlock = true;
-                        target.Status.IsBlock = false;
-                    }
-
-                    if (target.Status.IsSkip)
-                    {
-                        target.Status.IgnoredSkip = true;
-                        target.Status.IsSkip = false;
-                    }
+                    me.Status.IsArmorBreak = true;
+                    me.Status.IsSkipBreak = true;
                 }
                 //end Возвращение из мертвых
 
@@ -490,20 +481,11 @@ public class CharacterPassives : IServiceSingleton
                 //end  Оборотень
 
                 //Безжалостный охотник
+                me.Status.IsArmorBreak = true;
+                me.Status.IsSkipBreak = true;
                 if (target.Status.IsBlock || target.Status.IsSkip)
                     game.Phrases.WeedwickRuthlessHunter.SendLog(me, false);
 
-                if (target.Status.IsBlock)
-                {
-                    target.Status.IgnoredBlock = true;
-                    target.Status.IsBlock = false;
-                }
-
-                if (target.Status.IsSkip)
-                {
-                    target.Status.IgnoredSkip = true;
-                    target.Status.IsSkip = false;
-                }
 
                 if (target.GameCharacter.Justice.GetRealJusticeNow() == 0)
                 {
@@ -522,8 +504,8 @@ public class CharacterPassives : IServiceSingleton
                     if (target.Status.IsBlock && spartanMark.FriendList.Contains(target.GetPlayerId()))
                     {
                         spartanMark.BlockedPlayer = target.GetPlayerId();
+                        me.Status.IsArmorBreak = true;
                         target.Status.IsAbleToWin = false;
-                        target.Status.IsBlock = false;
                         game.Phrases.SpartanTheyWontLikeIt.SendLog(me, false);
                     }
                 //end Им это не понравится:
@@ -600,20 +582,14 @@ public class CharacterPassives : IServiceSingleton
                 var siriAttack = me.Passives.SirinoksFriendsAttack;
 
                 if (siri != null && siriAttack != null)
-                    if (siri.FriendList.Contains(target.GetPlayerId()) && target.Status.IsBlock)
-                    {
-                        target.Status.IsBlock = false;
-                        siriAttack.EnemyId = target.GetPlayerId();
-                        siriAttack.IsBlock = true;
-                    }
+                    if (siri.FriendList.Contains(target.GetPlayerId()))
+                        if (target.Status.IsBlock || target.Status.IsSkip)
+                        {
+                            siriAttack.EnemyId = target.GetPlayerId();
+                            me.Status.IsArmorBreak = true;
+                            me.Status.IsSkipBreak = true;
+                        }
 
-                if (siri != null && siriAttack != null)
-                    if (siri.FriendList.Contains(target.GetPlayerId()) && target.Status.IsSkip)
-                    {
-                        target.Status.IsSkip = false;
-                        siriAttack.EnemyId = target.GetPlayerId();
-                        siriAttack.IsSkip = true;
-                    }
 
                 if (!siri!.FriendList.Contains(target.GetPlayerId()))
                 {
@@ -623,7 +599,7 @@ public class CharacterPassives : IServiceSingleton
                 }
 
 
-                //Заводить друзей end
+                //end Заводить друзей
                 break;
 
             case "AWDKA":
@@ -668,8 +644,12 @@ public class CharacterPassives : IServiceSingleton
 
                 //Падальщик
                 if (target.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
-                    target.GameCharacter.Justice.SetJusticeForOneFight(
-                        target.GameCharacter.Justice.GetRealJusticeNow() - 1, "Падальщик");
+                    if (target.GameCharacter.Justice.GetRealJusticeNow() > 0)
+                    {
+                        var howMuchIgnores = 1;
+                        target.Passives.VampyrIgnoresOneJustice = howMuchIgnores;
+                        target.GameCharacter.Justice.SetJusticeForOneFight(target.GameCharacter.Justice.GetRealJusticeNow() - howMuchIgnores, "Падальщик");
+                    }
 
                 //end Падальщик
                 break;
@@ -916,8 +896,10 @@ public class CharacterPassives : IServiceSingleton
 
                 //Вампуризм
                 if (me.Status.IsWonThisCalculation == target.GetPlayerId())
-                    me.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(target.FightCharacter.Justice
-                        .GetRealJusticeNow()); //Use target.FightCharacter.Justice because Game Justrice was altered by Падальщик
+                {
+                    me.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(target.GameCharacter.Justice.GetRealJusticeNow() + target.Passives.VampyrIgnoresOneJustice);
+                }
+                target.Passives.VampyrIgnoresOneJustice = 0;
                 //Вампуризм
 
                 break;
@@ -990,15 +972,7 @@ public class CharacterPassives : IServiceSingleton
                 if (siriAttack != null)
                     if (siriAttack.EnemyId == target.GetPlayerId())
                     {
-                        if (siriAttack.IsSkip)
-                            target.Status.IsSkip = true;
-
-                        if (siriAttack.IsBlock)
-                            target.Status.IsBlock = true;
-
                         siriAttack.EnemyId = Guid.Empty;
-                        siriAttack.IsBlock = false;
-                        siriAttack.IsSkip = false;
                     }
 
                 //end Заводить друзей

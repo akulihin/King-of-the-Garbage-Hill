@@ -74,17 +74,6 @@ Speed => Strength
                 player.FightCharacter.SetWinStreak();
             }
 
-            if (player.Status.IgnoredBlock)
-            {
-                player.Status.IgnoredBlock = false;
-                player.Status.IsBlock = true;
-            }
-
-            if (player.Status.IgnoredSkip)
-            {
-                player.Status.IgnoredSkip = false;
-                player.Status.IsSkip = true;
-            }
 
             //OneFight Mechanics, use GameCharacter only
             if (player.Status.RealIntelligence != -1)
@@ -141,18 +130,15 @@ Speed => Strength
     {
         foreach (var player in game.PlayersList)
         {
-            player.GameCharacter = player.GameCharacter.DeepCopy();
-            player.GameCharacter.IsGameCharacter = true;
-            player.GameCharacter.Justice.IsGameCharacter = true;
+            player.GameCharacter = player.FightCharacter.DeepCopy();
         }
     }
-    public void DeepCopyFightCharacterToFightCharacter(GameClass game)
+
+    public void DeepCopyGameCharacterToFightCharacter(GameClass game)
     {
         foreach (var player in game.PlayersList)
         {
             player.FightCharacter = player.GameCharacter.DeepCopy();
-            player.FightCharacter.IsGameCharacter = false;
-            player.FightCharacter.Justice.IsGameCharacter = false;
         }
     }
 
@@ -180,7 +166,7 @@ Speed => Strength
         game.SetGlobalLogs($"\n__**Раунд #{roundNumber}**__:\n\n");
 
         //FIGHT, user only GameCharacter to READ and FightCharacter to WRITE
-        DeepCopyFightCharacterToFightCharacter(game);
+        DeepCopyGameCharacterToFightCharacter(game);
         
         
         
@@ -324,7 +310,7 @@ Speed => Strength
                 }
 
                 //if block => no one gets points
-                if (playerIamAttacking.Status.IsBlock && player.Status.IsAbleToWin)
+                if (playerIamAttacking.Status.IsBlock && !player.Status.IsArmorBreak)
                 {
                     player.Status.IsTargetBlocked = playerIamAttacking.GetPlayerId();
                     // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
@@ -351,7 +337,7 @@ Speed => Strength
 
 
                 // if skip => something
-                if (playerIamAttacking.Status.IsSkip)
+                if (playerIamAttacking.Status.IsSkip && !player.Status.IsSkipBreak)
                 {
                     player.Status.IsTargetSkipped = playerIamAttacking.GetPlayerId();
                     game.SkipPlayersThisRound++;
@@ -698,6 +684,8 @@ Speed => Strength
             player.Status.TimesUpdated = 0;
             player.Status.IsAutoMove = false;
             player.Status.IsBlock = false;
+            player.Status.IsSkipBreak = false;
+            player.Status.IsArmorBreak = false;
             player.Status.IsAbleToWin = true;
             player.Status.IsSkip = false;
             player.Status.IsAbleToTurn = true;

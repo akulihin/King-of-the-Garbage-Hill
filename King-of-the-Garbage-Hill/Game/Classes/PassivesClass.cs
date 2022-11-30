@@ -148,6 +148,8 @@ public class PassivesClass
 
     public bool KratosIsDead { get; set; } = false;
 
+    public int VampyrIgnoresOneJustice { get; set; } = 0;
+
 
 
     private int Random(int minValue, int maxValue)

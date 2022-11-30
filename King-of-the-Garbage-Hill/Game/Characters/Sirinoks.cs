@@ -8,8 +8,6 @@ public class Sirinoks
     public class SirinoksFriendsClass
     {
         public Guid EnemyId = Guid.Empty;
-        public bool IsBlock = false;
-        public bool IsSkip = false;
     }
 
 

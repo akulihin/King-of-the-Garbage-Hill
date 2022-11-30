@@ -54,6 +54,8 @@ public class InGameStatus
     public Guid PlayerId { get; set; }
     public bool IsBlock { get; set; }
     public bool IsSkip { get; set; }
+    public bool IsArmorBreak { get; set; }
+    public bool IsSkipBreak { get; set; }
     public bool IsAutoMove { get; set; }
     public int AutoMoveTimes { get; set; }
     public bool IsAbleToTurn { get; set; }
@@ -80,9 +82,6 @@ public class InGameStatus
     public string CharacterName { get; set; }
     public int TimesUpdated { get; set; }
     public int RoundNumber { get; set; }
-
-    public bool IgnoredBlock { get; set; }
-    public bool IgnoredSkip { get; set; }
 
     //Real and Temp stats are used only for Round Mechanics (Fighting). They are used mostly to "ignore" or "swap" characteristics during one fight!
     public int RealIntelligence { get; set; } = -1;
