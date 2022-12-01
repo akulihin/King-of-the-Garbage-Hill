@@ -339,27 +339,41 @@ public class AdminPanel : ModuleBaseCustom
                 player.GameCharacter.SetPsyche(number, "Читы");
                 player.GameCharacter.Justice.SetRealJusticeNow(number, "Читы");
                 player.GameCharacter.SetMainSkill(number*100, "Читы");
+
+                player.FightCharacter.SetIntelligence(number, "Читы", false);
+                player.FightCharacter.SetSpeed(number, "Читы", false);
+                player.FightCharacter.SetStrength(number, "Читы", false);
+                player.FightCharacter.SetPsyche(number, "Читы", false);
+                player.FightCharacter.Justice.SetRealJusticeNow(number, "Читы", false);
+                player.FightCharacter.SetMainSkill(number * 100, "Читы", false);
                 break;
             case "in":
                 player!.GameCharacter.SetIntelligence(number, "Читы");
+                player!.FightCharacter.SetIntelligence(number, "Читы", false);
                 break;
             case "sp":
                 player!.GameCharacter.SetSpeed(number, "Читы");
+                player!.FightCharacter.SetSpeed(number, "Читы", false);
                 break;
             case "st":
                 player!.GameCharacter.SetStrength(number, "Читы");
+                player!.FightCharacter.SetStrength(number, "Читы", false);
                 break;
             case "ps":
                 player!.GameCharacter.SetPsyche(number, "Читы");
+                player!.FightCharacter.SetPsyche(number, "Читы", false);
                 break;
             case "js":
                 player!.GameCharacter.Justice.SetRealJusticeNow(number, "Читы");
+                player!.FightCharacter.Justice.SetRealJusticeNow(number, "Читы", false);
                 break;
             case "sk":
                 player!.GameCharacter.SetMainSkill(number, "Читы");
+                player!.FightCharacter.SetMainSkill(number, "Читы", false);
                 break;
             case "mr":
                 player!.GameCharacter.SetMoral(number, "Читы");
+                player!.FightCharacter.SetMoral(number, "Читы", false);
                 break;
             default:
                 return;

@@ -105,9 +105,25 @@ public class CheckIfReady : IServiceSingleton
             var deepList = game.PlayersList.Find(x => x.GameCharacter.Name == "DeepList");
 
             var genius = true;
+
             foreach (var deepListPredict in deepList!.Predict)
-                genius = mylorik!.Predict.Any(x =>
-                    x.PlayerId == deepListPredict.PlayerId && x.CharacterName == deepListPredict.CharacterName);
+            {
+                genius = mylorik!.Predict.Any(x => x.PlayerId == deepListPredict.PlayerId && x.CharacterName == deepListPredict.CharacterName);
+                if (!genius)
+                {
+                    break;
+                }
+            }
+
+            if(genius)
+                foreach (var mylorikPredict in mylorik!.Predict)
+                {
+                    genius = deepList!.Predict.Any(x => x.PlayerId == mylorikPredict.PlayerId && x.CharacterName == mylorikPredict.CharacterName);
+                    if (!genius)
+                    {
+                        break;
+                    }
+                }
 
             if (genius)
                 game.AddGlobalLogs("DeepList & mylorik: Гении мыслят одинакого или одно целое уничтожает воду.");

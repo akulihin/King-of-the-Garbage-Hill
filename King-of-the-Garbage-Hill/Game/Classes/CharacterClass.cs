@@ -202,7 +202,7 @@ public class CharacterClass
             if (Status.CharacterName == "mylorik")
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik!.GameCharacter.AddMoral(1, "Испанец", false);
+                mylorik!.FightCharacter.AddMoral(1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
@@ -221,7 +221,7 @@ public class CharacterClass
             if (Status.CharacterName == "mylorik") 
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik!.GameCharacter.AddMoral( 1, "Испанец", false);
+                mylorik!.FightCharacter.AddMoral( 1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
@@ -240,7 +240,7 @@ public class CharacterClass
             if (Status.CharacterName == "mylorik")
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik!.GameCharacter.AddMoral( 1, "Испанец", false);
+                mylorik!.FightCharacter.AddMoral( 1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
@@ -850,8 +850,10 @@ public class CharacterClass
         {
             skillName = $"|>boole<|{skillName}";
         }
+
         if (Status.CharacterName == "Братишка")
             return;
+
         //привет со дна
         if (howMuchToAdd < 0 && Status.CharacterName == "Осьминожка" && !isMoralPoints)
         {
@@ -865,20 +867,20 @@ public class CharacterClass
         //end привет со дна
 
 
-        if (howMuchToAdd > 0 && isLog)
+
+        if (howMuchToAdd >= 0 && isLog)
             Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} *Морали*\n");
-        if (howMuchToAdd < 0 && GetMoral() == 0)
-            isLog = false;
+        if (howMuchToAdd < 0 && isLog)
+            Status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} *Морали*\n");
 
         LastMoralRound = Status.RoundNumber;
         Moral += howMuchToAdd;
+    }
 
-        if (GetMoral() < 0)
-            howMuchToAdd = GetMoral() * -1 + howMuchToAdd;
-
-        if (howMuchToAdd < 0 && isLog) Status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} *Морали*\n");
-
-        if (GetMoral() < 0) Moral = 0;
+    public void NormalizeMoral()
+    {
+        if (Moral < 0)
+            Moral = 0;
     }
     
     public void AddIntelligence(int howMuchToAdd, string skillName, bool isLog = true)

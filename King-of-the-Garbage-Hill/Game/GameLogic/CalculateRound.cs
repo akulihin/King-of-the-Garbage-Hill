@@ -696,7 +696,7 @@ Speed => Strength
             player.Status.RoundNumber = game.RoundNo+1;
 
             player.GameCharacter.SetSpeedResist();
-
+            player.GameCharacter.NormalizeMoral();
             player.GameCharacter.Justice.HandleEndOfRoundJustice();
 
             player.Status.CombineRoundScoreAndGameScore(game);
