@@ -60,7 +60,8 @@ public class InGameStatus
     public int AutoMoveTimes { get; set; }
     public bool IsAbleToTurn { get; set; }
     public bool IsAbleToWin { get; set; }
-    public int PlaceAtLeaderBoard { get; set; }
+
+    private int PlaceAtLeaderBoard { get; set; }
     public List<Guid> WhoToAttackThisTurn { get; set; }
     public bool IsReady { get; set; }
     public Guid IsWonThisCalculation { get; set; }
@@ -254,6 +255,16 @@ public class InGameStatus
     public int GetScore()
     {
         return Score;
+    }
+
+    public int GetPlaceAtLeaderBoard()
+    {
+        return PlaceAtLeaderBoard;
+    }
+
+    public void SetPlaceAtLeaderBoard(int placeAtLeaderBoard)
+    {
+        PlaceAtLeaderBoard = placeAtLeaderBoard;
     }
 
     public class WhoToLostPreviousRoundClass

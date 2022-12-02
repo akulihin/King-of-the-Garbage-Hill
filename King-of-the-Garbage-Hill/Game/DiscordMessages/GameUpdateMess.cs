@@ -849,7 +849,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         for (var i = 0; i < _playerChoiceAttackList.Count; i++)
         {
-            var playerToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == i + 1);
+            var playerToAttack = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == i + 1);
             if (playerToAttack == null) continue;
             if (playerToAttack.DiscordId != player.DiscordId)
                 attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, $"{i + 1}", emote: _playerChoiceAttackList[i]);
@@ -902,7 +902,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
      
         for (var i = 0; i < _playerChoiceAttackList.Count; i++)
         {
-            var playerToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == i + 1);
+            var playerToAttack = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == i + 1);
             if (playerToAttack == null) continue;
             if (playerToAttack.DiscordId != player.DiscordId)
                 attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, $"{i + 1}",
@@ -924,7 +924,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         for (var i = 0; i < _playerChoiceAttackList.Count; i++)
         {
-            var playerToAttack = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == i + 1);
+            var playerToAttack = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == i + 1);
             if (playerToAttack == null) continue;
             if (playerToAttack.DiscordId != player.DiscordId)
                 predictMenu.AddOption(playerToAttack.DiscordUsername + " это...",

@@ -57,35 +57,35 @@ public class TutorialReactions : IServiceSingleton
         var index = 0;
         if (game.RoundNumber == 4)
         {
-            var temp4 = game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 4);
-            var temp5 = game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 5);
-            player!.PlaceAtLeaderBoard = 4;
-            temp4!.PlaceAtLeaderBoard = 5;
-            temp5!.PlaceAtLeaderBoard = 6;
+            var temp4 = game.PlayersList.Find(x => x.GetPlaceAtLeaderBoard() == 4);
+            var temp5 = game.PlayersList.Find(x => x.GetPlaceAtLeaderBoard() == 5);
+            player!.SetPlaceAtLeaderBoard(4);
+            temp4!.SetPlaceAtLeaderBoard(5);
+            temp5!.SetPlaceAtLeaderBoard(6);
         }
 
         if (game.RoundNumber == 11)
         {
-            var temp4 = game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 1);
-            player!.PlaceAtLeaderBoard = 1;
-            temp4!.PlaceAtLeaderBoard = 2;
+            var temp4 = game.PlayersList.Find(x => x.GetPlaceAtLeaderBoard() == 1);
+            player!.SetPlaceAtLeaderBoard(1);
+            temp4!.SetPlaceAtLeaderBoard(2);
         }
 
         if (game.RoundNumber == 6)
         {
-            var temp4 = game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 2);
-            player!.PlaceAtLeaderBoard = 2;
-            temp4!.PlaceAtLeaderBoard = 4;
+            var temp4 = game.PlayersList.Find(x => x.GetPlaceAtLeaderBoard() == 2);
+            player!.SetPlaceAtLeaderBoard(2);
+            temp4!.SetPlaceAtLeaderBoard(4);
 
-            game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 1)!.ClassString = "(**Быстрый** ?)";
-            game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 3)!.ClassString = "(**Умный** ?)";
-            game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 4)!.ClassString = "(**Сильный** ?)";
-            game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 5)!.ClassString = "(**Быстрый** ?)";
-            game.PlayersList.Find(x => x.PlaceAtLeaderBoard == 6)!.ClassString = "(**Сильный** ?)";
+            game.PlayersList.Find(x => x.GetPlaceAtLeaderBoard() == 1)!.ClassString = "(**Быстрый** ?)";
+            game.PlayersList.Find(x => x.GetPlaceAtLeaderBoard() == 3)!.ClassString = "(**Умный** ?)";
+            game.PlayersList.Find(x => x.GetPlaceAtLeaderBoard() == 4)!.ClassString = "(**Сильный** ?)";
+            game.PlayersList.Find(x => x.GetPlaceAtLeaderBoard() == 5)!.ClassString = "(**Быстрый** ?)";
+            game.PlayersList.Find(x => x.GetPlaceAtLeaderBoard() == 6)!.ClassString = "(**Сильный** ?)";
         }
 
 
-        foreach (var p in game.PlayersList.OrderBy(x => x.PlaceAtLeaderBoard))
+        foreach (var p in game.PlayersList.OrderBy(x => x.GetPlaceAtLeaderBoard()))
         {
             index++;
 
@@ -225,7 +225,7 @@ public class TutorialReactions : IServiceSingleton
         if (game != null)
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
-                var playerToAttack = game.PlayersList.Find(x => x.PlaceAtLeaderBoard == i + 1);
+                var playerToAttack = game.PlayersList.Find(x => x.GetPlaceAtLeaderBoard() == i + 1);
                 if (playerToAttack == null) continue;
                 if (playerToAttack.PlayerId != game.DiscordPlayerId)
                     attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, $"{i + 1}",
@@ -318,7 +318,7 @@ public class TutorialReactions : IServiceSingleton
             player!.Score += 1;
 
             var target1 = game.PlayersList.Find(x => x.PlayerId == player.WhoToAttackThisTurn);
-            var moral = player.PlaceAtLeaderBoard - target1!.PlaceAtLeaderBoard;
+            var moral = player.GetPlaceAtLeaderBoard() - target1!.GetPlaceAtLeaderBoard();
             if (moral > 0)
                 player.Moral += moral;
 
@@ -351,17 +351,17 @@ public class TutorialReactions : IServiceSingleton
 
 
             var target1 = game.PlayersList.Find(x => x.PlayerId == player.WhoToAttackThisTurn);
-            var moral = player.PlaceAtLeaderBoard - target1!.PlaceAtLeaderBoard;
+            var moral = player.GetPlaceAtLeaderBoard() - target1!.GetPlaceAtLeaderBoard();
             if (moral > 0)
                 player.Moral += moral;
 
             target1 = game.PlayersList.Find(x => x.DiscordUsername == "PETYX");
-            moral = player.PlaceAtLeaderBoard - target1!.PlaceAtLeaderBoard;
+            moral = player.GetPlaceAtLeaderBoard() - target1!.GetPlaceAtLeaderBoard();
             if (moral > 0)
                 player.Moral += moral;
 
             target1 = game.PlayersList.Find(x => x.DiscordUsername == "YasuoOnly");
-            moral = player.PlaceAtLeaderBoard - target1!.PlaceAtLeaderBoard;
+            moral = player.GetPlaceAtLeaderBoard() - target1!.GetPlaceAtLeaderBoard();
             if (moral > 0)
                 player.Moral += moral;
 
@@ -438,12 +438,12 @@ public class TutorialReactions : IServiceSingleton
             player!.Justice += 2;
 
             var target1 = game.PlayersList.Find(x => x.PlayerId == player.WhoToAttackThisTurn);
-            var moral = target1!.PlaceAtLeaderBoard - player.PlaceAtLeaderBoard;
+            var moral = target1!.GetPlaceAtLeaderBoard() - player.GetPlaceAtLeaderBoard();
             if (moral > 0)
                 player.Moral -= moral;
 
             target1 = game.PlayersList.Find(x => x.DiscordUsername == "PETYX");
-            moral = target1!.PlaceAtLeaderBoard - player.PlaceAtLeaderBoard;
+            moral = target1!.GetPlaceAtLeaderBoard() - player.GetPlaceAtLeaderBoard();
             if (moral > 0)
                 player.Moral -= moral;
 
@@ -1074,7 +1074,7 @@ public class TutorialReactions : IServiceSingleton
 
         public ulong PlayerId { get; set; }
         public string DiscordUsername { get; set; }
-        public int PlaceAtLeaderBoard { get; set; }
+        private int PlaceAtLeaderBoard { get; set; }
         public int Score { get; set; }
         public int Intelligence { get; set; }
         public int Strength { get; set; }
@@ -1090,5 +1090,15 @@ public class TutorialReactions : IServiceSingleton
         public ulong WhoToAttackThisTurn { get; set; }
         public List<ulong> MessageToDeleteNextRound { get; set; }
         public bool Predicted { get; set; }
+
+        public int GetPlaceAtLeaderBoard()
+        {
+            return PlaceAtLeaderBoard;
+        }
+
+        public void SetPlaceAtLeaderBoard(int placeAtLeaderBoard)
+        {
+            PlaceAtLeaderBoard = placeAtLeaderBoard;
+        }
     }
 }

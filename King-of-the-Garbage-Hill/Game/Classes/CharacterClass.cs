@@ -27,6 +27,11 @@ public class CharacterClass
     {
         var other = (CharacterClass)MemberwiseClone();
 
+        //NO COPY
+        //other.Moral = Moral;
+        //other.BonusPointsFromMoral = BonusPointsFromMoral;
+        //other.LastMoralRound = LastMoralRound;
+
         //LINKS, not a deep copy
         other.AvatarEvent = AvatarEvent;
         other.Status = Status;
@@ -40,7 +45,6 @@ public class CharacterClass
         other.AvatarCurrent = AvatarCurrent;
         other.Description = Description;
         other.Tier = Tier;
-        other.LastMoralRound = LastMoralRound;
         other.WonTimes = WonTimes;
         other.WinStreak = WinStreak;
         other.Intelligence = Intelligence;
@@ -57,8 +61,6 @@ public class CharacterClass
         other.ExtraSkillMultiplier = ExtraSkillMultiplier;
         other.SkillFightMultiplier = SkillFightMultiplier;
         other.CurrentSkillTarget = CurrentSkillTarget;
-        other.Moral = Moral;
-        other.BonusPointsFromMoral = BonusPointsFromMoral;
         other.IntelligenceQualityResist = IntelligenceQualityResist;
         other.StrengthQualityResist = StrengthQualityResist;
         other.SpeedQualityBonus = SpeedQualityBonus;
@@ -174,7 +176,7 @@ public class CharacterClass
     public void HandleDrop(string discordUsername, GameClass game)
     {
         SetStrengthResist();
-        if (Status.PlaceAtLeaderBoard == 6) return;
+        if (Status.GetPlaceAtLeaderBoard() == 6) return;
 
         StrengthQualityDropDebuff = game.RoundNo;
         Status.AddBonusPoints(-1, "Quality");
@@ -202,7 +204,7 @@ public class CharacterClass
             if (Status.CharacterName == "mylorik")
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik!.FightCharacter.AddMoral(1, "Испанец", false);
+                mylorik!.GameCharacter.AddMoral(1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
@@ -221,7 +223,7 @@ public class CharacterClass
             if (Status.CharacterName == "mylorik") 
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik!.FightCharacter.AddMoral( 1, "Испанец", false);
+                mylorik!.GameCharacter.AddMoral( 1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
@@ -240,7 +242,7 @@ public class CharacterClass
             if (Status.CharacterName == "mylorik")
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik!.FightCharacter.AddMoral( 1, "Испанец", false);
+                mylorik!.GameCharacter.AddMoral( 1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец

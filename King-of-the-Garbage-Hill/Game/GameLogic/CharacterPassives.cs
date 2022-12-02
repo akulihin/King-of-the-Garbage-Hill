@@ -186,7 +186,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         сraboRackShell.FriendList.Add(me.GetPlayerId());
                         сraboRackShell.CurrentAttacker = me.GetPlayerId();
-                        target.FightCharacter.AddMoral(3, "Панцирь");
+                        target.GameCharacter.AddMoral(3, "Панцирь");
                         target.FightCharacter.AddExtraSkill(33, "Панцирь");
                         target.Status.IsBlock = true;
                     }
@@ -275,6 +275,7 @@ public class CharacterPassives : IServiceSingleton
                 {
                     // target.Status.IsBlock = false;
                     me.Status.IsAbleToWin = false;
+                    me.Status.IsArmorBreak = false;
                     var tolya = target.Passives.TolyaRammusTimes;
                     tolya.FriendList.Add(me.GetPlayerId());
                 }
@@ -374,10 +375,12 @@ public class CharacterPassives : IServiceSingleton
             case "Глеб":
                 //Я щас приду:
                 var glebSkipFriendList = target.Passives.GlebSkipFriendList;
-                if (glebSkipFriendList.FriendList.Contains(me.GetPlayerId()))
+                var glebSkipFriendListDone = target.Passives.GlebSkipFriendListDone;
+
+                if (glebSkipFriendList.FriendList.Contains(me.GetPlayerId()) && !glebSkipFriendListDone.FriendList.Contains(me.GetPlayerId()))
                 {
-                    glebSkipFriendList.FriendList.Remove(me.GetPlayerId());
-                    me.FightCharacter.AddMoral(9, "Я щас приду", false);
+                    glebSkipFriendListDone.FriendList.Add(me.GetPlayerId());
+                    me.GameCharacter.AddMoral(9, "Я щас приду", false);
                     me.Status.AddInGamePersonalLogs("Я щас приду: +9 *Морали*. Вы дождались Глеба!!! Празднуем!");
                 }
 
@@ -702,7 +705,7 @@ public class CharacterPassives : IServiceSingleton
                 break;
             case "Краборак":
                 //Питается водорослями
-                if (target.Status.PlaceAtLeaderBoard >= 4) me.Status.AddBonusPoints(1, "Питается водорослями");
+                if (target.Status.GetPlaceAtLeaderBoard() >= 4) me.Status.AddBonusPoints(1, "Питается водорослями");
                 //end Питается водорослями
                 break;
         }
@@ -728,7 +731,7 @@ public class CharacterPassives : IServiceSingleton
                 if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                     if (target.Passives.WeedwickWeed > 0)
                     {
-                        me.FightCharacter.AddMoral(target.Passives.WeedwickWeed, "Weed");
+                        me.GameCharacter.AddMoral(target.Passives.WeedwickWeed, "Weed");
 
                         switch (target.Passives.WeedwickWeed)
                         {
@@ -796,7 +799,7 @@ public class CharacterPassives : IServiceSingleton
                             // ReSharper disable once RedundantAssignment
                     range -= target.GameCharacter.GetSpeedQualityKiteBonus();
 
-                    var placeDiff = me.Status.PlaceAtLeaderBoard - target.Status.PlaceAtLeaderBoard;
+                    var placeDiff = me.Status.GetPlaceAtLeaderBoard() - target.Status.GetPlaceAtLeaderBoard();
                     if (placeDiff < 0)
                         placeDiff *= -1;
                     //end calculate range
@@ -810,7 +813,7 @@ public class CharacterPassives : IServiceSingleton
                         var harm = 0;
 
                         // 1/место в таблице.
-                        var roll = _rand.Random(1, target.Status.PlaceAtLeaderBoard);
+                        var roll = _rand.Random(1, target.Status.GetPlaceAtLeaderBoard());
                         if (roll == 1)
                         {
                             harm++;
@@ -831,7 +834,7 @@ public class CharacterPassives : IServiceSingleton
 
                         // 1/3 если враг топ1
                         roll = _rand.Random(1, 3);
-                        if (roll == 1 && target.Status.PlaceAtLeaderBoard == 1)
+                        if (roll == 1 && target.Status.GetPlaceAtLeaderBoard() == 1)
                         {
                             harm++;
                             target.FightCharacter.LowerQualityResist(target.DiscordUsername, game,
@@ -850,18 +853,6 @@ public class CharacterPassives : IServiceSingleton
                 //end Ценная добыча
 
 
-                break;
-            case "Глеб":
-                //Я щас приду:
-                var glebSkipFriendList = me.Passives.GlebSkipFriendList;
-                if (glebSkipFriendList.FriendList.Contains(target.GetPlayerId()))
-                {
-                    glebSkipFriendList.FriendList.Remove(target.GetPlayerId());
-                    target.FightCharacter.AddMoral(9, "Я щас приду", false);
-                    target.Status.AddInGamePersonalLogs("Я щас приду: +9 *Морали*. Вы дождались Глеба!!! Празднуем!");
-                }
-
-                //end Я щас приду:
                 break;
             case "Загадочный Спартанец в маске":
 
@@ -891,7 +882,7 @@ public class CharacterPassives : IServiceSingleton
                 //Падальщик
                 if (target.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
                     if (me.Status.IsWonThisCalculation == target.GetPlayerId())
-                        me.FightCharacter.AddMoral(3, "Падальщик");
+                        me.GameCharacter.AddMoral(3, "Падальщик");
                 //end Падальщик
 
                 //Вампуризм
@@ -1195,7 +1186,7 @@ public class CharacterPassives : IServiceSingleton
                     if (find != null && find.RoundNumber != game.RoundNo)
                     {
                         player.Status.AddRegularPoints(2, "Месть");
-                        player.FightCharacter.AddMoral(3, "Месть");
+                        player.GameCharacter.AddMoral(3, "Месть");
                         player.FightCharacter.AddPsyche(1, "Месть");
                         find.IsUnique = false;
                         game.Phrases.MylorikRevengeVictoryPhrase.SendLog(player, true);
@@ -1252,7 +1243,7 @@ public class CharacterPassives : IServiceSingleton
                     var lePuska = player.Passives.LeCrispImpact;
 
 
-                    player.FightCharacter.AddMoral(lePuska.ImpactTimes + 1, "Импакт");
+                    player.GameCharacter.AddMoral(lePuska.ImpactTimes + 1, "Импакт");
                 }
 
                 //Импакт
@@ -1341,10 +1332,10 @@ public class CharacterPassives : IServiceSingleton
                 /*//привет со дна
                 if (me.Status.IsWonThisCalculation != Guid.Empty)
                 {
-                    var moral = me.Status.PlaceAtLeaderBoard - game.PlayersList
-                        .Find(x => x.GetPlayerId() == me.Status.IsWonThisCalculation).Status.PlaceAtLeaderBoard;
+                    var moral = me.Status.GetPlaceAtLeaderBoard() - game.PlayersList
+                        .Find(x => x.GetPlayerId() == me.Status.IsWonThisCalculation).Status.GetPlaceAtLeaderBoard();
                     if (moral > 0)
-                        me.FightCharacter.AddMoral(moral, "Привет со дна");
+                        me.GameCharacter.AddMoral(moral, "Привет со дна");
                 }
                 //end привет со дна*/
 
@@ -1423,7 +1414,7 @@ public class CharacterPassives : IServiceSingleton
                 //end 3-0 обоссан: 
 
                 /*//Тигр топ, а ты холоп: 
-                if (me.Status.IsLostThisCalculation != Guid.Empty && me.Status.PlaceAtLeaderBoard == 1)
+                if (me.Status.IsLostThisCalculation != Guid.Empty && me.Status.GetPlaceAtLeaderBoard() == 1)
                 {
                     me.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(-1);
                 }
@@ -2096,7 +2087,7 @@ public class CharacterPassives : IServiceSingleton
 
                         //sort
                         //     game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-                        //    for (var i = 0; i < game.PlayersList.Count; i++) game.PlayersList[i].Status.PlaceAtLeaderBoard = i + 1;
+                        //    for (var i = 0; i < game.PlayersList.Count; i++) game.PlayersList[i].Status.GetPlaceAtLeaderBoard() = i + 1;
                         //end sorting
                     }
 
@@ -2428,10 +2419,10 @@ public class CharacterPassives : IServiceSingleton
                     acc = player.Passives.GlebChallengerTriggeredWhen;
 
                     if (game.RoundNo == 10 && !acc.WhenToTrigger.Contains(game.RoundNo) &&
-                        player.Status.PlaceAtLeaderBoard > 2)
+                        player.Status.GetPlaceAtLeaderBoard() > 2)
                     {
                         // шанс = 1 / (40 - место глеба в таблице * 4)
-                        var bonusChallenger = _rand.Random(1, 40 - player.Status.PlaceAtLeaderBoard * 4);
+                        var bonusChallenger = _rand.Random(1, 40 - player.Status.GetPlaceAtLeaderBoard() * 4);
                         if (bonusChallenger == 15) acc.WhenToTrigger.Add(game.RoundNo);
                     }
 
@@ -2616,7 +2607,7 @@ public class CharacterPassives : IServiceSingleton
                         var siri = player.Passives.SirinoksFriendsList;
 
                         if (siri != null)
-                            for (var i = player.Status.PlaceAtLeaderBoard + 1; i < game.PlayersList.Count + 1; i++)
+                            for (var i = player.Status.GetPlaceAtLeaderBoard() + 1; i < game.PlayersList.Count + 1; i++)
                             {
                                 var player2 = game.PlayersList[i - 1];
                                 if (siri.FriendList.Contains(player2.GetPlayerId()))
@@ -2686,7 +2677,7 @@ public class CharacterPassives : IServiceSingleton
                     break;
                 case "Братишка":
                     //Булькает:
-                    if (player.Status.PlaceAtLeaderBoard != 1)
+                    if (player.Status.GetPlaceAtLeaderBoard() != 1)
                         player.GameCharacter.Justice.AddRealJusticeNow();
                     //end Булькает:
 
@@ -2696,9 +2687,9 @@ public class CharacterPassives : IServiceSingleton
                         var shark = player.Passives.SharkJawsLeader;
 
 
-                        if (!shark.FriendList.Contains(player.Status.PlaceAtLeaderBoard))
+                        if (!shark.FriendList.Contains(player.Status.GetPlaceAtLeaderBoard()))
                         {
-                            shark.FriendList.Add(player.Status.PlaceAtLeaderBoard);
+                            shark.FriendList.Add(player.Status.GetPlaceAtLeaderBoard());
                             player.GameCharacter.AddSpeed(1, "Челюсти");
                         }
                     }
@@ -2708,7 +2699,7 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Тигр":
                     //Тигр топ, а ты холоп: 
-                    if (player.Status.PlaceAtLeaderBoard == 1 && game.RoundNo is > 1 and < 10)
+                    if (player.Status.GetPlaceAtLeaderBoard() == 1 && game.RoundNo is > 1 and < 10)
                     {
                         player.GameCharacter.AddPsyche(1, "Тигр топ, а ты холоп");
                         player.GameCharacter.AddMoral(3, "Тигр топ, а ты холоп");
@@ -2720,7 +2711,7 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Mit*suki*":
                     //Много выебывается:
-                    if (player.Status.PlaceAtLeaderBoard == 1)
+                    if (player.Status.GetPlaceAtLeaderBoard() == 1)
                     {
                         player.Status.AddRegularPoints(1, "Много выебывается");
                         game.Phrases.MitsukiTooMuchFucking.SendLog(player, false);
@@ -2760,9 +2751,9 @@ public class CharacterPassives : IServiceSingleton
                     if (game.RoundNo > 1)
                     {
                         var octo = player.Passives.OctopusTentaclesList;
-                        if (!octo.LeaderboardPlace.Contains(player.Status.PlaceAtLeaderBoard))
+                        if (!octo.LeaderboardPlace.Contains(player.Status.GetPlaceAtLeaderBoard()))
                         {
-                            octo.LeaderboardPlace.Add(player.Status.PlaceAtLeaderBoard);
+                            octo.LeaderboardPlace.Add(player.Status.GetPlaceAtLeaderBoard());
                             player.Status.AddRegularPoints(1, "Раскинуть щупальца");
                         }
                     }
@@ -3106,7 +3097,7 @@ public class CharacterPassives : IServiceSingleton
                                             break;
                                         case 8:
                                             if (player.Predict.All(x => x.PlayerId != playerClass!.GetPlayerId()) &&
-                                                playerClass.Status.PlaceAtLeaderBoard == 6)
+                                                playerClass.Status.GetPlaceAtLeaderBoard() == 6)
                                                 player.Predict.Add(new PredictClass("HardKitty",
                                                     playerClass.GetPlayerId()));
                                             if (player.Predict.All(x => x.PlayerId != playerClass!.GetPlayerId()))
@@ -3286,9 +3277,9 @@ public class CharacterPassives : IServiceSingleton
             var shark = game.PlayersList.Find(x => x.GameCharacter.Name == "Братишка");
 
             var enemyTop =
-                game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard - 1 == shark!.Status.PlaceAtLeaderBoard);
+                game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() - 1 == shark!.Status.GetPlaceAtLeaderBoard());
             var enemyBottom =
-                game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard + 1 == shark!.Status.PlaceAtLeaderBoard);
+                game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() + 1 == shark!.Status.GetPlaceAtLeaderBoard());
             if (enemyTop != null && enemyTop.Status.IsLostThisCalculation != Guid.Empty)
                 shark!.Status.AddRegularPoints(1, "Лежит на дне");
 

@@ -425,7 +425,7 @@ public sealed class GameReaction : IServiceSingleton
         if (status.MoveListPage == 1)
         {
             var game = _global.GamesList.Find(x => x.GameId == player.GameId);
-            var whoToAttack = game!.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum);
+            var whoToAttack = game!.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == emoteNum);
 
             if (whoToAttack == null) 
                 return false;
@@ -436,8 +436,8 @@ public sealed class GameReaction : IServiceSingleton
             //Клинки хаоса
             if (player.GameCharacter.Name == "Кратос" && game.RoundNo <= 10)
             {
-                var whoToAttack2 = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum-1);
-                var whoToAttack3 = game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == emoteNum + 1);
+                var whoToAttack2 = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == emoteNum-1);
+                var whoToAttack3 = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == emoteNum + 1);
                 
                 if (whoToAttack2 != null && whoToAttack2.GetPlayerId() != player.GetPlayerId())
                     status.WhoToAttackThisTurn.Add(whoToAttack2.GetPlayerId());
@@ -469,7 +469,7 @@ public sealed class GameReaction : IServiceSingleton
             // end Weedwick
 
 
-            if (game.PlayersList.Any(x => x.GameCharacter.Name == "Тигр" && x.Status.PlaceAtLeaderBoard == emoteNum) && game.RoundNo == 10)
+            if (game.PlayersList.Any(x => x.GameCharacter.Name == "Тигр" && x.Status.GetPlaceAtLeaderBoard() == emoteNum) && game.RoundNo == 10)
             {
                 status.WhoToAttackThisTurn = new List<Guid>();
                 await _help.SendMsgAndDeleteItAfterRound(player, "Выбранный игрок недоступен в связи с баном за нарушение правил");

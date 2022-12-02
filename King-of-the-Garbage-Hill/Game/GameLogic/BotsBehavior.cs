@@ -77,19 +77,19 @@ public class BotsBehavior : IServiceSingleton
                     overwrite = true;
 
             //если бот на последнем месте - ждет 20
-            if (bot.Status.PlaceAtLeaderBoard == 6 && bot.GameCharacter.GetMoral() < 20 && !overwrite)
+            if (bot.Status.GetPlaceAtLeaderBoard() == 6 && bot.GameCharacter.GetMoral() < 20 && !overwrite)
                 return;
             //если бот на 5м месте то ждет 13
-            if (bot.Status.PlaceAtLeaderBoard == 5 && bot.GameCharacter.GetMoral() < 13 && !overwrite)
+            if (bot.Status.GetPlaceAtLeaderBoard() == 5 && bot.GameCharacter.GetMoral() < 13 && !overwrite)
                 return;
             //если бот на 4м месте то ждет 8
-            if (bot.Status.PlaceAtLeaderBoard == 4 && bot.GameCharacter.GetMoral() < 8 && !overwrite)
+            if (bot.Status.GetPlaceAtLeaderBoard() == 4 && bot.GameCharacter.GetMoral() < 8 && !overwrite)
                 return;
             //если бот на 3м месте то ждет 5
-            if (bot.Status.PlaceAtLeaderBoard == 3 && bot.GameCharacter.GetMoral() < 5 && !overwrite)
+            if (bot.Status.GetPlaceAtLeaderBoard() == 3 && bot.GameCharacter.GetMoral() < 5 && !overwrite)
                 return;
             //если бот на 2м месте то ждет 3
-            if (bot.Status.PlaceAtLeaderBoard == 2 && bot.GameCharacter.GetMoral() < 3 && !overwrite)
+            if (bot.Status.GetPlaceAtLeaderBoard() == 2 && bot.GameCharacter.GetMoral() < 3 && !overwrite)
                 return;
         }
         //end логика до 10го раунда
@@ -158,9 +158,9 @@ public class BotsBehavior : IServiceSingleton
 
             if (bot.GameCharacter.Name is "Вампур")
             {
-                if (bot.Status.PlaceAtLeaderBoard >= 5)
+                if (bot.Status.GetPlaceAtLeaderBoard() >= 5)
                     return;
-                if (bot.Status.PlaceAtLeaderBoard <= 2)
+                if (bot.Status.GetPlaceAtLeaderBoard() <= 2)
                 {
                     if (bot.GameCharacter.GetMoral() < 13)
                         return;
@@ -179,16 +179,16 @@ public class BotsBehavior : IServiceSingleton
                     overwrite = true;
 
             //если бот на последнем месте - ждет 20
-            if (bot.Status.PlaceAtLeaderBoard == 6 && bot.GameCharacter.GetMoral() < 20 && !overwrite)
+            if (bot.Status.GetPlaceAtLeaderBoard() == 6 && bot.GameCharacter.GetMoral() < 20 && !overwrite)
                 return;
             //если бот на 5м месте то ждет 13
-            if (bot.Status.PlaceAtLeaderBoard == 5 && bot.GameCharacter.GetMoral() < 13 && !overwrite)
+            if (bot.Status.GetPlaceAtLeaderBoard() == 5 && bot.GameCharacter.GetMoral() < 13 && !overwrite)
                 return;
             //если бот на 4м месте то ждет 8
-            if (bot.Status.PlaceAtLeaderBoard == 4 && bot.GameCharacter.GetMoral() < 8 && !overwrite)
+            if (bot.Status.GetPlaceAtLeaderBoard() == 4 && bot.GameCharacter.GetMoral() < 8 && !overwrite)
                 return;
             //если бот на 3м месте то ждет 5
-            if (bot.Status.PlaceAtLeaderBoard == 3 && bot.GameCharacter.GetMoral() < 5 && !overwrite)
+            if (bot.Status.GetPlaceAtLeaderBoard() == 3 && bot.GameCharacter.GetMoral() < 5 && !overwrite)
                 return;
         }
         //end логика до 10го раунда
@@ -223,7 +223,7 @@ public class BotsBehavior : IServiceSingleton
     public void HandleBotMoral(GamePlayerBridgeClass bot, GameClass game)
     {
 
-        if (bot.Status.PlaceAtLeaderBoard <= 2)
+        if (bot.Status.GetPlaceAtLeaderBoard() <= 2)
         {
             if (bot.GameCharacter.GetMoral() < 5)
             {
@@ -377,14 +377,14 @@ public class BotsBehavior : IServiceSingleton
                 }
 
                 //if player is first
-                if (target.Player.Status.PlaceAtLeaderBoard == 1)
+                if (target.Player.Status.GetPlaceAtLeaderBoard() == 1)
                 {
                     target.AttackPreference -= isTargetFirstNumber;
                     isTargetFirst = true;
                 }
 
                 //if player is second when we are first
-                if (bot.Status.PlaceAtLeaderBoard == 1 && target.Player.Status.PlaceAtLeaderBoard == 2)
+                if (bot.Status.GetPlaceAtLeaderBoard() == 1 && target.Player.Status.GetPlaceAtLeaderBoard() == 2)
                 {
                     target.AttackPreference -= isTargetSecondWhenBotFirstNumber;
                     isTargetSecondWhenBotFirst = true;
@@ -773,8 +773,8 @@ public class BotsBehavior : IServiceSingleton
                         break;
 
                     case "Братишка":
-                        if (target.PlaceAtLeaderBoard() == bot.Status.PlaceAtLeaderBoard + 1 ||
-                            target.PlaceAtLeaderBoard() == bot.Status.PlaceAtLeaderBoard - 1)
+                        if (target.PlaceAtLeaderBoard() == bot.Status.GetPlaceAtLeaderBoard() + 1 ||
+                            target.PlaceAtLeaderBoard() == bot.Status.GetPlaceAtLeaderBoard() - 1)
                         {
                             if (target.AttackPreference > 1) target.AttackPreference += 2;
 
@@ -820,7 +820,7 @@ public class BotsBehavior : IServiceSingleton
                                 {
                                     if (target.AttackPreference > 3)
                                     {
-                                        mandatoryAttack = target.Player.Status.PlaceAtLeaderBoard;
+                                        mandatoryAttack = target.Player.Status.GetPlaceAtLeaderBoard();
                                     }
                                     else
                                     {
@@ -844,7 +844,7 @@ public class BotsBehavior : IServiceSingleton
 
                             if (nonFiendsLeft >= roundsLeft)
                                 if (allNotFriends is { Count: > 0 })
-                                    mandatoryAttack = allNotFriends.FirstOrDefault().Player.Status.PlaceAtLeaderBoard;
+                                    mandatoryAttack = allNotFriends.FirstOrDefault().Player.Status.GetPlaceAtLeaderBoard();
                         
 
                         if (game.RoundNo == 1 && target.Player.GameCharacter.Name == "Осьминожка")
@@ -912,7 +912,7 @@ public class BotsBehavior : IServiceSingleton
 
                             //Под претендентом автоматически выбирает цель с наибольшим значением. 
                             var sorted = allTargets.OrderByDescending(x => x.AttackPreference).ToList();
-                            mandatoryAttack = sorted.First().Player.Status.PlaceAtLeaderBoard;
+                            mandatoryAttack = sorted.First().Player.Status.GetPlaceAtLeaderBoard();
                         }
 
                         break;
@@ -1182,7 +1182,7 @@ public class BotsBehavior : IServiceSingleton
                             else if (game.RoundNo < 5)
                             {
                                 var teammates = game.GetTeammates(bot);
-                                mandatoryAttack = game.PlayersList.Find(x => x.GetPlayerId() == teammates[0]).Status.PlaceAtLeaderBoard;
+                                mandatoryAttack = game.PlayersList.Find(x => x.GetPlayerId() == teammates[0]).Status.GetPlaceAtLeaderBoard();
                             }
                             else
                             {
@@ -1418,7 +1418,7 @@ public class BotsBehavior : IServiceSingleton
                         var siriFriend = allTargets.Find(x => x.GetPlayerId() == siriFriends?.FriendList.FirstOrDefault());
                         if(siriFriend != null)
                             if (siriFriend.Player.GameCharacter.Name != "Осьминожка")
-                                mandatoryAttack = siriFriend.Player.Status.PlaceAtLeaderBoard;
+                                mandatoryAttack = siriFriend.Player.Status.GetPlaceAtLeaderBoard();
                     }
                     */
 
@@ -1513,7 +1513,7 @@ public class BotsBehavior : IServiceSingleton
                 totalPreference += target.AttackPreference;
                 var rounded = (int)Math.Ceiling(totalPreference);
                 if (randomNumber > rounded || isAttacked) continue;
-                whoToAttack = target.Player.Status.PlaceAtLeaderBoard;
+                whoToAttack = target.Player.Status.GetPlaceAtLeaderBoard();
                 isAttacked = await AttackPlayer(bot, whoToAttack);
             }
 
@@ -1521,14 +1521,14 @@ public class BotsBehavior : IServiceSingleton
             if (!isAttacked && isBlock == noBlock)
             {
                 var players = allTargets.ToList();
-                whoToAttack = players[_rand.Random(0, players.Count - 1)].Player.Status.PlaceAtLeaderBoard;
+                whoToAttack = players[_rand.Random(0, players.Count - 1)].Player.Status.GetPlaceAtLeaderBoard();
 
                 if (maxRandomNumber > 0)
                     await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340)
                         .SendMessageAsync(
                             $"**{bot.GameCharacter.Name}** Поставил блок, а ему нельзя. {randomNumber}/{maxRandomNumber} <= {totalPreference}\n" +
                             $"Round: {game.RoundNo}\n" +
-                            $"Randomly Attacking {allTargets.Find(x => x.Player.Status.PlaceAtLeaderBoard == whoToAttack).Player.GameCharacter.Name}");
+                            $"Randomly Attacking {allTargets.Find(x => x.Player.Status.GetPlaceAtLeaderBoard() == whoToAttack).Player.GameCharacter.Name}");
 
                 await AttackPlayer(bot, whoToAttack);
             }
@@ -1657,7 +1657,7 @@ public class BotsBehavior : IServiceSingleton
 
         public int PlaceAtLeaderBoard()
         {
-            return Player.Status.PlaceAtLeaderBoard;
+            return Player.Status.GetPlaceAtLeaderBoard();
         }
 
         public Guid GetPlayerId()

@@ -497,8 +497,9 @@ Speed => Strength
                 }
                 //end round 3
 
-
-                var moral = player.Status.PlaceAtLeaderBoard - playerIamAttacking.Status.PlaceAtLeaderBoard;
+                
+                var moral = player.Status.GetPlaceAtLeaderBoard() - playerIamAttacking.Status.GetPlaceAtLeaderBoard();
+                var moralDebugText = $"{player.DiscordUsername}: {player.Status.GetPlaceAtLeaderBoard()} **--** {playerIamAttacking.DiscordUsername}: {playerIamAttacking.Status.GetPlaceAtLeaderBoard()} **==** ";
 
                 //octopus  // playerIamAttacking is octopus
                 if (pointsWined <= 0) 
@@ -551,13 +552,13 @@ Speed => Strength
                     if (!teamMate)
                         player.GameCharacter.Justice.IsWonThisRound = true;
 
-
-                    if (player.Status.PlaceAtLeaderBoard > playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
+                    // -5 = 1 - 6
+                    if (player.Status.GetPlaceAtLeaderBoard() > playerIamAttacking.Status.GetPlaceAtLeaderBoard() && game.RoundNo > 1)
                     {
                         if (!teamMate)
                         {
-                            player.FightCharacter.AddMoral(moral, "Победа");
-                            playerIamAttacking.FightCharacter.AddMoral(moral * -1, "Поражение");
+                            player.GameCharacter.AddMoral(moral, "Победа" + $" ({moralDebugText}{moral})");
+                            playerIamAttacking.GameCharacter.AddMoral(moral * -1, "Поражение" + $" ({moralDebugText}{moral * -1})");
                         }
                     }
 
@@ -572,12 +573,12 @@ Speed => Strength
                     var range = player.GameCharacter.GetSpeedQualityResistInt();
                     range -= playerIamAttacking.GameCharacter.GetSpeedQualityKiteBonus();
 
-                    var placeDiff = player.Status.PlaceAtLeaderBoard - playerIamAttacking.Status.PlaceAtLeaderBoard;
+                    var placeDiff = player.Status.GetPlaceAtLeaderBoard() - playerIamAttacking.Status.GetPlaceAtLeaderBoard();
                     if (placeDiff < 0)
                         placeDiff *= -1;
 
                     //Много выебывается
-                    if (playerIamAttacking.GameCharacter.Name == "Mit*suki*" && playerIamAttacking.Status.PlaceAtLeaderBoard == 1 && playerIamAttacking.GameCharacter.GetSkill() < player.GameCharacter.GetSkill())
+                    if (playerIamAttacking.GameCharacter.Name == "Mit*suki*" && playerIamAttacking.Status.GetPlaceAtLeaderBoard() == 1 && playerIamAttacking.GameCharacter.GetSkill() < player.GameCharacter.GetSkill())
                     {
                         playerIamAttacking.Status.AddInGamePersonalLogs("Много выебывается: Да блять, я не бущенный!\n");
                         playerIamAttacking.FightCharacter.HandleDrop(playerIamAttacking.DiscordUsername, game);
@@ -613,12 +614,12 @@ Speed => Strength
                     if (!teamMate)
                         playerIamAttacking.GameCharacter.Justice.IsWonThisRound = true;
 
-                    if (player.Status.PlaceAtLeaderBoard < playerIamAttacking.Status.PlaceAtLeaderBoard && game.RoundNo > 1)
+                    if (player.Status.GetPlaceAtLeaderBoard() < playerIamAttacking.Status.GetPlaceAtLeaderBoard() && game.RoundNo > 1)
                     {
                         if (!teamMate)
                         {
-                            player.FightCharacter.AddMoral(moral, "Поражение");
-                            playerIamAttacking.FightCharacter.AddMoral(moral * -1, "Победа");
+                            player.GameCharacter.AddMoral(moral, "Поражение" + $" ({moralDebugText}{moral})");
+                            playerIamAttacking.GameCharacter.AddMoral(moral * -1, "Победа" + $" ({moralDebugText}{moral * -1})");
                         }
                     }
 
@@ -794,14 +795,14 @@ Speed => Strength
                 game.PlayersList[i].Status.LvlUpPoints++;
                 game.PlayersList[i].Status.MoveListPage = 3;
             }
-            game.PlayersList[i].Status.PlaceAtLeaderBoard = i + 1;
+            game.PlayersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
             game.PlayersList[i].GameCharacter.RollSkillTargetForNextRound();
-            game.PlayersList[i].Status.PlaceAtLeaderBoardHistory.Add(new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo, game.PlayersList[i].Status.PlaceAtLeaderBoard));
+            game.PlayersList[i].Status.PlaceAtLeaderBoardHistory.Add(new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo, game.PlayersList[i].Status.GetPlaceAtLeaderBoard()));
         }
         //end sorting
 
         //Quality Drop
-        var droppedPlayers = game.PlayersList.Where(x => x.GameCharacter.GetStrengthQualityDropDebuff() + 1 == game.RoundNo && x.Status.PlaceAtLeaderBoard != 6).OrderByDescending(x => x.Status.PlaceAtLeaderBoard).ToList();
+        var droppedPlayers = game.PlayersList.Where(x => x.GameCharacter.GetStrengthQualityDropDebuff() + 1 == game.RoundNo && x.Status.GetPlaceAtLeaderBoard() != 6).OrderByDescending(x => x.Status.GetPlaceAtLeaderBoard()).ToList();
         foreach (var player in droppedPlayers)
         {
             var oldIndex = game.PlayersList.IndexOf(player);
@@ -818,7 +819,7 @@ Speed => Strength
         {
             for (var i = 0; i < game.PlayersList.Count; i++)
             {
-                game.PlayersList[i].Status.PlaceAtLeaderBoard = i + 1;
+                game.PlayersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
             }
         }
         //end //Quality Drop

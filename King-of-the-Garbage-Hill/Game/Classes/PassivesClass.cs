@@ -95,6 +95,7 @@ public class PassivesClass
     public Gleb.GlebTeaClass GlebTea { get; set; } = new();
     public WhenToTriggerClass GlebTeaTriggeredWhen { get; set; } = new();
     public FriendsClass GlebSkipFriendList { get; set; } = new();
+    public FriendsClass GlebSkipFriendListDone { get; set; } = new();
 
     public HardKitty.DoebatsyaClass HardKittyDoebatsya { get; set; } = new();
     public HardKitty.LonelinessClass HardKittyLoneliness { get; set; } = new();

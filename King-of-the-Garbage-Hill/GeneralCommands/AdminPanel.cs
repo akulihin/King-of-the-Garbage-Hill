@@ -166,7 +166,7 @@ public class AdminPanel : ModuleBaseCustom
         playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
 
         //выдаем место в таблице
-        for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
+        for (var i = 0; i < playersList.Count; i++) playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
 
         //отправить меню игры
         foreach (var player in playersList) await _upd.WaitMess(player, playersList);
@@ -373,7 +373,7 @@ public class AdminPanel : ModuleBaseCustom
                 break;
             case "mr":
                 player!.GameCharacter.SetMoral(number, "Читы");
-                player!.FightCharacter.SetMoral(number, "Читы", false);
+                //player!.FightCharacter.SetMoral(number, "Читы", false);
                 break;
             default:
                 return;

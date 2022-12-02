@@ -83,7 +83,7 @@ public class CheckIfReady : IServiceSingleton
         }
 
         //if lost phrases
-        foreach (var player in game.PlayersList.Where(x => x.Status.PlaceAtLeaderBoard != 1))
+        foreach (var player in game.PlayersList.Where(x => x.Status.GetPlaceAtLeaderBoard() != 1))
             switch (player.GameCharacter.Name)
             {
                 case "HardKitty":
@@ -134,8 +134,8 @@ public class CheckIfReady : IServiceSingleton
         {
             if(game.PlayersList.Count  == 6)
                 if (playerWhoWon.Status.PlaceAtLeaderBoardHistory.Find(x => x.GameRound == 10)!.Place != 1)
-                    if (game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 1)!.Status.GetScore() !=
-                        game.PlayersList.Find(x => x.Status.PlaceAtLeaderBoard == 2)!.Status.GetScore())
+                    if (game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == 1)!.Status.GetScore() !=
+                        game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == 2)!.Status.GetScore())
                         game.AddGlobalLogs($"**{playerWhoWon.DiscordUsername}** вырывает **очко** на последних секундах!");
         }
         catch
@@ -165,7 +165,7 @@ public class CheckIfReady : IServiceSingleton
         //sort
         game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
         for (var k = 0; k < game.PlayersList.Count; k++)
-            game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
+            game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);
         //end sorting
 
         try
@@ -179,7 +179,7 @@ public class CheckIfReady : IServiceSingleton
 
 
                 var enemy = awdkaTroll.EnemyList.Find(x =>
-                    x.EnemyId == game.PlayersList.Find(y => y.Status.PlaceAtLeaderBoard == 1)!.GetPlayerId());
+                    x.EnemyId == game.PlayersList.Find(y => y.Status.GetPlaceAtLeaderBoard() == 1)!.GetPlayerId());
 
                 var trolledText = "";
                 if (enemy != null)
@@ -225,7 +225,7 @@ public class CheckIfReady : IServiceSingleton
                 //sort
                 game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
                 for (var k = 0; k < game.PlayersList.Count; k++)
-                    game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
+                    game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);
                 //end sorting
 
                 if (enemy != null && game.PlayersList.First().GameCharacter.Name == "AWDKA")
@@ -242,7 +242,7 @@ public class CheckIfReady : IServiceSingleton
 
         foreach (var t in game.PlayersList)
             t.Status.PlaceAtLeaderBoardHistory.Add(
-                new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo, t.Status.PlaceAtLeaderBoard));
+                new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo, t.Status.GetPlaceAtLeaderBoard()));
 
         HandlePostGameEvents(game);
 
@@ -337,19 +337,19 @@ public class CheckIfReady : IServiceSingleton
 
             account.TotalPlays++;
             if (account.TotalPlays > 10) account.IsNewPlayer = false;
-            account.TotalWins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong)0;
+            account.TotalWins += player.Status.GetPlaceAtLeaderBoard() == 1 ? 1 : (ulong)0;
             account.MatchHistory.Add(
                 new DiscordAccountClass.MatchHistoryClass(player.GameCharacter.Name, player.Status.GetScore(),
-                    player.Status.PlaceAtLeaderBoard));
+                    player.Status.GetPlaceAtLeaderBoard()));
 
             /*
-            account.ZbsPoints += (player.Status.PlaceAtLeaderBoard - 6) * -1 + 1;
-            if (player.Status.PlaceAtLeaderBoard == 1)
+            account.ZbsPoints += (player.Status.GetPlaceAtLeaderBoard() - 6) * -1 + 1;
+            if (player.Status.GetPlaceAtLeaderBoard() == 1)
                 account.ZbsPoints += 4;
             */
 
             var zbsPointsToGive = 0;
-            switch (player.Status.PlaceAtLeaderBoard)
+            switch (player.Status.GetPlaceAtLeaderBoard())
             {
                 case 1:
                     zbsPointsToGive = 100;
@@ -389,21 +389,21 @@ public class CheckIfReady : IServiceSingleton
             {
                 account.CharacterStatistics.Add(
                     new DiscordAccountClass.CharacterStatisticsClass(player.GameCharacter.Name,
-                        player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong)0));
+                        player.Status.GetPlaceAtLeaderBoard() == 1 ? 1 : (ulong)0));
             }
             else
             {
                 characterStatistics.Plays++;
-                characterStatistics.Wins += player.Status.PlaceAtLeaderBoard == 1 ? 1 : (ulong)0;
+                characterStatistics.Wins += player.Status.GetPlaceAtLeaderBoard() == 1 ? 1 : (ulong)0;
             }
 
             var performanceStatistics =
                 account.PerformanceStatistics.Find(x =>
-                    x.Place == player.Status.PlaceAtLeaderBoard);
+                    x.Place == player.Status.GetPlaceAtLeaderBoard());
 
             if (performanceStatistics == null)
                 account.PerformanceStatistics.Add(
-                    new DiscordAccountClass.PerformanceStatisticsClass(player.Status.PlaceAtLeaderBoard));
+                    new DiscordAccountClass.PerformanceStatisticsClass(player.Status.GetPlaceAtLeaderBoard()));
             else
                 performanceStatistics.Times++;
             try
@@ -435,7 +435,7 @@ public class CheckIfReady : IServiceSingleton
 
             winrate!.GameTimes++;
 
-            switch (player.Status.PlaceAtLeaderBoard)
+            switch (player.Status.GetPlaceAtLeaderBoard())
             {
                 case 1:
                     winrate.Top1++;
@@ -649,7 +649,7 @@ public class CheckIfReady : IServiceSingleton
             }
 
             //выдаем место в таблице
-            for (var k = 0; k < game.PlayersList.Count; k++) game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
+            for (var k = 0; k < game.PlayersList.Count; k++) game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);
             //end //AWDKA last
 
             foreach (var t in players.Where(x => x.IsBot() || x.Status.IsAutoMove))
@@ -676,7 +676,7 @@ public class CheckIfReady : IServiceSingleton
             }
 
             //выдаем место в таблице
-            for (var k = 0; k < game.PlayersList.Count; k++) game.PlayersList[k].Status.PlaceAtLeaderBoard = k + 1;
+            for (var k = 0; k < game.PlayersList.Count; k++) game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);
             //end //AWDKA last
 
 

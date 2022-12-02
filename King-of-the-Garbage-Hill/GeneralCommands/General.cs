@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
@@ -339,7 +340,7 @@ public class General : ModuleBaseCustom
         playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
 
         //выдаем место в таблице
-        for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
+        for (var i = 0; i < playersList.Count; i++) playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
 
 
 
@@ -543,7 +544,7 @@ public class General : ModuleBaseCustom
             playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
 
             //выдаем место в таблице
-            for (var i = 0; i < playersList.Count; i++) playersList[i].Status.PlaceAtLeaderBoard = i + 1;
+            for (var i = 0; i < playersList.Count; i++) playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
 
             //отправить меню игры
             foreach (var player in playersList) await _upd.WaitMess(player, playersList);
@@ -617,7 +618,7 @@ public class General : ModuleBaseCustom
             // .WithTitle("My internal statistics")
             .WithColor(Color.DarkGreen)
             .WithCurrentTimestamp()
-            .WithFooter("Версия: 2.5 ДЕЛЬТАПЛАН")
+            .WithFooter("Версия: 2.5 АНУБУРАК")
             .WithDescription("**Циферки:**\n" +
                              $"Работает: {time.Days}д {time.Hours}ч {time.Minutes}м + {time:ss\\.fff}с\n" +
                              $"Всего команд: {_global.TotalCommandsIssued}\n" +
