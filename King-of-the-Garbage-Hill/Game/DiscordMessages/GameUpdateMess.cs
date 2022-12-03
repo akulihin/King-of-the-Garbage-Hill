@@ -513,7 +513,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var phrases = false;
         var orderedList = new List<string>
         {
-            "|>boole<|", "Ты напал", "Ты поставил", "Поражение:", "Победа:", "Обмен Морали", "Ты улучшил", "Читы", "Справедливость", "Класс:", "Мишень", "Cкилла", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**"
+             "Ты улучшил", "|>Phrase<|", "Обмен Морали", "Ты использовал", "Ты напал", "Ты поставил", "|>PhraseStatChange<|", "Поражение:", "Победа:", "Читы", "Справедливость", "Класс:", "Мишень", "Cкилла", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**"
         };
 
         foreach (var keyword in orderedList)
@@ -593,14 +593,26 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     break;
                 }
 
-                case "|>boole<|" when text.Contains(keyword):
+                case "|>Phrase<|" when text.Contains(keyword):
                 {
                     phrases = true;
                     var jewSplit = text.Split('\n');
                     var temp = jewSplit.Where(line => !line.Contains(keyword)).Aggregate("",
-                        (current, line) => current + line.Replace("|>boole<|", "") + "\n");
+                        (current, line) => current + line.Replace(keyword, "") + "\n");
                     temp = jewSplit.Where(line => line.Contains(keyword)).Aggregate(temp,
-                        (current, line) => current + line.Replace("|>boole<|", "") + "\n");
+                        (current, line) => current + line.Replace(keyword, "") + "\n");
+
+                    text = temp;
+                    break;
+                }
+
+                case "|>PhraseStatChange<|" when text.Contains(keyword):
+                {
+                    var jewSplit = text.Split('\n');
+                    var temp = jewSplit.Where(line => !line.Contains(keyword)).Aggregate("",
+                        (current, line) => current + line.Replace(keyword, "") + "\n");
+                    temp = jewSplit.Where(line => line.Contains(keyword)).Aggregate(temp,
+                        (current, line) => current + line.Replace(keyword, "") + "\n");
 
                     text = temp;
                     break;

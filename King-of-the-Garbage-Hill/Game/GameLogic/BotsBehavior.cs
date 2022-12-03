@@ -857,7 +857,7 @@ public class BotsBehavior : IServiceSingleton
                         if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == target.GetPlayerId()))
                         {
                             if (target.AttackPreference >= 5)
-                                target.AttackPreference += 3;
+                                target.AttackPreference += 10;
 
                             target.AttackPreference += 4;
                             

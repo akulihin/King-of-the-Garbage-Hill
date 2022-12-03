@@ -275,7 +275,7 @@ public class CharacterPassives : IServiceSingleton
                 {
                     // target.Status.IsBlock = false;
                     me.Status.IsAbleToWin = false;
-                    me.Status.IsArmorBreak = false;
+                    me.Status.IsArmorBreak = true;
                     var tolya = target.Passives.TolyaRammusTimes;
                     tolya.FriendList.Add(me.GetPlayerId());
                 }

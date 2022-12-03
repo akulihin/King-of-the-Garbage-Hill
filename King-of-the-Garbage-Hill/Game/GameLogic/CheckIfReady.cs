@@ -319,10 +319,11 @@ public class CheckIfReady : IServiceSingleton
                 if(game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList.First().Status.GetScore()).Count == 1)
 #pragma warning disable CS4014
                     game.PlayersList.First().DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync("__**Победа! Теперь ты Король этой Мусорной Горы. Пока-что...**__");
+            game.PlayersList.First().DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync("https://tenor.com/bELKU.gif");
 #pragma warning restore CS4014
         }
 
-        //todo: need to redo this system
+        //todo: need to redo this system    
         //_finishedGameLog.CreateNewLog(game);
 
 
