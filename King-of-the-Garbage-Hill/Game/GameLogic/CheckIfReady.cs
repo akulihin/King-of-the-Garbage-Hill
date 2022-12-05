@@ -214,7 +214,7 @@ public class CheckIfReady : IServiceSingleton
                         var found = game.PlayersList.Find(x => predict.PlayerId == x.GetPlayerId() && predict.CharacterName == x.GameCharacter.Name);
                         if (found != null)
                         {
-                            bonusTrolling += 2;
+                            bonusTrolling += 1;
                         }
                     }
 
@@ -316,11 +316,14 @@ public class CheckIfReady : IServiceSingleton
                     ? "\n**Ничья**"
                     : $"\n**{game.PlayersList.First().DiscordUsername}** победил, играя за **{game.PlayersList.First().GameCharacter.Name}**");
             if (!game.PlayersList.First().IsBot())
-                if(game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList.First().Status.GetScore()).Count == 1)
+                if (game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList.First().Status.GetScore())
+                        .Count == 1)
+                {
 #pragma warning disable CS4014
                     game.PlayersList.First().DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync("__**Победа! Теперь ты Король этой Мусорной Горы. Пока-что...**__");
-            game.PlayersList.First().DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync("https://tenor.com/bELKU.gif");
+                    game.PlayersList.First().DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync("https://tenor.com/bELKU.gif");
 #pragma warning restore CS4014
+                }
         }
 
         //todo: need to redo this system    
@@ -411,7 +414,7 @@ public class CheckIfReady : IServiceSingleton
             {
                 if (!player.IsBot())
                     await player.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync(
-                        $"Спасибо за игру!\nВы заработали **{zbsPointsToGive}** ZBS points!\n\nВы можете потратить их в магазине - `*store`\nА вы знали? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганув его! Например `*st @Boole`");
+                        $"Спасибо за игру!\nВы заработали **{zbsPointsToGive}** ZBS points!\n\nВы можете потратить их в магазине - `*store`\nА вы заметили? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганув его! Например `*st @Boole`");
             }
             catch (Exception exception)
             {
@@ -478,7 +481,7 @@ public class CheckIfReady : IServiceSingleton
                 index++;
             }
 
-            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(text);
+            await _global.Client.GetGuild(561282595799826432).GetTextChannel(1049047168650055750).SendMessageAsync(text);
         }
 
         //elo winrate
@@ -496,7 +499,7 @@ public class CheckIfReady : IServiceSingleton
                 index++;
             }
             text += "**--------------------------------------------------------------------**";
-            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(text);
+            await _global.Client.GetGuild(561282595799826432).GetTextChannel(1049047168650055750).SendMessageAsync(text);
         }
         //elo winrate end
 
@@ -504,7 +507,7 @@ public class CheckIfReady : IServiceSingleton
         {
             if (game.GameMode == "ShowResult")
             {
-                var channel = _global.Client.GetGuild(561282595799826432).GetTextChannel(930706511632691222);
+                var channel = _global.Client.GetGuild(561282595799826432).GetTextChannel(1049047168650055750);
                 await channel.SendMessageAsync($"Game #{game.GameId}\n" +
                                                $"Vesrion: {game.GameVersion}\n" +
                                                $"1. **{game.PlayersList.First().GameCharacter.Name} - {game.PlayersList.First().Status.GetScore()}**\n" +

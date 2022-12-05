@@ -482,7 +482,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         //  await socketMsg.DeleteAsync();
         await globalAccount.SendMessageAsync(
-            "Спасибо за игру!\nА вы знали? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганув его! Например `*st @Boole`");
+            "Спасибо за игру!\nА вы заметили? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганув его! Например `*st @Boole`");
     }
 
     /*
@@ -510,10 +510,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         passive.PassiveName != "Еврей" && passive.PassiveName != "2kxaoc").Aggregate(current1,
                         (current, passive) => current.Replace($"{passive.PassiveName}", $"❓ {passive.PassiveName}")));
 
-        var phrases = false;
+        var separationLine = false;
         var orderedList = new List<string>
         {
-             "Ты улучшил", "|>Phrase<|", "Обмен Морали", "Ты использовал", "Ты напал", "Ты поставил", "|>PhraseStatChange<|", "Поражение:", "Победа:", "Читы", "Справедливость", "Класс:", "Мишень", "Cкилла", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**"
+             "Ты улучшил", "|>PhraseBeforeFight<|",  "Обмен Морали", "Ты использовал Авто Ход", "Ты напал на", "Ты поставил блок", "TOO GOOD", "|>Phrase<|", "|>SeparationLine<|", "Поражение:", "Победа:", "Читы", "Справедливость", "Класс:", "Мишень", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**"
         };
 
         foreach (var keyword in orderedList)
@@ -592,10 +592,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     text = temp;
                     break;
                 }
-
+                case "|>SeparationLine<|":
+                {
+                    separationLine = true;
+                    break;
+                }
                 case "|>Phrase<|" when text.Contains(keyword):
                 {
-                    phrases = true;
                     var jewSplit = text.Split('\n');
                     var temp = jewSplit.Where(line => !line.Contains(keyword)).Aggregate("",
                         (current, line) => current + line.Replace(keyword, "") + "\n");
@@ -606,17 +609,6 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     break;
                 }
 
-                case "|>PhraseStatChange<|" when text.Contains(keyword):
-                {
-                    var jewSplit = text.Split('\n');
-                    var temp = jewSplit.Where(line => !line.Contains(keyword)).Aggregate("",
-                        (current, line) => current + line.Replace(keyword, "") + "\n");
-                    temp = jewSplit.Where(line => line.Contains(keyword)).Aggregate(temp,
-                        (current, line) => current + line.Replace(keyword, "") + "\n");
-
-                    text = temp;
-                    break;
-                }
                 default:
                     if (text.Contains(keyword))
                     {
@@ -632,8 +624,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     break;
             }
 
-            if (!phrases) continue;
-            phrases = false;
+            if (!separationLine) continue;
+            separationLine = false;
             text += "　\n";
         }
 
@@ -1055,7 +1047,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             return new ButtonBuilder($"Обменять 2 Морали на 6 Cкилла{extraText}", "skill", ButtonStyle.Secondary,
                 isDisabled: disabled);
         if (player.GameCharacter.GetMoral() >= 1)
-            return new ButtonBuilder($"Обменять 1 Морали на 4 Cкилла{extraText}", "skill", ButtonStyle.Secondary,
+            return new ButtonBuilder($"Обменять 1 Морали на 2 Cкилла{extraText}", "skill", ButtonStyle.Secondary,
                 isDisabled: disabled);
 
 

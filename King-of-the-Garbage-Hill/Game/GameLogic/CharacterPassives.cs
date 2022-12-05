@@ -148,6 +148,7 @@ public class CharacterPassives : IServiceSingleton
     }
 
 
+
     //handle during fight
     public void HandleDefenseBeforeFight(GamePlayerBridgeClass target, GamePlayerBridgeClass me, GameClass game)
     {
@@ -186,7 +187,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         сraboRackShell.FriendList.Add(me.GetPlayerId());
                         сraboRackShell.CurrentAttacker = me.GetPlayerId();
-                        target.GameCharacter.AddMoral(3, "Панцирь");
+                        target.FightCharacter.AddMoral(3, "Панцирь");
                         target.FightCharacter.AddExtraSkill(33, "Панцирь");
                         target.Status.IsBlock = true;
                     }
@@ -380,7 +381,7 @@ public class CharacterPassives : IServiceSingleton
                 if (glebSkipFriendList.FriendList.Contains(me.GetPlayerId()) && !glebSkipFriendListDone.FriendList.Contains(me.GetPlayerId()))
                 {
                     glebSkipFriendListDone.FriendList.Add(me.GetPlayerId());
-                    me.GameCharacter.AddMoral(9, "Я щас приду", false);
+                    me.FightCharacter.AddMoral(9, "Я щас приду", false);
                     me.Status.AddInGamePersonalLogs("Я щас приду: +9 *Морали*. Вы дождались Глеба!!! Празднуем!");
                 }
 
@@ -731,7 +732,7 @@ public class CharacterPassives : IServiceSingleton
                 if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                     if (target.Passives.WeedwickWeed > 0)
                     {
-                        me.GameCharacter.AddMoral(target.Passives.WeedwickWeed, "Weed");
+                        me.FightCharacter.AddMoral(target.Passives.WeedwickWeed, "Weed");
 
                         switch (target.Passives.WeedwickWeed)
                         {
@@ -882,7 +883,7 @@ public class CharacterPassives : IServiceSingleton
                 //Падальщик
                 if (target.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
                     if (me.Status.IsWonThisCalculation == target.GetPlayerId())
-                        me.GameCharacter.AddMoral(3, "Падальщик");
+                        me.FightCharacter.AddMoral(3, "Падальщик");
                 //end Падальщик
 
                 //Вампуризм
@@ -1186,7 +1187,7 @@ public class CharacterPassives : IServiceSingleton
                     if (find != null && find.RoundNumber != game.RoundNo)
                     {
                         player.Status.AddRegularPoints(2, "Месть");
-                        player.GameCharacter.AddMoral(3, "Месть");
+                        player.FightCharacter.AddMoral(3, "Месть");
                         player.FightCharacter.AddPsyche(1, "Месть");
                         find.IsUnique = false;
                         game.Phrases.MylorikRevengeVictoryPhrase.SendLog(player, true);
@@ -1243,7 +1244,7 @@ public class CharacterPassives : IServiceSingleton
                     var lePuska = player.Passives.LeCrispImpact;
 
 
-                    player.GameCharacter.AddMoral(lePuska.ImpactTimes + 1, "Импакт");
+                    player.FightCharacter.AddMoral(lePuska.ImpactTimes + 1, "Импакт");
                 }
 
                 //Импакт
@@ -1335,7 +1336,7 @@ public class CharacterPassives : IServiceSingleton
                     var moral = me.Status.GetPlaceAtLeaderBoard() - game.PlayersList
                         .Find(x => x.GetPlayerId() == me.Status.IsWonThisCalculation).Status.GetPlaceAtLeaderBoard();
                     if (moral > 0)
-                        me.GameCharacter.AddMoral(moral, "Привет со дна");
+                        me.FightCharacter.AddMoral(moral, "Привет со дна");
                 }
                 //end привет со дна*/
 
@@ -1379,6 +1380,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             player.Status.AddRegularPoints(3, "3-0 обоссан");
                             player.FightCharacter.AddExtraSkill(30, "3-0 обоссан");
+                            player.FightCharacter.AddMoral(3, "3-0 обоссан");
 
 
                             var enemyAcc = game.PlayersList.Find(x =>
@@ -1549,6 +1551,7 @@ public class CharacterPassives : IServiceSingleton
     //end handle during fight
 
 
+
     //after all fight
     public async Task HandleEndOfRound(GameClass game)
     {
@@ -1579,12 +1582,11 @@ public class CharacterPassives : IServiceSingleton
                     for (var i = 0; i < game.PlayersList.Count; i++)
                     {
                         var t = game.PlayersList[i];
-                        if (t.GameCharacter.GetIntelligence() == player.GameCharacter.GetIntelligence() ||
-                            t.GameCharacter.GetPsyche() == player.GameCharacter.GetPsyche())
+                        if (t.GameCharacter.GetIntelligence() == player.GameCharacter.GetIntelligence() || t.GameCharacter.GetPsyche() == player.GameCharacter.GetPsyche())
                         {
                             var tigr = player.Passives.TigrTwoBetterList;
 
-                            if (!tigr.FriendList.Contains(t.GetPlayerId()))
+                            if (!tigr.FriendList.Contains(t.GetPlayerId()) && tigr.FriendList.Count < 4)
                             {
                                 tigr.FriendList.Add(t.GetPlayerId());
                                 // me.Status.AddRegularPoints();
@@ -2274,10 +2276,10 @@ public class CharacterPassives : IServiceSingleton
                         var intelToGive = regularStats.Intel + intel;
                         if (intelToGive > 10)
                             intelToGive = 10;
-                        player.GameCharacter.SetIntelligence(intelToGive, "Научите играть");
-                        player.GameCharacter.SetStrength(regularStats.Str + str, "Научите играть");
-                        player.GameCharacter.SetSpeed(regularStats.Speed + speed, "Научите играть");
-                        player.GameCharacter.SetPsyche(regularStats.Psyche + psy, "Научите играть");
+                        player.GameCharacter.SetIntelligence(intelToGive, "Научите играть", false);
+                        player.GameCharacter.SetStrength(regularStats.Str + str, "Научите играть", false);
+                        player.GameCharacter.SetSpeed(regularStats.Speed + speed, "Научите играть", false);
+                        player.GameCharacter.SetPsyche(regularStats.Psyche + psy, "Научите играть", false);
                         player.GameCharacter.SetIntelligenceExtraText("");
                         player.GameCharacter.SetStrengthExtraText("");
                         player.GameCharacter.SetSpeedExtraText("");

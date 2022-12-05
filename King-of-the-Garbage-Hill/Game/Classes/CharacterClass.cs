@@ -27,10 +27,6 @@ public class CharacterClass
     {
         var other = (CharacterClass)MemberwiseClone();
 
-        //NO COPY
-        //other.Moral = Moral;
-        //other.BonusPointsFromMoral = BonusPointsFromMoral;
-        //other.LastMoralRound = LastMoralRound;
 
         //LINKS, not a deep copy
         other.AvatarEvent = AvatarEvent;
@@ -40,6 +36,10 @@ public class CharacterClass
         //Copy
         other.Passive = Passive.Select(x => x.DeepCopy()).ToList();
         //other.Justice = Justice.DeepCopy();
+        other.Moral = Moral;
+        other.BonusPointsFromMoral = BonusPointsFromMoral;
+        other.LastMoralRound = LastMoralRound;
+
         other.Name = Name;
         other.Avatar = Avatar;
         other.AvatarCurrent = AvatarCurrent;
@@ -204,7 +204,7 @@ public class CharacterClass
             if (Status.CharacterName == "mylorik")
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik!.GameCharacter.AddMoral(1, "Испанец", false);
+                mylorik!.FightCharacter.AddMoral(1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
@@ -223,7 +223,7 @@ public class CharacterClass
             if (Status.CharacterName == "mylorik") 
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik!.GameCharacter.AddMoral( 1, "Испанец", false);
+                mylorik!.FightCharacter.AddMoral( 1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
@@ -242,7 +242,7 @@ public class CharacterClass
             if (Status.CharacterName == "mylorik")
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik!.GameCharacter.AddMoral( 1, "Испанец", false);
+                mylorik!.FightCharacter.AddMoral( 1, "Испанец", false);
                 mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
             }
             //end Испанец
@@ -552,7 +552,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>PhraseStatChange<|{skillName}";
+            skillName = $"|>Phrase<|{skillName}";
         }
         if (howMuchToAdd > 0 && isLog)
             Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd*10}% *Скилла*\n");
@@ -792,11 +792,10 @@ public class CharacterClass
 
     public void AddExtraSkill(int howMuchToAdd, string skillName, bool isLog = true)
     {
-        var skillText = "Cкилла"; //russian "а"
+        var skillText = "Cкилла";
         if (skillName != "Обмен Морали" && skillName != "Класс")
         {
-            skillName = $"|>PhraseStatChange<|{skillName}";
-            skillText = "Cкиллa"; // english "a"
+            skillName = $"|>Phrase<|{skillName}";
         }
 
         if (Status.CharacterName == "Братишка")
@@ -832,7 +831,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>PhraseStatChange<|{skillName}";
+            skillName = $"|>Phrase<|{skillName}";
         }
         if (isLog)
         {
@@ -850,7 +849,7 @@ public class CharacterClass
     {
         if (skillName != "Обмен Морали" && skillName != "Победа" && skillName != "Поражение")
         {
-            skillName = $"|>PhraseStatChange<|{skillName}";
+            skillName = $"|>Phrase<|{skillName}";
         }
 
         if (Status.CharacterName == "Братишка")
@@ -889,7 +888,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>PhraseStatChange<|{skillName}";
+            skillName = $"|>Phrase<|{skillName}";
         }
         if (howMuchToAdd > 0 && isLog)
             Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Интеллект\n");
@@ -924,7 +923,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>PhraseStatChange<|{skillName}";
+            skillName = $"|>Phrase<|{skillName}";
         }
         if (isLog)
         {
@@ -967,7 +966,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>PhraseStatChange<|{skillName}";
+            skillName = $"|>Phrase<|{skillName}";
         }
         if (howMuchToAdd > 0 && isLog)
             Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Психика\n");
@@ -1000,7 +999,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>PhraseStatChange<|{skillName}";
+            skillName = $"|>Phrase<|{skillName}";
         }
         if (isLog)
         {
@@ -1043,7 +1042,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>PhraseStatChange<|{skillName}";
+            skillName = $"|>Phrase<|{skillName}";
         }
         if (howMuchToAdd > 0 && isLog)
             Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Скорость\n");
@@ -1075,7 +1074,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>PhraseStatChange<|{skillName}";
+            skillName = $"|>Phrase<|{skillName}";
         }
         if (isLog)
         {
@@ -1118,7 +1117,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>PhraseStatChange<|{skillName}";
+            skillName = $"|>Phrase<|{skillName}";
         }
         if (howMuchToAdd > 0 && isLog)
             Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Сила\n");
@@ -1150,7 +1149,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>PhraseStatChange<|{skillName}";
+            skillName = $"|>Phrase<|{skillName}";
         }
         if (isLog)
         {
@@ -1360,7 +1359,7 @@ public class JusticeClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>PhraseStatChange<|{skillName}";
+            skillName = $"|>Phrase<|{skillName}";
         }
         if (isLog)
             Status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} Справедливости\n");

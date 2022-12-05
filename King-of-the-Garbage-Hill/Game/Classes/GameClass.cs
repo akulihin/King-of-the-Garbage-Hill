@@ -32,7 +32,7 @@ public class GameClass
     
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 2.7.1 АНУБУРАК";
+        GameVersion = "Версия: 2.7.2 АНУБУРАК";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -68,6 +68,11 @@ public class GameClass
 
     public List<BotsBehavior.NanobotClass> NanobotsList { get; set; } = new();
 
+
+    public bool IsSolo()
+    {
+        return PlayersList.Count(x => x.IsBot()) == 5;
+    }
 
     public void AddGlobalLogs(string str, string newLine = "\n")
     {

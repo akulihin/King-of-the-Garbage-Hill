@@ -325,4 +325,11 @@ public sealed class HelperFunctions : IServiceSingleton
 
         return account;
     }
+
+    public async Task DeleteMessOverTime(IUserMessage message, int timeInSeconds)
+    {
+        var seconds = timeInSeconds * 1000;
+        await Task.Delay(seconds);
+        await message.DeleteAsync();
+    }
 }

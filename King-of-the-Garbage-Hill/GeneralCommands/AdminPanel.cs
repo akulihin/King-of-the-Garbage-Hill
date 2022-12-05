@@ -373,7 +373,7 @@ public class AdminPanel : ModuleBaseCustom
                 break;
             case "mr":
                 player!.GameCharacter.SetMoral(number, "Читы");
-                //player!.FightCharacter.SetMoral(number, "Читы", false);
+                player!.FightCharacter.SetMoral(number, "Читы", false);
                 break;
             default:
                 return;

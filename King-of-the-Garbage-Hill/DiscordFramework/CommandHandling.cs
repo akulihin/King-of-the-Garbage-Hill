@@ -286,7 +286,7 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
         try
         {
             var commandModules = _commands.Modules;
-            var existingCommands = await _client.Rest.GetGuildApplicationCommands(372150439728381953);
+            var existingCommands = await _client.Rest.GetGuildApplicationCommands(561282595799826432);
             var commandsCount = 0;
             var allCommands = new List<SlashCommandProperties>();
             foreach (var module in commandModules)
@@ -323,7 +323,7 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
                          x.Name == command.Name.Value && x.Description == command.Description.Value &&
                          AreOptionsEqual(x, command))))
             {
-                await _client.Rest.CreateGuildCommand(command, 372150439728381953);
+                await _client.Rest.CreateGuildCommand(command, 561282595799826432);
                 commandsCount++;
                 _log.Info($"Registered {command.Name}");
             }
@@ -341,7 +341,7 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
     {
         try
         {
-            var existingCommands = await _client.Rest.GetGuildApplicationCommands(372150439728381953);
+            var existingCommands = await _client.Rest.GetGuildApplicationCommands(561282595799826432);
             var totalRegistered = 0;
             foreach (var command in new ApplicationCommandProperties[]
                      {
@@ -353,7 +353,7 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
                      })
             {
                 if (existingCommands.Any(x => x.Name == command.Name.Value)) continue;
-                await _client.Rest.CreateGuildCommand(command, 372150439728381953);
+                await _client.Rest.CreateGuildCommand(command, 561282595799826432);
                 totalRegistered++;
                 _log.Info($"Registered {command.Name}");
             }
@@ -403,7 +403,7 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
     {
         try
         {
-            var existingCommands = await _client.Rest.GetGuildApplicationCommands(372150439728381953);
+            var existingCommands = await _client.Rest.GetGuildApplicationCommands(561282595799826432);
             var totalRegistered = 0;
             foreach (var command in new ApplicationCommandProperties[]
                      {
@@ -415,7 +415,7 @@ public sealed class CommandHandling : ModuleBaseCustom, IServiceSingleton
                      })
             {
                 if (existingCommands.Any(x => x.Name == command.Name.Value)) continue;
-                await _client.Rest.CreateGuildCommand(command, 372150439728381953);
+                await _client.Rest.CreateGuildCommand(command, 561282595799826432);
                 totalRegistered++;
                 _log.Info($"Registered {command.Name}");
             }

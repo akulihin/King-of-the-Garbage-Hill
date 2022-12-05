@@ -167,18 +167,23 @@ Speed => Strength
 
         //FIGHT, user only GameCharacter to READ and FightCharacter to WRITE
         DeepCopyGameCharacterToFightCharacter(game);
+
         
-        
-        
-        
-        
+        /*
+        foreach (var player in game.PlayersList)
+        {
+            player.Status.InGamePersonalLogsAll = player.Status.InGamePersonalLogsAll.Replace("|>Phrase<|", "|>PhraseBeforeFight<|");
+        }
+        */
 
 
 
 
 
-        
-        
+
+
+
+
         foreach (var player in game.PlayersList)
         {
             var pointsWined = 0;
@@ -557,8 +562,8 @@ Speed => Strength
                     {
                         if (!teamMate)
                         {
-                            player.GameCharacter.AddMoral(moral, "Победа" + $" ({moralDebugText}{moral})");
-                            playerIamAttacking.GameCharacter.AddMoral(moral * -1, "Поражение" + $" ({moralDebugText}{moral * -1})");
+                            player.FightCharacter.AddMoral(moral, "Победа" + $": ({moralDebugText}{moral})");
+                            playerIamAttacking.FightCharacter.AddMoral(moral * -1, "Поражение" + $": ({moralDebugText}{moral * -1})");
                         }
                     }
 
@@ -618,8 +623,8 @@ Speed => Strength
                     {
                         if (!teamMate)
                         {
-                            player.GameCharacter.AddMoral(moral, "Поражение" + $" ({moralDebugText}{moral})");
-                            playerIamAttacking.GameCharacter.AddMoral(moral * -1, "Победа" + $" ({moralDebugText}{moral * -1})");
+                            player.FightCharacter.AddMoral(moral, "Поражение" + $": ({moralDebugText}{moral})");
+                            playerIamAttacking.FightCharacter.AddMoral(moral * -1, "Победа" + $": ({moralDebugText}{moral * -1})");
                         }
                     }
 
@@ -663,18 +668,19 @@ Speed => Strength
             }
         }
 
-        
-        
-        
-        
-        
 
 
 
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
         //AFTER Fight, use only GameCharacter.
         DeepCopyFightCharactersToGameCharacter(game);
 

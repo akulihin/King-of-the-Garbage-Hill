@@ -59,8 +59,6 @@ public sealed class GameReaction : IServiceSingleton
                 switch (button.Data.CustomId)
                 {
                     case "auto-move":
-                        player.Status.IsAutoMove = true;
-                        player.Status.IsReady = true;
                         player.Status.AutoMoveTimes++;
                         switch (player.Status.AutoMoveTimes)
                         {
@@ -95,13 +93,22 @@ public sealed class GameReaction : IServiceSingleton
                                 await game!.Phrases.AutoMove10.SendLogSeparate(player, false);
                                 break;
                         }
+                        
                         var textAutomove = $"Ты использовал Авто Ход\n";
                         player.Status.AddInGamePersonalLogs(textAutomove);
                         player.Status.ChangeMindWhat = textAutomove;
 
+                        player.Status.IsAutoMove = true;
+                        player.Status.IsReady = true;
+
+                        
+                        if (game.IsSolo())
+                            break;
+
                         var embed = _upd.FightPage(player);
                         var components = await _upd.GetGameButtons(player, game);
                         await _help.ModifyGameMessage(player, embed, components);
+
                         break;
                     case "change-mind":
                         if (player.Status.IsSkip || !player.Status.IsReady)
@@ -125,16 +132,22 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.InGamePersonalLogsAll = _help.ReplaceLastOccurrence(player.Status.InGamePersonalLogsAll, status.ChangeMindWhat, $"~~{status.ChangeMindWhat.Replace("\n", "~~\n")}");
                         player.Status.SetInGamePersonalLogs(newInGameLogs);
 
-                        embed = _upd.FightPage(player);
 
+                        embed = _upd.FightPage(player);
                         components = await _upd.GetGameButtons(player, game);
+
                         await _help.ModifyGameMessage(player, embed, components, "I've changed my mind, coming back");
                         break;
 
                     case "confirm-skip":
                         player.Status.ConfirmedSkip = true;
+
+                        if (game.IsSolo())
+                            break;
+
                         embed = _upd.FightPage(player);
                         components = await _upd.GetGameButtons(player, game);
+
                         await _help.ModifyGameMessage(player, embed, components);
                         break;
 
@@ -148,6 +161,7 @@ public sealed class GameReaction : IServiceSingleton
 
                         embed = _upd.FightPage(player);
                         components = await _upd.GetGameButtons(player, game);
+
                         await _help.ModifyGameMessage(player, embed, components);
                         break;
 
@@ -159,6 +173,7 @@ public sealed class GameReaction : IServiceSingleton
 
                         embed = _upd.FightPage(player);
                         components = await _upd.GetGameButtons(player, game);
+
                         await _help.ModifyGameMessage(player, embed, components);
                         break;
 
@@ -205,6 +220,9 @@ public sealed class GameReaction : IServiceSingleton
                         var text = "Ты поставил блок\n";
                         status.AddInGamePersonalLogs(text);
                         status.ChangeMindWhat = text;
+
+                        if (game.IsSolo())
+                            break;
 
                         await _upd.UpdateMessage(player);
                         break;
@@ -303,6 +321,9 @@ public sealed class GameReaction : IServiceSingleton
                         break;
                     case "attack-select":
                         await HandleAttack(player, button);
+
+                        if (game.IsSolo())
+                            break;
                         await _upd.UpdateMessage(player);
                         break;
 
