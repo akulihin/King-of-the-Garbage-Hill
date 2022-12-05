@@ -9,61 +9,59 @@ public class PassivesClass
 {
     public PassivesClass(GamePlayerBridgeClass player)
     {
-        var characterName = player.GameCharacter.Name;
         WhenToTriggerClass when;
-        switch (characterName)
+        foreach (var passive in player.GameCharacter.Passive)
+            switch (passive.PassiveName)
         {
-            case "DeepList":
+            case "Сверхразум":
                 when = GetWhenToTrigger(1, 2, 5, 5);
                 DeepListSupermindTriggeredWhen = when;
+                break;
 
+            case "Безумие":
                 when = GetWhenToTrigger(2, 1, 3, 7, 4);
                 DeepListMadnessTriggeredWhen = when;
                 break;
 
-            case "Тигр":
+            case "Тигр топ, а ты холоп":
                 when = GetWhenToTrigger(1, 1, 5, 8);
                 TigrTopWhen = when;
                 break;
 
-            case "Толя":
+            case "Подсчет":
                 TolyaCount = new Tolya.TolyaCountClass(Random(2, 3));
                 break;
 
-            case "Mit*suki*":
+            case "Школьник":
                 when = GetWhenToTrigger(1, 0, 0, 9, 2);
                 MitsukiNoPcTriggeredWhen = when;
                 break;
 
-            case "Глеб":
-                //Спящее хуйло chance   
+            case "Спящее хуйло":
                 when = GetWhenToTrigger(2, 2, 4, 9);
                 GlebSleepingTriggeredWhen = when;
+                break;
 
-                //Претендент русского сервера
-                var li = when.WhenToTrigger.ToList();
+            case "Претендент русского сервера":
+                var li = GlebSleepingTriggeredWhen.WhenToTrigger.ToList();
 
                 bool flag;
                 do
                 {
-                    when = GetWhenToTrigger(when.WhenToTrigger.Count, 0, 0, 10, 3);
+                    when = GetWhenToTrigger(GlebSleepingTriggeredWhen.WhenToTrigger.Count, 0, 0, 10, 3);
                     flag = false;
                     foreach (var _ in li.Where(t => when.WhenToTrigger.Contains(t)))
                         flag = true;
                 } while (flag);
 
                 GlebChallengerTriggeredWhen = when;
-                //end Претендент русского сервера
-
                 break;
-            case "Краборак":
-                //Хождение боком
+
+            case "Хождение боком":
                 when = GetWhenToTrigger(3, 3, 10);
                 CraboRackSidewaysBooleTriggeredWhen = when;
-                //end Хождение боком
                 break;
         }
-
     }
 
 

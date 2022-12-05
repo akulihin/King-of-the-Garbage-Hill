@@ -6,7 +6,7 @@ namespace King_of_the_Garbage_Hill.Game.Classes;
 
 public class InGameStatus
 {
-    public InGameStatus(string characterName)
+    public InGameStatus()
     {
         MoveListPage = 1;
         LvlUpPoints = 0;
@@ -35,7 +35,7 @@ public class InGameStatus
         IsAbleToChangeMind = true;
         IsTargetSkipped = Guid.NewGuid();
         IsTargetBlocked = Guid.NewGuid();
-        CharacterName = characterName;
+
         PlaceAtLeaderBoardHistory = new List<PlaceAtLeaderBoardHistoryClass>();
         ChangeMindWhat = "";
         AutoMoveTimes = 0;
@@ -80,7 +80,7 @@ public class InGameStatus
     public bool ConfirmedSkip { get; set; }
     public bool IsAbleToChangeMind { get; set; }
     public string ChangeMindWhat  { get; set;}
-    public string CharacterName { get; set; }
+    public CharacterClass GameCharacter { get; set; }
     public int TimesUpdated { get; set; }
     public int RoundNumber { get; set; }
 
@@ -184,7 +184,7 @@ public class InGameStatus
 
         Score += bonusPoints;
 
-        if (Score < 0 && CharacterName != "HardKitty")
+        if (Score < 0 && GameCharacter.Name != "HardKitty")
             Score = 0;
     }
 
@@ -198,15 +198,17 @@ public class InGameStatus
         var roundNumber = game.RoundNo;
 
         //Подсчет
-        if (game.PlayersList.Any(x => x.GameCharacter.Name == "Толя"))
+        foreach (var player in game.PlayersList)
         {
-            var tolyaAcc = game.PlayersList.Find(x => x.GameCharacter.Name == "Толя");
-
-            var tolyaCount = tolyaAcc!.Passives.TolyaCount;
-
-
-            if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == PlayerId))
-                roundNumber = 1;
+            foreach (var passive in player.GameCharacter.Passive)
+                switch (passive.PassiveName)
+            {
+                    case "Подсчет":
+                        var tolyaCount = player.Passives.TolyaCount;
+                        if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == PlayerId))
+                            roundNumber = 1;
+                        break;
+            }
         }
         //end Подсчет
 

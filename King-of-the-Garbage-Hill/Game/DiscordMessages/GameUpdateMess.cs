@@ -31,13 +31,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     };
 
 
-    public GameUpdateMess(UserAccounts accounts, Global global, HelperFunctions helperFunctions, SecureRandom random, CharactersPull charactersPull)
+    public GameUpdateMess(UserAccounts accounts, Global global, HelperFunctions helperFunctions, SecureRandom random,
+        CharactersPull charactersPull)
     {
         _accounts = accounts;
         _global = global;
 
         _helperFunctions = helperFunctions;
- 
+
         _random = random;
         _charactersPull = charactersPull;
     }
@@ -58,7 +59,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var strStr = "Сила";
         var speStr = "Скорость";
         var psyStr = "Психика";
-        
+
         //Sakura
         if (character!.Name == "Sakura")
         {
@@ -67,6 +68,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             speStr = "Скорость";
             psyStr = "Нытье";
         }
+
         var sakuraText = "";
         if (player.GameCharacter.Passive.Count == 0) sakuraText = "\nИх... нет...\n";
         //end Sakura
@@ -81,7 +83,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                                          $"{speStr}: {character.GetSpeed()}\n" +
                                          $"{psyStr}: {character.GetPsyche()}\n" +
                                          $"\n**Пассивки:**{sakuraText}");
-        
+
         foreach (var passive in player.GameCharacter.Passive)
         {
             if (!passive.Visible) continue;
@@ -134,9 +136,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
             var teamString = "";
             if (playersList[i].TeamId > 0)
-            {
-                teamString = player.TeamId == playersList[i].TeamId ? $"**[{playersList[i].TeamId}]** " : $"[{playersList[i].TeamId}] ";
-            }
+                teamString = player.TeamId == playersList[i].TeamId
+                    ? $"**[{playersList[i].TeamId}]** "
+                    : $"[{playersList[i].TeamId}] ";
 
             players += $"{teamString}{i + 1}. {sanitizedDiscordUsername}";
 
@@ -157,20 +159,18 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         var customString = "";
 
-        switch (player1.GameCharacter.Name)
-        {
-            case "Осьминожка":
+        foreach (var passive in player1.GameCharacter.Passive)
+            switch (passive.PassiveName)
+            {
+                case "Раскинуть щупальца":
+                    if (!player1.Passives.OctopusTentaclesList.LeaderboardPlace.Contains(number)) customString += "🐙";
+                    break;
 
-                if (!player1.Passives.OctopusTentaclesList.LeaderboardPlace.Contains(number)) customString += "🐙";
+                case "Челюсти":
+                    if (!player1.Passives.SharkJawsLeader.FriendList.Contains(number)) customString += "🐙";
+                    break;
+            }
 
-
-                break;
-
-            case "Братишка":
-
-                if (!player1.Passives.SharkJawsLeader.FriendList.Contains(number)) customString += "🐙";
-                break;
-        }
 
         return customString + " ";
     }
@@ -180,275 +180,280 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var customString = "";
         //|| me.DiscordId == 238337696316129280 || me.DiscordId == 181514288278536193
 
-
-        switch (me.GameCharacter.Name)
-        {
-            case "Weedwick":
-                if (other.GetPlayerId() == me.GetPlayerId()) break;
-
-                if (other.GameCharacter.Name == "DeepList")
-                {
-                    customString += $" <:pet:1046330623498911744>";
+        foreach (var passive in me.GameCharacter.Passive)
+            switch (passive.PassiveName)
+            {
+                case "Weedwick Pet":
+                    if (other.GameCharacter.Name == "DeepList") customString += " <:pet:1046330623498911744>";
                     break;
-                }
+                case "Weed":
+                    if (other.GetPlayerId() == me.GetPlayerId()) break;
 
-                if (other.Passives.WeedwickWeed > 0)
-                {
-                    customString += $" <:weed:1005884006866354196>: {other.Passives.WeedwickWeed}";
-                }
+                    if (other.Passives.WeedwickWeed > 0)
+                        customString += $" <:weed:1005884006866354196>: {other.Passives.WeedwickWeed}";
 
-                if (other.GameCharacter.Justice.GetRealJusticeNow() == 0)
-                {
-                    customString += $" <:WUF:1005886339335598120>";
-                }
+                    break;
 
-                if (other.GameCharacter.GetWinStreak() > 0)
-                {
-                    customString += $" <:bong:1046462826539130950>: {other.GameCharacter.GetWinStreak()}";
-                }
+                case "Безжалостный охотник":
+                    if (other.GetPlayerId() == me.GetPlayerId()) break;
 
-                break;
-            case "AWDKA":
-                if (other.GetPlayerId() == me.GetPlayerId()) break;
+                    if (other.GameCharacter.Justice.GetRealJusticeNow() == 0)
+                        customString += " <:WUF:1005886339335598120>";
+                    break;
 
-                var awdka = me.Passives.AwdkaTryingList;
-                var awdkaTrainingHistory = me.Passives.AwdkaTeachToPlayHistory;
+                case "Ценная добыча":
+                    if (other.GetPlayerId() == me.GetPlayerId()) break;
 
-                var awdkaTrying = awdka.TryingList.Find(x => x.EnemyPlayerId == other.GetPlayerId());
+                    if (other.GameCharacter.GetWinStreak() > 0)
+                        customString += $" <:bong:1046462826539130950>: {other.GameCharacter.GetWinStreak()}";
+                    break;
 
-                if (awdkaTrying != null)
-                {
-                    if (!awdkaTrying.IsUnique) customString += " <:bronze:565744159680626700>";
-                    else customString += " <:plat:565745613208158233>";
-                }
+                case "Я пытаюсь!":
+                    if (other.GetPlayerId() == me.GetPlayerId()) break;
 
+                    var awdka = me.Passives.AwdkaTryingList;
+                    var awdkaTrying = awdka.TryingList.Find(x => x.EnemyPlayerId == other.GetPlayerId());
 
-                if (awdkaTrainingHistory != null)
-                {
-                    var awdkaTrainingHistoryEnemy = awdkaTrainingHistory.History.Find(x => x.EnemyPlayerId == other.GetPlayerId());
-                    if (awdkaTrainingHistoryEnemy != null)
+                    if (awdkaTrying != null)
                     {
-                        var statText = awdkaTrainingHistoryEnemy.Text switch
-                        {
-                            "1" => "Интеллект",
-                            "2" => "Сила",
-                            "3" => "Скорость",
-                            "4" => "Психика",
-                            _ => ""
-                        };
-                        customString += $" (**{statText} {awdkaTrainingHistoryEnemy.Stat}** ?)";
+                        if (!awdkaTrying.IsUnique) customString += " <:bronze:565744159680626700>";
+                        else customString += " <:plat:565745613208158233>";
                     }
-                }
-                //(<:volibir:894286361895522434> сила 10 ?)
+                    break;
 
+                case "Научите играть":
+                    if (other.GetPlayerId() == me.GetPlayerId()) break;
 
-                break;
-            case "Братишка":
-                var shark = me.Passives.SharkJawsWin;
-                if (!shark.FriendList.Contains(other.GetPlayerId()) && other.GetPlayerId() != me.GetPlayerId())
-                    customString += " <:jaws:565741834219945986>";
-                break;
-
-            case "Darksci":
-                var dar = me.Passives.DarksciLuckyList;
-
-                if (!dar.TouchedPlayers.Contains(other.GetPlayerId()) &&
-                    other.GetPlayerId() != me.GetPlayerId())
-                    customString += " <:Darksci:565598465531576352>";
-
-
-                break;
-            case "Вампур":
-                var vamp = me.Passives.VampyrHematophagiaList;
-                var target = vamp.HematophagiaCurrent.Find(x => x.EnemyId == other.GetPlayerId());
-                if (target != null)
-                    customString += " <:Y_:562885385395634196>";
-                break;
-
-            case "HardKitty":
-                var hardKitty = me.Passives.HardKittyDoebatsya;
-                if (hardKitty != null)
-                {
-                    var lostSeries = hardKitty.LostSeriesCurrent.Find(x => x.EnemyPlayerId == other.GetPlayerId());
-                    if (lostSeries != null)
-                        switch (lostSeries.Series)
-                        {
-                            case > 9:
-                                customString += $" <:LoveLetter:998306315342454884>: {lostSeries.Series}";
-                                break;
-                            case > 0:
-                                customString += $" <:393:563063205811847188>: {lostSeries.Series}";
-                                break;
-                        }
-                }
-
-                break;
-            case "Sirinoks":
-                var siri = me.Passives.SirinoksFriendsList;
-
-                var siriTraining = me.Passives.SirinoksTraining;
-                if (siriTraining != null && siriTraining.Training.Count > 0)
-                {
-                    var training = siriTraining.Training.First();
-                    if (other.GetPlayerId() == siriTraining.EnemyId)
+                    var awdkaTrainingHistory = me.Passives.AwdkaTeachToPlayHistory;
+                    if (awdkaTrainingHistory != null)
                     {
-                        switch (training.StatIndex)
+                        var awdkaTrainingHistoryEnemy =
+                            awdkaTrainingHistory.History.Find(x => x.EnemyPlayerId == other.GetPlayerId());
+                        if (awdkaTrainingHistoryEnemy != null)
+                        {
+                            var statText = awdkaTrainingHistoryEnemy.Text switch
+                            {
+                                "1" => "Интеллект",
+                                "2" => "Сила",
+                                "3" => "Скорость",
+                                "4" => "Психика",
+                                _ => ""
+                            };
+                            customString += $" (**{statText} {awdkaTrainingHistoryEnemy.Stat}** ?)";
+                        }
+                    }
+                    //(<:volibir:894286361895522434> сила 10 ?)
+                    break;
+
+                case "Челюсти":
+                    var shark = me.Passives.SharkJawsWin;
+                    if (!shark.FriendList.Contains(other.GetPlayerId()) && other.GetPlayerId() != me.GetPlayerId())
+                        customString += " <:jaws:565741834219945986>";
+                    break;
+
+                case "Повезло":
+                    var dar = me.Passives.DarksciLuckyList;
+
+                    if (!dar.TouchedPlayers.Contains(other.GetPlayerId()) &&
+                        other.GetPlayerId() != me.GetPlayerId())
+                        customString += " <:Darksci:565598465531576352>";
+
+
+                    break;
+                case "Гематофагия":
+                    var vamp = me.Passives.VampyrHematophagiaList;
+                    var target = vamp.HematophagiaCurrent.Find(x => x.EnemyId == other.GetPlayerId());
+                    if (target != null)
+                        customString += " <:Y_:562885385395634196>";
+                    break;
+
+                case "Доебаться":
+                    var hardKitty = me.Passives.HardKittyDoebatsya;
+                    if (hardKitty != null)
+                    {
+                        var lostSeries = hardKitty.LostSeriesCurrent.Find(x => x.EnemyPlayerId == other.GetPlayerId());
+                        if (lostSeries != null)
+                            switch (lostSeries.Series)
+                            {
+                                case > 9:
+                                    customString += $" <:LoveLetter:998306315342454884>: {lostSeries.Series}";
+                                    break;
+                                case > 0:
+                                    customString += $" <:393:563063205811847188>: {lostSeries.Series}";
+                                    break;
+                            }
+                    }
+                    break;
+
+                case "Обучение":
+                    var siriTraining = me.Passives.SirinoksTraining;
+                    if (siriTraining != null && siriTraining.Training.Count > 0)
+                    {
+                        var training = siriTraining.Training.First();
+                        if (other.GetPlayerId() == siriTraining.EnemyId)
+                        {
+                            switch (training.StatIndex)
+                            {
+                                case 1:
+                                    customString += " <:edu:1003751490290204753>";
+                                    break;
+                                case 2:
+                                    customString += " <:edu:1003751490290204753>";
+                                    break;
+                                case 3:
+                                    customString += " <:edu:1003751490290204753>";
+                                    break;
+                                case 4:
+                                    customString += " <:edu:1003751490290204753>";
+                                    break;
+                            }
+
+                            if (other.GameCharacter.Name is "Братишка" or "Осьминожка" or "Краборак" or "mylorik")
+                                customString += " **Буль!**";
+                        }
+                    }
+                    break;
+
+                case "Заводить друзей":
+                    var siri = me.Passives.SirinoksFriendsList;
+                    if (siri != null)
+                        if (!siri.FriendList.Contains(other.GetPlayerId()) && other.GetPlayerId() != me.GetPlayerId())
+                            customString += " <:fr:563063244097585162>";
+                    break;
+
+                case "Они позорят военное искусство":
+
+                    var spartanShame = me.Passives.SpartanShame;
+
+                    if (!spartanShame.FriendList.Contains(other.GetPlayerId()) &&
+                        other.GetPlayerId() != me.GetPlayerId())
+                        customString += " <:yasuo:895819754428833833>";
+
+                    if (spartanShame.FriendList.Contains(other.GetPlayerId()) &&
+                        other.GetPlayerId() != me.GetPlayerId() && other.GameCharacter.Name == "mylorik")
+                        customString += " <:Spartaneon:899847724936089671>";
+                    break;
+
+                case "Им это не понравится":
+                    var spartanMark = me.Passives.SpartanMark;
+
+                    if (spartanMark.FriendList.Contains(other.GetPlayerId()))
+                        customString += " <:sparta:561287745675329567>";
+                    break;
+
+                case "DeepList Pet":
+                    if (other.GameCharacter.Name == "Weedwick") customString += " <:pet:1046330623498911744>";
+                    break;
+
+                case "Сомнительная тактика":
+                    //tactic
+                    var deep = me.Passives.DeepListDoubtfulTactic;
+                    if (deep != null)
+                        if (deep.FriendList.Contains(other.GetPlayerId()) &&
+                            other.GetPlayerId() != me.GetPlayerId())
+                            customString += " <:yo_filled:902361411840266310>";
+                    //end tactic
+                    break;
+
+                case "Сверхразум":
+                    //сверхразум
+                    var currentList = me.Passives.DeepListSupermindKnown;
+                    if (currentList != null)
+                        if (currentList.KnownPlayers.Contains(other.GetPlayerId()))
+                            customString +=
+                                $" PS: - {other.GameCharacter.Name} (I: {other.GameCharacter.GetIntelligence()} | " +
+                                $"St: {other.GameCharacter.GetStrength()} | Sp: {other.GameCharacter.GetSpeed()} | " +
+                                $"Ps: {other.GameCharacter.GetPsyche()} | J: {other.GameCharacter.Justice.GetRealJusticeNow()})";
+                    //end сверхразум
+
+                    break;
+
+                case "Стёб":
+                    //стёб
+                    var currentDeepList = me.Passives.DeepListMockeryList;
+
+                    if (currentDeepList != null)
+                    {
+                        var currentDeepList2 =
+                            currentDeepList.WhoWonTimes.Find(x => x.EnemyPlayerId == other.GetPlayerId());
+
+                        if (currentDeepList2 != null)
+                        {
+                            if (currentDeepList2.Times == 1)
+                                customString += " **лол**";
+                            if (currentDeepList2.Triggered)
+                                customString += " **кек**";
+                        }
+                    }
+                    //end стёб
+                    break;
+
+                case "Месть":
+                    var mylorik = me.Passives.MylorikRevenge;
+                    var find = mylorik?.EnemyListPlayerIds.Find(x =>
+                        x.EnemyPlayerId == other.GetPlayerId());
+
+                    if (find is { IsUnique: true }) customString += " <:sparta:561287745675329567>";
+                    if (find is { IsUnique: false }) customString += " ❌";
+                    break;
+
+                case "Спарта":
+                    var mylorikSpartan = me.Passives.MylorikSpartan;
+
+                    var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == other.GetPlayerId());
+
+                    if (mylorikEnemy is { LostTimes: > 0 })
+                        switch (mylorikEnemy.LostTimes)
                         {
                             case 1:
-                                customString += $" <:edu:1003751490290204753>";
+                                customString += " <:broken_shield:902044789917241404>";
                                 break;
                             case 2:
-                                customString += $" <:edu:1003751490290204753>";
+                                customString +=
+                                    " <:broken_shield:902044789917241404><:broken_shield:902044789917241404>";
                                 break;
                             case 3:
-                                customString += $" <:edu:1003751490290204753>";
+                                customString +=
+                                    " <:broken_shield:902044789917241404><:broken_shield:902044789917241404>🍰🍰";
                                 break;
-                            case 4:                 
-                                customString += $" <:edu:1003751490290204753>";
+                            case 4:
+                            case 5:
+                            case 6:
+                            case 7:
+                            case 8:
+                            case 9:
+                            case 10:
+                                customString +=
+                                    " <:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404>🎂 **НЯМ!**";
                                 break;
                         }
-                        if(other.GameCharacter.Name is "Братишка" or "Осьминожка" or "Краборак" or "mylorik")
-                            customString += $" **Буль!**";
-                    }
-                }
+                    break;
 
-                if (siri != null)
-                {
-                    if (!siri.FriendList.Contains(other.GetPlayerId()) && other.GetPlayerId() != me.GetPlayerId())
-                        customString += " <:fr:563063244097585162>";
-                }
-                break;
-            case "Загадочный Спартанец в маске":
+                case "Лучше с двумя, чем с адекватными":
+                    var tigr1 = me.Passives.TigrTwoBetterList;
 
-                var spartanShame = me.Passives.SpartanShame;
+                    if (tigr1 != null)
+                        //if (tigr1.FriendList.Contains(other.GetPlayerId()) && other.GetPlayerId() != me.GetPlayerId())
+                        if (tigr1.FriendList.Contains(other.GetPlayerId()))
+                            customString += " <:pepe_down:896514760823144478>";
+                    break;
 
-                if (!spartanShame.FriendList.Contains(other.GetPlayerId()) &&
-                    other.GetPlayerId() != me.GetPlayerId())
-                    customString += " <:yasuo:895819754428833833>";
+                case "3-0 обоссан":
+                    var tigr2 = me.Passives.TigrThreeZeroList;
 
-                if (spartanShame.FriendList.Contains(other.GetPlayerId()) &&
-                    other.GetPlayerId() != me.GetPlayerId() && other.GameCharacter.Name == "mylorik")
-                    customString += " <:Spartaneon:899847724936089671>";
+                    var enemy = tigr2?.FriendList.Find(x => x.EnemyPlayerId == other.GetPlayerId());
 
-
-                var spartanMark = me.Passives.SpartanMark;
-
-                if (spartanMark.FriendList.Contains(other.GetPlayerId()))
-                    customString += " <:sparta:561287745675329567>";
-
-
-                break;
-
-
-            case "DeepList":
-                if (other.GameCharacter.Name == "Weedwick")
-                {
-                    customString += $" <:pet:1046330623498911744>";
-                }
-
-                //tactic
-                var deep = me.Passives.DeepListDoubtfulTactic;
-                if (deep != null)
-                    if (deep.FriendList.Contains(other.GetPlayerId()) &&
-                        other.GetPlayerId() != me.GetPlayerId())
-                        customString += " <:yo_filled:902361411840266310>";
-                //end tactic
-
-                //сверхразум
-                var currentList = me.Passives.DeepListSupermindKnown;
-                if (currentList != null)
-                    if (currentList.KnownPlayers.Contains(other.GetPlayerId()))
-                        customString +=
-                            $" PS: - {other.GameCharacter.Name} (I: {other.GameCharacter.GetIntelligence()} | " +
-                            $"St: {other.GameCharacter.GetStrength()} | Sp: {other.GameCharacter.GetSpeed()} | " +
-                            $"Ps: {other.GameCharacter.GetPsyche()} | J: {other.GameCharacter.Justice.GetRealJusticeNow()})";
-                //end сверхразум
-
-
-                //стёб
-                var currentDeepList = me.Passives.DeepListMockeryList;
-
-                if (currentDeepList != null)
-                {
-                    var currentDeepList2 =
-                        currentDeepList.WhoWonTimes.Find(x => x.EnemyPlayerId == other.GetPlayerId());
-
-                    if (currentDeepList2 != null)
+                    if (enemy != null)
                     {
-                        if (currentDeepList2.Times == 1)
-                            customString += " **лол**";
-                        if (currentDeepList2.Triggered)
-                            customString += " **кек**";
-                    }
-                }
-
-                //end стёб
-
-
-                break;
-
-            case "mylorik":
-                var mylorik = me.Passives.MylorikRevenge;
-                var find = mylorik?.EnemyListPlayerIds.Find(x =>
-                    x.EnemyPlayerId == other.GetPlayerId());
-
-                if (find is { IsUnique: true }) customString += " <:sparta:561287745675329567>";
-                if (find is { IsUnique: false }) customString += " ❌";
-
-                var mylorikSpartan = me.Passives.MylorikSpartan;
-
-                var mylorikEnemy = mylorikSpartan.Enemies.Find(x => x.EnemyId == other.GetPlayerId());
-
-                if (mylorikEnemy is { LostTimes: > 0 })
-                    switch (mylorikEnemy.LostTimes)
-                    {
-                        case 1:
-                            customString += " <:broken_shield:902044789917241404>";
-                            break;
-                        case 2:
-                            customString +=
-                                " <:broken_shield:902044789917241404><:broken_shield:902044789917241404>";
-                            break;
-                        case 3:
-                            customString +=
-                                " <:broken_shield:902044789917241404><:broken_shield:902044789917241404>🍰🍰";
-                            break;
-                        case 4:
-                        case 5:
-                        case 6:
-                        case 7:
-                        case 8:
-                        case 9:
-                        case 10:
-                            customString +=
-                                " <:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404>🎂 **НЯМ!**";
-                            break;
+                        if (enemy.WinsSeries == 1)
+                            customString += " 1:0";
+                        else if (enemy.WinsSeries == 2)
+                            customString += " 2:0";
+                        else if (enemy.WinsSeries >= 3) customString += " 3:0, обоссан";
                     }
 
-                break;
-            case "Тигр":
-                var tigr1 = me.Passives.TigrTwoBetterList;
-
-                if (tigr1 != null)
-                    //if (tigr1.FriendList.Contains(other.GetPlayerId()) && other.GetPlayerId() != me.GetPlayerId())
-                    if (tigr1.FriendList.Contains(other.GetPlayerId()))
-                        customString += " <:pepe_down:896514760823144478>";
-
-                var tigr2 = me.Passives.TigrThreeZeroList;
-
-                var enemy = tigr2?.FriendList.Find(x => x.EnemyPlayerId == other.GetPlayerId());
-
-                if (enemy != null)
-                {
-                    if (enemy.WinsSeries == 1)
-                        customString += " 1:0";
-                    else if (enemy.WinsSeries == 2)
-                        customString += " 2:0";
-                    else if (enemy.WinsSeries >= 3) customString += " 3:0, обоссан";
-                }
-
-                break;
-        }
+                    break;
+            }
 
         var knownClass = me.Status.KnownPlayerClass.Find(x => x.EnemyId == other.GetPlayerId());
         if (knownClass != null && me.GameCharacter.Name != "AWDKA")
@@ -513,7 +518,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var separationLine = false;
         var orderedList = new List<string>
         {
-             "Ты улучшил", "|>PhraseBeforeFight<|",  "Обмен Морали", "Ты использовал Авто Ход", "Ты напал на", "Ты поставил блок", "TOO GOOD", "|>Phrase<|", "|>SeparationLine<|", "Поражение:", "Победа:", "Читы", "Справедливость", "Класс:", "Мишень", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**"
+            "Ты улучшил", "|>PhraseBeforeFight<|", "Обмен Морали", "Ты использовал Авто Ход", "Ты напал на",
+            "Ты поставил блок", "TOO GOOD", "|>Phrase<|", "|>SeparationLine<|", "Поражение:", "Победа:", "Читы",
+            "Справедливость", "Класс:", "Мишень", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**"
         };
 
         foreach (var keyword in orderedList)
@@ -542,12 +549,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                                 line = line.Replace(enemyType, "");
                                 enemyType = $" {enemyType}";
                             }
+
                             //Класс: +20 *Cкилла* (за **умного** врага). +2 *Cкилла*
                             var classSplit = line.Replace("*", "").Replace("+", "").Split(":")[1].Split(".").ToList();
                             foreach (var classText in classSplit)
-                            {
                                 totalClass += Convert.ToInt32(classText.Replace("Cкилла", "").Replace(" ", ""));
-                            }
                         }
                     }
 
@@ -674,10 +680,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         var desc = HandleIsNewPlayerDescription(game!.GetGlobalLogs(), player);
 
-        if (player.TeamId > 0)
-        {
-            desc = desc.Replace($"Команда #{player.TeamId}", $"**Команда #{player.TeamId}**");
-        }
+        if (player.TeamId > 0) desc = desc.Replace($"Команда #{player.TeamId}", $"**Команда #{player.TeamId}**");
 
         var intStr = "Интеллект";
         var strStr = "Сила";
@@ -765,7 +768,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var character = player.GameCharacter;
         var embed = new EmbedBuilder();
         var text = "__Подними один из статов на 1:__";
-        if (player.GameCharacter.Name == "Вампур_") text = "**Понизить** один из статов на 1!";
+        if (player.GameCharacter.Name == "Молодой Глеб") text = "**Понизить** один из статов на 1!";
         embed.WithColor(Color.Blue);
         embed.WithFooter($"{GetTimeLeft(player)}");
         //embed.WithCurrentTimestamp();
@@ -788,7 +791,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var isDisabled = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady;
 
         //Возвращение из мертвых
-        if (game.RoundNo > 10 && game.IsKratosEvent && player.GameCharacter.Name == "Кратос")
+        if (game.RoundNo > 10 && game.IsKratosEvent && player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых"))
         {
 
         }
@@ -809,14 +812,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (game.RoundNo > 10) placeHolder = "gg wp";
 
         //Возвращение из мертвых
-        if (game.IsKratosEvent && player.GameCharacter.Name == "Кратос")
-        {
+        if (game.IsKratosEvent && player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых"))
             placeHolder = "УБИТЬ!";
-        }
-        else if (game.IsKratosEvent)
-        {
-            placeHolder = "ЭТО БОГ ВОЙНЫ! БЕГИ!";
-        }
+        else if (game.IsKratosEvent) placeHolder = "ЭТО БОГ ВОЙНЫ! БЕГИ!";
         //end Возвращение из мертвых
 
         if (player.Status.IsReady)
@@ -837,7 +835,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             placeHolder = "Что-то заставило тебя скипнуть...";
         }
 
-        if (!player.Status.ConfirmedSkip && player.GameCharacter.Name == "Тигр")
+        if (!player.Status.ConfirmedSkip && player.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят"))
         {
             isDisabled = true;
             placeHolder = "Обжаловать бан...";
@@ -856,13 +854,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             var playerToAttack = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == i + 1);
             if (playerToAttack == null) continue;
             if (playerToAttack.DiscordId != player.DiscordId)
-                attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, $"{i + 1}", emote: _playerChoiceAttackList[i]);
+                attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, $"{i + 1}",
+                    emote: _playerChoiceAttackList[i]);
         }
 
-        if (attackMenu.Options.Count == 0)
-        {
-            attackMenu.AddOption("ТЫ ВСЕХ УБИЛ", "kratos-death");
-        }
+        if (attackMenu.Options.Count == 0) attackMenu.AddOption("ТЫ ВСЕХ УБИЛ", "kratos-death");
 
         return attackMenu;
     }
@@ -903,7 +899,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             .WithDisabled(isDisabled)
             .WithPlaceholder(placeHolder);
 
-     
+
         for (var i = 0; i < _playerChoiceAttackList.Count; i++)
         {
             var playerToAttack = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == i + 1);
@@ -937,10 +933,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         }
 
 
-        if (predictMenu.Options.Count == 0)
-        {
-            predictMenu.AddOption("ТЫ ВСЕХ УБИЛ", "kratos-death");
-        }
+        if (predictMenu.Options.Count == 0) predictMenu.AddOption("ТЫ ВСЕХ УБИЛ", "kratos-death");
 
 
         return predictMenu;
@@ -964,7 +957,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
         //Да всё нахуй эту игру Part #4
-        if (game.RoundNo == 9 && player.GameCharacter.GetPsyche() == 4 && player.GameCharacter.Name == "Darksci")
+        if (game.RoundNo == 9 && player.GameCharacter.GetPsyche() == 4 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Дизмораль"))
         {
             charMenu = new SelectMenuBuilder()
                 .WithMinValues(1)
@@ -1021,9 +1014,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var extraText = "";
         if (game.RoundNo == 10 && player.GameCharacter.GetMoral() < 3) extraText = " (Конец игры)";
 
-        if (player.GameCharacter.Name == "Братишка")
-            return new ButtonBuilder("Ничего не понимает...", "skill", ButtonStyle.Secondary, isDisabled: true,
-                emote: Emote.Parse("<a:bratishka:900962522276958298>"));
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Ничего не понимает"))
+            return new ButtonBuilder("Ничего не понимает...", "skill", ButtonStyle.Secondary, isDisabled: true, emote: Emote.Parse("<a:bratishka:900962522276958298>"));
 
         if (player.GameCharacter.GetMoral() >= 20)
             return new ButtonBuilder($"Обменять 20 Морали на 100 Cкилла{extraText}", "skill", ButtonStyle.Secondary,
@@ -1031,7 +1023,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (player.GameCharacter.GetMoral() >= 13)
             return new ButtonBuilder($"Обменять 13 Морали на 50 Cкилла{extraText}", "skill", ButtonStyle.Secondary,
                 isDisabled: disabled);
-        if (player.GameCharacter.GetMoral() >= 7 && player.GameCharacter.Name is "Толя" or "LeCrisp")
+        if (player.GameCharacter.GetMoral() >= 7 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Еврей"))
             return new ButtonBuilder($"Обменять 7 Морали на 40 Cкилла{extraText}", "skill", ButtonStyle.Secondary,
                 isDisabled: disabled);
         if (player.GameCharacter.GetMoral() >= 8)
@@ -1105,15 +1097,15 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         var playerIsReady = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady;
         //Возвращение из мертвых
-        if (game.RoundNo > 10 && game.IsKratosEvent && player.GameCharacter.Name == "Кратос")
+        if (game.RoundNo > 10 && game.IsKratosEvent && player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых"))
         {
-
         }
         //end Возвращение из мертвых
         else if (game.RoundNo > 10)
         {
             playerIsReady = true;
         }
+
         return new ButtonBuilder("Блок", "block", ButtonStyle.Success, isDisabled: playerIsReady);
     }
 
@@ -1121,21 +1113,20 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         var disabled = false;
         //Возвращение из мертвых
-        if (game.RoundNo > 10 && game.IsKratosEvent && player.GameCharacter.Name == "Кратос")
+        if (game.RoundNo > 10 && game.IsKratosEvent && player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых"))
         {
-
         }
         //end Возвращение из мертвых
         else if (game.RoundNo > 10)
         {
             disabled = true;
         }
+
         return new ButtonBuilder("Завершить Игру", "end", ButtonStyle.Danger, isDisabled: disabled);
     }
 
     public ButtonBuilder GetChangeMindButton(GamePlayerBridgeClass player, GameClass game)
     {
-
         if (player.GameCharacter.Name == "Dopa")
             return new ButtonBuilder("선택 변경", "change-mind", ButtonStyle.Secondary, isDisabled: true);
 
@@ -1147,7 +1138,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public ButtonBuilder GetAutoMoveButton(GamePlayerBridgeClass player, GameClass game)
     {
-        var disabled = player.Status.IsAutoMove || player.Status.IsSkip || player.Status.IsReady || player.GameCharacter.Tier <= 3;
+        var disabled = player.Status.IsAutoMove || player.Status.IsSkip || player.Status.IsReady ||
+                       player.GameCharacter.Tier <= 3;
 
         if (game.TimePassed.Elapsed.TotalSeconds < 29 && player.DiscordId != 238337696316129280 &&
             player.DiscordId != 181514288278536193) disabled = true;
@@ -1180,9 +1172,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 builder = new ComponentBuilder().WithSelectMenu(await GetLvlUpMenu(player, game));
 
                 //Да всё нахуй эту игру Part #5
-                if (game!.RoundNo == 9 && player.GameCharacter.GetPsyche() == 4 && player.GameCharacter.Name == "Darksci")
-                    builder.WithButton("Riot style \"choice\"", "crutch", row: 1, style: ButtonStyle.Secondary,
-                        disabled: true);
+                if (game!.RoundNo == 9 && player.GameCharacter.GetPsyche() == 4 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Дизмораль"))
+                    builder.WithButton("Riot style \"choice\"", "crutch", row: 1, style: ButtonStyle.Secondary, disabled: true);
                 //end Да всё нахуй эту игру: Part #5
                 break;
         }

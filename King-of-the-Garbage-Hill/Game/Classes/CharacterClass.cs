@@ -196,12 +196,13 @@ public class CharacterClass
         else
             StrengthQualityResist -= howMuch;
 
+
         if (IntelligenceQualityResist < 0)
         {
             SetIntelligenceResist();
 
             //Испанец
-            if (Status.CharacterName == "mylorik")
+            if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Испанец"))
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
                 mylorik!.FightCharacter.AddMoral(1, "Испанец", false);
@@ -220,7 +221,7 @@ public class CharacterClass
             SetStrengthResist();
 
             //Испанец
-            if (Status.CharacterName == "mylorik") 
+            if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Испанец")) 
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
                 mylorik!.FightCharacter.AddMoral( 1, "Испанец", false);
@@ -239,7 +240,7 @@ public class CharacterClass
             SetPsycheResist();
 
             //Испанец
-            if (Status.CharacterName == "mylorik")
+            if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Испанец"))
             {
                 var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
                 mylorik!.FightCharacter.AddMoral( 1, "Испанец", false);
@@ -323,7 +324,7 @@ public class CharacterClass
             toReturn++;
 
         //Импакт
-        if (Name == "LeCrisp")
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Импакт"))
             toReturn = 2;
         //end Импакт
 
@@ -366,7 +367,7 @@ public class CharacterClass
     public int GetSpeedQualityResistInt()
     {
         //Импакт
-        if (Name == "LeCrisp")
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Импакт"))
             SpeedQualityBonus = 6;
         //end Импакт
 
@@ -760,7 +761,7 @@ public class CharacterClass
 
     public void AddMainSkill(string skillName, bool isLog = true)
     {
-        if (Status.CharacterName == "Братишка")
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Ничего не понимает"))
             return;
         var howMuchToAdd = SkillMain switch
         {
@@ -798,7 +799,7 @@ public class CharacterClass
             skillName = $"|>Phrase<|{skillName}";
         }
 
-        if (Status.CharacterName == "Братишка")
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Ничего не понимает"))
             return;
 
         if (ExtraSkillMultiplier > 0 && howMuchToAdd > 0)
@@ -852,20 +853,20 @@ public class CharacterClass
             skillName = $"|>Phrase<|{skillName}";
         }
 
-        if (Status.CharacterName == "Братишка")
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Ничего не понимает"))
             return;
 
-        //привет со дна
-        if (howMuchToAdd < 0 && Status.CharacterName == "Осьминожка" && !isMoralPoints)
+        //Привет со дна
+        if (howMuchToAdd < 0 && Status.GameCharacter.Passive.Any(x => x.PassiveName == "Привет со дна") && !isMoralPoints)
         {
             return;
         }
 
-        if (Status.CharacterName == "Осьминожка")
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Привет со дна"))
         {
             howMuchToAdd = 4;   
         }
-        //end привет со дна
+        //end Привет со дна
 
 
 
@@ -1300,7 +1301,7 @@ public class JusticeClass
 
 
         //Болевой порог
-        if (Status.CharacterName == "Краборак")
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Болевой порог"))
         {
             var rand = new Random();
             var max = howMuchToAdd;

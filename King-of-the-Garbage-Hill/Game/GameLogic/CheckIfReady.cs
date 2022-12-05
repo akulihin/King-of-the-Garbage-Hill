@@ -560,7 +560,7 @@ public class CheckIfReady : IServiceSingleton
             //Возвращение из мертвых
             if (game.IsKratosEvent)
             {
-                foreach (var player in players.Where(x => x.GameCharacter.Name != "Кратос"))
+                foreach (var player in players.Where(x => x.GameCharacter.Passive.All(y => y.PassiveName != "Возвращение из мертвых")))
                 {
                     player.Status.IsReady = true;
                     player.Status.IsBlock = true;
@@ -667,6 +667,7 @@ public class CheckIfReady : IServiceSingleton
                     _logs.Critical(exception.Message);
                     _logs.Critical(exception.StackTrace);
                 }
+
 
             if (game.PlayersList.Any(x => x.GameCharacter.Name == "HardKitty"))
             {

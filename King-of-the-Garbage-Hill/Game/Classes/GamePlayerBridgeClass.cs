@@ -11,6 +11,7 @@ public class GamePlayerBridgeClass
         Status = status;
         gameCharacter.SetStatus(Status);
         GameCharacter = gameCharacter;
+        Status.GameCharacter = GameCharacter;
         FightCharacter = GameCharacter.DeepCopy();
 
         DiscordId = discordId;

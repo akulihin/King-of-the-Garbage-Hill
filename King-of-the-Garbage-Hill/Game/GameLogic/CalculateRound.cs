@@ -131,6 +131,7 @@ Speed => Strength
         foreach (var player in game.PlayersList)
         {
             player.GameCharacter = player.FightCharacter.DeepCopy();
+            player.Status.GameCharacter = player.GameCharacter;
         }
     }
 
@@ -508,7 +509,7 @@ Speed => Strength
 
                 //octopus  // playerIamAttacking is octopus
                 if (pointsWined <= 0) 
-                    pointsWined = await _characterPassives.HandleOctopus(playerIamAttacking, player, game, pointsWined);
+                    pointsWined = await _characterPassives.HandleOctopus(playerIamAttacking, player, game);
                 //end octopus
 
 
@@ -628,7 +629,7 @@ Speed => Strength
                         }
                     }
 
-                    if (playerIamAttacking.GameCharacter.Name == "Толя" && playerIamAttacking.Status.IsBlock)
+                    if (playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Раммус мейн") && playerIamAttacking.Status.IsBlock)
                         if (!teamMate)
                             playerIamAttacking.GameCharacter.Justice.IsWonThisRound = false;
 

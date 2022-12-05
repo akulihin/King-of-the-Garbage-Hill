@@ -129,7 +129,7 @@ public class General : ModuleBaseCustom
             {
                 playersList.Add(new GamePlayerBridgeClass
                     (reservedCharacters.Find(x => x.Name == account.CharacterToGiveNextTime),
-                        new InGameStatus(reservedCharacters.Find(x => x.Name == account.CharacterToGiveNextTime).Name),
+                        new InGameStatus(),
                         account.DiscordId,
                         gameId,
                         account.DiscordUserName,
@@ -189,7 +189,7 @@ public class General : ModuleBaseCustom
             playersList.Add(new GamePlayerBridgeClass
             (
                 characterToAssign,
-                new InGameStatus(characterToAssign.Name),
+                new InGameStatus(),
                 account.DiscordId,
                 gameId,
                 account.DiscordUserName,
@@ -618,7 +618,7 @@ public class General : ModuleBaseCustom
             // .WithTitle("My internal statistics")
             .WithColor(Color.DarkGreen)
             .WithCurrentTimestamp()
-            .WithFooter("Версия: 2.7.2 АНУБУРАК")
+            .WithFooter("Версия: 2.8 Как же я заеблся")
             .WithDescription("**Циферки:**\n" +
                              $"Работает: {time.Days}д {time.Hours}ч {time.Minutes}м + {time:ss\\.fff}с\n" +
                              $"Всего команд: {_global.TotalCommandsIssued}\n" +

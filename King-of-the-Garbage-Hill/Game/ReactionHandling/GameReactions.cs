@@ -206,7 +206,7 @@ public sealed class GameReaction : IServiceSingleton
                             break;
                         }
 
-                        if (player.GameCharacter.Name == "mylorik")
+                        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Спарта"))
                         {
                             await _help.SendMsgAndDeleteItAfterRound(player, "Спартанцы не капитулируют!!");
                             break;
@@ -274,7 +274,7 @@ public sealed class GameReaction : IServiceSingleton
                             player.GameCharacter.AddExtraSkill( 50, "Обмен Морали");
                             extraText = "Мораль: MVP! +50 *Скилла*";
                         }
-                        else if (!player.IsBot() && player.GameCharacter.GetMoral() >= 7 && player.GameCharacter.Name is "Толя" or "LeCrisp")
+                        else if (!player.IsBot() && player.GameCharacter.GetMoral() >= 7 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Еврей"))
                         {
                             player.GameCharacter.AddMoral(-7, "Обмен Морали", true, true);
                             player.GameCharacter.AddExtraSkill(40, "Обмен Морали");
@@ -647,7 +647,7 @@ public sealed class GameReaction : IServiceSingleton
         
 
         //Дизмораль
-        if (player.GameCharacter.Name == "Darksci")
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Дизмораль"))
         {
             if (game!.RoundNo == 9)
                 //Дизмораль Part #2
@@ -671,7 +671,7 @@ public sealed class GameReaction : IServiceSingleton
 
         //Обучение
         //There is a second part in "HandleEndOfRound"!!!!!!!!!! <<<<<<<<<<
-        if (player.GameCharacter.Name == "Sirinoks")
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Обучение"))
         {
             var siriTraining = player.Passives.SirinoksTraining;
             if (siriTraining != null)
