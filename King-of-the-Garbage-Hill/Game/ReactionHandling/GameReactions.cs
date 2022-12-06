@@ -118,7 +118,6 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.IsAbleToChangeMind = false;
                         player.Status.IsAutoMove = false;
 
-                        player.Status.IsAbleToTurn = true;
                         player.Status.IsReady = false;
                         player.Status.IsBlock = false;
                         player.Status.WhoToAttackThisTurn = new List<Guid>();
@@ -199,7 +198,7 @@ public sealed class GameReaction : IServiceSingleton
                         break;
 
 
-                    case "block" when status.IsAbleToTurn:
+                    case "block":
                         if (status.MoveListPage == 3)
                         {
                             await _help.SendMsgAndDeleteItAfterRound(player, "Ходить нельзя, Апни лвл!") ;
@@ -214,7 +213,6 @@ public sealed class GameReaction : IServiceSingleton
 
 
                         status.IsBlock = true;
-                        status.IsAbleToTurn = false;
                         status.IsReady = true;
 
                         var text = "Ты поставил блок\n";
@@ -426,21 +424,11 @@ public sealed class GameReaction : IServiceSingleton
             status.AddInGamePersonalLogs(text);
             status.ChangeMindWhat = text;
             status.IsBlock = true;
-            status.IsAbleToTurn = false;
             status.IsReady = true;
             return true;
         }
 
 
-        if (!status.IsAbleToTurn)
-        {
-            await _help.SendMsgAndDeleteItAfterRound(player,
-                player.Status.IsSkip
-                    ? "Что-то заставило тебя пропустить этот ход..."
-                    : "Ходить нельзя, пока идет подсчёт.");
-
-            return true;
-        }
 
 
         if (status.MoveListPage == 1)
@@ -455,7 +443,7 @@ public sealed class GameReaction : IServiceSingleton
 
 
             //Клинки хаоса
-            if (player.GameCharacter.Name == "Кратос" && game.RoundNo <= 10)
+            if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Клинки хаоса") && game.RoundNo <= 10)
             {
                 var whoToAttack2 = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == emoteNum-1);
                 var whoToAttack3 = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == emoteNum + 1);
@@ -474,14 +462,14 @@ public sealed class GameReaction : IServiceSingleton
              */
 
             //Weedwick
-            if (player.GameCharacter.Name == "Weedwick" && whoToAttack.GameCharacter.Name == "DeepList")
+            if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Weedwick Pet") && whoToAttack.GameCharacter.Passive.Any(x => x.PassiveName == "DeepList Pet"))
             {
                 status.WhoToAttackThisTurn = new List<Guid>();
                 await _help.SendMsgAndDeleteItAfterRound(player, "DeepList: Не нападай на хозяина, глупый пес!");
                 return false;
             }
 
-            if (player.GameCharacter.Name == "DeepList" && whoToAttack.GameCharacter.Name == "Weedwick")
+            if (whoToAttack.GameCharacter.Passive.Any(x => x.PassiveName == "DeepList Pet") && player.GameCharacter.Passive.Any(x => x.PassiveName == "Weedwick Pet"))
             {
                 status.WhoToAttackThisTurn = new List<Guid>();
                 await _help.SendMsgAndDeleteItAfterRound(player, "Не нападай на свою собаку. Ты чего, совсем уже ебнулся?");
@@ -490,7 +478,7 @@ public sealed class GameReaction : IServiceSingleton
             // end Weedwick
 
 
-            if (game.PlayersList.Any(x => x.GameCharacter.Name == "Тигр" && x.Status.GetPlaceAtLeaderBoard() == emoteNum) && game.RoundNo == 10)
+            if (game.PlayersList.Any(x => x.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят") && x.Status.GetPlaceAtLeaderBoard() == emoteNum) && game.RoundNo == 10)
             {
                 status.WhoToAttackThisTurn = new List<Guid>();
                 await _help.SendMsgAndDeleteItAfterRound(player, "Выбранный игрок недоступен в связи с баном за нарушение правил");
@@ -498,7 +486,7 @@ public sealed class GameReaction : IServiceSingleton
             }
 
 
-            if (player.GameCharacter.Name == "Вампур" && player.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 &&  status.WhoToAttackThisTurn.Contains(x.EnemyId)))
+            if (player.GameCharacter.Passive.Any(x => x.PassiveName == "СОсиновый кол") && player.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 &&  status.WhoToAttackThisTurn.Contains(x.EnemyId)))
             {
                 status.WhoToAttackThisTurn = new List<Guid>();
                 await game.Phrases.VampyrNoAttack.SendLogSeparate(player, false);
@@ -513,7 +501,6 @@ public sealed class GameReaction : IServiceSingleton
                 return false;
             }
 
-            status.IsAbleToTurn = false;
             status.IsReady = true;
             status.IsBlock = false;
             var text = $"Ты напал на игрока {whoToAttack.DiscordUsername}\n";
@@ -660,7 +647,6 @@ public sealed class GameReaction : IServiceSingleton
                 {
                     player.Status.IsSkip = true;
                     player.Status.IsBlock = false;
-                    player.Status.IsAbleToTurn = false;
                     player.Status.IsReady = true;
                     player.Status.WhoToAttackThisTurn = new List<Guid>();
                     game.Phrases.DarksciFuckThisGame.SendLog(player, true);

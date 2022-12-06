@@ -12,7 +12,6 @@ public class InGameStatus
         LvlUpPoints = 0;
         Score = 0;
         IsBlock = false;
-        IsAbleToTurn = true;
         PlaceAtLeaderBoard = 0;
         WhoToAttackThisTurn = new List<Guid>();
 
@@ -58,7 +57,6 @@ public class InGameStatus
     public bool IsSkipBreak { get; set; }
     public bool IsAutoMove { get; set; }
     public int AutoMoveTimes { get; set; }
-    public bool IsAbleToTurn { get; set; }
     public bool IsAbleToWin { get; set; }
 
     private int PlaceAtLeaderBoard { get; set; }
@@ -184,7 +182,7 @@ public class InGameStatus
 
         Score += bonusPoints;
 
-        if (Score < 0 && GameCharacter.Name != "HardKitty")
+        if (Score < 0 && GameCharacter.Passive.All(x => x.PassiveName != "Никому не нужен"))
             Score = 0;
     }
 

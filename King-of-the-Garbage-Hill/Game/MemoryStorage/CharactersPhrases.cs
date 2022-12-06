@@ -721,9 +721,7 @@ public class CharactersUniquePhrase
 
         public void SendLog(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, bool delete)
         {
-            if (player.GameCharacter.Name == "DeepList")
-            {
-                var description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
+            var description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
 
                 if (delete)
                 {
@@ -747,8 +745,6 @@ public class CharactersUniquePhrase
 
 
                 player.Status.AddInGamePersonalLogs($"|>Phrase<|{PassiveNameRus}: {description}\n");
-            }
-
         }
 
         public async Task SendLogSeparate(GamePlayerBridgeClass player, bool delete)

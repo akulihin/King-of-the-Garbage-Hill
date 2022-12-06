@@ -23,7 +23,7 @@ public class GamePlayerBridgeClass
         GameCharacter.SetStrengthResist();
         GameCharacter.SetSpeedResist();
         GameCharacter.SetPsycheResist();
-        Passives = new PassivesClass(this);
+        Passives = new PassivesClass();
     }
     public CharacterClass FightCharacter { get; set; }
     public CharacterClass GameCharacter { get; set; }

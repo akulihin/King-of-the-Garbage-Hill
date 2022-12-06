@@ -5,63 +5,60 @@ using King_of_the_Garbage_Hill.Game.Characters;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
-public class PassivesClass 
+public class PassivesClass
 {
-    public PassivesClass(GamePlayerBridgeClass player)
+    public PassivesClass()
     {
         WhenToTriggerClass when;
-        foreach (var passive in player.GameCharacter.Passive)
-            switch (passive.PassiveName)
+
+        //Сверхразум
+        when = GetWhenToTrigger(1, 2, 5, 5);
+        DeepListSupermindTriggeredWhen = when;
+        //end Сверхразум
+
+        //Безумие
+        when = GetWhenToTrigger(2, 1, 3, 7, 4);
+        DeepListMadnessTriggeredWhen = when;
+        //end Безумие
+
+        //Тигр топ, а ты холоп
+        when = GetWhenToTrigger(1, 1, 5, 8);
+        TigrTopWhen = when;
+        //end Тигр топ, а ты холоп
+
+        //Подсчет
+        TolyaCount = new Tolya.TolyaCountClass(Random(2, 3));
+        //end Подсчет
+
+        //Школьник
+        when = GetWhenToTrigger(1, 0, 0, 9, 2);
+        MitsukiNoPcTriggeredWhen = when;
+        //end Школьник
+
+        //Спящее хуйло
+        when = GetWhenToTrigger(2, 2, 4, 9);
+        GlebSleepingTriggeredWhen = when;
+        //end Спящее хуйло
+
+        // Претендент русского сервера
+        var li = GlebSleepingTriggeredWhen.WhenToTrigger.ToList();
+
+        bool flag;
+        do
         {
-            case "Сверхразум":
-                when = GetWhenToTrigger(1, 2, 5, 5);
-                DeepListSupermindTriggeredWhen = when;
-                break;
+            when = GetWhenToTrigger(GlebSleepingTriggeredWhen.WhenToTrigger.Count, 0, 0, 10, 3);
+            flag = false;
+            foreach (var _ in li.Where(t => when.WhenToTrigger.Contains(t)))
+                flag = true;
+        } while (flag);
 
-            case "Безумие":
-                when = GetWhenToTrigger(2, 1, 3, 7, 4);
-                DeepListMadnessTriggeredWhen = when;
-                break;
+        GlebChallengerTriggeredWhen = when;
+        //end Претендент русского сервера
 
-            case "Тигр топ, а ты холоп":
-                when = GetWhenToTrigger(1, 1, 5, 8);
-                TigrTopWhen = when;
-                break;
-
-            case "Подсчет":
-                TolyaCount = new Tolya.TolyaCountClass(Random(2, 3));
-                break;
-
-            case "Школьник":
-                when = GetWhenToTrigger(1, 0, 0, 9, 2);
-                MitsukiNoPcTriggeredWhen = when;
-                break;
-
-            case "Спящее хуйло":
-                when = GetWhenToTrigger(2, 2, 4, 9);
-                GlebSleepingTriggeredWhen = when;
-                break;
-
-            case "Претендент русского сервера":
-                var li = GlebSleepingTriggeredWhen.WhenToTrigger.ToList();
-
-                bool flag;
-                do
-                {
-                    when = GetWhenToTrigger(GlebSleepingTriggeredWhen.WhenToTrigger.Count, 0, 0, 10, 3);
-                    flag = false;
-                    foreach (var _ in li.Where(t => when.WhenToTrigger.Contains(t)))
-                        flag = true;
-                } while (flag);
-
-                GlebChallengerTriggeredWhen = when;
-                break;
-
-            case "Хождение боком":
-                when = GetWhenToTrigger(3, 3, 10);
-                CraboRackSidewaysBooleTriggeredWhen = when;
-                break;
-        }
+        //Хождение боком
+        when = GetWhenToTrigger(3, 3, 10);
+        CraboRackSidewaysBooleTriggeredWhen = when;
+        //end Хождение боком
     }
 
 
@@ -150,7 +147,6 @@ public class PassivesClass
     public int VampyrIgnoresOneJustice { get; set; } = 0;
 
 
-
     private int Random(int minValue, int maxValue)
     {
         maxValue += 1;
@@ -172,7 +168,8 @@ public class PassivesClass
         return result;
     }
 
-    private WhenToTriggerClass GetWhenToTrigger(int mandatoryTimes, int maxAdditionalTimes, int range, int lastRound = 10, int firstRound = 1)
+    private WhenToTriggerClass GetWhenToTrigger(int mandatoryTimes, int maxAdditionalTimes, int range,
+        int lastRound = 10, int firstRound = 1)
     {
         var toTriggerClass = new WhenToTriggerClass();
         int when;
@@ -225,5 +222,4 @@ public class PassivesClass
 
         return toTriggerClass;
     }
-
 }

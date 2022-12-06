@@ -59,7 +59,7 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "DeepList Pet":
-                    if (playersList.Any(x => x.GameCharacter.Name == "Weedwick"))
+                    if (playersList.Any(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Weedwick Pet")))
                     {
                         player.Status.AddInGamePersonalLogs("**Чья эта безуманя собака?**: +1 Психики\n");
                         player.GameCharacter.AddPsyche(1, "Чья эта безуманя собака?", false);
@@ -68,7 +68,7 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Weedwick Pet":
-                    if (playersList.Any(x => x.GameCharacter.Name == "DeepList"))
+                    if (playersList.Any(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "DeepList Pet")))
                     {
                         player.Status.AddInGamePersonalLogs("**Чья эта безуманя собака?**: +1 Психики\n");
                         player.GameCharacter.AddPsyche(1, "Чья эта безуманя собака?", false);
@@ -261,7 +261,7 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Раммус мейн":
-                    if (target.Status.IsBlock && me.GameCharacter.Name != "Weedwick" && game.RoundNo <= 10)
+                    if (target.Status.IsBlock && game.RoundNo <= 10)
                     {
                         // target.Status.IsBlock = false;
                         me.Status.IsAbleToWin = false;
@@ -269,7 +269,6 @@ public class CharacterPassives : IServiceSingleton
                         var tolya = target.Passives.TolyaRammusTimes;
                         tolya.FriendList.Add(me.GetPlayerId());
                     }
-
                     break;
 
                 case "Одиночество":
@@ -483,7 +482,7 @@ public class CharacterPassives : IServiceSingleton
 
                 case "DragonSlayer":
                     if (game.RoundNo == 10)
-                        if (target.GameCharacter.Name == "Sirinoks")
+                        if (target.GameCharacter.Passive.Any(x => x.PassiveName == "Дракон"))
                         {
                             target.Status.IsAbleToWin = false;
                             game.AddGlobalLogs("**Я DRAGONSLAYER!**\n" +
@@ -801,7 +800,7 @@ public class CharacterPassives : IServiceSingleton
 
                 case "DragonSlayer":
                     if (game.RoundNo == 10)
-                        if (target.GameCharacter.Name == "Sirinoks")
+                        if (target.GameCharacter.Passive.Any(x => x.PassiveName == "Дракон"))
                             target.Status.IsAbleToWin = true;
                     break;
 
@@ -1978,7 +1977,6 @@ public class CharacterPassives : IServiceSingleton
                                 player.Status.IsSkip = true;
                                 player.Status.ConfirmedSkip = false;
                                 player.Status.IsBlock = false;
-                                player.Status.IsAbleToTurn = false;
                                 player.Status.IsReady = true;
                                 player.Status.WhoToAttackThisTurn = new List<Guid>();
 
@@ -2026,7 +2024,6 @@ public class CharacterPassives : IServiceSingleton
                             player.Status.IsSkip = true;
                             player.Status.ConfirmedSkip = false;
                             player.Status.IsBlock = false;
-                            player.Status.IsAbleToTurn = false;
                             player.Status.IsReady = true;
                             player.Status.WhoToAttackThisTurn = new List<Guid>();
                             player.GameCharacter.SetPsyche(0, "Стримснайпят и банят и банят и банят");
@@ -2064,7 +2061,6 @@ public class CharacterPassives : IServiceSingleton
                             player.Status.IsSkip = true;
                             player.Status.ConfirmedSkip = false;
                             player.Status.IsBlock = false;
-                            player.Status.IsAbleToTurn = false;
                             player.Status.IsReady = true;
                             player.Status.WhoToAttackThisTurn = new List<Guid>();
 
@@ -2083,7 +2079,6 @@ public class CharacterPassives : IServiceSingleton
                             player.Status.IsSkip = true;
                             player.Status.ConfirmedSkip = false;
                             player.Status.IsBlock = false;
-                            player.Status.IsAbleToTurn = false;
                             player.Status.IsReady = true;
                             player.Status.WhoToAttackThisTurn = new List<Guid>();
 
@@ -2241,7 +2236,6 @@ public class CharacterPassives : IServiceSingleton
                             player.Status.IsSkip = true;
                             player.Status.ConfirmedSkip = false;
                             player.Status.IsBlock = false;
-                            player.Status.IsAbleToTurn = false;
                             player.Status.IsReady = true;
                             player.Status.WhoToAttackThisTurn = new List<Guid>();
 
@@ -2487,7 +2481,6 @@ public class CharacterPassives : IServiceSingleton
                 player.Status.IsSkip = true;
                 player.Status.ConfirmedSkip = false;
                 player.Status.IsBlock = false;
-                player.Status.IsAbleToTurn = false;
                 player.Status.IsReady = true;
                 player.Status.WhoToAttackThisTurn = new List<Guid>();
                 player.Status.AddInGamePersonalLogs("Тебя усыпили...\n");
@@ -2669,7 +2662,6 @@ public class CharacterPassives : IServiceSingleton
                         {
                             player.Status.IsSkip = true;
                             player.Status.IsBlock = false;
-                            player.Status.IsAbleToTurn = false;
                             player.Status.IsReady = true;
                             player.Status.WhoToAttackThisTurn = new List<Guid>();
                             game.Phrases.DarksciFuckThisGame.SendLog(player, true);

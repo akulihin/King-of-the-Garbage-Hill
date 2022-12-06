@@ -170,10 +170,9 @@ public class CheckIfReady : IServiceSingleton
 
         try
         {
-            //case "AWDKA":
-            var awdka = game.PlayersList.Find(x => x.GameCharacter.Name == "AWDKA");
-            //trolling
-            if (awdka != null)
+            //Произошел троллинг
+            var awdkas = game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Произошел троллинг"));
+            foreach (var awdka in awdkas)
             {
                 var awdkaTroll = awdka.Passives.AwdkaTrollingList;
 
@@ -228,10 +227,10 @@ public class CheckIfReady : IServiceSingleton
                     game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);
                 //end sorting
 
-                if (enemy != null && game.PlayersList.First().GameCharacter.Name == "AWDKA")
+                if (enemy != null && game.PlayersList.First().GameCharacter.Passive.Any(x => x.PassiveName == "Произошел троллинг"))
                     game.AddGlobalLogs($"**Произошел Троллинг:** {trolledText} ");
             }
-            //end //trolling
+            //end Произошел троллинг
         }
 
         catch (Exception exception)
@@ -249,7 +248,7 @@ public class CheckIfReady : IServiceSingleton
 
         if (game.PlayersList.First().Status.AutoMoveTimes >= 10) game.PlayersList.First().DiscordUsername = "НейроБот";
 
-        if (game.PlayersList.First().Status.AutoMoveTimes >= 9 && game.PlayersList.First().GameCharacter.Name == "Тигр")
+        if (game.PlayersList.First().Status.AutoMoveTimes >= 9 && game.PlayersList.First().GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят"))
             game.PlayersList.First().DiscordUsername = "НейроБот";
 
         var isTeam = false;
@@ -481,7 +480,7 @@ public class CheckIfReady : IServiceSingleton
                 index++;
             }
 
-            await _global.Client.GetGuild(561282595799826432).GetTextChannel(1049047168650055750).SendMessageAsync(text);
+            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(text);
         }
 
         //elo winrate
@@ -499,7 +498,7 @@ public class CheckIfReady : IServiceSingleton
                 index++;
             }
             text += "**--------------------------------------------------------------------**";
-            await _global.Client.GetGuild(561282595799826432).GetTextChannel(1049047168650055750).SendMessageAsync(text);
+            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(text);
         }
         //elo winrate end
 
@@ -507,7 +506,7 @@ public class CheckIfReady : IServiceSingleton
         {
             if (game.GameMode == "ShowResult")
             {
-                var channel = _global.Client.GetGuild(561282595799826432).GetTextChannel(1049047168650055750);
+                var channel = _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340);
                 await channel.SendMessageAsync($"Game #{game.GameId}\n" +
                                                $"Vesrion: {game.GameVersion}\n" +
                                                $"1. **{game.PlayersList.First().GameCharacter.Name} - {game.PlayersList.First().Status.GetScore()}**\n" +
@@ -564,7 +563,6 @@ public class CheckIfReady : IServiceSingleton
                 {
                     player.Status.IsReady = true;
                     player.Status.IsBlock = true;
-                    player.Status.IsAbleToTurn = false;
                 }
             }
             //end Возвращение из мертвых
@@ -640,21 +638,19 @@ public class CheckIfReady : IServiceSingleton
 
             //handle bots
 
-            //AWDKA last
-            if (game.PlayersList.Any(x => x.GameCharacter.Name == "AWDKA"))
+            //Произошел троллинг
+            foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Произошел троллинг")).ToList())
             {
-                var tempHard = game.PlayersList.Find(x => x.GameCharacter.Name == "AWDKA");
-                var hardIndex = game.PlayersList.IndexOf(tempHard);
+                var hardIndex = game.PlayersList.IndexOf(player);
 
                 for (var k = hardIndex; k < game.PlayersList.Count - 1; k++)
                     game.PlayersList[k] = game.PlayersList[k + 1];
 
-                game.PlayersList[^1] = tempHard;
+                game.PlayersList[^1] = player;
             }
 
-            //выдаем место в таблице
             for (var k = 0; k < game.PlayersList.Count; k++) game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);
-            //end //AWDKA last
+            //end Произошел троллинг
 
             foreach (var t in players.Where(x => x.IsBot() || x.Status.IsAutoMove))
                 try
@@ -669,16 +665,18 @@ public class CheckIfReady : IServiceSingleton
                 }
 
 
-            if (game.PlayersList.Any(x => x.GameCharacter.Name == "HardKitty"))
+            //Никому не нужен
+            foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Никому не нужен")).ToList())
             {
-                var tempHard = game.PlayersList.Find(x => x.GameCharacter.Name == "HardKitty");
-                var hardIndex = game.PlayersList.IndexOf(tempHard);
+                var hardIndex = game.PlayersList.IndexOf(player);
 
                 for (var k = hardIndex; k < game.PlayersList.Count - 1; k++)
                     game.PlayersList[k] = game.PlayersList[k + 1];
 
-                game.PlayersList[^1] = tempHard;
+                game.PlayersList[^1] = player;
             }
+            //end Никому не нужен
+
 
             //выдаем место в таблице
             for (var k = 0; k < game.PlayersList.Count; k++) game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);

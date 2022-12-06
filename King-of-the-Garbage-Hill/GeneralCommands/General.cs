@@ -618,7 +618,7 @@ public class General : ModuleBaseCustom
             // .WithTitle("My internal statistics")
             .WithColor(Color.DarkGreen)
             .WithCurrentTimestamp()
-            .WithFooter("Версия: 2.8 Как же я заеблся")
+            .WithFooter("Версия: 2.8.1 Как же я заеблся 2.0")
             .WithDescription("**Циферки:**\n" +
                              $"Работает: {time.Days}д {time.Hours}ч {time.Minutes}м + {time:ss\\.fff}с\n" +
                              $"Всего команд: {_global.TotalCommandsIssued}\n" +

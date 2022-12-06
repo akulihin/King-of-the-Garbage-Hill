@@ -184,7 +184,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             switch (passive.PassiveName)
             {
                 case "Weedwick Pet":
-                    if (other.GameCharacter.Name == "DeepList") customString += " <:pet:1046330623498911744>";
+                    if (other.GameCharacter.Passive.Any(x => x.PassiveName == "DeepList Pet"))
+                        customString += " <:pet:1046330623498911744>";
                     break;
                 case "Weed":
                     if (other.GetPlayerId() == me.GetPlayerId()) break;
@@ -219,6 +220,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         if (!awdkaTrying.IsUnique) customString += " <:bronze:565744159680626700>";
                         else customString += " <:plat:565745613208158233>";
                     }
+
                     break;
 
                 case "Научите играть":
@@ -242,6 +244,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                             customString += $" (**{statText} {awdkaTrainingHistoryEnemy.Stat}** ?)";
                         }
                     }
+
                     //(<:volibir:894286361895522434> сила 10 ?)
                     break;
 
@@ -283,6 +286,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                                     break;
                             }
                     }
+
                     break;
 
                 case "Обучение":
@@ -312,6 +316,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                                 customString += " **Буль!**";
                         }
                     }
+
                     break;
 
                 case "Заводить друзей":
@@ -342,7 +347,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     break;
 
                 case "DeepList Pet":
-                    if (other.GameCharacter.Name == "Weedwick") customString += " <:pet:1046330623498911744>";
+                    if (other.GameCharacter.Passive.Any(x => x.PassiveName == "Weedwick Pet"))
+                        customString += " <:pet:1046330623498911744>";
                     break;
 
                 case "Сомнительная тактика":
@@ -385,6 +391,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                                 customString += " **кек**";
                         }
                     }
+
                     //end стёб
                     break;
 
@@ -427,6 +434,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                                     " <:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404><:broken_shield:902044789917241404>🎂 **НЯМ!**";
                                 break;
                         }
+
                     break;
 
                 case "Лучше с двумя, чем с адекватными":
@@ -456,7 +464,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             }
 
         var knownClass = me.Status.KnownPlayerClass.Find(x => x.EnemyId == other.GetPlayerId());
-        if (knownClass != null && me.GameCharacter.Name != "AWDKA")
+
+        //if (knownClass != null && me.GameCharacter.Name != "AWDKA")
+        if (knownClass != null)
             customString += $" {knownClass.Text}";
 
 
@@ -791,9 +801,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var isDisabled = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady;
 
         //Возвращение из мертвых
-        if (game.RoundNo > 10 && game.IsKratosEvent && player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых"))
+        if (game.RoundNo > 10 && game.IsKratosEvent &&
+            player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых"))
         {
-
         }
         //end Возвращение из мертвых
         else if (game.RoundNo > 10)
@@ -835,7 +845,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             placeHolder = "Что-то заставило тебя скипнуть...";
         }
 
-        if (!player.Status.ConfirmedSkip && player.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят"))
+        if (!player.Status.ConfirmedSkip &&
+            player.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят"))
         {
             isDisabled = true;
             placeHolder = "Обжаловать бан...";
@@ -957,7 +968,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
         //Да всё нахуй эту игру Part #4
-        if (game.RoundNo == 9 && player.GameCharacter.GetPsyche() == 4 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Дизмораль"))
+        if (game.RoundNo == 9 && player.GameCharacter.GetPsyche() == 4 &&
+            player.GameCharacter.Passive.Any(x => x.PassiveName == "Дизмораль"))
         {
             charMenu = new SelectMenuBuilder()
                 .WithMinValues(1)
@@ -1015,7 +1027,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (game.RoundNo == 10 && player.GameCharacter.GetMoral() < 3) extraText = " (Конец игры)";
 
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Ничего не понимает"))
-            return new ButtonBuilder("Ничего не понимает...", "skill", ButtonStyle.Secondary, isDisabled: true, emote: Emote.Parse("<a:bratishka:900962522276958298>"));
+            return new ButtonBuilder("Ничего не понимает...", "skill", ButtonStyle.Secondary, isDisabled: true,
+                emote: Emote.Parse("<a:bratishka:900962522276958298>"));
 
         if (player.GameCharacter.GetMoral() >= 20)
             return new ButtonBuilder($"Обменять 20 Морали на 100 Cкилла{extraText}", "skill", ButtonStyle.Secondary,
@@ -1065,29 +1078,31 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         components.WithSelectMenu(predictMenu ?? GetPredictMenu(player, game), 3);
 
-        switch (player.GameCharacter.Name)
-        {
-            case "Darksci":
-                var darksciType = player.Passives.DarksciTypeList;
-                if (game.RoundNo == 1 && !darksciType.Triggered)
-                {
-                    components.WithButton(new ButtonBuilder("Мне никогда не везёт...", "stable-Darksci"), 4);
-                    components.WithButton(
-                        new ButtonBuilder("Мне сегодня повезёт!", "not-stable-Darksci", ButtonStyle.Danger), 4);
-                    if (!darksciType.Sent)
+
+        foreach (var passive in player.GameCharacter.Passive)
+            switch (passive.PassiveName)
+            {
+                case "Мне (не)везет":
+                    var darksciType = player.Passives.DarksciTypeList;
+                    if (game.RoundNo == 1 && !darksciType.Triggered)
                     {
-                        darksciType.Sent = true;
-                        await _helperFunctions.SendMsgAndDeleteItAfterRound(player,
-                            "Нажмешь синюю кнопку - и сказке конец. Выберешь красную - и узнаешь насколько глубока нора Даркси.");
+                        components.WithButton(new ButtonBuilder("Мне никогда не везёт...", "stable-Darksci"), 4);
+                        components.WithButton(
+                            new ButtonBuilder("Мне сегодня повезёт!", "not-stable-Darksci", ButtonStyle.Danger), 4);
+                        if (!darksciType.Sent)
+                        {
+                            darksciType.Sent = true;
+                            await _helperFunctions.SendMsgAndDeleteItAfterRound(player,
+                                "Нажмешь синюю кнопку - и сказке конец. Выберешь красную - и узнаешь насколько глубока нора Даркси.");
+                        }
                     }
-                }
 
-                break;
+                    break;
 
-            case "Dopa":
-                components.WithSelectMenu(GetDopaMenu(player, game), 4);
-                break;
-        }
+                case "Dopa":
+                    components.WithSelectMenu(GetDopaMenu(player, game), 4);
+                    break;
+            }
 
         return components;
     }
@@ -1097,7 +1112,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         var playerIsReady = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady;
         //Возвращение из мертвых
-        if (game.RoundNo > 10 && game.IsKratosEvent && player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых"))
+        if (game.RoundNo > 10 && game.IsKratosEvent &&
+            player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых"))
         {
         }
         //end Возвращение из мертвых
@@ -1113,7 +1129,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         var disabled = false;
         //Возвращение из мертвых
-        if (game.RoundNo > 10 && game.IsKratosEvent && player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых"))
+        if (game.RoundNo > 10 && game.IsKratosEvent &&
+            player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых"))
         {
         }
         //end Возвращение из мертвых
@@ -1172,8 +1189,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 builder = new ComponentBuilder().WithSelectMenu(await GetLvlUpMenu(player, game));
 
                 //Да всё нахуй эту игру Part #5
-                if (game!.RoundNo == 9 && player.GameCharacter.GetPsyche() == 4 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Дизмораль"))
-                    builder.WithButton("Riot style \"choice\"", "crutch", row: 1, style: ButtonStyle.Secondary, disabled: true);
+                if (game!.RoundNo == 9 && player.GameCharacter.GetPsyche() == 4 &&
+                    player.GameCharacter.Passive.Any(x => x.PassiveName == "Дизмораль"))
+                    builder.WithButton("Riot style \"choice\"", "crutch", row: 1, style: ButtonStyle.Secondary,
+                        disabled: true);
                 //end Да всё нахуй эту игру: Part #5
                 break;
         }

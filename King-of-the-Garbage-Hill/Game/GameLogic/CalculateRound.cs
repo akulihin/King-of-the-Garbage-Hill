@@ -545,7 +545,7 @@ Speed => Strength
 
                     //add regular points
                     if (!teamMate)
-                        if (player.GameCharacter.Name == "HardKitty")
+                        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Никому не нужен"))
                         {
                             player.Status.AddRegularPoints(point * -1, "Победа");
                         }
@@ -584,7 +584,7 @@ Speed => Strength
                         placeDiff *= -1;
 
                     //Много выебывается
-                    if (playerIamAttacking.GameCharacter.Name == "Mit*suki*" && playerIamAttacking.Status.GetPlaceAtLeaderBoard() == 1 && playerIamAttacking.GameCharacter.GetSkill() < player.GameCharacter.GetSkill())
+                    if (playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Много выебывается") && playerIamAttacking.Status.GetPlaceAtLeaderBoard() == 1 && playerIamAttacking.GameCharacter.GetSkill() < player.GameCharacter.GetSkill())
                     {
                         playerIamAttacking.Status.AddInGamePersonalLogs("Много выебывается: Да блять, я не бущенный!\n");
                         playerIamAttacking.FightCharacter.HandleDrop(playerIamAttacking.DiscordUsername, game);
@@ -696,7 +696,6 @@ Speed => Strength
             player.Status.IsArmorBreak = false;
             player.Status.IsAbleToWin = true;
             player.Status.IsSkip = false;
-            player.Status.IsAbleToTurn = true;
             player.Status.IsReady = false;
             player.Status.WhoToAttackThisTurn = new List<Guid>();
             player.Status.MoveListPage = 1;
@@ -715,7 +714,7 @@ Speed => Strength
         //Возвращение из мертвых
         foreach (var player in game.PlayersList.Where(x => x.Passives.KratosIsDead && !x.IsBot()))
         {
-            if (player.GameCharacter.Name == "Кратос")
+            if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых"))
             {
                 await player.DiscordStatus.SocketMessageFromBot.ModifyAsync(x =>
                 {
@@ -760,38 +759,35 @@ Speed => Strength
         game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
 
 
-        //Tigr Unique
-        if (game.PlayersList.Any(x => x.GameCharacter.Name == "Тигр"))
+        //Тигр топ, а ты холоп
+        foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Тигр топ, а ты холоп")).ToList())
         {
-            var tigrTemp = game.PlayersList.Find(x => x.GameCharacter.Name == "Тигр");
-
-            var tigr = tigrTemp.Passives.TigrTop;
+            var tigr = player.Passives.TigrTop;
 
             if (tigr is { TimeCount: > 0 })
             {
-                var tigrIndex = game.PlayersList.IndexOf(tigrTemp);
+                var tigrIndex = game.PlayersList.IndexOf(player);
 
                 game.PlayersList[tigrIndex] = game.PlayersList.First();
-                game.PlayersList[0] = tigrTemp;
+                game.PlayersList[0] = player;
                 tigr.TimeCount--;
                 // game.Phrases.TigrTop.SendLog(tigrTemp);
             }
         }
-        //end Tigr Unique
+        //end Тигр топ, а ты холоп
 
 
-        //HardKitty unique
-        if (game.PlayersList.Any(x => x.GameCharacter.Name == "HardKitty"))
+        //Никому не нужен
+        foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Никому не нужен")).ToList())
         {
-            var tempHard = game.PlayersList.Find(x => x.GameCharacter.Name == "HardKitty");
-            var hardIndex = game.PlayersList.IndexOf(tempHard);
+            var hardIndex = game.PlayersList.IndexOf(player);
 
-            for (var i = hardIndex; i < game.PlayersList.Count - 1; i++)
-                game.PlayersList[i] = game.PlayersList[i + 1];
+            for (var k = hardIndex; k < game.PlayersList.Count - 1; k++)
+                game.PlayersList[k] = game.PlayersList[k + 1];
 
-            game.PlayersList[^1] = tempHard;
+            game.PlayersList[^1] = player;
         }
-        //end //HardKitty unique
+        //end Никому не нужен
 
 
         //sort
@@ -815,7 +811,7 @@ Speed => Strength
             var oldIndex = game.PlayersList.IndexOf(player);
             var newIndex = oldIndex + 1;
 
-            if(newIndex == 5 && game.PlayersList[newIndex].GameCharacter.Name == "HardKitty")
+            if(newIndex == 5 && game.PlayersList[newIndex].GameCharacter.Passive.Any(x => x.PassiveName == "Никому не нужен"))
                 continue;
 
             game.PlayersList[oldIndex] = game.PlayersList[newIndex];

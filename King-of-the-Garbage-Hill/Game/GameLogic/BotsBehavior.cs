@@ -1524,7 +1524,7 @@ public class BotsBehavior : IServiceSingleton
                 whoToAttack = players[_rand.Random(0, players.Count - 1)].Player.Status.GetPlaceAtLeaderBoard();
 
                 if (maxRandomNumber > 0)
-                    await _global.Client.GetGuild(561282595799826432).GetTextChannel(1049047168650055750)
+                    await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340)
                         .SendMessageAsync(
                             $"**{bot.GameCharacter.Name}** Поставил блок, а ему нельзя. {randomNumber}/{maxRandomNumber} <= {totalPreference}\n" +
                             $"Round: {game.RoundNo}\n" +
@@ -1534,7 +1534,7 @@ public class BotsBehavior : IServiceSingleton
             }
             else if (!isAttacked)
             {
-                await _global.Client.GetGuild(561282595799826432).GetTextChannel(1049047168650055750).SendMessageAsync(
+                await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(
                     $"**{bot.GameCharacter.Name}** не напал ни на кого.\n" +
                     $"Round: {game.RoundNo}\n");
                 await _gameReaction.HandleAttack(bot, null, -10);
@@ -1544,7 +1544,7 @@ public class BotsBehavior : IServiceSingleton
         }
         catch (Exception e)
         {
-            await _global.Client.GetGuild(561282595799826432).GetTextChannel(1049047168650055750)
+            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340)
                 .SendMessageAsync($"{e.Message}\n{e.StackTrace}");
             _logs.Critical(e.Message);
             _logs.Critical(e.StackTrace);
