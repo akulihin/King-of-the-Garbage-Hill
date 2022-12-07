@@ -76,56 +76,41 @@ Speed => Strength
 
 
             //OneFight Mechanics, use GameCharacter only
-            if (player.Status.RealIntelligence != -1)
+            if (player.Status.IsIntelligenceForOneFight)
             {
-                var returned = player.GameCharacter.GetIntelligence() - player.Status.TempIntelligence + player.Status.RealIntelligence;
-                player.GameCharacter.SetIntelligence(returned, "Reset", false);
-                player.Status.RealIntelligence = -1;
-                player.Status.TempIntelligence = -1;
+                player.Status.IsIntelligenceForOneFight = false;
+                player.GameCharacter.ResetIntelligenceForOneFight();
             }
 
-            if (player.Status.RealStrength != -1)
+            if (player.Status.IsStrengthForOneFight)
             {
-                var returned = player.GameCharacter.GetStrength() - player.Status.TempStrength + player.Status.RealStrength;
-                player.GameCharacter.SetStrength(returned, "Reset", false);
-                player.Status.RealStrength = -1;
-                player.Status.TempStrength = -1;
+                player.Status.IsStrengthForOneFight = false;
+                player.GameCharacter.ResetStrengthForOneFight();
             }
 
-            if (player.Status.RealSpeed != -1)
+            if (player.Status.IsSpeedForOneFight)
             {
-                var returned = player.GameCharacter.GetSpeed() - player.Status.TempSpeed + player.Status.RealSpeed;
-                player.GameCharacter.SetSpeed(returned, "Reset", false);
-                player.Status.RealSpeed = -1;
-                player.Status.TempSpeed = -1;
+                player.Status.IsSpeedForOneFight = false;
+                player.GameCharacter.ResetSpeedForOneFight();
             }
 
-            if (player.Status.RealPsyche != -1)
+            if (player.Status.IsPsycheForOneFight)
             {
-                var returned = player.GameCharacter.GetPsyche() - player.Status.TempPsyche + player.Status.RealPsyche;
-                player.GameCharacter.SetPsyche(returned, "Reset", false);
-                player.Status.RealPsyche = -1;
-                player.Status.TempPsyche = -1;
+                player.Status.IsPsycheForOneFight = false;
+                player.GameCharacter.ResetPsycheForOneFight();
             }
 
-            //justice is different?
-            if (player.Status.RealJustice != -1)
+            if (player.Status.IsJusticeForOneFight )
             {
-                var returned = player.GameCharacter.Justice.GetRealJusticeNow() - player.Status.TempJustice + player.Status.RealJustice;
-                player.GameCharacter.Justice.SetRealJusticeNow(returned, "Reset", false);
-                player.Status.RealJustice = -1;
-                player.Status.TempJustice = -1;
+                player.Status.IsJusticeForOneFight = false;
+                player.GameCharacter.Justice.ResetJusticeForOneFight();
             }
 
-            //Skill is Different
-            if (player.Status.RealSkill != -1)
+            if (player.Status.IsSkillForOneFight)
             {
-                player.Status.RealSkill = -1;
+                player.Status.IsSkillForOneFight = false;
                 player.GameCharacter.ResetSkillForOneFight();
-
             }
-
-
             //end OneFight Mechanics
 
             player.Status.IsWonThisCalculation = Guid.Empty;

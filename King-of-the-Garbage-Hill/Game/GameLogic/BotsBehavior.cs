@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
@@ -95,46 +96,11 @@ public class BotsBehavior : IServiceSingleton
         //end логика до 10го раунда
 
         //прожать всю момаль
-        if (bot.GameCharacter.GetMoral() >= 20)
+        while (bot.GameCharacter.GetMoral() >= 1)
         {
-            bot.GameCharacter.AddMoral(-20, "Обмен Морали", true, true);
-            bot.GameCharacter.AddExtraSkill(100, "Обмен Морали");
-        }
-
-        if (bot.GameCharacter.GetMoral() >= 13)
-        {
-            bot.GameCharacter.AddMoral(-13, "Обмен Морали", true, true);
-            bot.GameCharacter.AddExtraSkill(50, "Обмен Морали");
-        }
-
-        if (bot.GameCharacter.GetMoral() >= 8)
-        {
-            bot.GameCharacter.AddMoral(-8, "Обмен Морали", true, true);
-            bot.GameCharacter.AddExtraSkill(30, "Обмен Морали");
-        }
-
-        if (bot.GameCharacter.GetMoral() >= 5)
-        {
-            bot.GameCharacter.AddMoral(-5, "Обмен Морали", true, true);
-            bot.GameCharacter.AddExtraSkill(18, "Обмен Морали");
-        }
-
-        if (bot.GameCharacter.GetMoral() >= 3)
-        {
-            bot.GameCharacter.AddMoral(-3, "Обмен Морали", true, true);
-            bot.GameCharacter.AddExtraSkill(10, "Обмен Морали");
-        }
-
-        if (bot.GameCharacter.GetMoral() >= 2)
-        {
-            bot.GameCharacter.AddMoral(-2, "Обмен Морали", true, true);
-            bot.GameCharacter.AddExtraSkill(6, "Обмен Морали");
-        }
-
-        if (bot.GameCharacter.GetMoral() >= 1)
-        {
-            bot.GameCharacter.AddMoral(-1, "Обмен Морали", true, true);
-            bot.GameCharacter.AddExtraSkill(2, "Обмен Морали");
+#pragma warning disable CS4014
+            _gameReaction.HandleMoralForSkill(bot);
+#pragma warning restore CS4014
         }
         //end прожать всю момаль
     }
@@ -194,28 +160,11 @@ public class BotsBehavior : IServiceSingleton
         //end логика до 10го раунда
 
         //прожать всю момаль
-        if (bot.GameCharacter.GetMoral() >= 20)
+        while (bot.GameCharacter.GetMoral() >= 5)
         {
-            bot.GameCharacter.AddMoral(-20, "Обмен Морали", true, true);
-            bot.GameCharacter.AddBonusPointsFromMoral(10);
-        }
-
-        if (bot.GameCharacter.GetMoral() >= 13)
-        {
-            bot.GameCharacter.AddMoral(-13, "Обмен Морали", true, true);
-            bot.GameCharacter.AddBonusPointsFromMoral(5);
-        }
-
-        if (bot.GameCharacter.GetMoral() >= 8)
-        {
-            bot.GameCharacter.AddMoral(-8, "Обмен Морали", true, true);
-            bot.GameCharacter.AddBonusPointsFromMoral(2);
-        }
-
-        if (bot.GameCharacter.GetMoral() >= 5)
-        {
-            bot.GameCharacter.AddMoral(-5, "Обмен Морали", true, true);
-            bot.GameCharacter.AddBonusPointsFromMoral(1);
+#pragma warning disable CS4014
+            _gameReaction.HandleMoralForScore(bot);
+#pragma warning restore CS4014
         }
         //end прожать всю момаль
     }

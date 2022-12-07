@@ -35,6 +35,97 @@ public sealed class GameReaction : IServiceSingleton
     }
 
     //    private readonly InGameGlobal _gameGlobal;
+
+    public async Task HandleMoralForSkill(GamePlayerBridgeClass player)
+    {
+        var extraText = "";
+
+        if (player.GameCharacter.GetMoral() >= 20)
+        {
+            player.GameCharacter.AddMoral(-20, "Обмен Морали", true, true);
+            player.GameCharacter.AddExtraSkill(100, "Обмен Морали");
+            extraText = "Мораль: Я БОГ ЭТОГО МИРА!!! +100 *Скилла*";
+        }
+        else if (player.GameCharacter.GetMoral() >= 13)
+        {
+            player.GameCharacter.AddMoral(-13, "Обмен Морали", true, true);
+            player.GameCharacter.AddExtraSkill(50, "Обмен Морали");
+            extraText = "Мораль: MVP! +50 *Скилла*";
+        }
+        else if (!player.IsBot() && player.GameCharacter.GetMoral() >= 7 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Еврей"))
+        {
+            player.GameCharacter.AddMoral(-7, "Обмен Морали", true, true);
+            player.GameCharacter.AddExtraSkill(40, "Обмен Морали");
+            extraText = "Мораль: 7:40! Время танцевать! +40 *Скилла*";
+        }
+        else if (player.GameCharacter.GetMoral() >= 8)
+        {
+            player.GameCharacter.AddMoral(-8, "Обмен Морали", true, true);
+            player.GameCharacter.AddExtraSkill(30, "Обмен Морали");
+            extraText = "Мораль: Я художник! +30 *Скилла*";
+        }
+        else if (player.GameCharacter.GetMoral() >= 5)
+        {
+            player.GameCharacter.AddMoral(-5, "Обмен Морали", true, true);
+            player.GameCharacter.AddExtraSkill(18, "Обмен Морали");
+            extraText = "Мораль: Изи катка +18 *Скилла*";
+        }
+        else if (player.GameCharacter.GetMoral() >= 3)
+        {
+            player.GameCharacter.AddMoral(-3, "Обмен Морали", true, true);
+            player.GameCharacter.AddExtraSkill(10, "Обмен Морали");
+            extraText = "Мораль: Набрался *Скилла*, так сказать. +10 *Скилла*";
+        }
+        else if (player.GameCharacter.GetMoral() >= 2)
+        {
+            player.GameCharacter.AddMoral(-2, "Обмен Морали", true, true);
+            player.GameCharacter.AddExtraSkill(6, "Обмен Морали");
+            extraText = "Мораль: Так вот как в это играть. +6 *Скилла*";
+        }
+        else if (player.GameCharacter.GetMoral() >= 1)
+        {
+            player.GameCharacter.AddMoral(-1, "Обмен Морали", true, true);
+            player.GameCharacter.AddExtraSkill(2, "Обмен Морали");
+            extraText = "Мораль: Это что? +2 *Скилла*";
+        }
+
+        if (extraText.Length > 1)
+            await _upd.UpdateMessage(player, extraText);
+    }
+
+    public async Task HandleMoralForScore(GamePlayerBridgeClass player)
+    {
+        var extraText = "";
+
+        if (player.GameCharacter.GetMoral() >= 20)
+        {
+            player.GameCharacter.AddMoral(-20, "Обмен Морали", true, true);
+            player.GameCharacter.AddBonusPointsFromMoral(10);
+            extraText = "Мораль: Я БОГ ЭТОГО МИРА +10 __бонунсых__ очков";
+        }
+        else if (player.GameCharacter.GetMoral() >= 13)
+        {
+            player.GameCharacter.AddMoral(-13, "Обмен Морали", true, true);
+            player.GameCharacter.AddBonusPointsFromMoral(5);
+            extraText = "Мораль: МВП +5 __бонунсых__ очков";
+        }
+        else if (player.GameCharacter.GetMoral() >= 8)
+        {
+            player.GameCharacter.AddMoral(-8, "Обмен Морали", true, true);
+            player.GameCharacter.AddBonusPointsFromMoral(2);
+            extraText = "Мораль: Я богач! +2 __бонунсых__ очков";
+        }
+        else if (player.GameCharacter.GetMoral() >= 5)
+        {
+            player.GameCharacter.AddMoral(-5, "Обмен Морали", true, true);
+            player.GameCharacter.AddBonusPointsFromMoral(1);
+            extraText = "Мораль: Ойвей +1 __бонунсых__ очка";
+        }
+
+        if (extraText.Length > 1)
+            await _upd.UpdateMessage(player, extraText);
+    }
+
     public async Task ReactionAddedGameWindow(SocketMessageComponent button)
     {
         foreach (var t in _global.GamesList)
@@ -225,92 +316,10 @@ public sealed class GameReaction : IServiceSingleton
                         await _upd.UpdateMessage(player);
                         break;
                     case "moral":
-                        var tempMoral = player.GameCharacter.GetMoral();
-
-
-                        if (player.GameCharacter.GetMoral() >= 20)
-                        {
-                            player.GameCharacter.AddMoral(-20, "Обмен Морали", true, true);
-                            player.GameCharacter.AddBonusPointsFromMoral(10);
-                            extraText = "Мораль: Я БОГ ЭТОГО МИРА +10 __бонунсых__ очков";
-                        }
-                        else if (player.GameCharacter.GetMoral() >= 13)
-                        {
-                            player.GameCharacter.AddMoral(-13, "Обмен Морали", true, true);
-                            player.GameCharacter.AddBonusPointsFromMoral(5);
-                            extraText = "Мораль: МВП +5 __бонунсых__ очков";
-                        }
-                        else if (player.GameCharacter.GetMoral() >= 8)
-                        {
-                            player.GameCharacter.AddMoral(-8, "Обмен Морали", true, true);
-                            player.GameCharacter.AddBonusPointsFromMoral(2);
-                            extraText = "Мораль: Я богач! +2 __бонунсых__ очков";
-                        }
-                        else if (player.GameCharacter.GetMoral() >= 5)
-                        {
-                            player.GameCharacter.AddMoral(-5, "Обмен Морали", true, true);
-                            player.GameCharacter.AddBonusPointsFromMoral(1);
-                            extraText = "Мораль: Ойвей +1 __бонунсых__ очка";
-                        }
-
-                        if (tempMoral >= 3)
-                            await _upd.UpdateMessage(t.PlayersList.Find(x => x.DiscordId == player.DiscordId), extraText);
+                        await HandleMoralForScore(player);
                         break;
                     case "skill":
-                        var tempSkill = player.GameCharacter.GetMoral();
-
-
-                        if (player.GameCharacter.GetMoral() >= 20)
-                        {
-                            player.GameCharacter.AddMoral(-20, "Обмен Морали", true, true);
-                            player.GameCharacter.AddExtraSkill( 100, "Обмен Морали");
-                            extraText = "Мораль: Я БОГ ЭТОГО МИРА!!! +100 *Скилла*";
-                        }
-                        else if (player.GameCharacter.GetMoral() >= 13)
-                        {
-                            player.GameCharacter.AddMoral(-13, "Обмен Морали", true, true);
-                            player.GameCharacter.AddExtraSkill( 50, "Обмен Морали");
-                            extraText = "Мораль: MVP! +50 *Скилла*";
-                        }
-                        else if (!player.IsBot() && player.GameCharacter.GetMoral() >= 7 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Еврей"))
-                        {
-                            player.GameCharacter.AddMoral(-7, "Обмен Морали", true, true);
-                            player.GameCharacter.AddExtraSkill(40, "Обмен Морали");
-                            extraText = "Мораль: 7:40! Время танцевать! +40 *Скилла*";
-                        }
-                        else if (player.GameCharacter.GetMoral() >= 8)
-                        {
-                            player.GameCharacter.AddMoral(-8, "Обмен Морали", true, true);
-                            player.GameCharacter.AddExtraSkill( 30, "Обмен Морали");
-                            extraText = "Мораль: Я художник! +30 *Скилла*";
-                        }
-                        else if (player.GameCharacter.GetMoral() >= 5)
-                        {
-                            player.GameCharacter.AddMoral(-5, "Обмен Морали", true, true);
-                            player.GameCharacter.AddExtraSkill(18, "Обмен Морали");
-                            extraText = "Мораль: Изи катка +18 *Скилла*";
-                        }
-                        else if (player.GameCharacter.GetMoral() >= 3)
-                        {
-                            player.GameCharacter.AddMoral(-3, "Обмен Морали", true, true);
-                            player.GameCharacter.AddExtraSkill( 10, "Обмен Морали");
-                            extraText = "Мораль: Набрался *Скилла*, так сказать. +10 *Скилла*";
-                        }
-                        else if (player.GameCharacter.GetMoral() >= 2)
-                        {
-                            player.GameCharacter.AddMoral(-2, "Обмен Морали", true, true);
-                            player.GameCharacter.AddExtraSkill( 6, "Обмен Морали");
-                            extraText = "Мораль: Так вот как в это играть. +6 *Скилла*";
-                        }
-                        else if (player.GameCharacter.GetMoral() >= 1)
-                        {
-                            player.GameCharacter.AddMoral(-1, "Обмен Морали", true, true);
-                            player.GameCharacter.AddExtraSkill( 2, "Обмен Морали");
-                            extraText = "Мораль: Это что? +2 *Скилла*";
-                        }
-
-                        if (tempSkill >= 1)
-                            await _upd.UpdateMessage(t.PlayersList.Find(x => x.DiscordId == player.DiscordId), extraText);
+                        await HandleMoralForSkill(player);
                         break;
 
                     case "char-select":

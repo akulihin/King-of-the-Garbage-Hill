@@ -658,8 +658,12 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         if (game.RoundNo > 1)
         {
-            foreach (var player in game.PlayersList)
-                for (var i = 0; i < logsSplit.Count; i++)
+            for (var i = 0; i < logsSplit.Count; i++)
+            {
+                var stdout = false;
+
+                foreach (var player in game.PlayersList)
+                {
                     if (logsSplit[i].Contains($"{player.DiscordUsername}"))
                     {
                         var fightLine = logsSplit[i];
@@ -668,26 +672,33 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                         var fightLineSplitSplit = fightLineSplit.First().Split("<:war:561287719838547981>");
 
-                        switch (fightLineSplitSplit.Length)
+
+                        if (fightLineSplitSplit.Length > 1)
                         {
-                            case 1:
-                                sortedGameLogs += $"{fightLine}\n";
-                                break;
-                            default:
-                                fightLine = fightLineSplitSplit.First().Contains($"{player.DiscordUsername}")
-                                    ? $"{fightLineSplitSplit.First()} <:war:561287719838547981> {fightLineSplitSplit[1]}"
-                                    : $"{fightLineSplitSplit[1]} <:war:561287719838547981> {fightLineSplitSplit.First()}";
+                            stdout = true;
+                            fightLine = fightLineSplitSplit.First().Contains($"{player.DiscordUsername}")
+                                ? $"{fightLineSplitSplit.First()} <:war:561287719838547981> {fightLineSplitSplit[1]}"
+                                : $"{fightLineSplitSplit[1]} <:war:561287719838547981> {fightLineSplitSplit.First()}";
 
 
-                                fightLine += $" ⟶ {fightLineSplit[1]}";
+                            fightLine += $" ⟶ {fightLineSplit[1]}";
 
-                                sortedGameLogs += $"{fightLine}\n";
-                                break;
+                            sortedGameLogs += $"{fightLine}\n";
+                            logsSplit.RemoveAt(i);
+                            i--;
                         }
-
-                        logsSplit.RemoveAt(i);
-                        i--;
                     }
+                }
+
+                if (!stdout)
+                {
+                    sortedGameLogs += $"{logsSplit[i]}";
+                    if (i < logsSplit.Count - 1)
+                    {
+                        sortedGameLogs += "\n";
+                    }
+                }
+            }
         }
         else
         {
@@ -1032,6 +1043,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     public ButtonBuilder GetMoralToPointsButton(GamePlayerBridgeClass player, GameClass game)
     {
         var disabled = game is not { RoundNo: <= 10 };
+        if (game.IsKratosEvent)
+            disabled = false;
         var extraText = "";
         if (game.RoundNo == 10) extraText = " (Конец игры)";
 
@@ -1066,6 +1079,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
         var disabled = game is not { RoundNo: <= 10 };
+        if (game.IsKratosEvent)
+            disabled = false;
         var extraText = "";
         if (game.RoundNo == 10 && player.GameCharacter.GetMoral() < 3) extraText = " (Конец игры)";
 

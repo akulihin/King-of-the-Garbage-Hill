@@ -5,8 +5,10 @@ using System.Timers;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
+using LamarCodeGeneration.Util;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
@@ -20,6 +22,7 @@ public class CheckIfReady : IServiceSingleton
     private readonly LoginFromConsole _logs;
     private readonly CalculateRound _round;
     private readonly GameUpdateMess _upd;
+    private readonly GameReaction _gameReaction;
     private bool _looping;
 
 
@@ -28,7 +31,7 @@ public class CheckIfReady : IServiceSingleton
 
     public CheckIfReady(Global global, GameUpdateMess upd, CalculateRound round,
         GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, LoginFromConsole logs, UserAccounts accounts,
-        HelperFunctions help)
+        HelperFunctions help, GameReaction gameReaction)
     {
         _global = global;
         _upd = upd;
@@ -38,6 +41,7 @@ public class CheckIfReady : IServiceSingleton
         _logs = logs;
         _accounts = accounts;
         _help = help;
+        _gameReaction = gameReaction;
         CheckTimer();
     }
 
@@ -149,8 +153,22 @@ public class CheckIfReady : IServiceSingleton
     private async Task HandleLastRound(GameClass game)
     {
         game.IsCheckIfReady = false;
+
+        //moral
+        //прожать всю момаль
+        foreach (var player in game.PlayersList)
+        {
+            while (player.GameCharacter.GetMoral() >= 5)
+            {
+                await _gameReaction.HandleMoralForScore(player);
+            }
+            player.Status.AddBonusPoints(player.GameCharacter.GetBonusPointsFromMoral(), "Мораль");
+        }
+        //end прожать всю момаль
+        //end moral
+
         //predict
-        if(game.PlayersList.Count == 6)
+        if (game.PlayersList.Count == 6)
             foreach (var player in from player in game.PlayersList
                      from predict in player.Predict
                      let enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId)

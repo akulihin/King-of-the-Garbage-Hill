@@ -83,19 +83,13 @@ public class InGameStatus
     public int RoundNumber { get; set; }
 
     //Real and Temp stats are used only for Round Mechanics (Fighting). They are used mostly to "ignore" or "swap" characteristics during one fight!
-    public int RealIntelligence { get; set; } = -1;
-    public int TempIntelligence { get; set; } = -1;
-    public int RealStrength { get; set; } = -1;
+    public bool IsIntelligenceForOneFight { get; set; } = false;
+    public bool IsStrengthForOneFight { get; set; } = false;
+    public bool IsSkillForOneFight { get; set; } = false;
+    public bool IsSpeedForOneFight { get; set; } = false;
+    public bool IsPsycheForOneFight { get; set; } = false;
+    public bool IsJusticeForOneFight { get; set; } = false;
 
-    public decimal RealSkill { get; set; } = -1;
-
-    public int TempStrength { get; set; } = -1;
-    public int RealSpeed { get; set; } = -1;
-    public int TempSpeed { get; set; } = -1;
-    public int RealPsyche { get; set; } = -1;
-    public int TempPsyche { get; set; } = -1;
-    public int RealJustice { get; set; } = -1;
-    public int TempJustice { get; set; } = -1;
 
     public List<PlaceAtLeaderBoardHistoryClass> PlaceAtLeaderBoardHistory { get; set; }
     public DateTimeOffset LastButtonPress { get; set; } = DateTimeOffset.UtcNow;

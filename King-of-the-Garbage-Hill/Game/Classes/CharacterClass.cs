@@ -48,12 +48,16 @@ public class CharacterClass
         other.WonTimes = WonTimes;
         other.WinStreak = WinStreak;
         other.Intelligence = Intelligence;
+        other.IntelligenceForOneFight = IntelligenceForOneFight;
         other.IntelligenceExtraText = IntelligenceExtraText;
         other.Psyche = Psyche;
+        other.PsycheForOneFight = PsycheForOneFight;
         other.PsycheExtraText = PsycheExtraText;
         other.Speed = Speed;
+        other.SpeedForOneFight = SpeedForOneFight;
         other.SpeedExtraText = SpeedExtraText;
         other.Strength = Strength;
+        other.StrengthForOneFight = StrengthForOneFight;
         other.StrengthExtraText = StrengthExtraText;
         other.SkillMain = SkillMain;
         other.SkillExtra = SkillExtra;
@@ -98,20 +102,20 @@ public class CharacterClass
     private int WinStreak { get; set; }
 
     private int Intelligence { get; set; }
-    private int IntelligenceForOneFight { get; set; }
+    private int IntelligenceForOneFight { get; set; } = -228;
     private string IntelligenceExtraText { get; set; }
     private int Psyche { get; set; }
-    private int PsycheForOneFight { get; set; }
+    private int PsycheForOneFight { get; set; } = -228;
     private string PsycheExtraText { get; set; }
     private int Speed { get; set; }
-    private int SpeedForOneFight { get; set; }
+    private int SpeedForOneFight { get; set; } = -228;
     private string SpeedExtraText { get; set; }
     private int Strength { get; set; }
-    private int StrengthForOneFight { get; set; }
+    private int StrengthForOneFight { get; set; } = -228;
     private string StrengthExtraText { get; set; }
     private decimal SkillMain { get; set; }
     private decimal SkillExtra { get; set; }
-    private decimal SkillForOneFight { get; set; }
+    private decimal SkillForOneFight { get; set; } = -228;
     private int TargetSkillMultiplier { get; set; }
     private int ExtraSkillMultiplier { get; set; }
     private int SkillFightMultiplier { get; set; }
@@ -269,7 +273,7 @@ public class CharacterClass
         {
             spacing += s;
         }
-        if (Intelligence < 10 && (Strength == 10 || Psyche == 10 || Speed == 10))
+        if (GetIntelligence() < 10 && (GetStrength() == 10 || GetPsyche() == 10 || GetSpeed() == 10))
             spacing += $"{s}{s}";
         var text = $"{spacing}<:Anal:1000841467935338518> {IntelligenceQualityResist}";
 
@@ -293,7 +297,7 @@ public class CharacterClass
         {
             spacing += s;
         }
-        if (Strength < 10 && (Speed == 10 || Intelligence == 10 || Psyche == 10))
+        if (GetStrength() < 10 && (GetSpeed() == 10 || GetIntelligence() == 10 || GetPsyche() == 10))
             spacing += $"{s}{s}";
         var text = $"{spacing}<:Usto:1000845686872473611> {StrengthQualityResist}";
         if (StrengthQualityDropBonus)
@@ -314,7 +318,7 @@ public class CharacterClass
         {
             spacing += s;
         }
-        if(Speed < 10 && (Strength == 10 || Intelligence == 10 || Psyche == 10))
+        if(GetSpeed() < 10 && (GetStrength() == 10 || GetIntelligence() == 10 || GetPsyche() == 10))
             spacing += $"{s}{s}";
 
         var text = $"{spacing}<:Mobi:1000841939500925118> {GetSpeedQualityResistInt()}";
@@ -350,7 +354,7 @@ public class CharacterClass
         {
             spacing += s;
         }
-        if (Psyche < 10 && (Strength == 10 || Intelligence == 10 || Speed == 10))
+        if (GetPsyche() < 10 && (GetStrength() == 10 || GetIntelligence() == 10 || GetSpeed() == 10))
             spacing += $"{s}{s}";
         var text = $"{spacing}<:Spok:1000842206145413210> {PsycheQualityResist}";
 
@@ -382,7 +386,7 @@ public class CharacterClass
 
     public void SetIntelligenceResist()
     {
-        IntelligenceQualityResist = Intelligence switch
+        IntelligenceQualityResist = GetIntelligence() switch
         {
             >= 0 and <= 3 => 1,
             >= 4 and <= 7 => 2,
@@ -390,12 +394,12 @@ public class CharacterClass
             _ => IntelligenceQualityResist
         };
 
-        IsIntelligenceQualitySkillBonus = Intelligence > 9;
+        IsIntelligenceQualitySkillBonus = GetIntelligence() > 9;
     }
 
     public void SetStrengthResist()
     {
-        StrengthQualityResist = Strength switch
+        StrengthQualityResist = GetStrength() switch
         {
             >= 0 and <= 3 => 1,
             >= 4 and <= 7 => 2,
@@ -403,12 +407,12 @@ public class CharacterClass
             _ => StrengthQualityResist
         };
 
-        StrengthQualityDropBonus = Strength > 9;
+        StrengthQualityDropBonus = GetStrength() > 9;
     }
 
     public void SetSpeedResist()
     {
-        SpeedQualityBonus = Speed switch
+        SpeedQualityBonus = GetSpeed() switch
         {
             >= 0 and <= 3 => 1,
             >= 4 and <= 7 => 2,
@@ -416,12 +420,12 @@ public class CharacterClass
             _ => GetSpeedQualityResistInt()
         };
 
-        IsSpeedQualityKiteBonus = Speed > 9;
+        IsSpeedQualityKiteBonus = GetSpeed() > 9;
     }
 
     public void SetPsycheResist()
     {
-        PsycheQualityResist = Psyche switch
+        PsycheQualityResist = GetPsyche() switch
         {
             >= 0 and <= 3 => 1,
             >= 4 and <= 7 => 2,
@@ -429,7 +433,7 @@ public class CharacterClass
             _ => PsycheQualityResist
         };
 
-        PsycheQualityMoralBonus = Psyche > 9;
+        PsycheQualityMoralBonus = GetPsyche() > 9;
     }
 
     public void UpdateIntelligenceResist(int statOld, int statNew)
@@ -461,7 +465,7 @@ public class CharacterClass
             IntelligenceQualityResist = 0;
         }
 
-        IsIntelligenceQualitySkillBonus = Intelligence > 9;
+        IsIntelligenceQualitySkillBonus = GetIntelligence() > 9;
     }
 
     public void UpdateStrengthResist(int statOld, int statNew)
@@ -493,7 +497,7 @@ public class CharacterClass
             StrengthQualityResist = 0;
         }
 
-        StrengthQualityDropBonus = Strength > 9;
+        StrengthQualityDropBonus = GetStrength() > 9;
     }
 
     public void UpdateSpeedResist(int statOld, int statNew)
@@ -520,7 +524,7 @@ public class CharacterClass
         var resistDiff = resistNew - resistOld;
         SpeedQualityBonus += resistDiff;
 
-        IsSpeedQualityKiteBonus = Speed > 9;
+        IsSpeedQualityKiteBonus = GetSpeed() > 9;
     }
 
     public void UpdatePsycheResist(int statOld, int statNew)
@@ -552,7 +556,7 @@ public class CharacterClass
             PsycheQualityResist = 0;
         }
 
-        PsycheQualityMoralBonus = Psyche > 9;
+        PsycheQualityMoralBonus = GetPsyche() > 9;
     }
 
     public void AddIntelligenceQualitySkillBonus(int howMuchToAdd, string skillName, bool isLog = true)
@@ -621,38 +625,38 @@ public class CharacterClass
 
     public string GetClassStatDisplayText()
     {
-        if (Intelligence == 0 && Strength == 0 && Speed == 0) return "***Братишка***... буль-буль...";
-        if (Intelligence >= Strength && Intelligence >= Speed)
+        if (GetIntelligence() == 0 && GetStrength() == 0 && GetSpeed() == 0) return "***Братишка***... буль-буль...";
+        if (GetIntelligence() >= GetStrength() && GetIntelligence() >= GetSpeed())
             return "***Умный*** нападает на тех, кто без *Справедливости*.";
-        if (Strength >= Intelligence && Strength >= Speed) return "***Сильный*** побеждает!";
-        if (Speed >= Intelligence && Speed >= Strength) return "***Быстрый*** успевает во все битвы...";
+        if (GetStrength() >= GetIntelligence() && GetStrength() >= GetSpeed()) return "***Сильный*** побеждает!";
+        if (GetSpeed() >= GetIntelligence() && GetSpeed() >= GetStrength()) return "***Быстрый*** успевает во все битвы...";
         return "***Братишка***... буль-буль...";
     }
 
      /*
-     Intelligence => Speed
-     Strength => Intelligence
-     Speed => Strength
+     GetIntelligence() => GetSpeed()
+     GetStrength() => GetIntelligence()
+     GetSpeed() => GetStrength()
      */
 
     public string GetSkillClass()
     {
-        if (Intelligence == 0 && Strength == 0 && Speed == 0) return "Буль";
+        if (GetIntelligence() == 0 && GetStrength() == 0 && GetSpeed() == 0) return "Буль";
 
-        if (Intelligence >= Strength && Intelligence >= Speed) return "Интеллект";
-        if (Strength >= Intelligence && Strength >= Speed) return "Сила";
-        if (Speed >= Intelligence && Speed >= Strength) return "Скорость";
+        if (GetIntelligence() >= GetStrength() && GetIntelligence() >= GetSpeed()) return "Интеллект";
+        if (GetStrength() >= GetIntelligence() && GetStrength() >= GetSpeed()) return "Сила";
+        if (GetSpeed() >= GetIntelligence() && GetSpeed() >= GetStrength()) return "Скорость";
 
         return "Буль";
     }
 
     public string GetWhoIContre()
     {
-        if (Intelligence == 0 && Strength == 0 && Speed == 0) return "Буль";
+        if (GetIntelligence() == 0 && GetStrength() == 0 && GetSpeed() == 0) return "Буль";
 
-        if (Intelligence >= Strength && Intelligence >= Speed) return "Скорость";
-        if (Strength >= Intelligence && Strength >= Speed) return "Интеллект";
-        if (Speed >= Intelligence && Speed >= Strength) return "Сила";
+        if (GetIntelligence() >= GetStrength() && GetIntelligence() >= GetSpeed()) return "Скорость";
+        if (GetStrength() >= GetIntelligence() && GetStrength() >= GetSpeed()) return "Интеллект";
+        if (GetStrength() >= GetIntelligence() && GetSpeed() >= GetStrength()) return "Сила";
 
         return "Буль";
     }
@@ -739,7 +743,7 @@ public class CharacterClass
 
     public decimal GetSkill()
     {
-        if (SkillForOneFight != 0) return SkillForOneFight;
+        if (SkillForOneFight != -228) return SkillForOneFight;
 
         return (SkillMain + SkillExtra) * SkillFightMultiplier * GetIntelligenceQualitySkillBonus();
     }
@@ -749,7 +753,7 @@ public class CharacterClass
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
-        Status.RealSkill = GetSkill();
+        Status.IsSkillForOneFight = true;
         SkillForOneFight = howMuchToSet;
     }
 
@@ -757,7 +761,7 @@ public class CharacterClass
     {
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
-        SkillForOneFight = 0;
+        SkillForOneFight = -228;
     }
 
 
@@ -920,20 +924,21 @@ public class CharacterClass
             Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Интеллект\n");
         else if (howMuchToAdd < 0 && isLog) Status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} Интеллект\n");
 
-        var intelligenceOld = Intelligence;
+        var intelligenceOld = GetIntelligence();
         Intelligence += howMuchToAdd;
-        var intelligenceNew = Intelligence;
+        var intelligenceNew = GetIntelligence();
 
         UpdateIntelligenceResist(intelligenceOld, intelligenceNew);
 
-        if (Intelligence < 0)
+        if (GetIntelligence() < 0)
             Intelligence = 0;
-        if (Intelligence > 10)
+        if (GetIntelligence() > 10)
             Intelligence = 10;
     }
 
     public int GetIntelligence()
     {
+        if (IntelligenceForOneFight != -228) return IntelligenceForOneFight;
         return Intelligence;
     }
 
@@ -942,7 +947,7 @@ public class CharacterClass
         if (Name == "Dopa")
             return "200IQ";
 
-        return $"{Intelligence}{IntelligenceExtraText}";
+        return $"{GetIntelligence()}{IntelligenceExtraText}";
     }
 
     public void SetIntelligence(int howMuchToSet, string skillName, bool isLog = true)
@@ -953,21 +958,21 @@ public class CharacterClass
         }
         if (isLog)
         {
-            var diff = howMuchToSet - Intelligence;
+            var diff = howMuchToSet - GetIntelligence();
             if (diff > 0)
                 Status.AddInGamePersonalLogs($"{skillName}: +{diff} Интеллект\n");
             else if (diff < 0) Status.AddInGamePersonalLogs($"{skillName}: {diff} Интеллект\n");
         }
 
-        var intelligenceOld = Intelligence;
+        var intelligenceOld = GetIntelligence();
         Intelligence = howMuchToSet;
-        var intelligenceNew = Intelligence;
+        var intelligenceNew = GetIntelligence();
 
         UpdateIntelligenceResist(intelligenceOld, intelligenceNew);
 
-        if (Intelligence < 0)
+        if (GetIntelligence() < 0)
             Intelligence = 0;
-        if (Intelligence > 10)
+        if (GetIntelligence() > 10)
             Intelligence = 10;
     }
 
@@ -976,11 +981,15 @@ public class CharacterClass
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
-        if (howMuchToSet < 0)
-            return;
-        Status.RealIntelligence = GetIntelligence();
-        Status.TempIntelligence = howMuchToSet;
-        SetIntelligence(howMuchToSet, skillName, false);
+        Status.IsIntelligenceForOneFight = true;
+        IntelligenceForOneFight = howMuchToSet;
+    }
+
+    public void ResetIntelligenceForOneFight()
+    {
+        //Set Stat only for one fight, not for the whole round!
+        //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
+        IntelligenceForOneFight = -228;
     }
 
     public void SetIntelligenceExtraText(string newIntelligenceExtraText)
@@ -999,26 +1008,27 @@ public class CharacterClass
         else if (howMuchToAdd < 0 && isLog) Status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} Психика\n");
 
 
-        var psycheOld = Psyche;
+        var psycheOld = GetPsyche();
         Psyche += howMuchToAdd;
-        var psycheNew = Psyche;
+        var psycheNew = GetPsyche();
 
         UpdatePsycheResist(psycheOld, psycheNew);
 
-        if (Psyche < 0)
+        if (GetPsyche() < 0)
             Psyche = 0;
-        if (Psyche > 10)
+        if (GetPsyche() > 10)
             Psyche = 10;
     }
 
     public int GetPsyche()
     {
+        if (PsycheForOneFight != -228) return PsycheForOneFight;
         return Psyche;
     }
 
     public string GetPsycheString()
     {
-        return $"{Psyche}{PsycheExtraText}";
+        return $"{GetPsyche()}{PsycheExtraText}";
     }
 
     public void SetPsyche(int howMuchToSet, string skillName, bool isLog = true)
@@ -1029,21 +1039,21 @@ public class CharacterClass
         }
         if (isLog)
         {
-            var diff = howMuchToSet - Psyche;
+            var diff = howMuchToSet - GetPsyche();
             if (diff > 0)
                 Status.AddInGamePersonalLogs($"{skillName}: +{diff} Психика\n");
             else if (diff < 0) Status.AddInGamePersonalLogs($"{skillName}: {diff} Психика\n");
         }
 
-        var psycheOld = Psyche;
+        var psycheOld = GetPsyche();
         Psyche = howMuchToSet;
-        var psycheNew = Psyche;
+        var psycheNew = GetPsyche();
 
         UpdatePsycheResist(psycheOld, psycheNew);
 
-        if (Psyche < 0)
+        if (GetPsyche() < 0)
             Psyche = 0;
-        if (Psyche > 10)
+        if (GetPsyche() > 10)
             Psyche = 10;
     }
 
@@ -1052,12 +1062,17 @@ public class CharacterClass
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
-        if (howMuchToSet < 0)
-            return;
-        Status.RealPsyche = GetPsyche();
-        Status.TempPsyche = howMuchToSet;
-        SetPsyche(howMuchToSet, skillName, false);
+        Status.IsPsycheForOneFight = true;
+        PsycheForOneFight = howMuchToSet;
     }
+
+    public void ResetPsycheForOneFight()
+    {
+        //Set Stat only for one fight, not for the whole round!
+        //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
+        PsycheForOneFight = -228;
+    }
+
 
     public void SetPsycheExtraText(string newPsycheExtraText)
     {
@@ -1074,26 +1089,27 @@ public class CharacterClass
             Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Скорость\n");
         else if (howMuchToAdd < 0 && isLog) Status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} Скорость\n");
 
-        var speedOld = Speed;
+        var speedOld = GetSpeed();
         Speed += howMuchToAdd;
-        var speedNew = Speed;
+        var speedNew = GetSpeed();
 
         UpdateSpeedResist(speedOld, speedNew);
 
-        if (Speed < 0)
+        if (GetSpeed() < 0)
             Speed = 0;
-        if (Speed > 10)
+        if (GetSpeed() > 10)
             Speed = 10;
     }
 
     public int GetSpeed()
     {
+        if(SpeedForOneFight != -228) return SpeedForOneFight;
         return Speed;
     }
 
     public string GetSpeedString()
     {
-        return $"{Speed}{SpeedExtraText}";
+        return $"{GetSpeed()}{SpeedExtraText}";
     }
 
     public void SetSpeed(int howMuchToSet, string skillName, bool isLog = true)
@@ -1104,21 +1120,21 @@ public class CharacterClass
         }
         if (isLog)
         {
-            var diff = howMuchToSet - Speed;
+            var diff = howMuchToSet - GetSpeed();
             if (diff > 0)
                 Status.AddInGamePersonalLogs($"{skillName}: +{diff} Скорость\n");
             else if (diff < 0) Status.AddInGamePersonalLogs($"{skillName}: {diff} Скорость\n");
         }
 
-        var speedOld = Speed;
+        var speedOld = GetSpeed();
         Speed = howMuchToSet;
-        var speedNew = Speed;
+        var speedNew = GetSpeed();
 
         UpdateSpeedResist(speedOld, speedNew);
 
-        if (Speed < 0)
+        if (GetSpeed() < 0)
             Speed = 0;
-        if (Speed > 10)
+        if (GetSpeed() > 10)
             Speed = 10;
     }
 
@@ -1127,11 +1143,15 @@ public class CharacterClass
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
-        if (howMuchToSet < 0)
-            return;
-        Status.RealSpeed = GetSpeed();
-        Status.TempSpeed = howMuchToSet;
-        SetSpeed(howMuchToSet, skillName, false);
+        Status.IsSpeedForOneFight = true;
+        SpeedForOneFight = howMuchToSet;
+    }
+
+    public void ResetSpeedForOneFight()
+    {
+        //Set Stat only for one fight, not for the whole round!
+        //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
+        SpeedForOneFight = -228;
     }
 
     public void SetSpeedExtraText(string newSpeedExtraText)
@@ -1149,26 +1169,27 @@ public class CharacterClass
             Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Сила\n");
         else if (howMuchToAdd < 0 && isLog) Status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} Сила\n");
 
-        var strengthOld = Strength;
+        var strengthOld = GetStrength();
         Strength += howMuchToAdd;
-        var strengthNew = Strength;
+        var strengthNew = GetStrength();
 
         UpdateStrengthResist(strengthOld, strengthNew);
 
-        if (Strength < 0)
+        if (GetStrength() < 0)
             Strength = 0;
-        if (Strength > 10)
+        if (GetStrength() > 10)
             Strength = 10;
     }
 
     public int GetStrength()
     {
+        if (StrengthForOneFight != -228) return StrengthForOneFight;
         return Strength;
     }
 
     public string GetStrengthString()
     {
-        return $"{Strength}{StrengthExtraText}";
+        return $"{GetStrength()}{StrengthExtraText}";
     }
 
     public void SetStrength(int howMuchToSet, string skillName, bool isLog = true)
@@ -1179,21 +1200,21 @@ public class CharacterClass
         }
         if (isLog)
         {
-            var diff = howMuchToSet - Strength;
+            var diff = howMuchToSet - GetStrength();
             if (diff > 0)
                 Status.AddInGamePersonalLogs($"{skillName}: +{diff} Сила\n");
             else if (diff < 0) Status.AddInGamePersonalLogs($"{skillName}: {diff} Сила\n");
         }
 
-        var strengthOld = Strength;
+        var strengthOld = GetStrength();
         Strength = howMuchToSet;
-        var strengthNew = Strength;
+        var strengthNew = GetStrength();
 
         UpdateStrengthResist(strengthOld, strengthNew);
 
-        if (Strength < 0)
+        if (GetStrength() < 0)
             Strength = 0;
-        if (Strength > 10)
+        if (GetStrength() > 10)
             Strength = 10;
     }
 
@@ -1202,11 +1223,15 @@ public class CharacterClass
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
-        if (howMuchToSet < 0)
-            return;
-        Status.RealStrength = GetStrength();
-        Status.TempStrength = howMuchToSet;
-        SetStrength(howMuchToSet, skillName, false);
+        Status.IsStrengthForOneFight = true;
+        StrengthForOneFight = howMuchToSet;
+    }
+
+    public void ResetStrengthForOneFight()
+    {
+        //Set Stat only for one fight, not for the whole round!
+        //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
+        StrengthForOneFight = -228;
     }
 
     public void SetStrengthExtraText(string newStrengthExtraText)
@@ -1275,6 +1300,7 @@ public class JusticeClass
         other.JusticeForNextRoundFromFights = JusticeForNextRoundFromFights;
         other.JusticeForNextRoundFromSkills = JusticeForNextRoundFromSkills;
         other.IsWonThisRound = IsWonThisRound;
+        other.JusticeForOneFight = JusticeForOneFight;
 
         return other;
     }
@@ -1290,6 +1316,7 @@ public class JusticeClass
 
     private int RealJusticeNow { get; set; }
     private int SeenJusticeNow { get; set; }
+    private int JusticeForOneFight { get; set; } = -228;
     private int JusticeForNextRoundFromFights { get; set; }
     private int JusticeForNextRoundFromSkills{ get; set; }
     public bool IsWonThisRound { get; set; }
@@ -1362,6 +1389,7 @@ public class JusticeClass
 
     public int GetRealJusticeNow()
     {
+        if(JusticeForOneFight != -228) return JusticeForOneFight;
         return RealJusticeNow;
     }
 
@@ -1397,11 +1425,15 @@ public class JusticeClass
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
-        if (howMuchToSet < 0)
-            return;
-        Status.RealJustice = GetRealJusticeNow();
-        Status.TempJustice = howMuchToSet;
-        SetRealJusticeNow(howMuchToSet, skillName, false);
+        Status.IsJusticeForOneFight = true;
+        JusticeForOneFight = howMuchToSet;
+    }
+
+    public void ResetJusticeForOneFight()
+    {
+        //Set Stat only for one fight, not for the whole round!
+        //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
+        JusticeForOneFight = -228;
     }
 
     public void AddJusticeForNextRoundFromFight(int howMuchToAdd = 1)

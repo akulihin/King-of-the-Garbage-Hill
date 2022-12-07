@@ -54,8 +54,7 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Повторяет за myloran":
-                    player.GameCharacter.AddStrength(player.GameCharacter.GetStrength() * -1 + 3,
-                        "Повторяет за myloran");
+                    player.GameCharacter.AddIntelligence(player.GameCharacter.GetIntelligence() * -1 + 0, "Повторяет за myloran");
                     break;
 
                 case "DeepList Pet":
@@ -171,8 +170,6 @@ public class CharacterPassives : IServiceSingleton
                     var targetTempSkill = target.GameCharacter.GetSkill();
                     me.GameCharacter.SetSkillForOneFight(targetTempSkill, "Оборотень");
                     target.GameCharacter.SetSkillForOneFight(myTempSkillMain, "Оборотень");
-
-
                     break;
 
                 case "Сомнительная тактика":
@@ -614,8 +611,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             var howMuchIgnores = 1;
                             target.Passives.VampyrIgnoresOneJustice = howMuchIgnores;
-                            target.GameCharacter.Justice.SetJusticeForOneFight(
-                                target.GameCharacter.Justice.GetRealJusticeNow() - howMuchIgnores, "Падальщик");
+                            target.GameCharacter.Justice.SetJusticeForOneFight(target.GameCharacter.Justice.GetRealJusticeNow() - howMuchIgnores, "Падальщик");
                         }
 
                     break;
@@ -834,8 +830,7 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Вампуризм":
                     if (me.Status.IsWonThisCalculation == target.GetPlayerId())
-                        me.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(
-                            target.GameCharacter.Justice.GetRealJusticeNow() + target.Passives.VampyrIgnoresOneJustice);
+                        me.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(target.GameCharacter.Justice.GetRealJusticeNow() + target.Passives.VampyrIgnoresOneJustice);
                     target.Passives.VampyrIgnoresOneJustice = 0;
                     break;
 
@@ -2015,8 +2010,8 @@ public class CharacterPassives : IServiceSingleton
                         if (game.RoundNo == 5)
                         {
                             player.Status.AddInGamePersonalLogs(
-                                "ZaRDaK: Ты никогда не возьмешь даймонд, Лорик. Удачи в промо.\nmylorik: ММММММММММ!!!!!  +5 Силы.\n");
-                            player.GameCharacter.AddStrength(5, "Повторяет за myloran", false);
+                                "ZaRDaK: Ты никогда не возьмешь даймонд, Лорик. Удачи в промо.\nmylorik: ММММММММММ!!!!!  +4 Интеллекта.\n");
+                            player.GameCharacter.AddIntelligence(4, "Повторяет за myloran", false);
                         }
 
                         if (game.RoundNo == 10)
