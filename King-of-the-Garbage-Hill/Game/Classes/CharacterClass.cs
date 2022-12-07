@@ -57,6 +57,7 @@ public class CharacterClass
         other.StrengthExtraText = StrengthExtraText;
         other.SkillMain = SkillMain;
         other.SkillExtra = SkillExtra;
+        other.SkillForOneFight = SkillForOneFight;
         other.TargetSkillMultiplier = TargetSkillMultiplier;
         other.ExtraSkillMultiplier = ExtraSkillMultiplier;
         other.SkillFightMultiplier = SkillFightMultiplier;
@@ -97,15 +98,20 @@ public class CharacterClass
     private int WinStreak { get; set; }
 
     private int Intelligence { get; set; }
+    private int IntelligenceForOneFight { get; set; }
     private string IntelligenceExtraText { get; set; }
     private int Psyche { get; set; }
+    private int PsycheForOneFight { get; set; }
     private string PsycheExtraText { get; set; }
     private int Speed { get; set; }
+    private int SpeedForOneFight { get; set; }
     private string SpeedExtraText { get; set; }
     private int Strength { get; set; }
+    private int StrengthForOneFight { get; set; }
     private string StrengthExtraText { get; set; }
     private decimal SkillMain { get; set; }
     private decimal SkillExtra { get; set; }
+    private decimal SkillForOneFight { get; set; }
     private int TargetSkillMultiplier { get; set; }
     private int ExtraSkillMultiplier { get; set; }
     private int SkillFightMultiplier { get; set; }
@@ -733,8 +739,27 @@ public class CharacterClass
 
     public decimal GetSkill()
     {
+        if (SkillForOneFight != 0) return SkillForOneFight;
+
         return (SkillMain + SkillExtra) * SkillFightMultiplier * GetIntelligenceQualitySkillBonus();
     }
+
+    public void SetSkillForOneFight(decimal howMuchToSet, string skillName)
+    {
+        //Set Stat only for one fight, not for the whole round!
+        //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
+
+        Status.RealSkill = GetSkill();
+        SkillForOneFight = howMuchToSet;
+    }
+
+    public void ResetSkillForOneFight()
+    {
+        //Set Stat only for one fight, not for the whole round!
+        //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
+        SkillForOneFight = 0;
+    }
+
 
     public string GetSkillDisplay()
     {

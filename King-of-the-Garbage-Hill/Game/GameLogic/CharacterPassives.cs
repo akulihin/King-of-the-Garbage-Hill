@@ -61,8 +61,8 @@ public class CharacterPassives : IServiceSingleton
                 case "DeepList Pet":
                     if (playersList.Any(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Weedwick Pet")))
                     {
-                        player.Status.AddInGamePersonalLogs("**Чья эта безуманя собака?**: +1 Психики\n");
-                        player.GameCharacter.AddPsyche(1, "Чья эта безуманя собака?", false);
+                        player.Status.AddInGamePersonalLogs("**Чья эта безуманя собака?**: +4 Психики\n");
+                        player.GameCharacter.AddPsyche(4, "Чья эта безуманя собака?", false);
                     }
 
                     break;
@@ -70,8 +70,8 @@ public class CharacterPassives : IServiceSingleton
                 case "Weedwick Pet":
                     if (playersList.Any(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "DeepList Pet")))
                     {
-                        player.Status.AddInGamePersonalLogs("**Чья эта безуманя собака?**: +1 Психики\n");
-                        player.GameCharacter.AddPsyche(1, "Чья эта безуманя собака?", false);
+                        player.Status.AddInGamePersonalLogs("**Чья эта безуманя собака?**: +4 Психики\n");
+                        player.GameCharacter.AddPsyche(4, "Чья эта безуманя собака?", false);
                     }
 
                     player.Status.AddInGamePersonalLogs("Она всегда со мной, куда бы я не пошел...\n");
@@ -164,9 +164,15 @@ public class CharacterPassives : IServiceSingleton
                 case "Оборотень":
                     var myTempStrength = me.GameCharacter.GetStrength();
                     var targetTempStrength = target.GameCharacter.GetStrength();
-
                     me.GameCharacter.SetStrengthForOneFight(targetTempStrength, "Оборотень");
                     target.GameCharacter.SetStrengthForOneFight(myTempStrength, "Оборотень");
+
+                    var myTempSkillMain = me.GameCharacter.GetSkill();
+                    var targetTempSkill = target.GameCharacter.GetSkill();
+                    me.GameCharacter.SetSkillForOneFight(targetTempSkill, "Оборотень");
+                    target.GameCharacter.SetSkillForOneFight(myTempSkillMain, "Оборотень");
+
+
                     break;
 
                 case "Сомнительная тактика":
@@ -447,9 +453,13 @@ public class CharacterPassives : IServiceSingleton
                 case "Оборотень":
                     var myTempStrength = me.GameCharacter.GetStrength();
                     var targetTempStrength = target.GameCharacter.GetStrength();
-
                     me.GameCharacter.SetStrengthForOneFight(targetTempStrength, "Оборотень");
                     target.GameCharacter.SetStrengthForOneFight(myTempStrength, "Оборотень");
+
+                    var myTempSkillMain = me.GameCharacter.GetSkill();
+                    var targetTempSkill = target.GameCharacter.GetSkill();
+                    me.GameCharacter.SetSkillForOneFight(targetTempSkill, "Оборотень");
+                    target.GameCharacter.SetSkillForOneFight(myTempSkillMain, "Оборотень");
                     break;
 
                 case "Безжалостный охотник":

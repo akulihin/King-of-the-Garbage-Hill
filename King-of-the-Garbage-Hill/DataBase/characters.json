@@ -595,7 +595,7 @@
     "AvatarEvent": [],
     "Passive": [
       {
-        "PassiveDescription": "Меняется параметром Силы с врагом на момент боя. Ауф!",
+        "PassiveDescription": "Меняется параметром Силы и *Скиллом* с врагом на момент боя. Ауф!",
         "PassiveName": "Оборотень",
         "Visible": true
       },

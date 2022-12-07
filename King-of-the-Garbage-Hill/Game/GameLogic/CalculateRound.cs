@@ -116,6 +116,16 @@ Speed => Strength
                 player.Status.RealJustice = -1;
                 player.Status.TempJustice = -1;
             }
+
+            //Skill is Different
+            if (player.Status.RealSkill != -1)
+            {
+                player.Status.RealSkill = -1;
+                player.GameCharacter.ResetSkillForOneFight();
+
+            }
+
+
             //end OneFight Mechanics
 
             player.Status.IsWonThisCalculation = Guid.Empty;
@@ -170,12 +180,8 @@ Speed => Strength
         DeepCopyGameCharacterToFightCharacter(game);
 
         
-        /*
-        foreach (var player in game.PlayersList)
-        {
-            player.Status.InGamePersonalLogsAll = player.Status.InGamePersonalLogsAll.Replace("|>Phrase<|", "|>PhraseBeforeFight<|");
-        }
-        */
+
+
 
 
 
@@ -191,10 +197,13 @@ Speed => Strength
             var randomForTooGood = 50;
             var isTooGoodMe = false;
             var isTooGoodEnemy = false;
+
+            var isTooStronkMe = false;
+            var isTooStronkEnemy = false;
+
             var isStatsBetterMe = false;
             var isStatsBettterEnemy = false;
             var isContrLost = 0;
-            var isTooGoodLost = 0;
 
             //if block => no one gets points, and no redundant playerAttacked variable
             if (player.Status.IsBlock || player.Status.IsSkip)
@@ -444,12 +453,35 @@ Speed => Strength
                     case >= 13:
                         isTooGoodMe = true;
                         randomForTooGood = 75;
-                        isTooGoodLost = 1;
+
                         break;
                     case <= -13:
                         isTooGoodEnemy = true;
                         randomForTooGood = 25;
-                        isTooGoodLost = -1;
+
+                        break;
+                }
+
+                switch (weighingMachine)
+                {
+                    case >= 20:
+                        isTooStronkMe = true;
+
+                        var tooStronkAdd = (int)weighingMachine / 2;
+                        if (tooStronkAdd > 20)
+                        { tooStronkAdd = 20;}
+
+                        randomForTooGood += tooStronkAdd;
+                        break;
+
+                    case <= -20:
+                        isTooStronkEnemy = true;
+
+                        tooStronkAdd = (int)weighingMachine / 2;
+                        if (tooStronkAdd < -20)
+                        { tooStronkAdd = -20; }
+
+                        randomForTooGood += tooStronkAdd;
                         break;
                 }
 
@@ -604,8 +636,10 @@ Speed => Strength
                     if (playerIamAttacking.GameCharacter.GetSkillClass() == "Сила")
                         playerIamAttacking.FightCharacter.AddExtraSkill(4, "Класс");
 
-                    if (isTooGoodLost == -1)
+                    if (isTooGoodEnemy && !isTooStronkEnemy)
                         player.Status.AddInGamePersonalLogs($"{playerIamAttacking.DiscordUsername} is __TOO GOOD__ for you\n");
+                    if (isTooStronkEnemy)
+                        player.Status.AddInGamePersonalLogs($"{playerIamAttacking.DiscordUsername} is __TOO STONK__ for you\n");
 
                     isContrLost += 1;
 
@@ -894,7 +928,8 @@ Speed => Strength
             i--;
         }
 
-
+        sortedGameLogs = logsSplit.Aggregate(sortedGameLogs, (current, log) => $"{current}{log}\n");
+        /*
         foreach (var player in game.PlayersList)
             for (var i = 0; i < logsSplit.Count; i++)
                 if (logsSplit[i].Contains($"{player.DiscordUsername}"))
@@ -916,7 +951,7 @@ Speed => Strength
                     logsSplit.RemoveAt(i);
                     i--;
                 }
-
+        */
         sortedGameLogs += extraGameLogs;
         game.SetGlobalLogs(sortedGameLogs);
     }

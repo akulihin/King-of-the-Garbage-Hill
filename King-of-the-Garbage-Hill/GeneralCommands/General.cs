@@ -291,7 +291,7 @@ public class General : ModuleBaseCustom
 
 
     public async Task StartGame(int teamCount = 0, IUser player1 = null, IUser player2 = null, IUser player3 = null,
-        IUser player4 = null, IUser player5 = null, IUser player6 = null)
+        IUser player4 = null, IUser player5 = null, IUser player6 = null, string mode = "normal")
     {
         var players = new List<IUser>
         {
@@ -305,15 +305,13 @@ public class General : ModuleBaseCustom
 
         if (players.Contains(_global.Client.CurrentUser))
         {
-            await SendMessageAsync(
-                "https://upload.wikimedia.org/wikipedia/commons/c/cc/Digital_rain_animation_medium_letters_shine.gif");
+            await SendMessageAsync("https://upload.wikimedia.org/wikipedia/commons/c/cc/Digital_rain_animation_medium_letters_shine.gif");
             return;
         }
 
         foreach (var player in players.Where(player => player != null).Where(player => player.IsBot))
         {
-            await SendMessageAsync(
-                $"{player.Mention} незарегистрированный бот. По поводу франшизы пишите разработчикам игры!");
+            await SendMessageAsync($"{player.Mention} незарегистрированный бот. По поводу франшизы пишите разработчикам игры!");
             return;
         }
 
@@ -494,6 +492,16 @@ public class General : ModuleBaseCustom
     {
         player1 ??= Context.User;
         await StartGame(team, player1, player2, player3, player4, player5, player6);
+    }
+
+    [Command("aram")]
+    [Summary("Aram Mode")]
+    public async Task StartAramGameTeam(int team, IUser player1 = null, IUser player2 = null, IUser player3 = null,
+        IUser player4 = null,
+        IUser player5 = null, IUser player6 = null)
+    {
+        player1 ??= Context.User;
+        await StartGame(team, player1, player2, player3, player4, player5, player6, "aram");
     }
 
 

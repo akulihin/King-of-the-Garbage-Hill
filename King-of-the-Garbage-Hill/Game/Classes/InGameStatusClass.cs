@@ -86,6 +86,9 @@ public class InGameStatus
     public int RealIntelligence { get; set; } = -1;
     public int TempIntelligence { get; set; } = -1;
     public int RealStrength { get; set; } = -1;
+
+    public decimal RealSkill { get; set; } = -1;
+
     public int TempStrength { get; set; } = -1;
     public int RealSpeed { get; set; } = -1;
     public int TempSpeed { get; set; } = -1;

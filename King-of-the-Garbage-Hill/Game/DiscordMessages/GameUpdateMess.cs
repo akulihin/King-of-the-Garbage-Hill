@@ -529,7 +529,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var orderedList = new List<string>
         {
             "Ты улучшил", "|>PhraseBeforeFight<|", "Обмен Морали", "Ты использовал Авто Ход", "Ты напал на",
-            "Ты поставил блок", "TOO GOOD", "|>Phrase<|", "|>SeparationLine<|", "Поражение:", "Победа:", "Читы",
+            "Ты поставил блок", "TOO GOOD", "TOO STONK", "|>Phrase<|", "|>SeparationLine<|", "Поражение:", "Победа:", "Читы",
             "Справедливость", "Класс:", "Мишень", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**"
         };
 
@@ -650,14 +650,57 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     }
 
 
-    public string HandleIsNewPlayerDescription(string text, GamePlayerBridgeClass player)
+    public string HandleIsNewPlayerDescription(string text, GamePlayerBridgeClass me, GameClass game)
     {
-        var account = _accounts.GetAccount(player.DiscordId);
-        if (account.IsNewPlayer) text = text.Replace("⟶", "⟶ победил");
+        text = text.Replace($"{me.DiscordUsername} <:war:561287719838547981>", $"{me.DiscordUsername} \\<\\>");
+        var logsSplit = text.Split("\n").ToList();
+        var sortedGameLogs = "";
 
-        text = text.Replace(player.DiscordUsername, $"**{player.DiscordUsername}**");
+        if (game.RoundNo > 1)
+        {
+            foreach (var player in game.PlayersList)
+                for (var i = 0; i < logsSplit.Count; i++)
+                    if (logsSplit[i].Contains($"{player.DiscordUsername}"))
+                    {
+                        var fightLine = logsSplit[i];
 
-        return text;
+                        var fightLineSplit = fightLine.Split("⟶");
+
+                        var fightLineSplitSplit = fightLineSplit.First().Split("<:war:561287719838547981>");
+
+                        switch (fightLineSplitSplit.Length)
+                        {
+                            case 1:
+                                sortedGameLogs += $"{fightLine}\n";
+                                break;
+                            default:
+                                fightLine = fightLineSplitSplit.First().Contains($"{player.DiscordUsername}")
+                                    ? $"{fightLineSplitSplit.First()} <:war:561287719838547981> {fightLineSplitSplit[1]}"
+                                    : $"{fightLineSplitSplit[1]} <:war:561287719838547981> {fightLineSplitSplit.First()}";
+
+
+                                fightLine += $" ⟶ {fightLineSplit[1]}";
+
+                                sortedGameLogs += $"{fightLine}\n";
+                                break;
+                        }
+
+                        logsSplit.RemoveAt(i);
+                        i--;
+                    }
+        }
+        else
+        {
+            sortedGameLogs = text;
+        }
+
+        
+        var account = _accounts.GetAccount(me.DiscordId);
+        if (account.IsNewPlayer) sortedGameLogs = sortedGameLogs.Replace("⟶", "⟶ победил");
+
+        sortedGameLogs = sortedGameLogs.Replace(me.DiscordUsername, $"**{me.DiscordUsername}**");
+
+        return sortedGameLogs;
     }
 
     //Page 1
@@ -688,7 +731,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
 
-        var desc = HandleIsNewPlayerDescription(game!.GetGlobalLogs(), player);
+        var desc = HandleIsNewPlayerDescription(game!.GetGlobalLogs(), player, game);
 
         if (player.TeamId > 0) desc = desc.Replace($"Команда #{player.TeamId}", $"**Команда #{player.TeamId}**");
 
