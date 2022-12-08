@@ -1031,9 +1031,13 @@ public class CharacterClass
 
         UpdatePsycheResist(psycheOld, psycheNew);
 
-        if (Status.GameCharacter.Passive.All(x => x.PassiveName != "Безумие"))
-            if (GetPsyche() < 0)
-                Psyche = 0;
+        
+        if (GetPsyche() < 0)
+            Psyche = 0;
+
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Безумие"))
+            Psyche = psycheNew;
+
         if (GetPsyche() > 10)
             Psyche = 10;
     }
@@ -1071,6 +1075,10 @@ public class CharacterClass
 
         if (GetPsyche() < 0)
             Psyche = 0;
+
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Безумие"))
+            Psyche = psycheNew;
+
         if (GetPsyche() > 10)
             Psyche = 10;
     }

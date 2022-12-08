@@ -113,29 +113,30 @@ public class BotsBehavior : IServiceSingleton
         {
             var overwrite = false;
 
-            if (bot.GameCharacter.Name == "Осьминожка")
+            //если Осьминожка - всегда ждет 20 морали
+            if (bot.GameCharacter.Name == "Осьминожка" || bot.GameCharacter.Name == "HardKitty")
             {
                 return;
             }
 
-            //если хардкитти  или Вампур - всегда ждет 20 морали
-            if (bot.GameCharacter.Name is "HardKitty")
-                if (bot.GameCharacter.GetMoral() < 20)
-                    return;
-
+            
             if (bot.GameCharacter.Name is "Вампур")
             {
-                if (bot.Status.GetPlaceAtLeaderBoard() >= 5)
+                if (bot.Status.GetPlaceAtLeaderBoard() == 6)
                     return;
+
                 if (bot.Status.GetPlaceAtLeaderBoard() <= 2)
                 {
                     if (bot.GameCharacter.GetMoral() < 13)
                         return;
+                    overwrite = true;
                 }
                 else
                 {
                     if (bot.GameCharacter.GetMoral() < 20)
                         return;
+
+                    overwrite = true;
                 }
             }
             
@@ -173,7 +174,6 @@ public class BotsBehavior : IServiceSingleton
 
     public void HandleBotMoral(GamePlayerBridgeClass bot, GameClass game)
     {
-
         if (bot.Status.GetPlaceAtLeaderBoard() <= 2)
         {
             if (bot.GameCharacter.GetMoral() < 5)
@@ -196,7 +196,12 @@ public class BotsBehavior : IServiceSingleton
             HandleBotMoralForSkill(bot, game);
             return;
         }*/
-
+        //If LeCrisp 10 psy and Place > 5, use all Score, use all Skill
+        if (bot.GameCharacter.Name == "LeCrisp" && bot.GameCharacter.GetPsyche() >= 10 && game.RoundNo >= 5 && bot.Status.GetPlaceAtLeaderBoard() <= 4)
+        {
+            HandleBotMoralForPoints(bot, game);
+            return;
+        }
         if (bot.GameCharacter.Name == "LeCrisp" && game.RoundNo <= 5)
         {
             HandleBotMoralForSkill(bot, game);

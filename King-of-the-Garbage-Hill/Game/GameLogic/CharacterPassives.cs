@@ -2407,6 +2407,7 @@ public class CharacterPassives : IServiceSingleton
                         if (madd != null)
                             if (madd.WhenToTrigger.Contains(game.RoundNo))
                             {
+                                
                                 //trigger maddness
                                 //me.Status.AddBonusPoints(-3, "Безумие");
                                 //just check
@@ -2766,9 +2767,16 @@ public class CharacterPassives : IServiceSingleton
                     case 3:
                     case 4:
                     case 5:
+                        characters = new List<string> { "DeepList", "Глеб", "Толя" };
+                        break;
                     case 6:
+                        characters = new List<string> { "DeepList", "Глеб", "Толя" };
+                        break;
                     case 7:
+                        characters = new List<string> { "DeepList", "Толя" };
+                        break;
                     case 8:
+                        characters = new List<string> { "DeepList", "Толя" };
                         break;
                 }
 
@@ -2782,9 +2790,16 @@ public class CharacterPassives : IServiceSingleton
                     case 3:
                     case 4:
                     case 5:
+                        characters = new List<string> { "HardKitty", "Тигр", "Загадочный Спартанец в маске", "LeCrisp" };
+                        break;
                     case 6:
+                        characters = new List<string> { "HardKitty", "Тигр", "Загадочный Спартанец в маске", "LeCrisp" };
+                        break;
                     case 7:
+                        characters = new List<string> { "HardKitty", "Тигр", "Загадочный Спартанец в маске", "LeCrisp",  "Глеб" };
+                        break;
                     case 8:
+                        characters = new List<string> { "HardKitty", "Тигр", "Загадочный Спартанец в маске", "LeCrisp", "Глеб" };
                         break;
                 }
 
