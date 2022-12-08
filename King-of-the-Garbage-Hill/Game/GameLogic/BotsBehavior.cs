@@ -119,7 +119,8 @@ public class BotsBehavior : IServiceSingleton
                 return;
             }
 
-            
+
+
             if (bot.GameCharacter.Name is "Вампур")
             {
                 if (bot.Status.GetPlaceAtLeaderBoard() == 6)

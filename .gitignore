@@ -13,6 +13,8 @@ config.json
 runtime.json
 Log.json
 account*.json
+discordAccount*.json
+GameLogs.json
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)

@@ -109,8 +109,8 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Никому не нужен":
-                    player.Status.HardKittyMinus(-20, "Никому не нужен");
-                    player.Status.AddInGamePersonalLogs("Никому не нужен: -20 *Морали*\n");
+                    player.Status.HardKittyMinus(-30, "Никому не нужен");
+                    player.Status.AddInGamePersonalLogs("Никому не нужен: -30 *Морали*\n");
                     var playerIndex = playersList.IndexOf(player);
 
                     for (var i = playerIndex; i < playersList.Count - 1; i++)
@@ -983,7 +983,7 @@ public class CharacterPassives : IServiceSingleton
                         game.IsKratosEvent = false;
                         player.Passives.KratosIsDead = true;
                         await game.Phrases.KratosEventFailed.SendLogSeparateWithFile(player, false,
-                            "DataBase/art/events/kratos_hell.png", false);
+                            "DataBase/art/events/kratos_hell.png", false, 15000);
                     }
                     //start
                     else if (!game.IsKratosEvent && game.RoundNo == 10 &&
@@ -992,7 +992,7 @@ public class CharacterPassives : IServiceSingleton
                         game.IsKratosEvent = true;
                         foreach (var p in game.PlayersList.Where(x => !x.IsBot()))
                             await game.Phrases.KratosEventYes.SendLogSeparateWithFile(p, false,
-                                "DataBase/sound/Kratos_PLAY_ME.mp3", false);
+                                "DataBase/sound/Kratos_PLAY_ME.mp3", false, 15000);
 
                         player.FightCharacter.SetExtraSkillMultiplier(3);
                     }
@@ -1202,11 +1202,12 @@ public class CharacterPassives : IServiceSingleton
                             player.Status.WhoToAttackThisTurn.Contains(x.EnemyPlayerId));
                         if (found is { Series: > 0 })
                         {
-                            if (found.Series >= 10) found.Series += 10;
+                            if (found.Series >= 8) 
+                                found.Series += 10;
 
                             player.Status.AddRegularPoints(found.Series * 2, "Доебаться");
 
-                            if (found.Series >= 10)
+                            if (found.Series >= 8)
                                 game.Phrases.HardKittyDoebatsyaLovePhrase.SendLog(player, false);
                             else
                                 game.Phrases.HardKittyDoebatsyaPhrase.SendLog(player, false);
@@ -1442,7 +1443,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         game.IsKratosEvent = false;
                         await game.Phrases.KratosEventNo.SendLogSeparateWithFile(player, false,
-                            "DataBase/art/events/kratos_death.jpg", false);
+                            "DataBase/art/events/kratos_death.jpg", false, 15000);
                     }
 
                     break;
@@ -2340,7 +2341,7 @@ public class CharacterPassives : IServiceSingleton
                             gleb.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
 
                             game.Phrases.GlebChallengerPhrase.SendLog(player, true);
-                            await game.Phrases.GlebChallengerSeparatePhrase.SendLogSeparate(player, true);
+                            await game.Phrases.GlebChallengerSeparatePhrase.SendLogSeparate(player, true, 0);
                         }
 
                         break;
@@ -3226,7 +3227,7 @@ public class CharacterPassives : IServiceSingleton
                     if (jews.Count > 1 && !jew.IsBot())
                         try
                         {
-                            await _help.SendMsgAndDeleteItAfterRound(jew, "__**МЫ**__ жрём деньги!");
+                            await _help.SendMsgAndDeleteItAfterRound(jew, "__**МЫ**__ жрём деньги!", 10000);
                         }
                         catch (Exception exception)
                         {

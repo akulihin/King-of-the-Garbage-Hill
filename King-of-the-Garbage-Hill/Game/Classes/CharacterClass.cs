@@ -196,7 +196,8 @@ public class CharacterClass
     public void LowerQualityResist(string discordUsername, GameClass game, bool strengthBonus)
     {
         if (game.RoundNo == 1) return;
-        
+        if(Status.GameCharacter.Passive.Any(x => x.PassiveName == "Boole Family")) return;
+
         var howMuch = 1;
 
         IntelligenceQualityResist -= howMuch;

@@ -114,9 +114,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         mainPage.AddField("Game is being ready", "**Please wait for the main menu**");
 
 
-        var socketMsg = await globalAccount.SendMessageAsync("", false, mainPage.Build());
+        var socketMessage = await globalAccount.SendMessageAsync("", false, mainPage.Build());
+        //var socketSecondaryMessage = await globalAccount.SendMessageAsync("Раунд #1");
 
-        player.DiscordStatus.SocketMessageFromBot = socketMsg;
+        player.DiscordStatus.SocketMessageFromBot = socketMessage;
+        //player.DiscordStatus.SocketSecondaryMessageFromBot = socketSecondaryMessage;
     }
 
     public string LeaderBoard(GamePlayerBridgeClass player)
@@ -1038,7 +1040,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 .WithCustomId("char-select")
                 .WithPlaceholder("\"Выбор\" прокачки")
                 .AddOption("Психика", "4");
-            await _helperFunctions.SendMsgAndDeleteItAfterRound(player, "Riot Games: бери smite и не выебывайся");
+            await _helperFunctions.SendMsgAndDeleteItAfterRound(player, "Riot Games: бери smite и не выебывайся", 0);
         }
         //end Да всё нахуй эту игру: Part #4
 
@@ -1157,8 +1159,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         if (!darksciType.Sent)
                         {
                             darksciType.Sent = true;
-                            await _helperFunctions.SendMsgAndDeleteItAfterRound(player,
-                                "Нажмешь синюю кнопку - и сказке конец. Выберешь красную - и узнаешь насколько глубока нора Даркси.");
+                            await _helperFunctions.SendMsgAndDeleteItAfterRound(player, "Нажмешь синюю кнопку - и сказке конец. Выберешь красную - и узнаешь насколько глубока нора Даркси.", 0);
                         }
                     }
 

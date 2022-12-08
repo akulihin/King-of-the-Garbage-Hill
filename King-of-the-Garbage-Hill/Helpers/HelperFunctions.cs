@@ -204,32 +204,46 @@ public sealed class HelperFunctions : IServiceSingleton
     }
 
 
-    public async Task ModifyGameMessage(GamePlayerBridgeClass player, EmbedBuilder embed, ComponentBuilder components, string extraText = "")
+    public async Task ModifyGameMessage(GamePlayerBridgeClass player, EmbedBuilder embed, ComponentBuilder components, string extraText = "", int delayMs = 0)
     {
+        if (player.IsBot())
+        {
+            return;
+        }
+
+        if (embed.Footer.Text.Contains("ERROR"))
+        {
+            return;
+        }
+
         try
         {
-            if (!player.IsBot() && !embed.Footer.Text.Contains("ERROR"))
+            var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+            var humans = game!.PlayersList.Where(x => !x.IsBot());
+            var ready = humans.Where(x => x.Status.IsReady);
+            if (ready.Count() == 1)
             {
-
-                while (_embedQueue.Contains(player.GetPlayerId()))
-                {
-                    await Task.Delay(100);
-                }
-                _embedQueue.Add(player.GetPlayerId());
-
-                await player.DiscordStatus.SocketMessageFromBot.ModifyAsync(message =>
-                {
-                    message.Embed = embed.Build();
-                    message.Components = components.Build();
-                });
-
-                if (extraText.Length > 0)
-                {
-                    await SendMsgAndDeleteItAfterRound(player, extraText);
-                }
-
-                _embedQueue.Remove(player.GetPlayerId());
+                return;
             }
+
+            while (_embedQueue.Contains(player.GetPlayerId()))
+            {
+                await Task.Delay(50);
+            }
+            _embedQueue.Add(player.GetPlayerId());
+
+            await player.DiscordStatus.SocketMessageFromBot.ModifyAsync(message =>
+            {
+                message.Embed = embed.Build();
+                message.Components = components.Build();
+            });
+
+            if (extraText.Length > 0)
+            {
+                await SendMsgAndDeleteItAfterRound(player, extraText, delayMs);
+            }
+
+            _embedQueue.Remove(player.GetPlayerId());
         }
         catch (Exception exception)
         {
@@ -239,23 +253,24 @@ public sealed class HelperFunctions : IServiceSingleton
     }
 
 
-    public async Task SendMsgAndDeleteItAfterRound(GamePlayerBridgeClass player, string msg)
+    public async Task SendMsgAndDeleteItAfterRound(GamePlayerBridgeClass player, string msg, int delayMs)
     {
         try
         {
-            if (!player.IsBot())
+            if (player.IsBot())
+                return;
+        
+            while (_messageQueue.Contains(player.GetPlayerId()))
             {
-                while (_messageQueue.Contains(player.GetPlayerId()))
-                {
-                    await Task.Delay(200);
-                }
-                _messageQueue.Add(player.GetPlayerId());
-
-                var mess2 = await player.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync(msg);
-                player.DeleteMessages.Add(mess2.Id);
-
-                _messageQueue.Remove(player.GetPlayerId());
+                await Task.Delay(100);
             }
+            _messageQueue.Add(player.GetPlayerId());
+
+            var mess2 = await player.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync(msg);
+            player.DeleteMessages.Add(new GamePlayerBridgeClass.DeleteMessagesClass(mess2.Id, delayMs));
+
+            _messageQueue.Remove(player.GetPlayerId());
+          
         }
         catch (Exception exception)
         {
@@ -269,13 +284,23 @@ public sealed class HelperFunctions : IServiceSingleton
     {
         try
         {
-            if (!player.IsBot())
-                for (var i = player.DeleteMessages.Count - 1; i >= 0; i--)
+            if (player.IsBot())
+            {
+                return;
+            }
+
+            foreach (var message in player.DeleteMessages.ToList())
+            {
+                player.DeleteMessages.Remove(message);
+
+                var m = await player.DiscordStatus.SocketMessageFromBot.Channel.GetMessageAsync(message.MessageId);
+                if (message.DelayMs > 0)
                 {
-                    var m = await player.DiscordStatus.SocketMessageFromBot.Channel.GetMessageAsync(player.DeleteMessages[i]);
-                    await m.DeleteAsync();
-                    player.DeleteMessages.RemoveAt(i);
+                    await Task.Delay(message.DelayMs);
                 }
+                await m.DeleteAsync();
+                
+            }
         }
         catch (Exception exception)
         {

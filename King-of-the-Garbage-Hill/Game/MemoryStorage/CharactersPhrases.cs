@@ -754,7 +754,7 @@ public class CharactersUniquePhrase
                 player.Status.AddInGamePersonalLogs($"|>Phrase<|{PassiveNameRus}: {description}\n");
         }
 
-        public async Task SendLogSeparate(GamePlayerBridgeClass player, bool delete)
+        public async Task SendLogSeparate(GamePlayerBridgeClass player, bool delete, int delayMs)
         {
             if (player.IsBot()) return;
 
@@ -783,7 +783,7 @@ public class CharactersUniquePhrase
             try
             {
                 var mess2 = await player.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync(description);
-                player.DeleteMessages.Add(mess2.Id);
+                player.DeleteMessages.Add(new GamePlayerBridgeClass.DeleteMessagesClass(mess2.Id, delayMs));
             }
             catch (Exception exception)
             {
@@ -792,7 +792,7 @@ public class CharactersUniquePhrase
             }
         }
 
-        public async Task SendLogSeparateWithFile(GamePlayerBridgeClass player, bool delete, string filePath, bool clearNextRound)
+        public async Task SendLogSeparateWithFile(GamePlayerBridgeClass player, bool delete, string filePath, bool clearNextRound, int delayMs)
         {
             if (player.IsBot()) return;
 
@@ -823,7 +823,7 @@ public class CharactersUniquePhrase
                 //.SendFileAsync($"DataBase/sound/Kratos_PLAY_ME.mp3", "123");
                 var mess2 = await player.DiscordStatus.SocketMessageFromBot.Channel.SendFileAsync(filePath, description);
                 if(clearNextRound)
-                    player.DeleteMessages.Add(mess2.Id);
+                    player.DeleteMessages.Add(new GamePlayerBridgeClass.DeleteMessagesClass(mess2.Id, delayMs));
             }
             catch (Exception exception)
             {

@@ -156,34 +156,34 @@ public sealed class GameReaction : IServiceSingleton
                         switch (player.Status.AutoMoveTimes)
                         {
                             case 1:
-                                await game!.Phrases.AutoMove1.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove1.SendLogSeparate(player, false, 7000);
                                 break;
                             case 2:
-                                await game!.Phrases.AutoMove2.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove2.SendLogSeparate(player, false, 7000);
                                 break;
                             case 3:
-                                await game!.Phrases.AutoMove3.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove3.SendLogSeparate(player, false, 7000);
                                 break;
                             case 4:
-                                await game!.Phrases.AutoMove4.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove4.SendLogSeparate(player, false, 7000);
                                 break;
                             case 5:
-                                await game!.Phrases.AutoMove5.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove5.SendLogSeparate(player, false, 7000);
                                 break;
                             case 6:
-                                await game!.Phrases.AutoMove6.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove6.SendLogSeparate(player, false, 7000);
                                 break;
                             case 7:
-                                await game!.Phrases.AutoMove7.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove7.SendLogSeparate(player, false, 7000);
                                 break;
                             case 8:
-                                await game!.Phrases.AutoMove8.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove8.SendLogSeparate(player, false, 7000);
                                 break;
                             case 9:
-                                await game!.Phrases.AutoMove9.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove9.SendLogSeparate(player, false, 7000);
                                 break;
                             case 10:
-                                await game!.Phrases.AutoMove10.SendLogSeparate(player, false);
+                                await game!.Phrases.AutoMove10.SendLogSeparate(player, false, 7000);
                                 break;
                         }
                         
@@ -294,13 +294,13 @@ public sealed class GameReaction : IServiceSingleton
                     case "block":
                         if (status.MoveListPage == 3)
                         {
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Ходить нельзя, Апни лвл!") ;
+                            await _help.SendMsgAndDeleteItAfterRound(player, "Ходить нельзя, Апни лвл!", 0) ;
                             break;
                         }
 
                         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Спарта"))
                         {
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Спартанцы не капитулируют!!");
+                            await _help.SendMsgAndDeleteItAfterRound(player, "Спартанцы не капитулируют!!", 0);
                             break;
                         }
 
@@ -476,14 +476,14 @@ public sealed class GameReaction : IServiceSingleton
             if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Weedwick Pet") && whoToAttack.GameCharacter.Passive.Any(x => x.PassiveName == "DeepList Pet"))
             {
                 status.WhoToAttackThisTurn = new List<Guid>();
-                await _help.SendMsgAndDeleteItAfterRound(player, "DeepList: Не нападай на хозяина, глупый пес!");
+                await _help.SendMsgAndDeleteItAfterRound(player, "DeepList: Не нападай на хозяина, глупый пес!", 0);
                 return false;
             }
 
             if (whoToAttack.GameCharacter.Passive.Any(x => x.PassiveName == "DeepList Pet") && player.GameCharacter.Passive.Any(x => x.PassiveName == "Weedwick Pet"))
             {
                 status.WhoToAttackThisTurn = new List<Guid>();
-                await _help.SendMsgAndDeleteItAfterRound(player, "Не нападай на свою собаку. Ты чего, совсем уже ебнулся?");
+                await _help.SendMsgAndDeleteItAfterRound(player, "Не нападай на свою собаку. Ты чего, совсем уже ебнулся?", 0);
                 return false;
             }
             // end Weedwick
@@ -492,7 +492,7 @@ public sealed class GameReaction : IServiceSingleton
             if (game.PlayersList.Any(x => x.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят") && x.Status.GetPlaceAtLeaderBoard() == emoteNum) && game.RoundNo == 10)
             {
                 status.WhoToAttackThisTurn = new List<Guid>();
-                await _help.SendMsgAndDeleteItAfterRound(player, "Выбранный игрок недоступен в связи с баном за нарушение правил");
+                await _help.SendMsgAndDeleteItAfterRound(player, "Выбранный игрок недоступен в связи с баном за нарушение правил", 0);
                 return false;
             }
 
@@ -500,7 +500,7 @@ public sealed class GameReaction : IServiceSingleton
             if (player.GameCharacter.Passive.Any(x => x.PassiveName == "СОсиновый кол") && player.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 &&  status.WhoToAttackThisTurn.Contains(x.EnemyId)))
             {
                 status.WhoToAttackThisTurn = new List<Guid>();
-                await game.Phrases.VampyrNoAttack.SendLogSeparate(player, false);
+                await game.Phrases.VampyrNoAttack.SendLogSeparate(player, false, 0);
                 return false;
             }
 
@@ -508,7 +508,7 @@ public sealed class GameReaction : IServiceSingleton
             if (status.WhoToAttackThisTurn.Contains(player.GetPlayerId()))
             {
                 status.WhoToAttackThisTurn = new List<Guid>();
-                await _help.SendMsgAndDeleteItAfterRound(player, "Зачем ты себя бьешь?");
+                await _help.SendMsgAndDeleteItAfterRound(player, "Зачем ты себя бьешь?", 0);
                 return false;
             }
 
@@ -527,7 +527,7 @@ public sealed class GameReaction : IServiceSingleton
     public async Task LvlUp10(GamePlayerBridgeClass player)
 
     {
-        await _help.SendMsgAndDeleteItAfterRound(player, "10 максимум, выбери другой стат"); //not awaited 
+        await _help.SendMsgAndDeleteItAfterRound(player, "10 максимум, выбери другой стат", 0); //not awaited 
     }
 
 
@@ -538,7 +538,7 @@ public sealed class GameReaction : IServiceSingleton
         //Vampyr Позорный
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Vampyr Позорный"))
         {
-            await game.Phrases.VampyrTheLoh.SendLogSeparate(player, true);
+            await game.Phrases.VampyrTheLoh.SendLogSeparate(player, true, 0);
             skillNumber = 0;
         }
         //end Vampyr Позорный
@@ -638,7 +638,7 @@ public sealed class GameReaction : IServiceSingleton
             try
             {
                 if (!player.IsBot())
-                    await _help.SendMsgAndDeleteItAfterRound(player, $"Осталось еще {player.Status.LvlUpPoints} очков характеристик. Пытайся!");
+                    await _help.SendMsgAndDeleteItAfterRound(player, $"Осталось еще {player.Status.LvlUpPoints} очков характеристик. Пытайся!", 0);
             }
             catch (Exception exception)
             {

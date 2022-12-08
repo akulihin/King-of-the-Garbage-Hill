@@ -46,7 +46,7 @@ public class GamePlayerBridgeClass
 404 == Bot
 */
     public int PlayerType { get; set; }
-    public List<ulong> DeleteMessages { get; set; } = new();
+    public List<DeleteMessagesClass> DeleteMessages { get; set; } = new();
     public List<PredictClass> Predict { get; set; } = new();
 
     public int TeamId { get; set; }
@@ -71,5 +71,17 @@ public class GamePlayerBridgeClass
     {
         var team = game.Teams.Find(x => x.TeamPlayers.Contains(GetPlayerId()));
         return team!.TeamPlayers.Contains(player2);
+    }
+
+    public class DeleteMessagesClass
+    {
+        public ulong MessageId;
+        public int DelayMs;
+
+        public DeleteMessagesClass(ulong messageId, int delayMs)
+        {
+            MessageId = messageId;
+            DelayMs = delayMs;
+        }
     }
 }

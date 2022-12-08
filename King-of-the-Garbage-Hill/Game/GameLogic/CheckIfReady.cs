@@ -694,7 +694,8 @@ public class CheckIfReady : IServiceSingleton
                 _logs.Critical($"\nCRIT: {t.DiscordUsername} didn't do anything  and auto move didn't as well.!\n");
 
             //delete messages from prev round. No await.
-            foreach (var player in game.PlayersList) await _help.DeleteItAfterRound(player);
+            foreach (var player in game.PlayersList) 
+                _help.DeleteItAfterRound(player);
 
 
             //moral
@@ -712,7 +713,7 @@ public class CheckIfReady : IServiceSingleton
             //end moral
 
             await _round.CalculateAllFights(game);
-            //await Task.Delay(1);
+            //await Task.DelayMs(1);
 
             foreach (var t in players.Where(x => !x.IsBot()))
                 try
