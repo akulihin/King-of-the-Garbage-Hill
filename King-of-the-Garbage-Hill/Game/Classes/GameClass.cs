@@ -32,7 +32,7 @@ public class GameClass
     
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 2.8.1 Как же я заеблся 2.0";
+        GameVersion = "Версия: 2.8.2 Как же я заеблся 3.0";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();

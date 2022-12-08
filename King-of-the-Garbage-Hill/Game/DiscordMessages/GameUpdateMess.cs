@@ -453,13 +453,20 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                     if (enemy != null)
                     {
-                        if (enemy.WinsSeries == 1)
-                            customString += " 1:0";
-                        else if (enemy.WinsSeries == 2)
-                            customString += " 2:0";
-                        else if (enemy.WinsSeries >= 3) customString += " 3:0, обоссан";
+                        switch (enemy.WinsSeries)
+                        {
+                            case 1:
+                                customString += " 1:0";
+                                break;
+                            case 2:
+                                customString += " 2:0";
+                                break;
+                            default:
+                                if (enemy.WinsSeries >= 3 || !enemy.IsUnique) 
+                                    customString += " 3:0, обоссан";
+                                break;
+                        }
                     }
-
                     break;
             }
 
@@ -528,8 +535,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var separationLine = false;
         var orderedList = new List<string>
         {
-            "Ты улучшил", "|>PhraseBeforeFight<|", "Обмен Морали", "Ты использовал Авто Ход", "Ты напал на",
-            "Ты поставил блок", "TOO GOOD", "TOO STONK", "|>Phrase<|", "|>SeparationLine<|", "Поражение:", "Победа:", "Читы",
+            "Ты улучшил", "|>PhraseBeforeFight<|", "Обмен Морали", "Ты использовал Авто Ход", "Ты напал на", "Ты поставил блок",  
+            "дополнительного вреда", "TOO GOOD", "TOO STONK", "|>Phrase<|", "|>SeparationLine<|", "Поражение:", "Победа:", "Читы",
             "Справедливость", "Класс:", "Мишень", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**"
         };
 
@@ -766,19 +773,19 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         */
 
         embed.WithDescription($"{desc}" +
-                              "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
+                              "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                               $"**{intStr}:** {character.GetIntelligenceString()}{character.GetIntelligenceQualityResist()}\n" +
                               $"**{strStr}:** {character.GetStrengthString()}{character.GetStrengthQualityResist()}\n" +
                               $"**{speStr}:** {character.GetSpeedString()}{character.GetSpeedQualityResist()}\n" +
                               $"**{psyStr}:** {character.GetPsycheString()}{character.GetPsycheQualityResist()}\n" +
-                              "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
+                              "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                               $"*Справедливость: **{character.Justice.GetRealJusticeNow()}***\n" +
                               $"*Мораль: {character.GetMoral()}*\n" +
                               $"*Скилл: {character.GetSkillDisplay()} (Мишень: **{character.GetCurrentSkillClassTarget()}**)*\n" +
                               //$"*Скилл: {character.GetSkillDisplay()}{skillExtraText}*\n" +
                               //$"*Мишень: **{character.GetCurrentSkillClassTarget()}**{targetExtraText}*\n" +
                               $"*Класс:* {character.GetClassStatDisplayText()}\n" +
-                              "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
+                              "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                               $"Множитель очков: **x{multiplier}**\n" +
                               "<:e_:562879579694301184>\n" +
                               $"{LeaderBoard(player)}");

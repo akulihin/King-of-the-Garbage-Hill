@@ -7,6 +7,7 @@ using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
+using static System.Net.Mime.MediaTypeNames;
 // ReSharper disable RedundantAssignment
 #pragma warning disable CS0219
 
@@ -158,6 +159,7 @@ public class BotsBehavior : IServiceSingleton
                 return;
         }
         //end логика до 10го раунда
+
 
         //прожать всю момаль
         while (bot.GameCharacter.GetMoral() >= 5)

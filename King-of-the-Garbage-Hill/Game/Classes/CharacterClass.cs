@@ -743,16 +743,30 @@ public class CharacterClass
 
     public decimal GetSkill()
     {
-        if (SkillForOneFight != -228) return SkillForOneFight;
+        var name = Status.GameCharacter.Name;
+        var realSkill = (SkillMain + SkillExtra) * SkillFightMultiplier * GetIntelligenceQualitySkillBonus();
+        
+        if (SkillForOneFight != -228) 
+            return SkillForOneFight;
 
-        return (SkillMain + SkillExtra) * SkillFightMultiplier * GetIntelligenceQualitySkillBonus();
+        return realSkill;
+    }
+
+    public decimal GetSkillForOneFight()
+    {
+        var name = Status.GameCharacter.Name;
+        var realSkill = (SkillMain + SkillExtra) * GetIntelligenceQualitySkillBonus();
+
+        if (SkillForOneFight != -228)
+            return SkillForOneFight;
+
+        return realSkill;
     }
 
     public void SetSkillForOneFight(decimal howMuchToSet, string skillName)
     {
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
-
         Status.IsSkillForOneFight = true;
         SkillForOneFight = howMuchToSet;
     }
@@ -891,7 +905,7 @@ public class CharacterClass
             return;
         }
 
-        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Привет со дна"))
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Привет со дна") && !isMoralPoints)
         {
             howMuchToAdd = 4;   
         }
@@ -930,15 +944,18 @@ public class CharacterClass
 
         UpdateIntelligenceResist(intelligenceOld, intelligenceNew);
 
+        
         if (GetIntelligence() < 0)
             Intelligence = 0;
+
         if (GetIntelligence() > 10)
             Intelligence = 10;
     }
 
     public int GetIntelligence()
     {
-        if (IntelligenceForOneFight != -228) return IntelligenceForOneFight;
+        if (IntelligenceForOneFight != -228) 
+            return IntelligenceForOneFight;
         return Intelligence;
     }
 
@@ -1014,8 +1031,9 @@ public class CharacterClass
 
         UpdatePsycheResist(psycheOld, psycheNew);
 
-        if (GetPsyche() < 0)
-            Psyche = 0;
+        if (Status.GameCharacter.Passive.All(x => x.PassiveName != "Безумие"))
+            if (GetPsyche() < 0)
+                Psyche = 0;
         if (GetPsyche() > 10)
             Psyche = 10;
     }

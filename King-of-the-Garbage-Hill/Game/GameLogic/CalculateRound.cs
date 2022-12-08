@@ -580,8 +580,8 @@ Speed => Strength
                     {
                         if (!teamMate)
                         {
-                            player.FightCharacter.AddMoral(moral, "Победа" + $": ({moralDebugText}{moral})");
-                            playerIamAttacking.FightCharacter.AddMoral(moral * -1, "Поражение" + $": ({moralDebugText}{moral * -1})");
+                            player.FightCharacter.AddMoral(moral, "Победа");
+                            playerIamAttacking.FightCharacter.AddMoral(moral * -1, "Поражение");
                         }
                     }
 
@@ -643,8 +643,8 @@ Speed => Strength
                     {
                         if (!teamMate)
                         {
-                            player.FightCharacter.AddMoral(moral, "Поражение" + $": ({moralDebugText}{moral})");
-                            playerIamAttacking.FightCharacter.AddMoral(moral * -1, "Победа" + $": ({moralDebugText}{moral * -1})");
+                            player.FightCharacter.AddMoral(moral, "Поражение");
+                            playerIamAttacking.FightCharacter.AddMoral(moral * -1, "Победа");
                         }
                     }
 

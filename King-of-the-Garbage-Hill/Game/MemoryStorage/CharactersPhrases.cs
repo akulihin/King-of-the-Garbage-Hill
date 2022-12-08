@@ -91,8 +91,8 @@ public class CharactersUniquePhrase
     public PhraseClass VampyrHematophagy;
     public PhraseClass VampyrNoAttack;
     public PhraseClass VampyrSuckspenStake;
-
     public PhraseClass VampyrVampyr;
+    public PhraseClass VampyrTheLoh;
 
     public PhraseClass CraboRackSidewaysBoolePhrase;
 
@@ -156,7 +156,8 @@ public class CharactersUniquePhrase
         VampyrSuckspenStake = new PhraseClass("СОсиновый кол");
         VampyrNoAttack = new PhraseClass("СОсиновый кол");
         VampyrVampyr = new PhraseClass("VampУr");
-        
+        VampyrTheLoh = new PhraseClass("Vampyr Позорный");
+
 
         SpartanShameMylorik = new PhraseClass("Искусство");
         SpartanDragonSlayer = new PhraseClass("2kxaoc");
@@ -299,6 +300,12 @@ public class CharactersUniquePhrase
         VampyrNoAttack.PassiveLogRus.Add("Это Хельсинг, начальнике");
         VampyrNoAttack.PassiveLogRus.Add("От него пахнет чесноком!");
         VampyrNoAttack.PassiveLogRus.Add("Он мне кол в жопу засунул");
+
+
+        VampyrTheLoh.PassiveLogRus.Add("Никаких статов для тебя, поешь чеснока");
+        VampyrTheLoh.PassiveLogRus.Add("Иди отсюда, Вампур позорный");
+        VampyrTheLoh.PassiveLogRus.Add("А ну хватит кусаться!");
+        VampyrTheLoh.PassiveLogRus.Add("Клыки наточил?");
 
 
 

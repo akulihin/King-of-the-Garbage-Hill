@@ -19,14 +19,16 @@ public sealed class GameReaction : IServiceSingleton
     private readonly HelperFunctions _help;
     private readonly LoginFromConsole _logs;
     private readonly GameUpdateMess _upd;
+    private readonly SecureRandom _random;
 
-    public GameReaction(UserAccounts accounts, Global global, GameUpdateMess upd, HelperFunctions help, LoginFromConsole logs)
+    public GameReaction(UserAccounts accounts, Global global, GameUpdateMess upd, HelperFunctions help, LoginFromConsole logs, SecureRandom random)
     {
         _accounts = accounts;
         _global = global;
         _upd = upd;
         _help = help;
         _logs = logs;
+        _random = random;
     }
 
     public Task InitializeAsync()
@@ -532,6 +534,15 @@ public sealed class GameReaction : IServiceSingleton
     private async Task GetLvlUp(GamePlayerBridgeClass player, int skillNumber)
     {
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+
+        //Vampyr Позорный
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Vampyr Позорный"))
+        {
+            await game.Phrases.VampyrTheLoh.SendLogSeparate(player, true);
+            skillNumber = 0;
+        }
+        //end Vampyr Позорный
+
         switch (skillNumber)
         {
             case 1:

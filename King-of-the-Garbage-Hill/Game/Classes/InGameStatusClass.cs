@@ -214,17 +214,17 @@ public class InGameStatus
 
     private void AddScore(decimal score, int roundNumber)
     {
-        /*
+        score *= roundNumber switch
+        { 
+            /*
         1-4 х1
         5-9 х2
         10 х4
         */
-        if (roundNumber <= 4)
-            score *= 1; // Why????????????????????????
-        else if (roundNumber <= 9)
-            score *= 2;
-        else if (roundNumber == 10)
-            score *= 4;
+            <= 4 => 1,
+            <= 9 => 2,
+            _ => 4
+        };
 
         switch ((int)score)
         {

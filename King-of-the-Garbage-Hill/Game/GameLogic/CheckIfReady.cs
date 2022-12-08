@@ -154,19 +154,6 @@ public class CheckIfReady : IServiceSingleton
     {
         game.IsCheckIfReady = false;
 
-        //moral
-        //прожать всю момаль
-        foreach (var player in game.PlayersList)
-        {
-            while (player.GameCharacter.GetMoral() >= 5)
-            {
-                await _gameReaction.HandleMoralForScore(player);
-            }
-            player.Status.AddBonusPoints(player.GameCharacter.GetBonusPointsFromMoral(), "Мораль");
-        }
-        //end прожать всю момаль
-        //end moral
-
         //predict
         if (game.PlayersList.Count == 6)
             foreach (var player in from player in game.PlayersList
@@ -175,7 +162,7 @@ public class CheckIfReady : IServiceSingleton
                      where enemy!.GameCharacter.Name == predict.CharacterName
                      select player)
             {
-                player.Status.AddBonusPoints(3, "Предположение");
+                player.Status.AddBonusPoints(2, "Предположение");
             }
         // predict
 
@@ -708,6 +695,21 @@ public class CheckIfReady : IServiceSingleton
 
             //delete messages from prev round. No await.
             foreach (var player in game.PlayersList) await _help.DeleteItAfterRound(player);
+
+
+            //moral
+            //прожать всю момаль
+            if(game.RoundNo == 10)
+                foreach (var player in game.PlayersList)
+                {
+                    while (player.GameCharacter.GetMoral() >= 5)
+                    {
+                        await _gameReaction.HandleMoralForScore(player);
+                    }
+                    player.Status.AddBonusPoints(player.GameCharacter.GetBonusPointsFromMoral(), "Мораль");
+                }
+            //end прожать всю момаль
+            //end moral
 
             await _round.CalculateAllFights(game);
             //await Task.Delay(1);

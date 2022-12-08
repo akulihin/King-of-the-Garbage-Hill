@@ -166,8 +166,8 @@ public class CharacterPassives : IServiceSingleton
                     me.GameCharacter.SetStrengthForOneFight(targetTempStrength, "Оборотень");
                     target.GameCharacter.SetStrengthForOneFight(myTempStrength, "Оборотень");
 
-                    var myTempSkillMain = me.GameCharacter.GetSkill();
-                    var targetTempSkill = target.GameCharacter.GetSkill();
+                    var myTempSkillMain = me.GameCharacter.GetSkillForOneFight();
+                    var targetTempSkill = target.GameCharacter.GetSkillForOneFight();
                     me.GameCharacter.SetSkillForOneFight(targetTempSkill, "Оборотень");
                     target.GameCharacter.SetSkillForOneFight(myTempSkillMain, "Оборотень");
                     break;
@@ -453,8 +453,8 @@ public class CharacterPassives : IServiceSingleton
                     me.GameCharacter.SetStrengthForOneFight(targetTempStrength, "Оборотень");
                     target.GameCharacter.SetStrengthForOneFight(myTempStrength, "Оборотень");
 
-                    var myTempSkillMain = me.GameCharacter.GetSkill();
-                    var targetTempSkill = target.GameCharacter.GetSkill();
+                    var myTempSkillMain = me.GameCharacter.GetSkillForOneFight();
+                    var targetTempSkill = target.GameCharacter.GetSkillForOneFight();
                     me.GameCharacter.SetSkillForOneFight(targetTempSkill, "Оборотень");
                     target.GameCharacter.SetSkillForOneFight(myTempSkillMain, "Оборотень");
                     break;
@@ -1292,50 +1292,14 @@ public class CharacterPassives : IServiceSingleton
                     if (player.Status.IsWonThisCalculation != Guid.Empty)
                     {
                         var tigr = player.Passives.TigrThreeZeroList;
-
-                        var enemy = tigr.FriendList.Find(x =>
-                            x.EnemyPlayerId == player.Status.IsWonThisCalculation);
-                        if (enemy != null)
-                        {
-                            enemy.WinsSeries++;
-
-                            if (enemy.WinsSeries >= 3 && enemy.IsUnique)
-                            {
-                                player.Status.AddRegularPoints(3, "3-0 обоссан");
-                                player.FightCharacter.AddExtraSkill(30, "3-0 обоссан");
-                                player.FightCharacter.AddMoral(3, "3-0 обоссан");
-
-
-                                var enemyAcc = game.PlayersList.Find(x =>
-                                    x.GetPlayerId() == player.Status.IsWonThisCalculation);
-
-                                if (enemyAcc != null)
-                                {
-                                    enemyAcc.FightCharacter.AddIntelligence(-1, "3-0 обоссан");
-
-                                    enemyAcc.FightCharacter.AddPsyche(-1, "3-0 обоссан");
-                                    enemyAcc.MinusPsycheLog(game);
-                                    game.Phrases.TigrThreeZero.SendLog(player, false);
-
-
-                                    enemy.IsUnique = false;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            tigr.FriendList.Add(new Tigr.ThreeZeroSubClass(player.Status.IsWonThisCalculation));
-                        }
+                        tigr.WhoToWinThisRound.Add(player.Status.IsWonThisCalculation);
                     }
-                    else
+
+                    if (player.Status.IsLostThisCalculation != Guid.Empty)
                     {
                         var tigr = player.Passives.TigrThreeZeroList;
-
-                        var enemy = tigr?.FriendList.Find(x => x.EnemyPlayerId == player.Status.IsLostThisCalculation);
-
-                        if (enemy is { IsUnique: true }) enemy.WinsSeries = 0;
+                        tigr.WhoToLostThisRound.Add(player.Status.IsLostThisCalculation);
                     }
-
                     break;
 
                 case "Челюсти":
@@ -1402,10 +1366,10 @@ public class CharacterPassives : IServiceSingleton
 
                     if (player.Status.IsWonThisCalculation != Guid.Empty)
                     {
-                        var target =
-                            vampyr.HematophagiaCurrent.Find(x => x.EnemyId == player.Status.IsWonThisCalculation);
+                        var target = vampyr.HematophagiaCurrent.Find(x => x.EnemyId == player.Status.IsWonThisCalculation);
+                        var repeat = vampyr.HematophagiaAddEndofRound.Find(x => x.EnemyId == player.Status.IsWonThisCalculation);
 
-                        if (target == null)
+                        if (target == null && repeat == null)
                         {
                             var statIndex = 0;
                             var found = false;
@@ -1436,15 +1400,13 @@ public class CharacterPassives : IServiceSingleton
                                 }
                             }
 
-                            vampyr.HematophagiaAddEndofRound.Add(
-                                new Vampyr.HematophagiaSubClass(statIndex, player.Status.IsWonThisCalculation));
+                            vampyr.HematophagiaAddEndofRound.Add(new Vampyr.HematophagiaSubClass(statIndex, player.Status.IsWonThisCalculation));
                         }
                     }
 
                     if (player.Status.IsLostThisCalculation != Guid.Empty)
                     {
-                        var target =
-                            vampyr.HematophagiaCurrent.Find(x => x.EnemyId == player.Status.IsLostThisCalculation);
+                        var target = vampyr.HematophagiaCurrent.Find(x => x.EnemyId == player.Status.IsLostThisCalculation);
 
                         if (target != null)
                         {
@@ -1521,13 +1483,14 @@ public class CharacterPassives : IServiceSingleton
                         var psy = player.GameCharacter.GetPsyche() - madStats.Psyche;
 
 
-                        player.GameCharacter.SetIntelligence(regularStats.Intel + intel, "Безумие",
-                            false);
+                        player.GameCharacter.SetIntelligence(regularStats.Intel + intel, "Безумие", false);
                         player.GameCharacter.SetStrength(regularStats.Str + str, "Безумие", false);
                         player.GameCharacter.SetSpeed(regularStats.Speed + speed, "Безумие", false);
                         player.GameCharacter.SetPsyche(regularStats.Psyche + psy, "Безумие", false);
                         player.GameCharacter.SetAnySkillMultiplier();
                         player.Passives.DeepListMadnessList = new DeepList.Madness();
+
+                        player.GameCharacter.AddPsyche(-1, "Безумие");
                     }
 
                     break;
@@ -1749,6 +1712,75 @@ public class CharacterPassives : IServiceSingleton
                     if (hard != null) hard.Activated = false;
                     break;
 
+                case "3-0 обоссан":
+                    var tigrThreeZero = player.Passives.TigrThreeZeroList;
+                    /*
+                     if 0:0 and win-lost: lost => win
+                     if 1:0 and win-lost: lost => win
+                     if 2:0 and win-lost: win => lost
+                    */
+                    foreach (var lost in tigrThreeZero.WhoToLostThisRound.ToList())
+                    {
+                        var threeZero = tigrThreeZero.FriendList.Find(x => x.EnemyPlayerId == lost);
+                        if (threeZero == null)
+                        {
+                            tigrThreeZero.WhoToLostThisRound.Remove(lost);
+                            continue;
+                        }
+
+                        if (tigrThreeZero.WhoToWinThisRound.Contains(lost))
+                        {
+                            if (threeZero.WinsSeries >= 2) 
+                                continue;
+
+                            threeZero.WinsSeries = 0;
+                            tigrThreeZero.WhoToLostThisRound.Remove(lost);
+                        }
+                        else
+                        {
+                            threeZero.WinsSeries = 0;
+                            tigrThreeZero.WhoToLostThisRound.Remove(lost);
+                        }
+                    }
+
+                    foreach (var win in tigrThreeZero.WhoToWinThisRound.ToList())
+                    {
+                        var threeZero = tigrThreeZero.FriendList.Find(x => x.EnemyPlayerId == win);
+                        if (threeZero == null)
+                        {
+                            tigrThreeZero.FriendList.Add(new Tigr.ThreeZeroSubClass(win));
+                            continue;
+                        }
+                        threeZero.WinsSeries++;
+
+
+                        if (threeZero.WinsSeries < 3 || !threeZero.IsUnique) 
+                            continue;
+
+                        player.Status.AddRegularPoints(3, "3-0 обоссан");
+                        player.FightCharacter.AddExtraSkill(30, "3-0 обоссан");
+                        player.FightCharacter.AddMoral(3, "3-0 обоссан");
+
+                        var enemyAcc = game.PlayersList.Find(x => x.GetPlayerId() == win);
+
+                        enemyAcc.FightCharacter.AddIntelligence(-1, "3-0 обоссан");
+                        enemyAcc.FightCharacter.AddPsyche(-1, "3-0 обоссан");
+                        enemyAcc.MinusPsycheLog(game);
+
+                        game.Phrases.TigrThreeZero.SendLog(player, false);
+
+                        threeZero.IsUnique = false;
+                    }
+
+                    foreach (var threeZero in tigrThreeZero.WhoToLostThisRound.ToList().Select(lost => tigrThreeZero.FriendList.Find(x => x.EnemyPlayerId == lost)))
+                    {
+                        threeZero.WinsSeries = 0;
+                    }
+                    
+                    tigrThreeZero.WhoToLostThisRound.Clear();
+                    tigrThreeZero.WhoToWinThisRound.Clear();
+                    break;
+                
                 case "Доебаться":
                     var hardKitty = player.Passives.HardKittyDoebatsya;
                     for (var i = hardKitty.EnemyPlayersLostTo.Count - 1; i >= 0; i--)

@@ -199,7 +199,7 @@ public class AdminPanel : ModuleBaseCustom
         if (character == null)
         {
             _accounts.GetAccount(238337696316129280).CharacterToGiveNextTime = "Weedwick";
-            _accounts.GetAccount(181514288278536193).CharacterToGiveNextTime = "Загадочный Спартанец в маске";
+            _accounts.GetAccount(181514288278536193).CharacterToGiveNextTime = "Тигр";
             return;
         }
 
@@ -225,7 +225,7 @@ public class AdminPanel : ModuleBaseCustom
 
         account.CharacterToGiveNextTime = foundCharacter.Name;
 
-        await SendMessageAsync($"Done. {player!.Mention} будет играть на {foundCharacter.Name} в следующей игре");
+        await SendMessageAsync($"Done. {player!.Username} будет играть на {foundCharacter.Name} в следующей игре");
     }
 
 

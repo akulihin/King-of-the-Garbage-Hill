@@ -12,8 +12,9 @@ public class Tigr
 
     public class ThreeZeroClass
     {
+        public List<Guid> WhoToLostThisRound = new();
+        public List<Guid> WhoToWinThisRound = new();
         public List<ThreeZeroSubClass> FriendList = new();
-
     }
 
     public class ThreeZeroSubClass
