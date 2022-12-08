@@ -126,7 +126,7 @@
   {
     "Name": "LeCrisp",
     "Intelligence": 5,
-    "Psyche": 7,
+    "Psyche": 8,
     "Speed": 5,
     "Strength": 4,
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218325300088832/le_crisp.png",
@@ -192,7 +192,7 @@
   {
     "Name": "HardKitty",
     "Intelligence": 3,
-    "Psyche": 8,
+    "Psyche": 7,
     "Speed": 5,
     "Strength": 5,
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218646126616617/amumu.png",
