@@ -77,7 +77,7 @@ public class CharacterClass
         other.IsSpeedQualityKiteBonus = IsSpeedQualityKiteBonus;
         other.SpeedQualityKiteBonus = SpeedQualityKiteBonus;
         other.PsycheQualityMoralBonus = PsycheQualityMoralBonus;
-        other.PsycheQualityMoralDebuff = PsycheQualityMoralDebuff;
+        other.IsPsycheQualityMoralBonus = IsPsycheQualityMoralBonus;
 
         return other;
     }
@@ -116,26 +116,33 @@ public class CharacterClass
     private decimal SkillMain { get; set; }
     private decimal SkillExtra { get; set; }
     private decimal SkillForOneFight { get; set; } = -228;
-    private int TargetSkillMultiplier { get; set; }
-    private int ExtraSkillMultiplier { get; set; }
-    private int SkillFightMultiplier { get; set; }
+    private decimal TargetSkillMultiplier { get; set; }
+    private decimal ExtraSkillMultiplier { get; set; }
+    private decimal SkillFightMultiplier { get; set; }
     private string CurrentSkillTarget { get; set; } = "Ничего";
-    private int Moral { get; set; }
+    private decimal Moral { get; set; }
     private int BonusPointsFromMoral { get; set; }
 
+    //resists
     private int IntelligenceQualityResist { get; set; }
     private int StrengthQualityResist { get; set; }
     private int SpeedQualityBonus { get; set; }
     private int PsycheQualityResist { get; set; }
+    //end resists
 
+    //bonus
     private bool IsIntelligenceQualitySkillBonus { get; set; }
     private int IntelligenceQualitySkillBonus { get; set; }
+
     private bool StrengthQualityDropBonus { get; set; }
     private int StrengthQualityDropDebuff { get; set; }
+
     private bool IsSpeedQualityKiteBonus { get; set; }
     private int SpeedQualityKiteBonus { get; set; }
-    private bool PsycheQualityMoralBonus { get; set; }
-    private int PsycheQualityMoralDebuff { get; set; }
+
+    private bool IsPsycheQualityMoralBonus { get; set; }
+    private int PsycheQualityMoralBonus { get; set; }
+    //end bonus
 
     public void SetStatus(InGameStatus status)
     {
@@ -260,7 +267,7 @@ public class CharacterClass
             //end Испанец
             else
             {
-                PsycheQualityMoralDebuff++;
+                PsycheQualityMoralBonus--;
             }
         }
     }
@@ -278,14 +285,14 @@ public class CharacterClass
             spacing += $"{s}{s}";
         var text = $"{spacing}<:Anal:1000841467935338518> {IntelligenceQualityResist}";
 
-        if (GetIntelligenceQualitySkillBonus() != (decimal)1.0)
+        var skillBonus = GetIntelligenceQualitySkillBonus();
+        if (skillBonus != (decimal)1.0)
         {
-            var skillBonus = GetIntelligenceQualitySkillBonus();
             var skillBonusPrecent = (skillBonus - 1) * 100;
             var plus = "";
             if (skillBonusPrecent > 0)
                 plus = "+";
-            text += $" **({plus}{(int)skillBonusPrecent}% Skill)**";
+            text += $" **({plus}{skillBonusPrecent}% Skill)**";
         }
         return text;
     }
@@ -359,17 +366,14 @@ public class CharacterClass
             spacing += $"{s}{s}";
         var text = $"{spacing}<:Spok:1000842206145413210> {PsycheQualityResist}";
 
-        var debuffTemp = PsycheQualityMoralDebuff;
-        if (PsycheQualityMoralBonus)
-            debuffTemp -= 1;
-        switch (debuffTemp)
+        var moralBonus = GetPsycheQualityMoralBonus();
+        if (moralBonus != (decimal)1.0)
         {
-            case > 0:
-                text += $" **(-{debuffTemp * 10}% Moral)**";
-                break;
-            case < 0:
-                text += $" **(+{debuffTemp * 10 * -1}% Moral)**";
-                break;
+            var moralBonusPrecent = (moralBonus - 1) * 100;
+            var plus = "";
+            if (moralBonusPrecent > 0)
+                plus = "+";
+            text += $" **({plus}{moralBonusPrecent}% Moral)**";
         }
 
         return text;
@@ -434,7 +438,7 @@ public class CharacterClass
             _ => PsycheQualityResist
         };
 
-        PsycheQualityMoralBonus = GetPsyche() > 9;
+        IsPsycheQualityMoralBonus = GetPsyche() > 9;
     }
 
     public void UpdateIntelligenceResist(int statOld, int statNew)
@@ -557,7 +561,7 @@ public class CharacterClass
             PsycheQualityResist = 0;
         }
 
-        PsycheQualityMoralBonus = GetPsyche() > 9;
+        IsPsycheQualityMoralBonus = GetPsyche() > 9;
     }
 
     public void AddIntelligenceQualitySkillBonus(int howMuchToAdd, string skillName, bool isLog = true)
@@ -613,11 +617,6 @@ public class CharacterClass
     public bool GetIsSpeedQualityKiteBonus()
     {
         return IsSpeedQualityKiteBonus;
-    }
-
-    public bool GetPsycheQualityMoralBonus()
-    {
-        return PsycheQualityMoralBonus;
     }
 
     public int GetStrengthQualityDropDebuff()
@@ -704,7 +703,7 @@ public class CharacterClass
         }
     }
 
-    public void SetTargetSkillMultiplier(int targetSkillMultiplier = 0)
+    public void SetTargetSkillMultiplier(decimal targetSkillMultiplier = 0)
     {
         //2 это х3
         TargetSkillMultiplier = targetSkillMultiplier;
@@ -723,12 +722,12 @@ public class CharacterClass
         SetExtraSkillMultiplier(extraAnyMultiplier);
     }
 
-    public int GetTargetSkillMultiplier()
+    public decimal GetTargetSkillMultiplier()
     {
         return TargetSkillMultiplier;
     }
 
-    public int GetExtraSkillMultiplier()
+    public decimal GetExtraSkillMultiplier()
     {
         return ExtraSkillMultiplier;
     }
@@ -738,25 +737,23 @@ public class CharacterClass
         SkillFightMultiplier = skillFightMultiplier;
     }
 
-    public int GetSkillFightMultiplier()
+    public decimal GetSkillFightMultiplier()
     {
         return SkillFightMultiplier;
     }
 
     public decimal GetSkill()
     {
-        var name = Status.GameCharacter.Name;
-        var realSkill = (SkillMain + SkillExtra) * SkillFightMultiplier * GetIntelligenceQualitySkillBonus();
-        
+        var realSkill = (SkillMain + SkillExtra) * GetSkillFightMultiplier() * GetIntelligenceQualitySkillBonus();
+
         if (SkillForOneFight != -228) 
             return SkillForOneFight;
 
-        return realSkill;
+        return Math.Ceiling(realSkill);
     }
 
     public decimal GetSkillForOneFight()
     {
-        var name = Status.GameCharacter.Name;
         var realSkill = (SkillMain + SkillExtra) * GetIntelligenceQualitySkillBonus();
 
         if (SkillForOneFight != -228)
@@ -783,7 +780,7 @@ public class CharacterClass
 
     public string GetSkillDisplay()
     {
-        return $"{(int)GetSkill()}";
+        return $"{GetSkill()}";
     }
 
     public decimal GetSkillMainOnly()
@@ -791,24 +788,27 @@ public class CharacterClass
         return SkillMain;
     }
 
+
+
     public void SetMainSkill(decimal howMuchToSet, string skillName, bool isLog = true)
     {
         if (isLog)
         {
-            var diff = howMuchToSet - SkillMain;
+            var diff = howMuchToSet - GetSkill();
             if (diff > 0)
                 Status.AddInGamePersonalLogs($"{skillName}: +{diff} *Скилла*\n");
             else if (diff < 0) Status.AddInGamePersonalLogs($"{skillName}: {diff} *Скилла*\n");
         }
 
-        SkillMain = howMuchToSet;
+        SkillMain = 0;
+        SkillExtra = howMuchToSet;
     }
 
     public void AddMainSkill(string skillName, bool isLog = true)
     {
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Ничего не понимает"))
             return;
-        var howMuchToAdd = SkillMain switch
+        decimal howMuchToAdd = SkillMain switch
         {
             0 => 10,
             10 => 9,
@@ -824,11 +824,12 @@ public class CharacterClass
         };
 
         SkillMain += howMuchToAdd;
+
         SkillExtra += howMuchToAdd;
 
         var total = howMuchToAdd + howMuchToAdd;
 
-        var multiplier = total * TargetSkillMultiplier;
+        var multiplier = total * GetTargetSkillMultiplier();
         total += multiplier;
         SkillExtra += multiplier;
 
@@ -836,7 +837,7 @@ public class CharacterClass
             Status.AddInGamePersonalLogs($"Мишень: +{total} *Cкилла* (за {skillName} врага)\n");
     }
 
-    public void AddExtraSkill(int howMuchToAdd, string skillName, bool isLog = true)
+    public void AddExtraSkill(decimal howMuchToAdd, string skillName, bool isLog = true)
     {
         var skillText = "Cкилла";
         if (skillName != "Обмен Морали" && skillName != "Класс")
@@ -860,21 +861,49 @@ public class CharacterClass
         SkillExtra += howMuchToAdd;
     }
 
-    public int GetMoral()
-    {
-        decimal moralDebuff = 1;
-        var bonus = 0.2;
-        for (var i = 0; i < PsycheQualityMoralDebuff; i++)
-        {
-            moralDebuff -= (decimal)bonus;  
-        }
-        if (GetPsycheQualityMoralBonus())
-            moralDebuff += (decimal)bonus;
+    
 
-        return (int) (Moral* moralDebuff);
+    
+    
+    
+    private decimal GetPsycheQualityMoralBonus()
+    {
+        decimal toReturn = 1;
+        var bonus = 0.2;
+
+        var index = PsycheQualityMoralBonus;
+        if (IsPsycheQualityMoralBonus) index++;
+
+        switch (index)
+        {
+            case > 0:
+            {
+                for (var i = 0; i < index; i++)
+                {
+                    toReturn += (decimal)bonus;
+                }
+                break;
+            }
+            case < 0:
+            {
+                index *= -1;
+                for (var i = 0; i < index; i++)
+                {
+                    toReturn -= (decimal)bonus;
+                }
+                break;
+            }
+        }
+
+        return toReturn;
     }
 
-    public void SetMoral(int howMuchToSet, string skillName, bool isLog = true)
+    public decimal GetMoral()
+    {
+        return Math.Ceiling(Moral * GetPsycheQualityMoralBonus());
+    }
+
+    public void SetMoral(decimal howMuchToSet, string skillName, bool isLog = true)
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -889,10 +918,10 @@ public class CharacterClass
         }
 
         LastMoralRound = Status.RoundNumber;
-        Moral = howMuchToSet;
+        Moral = (int) howMuchToSet;
     }
 
-    public void AddMoral(int howMuchToAdd, string skillName, bool isLog = true, bool isMoralPoints = false)
+    public void AddMoral(decimal howMuchToAdd, string skillName, bool isLog = true, bool isMoralPoints = false)
     {
         if (skillName != "Обмен Морали" && skillName != "Победа" && skillName != "Поражение")
         {
