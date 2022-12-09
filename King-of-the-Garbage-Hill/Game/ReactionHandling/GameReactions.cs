@@ -149,10 +149,12 @@ public sealed class GameReaction : IServiceSingleton
                 var game = _global.GamesList.Find(x => x.GameId == player.GameId);
                 var extraText = "";
 
+
                 switch (button.Data.CustomId)
                 {
                     case "auto-move":
                         player.Status.AutoMoveTimes++;
+                        
                         switch (player.Status.AutoMoveTimes)
                         {
                             case 1:
@@ -195,7 +197,7 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.IsReady = true;
 
                         
-                        if (game.IsSolo())
+                        if (player.IsSolo(game))
                             break;
 
                         var embed = _upd.FightPage(player);
@@ -234,7 +236,7 @@ public sealed class GameReaction : IServiceSingleton
                     case "confirm-skip":
                         player.Status.ConfirmedSkip = true;
 
-                        if (game.IsSolo())
+                        if (player.IsSolo(game))
                             break;
 
                         embed = _upd.FightPage(player);
@@ -245,6 +247,8 @@ public sealed class GameReaction : IServiceSingleton
 
                     case "stable-Darksci":
                         var darksciType = player.Passives.DarksciTypeList;
+                        if(darksciType.Triggered)
+                            break;
                         darksciType.Triggered = true;
                         darksciType.IsStableType = true;
                         player.GameCharacter.AddExtraSkill(20, "Не повезло");
@@ -259,6 +263,8 @@ public sealed class GameReaction : IServiceSingleton
 
                     case "not-stable-Darksci":
                         darksciType = player.Passives.DarksciTypeList;
+                        if (darksciType.Triggered)
+                            break;
                         darksciType.Triggered = true;
                         darksciType.IsStableType = false;
                         player.Status.AddInGamePersonalLogs("Я чувствую удачу!\n");
@@ -312,7 +318,7 @@ public sealed class GameReaction : IServiceSingleton
                         status.AddInGamePersonalLogs(text);
                         status.ChangeMindWhat = text;
 
-                        if (game.IsSolo())
+                        if (player.IsSolo(game))
                             break;
 
                         await _upd.UpdateMessage(player);
@@ -331,7 +337,7 @@ public sealed class GameReaction : IServiceSingleton
                     case "attack-select":
                         await HandleAttack(player, button);
 
-                        if (game.IsSolo())
+                        if (player.IsSolo(game))
                             break;
                         await _upd.UpdateMessage(player);
                         break;

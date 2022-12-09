@@ -1400,7 +1400,6 @@ public class CharacterPassives : IServiceSingleton
                                         break;
                                 }
                             }
-
                             vampyr.HematophagiaAddEndofRound.Add(new Vampyr.HematophagiaSubClass(statIndex, player.Status.IsWonThisCalculation));
                         }
                     }
@@ -1411,7 +1410,8 @@ public class CharacterPassives : IServiceSingleton
 
                         if (target != null)
                         {
-                            vampyr.HematophagiaRemoveEndofRound.Add(target);
+                            if (vampyr.HematophagiaRemoveEndofRound.All(x => x.EnemyId != player.Status.IsLostThisCalculation)) 
+                                vampyr.HematophagiaRemoveEndofRound.Add(target);
                         }
                         else
                         {
@@ -1419,7 +1419,8 @@ public class CharacterPassives : IServiceSingleton
                             {
                                 var randomIndex = _rand.Random(0, vampyr.HematophagiaCurrent.Count - 1);
                                 target = vampyr.HematophagiaCurrent[randomIndex];
-                                vampyr.HematophagiaRemoveEndofRound.Add(target);
+                                if (vampyr.HematophagiaRemoveEndofRound.All(x => x.EnemyId != player.Status.IsLostThisCalculation))
+                                    vampyr.HematophagiaRemoveEndofRound.Add(target);
                             }
                         }
                     }
@@ -1907,6 +1908,7 @@ public class CharacterPassives : IServiceSingleton
                 case "Гематофагия":
                     var vampyr = player.Passives.VampyrHematophagiaList;
 
+
                     for (var i = vampyr.HematophagiaAddEndofRound.Count - 1; i >= 0; i--)
                     {
                         var hematophagia = vampyr.HematophagiaAddEndofRound[i];
@@ -1926,8 +1928,7 @@ public class CharacterPassives : IServiceSingleton
                                 break;
                         }
 
-                        vampyr.HematophagiaCurrent.Add(
-                            new Vampyr.HematophagiaSubClass(hematophagia.StatIndex, hematophagia.EnemyId));
+                        vampyr.HematophagiaCurrent.Add(new Vampyr.HematophagiaSubClass(hematophagia.StatIndex, hematophagia.EnemyId));
                         vampyr.HematophagiaAddEndofRound.RemoveAt(i);
                     }
 

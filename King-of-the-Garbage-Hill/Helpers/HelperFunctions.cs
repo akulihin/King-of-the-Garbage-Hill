@@ -218,17 +218,9 @@ public sealed class HelperFunctions : IServiceSingleton
 
         try
         {
-            var game = _global.GamesList.Find(x => x.GameId == player.GameId);
-            var humans = game!.PlayersList.Where(x => !x.IsBot());
-            var ready = humans.Where(x => x.Status.IsReady);
-            if (ready.Count() == 1)
-            {
-                return;
-            }
-
             while (_embedQueue.Contains(player.GetPlayerId()))
             {
-                await Task.Delay(50);
+                await Task.Delay(200);
             }
             _embedQueue.Add(player.GetPlayerId());
 
@@ -262,7 +254,7 @@ public sealed class HelperFunctions : IServiceSingleton
         
             while (_messageQueue.Contains(player.GetPlayerId()))
             {
-                await Task.Delay(100);
+                await Task.Delay(300);
             }
             _messageQueue.Add(player.GetPlayerId());
 

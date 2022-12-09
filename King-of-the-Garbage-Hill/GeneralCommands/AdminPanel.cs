@@ -198,7 +198,7 @@ public class AdminPanel : ModuleBaseCustom
         //238337696316129280 == DeepList
         if (character == null)
         {
-            _accounts.GetAccount(238337696316129280).CharacterToGiveNextTime = "Weedwick";
+            _accounts.GetAccount(238337696316129280).CharacterToGiveNextTime = "Вампур";
             _accounts.GetAccount(181514288278536193).CharacterToGiveNextTime = "Тигр";
             return;
         }

@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
 public class GamePlayerBridgeClass
 {
-    
-    public GamePlayerBridgeClass(CharacterClass gameCharacter, InGameStatus status, ulong discordId, ulong gameId, string discordUsername, int playerType)
+
+    public GamePlayerBridgeClass(CharacterClass gameCharacter, InGameStatus status, ulong discordId, ulong gameId,
+        string discordUsername, int playerType)
     {
         Status = status;
         gameCharacter.SetStatus(Status);
@@ -25,6 +27,7 @@ public class GamePlayerBridgeClass
         GameCharacter.SetPsycheResist();
         Passives = new PassivesClass();
     }
+
     public CharacterClass FightCharacter { get; set; }
     public CharacterClass GameCharacter { get; set; }
 
@@ -83,5 +86,18 @@ public class GamePlayerBridgeClass
             MessageId = messageId;
             DelayMs = delayMs;
         }
+    }
+
+    public bool IsSolo(GameClass game)
+    {
+        if (!Status.ConfirmedSkip)
+            return false;
+
+        var humans = game.PlayersList.Where(x => !x.IsBot());
+        if (humans.Count() == 1)
+            return true;
+
+        var ready = humans.Where(x => x.Status.IsReady);
+        return (ready.Count() == humans.Count());
     }
 }

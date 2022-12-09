@@ -55,7 +55,8 @@ public class ProgramKingOfTheGarbageHill
         await _client.LoginAsync(TokenType.Bot, _services.GetRequiredService<Config>().Token);
         await _client.StartAsync();
 
-        SendMessagesUsingConsole.ConsoleInput(_client);
+        //not needed
+        //SendMessagesUsingConsole.ConsoleInput(_client);
 
         try
         {

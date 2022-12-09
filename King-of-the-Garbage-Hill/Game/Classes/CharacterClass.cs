@@ -576,6 +576,7 @@ public class CharacterClass
     public decimal GetIntelligenceQualitySkillBonus()
     {
         decimal toReturn = 1;
+        var bonus = 0.1; 
 
         var index = IntelligenceQualitySkillBonus;
         if (IsIntelligenceQualitySkillBonus) index++;
@@ -586,7 +587,7 @@ public class CharacterClass
             {
                 for (var i = 0; i < index; i++)
                 {
-                    toReturn += (decimal) 0.1;
+                    toReturn += (decimal)bonus;
                 }
                 break;
             }
@@ -595,7 +596,7 @@ public class CharacterClass
                 index *= -1;
                 for (var i = 0; i < index; i++)
                 {
-                    toReturn -= (decimal) 0.1;
+                    toReturn -= (decimal)bonus;
                 }
                 break;
             }
@@ -862,12 +863,13 @@ public class CharacterClass
     public int GetMoral()
     {
         decimal moralDebuff = 1;
+        var bonus = 0.2;
         for (var i = 0; i < PsycheQualityMoralDebuff; i++)
         {
-            moralDebuff -= (decimal)0.1;
+            moralDebuff -= (decimal)bonus;  
         }
         if (GetPsycheQualityMoralBonus())
-            moralDebuff += (decimal)0.1;
+            moralDebuff += (decimal)bonus;
 
         return (int) (Moral* moralDebuff);
     }
