@@ -292,7 +292,7 @@ public class CharacterClass
             var plus = "";
             if (skillBonusPrecent > 0)
                 plus = "+";
-            text += $" **({plus}{skillBonusPrecent}% Skill)**";
+            text += $" **({plus}{Math.Ceiling(skillBonusPrecent)}% Skill)**";
         }
         return text;
     }
@@ -373,7 +373,7 @@ public class CharacterClass
             var plus = "";
             if (moralBonusPrecent > 0)
                 plus = "+";
-            text += $" **({plus}{moralBonusPrecent}% Moral)**";
+            text += $" **({plus}{Math.Ceiling(moralBonusPrecent)}% Moral)**";
         }
 
         return text;
@@ -749,7 +749,7 @@ public class CharacterClass
         if (SkillForOneFight != -228) 
             return SkillForOneFight;
 
-        return Math.Ceiling(realSkill);
+        return realSkill;
     }
 
     public decimal GetSkillForOneFight()
@@ -780,7 +780,7 @@ public class CharacterClass
 
     public string GetSkillDisplay()
     {
-        return $"{GetSkill()}";
+        return $"{Math.Ceiling(GetSkill())}";
     }
 
     public decimal GetSkillMainOnly()
@@ -824,7 +824,6 @@ public class CharacterClass
         };
 
         SkillMain += howMuchToAdd;
-
         SkillExtra += howMuchToAdd;
 
         var total = howMuchToAdd + howMuchToAdd;
@@ -900,7 +899,7 @@ public class CharacterClass
 
     public decimal GetMoral()
     {
-        return Math.Ceiling(Moral * GetPsycheQualityMoralBonus());
+        return Moral * GetPsycheQualityMoralBonus();
     }
 
     public void SetMoral(decimal howMuchToSet, string skillName, bool isLog = true)
@@ -918,10 +917,10 @@ public class CharacterClass
         }
 
         LastMoralRound = Status.RoundNumber;
-        Moral = (int) howMuchToSet;
+        Moral = howMuchToSet;
     }
 
-    public void AddMoral(decimal howMuchToAdd, string skillName, bool isLog = true, bool isMoralPoints = false)
+    public void AddMoral(decimal howMuchToAdd, string skillName, bool isLog = true, bool isMoralPoints = false, bool isFightMoral = false)
     {
         if (skillName != "Обмен Морали" && skillName != "Победа" && skillName != "Поражение")
         {
@@ -952,6 +951,9 @@ public class CharacterClass
 
         LastMoralRound = Status.RoundNumber;
         Moral += howMuchToAdd;
+
+        if (!isFightMoral && Moral < 0)
+            Moral = 0;
     }
 
     public void NormalizeMoral()

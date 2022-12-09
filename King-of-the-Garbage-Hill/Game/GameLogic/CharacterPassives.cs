@@ -656,7 +656,7 @@ public class CharacterPassives : IServiceSingleton
 
                         if (me.GameCharacter.GetSkillFightMultiplier() > 1)
                             me.Status.AddInGamePersonalLogs(
-                                $"Спарта: {(int)me.GameCharacter.GetSkill()} *Скилла* против {target.DiscordUsername}\n");
+                                $"Спарта: {Math.Ceiling(me.GameCharacter.GetSkill())} *Скилла* против {target.DiscordUsername}\n");
                     }
 
                     break;
@@ -1503,7 +1503,7 @@ public class CharacterPassives : IServiceSingleton
                     if (glebChall.RoundItTriggered == game.RoundNo)
                     {
                         //x3 point:
-                        player.Status.SetScoresToGiveAtEndOfRound((int)player.Status.GetScoresToGiveAtEndOfRound() * 3,
+                        player.Status.SetScoresToGiveAtEndOfRound(player.Status.GetScoresToGiveAtEndOfRound() * 3,
                             "Претендент русского сервера");
 
                         //end x3 point:
@@ -2479,7 +2479,7 @@ public class CharacterPassives : IServiceSingleton
 
                             //me.GameCharacter.AddExtraSkill((int)me.GameCharacter.GetSkill(), "Дракон");
 
-                            var pointsToGive = (int)(player.GameCharacter.GetSkill() / 10);
+                            var pointsToGive = player.GameCharacter.GetSkill() / 10;
 
 
                             var siri = player.Passives.SirinoksFriendsList;

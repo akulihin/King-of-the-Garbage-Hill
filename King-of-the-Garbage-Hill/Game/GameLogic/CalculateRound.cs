@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
@@ -179,7 +180,7 @@ Speed => Strength
         foreach (var player in game.PlayersList)
         {
             var pointsWined = 0;
-            var randomForTooGood = 50;
+            decimal randomForTooGood = 50;
             var isTooGoodMe = false;
             var isTooGoodEnemy = false;
 
@@ -452,7 +453,7 @@ Speed => Strength
                     case >= 20:
                         isTooStronkMe = true;
 
-                        var tooStronkAdd = (int)weighingMachine / 2;
+                        decimal tooStronkAdd = weighingMachine / 2;
                         if (tooStronkAdd > 20)
                         { tooStronkAdd = 20;}
 
@@ -462,7 +463,7 @@ Speed => Strength
                     case <= -20:
                         isTooStronkEnemy = true;
 
-                        tooStronkAdd = (int)weighingMachine / 2;
+                        tooStronkAdd = weighingMachine / 2;
                         if (tooStronkAdd < -20)
                         { tooStronkAdd = -20; }
 
@@ -505,16 +506,16 @@ Speed => Strength
                 //round 3 (Random)
                 if (pointsWined == 0)
                 {
-                    var maxRandomNumber = 100;
+                    decimal maxRandomNumber = 100;
                     if (player.GameCharacter.Justice.GetRealJusticeNow() > 1 ||
                         playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow() > 1)
                     {
-                        var myJustice = (int)(player.GameCharacter.Justice.GetRealJusticeNow() * contrMultiplier);
+                        var myJustice = player.GameCharacter.Justice.GetRealJusticeNow() * contrMultiplier;
                         var targetJustice = playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow();
                         maxRandomNumber -= (myJustice - targetJustice) * 5;
                     }
 
-                    var randomNumber = _rand.Random(1, maxRandomNumber);
+                    var randomNumber = _rand.Random(1, (int)Math.Ceiling(maxRandomNumber));
                     if (randomNumber <= randomForTooGood) pointsWined++;
                     else pointsWined--;
                 }
@@ -580,8 +581,8 @@ Speed => Strength
                     {
                         if (!teamMate)
                         {
-                            player.FightCharacter.AddMoral(moral, "Победа");
-                            playerIamAttacking.FightCharacter.AddMoral(moral * -1, "Поражение");
+                            player.FightCharacter.AddMoral(moral, "Победа", isFightMoral:true);
+                            playerIamAttacking.FightCharacter.AddMoral(moral * -1, "Поражение", isFightMoral: true);
                         }
                     }
 
@@ -643,8 +644,8 @@ Speed => Strength
                     {
                         if (!teamMate)
                         {
-                            player.FightCharacter.AddMoral(moral, "Поражение");
-                            playerIamAttacking.FightCharacter.AddMoral(moral * -1, "Победа");
+                            player.FightCharacter.AddMoral(moral, "Поражение", isFightMoral: true);
+                            playerIamAttacking.FightCharacter.AddMoral(moral * -1, "Победа", isFightMoral: true);
                         }
                     }
 

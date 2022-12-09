@@ -257,10 +257,10 @@ public class CheckIfReady : IServiceSingleton
             game.PlayersList.First().DiscordUsername = "НейроБот";
 
         var isTeam = false;
-        var wonScore = 0;
-        var team1Score = 0;
-        var team2Score = 0;
-        var team3Score = 0;
+        decimal wonScore = 0;
+        decimal team1Score = 0;
+        decimal team2Score = 0;
+        decimal team3Score = 0;
         var wonTeam = 0;
         if (game.Teams.Count > 0)
         {

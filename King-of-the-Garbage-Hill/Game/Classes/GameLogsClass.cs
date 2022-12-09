@@ -30,12 +30,12 @@ public class GameLogsPlayer
     public ulong PlayerId;
     public string PlayerUserName;
     public int Psyche;
-    public int Score;
+    public decimal Score;
     public int Speed;
     public int Strength;
 
 
-    public GameLogsPlayer(ulong playerId, string playerName, string charName, int score, int intelligence,
+    public GameLogsPlayer(ulong playerId, string playerName, string charName, decimal score, int intelligence,
         int strength, int speed, int psyche, string inGamePersonalLogsAll)
     {
         PlayerId = playerId;

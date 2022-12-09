@@ -49,7 +49,7 @@ public class InGameStatus
      * 3 = lvlUp     (what stat to update)
      */
 
-    private int Score { get; set; }
+    private decimal Score { get; set; }
     public Guid PlayerId { get; set; }
     public bool IsBlock { get; set; }
     public bool IsSkip { get; set; }
@@ -138,7 +138,7 @@ public class InGameStatus
     }
 
 
-    public void SetScoresToGiveAtEndOfRound(int score, string reason, bool isLog = true)
+    public void SetScoresToGiveAtEndOfRound(decimal score, string reason, bool isLog = true)
     {
         ScoresToGiveAtEndOfRound = score;
         if (isLog)
@@ -171,7 +171,7 @@ public class InGameStatus
     }
 
 
-    public void AddBonusPoints(int bonusPoints = 1, string skillName = "")
+    public void AddBonusPoints(decimal bonusPoints = 1, string skillName = "")
     {
         if (bonusPoints > 0)
             AddInGamePersonalLogs($"{skillName}: +{bonusPoints} __**бонусных**__ очков\n");
@@ -226,22 +226,22 @@ public class InGameStatus
             _ => 4
         };
 
-        switch ((int)score)
+        switch (score)
         {
             case > 0:
-                AddInGamePersonalLogs($"+{(int)score} **обычных** очков ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
+                AddInGamePersonalLogs($"+{score} **обычных** очков ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
                 break;
             case < 0:
-                AddInGamePersonalLogs($"{(int)score} **очков**... ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
+                AddInGamePersonalLogs($"{score} **очков**... ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
                 break;
             default:
             {
                 if(score == 0 && ScoreSource.Length > 0)
-                    AddInGamePersonalLogs($"{(int)score} **очков**!? ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
+                    AddInGamePersonalLogs($"{score} **очков**!? ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
                 break;
             }
         }
-        Score += (int)score;
+        Score += score;
     }
 
     public void SetScoreToThisNumber(int score)
@@ -249,7 +249,7 @@ public class InGameStatus
         Score = score;
     }
 
-    public int GetScore()
+    public decimal GetScore()
     {
         return Score;
     }

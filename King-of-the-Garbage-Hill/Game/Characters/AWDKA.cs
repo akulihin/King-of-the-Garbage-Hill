@@ -13,9 +13,9 @@ public class Awdka
     public class TrollingSubClass
     {
         public Guid EnemyId;
-        public int Score;
+        public decimal Score;
 
-        public TrollingSubClass(Guid enemyId, int score)
+        public TrollingSubClass(Guid enemyId, decimal score)
         {
             EnemyId = enemyId;
             Score = score;

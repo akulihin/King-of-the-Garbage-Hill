@@ -86,9 +86,9 @@ public class DiscordAccountClass
         public string CharacterName;
         public DateTimeOffset Date;
         public int Place;
-        public int Score;
+        public decimal Score;
 
-        public MatchHistoryClass(string characterName, int score, int place)
+        public MatchHistoryClass(string characterName, decimal score, int place)
         {
             CharacterName = characterName;
             Score = score;
