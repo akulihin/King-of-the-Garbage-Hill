@@ -645,6 +645,9 @@ public class CharactersUniquePhrase
         WeedwickValuablePreyDrop.PassiveLogRus.Add("Спускайся вниз!");
         WeedwickValuablePreyDrop.PassiveLogRus.Add("ГАФГАФГАФ РРРРРРРР");
         WeedwickValuablePreyDrop.PassiveLogRus.Add("Слезай с дерева!!!");
+        WeedwickValuablePreyDrop.PassiveLogRus.Add("Биологи, почему собаки смеются? Потому что смешно!");
+        WeedwickValuablePreyDrop.PassiveLogRus.Add("Я смеюсь над тобой!");
+
 
         WeedwickWeedYes1.PassiveLogRus.Add("Weed");
         WeedwickWeedYes2.PassiveLogRus.Add("Вуф");
@@ -655,7 +658,7 @@ public class CharactersUniquePhrase
         WeedwickWeedYes6.PassiveLogRus.Add("SWA$$GG");
         WeedwickWeedYes6.PassiveLogRus.Add("D_O_double.G");
         WeedwickWeedYes6.PassiveLogRus.Add("420");
-        WeedwickWeedYes6.PassiveLogRus.Add("B1@zz3iT ");
+        WeedwickWeedYes6.PassiveLogRus.Add("B1@3$ iT");
 
         WeedwickWeedNo.PassiveLogRus.Add("ГДЕ МОЙ WEED СУКИ?");
         WeedwickWeedNo.PassiveLogRus.Add("ГДЕ ШО");
