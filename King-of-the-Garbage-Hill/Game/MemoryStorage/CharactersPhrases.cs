@@ -652,6 +652,10 @@ public class CharactersUniquePhrase
         WeedwickWeedYes4.PassiveLogRus.Add("СКУБИ-ДУБИ-ДУ-УУ!");
         WeedwickWeedYes5.PassiveLogRus.Add("WEED!");
         WeedwickWeedYes6.PassiveLogRus.Add("WEEEEEED!!!");
+        WeedwickWeedYes6.PassiveLogRus.Add("SWA$$GG");
+        WeedwickWeedYes6.PassiveLogRus.Add("D_O_double.G");
+        WeedwickWeedYes6.PassiveLogRus.Add("420");
+        WeedwickWeedYes6.PassiveLogRus.Add("B1@zz3iT ");
 
         WeedwickWeedNo.PassiveLogRus.Add("ГДЕ МОЙ WEED СУКИ?");
         WeedwickWeedNo.PassiveLogRus.Add("ГДЕ ШО");
