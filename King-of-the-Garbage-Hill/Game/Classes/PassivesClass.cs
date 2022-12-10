@@ -36,7 +36,7 @@ public class PassivesClass
         //end Школьник
 
         //Спящее хуйло
-        when = GetWhenToTrigger(2, 2, 4, 9);
+        when = GetWhenToTrigger(2, 2, 5, 9);
         GlebSleepingTriggeredWhen = when;
         //end Спящее хуйло
 

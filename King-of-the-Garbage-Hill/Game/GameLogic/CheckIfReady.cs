@@ -155,7 +155,7 @@ public class CheckIfReady : IServiceSingleton
         game.IsCheckIfReady = false;
 
         //predict
-        if (game.PlayersList.Count == 6)
+        if (game.PlayersList.Count == 6 && game.PlayersList.Count(x => x.IsBot()) <= 5)
             foreach (var player in from player in game.PlayersList
                      from predict in player.Predict
                      let enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId)
@@ -346,9 +346,7 @@ public class CheckIfReady : IServiceSingleton
             account.TotalPlays++;
             if (account.TotalPlays > 10) account.IsNewPlayer = false;
             account.TotalWins += player.Status.GetPlaceAtLeaderBoard() == 1 ? 1 : (ulong)0;
-            account.MatchHistory.Add(
-                new DiscordAccountClass.MatchHistoryClass(player.GameCharacter.Name, player.Status.GetScore(),
-                    player.Status.GetPlaceAtLeaderBoard()));
+            account.MatchHistory.Add(new DiscordAccountClass.MatchHistoryClass(player.GameCharacter.Name, player.Status.GetScore(), player.Status.GetPlaceAtLeaderBoard()));
 
             /*
             account.ZbsPoints += (player.Status.GetPlaceAtLeaderBoard() - 6) * -1 + 1;

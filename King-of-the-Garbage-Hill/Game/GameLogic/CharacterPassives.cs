@@ -166,10 +166,10 @@ public class CharacterPassives : IServiceSingleton
                     me.GameCharacter.SetStrengthForOneFight(targetTempStrength, "Оборотень");
                     target.GameCharacter.SetStrengthForOneFight(myTempStrength, "Оборотень");
 
-                    var myTempSkillMain = me.GameCharacter.GetSkillForOneFight();
+                    /*var myTempSkillMain = me.GameCharacter.GetSkillForOneFight();
                     var targetTempSkill = target.GameCharacter.GetSkillForOneFight();
                     me.GameCharacter.SetSkillForOneFight(targetTempSkill, "Оборотень");
-                    target.GameCharacter.SetSkillForOneFight(myTempSkillMain, "Оборотень");
+                    target.GameCharacter.SetSkillForOneFight(myTempSkillMain, "Оборотень");*/
                     break;
 
                 case "Сомнительная тактика":
@@ -453,10 +453,10 @@ public class CharacterPassives : IServiceSingleton
                     me.GameCharacter.SetStrengthForOneFight(targetTempStrength, "Оборотень");
                     target.GameCharacter.SetStrengthForOneFight(myTempStrength, "Оборотень");
 
-                    var myTempSkillMain = me.GameCharacter.GetSkillForOneFight();
+                    /*var myTempSkillMain = me.GameCharacter.GetSkillForOneFight();
                     var targetTempSkill = target.GameCharacter.GetSkillForOneFight();
                     me.GameCharacter.SetSkillForOneFight(targetTempSkill, "Оборотень");
-                    target.GameCharacter.SetSkillForOneFight(myTempSkillMain, "Оборотень");
+                    target.GameCharacter.SetSkillForOneFight(myTempSkillMain, "Оборотень");*/
                     break;
 
                 case "Безжалостный охотник":
@@ -2278,7 +2278,7 @@ public class CharacterPassives : IServiceSingleton
                             player.Status.IsReady = true;
                             player.Status.WhoToAttackThisTurn = new List<Guid>();
 
-                            player.GameCharacter.AddExtraSkill(-20, "Спящее хуйло");
+                            player.GameCharacter.AddExtraSkill(-30, "Спящее хуйло");
 
                             player.GameCharacter.AvatarCurrent = player.GameCharacter.AvatarEvent
                                 .Find(x => x.EventName == "Спящее хуйло").Url;

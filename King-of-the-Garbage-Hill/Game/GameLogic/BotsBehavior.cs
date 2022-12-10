@@ -428,12 +428,19 @@ public class BotsBehavior : IServiceSingleton
                 switch (bot.GameCharacter.Name)
                 {
                     case "Weedwick":
-                        //BONES
-                        target.AttackPreference += target.Player.GameCharacter.GetWinStreak();
+                        //bongs
+                        target.AttackPreference *= target.Player.GameCharacter.GetWinStreak()*2;
+                        //weed
+                        target.AttackPreference += target.Player.Passives.WeedwickWeed;
+                        //верхний этаж
+                        target.AttackPreference += 6 - target.PlaceAtLeaderBoard();
+
+                        //wuf
+                        if (target.Player.GameCharacter.Justice.GetRealJusticeNow() == 0)
+                             target.AttackPreference *= 20;
 
                         if (target.Player.GameCharacter.Name == "DeepList")
                             target.AttackPreference = 0;
-
                         break;
                     case "DeepList":
                         var deepListMadness = bot.Passives.DeepListMadnessTriggeredWhen;
@@ -814,9 +821,15 @@ public class BotsBehavior : IServiceSingleton
                         if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == target.GetPlayerId()))
                         {
                             if (target.AttackPreference >= 5)
-                                target.AttackPreference += 10;
-
-                            target.AttackPreference += 4;
+                            {
+                                target.AttackPreference *= 2;
+                                target.AttackPreference += 7;
+                            }
+                            else
+                            {
+                                target.AttackPreference *= 2;
+                            }
+                            
                             
                             if (bot.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.GetPlayerId()))
                                 target.AttackPreference += 5;
@@ -1574,8 +1587,12 @@ public class BotsBehavior : IServiceSingleton
             if (player.GameCharacter.Name == "Глеб" && strength < 10) skillNumber = 2;
             if (player.GameCharacter.Name == "Глеб" && intelligence == 9) skillNumber = 1;
 
-            if (player.GameCharacter.Name == "Weedwick" && speed < 5) skillNumber = 3;
-            if (player.GameCharacter.Name == "Weedwick" && psyche < 10) skillNumber = 4;
+            if (player.GameCharacter.Name == "Weedwick")
+            {
+                if(speed < 5) skillNumber = 3;
+                else if (psyche < 10) skillNumber = 4;
+                else skillNumber = 1;
+            }
 
             if (player.GameCharacter.Name == "Загадочный Спартанец в маске" && psyche < 10 && game.RoundNo <= 3) skillNumber = 4;
             if (player.GameCharacter.Name == "Загадочный Спартанец в маске" && speed < 10 && game.RoundNo > 3) skillNumber = 3;

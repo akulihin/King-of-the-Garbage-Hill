@@ -693,4 +693,6 @@ public class General : ModuleBaseCustom
     {
         await SendMessageAsync(GetStatsEmbed(_accounts.GetAccount(id)));
     }
+
+
 }
