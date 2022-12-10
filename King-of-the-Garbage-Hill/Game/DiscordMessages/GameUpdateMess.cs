@@ -782,7 +782,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                               $"**{psyStr}:** {character.GetPsycheString()}{character.GetPsycheQualityResist()}\n" +
                               "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
                               $"*Справедливость: **{character.Justice.GetRealJusticeNow()}***\n" +
-                              $"*Мораль: {character.GetMoral()}*\n" +
+                              $"*Мораль: {character.GetMoralString()}*\n" +
                               $"*Скилл: {character.GetSkillDisplay()} (Мишень: **{character.GetCurrentSkillClassTarget()}**)*\n" +
                               //$"*Скилл: {character.GetSkillDisplay()}{skillExtraText}*\n" +
                               //$"*Мишень: **{character.GetCurrentSkillClassTarget()}**{targetExtraText}*\n" +

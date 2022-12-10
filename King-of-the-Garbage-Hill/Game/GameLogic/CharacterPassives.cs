@@ -715,29 +715,34 @@ public class CharacterPassives : IServiceSingleton
                 case "Ценная добыча":
                     if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                     {
-                        if (target.GameCharacter.GetWinStreak() > 0)
+                        if (target.GameCharacter.GetWinStreak() > 1)
+                        {
                             me.Status.AddRegularPoints(target.GameCharacter.GetWinStreak(), "Ценная добыча");
+                            //me.Status.AddBonusPoints(target.GameCharacter.GetWinStreak(), "Ценная добыча");
+                        }
 
                         switch (target.GameCharacter.GetWinStreak())
                         {
                             case 0:
                                 break;
                             case 1:
-                                game.Phrases.WeedwickValuablePreyPoints1.SendLog(me, false);
                                 break;
                             case 2:
-                                game.Phrases.WeedwickValuablePreyPoints2.SendLog(me, false);
+                                game.Phrases.WeedwickValuablePreyPoints1.SendLog(me, false);
                                 break;
                             case 3:
-                                game.Phrases.WeedwickValuablePreyPoints3.SendLog(me, false);
+                                game.Phrases.WeedwickValuablePreyPoints2.SendLog(me, false);
                                 break;
                             case 4:
-                                game.Phrases.WeedwickValuablePreyPoints4.SendLog(me, false);
+                                game.Phrases.WeedwickValuablePreyPoints3.SendLog(me, false);
                                 break;
                             case 5:
-                                game.Phrases.WeedwickValuablePreyPoints5.SendLog(me, false);
+                                game.Phrases.WeedwickValuablePreyPoints4.SendLog(me, false);
                                 break;
                             case 6:
+                                game.Phrases.WeedwickValuablePreyPoints5.SendLog(me, false);
+                                break;
+                            case 7:
                                 game.Phrases.WeedwickValuablePreyPoints6.SendLog(me, false);
                                 break;
                             default:
@@ -768,8 +773,7 @@ public class CharacterPassives : IServiceSingleton
                             if (roll == 1)
                             {
                                 harm++;
-                                target.FightCharacter.LowerQualityResist(target.DiscordUsername, game,
-                                    me.GameCharacter.GetStrengthQualityDropBonus());
+                                target.FightCharacter.LowerQualityResist(target.DiscordUsername, game, me.GameCharacter.GetStrengthQualityDropBonus());
                                 game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
                             }
 
@@ -778,8 +782,7 @@ public class CharacterPassives : IServiceSingleton
                             if (roll == 1)
                             {
                                 harm++;
-                                target.FightCharacter.LowerQualityResist(target.DiscordUsername, game,
-                                    me.GameCharacter.GetStrengthQualityDropBonus());
+                                target.FightCharacter.LowerQualityResist(target.DiscordUsername, game, me.GameCharacter.GetStrengthQualityDropBonus());
                                 game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
                             }
 
@@ -788,8 +791,7 @@ public class CharacterPassives : IServiceSingleton
                             if (roll == 1 && target.Status.GetPlaceAtLeaderBoard() == 1)
                             {
                                 harm++;
-                                target.FightCharacter.LowerQualityResist(target.DiscordUsername, game,
-                                    me.GameCharacter.GetStrengthQualityDropBonus());
+                                target.FightCharacter.LowerQualityResist(target.DiscordUsername, game, me.GameCharacter.GetStrengthQualityDropBonus());
                                 game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
                             }
 
@@ -914,6 +916,7 @@ public class CharacterPassives : IServiceSingleton
                             me.Status.AddBonusPoints(me.Status.GetScore() * 3, "Повезло");
 
                         me.FightCharacter.AddPsyche(3, "Повезло");
+                        me.FightCharacter.AddMoral(10, "Повезло");
                         darscsi.Triggered = true;
                         game.Phrases.DarksciLucky.SendLog(me, true);
                     }
@@ -1202,12 +1205,12 @@ public class CharacterPassives : IServiceSingleton
                             player.Status.WhoToAttackThisTurn.Contains(x.EnemyPlayerId));
                         if (found is { Series: > 0 })
                         {
-                            if (found.Series >= 8) 
+                            if (found.Series >= 7) 
                                 found.Series += 10;
 
                             player.Status.AddRegularPoints(found.Series * 2, "Доебаться");
 
-                            if (found.Series >= 8)
+                            if (found.Series >= 7)
                                 game.Phrases.HardKittyDoebatsyaLovePhrase.SendLog(player, false);
                             else
                                 game.Phrases.HardKittyDoebatsyaPhrase.SendLog(player, false);

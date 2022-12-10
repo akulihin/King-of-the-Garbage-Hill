@@ -710,8 +710,16 @@ public class CheckIfReady : IServiceSingleton
             //end прожать всю момаль
             //end moral
 
+            
+            foreach (var player in game.PlayersList)
+            {
+                player.GameCharacter.ResetMoralBonus();
+            }
             await _round.CalculateAllFights(game);
-            //await Task.DelayMs(1);
+            foreach (var player in game.PlayersList)
+            {
+                player.GameCharacter.SetMoralBonus();
+            }
 
             foreach (var t in players.Where(x => !x.IsBot()))
                 try

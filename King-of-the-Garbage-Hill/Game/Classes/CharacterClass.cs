@@ -1,6 +1,8 @@
+using Discord;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
@@ -37,6 +39,7 @@ public class CharacterClass
         other.Passive = Passive.Select(x => x.DeepCopy()).ToList();
         //other.Justice = Justice.DeepCopy();
         other.Moral = Moral;
+        other.MoralBonus = MoralBonus;
         other.BonusPointsFromMoral = BonusPointsFromMoral;
         other.LastMoralRound = LastMoralRound;
 
@@ -121,6 +124,7 @@ public class CharacterClass
     private decimal SkillFightMultiplier { get; set; }
     private string CurrentSkillTarget { get; set; } = "Ничего";
     private decimal Moral { get; set; }
+    private decimal MoralBonus { get; set; }
     private int BonusPointsFromMoral { get; set; }
 
     //resists
@@ -204,6 +208,8 @@ public class CharacterClass
     {
         if (game.RoundNo == 1) return;
         if(Status.GameCharacter.Passive.Any(x => x.PassiveName == "Boole Family")) return;
+
+        //Status.AddInGamePersonalLogs($"Вред: 1\n");
 
         var howMuch = 1;
 
@@ -897,9 +903,32 @@ public class CharacterClass
         return toReturn;
     }
 
+
+    public string GetMoralString()
+    {
+        var text = $"{(int)Math.Ceiling(Moral + MoralBonus)}";
+        
+        if (MoralBonus > 0)
+            text += $" ({(int)Moral} + {MoralBonus})";
+        if (MoralBonus < 0)
+            text += $" ({(int)Moral} - {-1*MoralBonus})";
+
+        return text;
+    }
+
+    public void SetMoralBonus()
+    {
+        MoralBonus = Moral * GetPsycheQualityMoralBonus() - Moral;
+    }
+
+    public void ResetMoralBonus()
+    {
+        MoralBonus = 0;
+    }
+
     public decimal GetMoral()
     {
-        return Moral * GetPsycheQualityMoralBonus();
+        return Math.Ceiling(Moral + MoralBonus);
     }
 
     public void SetMoral(decimal howMuchToSet, string skillName, bool isLog = true)
@@ -953,7 +982,10 @@ public class CharacterClass
         Moral += howMuchToAdd;
 
         if (!isFightMoral && Moral < 0)
+        {
+            MoralBonus += Moral;
             Moral = 0;
+        }
     }
 
     public void NormalizeMoral()
@@ -1072,8 +1104,16 @@ public class CharacterClass
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Безумие"))
             Psyche = psycheNew;
 
-        if (GetPsyche() > 10)
+        if (GetPsyche() >= 10)
+        {
+            SetMoralBonus();
             Psyche = 10;
+        }
+
+        if (psycheOld >= 10 && psycheNew < 10)
+        {
+            SetMoralBonus();
+        }
     }
 
     public int GetPsyche()
@@ -1113,8 +1153,16 @@ public class CharacterClass
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Безумие"))
             Psyche = psycheNew;
 
-        if (GetPsyche() > 10)
+        if (GetPsyche() >= 10)
+        {
+            SetMoralBonus();
             Psyche = 10;
+        }
+
+        if (psycheOld >= 10 && psycheNew < 10)
+        {
+            SetMoralBonus();
+        }
     }
 
     public void SetPsycheForOneFight(int howMuchToSet, string skillName)
