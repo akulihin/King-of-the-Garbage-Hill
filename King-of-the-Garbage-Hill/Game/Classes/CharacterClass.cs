@@ -69,19 +69,20 @@ public class CharacterClass
         other.ExtraSkillMultiplier = ExtraSkillMultiplier;
         other.SkillFightMultiplier = SkillFightMultiplier;
         other.CurrentSkillTarget = CurrentSkillTarget;
-        other.IntelligenceQualityResist = IntelligenceQualityResist;
-        other.StrengthQualityResist = StrengthQualityResist;
+        
         other.SpeedQualityBonus = SpeedQualityBonus;
-        other.PsycheQualityResist = PsycheQualityResist;
-        other.IsIntelligenceQualitySkillBonus = IsIntelligenceQualitySkillBonus;
-        other.IntelligenceQualitySkillBonus = IntelligenceQualitySkillBonus;
         other.StrengthQualityDropBonus = StrengthQualityDropBonus;
         other.StrengthQualityDropDebuff = StrengthQualityDropDebuff;
         other.IsSpeedQualityKiteBonus = IsSpeedQualityKiteBonus;
         other.SpeedQualityKiteBonus = SpeedQualityKiteBonus;
         other.PsycheQualityMoralBonus = PsycheQualityMoralBonus;
         other.IsPsycheQualityMoralBonus = IsPsycheQualityMoralBonus;
-        other.DamageThisRound = DamageThisRound;
+        other.IsIntelligenceQualitySkillBonus = IsIntelligenceQualitySkillBonus;
+        other.IntelligenceQualitySkillBonus = IntelligenceQualitySkillBonus;
+        other.StrengthQualityResist = StrengthQualityResist;
+        other.IntelligenceQualityResist = IntelligenceQualityResist;
+        other.PsycheQualityResist = PsycheQualityResist;
+
 
         return other;
     }
@@ -100,7 +101,6 @@ public class CharacterClass
 
 
     // PRIVATE
-    private int DamageThisRound { get; set; }
     private InGameStatus Status { get; set; }
     private int LastMoralRound { get; set; } = 1;
     private int WonTimes { get; set; }
@@ -198,7 +198,6 @@ public class CharacterClass
 
     public void HandleDrop(string discordUsername, GameClass game)
     {
-        SetStrengthResist();
         if (Status.GetPlaceAtLeaderBoard() == 6) return;
 
         StrengthQualityDropDebuff = game.RoundNo;
@@ -208,26 +207,64 @@ public class CharacterClass
 
     public void LowerQualityResist(GamePlayerBridgeClass target, GameClass game, GamePlayerBridgeClass me)
     {
+        var howMuch = 1;
         if (game.RoundNo == 1) return;
         if(Status.GameCharacter.Passive.Any(x => x.PassiveName == "Boole Family")) return;
 
-        DamageThisRound++;
-        var howMuch = 1;
+        //Испанец
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Испанец"))
+        {
+            var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
+            mylorik!.FightCharacter.AddMoral(howMuch, "Испанец", false);
+            mylorik.Status.AddInGamePersonalLogs($"Испанец: То, что мертво, умереть не может! +{howMuch} *Мораль*\n");
+            return;
+        }
+        //end Испанец
 
+        //Много выебывается
+        if (target.GameCharacter.Passive.Any(x => x.PassiveName == "Много выебывается") && target.Status.GetPlaceAtLeaderBoard() == 1 && target.GameCharacter.GetSkill() < me.GameCharacter.GetSkill())
+        {
+            target.Status.AddInGamePersonalLogs("Много выебывается: Да блять, я не бущенный!\n");
+            target.FightCharacter.HandleDrop(target.DiscordUsername, game);
+        }
+        //end Много выебывается
+
+
+        Status.AddInGamePersonalLogs($"Получено вреда: 1\n");
         IntelligenceQualityResist -= howMuch;
         PsycheQualityResist -= howMuch;
 
+        
+        // Это привилегия - умереть от моей руки
         if (me.GameCharacter.Passive.Any(x => x.PassiveName == "Это привилегия - умереть от моей руки"))
         {
-            var skillDiff = me.GameCharacter.GetSkill() / target.GameCharacter.GetSkill();
+            var enemySkill = target.GameCharacter.GetSkill();
+            if (enemySkill <= 0)
+                enemySkill = 1;
+            var skillDiff = me.GameCharacter.GetSkill() / enemySkill;
             if (skillDiff >= (decimal)1.5)
             {
                 var additionalDamage = 1;
                 skillDiff -= (decimal)1.5;
                 additionalDamage += (int)Math.Round(skillDiff / (decimal)0.5);
-                me.Status.AddInGamePersonalLogs($"Дополнительное пробитие Стойкости: {additionalDamage}. ***THIS. IS. SPARTA!!!*** <:pantheon:899847724936089671> <:pantheon:899847724936089671>\n");
+                howMuch += additionalDamage;
+                
+                var panths = "";
+                var sparta = "";
+                for (var i = 0; i < additionalDamage; i++)
+                {
+                    panths += "<:pantheon:899847724936089671> ";
+                }
+                if (StrengthQualityResist - howMuch < 0)
+                {
+                    sparta = " ***THIS. IS. SPARTA!!!*** ";
+                }
+
+                me.Status.AddInGamePersonalLogs($"Дополнительное пробитие Стойкости: {additionalDamage}.{sparta}{panths}\n");
             }
         }
+        //end Это привилегия - умереть от моей руки
+
 
         if (me.GameCharacter.GetStrengthQualityDropBonus())
             StrengthQualityResist -= howMuch+1;
@@ -238,58 +275,41 @@ public class CharacterClass
         if (IntelligenceQualityResist < 0)
         {
             SetIntelligenceResist();
-
-            //Испанец
-            if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Испанец"))
-            {
-                var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik!.FightCharacter.AddMoral(1, "Испанец", false);
-                mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
-            }
-            //end Испанец
-            else
-            {
-                IntelligenceQualitySkillBonus--;
-            }
-            
-        }
-
-        if (StrengthQualityResist < 0)
-        {
-            SetStrengthResist();
-
-            //Испанец
-            if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Испанец")) 
-            {
-                var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik!.FightCharacter.AddMoral( 1, "Испанец", false);
-                mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
-            }
-            //end Испанец
-            else
-            {
-                HandleDrop(target.DiscordUsername, game);
-            }
-                
+            IntelligenceQualitySkillBonus--;
         }
 
         if (PsycheQualityResist < 0)
         {
             SetPsycheResist();
+            PsycheQualityMoralBonus--;
+        }
 
-            //Испанец
-            if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Испанец"))
+        if (StrengthQualityResist < 0)
+        {
+            var additionalDamage = (StrengthQualityResist + 1)*-1;
+            var drops = 1;
+
+            SetStrengthResist(target);
+
+            if (additionalDamage > 0)
             {
-                var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-                mylorik!.FightCharacter.AddMoral( 1, "Испанец", false);
-                mylorik.Status.AddInGamePersonalLogs("Испанец: То, что мертво, умереть не может! +1 *Мораль*\n");
+                for (var i = 0; i < additionalDamage; i++)
+                {
+                    StrengthQualityResist -= 1;
+                    if (StrengthQualityResist < 0)
+                    {
+                        SetStrengthResist(target);
+                        drops++;
+                    }
+                }
             }
-            //end Испанец
-            else
+
+            for (var i = 0; i < drops; i++)
             {
-                PsycheQualityMoralBonus--;
+                HandleDrop(target.DiscordUsername, game);
             }
         }
+
     }
 
 
@@ -422,17 +442,17 @@ public class CharacterClass
         IsIntelligenceQualitySkillBonus = GetIntelligence() > 9;
     }
 
-    public void SetStrengthResist()
+    public void SetStrengthResist(GamePlayerBridgeClass target)
     {
-        StrengthQualityResist = GetStrength() switch
-        {
-            >= 0 and <= 3 => 1,
-            >= 4 and <= 7 => 2,
-            >= 8 => 3,
-            _ => StrengthQualityResist
-        };
+        StrengthQualityResist = target.GameCharacter.GetStrength() switch
+            {
+                >= 0 and <= 3 => 1,
+                >= 4 and <= 7 => 2,
+                >= 8 => 3,
+                _ => StrengthQualityResist
+            };
 
-        StrengthQualityDropBonus = GetStrength() > 9;
+        StrengthQualityDropBonus = target.GameCharacter.GetStrength() > 9;
     }
 
     public void SetSpeedResist()
@@ -940,15 +960,6 @@ public class CharacterClass
         MoralBonus = 0;
     }
 
-    public void ResetDamageThisRound()
-    {
-        DamageThisRound = 0;
-    }
-    public int GetDamageThisRound()
-    {
-        return DamageThisRound;
-    }
-
     public decimal GetMoral()
     {
         return Math.Round(Moral + MoralBonus);
@@ -980,7 +991,11 @@ public class CharacterClass
         }
 
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Ничего не понимает"))
+        {
+            Moral = 0;
+            ResetMoralBonus();
             return;
+        }
 
         //Привет со дна
         if (howMuchToAdd < 0 && Status.GameCharacter.Passive.Any(x => x.PassiveName == "Привет со дна") && !isMoralPoints)
@@ -990,7 +1005,7 @@ public class CharacterClass
 
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Привет со дна") && !isMoralPoints)
         {
-            howMuchToAdd = 1;   
+            howMuchToAdd = 4;   
         }
         //end Привет со дна
 

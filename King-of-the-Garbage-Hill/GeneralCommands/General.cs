@@ -64,10 +64,24 @@ public class General : ModuleBaseCustom
     }
 
 
-    public List<GamePlayerBridgeClass> HandleCharacterRoll(List<IUser> players, ulong gameId, int team = 0)
+    public List<GamePlayerBridgeClass> HandleCharacterRoll(List<IUser> players, ulong gameId, int team = 0, string mode = "normal")
     {
         var allCharacters2 = _charactersPull.GetAllCharacters();
         var allCharacters = _charactersPull.GetAllCharacters();
+
+        if (mode == "bot")
+        {
+            foreach (var c in allCharacters.Where(c => c.Tier >= 4))
+            {
+                c.Tier = 6;
+            }
+
+            foreach (var c in allCharacters2.Where(c => c.Tier >= 4))
+            {
+                c.Tier = 6;
+            }
+        }
+
         if (team > 0)
         {
             allCharacters2 = allCharacters2.Where(x => x.Name != "HardKitty").ToList();
@@ -543,7 +557,7 @@ public class General : ModuleBaseCustom
             var gameId = _global.GetNewtGamePlayingAndId();
 
             //ролл персонажей для игры
-            var playersList = HandleCharacterRoll(players, gameId);
+            var playersList = HandleCharacterRoll(players, gameId, mode:"bot");
 
 
             //тасуем игроков
@@ -626,7 +640,7 @@ public class General : ModuleBaseCustom
             // .WithTitle("My internal statistics")
             .WithColor(Color.DarkGreen)
             .WithCurrentTimestamp()
-            .WithFooter("Версия: 2.8.5 Как же я заеблся 3.5")
+            .WithFooter("Версия: 2.8.6 Как же я заеблся 3.6")
             .WithDescription("**Циферки:**\n" +
                              $"Работает: {time.Days}д {time.Hours}ч {time.Minutes}м + {time:ss\\.fff}с\n" +
                              $"Всего команд: {_global.TotalCommandsIssued}\n" +

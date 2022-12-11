@@ -536,18 +536,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         (current, passive) => current.Replace($"{passive.PassiveName}", $"❓ {passive.PassiveName}")));
 
         var separationLine = false;
-        const string lostKeyword = "Поражение:";
         var orderedList = new List<string>
         {
             "Ты улучшил", "|>PhraseBeforeFight<|", "Обмен Морали", "Ты использовал Авто Ход", "Ты напал на", "Ты поставил блок",  
-            "дополнительного вреда", "TOO GOOD", "TOO STONK", "|>Phrase<|", "|>SeparationLine<|", lostKeyword, "Вред:", "Победа:", "Читы",
+            "дополнительного вреда", "TOO GOOD", "TOO STONK", "|>Phrase<|", "|>SeparationLine<|", "Поражение:", "Получено вреда:", "Победа:", "Читы",
             "Справедливость", "Класс:", "Мишень", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**"
         };
 
-        if(!text.Contains(lostKeyword))
-        {
-            text += $"Вред: ${player.GameCharacter.GetDamageThisRound()}\n";
-        }
 
         foreach (var keyword in orderedList)
         {
@@ -579,7 +574,18 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                             //Класс: +20 *Cкилла* (за **умного** врага). +2 *Cкилла*
                             var classSplit = line.Replace("*", "").Replace("+", "").Split(":")[1].Split(".").ToList();
                             foreach (var classText in classSplit)
-                                totalClass += Convert.ToInt32(classText.Replace("Cкилла", "").Replace(" ", ""));
+                            {
+                                    try
+                                    {
+
+                                        totalClass += Convert.ToInt32(classText.Replace("Cкилла", "").Replace(" ", ""));
+                                    }
+                                    catch
+                                    {
+                                        var error_boole = 1;
+                                    }
+                            }
+
                         }
                     }
 
@@ -632,40 +638,50 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 case "|>Phrase<|" when text.Contains(keyword):
                 {
                     var jewSplit = text.Split('\n');
-                    var temp = jewSplit.Where(line => !line.Contains(keyword)).Aggregate("",
-                        (current, line) => current + line.Replace(keyword, "") + "\n");
-                    temp = jewSplit.Where(line => line.Contains(keyword)).Aggregate(temp,
-                        (current, line) => current + line.Replace(keyword, "") + "\n");
+                    var temp = jewSplit.Where(line => !line.Contains(keyword)).Aggregate("", (current, line) => current + line.Replace(keyword, "") + "\n");
+                    text = jewSplit.Where(line => line.Contains(keyword)).Aggregate(temp, (current, line) => current + line.Replace(keyword, "") + "\n");
 
-                    text = temp;
                     break;
                 }
-                case lostKeyword when text.Contains(lostKeyword):
+                case "Получено вреда:" when text.Contains("Поражение:"):
                 {
-                    var extraText = "";
-                    if (player.GameCharacter.GetDamageThisRound() > 0)
-                    {
-                        extraText = $"({player.GameCharacter.GetDamageThisRound()} Вреда)";
-                    }
                     var jewSplit = text.Split('\n');
-                    var temp = jewSplit.Where(line => !line.Contains(keyword)).Aggregate("", (current, line) => current + line + $"{extraText}\n");
-                    temp = jewSplit.Where(line => line.Contains(keyword)).Aggregate(temp, (current, line) => current + line + $"{extraText}\n");
+                    var temp = "";
+
+                    foreach (var jew in jewSplit)
+                    {
+                        if(jew.Contains("Поражение:") || jew.Contains("Получено вреда:"))
+                            continue;
+                        temp += $"{jew}\n";
+                    }
+
+                    foreach (var jew in jewSplit)
+                    {
+                        if (!jew.Contains("Поражение:"))
+                            continue;
+                        temp += $"{jew}\n";
+                    }
+
+                    temp = temp.Substring(0, temp.Length - 1);
+
+                    foreach (var jew in jewSplit)
+                    {
+                        if (!jew.Contains("Получено вреда:"))
+                            continue;
+                        temp += $" ({jew.Replace(":", "")})\n";
+                    }
 
                     text = temp;
+
                     break;
                 }
                 default:
                     if (text.Contains(keyword))
                     {
                         var jewSplit = text.Split('\n');
-                        var temp = jewSplit.Where(line => !line.Contains(keyword))
-                            .Aggregate("", (current, line) => current + line + "\n");
-                        temp = jewSplit.Where(line => line.Contains(keyword))
-                            .Aggregate(temp, (current, line) => current + line + "\n");
-
-                        text = temp;
+                        var temp = jewSplit.Where(line => !line.Contains(keyword)).Aggregate("", (current, line) => current + line + "\n");
+                        text = jewSplit.Where(line => line.Contains(keyword)).Aggregate(temp, (current, line) => current + line + "\n");
                     }
-
                     break;
             }
 

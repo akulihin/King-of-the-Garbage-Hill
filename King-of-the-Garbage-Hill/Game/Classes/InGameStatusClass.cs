@@ -244,8 +244,9 @@ public class InGameStatus
         Score += score;
     }
 
-    public void SetScoreToThisNumber(int score)
+    public void SetScoreToThisNumber(int score, string text)
     {
+        AddInGamePersonalLogs($"{score} **очков**... ({text})\n");
         Score = score;
     }
 

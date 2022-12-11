@@ -600,13 +600,6 @@ Speed => Strength
                     if (placeDiff < 0)
                         placeDiff *= -1;
 
-                    //Много выебывается
-                    if (playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Много выебывается") && playerIamAttacking.Status.GetPlaceAtLeaderBoard() == 1 && playerIamAttacking.GameCharacter.GetSkill() < player.GameCharacter.GetSkill())
-                    {
-                        playerIamAttacking.Status.AddInGamePersonalLogs("Много выебывается: Да блять, я не бущенный!\n");
-                        playerIamAttacking.FightCharacter.HandleDrop(playerIamAttacking.DiscordUsername, game);
-                    }
-                    //end Много выебывается
 
                     if (placeDiff <= range)
                     {

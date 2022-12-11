@@ -198,8 +198,8 @@ public class AdminPanel : ModuleBaseCustom
         //238337696316129280 == DeepList
         if (character == null)
         {
-            _accounts.GetAccount(238337696316129280).CharacterToGiveNextTime = "Вампур";
-            _accounts.GetAccount(181514288278536193).CharacterToGiveNextTime = "Тигр";
+            _accounts.GetAccount(238337696316129280).CharacterToGiveNextTime = "Mit*suki*";
+            _accounts.GetAccount(181514288278536193).CharacterToGiveNextTime = "Загадочный Спартанец в маске";
             return;
         }
 
@@ -290,31 +290,10 @@ public class AdminPanel : ModuleBaseCustom
     }
 
 
-    [Command("SetScore")]
-    [Summary("Set your score (Admin only)")]
-    public async Task SetScore(int number)
-    {
-        if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
-        {
-            await SendMessageAsync("only owners can use this command");
-            return;
-        }
-
-        var game = _global.GamesList.Find(
-            l => l.PlayersList.Any(x => x.DiscordId == Context.User.Id));
-
-        if (game == null) return;
-
-
-        game.PlayersList.Find(x => x.DiscordId == Context.User.Id)!.Status.SetScoreToThisNumber(number);
-
-        foreach (var t in game.PlayersList) await _upd.UpdateMessage(t);
-    }
-
 
     [Command("SetStat")]
     [Alias("set")]
-    [Summary("Set a stat (in, sp, st, ps, js, sk, mr) (Admin only)")]
+    [Summary("Set a stat (in, sp, st, ps, js, sk, mr, sc) (Admin only)")]
     public async Task SetCharacteristic(string name, int number)
     {
         if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
@@ -362,6 +341,9 @@ public class AdminPanel : ModuleBaseCustom
             case "mr":
                 player!.GameCharacter.SetMoral(number, "Читы");
                 player.GameCharacter.SetMoralBonus();
+                break;
+            case "sc":
+                player!.Status.SetScoreToThisNumber(number, "Читы");
                 break;
             default:
                 return;

@@ -722,7 +722,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             if (me.Status.GetPlaceAtLeaderBoard() > target.Status.GetPlaceAtLeaderBoard())
                             {
-                                me.Status.AddRegularPoints(target.GameCharacter.GetWinStreak(), "Ценная добыча");
+                                me.Status.AddBonusPoints(target.GameCharacter.GetWinStreak(), "Ценная добыча");
                             }
                             else
                             {
@@ -769,10 +769,10 @@ public class CharacterPassives : IServiceSingleton
                             placeDiff *= -1;
                         //end calculate range
 
-                        //WeedWick ignores range
+                        //WeedWick ignores range, so you calculated it for nothing! :)
                         range = 10;
 
-                        if (placeDiff <= range)
+                        if (placeDiff <= range && game.RoundNo > 1)
                         {
                             //обычный дроп (его тут нет, просто так тут это написал)
                             var harm = 0;
@@ -2752,7 +2752,7 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Тупорылая Акула":
-                    if (player.GameCharacter.GetPsyche() == 10)
+                    if (player.GameCharacter.GetPsyche() == 10 && !player.IsBot())
                     {
                         player.GameCharacter.Name = "Братишка";
                         player.GameCharacter.Passive = new List<Passive>();

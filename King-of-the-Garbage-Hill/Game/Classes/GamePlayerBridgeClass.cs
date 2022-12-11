@@ -22,7 +22,7 @@ public class GamePlayerBridgeClass
         PlayerType = playerType;
         DiscordStatus = new InGameDiscordStatus();
         GameCharacter.SetIntelligenceResist();
-        GameCharacter.SetStrengthResist();
+        GameCharacter.SetStrengthResist(this);
         GameCharacter.SetSpeedResist();
         GameCharacter.SetPsycheResist();
         Passives = new PassivesClass();
