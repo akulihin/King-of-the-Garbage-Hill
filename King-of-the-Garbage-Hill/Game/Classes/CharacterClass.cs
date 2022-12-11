@@ -81,6 +81,7 @@ public class CharacterClass
         other.SpeedQualityKiteBonus = SpeedQualityKiteBonus;
         other.PsycheQualityMoralBonus = PsycheQualityMoralBonus;
         other.IsPsycheQualityMoralBonus = IsPsycheQualityMoralBonus;
+        other.DamageThisRound = DamageThisRound;
 
         return other;
     }
@@ -99,6 +100,7 @@ public class CharacterClass
 
 
     // PRIVATE
+    private int DamageThisRound { get; set; }
     private InGameStatus Status { get; set; }
     private int LastMoralRound { get; set; } = 1;
     private int WonTimes { get; set; }
@@ -204,18 +206,30 @@ public class CharacterClass
         game.AddGlobalLogs($"Они скинули **{discordUsername}**! Сволочи!");
     }
 
-    public void LowerQualityResist(string discordUsername, GameClass game, bool strengthBonus)
+    public void LowerQualityResist(GamePlayerBridgeClass target, GameClass game, GamePlayerBridgeClass me)
     {
         if (game.RoundNo == 1) return;
         if(Status.GameCharacter.Passive.Any(x => x.PassiveName == "Boole Family")) return;
 
-        //Status.AddInGamePersonalLogs($"Вред: 1\n");
-
+        DamageThisRound++;
         var howMuch = 1;
 
         IntelligenceQualityResist -= howMuch;
         PsycheQualityResist -= howMuch;
-        if(strengthBonus)
+
+        if (me.GameCharacter.Passive.Any(x => x.PassiveName == "Это привилегия - умереть от моей руки"))
+        {
+            var skillDiff = me.GameCharacter.GetSkill() / target.GameCharacter.GetSkill();
+            if (skillDiff >= (decimal)1.5)
+            {
+                var additionalDamage = 1;
+                skillDiff -= (decimal)1.5;
+                additionalDamage += (int)Math.Round(skillDiff / (decimal)0.5);
+                me.Status.AddInGamePersonalLogs($"Дополнительное пробитие Стойкости: {additionalDamage}. ***THIS. IS. SPARTA!!!*** <:pantheon:899847724936089671> <:pantheon:899847724936089671>\n");
+            }
+        }
+
+        if (me.GameCharacter.GetStrengthQualityDropBonus())
             StrengthQualityResist -= howMuch+1;
         else
             StrengthQualityResist -= howMuch;
@@ -254,7 +268,7 @@ public class CharacterClass
             //end Испанец
             else
             {
-                HandleDrop(discordUsername, game);
+                HandleDrop(target.DiscordUsername, game);
             }
                 
         }
@@ -298,7 +312,7 @@ public class CharacterClass
             var plus = "";
             if (skillBonusPrecent > 0)
                 plus = "+";
-            text += $" **({plus}{Math.Ceiling(skillBonusPrecent)}% Skill)**";
+            text += $" **({plus}{Math.Round(skillBonusPrecent)}% Skill)**";
         }
         return text;
     }
@@ -379,7 +393,7 @@ public class CharacterClass
             var plus = "";
             if (moralBonusPrecent > 0)
                 plus = "+";
-            text += $" **({plus}{Math.Ceiling(moralBonusPrecent)}% Moral)**";
+            text += $" **({plus}{Math.Round(moralBonusPrecent)}% Moral)**";
         }
 
         return text;
@@ -786,7 +800,7 @@ public class CharacterClass
 
     public string GetSkillDisplay()
     {
-        return $"{Math.Ceiling(GetSkill())}";
+        return $"{Math.Round(GetSkill())}";
     }
 
     public decimal GetSkillMainOnly()
@@ -906,12 +920,12 @@ public class CharacterClass
 
     public string GetMoralString()
     {
-        var text = $"{(int)Math.Ceiling(Moral + MoralBonus)}";
+        var text = $"{(int)Math.Round(Moral + MoralBonus)}";
         
         if (MoralBonus > 0)
-            text += $" ({(int)Moral} + {MoralBonus})";
+            text += $" ({(int)Moral} + {Math.Round(MoralBonus)})";
         if (MoralBonus < 0)
-            text += $" ({(int)Moral} - {-1*MoralBonus})";
+            text += $" ({(int)Moral} - {Math.Round(-1*MoralBonus)})";
 
         return text;
     }
@@ -926,9 +940,18 @@ public class CharacterClass
         MoralBonus = 0;
     }
 
+    public void ResetDamageThisRound()
+    {
+        DamageThisRound = 0;
+    }
+    public int GetDamageThisRound()
+    {
+        return DamageThisRound;
+    }
+
     public decimal GetMoral()
     {
-        return Math.Ceiling(Moral + MoralBonus);
+        return Math.Round(Moral + MoralBonus);
     }
 
     public void SetMoral(decimal howMuchToSet, string skillName, bool isLog = true)
@@ -967,7 +990,7 @@ public class CharacterClass
 
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Привет со дна") && !isMoralPoints)
         {
-            howMuchToAdd = 4;   
+            howMuchToAdd = 1;   
         }
         //end Привет со дна
 

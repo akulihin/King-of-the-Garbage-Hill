@@ -9,6 +9,7 @@ using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
+using static Microsoft.Extensions.Logging.EventSource.LoggingEventSource;
 
 namespace King_of_the_Garbage_Hill.Game.DiscordMessages;
 
@@ -280,7 +281,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         if (lostSeries != null)
                             switch (lostSeries.Series)
                             {
-                                case > 9:
+                                case > 7:
                                     customString += $" <:LoveLetter:998306315342454884>: {lostSeries.Series}";
                                     break;
                                 case > 0:
@@ -535,12 +536,18 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         (current, passive) => current.Replace($"{passive.PassiveName}", $"❓ {passive.PassiveName}")));
 
         var separationLine = false;
+        const string lostKeyword = "Поражение:";
         var orderedList = new List<string>
         {
             "Ты улучшил", "|>PhraseBeforeFight<|", "Обмен Морали", "Ты использовал Авто Ход", "Ты напал на", "Ты поставил блок",  
-            "дополнительного вреда", "TOO GOOD", "TOO STONK", "|>Phrase<|", "|>SeparationLine<|", "Поражение:", "Победа:", "Читы",
+            "дополнительного вреда", "TOO GOOD", "TOO STONK", "|>Phrase<|", "|>SeparationLine<|", lostKeyword, "Вред:", "Победа:", "Читы",
             "Справедливость", "Класс:", "Мишень", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**"
         };
+
+        if(!text.Contains(lostKeyword))
+        {
+            text += $"Вред: ${player.GameCharacter.GetDamageThisRound()}\n";
+        }
 
         foreach (var keyword in orderedList)
         {
@@ -633,7 +640,20 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     text = temp;
                     break;
                 }
+                case lostKeyword when text.Contains(lostKeyword):
+                {
+                    var extraText = "";
+                    if (player.GameCharacter.GetDamageThisRound() > 0)
+                    {
+                        extraText = $"({player.GameCharacter.GetDamageThisRound()} Вреда)";
+                    }
+                    var jewSplit = text.Split('\n');
+                    var temp = jewSplit.Where(line => !line.Contains(keyword)).Aggregate("", (current, line) => current + line + $"{extraText}\n");
+                    temp = jewSplit.Where(line => line.Contains(keyword)).Aggregate(temp, (current, line) => current + line + $"{extraText}\n");
 
+                    text = temp;
+                    break;
+                }
                 default:
                     if (text.Contains(keyword))
                     {

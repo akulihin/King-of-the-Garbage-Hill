@@ -7,6 +7,7 @@ using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
@@ -17,14 +18,16 @@ public class CharacterPassives : IServiceSingleton
     private readonly HelperFunctions _help;
     private readonly LoginFromConsole _log;
     private readonly SecureRandom _rand;
+    private readonly CharactersPull _charactersPull;
 
     public CharacterPassives(SecureRandom rand, HelperFunctions help,
-        LoginFromConsole log, GameUpdateMess gameUpdateMess)
+        LoginFromConsole log, GameUpdateMess gameUpdateMess, CharactersPull charactersPull)
     {
         _rand = rand;
         _help = help;
         _log = log;
         _gameUpdateMess = gameUpdateMess;
+        _charactersPull = charactersPull;
     }
 
     public Task InitializeAsync()
@@ -656,7 +659,7 @@ public class CharacterPassives : IServiceSingleton
 
                         if (me.GameCharacter.GetSkillFightMultiplier() > 1)
                             me.Status.AddInGamePersonalLogs(
-                                $"Спарта: {Math.Ceiling(me.GameCharacter.GetSkill())} *Скилла* против {target.DiscordUsername}\n");
+                                $"Спарта: {(int)(me.GameCharacter.GetSkill())} *Скилла* против {target.DiscordUsername}\n");
                     }
 
                     break;
@@ -717,8 +720,14 @@ public class CharacterPassives : IServiceSingleton
                     {
                         if (target.GameCharacter.GetWinStreak() > 1)
                         {
-                            me.Status.AddRegularPoints(target.GameCharacter.GetWinStreak(), "Ценная добыча");
-                            //me.Status.AddBonusPoints(target.GameCharacter.GetWinStreak(), "Ценная добыча");
+                            if (me.Status.GetPlaceAtLeaderBoard() > target.Status.GetPlaceAtLeaderBoard())
+                            {
+                                me.Status.AddRegularPoints(target.GameCharacter.GetWinStreak(), "Ценная добыча");
+                            }
+                            else
+                            {
+                                me.Status.AddBonusPoints(target.GameCharacter.GetWinStreak(), "Ценная добыча");
+                            }
                         }
 
                         switch (target.GameCharacter.GetWinStreak())
@@ -773,7 +782,7 @@ public class CharacterPassives : IServiceSingleton
                             if (roll == 1)
                             {
                                 harm++;
-                                target.FightCharacter.LowerQualityResist(target.DiscordUsername, game, me.GameCharacter.GetStrengthQualityDropBonus());
+                                target.FightCharacter.LowerQualityResist(target, game, me);
                                 game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
                             }
 
@@ -782,7 +791,7 @@ public class CharacterPassives : IServiceSingleton
                             if (roll == 1)
                             {
                                 harm++;
-                                target.FightCharacter.LowerQualityResist(target.DiscordUsername, game, me.GameCharacter.GetStrengthQualityDropBonus());
+                                target.FightCharacter.LowerQualityResist(target, game, me);
                                 game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
                             }
 
@@ -791,7 +800,7 @@ public class CharacterPassives : IServiceSingleton
                             if (roll == 1 && target.Status.GetPlaceAtLeaderBoard() == 1)
                             {
                                 harm++;
-                                target.FightCharacter.LowerQualityResist(target.DiscordUsername, game, me.GameCharacter.GetStrengthQualityDropBonus());
+                                target.FightCharacter.LowerQualityResist(target, game, me);
                                 game.Phrases.WeedwickValuablePreyDrop.SendLog(me, false);
                             }
 
@@ -2012,9 +2021,9 @@ public class CharacterPassives : IServiceSingleton
                     case "Буль":
                         if (player.GameCharacter.GetPsyche() < 7)
                         {
-                            var random = _rand.Random(1, 5 + player.GameCharacter.GetPsyche() * 6);
+                            var random = _rand.Random(1, 10 + player.GameCharacter.GetPsyche() * 5);
 
-                            if (random == 2)
+                            if (random == 1)
                             {
                                 player.Status.IsSkip = true;
                                 player.Status.ConfirmedSkip = false;
@@ -2746,8 +2755,9 @@ public class CharacterPassives : IServiceSingleton
                     if (player.GameCharacter.GetPsyche() == 10)
                     {
                         player.GameCharacter.Name = "Братишка";
-                        player.Status.AddInGamePersonalLogs(
-                            "Братишка: **Буууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууль**\n");
+                        player.GameCharacter.Passive = new List<Passive>();
+                        player.GameCharacter.Passive = _charactersPull.GetAllCharacters().Find(x => x.Name == "Братишка").Passive;
+                        player.Status.AddInGamePersonalLogs("Братишка: **Буууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууль**\n");
                     }
 
                     break;

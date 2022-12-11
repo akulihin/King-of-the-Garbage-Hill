@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Numerics;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
@@ -611,7 +610,7 @@ Speed => Strength
 
                     if (placeDiff <= range)
                     {
-                        playerIamAttacking.FightCharacter.LowerQualityResist(playerIamAttacking.DiscordUsername, game, player.GameCharacter.GetStrengthQualityDropBonus());
+                        playerIamAttacking.FightCharacter.LowerQualityResist(playerIamAttacking, game, player);
                     }
 
                     //end Quality

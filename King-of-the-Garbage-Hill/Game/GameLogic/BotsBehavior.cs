@@ -113,12 +113,17 @@ public class BotsBehavior : IServiceSingleton
         {
             var overwrite = false;
 
+            //видвик не меняет мораль до самого конца игры, на 10м меняет всё на очки
+            if (bot.GameCharacter.Name == "Weedwick")
+            {
+                return;
+            }
+
             //если Осьминожка - всегда ждет 20 морали
             if (bot.GameCharacter.Name == "Осьминожка" || bot.GameCharacter.Name == "HardKitty")
             {
                 return;
             }
-
 
 
             if (bot.GameCharacter.Name is "Вампур")
@@ -434,6 +439,12 @@ public class BotsBehavior : IServiceSingleton
                         target.AttackPreference += target.Player.Passives.WeedwickWeed;
                         //верхний этаж
                         target.AttackPreference += 6 - target.PlaceAtLeaderBoard();
+
+                        //преференс врагов выше видвика по таблице + 3 (поставь это сразу перед умножением на 20 за волка)
+                        if (bot.Status.GetPlaceAtLeaderBoard() > target.PlaceAtLeaderBoard())
+                        {
+                            target.AttackPreference += 3;
+                        }
 
                         //wuf
                         if (target.Player.GameCharacter.Justice.GetRealJusticeNow() == 0)
@@ -1018,6 +1029,15 @@ public class BotsBehavior : IServiceSingleton
                             target.AttackPreference += 3;
                         break;
                     case "Глеб":
+                        //если есть старый глеб в игре, то толя бот кидает подсчет на 9м ходу на глеба, если место Толи в лидерборде <=3 (от топ1 до топ3) 
+                        if (game.RoundNo == 9 && bot.GameCharacter.Name == "Толя" && bot.Status.GetPlaceAtLeaderBoard() <= 3)
+                        {
+                            var tolyaCount = bot.Passives.TolyaCount;
+                            if (tolyaCount.IsReadyToUse)
+                                mandatoryAttack = target.PlaceAtLeaderBoard();
+                        }
+
+
                         var glebChallender = target.Player.Passives.GlebChallengerTriggeredWhen;
                         var glebSleeping = target.Player.Passives.GlebSleepingTriggeredWhen;
 

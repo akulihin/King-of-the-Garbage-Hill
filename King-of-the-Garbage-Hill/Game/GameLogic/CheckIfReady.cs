@@ -714,6 +714,7 @@ public class CheckIfReady : IServiceSingleton
             foreach (var player in game.PlayersList)
             {
                 player.GameCharacter.ResetMoralBonus();
+                player.GameCharacter.ResetDamageThisRound();
             }
             await _round.CalculateAllFights(game);
             foreach (var player in game.PlayersList)
