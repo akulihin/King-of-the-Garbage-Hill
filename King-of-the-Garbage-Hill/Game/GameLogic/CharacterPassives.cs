@@ -144,7 +144,7 @@ public class CharacterPassives : IServiceSingleton
                 case "Много выебывается":
 
                     //first place
-                    playerIndex = playersList.IndexOf(player);
+                        playerIndex = playersList.IndexOf(player);
                     playersList[playerIndex] = playersList.First();
                     playersList[0] = player;
 
@@ -164,10 +164,11 @@ public class CharacterPassives : IServiceSingleton
             switch (passive.PassiveName)
             {
                 case "Оборотень":
+                    /*
                     var myTempStrength = me.GameCharacter.GetStrength();
                     var targetTempStrength = target.GameCharacter.GetStrength();
                     me.GameCharacter.SetStrengthForOneFight(targetTempStrength, "Оборотень");
-                    target.GameCharacter.SetStrengthForOneFight(myTempStrength, "Оборотень");
+                    target.GameCharacter.SetStrengthForOneFight(myTempStrength, "Оборотень");*/
 
                     /*var myTempSkillMain = me.GameCharacter.GetSkillForOneFight();
                     var targetTempSkill = target.GameCharacter.GetSkillForOneFight();
@@ -1393,6 +1394,23 @@ public class CharacterPassives : IServiceSingleton
                                 if (tries > 20) break;
 
                                 statIndex = _rand.Random(1, 4);
+
+                                if (player.Passives.VampyrHematophagiaList.HematophagiaCurrent.Count < 4)
+                                {
+                                    if (player.Passives.VampyrHematophagiaList.HematophagiaCurrent.Where(x => x.StatIndex == 4) == null)
+                                    {
+                                        statIndex = _rand.Random(4, 4);
+                                    }
+                                }
+
+                                if (player.Passives.VampyrHematophagiaList.HematophagiaCurrent.Count < 5)
+                                {
+                                    if (player.Passives.VampyrHematophagiaList.HematophagiaCurrent.Count(x => x.StatIndex == 4) < 2)
+                                    {
+                                        statIndex = _rand.Random(4, 4);
+                                    }
+                                }
+
                                 switch (statIndex)
                                 {
                                     case 1:

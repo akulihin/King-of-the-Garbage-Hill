@@ -72,7 +72,7 @@ public class CharacterClass
         
         other.SpeedQualityBonus = SpeedQualityBonus;
         other.StrengthQualityDropBonus = StrengthQualityDropBonus;
-        other.StrengthQualityDropDebuff = StrengthQualityDropDebuff;
+        other.StrengthQualityDropTimes = StrengthQualityDropTimes;
         other.IsSpeedQualityKiteBonus = IsSpeedQualityKiteBonus;
         other.SpeedQualityKiteBonus = SpeedQualityKiteBonus;
         other.PsycheQualityMoralBonus = PsycheQualityMoralBonus;
@@ -141,7 +141,7 @@ public class CharacterClass
     private int IntelligenceQualitySkillBonus { get; set; }
 
     private bool StrengthQualityDropBonus { get; set; }
-    private int StrengthQualityDropDebuff { get; set; }
+    private int StrengthQualityDropTimes { get; set; }
 
     private bool IsSpeedQualityKiteBonus { get; set; }
     private int SpeedQualityKiteBonus { get; set; }
@@ -200,7 +200,7 @@ public class CharacterClass
     {
         if (Status.GetPlaceAtLeaderBoard() == 6) return;
 
-        StrengthQualityDropDebuff = game.RoundNo;
+        StrengthQualityDropTimes++;
         Status.AddBonusPoints(-1, "Quality");
         game.AddGlobalLogs($"Они скинули **{discordUsername}**! Сволочи!");
     }
@@ -253,6 +253,8 @@ public class CharacterClass
                 var sparta = "";
                 for (var i = 0; i < additionalDamage; i++)
                 {
+                    if(i > 9)continue;
+
                     panths += "<:pantheon:899847724936089671> ";
                 }
                 if (StrengthQualityResist - howMuch < 0)
@@ -659,9 +661,14 @@ public class CharacterClass
         return IsSpeedQualityKiteBonus;
     }
 
-    public int GetStrengthQualityDropDebuff()
+    public int GetStrengthQualityDropTimes()
     {
-        return StrengthQualityDropDebuff;
+        return StrengthQualityDropTimes;
+    }
+
+    public void ResetStrengthQualityDropTimes()
+    {
+        StrengthQualityDropTimes = 0;
     }
 
     public string GetClassStatDisplayText()
@@ -908,7 +915,7 @@ public class CharacterClass
     private decimal GetPsycheQualityMoralBonus()
     {
         decimal toReturn = 1;
-        var bonus = 0.2;
+        var bonus = 0.1;
 
         var index = PsycheQualityMoralBonus;
         if (IsPsycheQualityMoralBonus) index++;
@@ -1005,7 +1012,7 @@ public class CharacterClass
 
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Привет со дна") && !isMoralPoints)
         {
-            howMuchToAdd = 4;   
+            howMuchToAdd = 3;   
         }
         //end Привет со дна
 

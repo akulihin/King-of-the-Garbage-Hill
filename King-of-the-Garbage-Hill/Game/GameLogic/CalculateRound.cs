@@ -817,17 +817,23 @@ Speed => Strength
         //end sorting
 
         //Quality Drop
-        var droppedPlayers = game.PlayersList.Where(x => x.GameCharacter.GetStrengthQualityDropDebuff() + 1 == game.RoundNo && x.Status.GetPlaceAtLeaderBoard() != 6).OrderByDescending(x => x.Status.GetPlaceAtLeaderBoard()).ToList();
+        var droppedPlayers = game.PlayersList.Where(x => x.GameCharacter.GetStrengthQualityDropTimes() != 0 && x.Status.GetPlaceAtLeaderBoard() != 6).OrderByDescending(x => x.Status.GetPlaceAtLeaderBoard()).ToList();
+        
         foreach (var player in droppedPlayers)
         {
-            var oldIndex = game.PlayersList.IndexOf(player);
-            var newIndex = oldIndex + 1;
+            for (int i = 0; i < player.GameCharacter.GetStrengthQualityDropTimes(); i++)
+            {
+                var oldIndex = game.PlayersList.IndexOf(player);
+                var newIndex = oldIndex + 1;
 
-            if(newIndex == 5 && game.PlayersList[newIndex].GameCharacter.Passive.Any(x => x.PassiveName == "Никому не нужен"))
-                continue;
-
-            game.PlayersList[oldIndex] = game.PlayersList[newIndex];
-            game.PlayersList[newIndex] = player;
+                if (newIndex == 5 && game.PlayersList[newIndex].GameCharacter.Passive.Any(x => x.PassiveName == "Никому не нужен"))
+                    continue;
+                if(newIndex >= 6)
+                    continue;
+                    
+                game.PlayersList[oldIndex] = game.PlayersList[newIndex];
+                game.PlayersList[newIndex] = player;
+            }
         }
 
         if (droppedPlayers.Count > 0)
