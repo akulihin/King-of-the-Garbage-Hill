@@ -315,6 +315,7 @@ public class CharactersUniquePhrase
         SpartanTheyWontLikeIt.PassiveLogRus.Add("Настакал blackcleaver!");
         SpartanTheyWontLikeIt.PassiveLogRus.Add("Мое копье создано что бы пронзить НЕБЕСА!");
         SpartanTheyWontLikeIt.PassiveLogRus.Add("Кину копье, напрыгну, отхуярю щитом");
+        SpartanTheyWontLikeIt.PassiveLogRus.Add("Я твой фанат. Я пантеон.");
         SpartanFirstBlood.PassiveLogRus.Add("Кулю на эти деньги сапоги! +1 Скорость");
 
 
