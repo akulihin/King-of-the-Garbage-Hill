@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
@@ -469,6 +470,8 @@ public class CheckIfReady : IServiceSingleton
         }
         _finishedGames++;
 
+        var eloPlusTop = new List<EloPlusTop>();
+
         //top1 winrate
         if (_finishedGames == game.TestFightNumber)
         {
@@ -479,6 +482,7 @@ public class CheckIfReady : IServiceSingleton
             var index = 1;
             foreach (var winRate in winRates.OrderByDescending(x => x.WinRate))
             {
+                eloPlusTop.Add(new EloPlusTop(index, winRate.CharacterName));
                 text += $"{index}. {winRate.CharacterName}: {winRate.WinRate.ToString("0.##")}% ({winRate.Top1}/{winRate.GameTimes})\n";
                 index++;
             }
@@ -489,7 +493,6 @@ public class CheckIfReady : IServiceSingleton
         //elo winrate
         if (_finishedGames == game.TestFightNumber)
         {
-            _finishedGames = 0;
             var winRates = _global.WinRates.Values.ToList();
 
 
@@ -497,6 +500,7 @@ public class CheckIfReady : IServiceSingleton
             var index = 1;
             foreach (var winRate in winRates.OrderByDescending(x => x.Elo))
             {
+                eloPlusTop.Find(x => x.CharacterName == winRate.CharacterName).PlaceAtTheLeaderBoard += index;
                 text += $"{index}. {winRate.CharacterName}: {(int)(winRate.Elo*10)}\n";
                 index++;
             }
@@ -504,6 +508,24 @@ public class CheckIfReady : IServiceSingleton
             await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(text);
         }
         //elo winrate end
+
+
+        //elo+top winrate
+        if (_finishedGames == game.TestFightNumber)
+        {
+            _finishedGames = 0;
+
+            var text = $"**____**\n**ELO+TOP**\n";
+            var index = 1;
+            foreach (var winRate in eloPlusTop.OrderBy(x => x.PlaceAtTheLeaderBoard))
+            {
+                text += $"{index}. {winRate.CharacterName}: {winRate.PlaceAtTheLeaderBoard}\n";
+                index++;
+            }
+            text += "**--------------------------------------------------------------------**";
+            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(text);
+        }
+        //elo elo+top winrate
 
         try
         {
@@ -528,6 +550,17 @@ public class CheckIfReady : IServiceSingleton
         //top1 winrate end
     }
 
+    public class EloPlusTop
+    {
+        public int PlaceAtTheLeaderBoard;
+        public string CharacterName;
+
+        public EloPlusTop(int placeAtTheLeaderBoard, string characterName)
+        {
+            PlaceAtTheLeaderBoard = placeAtTheLeaderBoard;
+            CharacterName = characterName;
+        }
+    }
 
     private async void CheckIfEveryoneIsReady(object sender, ElapsedEventArgs e)
     {
@@ -705,7 +738,7 @@ public class CheckIfReady : IServiceSingleton
                     {
                         await _gameReaction.HandleMoralForScore(player);
                     }
-                    player.Status.AddBonusPoints(player.GameCharacter.GetBonusPointsFromMoral(), "Мораль");
+                    //player.Status.AddBonusPoints(player.GameCharacter.GetBonusPointsFromMoral(), "Мораль");
                 }
             //end прожать всю момаль
             //end moral

@@ -723,7 +723,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             if (me.Status.GetPlaceAtLeaderBoard() > target.Status.GetPlaceAtLeaderBoard())
                             {
-                                me.Status.AddBonusPoints(target.GameCharacter.GetWinStreak(), "Ценная добыча");
+                                me.Status.AddRegularPoints(target.GameCharacter.GetWinStreak(), "Ценная добыча");
                             }
                             else
                             {

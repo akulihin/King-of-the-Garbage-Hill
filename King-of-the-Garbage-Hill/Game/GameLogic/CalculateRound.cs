@@ -153,6 +153,15 @@ Speed => Strength
             roundNumber = game.RoundNo + 1;
         //end Возвращение из мертвых
 
+
+        //Handle Moral
+        foreach (var p in game.PlayersList)
+        {
+            p.Status.AddBonusPoints(p.GameCharacter.GetBonusPointsFromMoral(), "Мораль");
+            p.GameCharacter.SetBonusPointsFromMoral(0);
+        }
+        //end Moral
+
         /*
         1-4 х1
         5-9 х2
@@ -760,13 +769,7 @@ Speed => Strength
 
         await _characterPassives.HandleNextRound(game);
 
-        //Handle Moral
-        foreach (var p in game.PlayersList)
-        {
-            p.Status.AddBonusPoints(p.GameCharacter.GetBonusPointsFromMoral(), "Мораль");
-            p.GameCharacter.SetBonusPointsFromMoral(0);
-        }
-        //end Moral
+
 
         game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
 

@@ -541,13 +541,13 @@ public sealed class GameReaction : IServiceSingleton
     {
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
-        //Vampyr Позорный
+        /*//Vampyr Позорный
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Vampyr Позорный"))
         {
             await game.Phrases.VampyrTheLoh.SendLogSeparate(player, true, 0);
             skillNumber = 0;
         }
-        //end Vampyr Позорный
+        //end Vampyr Позорный*/
 
         switch (skillNumber)
         {

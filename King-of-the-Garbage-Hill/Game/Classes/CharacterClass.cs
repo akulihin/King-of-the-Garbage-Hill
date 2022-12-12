@@ -1012,7 +1012,7 @@ public class CharacterClass
 
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Привет со дна") && !isMoralPoints)
         {
-            howMuchToAdd = 3;   
+            howMuchToAdd = 4;   
         }
         //end Привет со дна
 

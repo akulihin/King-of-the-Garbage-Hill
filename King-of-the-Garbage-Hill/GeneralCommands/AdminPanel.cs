@@ -262,38 +262,9 @@ public class AdminPanel : ModuleBaseCustom
     }
 
 
-    [Command("SetRound")]
-    [Alias("sr")]
-    [Summary("Select round 1-10 (Admin only)")]
-    public async Task SelectRound(int roundNo)
-    {
-        if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
-        {
-            await SendMessageAsync("only owners can use this command");
-            return;
-        }
-
-        if (roundNo is < 1 or > 10)
-        {
-            await SendMessageAsync("select between 1 and 10");
-            return;
-        }
-
-        var game = _global.GamesList.Find(
-            l => l.PlayersList.Any(x => x.DiscordId == Context.User.Id));
-
-        if (game == null) return;
-
-        game.RoundNo = roundNo;
-
-        foreach (var t in game.PlayersList) await _upd.UpdateMessage(t);
-    }
-
-
-
     [Command("SetStat")]
     [Alias("set")]
-    [Summary("Set a stat (in, sp, st, ps, js, sk, mr, sc) (Admin only)")]
+    [Summary("cheats: Set a stat, score or round (in, sp, st, ps, js, sk, mr, sc, rn) (Admin only)")]
     public async Task SetCharacteristic(string name, int number)
     {
         if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
@@ -344,6 +315,9 @@ public class AdminPanel : ModuleBaseCustom
                 break;
             case "sc":
                 player!.Status.SetScoreToThisNumber(number, "Читы");
+                break;
+            case "rn":
+                game.RoundNo = number;
                 break;
             default:
                 return;

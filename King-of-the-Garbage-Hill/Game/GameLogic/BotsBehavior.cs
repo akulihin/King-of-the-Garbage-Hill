@@ -1,15 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
-using static System.Net.Mime.MediaTypeNames;
 // ReSharper disable RedundantAssignment
 #pragma warning disable CS0219
+
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
@@ -36,14 +35,14 @@ public class BotsBehavior : IServiceSingleton
 
     public async Task HandleBotBehavior(GamePlayerBridgeClass player, GameClass game)
     {
-        HandleBotMoral(player, game);
+        await HandleBotMoral(player, game);
         if (player.Status.MoveListPage == 3) 
             await HandleLvlUpBot(player, game);
         if (player.Status.MoveListPage == 1) 
             await HandleBotAttack(player, game);
     }
 
-    public void HandleBotMoralForSkill(GamePlayerBridgeClass bot, GameClass game)
+    public async Task HandleBotMoralForSkill(GamePlayerBridgeClass bot, GameClass game)
     {
         //логика до 10го раунда
         if (game.RoundNo < 10)
@@ -99,14 +98,12 @@ public class BotsBehavior : IServiceSingleton
         //прожать всю момаль
         while (bot.GameCharacter.GetMoral() >= 1)
         {
-#pragma warning disable CS4014
-            _gameReaction.HandleMoralForSkill(bot);
-#pragma warning restore CS4014
+            await _gameReaction.HandleMoralForSkill(bot);
         }
         //end прожать всю момаль
     }
 
-    public void HandleBotMoralForPoints(GamePlayerBridgeClass bot, GameClass game)
+    public async Task HandleBotMoralForPoints(GamePlayerBridgeClass bot, GameClass game)
     {
         //логика до 10го раунда
         if (game.RoundNo < 10)
@@ -168,23 +165,26 @@ public class BotsBehavior : IServiceSingleton
         //end логика до 10го раунда
 
 
+
         //прожать всю момаль
         while (bot.GameCharacter.GetMoral() >= 5)
         {
-#pragma warning disable CS4014
-            _gameReaction.HandleMoralForScore(bot);
-#pragma warning restore CS4014
+            if (game.RoundNo > 10)
+            {
+                var error_boole = 0;
+            }
+            await _gameReaction.HandleMoralForScore(bot);
         }
         //end прожать всю момаль
     }
 
-    public void HandleBotMoral(GamePlayerBridgeClass bot, GameClass game)
+    public async Task HandleBotMoral(GamePlayerBridgeClass bot, GameClass game)
     {
         if (bot.Status.GetPlaceAtLeaderBoard() <= 2)
         {
             if (bot.GameCharacter.GetMoral() < 5)
             {
-                HandleBotMoralForSkill(bot, game);
+                await HandleBotMoralForSkill(bot, game);
                 return;
             }
         }
@@ -192,7 +192,7 @@ public class BotsBehavior : IServiceSingleton
         if (bot.GameCharacter.Name == "Sirinoks")
         {
             //логика до 10го раунда
-            HandleBotMoralForSkill(bot, game);
+            await HandleBotMoralForSkill(bot, game);
             //end логика до 10го раунда
             return;
         }
@@ -205,24 +205,24 @@ public class BotsBehavior : IServiceSingleton
         //If LeCrisp 10 psy and Place > 5, use all Score, use all Skill
         if (bot.GameCharacter.Name == "LeCrisp" && bot.GameCharacter.GetPsyche() >= 10 && game.RoundNo >= 5 && bot.Status.GetPlaceAtLeaderBoard() <= 4)
         {
-            HandleBotMoralForPoints(bot, game);
+            await HandleBotMoralForPoints(bot, game);
             return;
         }
         if (bot.GameCharacter.Name == "LeCrisp" && game.RoundNo <= 5)
         {
-            HandleBotMoralForSkill(bot, game);
+            await HandleBotMoralForSkill(bot, game);
             return;
         }
 
         if (bot.GameCharacter.Name == "Загадочный Спартанец в маске")
         {
-            HandleBotMoralForSkill(bot, game);
+            await HandleBotMoralForSkill(bot, game);
             return;
         }
 
         if (bot.GameCharacter.Name == "DeepList")
         {
-            HandleBotMoralForSkill(bot, game);
+            await HandleBotMoralForSkill(bot, game);
             return;
         }
 
@@ -237,7 +237,7 @@ public class BotsBehavior : IServiceSingleton
                 //если на всех уже был запрокан луз или победа, то меняет мораль на скилл
                 if (totalRevenges == 5)
                 {
-                    HandleBotMoralForSkill(bot, game);
+                    await HandleBotMoralForSkill(bot, game);
                     return;
                 }
 
@@ -245,14 +245,14 @@ public class BotsBehavior : IServiceSingleton
                 var roundsLeft = 11 - game.RoundNo;
                 if (totalNotFinishedRevenges >= roundsLeft)
                 {
-                    HandleBotMoralForSkill(bot, game);
+                    await HandleBotMoralForSkill(bot, game);
                     return;
                 }
             }
         }
 
 
-        HandleBotMoralForPoints(bot, game);
+        await HandleBotMoralForPoints(bot, game);
     }
 
 
@@ -876,9 +876,10 @@ public class BotsBehavior : IServiceSingleton
 
 
                     case "Глеб":
-
-                        if (target.Player.Status.IsSkip)
+                        if (target.Player.Passives.GlebTeaTriggeredWhen.WhenToTrigger.Contains(game.RoundNo))
+                        {
                             target.AttackPreference = 0;
+                        }
 
                         //Во время претендента забывает о всех -5 и -7 за луз по статам, но вспоминает после окончания претендента.
                         var glebAcc = bot.Passives.GlebChallengerTriggeredWhen;
