@@ -225,7 +225,7 @@
   {
     "Name": "Sirinoks",
     "Intelligence": 5,
-    "Psyche": 5,
+    "Psyche": 4,
     "Speed": 5,
     "Strength": 1,
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219322856595547/sirinoks.png",
@@ -362,7 +362,7 @@
   {
     "Name": "Darksci",
     "Intelligence": 6,
-    "Psyche": 4,
+    "Psyche": 5,
     "Speed": 8,
     "Strength": 7,
     "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219764223209490/darksci2.png",
