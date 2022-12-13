@@ -492,6 +492,8 @@ public class CharactersUniquePhrase
         LeCrispJewPhrase.PassiveLogRus.Add("ОЙ ВЕЙ!");     
         LeCrispJewPhrase.PassiveLogRus.Add("Хава Нагила"); 
         LeCrispJewPhrase.PassiveLogRus.Add("Призываю Иуду"); 
+        LeCrispJewPhrase.PassiveLogRus.Add("Поднимаю кошелек на улице, а там нехватает"); 
+
 
         LeCrispBoolingPhrase.PassiveLogRus.Add("Why are you bulling me?");
         LeCrispBoolingPhrase.PassiveLogRus.Add("fuk u");
