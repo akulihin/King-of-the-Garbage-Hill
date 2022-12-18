@@ -1591,7 +1591,8 @@ public class BotsBehavior : IServiceSingleton
             if (player.GameCharacter.Name == "Sirinoks" && intelligence < 10) skillNumber = 1;
             if (player.GameCharacter.Name == "Вампур" && psyche < 10) skillNumber = 4;
             if (player.GameCharacter.Name == "mylorik" && psyche < 10) skillNumber = 4;
-            if (player.GameCharacter.Name == "Братишка" && intelligence < 10) skillNumber = 1;
+            if (player.GameCharacter.Name == "Братишка" && strength < 10) skillNumber = 2;
+
             if (player.GameCharacter.Name == "LeCrisp" && strength < 10) skillNumber = 2;
             if (player.GameCharacter.Name == "Darksci" && psyche < 10) skillNumber = 4;
 

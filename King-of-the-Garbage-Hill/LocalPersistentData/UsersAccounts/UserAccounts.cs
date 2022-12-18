@@ -95,7 +95,7 @@ public sealed class UserAccounts : IServiceSingleton
     private void SaveAllAccounts(object sender, ElapsedEventArgs e)
     {
         
-        if("D:\\git\\King-of-the-Garbage-Hill\\King-of-the-Garbage-Hill\\bin\\Debug\\net6.0" == _executionPath) 
+        if("F:\\git\\King-of-the-Garbage-Hill\\King-of-the-Garbage-Hill\\bin\\Debug\\net6.0" == _executionPath) 
             return;
         if (_saving) 
             return;

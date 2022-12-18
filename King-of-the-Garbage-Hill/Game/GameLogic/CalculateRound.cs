@@ -338,6 +338,7 @@ Speed => Strength
                     await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
                     await _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
                     _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
+                    _characterPassives.HandleDefenseAfterBlockOrFightOrSkip(playerIamAttacking, player, game);
 
                     ResetFight(player, playerIamAttacking);
 
@@ -359,6 +360,7 @@ Speed => Strength
                     //fight Reset
                     await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
                     await _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
+                    _characterPassives.HandleDefenseAfterBlockOrFightOrSkip(playerIamAttacking, player, game);
 
                     ResetFight(player, playerIamAttacking);
 
@@ -676,6 +678,7 @@ Speed => Strength
                 //т.е. он получил урон, какие у него дебаффы на этот счет 
                 _characterPassives.HandleDefenseAfterFight(playerIamAttacking, player, game);
                 _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
+                _characterPassives.HandleDefenseAfterBlockOrFightOrSkip(playerIamAttacking, player, game);
 
                 //т.е. я его аттакую, какие у меня бонусы на это
                 _characterPassives.HandleAttackAfterFight(player, playerIamAttacking, game);

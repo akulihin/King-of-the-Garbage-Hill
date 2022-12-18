@@ -332,8 +332,19 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in target.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+
+            }
+    }
+
+
+    public void HandleDefenseAfterBlockOrFightOrSkip(GamePlayerBridgeClass target, GamePlayerBridgeClass me, GameClass game)
+    {
+        foreach (var passive in target.GameCharacter.Passive.ToList())
+            switch (passive.PassiveName)
+            {
                 case "Гребанные ассассины":
-                    if (me.GameCharacter.GetStrength() - target.GameCharacter.GetStrength() >= 3 && !target.Status.IsBlock && !target.Status.IsSkip)
+                    //5-2 = 3
+                    if (me.GameCharacter.GetStrength() - target.GameCharacter.GetStrength() >= 3)
                     {
                         target.Status.IsAbleToWin = true;
                     }
@@ -342,7 +353,6 @@ public class CharacterPassives : IServiceSingleton
                         var leCrip = target.Passives.LeCrispAssassins;
                         leCrip.AdditionalPsycheForNextRound += 1;
                     }
-
                     break;
             }
     }
@@ -676,6 +686,7 @@ public class CharacterPassives : IServiceSingleton
                         if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                         {
                             game.AddGlobalLogs($"{me.GameCharacter.Name} **УБИЛ** {target.GameCharacter.Name}!");
+                            target.FightCharacter.HandleDrop(target.DiscordUsername, game);
                             target.Passives.KratosIsDead = true;
                         }
                     break;
@@ -1489,21 +1500,18 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Лучше с двумя, чем с адекватными":
-                    for (var i = 0; i < game.PlayersList.Count; i++)
+                    foreach (var t in game.PlayersList)
                     {
-                        var t = game.PlayersList[i];
-                        if (t.GameCharacter.GetIntelligence() == player.GameCharacter.GetIntelligence() ||
-                            t.GameCharacter.GetPsyche() == player.GameCharacter.GetPsyche())
-                        {
-                            var tigr = player.Passives.TigrTwoBetterList;
+                        if (t.GameCharacter.GetIntelligence() != player.GameCharacter.GetIntelligence() && t.GameCharacter.GetPsyche() != player.GameCharacter.GetPsyche()) continue;
 
-                            if (!tigr.FriendList.Contains(t.GetPlayerId()) && tigr.FriendList.Count < 4)
-                            {
-                                tigr.FriendList.Add(t.GetPlayerId());
-                                // me.Status.AddRegularPoints();
-                                player.Status.AddBonusPoints(3, "Лучше с двумя, чем с адекватными");
-                                game.Phrases.TigrTwoBetter.SendLog(player, false);
-                            }
+                        var tigr = player.Passives.TigrTwoBetterList;
+
+                        if (!tigr.FriendList.Contains(t.GetPlayerId()))//&& tigr.FriendList.Count < 4
+                        {
+                            tigr.FriendList.Add(t.GetPlayerId());
+                            // me.Status.AddRegularPoints();
+                            player.Status.AddBonusPoints(3, "Лучше с двумя, чем с адекватными");
+                            game.Phrases.TigrTwoBetter.SendLog(player, false);
                         }
                     }
 

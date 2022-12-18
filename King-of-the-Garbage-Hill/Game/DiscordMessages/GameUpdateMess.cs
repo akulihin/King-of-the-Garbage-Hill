@@ -1030,6 +1030,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             .WithDisabled(game.RoundNo >= 9)
             .WithPlaceholder("Сделать предположение");
 
+       
+
+
 
         for (var i = 0; i < _playerChoiceAttackList.Count; i++)
         {
@@ -1042,9 +1045,17 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         }
 
 
-        if (predictMenu.Options.Count == 0) predictMenu.AddOption("ТЫ ВСЕХ УБИЛ", "kratos-death");
+        if (predictMenu.Options.Count == 0)
+        {
+            predictMenu.AddOption("ТЫ ВСЕХ УБИЛ", "kratos-death");
+        }
 
-
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
+        {
+            predictMenu.WithDisabled(true);
+            predictMenu.WithPlaceholder("Бууууууль");
+        }
+        
         return predictMenu;
     }
 
@@ -1128,9 +1139,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var extraText = "";
         if (game.RoundNo == 10 && player.GameCharacter.GetMoral() < 3) extraText = " (Конец игры)";
 
-        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Ничего не понимает"))
-            return new ButtonBuilder("Ничего не понимает...", "skill", ButtonStyle.Secondary, isDisabled: true,
-                emote: Emote.Parse("<a:bratishka:900962522276958298>"));
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
+            return new ButtonBuilder("Ничего не понимает, но булькает!", "skill", ButtonStyle.Secondary, isDisabled: true, emote: Emote.Parse("<a:bratishka:900962522276958298>"));
 
         if (player.GameCharacter.GetMoral() >= 20)
             return new ButtonBuilder($"Обменять 20 Морали на 100 Cкилла{extraText}", "skill", ButtonStyle.Secondary,

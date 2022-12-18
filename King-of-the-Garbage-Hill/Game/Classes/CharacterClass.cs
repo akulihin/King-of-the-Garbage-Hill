@@ -240,18 +240,22 @@ public class CharacterClass
         {
             if (target.Status.GetPlaceAtLeaderBoard() <= 3 && game.RoundNo >= 5)
             {
+                const double firstDropAmount = 1.5;
                 var enemySkill = target.GameCharacter.GetSkill();
+                var mySkill = me.GameCharacter.GetSkill();
                 if (enemySkill <= 0)
                     enemySkill = 1;
-                var skillDiff = me.GameCharacter.GetSkill() / enemySkill;
-                if (skillDiff >= (decimal)1.5)
+
+                var skillDiff = mySkill / enemySkill;
+
+                if (skillDiff >= (decimal)firstDropAmount) //1 дроп за первые 1.5 скилла
                 {
                     decimal additionalDamage1 = 1;
-                    decimal additionalDamage2 = (me.GameCharacter.GetSkill() - enemySkill)/25; //кол-во пробитий = (скилл спартанца - скилл таргета) / 25
+                    decimal additionalDamage2 = (mySkill - enemySkill)/25; //кол-во пробитий = (скилл спартанца - скилл таргета) / 25
 
-                    skillDiff -= (decimal)1.5;
+                    skillDiff -= (decimal)firstDropAmount; // -1.5 за которые мы уже посчитали дроп
                     additionalDamage1 += Math.Round(skillDiff / (decimal)0.5); //старая формула 
-                    var additionalDamage = (int)Math.Round((additionalDamage1 + additionalDamage2)/2); //(проки со старой форумлы + проки с новой) / 2
+                    var additionalDamage = (int)Math.Round((additionalDamage1 + additionalDamage2)/3); //(проки со старой форумлы + проки с новой) / 2
 
                     howMuch += additionalDamage;
 
@@ -865,7 +869,7 @@ public class CharacterClass
 
     public void AddMainSkill(string skillName, bool isLog = true)
     {
-        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Ничего не понимает"))
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
             return;
         decimal howMuchToAdd = SkillMain switch
         {
@@ -903,7 +907,7 @@ public class CharacterClass
             skillName = $"|>Phrase<|{skillName}";
         }
 
-        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Ничего не понимает"))
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
             return;
 
         if (ExtraSkillMultiplier > 0 && howMuchToAdd > 0)
@@ -927,7 +931,7 @@ public class CharacterClass
     private decimal GetPsycheQualityMoralBonus()
     {
         decimal toReturn = 1;
-        var bonus = 0.1;
+        var bonus = 0.2;
 
         var index = PsycheQualityMoralBonus;
         if (IsPsycheQualityMoralBonus) index++;
@@ -1009,7 +1013,7 @@ public class CharacterClass
             skillName = $"|>Phrase<|{skillName}";
         }
 
-        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Ничего не понимает"))
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
         {
             Moral = 0;
             ResetMoralBonus();
