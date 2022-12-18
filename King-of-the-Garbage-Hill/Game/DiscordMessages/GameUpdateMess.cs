@@ -127,7 +127,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         if (game == null) return "ERROR 404";
         var players = "";
-        var playersList = game.PlayersList;
+        var playersList = game.PlayersList.Where(x => !x.Passives.KratosIsDead).ToList();
 
         for (var i = 0; i < playersList.Count; i++)
         {
@@ -262,7 +262,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                     if (!dar.TouchedPlayers.Contains(other.GetPlayerId()) &&
                         other.GetPlayerId() != me.GetPlayerId())
-                        customString += " <:Darksci:565598465531576352>";
+                        customString += " <:luck:1051721236322988092>";
 
 
                     break;
@@ -281,7 +281,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         if (lostSeries != null)
                             switch (lostSeries.Series)
                             {
-                                case > 7:
+                                case > 6:
                                     customString += $" <:LoveLetter:998306315342454884>: {lostSeries.Series}";
                                     break;
                                 case > 0:
@@ -963,9 +963,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         {
             var playerToAttack = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == i + 1);
             if (playerToAttack == null) continue;
-            if (playerToAttack.DiscordId != player.DiscordId)
-                attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, $"{i + 1}",
-                    emote: _playerChoiceAttackList[i]);
+            if (playerToAttack.DiscordId != player.DiscordId && !playerToAttack.Passives.KratosIsDead)
+                attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, $"{i + 1}", emote: _playerChoiceAttackList[i]);
         }
 
         if (attackMenu.Options.Count == 0) attackMenu.AddOption("ТЫ ВСЕХ УБИЛ", "kratos-death");
@@ -1067,7 +1066,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
         //Да всё нахуй эту игру Part #4
-        if (game.RoundNo == 9 && player.GameCharacter.GetPsyche() == 4 &&
+        if (game.RoundNo == 9 && player.GameCharacter.GetPsyche() == 5 &&
             player.GameCharacter.Passive.Any(x => x.PassiveName == "Дизмораль"))
         {
             charMenu = new SelectMenuBuilder()
@@ -1268,7 +1267,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public async Task UpdateMessage(GamePlayerBridgeClass player, string extraText = "")
     {
-        if (player.IsBot() || player.Passives.KratosIsDead) return;
+        if (player.IsBot()) return;
 
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         var embed = new EmbedBuilder();
@@ -1291,7 +1290,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 builder = new ComponentBuilder().WithSelectMenu(await GetLvlUpMenu(player, game));
 
                 //Да всё нахуй эту игру Part #5
-                if (game!.RoundNo == 9 && player.GameCharacter.GetPsyche() == 4 &&
+                if (game!.RoundNo == 9 && player.GameCharacter.GetPsyche() == 5 &&
                     player.GameCharacter.Passive.Any(x => x.PassiveName == "Дизмораль"))
                     builder.WithButton("Riot style \"choice\"", "crutch", row: 1, style: ButtonStyle.Secondary,
                         disabled: true);

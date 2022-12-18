@@ -66,7 +66,7 @@ public class CheckIfReady : IServiceSingleton
 
     private void HandlePostGameEvents(GameClass game)
     {
-        var playerWhoWon = game.PlayersList.First();
+        var playerWhoWon = game.PlayersList.Where(x => !x.Passives.KratosIsDead).ToList().First();
 
         //if won phrases
         switch (playerWhoWon.GameCharacter.Name)
@@ -137,7 +137,7 @@ public class CheckIfReady : IServiceSingleton
         //
         try
         {
-            if(game.PlayersList.Count  == 6)
+            if(game.PlayersList.Count  == 6 && game.PlayersList.Count(x => x.Passives.KratosIsDead) != 5)
                 if (playerWhoWon.Status.PlaceAtLeaderBoardHistory.Find(x => x.GameRound == 10)!.Place != 1)
                     if (game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == 1)!.Status.GetScore() !=
                         game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == 2)!.Status.GetScore())
@@ -249,13 +249,14 @@ public class CheckIfReady : IServiceSingleton
             t.Status.PlaceAtLeaderBoardHistory.Add(
                 new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo, t.Status.GetPlaceAtLeaderBoard()));
 
+        var playerWhoWon = game.PlayersList.Where(x => !x.Passives.KratosIsDead).ToList().First();
         HandlePostGameEvents(game);
 
 
-        if (game.PlayersList.First().Status.AutoMoveTimes >= 10) game.PlayersList.First().DiscordUsername = "НейроБот";
+        if (playerWhoWon.Status.AutoMoveTimes >= 10) playerWhoWon.DiscordUsername = "НейроБот";
 
-        if (game.PlayersList.First().Status.AutoMoveTimes >= 9 && game.PlayersList.First().GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят"))
-            game.PlayersList.First().DiscordUsername = "НейроБот";
+        if (playerWhoWon.Status.AutoMoveTimes >= 9 && playerWhoWon.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят"))
+            playerWhoWon.DiscordUsername = "НейроБот";
 
         var isTeam = false;
         decimal wonScore = 0;
@@ -317,16 +318,16 @@ public class CheckIfReady : IServiceSingleton
         else
         {
             game.AddGlobalLogs(
-                game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList.First().Status.GetScore()).Count > 1
+                game.PlayersList.FindAll(x => x.Status.GetScore() == playerWhoWon.Status.GetScore()).Count > 1
                     ? "\n**Ничья**"
-                    : $"\n**{game.PlayersList.First().DiscordUsername}** победил, играя за **{game.PlayersList.First().GameCharacter.Name}**");
-            if (!game.PlayersList.First().IsBot())
-                if (game.PlayersList.FindAll(x => x.Status.GetScore() == game.PlayersList.First().Status.GetScore())
+                    : $"\n**{playerWhoWon.DiscordUsername}** победил, играя за **{playerWhoWon.GameCharacter.Name}**");
+            if (!playerWhoWon.IsBot())
+                if (game.PlayersList.FindAll(x => x.Status.GetScore() == playerWhoWon.Status.GetScore())
                         .Count == 1)
                 {
 #pragma warning disable CS4014
-                    game.PlayersList.First().DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync("__**Победа! Теперь ты Король этой Мусорной Горы. Пока-что...**__");
-                    game.PlayersList.First().DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync("https://tenor.com/bELKU.gif");
+                    playerWhoWon.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync("__**Победа! Теперь ты Король этой Мусорной Горы. Пока-что...**__");
+                    playerWhoWon.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync("https://tenor.com/bELKU.gif");
 #pragma warning restore CS4014
                 }
         }
@@ -378,7 +379,7 @@ public class CheckIfReady : IServiceSingleton
                     break;
             }
 
-            if (player.Status.GetScore() == game.PlayersList.First().Status.GetScore())
+            if (player.Status.GetScore() == playerWhoWon.Status.GetScore())
                 zbsPointsToGive = 100;
 
             if (isTeam)

@@ -255,11 +255,8 @@ public class CharacterPassives : IServiceSingleton
                     }
                     //end Сомнительная тактика
 
-
-                    if (me.GameCharacter.GetStrength() - target.GameCharacter.GetStrength() >= 2
-                        && !target.Status.IsBlock
-                        && !target.Status.IsSkip
-                        && ok)
+                    //10-7
+                    if (me.GameCharacter.GetStrength() - target.GameCharacter.GetStrength() >= 3 && !target.Status.IsBlock && !target.Status.IsSkip && ok)
                     {
                         target.Status.IsAbleToWin = false;
                         game.Phrases.LeCrispAssassinsPhrase.SendLog(target, false);
@@ -336,9 +333,7 @@ public class CharacterPassives : IServiceSingleton
             switch (passive.PassiveName)
             {
                 case "Гребанные ассассины":
-                    if (me.GameCharacter.GetStrength() - target.GameCharacter.GetStrength() >= 3 &&
-                        !target.Status.IsBlock &&
-                        !target.Status.IsSkip)
+                    if (me.GameCharacter.GetStrength() - target.GameCharacter.GetStrength() >= 3 && !target.Status.IsBlock && !target.Status.IsSkip)
                     {
                         target.Status.IsAbleToWin = true;
                     }
@@ -679,7 +674,10 @@ public class CharacterPassives : IServiceSingleton
                 case "Возвращение из мертвых":
                     if (game.IsKratosEvent && game.RoundNo > 10)
                         if (me.Status.IsWonThisCalculation == target.GetPlayerId())
+                        {
+                            game.AddGlobalLogs($"{me.GameCharacter.Name} **УБИЛ** {target.GameCharacter.Name}!");
                             target.Passives.KratosIsDead = true;
+                        }
                     break;
 
                 case "Weed":
@@ -920,13 +918,19 @@ public class CharacterPassives : IServiceSingleton
                     if (darscsi.TouchedPlayers.Count == game.PlayersList.Count - 1 && darscsi.Triggered == false)
                     {
                         var darksciType = me.Passives.DarksciTypeList;
+                        var darksciUnstableMultiplier = 1;
                         if (darksciType.IsStableType)
+                        {
                             me.Status.AddBonusPoints(me.Status.GetScore(), "Повезло");
+                        }
                         else
+                        {
+                            darksciUnstableMultiplier = 2;
                             me.Status.AddBonusPoints(me.Status.GetScore() * 3, "Повезло");
+                        }
 
-                        me.FightCharacter.AddPsyche(3, "Повезло");
-                        me.FightCharacter.AddMoral(10, "Повезло");
+                        me.FightCharacter.AddPsyche(2* darksciUnstableMultiplier, "Повезло");
+                        me.FightCharacter.AddMoral(5* darksciUnstableMultiplier, "Повезло");
                         darscsi.Triggered = true;
                         game.Phrases.DarksciLucky.SendLog(me, true);
                     }
@@ -993,19 +997,16 @@ public class CharacterPassives : IServiceSingleton
                     //failed
                     if (game.RoundNo > 10 && game.IsKratosEvent && player.Status.IsLostThisCalculation != Guid.Empty)
                     {
-                        game.IsKratosEvent = false;
                         player.Passives.KratosIsDead = true;
-                        await game.Phrases.KratosEventFailed.SendLogSeparateWithFile(player, false,
-                            "DataBase/art/events/kratos_hell.png", false, 15000);
                     }
+
                     //start
-                    else if (!game.IsKratosEvent && game.RoundNo == 10 &&
-                             player.Status.IsLostThisCalculation != Guid.Empty)
+                    else if (!game.IsKratosEvent && game.RoundNo == 10 && player.Status.IsLostThisCalculation != Guid.Empty)
                     {
                         game.IsKratosEvent = true;
+                        game.AddGlobalLogs("Бегите! На Гору Мусорной Горы идёт Кратос и его НИЧЕГО не остановит!");
                         foreach (var p in game.PlayersList.Where(x => !x.IsBot()))
-                            await game.Phrases.KratosEventYes.SendLogSeparateWithFile(p, false,
-                                "DataBase/sound/Kratos_PLAY_ME.mp3", false, 15000);
+                            await game.Phrases.KratosEventYes.SendLogSeparateWithFile(p, false, "DataBase/sound/Kratos_PLAY_ME.mp3", false, 15000);
 
                         player.FightCharacter.SetExtraSkillMultiplier(3);
                     }
@@ -1340,7 +1341,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             player.FightCharacter.AddSpeed(1, "Первая кровь");
                             game.Phrases.SpartanFirstBlood.SendLog(player, false);
-                            game.AddGlobalLogs("Они познают войну!\n");
+                            game.AddGlobalLogs("Они познают войну!");
                         }
                         else if (spartan.FriendList.Contains(player.Status.IsLostThisCalculation))
                         {
@@ -1395,7 +1396,8 @@ public class CharacterPassives : IServiceSingleton
 
                                 statIndex = _rand.Random(1, 4);
 
-                                if (player.Passives.VampyrHematophagiaList.HematophagiaCurrent.Count < 4)
+                                //поскольку мы вернули вампуру прокачку, надо добавить в условие на психику, что оно работает только когда психика <=8
+                                if (player.Passives.VampyrHematophagiaList.HematophagiaCurrent.Count < 4 && player.GameCharacter.GetPsyche() <= 8)
                                 {
                                     if (player.Passives.VampyrHematophagiaList.HematophagiaCurrent.Where(x => x.StatIndex == 4) == null)
                                     {
@@ -1403,7 +1405,8 @@ public class CharacterPassives : IServiceSingleton
                                     }
                                 }
 
-                                if (player.Passives.VampyrHematophagiaList.HematophagiaCurrent.Count < 5)
+                                //поскольку мы вернули вампуру прокачку, надо добавить в условие на психику, что оно работает только когда психика <=8
+                                if (player.Passives.VampyrHematophagiaList.HematophagiaCurrent.Count < 5 && player.GameCharacter.GetPsyche() <= 8)
                                 {
                                     if (player.Passives.VampyrHematophagiaList.HematophagiaCurrent.Count(x => x.StatIndex == 4) < 2)
                                     {
@@ -1470,13 +1473,19 @@ public class CharacterPassives : IServiceSingleton
             {
                 case "Возвращение из мертвых":
                     //didn't fail but didn't succseed   
-                    if (game.IsKratosEvent && game.RoundNo >= 16 && game.PlayersList.Count > 1)
+                    if (game.IsKratosEvent && game.RoundNo >= 16 && game.PlayersList.Count(x => !x.Passives.KratosIsDead) < 5)
                     {
                         game.IsKratosEvent = false;
-                        await game.Phrases.KratosEventNo.SendLogSeparateWithFile(player, false,
-                            "DataBase/art/events/kratos_death.jpg", false, 15000);
+                        game.AddGlobalLogs("У Кратоса есть тактика и он ее придерживался...");
+                        await game.Phrases.KratosEventNo.SendLogSeparateWithFile(player, false, "DataBase/art/events/kratos_death.jpg", false, 15000);
                     }
 
+                    if (game.IsKratosEvent && player.Passives.KratosIsDead)
+                    {
+                        game.IsKratosEvent = false;
+                        game.AddGlobalLogs("Кратос решил доверится богам зная последствия...");
+                        await game.Phrases.KratosEventFailed.SendLogSeparateWithFile(player, false, "DataBase/art/events/kratos_hell.png", false, 15000);
+                    }
                     break;
 
                 case "Лучше с двумя, чем с адекватными":
@@ -1580,11 +1589,9 @@ public class CharacterPassives : IServiceSingleton
                     var leCrip = player.Passives.LeCrispAssassins;
 
                     if (leCrip.AdditionalPsycheCurrent > 0)
-                        player.GameCharacter.AddPsyche(leCrip.AdditionalPsycheCurrent * -1,
-                            "Гребанные ассассины", false);
+                        player.GameCharacter.AddPsyche(leCrip.AdditionalPsycheCurrent * -1, "Гребанные ассассины", false);
                     if (leCrip.AdditionalPsycheForNextRound > 0)
-                        player.GameCharacter.AddPsyche(leCrip.AdditionalPsycheForNextRound,
-                            "Гребанные ассассины");
+                        player.GameCharacter.AddPsyche(leCrip.AdditionalPsycheForNextRound, "Гребанные ассассины");
 
                     leCrip.AdditionalPsycheCurrent = leCrip.AdditionalPsycheForNextRound;
                     leCrip.AdditionalPsycheForNextRound = 0;

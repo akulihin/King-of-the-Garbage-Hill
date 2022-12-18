@@ -486,7 +486,7 @@ public sealed class GameReaction : IServiceSingleton
                 return false;
             }
 
-            if (whoToAttack.GameCharacter.Passive.Any(x => x.PassiveName == "DeepList Pet") && player.GameCharacter.Passive.Any(x => x.PassiveName == "Weedwick Pet"))
+            if (player.GameCharacter.Passive.Any(x => x.PassiveName == "DeepList Pet") && whoToAttack.GameCharacter.Passive.Any(x => x.PassiveName == "Weedwick Pet"))
             {
                 status.WhoToAttackThisTurn = new List<Guid>();
                 await _help.SendMsgAndDeleteItAfterRound(player, "Не нападай на свою собаку. Ты чего, совсем уже ебнулся?", 0);
@@ -664,7 +664,7 @@ public sealed class GameReaction : IServiceSingleton
         {
             if (game!.RoundNo == 9)
                 //Дизмораль Part #2
-                player.GameCharacter.AddPsyche(-4, "Дизмораль");
+                player.GameCharacter.AddPsyche(-5, "Дизмораль");
             //end Дизмораль Part #2
 
             //Да всё нахуй эту игру: Part #2

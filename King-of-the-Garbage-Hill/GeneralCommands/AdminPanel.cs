@@ -264,10 +264,10 @@ public class AdminPanel : ModuleBaseCustom
 
     [Command("SetStat")]
     [Alias("set")]
-    [Summary("cheats: Set a stat, score or round (in, sp, st, ps, js, sk, mr, sc, rn) (Admin only)")]
+    [Summary("cheats: Set a stat, score or round (in, sp, st, ps, js, sk, mr, sc, rn, cr) (Admin only)")]
     public async Task SetCharacteristic(string name, int number)
     {
-        if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
+        if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193 && Context.User.Id != 284802743493853184)
         {
             await SendMessageAsync("only owners can use this command");
             return;
@@ -318,6 +318,13 @@ public class AdminPanel : ModuleBaseCustom
                 break;
             case "rn":
                 game.RoundNo = number;
+                break;
+            case "cr":
+                var character = _charactersPull.GetAllCharacters()[number];
+                player.GameCharacter.Name = character.Name;
+                player.GameCharacter.Passive = new List<Passive>();
+                player.GameCharacter.Passive = character.Passive;
+                player.Status.AddInGamePersonalLogs($"Читы: Ты стал {character.Name}\n");
                 break;
             default:
                 return;

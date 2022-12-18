@@ -23,7 +23,7 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
 
 
         [Command("чистка", RunMode = RunMode.Async)]
-        [Alias("purge", "clean", "убрать", "clear")]
+        [Alias("purge", "clean", "убрать", "clear", "delete", "remove")]
         [RequireUserPermission(GuildPermission.ManageMessages)]
         [RequireUserPermission(ChannelPermission.ManageMessages)]
         [Summary(

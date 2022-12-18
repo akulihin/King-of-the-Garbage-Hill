@@ -238,31 +238,38 @@ public class CharacterClass
         // Это привилегия - умереть от моей руки
         if (me.GameCharacter.Passive.Any(x => x.PassiveName == "Это привилегия - умереть от моей руки"))
         {
-            var enemySkill = target.GameCharacter.GetSkill();
-            if (enemySkill <= 0)
-                enemySkill = 1;
-            var skillDiff = me.GameCharacter.GetSkill() / enemySkill;
-            if (skillDiff >= (decimal)1.5)
+            if (target.Status.GetPlaceAtLeaderBoard() <= 3 && game.RoundNo >= 5)
             {
-                var additionalDamage = 1;
-                skillDiff -= (decimal)1.5;
-                additionalDamage += (int)Math.Round(skillDiff / (decimal)0.5);
-                howMuch += additionalDamage;
-                
-                var panths = "";
-                var sparta = "";
-                for (var i = 0; i < additionalDamage; i++)
+                var enemySkill = target.GameCharacter.GetSkill();
+                if (enemySkill <= 0)
+                    enemySkill = 1;
+                var skillDiff = me.GameCharacter.GetSkill() / enemySkill;
+                if (skillDiff >= (decimal)1.5)
                 {
-                    if(i > 9)continue;
+                    decimal additionalDamage1 = 1;
+                    decimal additionalDamage2 = (me.GameCharacter.GetSkill() - enemySkill)/25; //кол-во пробитий = (скилл спартанца - скилл таргета) / 25
 
-                    panths += "<:pantheon:899847724936089671> ";
-                }
-                if (StrengthQualityResist - howMuch < 0)
-                {
-                    sparta = " ***THIS. IS. SPARTA!!!*** ";
-                }
+                    skillDiff -= (decimal)1.5;
+                    additionalDamage1 += Math.Round(skillDiff / (decimal)0.5); //старая формула 
+                    var additionalDamage = (int)Math.Round((additionalDamage1 + additionalDamage2)/2); //(проки со старой форумлы + проки с новой) / 2
 
-                me.Status.AddInGamePersonalLogs($"Дополнительное пробитие Стойкости: {additionalDamage}.{sparta}{panths}\n");
+                    howMuch += additionalDamage;
+
+                    var panths = "";
+                    var sparta = "";
+                    for (var i = 0; i < additionalDamage; i++)
+                    {
+                        if (i > 9) continue;
+
+                        panths += "<:pantheon:899847724936089671> ";
+                    }
+                    if (StrengthQualityResist - howMuch < 0)
+                    {
+                        sparta = " ***THIS. IS. SPARTA!!!*** ";
+                    }
+
+                    me.Status.AddInGamePersonalLogs($"Дополнительное пробитие Стойкости: {additionalDamage}.{sparta}{panths}\n");
+                }
             }
         }
         //end Это привилегия - умереть от моей руки
@@ -792,6 +799,11 @@ public class CharacterClass
     public decimal GetSkill()
     {
         var realSkill = (SkillMain + SkillExtra) * GetSkillFightMultiplier() * GetIntelligenceQualitySkillBonus();
+
+        if (Passive.Any(x => x.PassiveName == "Skill 228") && realSkill > 228)
+        {
+            realSkill = 228;
+        }
 
         if (SkillForOneFight != -228) 
             return SkillForOneFight;

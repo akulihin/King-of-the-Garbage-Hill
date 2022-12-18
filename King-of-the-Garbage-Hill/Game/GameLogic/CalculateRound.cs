@@ -733,31 +733,12 @@ Speed => Strength
         }
 
         //Возвращение из мертвых
-        foreach (var player in game.PlayersList.Where(x => x.Passives.KratosIsDead && !x.IsBot()))
-        {
-            if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых"))
-            {
-                await player.DiscordStatus.SocketMessageFromBot.ModifyAsync(x =>
-                {
-                    x.Components = null;
-                    x.Embed = null;
-                    x.Content = "Тебя убили...";
-                });
-            }
+        //game.PlayersList = game.PlayersList.Where(x => !x.Passives.KratosIsDead).ToList();
 
-            await player.DiscordStatus.SocketMessageFromBot.ModifyAsync(x =>
-            {
-                x.Components = null;
-                x.Embed = null;
-                x.Content = "Тебя убили...";
-            });
-        }
-
-        game.PlayersList = game.PlayersList.Where(x => !x.Passives.KratosIsDead).ToList();
-
-        if (game.PlayersList.Count == 1)
+        if (game.PlayersList.Count(x => x.Passives.KratosIsDead && x.GameCharacter.Name != "Кратос") == 5)
         {
             game.IsKratosEvent = false;
+            game.AddGlobalLogs("Все боги были убиты, открылась коробка Пандоры, стихийные бедствия уничтожили всё живое...");
             game.PlayersList[0].Status.AddInGamePersonalLogs("By the gods, what have I become?\n");
             game.AddGlobalLogs("\nЯ умер как **Воин**, вернулся как **Бог**, а закончил **Королем Мусорной Горы**!");
         }
