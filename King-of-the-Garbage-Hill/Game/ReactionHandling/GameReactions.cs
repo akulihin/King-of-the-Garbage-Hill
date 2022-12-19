@@ -154,41 +154,8 @@ public sealed class GameReaction : IServiceSingleton
                 {
                     case "auto-move":
                         player.Status.AutoMoveTimes++;
-                        
-                        switch (player.Status.AutoMoveTimes)
-                        {
-                            case 1:
-                                await game!.Phrases.AutoMove1.SendLogSeparate(player, false, 7000);
-                                break;
-                            case 2:
-                                await game!.Phrases.AutoMove2.SendLogSeparate(player, false, 7000);
-                                break;
-                            case 3:
-                                await game!.Phrases.AutoMove3.SendLogSeparate(player, false, 7000);
-                                break;
-                            case 4:
-                                await game!.Phrases.AutoMove4.SendLogSeparate(player, false, 7000);
-                                break;
-                            case 5:
-                                await game!.Phrases.AutoMove5.SendLogSeparate(player, false, 7000);
-                                break;
-                            case 6:
-                                await game!.Phrases.AutoMove6.SendLogSeparate(player, false, 7000);
-                                break;
-                            case 7:
-                                await game!.Phrases.AutoMove7.SendLogSeparate(player, false, 7000);
-                                break;
-                            case 8:
-                                await game!.Phrases.AutoMove8.SendLogSeparate(player, false, 7000);
-                                break;
-                            case 9:
-                                await game!.Phrases.AutoMove9.SendLogSeparate(player, false, 7000);
-                                break;
-                            case 10:
-                                await game!.Phrases.AutoMove10.SendLogSeparate(player, false, 7000);
-                                break;
-                        }
-                        
+                        await game!.Phrases.AutoMove.SendLogSeparate(player, true, 7000, false);
+
                         var textAutomove = $"Ты использовал Авто Ход\n";
                         player.Status.AddInGamePersonalLogs(textAutomove);
                         player.Status.ChangeMindWhat = textAutomove;

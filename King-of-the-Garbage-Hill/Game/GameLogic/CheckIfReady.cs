@@ -77,13 +77,18 @@ public class CheckIfReady : IServiceSingleton
                 var hard = playerWhoWon.Passives.HardKittyLoneliness;
 
                 if (hard != null)
+                {
                     foreach (var enemy in game.PlayersList)
                     {
                         var hardEnemy = hard.AttackHistory.Find(x => x.EnemyId == enemy.GetPlayerId());
                         if (hardEnemy != null)
                             game.PlayersList.Find(x => x.GetPlayerId() == hardEnemy.EnemyId)!.Status.AddInGamePersonalLogs($"HarDKitty больше не одинок! Вы принесли ему {hardEnemy.Times} очков.\n");
                     }
+                }
+                break;
 
+            case "Кратос":
+                game.AddGlobalLogs("Я умер как Воин, вернулся как Бог, а закончил Королем Мусорной Горы!");
                 break;
         }
 

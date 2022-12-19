@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Characters;
@@ -144,12 +145,12 @@ public class CharacterPassives : IServiceSingleton
                 case "Много выебывается":
 
                     //first place
-                        playerIndex = playersList.IndexOf(player);
+                    playerIndex = playersList.IndexOf(player);
                     playersList[playerIndex] = playersList.First();
                     playersList[0] = player;
 
                     //x3 class for target
-                    player.GameCharacter.SetTargetSkillMultiplier(2);
+                    //player.GameCharacter.SetTargetSkillMultiplier(2);
                     break;
             }
 
@@ -437,6 +438,7 @@ public class CharacterPassives : IServiceSingleton
                 case "Охота на богов":
                     if (me.GameCharacter.GetCurrentSkillClassTarget() == target.GameCharacter.GetSkillClass())
                     {
+                        game.Phrases.KratosTarget.SendLog(me, false);
                         me.FightCharacter.SetSkillFightMultiplier(2);
                         if (game.IsKratosEvent)
                             me.FightCharacter.SetSkillFightMultiplier(4);
@@ -681,11 +683,22 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in me.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case "Много выебывается":
+                    if (me.Status.IsWonThisCalculation == target.GetPlayerId())
+                    {
+                        if (me.GameCharacter.GetCurrentSkillClassTarget() == target.GameCharacter.GetSkillClass())
+                        {
+                            me.FightCharacter.AddExtraSkill(40, "Много выебывается");
+                        }
+                    }
+                    break;
+
                 case "Возвращение из мертвых":
                     if (game.IsKratosEvent && game.RoundNo > 10)
                         if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                         {
                             game.AddGlobalLogs($"{me.GameCharacter.Name} **УБИЛ** {target.GameCharacter.Name}!");
+                            game.Phrases.KratosEventKill.SendLog(me, true, isRandomOrder:false);
                             target.FightCharacter.HandleDrop(target.DiscordUsername, game);
                             target.Passives.KratosIsDead = true;
                         }
@@ -940,8 +953,8 @@ public class CharacterPassives : IServiceSingleton
                             me.Status.AddBonusPoints(me.Status.GetScore() * 3, "Повезло");
                         }
 
-                        me.FightCharacter.AddPsyche(2* darksciUnstableMultiplier, "Повезло");
-                        me.FightCharacter.AddMoral(5* darksciUnstableMultiplier, "Повезло");
+                        me.FightCharacter.AddPsyche(2 * darksciUnstableMultiplier, "Повезло");
+                        me.FightCharacter.AddMoral(2 * darksciUnstableMultiplier, "Повезло");
                         darscsi.Triggered = true;
                         game.Phrases.DarksciLucky.SendLog(me, true);
                     }
@@ -1664,28 +1677,35 @@ public class CharacterPassives : IServiceSingleton
                     var tolya = player.Passives.TolyaRammusTimes;
                     if (tolya != null)
                     {
+                        var rammusCount = 0;
                         switch (tolya.FriendList.Count)
                         {
                             case 1:
                                 game.Phrases.TolyaRammusPhrase.SendLog(player, false);
-                                player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill();
+                                rammusCount = 1;
                                 break;
                             case 2:
                                 game.Phrases.TolyaRammus2Phrase.SendLog(player, false);
-                                player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(2);
+                                rammusCount = 2;
                                 break;
                             case 3:
                                 game.Phrases.TolyaRammus3Phrase.SendLog(player, false);
-                                player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(3);
+                                rammusCount = 3;
                                 break;
                             case 4:
                                 game.Phrases.TolyaRammus4Phrase.SendLog(player, false);
-                                player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(4);
+                                rammusCount = 4;
                                 break;
                             case 5:
                                 game.Phrases.TolyaRammus5Phrase.SendLog(player, false);
-                                player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(5);
+                                rammusCount = 5;
                                 break;
+                        }
+
+                        if (rammusCount > 0)
+                        {
+                            player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(rammusCount);
+                            player.GameCharacter.AddMoral(rammusCount * rammusCount, "Раммус мейн");
                         }
 
                         tolya.FriendList.Clear();
