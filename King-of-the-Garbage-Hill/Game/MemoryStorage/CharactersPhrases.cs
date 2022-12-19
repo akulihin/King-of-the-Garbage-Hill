@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
@@ -117,32 +119,17 @@ public class CharactersUniquePhrase
     public PhraseClass KratosEventYes;
     public PhraseClass KratosEventNo;
     public PhraseClass KratosEventFailed;
+    public PhraseClass KratosEventKill;
+    public PhraseClass KratosTarget;
 
 
     //end
-    public PhraseClass AutoMove1;
-    public PhraseClass AutoMove2;
-    public PhraseClass AutoMove3;
-    public PhraseClass AutoMove4;
-    public PhraseClass AutoMove5;
-    public PhraseClass AutoMove6;
-    public PhraseClass AutoMove7;
-    public PhraseClass AutoMove8;
-    public PhraseClass AutoMove9;
-    public PhraseClass AutoMove10;
+    public PhraseClass AutoMove;
+
 
     public CharactersUniquePhrase()
     {
-        AutoMove1 = new PhraseClass("Авто Ход");
-        AutoMove2 = new PhraseClass("Авто Ход");
-        AutoMove3 = new PhraseClass("Авто Ход");
-        AutoMove4 = new PhraseClass("Авто Ход");
-        AutoMove5 = new PhraseClass("Авто Ход");
-        AutoMove6 = new PhraseClass("Авто Ход");
-        AutoMove7 = new PhraseClass("Авто Ход");
-        AutoMove8 = new PhraseClass("Авто Ход");
-        AutoMove9 = new PhraseClass("Авто Ход");
-        AutoMove10 = new PhraseClass("Авто Ход");
+        AutoMove = new PhraseClass("Авто Ход");
 
         //add values
         FirstСommandment = new PhraseClass("Первая заповедь");
@@ -251,19 +238,21 @@ public class CharactersUniquePhrase
         KratosEventYes = new PhraseClass("Возвращение из мертвых");
         KratosEventNo = new PhraseClass("Возвращение из мертвых");
         KratosEventFailed = new PhraseClass("Возвращение из мертвых");
+        KratosEventKill = new PhraseClass("Возвращение из мертвых");
+        KratosTarget = new PhraseClass("Охота на богов");
         //end
 
         //
-        AutoMove1.PassiveLogRus.Add("Ты что, бот?");
-        AutoMove2.PassiveLogRus.Add("А ну играй сам! Я для кого игру делал?");
-        AutoMove3.PassiveLogRus.Add("Слышь, не трогай эту кнопку, она для админов");
-        AutoMove4.PassiveLogRus.Add("Сложно самому походить что ли?");
-        AutoMove5.PassiveLogRus.Add("Серьезно, уже пора показывать скилл. САМОМУ.");
-        AutoMove6.PassiveLogRus.Add("Я щас заблокирую это кнопку, если еще раз нажмешь.");
-        AutoMove7.PassiveLogRus.Add("Нет, я щас лучше тебя заблокирую. Будешь как Тигр сидеть");
-        AutoMove8.PassiveLogRus.Add("Давай-давай, игра уже щас закончится... Ну же... Ну... НУ!!! ПОХОДИ");
-        AutoMove9.PassiveLogRus.Add("ДАВАЙ, ВСЕГО ОДИН ХОД");
-        AutoMove10.PassiveLogRus.Add("Пиздец. Всю игру просидел в автоходе... Ты там вообще живой? Может ты умер?... Глеб?");
+        AutoMove.PassiveLogRus.Add("Ты что, бот?");
+        AutoMove.PassiveLogRus.Add("А ну играй сам! Я для кого игру делал?");
+        AutoMove.PassiveLogRus.Add("Слышь, не трогай эту кнопку, она для админов");
+        AutoMove.PassiveLogRus.Add("Сложно самому походить что ли?");
+        AutoMove.PassiveLogRus.Add("Серьезно, уже пора показывать скилл. САМОМУ.");
+        AutoMove.PassiveLogRus.Add("Я щас заблокирую это кнопку, если еще раз нажмешь.");
+        AutoMove.PassiveLogRus.Add("Нет, я щас лучше тебя заблокирую. Будешь как Тигр сидеть");
+        AutoMove.PassiveLogRus.Add("Давай-давай, игра уже щас закончится... Ну же... Ну... НУ!!! ПОХОДИ");
+        AutoMove.PassiveLogRus.Add("ДАВАЙ, ВСЕГО ОДИН ХОД");
+        AutoMove.PassiveLogRus.Add("Пиздец. Всю игру просидел в автоходе... Вы там вообще живой? Может вы умер?... Глеб?");
         //
 
         //add  as many phrases as you wany
@@ -671,6 +660,21 @@ public class CharactersUniquePhrase
         KratosEventNo.PassiveLogRus.Add("My vengeance ends now!");
         KratosEventFailed.PassiveLogRus.Add("AAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
+        KratosEventKill.PassiveLogRus.Add("Я вернулся из мертвых, чтобы подняться на олимп!");
+        KratosEventKill.PassiveLogRus.Add("Зевс, твой сын идет за тобой!");
+        KratosEventKill.PassiveLogRus.Add("Я не остановлюсь. Скоро атеисты окажутся правы!");
+        KratosEventKill.PassiveLogRus.Add("Еще один....");
+        KratosEventKill.PassiveLogRus.Add("Теперь останется лишь один бог! Вот и всё.");
+
+        KratosTarget.PassiveLogRus.Add("О, ебать, лутбокс Пандоры!");
+        KratosTarget.PassiveLogRus.Add("Гораздо круче Ареса");
+        KratosTarget.PassiveLogRus.Add("Ненавижу богов!");
+        KratosTarget.PassiveLogRus.Add("Сука, еще один бог");
+        KratosTarget.PassiveLogRus.Add("Куда подевали мою семью? МММ????");
+        KratosTarget.PassiveLogRus.Add("Я буду мстить");
+        KratosTarget.PassiveLogRus.Add("Ща как покажу!");
+        KratosTarget.PassiveLogRus.Add("The power to creater the power to creater the power to destroy!");
+        KratosTarget.PassiveLogRus.Add("Призрак Спарты в заброшенном доме... Буууу!");
 
         //end
     }
@@ -711,9 +715,13 @@ public class CharactersUniquePhrase
             PassiveNameEng = passiveNameEng;
         }
 
-        public void SendLog(GamePlayerBridgeClass player, bool delete, string prefix = "")
+        public void SendLog(GamePlayerBridgeClass player, bool delete, string prefix = "", bool isRandomOrder = true)
         {
             var description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
+            if (!isRandomOrder)
+            {
+                description = PassiveLogRus.First();
+            }
 
             if (delete)
             {
@@ -730,45 +738,24 @@ public class CharactersUniquePhrase
                     if (!personalLogs.Contains(description))
                         break;
                     description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
+
+                    if (!isRandomOrder)
+                    {
+                        description = PassiveLogRus.First();
+                    }
                 }
             }
 
             player.Status.AddInGamePersonalLogs($"|>Phrase<|{PassiveNameRus}: {prefix}{description}\n");
         }
 
-        public void SendLog(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, bool delete)
+        public void SendLog(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, bool delete, bool isRandomOrder = true)
         {
             var description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
-
-                if (delete)
-                {
-                    if (PassiveLogRus.Count > 1)
-                        PassiveLogRus.Remove(description);
-                }
-                else
-                {
-                    var personalLogs = player.Status.GetInGamePersonalLogs();
-                    var i = 0;
-                    while (i < 20)
-                    {
-                        i++;
-                        if (!personalLogs.Contains(description))
-                            break;
-                        description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
-                    }
-                }
-
-                description += $"{player2.DiscordUsername} - {player2.GameCharacter.Name}";
-
-
-                player.Status.AddInGamePersonalLogs($"|>Phrase<|{PassiveNameRus}: {description}\n");
-        }
-
-        public async Task SendLogSeparate(GamePlayerBridgeClass player, bool delete, int delayMs)
-        {
-            if (player.IsBot()) return;
-
-            var description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
+            if (!isRandomOrder)
+            {
+                description = PassiveLogRus.First();
+            }
             if (delete)
             {
                 if (PassiveLogRus.Count > 1)
@@ -784,6 +771,47 @@ public class CharactersUniquePhrase
                     if (!personalLogs.Contains(description))
                         break;
                     description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
+                    if (!isRandomOrder)
+                    {
+                        description = PassiveLogRus.First();
+                    }
+                }
+            }
+
+            description += $"{player2.DiscordUsername} - {player2.GameCharacter.Name}";
+
+
+            player.Status.AddInGamePersonalLogs($"|>Phrase<|{PassiveNameRus}: {description}\n");
+        }
+
+        public async Task SendLogSeparate(GamePlayerBridgeClass player, bool delete, int delayMs, bool isRandomOrder = true)
+        {
+            if (player.IsBot()) return;
+
+            var description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
+            if (!isRandomOrder)
+            {
+                description = PassiveLogRus.First();
+            }
+            if (delete)
+            {
+                if (PassiveLogRus.Count > 1)
+                    PassiveLogRus.Remove(description);
+            }
+            else
+            {
+                var personalLogs = player.Status.GetInGamePersonalLogs();
+                var i = 0;
+                while (i < 20)
+                {
+                    i++;
+                    if (!personalLogs.Contains(description))
+                        break;
+                    description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
+                    if (!isRandomOrder)
+                    {
+                        description = PassiveLogRus.First();
+                    }
                 }
             }
 
@@ -802,11 +830,15 @@ public class CharactersUniquePhrase
             }
         }
 
-        public async Task SendLogSeparateWithFile(GamePlayerBridgeClass player, bool delete, string filePath, bool clearNextRound, int delayMs)
+        public async Task SendLogSeparateWithFile(GamePlayerBridgeClass player, bool delete, string filePath, bool clearNextRound, int delayMs, bool isRandomOrder = true)
         {
             if (player.IsBot()) return;
 
             var description = PassiveLogRus[Random(0, PassiveLogRus.Count - 1)];
+            if (!isRandomOrder)
+            {
+                description = PassiveLogRus.First();
+            }
             if (delete)
             {
                 if (PassiveLogRus.Count > 1)
@@ -822,6 +854,10 @@ public class CharactersUniquePhrase
                     if (!personalLogs.Contains(description))
                         break;
                     description = PassiveLogRus[Random(0, PassiveLogRus.Count - 1)];
+                    if (!isRandomOrder)
+                    {
+                        description = PassiveLogRus.First();
+                    }
                 }
             }
 
