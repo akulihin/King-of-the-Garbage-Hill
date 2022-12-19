@@ -698,8 +698,8 @@ public class CharacterPassives : IServiceSingleton
                         if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                         {
                             game.AddGlobalLogs($"{me.GameCharacter.Name} **УБИЛ** {target.GameCharacter.Name}!");
+                            game.AddGlobalLogs($"Они скинули **{target.DiscordUsername}**! Сволочи!");
                             game.Phrases.KratosEventKill.SendLog(me, true, isRandomOrder:false);
-                            target.FightCharacter.HandleDrop(target.DiscordUsername, game);
                             target.Passives.KratosIsDead = true;
                         }
                     break;
