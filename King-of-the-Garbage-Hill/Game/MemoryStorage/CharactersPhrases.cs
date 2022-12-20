@@ -650,7 +650,7 @@ public class CharactersUniquePhrase
         WeedwickWeedYes6.PassiveLogRus.Add("SWA$$GG");
         WeedwickWeedYes6.PassiveLogRus.Add("D_O_double.G");
         WeedwickWeedYes6.PassiveLogRus.Add("420");
-        WeedwickWeedYes6.PassiveLogRus.Add("131@3$ !7");
+        WeedwickWeedYes6.PassiveLogRus.Add("81@23 !7");
 
         WeedwickWeedNo.PassiveLogRus.Add("ГДЕ МОЙ WEED СУКИ?");
         WeedwickWeedNo.PassiveLogRus.Add("ГДЕ ШО");
