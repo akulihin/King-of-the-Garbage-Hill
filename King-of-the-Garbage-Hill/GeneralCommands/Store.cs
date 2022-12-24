@@ -30,7 +30,7 @@ public class Store : ModuleBaseCustom
 
         if (account.SeenCharacters.Count == 0)
         {
-            await SendMessageAsync("Ты еще ни разу не сыграл! Магазин закрыт.");
+            await SendMessageAsync("Вы еще ни разу не сыграли. Магазин закрыт.");
             return;
         }
 

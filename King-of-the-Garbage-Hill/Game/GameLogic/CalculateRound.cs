@@ -392,22 +392,23 @@ Speed => Strength
                 if (me.GetWhoIContre() == target.GetSkillClass())
                 {
                     contrMultiplier = (decimal)1.5;
-                    weighingMachine += 2;
+
                     skillMultiplierMe = 2;
                     isContrLost -= 1;
+                    weighingMachine += 2;
                 }
 
 
                 if (target.GetWhoIContre() == me.GetSkillClass())
                 {
-                    weighingMachine -= 2;
                     skillMultiplierTarget = 2;
                     isContrLost += 1;
+                    weighingMachine -= 2;
                 }
 
 
-                var scaleMe = me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() + me.GetSkill() * skillMultiplierMe / 50;
-                var scaleTarget = target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche() + target.GetSkill() * skillMultiplierTarget / 50;
+                var scaleMe = me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() + me.GetSkill() * skillMultiplierMe / 60;
+                var scaleTarget = target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche() + target.GetSkill() * skillMultiplierTarget / 60;
                 weighingMachine += scaleMe - scaleTarget;
 
                 switch (WhoIsBetter(player.GameCharacter, playerIamAttacking.GameCharacter))
@@ -444,6 +445,8 @@ Speed => Strength
                 }
 
 
+                //tooGOOD
+                //var tooGoodDebug = weighingMachine;
                 switch (weighingMachine)
                 {
                     case >= 13:
@@ -458,33 +461,41 @@ Speed => Strength
                         break;
                 }
 
+                //1.2 = 200 * 2 / 500 * 1.5
+                var myWtf = me.GetSkill() * skillMultiplierMe / 600 * contrMultiplier;
+                //0.1 = 50 * 1 / 500
+                var targetWtf = target.GetSkill() * skillMultiplierTarget / 600;
+                // 10 * (1 + (1.2-0.1)) - 10
+                var wtf = scaleMe * (1 + (myWtf - targetWtf)) - scaleMe;
+                weighingMachine += wtf;
+
+                //tooSTONK
                 switch (weighingMachine)
                 {
-                    case >= 20:
+                    case >= 30:
                         isTooStronkMe = true;
 
                         decimal tooStronkAdd = weighingMachine / 2;
                         if (tooStronkAdd > 20)
-                        { tooStronkAdd = 20;}
+                        {
+                            tooStronkAdd = 20;
+                        }
 
                         randomForTooGood += tooStronkAdd;
                         break;
 
-                    case <= -20:
+                    case <= -30:
                         isTooStronkEnemy = true;
 
                         tooStronkAdd = weighingMachine / 2;
                         if (tooStronkAdd < -20)
-                        { tooStronkAdd = -20; }
+                        {
+                            tooStronkAdd = -20;
+                        }
 
                         randomForTooGood += tooStronkAdd;
                         break;
                 }
-
-                var myWtf = me.GetSkill() * skillMultiplierMe / 500 * contrMultiplier;
-                var targetWtf = target.GetSkill() * skillMultiplierTarget / 500;
-                var wtf = scaleMe * (1 + (myWtf - targetWtf)) - scaleMe;
-                weighingMachine += wtf;
 
 
                 weighingMachine += player.GameCharacter.Justice.GetRealJusticeNow() - playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow();

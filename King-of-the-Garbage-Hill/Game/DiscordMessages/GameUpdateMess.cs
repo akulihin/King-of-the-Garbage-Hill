@@ -9,7 +9,6 @@ using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
-using static Microsoft.Extensions.Logging.EventSource.LoggingEventSource;
 
 namespace King_of_the_Garbage_Hill.Game.DiscordMessages;
 
@@ -538,7 +537,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var separationLine = false;
         var orderedList = new List<string>
         {
-            "Ты улучшил", "|>PhraseBeforeFight<|", "Обмен Морали", "Ты использовал Авто Ход", "Ты напал на", "Ты поставил блок",  
+            "Вы улучшили", "|>PhraseBeforeFight<|", "Обмен Морали", "Вы использовали Авто Ход", "Вы напали на", "Вы поставили блок",  
             "дополнительного вреда", "TOO GOOD", "TOO STONK", "|>Phrase<|", "|>SeparationLine<|", "Поражение:", "Получено вреда:", "Победа:", "Читы",
             "Справедливость", "Класс:", "Мишень", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**"
         };
@@ -914,9 +913,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         if (player.Status.IsSkip) placeHolder = "Что-то заставило тебя скипнуть...";
 
-        if (player.Status.IsBlock) placeHolder = "Ты поставил блок!";
+        if (player.Status.IsBlock) placeHolder = "Вы поставили блок!";
 
-        if (player.Status.IsAutoMove) placeHolder = "Ты использовал Авто Ход!";
+        if (player.Status.IsAutoMove) placeHolder = "Вы использовали Авто Ход!";
 
         if (game.RoundNo > 10) placeHolder = "gg wp";
 
@@ -929,7 +928,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (player.Status.IsReady)
         {
             var target = game.PlayersList.Find(x => player.Status.WhoToAttackThisTurn.Contains(x.GetPlayerId()));
-            if (target != null) placeHolder = $"Ты напал на {target.DiscordUsername}";
+            if (target != null) placeHolder = $"Вы напали на {target.DiscordUsername}";
         }
 
         if (!player.Status.ConfirmedPredict)
@@ -985,7 +984,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (player.Status.IsReady)
         {
             var target = game.PlayersList.Find(x => player.Status.WhoToAttackThisTurn.Contains(x.GetPlayerId()));
-            if (target != null) placeHolder = $"Ты напал на {target.DiscordUsername}";
+            if (target != null) placeHolder = $"Вы напали на {target.DiscordUsername}";
         }
 
         if (!player.Status.ConfirmedPredict)

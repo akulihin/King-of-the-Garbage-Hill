@@ -156,7 +156,7 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.AutoMoveTimes++;
                         await game!.Phrases.AutoMove.SendLogSeparate(player, true, 7000, false);
 
-                        var textAutomove = $"Ты использовал Авто Ход\n";
+                        var textAutomove = $"Вы использовали Авто Ход\n";
                         player.Status.AddInGamePersonalLogs(textAutomove);
                         player.Status.ChangeMindWhat = textAutomove;
 
@@ -184,7 +184,7 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.IsBlock = false;
                         player.Status.WhoToAttackThisTurn = new List<Guid>();
 
-                        if (status.ChangeMindWhat.Contains("Ты использовал Авто Ход"))
+                        if (status.ChangeMindWhat.Contains("Вы использовали Авто Ход"))
                         {
                             player.Status.AutoMoveTimes--;
                         }
@@ -281,7 +281,7 @@ public sealed class GameReaction : IServiceSingleton
                         status.IsBlock = true;
                         status.IsReady = true;
 
-                        var text = "Ты поставил блок\n";
+                        var text = "Вы поставили блок\n";
                         status.AddInGamePersonalLogs(text);
                         status.ChangeMindWhat = text;
 
@@ -404,7 +404,7 @@ public sealed class GameReaction : IServiceSingleton
 
         if (botChoice == -10)
         {
-            var text = "Ты поставил блок\n";
+            var text = "Вы поставили блок\n";
             status.AddInGamePersonalLogs(text);
             status.ChangeMindWhat = text;
             status.IsBlock = true;
@@ -487,7 +487,7 @@ public sealed class GameReaction : IServiceSingleton
 
             status.IsReady = true;
             status.IsBlock = false;
-            var text = $"Ты напал на игрока {whoToAttack.DiscordUsername}\n";
+            var text = $"Вы напали на игрока {whoToAttack.DiscordUsername}\n";
             player.Status.AddInGamePersonalLogs(text);
             player.Status.ChangeMindWhat = text;
             return true;
@@ -534,7 +534,7 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.AddInGamePersonalLogs($"#life: Я прокачал Интеллект на {player.GameCharacter.GetIntelligence()}!\n");
                         break;
                     default:
-                        player.Status.AddInGamePersonalLogs($"Ты улучшил Интеллект до {player.GameCharacter.GetIntelligence()}\n");
+                        player.Status.AddInGamePersonalLogs($"Вы улучшили Интеллект до {player.GameCharacter.GetIntelligence()}\n");
                         break;
                 }
                 break;
@@ -554,7 +554,7 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.AddInGamePersonalLogs($"#life: Я прокачал Силу на {player.GameCharacter.GetStrength()}!\n");
                         break;
                     default:
-                        player.Status.AddInGamePersonalLogs($"Ты улучшил Силу до {player.GameCharacter.GetStrength()}\n");
+                        player.Status.AddInGamePersonalLogs($"Вы улучшили Силу до {player.GameCharacter.GetStrength()}\n");
                         break;
                 }
                 break;
@@ -575,7 +575,7 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.AddInGamePersonalLogs($"#life: Я прокачал Cкорость на {player.GameCharacter.GetSpeed()}!\n");
                         break;
                     default:
-                        player.Status.AddInGamePersonalLogs($"Ты улучшил Скорость до {player.GameCharacter.GetSpeed()}\n");
+                        player.Status.AddInGamePersonalLogs($"Вы улучшили Скорость до {player.GameCharacter.GetSpeed()}\n");
                         break;
                 }
                 break;
@@ -596,7 +596,7 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.AddInGamePersonalLogs($"#life: Я прокачал Психику на {player.GameCharacter.GetPsyche()}!\n");
                         break;
                     default:
-                        player.Status.AddInGamePersonalLogs($"Ты улучшил Психику до {player.GameCharacter.GetPsyche()}\n");
+                        player.Status.AddInGamePersonalLogs($"Вы улучшили Психику до {player.GameCharacter.GetPsyche()}\n");
                         break;
                 }
                 break;

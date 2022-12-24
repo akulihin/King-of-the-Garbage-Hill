@@ -324,7 +324,7 @@ public class AdminPanel : ModuleBaseCustom
                 player.GameCharacter.Name = character.Name;
                 player.GameCharacter.Passive = new List<Passive>();
                 player.GameCharacter.Passive = character.Passive;
-                player.Status.AddInGamePersonalLogs($"Читы: Ты стал {character.Name}\n");
+                player.Status.AddInGamePersonalLogs($"Читы: Вы стали {character.Name}\n");
                 break;
             default:
                 return;

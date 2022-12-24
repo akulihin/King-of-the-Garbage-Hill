@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
-using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 using Lamar;
 using Microsoft.Extensions.DependencyInjection;

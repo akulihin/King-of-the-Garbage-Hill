@@ -9,7 +9,6 @@ using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
-using LamarCodeGeneration.Util;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
@@ -331,7 +330,7 @@ public class CheckIfReady : IServiceSingleton
                         .Count == 1)
                 {
 #pragma warning disable CS4014
-                    playerWhoWon.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync("__**Победа! Теперь ты Король этой Мусорной Горы. Пока-что...**__");
+                    playerWhoWon.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync("__**Победа! Теперь вы Король этой Мусорной Горы. Пока-что...**__");
                     playerWhoWon.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync("https://tenor.com/bELKU.gif");
 #pragma warning restore CS4014
                 }
@@ -663,7 +662,7 @@ public class CheckIfReady : IServiceSingleton
             {
                 _logs.Warning($"\nWARN: {t.DiscordUsername} didn't do anything - Auto Move!\n");
                 t.Status.IsAutoMove = true;
-                var textAutomove = "Ты не походил. Использовался Авто Ход\n";
+                var textAutomove = "Вы не походили. Использовался Авто Ход\n";
                 t.Status.AddInGamePersonalLogs(textAutomove);
                 t.Status.ChangeMindWhat = textAutomove;
             }
@@ -673,7 +672,7 @@ public class CheckIfReady : IServiceSingleton
             {
                 _logs.Warning($"\nWARN: {t.DiscordUsername} didn't do anything - Auto LvL!\n");
                 t.Status.IsAutoMove = true;
-                var textAutomove = "Ты не походил. Использовался Авто Ход\n";
+                var textAutomove = "Вы не походили. Использовался Авто Ход\n";
                 t.Status.AddInGamePersonalLogs(textAutomove);
                 t.Status.ChangeMindWhat = textAutomove;
             }
