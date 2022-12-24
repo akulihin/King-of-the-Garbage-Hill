@@ -446,7 +446,7 @@ Speed => Strength
 
 
                 //tooGOOD
-                //var tooGoodDebug = weighingMachine;
+                var tooGoodDebug = weighingMachine;
                 switch (weighingMachine)
                 {
                     case >= 13:
@@ -466,13 +466,20 @@ Speed => Strength
                 //0.1 = 50 * 1 / 500
                 var targetWtf = target.GetSkill() * skillMultiplierTarget / 600;
                 // 10 * (1 + (1.2-0.1)) - 10
-                var wtf = scaleMe * (1 + (myWtf - targetWtf)) - scaleMe;
+                //var wtf = scaleMe * (1 + (myWtf - targetWtf)) - scaleMe;
+                //29.64 * 1.846 - 24.9 * 1.19 - 29.64 + 24.9
+                var wtf = scaleMe * (1 + myWtf) - scaleTarget * (1 + targetWtf) - scaleMe + scaleTarget;
+
                 weighingMachine += wtf;
 
                 //tooSTONK
                 switch (weighingMachine)
                 {
                     case >= 30:
+                        if (player.DiscordId == 238337696316129280)
+                        {
+                            player.Status.AddInGamePersonalLogs($"DEBUG: You tooSTONK {(int)Math.Ceiling(wtf)} (vs {player.DiscordUsername}, {player.GameCharacter.Name})\n");
+                        }
                         isTooStronkMe = true;
 
                         decimal tooStronkAdd = weighingMachine / 2;
@@ -485,6 +492,10 @@ Speed => Strength
                         break;
 
                     case <= -30:
+                        if (playerIamAttacking.DiscordId == 238337696316129280)
+                        {
+                            playerIamAttacking.Status.AddInGamePersonalLogs($"DEBUG: You tooSTONK {(int)Math.Ceiling(wtf)} (vs {player.DiscordUsername}, {player.GameCharacter.Name}) \n");
+                        }
                         isTooStronkEnemy = true;
 
                         tooStronkAdd = weighingMachine / 2;
