@@ -169,10 +169,6 @@ public class BotsBehavior : IServiceSingleton
         //прожать всю момаль
         while (bot.GameCharacter.GetMoral() >= 5)
         {
-            if (game.RoundNo > 10)
-            {
-                var error_boole = 0;
-            }
             await _gameReaction.HandleMoralForScore(bot);
         }
         //end прожать всю момаль

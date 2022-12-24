@@ -1027,7 +1027,7 @@ public class CharacterPassives : IServiceSingleton
                     else if (!game.IsKratosEvent && game.RoundNo == 10 && player.Status.IsLostThisCalculation != Guid.Empty)
                     {
                         game.IsKratosEvent = true;
-                        game.AddGlobalLogs("Бегите! На Гору Мусорной Горы идёт Кратос и его НИЧЕГО не остановит!");
+                        game.AddGlobalLogs("Бегите! На Гору Мусорной Горы идёт Кратос и его НИЧТО не остановит!");
                         foreach (var p in game.PlayersList.Where(x => !x.IsBot()))
                             await game.Phrases.KratosEventYes.SendLogSeparateWithFile(p, false, "DataBase/sound/Kratos_PLAY_ME.mp3", false, 15000);
 

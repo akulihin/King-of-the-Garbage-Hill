@@ -167,7 +167,7 @@ public class CheckIfReady : IServiceSingleton
                      where enemy!.GameCharacter.Name == predict.CharacterName
                      select player)
             {
-                player.Status.AddBonusPoints(2, "Предположение");
+                player.Status.AddBonusPoints(3, "Предположение");
             }
         // predict
 
@@ -696,8 +696,7 @@ public class CheckIfReady : IServiceSingleton
             foreach (var t in players.Where(x => x.IsBot() || x.Status.IsAutoMove))
                 try
                 {
-                    if (!game.IsKratosEvent)
-                        await _botsBehavior.HandleBotBehavior(t, game);
+                    await _botsBehavior.HandleBotBehavior(t, game);
                 }
                 catch (Exception exception)
                 {
