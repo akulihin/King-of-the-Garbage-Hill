@@ -423,7 +423,6 @@ Speed => Strength
 
                 var skillMultiplierMe = 1;
                 var skillMultiplierTarget = 1;
-
                 decimal contrMultiplier = 1;
 
                 if (me.GetWhoIContre() == target.GetSkillClass())
@@ -442,33 +441,42 @@ Speed => Strength
                     weighingMachine -= 2;
                 }
 
-                player.Status.AddFightingData($"GetWhoIContre: {me.GetWhoIContre()}");
-                player.Status.AddFightingData($"SkillClassEnemy: {target.GetSkillClass()}");
-                playerIamAttacking.Status.AddFightingData($"GetWhoIContre: {target.GetWhoIContre()}");
-                playerIamAttacking.Status.AddFightingData($"SkillClassEnemy: {me.GetSkillClass()}");
+                if (weighingMachine != 0)
+                {
+                    player.Status.AddFightingData($"GetWhoIContre: {me.GetWhoIContre()}");
+                    player.Status.AddFightingData($"SkillClassEnemy: {target.GetSkillClass()}");
+                    playerIamAttacking.Status.AddFightingData($"GetWhoIContre: {target.GetWhoIContre()}");
+                    playerIamAttacking.Status.AddFightingData($"SkillClassEnemy: {me.GetSkillClass()}");
 
-                player.Status.AddFightingData($"skillMultiplierMe: {skillMultiplierMe}");
-                player.Status.AddFightingData($"skillMultiplierEnemy: {skillMultiplierTarget}");
-                playerIamAttacking.Status.AddFightingData($"skillMultiplierMe: {skillMultiplierTarget}");
-                playerIamAttacking.Status.AddFightingData($"skillMultiplierEnemy: {skillMultiplierMe}");
-                
-                player.Status.AddFightingData($"Skill: {me.GetSkill()}");
-                player.Status.AddFightingData($"SkillEnemy: {target.GetSkill()}");
-                playerIamAttacking.Status.AddFightingData($"Skill: {target.GetSkill()}");
-                playerIamAttacking.Status.AddFightingData($"SkillEnemy: {me.GetSkill()}");
+                    player.Status.AddFightingData($"skillMultiplierMe: {skillMultiplierMe}");
+                    player.Status.AddFightingData($"skillMultiplierEnemy: {skillMultiplierTarget}");
+                    playerIamAttacking.Status.AddFightingData($"skillMultiplierMe: {skillMultiplierTarget}");
+                    playerIamAttacking.Status.AddFightingData($"skillMultiplierEnemy: {skillMultiplierMe}");
+
+                    player.Status.AddFightingData($"contrMultiplierMe: {contrMultiplier}");
+                    playerIamAttacking.Status.AddFightingData($"contrMultiplierEnemy: {contrMultiplier}");
+
+                    player.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
+                    playerIamAttacking.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
+                }
+
+                player.Status.AddFightingData($"**Skill: {me.GetSkill()}**");
+                player.Status.AddFightingData($"**SkillEnemy: {target.GetSkill()}**");
+                playerIamAttacking.Status.AddFightingData($"**Skill: {target.GetSkill()}**");
+                playerIamAttacking.Status.AddFightingData($"**SkillEnemy: {me.GetSkill()}**");
 
 
                 var scaleMe = me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() + me.GetSkill() * skillMultiplierMe / 60;
                 var scaleTarget = target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche() + target.GetSkill() * skillMultiplierTarget / 60;
                 weighingMachine += scaleMe - scaleTarget;
 
-                player.Status.AddFightingData($"scaleMe: {scaleMe}");
-                player.Status.AddFightingData($"scaleEnemy: {scaleTarget}");
-                playerIamAttacking.Status.AddFightingData($"scaleMe: {scaleTarget}");
-                playerIamAttacking.Status.AddFightingData($"scaleEnemy: {scaleMe}");
+                player.Status.AddFightingData($"scaleMe: {Math.Round(scaleMe, 2)}");
+                player.Status.AddFightingData($"scaleEnemy: {Math.Round(scaleTarget, 2)}");
+                playerIamAttacking.Status.AddFightingData($"scaleMe: {Math.Round(scaleTarget, 2)}");
+                playerIamAttacking.Status.AddFightingData($"scaleEnemy: {Math.Round(scaleMe, 2)}");
 
-                player.Status.AddFightingData($"weighingMachine: {weighingMachine}");
-                playerIamAttacking.Status.AddFightingData($"weighingMachine: {weighingMachine}");
+                player.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
+                playerIamAttacking.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
 
                 switch (WhoIsBetter(player.GameCharacter, playerIamAttacking.GameCharacter))
                 {
@@ -484,8 +492,8 @@ Speed => Strength
                         break;
                 }
 
-                player.Status.AddFightingData($"weighingMachine: {weighingMachine}");
-                playerIamAttacking.Status.AddFightingData($"weighingMachine: {weighingMachine}");
+                player.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
+                playerIamAttacking.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
 
                 var psycheDifference = me.GetPsyche() - target.GetPsyche();
                 player.Status.AddFightingData($"psycheDifference: {psycheDifference}");
@@ -512,8 +520,8 @@ Speed => Strength
                         break;
                 }
 
-                player.Status.AddFightingData($"weighingMachine: {weighingMachine}");
-                playerIamAttacking.Status.AddFightingData($"weighingMachine: {weighingMachine}");
+                player.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
+                playerIamAttacking.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
 
                 //tooGOOD
                 var tooGoodDebug = weighingMachine;
@@ -536,7 +544,7 @@ Speed => Strength
                 }
 
                 player.Status.AddFightingData($"randomForPoint: {randomForPoint}");
-                player.Status.AddFightingData($"randomForPoint: {randomForPoint}");
+                playerIamAttacking.Status.AddFightingData($"randomForPoint: {randomForPoint}");
 
                 //1.2 = 200 * 2 / 500 * 1.5
                 var myWtf = me.GetSkill() * skillMultiplierMe / 600 * contrMultiplier;
@@ -547,19 +555,19 @@ Speed => Strength
                 //29.64 * 1.846 - 24.9 * 1.19 - 29.64 + 24.9
                 var wtf = scaleMe * (1 + myWtf) - scaleTarget * (1 + targetWtf) - scaleMe + scaleTarget;
 
-                player.Status.AddFightingData($"wtfMe: {myWtf}");
-                player.Status.AddFightingData($"wtfEnemy: {targetWtf}");
-                playerIamAttacking.Status.AddFightingData($"wtfMe: {targetWtf}");
-                playerIamAttacking.Status.AddFightingData($"wtfEnemy: {myWtf}");
+                player.Status.AddFightingData($"wtfMe: {Math.Round(myWtf, 2)}");
+                player.Status.AddFightingData($"wtfEnemy: {Math.Round(targetWtf, 2)}");
+                playerIamAttacking.Status.AddFightingData($"wtfMe: {Math.Round(targetWtf, 2)}");
+                playerIamAttacking.Status.AddFightingData($"wtfEnemy: {Math.Round(myWtf, 2)}");
 
-                player.Status.AddFightingData($"wtf: {wtf}");
-                playerIamAttacking.Status.AddFightingData($"wtf: {wtf}");
+                player.Status.AddFightingData($"wtf: {Math.Round(wtf, 2)}");
+                playerIamAttacking.Status.AddFightingData($"wtf: {Math.Round(wtf, 2)}");
 
 
                 weighingMachine += wtf;
 
-                player.Status.AddFightingData($"weighingMachine: {weighingMachine}");
-                playerIamAttacking.Status.AddFightingData($"weighingMachine: {weighingMachine}");
+                player.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
+                playerIamAttacking.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
 
                 //tooSTONK
                 switch (weighingMachine)
@@ -607,8 +615,8 @@ Speed => Strength
 
                 weighingMachine += player.GameCharacter.Justice.GetRealJusticeNow() - playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow();
 
-                player.Status.AddFightingData($"weighingMachine: {weighingMachine}");
-                playerIamAttacking.Status.AddFightingData($"weighingMachine: {weighingMachine}");
+                player.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
+                playerIamAttacking.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
 
 
                 switch (weighingMachine)
