@@ -734,7 +734,7 @@ public class CheckIfReady : IServiceSingleton
             {
                 t.Status.IsBlock = true;
                 t.Status.IsReady = true;
-                var text = $"\nCRIT: {t.DiscordUsername} ({t.GameCharacter.Name}) didn't do anything  and auto move didn't as well.!\n";
+                var text = $"\nCRIT: round #{game.RoundNo} | {t.DiscordUsername} ({t.GameCharacter.Name}) didn't do anything and auto move didn't as well.!\n";
                 await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(text);
                 _logs.Critical(text);
             }

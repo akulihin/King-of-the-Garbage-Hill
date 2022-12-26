@@ -904,6 +904,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         embed.WithColor(Color.DarkGreen);
         embed.WithFooter($"{GetTimeLeft(player)}");
         //embed.WithCurrentTimestamp();
+        var extraDebug = status.GetFightingData();
         var text = $"Debug Info:\n" +
                    $"Stat: gameCharacter (fightCharacter)\n" +
                    $"\n" +
@@ -1009,16 +1010,39 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                    
                    $"\n" +
                    $"----------------" +
-
-                   $"{status.GetFightingData()}";
-
-        embed.WithDescription(text);
-
-
+                   $"{extraDebug}";
         
+
+        if (text.Length < 4090)
+        {
+            embed.WithDescription(text);
+        }
+        else
+        {
+            var split = Split(text, 4096).ToList();
+            for (var i = 0; i < split.Count; i++)
+            {
+                var t = split[i];
+                if (i == 0)
+                {
+                    embed.WithDescription(t);
+                }
+                else
+                {
+                    embed.AddField("___", t);
+                }
+            }
+        }
+
         
         embed.WithThumbnailUrl(gameCharacter.AvatarCurrent);
         return embed;
+    }
+
+    static IEnumerable<string> Split(string str, int maxChunkSize)
+    {
+        for (int i = 0; i < str.Length; i += maxChunkSize)
+            yield return str.Substring(i, Math.Min(maxChunkSize, str.Length - i));
     }
 
     public SelectMenuBuilder GetAttackMenu(GamePlayerBridgeClass player, GameClass game)
