@@ -9,6 +9,7 @@ using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
@@ -729,9 +730,14 @@ public class CheckIfReady : IServiceSingleton
 
 
             foreach (var t in players.Where(t =>
-                         t.Status.WhoToAttackThisTurn.Count == 0 && t.Status.IsBlock == false &&
-                         t.Status.IsSkip == false))
-                _logs.Critical($"\nCRIT: {t.DiscordUsername} didn't do anything  and auto move didn't as well.!\n");
+                         t.Status.WhoToAttackThisTurn.Count == 0 && t.Status.IsBlock == false && t.Status.IsSkip == false))
+            {
+                t.Status.IsBlock = true;
+                t.Status.IsReady = true;
+                var text = $"\nCRIT: {t.DiscordUsername} ({t.GameCharacter.Name}) didn't do anything  and auto move didn't as well.!\n";
+                await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(text);
+                _logs.Critical(text);
+            }
 
             //delete messages from prev round. No await.
             foreach (var player in game.PlayersList) 

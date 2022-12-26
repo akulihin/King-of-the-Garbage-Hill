@@ -573,8 +573,8 @@ Speed => Strength
                 switch (weighingMachine)
                 {
                     case >= 30:
-                        player.Status.AddFightingData($"WhoIsTooSTONK: Me");
-                        playerIamAttacking.Status.AddFightingData($"WhoIsTooSTONK: Enemy");
+                        player.Status.AddFightingData($"**WhoIsTooSTONK: Me**");
+                        playerIamAttacking.Status.AddFightingData($"**WhoIsTooSTONK: Enemy**");
                         isTooStronkMe = true;
 
                         decimal tooStronkAdd = weighingMachine / 2;
@@ -587,8 +587,8 @@ Speed => Strength
                         break;
 
                     case <= -30:
-                        player.Status.AddFightingData($"WhoIsTooSTONK: Enemy");
-                        playerIamAttacking.Status.AddFightingData($"WhoIsTooSTONK: Me");
+                        player.Status.AddFightingData($"**WhoIsTooSTONK: Enemy**");
+                        playerIamAttacking.Status.AddFightingData($"**WhoIsTooSTONK: Me**");
                         if (playerIamAttacking.DiscordId == 238337696316129280)
                         {
                             playerIamAttacking.Status.AddInGamePersonalLogs($"DEBUG: You tooSTONK {(int)Math.Ceiling(wtf)} (vs {player.DiscordUsername}, {player.GameCharacter.Name}) \n");
