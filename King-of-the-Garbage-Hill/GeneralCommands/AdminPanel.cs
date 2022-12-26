@@ -264,7 +264,7 @@ public class AdminPanel : ModuleBaseCustom
 
     [Command("SetStat")]
     [Alias("set")]
-    [Summary("cheats: Set a stat, score or round (in, sp, st, ps, js, sk, mr, sc, rn, cr) (Admin only)")]
+    [Summary("cheats: Set a stat, score or round (in, sp, st, ps, js, sk, mr, sc, rn, ch) (Admin only)")]
     public async Task SetCharacteristic(string name, int number)
     {
         if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193 && Context.User.Id != 284802743493853184)
@@ -319,12 +319,72 @@ public class AdminPanel : ModuleBaseCustom
             case "rn":
                 game.RoundNo = number;
                 break;
-            case "cr":
+            case "ch":
                 var character = _charactersPull.GetAllCharacters()[number];
                 player.GameCharacter.Name = character.Name;
                 player.GameCharacter.Passive = new List<Passive>();
                 player.GameCharacter.Passive = character.Passive;
                 player.Status.AddInGamePersonalLogs($"Читы: Вы стали {character.Name}\n");
+                break;
+            default:
+                return;
+        }
+
+
+        foreach (var t in game.PlayersList) await _upd.UpdateMessage(t);
+    }
+
+
+    [Command("SetStat")]
+    [Alias("set")]
+    [Summary("cheats: Set a Character or Passive (ch, sk, rsk) (Admin only)")]
+    public async Task SetCharacteristic(string key, [Remainder] string value)
+    {
+        if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193 && Context.User.Id != 284802743493853184)
+        {
+            await SendMessageAsync("only owners can use this command");
+            return;
+        }
+
+
+        var game = _global.GamesList.Find(
+            l => l.PlayersList.Any(x => x.DiscordId == Context.User.Id));
+
+        if (game == null) return;
+
+        var player = game.PlayersList.Find(x => x.DiscordId == Context.User.Id);
+        switch (key.ToLower())
+        {
+            case "ch":
+                var character = _charactersPull.GetAllCharacters().First(x => x.Name.ToLower() == value.ToLower());
+                player.GameCharacter.Name = character.Name;
+                player.GameCharacter.Passive = new List<Passive>();
+                player.GameCharacter.Passive = character.Passive;
+                player.Status.AddInGamePersonalLogs($"Читы: Вы стали {character.Name}\n");
+                break;
+
+            case "sk":
+                var characters = _charactersPull.GetAllCharacters();
+                foreach (var c in characters)
+                {
+                    foreach (var p in c.Passive)
+                    {
+                        if (p.PassiveName.ToLower() == value.ToLower())
+                        {
+                            player.GameCharacter.Passive.Add(p);
+                            player.Status.AddInGamePersonalLogs($"Читы: Вы себе добавили {p.PassiveName}\n");
+                        }
+                    }
+                }
+                break;
+
+            case "rsk":
+                var pass = player.GameCharacter.Passive.FirstOrDefault(x => x.PassiveName.ToLower() == value.ToLower());
+                if (pass != null)
+                {
+                    player.GameCharacter.Passive.Remove(pass);
+                    player.Status.AddInGamePersonalLogs($"Читы: Вы забрали {pass.PassiveName}\n");
+                }
                 break;
             default:
                 return;

@@ -255,10 +255,13 @@ public sealed class GameReaction : IServiceSingleton
                         break;
 
                     case "stats":
+                        player.Status.MoveListPage = player.Status.MoveListPage == 2 ? 1 : 2;
 
-                        if (player.Status.MoveListPage == 1)
-                            player.Status.MoveListPage = 2;
-                        else if (player.Status.MoveListPage == 2) player.Status.MoveListPage = 1;
+                        await _upd.UpdateMessage(player);
+                        break;
+
+                    case "debug_info":
+                        player.Status.MoveListPage = player.Status.MoveListPage == 4 ? 1 : 4;
 
                         await _upd.UpdateMessage(player);
                         break;

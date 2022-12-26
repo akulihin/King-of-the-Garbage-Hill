@@ -43,12 +43,11 @@ public class CharacterPassives : IServiceSingleton
             switch (passive.PassiveName)
             {
                 case "God Of War":
-                    player.Status.AddInGamePersonalLogs(
-                        "**Zeus! Your son has returned. I bring the destruction of Olympus!**\n");
+                    player.Status.AddInGamePersonalLogs("**Zeus! Your son has returned. I bring the destruction of Olympus!**\n");
                     break;
 
-                case "Охота на богов":
-                    player.GameCharacter.SetExtraSkillMultiplier(1);
+                case "Похищение души":
+                    player.GameCharacter.SetTargetSkillMultiplier(1);
                     break;
 
                 case "Искусство":
@@ -1027,11 +1026,11 @@ public class CharacterPassives : IServiceSingleton
                     else if (!game.IsKratosEvent && game.RoundNo == 10 && player.Status.IsLostThisCalculation != Guid.Empty)
                     {
                         game.IsKratosEvent = true;
-                        game.AddGlobalLogs("Бегите! На Гору Мусорной Горы идёт Кратос и его НИЧТО не остановит!");
+                        game.AddGlobalLogs("Бегите! На Гору Мусорной Горы идёт Кратос и НИЧТО его не остановит!");
                         foreach (var p in game.PlayersList.Where(x => !x.IsBot()))
                             await game.Phrases.KratosEventYes.SendLogSeparateWithFile(p, false, "DataBase/sound/Kratos_PLAY_ME.mp3", false, 15000);
 
-                        player.FightCharacter.SetExtraSkillMultiplier(3);
+                        player.FightCharacter.SetTargetSkillMultiplier(3);
                     }
 
                     break;

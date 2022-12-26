@@ -894,6 +894,133 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     }
 
 
+    //Page 4
+    public EmbedBuilder DebugPage(GamePlayerBridgeClass player)
+    {
+        var gameCharacter = player.GameCharacter;
+        var fightCharacter = player.FightCharacter;
+        var status = player.Status;
+        var embed = new EmbedBuilder();
+        embed.WithColor(Color.DarkGreen);
+        embed.WithFooter($"{GetTimeLeft(player)}");
+        //embed.WithCurrentTimestamp();
+        var text = $"Debug Info:\n" +
+                   $"Stat: gameCharacter (fightCharacter)\n" +
+                   $"\n" +
+
+                   $"GetIntelligence: {gameCharacter.GetIntelligence()} ({fightCharacter.GetIntelligence()})\n" +
+                   $"GetIntelligenceString: {gameCharacter.GetIntelligenceString()} ({fightCharacter.GetIntelligenceString()})\n" +
+                   $"GetIntelligenceQualityResist: {gameCharacter.GetIntelligenceQualityResist()} ({fightCharacter.GetIntelligenceQualityResist()})\n" +
+                   $"GetIntelligenceQualitySkillBonus: {gameCharacter.GetIntelligenceQualitySkillBonus()} ({fightCharacter.GetIntelligenceQualitySkillBonus()})\n" +
+
+                   $"\n" +
+
+                   $"GetStrength: {gameCharacter.GetStrength()} ({fightCharacter.GetStrength()})\n" +
+                   $"GetStrengthString: {gameCharacter.GetStrengthString()} ({fightCharacter.GetStrengthString()})\n" +
+                   $"GetStrengthQualityResist: {gameCharacter.GetStrengthQualityResist()} ({fightCharacter.GetStrengthQualityResist()})\n" +
+                   $"GetStrengthQualityDropBonus: {gameCharacter.GetStrengthQualityDropBonus()} ({fightCharacter.GetStrengthQualityDropBonus()})\n" +
+                   $"GetStrengthQualityDropTimes: {gameCharacter.GetStrengthQualityDropTimes()} ({fightCharacter.GetStrengthQualityDropTimes()})\n" +
+
+                   $"\n" +
+
+                   $"GetSpeed: {gameCharacter.GetSpeed()} ({fightCharacter.GetSpeed()})\n" +
+                   $"GetSpeedString: {gameCharacter.GetSpeedString()} ({fightCharacter.GetSpeedString()})\n" +
+                   $"GetSpeedQualityResist: {gameCharacter.GetSpeedQualityResist()} ({fightCharacter.GetSpeedQualityResist()})\n" +
+                   $"GetIsSpeedQualityKiteBonus: {gameCharacter.GetIsSpeedQualityKiteBonus()} ({fightCharacter.GetIsSpeedQualityKiteBonus()})\n" +
+                   $"GetSpeedQualityResistInt: {gameCharacter.GetSpeedQualityResistInt()} ({fightCharacter.GetSpeedQualityResistInt()})\n" +
+                   $"GetIsSpeedQualityKiteBonus: {gameCharacter.GetIsSpeedQualityKiteBonus()} ({fightCharacter.GetIsSpeedQualityKiteBonus()})\n" +
+
+                   $"\n" +
+
+                   $"GetPsyche: {gameCharacter.GetPsyche()} ({fightCharacter.GetPsyche()})\n" +
+                   $"GetPsycheString: {gameCharacter.GetPsycheString()} ({fightCharacter.GetPsycheString()})\n" +
+                   $"GetPsycheQualityResist: {gameCharacter.GetPsycheQualityResist()} ({fightCharacter.GetPsycheQualityResist()})\n" +
+
+                   $"\n" +
+
+                   $"GetRealJusticeNow: {gameCharacter.Justice.GetRealJusticeNow()} ({fightCharacter.Justice.GetRealJusticeNow()})\n" +
+                   $"GetSeenJusticeNow: {gameCharacter.Justice.GetSeenJusticeNow()} ({fightCharacter.Justice.GetSeenJusticeNow()})\n" +
+
+                   $"\n" +
+
+                   $"GetMoral: {gameCharacter.GetMoral()} ({fightCharacter.GetMoral()})\n" +
+                   $"GetMoralString: {gameCharacter.GetMoralString()} ({fightCharacter.GetMoralString()})\n" +
+                   $"GetBonusPointsFromMoral: {gameCharacter.GetBonusPointsFromMoral()} ({fightCharacter.GetBonusPointsFromMoral()})\n" +
+                   $"GetLastMoralRound: {gameCharacter.GetLastMoralRound()} ({fightCharacter.GetLastMoralRound()})\n" +
+
+                   $"\n" +
+
+                   $"GetSkill: {gameCharacter.GetSkill()} ({fightCharacter.GetSkill()})\n" +
+                   $"GetSkillMainOnly: {gameCharacter.GetSkillMainOnly()} ({fightCharacter.GetSkillMainOnly()})\n" +
+                   $"GetSkillForOneFight: {gameCharacter.GetSkillForOneFight()} ({fightCharacter.GetSkillForOneFight()})\n" +
+
+                   $"GetExtraSkillMultiplier: {gameCharacter.GetExtraSkillMultiplier()} ({fightCharacter.GetExtraSkillMultiplier()})\n" +
+                   $"GetTargetSkillMultiplier: {gameCharacter.GetTargetSkillMultiplier()} ({fightCharacter.GetTargetSkillMultiplier()})\n" +
+                   $"GetSkillFightMultiplier: {gameCharacter.GetSkillFightMultiplier()} ({fightCharacter.GetSkillFightMultiplier()})\n" +
+
+                   $"GetSkillClass: {gameCharacter.GetSkillClass()} ({fightCharacter.GetSkillClass()})\n" +
+                   $"GetSkillDisplay: {gameCharacter.GetSkillDisplay()} ({fightCharacter.GetSkillDisplay()})\n" +
+
+                   $"GetCurrentSkillClassTarget: {gameCharacter.GetCurrentSkillClassTarget()} ({fightCharacter.GetCurrentSkillClassTarget()})\n" +
+                   $"GetClassStatDisplayText: {gameCharacter.GetClassStatDisplayText()} ({fightCharacter.GetClassStatDisplayText()})\n" +
+
+                   $"GetWhoIContre: {gameCharacter.GetWhoIContre()} ({fightCharacter.GetWhoIContre()})\n" +
+
+                   $"\n" +
+
+                   $"GetWinStreak: {gameCharacter.GetWinStreak()} ({fightCharacter.GetWinStreak()})\n" +
+                   $"GetWonTimes: {gameCharacter.GetWonTimes()} ({fightCharacter.GetWonTimes()})\n" +
+
+                   $"\n" +
+
+                   $"GetScore: {status.GetScore()}\n" +
+                   $"GetPlaceAtLeaderBoard: {status.GetPlaceAtLeaderBoard()}\n" +
+                   $"GetScoresToGiveAtEndOfRound: {status.GetScoresToGiveAtEndOfRound()}\n" +
+                   $"AutoMoveTimes: {status.AutoMoveTimes}\n" +
+                   $"ChangeMindWhat: {status.ChangeMindWhat}\n" +
+                   $"IsAbleToChangeMind: {status.IsAbleToChangeMind}\n" +
+                   $"IsAbleToWin: {status.IsAbleToWin}\n" +
+                   $"IsAutoMove: {status.IsAutoMove}\n" +
+
+                   $"\n" +
+
+                   $"ConfirmedPredict: {status.ConfirmedPredict}\n" +
+                   $"ConfirmedSkip: {status.ConfirmedSkip}\n" +
+                   $"IsBlock: {status.IsBlock}\n" +
+                   $"IsReady: {status.IsReady}\n" +
+                   $"IsSkip: {status.IsSkip}\n" +
+                   $"IsArmorBreak: {status.IsArmorBreak}\n" +
+                   $"IsSkipBreak: {status.IsSkipBreak}\n" +
+
+                   $"\n" +
+
+                   $"IsIntelligenceForOneFight: {status.IsIntelligenceForOneFight}\n" +
+                   $"IsStrengthForOneFight: {status.IsStrengthForOneFight}\n" +
+                   $"IsSpeedForOneFight: {status.IsSpeedForOneFight}\n" +
+                   $"IsPsycheForOneFight: {status.IsPsycheForOneFight}\n" +
+                   $"IsJusticeForOneFight: {status.IsJusticeForOneFight}\n" +
+                   $"IsSkillForOneFight: {status.IsSkillForOneFight}\n" +
+
+                   $"\n" +
+
+                   $"LvlUpPoints: {status.LvlUpPoints}\n" +
+                   $"IsPsycheForOneFight: {status.IsPsycheForOneFight}\n" +
+                   $"RoundNumber: {status.RoundNumber}\n" +
+                   
+                   $"\n" +
+                   $"----------------" +
+
+                   $"{status.GetFightingData()}";
+
+        embed.WithDescription(text);
+
+
+        
+        
+        embed.WithThumbnailUrl(gameCharacter.AvatarCurrent);
+        return embed;
+    }
+
     public SelectMenuBuilder GetAttackMenu(GamePlayerBridgeClass player, GameClass game)
     {
         var isDisabled = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady;
@@ -1178,6 +1305,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         components.WithButton(GetAutoMoveButton(player, game));
         components.WithButton(GetChangeMindButton(player, game));
         components.WithButton(GetEndGameButton(player, game));
+        if (player.DiscordId == 238337696316129280 || player.DiscordId == 181514288278536193)
+        {
+            components.WithButton(GetAdditionalStatsButton(player, game));
+        }
 
         components.WithSelectMenu(GetAttackMenu(player, game), 1);
 
@@ -1252,6 +1383,12 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         return new ButtonBuilder("Завершить Игру", "end", ButtonStyle.Danger, isDisabled: disabled);
     }
 
+    public ButtonBuilder GetAdditionalStatsButton(GamePlayerBridgeClass player, GameClass game)
+    {
+        return new ButtonBuilder("Дебаг", "debug_info", ButtonStyle.Primary, isDisabled: false);
+    }
+
+
     public ButtonBuilder GetChangeMindButton(GamePlayerBridgeClass player, GameClass game)
     {
         if (player.GameCharacter.Name == "Dopa")
@@ -1290,7 +1427,6 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 break;
             case 2:
                 // RESERVED
-
                 /*embed = LogsPage(player);
                 builder = new ComponentBuilder();*/
                 break;
@@ -1305,7 +1441,12 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         disabled: true);
                 //end Да всё нахуй эту игру: Part #5
                 break;
+            case 4:
+                embed = DebugPage(player);
+                builder = await GetGameButtons(player, game);
+                break;
         }
+
 
         await _helperFunctions.ModifyGameMessage(player, embed, builder, extraText);
     }

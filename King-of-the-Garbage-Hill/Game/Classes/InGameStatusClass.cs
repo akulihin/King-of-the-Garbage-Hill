@@ -89,6 +89,7 @@ public class InGameStatus
     public bool IsSpeedForOneFight { get; set; } = false;
     public bool IsPsycheForOneFight { get; set; } = false;
     public bool IsJusticeForOneFight { get; set; } = false;
+    private string FightingData { get; set; } = "";
 
 
     public List<PlaceAtLeaderBoardHistoryClass> PlaceAtLeaderBoardHistory { get; set; }
@@ -263,6 +264,21 @@ public class InGameStatus
     public void SetPlaceAtLeaderBoard(int placeAtLeaderBoard)
     {
         PlaceAtLeaderBoard = placeAtLeaderBoard;
+    }
+
+    public string GetFightingData()
+    {
+        return FightingData;
+    }
+
+    public void AddFightingData(string data)
+    {
+        FightingData += $"{data}\n";
+    }
+
+    public void ResetFightingData()
+    {
+        FightingData = "";
     }
 
     public class WhoToLostPreviousRoundClass

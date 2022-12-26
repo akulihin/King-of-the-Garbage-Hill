@@ -391,6 +391,11 @@ public class CheckIfReady : IServiceSingleton
                 zbsPointsToGive = game.Teams.Find(x => x.TeamId == wonTeam)!.TeamPlayers.Contains(player.Status.PlayerId) ? 100 : 50;
             }
 
+            if (player.Passives.KratosIsDead)
+            {
+                zbsPointsToGive = 0;
+            }
+            
             account.ZbsPoints += zbsPointsToGive;
 
             var characterStatistics =
@@ -752,7 +757,9 @@ public class CheckIfReady : IServiceSingleton
             {
                 player.GameCharacter.ResetMoralBonus();
                 player.GameCharacter.ResetStrengthQualityDropTimes();
+                player.Status.ResetFightingData();
             }
+
             await _round.CalculateAllFights(game);
             foreach (var player in game.PlayersList)
             {
