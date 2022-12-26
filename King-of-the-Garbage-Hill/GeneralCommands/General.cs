@@ -108,9 +108,8 @@ public class General : ModuleBaseCustom
         //end
 
 
-        foreach (var account in players.Select(player => player != null
-                     ? _accounts.GetAccount(player.Id)
-                     : _helperFunctions.GetFreeBot(playersList)))
+        double topLaner = 1;
+        foreach (var account in players.Select(player => player != null? _accounts.GetAccount(player.Id) : _helperFunctions.GetFreeBot(playersList)))
         {
             account.IsPlaying = true;
 
@@ -162,32 +161,39 @@ public class General : ModuleBaseCustom
                 var range = GetRangeFromTier(character.Tier);
                 if (character.Tier == 4 && account.IsBot()) range *= 3;
                 if (character.Tier < 4 && account.IsBot()) continue;
-                var temp = totalPool +
-                    Convert.ToInt32(range * account.CharacterChance.Find(x => x.CharacterName == character.Name)
-                        .Multiplier) - 1;
+                if(character.Passive.Any(x => x.PassiveName == "Top Laner"))
+                {
+                    range = (int)(range * topLaner);
+                }
+                var temp = totalPool + Convert.ToInt32(range * account.CharacterChance.Find(x => x.CharacterName == character.Name).Multiplier) - 1;
                 allAvailableCharacters.Add(new DiscordAccountClass.CharacterRollClass(character.Name, totalPool, temp));
                 totalPool = temp + 1;
             }
 
             var randomIndex = _secureRandom.Random(1, totalPool - 1);
-            var rolledCharacter = allAvailableCharacters.Find(x =>
-                randomIndex >= x.CharacterRangeMin && randomIndex <= x.CharacterRangeMax);
+            var rolledCharacter = allAvailableCharacters.Find(x => randomIndex >= x.CharacterRangeMin && randomIndex <= x.CharacterRangeMax);
             var characterToAssign = allCharacters.Find(x => x.Name == rolledCharacter!.CharacterName);
+
+            if (characterToAssign.Passive.Any(x => x.PassiveName == "Top Laner"))
+            {
+                topLaner -= 0.2;
+                if(topLaner < 0)
+                    topLaner= 0;
+            }
+
 
             switch (characterToAssign.Name)
             {
                 case "LeCrisp":
                 {
                     var characterToRemove = allCharacters.Find(x => x.Name == "Толя");
-                    if (characterToRemove != null)
-                        allCharacters.Remove(characterToRemove);
+                    allCharacters.Remove(characterToRemove);
                     break;
                 }
                 case "Толя":
                 {
                     var characterToRemove = allCharacters.Find(x => x.Name == "LeCrisp");
-                    if (characterToRemove != null)
-                        allCharacters.Remove(characterToRemove);
+                    allCharacters.Remove(characterToRemove);
                     break;
                 }
             }

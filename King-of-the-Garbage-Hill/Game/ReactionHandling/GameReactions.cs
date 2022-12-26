@@ -268,12 +268,6 @@ public sealed class GameReaction : IServiceSingleton
 
 
                     case "block":
-                        if (status.MoveListPage == 3)
-                        {
-                            await _help.SendMsgAndDeleteItAfterRound(player, "Ходить нельзя, Апни лвл!", 0) ;
-                            break;
-                        }
-
                         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Спарта"))
                         {
                             await _help.SendMsgAndDeleteItAfterRound(player, "Спартанцы не капитулируют!!", 0);
@@ -407,9 +401,9 @@ public sealed class GameReaction : IServiceSingleton
 
         if (botChoice == -10)
         {
-            var text = "Вы поставили блок\n";
-            status.AddInGamePersonalLogs(text);
-            status.ChangeMindWhat = text;
+            var blockText = "Вы поставили блок\n";
+            status.AddInGamePersonalLogs(blockText);
+            status.ChangeMindWhat = blockText;
             status.IsBlock = true;
             status.IsReady = true;
             return true;
@@ -418,8 +412,7 @@ public sealed class GameReaction : IServiceSingleton
 
 
 
-        if (status.MoveListPage == 1)
-        {
+
             var game = _global.GamesList.Find(x => x.GameId == player.GameId);
             var whoToAttack = game!.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == emoteNum);
 
@@ -494,9 +487,6 @@ public sealed class GameReaction : IServiceSingleton
             player.Status.AddInGamePersonalLogs(text);
             player.Status.ChangeMindWhat = text;
             return true;
-        }
-
-        return false;
     }
 
     //for GetLvlUp ONLY!

@@ -9,7 +9,6 @@ using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
@@ -673,15 +672,6 @@ public class CheckIfReady : IServiceSingleton
                 t.Status.ChangeMindWhat = textAutomove;
             }
 
-            //If did do anything - LvL up a random stat
-            foreach (var t in players.Where(t => !t.IsBot() && t.Status.MoveListPage == 3))
-            {
-                _logs.Warning($"\nWARN: {t.DiscordUsername} didn't do anything - Auto LvL!\n");
-                t.Status.IsAutoMove = true;
-                var textAutomove = "Вы не походили. Использовался Авто Ход\n";
-                t.Status.AddInGamePersonalLogs(textAutomove);
-                t.Status.ChangeMindWhat = textAutomove;
-            }
 
             //handle bots
 

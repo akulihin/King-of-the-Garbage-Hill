@@ -36,10 +36,11 @@ public class BotsBehavior : IServiceSingleton
     public async Task HandleBotBehavior(GamePlayerBridgeClass player, GameClass game)
     {
         await HandleBotMoral(player, game);
-        if (player.Status.MoveListPage == 3) 
+
+        if (player.Status.LvlUpPoints > 0) 
             await HandleLvlUpBot(player, game);
-        if (player.Status.MoveListPage == 1) 
-            await HandleBotAttack(player, game);
+
+        await HandleBotAttack(player, game);
     }
 
     public async Task HandleBotMoralForSkill(GamePlayerBridgeClass bot, GameClass game)
@@ -1053,6 +1054,22 @@ public class BotsBehavior : IServiceSingleton
                         break;
                 }
                 //end custom enemy
+
+                //для всех ботов: если бот предположил братишку, то -1 преференс для врагов, которые рядом с братишкой по таблице. например братишка на 3м месте, значит нам нужно 3 - 1 и 3 +1 = 2 и 4. им преференс -1
+                if (bot.Predict.Any(x => x.CharacterName == "Братишка"))
+                {
+                    var shark = game.PlayersList.Find(x => x.GetPlayerId() == bot.Predict.Find(x => x.CharacterName == "Братишка").PlayerId);
+                    //6-5 = 1
+                    //3-4 = -1
+                    //5-4 = 1
+                    //1-2 = -1
+                    var placeDiff = target.PlaceAtLeaderBoard() - shark.Status.GetPlaceAtLeaderBoard();
+                    if (placeDiff == 1 || placeDiff == -1)
+                    {
+                        target.AttackPreference -= 1;
+                    }
+                }
+
             }
 
             
@@ -1393,6 +1410,15 @@ public class BotsBehavior : IServiceSingleton
                 case "mylorik":
                     isBlock = noBlock;
                     break;
+
+                case "DeepList":
+                    var deepList = bot.Passives.DeepListMadnessTriggeredWhen;
+                    if (deepList.WhenToTrigger.Contains(game.RoundNo))
+                    {
+                        isBlock = noBlock;
+                    }
+                    break;
+
                 case "Sirinoks":
                     if (game.RoundNo is 10 or 1)
                     {
