@@ -796,7 +796,7 @@ public class CheckIfReady : IServiceSingleton
                     var extraText = "";
                     if (game.RoundNo <= 10) extraText = $"Раунд #{game.RoundNo}";
 
-                    if (game.RoundNo == 8)
+                    if (game.RoundNo == 8 && game.GameMode != "Aram")
                     {
                         t.Status.ConfirmedPredict = false;
                         extraText = "Это последний раунд, когда можно сделать **предложение**!";

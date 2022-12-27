@@ -333,6 +333,10 @@ public sealed class GameReaction : IServiceSingleton
                         HandlePassiveRoll(player, 4);
                         await _upd.UpdateMessage(player);
                         break;
+                    case "aram_reroll_5":
+                        HandleBasicStatRoll(player, 5);
+                        await _upd.UpdateMessage(player);
+                        break;
                     case "aram_roll_confirm":
                         player.Status.IsAramRollConfirmed  = true;
                         await _upd.UpdateMessage(player);
@@ -359,6 +363,25 @@ public sealed class GameReaction : IServiceSingleton
 
         var newPassive = passives[_random.Random(0, passives.Count)];
         player.GameCharacter.Passive[choice - 1] = newPassive;
+    }
+
+    public void HandleBasicStatRoll(GamePlayerBridgeClass player, int choice)
+    {
+        if (player.Status.AramRerolled.Contains(choice))
+        {
+            return;
+        }
+        player.Status.AramRerolled.Add(choice);
+
+        var intelligence = _random.Random(0, 10);
+        var strength = _random.Random(0, 10);
+        var speed = _random.Random(0, 10);
+        var psyche = _random.Random(0, 10);
+
+        player.GameCharacter.SetIntelligence(intelligence, "Aram", false);
+        player.GameCharacter.SetStrength(strength, "Aram", false);
+        player.GameCharacter.SetSpeed(speed, "Aram", false);
+        player.GameCharacter.SetPsyche(psyche, "Aram", false);
     }
 
 
