@@ -29,7 +29,6 @@ public class CharacterClass
 
 
         //LINKS, not a deep copy
-        other.AvatarEvent = AvatarEvent;
         other.Status = Status;
         other.Justice = Justice;
 
@@ -90,7 +89,7 @@ public class CharacterClass
 
     public JusticeClass Justice { get; set; }
 
-    public List<AvatarEventClass> AvatarEvent = new();
+    
     public string Avatar { get; set; }
     public string AvatarCurrent { get; set; }
     public List<Passive> Passive { get; set; }
@@ -148,6 +147,19 @@ public class CharacterClass
     private int PsycheQualityMoralBonus { get; set; }
     //end bonus
 
+
+    public string GetEventAvatar(string eventName)
+    {
+     List<AvatarEventClass> avatars = new()
+     {
+         new AvatarEventClass("Спящее хуйло", "https://media.discordapp.net/attachments/895072182051430401/936794721131565137/gleb2.png" )
+     };
+     var toReturn = "https://media.discordapp.net/attachments/895072182051430401/1057322360639856680/mylorik_avatar_for_an_rpg_game_where_everything_is_being_contro_6c164991-7a21-4023-914e-345f59beb336.png";
+     var avatar = avatars.Find(x => x.EventName.ToLower() == eventName.ToLower());
+     if (avatar != null)
+         toReturn = avatar.Url;
+     return toReturn;
+    }
     public void SetStatus(InGameStatus status)
     {
         Status = status;

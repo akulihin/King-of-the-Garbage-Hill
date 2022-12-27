@@ -2343,8 +2343,7 @@ public class CharacterPassives : IServiceSingleton
 
                             player.GameCharacter.AddExtraSkill(-30, "Спящее хуйло");
 
-                            player.GameCharacter.AvatarCurrent = player.GameCharacter.AvatarEvent
-                                .Find(x => x.EventName == "Спящее хуйло").Url;
+                            player.GameCharacter.AvatarCurrent = player.GameCharacter.GetEventAvatar("Спящее хуйло");
                             game.Phrases.GlebSleepyPhrase.SendLog(player, false);
                         }
                         else
@@ -2354,8 +2353,7 @@ public class CharacterPassives : IServiceSingleton
 
                         if (game.RoundNo == 11)
                         {
-                            player.GameCharacter.AvatarCurrent =
-                                player.GameCharacter.AvatarEvent.Find(x => x.EventName == "Спящее хуйло").Url;
+                            player.GameCharacter.AvatarCurrent = player.GameCharacter.GetEventAvatar("Спящее хуйло");
                             game.Phrases.GlebSleepyPhrase.SendLog(player, false);
                         }
 

@@ -10,6 +10,7 @@ using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
+using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -25,11 +26,12 @@ public class General : ModuleBaseCustom
     private readonly HelperFunctions _helperFunctions;
     private readonly SecureRandom _secureRandom;
     private readonly GameUpdateMess _upd;
+    private readonly GameReaction _gameReaction;
 
 
     public General(UserAccounts accounts, SecureRandom secureRandom,
         HelperFunctions helperFunctions, CommandsInMemory commandsInMemory,
-        Global global, GameUpdateMess upd, CharactersPull charactersPull, CharacterPassives characterPassives)
+        Global global, GameUpdateMess upd, CharactersPull charactersPull, CharacterPassives characterPassives, GameReaction gameReaction)
     {
         _accounts = accounts;
         _secureRandom = secureRandom;
@@ -39,6 +41,7 @@ public class General : ModuleBaseCustom
         _upd = upd;
         _charactersPull = charactersPull;
         _characterPassives = characterPassives;
+        _gameReaction = gameReaction;
     }
 
 
@@ -243,10 +246,10 @@ public class General : ModuleBaseCustom
         {
             account.IsPlaying = true;
             account.CharacterPlayedLastTime = "ARAM";
-            var intelligence = _secureRandom.Random(0, 10);
-            var strength = _secureRandom.Random(0, 10);
-            var speed = _secureRandom.Random(0, 10);
-            var psyche= _secureRandom.Random(0, 10);
+            var intelligence = _gameReaction.GetRandomStat();
+            var strength = _gameReaction.GetRandomStat();
+            var speed = _gameReaction.GetRandomStat();
+            var psyche = _gameReaction.GetRandomStat();
 
             var character = new CharacterClass(intelligence, strength, speed, psyche, "ARAM", "ARAM", 0, "https://media.discordapp.net/attachments/895072182051430401/1057078633317023855/mylorik_avatar_for_an_rpg_game_where_players_are_forced_to_pick_386de9dc-62ca-491c-ae63-54324a8c95d9.png")
                 {
@@ -593,10 +596,9 @@ public class General : ModuleBaseCustom
     }
 
     [Command("aram")]
+    [Alias("ar", "a")]
     [Summary("Aram Mode")]
-    public async Task StartAramGameTeam(IUser player1 = null, IUser player2 = null, IUser player3 = null,
-        IUser player4 = null,
-        IUser player5 = null, IUser player6 = null)
+    public async Task StartAramGameTeam(IUser player1 = null, IUser player2 = null, IUser player3 = null, IUser player4 = null, IUser player5 = null, IUser player6 = null)
     {
         player1 ??= Context.User;
         await StartGame(0, player1, player2, player3, player4, player5, player6, "aram");

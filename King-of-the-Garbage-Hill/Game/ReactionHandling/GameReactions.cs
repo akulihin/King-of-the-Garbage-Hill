@@ -365,6 +365,29 @@ public sealed class GameReaction : IServiceSingleton
         player.GameCharacter.Passive[choice - 1] = newPassive;
     }
 
+
+    public int GetRandomStat()
+    {
+        var n = _random.Random(1, 100);
+
+        var statNumber = n switch
+        {
+            1 => 1,
+            2 or 3 => 2,
+            4 or 5 or 6 => 3,
+            >= 7 and <= 16 => 4,
+            >= 17 and <= 31 => 5,
+            >= 32 and <= 51 => 6,
+            >= 52 and <= 71 => 7,
+            >= 72 and <= 86 => 8,
+            >= 87 and <= 96 => 9,
+            >= 97 => 10,
+            _ => 0
+        };
+
+        return statNumber;
+    }
+
     public void HandleBasicStatRoll(GamePlayerBridgeClass player, int choice)
     {
         if (player.Status.AramRerolled.Contains(choice))
@@ -373,10 +396,10 @@ public sealed class GameReaction : IServiceSingleton
         }
         player.Status.AramRerolled.Add(choice);
 
-        var intelligence = _random.Random(0, 10);
-        var strength = _random.Random(0, 10);
-        var speed = _random.Random(0, 10);
-        var psyche = _random.Random(0, 10);
+        var intelligence = GetRandomStat();
+        var strength = GetRandomStat();
+        var speed = GetRandomStat();
+        var psyche = GetRandomStat();
 
         player.GameCharacter.SetIntelligence(intelligence, "Aram", false);
         player.GameCharacter.SetStrength(strength, "Aram", false);

@@ -260,12 +260,30 @@ public class BotsBehavior : IServiceSingleton
             //local variables
             var allTargets = game!.NanobotsList.Find(x => x.GameId == game.GameId)!.Nanobots.Where(x => x.GetPlayerId() != bot.GetPlayerId()).ToList();
 
-            if (game.RoundNo == 10) allTargets = allTargets.Where(x => x.Player.GameCharacter.Name != "Тигр").ToList();
+            if (game.RoundNo == 10)
+            {
+                foreach (var target in allTargets.ToList().Where(target => target.Player.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят")))
+                {
+                    allTargets.Remove(target);
+                }
+            }
 
             if (game.RoundNo is 9 or 10)
+            {
                 if (game.GetAllGlobalLogs().Contains("Нахуй эту игру"))
-                    allTargets = allTargets.Where(x => x.Player.GameCharacter.Name != "Darksci").ToList();
+                {
+                    foreach (var target in allTargets.ToList().Where(target => target.Player.GameCharacter.GetPsyche() <= 0 && target.Player.GameCharacter.Passive.Any(x => x.PassiveName == "Не повезло")))
+                    {
+                        allTargets.Remove(target);
+                    }
+                }
+            }
 
+            if (allTargets.Count < 4)
+            {
+                var testBoole = 0;
+            }
+            
             decimal maxRandomNumber = 0;
             var isBlock = allTargets.Count;
             var minimumRandomNumberForBlock = 1;
@@ -1547,8 +1565,11 @@ public class BotsBehavior : IServiceSingleton
             }
             else if (!isAttacked)
             {
+                var passives = bot.GameCharacter.Passive.Aggregate("(", (current, passive) => current + $"{passive.PassiveName}, ");
+                passives = passives.Remove(passives.Length - 2);
+                passives += ")";
                 await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(
-                    $"**{bot.GameCharacter.Name}** не напал ни на кого.\n" +
+                    $"**{bot.GameCharacter.Name}** {passives} не напал ни на кого.\n" +
                     $"Round: {game.RoundNo}\n");
                 await _gameReaction.HandleAttack(bot, null, -10);
             }

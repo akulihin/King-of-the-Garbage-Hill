@@ -1421,14 +1421,15 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             var isRerolled2 = player.Status.AramRerolled.Contains(2);
             var isRerolled3 = player.Status.AramRerolled.Contains(3);
             var isRerolled4 = player.Status.AramRerolled.Contains(4);
+            var isRerolled5 = player.Status.AramRerolled.Contains(5);
 
             components.WithButton(new ButtonBuilder("Reroll #1", "aram_reroll_1", ButtonStyle.Secondary, isDisabled: isRerolled1));
             components.WithButton(new ButtonBuilder("Reroll #2", "aram_reroll_2", ButtonStyle.Secondary, isDisabled: isRerolled2));
             components.WithButton(new ButtonBuilder("Reroll #3", "aram_reroll_3", ButtonStyle.Secondary, isDisabled: isRerolled3));
             components.WithButton(new ButtonBuilder("Reroll #4", "aram_reroll_4", ButtonStyle.Secondary, isDisabled: isRerolled4));
-            components.WithButton(new ButtonBuilder("Reroll Stats", "aram_reroll_5", ButtonStyle.Secondary, isDisabled: isRerolled4), row:1);
+            components.WithButton(new ButtonBuilder("Reroll Stats", "aram_reroll_5", ButtonStyle.Secondary, isDisabled: isRerolled5), row:1);
             components.WithButton(new ButtonBuilder("Confirm", "aram_roll_confirm", ButtonStyle.Success, isDisabled: false), row:2);
-            //components.WithButton(GetEndGameButton(player, game));
+            components.WithButton(GetEndGameButton(player, game), row: 2);
         }
         else
         {
