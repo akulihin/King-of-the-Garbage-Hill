@@ -51,8 +51,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public async Task ShowRulesAndChar(SocketUser user, GamePlayerBridgeClass player)
     {
-        var allCharacters = _charactersPull.GetAllCharacters();
-        var character = allCharacters.Find(x => x.Name == player.GameCharacter.Name);
+        //var allCharacters = _charactersPull.GetAllCharacters();
+        var character = player.GameCharacter;
 
 
         var intStr = "Интеллект";
@@ -98,14 +98,16 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         await user.SendMessageAsync("", false, embed.Build());
     }
 
-    public async Task WaitMess(GamePlayerBridgeClass player, List<GamePlayerBridgeClass> players)
+    public async Task WaitMess(GamePlayerBridgeClass player, GameClass game)
     {
         if (player.DiscordId <= 1000000) return;
 
         var globalAccount = _global.Client.GetUser(player.DiscordId);
 
-
-        await ShowRulesAndChar(globalAccount, player);
+        if (!game.IsAramPickPhase)
+        {
+            await ShowRulesAndChar(globalAccount, player);
+        }
 
         var mainPage = new EmbedBuilder();
         mainPage.WithAuthor(globalAccount);
@@ -758,7 +760,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         return sortedGameLogs;
     }
 
-    //Page 1
+    //Page 1 - fight
     public EmbedBuilder FightPage(GamePlayerBridgeClass player)
     {
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
@@ -855,7 +857,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         return embed;
     }
 
-    //Page 2
+    //Page 2 - logs
     /*public EmbedBuilder LogsPage(GamePlayerBridgeClass player)
    {
       var game = _global.GamesList.Find(x => x.GameId == player.GameId);
@@ -870,7 +872,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
        return embed;
 }*/
 
-    //Page 3
+    //Page 3 - lvl up
     public EmbedBuilder LvlUpPage(GamePlayerBridgeClass player)
     {
         var character = player.GameCharacter;
@@ -894,7 +896,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     }
 
 
-    //Page 4
+    //Page 4 - Debug
     public EmbedBuilder DebugPage(GamePlayerBridgeClass player)
     {
         var gameCharacter = player.GameCharacter;
@@ -1039,6 +1041,35 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         return embed;
     }
 
+    //Page 5 - Aram Choice
+    public EmbedBuilder AramPickPage(GamePlayerBridgeClass player)
+    {
+        var character = player.GameCharacter;
+        var embed = new EmbedBuilder();
+        embed.WithColor(Color.DarkGreen);
+        embed.WithTitle("ARAM Pick Stage");
+        embed.WithCurrentTimestamp();
+        embed.WithFooter($"{GetTimeLeft(player)}");
+
+
+        embed.WithDescription($"**Твой ARAM Персонаж:**\n" +
+                              $"Интеллект:{character.GetIntelligence()}\n" +
+                              $"Сила: {character.GetStrength()}\n" +
+                              $"Скорость: {character.GetSpeed()}\n" +
+                              $"Психика: {character.GetPsyche()}\n");
+
+
+        for (var i = 0; i < player.GameCharacter.Passive.Count; i++)
+        {
+            var passive = player.GameCharacter.Passive[i];
+            embed.AddField($"{i+1}. {passive.PassiveName}", passive.PassiveDescription);
+        }
+
+
+        embed.WithThumbnailUrl(character.AvatarCurrent);
+
+        return embed;
+    }
     static IEnumerable<string> Split(string str, int maxChunkSize)
     {
         for (int i = 0; i < str.Length; i += maxChunkSize)
@@ -1342,7 +1373,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             if (player.Status.ConfirmedPredict && player.Status.ConfirmedSkip)
                 components.WithButton(GetMoralToPointsButton(player, game), 2);
 
-        components.WithSelectMenu(predictMenu ?? GetPredictMenu(player, game), 3);
+        if (game.GameMode != "Aram")
+        {
+            components.WithSelectMenu(predictMenu ?? GetPredictMenu(player, game), 3);
+        }
 
 
         foreach (var passive in player.GameCharacter.Passive)
@@ -1368,6 +1402,31 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     components.WithSelectMenu(GetDopaMenu(player, game), 4);
                     break;
             }
+
+        return components;
+    }
+
+    public ComponentBuilder GetAramPickButtons(GamePlayerBridgeClass player)
+    {
+        var components = new ComponentBuilder();
+
+        if (!player.Status.IsAramRollConfirmed)
+        {
+            var isRerolled1 = player.Status.AramRerolled.Contains(1);
+            var isRerolled2 = player.Status.AramRerolled.Contains(2);
+            var isRerolled3 = player.Status.AramRerolled.Contains(3);
+            var isRerolled4 = player.Status.AramRerolled.Contains(4);
+
+            components.WithButton(new ButtonBuilder("Reroll #1", "aram_reroll_1", ButtonStyle.Secondary, isDisabled: isRerolled1));
+            components.WithButton(new ButtonBuilder("Reroll #2", "aram_reroll_2", ButtonStyle.Secondary, isDisabled: isRerolled2));
+            components.WithButton(new ButtonBuilder("Reroll #3", "aram_reroll_3", ButtonStyle.Secondary, isDisabled: isRerolled3));
+            components.WithButton(new ButtonBuilder("Reroll #4", "aram_reroll_4", ButtonStyle.Secondary, isDisabled: isRerolled4));
+            components.WithButton(new ButtonBuilder("Confirm", "aram_roll_confirm", ButtonStyle.Success, isDisabled: false));
+        }
+        else
+        {
+            components.WithButton(new ButtonBuilder("Wait for other players", "aram_roll_confirm", ButtonStyle.Success, isDisabled: true));
+        }
 
         return components;
     }
@@ -1445,15 +1504,20 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         switch (player.Status.MoveListPage)
         {
+            //fight
             case 1:
                 embed = FightPage(player);
                 builder = await GetGameButtons(player, game);
                 break;
+            
+            //logs
             case 2:
                 // RESERVED
                 /*embed = LogsPage(player);
                 builder = new ComponentBuilder();*/
                 break;
+            
+            //lvl up
             case 3:
                 embed = LvlUpPage(player);
                 builder = new ComponentBuilder().WithSelectMenu(await GetLvlUpMenu(player, game));
@@ -1465,9 +1529,17 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         disabled: true);
                 //end Да всё нахуй эту игру: Part #5
                 break;
+
+            //debug
             case 4:
                 embed = DebugPage(player);
                 builder = await GetGameButtons(player, game);
+                break;
+
+            //aram pick
+            case 5:
+                embed = AramPickPage(player);
+                builder = GetAramPickButtons(player);
                 break;
         }
 

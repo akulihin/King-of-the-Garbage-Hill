@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 using System.Timers;
 using King_of_the_Garbage_Hill.DiscordFramework;
@@ -23,6 +24,7 @@ public class CheckIfReady : IServiceSingleton
     private readonly CalculateRound _round;
     private readonly GameUpdateMess _upd;
     private readonly GameReaction _gameReaction;
+    private readonly CharacterPassives _characterPassives;
     private bool _looping;
 
 
@@ -31,7 +33,7 @@ public class CheckIfReady : IServiceSingleton
 
     public CheckIfReady(Global global, GameUpdateMess upd, CalculateRound round,
         GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, LoginFromConsole logs, UserAccounts accounts,
-        HelperFunctions help, GameReaction gameReaction)
+        HelperFunctions help, GameReaction gameReaction, CharacterPassives characterPassives)
     {
         _global = global;
         _upd = upd;
@@ -42,6 +44,7 @@ public class CheckIfReady : IServiceSingleton
         _accounts = accounts;
         _help = help;
         _gameReaction = gameReaction;
+        _characterPassives = characterPassives;
         CheckTimer();
     }
 
@@ -601,6 +604,30 @@ public class CheckIfReady : IServiceSingleton
             var players = _global.GamesList[i].PlayersList;
             var readyTargetCount = players.Count(x => !x.IsBot());
             var readyCount = 0;
+
+            //ARAM
+            if (game.IsAramPickPhase)
+            {
+                if (players.Count(x => x.Status.IsAramRollConfirmed) == 6)
+                {
+                    await _characterPassives.HandleNextRound(game);
+                    _characterPassives.HandleBotPredict(game);
+                    foreach (var player in players)
+                    {
+                        await _upd.WaitMess(player, game);
+                    }
+
+                    game.IsAramPickPhase = false;
+
+                    foreach (var player in players)
+                    {
+                        player.Status.MoveListPage = 1;
+                        await _upd.UpdateMessage(player);
+                    }
+                }
+            }
+            //end ARAM
+
 
             //Возвращение из мертвых
             if (game.IsKratosEvent)

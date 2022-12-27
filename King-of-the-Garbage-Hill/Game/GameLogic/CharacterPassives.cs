@@ -2592,6 +2592,11 @@ public class CharacterPassives : IServiceSingleton
         }
     }
 
+
+
+
+
+
     public void HandleNextRoundAfterSorting(GameClass game)
     {
         foreach (var player in game.PlayersList)

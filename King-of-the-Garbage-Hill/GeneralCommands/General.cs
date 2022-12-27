@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
@@ -205,16 +206,16 @@ public class General : ModuleBaseCustom
                     break;
             }
 
-            playersList.Add(new GamePlayerBridgeClass
-            (
-                characterToAssign,
-                new InGameStatus(),
-                account.DiscordId,
-                gameId,
-                account.DiscordUserName,
-                account.PlayerType
-            ));
-            account.CharacterPlayedLastTime = characterToAssign.Name;
+                playersList.Add(new GamePlayerBridgeClass
+                (
+                    characterToAssign,
+                    new InGameStatus(),
+                    account.DiscordId,
+                    gameId,
+                    account.DiscordUserName,
+                    account.PlayerType
+                ));
+                account.CharacterPlayedLastTime = characterToAssign.Name;
             allCharacters.Remove(characterToAssign);
         }
 
@@ -233,6 +234,56 @@ public class General : ModuleBaseCustom
         return playersList;
     }
 
+    public List<GamePlayerBridgeClass> HandleAramRoll(List<IUser> players, ulong gameId)
+    {
+        var playersList = new List<GamePlayerBridgeClass>();
+        var passives = _charactersPull.GetAllVisiblePassives();
+        
+        foreach (var account in players.Select(player => player != null ? _accounts.GetAccount(player.Id) : _helperFunctions.GetFreeBot(playersList)))
+        {
+            account.IsPlaying = true;
+            account.CharacterPlayedLastTime = "ARAM";
+            var intelligence = _secureRandom.Random(0, 10);
+            var strength = _secureRandom.Random(0, 10);
+            var speed = _secureRandom.Random(0, 10);
+            var psyche= _secureRandom.Random(0, 10);
+
+            var character = new CharacterClass(intelligence, strength, speed, psyche, "ARAM", "ARAM", 0, "https://media.discordapp.net/attachments/895072182051430401/1057078633317023855/mylorik_avatar_for_an_rpg_game_where_players_are_forced_to_pick_386de9dc-62ca-491c-ae63-54324a8c95d9.png")
+                {
+                    Passive = new List<Passive>(),
+                    Name = "ARAM",
+                    Description = "ARAM"
+                };
+
+            var repeats = new List<int>();
+            for (var i = 0; i < 4; i++)
+            {
+                var randomNumber = _secureRandom.Random(0, passives.Count-1);
+                if (repeats.Contains(randomNumber))
+                {
+                    i--;
+                    continue;
+                }
+                repeats.Add(randomNumber);
+
+                var newPassive = passives[randomNumber];
+                character.Passive.Add(newPassive);
+            }
+
+
+            playersList.Add(new GamePlayerBridgeClass
+            (
+                character,
+                new InGameStatus(),
+                account.DiscordId,
+                gameId,
+                account.DiscordUserName,
+                account.PlayerType
+            ));
+        }
+
+        return playersList;
+    }
 
     public EmbedBuilder GetStatsEmbed(DiscordAccountClass account)
     {
@@ -349,7 +400,25 @@ public class General : ModuleBaseCustom
         var gameId = _global.GetNewtGamePlayingAndId();
 
         //ролл персонажей для игры
-        var playersList = HandleCharacterRoll(players, gameId, teamCount);
+        var playersList = new List<GamePlayerBridgeClass>();
+        
+        switch (mode)
+        {
+            case "normal":
+                playersList = HandleCharacterRoll(players, gameId, teamCount);
+                break;
+            case "aram":
+                playersList = HandleAramRoll(players, gameId);
+                foreach (var player in playersList)
+                {
+                    player.Status.MoveListPage = 5;
+                }
+                foreach (var player in playersList.Where(x => x.DiscordId <= 1000000))
+                {
+                    player.Status.IsAramRollConfirmed = true;
+                }
+                break;
+        }
 
         //тасуем игроков
         playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
@@ -465,11 +534,18 @@ public class General : ModuleBaseCustom
                 }
             }
 
-        //отправить меню игры
-        foreach (var player in playersList) await _upd.WaitMess(player, playersList);
-
         //создаем игру
         var game = new GameClass(playersList, gameId, Context.User.Id) { IsCheckIfReady = false };
+        if (mode == "aram")
+        {
+            game.IsAramPickPhase = true;
+            game.TurnLengthInSecond = 600;
+            game.GameMode = "Aram";
+        }
+
+        //отправить меню игры
+        foreach (var player in playersList) await _upd.WaitMess(player, game);
+        
 
         //это нужно для ботов
         game.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
@@ -483,8 +559,11 @@ public class General : ModuleBaseCustom
 
 
         //handle round #0
-        await _characterPassives.HandleNextRound(game);
-        _characterPassives.HandleBotPredict(game);
+        if (mode == "normal")
+        {
+            await _characterPassives.HandleNextRound(game);
+            _characterPassives.HandleBotPredict(game);
+        }
 
         foreach (var player in playersList) await _upd.UpdateMessage(player);
         game.IsCheckIfReady = true;
@@ -515,12 +594,12 @@ public class General : ModuleBaseCustom
 
     [Command("aram")]
     [Summary("Aram Mode")]
-    public async Task StartAramGameTeam(int team, IUser player1 = null, IUser player2 = null, IUser player3 = null,
+    public async Task StartAramGameTeam(IUser player1 = null, IUser player2 = null, IUser player3 = null,
         IUser player4 = null,
         IUser player5 = null, IUser player6 = null)
     {
         player1 ??= Context.User;
-        await StartGame(team, player1, player2, player3, player4, player5, player6, "aram");
+        await StartGame(0, player1, player2, player3, player4, player5, player6, "aram");
     }
 
 
@@ -573,11 +652,12 @@ public class General : ModuleBaseCustom
             //выдаем место в таблице
             for (var i = 0; i < playersList.Count; i++) playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
 
-            //отправить меню игры
-            foreach (var player in playersList) await _upd.WaitMess(player, playersList);
 
             //создаем игру
             var game = new GameClass(playersList, gameId, Context.User.Id, 300, mode) { IsCheckIfReady = false };
+
+            //отправить меню игры
+            foreach (var player in playersList) await _upd.WaitMess(player, game);
 
             game.TestFightNumber = times;
 

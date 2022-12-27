@@ -7,6 +7,7 @@ using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -20,8 +21,9 @@ public sealed class GameReaction : IServiceSingleton
     private readonly LoginFromConsole _logs;
     private readonly GameUpdateMess _upd;
     private readonly SecureRandom _random;
+    private readonly CharactersPull _charactersPull;
 
-    public GameReaction(UserAccounts accounts, Global global, GameUpdateMess upd, HelperFunctions help, LoginFromConsole logs, SecureRandom random)
+    public GameReaction(UserAccounts accounts, Global global, GameUpdateMess upd, HelperFunctions help, LoginFromConsole logs, SecureRandom random, CharactersPull charactersPull)
     {
         _accounts = accounts;
         _global = global;
@@ -29,6 +31,7 @@ public sealed class GameReaction : IServiceSingleton
         _help = help;
         _logs = logs;
         _random = random;
+        _charactersPull = charactersPull;
     }
 
     public Task InitializeAsync()
@@ -313,10 +316,49 @@ public sealed class GameReaction : IServiceSingleton
                     case "predict-2":
                         await HandlePredic2(player, button);
                         break;
+
+                    case "aram_reroll_1":
+                        HandlePassiveRoll(player, 1);
+                        await _upd.UpdateMessage(player);
+                        break;
+                    case "aram_reroll_2":
+                        HandlePassiveRoll(player, 2);
+                        await _upd.UpdateMessage(player);
+                        break;
+                    case "aram_reroll_3":
+                        HandlePassiveRoll(player, 3);
+                        await _upd.UpdateMessage(player);
+                        break;
+                    case "aram_reroll_4":
+                        HandlePassiveRoll(player, 4);
+                        await _upd.UpdateMessage(player);
+                        break;
+                    case "aram_roll_confirm":
+                        player.Status.IsAramRollConfirmed  = true;
+                        await _upd.UpdateMessage(player);
+                        break;
                 }
                 
                 return;
             }
+    }
+
+    public void HandlePassiveRoll(GamePlayerBridgeClass player, int choice)
+    {
+        if (player.Status.AramRerolled.Contains(choice))
+        {
+            return;
+        }
+        player.Status.AramRerolled.Add(choice);
+
+        var passives = _charactersPull.GetAllVisiblePassives();
+        foreach (var passive in player.GameCharacter.Passive)
+        {
+            passives.Remove(passive);
+        }
+
+        var newPassive = passives[_random.Random(0, passives.Count)];
+        player.GameCharacter.Passive[choice - 1] = newPassive;
     }
 
 

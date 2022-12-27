@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
 using Newtonsoft.Json;
@@ -29,5 +30,20 @@ public class CharactersPull : IServiceSingleton
         var filePath = @"DataBase/characters.json";
         var json = File.ReadAllText(filePath);
         return JsonConvert.DeserializeObject<List<CharacterClass>>(json);
+    }
+
+    public List<Passive> GetAllVisiblePassives()
+    {
+        var filePath = @"DataBase/characters.json";
+        var json = File.ReadAllText(filePath);
+        var characters = JsonConvert.DeserializeObject<List<CharacterClass>>(json);
+        var passives = new List<Passive>();
+        
+        foreach (var character in characters)
+        {
+            passives.AddRange(character.Passive.Where(x => x.Visible));
+        }
+
+        return passives;
     }
 }

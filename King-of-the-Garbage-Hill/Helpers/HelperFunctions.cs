@@ -316,6 +316,7 @@ public sealed class HelperFunctions : IServiceSingleton
         leftUser.DiscordUsername = freeBot.DiscordUserName;
         leftUser.PlayerType = freeBot.PlayerType;
         leftUser.DiscordStatus.SocketMessageFromBot = null;
+        leftUser.Status.IsAramRollConfirmed = true;
         freeBot.IsPlaying = true;
     }
 

@@ -68,6 +68,8 @@ public class GameClass
 
     public List<BotsBehavior.NanobotClass> NanobotsList { get; set; } = new();
 
+    public bool IsAramPickPhase { get; set; }
+
 
 
 

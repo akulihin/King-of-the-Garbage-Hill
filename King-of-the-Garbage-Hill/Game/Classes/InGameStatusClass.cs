@@ -47,6 +47,8 @@ public class InGameStatus
      * 1 = main page ( your character + leaderboard)
      * 2 = Log   
      * 3 = lvlUp     (what stat to update)
+     * 4 = debug
+     * 5 = aram
      */
 
     private decimal Score { get; set; }
@@ -89,6 +91,9 @@ public class InGameStatus
     public bool IsSpeedForOneFight { get; set; } = false;
     public bool IsPsycheForOneFight { get; set; } = false;
     public bool IsJusticeForOneFight { get; set; } = false;
+
+    public List<int> AramRerolled { get; set; } = new ();
+    public bool IsAramRollConfirmed { get; set; }
     private string FightingData { get; set; } = "";
 
 

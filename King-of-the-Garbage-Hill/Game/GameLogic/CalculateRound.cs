@@ -1001,7 +1001,7 @@ Speed => Strength
         game.TimePassed.Reset();
         game.TimePassed.Start();
 
-        if(game.GameMode == "Normal")
+        if(game.GameMode is "Normal" or "Aram")
             _logs.Info($"Finished calculating game #{game.GameId} (round# {game.RoundNo - 1}). || {watch.Elapsed.TotalSeconds}s");
 
         watch.Stop();

@@ -168,12 +168,12 @@ public class AdminPanel : ModuleBaseCustom
         //выдаем место в таблице
         for (var i = 0; i < playersList.Count; i++) playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
 
-        //отправить меню игры
-        foreach (var player in playersList) await _upd.WaitMess(player, playersList);
-
         //создаем игру
         var game = new GameClass(playersList, gameId, Context.User.Id) { IsCheckIfReady = false };
-        
+
+        //отправить меню игры
+        foreach (var player in playersList) await _upd.WaitMess(player, game);
+
         //это нужно для ботов
         game.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
 
