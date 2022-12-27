@@ -612,6 +612,7 @@ public class CheckIfReady : IServiceSingleton
                 {
                     await _characterPassives.HandleNextRound(game);
                     _characterPassives.HandleBotPredict(game);
+
                     foreach (var player in players)
                     {
                         await _upd.WaitMess(player, game);

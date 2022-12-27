@@ -32,7 +32,7 @@ public class GameClass
     
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 2.9.2 Как же я заеблся 3.9.2";
+        GameVersion = "Версия: 2.9.3 ARAM";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();

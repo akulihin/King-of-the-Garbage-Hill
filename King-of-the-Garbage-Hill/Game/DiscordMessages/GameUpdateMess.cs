@@ -1357,10 +1357,15 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         var components = new ComponentBuilder();
         components.WithButton(GetBlockButton(player, game));
-        components.WithButton(GetAutoMoveButton(player, game));
+
+        if (game.GameMode != "Aram")
+        {
+            components.WithButton(GetAutoMoveButton(player, game));
+        }
+
         components.WithButton(GetChangeMindButton(player, game));
         components.WithButton(GetEndGameButton(player, game));
-        if (player.DiscordId == 238337696316129280 || player.DiscordId == 181514288278536193)
+        if (player.DiscordId is 238337696316129280 or 181514288278536193)
         {
             components.WithButton(GetAdditionalStatsButton(player, game));
         }
@@ -1406,7 +1411,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         return components;
     }
 
-    public ComponentBuilder GetAramPickButtons(GamePlayerBridgeClass player)
+    public ComponentBuilder GetAramPickButtons(GamePlayerBridgeClass player, GameClass game)
     {
         var components = new ComponentBuilder();
 
@@ -1422,10 +1427,12 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             components.WithButton(new ButtonBuilder("Reroll #3", "aram_reroll_3", ButtonStyle.Secondary, isDisabled: isRerolled3));
             components.WithButton(new ButtonBuilder("Reroll #4", "aram_reroll_4", ButtonStyle.Secondary, isDisabled: isRerolled4));
             components.WithButton(new ButtonBuilder("Confirm", "aram_roll_confirm", ButtonStyle.Success, isDisabled: false));
+            //components.WithButton(GetEndGameButton(player, game));
         }
         else
         {
             components.WithButton(new ButtonBuilder("Wait for other players", "aram_roll_confirm", ButtonStyle.Success, isDisabled: true));
+            //components.WithButton(GetEndGameButton(player, game));
         }
 
         return components;
@@ -1539,7 +1546,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             //aram pick
             case 5:
                 embed = AramPickPage(player);
-                builder = GetAramPickButtons(player);
+                builder = GetAramPickButtons(player, game);
                 break;
         }
 

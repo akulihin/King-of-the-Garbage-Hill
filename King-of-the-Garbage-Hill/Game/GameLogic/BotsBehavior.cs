@@ -118,7 +118,7 @@ public class BotsBehavior : IServiceSingleton
             }
 
             //если Осьминожка - всегда ждет 20 морали
-            if (bot.GameCharacter.Name == "Осьминожка" || bot.GameCharacter.Name == "HardKitty")
+            if (bot.GameCharacter.Name is "Осьминожка" or "HardKitty")
             {
                 return;
             }
@@ -1064,7 +1064,7 @@ public class BotsBehavior : IServiceSingleton
                     //5-4 = 1
                     //1-2 = -1
                     var placeDiff = target.PlaceAtLeaderBoard() - shark.Status.GetPlaceAtLeaderBoard();
-                    if (placeDiff == 1 || placeDiff == -1)
+                    if (placeDiff is 1 or -1)
                     {
                         target.AttackPreference -= 1;
                     }
