@@ -2091,6 +2091,13 @@ public class CharacterPassives : IServiceSingleton
             foreach (var passive in player.GameCharacter.Passive.ToList())
                 switch (passive.PassiveName)
                 {
+                    case "Коммуникация":
+                        if (game.RoundNo == 6)
+                        {
+                            game.Phrases.YongGlebCommunicationReady.SendLog(player, false);
+                        }
+                        break;
+
                     case "Следит за игрой":
                         player.Passives.YongGlebMetaClass = new List<Guid>();
                         var indexes = new List<int>();

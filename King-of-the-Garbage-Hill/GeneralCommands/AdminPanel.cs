@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Emit;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
@@ -128,7 +129,7 @@ public class AdminPanel : ModuleBaseCustom
             return;
         }
 
-        var allCharacters = _charactersPull.GetAllCharacters();
+        var allCharacters = _charactersPull.GetAllCharactersNoFilter();
 
         if (choice + 1 > allCharacters.Count)
         {
@@ -209,7 +210,7 @@ public class AdminPanel : ModuleBaseCustom
             return;
         }
 
-        var allCharacters = _charactersPull.GetAllCharacters();
+        var allCharacters = _charactersPull.GetAllCharactersNoFilter();
         var account = _accounts.GetAccount(Context.User);
 
         if (player != null) account = _accounts.GetAccount(player);
@@ -320,10 +321,19 @@ public class AdminPanel : ModuleBaseCustom
                 game.RoundNo = number;
                 break;
             case "ch":
-                var character = _charactersPull.GetAllCharacters()[number];
+                var character = _charactersPull.GetAllCharactersNoFilter()[number];
                 player.GameCharacter.Name = character.Name;
                 player.GameCharacter.Passive = new List<Passive>();
                 player.GameCharacter.Passive = character.Passive;
+                player.GameCharacter.Avatar = character.Avatar;
+                player.GameCharacter.AvatarCurrent = character.Avatar;
+                player.GameCharacter.Description = character.Description;
+                player.GameCharacter.Tier = character.Tier;
+                player.GameCharacter.SetIntelligence(character.GetIntelligence(), "Читы", false);
+                player.GameCharacter.SetStrength(character.GetStrength(), "Читы", false);
+                player.GameCharacter.SetSpeed(character.GetSpeed(), "Читы", false);
+                player.GameCharacter.SetPsyche(character.GetPsyche(), "Читы", false);
+
                 player.Status.AddInGamePersonalLogs($"Читы: Вы стали {character.Name}\n");
                 break;
             default:
@@ -356,15 +366,23 @@ public class AdminPanel : ModuleBaseCustom
         switch (key.ToLower())
         {
             case "ch":
-                var character = _charactersPull.GetAllCharacters().First(x => x.Name.ToLower() == value.ToLower());
+                var character = _charactersPull.GetAllCharactersNoFilter().First(x => x.Name.ToLower() == value.ToLower());
                 player.GameCharacter.Name = character.Name;
                 player.GameCharacter.Passive = new List<Passive>();
                 player.GameCharacter.Passive = character.Passive;
+                player.GameCharacter.Avatar = character.Avatar;
+                player.GameCharacter.AvatarCurrent = character.Avatar;
+                player.GameCharacter.Description = character.Description;
+                player.GameCharacter.Tier = character.Tier;
+                player.GameCharacter.SetIntelligence(character.GetIntelligence(), "Читы", false);
+                player.GameCharacter.SetStrength(character.GetStrength(), "Читы", false);
+                player.GameCharacter.SetSpeed(character.GetSpeed(), "Читы", false);
+                player.GameCharacter.SetPsyche(character.GetPsyche(), "Читы", false);
                 player.Status.AddInGamePersonalLogs($"Читы: Вы стали {character.Name}\n");
                 break;
 
             case "sk":
-                var characters = _charactersPull.GetAllCharacters();
+                var characters = _charactersPull.GetAllCharactersNoFilter();
                 foreach (var c in characters)
                 {
                     foreach (var p in c.Passive)

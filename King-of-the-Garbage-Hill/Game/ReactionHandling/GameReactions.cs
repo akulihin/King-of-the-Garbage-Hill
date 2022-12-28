@@ -10,6 +10,7 @@ using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
+using Lamar.IoC.Instances;
 
 namespace King_of_the_Garbage_Hill.Game.ReactionHandling;
 
@@ -136,7 +137,7 @@ public sealed class GameReaction : IServiceSingleton
         foreach (var t in _global.GamesList)
             if (t.PlayersList.Any(x =>
                     x.DiscordId == button.User.Id &&
-                    x.DiscordStatus.SocketMessageFromBot.Id == button.Message.Id))
+                    x.DiscordStatus.SocketGameMessage.Id == button.Message.Id))
             {
                 var player = _global.GetGameAccount(button.User.Id, t.PlayersList.FirstOrDefault()!.GameId);
                 
@@ -245,6 +246,37 @@ public sealed class GameReaction : IServiceSingleton
                         await _help.ModifyGameMessage(player, embed, components);
                         break;
 
+                    case "yong-gleb":
+                        var character = _charactersPull.GetAllCharactersNoFilter().First(x => x.Name == "Молодой Глеб");
+                        player.GameCharacter.Name = character.Name;
+                        player.GameCharacter.Passive = new List<Passive>();
+                        player.GameCharacter.Passive = character.Passive;
+                        player.GameCharacter.Avatar = character.Avatar;
+                        player.GameCharacter.AvatarCurrent = character.Avatar;
+                        player.GameCharacter.Description = character.Description;
+                        player.GameCharacter.Tier = character.Tier;
+                        player.GameCharacter.SetIntelligence(character.GetIntelligence(), "yong-gleb", false);
+                        player.GameCharacter.SetStrength(character.GetStrength(), "yong-gleb", false);
+                        player.GameCharacter.SetSpeed(character.GetSpeed(), "yong-gleb", false);
+                        player.GameCharacter.SetPsyche(character.GetPsyche(), "yong-gleb", false);
+
+                        //Спящее хуйло
+                        player.Status.IsSkip = false;
+                        player.Status.ConfirmedSkip = true;
+                        player.Status.IsReady = false;
+                        player.Status.WhoToAttackThisTurn = new List<Guid>();
+
+                        player.GameCharacter.AddExtraSkill(30, "Спящее хуйло", false);
+                        player.Status.ClearInGamePersonalLogs();
+                        //end Спящее хуйло
+
+                        embed = _upd.FightPage(player);
+                        components = await _upd.GetGameButtons(player, game);
+
+                        await _upd.UpdateCharacterMessage(player);
+                        await _help.ModifyGameMessage(player, embed, components);
+                        break;
+
                     case "confirm-prefict":
                         player.Status.ConfirmedPredict = true;
                         game = _global.GamesList.Find(x => x.GameId == player.GameId);
@@ -334,7 +366,7 @@ public sealed class GameReaction : IServiceSingleton
                         await _upd.UpdateMessage(player);
                         break;
                     case "aram_reroll_5":
-                        HandleBasicStatRoll(player, 5);
+                        HandleBasicStatRoll(player);
                         await _upd.UpdateMessage(player);
                         break;
                     case "aram_roll_confirm":
@@ -346,25 +378,6 @@ public sealed class GameReaction : IServiceSingleton
                 return;
             }
     }
-
-    public void HandlePassiveRoll(GamePlayerBridgeClass player, int choice)
-    {
-        if (player.Status.AramRerolled.Contains(choice))
-        {
-            return;
-        }
-        player.Status.AramRerolled.Add(choice);
-
-        var passives = _charactersPull.GetAllVisiblePassives();
-        foreach (var passive in player.GameCharacter.Passive)
-        {
-            passives.Remove(passive);
-        }
-
-        var newPassive = passives[_random.Random(0, passives.Count)];
-        player.GameCharacter.Passive[choice - 1] = newPassive;
-    }
-
 
     public int GetRandomStat()
     {
@@ -388,13 +401,33 @@ public sealed class GameReaction : IServiceSingleton
         return statNumber;
     }
 
-    public void HandleBasicStatRoll(GamePlayerBridgeClass player, int choice)
+
+    public void HandlePassiveRoll(GamePlayerBridgeClass player, int choice)
     {
-        if (player.Status.AramRerolled.Contains(choice))
+        if (player.Status.AramRerolledPassivesTimes >= 4)
         {
             return;
         }
-        player.Status.AramRerolled.Add(choice);
+        player.Status.AramRerolledPassivesTimes++;
+
+        var passives = _charactersPull.GetAllVisiblePassives();
+        foreach (var passive in player.GameCharacter.Passive)
+        {
+            passives.Remove(passive);
+        }
+
+        var newPassive = passives[_random.Random(0, passives.Count)];
+        player.GameCharacter.Passive[choice - 1] = newPassive;
+    }
+
+    public void HandleBasicStatRoll(GamePlayerBridgeClass player)
+    {
+        
+        if (player.Status.AramRerolledStatsTimes >= 1)
+        {
+            return;
+        }
+        player.Status.AramRerolledStatsTimes++;
 
         var intelligence = GetRandomStat();
         var strength = GetRandomStat();

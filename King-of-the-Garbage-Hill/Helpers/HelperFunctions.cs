@@ -224,7 +224,7 @@ public sealed class HelperFunctions : IServiceSingleton
             }
             _embedQueue.Add(player.GetPlayerId());
 
-            await player.DiscordStatus.SocketMessageFromBot.ModifyAsync(message =>
+            await player.DiscordStatus.SocketGameMessage.ModifyAsync(message =>
             {
                 message.Embed = embed.Build();
                 message.Components = components.Build();
@@ -258,7 +258,7 @@ public sealed class HelperFunctions : IServiceSingleton
             }
             _messageQueue.Add(player.GetPlayerId());
 
-            var mess2 = await player.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync(msg);
+            var mess2 = await player.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync(msg);
             player.DeleteMessages.Add(new GamePlayerBridgeClass.DeleteMessagesClass(mess2.Id, delayMs));
 
             _messageQueue.Remove(player.GetPlayerId());
@@ -285,7 +285,7 @@ public sealed class HelperFunctions : IServiceSingleton
             {
                 player.DeleteMessages.Remove(message);
 
-                var m = await player.DiscordStatus.SocketMessageFromBot.Channel.GetMessageAsync(message.MessageId);
+                var m = await player.DiscordStatus.SocketGameMessage.Channel.GetMessageAsync(message.MessageId);
                 if (message.DelayMs > 0)
                 {
                     await Task.Delay(message.DelayMs);
@@ -315,7 +315,7 @@ public sealed class HelperFunctions : IServiceSingleton
         leftUser!.DiscordId = freeBot.DiscordId;
         leftUser.DiscordUsername = freeBot.DiscordUserName;
         leftUser.PlayerType = freeBot.PlayerType;
-        leftUser.DiscordStatus.SocketMessageFromBot = null;
+        leftUser.DiscordStatus.SocketGameMessage = null;
         leftUser.Status.IsAramRollConfirmed = true;
         freeBot.IsPlaying = true;
     }

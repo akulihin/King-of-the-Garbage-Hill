@@ -29,6 +29,14 @@ public class CharactersPull : IServiceSingleton
     {
         var filePath = @"DataBase/characters.json";
         var json = File.ReadAllText(filePath);
+        var characters = JsonConvert.DeserializeObject<List<CharacterClass>>(json);
+        characters = characters.Where(x => x.Name != "Молодой Глеб").ToList();
+        return characters;
+    }
+    public List<CharacterClass> GetAllCharactersNoFilter()
+    {
+        var filePath = @"DataBase/characters.json";
+        var json = File.ReadAllText(filePath);
         return JsonConvert.DeserializeObject<List<CharacterClass>>(json);
     }
 

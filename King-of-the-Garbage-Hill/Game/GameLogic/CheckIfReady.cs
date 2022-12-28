@@ -333,8 +333,8 @@ public class CheckIfReady : IServiceSingleton
                         .Count == 1)
                 {
 #pragma warning disable CS4014
-                    playerWhoWon.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync("__**Победа! Теперь вы Король этой Мусорной Горы. Пока-что...**__");
-                    playerWhoWon.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync("https://tenor.com/bELKU.gif");
+                    playerWhoWon.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync("__**Победа! Теперь вы Король этой Мусорной Горы. Пока-что...**__");
+                    playerWhoWon.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync("https://tenor.com/bELKU.gif");
 #pragma warning restore CS4014
                 }
         }
@@ -429,7 +429,7 @@ public class CheckIfReady : IServiceSingleton
             try
             {
                 if (!player.IsBot())
-                    await player.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync(
+                    await player.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync(
                         $"Спасибо за игру!\nВы заработали **{zbsPointsToGive}** ZBS points!\n\nВы можете потратить их в магазине - `*store`\nА вы заметили? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганув его! Например `*st @Boole`");
             }
             catch (Exception exception)
@@ -615,6 +615,8 @@ public class CheckIfReady : IServiceSingleton
 
                     foreach (var player in players)
                     {
+                        await _upd.SendCharacterMessage(player);
+                        await _upd.DeleteGameMessage(player);
                         await _upd.WaitMess(player, game);
                     }
 

@@ -6,11 +6,11 @@ namespace King_of_the_Garbage_Hill.Game.Classes
     {
         public InGameDiscordStatus()
         {
-            SocketMessageFromBot = null;
-            SocketSecondaryMessageFromBot = null;
+            SocketGameMessage = null;
+            SocketCharacterMessage = null;
         }
 
-        public IUserMessage SocketMessageFromBot { get; set; }
-        public IUserMessage SocketSecondaryMessageFromBot { get; set; }
+        public IUserMessage SocketGameMessage { get; set; }
+        public IUserMessage SocketCharacterMessage { get; set; }
     }
 }

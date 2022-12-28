@@ -92,7 +92,8 @@ public class InGameStatus
     public bool IsPsycheForOneFight { get; set; } = false;
     public bool IsJusticeForOneFight { get; set; } = false;
 
-    public List<int> AramRerolled { get; set; } = new ();
+    public int AramRerolledPassivesTimes { get; set; } = 0;
+    public int AramRerolledStatsTimes { get; set; } = 0;
     public bool IsAramRollConfirmed { get; set; }
     private string FightingData { get; set; } = "";
 

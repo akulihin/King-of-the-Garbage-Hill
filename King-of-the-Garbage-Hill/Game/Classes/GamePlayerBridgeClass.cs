@@ -57,7 +57,7 @@ public class GamePlayerBridgeClass
 
     public bool IsBot()
     {
-        return PlayerType == 404 || DiscordStatus.SocketMessageFromBot == null;
+        return PlayerType == 404 || DiscordStatus.SocketGameMessage == null;
     }
 
     public void MinusPsycheLog(CharacterClass playerCharacter, GameClass game, int howMuchToRemove, string skillName)

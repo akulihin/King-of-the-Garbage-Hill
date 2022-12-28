@@ -49,7 +49,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     }
 
 
-    public async Task ShowRulesAndChar(SocketUser user, GamePlayerBridgeClass player)
+
+    public EmbedBuilder GetCharacterMessage(SocketUser user, GamePlayerBridgeClass player)
     {
         //var allCharacters = _charactersPull.GetAllCharacters();
         var character = player.GameCharacter;
@@ -94,8 +95,34 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         //if(character.Description.Length > 1)
         //    embed.WithDescription(character.Description);
 
+        return embed;
+    }
 
-        await user.SendMessageAsync("", false, embed.Build());
+    public async Task DeleteGameMessage(GamePlayerBridgeClass player)
+    {
+        if (player.DiscordId <= 1000000) return;
+        await player.DiscordStatus.SocketGameMessage.DeleteAsync();
+    }
+
+    public async Task SendCharacterMessage(GamePlayerBridgeClass player, SocketUser user = null)
+    {
+        if (player.DiscordId <= 1000000) return;
+        user ??= _global.Client.GetUser(player.DiscordId);
+        var embed = GetCharacterMessage(user, player);
+        var message = await user.SendMessageAsync("", false, embed.Build());
+        player.DiscordStatus.SocketCharacterMessage = message;
+    }
+
+    public async Task UpdateCharacterMessage(GamePlayerBridgeClass player)
+    {
+        if (player.DiscordId <= 1000000) return;
+        var user = _global.Client.GetUser(player.DiscordId);
+        var embed = GetCharacterMessage(user, player);
+        await player.DiscordStatus.SocketCharacterMessage.ModifyAsync(message =>
+        {
+            message.Embed = embed.Build();
+            message.Components = null;
+        });
     }
 
     public async Task WaitMess(GamePlayerBridgeClass player, GameClass game)
@@ -106,7 +133,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         if (!game.IsAramPickPhase)
         {
-            await ShowRulesAndChar(globalAccount, player);
+            await SendCharacterMessage(player, globalAccount);
         }
 
         var mainPage = new EmbedBuilder();
@@ -119,8 +146,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var socketMessage = await globalAccount.SendMessageAsync("", false, mainPage.Build());
         //var socketSecondaryMessage = await globalAccount.SendMessageAsync("Раунд #1");
 
-        player.DiscordStatus.SocketMessageFromBot = socketMessage;
-        //player.DiscordStatus.SocketSecondaryMessageFromBot = socketSecondaryMessage;
+        player.DiscordStatus.SocketGameMessage = socketMessage;
+        //player.DiscordStatus.SocketCharacterMessage = socketSecondaryMessage;
     }
 
     public string LeaderBoard(GamePlayerBridgeClass player)
@@ -1058,8 +1085,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var embed = new EmbedBuilder();
         embed.WithColor(Color.DarkGreen);
         embed.WithTitle("ARAM Pick Stage");
-        embed.WithCurrentTimestamp();
-        embed.WithFooter($"{GetTimeLeft(player)}");
+        embed.WithFooter($"Available Re-Rolls {(player.Status.AramRerolledPassivesTimes - 4) * -1}");
 
         var intelligence = character.GetIntelligence();
         var strength = character.GetStrength();
@@ -1442,15 +1468,20 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     if (game.RoundNo == 1 && !darksciType.Triggered)
                     {
                         components.WithButton(new ButtonBuilder("Мне никогда не везёт...", "stable-Darksci"), 4);
-                        components.WithButton(
-                            new ButtonBuilder("Мне сегодня повезёт!", "not-stable-Darksci", ButtonStyle.Danger), 4);
+                        components.WithButton(new ButtonBuilder("Мне сегодня повезёт!", "not-stable-Darksci", ButtonStyle.Danger), 4);
                         if (!darksciType.Sent)
                         {
                             darksciType.Sent = true;
                             await _helperFunctions.SendMsgAndDeleteItAfterRound(player, "Нажмешь синюю кнопку - и сказке конец. Выберешь красную - и узнаешь насколько глубока нора Даркси.", 0);
                         }
                     }
+                    break;
 
+                case "Yong Gleb":
+                    if (game.RoundNo == 1 && player.GameCharacter.Name != "Молодой Глеб")
+                    {
+                        components.WithButton(new ButtonBuilder("Вспомнить Молодость", "yong-gleb"), 4);
+                    }
                     break;
 
                 case "Dopa":
@@ -1467,24 +1498,21 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         if (!player.Status.IsAramRollConfirmed)
         {
-            var isRerolled1 = player.Status.AramRerolled.Contains(1);
-            var isRerolled2 = player.Status.AramRerolled.Contains(2);
-            var isRerolled3 = player.Status.AramRerolled.Contains(3);
-            var isRerolled4 = player.Status.AramRerolled.Contains(4);
-            var isRerolled5 = player.Status.AramRerolled.Contains(5);
+            var isDisabled = player.Status.AramRerolledPassivesTimes >= 4;
+            var isStatsDisabled = player.Status.AramRerolledStatsTimes >= 1;
 
-            components.WithButton(new ButtonBuilder("Reroll #1", "aram_reroll_1", ButtonStyle.Secondary, isDisabled: isRerolled1));
-            components.WithButton(new ButtonBuilder("Reroll #2", "aram_reroll_2", ButtonStyle.Secondary, isDisabled: isRerolled2));
-            components.WithButton(new ButtonBuilder("Reroll #3", "aram_reroll_3", ButtonStyle.Secondary, isDisabled: isRerolled3));
-            components.WithButton(new ButtonBuilder("Reroll #4", "aram_reroll_4", ButtonStyle.Secondary, isDisabled: isRerolled4));
-            components.WithButton(new ButtonBuilder("Reroll Stats", "aram_reroll_5", ButtonStyle.Secondary, isDisabled: isRerolled5), row:1);
+            components.WithButton(new ButtonBuilder("Reroll #1", "aram_reroll_1", ButtonStyle.Secondary, isDisabled: isDisabled));
+            components.WithButton(new ButtonBuilder("Reroll #2", "aram_reroll_2", ButtonStyle.Secondary, isDisabled: isDisabled));
+            components.WithButton(new ButtonBuilder("Reroll #3", "aram_reroll_3", ButtonStyle.Secondary, isDisabled: isDisabled));
+            components.WithButton(new ButtonBuilder("Reroll #4", "aram_reroll_4", ButtonStyle.Secondary, isDisabled: isDisabled));
+            components.WithButton(new ButtonBuilder("Reroll Stats", "aram_reroll_5", ButtonStyle.Secondary, isDisabled: isStatsDisabled), row:1);
             components.WithButton(new ButtonBuilder("Confirm", "aram_roll_confirm", ButtonStyle.Success, isDisabled: false), row:2);
             components.WithButton(GetEndGameButton(player, game), row: 2);
         }
         else
         {
             components.WithButton(new ButtonBuilder("Wait for other players", "aram_roll_confirm", ButtonStyle.Success, isDisabled: true));
-            //components.WithButton(GetEndGameButton(player, game));
+            components.WithButton(GetEndGameButton(player, game));
         }
 
         return components;

@@ -46,6 +46,7 @@ public class CharactersUniquePhrase
 
     public PhraseClass YongGlebIrelia;
     public PhraseClass YongGlebCommunication;
+    public PhraseClass YongGlebCommunicationReady;
     public PhraseClass YongGlebMeta;
     public PhraseClass YongGlebTea;
     public PhraseClass YongGlebTeaReady;
@@ -183,6 +184,7 @@ public class CharactersUniquePhrase
 
         YongGlebIrelia = new PhraseClass("Main Ирелия");
         YongGlebCommunication = new PhraseClass("Коммуникация");
+        YongGlebCommunicationReady = new PhraseClass("Коммуникация");
         YongGlebMeta = new PhraseClass("Следит за игрой");
         YongGlebTea = new PhraseClass("Спокойствие");
         YongGlebTeaReady = new PhraseClass("__**Спокойствие**");
@@ -490,6 +492,7 @@ public class CharactersUniquePhrase
         YongGlebIrelia.PassiveLogRus.Add("Rioti sovsem poputali y mojei malishki zabrali");
         YongGlebIrelia.PassiveLogRus.Add("Da kak tak 4alanger brat' kogday personazha");
         YongGlebCommunication.PassiveLogRus.Add("Otli4no, postavil ward. Glebka carry");
+        YongGlebCommunicationReady.PassiveLogRus.Add("__Ja kupil communication__");
         YongGlebMeta.PassiveLogRus.Add("Delajem objactivs!");
         YongGlebMeta.PassiveLogRus.Add("Igraem ot objectov pasanbI");
         YongGlebMeta.PassiveLogRus.Add("Igraem igraem");
@@ -853,7 +856,7 @@ public class CharactersUniquePhrase
                 PassiveLogRus.Remove(description);
             try
             {
-                var mess2 = await player.DiscordStatus.SocketMessageFromBot.Channel.SendMessageAsync(description);
+                var mess2 = await player.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync(description);
                 player.DeleteMessages.Add(new GamePlayerBridgeClass.DeleteMessagesClass(mess2.Id, delayMs));
             }
             catch (Exception exception)
@@ -900,7 +903,7 @@ public class CharactersUniquePhrase
             try
             {
                 //.SendFileAsync($"DataBase/sound/Kratos_PLAY_ME.mp3", "123");
-                var mess2 = await player.DiscordStatus.SocketMessageFromBot.Channel.SendFileAsync(filePath, description);
+                var mess2 = await player.DiscordStatus.SocketGameMessage.Channel.SendFileAsync(filePath, description);
                 if(clearNextRound)
                     player.DeleteMessages.Add(new GamePlayerBridgeClass.DeleteMessagesClass(mess2.Id, delayMs));
             }
