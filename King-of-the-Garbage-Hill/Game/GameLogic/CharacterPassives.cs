@@ -145,10 +145,10 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Main Ирелия":
-                    player.GameCharacter.SetIntelligence(9, "Main Ирелия", false);
-                    player.GameCharacter.SetStrength(9, "Main Ирелия", false);
-                    player.GameCharacter.SetSpeed(9, "Main Ирелия", false);
-                    player.GameCharacter.SetPsyche(9, "Main Ирелия", false);
+                    player.GameCharacter.SetIntelligence(8, "Main Ирелия", false);
+                    player.GameCharacter.SetStrength(8, "Main Ирелия", false);
+                    player.GameCharacter.SetSpeed(8, "Main Ирелия", false);
+                    player.GameCharacter.SetPsyche(8, "Main Ирелия", false);
                     break;
 
                     case "Много выебывается": 
@@ -173,12 +173,12 @@ public class CharacterPassives : IServiceSingleton
             switch (passive.PassiveName)
             {
                 case "Следит за игрой":
-                    foreach (var metaPlayer in me.Passives.YongGlebMetaClass)
+                    foreach (var metaPlayer in target.Passives.YongGlebMetaClass)
                     {
                         if (target.GetPlayerId() == metaPlayer && target.Status.IsBlock)
                         {
-                            me.Status.AddBonusPoints(1, "Следит за игрой");
-                            game.Phrases.YongGlebMeta.SendLog(me, true);
+                            target.Status.AddBonusPoints(1, "Следит за игрой");
+                            game.Phrases.YongGlebMeta.SendLog(target, true);
                         }
                     }
                     break;
@@ -2876,7 +2876,7 @@ public class CharacterPassives : IServiceSingleton
                     if (yongGleb.Cooldown <= 0)
                     {
                         yongGleb.IsReadyToUse = true;
-                        game.Phrases.GlebTeaReadyPhrase.SendLog(player, true);
+                        game.Phrases.YongGlebTeaReady.SendLog(player, true);
                     }
                     break;
 

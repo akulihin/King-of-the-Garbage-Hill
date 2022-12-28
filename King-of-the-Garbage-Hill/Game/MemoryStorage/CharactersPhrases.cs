@@ -48,6 +48,7 @@ public class CharactersUniquePhrase
     public PhraseClass YongGlebCommunication;
     public PhraseClass YongGlebMeta;
     public PhraseClass YongGlebTea;
+    public PhraseClass YongGlebTeaReady;
 
     public PhraseClass HardKittyDoebatsyaAnswerPhrase;
     public PhraseClass HardKittyDoebatsyaPhrase;
@@ -184,6 +185,7 @@ public class CharactersUniquePhrase
         YongGlebCommunication = new PhraseClass("Коммуникация");
         YongGlebMeta = new PhraseClass("Следит за игрой");
         YongGlebTea = new PhraseClass("Спокойствие");
+        YongGlebTeaReady = new PhraseClass("__**Спокойствие**");
 
         LeCrispJewPhrase = new PhraseClass("Еврей");
         LeCrispBoolingPhrase = new PhraseClass("Булинг");
@@ -502,6 +504,7 @@ public class CharactersUniquePhrase
         YongGlebTea.PassiveLogRus.Add("Poslushaj kak vodi4ka l'etsa");
         YongGlebTea.PassiveLogRus.Add("Eto moj lubimbIj 4aj is kitaja");
         YongGlebTea.PassiveLogRus.Add("4aj mne nepius privez");
+        YongGlebTeaReady.PassiveLogRus.Add("Chaj zavarilsa!__");
 
 
         LeCrispJewPhrase.PassiveLogRus.Add("Я жру деньги!");
