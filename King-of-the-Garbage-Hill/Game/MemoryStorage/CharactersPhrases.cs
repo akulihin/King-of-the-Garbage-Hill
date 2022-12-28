@@ -485,7 +485,7 @@ public class CharactersUniquePhrase
         GlebTeaReadyPhrase.PassiveLogRus.Add("Chaj zavarilsa!__");
 
 
-        YongGlebIrelia.PassiveLogRus.Add("Blja opat' mou ireliu ponerfali. Nu ni4ego, glebka otbIgraetsa");
+        YongGlebIrelia.PassiveLogRus.Add("Blja opat' mou ireliu ponerfali. Nu ni4ego, glebka otbIgraetsa.");
         YongGlebIrelia.PassiveLogRus.Add("VsmbIsle? Skolko mozno nerfat' ee? Eto zhe celbIh");
         YongGlebIrelia.PassiveLogRus.Add("Rioti sovsem poputali y mojei malishki zabrali");
         YongGlebIrelia.PassiveLogRus.Add("Da kak tak 4alanger brat' kogday personazha");

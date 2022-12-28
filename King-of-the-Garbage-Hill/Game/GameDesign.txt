@@ -842,3 +842,32 @@ _________________________________________________________________________
       }
     ]
   },
+
+
+    {
+    "Name": "Баг",
+    "Intelligence": 6,
+    "Psyche": 0,
+    "Speed": 6,
+    "Strength": 6,
+    "Avatar": "https://media.discordapp.net/attachments/895072182051430401/1057503587225321502/mylorik_avatar_for_an_RPG_game_that_looks_like_an_error_980dae7d-83c6-4db4-b47d-b9999e16c5ed.png?width=936&height=936",
+    "Passive": [
+      {
+        "PassiveDescription": "//Drops 1 point from the `placeAtTheLeaderBoard==0` player each turn starting from the second.",
+        "PassiveName": "admin"
+      },
+      {
+        "PassiveDescription": "//Sees the results of the random on each of the enemies in advance. (+ or -)",
+        "PassiveName": "mechanics"
+      },
+      {
+        "PassiveDescription": "//Discovers one random stat of each enemy every `n%2==0` turn.",
+        "PassiveName": "program code"
+      },
+      {
+        "PassiveDescription": "//Receives a random `Visible==True` passive from the last defeated enemy.",
+        "PassiveName": "balancer"
+      }
+    ],
+    "Tier": 2
+  }
