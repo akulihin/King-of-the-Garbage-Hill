@@ -913,6 +913,11 @@ Speed => Strength
         game.SkipPlayersThisRound = 0;
         game.RoundNo++;
 
+        if (game.GameMode == "aram" && game.RoundNo == 2)
+        {
+            game.TurnLengthInSecond = 300;
+        }
+
 
         await _characterPassives.HandleNextRound(game);
 
