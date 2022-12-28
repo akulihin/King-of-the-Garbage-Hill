@@ -1042,6 +1042,13 @@ public class CharacterClass
         }
         //end Привет со дна
 
+        //Спокойствие
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Спокойствие") && !isMoralPoints && howMuchToAdd < 0)
+        {
+            return;
+        }
+        //end Спокойствие
+
 
 
         if (howMuchToAdd >= 0 && isLog)

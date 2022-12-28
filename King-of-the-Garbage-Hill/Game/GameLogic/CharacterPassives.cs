@@ -138,11 +138,21 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Дерзкая школота":
                     player.GameCharacter.AddExtraSkill(100, "Дерзкая школота");
+                    player.GameCharacter.SetIntelligence(9,"Дерзкая школота", false);
+                    player.GameCharacter.SetStrength(9, "Дерзкая школота", false);
+                    player.GameCharacter.SetSpeed(9, "Дерзкая школота", false);
+                    player.GameCharacter.SetPsyche(9, "Дерзкая школота", false);
                     break;
 
-                case "Много выебывается":
+                case "Main Ирелия":
+                    player.GameCharacter.SetIntelligence(9, "Main Ирелия", false);
+                    player.GameCharacter.SetStrength(9, "Main Ирелия", false);
+                    player.GameCharacter.SetSpeed(9, "Main Ирелия", false);
+                    player.GameCharacter.SetPsyche(9, "Main Ирелия", false);
+                    break;
 
-                    //first place
+                    case "Много выебывается": 
+                        //first place
                     playerIndex = playersList.IndexOf(player);
                     playersList[playerIndex] = playersList.First();
                     playersList[0] = player;
@@ -162,6 +172,17 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in target.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case "Следит за игрой":
+                    foreach (var metaPlayer in me.Passives.YongGlebMetaClass)
+                    {
+                        if (target.GetPlayerId() == metaPlayer && target.Status.IsBlock)
+                        {
+                            me.Status.AddBonusPoints(1, "Следит за игрой");
+                            game.Phrases.YongGlebMeta.SendLog(me, true);
+                        }
+                    }
+                    break;
+
                 case "Оборотень":
                     /*
                     var myTempStrength = me.GameCharacter.GetStrength();
@@ -416,6 +437,25 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in me.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case "Следит за игрой":
+                    foreach (var metaPlayer in me.Passives.YongGlebMetaClass)
+                    {
+                        if (target.GetPlayerId() == metaPlayer)
+                        {
+                           me.Status.AddBonusPoints(1, "Следит за игрой");
+                           game.Phrases.YongGlebMeta.SendLog(me, true);
+                        }
+                    }
+                    break;
+
+                case "Коммуникация":
+                    if (game.RoundNo == 6)
+                    {
+                        game.AddGlobalLogs($"Пиквард просветил {target.GameCharacter.Name}");
+                        game.Phrases.YongGlebCommunication.SendLog(me, false);
+                    }
+                    break;
+
                 case "Сомнительная тактика":
                     var deep = me.Passives.DeepListDoubtfulTactic;
 
@@ -552,6 +592,20 @@ public class CharacterPassives : IServiceSingleton
                         game.Phrases.GlebTeaPhrase.SendLog(me, true);
                     }
 
+                    break;
+
+                case "Спокойствие":
+                    var yongGlebTea = me.Passives.YongGlebTea;
+
+                    if (yongGlebTea.IsReadyToUse && me.Status.WhoToAttackThisTurn.Count != 0)
+                    {
+                        yongGlebTea.IsReadyToUse = false;
+                        yongGlebTea.Cooldown = 3;
+
+                        target.Passives.GlebTeaTriggeredWhen = new WhenToTriggerClass(game.RoundNo + 1);
+                        me.Status.AddRegularPoints(1, "Спокойствие");
+                        game.Phrases.YongGlebTea.SendLog(me, true);
+                    }
                     break;
 
                 case "Заводить друзей":
@@ -1101,8 +1155,7 @@ public class CharacterPassives : IServiceSingleton
 
                                 if (target.GameCharacter.Name != "LeCrisp")
                                 {
-                                    target.FightCharacter.AddPsyche(howMuchToAdd, "Стёб");
-                                    target.MinusPsycheLog(game);
+                                    target.MinusPsycheLog(target.FightCharacter, game, howMuchToAdd, "Стёб");
                                 }
 
 
@@ -1165,9 +1218,8 @@ public class CharacterPassives : IServiceSingleton
                         if (rand == 1)
                         {
                             boole.Times = 0;
-                            player.FightCharacter.AddPsyche(-1, "Испанец");
                             player.FightCharacter.AddExtraSkill(10, "Испанец");
-                            player.MinusPsycheLog(game);
+                            player.MinusPsycheLog(player.FightCharacter, game, -1, "Испанец");
                             game.Phrases.MylorikSpanishPhrase.SendLog(player, false);
                         }
                         else
@@ -1177,9 +1229,8 @@ public class CharacterPassives : IServiceSingleton
                             if (boole.Times == 2)
                             {
                                 boole.Times = 0;
-                                player.FightCharacter.AddPsyche(-1, "Испанец");
                                 player.FightCharacter.AddExtraSkill(10, "Испанец");
-                                player.MinusPsycheLog(game);
+                                player.MinusPsycheLog(player.FightCharacter, game, -1, "Испанец");
                                 game.Phrases.MylorikSpanishPhrase.SendLog(player, false);
                             }
                         }
@@ -1318,8 +1369,7 @@ public class CharacterPassives : IServiceSingleton
                         }
                         else
                             game.Phrases.ThirdСommandment.SendLog(me);*/
-                        player.FightCharacter.AddPsyche(-1, "Не повезло");
-                        player.MinusPsycheLog(game);
+                        player.MinusPsycheLog(player.FightCharacter, game, -1, "Не повезло");
                         game.Phrases.DarksciNotLucky.SendLog(player, false);
                     }
 
@@ -1829,8 +1879,7 @@ public class CharacterPassives : IServiceSingleton
                         var enemyAcc = game.PlayersList.Find(x => x.GetPlayerId() == win);
 
                         enemyAcc.FightCharacter.AddIntelligence(-1, "3-0 обоссан");
-                        enemyAcc.FightCharacter.AddPsyche(-1, "3-0 обоссан");
-                        enemyAcc.MinusPsycheLog(game);
+                        enemyAcc.MinusPsycheLog(enemyAcc.FightCharacter, game, -1, "3-0 обоссан");
 
                         game.Phrases.TigrThreeZero.SendLog(player, false);
 
@@ -2042,6 +2091,23 @@ public class CharacterPassives : IServiceSingleton
             foreach (var passive in player.GameCharacter.Passive.ToList())
                 switch (passive.PassiveName)
                 {
+                    case "Следит за игрой":
+                        player.Passives.YongGlebMetaClass = new List<Guid>();
+                        var indexes = new List<int>();
+                        while (indexes.Count < 3)
+                        {
+                            var randomIndex = _rand.Random(0, 5);
+                            if(indexes.Contains(randomIndex))
+                                continue;
+                            indexes.Add(randomIndex);
+                        }
+
+                        foreach (var index in indexes)
+                        {
+                            player.Passives.YongGlebMetaClass.Add(game.PlayersList[index].GetPlayerId());
+                        }
+                        break;
+
                     case "Чернильная завеса":
                         if (game.RoundNo == 11)
                         {
@@ -2606,8 +2672,7 @@ public class CharacterPassives : IServiceSingleton
                     if (diff >= 3)
                     {
                         game.Phrases.WeedwickWeedNo.SendLog(player, false);
-                        player.GameCharacter.AddPsyche(-1, "Weed");
-                        player.MinusPsycheLog(game);
+                        player.MinusPsycheLog(player.GameCharacter, game, -1, "Weed");
                     }
 
                     break;
@@ -2802,7 +2867,17 @@ public class CharacterPassives : IServiceSingleton
                         player.Status.AddInGamePersonalLogs(
                             $"Подсчет: __Ставлю на то, что {targetTolya} получит пизды!__\n");
                     }
+                    break;
 
+                case "Спокойствие":
+                    var yongGleb = player.Passives.YongGlebTea;
+                    yongGleb.Cooldown--;
+
+                    if (yongGleb.Cooldown <= 0)
+                    {
+                        yongGleb.IsReadyToUse = true;
+                        game.Phrases.GlebTeaReadyPhrase.SendLog(player, true);
+                    }
                     break;
 
                 case "Тупорылая Акула":

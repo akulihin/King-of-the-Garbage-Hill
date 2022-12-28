@@ -42,9 +42,14 @@ public class CharactersUniquePhrase
     public PhraseClass GlebSleepyPhrase;
     public PhraseClass GlebTeaPhrase;
     public PhraseClass GlebTeaReadyPhrase;
+
+
+    public PhraseClass YongGlebIrelia;
+    public PhraseClass YongGlebCommunication;
+    public PhraseClass YongGlebMeta;
+    public PhraseClass YongGlebTea;
+
     public PhraseClass HardKittyDoebatsyaAnswerPhrase;
-
-
     public PhraseClass HardKittyDoebatsyaPhrase;
     public PhraseClass HardKittyDoebatsyaLovePhrase;
     public PhraseClass HardKittyLonelyPhrase;
@@ -174,6 +179,11 @@ public class CharactersUniquePhrase
         GlebComeBackPhrase = new PhraseClass("Я щас приду");
         GlebTeaPhrase = new PhraseClass("Я за чаем");
         GlebTeaReadyPhrase = new PhraseClass("__**Я за чаем**");
+
+        YongGlebIrelia = new PhraseClass("Main Ирелия");
+        YongGlebCommunication = new PhraseClass("Коммуникация");
+        YongGlebMeta = new PhraseClass("Следит за игрой");
+        YongGlebTea = new PhraseClass("Спокойствие");
 
         LeCrispJewPhrase = new PhraseClass("Еврей");
         LeCrispBoolingPhrase = new PhraseClass("Булинг");
@@ -473,6 +483,27 @@ public class CharactersUniquePhrase
         GlebTeaReadyPhrase.PassiveLogRus.Add("Chaj zavarilsa!__");
 
 
+        YongGlebIrelia.PassiveLogRus.Add("Blja opat' mou ireliu ponerfali. Nu ni4ego, glebka otbIgraetsa");
+        YongGlebIrelia.PassiveLogRus.Add("VsmbIsle? Skolko mozno nerfat' ee? Eto zhe celbIh");
+        YongGlebIrelia.PassiveLogRus.Add("Rioti sovsem poputali y mojei malishki zabrali");
+        YongGlebIrelia.PassiveLogRus.Add("Da kak tak 4alanger brat' kogday personazha");
+        YongGlebCommunication.PassiveLogRus.Add("Otli4no, postavil ward. Glebka carry");
+        YongGlebMeta.PassiveLogRus.Add("Delajem objactivs!");
+        YongGlebMeta.PassiveLogRus.Add("Igraem ot objectov pasanbI");
+        YongGlebMeta.PassiveLogRus.Add("Igraem igraem");
+        YongGlebMeta.PassiveLogRus.Add("4alanger sam sebja ne apnet!!!!");
+        YongGlebMeta.PassiveLogRus.Add("viigrivaetsa on objactivs");
+        YongGlebMeta.PassiveLogRus.Add("vbI medlennie, nado srazy na objecti! po pervomy cally");
+        YongGlebMeta.PassiveLogRus.Add("Ja kak Darien");
+        YongGlebMeta.PassiveLogRus.Add("Ja kak __alexich__");
+        YongGlebMeta.PassiveLogRus.Add("Ja kak **FLASH IN THE NIGHT**");
+        YongGlebTea.PassiveLogRus.Add("VbIpij 4au, yspokojsa");
+        YongGlebTea.PassiveLogRus.Add("Derji 4aj ne ynbIvai XD XD");
+        YongGlebTea.PassiveLogRus.Add("Poslushaj kak vodi4ka l'etsa");
+        YongGlebTea.PassiveLogRus.Add("Eto moj lubimbIj 4aj is kitaja");
+        YongGlebTea.PassiveLogRus.Add("4aj mne nepius privez");
+
+
         LeCrispJewPhrase.PassiveLogRus.Add("Я жру деньги!");
         LeCrispJewPhrase.PassiveLogRus.Add("Kill secure"); 
         LeCrispJewPhrase.PassiveLogRus.Add("ОЙ ВЕЙ!");
@@ -714,7 +745,7 @@ public class CharactersUniquePhrase
             PassiveNameEng = passiveNameEng;
         }
 
-        public void SendLog(GamePlayerBridgeClass player, bool delete, string prefix = "", bool isRandomOrder = true)
+        public void SendLog(GamePlayerBridgeClass player, bool delete, string prefix = "", bool isRandomOrder = true, string suffix = "")
         {
             var description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
             if (!isRandomOrder)
@@ -745,7 +776,7 @@ public class CharactersUniquePhrase
                 }
             }
 
-            player.Status.AddInGamePersonalLogs($"|>Phrase<|{PassiveNameRus}: {prefix}{description}\n");
+            player.Status.AddInGamePersonalLogs($"|>Phrase<|{PassiveNameRus}: {prefix}{description}{suffix}\n");
         }
 
         public void SendLog(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, bool delete, bool isRandomOrder = true)

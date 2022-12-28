@@ -426,7 +426,10 @@ public class General : ModuleBaseCustom
         //тасуем игроков
         playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
         playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-        playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
+        if (mode != "aram")
+        {
+            playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
+        }
 
         //выдаем место в таблице
         for (var i = 0; i < playersList.Count; i++) playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
@@ -727,7 +730,7 @@ public class General : ModuleBaseCustom
             // .WithTitle("My internal statistics")
             .WithColor(Color.DarkGreen)
             .WithCurrentTimestamp()
-            .WithFooter("Версия: 2.9.3 ARAM")
+            .WithFooter("Версия: 2.9.4 Yong Gleb")
             .WithDescription("**Циферки:**\n" +
                              $"Работает: {time.Days}д {time.Hours}ч {time.Minutes}м + {time:ss\\.fff}с\n" +
                              $"Всего команд: {_global.TotalCommandsIssued}\n" +

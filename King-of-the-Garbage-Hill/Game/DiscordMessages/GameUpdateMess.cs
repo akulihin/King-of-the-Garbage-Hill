@@ -187,16 +187,26 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         foreach (var passive in me.GameCharacter.Passive)
             switch (passive.PassiveName)
             {
+                case "Следит за игрой":
+                    foreach (var metaPlayer in me.Passives.YongGlebMetaClass)
+                    {
+                        if (other.GetPlayerId() == metaPlayer)
+                        {
+                            customString += " **META**";
+                        }
+                    }
+                    break;
+
                 case "Weedwick Pet":
                     if (other.GameCharacter.Passive.Any(x => x.PassiveName == "DeepList Pet"))
                         customString += " <:pet:1046330623498911744>";
                     break;
+
                 case "Weed":
                     if (other.GetPlayerId() == me.GetPlayerId()) break;
 
                     if (other.Passives.WeedwickWeed > 0)
                         customString += $" <:weed:1005884006866354196>: {other.Passives.WeedwickWeed}";
-
                     break;
 
                 case "Безжалостный охотник":
@@ -1051,12 +1061,46 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         embed.WithCurrentTimestamp();
         embed.WithFooter($"{GetTimeLeft(player)}");
 
+        var intelligence = character.GetIntelligence();
+        var strength = character.GetStrength();
+        var speed = character.GetSpeed();
+        var psyche = character.GetPsyche();
+
+        var realIntelligence = "";
+        var realStrength = "";
+        var realSpeed = "";
+        var realPsyche = "";
+
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
+        {
+            intelligence = 8;
+            strength = 8;
+            speed = 8;
+            psyche = 8;
+        }
+
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Дерзкая школота"))
+        {
+            intelligence = 9;
+            strength = 9;
+            speed = 9;
+            psyche = 9;
+        }
+
+        if (intelligence != character.GetIntelligence() || strength != character.GetStrength() ||
+            speed != character.GetSpeed() || psyche != character.GetPsyche())
+        {
+            realIntelligence = $" ({character.GetIntelligence()})";
+            realStrength = $" ({character.GetStrength()})";
+            realSpeed = $" ({character.GetSpeed()})";
+            realPsyche = $" ({character.GetPsyche()})";
+        }
 
         embed.WithDescription($"**Твой ARAM Персонаж:**\n" +
-                              $"Интеллект:{character.GetIntelligence()}\n" +
-                              $"Сила: {character.GetStrength()}\n" +
-                              $"Скорость: {character.GetSpeed()}\n" +
-                              $"Психика: {character.GetPsyche()}\n");
+                              $"Интеллект:{intelligence}{realIntelligence}\n" +
+                              $"Сила: {strength}{realStrength}\n" +
+                              $"Скорость: {speed}{realSpeed}\n" +
+                              $"Психика: {psyche}{realPsyche}\n");
 
 
         for (var i = 0; i < player.GameCharacter.Passive.Count; i++)
@@ -1246,10 +1290,16 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var placeholderText = "Выбор прокачки";
         if (player.GameCharacter.Name == "Вампур_")
             placeholderText = _vampyrGarlic[_random.Random(0, _vampyrGarlic.Count - 1)];
+
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
+        {
+            placeholderText = "Выбор нерфа";
+        }
+
         var charMenu = new SelectMenuBuilder()
             .WithMinValues(1)
             .WithMaxValues(1)
-            .WithCustomId("char-select")
+            .WithCustomId("lvl-up")
             .WithPlaceholder(placeholderText)
             .AddOption("Интеллект", "1")
             .AddOption("Сила", "2")
@@ -1264,7 +1314,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             charMenu = new SelectMenuBuilder()
                 .WithMinValues(1)
                 .WithMaxValues(1)
-                .WithCustomId("char-select")
+                .WithCustomId("lvl-up")
                 .WithPlaceholder("\"Выбор\" прокачки")
                 .AddOption("Психика", "4");
             await _helperFunctions.SendMsgAndDeleteItAfterRound(player, "Riot Games: бери smite и не выебывайся", 0);

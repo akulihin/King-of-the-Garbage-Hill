@@ -32,7 +32,7 @@ public class GameClass
     
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 2.9.3 ARAM";
+        GameVersion = "Версия: 2.9.4 Yong Gleb";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Discord;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -59,9 +60,14 @@ public class GamePlayerBridgeClass
         return PlayerType == 404 || DiscordStatus.SocketMessageFromBot == null;
     }
 
-    public void MinusPsycheLog(GameClass game)
+    public void MinusPsycheLog(CharacterClass playerCharacter, GameClass game, int howMuchToRemove, string skillName)
     {
+        if (playerCharacter.Passive.Any(x => x.PassiveName == "Спокойствие"))
+        {
+            return;
+        }
         game.AddGlobalLogs($"\n{DiscordUsername} психанул");
+        playerCharacter.AddPsyche(howMuchToRemove, skillName);
     }
 
     public Guid GetPlayerId()

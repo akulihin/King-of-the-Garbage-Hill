@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using King_of_the_Garbage_Hill.Game.Characters;
@@ -29,6 +30,10 @@ public class PassivesClass
         //Подсчет
         TolyaCount = new Tolya.TolyaCountClass(Random(2, 3));
         //end Подсчет
+
+        //Спокойствие
+        YongGlebTea = new Tolya.TolyaCountClass(2);
+        //end Спокойствие
 
         //Школьник
         when = GetWhenToTrigger(1, 0, 0, 9, 2);
@@ -137,6 +142,9 @@ public class PassivesClass
     public Tolya.TolyaTalkedlClass TolyaTalked { get; set; } = new();
 
     public Vampyr.HematophagiaClass VampyrHematophagiaList { get; set; } = new();
+
+    public Tolya.TolyaCountClass YongGlebTea { get; set; }
+    public List<Guid> YongGlebMetaClass { get; set; } = new();
 
 
     public int WeedwickWeed { get; set; } = 0;

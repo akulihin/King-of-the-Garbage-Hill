@@ -297,7 +297,7 @@ public sealed class GameReaction : IServiceSingleton
                         await HandleMoralForSkill(player);
                         break;
 
-                    case "char-select":
+                    case "lvl-up":
                         await HandleLvlUp(player, button);
                         await _upd.UpdateMessage(player);
                         break;
@@ -596,6 +596,11 @@ public sealed class GameReaction : IServiceSingleton
             skillNumber = 0;
         }
         //end Vampyr Позорный*/
+        var howMuchTooAdd = 1;
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
+        {
+            howMuchTooAdd = -1;
+        }
 
         switch (skillNumber)
         {
@@ -607,16 +612,20 @@ public sealed class GameReaction : IServiceSingleton
                     return;
                 }
 
-                player.GameCharacter.AddIntelligence(1, "Прокачка", false);
+                player.GameCharacter.AddIntelligence(howMuchTooAdd, "Прокачка", false);
 
-                switch (player.GameCharacter.Name)
+                if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Одиночество"))
                 {
-                    case "HardKitty":
-                        player.Status.AddInGamePersonalLogs($"#life: Я прокачал Интеллект на {player.GameCharacter.GetIntelligence()}!\n");
-                        break;
-                    default:
-                        player.Status.AddInGamePersonalLogs($"Вы улучшили Интеллект до {player.GameCharacter.GetIntelligence()}\n");
-                        break;
+                    player.Status.AddInGamePersonalLogs($"#life: Я прокачал Интеллект на {player.GameCharacter.GetIntelligence()}!\n");
+                }
+                else if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
+                {
+                    player.Status.AddInGamePersonalLogs($"Вам понерфали Интеллект до {player.GameCharacter.GetIntelligence()}!\n");
+                    game.Phrases.YongGlebIrelia.SendLog(player, false, isRandomOrder: false, suffix: " -1 Интеллект");
+                }
+                else
+                {
+                    player.Status.AddInGamePersonalLogs($"Вы улучшили Интеллект до {player.GameCharacter.GetIntelligence()}\n");
                 }
                 break;
 
@@ -628,15 +637,20 @@ public sealed class GameReaction : IServiceSingleton
                     return;
                 }
 
-                player.GameCharacter.AddStrength(1, "Прокачка", false);
-                switch (player.GameCharacter.Name)
+                player.GameCharacter.AddStrength(howMuchTooAdd, "Прокачка", false);
+
+                if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Одиночество"))
                 {
-                    case "HardKitty":
-                        player.Status.AddInGamePersonalLogs($"#life: Я прокачал Силу на {player.GameCharacter.GetStrength()}!\n");
-                        break;
-                    default:
-                        player.Status.AddInGamePersonalLogs($"Вы улучшили Силу до {player.GameCharacter.GetStrength()}\n");
-                        break;
+                    player.Status.AddInGamePersonalLogs($"#life: Я прокачал Силу на {player.GameCharacter.GetStrength()}!\n");
+                }
+                else if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
+                {
+                    player.Status.AddInGamePersonalLogs($"Вам понерфали Силу до {player.GameCharacter.GetStrength()}!\n");
+                    game.Phrases.YongGlebIrelia.SendLog(player, false, isRandomOrder: false, suffix: " -1 Сила");
+                }
+                else
+                {
+                    player.Status.AddInGamePersonalLogs($"Вы улучшили Силу до {player.GameCharacter.GetStrength()}\n");
                 }
                 break;
 
@@ -648,16 +662,20 @@ public sealed class GameReaction : IServiceSingleton
                     return;
                 }
 
-                player.GameCharacter.AddSpeed(1, "Прокачка", false);
+                player.GameCharacter.AddSpeed(howMuchTooAdd, "Прокачка", false);
 
-                switch (player.GameCharacter.Name)
+                if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Одиночество"))
                 {
-                    case "HardKitty":
-                        player.Status.AddInGamePersonalLogs($"#life: Я прокачал Cкорость на {player.GameCharacter.GetSpeed()}!\n");
-                        break;
-                    default:
-                        player.Status.AddInGamePersonalLogs($"Вы улучшили Скорость до {player.GameCharacter.GetSpeed()}\n");
-                        break;
+                    player.Status.AddInGamePersonalLogs($"#life: Я прокачал Скорость на {player.GameCharacter.GetSpeed()}!\n");
+                }
+                else if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
+                {
+                    player.Status.AddInGamePersonalLogs($"Вам понерфали Скорость до {player.GameCharacter.GetSpeed()}!\n");
+                    game.Phrases.YongGlebIrelia.SendLog(player, false, isRandomOrder: false, suffix: " -1 Скорость");
+                }
+                else
+                {
+                    player.Status.AddInGamePersonalLogs($"Вы улучшили Скорость до {player.GameCharacter.GetSpeed()}\n");
                 }
                 break;
 
@@ -669,16 +687,20 @@ public sealed class GameReaction : IServiceSingleton
                     return;
                 }
 
-                player.GameCharacter.AddPsyche(1, "Прокачка", false);
+                player.GameCharacter.AddPsyche(howMuchTooAdd, "Прокачка", false);
 
-                switch (player.GameCharacter.Name)
+                if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Одиночество"))
                 {
-                    case "HardKitty":
-                        player.Status.AddInGamePersonalLogs($"#life: Я прокачал Психику на {player.GameCharacter.GetPsyche()}!\n");
-                        break;
-                    default:
-                        player.Status.AddInGamePersonalLogs($"Вы улучшили Психику до {player.GameCharacter.GetPsyche()}\n");
-                        break;
+                    player.Status.AddInGamePersonalLogs($"#life: Я прокачал Психику на {player.GameCharacter.GetPsyche()}!\n");
+                }
+                else if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
+                {
+                    player.Status.AddInGamePersonalLogs($"Вам понерфали Психику до {player.GameCharacter.GetPsyche()}!\n");
+                    game.Phrases.YongGlebIrelia.SendLog(player, false, isRandomOrder: false, suffix: " -1 Психика");
+                }
+                else
+                {
+                    player.Status.AddInGamePersonalLogs($"Вы улучшили Психику до {player.GameCharacter.GetPsyche()}\n");
                 }
                 break;
         }

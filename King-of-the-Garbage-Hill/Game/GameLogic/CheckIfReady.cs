@@ -625,6 +625,9 @@ public class CheckIfReady : IServiceSingleton
                         player.Status.MoveListPage = 1;
                         await _upd.UpdateMessage(player);
                     }
+
+                    _characterPassives.HandleEventsBeforeFirstRound(players);
+                    for (var j = 0; j < players.Count; j++) players[j].Status.SetPlaceAtLeaderBoard(j + 1);
                 }
             }
             //end ARAM
