@@ -118,6 +118,7 @@ Speed => Strength
             player.Status.IsFighting = Guid.Empty;
             player.Status.IsTargetSkipped = Guid.Empty;
             player.Status.IsTargetBlocked = Guid.Empty;
+            player.Status.IsAbleToWin = true;
         }
     }
 
@@ -136,6 +137,31 @@ Speed => Strength
         {
             player.FightCharacter = player.GameCharacter.DeepCopy();
         }
+    }
+
+    public void HandleEventsBeforeCalculation(GameClass game)
+    {
+        foreach (var player in game.PlayersList)
+        {
+            foreach (var passive in player.GameCharacter.Passive)
+            {
+                switch (passive.PassiveName)
+                {
+                        case "PointFunnel":
+                            if (player.Status.WhoToAttackThisTurn.Count > 0)
+                            {
+                                foreach (var targetId in player.Status.WhoToAttackThisTurn)
+                                {
+                                    var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
+                                    target.Passives.PointFunneledTo = player.GetPlayerId();
+                                    target.GameCharacter.AddExtraSkill(50000, "X", false);
+                                }
+                            }
+                            break;
+            } 
+            }
+        }
+
     }
 
     //пристрій судного дня
@@ -161,6 +187,8 @@ Speed => Strength
             p.GameCharacter.SetBonusPointsFromMoral(0);
         }
         //end Moral
+
+        HandleEventsBeforeCalculation(game);
 
         /*
         1-4 х1
@@ -732,11 +760,11 @@ Speed => Strength
                     if (!teamMate)
                         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Никому не нужен"))
                         {
-                            player.Status.AddRegularPoints(point * -1, "Победа");
+                            player.Status.AddWinPoints(game, player, point * -1, "Победа");
                         }
                         else
                         {
-                            player.Status.AddRegularPoints(point, "Победа");
+                            player.Status.AddWinPoints(game, player, point, "Победа");
                         }
 
 
@@ -796,7 +824,7 @@ Speed => Strength
                     game.AddGlobalLogs($" ⟶ {playerIamAttacking.DiscordUsername}");
 
                     if (!teamMate)
-                        playerIamAttacking.Status.AddRegularPoints(1, "Победа");
+                        playerIamAttacking.Status.AddWinPoints(game, playerIamAttacking, 1, "Победа");
 
 
 
@@ -896,6 +924,8 @@ Speed => Strength
             player.Status.CombineRoundScoreAndGameScore(game);
             player.Status.ClearInGamePersonalLogs();
             player.Status.InGamePersonalLogsAll += "|||";
+
+            player.Passives.PointFunneledTo = Guid.Empty;
         }
 
         //Возвращение из мертвых
@@ -1003,6 +1033,7 @@ Speed => Strength
         SortGameLogs(game);
         _characterPassives.HandleNextRoundAfterSorting(game);
         _characterPassives.HandleBotPredict(game);
+        game.RollExploit();
         game.TimePassed.Reset();
         game.TimePassed.Start();
 

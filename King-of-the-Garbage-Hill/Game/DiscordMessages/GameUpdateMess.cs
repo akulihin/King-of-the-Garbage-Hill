@@ -50,7 +50,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
 
-    public EmbedBuilder GetCharacterMessage(SocketUser user, GamePlayerBridgeClass player)
+    public EmbedBuilder GetCharacterMessage(GamePlayerBridgeClass player)
     {
         //var allCharacters = _charactersPull.GetAllCharacters();
         var character = player.GameCharacter;
@@ -108,7 +108,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         if (player.DiscordId <= 1000000) return;
         user ??= _global.Client.GetUser(player.DiscordId);
-        var embed = GetCharacterMessage(user, player);
+        var embed = GetCharacterMessage(player);
         var message = await user.SendMessageAsync("", false, embed.Build());
         player.DiscordStatus.SocketCharacterMessage = message;
     }
@@ -117,7 +117,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         if (player.DiscordId <= 1000000) return;
         var user = _global.Client.GetUser(player.DiscordId);
-        var embed = GetCharacterMessage(user, player);
+        var embed = GetCharacterMessage(player);
         await player.DiscordStatus.SocketCharacterMessage.ModifyAsync(message =>
         {
             message.Embed = embed.Build();
@@ -214,6 +214,19 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         foreach (var passive in me.GameCharacter.Passive)
             switch (passive.PassiveName)
             {
+                case "Exploit":
+                    if (!other.Passives.IsExploitFixed && other.Passives.IsExploitable)
+                    {
+                        customString += $" **EXPLOIT {other.Passives.LostToExploit}**";
+                    }
+                    break;
+
+                case "AdminPlayerType":
+                    if (other.GetPlayerId() == me.GetPlayerId()) break;
+                    customString += $" (as **{other.GameCharacter.Name}**) = {other.Status.GetScore()} Score";
+                    customString += $" (I: {other.GameCharacter.GetIntelligence()} | St: {other.GameCharacter.GetStrength()} | Sp: {other.GameCharacter.GetSpeed()} | Ps: {other.GameCharacter.GetPsyche()})";
+                    break;
+
                 case "Следит за игрой":
                     foreach (var metaPlayer in me.Passives.YongGlebMetaClass)
                     {

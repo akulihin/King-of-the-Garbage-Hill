@@ -152,6 +152,27 @@ public class InGameStatus
             ScoreSource += $"{reason}+";
     }
 
+    public void AddWinPoints(GameClass game, GamePlayerBridgeClass player, int regularPoints, string reason, bool isLog = true)
+    {
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "PointFunnel"))
+        {
+            return;
+        }
+
+        if (player.Passives.PointFunneledTo != Guid.Empty)
+        {
+            if (regularPoints < 0)
+            {
+                regularPoints *= -1;
+            }
+            var bug = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.PointFunneledTo);
+            bug.Status.AddRegularPoints(regularPoints, "PointFunnel", isLog);
+
+        }
+
+        AddRegularPoints(regularPoints, reason, isLog);
+    }
+
     public void AddRegularPoints(int regularPoints, string reason, bool isLog = true)
     {
         ScoresToGiveAtEndOfRound += regularPoints;

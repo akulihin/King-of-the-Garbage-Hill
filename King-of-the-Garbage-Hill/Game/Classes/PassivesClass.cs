@@ -154,6 +154,11 @@ public class PassivesClass
 
     public int VampyrIgnoresOneJustice { get; set; } = 0;
 
+    public Guid PointFunneledTo { get; set; } = Guid.Empty;
+    public bool IsExploitable { get; set; } = false;
+    public bool IsExploitFixed { get; set; } = false;
+    public int LostToExploit { get; set; } = 0;
+
 
     private int Random(int minValue, int maxValue)
     {

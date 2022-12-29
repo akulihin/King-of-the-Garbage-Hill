@@ -364,15 +364,12 @@ public class CharacterPassives : IServiceSingleton
             {
                 case "Гребанные ассассины":
                     //5-2 = 3
-                    if (me.GameCharacter.GetStrength() - target.GameCharacter.GetStrength() >= 3)
-                    {
-                        target.Status.IsAbleToWin = true;
-                    }
-                    else
+                    if (me.GameCharacter.GetStrength() - target.GameCharacter.GetStrength() < 3)
                     {
                         var leCrip = target.Passives.LeCrispAssassins;
                         leCrip.AdditionalPsycheForNextRound += 1;
                     }
+
                     break;
             }
     }
@@ -382,6 +379,16 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in target.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case "Exploit":
+                    if (target.Status.IsWonThisCalculation == me.GetPlayerId())
+                    {
+                        if (!me.Passives.IsExploitable)
+                        {
+                            me.Passives.LostToExploit++;
+                        }
+                    }
+                    break;
+
                 case "Я щас приду":
                     var glebSkipFriendList = target.Passives.GlebSkipFriendList;
                     var glebSkipFriendListDone = target.Passives.GlebSkipFriendListDone;
@@ -437,6 +444,10 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in me.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case "AutoWin":
+                    target.Status.IsAbleToWin = false;
+                    break;
+
                 case "Следит за игрой":
                     foreach (var metaPlayer in me.Passives.YongGlebMetaClass)
                     {
@@ -735,6 +746,25 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in me.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case "Exploit":
+                    if (me.Status.IsWonThisCalculation == target.GetPlayerId())
+                    {
+                        if (!target.Passives.IsExploitable)
+                        {
+                            target.Passives.LostToExploit++;
+                        }
+                        else
+                        {
+                            target.Passives.IsExploitable = false;
+                            target.Passives.IsExploitFixed = true;
+                            if (target.Passives.LostToExploit > 0)
+                            {
+                                me.Status.AddRegularPoints(target.Passives.LostToExploit, "Exploit", true);
+                            }
+                        }
+                    }
+                    break;
+
                 case "Много выебывается":
                     if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                     {
@@ -890,18 +920,11 @@ public class CharacterPassives : IServiceSingleton
 
                     break;
 
-                case "DragonSlayer":
-                    if (game.RoundNo == 10)
-                        if (target.GameCharacter.Passive.Any(x => x.PassiveName == "Дракон"))
-                            target.Status.IsAbleToWin = true;
-                    break;
-
                 case "Им это не понравится":
                     var spartanMark = me.Passives.SpartanMark;
                     if (spartanMark != null)
                         if (spartanMark.BlockedPlayer == target.GetPlayerId())
                         {
-                            target.Status.IsAbleToWin = true;
                             target.Status.IsBlock = true;
                             spartanMark.BlockedPlayer = Guid.Empty;
                         }
@@ -1111,7 +1134,6 @@ public class CharacterPassives : IServiceSingleton
                     if (!deep.FriendList.Contains(player.Status.IsFighting) &&
                         player.Status.IsLostThisCalculation == player.Status.IsFighting)
                     {
-                        player.Status.IsAbleToWin = true;
                         deep.FriendList.Add(player.Status.IsFighting);
                         game.Phrases.DeepListDoubtfulTacticFirstLostPhrase.SendLog(player, false);
                     }
@@ -1258,11 +1280,6 @@ public class CharacterPassives : IServiceSingleton
 
                     break;
 
-                case "Раммус мейн":
-                    if (player.Status.IsBlock && player.Status.IsWonThisCalculation != Guid.Empty)
-                        game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation)!.Status
-                            .IsAbleToWin = true;
-                    break;
 
                 case "Доебаться":
                     var hardKitty = player.Passives.HardKittyDoebatsya;

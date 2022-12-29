@@ -46,10 +46,37 @@ public class CharactersPull : IServiceSingleton
         var json = File.ReadAllText(filePath);
         var characters = JsonConvert.DeserializeObject<List<CharacterClass>>(json);
         var passives = new List<Passive>();
-        
+
         foreach (var character in characters)
         {
-            passives.AddRange(character.Passive.Where(x => x.Visible));
+            foreach (var passive in character.Passive.Where(x => x.Visible))
+            {
+                if (passives.All(x => x.PassiveName != passive.PassiveName))
+                {
+                    passives.Add(passive);
+                }
+            }
+        }
+
+        return passives;
+    }
+
+    public List<Passive> GetAllPassivesNoFilter()
+    {
+        var filePath = @"DataBase/characters.json";
+        var json = File.ReadAllText(filePath);
+        var characters = JsonConvert.DeserializeObject<List<CharacterClass>>(json);
+        var passives = new List<Passive>();
+
+        foreach (var character in characters)
+        {
+            foreach (var passive in character.Passive)
+            {
+                if (passives.All(x => x.PassiveName != passive.PassiveName))
+                {
+                    passives.Add(passive);
+                }
+            }
         }
 
         return passives;

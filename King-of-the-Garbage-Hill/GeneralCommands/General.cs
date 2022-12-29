@@ -430,10 +430,8 @@ public class General : ModuleBaseCustom
         {
             playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
         }
-
         //выдаем место в таблице
         for (var i = 0; i < playersList.Count; i++) playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
-
 
 
         //командная игра
@@ -660,7 +658,7 @@ public class General : ModuleBaseCustom
 
             //создаем игру
             var game = new GameClass(playersList, gameId, Context.User.Id, 300, mode) { IsCheckIfReady = false };
-
+            
             //отправить меню игры
             foreach (var player in playersList) await _upd.WaitMess(player, game);
 
@@ -730,7 +728,7 @@ public class General : ModuleBaseCustom
             // .WithTitle("My internal statistics")
             .WithColor(Color.DarkGreen)
             .WithCurrentTimestamp()
-            .WithFooter("Версия: 2.9.5 Yong Gleb")
+            .WithFooter("Версия: 2.9.6 BUG")
             .WithDescription("**Циферки:**\n" +
                              $"Работает: {time.Days}д {time.Hours}ч {time.Minutes}м + {time:ss\\.fff}с\n" +
                              $"Всего команд: {_global.TotalCommandsIssued}\n" +

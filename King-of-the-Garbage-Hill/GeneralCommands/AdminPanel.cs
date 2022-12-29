@@ -129,7 +129,7 @@ public class AdminPanel : ModuleBaseCustom
             return;
         }
 
-        var allCharacters = _charactersPull.GetAllCharactersNoFilter();
+        var allCharacters = _charactersPull.GetAllCharacters();
 
         if (choice + 1 > allCharacters.Count)
         {

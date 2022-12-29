@@ -717,5 +717,36 @@
     ],
     "Description": "",
     "Tier": 6
+  },
+  {
+    "Name": "Баг",
+    "Intelligence": 1,
+    "Psyche": 7,
+    "Speed": 3,
+    "Strength": 3,
+    "Avatar": "https://media.discordapp.net/attachments/895072182051430401/1057503587225321502/mylorik_avatar_for_an_RPG_game_that_looks_like_an_error_980dae7d-83c6-4db4-b47d-b9999e16c5ed.png",
+    "Passive": [
+      {
+        "PassiveDescription": "`me.PlayerType = 2;`\n//Видит всех врагов и их статы",
+        "PassiveName": "AdminPlayerType",
+        "Visible": true
+      },
+      {
+        "PassiveDescription": "`!target.Status.IsAbleToWin;`\n//таргет аттак сет автовит - нападением автовин",
+        "PassiveName": "AutoWin",
+        "Visible": true
+      },
+      {
+        "PassiveDescription": "`target.Passives.PointFunneledTo = me.GetPlayerId();`\n //баг не получает очки за свои победы, но багу засчитываются те же победы что и тому, на кого он напал на этом ходу",
+        "PassiveName": "PointFunnel",
+        "Visible": true
+      },
+      {
+        "PassiveDescription": "`target.Passives.IsExploitable = true;`\n//на каждом игроке по очереди появляется значок \"эксплойт\", после первого нападения на такого игрока, лорик закрывает эксплойт навсегда и приносит очки за каждую победу бага над носителями экслойта",
+        "PassiveName": "Exploit",
+        "Visible": true
+      }
+    ],
+    "Tier": 2
   }
 ]
