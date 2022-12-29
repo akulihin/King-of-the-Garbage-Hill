@@ -379,16 +379,6 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in target.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
-                case "Exploit":
-                    if (target.Status.IsWonThisCalculation == me.GetPlayerId())
-                    {
-                        if (!me.Passives.IsExploitable)
-                        {
-                            me.Passives.LostToExploit++;
-                        }
-                    }
-                    break;
-
                 case "Я щас приду":
                     var glebSkipFriendList = target.Passives.GlebSkipFriendList;
                     var glebSkipFriendListDone = target.Passives.GlebSkipFriendListDone;
@@ -749,11 +739,9 @@ public class CharacterPassives : IServiceSingleton
                 case "Exploit":
                     if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                     {
-                        if (!target.Passives.IsExploitable)
-                        {
-                            target.Passives.LostToExploit++;
-                        }
-                        else
+                        target.Passives.LostToExploit++;
+
+                        if (target.Passives.IsExploitable)
                         {
                             target.Passives.IsExploitable = false;
                             target.Passives.IsExploitFixed = true;

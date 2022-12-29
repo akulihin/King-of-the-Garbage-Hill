@@ -74,6 +74,11 @@ Speed => Strength
                 player.FightCharacter.SetWinStreak();
             }
 
+            if (player.Status.IsLostThisCalculation != Guid.Empty && player.Passives.IsExploitable)
+            {
+                player.Passives.LostToExploit++;
+            }
+
 
             //OneFight Mechanics, use GameCharacter only
             if (player.Status.IsIntelligenceForOneFight)
