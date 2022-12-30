@@ -78,6 +78,7 @@ public class GameClass
 
     public List<GamePlayerBridgeClass> ExploitPlayersList { get; set; }
     public int LastExploit { get; set; } = -1;
+    public int TotalExploit { get; set; } = 0;
 
 
 

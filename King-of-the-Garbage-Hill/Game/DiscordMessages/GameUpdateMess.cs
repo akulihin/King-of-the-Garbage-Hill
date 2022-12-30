@@ -217,7 +217,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 case "Exploit":
                     if (!other.Passives.IsExploitFixed && other.Passives.IsExploitable)
                     {
-                        customString += $" **EXPLOIT {other.Passives.LostToExploit}**";
+                        customString += $" **EXPLOIT {game.TotalExploit}**";
                     }
                     break;
 

@@ -739,16 +739,16 @@ public class CharacterPassives : IServiceSingleton
                 case "Exploit":
                     if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                     {
-                        target.Passives.LostToExploit++;
-
                         if (target.Passives.IsExploitable)
                         {
+                            game.TotalExploit++;
                             target.Passives.IsExploitable = false;
                             target.Passives.IsExploitFixed = true;
-                            if (target.Passives.LostToExploit > 0)
+                            if (game.TotalExploit > 0)
                             {
-                                me.Status.AddRegularPoints(target.Passives.LostToExploit, "Exploit", true);
+                                me.Status.AddRegularPoints(game.TotalExploit, "Exploit", true);
                             }
+                            game.TotalExploit = 0;
                         }
                     }
                     break;

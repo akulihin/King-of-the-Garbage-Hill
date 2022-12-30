@@ -57,7 +57,7 @@ Speed => Strength
     }
 
 
-    public void ResetFight(GamePlayerBridgeClass me, GamePlayerBridgeClass target = null)
+    public void ResetFight(GameClass game, GamePlayerBridgeClass me, GamePlayerBridgeClass target = null)
     {
         var players = new List<GamePlayerBridgeClass> { me, target };
         foreach (var player in players.Where(p => p != null))
@@ -76,7 +76,7 @@ Speed => Strength
 
             if (player.Status.IsLostThisCalculation != Guid.Empty && player.Passives.IsExploitable)
             {
-                player.Passives.LostToExploit++;
+               game.TotalExploit++;
             }
 
 
@@ -240,7 +240,7 @@ Speed => Strength
                 player.Status.AddFightingData($"IsSkip: {player.Status.IsSkip}");
                 //fight Reset
                 await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
-                ResetFight(player);
+                ResetFight(game, player);
                 continue;
             }
 
@@ -403,7 +403,7 @@ Speed => Strength
                     _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
                     _characterPassives.HandleDefenseAfterBlockOrFightOrSkip(playerIamAttacking, player, game);
 
-                    ResetFight(player, playerIamAttacking);
+                    ResetFight(game, player, playerIamAttacking);
 
                     continue;
                 }
@@ -430,7 +430,7 @@ Speed => Strength
                     await _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
                     _characterPassives.HandleDefenseAfterBlockOrFightOrSkip(playerIamAttacking, player, game);
 
-                    ResetFight(player, playerIamAttacking);
+                    ResetFight(game, player, playerIamAttacking);
 
                     continue;
                 }
@@ -885,7 +885,7 @@ Speed => Strength
                 
                 _characterPassives.HandleShark(game); //used only for shark...
 
-                ResetFight(player, playerIamAttacking);
+                ResetFight(game, player, playerIamAttacking);
             }
         }
 
