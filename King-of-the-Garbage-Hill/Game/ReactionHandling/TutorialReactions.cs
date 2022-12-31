@@ -52,8 +52,7 @@ public class TutorialReactions : IServiceSingleton
             text += "Множитель очков: **x4**\n";
             text += "<:e_:562879579694301184>\n";
         }
-
-        var title = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬";
+        var title = "▬▬▬▬▬▬▬▬▬▬▬▬▬";
         var index = 0;
         if (game.RoundNumber == 4)
         {
@@ -109,7 +108,7 @@ public class TutorialReactions : IServiceSingleton
         var embedField = new EmbedFieldBuilder();
         var player = game.PlayersList.Find(x => x.PlayerId == game.DiscordPlayerId);
         var text = "";
-        var title = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬";
+        var title = "▬▬▬▬▬▬▬▬▬▬▬▬▬";
 
 
         if (game.RoundNumber > 0) text += $"*Справедливость: {player!.Justice}*\n";
@@ -142,7 +141,7 @@ public class TutorialReactions : IServiceSingleton
     {
         var embedField = new EmbedFieldBuilder();
         var text = "";
-        var title = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬";
+        var title = "▬▬▬▬▬▬▬▬▬▬▬▬▬";
         var player = game.PlayersList.Find(x => x.PlayerId == game.DiscordPlayerId);
         if (game.RoundNumber > 0)
             text += $"**Интеллект:** {player!.Intelligence}\n" +

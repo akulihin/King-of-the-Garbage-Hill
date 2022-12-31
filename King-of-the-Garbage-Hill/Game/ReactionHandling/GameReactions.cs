@@ -156,6 +156,13 @@ public sealed class GameReaction : IServiceSingleton
 
                 switch (button.Data.CustomId)
                 {
+                    case "mobile-device":
+                        player.IsMobile = true;
+                        var embed = _upd.FightPage(player);
+                        var components = await _upd.GetGameButtons(player, game);
+                        await _help.ModifyGameMessage(player, embed, components);
+                        break;
+
                     case "auto-move":
                         player.Status.AutoMoveTimes++;
                         await game!.Phrases.AutoMove.SendLogSeparate(player, true, 7000, false);
@@ -171,11 +178,11 @@ public sealed class GameReaction : IServiceSingleton
                         if (player.IsSolo(game))
                             break;
 
-                        var embed = _upd.FightPage(player);
-                        var components = await _upd.GetGameButtons(player, game);
+                        embed = _upd.FightPage(player);
+                        components = await _upd.GetGameButtons(player, game);
                         await _help.ModifyGameMessage(player, embed, components);
-
                         break;
+
                     case "change-mind":
                         if (player.Status.IsSkip || !player.Status.IsReady)
                         {
@@ -350,19 +357,19 @@ public sealed class GameReaction : IServiceSingleton
                         break;
 
                     case "aram_reroll_1":
-                        HandlePassiveRoll(player, 1);
+                        HandlePassiveRoll(player, 1, game);
                         await _upd.UpdateMessage(player);
                         break;
                     case "aram_reroll_2":
-                        HandlePassiveRoll(player, 2);
+                        HandlePassiveRoll(player, 2, game);
                         await _upd.UpdateMessage(player);
                         break;
                     case "aram_reroll_3":
-                        HandlePassiveRoll(player, 3);
+                        HandlePassiveRoll(player, 3, game);
                         await _upd.UpdateMessage(player);
                         break;
                     case "aram_reroll_4":
-                        HandlePassiveRoll(player, 4);
+                        HandlePassiveRoll(player, 4, game);
                         await _upd.UpdateMessage(player);
                         break;
                     case "aram_reroll_5":
@@ -402,7 +409,7 @@ public sealed class GameReaction : IServiceSingleton
     }
 
 
-    public void HandlePassiveRoll(GamePlayerBridgeClass player, int choice)
+    public void HandlePassiveRoll(GamePlayerBridgeClass player, int choice, GameClass game)
     {
         if (player.Status.AramRerolledPassivesTimes >= 4)
         {
@@ -411,9 +418,13 @@ public sealed class GameReaction : IServiceSingleton
         player.Status.AramRerolledPassivesTimes++;
 
         var passives = _charactersPull.GetAllVisiblePassives();
-        foreach (var passive in player.GameCharacter.Passive)
+        passives = passives.OrderBy(_ => Guid.NewGuid()).ToList();
+
+
+
+        foreach (var pp in from p in game.PlayersList from passive in p.GameCharacter.Passive from pp in passives.ToList() where pp.PassiveName == passive.PassiveName select pp)
         {
-            passives.Remove(passive);
+            passives.Remove(pp);
         }
 
         var newPassive = passives[_random.Random(0, passives.Count)];

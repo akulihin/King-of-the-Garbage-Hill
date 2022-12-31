@@ -32,7 +32,7 @@ public class GameClass
     
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 2.9.6 BUG";
+        GameVersion = "Версия: 2.9.7 BUG DEBUG pls help me";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();

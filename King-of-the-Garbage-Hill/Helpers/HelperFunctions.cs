@@ -241,6 +241,8 @@ public sealed class HelperFunctions : IServiceSingleton
         {
             _logs.Critical(exception.Message);
             _logs.Critical(exception.StackTrace);
+            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync($"{exception.Message}");
+            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(exception.StackTrace);
         }
     }
 

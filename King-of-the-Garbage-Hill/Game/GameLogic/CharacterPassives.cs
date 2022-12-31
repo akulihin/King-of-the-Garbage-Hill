@@ -239,8 +239,7 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Я щас приду":
-                    var rand = _rand.Random(1, 9);
-                    if (rand == 1)
+                    if (_rand.Luck(1, 9))
                     {
                         var acc = target.Passives.GlebChallengerTriggeredWhen;
 
@@ -871,8 +870,7 @@ public class CharacterPassives : IServiceSingleton
                             var harm = 0;
 
                             // 1/место в таблице.
-                            var roll = _rand.Random(1, target.Status.GetPlaceAtLeaderBoard());
-                            if (roll == 1)
+                            if (_rand.Luck(1, target.Status.GetPlaceAtLeaderBoard()))
                             {
                                 harm++;
                                 target.FightCharacter.LowerQualityResist(target, game, me);
@@ -880,8 +878,7 @@ public class CharacterPassives : IServiceSingleton
                             }
 
                             // 1/5
-                            roll = _rand.Random(1, 5);
-                            if (roll == 1)
+                            if (_rand.Luck(1, 5))
                             {
                                 harm++;
                                 target.FightCharacter.LowerQualityResist(target, game, me);
@@ -889,8 +886,7 @@ public class CharacterPassives : IServiceSingleton
                             }
 
                             // 1/3 если враг топ1
-                            roll = _rand.Random(1, 3);
-                            if (roll == 1 && target.Status.GetPlaceAtLeaderBoard() == 1)
+                            if (_rand.Luck(1, 3) && target.Status.GetPlaceAtLeaderBoard() == 1)
                             {
                                 harm++;
                                 target.FightCharacter.LowerQualityResist(target, game, me);
@@ -1222,10 +1218,9 @@ public class CharacterPassives : IServiceSingleton
                 case "Испанец":
                     if (player.Status.IsLostThisCalculation != Guid.Empty)
                     {
-                        var rand = _rand.Random(1, 2);
                         var boole = player.Passives.MylorikSpanish;
 
-                        if (rand == 1)
+                        if (_rand.Luck(1, 2))
                         {
                             boole.Times = 0;
                             player.FightCharacter.AddExtraSkill(10, "Испанец");
@@ -1469,7 +1464,10 @@ public class CharacterPassives : IServiceSingleton
                             while (!found)
                             {
                                 tries++;
-                                if (tries > 20) break;
+                                if (tries > 20)
+                                {
+                                    break;
+                                }
 
                                 statIndex = _rand.Random(1, 4);
 
@@ -1692,8 +1690,7 @@ public class CharacterPassives : IServiceSingleton
                 case "Великий Комментатор":
                     if (game.RoundNo is >= 3 and <= 6)
                     {
-                        var randNum = _rand.Random(1, 5);
-                        if (randNum == 1)
+                        if (_rand.Luck(1, 5))
                         {
                             var tolyaTalked = player.Passives.TolyaTalked;
                             if (tolyaTalked.PlayerHeTalkedAbout.Count < 2)
@@ -2150,9 +2147,8 @@ public class CharacterPassives : IServiceSingleton
                     case "Буль":
                         if (player.GameCharacter.GetPsyche() < 7)
                         {
-                            var random = _rand.Random(1, 10 + player.GameCharacter.GetPsyche() * 5);
 
-                            if (random == 1)
+                            if (_rand.Luck(1, 10 + player.GameCharacter.GetPsyche() * 5))
                             {
                                 player.Status.IsSkip = true;
                                 player.Status.ConfirmedSkip = false;
@@ -2254,7 +2250,7 @@ public class CharacterPassives : IServiceSingleton
                         var afkaChance = 32 - (game.RoundNo - player.GameCharacter.GetLastMoralRound()) * 4;
                         if (afkaChance <= 0)
                             afkaChance = 1;
-                        if (_rand.Random(1, afkaChance) == 1)
+                        if (_rand.Luck(1, afkaChance))
                         {
                             player.Status.IsSkip = true;
                             player.Status.ConfirmedSkip = false;
@@ -2384,18 +2380,18 @@ public class CharacterPassives : IServiceSingleton
                         break;
 
                     case "Я за чаем":
-                        var rand = _rand.Random(1, 8);
+                        var luck = _rand.Luck(1, 8);
 
                         var glebChalleger = player.Passives.GlebChallengerTriggeredWhen;
 
 
                         if (glebChalleger.WhenToTrigger.Contains(game.RoundNo))
-                            rand = _rand.Random(1, 7);
+                            luck = _rand.Luck(1, 7);
 
 
                         var glebTea = player.Passives.GlebTea;
 
-                        if (rand == 1)
+                        if (luck)
                         {
                             glebTea.Ready = true;
                             glebTea.TimesRolled++;
@@ -2444,8 +2440,7 @@ public class CharacterPassives : IServiceSingleton
                             player.Status.GetPlaceAtLeaderBoard() > 2)
                         {
                             // шанс = 1 / (40 - место глеба в таблице * 4)
-                            var bonusChallenger = _rand.Random(1, 40 - player.Status.GetPlaceAtLeaderBoard() * 4);
-                            if (bonusChallenger == 15) acc.WhenToTrigger.Add(game.RoundNo);
+                            if (_rand.Luck(1, 40 - player.Status.GetPlaceAtLeaderBoard() * 4)) acc.WhenToTrigger.Add(game.RoundNo);
                         }
 
                         if (acc.WhenToTrigger.Contains(game.RoundNo))

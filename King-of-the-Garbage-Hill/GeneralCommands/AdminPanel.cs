@@ -21,7 +21,8 @@ public class AdminPanel : ModuleBaseCustom
     private readonly CharacterPassives _characterPassives;
     private readonly CharactersPull _charactersPull;
     
-    private readonly General _general;
+
+    private readonly StartGameLogic _startGameLogic;
     private readonly Global _global;
     private readonly HelperFunctions _helperFunctions;
     private readonly GameUpdateMess _upd;
@@ -29,7 +30,7 @@ public class AdminPanel : ModuleBaseCustom
 
     public AdminPanel(UserAccounts accounts, HelperFunctions helperFunctions,
         Global global, GameUpdateMess upd, CharactersPull charactersPull, CharacterPassives characterPassives,
-        General general)
+         StartGameLogic startGameLogic)
     {
 
         _accounts = accounts;
@@ -38,7 +39,7 @@ public class AdminPanel : ModuleBaseCustom
         _upd = upd;
         _charactersPull = charactersPull;
         _characterPassives = characterPassives;
-        _general = general;
+        _startGameLogic = startGameLogic;
     }
 
     [Command("getInvite")]
@@ -158,7 +159,7 @@ public class AdminPanel : ModuleBaseCustom
         var gameId = _global.GetNewtGamePlayingAndId();
 
         //ролл персонажей для игры
-        var playersList = _general.HandleCharacterRoll(players, gameId);
+        var playersList = _startGameLogic.HandleCharacterRoll(players, gameId);
 
 
         //тасуем игроков

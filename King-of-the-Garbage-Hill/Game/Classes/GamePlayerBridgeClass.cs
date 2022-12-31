@@ -53,6 +53,7 @@ public class GamePlayerBridgeClass
     public List<PredictClass> Predict { get; set; } = new();
 
     public int TeamId { get; set; }
+    public bool IsMobile {get; set; }
 
 
     public bool IsBot()

@@ -854,6 +854,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             psyStr = "Нытье";
         }
 
+        var splitter = "▬▬▬▬▬▬▬▬▬▬▬▬▬";
         /*
         var skillExtraText = "";
         var targetExtraText = "";
@@ -862,19 +863,19 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         */
 
         embed.WithDescription($"{desc}" +
-                              "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
+                              $"**{splitter}**\n" +
                               $"**{intStr}:** {character.GetIntelligenceString()}{character.GetIntelligenceQualityResist()}\n" +
                               $"**{strStr}:** {character.GetStrengthString()}{character.GetStrengthQualityResist()}\n" +
                               $"**{speStr}:** {character.GetSpeedString()}{character.GetSpeedQualityResist()}\n" +
                               $"**{psyStr}:** {character.GetPsycheString()}{character.GetPsycheQualityResist()}\n" +
-                              "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
+                              $"**{splitter}**\n" +
                               $"*Справедливость: **{character.Justice.GetRealJusticeNow()}***\n" +
                               $"*Мораль: {character.GetMoralString()}*\n" +
                               $"*Скилл: {character.GetSkillDisplay()} (Мишень: **{character.GetCurrentSkillClassTarget()}**)*\n" +
                               //$"*Скилл: {character.GetSkillDisplay()}{skillExtraText}*\n" +
                               //$"*Мишень: **{character.GetCurrentSkillClassTarget()}**{targetExtraText}*\n" +
                               $"*Класс:* {character.GetClassStatDisplayText()}\n" +
-                              "**▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬**\n" +
+                              $"**{splitter}**\n" +
                               $"Множитель очков: **x{multiplier}**\n" +
                               "<:e_:562879579694301184>\n" +
                               $"{LeaderBoard(player)}");
@@ -901,8 +902,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         embed.AddField("События этого раунда:", text);
 
-
-        embed.WithThumbnailUrl(character.AvatarCurrent);
+        if(!player.IsMobile)
+            embed.WithThumbnailUrl(character.AvatarCurrent);
+        
+        //embed.WithImageUrl(character.AvatarCurrent);
 
         return embed;
     }
@@ -1236,6 +1239,12 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         return attackMenu;
     }
 
+
+    public ButtonBuilder GetMobileButton()
+    {
+        return new ButtonBuilder("Mobile Device", "mobile-device", ButtonStyle.Primary, isDisabled: false);
+    }
+
     public SelectMenuBuilder GetDopaMenu(GamePlayerBridgeClass player, GameClass game)
     {
         var isDisabled = !(player.Status.IsBlock || player.Status.WhoToAttackThisTurn.Count != 0);
@@ -1502,6 +1511,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     break;
             }
 
+        if (game.RoundNo == 1 && !player.IsMobile)
+        {
+            components.WithButton(GetMobileButton(), 4);
+        }
+        
         return components;
     }
 
