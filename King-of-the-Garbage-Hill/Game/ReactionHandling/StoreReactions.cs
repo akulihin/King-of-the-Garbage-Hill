@@ -76,7 +76,7 @@ public class StoreReactions : IServiceSingleton
 
     public EmbedBuilder GetStoreEmbed(IUser user, string characterName)
     {
-        var allCharacters = _charactersPull.GetAllCharacters();
+        var allCharacters = _charactersPull.GetVisibleCharacters();
         var account = _userAccounts.GetAccount(user);
         var characterChance = account.CharacterChance.Find(x => x.CharacterName == characterName);
         var character = allCharacters.Find(x => x.Name == characterName);

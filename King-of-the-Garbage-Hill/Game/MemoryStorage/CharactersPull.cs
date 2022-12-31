@@ -24,15 +24,31 @@ public class CharactersPull : IServiceSingleton
         _allCharacters = JsonConvert.DeserializeObject<List<CharacterClass>>(json);
     }
     */
+    
+    /*
+     * -2 - Character substitution, like Yong Gleb
+     * -1 - Secret Characters, not visible, but rollable
+     * 0-6 - Regular characters
+     */
 
-    public List<CharacterClass> GetAllCharacters()
+    public List<CharacterClass> GetVisibleCharacters()
     {
         var filePath = @"DataBase/characters.json";
         var json = File.ReadAllText(filePath);
         var characters = JsonConvert.DeserializeObject<List<CharacterClass>>(json);
-        characters = characters.Where(x => x.Name != "Молодой Глеб").ToList();
+        characters = characters.Where(x => x.Tier >= 0).ToList();
         return characters;
     }
+
+    public List<CharacterClass> GetRollableCharacters()
+    {
+        var filePath = @"DataBase/characters.json";
+        var json = File.ReadAllText(filePath);
+        var characters = JsonConvert.DeserializeObject<List<CharacterClass>>(json);
+        characters = characters.Where(x => x.Tier >= -1).ToList();
+        return characters;
+    }
+
     public List<CharacterClass> GetAllCharactersNoFilter()
     {
         var filePath = @"DataBase/characters.json";
@@ -40,11 +56,11 @@ public class CharactersPull : IServiceSingleton
         return JsonConvert.DeserializeObject<List<CharacterClass>>(json);
     }
 
-    public List<Passive> GetAllVisiblePassives()
+    public List<Passive> GetAramPassives()
     {
         var filePath = @"DataBase/characters.json";
         var json = File.ReadAllText(filePath);
-        var characters = JsonConvert.DeserializeObject<List<CharacterClass>>(json);
+        var characters = JsonConvert.DeserializeObject<List<CharacterClass>>(json).Where(x => x.Tier != -1);
         var passives = new List<Passive>();
 
         foreach (var character in characters)
@@ -61,7 +77,7 @@ public class CharactersPull : IServiceSingleton
         return passives;
     }
 
-    public List<Passive> GetAllPassivesNoFilter()
+    public List<Passive> GetAllPassives()
     {
         var filePath = @"DataBase/characters.json";
         var json = File.ReadAllText(filePath);

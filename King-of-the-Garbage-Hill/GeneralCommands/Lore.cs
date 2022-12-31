@@ -30,7 +30,7 @@ public class Lore : ModuleBaseCustom
     {
         var account = _accounts.GetAccount(Context.User);
 
-        var allCharacters = _charactersPull.GetAllCharacters().Where(x => x.Name != "Sakura").ToList();
+        var allCharacters = _charactersPull.GetVisibleCharacters().ToList();
         var character = allCharacters.Find(x => x.Name == "DeepList");
 
         var builder = new ComponentBuilder();

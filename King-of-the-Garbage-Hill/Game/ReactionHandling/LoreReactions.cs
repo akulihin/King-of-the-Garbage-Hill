@@ -38,7 +38,7 @@ public class LoreReactions : IServiceSingleton
             .WithPlaceholder("Выбрать персонажа");
 
 
-        foreach (var character in _charactersPull.GetAllCharacters().Where(x => x.Name != "Sakura"))
+        foreach (var character in _charactersPull.GetVisibleCharacters())
             characterMenu.AddOption(character.Name, character.Name);
 
         return characterMenu;
@@ -102,7 +102,7 @@ public class LoreReactions : IServiceSingleton
     {
         try
         {
-            var allCharacters = _charactersPull.GetAllCharacters();
+            var allCharacters = _charactersPull.GetVisibleCharacters();
             var account = _userAccounts.GetAccount(button.User.Id);
 
             switch (button.Data.CustomId)

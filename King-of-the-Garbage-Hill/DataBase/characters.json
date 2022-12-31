@@ -606,7 +606,7 @@
     "Passive": [
     ],
     "Description": "",
-    "Tier": 1
+    "Tier": -1
   },
   {
     "Name": "Weedwick",
@@ -717,7 +717,7 @@
       }
     ],
     "Description": "",
-    "Tier": 6
+    "Tier": -2
   },
   {
     "Name": "Баг",
@@ -748,6 +748,6 @@
         "Visible": true
       }
     ],
-    "Tier": 1
+    "Tier": -1
   }
 ]

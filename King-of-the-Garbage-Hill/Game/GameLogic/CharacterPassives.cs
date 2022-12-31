@@ -2892,7 +2892,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         player.GameCharacter.Name = "Братишка";
                         player.GameCharacter.Passive = new List<Passive>();
-                        player.GameCharacter.Passive = _charactersPull.GetAllCharacters().Find(x => x.Name == "Братишка").Passive;
+                        player.GameCharacter.Passive = _charactersPull.GetRollableCharacters().Find(x => x.Name == "Братишка").Passive;
                         player.Status.AddInGamePersonalLogs("Братишка: **Буууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууууль**\n");
                     }
 

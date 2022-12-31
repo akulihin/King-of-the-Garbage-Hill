@@ -254,7 +254,7 @@ public sealed class GameReaction : IServiceSingleton
 
                     case "yong-gleb":
                         var character = _charactersPull.GetAllCharactersNoFilter().First(x => x.Name == "Молодой Глеб");
-                        player.GameCharacter.Name = character.Name;
+                        //player.GameCharacter.Name = character.Name;
                         player.GameCharacter.Passive = new List<Passive>();
                         player.GameCharacter.Passive = character.Passive;
                         player.GameCharacter.Avatar = character.Avatar;
@@ -416,7 +416,7 @@ public sealed class GameReaction : IServiceSingleton
         }
         player.Status.AramRerolledPassivesTimes++;
 
-        var passives = _charactersPull.GetAllVisiblePassives();
+        var passives = _charactersPull.GetAramPassives();
         passives = passives.OrderBy(_ => Guid.NewGuid()).ToList();
 
 
@@ -463,7 +463,7 @@ public sealed class GameReaction : IServiceSingleton
             .WithCustomId("predict-2")
             .WithPlaceholder(string.Join("", button.Data.Values) + " это...");
 
-        var allCharacters = account.CharacterChance.Select(character => character.CharacterName).Where(x => x != "Sakura").ToList();
+        var allCharacters = account.CharacterChance.Select(character => character.CharacterName).ToList();
 
         predictMenu.AddOption("Предыдущие меню", "prev-page");
         //predictMenu.AddOption("Очистить", "empty");
