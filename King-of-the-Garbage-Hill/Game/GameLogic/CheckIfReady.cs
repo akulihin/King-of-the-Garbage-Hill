@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 using System.Timers;
 using King_of_the_Garbage_Hill.DiscordFramework;
@@ -22,7 +23,7 @@ public class CheckIfReady : IServiceSingleton
     private readonly Global _global;
     private readonly HelperFunctions _help;
     private readonly LoginFromConsole _logs;
-    private readonly CalculateRound _round;
+    private readonly DoomsdayMachine _round;
     private readonly GameUpdateMess _upd;
 
 
@@ -30,7 +31,7 @@ public class CheckIfReady : IServiceSingleton
     private bool _looping;
     public Timer LoopingTimer;
 
-    public CheckIfReady(Global global, GameUpdateMess upd, CalculateRound round,
+    public CheckIfReady(Global global, GameUpdateMess upd, DoomsdayMachine round,
         GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, LoginFromConsole logs, UserAccounts accounts,
         HelperFunctions help, GameReaction gameReaction, CharacterPassives characterPassives)
     {
@@ -157,6 +158,22 @@ public class CheckIfReady : IServiceSingleton
     private async Task HandleLastRound(GameClass game)
     {
         game.IsCheckIfReady = false;
+
+        foreach (var player in game.PlayersList)
+        {
+            player.Status.ConfirmedSkip = true;
+        }
+
+        foreach (var player in game.PlayersList)
+        {
+            if (player.GameCharacter.Passive.Any(x => x.PassiveName == "AdminPlayerType"))
+            {
+                foreach (var enemy in game.PlayersList.Where(x  => x.GetPlayerId() != player.GetPlayerId()))
+                {
+                    player.Predict.Add(new PredictClass(enemy.GameCharacter.Name, enemy.GetPlayerId()));
+                }
+            } 
+        }
 
         //predict
         if (game.PlayersList.Count == 6 && game.PlayersList.Count(x => x.IsBot()) <= 5)

@@ -812,7 +812,15 @@ public class CharacterClass
 
     public decimal GetSkill()
     {
-        var realSkill = (SkillMain + SkillExtra) * GetSkillFightMultiplier() * GetIntelligenceQualitySkillBonus();
+        var skillFightMultiplier = GetSkillFightMultiplier();
+        var intelligenceQualitySkillBonus = GetIntelligenceQualitySkillBonus();
+
+        var realSkill = (SkillMain + SkillExtra) * skillFightMultiplier * intelligenceQualitySkillBonus;
+
+        if (realSkill > 1000)
+        {
+            var boole = 0;
+        }
 
         if (Passive.Any(x => x.PassiveName == "Skill 228") && realSkill > 228)
         {

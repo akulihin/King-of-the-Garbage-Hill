@@ -6,7 +6,7 @@ using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Game.MemoryStorage;
+using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -15,9 +15,9 @@ namespace King_of_the_Garbage_Hill.Game.DiscordMessages;
 public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceSingleton
 {
     private readonly UserAccounts _accounts;
-    private readonly CharactersPull _charactersPull;
     private readonly Global _global;
     private readonly HelperFunctions _helperFunctions;
+    private readonly CalculateRounds _calculateRounds;
 
     private readonly List<Emoji> _playerChoiceAttackList = new()
         { new Emoji("1⃣"), new Emoji("2⃣"), new Emoji("3⃣"), new Emoji("4⃣"), new Emoji("5⃣"), new Emoji("6⃣") };
@@ -31,8 +31,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     };
 
 
-    public GameUpdateMess(UserAccounts accounts, Global global, HelperFunctions helperFunctions, SecureRandom random,
-        CharactersPull charactersPull)
+    public GameUpdateMess(UserAccounts accounts, Global global, HelperFunctions helperFunctions, SecureRandom random, CalculateRounds calculateRounds)
     {
         _accounts = accounts;
         _global = global;
@@ -40,7 +39,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         _helperFunctions = helperFunctions;
 
         _random = random;
-        _charactersPull = charactersPull;
+        _calculateRounds = calculateRounds;
     }
 
     public Task InitializeAsync()
@@ -179,7 +178,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 players += $" = **{playersList[i].Status.GetScore()} Score**";
 
 
-            players += "\n";
+            players += "\n\n";
         }
 
         return players;
@@ -210,21 +209,27 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         var customString = "";
         //|| me.DiscordId == 238337696316129280 || me.DiscordId == 181514288278536193
+        
+        if (me.PlayerType == 2 && me.GameCharacter.Passive.All(x => x.PassiveName != "AdminPlayerType"))
+        {
+            me.GameCharacter.Passive.Add(new Passive("AdminPlayerType", "AdminPlayerType", false));
+        }
+
 
         foreach (var passive in me.GameCharacter.Passive)
             switch (passive.PassiveName)
             {
+                case "AdminPlayerType":
+                    if (other.GetPlayerId() == me.GetPlayerId()) break;
+
+                    customString += $" = {other.Status.GetScore()} ({other.GameCharacter.Name})";
+                    break;
+
                 case "Exploit":
                     if (!other.Passives.IsExploitFixed && other.Passives.IsExploitable)
                     {
                         customString += $" **EXPLOIT {game.TotalExploit}**";
                     }
-                    break;
-
-                case "AdminPlayerType":
-                    if (other.GetPlayerId() == me.GetPlayerId()) break;
-                    customString += $" (as **{other.GameCharacter.Name}**) = {other.Status.GetScore()} Score";
-                    customString += $" (I: {other.GameCharacter.GetIntelligence()} | St: {other.GameCharacter.GetStrength()} | Sp: {other.GameCharacter.GetSpeed()} | Ps: {other.GameCharacter.GetPsyche()})";
                     break;
 
                 case "Следит за игрой":
@@ -524,6 +529,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     break;
             }
 
+        
         var knownClass = me.Status.KnownPlayerClass.Find(x => x.EnemyId == other.GetPlayerId());
 
         //if (knownClass != null && me.GameCharacter.Name != "AWDKA")
@@ -531,19 +537,34 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             customString += $" {knownClass.Text}";
 
 
-        if (game.RoundNo >= 11 && !game.IsKratosEvent)
+        foreach (var passive in me.GameCharacter.Passive)
+            switch (passive.PassiveName)
+            {
+                case "AdminPlayerType":
+                    if (other.GetPlayerId() == me.GetPlayerId()) break;
+
+                    customString += $"\n**IN: {other.GameCharacter.GetIntelligence()}** ST: {other.GameCharacter.GetStrength()} **SP: {other.GameCharacter.GetSpeed()}** PS: {other.GameCharacter.GetPsyche()} | **JS: {other.GameCharacter.Justice.GetRealJusticeNow()}** MR: {other.GameCharacter.GetMoral()} **SK: {other.GameCharacter.GetSkill()}**"; //| TG: {other.GameCharacter.GetCurrentSkillClassTarget()}
+
+                    var (isTooGoodMe, isTooGoodEnemy, isTooStronkMe, isTooStronkEnemy, isStatsBetterMe,
+                        isStatsBettterEnemy, r1, isContrLost, randomForPoint, weighingMachine, contrMultiplier,
+                        skillMultiplierMe, skillMultiplierTarget) = _calculateRounds.CalculateStep1(me, other);
+                    var r2 = _calculateRounds.CalculateStep2(me, other);
+                    var r3 = _calculateRounds.CalculateStep3(me, other, randomForPoint, contrMultiplier);
+                    
+                    customString += $"\nDoomsday: {r1} | {r2} | {r3}~";
+                    break;
+            }
+
+
+        //predict
+                    if (game.RoundNo >= 11 && !game.IsKratosEvent)
             customString += $" (as **{other.GameCharacter.Name}**) = {other.Status.GetScore()} Score";
 
-        if (me.PlayerType == 2)
-        {
-            customString += $" (as **{other.GameCharacter.Name}**) = {other.Status.GetScore()} Score";
-            customString +=
-                $" (I: {other.GameCharacter.GetIntelligence()} | St: {other.GameCharacter.GetStrength()} | Sp: {other.GameCharacter.GetSpeed()} | Ps: {other.GameCharacter.GetPsyche()})";
-        }
 
         var predicted = me.Predict.Find(x => x.PlayerId == other.GetPlayerId());
         if (predicted != null)
             customString += $"<:e_:562879579694301184>|<:e_:562879579694301184>{predicted.CharacterName} ?";
+        //end predict
 
         return customString;
     }
@@ -1456,7 +1477,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var components = new ComponentBuilder();
         components.WithButton(GetBlockButton(player, game));
 
-        if (game.GameMode != "Aram")
+        if (game.GameMode != "Aram" && player.GameCharacter.Tier > 3)
         {
             components.WithButton(GetAutoMoveButton(player, game));
         }
@@ -1478,7 +1499,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         if (game.GameMode != "Aram")
         {
-            components.WithSelectMenu(predictMenu ?? GetPredictMenu(player, game), 3);
+            if (player.GameCharacter.Passive.All(x => x.PassiveName != "AdminPlayerType"))
+            {
+                components.WithSelectMenu(predictMenu ?? GetPredictMenu(player, game), 3);
+            }
         }
 
 
@@ -1599,8 +1623,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public ButtonBuilder GetAutoMoveButton(GamePlayerBridgeClass player, GameClass game)
     {
-        var disabled = player.Status.IsAutoMove || player.Status.IsSkip || player.Status.IsReady ||
-                       player.GameCharacter.Tier <= 3;
+        var disabled = player.Status.IsAutoMove || player.Status.IsSkip || player.Status.IsReady;
 
         if (game.TimePassed.Elapsed.TotalSeconds < 29 && player.DiscordId != 238337696316129280 &&
             player.DiscordId != 181514288278536193) disabled = true;

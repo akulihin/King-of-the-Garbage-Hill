@@ -5,21 +5,20 @@ using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
-using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
-public class CalculateRound : IServiceSingleton
+public class DoomsdayMachine : IServiceSingleton
 {
     private readonly CharacterPassives _characterPassives;
     private readonly LoginFromConsole _logs;
-    private readonly SecureRandom _rand;
+    private readonly CalculateRounds _calculateRounds;
 
-    public CalculateRound(SecureRandom rand, CharacterPassives characterPassives, LoginFromConsole logs)
+    public DoomsdayMachine(CharacterPassives characterPassives, LoginFromConsole logs, CalculateRounds calculateRounds)
     {
-        _rand = rand;
         _characterPassives = characterPassives;
         _logs = logs;
+        _calculateRounds = calculateRounds;
     }
 
     public async Task InitializeAsync()
@@ -169,6 +168,9 @@ Speed => Strength
 
     }
 
+
+
+
     //пристрій судного дня
     public async Task CalculateAllFights(GameClass game)    
     {
@@ -220,17 +222,6 @@ Speed => Strength
 
         foreach (var player in game.PlayersList)
         {
-            var pointsWined = 0;
-            decimal randomForPoint = 50;
-            var isTooGoodMe = false;
-            var isTooGoodEnemy = false;
-
-            var isTooStronkMe = false;
-            var isTooStronkEnemy = false;
-
-            var isStatsBetterMe = false;
-            var isStatsBettterEnemy = false;
-            var isContrLost = 0;
 
             player.Status.AddFightingData($"\n\n**Logs for round #{game.RoundNo}:**");
             //if block => no one gets points, and no redundant playerAttacked variable
@@ -267,21 +258,6 @@ Speed => Strength
                 }
 
 
-                if (!player.Status.IsAbleToWin)
-                {
-                    pointsWined = -50;
-                }
-
-                if (!playerIamAttacking.Status.IsAbleToWin)
-                {
-                    pointsWined = 50;
-                    
-                }
-
-                player.Status.AddFightingData($"IsAbleToWin: {player.Status.IsAbleToWin}");
-                player.Status.AddFightingData($"IsAbleToWinEnemy: {playerIamAttacking.Status.IsAbleToWin}");
-                playerIamAttacking.Status.AddFightingData($"IsAbleToWin: {playerIamAttacking.Status.IsAbleToWin}");
-                playerIamAttacking.Status.AddFightingData($"IsAbleToWinEnemy: {player.Status.IsAbleToWin}");
 
 
                 game.AddGlobalLogs($"{player.DiscordUsername} <:war:561287719838547981> {playerIamAttacking.DiscordUsername}", "");
@@ -447,277 +423,38 @@ Speed => Strength
 
 
                 //main formula:
-                //main formula:
-                var me = player.GameCharacter;
-                var target = playerIamAttacking.GameCharacter;
-                decimal weighingMachine = 0;
 
-                var skillMultiplierMe = 1;
-                var skillMultiplierTarget = 1;
-                decimal contrMultiplier = 1;
-
-                if (me.GetWhoIContre() == target.GetSkillClass())
-                {
-                    contrMultiplier = (decimal)1.5;
-
-                    skillMultiplierMe = 2;
-                    isContrLost -= 1;
-                    weighingMachine += 2;
-                }
-
-                if (target.GetWhoIContre() == me.GetSkillClass())
-                {
-                    skillMultiplierTarget = 2;
-                    isContrLost += 1;
-                    weighingMachine -= 2;
-                }
-
-                if (weighingMachine != 0)
-                {
-                    player.Status.AddFightingData($"GetWhoIContre: {me.GetWhoIContre()}");
-                    player.Status.AddFightingData($"SkillClassEnemy: {target.GetSkillClass()}");
-                    playerIamAttacking.Status.AddFightingData($"GetWhoIContre: {target.GetWhoIContre()}");
-                    playerIamAttacking.Status.AddFightingData($"SkillClassEnemy: {me.GetSkillClass()}");
-
-                    player.Status.AddFightingData($"skillMultiplierMe: {skillMultiplierMe}");
-                    player.Status.AddFightingData($"skillMultiplierEnemy: {skillMultiplierTarget}");
-                    playerIamAttacking.Status.AddFightingData($"skillMultiplierMe: {skillMultiplierTarget}");
-                    playerIamAttacking.Status.AddFightingData($"skillMultiplierEnemy: {skillMultiplierMe}");
-
-                    player.Status.AddFightingData($"contrMultiplierMe: {contrMultiplier}");
-                    playerIamAttacking.Status.AddFightingData($"contrMultiplierEnemy: {contrMultiplier}");
-
-                    player.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
-                    playerIamAttacking.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
-                }
-
-                player.Status.AddFightingData($"**Skill: {me.GetSkill()}**");
-                player.Status.AddFightingData($"**SkillEnemy: {target.GetSkill()}**");
-                playerIamAttacking.Status.AddFightingData($"**Skill: {target.GetSkill()}**");
-                playerIamAttacking.Status.AddFightingData($"**SkillEnemy: {me.GetSkill()}**");
-
-
-                var scaleMe = me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() + me.GetSkill() * skillMultiplierMe / 60;
-                var scaleTarget = target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche() + target.GetSkill() * skillMultiplierTarget / 60;
-                weighingMachine += scaleMe - scaleTarget;
-
-                player.Status.AddFightingData($"scaleMe: {Math.Round(scaleMe, 2)}");
-                player.Status.AddFightingData($"scaleEnemy: {Math.Round(scaleTarget, 2)}");
-                playerIamAttacking.Status.AddFightingData($"scaleMe: {Math.Round(scaleTarget, 2)}");
-                playerIamAttacking.Status.AddFightingData($"scaleEnemy: {Math.Round(scaleMe, 2)}");
-
-                player.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
-                playerIamAttacking.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
-
-                switch (WhoIsBetter(player.GameCharacter, playerIamAttacking.GameCharacter))
-                {
-                    case 1:
-                        player.Status.AddFightingData($"WhoIsBetter: Me");
-                        playerIamAttacking.Status.AddFightingData($"WhoIsBetter: Enemy");
-                        weighingMachine += 5;
-                        break;
-                    case 2:
-                        player.Status.AddFightingData($"WhoIsBetter: Enemy");
-                        playerIamAttacking.Status.AddFightingData($"WhoIsBetter: me");
-                        weighingMachine -= 5;
-                        break;
-                }
-
-                player.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
-                playerIamAttacking.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
-
-                var psycheDifference = me.GetPsyche() - target.GetPsyche();
-                player.Status.AddFightingData($"psycheDifference: {psycheDifference}");
-                playerIamAttacking.Status.AddFightingData($"psycheDifference: {psycheDifference}");
-                switch (psycheDifference)
-                {
-                    case > 0 and <= 3:
-                        weighingMachine += 1;
-                        break;
-                    case >= 4 and <= 5:
-                        weighingMachine += 2;
-                        break;
-                    case >= 6:
-                        weighingMachine += 4;
-                        break;
-                    case < 0 and >= -3:
-                        weighingMachine -= 1;
-                        break;
-                    case >= -5 and <= -4:
-                        weighingMachine -= 2;
-                        break;
-                    case <= -6:
-                        weighingMachine -= 4;
-                        break;
-                }
-
-                player.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
-                playerIamAttacking.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
-
-                //tooGOOD
-                var tooGoodDebug = weighingMachine;
-                switch (weighingMachine)
-                {
-                    case >= 13:
-                        player.Status.AddFightingData($"WhoIsTooGood: Me");
-                        playerIamAttacking.Status.AddFightingData($"WhoIsTooGood: Enemy");
-                        isTooGoodMe = true;
-                        randomForPoint = 75;
-
-                        break;
-                    case <= -13:
-                        player.Status.AddFightingData($"WhoIsTooGood: Enemy");
-                        playerIamAttacking.Status.AddFightingData($"WhoIsTooGood: Me");
-                        isTooGoodEnemy = true;
-                        randomForPoint = 25;
-
-                        break;
-                }
-
-                player.Status.AddFightingData($"randomForPoint: {randomForPoint}");
-                playerIamAttacking.Status.AddFightingData($"randomForPoint: {randomForPoint}");
-
-                //1.2 = 200 * 2 / 500 * 1.5
-                var myWtf = me.GetSkill() * skillMultiplierMe / 600 * contrMultiplier;
-                //0.1 = 50 * 1 / 500
-                var targetWtf = target.GetSkill() * skillMultiplierTarget / 600;
-                // 10 * (1 + (1.2-0.1)) - 10
-                //var wtf = scaleMe * (1 + (myWtf - targetWtf)) - scaleMe;
-                //29.64 * 1.846 - 24.9 * 1.19 - 29.64 + 24.9
-                var wtf = scaleMe * (1 + myWtf) - scaleTarget * (1 + targetWtf) - scaleMe + scaleTarget;
-
-                player.Status.AddFightingData($"wtfMe: {Math.Round(myWtf, 2)}");
-                player.Status.AddFightingData($"wtfEnemy: {Math.Round(targetWtf, 2)}");
-                playerIamAttacking.Status.AddFightingData($"wtfMe: {Math.Round(targetWtf, 2)}");
-                playerIamAttacking.Status.AddFightingData($"wtfEnemy: {Math.Round(myWtf, 2)}");
-
-                player.Status.AddFightingData($"wtf: {Math.Round(wtf, 2)}");
-                playerIamAttacking.Status.AddFightingData($"wtf: {Math.Round(wtf, 2)}");
-
-
-                weighingMachine += wtf;
-
-                player.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
-                playerIamAttacking.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
-
-                //tooSTONK
-                switch (weighingMachine)
-                {
-                    case >= 30:
-                        player.Status.AddFightingData($"**WhoIsTooSTONK: Me**");
-                        playerIamAttacking.Status.AddFightingData($"**WhoIsTooSTONK: Enemy**");
-                        isTooStronkMe = true;
-
-                        decimal tooStronkAdd = weighingMachine / 2;
-                        if (tooStronkAdd > 20)
-                        {
-                            tooStronkAdd = 20;
-                        }
-
-                        randomForPoint += tooStronkAdd;
-                        break;
-
-                    case <= -30:
-                        player.Status.AddFightingData($"**WhoIsTooSTONK: Enemy**");
-                        playerIamAttacking.Status.AddFightingData($"**WhoIsTooSTONK: Me**");
-                        if (playerIamAttacking.DiscordId == 238337696316129280)
-                        {
-                            playerIamAttacking.Status.AddInGamePersonalLogs($"DEBUG: You tooSTONK {(int)Math.Ceiling(wtf)} (vs {player.DiscordUsername}, {player.GameCharacter.Name}) \n");
-                        }
-                        isTooStronkEnemy = true;
-
-                        tooStronkAdd = weighingMachine / 2;
-                        if (tooStronkAdd < -20)
-                        {
-                            tooStronkAdd = -20;
-                        }
-
-                        randomForPoint += tooStronkAdd;
-                        break;
-                }
-
-                player.Status.AddFightingData($"randomForPoint: {randomForPoint}");
-                player.Status.AddFightingData($"randomForPoint: {randomForPoint}");
-
-                player.Status.AddFightingData($"JusticeMe: {player.GameCharacter.Justice.GetRealJusticeNow()}");
-                player.Status.AddFightingData($"JusticeEnemy: {playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow()}");
-                playerIamAttacking.Status.AddFightingData($"JusticeMe: {playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow()}");
-                playerIamAttacking.Status.AddFightingData($"JusticeEnemy: {player.GameCharacter.Justice.GetRealJusticeNow()}");
-
-                weighingMachine += player.GameCharacter.Justice.GetRealJusticeNow() - playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow();
-
-                player.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
-                playerIamAttacking.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
-
-
-                switch (weighingMachine)
-                {
-                    case > 0:
-                        pointsWined++;
-                        isContrLost -= 1;
-                        isStatsBetterMe = true;
-                        break;
-                    case < 0:
-                        pointsWined--;
-                        isContrLost += 1;
-                        isStatsBettterEnemy = true;
-                        break;
-                }
-
-                player.Status.AddFightingData($"pointsWined: {pointsWined}");
-                playerIamAttacking.Status.AddFightingData($"pointsWined: {pointsWined}");
+                //round 1 (Stats)
+                var (isTooGoodMe, isTooGoodEnemy, isTooStronkMe, isTooStronkEnemy, isStatsBetterMe, isStatsBettterEnemy, pointsWined, isContrLost, randomForPoint, weighingMachine, contrMultiplier, skillMultiplierMe, skillMultiplierTarget) = _calculateRounds.CalculateStep1(player, playerIamAttacking, true);
                 //end round 1
 
 
-                //round 2 (Justice)
-                if (player.GameCharacter.Justice.GetRealJusticeNow() > playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow())
-                    pointsWined++;
-                if (player.GameCharacter.Justice.GetRealJusticeNow() < playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow())
-                    pointsWined--;
-
-                if (player.GameCharacter.Justice.GetRealJusticeNow() >
-                    playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow() ||
-                    player.GameCharacter.Justice.GetRealJusticeNow() <
-                    playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow())
+                if (!player.Status.IsAbleToWin)
                 {
-                    player.Status.AddFightingData($"pointsWined (Justice): {pointsWined}");
-                    playerIamAttacking.Status.AddFightingData($"pointsWined (Justice): {pointsWined}");
+                    pointsWined += -50;
                 }
+
+                if (!playerIamAttacking.Status.IsAbleToWin)
+                {
+                    pointsWined += 50;
+
+                }
+
+                player.Status.AddFightingData($"IsAbleToWin: {player.Status.IsAbleToWin}");
+                player.Status.AddFightingData($"IsAbleToWinEnemy: {playerIamAttacking.Status.IsAbleToWin}");
+                playerIamAttacking.Status.AddFightingData($"IsAbleToWin: {playerIamAttacking.Status.IsAbleToWin}");
+                playerIamAttacking.Status.AddFightingData($"IsAbleToWinEnemy: {player.Status.IsAbleToWin}");
+
+                
+                //round 2 (Justice)
+                pointsWined += _calculateRounds.CalculateStep2(player, playerIamAttacking, true);
                 //end round 2
+
 
                 //round 3 (Random)
                 if (pointsWined == 0)
                 {
-                    decimal maxRandomNumber = 100;
-                    if (player.GameCharacter.Justice.GetRealJusticeNow() > 1 || playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow() > 1)
-                    {
-                        var myJustice = player.GameCharacter.Justice.GetRealJusticeNow() * contrMultiplier;
-                        var targetJustice = playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow();
-                        maxRandomNumber -= (myJustice - targetJustice) * 5;
-                    }
-
-                    player.Status.AddFightingData($"maxRandomNumber: {maxRandomNumber}");
-                    playerIamAttacking.Status.AddFightingData($"maxRandomNumber: {maxRandomNumber}");
-
-                    var randomNumber = _rand.Random(1, (int)Math.Ceiling(maxRandomNumber));
-
-                    player.Status.AddFightingData($"randomNumber: {randomNumber}");
-                    playerIamAttacking.Status.AddFightingData($"randomNumber: {randomNumber}");
-
-                    player.Status.AddFightingData($"randomForPoint: {randomForPoint}");
-                    playerIamAttacking.Status.AddFightingData($"randomForPoint: {randomForPoint}");
-
-                    if (randomNumber <= randomForPoint)
-                    {
-                        pointsWined++;
-                    }
-                    else
-                    {
-                        pointsWined--;
-                    }
-
-                    player.Status.AddFightingData($"pointsWined (Random): {pointsWined}");
-                    playerIamAttacking.Status.AddFightingData($"pointsWined (Random): {pointsWined}");
+                    pointsWined += _calculateRounds.CalculateStep3(player, playerIamAttacking, randomForPoint, contrMultiplier, true);
                 }
                 //end round 3
 
@@ -1011,7 +748,7 @@ Speed => Strength
         
         foreach (var player in droppedPlayers)
         {
-            for (int i = 0; i < player.GameCharacter.GetStrengthQualityDropTimes(); i++)
+            for (var i = 0; i < player.GameCharacter.GetStrengthQualityDropTimes(); i++)
             {
                 var oldIndex = game.PlayersList.IndexOf(player);
                 var newIndex = oldIndex + 1;
@@ -1048,42 +785,6 @@ Speed => Strength
         watch.Stop();
     }
 
-
-    public int WhoIsBetter(CharacterClass me, CharacterClass target)
-    {
-
-        int intel = 0, speed = 0, str = 0;
-
-        if (me.GetIntelligence() - target.GetIntelligence() > 0)
-            intel = 1;
-        if (me.GetIntelligence() - target.GetIntelligence() < 0)
-            intel = -1;
-
-        if (me.GetSpeed() - target.GetSpeed() > 0)
-            speed = 1;
-        if (me.GetSpeed() - target.GetSpeed() < 0)
-            speed = -1;
-
-        if (me.GetStrength() - target.GetStrength() > 0)
-            str = 1;
-        if (me.GetStrength() - target.GetStrength() < 0)
-            str = -1;
-
-
-        if (intel + speed + str >= 2)
-            return 1;
-        if (intel + speed + str <= -2)
-            return 2;
-
-        if (intel == 1 && str != -1)
-            return 1;
-        if (str == 1 && speed != -1)
-            return 1;
-        if (speed == 1 && intel != -1)
-            return 1;
-
-        return 2;
-    }
 
 
     public void SortGameLogs(GameClass game)

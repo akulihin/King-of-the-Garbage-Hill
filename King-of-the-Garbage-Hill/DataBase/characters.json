@@ -684,7 +684,8 @@
         "Visible": false
       }
     ],
-    "Description": "Говорят, это Бог войны..."
+    "Description": "Говорят, это Бог войны...",
+    "Tier": 1
   },
   {
     "Name": "Молодой Глеб",
@@ -747,6 +748,6 @@
         "Visible": true
       }
     ],
-    "Tier": 2
+    "Tier": 1
   }
 ]

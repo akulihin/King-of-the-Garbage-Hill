@@ -10,7 +10,6 @@ using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
-using Lamar.IoC.Instances;
 
 namespace King_of_the_Garbage_Hill.Game.ReactionHandling;
 

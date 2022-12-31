@@ -142,6 +142,11 @@ public class GameClass
 
         while (true)
         {
+            if (LastExploit >= ExploitPlayersList.Count)
+            {
+                LastExploit = 0;
+            }
+
             if (ExploitPlayersList[LastExploit].Passives.IsExploitFixed)
             {
                 LastExploit++;
