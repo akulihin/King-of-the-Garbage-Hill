@@ -817,10 +817,6 @@ public class CharacterClass
 
         var realSkill = (SkillMain + SkillExtra) * skillFightMultiplier * intelligenceQualitySkillBonus;
 
-        if (realSkill > 1000)
-        {
-            var boole = 0;
-        }
 
         if (Passive.Any(x => x.PassiveName == "Skill 228") && realSkill > 228)
         {

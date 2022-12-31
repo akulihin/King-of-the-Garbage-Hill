@@ -158,7 +158,6 @@ Speed => Strength
                                 {
                                     var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
                                     target.Passives.PointFunneledTo = player.GetPlayerId();
-                                    target.GameCharacter.AddExtraSkill(50000, "X", false);
                                 }
                             }
                             break;
