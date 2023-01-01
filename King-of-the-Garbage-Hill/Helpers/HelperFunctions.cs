@@ -197,6 +197,12 @@ public sealed class HelperFunctions : IServiceSingleton
         return Task.CompletedTask;
     }
 
+    public IEnumerable<string> Split(string str, int maxChunkSize)
+    {
+        for (int i = 0; i < str.Length; i += maxChunkSize)
+            yield return str.Substring(i, Math.Min(maxChunkSize, str.Length - i));
+    }
+
     public string ReplaceLastOccurrence(string source, string find, string replace)
     {
         var place = source.LastIndexOf(find, StringComparison.Ordinal);

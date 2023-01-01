@@ -909,7 +909,19 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         {
             text = splitLogs[^2];
             text = SortLogs(text, player, game);
-            embed.AddField("События прошлого раунда:", $"{text}");
+            if (text.Length < 1024)
+            {
+                embed.AddField("События прошлого раунда:", $"{text}");
+            }
+            else
+            {
+                var textSplit = _helperFunctions.Split(text, 1020).ToList();
+                for (var i = 0; i < textSplit.Count; i++)
+                {
+                    var t = textSplit[i];
+                    embed.AddField(i == 0 ? "События прошлого раунда:" : "_", $"{t}");
+                }
+            }
         }
         else
         {
@@ -921,7 +933,21 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             : "Еще ничего не произошло. Наверное...";
         text = SortLogs(text, player, game);
 
-        embed.AddField("События этого раунда:", text);
+
+        if (text.Length < 1024)
+        {
+            embed.AddField("События этого раунда:", text);
+        }
+        else
+        {
+            var textSplit = _helperFunctions.Split(text, 1020).ToList();
+            for (var i = 0; i < textSplit.Count; i++)
+            {
+                var t = textSplit[i];
+                embed.AddField(i == 0 ? "События этого раунда:" : "_", $"{t}");
+            }
+        }
+        
 
         if(!player.IsMobile)
             embed.WithThumbnailUrl(character.AvatarCurrent);
@@ -1095,7 +1121,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         }
         else
         {
-            var split = Split(text, 4096).ToList();
+            var split = _helperFunctions.Split(text, 4096).ToList();
             for (var i = 0; i < split.Count; i++)
             {
                 var t = split[i];
@@ -1177,11 +1203,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         return embed;
     }
-    static IEnumerable<string> Split(string str, int maxChunkSize)
-    {
-        for (int i = 0; i < str.Length; i += maxChunkSize)
-            yield return str.Substring(i, Math.Min(maxChunkSize, str.Length - i));
-    }
+
 
     public SelectMenuBuilder GetAttackMenu(GamePlayerBridgeClass player, GameClass game)
     {
