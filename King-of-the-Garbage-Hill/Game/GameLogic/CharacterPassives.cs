@@ -600,7 +600,7 @@ public class CharacterPassives : IServiceSingleton
                     if (yongGlebTea.IsReadyToUse && me.Status.WhoToAttackThisTurn.Count != 0)
                     {
                         yongGlebTea.IsReadyToUse = false;
-                        yongGlebTea.Cooldown = 3;
+                        yongGlebTea.Cooldown = 2;
 
                         target.Passives.GlebTeaTriggeredWhen = new WhenToTriggerClass(game.RoundNo + 1);
                         me.Status.AddRegularPoints(1, "Спокойствие");

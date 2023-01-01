@@ -32,7 +32,7 @@ public class PassivesClass
         //end Подсчет
 
         //Спокойствие
-        YongGlebTea = new Tolya.TolyaCountClass(2);
+        YongGlebTea = new Tolya.TolyaCountClass(0);
         //end Спокойствие
 
         //Школьник
