@@ -463,7 +463,7 @@ public sealed class GameReaction : IServiceSingleton
             .WithCustomId("predict-2")
             .WithPlaceholder(string.Join("", button.Data.Values) + " это...");
 
-        var allCharacters = account.CharacterChance.Select(character => character.CharacterName).ToList();
+        var allCharacters = _charactersPull.GetVisibleCharacters().Select(x => x.Name).ToList();
 
         predictMenu.AddOption("Предыдущие меню", "prev-page");
         //predictMenu.AddOption("Очистить", "empty");
