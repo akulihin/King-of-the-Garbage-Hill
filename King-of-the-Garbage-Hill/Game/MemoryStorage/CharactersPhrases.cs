@@ -502,6 +502,7 @@ public class CharactersUniquePhrase
         YongGlebMeta.PassiveLogRus.Add("Ja kak Darien");
         YongGlebMeta.PassiveLogRus.Add("Ja kak __alexich__");
         YongGlebMeta.PassiveLogRus.Add("Ja kak **FLASH IN THE NIGHT**");
+        YongGlebMeta.PassiveLogRus.Add("Gleb journey to Challanger");
         YongGlebTea.PassiveLogRus.Add("VbIpij 4au, yspokojsa");
         YongGlebTea.PassiveLogRus.Add("Derji 4aj ne ynbIvai XD XD");
         YongGlebTea.PassiveLogRus.Add("Poslushaj kak vodi4ka l'etsa");
