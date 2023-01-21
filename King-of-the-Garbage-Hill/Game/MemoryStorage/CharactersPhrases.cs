@@ -676,6 +676,8 @@ public class CharactersUniquePhrase
         WeedwickValuablePreyDrop.PassiveLogRus.Add("Слезай с дерева!!!");
         WeedwickValuablePreyDrop.PassiveLogRus.Add("Биологи, почему собаки смеются? Потому что смешно!");
         WeedwickValuablePreyDrop.PassiveLogRus.Add("Я смеюсь над тобой!");
+        WeedwickValuablePreyDrop.PassiveLogRus.Add("Покусаю, покусаю! Напрыгну, укушу!");
+
 
 
         WeedwickWeedYes1.PassiveLogRus.Add("Weed");
