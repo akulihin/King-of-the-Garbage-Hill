@@ -17,19 +17,6 @@ public class ApiHandling : IServiceSingleton
     private int _pageViews;
     private int _requestCount;
 
-    public string PageData =
-        "<!DOCTYPE>" +
-        "<html>" +
-        "  <head>" +
-        "    <title>HttpListener Example</title>" +
-        "  </head>" +
-        "  <body>" +
-        "    <p>Page Views: {0}</p>" +
-        "    <form method=\"post\" action=\"shutdown\">" +
-        "      <input type=\"submit\" value=\"Shutdown\" {1}>" +
-        "    </form>" +
-        "  </body>" +
-        "</html>";
 
     private readonly Global _global;
     private readonly LoginFromConsole _log;
@@ -49,6 +36,51 @@ public class ApiHandling : IServiceSingleton
         return Task.CompletedTask;
     }
 
+
+    private async Task<(bool runServer, byte[] returnJsonBytes)> HandleGetRequest(HttpListenerRequest req, HttpListenerResponse resp)
+    {
+        var runServer = true;
+        switch(req.Url!.AbsolutePath)
+        {
+            case "/shutdown":
+                Console.WriteLine("Shutdown requested");
+                //We can stop server by setting it to false, why? not!
+                runServer = false;
+            break;
+
+            default:
+            break;
+        }
+
+        var jsonResponse = "{\"hello\": \"world GET\"}";
+        var jsonBytes = Encoding.UTF8.GetBytes(jsonResponse);
+
+        await Task.CompletedTask; //костыль, потом заберем
+        return (runServer, jsonBytes);
+    }
+
+    private async Task<(bool runServer, byte[] returnJsonBytes)> HandlePostRequest(HttpListenerRequest req, HttpListenerResponse resp)
+    {
+        var runServer = true;
+        switch(req.Url!.AbsolutePath)
+        {
+            case "/shutdown":
+                Console.WriteLine("Shutdown requested");
+                //We can stop server by setting it to false, why? not!
+                runServer = false;
+            break;
+
+            default:
+            break;
+        }
+
+        var jsonResponse = "{\"hello\": \"world POST\"}";
+        var jsonBytes = Encoding.UTF8.GetBytes(jsonResponse);
+        
+        await Task.CompletedTask; //костыль, потом заберем
+        return (runServer, jsonBytes);
+    }
+
     public async Task HandleIncomingConnections()
     {
         var runServer = true;
@@ -63,33 +95,63 @@ public class ApiHandling : IServiceSingleton
             var req = ctx.Request;
             var resp = ctx.Response;
 
+            //Set Return Variable
+            byte[] jsonBytes;
+
+            //set response headers
+            resp.ContentType = "application/json";
+            resp.ContentEncoding = Encoding.UTF8;
+
+            if (req.Url == null)
+            {
+                Console.WriteLine("req.Url == null ALLALALALALAALAL");
+                jsonBytes = null;
+            }
+            else
+            {
+                switch (req.HttpMethod)
+                {
+                    case "POST":
+                        var response = await HandlePostRequest(req, resp);
+                        runServer = response.runServer;
+                        jsonBytes = response.returnJsonBytes;
+                        break;
+                    case "GET":
+                        response = await HandleGetRequest(req, resp);
+                        jsonBytes = response.returnJsonBytes;
+                        break;
+                    default:
+                        resp.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                        jsonBytes = Encoding.UTF8.GetBytes("{\"error\": \"Method Not Allowed\"}");
+                        break;
+                }
+            }
+
+
+            if (jsonBytes == null)
+            {
+                resp.StatusCode = (int)HttpStatusCode.InternalServerError;
+                jsonBytes = Encoding.UTF8.GetBytes("{\"error\": \"Internal Server Error\"}");
+            }
+
             // Print out some info about the request
             Console.WriteLine("Request #: {0}", ++_requestCount);
-            Console.WriteLine(req.Url.ToString());
+            if (req.Url != null) Console.WriteLine(req.Url.ToString());
             Console.WriteLine(req.HttpMethod);
             Console.WriteLine(req.UserHostName);
             Console.WriteLine(req.UserAgent);
             Console.WriteLine();
 
-            // If `shutdown` url requested w/ POST, then shutdown the server after serving the page
-            if (req.HttpMethod == "POST" && req.Url.AbsolutePath == "/shutdown")
-            {
-                Console.WriteLine("Shutdown requested");
-                //We can stop server by setting it to false, why? not!
-                runServer = false;
-            }
+            // Write JSON response
+            resp.ContentLength64 = jsonBytes.LongLength;
 
-            // Make sure we don't increment the page views counter if `favicon.ico` is requested
-            if (req.Url.AbsolutePath != "/favicon.ico")
-                _pageViews += 1;
+            // Write out to the response stream (asynchronously), then close it
+            await resp.OutputStream.WriteAsync(jsonBytes);
+            
+            //close response
+            resp.Close();
 
-            // Write the response info
-            var disableSubmit = !runServer ? "disabled" : "";
-            var data = Encoding.UTF8.GetBytes(string.Format(PageData, _pageViews, disableSubmit));
-            resp.ContentType = "text/html";
-            resp.ContentEncoding = Encoding.UTF8;
-            resp.ContentLength64 = data.LongLength;
-
+            
             //example of game json
             try
             {
@@ -107,10 +169,6 @@ public class ApiHandling : IServiceSingleton
             {
                 //
             }
-
-            // Write out to the response stream (asynchronously), then close it
-            await resp.OutputStream.WriteAsync(data);
-            resp.Close();
         }
     }
 
