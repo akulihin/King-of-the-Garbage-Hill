@@ -47,7 +47,7 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Похищение души":
-                    player.GameCharacter.SetTargetSkillMultiplier(1);
+                    player.GameCharacter.SetClassSkillMultiplier(2);
                     break;
 
                 case "Искусство":
@@ -796,8 +796,23 @@ public class CharacterPassives : IServiceSingleton
                                 case 5:
                                     game.Phrases.WeedwickWeedYes5.SendLog(me, false);
                                     break;
-                                default:
+                                case 6:
                                     game.Phrases.WeedwickWeedYes6.SendLog(me, false);
+                                    break;
+                                case 7:
+                                    game.Phrases.WeedwickWeedYes7.SendLog(me, false);
+                                    break;
+                                case 8:
+                                    game.Phrases.WeedwickWeedYes8.SendLog(me, false);
+                                    break;
+                                case 9:
+                                    game.Phrases.WeedwickWeedYes9.SendLog(me, false);
+                                    break;
+                                case 10:
+                                    game.Phrases.WeedwickWeedYes10.SendLog(me, false);
+                                    break;
+                                default:
+                                    game.Phrases.WeedwickWeedYes11.SendLog(me, false);
                                     break;
                             }
 
@@ -1091,7 +1106,8 @@ public class CharacterPassives : IServiceSingleton
                         foreach (var p in game.PlayersList.Where(x => !x.IsBot()))
                             await game.Phrases.KratosEventYes.SendLogSeparateWithFile(p, false, "DataBase/sound/Kratos_PLAY_ME.mp3", false, 15000);
 
-                        player.FightCharacter.SetTargetSkillMultiplier(3);
+                        player.FightCharacter.SetSkillFightMultiplier(4);
+                        player.FightCharacter.SetClassSkillMultiplier(4);
                     }
 
                     break;

@@ -1136,7 +1136,6 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             }
         }
 
-        
         embed.WithThumbnailUrl(gameCharacter.AvatarCurrent);
         return embed;
     }

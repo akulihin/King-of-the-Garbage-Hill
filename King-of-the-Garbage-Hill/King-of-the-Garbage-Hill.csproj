@@ -7,10 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Discord.Net.Commands" Version="3.8.1" />
-    <PackageReference Include="Discord.Net.Core" Version="3.8.1" />
-    <PackageReference Include="Discord.Net.WebSocket" Version="3.8.1" />
-    <PackageReference Include="Lamar.Microsoft.DependencyInjection" Version="8.1.0" />
+    <PackageReference Include="Discord.Net.Commands" Version="3.13.0" />
+    <PackageReference Include="Discord.Net.Core" Version="3.13.0" />
+    <PackageReference Include="Discord.Net.WebSocket" Version="3.13.0" />
+    <PackageReference Include="Lamar.Microsoft.DependencyInjection" Version="13.0.0" />
   </ItemGroup>
 
   <ItemGroup>

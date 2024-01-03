@@ -119,6 +119,12 @@ public class CharactersUniquePhrase
     public PhraseClass WeedwickWeedYes4;
     public PhraseClass WeedwickWeedYes5;
     public PhraseClass WeedwickWeedYes6;
+    public PhraseClass WeedwickWeedYes7;
+    public PhraseClass WeedwickWeedYes8;
+    public PhraseClass WeedwickWeedYes9;
+    public PhraseClass WeedwickWeedYes10;
+    public PhraseClass WeedwickWeedYes11;
+
     public PhraseClass WeedwickWeedNo;
 
 
@@ -246,6 +252,11 @@ public class CharactersUniquePhrase
         WeedwickWeedYes4 = new PhraseClass("Weed");
         WeedwickWeedYes5 = new PhraseClass("Weed");
         WeedwickWeedYes6 = new PhraseClass("Weed");
+        WeedwickWeedYes7 = new PhraseClass("Weed");
+        WeedwickWeedYes8 = new PhraseClass("Weed");
+        WeedwickWeedYes9 = new PhraseClass("Weed");
+        WeedwickWeedYes10 = new PhraseClass("Weed");
+        WeedwickWeedYes11 = new PhraseClass("Weed");
         WeedwickWeedNo = new PhraseClass("Weed");
 
         KratosEventYes = new PhraseClass("Возвращение из мертвых");
@@ -908,7 +919,7 @@ public class CharactersUniquePhrase
             {
                 //.SendFileAsync($"DataBase/sound/Kratos_PLAY_ME.mp3", "123");
                 var mess2 = await player.DiscordStatus.SocketGameMessage.Channel.SendFileAsync(filePath, description);
-                if(clearNextRound)
+                if (clearNextRound)
                     player.DeleteMessages.Add(new GamePlayerBridgeClass.DeleteMessagesClass(mess2.Id, delayMs));
             }
             catch (Exception exception)
