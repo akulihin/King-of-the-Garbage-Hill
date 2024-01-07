@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Blocks</title>
+    <style>
+        .block {
+            width: 200px;
+            height: 100px;
+            margin: 10px;
+            border: 1px solid black;
+            display: inline-block;
+            vertical-align: top;
+        }
+
+        .hover-text {
+            display: none;
+        }
+
+        .block:hover .hover-text {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="block" onclick="console.log('Block Clicked')">
+    Block
+    <div class="hover-text">Hover Text</div>
+</div>
+
+<div id="searchBlock" class="block">
+    Search Block
+    <input type="text" id="searchInput" oninput="filterOptions()">
+    <select id="dropdown" size='10' style='display:none;'>
+      <!-- Options will go here -->
+    </select>
+</div>
+
+<script>
+const options = ['Option1', 'Option2', 'Option3', 'Option4', 'Option5',
+                 'Option6', 'Option7', 'Option8', 'Option9', 'Option10'];
+
+const dropdown = document.getElementById('dropdown');
+options.forEach(option => {
+   const optElement = document.createElement('option');
+   optElement.value = option.toLowerCase();
+   optElement.text = option;
+   dropdown.appendChild(optElement);
+});
+
+function filterOptions() {
+   const input = document.getElementById('searchInput').value.toLowerCase();
+   const filteredOptions = options.filter(option => option.toLowerCase().includes(input));
+   
+   dropdown.innerHTML = '';
+   
+   if (filteredOptions.length > 0 && input !== '') {
+       dropdown.style.display = '';
+       filteredOptions.forEach(option => {
+           const optElement = document.createElement('option');
+           optElement.value = option.toLowerCase();
+           optElement.text = option;
+           dropdown.appendChild(optElement);
+       });
+   } else {
+       dropdown.style.display='none';
+   }
+}
+</script>
+
+</body>
+</html> 
