@@ -1567,14 +1567,14 @@ public class CharacterPassives : IServiceSingleton
                     if (game.IsKratosEvent && game.RoundNo >= 16 && game.PlayersList.Count(x => !x.Passives.KratosIsDead) < 5)
                     {
                         game.IsKratosEvent = false;
-                        game.AddGlobalLogs("У Кратоса есть тактика и он ее придерживался...");
+                        game.AddGlobalLogs($"У {player.GameCharacter.Name}а есть тактика и он ее придерживался...");
                         await game.Phrases.KratosEventNo.SendLogSeparateWithFile(player, false, "DataBase/art/events/kratos_death.jpg", false, 15000);
                     }
 
                     if (game.IsKratosEvent && player.Passives.KratosIsDead)
                     {
                         game.IsKratosEvent = false;
-                        game.AddGlobalLogs("Кратос решил доверится богам зная последствия...");
+                        game.AddGlobalLogs($"{player.GameCharacter.Name} решил доверится богам зная последствия...");
                         await game.Phrases.KratosEventFailed.SendLogSeparateWithFile(player, false, "DataBase/art/events/kratos_hell.png", false, 15000);
                     }
                     break;

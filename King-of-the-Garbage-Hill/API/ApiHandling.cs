@@ -7,13 +7,14 @@ using King_of_the_Garbage_Hill.LocalPersistentData.ServerAccounts;
 using System.Text.Json;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
+using King_of_the_Garbage_Hill.Game.GameLogic;
 
 namespace King_of_the_Garbage_Hill.API;
 
 public class ApiHandling : IServiceSingleton
 {
     private HttpListener _listener;
-    private const string Url = "http://localhost:8000/";
+    private const string Url = "http://127.0.0.1:3535/";
     private int _pageViews;
     private int _requestCount;
 
@@ -21,13 +22,14 @@ public class ApiHandling : IServiceSingleton
     private readonly Global _global;
     private readonly LoginFromConsole _log;
     private readonly ServerAccounts _server;
+    private readonly CheckIfReady _checkIfReady;
 
-    public ApiHandling(Global global, LoginFromConsole log, ServerAccounts server)
+    public ApiHandling(Global global, LoginFromConsole log, ServerAccounts server, CheckIfReady checkIfReady)
     {
         _global = global;
         _log = log;
         _server = server;
-        
+        _checkIfReady = checkIfReady;
     }
 
     public Task InitializeAsync()
@@ -36,6 +38,17 @@ public class ApiHandling : IServiceSingleton
         return Task.CompletedTask;
     }
 
+    public string GetRequestPostData(HttpListenerRequest request)
+    {
+        if (!request.HasEntityBody)
+        {
+            return null;
+        }
+
+        using var body = request.InputStream;
+        using var reader = new System.IO.StreamReader(body, request.ContentEncoding);
+        return reader.ReadToEnd();
+    }
 
     private async Task<(bool runServer, byte[] returnJsonBytes)> HandleGetRequest(HttpListenerRequest req, HttpListenerResponse resp)
     {
@@ -62,22 +75,25 @@ public class ApiHandling : IServiceSingleton
     private async Task<(bool runServer, byte[] returnJsonBytes)> HandlePostRequest(HttpListenerRequest req, HttpListenerResponse resp)
     {
         var runServer = true;
+        var result = "ERROR";
         switch(req.Url!.AbsolutePath)
         {
-            case "/shutdown":
-                Console.WriteLine("Shutdown requested");
-                //We can stop server by setting it to false, why? not!
-                runServer = false;
+            case "/api/PlayerIsReady":
+                result = await _checkIfReady.API_PlayerIsReady(GetRequestPostData(req));
             break;
 
             default:
             break;
         }
 
-        var jsonResponse = "{\"hello\": \"world POST\"}";
+        if (!result.StartsWith('"'))
+        {
+            result = '"' + result + '"';
+        }
+        var jsonResponse = $"{{\"result\": {result}}}";
         var jsonBytes = Encoding.UTF8.GetBytes(jsonResponse);
         
-        await Task.CompletedTask; //костыль, потом заберем
+        //await Task.CompletedTask; //костыль, потом заберем
         return (runServer, jsonBytes);
     }
 

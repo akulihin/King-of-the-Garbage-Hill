@@ -253,7 +253,7 @@ Speed => Strength
                 //умный
                 if (player.GameCharacter.GetSkillClass() == "Интеллект" && playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow() == 0)
                 {
-                    player.FightCharacter.AddExtraSkill(6, "Класс");
+                    player.FightCharacter.AddExtraSkill(6 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
                 }
 
 
@@ -415,10 +415,10 @@ Speed => Strength
 
                 //быстрый
                 if (playerIamAttacking.GameCharacter.GetSkillClass() == "Скорость")
-                    playerIamAttacking.FightCharacter.AddExtraSkill(2, "Класс");
+                    playerIamAttacking.FightCharacter.AddExtraSkill(2 * playerIamAttacking.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
                 if (player.GameCharacter.GetSkillClass() == "Скорость")
-                    player.FightCharacter.AddExtraSkill(2, "Класс");
+                    player.FightCharacter.AddExtraSkill(2 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
 
                 //main formula:
@@ -485,7 +485,7 @@ Speed => Strength
                     var point = 1;
                     //сильный
                     if (player.GameCharacter.GetSkillClass() == "Сила")
-                        player.FightCharacter.AddExtraSkill(4, "Класс");
+                        player.FightCharacter.AddExtraSkill(4 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
                     isContrLost -= 1;
                     game.AddGlobalLogs($" ⟶ {player.DiscordUsername}");
@@ -552,7 +552,7 @@ Speed => Strength
                 {
                     //сильный
                     if (playerIamAttacking.GameCharacter.GetSkillClass() == "Сила")
-                        playerIamAttacking.FightCharacter.AddExtraSkill(4, "Класс");
+                        playerIamAttacking.FightCharacter.AddExtraSkill(4 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
                     if (isTooGoodEnemy && !isTooStronkEnemy)
                         player.Status.AddInGamePersonalLogs($"{playerIamAttacking.DiscordUsername} is __TOO GOOD__ for you\n");
@@ -677,7 +677,6 @@ Speed => Strength
             game.IsKratosEvent = false;
             game.AddGlobalLogs("Все боги были убиты, открылась коробка Пандоры, стихийные бедствия уничтожили всё живое...");
             game.PlayersList[0].Status.AddInGamePersonalLogs("By the gods, what have I become?\n");
-            game.AddGlobalLogs("\nЯ умер как **Воин**, вернулся как **Бог**, а закончил **Королем Мусорной Горы**!");
         }
         //end Возвращение из мертвых
 

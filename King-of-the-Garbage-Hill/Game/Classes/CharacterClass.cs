@@ -119,6 +119,7 @@ public class CharacterClass
     private decimal SkillExtra { get; set; }
     private decimal SkillForOneFight { get; set; } = -228;
     private decimal TargetSkillMultiplier { get; set; }
+    private decimal ClassSkillMultiplier { get; set; } = 1;
     private decimal ExtraSkillMultiplier { get; set; }
     private decimal SkillFightMultiplier { get; set; }
     private string CurrentSkillTarget { get; set; } = "Ничего";
@@ -771,13 +772,20 @@ public class CharacterClass
         }
     }
 
-    public void SetTargetSkillMultiplier(decimal targetSkillMultiplier = 0)
+
+    public void SetClassSkillMultiplier(decimal classSkillMultiplier)
+    {
+        //2 это х3
+        ClassSkillMultiplier = classSkillMultiplier;
+    }
+
+    public void SetTargetSkillMultiplier(decimal targetSkillMultiplier)
     {
         //2 это х3
         TargetSkillMultiplier = targetSkillMultiplier;
     }
 
-    public void SetExtraSkillMultiplier(int extraSkillMultiplier = 0)
+    public void SetExtraSkillMultiplier(int extraSkillMultiplier)
     {
         //2 это х3
         ExtraSkillMultiplier = extraSkillMultiplier;
@@ -788,6 +796,12 @@ public class CharacterClass
         //2 это х3
         SetTargetSkillMultiplier(extraAnyMultiplier);
         SetExtraSkillMultiplier(extraAnyMultiplier);
+    }
+
+
+    public decimal GetClassSkillMultiplier()
+    {
+        return ClassSkillMultiplier;
     }
 
     public decimal GetTargetSkillMultiplier()
@@ -899,12 +913,17 @@ public class CharacterClass
             54 => 1,
             _ => 0
         };
+        
+        //10
+        //10
+        //20*2=40
 
         SkillMain += howMuchToAdd;
         SkillExtra += howMuchToAdd;
 
         var total = howMuchToAdd + howMuchToAdd;
 
+        //total * 0 = 0! поэтому 1 это на самом деле 2!
         var multiplier = total * GetTargetSkillMultiplier();
         total += multiplier;
         SkillExtra += multiplier;

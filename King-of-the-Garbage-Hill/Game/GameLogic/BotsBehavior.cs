@@ -35,6 +35,11 @@ public class BotsBehavior : IServiceSingleton
 
     public async Task HandleBotBehavior(GamePlayerBridgeClass player, GameClass game)
     {
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых") && game.RoundNo > 10)
+        {
+            return;
+        }
+
         await HandleBotMoral(player, game);
 
         if (player.Status.LvlUpPoints > 0) 

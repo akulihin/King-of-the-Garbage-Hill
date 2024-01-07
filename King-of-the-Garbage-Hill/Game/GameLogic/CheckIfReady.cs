@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Unicode;
 using System.Threading.Tasks;
 using System.Timers;
 using King_of_the_Garbage_Hill.DiscordFramework;
@@ -91,7 +93,7 @@ public class CheckIfReady : IServiceSingleton
                 break;
 
             case "Кратос":
-                game.AddGlobalLogs("Я умер как Воин, вернулся как Бог, а закончил Королем Мусорной Горы!");
+                game.AddGlobalLogs("Я умер как **Воин**, вернулся как **Бог**, а закончил **Королем Мусорной Горы**!");
                 break;
         }
 
@@ -580,6 +582,28 @@ public class CheckIfReady : IServiceSingleton
             _logs.Critical(exception.StackTrace);
         }
         //top1 winrate end
+    }
+
+
+    public async Task<string> API_PlayerIsReady(string body = "default value")
+    {
+        _logs.Info("Player is ready");
+        _logs.Info(body);
+        var games = _global.GamesList;
+        var options1 = new JsonSerializerOptions
+        {
+            Encoder = JavaScriptEncoder.Create(UnicodeRanges.BasicLatin, UnicodeRanges.Cyrillic),
+            WriteIndented = true
+        };
+        
+        if (games.Count > 0)
+        {
+            var game1 = _global.GamesList[0];
+            var jsonString = JsonSerializer.Serialize(game1, options1);
+            return jsonString;
+        }
+
+        return "Not Ready";
     }
 
     private async void CheckIfEveryoneIsReady(object sender, ElapsedEventArgs e)
