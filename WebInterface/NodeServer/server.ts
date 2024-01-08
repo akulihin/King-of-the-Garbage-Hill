@@ -306,6 +306,11 @@ server.post('/*', async (req, res) => {
   res.send('*')
 })
 
+server.put('/*', async (req, res) => {
+  console.log(req.body); // the posted data
+  res.send('*')
+})
+
 
 var httpsServer = https.createServer({
   key: fs.readFileSync('../secrets/d2lfg.ru.key'),

@@ -8,7 +8,6 @@ import { asyncWrapper, createTestRouter, flushPromises, renderOptions, setupMock
 describe('# Profile page', () => {
   const server = setupMockServer(
     ['GET', '/api/profiles/*', { profile: fixtures.user }],
-    ['GET', '/api/articles', { articles: [fixtures.article], articlesCount: 1 }],
   )
 
   it('should display user info', async () => {

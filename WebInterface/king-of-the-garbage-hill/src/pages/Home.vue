@@ -8,34 +8,6 @@
         <p>A place for Garbage</p>
       </div>
     </div>
-
-    <div class="container page">
-      <div class="row">
-        <div class="col-md-9">
-          <Suspense>
-            <ArticlesList
-              use-global-feed
-              use-my-feed
-              use-tag-feed
-            />
-            <template #fallback>
-              Articles are downloading...
-            </template>
-          </Suspense>
-        </div>
-
-        <div class="col-md-3">
-          <div class="sidebar">
-            <Suspense>
-              <PopularTags />
-              <template #fallback>
-                Popular tags are downloading...
-              </template>
-            </Suspense>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 

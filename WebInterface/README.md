@@ -9,3 +9,6 @@ Start Server:
 ```
 curl http://localhost:4444/api -H 'Content-Type: application/json' -d '{"text":"sharks"}'
 ```
+
+Generate Swagger API
+npx swagger-typescript-api -p src/services/openapi.yml -o src/services/
