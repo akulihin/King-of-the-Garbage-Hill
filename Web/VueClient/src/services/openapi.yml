@@ -10,11 +10,7 @@ info:
     url: https://opensource.org/licenses/MIT
   version: 1.0.0
 tags:
-  - name: Articles
-  - name: Comments
-  - name: Favorites
   - name: Profile
-  - name: Tags
   - name: User and Authentication
 servers:
   - url: http://127.0.0.1:4444/api

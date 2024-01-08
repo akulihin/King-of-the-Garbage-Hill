@@ -267,6 +267,9 @@ server.get("/auth/discord/authenticate", async (req, res) => {
 
         if (result) {
           res.cookie('discord_id', discord_data['_id'], cookie_parmas);
+          console.log(req.cookies['user-state'])
+          console.log(discord_data)
+          console.log(clientIp)
           res.send('/authorization-successful');
         }
         else {
