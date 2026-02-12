@@ -190,7 +190,7 @@
     "Psyche": 7,
     "Speed": 5,
     "Strength": 5,
-    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218646126616617/amumu.png",
+    "Avatar": "https://media.discordapp.net/attachments/895072182051430401/1471346982684590344/amumu.png",
     "Passive": [
       {
         "PassiveDescription": "Получает очко каждый раз, когда на него нападет хоть кто-то...",
@@ -222,7 +222,7 @@
     "Psyche": 4,
     "Speed": 5,
     "Strength": 1,
-    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219322856595547/sirinoks.png",
+    "Avatar": "https://media.discordapp.net/attachments/895072182051430401/1471346982684590344/sirinoks.png",
     "Passive": [
       {
         "PassiveDescription": "Каждый раунд получает +1 к главному стату, из-за которого она проиграла в прошлый раз в нападении. Когда стат сравняется с победившим оппонентом, Сири получит +3 *Морали* и 10% *Скилла*. Цель (<:edu:1003751490290204753>) не может смениться, пока Айсик не завершит обучение.",
@@ -429,7 +429,7 @@
     "Psyche": 10,
     "Speed": 0,
     "Strength": 0,
-    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219963167424512/bratishka.png",
+    "Avatar": "https://media.discordapp.net/attachments/895072182051430401/1471346982684590344/bratishka.png",
     "Passive": [
       {
         "PassiveDescription": "Игнорирует интеллект атакующего врага, ведь аргументами его не убедить. А каждый кто свяжется с Братишкой потеряет 1 Интеллект при первом нападение на него.",

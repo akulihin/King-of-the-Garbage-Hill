@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
@@ -6,9 +7,14 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
+using King_of_the_Garbage_Hill.API;
+using King_of_the_Garbage_Hill.API.Services;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
+using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using Lamar;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 
 namespace King_of_the_Garbage_Hill;
 
@@ -32,8 +38,6 @@ public class ProgramKingOfTheGarbageHill
             MessageCacheSize = 300,
             TotalShards = 1,
             GatewayIntents = GatewayIntents.All
-            //AlwaysDownloadUsers = true,
-            //ExclusiveBulkDelete = true
         });
 
         _services = new Container(x =>
@@ -49,13 +53,11 @@ public class ProgramKingOfTheGarbageHill
 
         await _services.InitializeServicesAsync();
 
-        await _client.SetGameAsync("*st - Запустить игру");
+        _ = Task.Run(() => StartWebApi());
 
+        await _client.SetGameAsync("*st - Запустить игру");
         await _client.LoginAsync(TokenType.Bot, _services.GetRequiredService<Config>().Token);
         await _client.StartAsync();
-
-        //not needed
-        //SendMessagesUsingConsole.ConsoleInput(_client);
 
         try
         {
@@ -65,6 +67,100 @@ public class ProgramKingOfTheGarbageHill
         {
             Console.Write(exception.Message);
             Console.Write(exception.StackTrace);
+        }
+    }
+
+    /// <summary>
+    /// Starts the ASP.NET Core Kestrel web server alongside the Discord bot.
+    /// Shares the same singleton instances (Global, GameReaction, etc.) via DI.
+    /// </summary>
+    private async Task StartWebApi()
+    {
+        try
+        {
+            var builder = WebApplication.CreateBuilder();
+
+            // Share key singletons from the Lamar container with ASP.NET Core
+            builder.Services.AddSingleton(_services.GetRequiredService<Global>());
+            builder.Services.AddSingleton(_services.GetRequiredService<GameReaction>());
+            builder.Services.AddSingleton(_services.GetRequiredService<Game.GameLogic.CheckIfReady>());
+
+            // Register web-specific services
+            builder.Services.AddSingleton<WebGameService>();
+            builder.Services.AddSingleton<GameNotificationService>();
+
+            // Add SignalR for real-time communication
+            builder.Services.AddSignalR()
+                .AddJsonProtocol(options =>
+                {
+                    options.PayloadSerializerOptions.PropertyNamingPolicy =
+                        System.Text.Json.JsonNamingPolicy.CamelCase;
+                });
+
+            // Add controllers
+            builder.Services.AddControllers()
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.PropertyNamingPolicy =
+                        System.Text.Json.JsonNamingPolicy.CamelCase;
+                });
+
+            // CORS — allow the Vue dev server and production domain
+            builder.Services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(policy =>
+                {
+                    policy
+                        .WithOrigins(
+                            "http://localhost:5173",   // Vite dev server
+                            "http://localhost:4444",   // Node dev server
+                            "https://d2lfg.ru"         // Production
+                        )
+                        .AllowAnyHeader()
+                        .AllowAnyMethod()
+                        .AllowCredentials();
+                });
+            });
+
+            var app = builder.Build();
+
+            app.UseCors();
+
+            // Serve static files from wwwroot (for production Vue build)
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
+
+            // Serve game art (avatars, emojis, events) from DataBase/art/
+            var artPath = Path.Combine(AppContext.BaseDirectory, "DataBase", "art");
+            if (Directory.Exists(artPath))
+            {
+                app.UseStaticFiles(new StaticFileOptions
+                {
+                    FileProvider = new PhysicalFileProvider(artPath),
+                    RequestPath = "/art"
+                });
+                Console.WriteLine($"[WebAPI] Serving game art from {artPath} at /art/");
+            }
+            else
+            {
+                Console.WriteLine($"[WebAPI] WARNING: Art directory not found at {artPath}");
+            }
+
+            app.UseRouting();
+
+            app.MapControllers();
+            app.MapHub<GameHub>("/gamehub");
+
+            // SPA fallback: serve index.html for any unmatched routes
+            app.MapFallbackToFile("index.html");
+
+            Console.WriteLine("[WebAPI] Starting web server on http://0.0.0.0:3535");
+            await app.RunAsync("http://0.0.0.0:3535");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WebAPI] ERROR starting web server: {ex.Message}");
+            Console.WriteLine(ex.StackTrace);
         }
     }
 }

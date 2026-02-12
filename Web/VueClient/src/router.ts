@@ -1,51 +1,32 @@
-import type { RouteParams, RouteRecordRaw } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router'
 import { createRouter, createWebHashHistory } from 'vue-router'
-import Home from './pages/Home.vue'
-import { isAuthorized } from './store/user'
 
 export type AppRouteNames =
-  | 'global-feed'
-  | 'login'
-  | 'register'
-  | 'profile'
-  | 'settings'
+  | 'lobby'
+  | 'game'
+  | 'spectate'
 
 export const routes: RouteRecordRaw[] = [
   {
-    name: 'global-feed',
+    name: 'lobby',
     path: '/',
-    component: Home,
+    component: () => import('./pages/Lobby.vue'),
   },
   {
-    name: 'login',
-    path: '/login',
-    component: () => import('./pages/Login.vue'),
-    beforeEnter: () => !isAuthorized(),
+    name: 'game',
+    path: '/game/:gameId',
+    component: () => import('./pages/Game.vue'),
+    props: true,
   },
   {
-    name: 'register',
-    path: '/register',
-    component: () => import('./pages/Register.vue'),
-    beforeEnter: () => !isAuthorized(),
-  },
-  {
-    name: 'profile',
-    path: '/profile/:username',
-    component: () => import('./pages/Profile.vue'),
-  },
-  {
-    name: 'settings',
-    path: '/settings',
-    component: () => import('./pages/Settings.vue'),
+    name: 'spectate',
+    path: '/spectate/:gameId',
+    component: () => import('./pages/Spectate.vue'),
+    props: true,
   },
 ]
+
 export const router = createRouter({
   history: createWebHashHistory(),
   routes,
 })
-
-export function routerPush(name: AppRouteNames, params?: RouteParams): ReturnType<typeof router.push> {
-  return params === undefined
-    ? router.push({ name })
-    : router.push({ name, params })
-}

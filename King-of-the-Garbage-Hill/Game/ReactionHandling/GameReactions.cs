@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -143,7 +143,7 @@ public sealed class GameReaction : IServiceSingleton
                 var now = DateTimeOffset.UtcNow;
                 if ((now - player.Status.LastButtonPress).TotalMilliseconds < 700)
                 {
-                    await button.RespondAsync("Ошибка: Слишком быстро! Нажми на кнопку еще раз.", ephemeral:true);
+                    await button.FollowupAsync("Ошибка: Слишком быстро! Нажми на кнопку еще раз.", ephemeral:true);
                     return;
                 }
                 player.Status.LastButtonPress = DateTimeOffset.UtcNow;

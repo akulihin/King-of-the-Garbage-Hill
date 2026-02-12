@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -1654,7 +1654,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public async Task UpdateMessage(GamePlayerBridgeClass player, string extraText = "")
     {
-        if (player.IsBot()) return;
+        if (player.IsBot() || player.IsWebPlayer) return;
 
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         var embed = new EmbedBuilder();

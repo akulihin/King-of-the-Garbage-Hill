@@ -12,10 +12,32 @@ export default defineConfig({
       src: fileURLToPath(new URL('src', import.meta.url)),
     },
   },
+  build: {
+    // Output directly to the C# project's wwwroot for production serving
+    outDir: '../../King-of-the-Garbage-Hill/wwwroot',
+    emptyOutDir: true,
+  },
   plugins: [
     vue(),
     analyzer({ summaryOnly: true }),
   ],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:3535',
+        changeOrigin: true,
+      },
+      '/gamehub': {
+        target: 'http://127.0.0.1:3535',
+        ws: true,
+        changeOrigin: true,
+      },
+      '/art': {
+        target: 'http://127.0.0.1:3535',
+        changeOrigin: true,
+      },
+    },
+  },
   test: {
     environment: 'happy-dom',
     setupFiles: './src/setupTests.ts',

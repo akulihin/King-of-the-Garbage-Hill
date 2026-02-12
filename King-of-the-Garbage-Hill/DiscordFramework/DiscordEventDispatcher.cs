@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
@@ -75,22 +75,20 @@ public sealed class DiscordEventDispatcher : IServiceSingleton
 
     private async Task _client_SelectMenuExecuted(SocketMessageComponent button)
     {
-        button.RespondAsync();
+        await button.DeferAsync();
         _gameReaction.ReactionAddedGameWindow(button);
         _storeReactionHandling.ReactionAddedStore(button);
         _tutorialReactions.ReactionAddedTutorial(button);
         _loreReactions.ReactionAddedLore(button);
-        
     }
 
     private async Task _client_ButtonExecuted(SocketMessageComponent button)
     {
-        button.RespondAsync();
+        await button.DeferAsync();
         _gameReaction.ReactionAddedGameWindow(button);
         _storeReactionHandling.ReactionAddedStore(button);
         _tutorialReactions.ReactionAddedTutorial(button);
         _loreReactions.ReactionAddedLore(button);
-        
     }
 
     private async Task UserIsTyping(Cacheable<IUser, ulong> arg1, Cacheable<IMessageChannel, ulong> arg2)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -54,9 +54,11 @@ public class GamePlayerBridgeClass
     public int TeamId { get; set; }
     public bool IsMobile {get; set; }
 
+    public bool IsWebPlayer { get; set; }
 
     public bool IsBot()
     {
+        if (IsWebPlayer) return false;
         return PlayerType == 404 || DiscordStatus.SocketGameMessage == null;
     }
 

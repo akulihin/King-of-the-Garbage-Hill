@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -212,7 +212,7 @@ public sealed class HelperFunctions : IServiceSingleton
 
     public async Task ModifyGameMessage(GamePlayerBridgeClass player, EmbedBuilder embed, ComponentBuilder components, string extraText = "", int delayMs = 0)
     {
-        if (player.IsBot())
+        if (player.IsBot() || player.IsWebPlayer)
         {
             return;
         }
@@ -257,7 +257,7 @@ public sealed class HelperFunctions : IServiceSingleton
     {
         try
         {
-            if (player.IsBot())
+            if (player.IsBot() || player.IsWebPlayer)
                 return;
         
             while (_messageQueue.Contains(player.GetPlayerId()))
