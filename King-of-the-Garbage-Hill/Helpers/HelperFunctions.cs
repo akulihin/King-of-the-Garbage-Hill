@@ -212,7 +212,7 @@ public sealed class HelperFunctions : IServiceSingleton
 
     public async Task ModifyGameMessage(GamePlayerBridgeClass player, EmbedBuilder embed, ComponentBuilder components, string extraText = "", int delayMs = 0)
     {
-        if (player.IsBot() || player.IsWebPlayer)
+        if (player.IsBot() || player.IsWebPlayer || player.PreferWeb)
         {
             return;
         }
@@ -257,7 +257,14 @@ public sealed class HelperFunctions : IServiceSingleton
     {
         try
         {
-            if (player.IsBot() || player.IsWebPlayer)
+            if (player.IsBot())
+                return;
+
+            // Always store for web display (any player may be viewing on web)
+            player.WebMessages.Add(msg);
+
+            // If player prefers web-only, skip Discord message
+            if (player.IsWebPlayer || player.PreferWeb)
                 return;
         
             while (_messageQueue.Contains(player.GetPlayerId()))

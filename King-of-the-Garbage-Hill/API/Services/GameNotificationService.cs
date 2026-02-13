@@ -72,6 +72,12 @@ public class GameNotificationService
         return Array.Empty<string>();
     }
 
+    /// <summary>Returns true if this Discord user has at least one active web connection.</summary>
+    public bool HasWebConnection(ulong discordId)
+    {
+        return _playerConnections.TryGetValue(discordId, out var set) && set.Count > 0;
+    }
+
     // ── Connection tracking by game ID (for spectators) ───────────────
 
     public void RegisterGameConnection(ulong gameId, string connectionId)

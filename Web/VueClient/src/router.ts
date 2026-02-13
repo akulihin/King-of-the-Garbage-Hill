@@ -5,6 +5,7 @@ export type AppRouteNames =
   | 'lobby'
   | 'game'
   | 'spectate'
+  | 'home'
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -23,6 +24,11 @@ export const routes: RouteRecordRaw[] = [
     path: '/spectate/:gameId',
     component: () => import('./pages/Spectate.vue'),
     props: true,
+  },
+  {
+    name: 'home',
+    path: '/home',
+    component: () => import('./pages/Home.vue'),
   },
 ]
 

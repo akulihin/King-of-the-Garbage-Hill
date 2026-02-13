@@ -223,7 +223,7 @@ function spectateGame(gameId: number) {
 
 .game-mode.normal { background: var(--accent-blue); color: white; }
 .game-mode.aram { background: var(--accent-purple); color: white; }
-.game-mode.team { background: var(--accent-green); color: #1a1a2e; }
+.game-mode.team { background: var(--accent-green); color: var(--kh-c-neutrals-sat-800); }
 
 .game-card-stats {
   display: flex;

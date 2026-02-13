@@ -7,6 +7,7 @@ import PlayerCard from 'src/components/PlayerCard.vue'
 import ActionPanel from 'src/components/ActionPanel.vue'
 import SkillsPanel from 'src/components/SkillsPanel.vue'
 import BattleLog from 'src/components/BattleLog.vue'
+import MediaMessages from 'src/components/MediaMessages.vue'
 import RoundTimer from 'src/components/RoundTimer.vue'
 
 const props = defineProps<{ gameId: string }>()
@@ -107,20 +108,52 @@ function formatLogs(text: string): string {
           </button>
         </div>
 
-        <!-- Logs: side by side -->
-        <div class="logs-row">
+        <!-- Direct Messages (ephemeral alerts) -->
+        <div
+          v-if="store.myPlayer?.status.directMessages?.length"
+          class="direct-messages"
+        >
+          <div
+            v-for="(msg, idx) in store.myPlayer.status.directMessages"
+            :key="idx"
+            class="dm-item"
+            v-html="formatLogs(msg)"
+          />
+        </div>
+
+        <!-- Character Phrase Media Messages (text, audio, images) -->
+        <MediaMessages
+          v-if="store.myPlayer?.status.mediaMessages?.length"
+          :messages="store.myPlayer.status.mediaMessages"
+        />
+
+        <!-- Logs: 2x2 grid -->
+        <div class="logs-grid">
           <div class="log-panel card">
-            <div class="card-header">All Events</div>
-            <BattleLog :logs="store.gameState.globalLogs || ''" />
-          </div>
-          <div class="log-panel card">
-            <div class="card-header">Personal Log</div>
+            <div class="card-header">События этого раунда</div>
             <div
               v-if="store.myPlayer?.status.personalLogs"
               class="log-content"
               v-html="formatLogs(store.myPlayer.status.personalLogs)"
             />
-            <div v-else class="log-empty">No personal logs yet.</div>
+            <div v-else class="log-empty">Еще ничего не произошло. Наверное...</div>
+          </div>
+          <div class="log-panel card">
+            <div class="card-header">События прошлого раунда</div>
+            <div
+              v-if="store.myPlayer?.status.previousRoundLogs"
+              class="log-content"
+              v-html="formatLogs(store.myPlayer.status.previousRoundLogs)"
+            />
+            <div v-else class="log-empty">В прошлом раунде ничего не произошло.</div>
+          </div>
+          <div class="log-panel card">
+            <div class="card-header">Глобальные события</div>
+            <BattleLog :logs="store.gameState.globalLogs || ''" />
+          </div>
+          <div class="log-panel card">
+            <div class="card-header">Все события игры</div>
+            <BattleLog :logs="store.gameState.allGlobalLogs || ''" />
           </div>
         </div>
       </div>
@@ -212,8 +245,29 @@ function formatLogs(text: string): string {
   text-transform: uppercase;
 }
 
+/* ── Direct Messages ──────────────────────────────────────────────── */
+.direct-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.dm-item {
+  padding: 8px 14px;
+  background: var(--kh-c-neutrals-pale-300, var(--bg-card));
+  border-left: 3px solid var(--accent-orange);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.dm-item :deep(strong) { color: var(--accent-gold); }
+.dm-item :deep(em) { color: var(--accent-blue); }
+
 /* ── Logs ────────────────────────────────────────────────────────── */
-.logs-row {
+.logs-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
@@ -221,7 +275,7 @@ function formatLogs(text: string): string {
 }
 
 @media (max-width: 800px) {
-  .logs-row { grid-template-columns: 1fr; }
+  .logs-grid { grid-template-columns: 1fr; }
 }
 
 .log-panel {

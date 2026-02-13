@@ -13,10 +13,14 @@ export type GameState = {
   isAramPickPhase: boolean
   isKratosEvent: boolean
   globalLogs: string
+  /** Full history of global logs across all rounds */
+  allGlobalLogs: string
   /** The PlayerId of the requesting player, or null for spectators */
   myPlayerId: string | null
   /** PlayerType: 0/1 = normal, 2 = admin, 404 = bot */
   myPlayerType: number
+  /** Whether this player has "Prefer Web" enabled (suppresses Discord messages) */
+  preferWeb: boolean
   /** All character names for prediction dropdowns */
   allCharacterNames: string[]
   /** Full character catalog with base stats for prediction lookup */
@@ -73,8 +77,11 @@ export type PlayerStatus = {
   lvlUpPoints: number
   moveListPage: number
   personalLogs: string
+  previousRoundLogs: string
   allPersonalLogs: string
   scoreSource: string
+  directMessages: string[]
+  mediaMessages: MediaMessage[]
   isAramRollConfirmed: boolean
   aramRerolledPassivesTimes: number
   aramRerolledStatsTimes: number
@@ -115,6 +122,14 @@ export type CharacterInfo = {
   strength: number
   speed: number
   psyche: number
+}
+
+export type MediaMessage = {
+  passiveName: string
+  text: string
+  fileUrl: string | null
+  /** "text" | "audio" | "image" */
+  fileType: string
 }
 
 export type ActionResult = {
@@ -286,6 +301,10 @@ class SignalRService {
 
   async aramConfirm(gameId: number): Promise<void> {
     await this.connection?.invoke('AramConfirm', gameId)
+  }
+
+  async setPreferWeb(gameId: number, preferWeb: boolean): Promise<void> {
+    await this.connection?.invoke('SetPreferWeb', gameId, preferWeb)
   }
 }
 

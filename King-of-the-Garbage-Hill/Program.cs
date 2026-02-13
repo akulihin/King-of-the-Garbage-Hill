@@ -113,8 +113,10 @@ public class ProgramKingOfTheGarbageHill
                     policy
                         .WithOrigins(
                             "http://localhost:5173",   // Vite dev server
-                            "http://localhost:4444",   // Node dev server
-                            "https://d2lfg.ru"         // Production
+                            "http://localhost:3535",   // C# dev server
+                            "http://localhost",        // Local port 80
+                            "http://kotgh.ozvmusic.com",  // Production (Cloudflare → origin over HTTP)
+                            "https://kotgh.ozvmusic.com"  // Production (client-facing HTTPS)
                         )
                         .AllowAnyHeader()
                         .AllowAnyMethod()
@@ -146,6 +148,21 @@ public class ProgramKingOfTheGarbageHill
                 Console.WriteLine($"[WebAPI] WARNING: Art directory not found at {artPath}");
             }
 
+            var soundPath = Path.Combine(AppContext.BaseDirectory, "DataBase", "sound");
+            if (Directory.Exists(soundPath))
+            {
+                app.UseStaticFiles(new StaticFileOptions
+                {
+                    FileProvider = new PhysicalFileProvider(soundPath),
+                    RequestPath = "/sound"
+                });
+                Console.WriteLine($"[WebAPI] Serving game sounds from {soundPath} at /sound/");
+            }
+            else
+            {
+                Console.WriteLine($"[WebAPI] WARNING: Sound directory not found at {soundPath}");
+            }
+
             app.UseRouting();
 
             app.MapControllers();
@@ -154,8 +171,9 @@ public class ProgramKingOfTheGarbageHill
             // SPA fallback: serve index.html for any unmatched routes
             app.MapFallbackToFile("index.html");
 
-            Console.WriteLine("[WebAPI] Starting web server on http://0.0.0.0:3535");
-            await app.RunAsync("http://0.0.0.0:3535");
+            var port = Environment.GetEnvironmentVariable("KOTGH_PORT") ?? "3535";
+            Console.WriteLine($"[WebAPI] Starting web server on http://0.0.0.0:{port}");
+            await app.RunAsync($"http://0.0.0.0:{port}");
         }
         catch (Exception ex)
         {

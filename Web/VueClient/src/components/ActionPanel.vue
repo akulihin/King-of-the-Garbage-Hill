@@ -21,6 +21,12 @@ const isLockedPredict = computed(() => {
   if (!me.value || !game.value) return false
   return me.value.status.confirmedPredict && game.value.roundNo >= 8
 })
+
+const preferWeb = computed(() => game.value?.preferWeb ?? false)
+
+function togglePreferWeb() {
+  store.setPreferWeb(!preferWeb.value)
+}
 </script>
 
 <template>
@@ -66,8 +72,7 @@ const isLockedPredict = computed(() => {
       </button>
     </div>
 
-    <!-- Predict confirm: show button when predictions exist, locked "Predicted ✓" only at round 8+ -->
-    <div v-if="hasPredictions || isLockedPredict" class="action-group">
+    <div v-if="(game?.roundNo ?? 0) >= 8 && (hasPredictions || isLockedPredict)" class="action-group">
       <button
         class="act-btn predict-confirm"
         :class="{ confirmed: isLockedPredict }"
@@ -95,6 +100,18 @@ const isLockedPredict = computed(() => {
       </button>
       <button class="act-btn moral" title="Moral → Skill" @click="store.moralToSkill()">
         Moral → Skill
+      </button>
+    </div>
+
+    <!-- Web-only mode toggle -->
+    <div class="action-group web-toggle">
+      <button
+        class="act-btn web-mode"
+        :class="{ active: preferWeb }"
+        title="When enabled, Discord messages are suppressed — play only via Web"
+        @click="togglePreferWeb()"
+      >
+        {{ preferWeb ? '🌐 Web Only ✓' : '🌐 Web Only' }}
       </button>
     </div>
   </div>
@@ -212,4 +229,26 @@ const isLockedPredict = computed(() => {
 }
 
 .act-btn.moral:hover:not(:disabled) { border-color: var(--accent-orange); }
+
+.web-toggle {
+  margin-left: auto;
+}
+
+.act-btn.web-mode {
+  background: rgba(96, 165, 250, 0.08);
+  border-color: var(--border-color);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.act-btn.web-mode:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  background: rgba(96, 165, 250, 0.15);
+}
+.act-btn.web-mode.active {
+  background: rgba(96, 165, 250, 0.15);
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  font-weight: 700;
+}
 </style>

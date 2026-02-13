@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useGameStore } from './store/game'
+import LoginProcess from 'src/components/Login/LoginProcess.vue'
+import LoginSuccess from 'src/components/Login/LoginSuccess.vue'
+import { useRouter } from 'vue-router'
 
 const store = useGameStore()
-const discordIdInput = ref('')
-const showAuth = ref(true)
+const router = useRouter()
+
+const showLogin = ref(true)
+const loginSuccess = ref(false)
+const loggedInUsername = ref('')
 
 onMounted(async () => {
-  // Check if we have a stored Discord ID
   const stored = localStorage.getItem('discordId')
   if (stored) {
-    discordIdInput.value = stored
     await connectAndAuth(stored)
   }
 })
@@ -18,21 +22,24 @@ onMounted(async () => {
 async function connectAndAuth(id: string) {
   if (!id || !/^\d+$/.test(id)) return
   await store.connect()
-  // Send as raw string — never convert to Number (would lose precision on snowflake IDs)
   await store.authenticate(id)
   localStorage.setItem('discordId', id)
-  showAuth.value = false
+  loggedInUsername.value = `ID: ${id}`
+  loginSuccess.value = true
 }
 
-async function handleLogin() {
-  const id = discordIdInput.value.trim()
-  if (!id || !/^\d+$/.test(id)) return
-  await connectAndAuth(id)
+async function handleLogin(discordId: string) {
+  await connectAndAuth(discordId)
+}
+
+function handleContinue() {
+  showLogin.value = false
 }
 
 function handleLogout() {
   localStorage.removeItem('discordId')
-  showAuth.value = true
+  showLogin.value = true
+  loginSuccess.value = false
   store.discordId = ''
   store.isAuthenticated = false
 }
@@ -40,54 +47,49 @@ function handleLogout() {
 
 <template>
   <div class="app">
-    <!-- Connection status bar -->
-    <header class="top-bar">
-      <div class="logo">
-        <span class="logo-icon">👑</span>
-        <span class="logo-text">King of the Garbage Hill</span>
-      </div>
-      <div class="status-bar">
-        <span
-          class="connection-dot"
-          :class="{ connected: store.isConnected, disconnected: !store.isConnected }"
-        />
-        <span v-if="store.isAuthenticated" class="user-info">
-          ID: {{ store.discordId }}
-          <button class="btn btn-sm btn-ghost" @click="handleLogout">
-            Logout
-          </button>
-        </span>
-      </div>
-    </header>
+    <!-- Login screen (designer's layout) -->
+    <div v-if="showLogin && !store.isAuthenticated" class="logins">
+      <LoginProcess
+        version="1.0"
+        @login="handleLogin"
+      />
+    </div>
 
-    <!-- Auth screen -->
-    <div v-if="showAuth && !store.isAuthenticated" class="auth-screen">
-      <div class="auth-card">
-        <h1>King of the Garbage Hill</h1>
-        <p class="subtitle">
-          Enter your Discord ID to connect
-        </p>
-        <div class="auth-form">
-          <input
-            v-model="discordIdInput"
-            type="text"
-            placeholder="Discord User ID"
-            class="input"
-            @keyup.enter="handleLogin"
-          >
-          <button class="btn btn-primary" :disabled="store.isLoading" @click="handleLogin">
-            {{ store.isLoading ? 'Connecting...' : 'Connect' }}
-          </button>
-        </div>
-        <p class="hint">
-          You can find your Discord ID by enabling Developer Mode in Discord settings,
-          then right-clicking your name and selecting "Copy User ID".
-        </p>
-      </div>
+    <!-- Login success → redirect -->
+    <div v-else-if="loginSuccess && showLogin" class="logins">
+      <LoginSuccess
+        version="1.0"
+        :username="loggedInUsername"
+        @continue="handleContinue"
+      />
     </div>
 
     <!-- Main content -->
-    <main v-else class="main-content">
+    <template v-else>
+      <!-- Top bar -->
+      <header class="top-bar">
+        <div class="top-bar-left">
+          <span class="logo-icon">👑</span>
+          <RouterLink to="/" class="logo-text">KOTGH</RouterLink>
+
+          <nav class="top-nav">
+            <RouterLink to="/">Games</RouterLink>
+            <RouterLink to="/home">Home</RouterLink>
+          </nav>
+        </div>
+
+        <div class="top-bar-right">
+          <span
+            class="connection-dot"
+            :class="{ connected: store.isConnected, disconnected: !store.isConnected }"
+          />
+          <span v-if="store.isAuthenticated" class="user-info">
+            {{ store.discordId }}
+          </span>
+          <button class="top-btn" @click="handleLogout">Logout</button>
+        </div>
+      </header>
+
       <!-- Error toast -->
       <Transition name="fade">
         <div v-if="store.errorMessage" class="error-toast">
@@ -95,270 +97,260 @@ function handleLogout() {
         </div>
       </Transition>
 
-      <RouterView />
-    </main>
+      <main class="main-content">
+        <RouterView />
+      </main>
+    </template>
   </div>
 </template>
 
 <style>
-/* ── CSS Reset & Variables ────────────────────────────────────────── */
+/* ── App-level theme variables ─────────────────────────────────────
+   Maps the game component vars to KOTGH designer palette.
+   Existing game components (Leaderboard, etc.) use --bg-*, --accent-*
+   so we keep those names but point them at the designer's colors.
+──────────────────────────────────────────────────────────────────── */
 :root {
-  --bg-primary: #0f0f1a;
-  --bg-secondary: #1a1a2e;
-  --bg-card: #16213e;
-  --bg-card-hover: #1a2744;
-  --text-primary: #e0e0e0;
-  --text-secondary: #a0a0b0;
-  --text-muted: #6b6b80;
-  --accent-gold: #ffd700;
+  /* Backgrounds — mapped to KOTGH neutrals */
+  --bg-primary: var(--kh-c-neutrals-sat-800);
+  --bg-secondary: var(--kh-c-neutrals-sat-700);
+  --bg-card: var(--kh-c-neutrals-sat-600);
+  --bg-card-hover: var(--kh-c-neutrals-sat-500);
+
+  /* Text — mapped to KOTGH text */
+  --text-primary: var(--kh-c-text-primary-500);
+  --text-secondary: var(--kh-c-text-primary-600);
+  --text-muted: var(--kh-c-text-primary-700);
+
+  /* Accents — keep distinct accent colors */
+  --accent-gold: var(--kh-c-text-highlight-primary);
   --accent-blue: #4a9eff;
-  --accent-green: #4ade80;
+  --accent-green: var(--kh-c-secondary-success-200);
   --accent-red: #f87171;
   --accent-purple: #a78bfa;
   --accent-orange: #fb923c;
-  --border-color: #2a2a4a;
+
+  /* Borders — mapped to KOTGH neutrals */
+  --border-color: var(--kh-c-neutrals-pale-260);
+
+  /* Misc */
   --radius: 8px;
   --radius-lg: 12px;
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  min-height: 100vh;
-  overflow-x: hidden;
-}
-
-/* ── Scrollbar ────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: var(--bg-primary); }
-::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-
 /* ── Layout ───────────────────────────────────────────────────────── */
 .app {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  width: 100%;
 }
 
+/* ── Login screen ─────────────────────────────────────────────────── */
+.logins {
+  display: flex;
+  width: 100vw;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding-bottom: 20vh;
+}
+
+.logins > div {
+  display: flex;
+  justify-content: center;
+}
+
+/* ── Top bar ──────────────────────────────────────────────────────── */
 .top-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 24px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  z-index: 100;
+  padding: 0.5rem 1rem;
+  background: var(--kh-c-neutrals-sat-700);
+  border-bottom: 1px solid var(--kh-c-neutrals-pale-375);
 }
 
-.logo {
+.top-bar-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.75rem;
 }
 
-.logo-icon {
-  font-size: 24px;
-}
+.logo-icon { font-size: 1.25rem; }
 
 .logo-text {
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--accent-gold), var(--accent-orange));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--kh-c-text-highlight-primary);
+  text-decoration: none;
 }
 
-.status-bar {
+.top-nav {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: 1rem;
+}
+
+.top-nav a {
+  padding: 0.375rem 0.75rem;
+  color: var(--kh-c-text-primary-700);
+  text-decoration: none;
+  font-size: 0.875rem;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+
+.top-nav a:hover {
+  background-color: var(--kh-c-neutrals-pale-500);
+  border-color: var(--kh-c-neutrals-pale-260);
+  color: var(--kh-c-text-primary-600);
+}
+
+.top-nav a.router-link-exact-active {
+  background-color: var(--kh-c-neutrals-pale-575);
+  border-bottom: 2px solid var(--kh-c-text-highlight-primary);
+  color: var(--kh-c-text-primary-500);
+}
+
+.top-bar-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.75rem;
 }
 
 .connection-dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  display: inline-block;
 }
 
-.connection-dot.connected { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
-.connection-dot.disconnected { background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); }
+.connection-dot.connected {
+  background: var(--kh-c-secondary-success-200);
+  box-shadow: 0 0 6px var(--kh-c-secondary-success-200);
+}
+
+.connection-dot.disconnected {
+  background: var(--accent-red);
+  box-shadow: 0 0 6px var(--accent-red);
+}
 
 .user-info {
-  color: var(--text-secondary);
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  color: var(--kh-c-text-primary-700);
+  font-size: 0.8rem;
 }
 
+.top-btn {
+  padding: 0.25rem 0.75rem;
+  background: transparent;
+  color: var(--kh-c-text-primary-700);
+  border: 1px solid var(--kh-c-neutrals-pale-260);
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.15s;
+}
+
+.top-btn:hover {
+  background: var(--kh-c-neutrals-pale-500);
+  color: var(--kh-c-text-primary-600);
+}
+
+/* ── Main content ─────────────────────────────────────────────────── */
 .main-content {
   flex: 1;
-  padding: 24px;
+  padding: 1.5rem;
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
 }
 
-/* ── Auth Screen ──────────────────────────────────────────────────── */
-.auth-screen {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-}
-
-.auth-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 48px;
-  text-align: center;
-  max-width: 480px;
-  width: 100%;
-}
-
-.auth-card h1 {
-  font-size: 28px;
-  margin-bottom: 8px;
-  background: linear-gradient(135deg, var(--accent-gold), var(--accent-orange));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.subtitle {
-  color: var(--text-secondary);
-  margin-bottom: 24px;
-}
-
-.auth-form {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.hint {
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-/* ── Buttons ──────────────────────────────────────────────────────── */
+/* ── Buttons (shared across game components) ──────────────────────── */
 .btn {
-  padding: 10px 20px;
+  padding: 0.5rem 1rem;
   border: none;
   border-radius: var(--radius);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 0.375rem;
 }
 
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-  color: white;
+  background: var(--kh-c-secondary-success-500);
+  color: var(--kh-c-text-primary-500);
 }
-.btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(74, 158, 255, 0.3); }
+.btn-primary:hover:not(:disabled) {
+  background: var(--kh-c-secondary-success-300);
+}
 
-.btn-danger {
-  background: var(--accent-red);
-  color: white;
-}
+.btn-danger { background: var(--accent-red); color: white; }
 .btn-danger:hover:not(:disabled) { background: #ef4444; }
 
-.btn-success {
-  background: var(--accent-green);
-  color: #1a1a2e;
-}
-.btn-success:hover:not(:disabled) { background: #22c55e; }
-
-.btn-warning {
-  background: var(--accent-orange);
-  color: #1a1a2e;
-}
-.btn-warning:hover:not(:disabled) { background: #f97316; }
+.btn-success { background: var(--kh-c-secondary-success-200); color: var(--kh-c-neutrals-sat-800); }
+.btn-success:hover:not(:disabled) { background: var(--kh-c-secondary-success-300); }
 
 .btn-ghost {
   background: transparent;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
+  color: var(--kh-c-text-primary-700);
+  border: 1px solid var(--kh-c-neutrals-pale-260);
 }
-.btn-ghost:hover:not(:disabled) { background: var(--bg-card); color: var(--text-primary); }
-
-.btn-sm {
-  padding: 4px 12px;
-  font-size: 12px;
+.btn-ghost:hover:not(:disabled) {
+  background: var(--kh-c-neutrals-pale-500);
+  color: var(--kh-c-text-primary-600);
 }
 
-.btn-lg {
-  padding: 14px 28px;
-  font-size: 16px;
-}
+.btn-sm { padding: 0.25rem 0.75rem; font-size: 0.75rem; }
+.btn-lg { padding: 0.75rem 1.5rem; font-size: 1rem; }
 
 /* ── Inputs ───────────────────────────────────────────────────────── */
 .input {
-  padding: 10px 16px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
-  color: var(--text-primary);
-  font-size: 14px;
+  padding: 0.5rem 1rem;
+  background: var(--kh-c-neutrals-sat-650);
+  border: 1px solid var(--kh-c-neutrals-pale-260);
+  color: var(--kh-c-text-primary-500);
+  font-size: 0.875rem;
   flex: 1;
   outline: none;
   transition: border-color 0.2s;
 }
 
-.input:focus {
-  border-color: var(--accent-blue);
-}
+.input:focus { border-color: var(--kh-c-text-primary-700); }
 
 /* ── Cards ────────────────────────────────────────────────────────── */
 .card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  background: var(--kh-c-neutrals-sat-600);
+  border: 1px solid var(--kh-c-neutrals-sat-500);
   border-radius: var(--radius-lg);
-  padding: 20px;
+  padding: 1.25rem;
 }
 
 .card-header {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 700;
-  margin-bottom: 16px;
-  color: var(--accent-gold);
+  margin-bottom: 1rem;
+  color: var(--kh-c-text-highlight-primary);
 }
 
 /* ── Error Toast ──────────────────────────────────────────────────── */
 .error-toast {
   position: fixed;
-  top: 80px;
-  right: 24px;
+  top: 4rem;
+  right: 1.5rem;
   background: var(--accent-red);
   color: white;
-  padding: 12px 24px;
+  padding: 0.75rem 1.5rem;
   border-radius: var(--radius);
-  font-size: 14px;
+  font-size: 0.875rem;
   z-index: 1000;
   box-shadow: var(--shadow);
 }
@@ -367,12 +359,12 @@ body {
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
-/* ── Stat Colors ──────────────────────────────────────────────────── */
+/* ── Stat Colors (used by game components) ────────────────────────── */
 .stat-intelligence { color: #60a5fa; }
 .stat-strength { color: #f87171; }
 .stat-speed { color: #4ade80; }
 .stat-psyche { color: #c084fc; }
-.stat-skill { color: var(--accent-gold); }
+.stat-skill { color: var(--kh-c-text-highlight-primary); }
 .stat-moral { color: var(--accent-orange); }
 .stat-justice { color: #e879f9; }
 </style>

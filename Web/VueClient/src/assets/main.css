@@ -1,0 +1,39 @@
+@import './base.css';
+
+/* ── Global Reset & Base (designer) ───────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  font-weight: normal;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  min-height: 100vh;
+  color: var(--kh-c-text-primary-600);
+  background: var(--kh-c-neutrals-sat-800);
+  transition: color 0.5s, background-color 0.5s;
+  line-height: 1.6;
+  font-family: 'Inter', Verdana, Geneva, Tahoma, sans-serif;
+  font-size: 0.875rem;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+#app {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--kh-c-neutrals-sat-800); }
+::-webkit-scrollbar-thumb { background: var(--kh-c-neutrals-pale-260); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--kh-c-neutrals-pale-240); }

@@ -194,6 +194,11 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.aramConfirm(gameState.value.gameId)
   }
 
+  async function setPreferWeb(preferWeb: boolean) {
+    if (!gameState.value) return
+    await signalrService.setPreferWeb(gameState.value.gameId, preferWeb)
+  }
+
   return {
     // State
     discordId,
@@ -231,5 +236,6 @@ export const useGameStore = defineStore('game', () => {
     predict,
     aramReroll,
     aramConfirm,
+    setPreferWeb,
   }
 })

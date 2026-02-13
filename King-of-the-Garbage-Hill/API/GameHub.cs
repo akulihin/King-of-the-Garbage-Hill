@@ -242,6 +242,30 @@ public class GameHub : Hub
         if (success) await PushStateToPlayer(gameId, discordId);
     }
 
+    // ── Settings ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Toggle "Prefer Web" mode: when enabled, Discord messages are suppressed
+    /// and the player only interacts via the web UI.
+    /// </summary>
+    public async Task SetPreferWeb(ulong gameId, bool preferWeb)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var game = _global.GamesList.Find(x => x.GameId == gameId);
+        var player = game?.PlayersList.Find(x => x.DiscordId == discordId);
+        if (player == null)
+        {
+            await Clients.Caller.SendAsync("Error", "Player not found in this game.");
+            return;
+        }
+
+        player.PreferWeb = preferWeb;
+        await Clients.Caller.SendAsync("ActionResult", new { action = "setPreferWeb", success = true, error = (string)null });
+        Console.WriteLine($"[WebAPI] Player {discordId} set PreferWeb={preferWeb} in game {gameId}");
+    }
+
     // ── Request State ─────────────────────────────────────────────────
 
     public async Task RequestGameState(ulong gameId)

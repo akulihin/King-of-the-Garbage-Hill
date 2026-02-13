@@ -86,8 +86,10 @@ public static class GameStateMapper
             IsAramPickPhase = game.IsAramPickPhase,
             IsKratosEvent = game.IsKratosEvent,
             GlobalLogs = game.GetGlobalLogs(),
+            AllGlobalLogs = game.GetAllGlobalLogs(),
             MyPlayerId = requestingPlayer?.GetPlayerId(),
             MyPlayerType = requestingPlayer?.PlayerType ?? 0,
+            PreferWeb = requestingPlayer?.PreferWeb ?? false,
             AllCharacterNames = _allCharacterNames,
             AllCharacters = _allCharacters,
         };
@@ -120,7 +122,7 @@ public static class GameStateMapper
             IsWebPlayer = player.IsWebPlayer,
             TeamId = player.TeamId,
             Character = MapCharacter(player.GameCharacter, isMe, isAdmin),
-            Status = MapStatus(player.Status, isMe, isAdmin),
+            Status = MapStatus(player, isMe, isAdmin),
         };
 
         // Predictions are private — only visible to the owning player
@@ -196,10 +198,23 @@ public static class GameStateMapper
         return dto;
     }
 
-    private static PlayerStatusDto MapStatus(InGameStatus status, bool isMe, bool isAdmin)
+    private static PlayerStatusDto MapStatus(GamePlayerBridgeClass player, bool isMe, bool isAdmin)
     {
+        var status = player.Status;
         // Non-admin viewing an opponent: hide score (they only see place on leaderboard)
         var canSeeScore = isMe || isAdmin;
+
+        // Extract previous round logs from InGamePersonalLogsAll (split by "|||")
+        var previousRoundLogs = "";
+        if (isMe)
+        {
+            var splitLogs = status.InGamePersonalLogsAll.Split("|||");
+            if (splitLogs.Length > 1 && splitLogs[^2].Length > 3)
+            {
+                previousRoundLogs = splitLogs[^2];
+            }
+        }
+
         var dto = new PlayerStatusDto
         {
             Score = canSeeScore ? status.GetScore() : -1,
@@ -213,8 +228,17 @@ public static class GameStateMapper
             LvlUpPoints = isMe ? status.LvlUpPoints : 0,
             MoveListPage = isMe ? status.MoveListPage : 1,
             PersonalLogs = isMe ? status.GetInGamePersonalLogs() : "",
+            PreviousRoundLogs = previousRoundLogs,
             AllPersonalLogs = isMe ? status.InGamePersonalLogsAll : "",
             ScoreSource = isMe ? status.ScoreSource : "",
+            DirectMessages = isMe ? new List<string>(player.WebMessages) : new List<string>(),
+            MediaMessages = isMe ? player.WebMediaMessages.Select(m => new MediaMessageDto
+            {
+                PassiveName = m.PassiveName,
+                Text = m.Text,
+                FileUrl = m.FileUrl,
+                FileType = m.FileType,
+            }).ToList() : new List<MediaMessageDto>(),
             IsAramRollConfirmed = status.IsAramRollConfirmed,
             AramRerolledPassivesTimes = isMe ? status.AramRerolledPassivesTimes : 0,
             AramRerolledStatsTimes = isMe ? status.AramRerolledStatsTimes : 0,

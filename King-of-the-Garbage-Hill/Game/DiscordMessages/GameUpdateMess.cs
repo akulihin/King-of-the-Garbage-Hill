@@ -1654,7 +1654,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public async Task UpdateMessage(GamePlayerBridgeClass player, string extraText = "")
     {
-        if (player.IsBot() || player.IsWebPlayer) return;
+        if (player.IsBot() || player.IsWebPlayer || player.PreferWeb) return;
 
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         var embed = new EmbedBuilder();

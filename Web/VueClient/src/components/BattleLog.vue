@@ -75,7 +75,7 @@ const entries = computed<BattleEntry[]>(() => {
         >
           {{ entry.attacker }}
         </span>
-        <img src="/art/emojis/war.png" alt="⚔" class="bl-sword" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline'">
+        <img :src="'/art/emojis/war.png'" alt="⚔" class="bl-sword" @error="(e: Event) => { (e.target as HTMLElement).style.display = 'none'; ((e.target as HTMLElement).nextElementSibling as HTMLElement).style.display = 'inline' }">
         <span class="bl-sword-fallback" style="display:none">⚔</span>
         <span
           class="bl-player defender"

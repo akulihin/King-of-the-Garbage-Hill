@@ -343,7 +343,7 @@ public class CheckIfReady : IServiceSingleton
                 game.PlayersList.FindAll(x => x.Status.GetScore() == playerWhoWon.Status.GetScore()).Count > 1
                     ? "\n**Ничья**"
                     : $"\n**{playerWhoWon.DiscordUsername}** победил, играя за **{playerWhoWon.GameCharacter.Name}**");
-            if (!playerWhoWon.IsBot() && !playerWhoWon.IsWebPlayer)
+            if (!playerWhoWon.IsBot() && !playerWhoWon.IsWebPlayer && !playerWhoWon.PreferWeb)
                 if (game.PlayersList.FindAll(x => x.Status.GetScore() == playerWhoWon.Status.GetScore())
                         .Count == 1)
                 {
@@ -442,7 +442,7 @@ public class CheckIfReady : IServiceSingleton
                 performanceStatistics.Times++;
             try
             {
-                if (!player.IsBot() && !player.IsWebPlayer)
+                if (!player.IsBot() && !player.IsWebPlayer && !player.PreferWeb)
                     await player.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync(
                         $"Спасибо за игру!\nВы заработали **{zbsPointsToGive}** ZBS points!\n\nВы можете потратить их в магазине - `*store`\nА вы заметили? Это многопользовательская игра до 6 игроков! Вы можете начать игру с другом пинганув его! Например `*st @Boole`");
             }

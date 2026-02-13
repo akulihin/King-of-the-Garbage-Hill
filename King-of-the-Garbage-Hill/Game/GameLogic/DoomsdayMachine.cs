@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -665,6 +665,8 @@ Speed => Strength
             player.Status.CombineRoundScoreAndGameScore(game);
             player.Status.ClearInGamePersonalLogs();
             player.Status.InGamePersonalLogsAll += "|||";
+            player.WebMessages.Clear();
+            player.WebMediaMessages.Clear();
 
             player.Passives.PointFunneledTo = Guid.Empty;
         }

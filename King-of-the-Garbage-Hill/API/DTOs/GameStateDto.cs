@@ -18,11 +18,17 @@ public class GameStateDto
     public bool IsKratosEvent { get; set; }
     public string GlobalLogs { get; set; }
 
+    /// <summary>Full history of all global logs across all rounds.</summary>
+    public string AllGlobalLogs { get; set; }
+
     /// <summary>The PlayerId of the requesting player, or null for spectators.</summary>
     public Guid? MyPlayerId { get; set; }
 
     /// <summary>PlayerType of the requesting player (0/1 = normal, 2 = admin, 404 = bot).</summary>
     public int MyPlayerType { get; set; }
+
+    /// <summary>Whether the requesting player has "Prefer Web" enabled (suppresses Discord messages).</summary>
+    public bool PreferWeb { get; set; }
 
     /// <summary>All character names available for predictions.</summary>
     public List<string> AllCharacterNames { get; set; } = new();
@@ -100,8 +106,15 @@ public class PlayerStatusDto
     public int LvlUpPoints { get; set; }
     public int MoveListPage { get; set; }
     public string PersonalLogs { get; set; }
+    public string PreviousRoundLogs { get; set; }
     public string AllPersonalLogs { get; set; }
     public string ScoreSource { get; set; }
+
+    /// <summary>Direct messages (ephemeral msgs that are sent then deleted in Discord).</summary>
+    public List<string> DirectMessages { get; set; } = new();
+
+    /// <summary>Character phrase media messages (text, audio, images from SendLogSeparate/SendLogSeparateWithFile).</summary>
+    public List<MediaMessageDto> MediaMessages { get; set; } = new();
     public bool IsAramRollConfirmed { get; set; }
     public int AramRerolledPassivesTimes { get; set; }
     public int AramRerolledStatsTimes { get; set; }
@@ -124,6 +137,18 @@ public class TeamDto
 {
     public int TeamId { get; set; }
     public List<Guid> PlayerIds { get; set; } = new();
+}
+
+public class MediaMessageDto
+{
+    /// <summary>Name of the passive/ability that triggered this message.</summary>
+    public string PassiveName { get; set; }
+    /// <summary>The text/phrase content.</summary>
+    public string Text { get; set; }
+    /// <summary>URL to the media file (e.g. /art/events/kratos_death.jpg, /sound/Kratos_PLAY_ME.mp3). Null for text-only.</summary>
+    public string FileUrl { get; set; }
+    /// <summary>One of: "text", "audio", "image"</summary>
+    public string FileType { get; set; } = "text";
 }
 
 // ── Request DTOs ──────────────────────────────────────────────────────

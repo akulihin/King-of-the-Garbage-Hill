@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
@@ -866,9 +866,20 @@ public class CharactersUniquePhrase
                 }
             }
 
-
             if (PassiveLogRus.Count > 1)
                 PassiveLogRus.Remove(description);
+
+            // Always store for web display
+            player.WebMediaMessages.Add(new GamePlayerBridgeClass.WebMediaEntry
+            {
+                PassiveName = PassiveNameRus,
+                Text = description,
+                FileUrl = null,
+                FileType = "text"
+            });
+
+            // Send to Discord if not web-only
+            if (player.IsWebPlayer || player.PreferWeb) return;
             try
             {
                 var mess2 = await player.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync(description);
@@ -912,12 +923,24 @@ public class CharactersUniquePhrase
                 }
             }
 
-
             if (PassiveLogRus.Count > 1)
                 PassiveLogRus.Remove(description);
+
+            // Always store for web display — convert DataBase path to web URL
+            var webUrl = FilePathToWebUrl(filePath);
+            var fileType = DetectFileType(filePath);
+            player.WebMediaMessages.Add(new GamePlayerBridgeClass.WebMediaEntry
+            {
+                PassiveName = PassiveNameRus,
+                Text = description,
+                FileUrl = webUrl,
+                FileType = fileType
+            });
+
+            // Send to Discord if not web-only
+            if (player.IsWebPlayer || player.PreferWeb) return;
             try
             {
-                //.SendFileAsync($"DataBase/sound/Kratos_PLAY_ME.mp3", "123");
                 var mess2 = await player.DiscordStatus.SocketGameMessage.Channel.SendFileAsync(filePath, description);
                 if (clearNextRound)
                     player.DeleteMessages.Add(new GamePlayerBridgeClass.DeleteMessagesClass(mess2.Id, delayMs));
@@ -927,6 +950,45 @@ public class CharactersUniquePhrase
                 Console.Write(exception.Message);
                 Console.Write(exception.StackTrace);
             }
+        }
+
+        /// <summary>Converts a DataBase file path to a web-accessible URL.</summary>
+        private static string FilePathToWebUrl(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath)) return null;
+
+            // Normalize separators
+            var normalized = filePath.Replace('\\', '/');
+
+            // "DataBase/art/events/kratos_death.jpg" → "/art/events/kratos_death.jpg"
+            if (normalized.Contains("DataBase/art/"))
+            {
+                var idx = normalized.IndexOf("DataBase/art/", StringComparison.OrdinalIgnoreCase);
+                return "/" + normalized.Substring(idx + "DataBase/".Length);
+            }
+
+            // "DataBase/sound/Kratos_PLAY_ME.mp3" → "/sound/Kratos_PLAY_ME.mp3"
+            if (normalized.Contains("DataBase/sound/"))
+            {
+                var idx = normalized.IndexOf("DataBase/sound/", StringComparison.OrdinalIgnoreCase);
+                return "/" + normalized.Substring(idx + "DataBase/".Length);
+            }
+
+            // Fallback: just use the filename
+            return "/" + System.IO.Path.GetFileName(filePath);
+        }
+
+        /// <summary>Detect media type from file extension.</summary>
+        private static string DetectFileType(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath)) return "text";
+            var ext = System.IO.Path.GetExtension(filePath).ToLowerInvariant();
+            return ext switch
+            {
+                ".mp3" or ".wav" or ".ogg" or ".flac" or ".aac" or ".m4a" => "audio",
+                ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp" or ".bmp" or ".svg" => "image",
+                _ => "text"
+            };
         }
     }
 }
