@@ -36,7 +36,7 @@
     "cypress": "^13.6.0",
     "eslint": "^8.54.0",
     "eslint-plugin-cypress": "^2.15.1",
-    "happy-dom": "^12.10.3",
+    "happy-dom": "^20.0.2",
     "lint-staged": "^15.2.0",
     "msw": "^2.0.11",
     "rollup-plugin-analyzer": "^4.0.0",
