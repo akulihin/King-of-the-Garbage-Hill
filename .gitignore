@@ -385,7 +385,7 @@ coverage
 #################################################
 # Node
 secrets
-*.json
+kek.json
 *.crt
 *.key
 
