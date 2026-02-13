@@ -27,7 +27,9 @@ const predictSearch = ref('')
 const statGuesses = ref<Record<string, { intelligence: number; strength: number; speed: number; psyche: number }>>({})
 
 const sorted = computed(() =>
-  [...props.players].sort((a, b) => a.status.place - b.status.place),
+  [...props.players]
+    .filter((p: Player) => !p.kratosIsDead)
+    .sort((a, b) => a.status.place - b.status.place),
 )
 
 const maxScore = computed(() => {

@@ -59,6 +59,9 @@ public class PlayerDto
     // Predictions (only visible to the owning player)
     public List<PredictDto> Predictions { get; set; }
 
+    /// <summary>Whether this player has been killed by Kratos (should be hidden from leaderboard).</summary>
+    public bool KratosIsDead { get; set; }
+
     /// <summary>Custom prefix before the player's place number (e.g. octopus tentacles). Web-friendly HTML.</summary>
     public string CustomLeaderboardPrefix { get; set; }
 
@@ -156,6 +159,8 @@ public class MediaMessageDto
     public string FileUrl { get; set; }
     /// <summary>One of: "text", "audio", "image"</summary>
     public string FileType { get; set; } = "text";
+    /// <summary>How many rounds this media should play. Audio with &gt;1 loops across rounds.</summary>
+    public int RoundsToPlay { get; set; } = 1;
 }
 
 // ── Request DTOs ──────────────────────────────────────────────────────

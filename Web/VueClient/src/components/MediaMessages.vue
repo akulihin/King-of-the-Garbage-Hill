@@ -7,83 +7,127 @@ const props = defineProps<{
 }>()
 
 // ── Audio playback state ──────────────────────────────────────────
+// Audio objects are managed IMPERATIVELY (not via <audio> DOM elements)
+// so they survive Vue's frequent re-renders from SignalR updates (~300ms).
 const volume = ref(0.5)
-const audioElements = ref<Record<number, HTMLAudioElement>>({})
-const playingIdx = ref<number | null>(null)
+const audioObjects = new Map<string, HTMLAudioElement>() // keyed by fileUrl
+const playingUrl = ref<string | null>(null)
 
-function onAudioRef(el: HTMLAudioElement | null, idx: number) {
-  if (el) {
-    audioElements.value[idx] = el
-    el.volume = volume.value
-  } else {
-    delete audioElements.value[idx]
+function getOrCreateAudio(url: string, loop: boolean): HTMLAudioElement {
+  let audio = audioObjects.get(url)
+  if (!audio) {
+    audio = new Audio(url)
+    audio.preload = 'auto'
+    audio.volume = volume.value
+    audio.loop = loop
+    audio.addEventListener('ended', () => {
+      // Only clear playing state if NOT looping (looping handles itself)
+      if (!audio!.loop && playingUrl.value === url) {
+        playingUrl.value = null
+      }
+    })
+    audio.addEventListener('error', (e) => {
+      console.warn('[MediaMessages] Audio error for', url, e)
+      if (playingUrl.value === url) {
+        playingUrl.value = null
+      }
+    })
+    audioObjects.set(url, audio)
   }
+  // Update loop setting in case it changed
+  audio.loop = loop
+  return audio
 }
 
-function togglePlay(idx: number) {
-  const audio = audioElements.value[idx]
-  if (!audio) return
+function togglePlay(url: string, roundsToPlay: number) {
+  if (!url) return
+  const loop = roundsToPlay > 1
+  const audio = getOrCreateAudio(url, loop)
 
-  if (playingIdx.value === idx && !audio.paused) {
+  if (playingUrl.value === url && !audio.paused) {
     audio.pause()
-    playingIdx.value = null
+    playingUrl.value = null
   } else {
     // Pause any other playing audio
-    Object.values(audioElements.value).forEach((a) => {
+    audioObjects.forEach((a) => {
       if (!a.paused) a.pause()
     })
     audio.currentTime = 0
     audio.volume = volume.value
-    audio.play()
-    playingIdx.value = idx
+    audio.play().catch((err) => {
+      console.warn('[MediaMessages] Play failed:', err.message)
+    })
+    playingUrl.value = url
   }
 }
 
-function onAudioEnded(idx: number) {
-  if (playingIdx.value === idx) {
-    playingIdx.value = null
-  }
+function isPlaying(url: string): boolean {
+  return playingUrl.value === url
 }
 
-watch(volume, (v) => {
-  Object.values(audioElements.value).forEach((a) => {
+watch(volume, (v: number) => {
+  audioObjects.forEach((a) => {
     a.volume = v
   })
 })
 
-// Auto-play new audio messages when they appear
+// Track which audio URLs we've already auto-started so we don't restart them
+// on every SignalR update or across rounds (multi-round audio should continue).
+const autoStartedUrls = new Set<string>()
+
 watch(
   () => props.messages,
-  (newMsgs, oldMsgs) => {
-    if (!newMsgs || !oldMsgs) return
-    // Find new audio messages that weren't in the old list
-    const oldLen = oldMsgs.length
-    for (let i = oldLen; i < newMsgs.length; i++) {
-      if (newMsgs[i].fileType === 'audio') {
-        // Queue auto-play after a short delay for the DOM to update
-        const idx = i
-        setTimeout(() => {
-          const audio = audioElements.value[idx]
-          if (audio) {
-            Object.values(audioElements.value).forEach((a) => {
-              if (!a.paused) a.pause()
-            })
+  (msgs: MediaMessage[]) => {
+    if (!msgs) return
+
+    // Collect all active audio URLs from current messages
+    const activeAudioUrls = new Set<string>()
+    for (const msg of msgs) {
+      if (msg.fileType === 'audio' && msg.fileUrl) {
+        activeAudioUrls.add(msg.fileUrl)
+        const loop = (msg.roundsToPlay ?? 1) > 1
+
+        // Auto-start audio that we haven't started yet
+        if (!autoStartedUrls.has(msg.fileUrl)) {
+          autoStartedUrls.add(msg.fileUrl)
+          const url = msg.fileUrl
+          // Small delay to let the component mount on first render
+          setTimeout(() => {
+            const audio = getOrCreateAudio(url, loop)
             audio.volume = volume.value
-            audio.play()
-            playingIdx.value = idx
-          }
-        }, 100)
-        break // only auto-play the first new audio
+            audio.play().catch((err) => {
+              console.warn('[MediaMessages] Auto-play failed:', err.message)
+            })
+            playingUrl.value = url
+          }, 100)
+        }
+      }
+    }
+
+    // Stop audio that is no longer in the messages list (media expired / round ended)
+    for (const url of autoStartedUrls) {
+      if (!activeAudioUrls.has(url)) {
+        const audio = audioObjects.get(url)
+        if (audio && !audio.paused) {
+          audio.pause()
+        }
+        audioObjects.delete(url)
+        autoStartedUrls.delete(url)
+        if (playingUrl.value === url) {
+          playingUrl.value = null
+        }
       }
     }
   },
-  { deep: true },
+  { deep: true, immediate: true },
 )
 
 onBeforeUnmount(() => {
-  Object.values(audioElements.value).forEach((a) => {
+  audioObjects.forEach((a) => {
     if (!a.paused) a.pause()
   })
+  audioObjects.clear()
+  autoStartedUrls.clear()
 })
 
 function getMediaIcon(fileType: string): string {
@@ -128,22 +172,17 @@ function getMediaIcon(fileType: string): string {
           <!-- Text content -->
           <p class="phrase-text">{{ msg.text }}</p>
 
-          <!-- Audio player -->
+          <!-- Audio player (imperative Audio objects, no <audio> in DOM) -->
           <div v-if="msg.fileType === 'audio' && msg.fileUrl" class="audio-player">
             <button
               class="play-btn"
-              :class="{ playing: playingIdx === idx }"
-              @click="togglePlay(idx)"
+              :class="{ playing: isPlaying(msg.fileUrl) }"
+              @click="togglePlay(msg.fileUrl, msg.roundsToPlay ?? 1)"
             >
-              {{ playingIdx === idx ? '⏸' : '▶' }}
+              {{ isPlaying(msg.fileUrl) ? '⏸' : '▶' }}
             </button>
-            <audio
-              :ref="(el) => onAudioRef(el as HTMLAudioElement, idx)"
-              :src="msg.fileUrl"
-              preload="auto"
-              @ended="onAudioEnded(idx)"
-            />
             <span class="audio-file">{{ msg.fileUrl?.split('/').pop() }}</span>
+            <span v-if="(msg.roundsToPlay ?? 1) > 1" class="loop-badge">LOOP</span>
           </div>
 
           <!-- Image/GIF display -->
@@ -329,6 +368,17 @@ function getMediaIcon(fileType: string): string {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.loop-badge {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--accent-purple);
+  background: rgba(167, 139, 250, 0.15);
+  padding: 2px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
 }
 
 /* ── Image ────────────────────────────────────────── */

@@ -35,6 +35,8 @@ export type Player = {
   isBot: boolean
   isWebPlayer: boolean
   teamId: number
+  /** Whether this player was killed by Kratos (hidden from leaderboard). */
+  kratosIsDead: boolean
   character: Character
   status: PlayerStatus
   predictions?: Prediction[]
@@ -134,6 +136,8 @@ export type MediaMessage = {
   fileUrl: string | null
   /** "text" | "audio" | "image" */
   fileType: string
+  /** How many rounds this media should play. Audio with >1 loops across rounds. */
+  roundsToPlay: number
 }
 
 export type ActionResult = {

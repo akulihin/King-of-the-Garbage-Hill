@@ -121,6 +121,7 @@ public static class GameStateMapper
             IsBot = player.IsBot(),
             IsWebPlayer = player.IsWebPlayer,
             TeamId = player.TeamId,
+            KratosIsDead = player.Passives.KratosIsDead,
             Character = MapCharacter(player.GameCharacter, isMe, isAdmin),
             Status = MapStatus(player, isMe, isAdmin),
         };
@@ -238,6 +239,7 @@ public static class GameStateMapper
                 Text = m.Text,
                 FileUrl = m.FileUrl,
                 FileType = m.FileType,
+                RoundsToPlay = m.RoundsToPlay,
             }).ToList() : new List<MediaMessageDto>(),
             IsAramRollConfirmed = status.IsAramRollConfirmed,
             AramRerolledPassivesTimes = isMe ? status.AramRerolledPassivesTimes : 0,

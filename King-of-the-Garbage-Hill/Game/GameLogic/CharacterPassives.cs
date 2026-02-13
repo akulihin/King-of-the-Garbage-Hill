@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -1104,7 +1104,7 @@ public class CharacterPassives : IServiceSingleton
                         game.IsKratosEvent = true;
                         game.AddGlobalLogs("Бегите! На Гору Мусорной Горы идёт Кратос и НИЧТО его не остановит!");
                         foreach (var p in game.PlayersList.Where(x => !x.IsBot()))
-                            await game.Phrases.KratosEventYes.SendLogSeparateWithFile(p, false, "DataBase/sound/Kratos_PLAY_ME.mp3", false, 15000);
+                            await game.Phrases.KratosEventYes.SendLogSeparateWithFile(p, false, "DataBase/sound/Kratos_PLAY_ME.mp3", false, 15000, roundsToPlay: 5);
 
                         player.FightCharacter.SetSkillFightMultiplier(4);
                         player.FightCharacter.SetClassSkillMultiplier(4);

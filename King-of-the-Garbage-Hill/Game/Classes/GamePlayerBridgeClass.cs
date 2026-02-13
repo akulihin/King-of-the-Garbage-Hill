@@ -74,6 +74,10 @@ public class GamePlayerBridgeClass
         public string FileUrl { get; set; }
         /// <summary>One of: "text", "audio", "image"</summary>
         public string FileType { get; set; } = "text";
+        /// <summary>How many rounds this media should keep playing. 1 = current round only (default). For audio, continues looping across rounds.</summary>
+        public int RoundsToPlay { get; set; } = 1;
+        /// <summary>Tracks how many rounds this entry has been alive (incremented each round).</summary>
+        public int RoundsPlayed { get; set; } = 0;
     }
 
     public bool IsBot()

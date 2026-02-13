@@ -892,7 +892,7 @@ public class CharactersUniquePhrase
             }
         }
 
-        public async Task SendLogSeparateWithFile(GamePlayerBridgeClass player, bool delete, string filePath, bool clearNextRound, int delayMs, bool isRandomOrder = true)
+        public async Task SendLogSeparateWithFile(GamePlayerBridgeClass player, bool delete, string filePath, bool clearNextRound, int delayMs, bool isRandomOrder = true, int roundsToPlay = 1)
         {
             if (player.IsBot()) return;
 
@@ -934,7 +934,8 @@ public class CharactersUniquePhrase
                 PassiveName = PassiveNameRus,
                 Text = description,
                 FileUrl = webUrl,
-                FileType = fileType
+                FileType = fileType,
+                RoundsToPlay = roundsToPlay,
             });
 
             // Send to Discord if not web-only

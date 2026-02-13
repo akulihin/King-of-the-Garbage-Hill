@@ -176,6 +176,22 @@ Speed => Strength
         var watch = new Stopwatch();
         watch.Start();
 
+        // Clear web messages from the PREVIOUS round at the START of new processing.
+        // This ensures they persist long enough for the SignalR timer to broadcast them.
+        // Multi-round media (e.g. Kratos music with RoundsToPlay > 1) is kept alive.
+        foreach (var p in game.PlayersList)
+        {
+            p.WebMessages.Clear();
+            // Increment round counter and remove expired media; keep multi-round entries alive
+            for (var mi = p.WebMediaMessages.Count - 1; mi >= 0; mi--)
+            {
+                var entry = p.WebMediaMessages[mi];
+                entry.RoundsPlayed++;
+                if (entry.RoundsPlayed >= entry.RoundsToPlay)
+                    p.WebMediaMessages.RemoveAt(mi);
+            }
+        }
+
         game.TimePassed.Stop();
         var roundNumber = game.RoundNo + 1;
         if (roundNumber > 10) roundNumber = 10;
@@ -665,8 +681,6 @@ Speed => Strength
             player.Status.CombineRoundScoreAndGameScore(game);
             player.Status.ClearInGamePersonalLogs();
             player.Status.InGamePersonalLogsAll += "|||";
-            player.WebMessages.Clear();
-            player.WebMediaMessages.Clear();
 
             player.Passives.PointFunneledTo = Guid.Empty;
         }
