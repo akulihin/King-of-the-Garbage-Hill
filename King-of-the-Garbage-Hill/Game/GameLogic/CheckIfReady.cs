@@ -453,6 +453,22 @@ public class CheckIfReady : IServiceSingleton
             }
         }
 
+        // Broadcast final state to web clients BEFORE removing the game.
+        // Without this, PreferWeb players never see the last round's results because
+        // HandleLastRound completes too fast (no Discord API delay) and the game
+        // is removed from GamesList before the SignalR timer can push the final state.
+        if (_global.OnGameFinished != null)
+        {
+            try
+            {
+                await _global.OnGameFinished(game);
+            }
+            catch (Exception ex)
+            {
+                _logs.Critical($"OnGameFinished broadcast failed: {ex.Message}");
+            }
+        }
+
         await NotifyOwner(game);
         _global.GamesList.Remove(game);
     }

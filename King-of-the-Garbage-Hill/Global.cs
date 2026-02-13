@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -34,6 +34,11 @@ public sealed class Global : IServiceSingleton
 
     public ConcurrentDictionary<ulong, GameClass> FinishedGamesList = new();
 
+    /// <summary>
+    /// Callback registered by GameNotificationService to broadcast final game state
+    /// to web clients before the game is removed from GamesList.
+    /// </summary>
+    public Func<GameClass, Task> OnGameFinished { get; set; }
 
     public Task InitializeAsync()
     {

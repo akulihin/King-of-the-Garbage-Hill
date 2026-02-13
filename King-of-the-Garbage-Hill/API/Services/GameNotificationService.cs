@@ -37,6 +37,23 @@ public class GameNotificationService
         _global = global;
         _gameUpdateMess = gameUpdateMess;
 
+        // Register callback so CheckIfReady can trigger a final broadcast
+        // before removing the game from GamesList
+        _global.OnGameFinished = async game =>
+        {
+            try
+            {
+                await BroadcastGameState(game);
+                await SendGameEvent(game.GameId, "GameFinished");
+                _lastSnapshot.TryRemove(game.GameId, out _);
+                _gameConnections.TryRemove(game.GameId, out _);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WebAPI] Error in OnGameFinished broadcast: {ex.Message}");
+            }
+        };
+
         _pushTimer = new Timer
         {
             AutoReset = true,
@@ -194,12 +211,11 @@ public class GameNotificationService
                     }
                 }
 
+                // Final broadcast for finished games is handled by HandleLastRound
+                // via _global.OnGameFinished callback, so skip it here to avoid duplicates.
                 if (game.IsFinished)
                 {
-                    await BroadcastGameState(game);
-                    await SendGameEvent(gameId, "GameFinished");
                     _lastSnapshot.TryRemove(gameId, out _);
-                    _gameConnections.TryRemove(gameId, out _);
                 }
             }
             catch (Exception ex)
