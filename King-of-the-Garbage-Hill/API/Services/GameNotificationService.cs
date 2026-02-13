@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using Microsoft.AspNetCore.SignalR;
 
 namespace King_of_the_Garbage_Hill.API.Services;
@@ -18,6 +19,7 @@ public class GameNotificationService
 {
     private readonly IHubContext<GameHub> _hubContext;
     private readonly Global _global;
+    private readonly GameUpdateMess _gameUpdateMess;
     private readonly Timer _pushTimer;
 
     // Track which Discord IDs are connected to which SignalR connection(s)
@@ -29,10 +31,11 @@ public class GameNotificationService
     // Track last known state per game to detect changes
     private readonly ConcurrentDictionary<ulong, GameSnapshot> _lastSnapshot = new();
 
-    public GameNotificationService(IHubContext<GameHub> hubContext, Global global)
+    public GameNotificationService(IHubContext<GameHub> hubContext, Global global, GameUpdateMess gameUpdateMess)
     {
         _hubContext = hubContext;
         _global = global;
+        _gameUpdateMess = gameUpdateMess;
 
         _pushTimer = new Timer
         {
@@ -106,6 +109,7 @@ public class GameNotificationService
         if (connections.Count == 0) return;
 
         var dto = GameStateMapper.ToDto(game, player);
+        WebGameService.PopulateCustomLeaderboard(dto, game, player, _gameUpdateMess);
         await _hubContext.Clients.Clients(connections.ToList()).SendAsync("GameState", dto);
     }
 
@@ -125,6 +129,7 @@ public class GameNotificationService
             if (connections.Count == 0) continue;
 
             var dto = GameStateMapper.ToDto(game, player);
+            WebGameService.PopulateCustomLeaderboard(dto, game, player, _gameUpdateMess);
             var connList = connections.ToList();
             await _hubContext.Clients.Clients(connList).SendAsync("GameState", dto);
 

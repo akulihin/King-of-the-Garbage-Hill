@@ -198,8 +198,14 @@ function tierStars(tier: number): string {
         }"
         @click="handleAttack(player)"
       >
-        <!-- Place -->
-        <div class="lb-place">{{ player.status.place }}</div>
+        <!-- Place (with optional prefix from passives like octopus tentacles) -->
+        <div class="lb-place">
+          <span
+            v-if="player.customLeaderboardPrefix"
+            class="lb-prefix"
+            v-html="player.customLeaderboardPrefix"
+          />{{ player.status.place }}
+        </div>
 
         <!-- Avatar -->
         <div class="lb-avatar">
@@ -218,6 +224,12 @@ function tierStars(tier: number): string {
           <div class="lb-name">
             <span class="player-name">{{ player.discordUsername }}</span>
             <span v-if="player.isBot" class="badge bot-badge">BOT</span>
+            <!-- Custom leaderboard annotations from passives -->
+            <span
+              v-if="player.customLeaderboardText"
+              class="lb-custom"
+              v-html="player.customLeaderboardText"
+            />
           </div>
           <div class="lb-character" :class="{ 'masked-name': isMasked(player) && !getPrediction(player.playerId) }">
             {{ getDisplayCharName(player) }}
@@ -415,6 +427,11 @@ function tierStars(tier: number): string {
   color: var(--text-muted);
 }
 
+.lb-prefix {
+  font-size: 14px;
+  margin-right: 1px;
+}
+
 .lb-row:nth-child(1) .lb-place { color: var(--accent-gold); }
 .lb-row:nth-child(2) .lb-place { color: #c0c0c0; }
 .lb-row:nth-child(3) .lb-place { color: #cd7f32; }
@@ -479,6 +496,26 @@ function tierStars(tier: number): string {
 
 .badge { padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 700; }
 .bot-badge { background: var(--text-muted); color: var(--bg-primary); }
+
+.lb-custom {
+  font-size: 12px;
+  color: var(--accent-orange);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+.lb-custom :deep(strong) { color: var(--accent-gold); font-weight: 700; }
+.lb-custom :deep(em) { color: var(--accent-blue); }
+.lb-custom :deep(u) { color: var(--accent-green); }
+.lb-custom :deep(.lb-emoji) {
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  display: inline;
+  margin: 0 1px;
+}
 
 .lb-character { font-size: 11px; color: var(--text-muted); }
 .lb-character.masked-name { color: var(--text-muted); font-style: italic; opacity: 0.6; }

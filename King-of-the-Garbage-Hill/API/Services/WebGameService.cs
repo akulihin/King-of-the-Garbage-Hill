@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.API.DTOs;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 
 namespace King_of_the_Garbage_Hill.API.Services;
@@ -19,11 +21,13 @@ public class WebGameService
 {
     private readonly Global _global;
     private readonly GameReaction _gameReaction;
+    private readonly GameUpdateMess _gameUpdateMess;
 
-    public WebGameService(Global global, GameReaction gameReaction)
+    public WebGameService(Global global, GameReaction gameReaction, GameUpdateMess gameUpdateMess)
     {
         _global = global;
         _gameReaction = gameReaction;
+        _gameUpdateMess = gameUpdateMess;
     }
 
     // ── Queries ───────────────────────────────────────────────────────
@@ -57,13 +61,99 @@ public class WebGameService
         if (game == null) return null;
 
         var player = game.PlayersList.Find(p => p.DiscordId == discordId);
-        return GameStateMapper.ToDto(game, player);
+        var dto = GameStateMapper.ToDto(game, player);
+        PopulateCustomLeaderboard(dto, game, player, _gameUpdateMess);
+        return dto;
     }
 
     public GameStateDto GetGameStateForSpectator(ulong gameId)
     {
         var game = FindGame(gameId);
         return game == null ? null : GameStateMapper.ToDto(game);
+    }
+
+    /// <summary>
+    /// Discord emoji map: converts &lt;:name:id&gt; to local /art/emojis/ images or Unicode fallbacks.
+    /// </summary>
+    private static readonly Dictionary<string, string> EmojiMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Weedwick
+        { "weed", "🌿" },
+        { "bong", "🌿" },
+        { "WUF", "🐺" },
+        // Pets
+        { "pet", "🔗" },
+        // Tigr
+        { "pepe_down", "⬇️" },
+        // Spartan / Mylorik
+        { "sparta", "<img class='lb-emoji' src='/art/emojis/sparta.png'/>" },
+        { "Spartaneon", "⚔️" },
+        { "yasuo", "⚔️" },
+        { "broken_shield", "🛡️💥" },
+        // DeepList
+        { "yo_filled", "<img class='lb-emoji' src='/art/emojis/yo.png'/>" },
+        // Vampyr
+        { "Y_", "🩸" },
+        // Ranks / Awdka
+        { "bronze", "🥉" },
+        { "plat", "💎" },
+        // HardKitty
+        { "393", "💬" },
+        { "LoveLetter", "💌" },
+        // Sirinoks
+        { "fr", "🤝" },
+        { "edu", "📚" },
+        // Jaws (Shark)
+        { "jaws", "🦈" },
+        // Luck
+        { "luck", "🍀" },
+        // Generic
+        { "e_", "" },
+        { "war", "<img class='lb-emoji' src='/art/emojis/war.png'/>" },
+    };
+
+    /// <summary>Converts Discord markdown + custom emojis to web-safe HTML.</summary>
+    public static string ConvertDiscordToWeb(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "";
+
+        // Replace Discord custom emojis: <:name:id> or <a:name:id>
+        text = Regex.Replace(text, @"<a?:(\w+):\d+>", match =>
+        {
+            var name = match.Groups[1].Value;
+            return EmojiMap.TryGetValue(name, out var replacement) ? replacement : $"[{name}]";
+        });
+
+        // Discord markdown → HTML
+        text = Regex.Replace(text, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+        text = Regex.Replace(text, @"__(.+?)__", "<u>$1</u>");
+        text = Regex.Replace(text, @"\*(.+?)\*", "<em>$1</em>");
+        text = Regex.Replace(text, @"~~(.+?)~~", "<del>$1</del>");
+        text = text.Replace("\n", "<br/>");
+
+        return text.Trim();
+    }
+
+    /// <summary>
+    /// Populates CustomLeaderboardText and CustomLeaderboardPrefix on each PlayerDto.
+    /// Called from both WebGameService (REST) and GameNotificationService (SignalR).
+    /// </summary>
+    public static void PopulateCustomLeaderboard(GameStateDto dto, GameClass game,
+        GamePlayerBridgeClass viewingPlayer, GameUpdateMess gameUpdateMess)
+    {
+        if (viewingPlayer == null || gameUpdateMess == null) return;
+        foreach (var playerDto in dto.Players)
+        {
+            var otherPlayer = game.PlayersList.Find(p => p.GetPlayerId() == playerDto.PlayerId);
+            if (otherPlayer != null)
+            {
+                var rawAfter = gameUpdateMess.CustomLeaderBoardAfterPlayer(viewingPlayer, otherPlayer, game);
+                playerDto.CustomLeaderboardText = ConvertDiscordToWeb(rawAfter);
+
+                var rawBefore = gameUpdateMess.CustomLeaderBoardBeforeNumber(viewingPlayer, otherPlayer, game, playerDto.Status.Place);
+                playerDto.CustomLeaderboardPrefix = ConvertDiscordToWeb(rawBefore);
+            }
+        }
     }
 
     // ── Find helpers ──────────────────────────────────────────────────

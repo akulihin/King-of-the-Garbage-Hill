@@ -38,6 +38,10 @@ export type Player = {
   character: Character
   status: PlayerStatus
   predictions?: Prediction[]
+  /** Custom prefix before place number (e.g. octopus tentacles) */
+  customLeaderboardPrefix?: string
+  /** Custom leaderboard annotations from passives (web-safe HTML) */
+  customLeaderboardText?: string
 }
 
 export type Character = {

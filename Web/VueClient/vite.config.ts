@@ -24,20 +24,20 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:3535',
+        target: 'http://3.65.44.127',
         changeOrigin: true,
       },
       '/gamehub': {
-        target: 'http://127.0.0.1:3535',
+        target: 'http://3.65.44.127',
         ws: true,
         changeOrigin: true,
       },
       '/art': {
-        target: 'http://127.0.0.1:3535',
+        target: 'http://3.65.44.127',
         changeOrigin: true,
       },
       '/sound': {
-        target: 'http://127.0.0.1:3535',
+        target: 'http://3.65.44.127',
         changeOrigin: true,
       },
     },

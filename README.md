@@ -30,3 +30,5 @@ ________________________________________________________________________________
 ![DeepList Gameplay 1](https://github.com/mylorik/King-of-the-Garbage-Hill/blob/master/King-of-the-Garbage-Hill/DataBase/art/screenshots/Discord_AjkMQKubty.png?raw=true)
 ![DeepList Gameplay 2](https://github.com/mylorik/King-of-the-Garbage-Hill/blob/master/King-of-the-Garbage-Hill/DataBase/art/screenshots/Discord_rmOOrNRL7W.png?raw=true)
 
+
+

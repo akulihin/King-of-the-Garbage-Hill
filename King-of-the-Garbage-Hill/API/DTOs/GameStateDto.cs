@@ -58,6 +58,13 @@ public class PlayerDto
 
     // Predictions (only visible to the owning player)
     public List<PredictDto> Predictions { get; set; }
+
+    /// <summary>Custom prefix before the player's place number (e.g. octopus tentacles). Web-friendly HTML.</summary>
+    public string CustomLeaderboardPrefix { get; set; }
+
+    /// <summary>Custom leaderboard annotations after the player name, visible to the requesting player
+    /// (e.g. weed counts, hunt targets, win streaks from passives). Web-friendly HTML.</summary>
+    public string CustomLeaderboardText { get; set; }
 }
 
 public class CharacterDto

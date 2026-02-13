@@ -84,6 +84,7 @@ public class ProgramKingOfTheGarbageHill
             builder.Services.AddSingleton(_services.GetRequiredService<Global>());
             builder.Services.AddSingleton(_services.GetRequiredService<GameReaction>());
             builder.Services.AddSingleton(_services.GetRequiredService<Game.GameLogic.CheckIfReady>());
+            builder.Services.AddSingleton(_services.GetRequiredService<Game.DiscordMessages.GameUpdateMess>());
 
             // Register web-specific services
             builder.Services.AddSingleton<WebGameService>();
@@ -171,7 +172,7 @@ public class ProgramKingOfTheGarbageHill
             // SPA fallback: serve index.html for any unmatched routes
             app.MapFallbackToFile("index.html");
 
-            var port = Environment.GetEnvironmentVariable("KOTGH_PORT") ?? "3535";
+            var port = Environment.GetEnvironmentVariable("KOTGH_PORT") ?? "80";
             Console.WriteLine($"[WebAPI] Starting web server on http://0.0.0.0:{port}");
             await app.RunAsync($"http://0.0.0.0:{port}");
         }
