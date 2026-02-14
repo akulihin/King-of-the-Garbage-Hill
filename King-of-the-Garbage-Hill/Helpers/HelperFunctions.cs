@@ -214,6 +214,9 @@ public sealed class HelperFunctions : IServiceSingleton
     {
         if (player.IsBot() || player.IsWebPlayer || player.PreferWeb)
         {
+            // Still deliver extraText to web messages even when Discord is suppressed
+            if (!player.IsBot() && extraText.Length > 0)
+                player.WebMessages.Add(extraText);
             return;
         }
 

@@ -1654,7 +1654,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public async Task UpdateMessage(GamePlayerBridgeClass player, string extraText = "")
     {
-        if (player.IsBot() || player.IsWebPlayer || player.PreferWeb) return;
+        if (player.IsBot() || player.IsWebPlayer || player.PreferWeb)
+        {
+            // Still deliver extraText to web messages even when Discord is suppressed
+            if (!player.IsBot() && extraText.Length > 0)
+                player.WebMessages.Add(extraText);
+            return;
+        }
 
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         var embed = new EmbedBuilder();
