@@ -27,6 +27,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         public decimal TooGoodRandomChange;      // 75 or 25 (the set value), 0 if not triggered
         public decimal TooStronkRandomChange;    // the tooStronkAdd delta, 0 if not triggered
 
+        // WhoIsBetter stat breakdown (+1 me better, -1 enemy better, 0 equal)
+        public int WhoIsBetterIntel, WhoIsBetterStr, WhoIsBetterSpeed;
+
         // Intermediate values
         public decimal ScaleMe, ScaleTarget;
     }
@@ -174,6 +177,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             // ── 3. WhoIsBetter ─────────────────────────────────────────
             wmBefore = weighingMachine;
+
+            // Capture individual stat comparisons for display
+            r.WhoIsBetterIntel = me.GetIntelligence() > target.GetIntelligence() ? 1 : me.GetIntelligence() < target.GetIntelligence() ? -1 : 0;
+            r.WhoIsBetterStr = me.GetStrength() > target.GetStrength() ? 1 : me.GetStrength() < target.GetStrength() ? -1 : 0;
+            r.WhoIsBetterSpeed = me.GetSpeed() > target.GetSpeed() ? 1 : me.GetSpeed() < target.GetSpeed() ? -1 : 0;
 
             switch (WhoIsBetter(player.GameCharacter, playerIamAttacking.GameCharacter))
             {

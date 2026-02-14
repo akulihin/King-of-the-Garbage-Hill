@@ -283,6 +283,7 @@ Speed => Strength
                 game.AddGlobalLogs($"{player.DiscordUsername} <:war:561287719838547981> {playerIamAttacking.DiscordUsername}", "");
 
                 //add skill
+                decimal skillGainedFromTarget = 0;
                 if (player.GameCharacter.GetCurrentSkillClassTarget() == playerIamAttacking.GameCharacter.GetSkillClass())
                 {
                     string text1;
@@ -309,7 +310,9 @@ Speed => Strength
                         text2 = "(**БУЛЬ** ?!) ";
                     }
 
+                    var skillBefore = player.FightCharacter.GetSkill();
                     player.FightCharacter.AddMainSkill(text1);
+                    skillGainedFromTarget = player.FightCharacter.GetSkill() - skillBefore;
 
                     var known = player.Status.KnownPlayerClass.Find(x => x.EnemyId == playerIamAttacking.GetPlayerId());
                     if (known != null)
@@ -404,6 +407,7 @@ Speed => Strength
                         DefenderAvatar = GameStateMapper.GetLocalAvatarUrl(playerIamAttacking.GameCharacter.AvatarCurrent ?? playerIamAttacking.GameCharacter.Avatar),
                         Outcome = "block",
                         WinnerName = playerIamAttacking.DiscordUsername,
+                        SkillGainedFromTarget = Math.Round(skillGainedFromTarget, 1),
                     });
 
                     //fight Reset
@@ -444,6 +448,7 @@ Speed => Strength
                         DefenderCharName = playerIamAttacking.GameCharacter.Name,
                         DefenderAvatar = GameStateMapper.GetLocalAvatarUrl(playerIamAttacking.GameCharacter.AvatarCurrent ?? playerIamAttacking.GameCharacter.Avatar),
                         Outcome = "skip",
+                        SkillGainedFromTarget = Math.Round(skillGainedFromTarget, 1),
                     });
 
                     //fight Reset
@@ -738,6 +743,11 @@ Speed => Strength
                         DefenderAvatar = GameStateMapper.GetLocalAvatarUrl(target.AvatarCurrent ?? target.Avatar),
                         Outcome = attackerWon ? "win" : "loss",
                         WinnerName = attackerWon ? player.DiscordUsername : playerIamAttacking.DiscordUsername,
+                        AttackerClass = me.GetSkillClass(),
+                        DefenderClass = target.GetSkillClass(),
+                        WhoIsBetterIntel = step1.WhoIsBetterIntel,
+                        WhoIsBetterStr = step1.WhoIsBetterStr,
+                        WhoIsBetterSpeed = step1.WhoIsBetterSpeed,
                         ScaleMe = Math.Round(step1.ScaleMe, 2),
                         ScaleTarget = Math.Round(step1.ScaleTarget, 2),
                         IsContrMe = me.GetWhoIContre() == target.GetSkillClass(),
@@ -785,6 +795,7 @@ Speed => Strength
                         IntellectualDamage = fightIntellectualDmg,
                         EmotionalDamage = fightEmotionalDmg,
                         JusticeChange = fightJusticeChange,
+                        SkillGainedFromTarget = Math.Round(skillGainedFromTarget, 1),
                     });
                 }
 

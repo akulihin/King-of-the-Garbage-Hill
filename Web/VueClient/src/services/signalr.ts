@@ -63,6 +63,7 @@ export type Character = {
   justice: number
   seenJustice: number
   skillClass: string
+  skillTarget: string
   classStatDisplayText: string
 
   // Quality resists & bonuses
@@ -166,6 +167,13 @@ export type FightEntry = {
   outcome: string
   winnerName: string | null
 
+  // Class info for contre/WhoIsBetter display
+  attackerClass: string
+  defenderClass: string
+  whoIsBetterIntel: number  // +1 attacker better, -1 defender, 0 equal
+  whoIsBetterStr: number
+  whoIsBetterSpeed: number
+
   // Step1: Stats
   scaleMe: number
   scaleTarget: number
@@ -224,6 +232,7 @@ export type FightEntry = {
   intellectualDamage: boolean
   emotionalDamage: boolean
   justiceChange: number
+  skillGainedFromTarget: number
 }
 
 export type ActionResult = {

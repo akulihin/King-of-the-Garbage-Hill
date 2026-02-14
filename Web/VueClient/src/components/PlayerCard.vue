@@ -18,6 +18,31 @@ const hasMoral = computed(() => {
   const moral = Number.parseFloat(props.player.character.moralDisplay) || 0
   return moral >= 1
 })
+
+/** Parse "ClassName || description" from classStatDisplayText */
+const classLabel = computed(() => {
+  const raw = props.player?.character.classStatDisplayText ?? ''
+  if (!raw) return ''
+  const parts = raw.split('||')
+  return parts[0].trim()
+})
+const classTooltip = computed(() => {
+  const raw = props.player?.character.classStatDisplayText ?? ''
+  if (!raw) return ''
+  const parts = raw.split('||')
+  // Strip Discord markdown (*word*) from tooltip
+  return parts.length > 1 ? parts[1].trim().replace(/\*/g, '') : ''
+})
+
+/** Translate skill target class to a short display label */
+function skillTargetLabel(target: string): string {
+  switch (target) {
+    case 'Интеллект': return '🧠'
+    case 'Сила': return '💪'
+    case 'Скорость': return '⚡'
+    default: return target || '?'
+  }
+}
 </script>
 
 <template>
@@ -112,19 +137,31 @@ const hasMoral = computed(() => {
       </div>
     </div>
 
-    <!-- Skill / Moral / Justice -->
+    <!-- Class / Skill / Moral / Justice / Target -->
     <div class="pc-meta">
       <div class="meta-box">
-        <span class="meta-label">Skill</span>
-        <span class="meta-value stat-skill">{{ player.character.skillDisplay }}</span>
+        <span class="meta-label">Justice</span>
+        <span class="meta-value stat-justice">{{ player.character.justice }}</span>
       </div>
+
       <div class="meta-box">
         <span class="meta-label">Moral</span>
         <span class="meta-value stat-moral">{{ player.character.moralDisplay }}</span>
       </div>
+
       <div class="meta-box">
-        <span class="meta-label">Justice</span>
-        <span class="meta-value stat-justice">{{ player.character.justice }}</span>
+        <span class="meta-label">Skill</span>
+        <span class="meta-value stat-skill">{{ player.character.skillDisplay }}</span>
+      </div>
+
+      <div v-if="classLabel" class="meta-box" :title="classTooltip">
+        <span class="meta-label">Class</span>
+        <span class="meta-value stat-class">{{ classLabel }}</span>
+      </div>
+      
+      <div v-if="isMe && player.character.skillTarget" class="meta-box" :title="'Мишень: ' + player.character.skillTarget">
+        <span class="meta-label">Target</span>
+        <span class="meta-value stat-target">{{ skillTargetLabel(player.character.skillTarget) }}</span>
       </div>
     </div>
 
@@ -136,11 +173,6 @@ const hasMoral = computed(() => {
       <button class="moral-btn" title="Обменять мораль на навык" @click="store.moralToSkill()">
         Мораль → Навык
       </button>
-    </div>
-
-    <!-- Class text -->
-    <div v-if="player.character.classStatDisplayText" class="pc-class">
-      {{ player.character.classStatDisplayText }}
     </div>
 
     <!-- Score -->
@@ -323,15 +355,18 @@ const hasMoral = computed(() => {
 /* Meta */
 .pc-meta {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .meta-box {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 48px;
   text-align: center;
   padding: 6px 4px;
   background: var(--bg-primary);
   border-radius: 6px;
+  cursor: default;
 }
 
 .meta-label {
@@ -346,6 +381,9 @@ const hasMoral = computed(() => {
   font-size: 18px;
   font-weight: 800;
 }
+
+.stat-class { font-size: 13px; color: var(--accent-gold); }
+.stat-target { font-size: 22px; }
 
 /* Moral exchange */
 .pc-moral-actions {
@@ -369,14 +407,6 @@ const hasMoral = computed(() => {
 .moral-btn:hover {
   background: var(--accent-orange);
   color: white;
-}
-
-/* Class */
-.pc-class {
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-style: italic;
-  text-align: center;
 }
 
 /* Score */

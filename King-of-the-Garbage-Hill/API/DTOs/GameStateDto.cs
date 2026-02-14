@@ -93,6 +93,7 @@ public class CharacterDto
     public int Justice { get; set; }
     public int SeenJustice { get; set; }
     public string SkillClass { get; set; }
+    public string SkillTarget { get; set; }
     public string ClassStatDisplayText { get; set; }
 
     // Quality resists & bonuses
@@ -260,6 +261,15 @@ public class FightEntryDto
     public string Outcome { get; set; }
     public string WinnerName { get; set; }
 
+    // Class info for contre/WhoIsBetter display
+    public string AttackerClass { get; set; }
+    public string DefenderClass { get; set; }
+
+    // WhoIsBetter stat breakdown (+1 attacker better, -1 defender better, 0 equal)
+    public int WhoIsBetterIntel { get; set; }
+    public int WhoIsBetterStr { get; set; }
+    public int WhoIsBetterSpeed { get; set; }
+
     // Step1: Stats calculation from CalculateStep1
     public decimal ScaleMe { get; set; }
     public decimal ScaleTarget { get; set; }
@@ -330,6 +340,8 @@ public class FightEntryDto
     public bool EmotionalDamage { get; set; }
     /// <summary>Justice gained by the loser of this fight (+1), 0 if teammate fight.</summary>
     public int JusticeChange { get; set; }
+    /// <summary>Skill gained by the attacker from hitting their SkillTarget class. 0 if not applicable.</summary>
+    public decimal SkillGainedFromTarget { get; set; }
 }
 
 // ── Auth DTOs ─────────────────────────────────────────────────────────

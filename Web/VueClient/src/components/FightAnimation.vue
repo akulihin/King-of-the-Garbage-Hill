@@ -61,11 +61,37 @@ const isSpecialOutcome = computed(() => {
 const isMyFight = computed(() => {
   if (!fight.value) return false
   if (props.isAdmin) return true
-  const myPlayer = props.players.find((p: Player) => p.playerId === props.myPlayerId)
-  if (!myPlayer) return false
-  return fight.value.attackerName === myPlayer.discordUsername ||
-         fight.value.defenderName === myPlayer.discordUsername
+  if (!myUsername.value) return false
+  return fight.value.attackerName === myUsername.value ||
+         fight.value.defenderName === myUsername.value
 })
+
+/** True when we are the defender — need to flip left/right so we're always on the left */
+const isFlipped = computed(() => {
+  if (!fight.value || !myUsername.value) return false
+  // Admin viewing someone else's fight: don't flip, show as-is (attacker left)
+  if (props.isAdmin && fight.value.attackerName !== myUsername.value && fight.value.defenderName !== myUsername.value) return false
+  return fight.value.defenderName === myUsername.value
+})
+
+// ── Display accessors (flipped when we are defender) ────────────────
+/** "Left" player = us, "Right" player = opponent */
+const leftName = computed(() => isFlipped.value ? fight.value!.defenderName : fight.value!.attackerName)
+const leftCharName = computed(() => isFlipped.value ? fight.value!.defenderCharName : fight.value!.attackerCharName)
+const leftAvatar = computed(() => isFlipped.value ? fight.value!.defenderAvatar : fight.value!.attackerAvatar)
+const rightName = computed(() => isFlipped.value ? fight.value!.attackerName : fight.value!.defenderName)
+const rightCharName = computed(() => isFlipped.value ? fight.value!.attackerCharName : fight.value!.defenderCharName)
+const rightAvatar = computed(() => isFlipped.value ? fight.value!.attackerAvatar : fight.value!.defenderAvatar)
+/** Did the left (us) win? */
+const leftWon = computed(() => {
+  if (!fight.value) return false
+  if (isFlipped.value) return fight.value.outcome === 'loss' // defender won
+  return fight.value.outcome === 'win' // attacker won
+})
+/** Arrow direction: true = left attacked right (→), false = right attacked left (←) */
+const attackedRight = computed(() => !isFlipped.value)
+/** Sign multiplier: when flipped, negate all delta values so + = good for us */
+const sign = computed(() => isFlipped.value ? -1 : 1)
 
 // ── Round 1 factors (weighing machine deltas) ───────────────────────
 type Factor = {
@@ -79,67 +105,103 @@ type Factor = {
 const round1Factors = computed<Factor[]>(() => {
   const f = fight.value
   if (!f || isSpecialOutcome.value) return []
+  const s = sign.value // +1 or -1 depending on flip
   const list: Factor[] = []
+
+  // Helper: after applying sign, positive = good for us
+  const hl = (v: number): 'good' | 'bad' | 'neutral' => v > 0 ? 'good' : v < 0 ? 'bad' : 'neutral'
 
   // 1. Contre
   if (f.contrWeighingDelta !== 0) {
+    const v = f.contrWeighingDelta * s
+    // Determine who contres from our (left) perspective
+    const weContre = isFlipped.value ? f.isContrTarget : f.isContrMe
+    const theyContre = isFlipped.value ? f.isContrMe : f.isContrTarget
+    const ourClass = isFlipped.value ? f.defenderClass : f.attackerClass
+    const theirClass = isFlipped.value ? f.attackerClass : f.defenderClass
+    //🫧 is буль но его не будет навеное
+    const ci = (c: string) => c === 'Интеллект' ? '🧠' : c === 'Сила' ? '💪' : c === 'Скорость' ? '⚡' : '🫧'
+    let detail: string
+    if (weContre && theyContre) {
+      detail = `Обоюдная: ${ci(ourClass)}→${ci(theirClass)} / ${ci(theirClass)}→${ci(ourClass)}`
+    } else if (weContre) {
+      detail = `${ci(ourClass)} контрит ${ci(theirClass)} (x${f.contrMultiplier})`
+    } else {
+      detail = `${ci(theirClass)} контрит ${ci(ourClass)}`
+    }
     list.push({
       label: 'Контра',
-      detail: f.isContrMe && f.isContrTarget
-        ? 'Обоюдная контра (⚔️)'
-        : f.isContrMe
-          ? `Атакующий контрит (✅) (x${f.contrMultiplier})`
-          : 'Защищающийся контрит (❌)',
-      value: f.contrWeighingDelta,
-      highlight: f.contrWeighingDelta > 0 ? 'good' : 'bad',
+      detail,
+      value: v,
+      highlight: hl(v),
     })
   }
 
   // 2. Scale (stats + skill*multiplier)
-  list.push({
-    label: 'Статы',
-    detail: `${f.scaleMe.toFixed(1)} vs ${f.scaleTarget.toFixed(1)}`,
-    value: f.scaleWeighingDelta,
-    highlight: f.scaleWeighingDelta > 0 ? 'good' : f.scaleWeighingDelta < 0 ? 'bad' : 'neutral',
-  })
+  {
+    const v = f.scaleWeighingDelta * s
+    const ourScale = isFlipped.value ? f.scaleTarget : f.scaleMe
+    const theirScale = isFlipped.value ? f.scaleMe : f.scaleTarget
+    list.push({
+      label: 'Статы',
+      detail: `${ourScale.toFixed(1)} vs ${theirScale.toFixed(1)}`,
+      value: v,
+      highlight: hl(v),
+    })
+  }
 
   // 3. WhoIsBetter
   if (f.whoIsBetterWeighingDelta !== 0) {
+    const v = f.whoIsBetterWeighingDelta * s
+    // Build stat-by-stat breakdown from our (left) perspective
+    const wi = f.whoIsBetterIntel * (isFlipped.value ? -1 : 1)
+    const ws = f.whoIsBetterStr * (isFlipped.value ? -1 : 1)
+    const wsp = f.whoIsBetterSpeed * (isFlipped.value ? -1 : 1)
+    const ic = (val: number) => val > 0 ? '↑' : val < 0 ? '↓' : '↕'
+    const detail = `🧠${ic(wi)}  💪${ic(ws)}  ⚡${ic(wsp)}`
     list.push({
-      label: 'Кто сильнее',
-      detail: f.whoIsBetterWeighingDelta > 0 ? 'Атакующий сильнее' : 'Защищающийся сильнее',
-      value: f.whoIsBetterWeighingDelta,
-      highlight: f.whoIsBetterWeighingDelta > 0 ? 'good' : 'bad',
+      label: 'Кто разностороннее',
+      detail,
+      value: v,
+      highlight: hl(v),
     })
   }
 
   // 4. Psyche
   if (f.psycheWeighingDelta !== 0) {
+    const v = f.psycheWeighingDelta * s
     list.push({
       label: 'Психика',
-      detail: `${f.psycheDifference > 0 ? '✅' : '❌'}`,
-      value: f.psycheWeighingDelta,
-      highlight: f.psycheWeighingDelta > 0 ? 'good' : 'bad',
+      detail: v > 0 ? '✅' : '❌',
+      value: v,
+      highlight: hl(v),
     })
   }
 
   // 5. Skill difference
   if (f.skillWeighingDelta !== 0) {
+    const v = f.skillWeighingDelta * s
+    const ourMult = isFlipped.value ? f.skillMultiplierTarget : f.skillMultiplierMe
+    const theirMult = isFlipped.value ? f.skillMultiplierMe : f.skillMultiplierTarget
     list.push({
       label: 'Навык',
-      detail: `Skill x${f.skillMultiplierMe} vs x${f.skillMultiplierTarget}`,
-      value: f.skillWeighingDelta,
-      highlight: f.skillWeighingDelta > 0 ? 'good' : 'bad',
+      //detail: `Skill x${ourMult} vs x${theirMult}`,
+      detail: `x${ourMult} vs x${theirMult}`,
+      value: v,
+      highlight: hl(v),
     })
   }
 
   // 6. Justice in weighing
   if (f.justiceWeighingDelta !== 0) {
+    const v = f.justiceWeighingDelta * s
+    const ourJ = isFlipped.value ? f.justiceTarget : f.justiceMe
+    const theirJ = isFlipped.value ? f.justiceMe : f.justiceTarget
     list.push({
       label: 'Справедливость',
-      detail: `${f.justiceMe} vs ${f.justiceTarget}`,
-      value: f.justiceWeighingDelta,
-      highlight: f.justiceWeighingDelta > 0 ? 'good' : 'bad',
+      detail: `${ourJ} vs ${theirJ}`,
+      value: v,
+      highlight: hl(v),
     })
   }
 
@@ -158,18 +220,19 @@ const totalSteps = computed(() => {
 })
 
 // ── Weighing machine bar animation ──────────────────────────────────
+// Values are flipped so positive = good for left (us)
 const animatedWeighingValue = computed(() => {
   if (!fight.value || isSpecialOutcome.value) return 0
-  if (skippedToEnd.value || !isMyFight.value) return fight.value.weighingMachine
+  if (skippedToEnd.value || !isMyFight.value) return fight.value.weighingMachine * sign.value
 
   const factorCount = round1Factors.value.length
   let accumulated = 0
   const factorStepsShown = Math.min(currentStep.value, factorCount)
   for (let i = 0; i < factorStepsShown; i++) {
-    accumulated += round1Factors.value[i].value
+    accumulated += round1Factors.value[i].value // already sign-adjusted
   }
   if (currentStep.value > factorCount) {
-    accumulated = fight.value.weighingMachine
+    accumulated = fight.value.weighingMachine * sign.value
   }
   return accumulated
 })
@@ -402,18 +465,20 @@ function getDisplayCharName(orig: string, u: string): string {
 
       <!-- Fight card -->
       <div v-if="fight" class="fa-card">
-        <!-- Portraits -->
+        <!-- Portraits (left = us, right = opponent) -->
         <div class="fa-portraits">
-          <div class="fa-portrait" :class="{ winner: fight.outcome === 'win' }">
-            <img :src="getDisplayAvatar(fight.attackerAvatar, fight.attackerName)" :alt="getDisplayCharName(fight.attackerCharName, fight.attackerName)" class="fa-avatar" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
-            <div class="fa-name">{{ fight.attackerName }}</div>
-            <div class="fa-char">{{ getDisplayCharName(fight.attackerCharName, fight.attackerName) }}</div>
+          <div class="fa-portrait" :class="{ winner: leftWon }">
+            <img :src="getDisplayAvatar(leftAvatar, leftName)" :alt="getDisplayCharName(leftCharName, leftName)" class="fa-avatar" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
+            <div class="fa-name">{{ leftName }}</div>
+            <div class="fa-char">{{ getDisplayCharName(leftCharName, leftName) }}</div>
           </div>
-          <div class="fa-vs">VS</div>
-          <div class="fa-portrait" :class="{ winner: fight.outcome === 'loss' }">
-            <img :src="getDisplayAvatar(fight.defenderAvatar, fight.defenderName)" :alt="getDisplayCharName(fight.defenderCharName, fight.defenderName)" class="fa-avatar" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
-            <div class="fa-name">{{ fight.defenderName }}</div>
-            <div class="fa-char">{{ getDisplayCharName(fight.defenderCharName, fight.defenderName) }}</div>
+          <div class="fa-vs-arrow" :class="{ 'arrow-right': attackedRight, 'arrow-left': !attackedRight }">
+            {{ attackedRight ? '⟶' : '⟵' }}
+          </div>
+          <div class="fa-portrait" :class="{ winner: !leftWon && (fight.outcome === 'win' || fight.outcome === 'loss') }">
+            <img :src="getDisplayAvatar(rightAvatar, rightName)" :alt="getDisplayCharName(rightCharName, rightName)" class="fa-avatar" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
+            <div class="fa-name">{{ rightName }}</div>
+            <div class="fa-char">{{ getDisplayCharName(rightCharName, rightName) }}</div>
           </div>
         </div>
 
@@ -426,13 +491,13 @@ function getDisplayCharName(orig: string, u: string): string {
         <template v-else>
           <!-- Weighing Machine Bar -->
           <div class="fa-bar-container">
-            <span class="fa-bar-label left">ATK</span>
+            <span class="fa-bar-label left">МЫ</span>
             <div class="fa-bar-track">
               <div class="fa-bar-fill" :style="{ width: barPosition + '%' }" :class="{ 'bar-attacker': animatedWeighingValue > 0, 'bar-defender': animatedWeighingValue < 0, 'bar-even': animatedWeighingValue === 0 }">
                 <span v-if="isMyFight" class="fa-bar-value">{{ fmtVal(animatedWeighingValue) }}</span>
               </div>
             </div>
-            <span class="fa-bar-label right">DEF</span>
+            <span class="fa-bar-label right">ВРАГ</span>
           </div>
 
           <!-- ═══ MY FIGHT: Full 3-round detail ═══ -->
@@ -447,26 +512,26 @@ function getDisplayCharName(orig: string, u: string): string {
                 <span class="fa-factor-value" v-if="fac.value !== 0">{{ fmtVal(fac.value) }}</span>
               </div>
 
-              <!-- TooGood / TooStronk badges -->
+              <!-- TooGood / TooStronk badges (flipped labels when we are defender) -->
               <div v-if="fight.isTooGoodMe || fight.isTooGoodEnemy" class="fa-badge-row" :class="{ visible: showR1Result }">
-                <span class="fa-badge badge-toogood">TOO GOOD: {{ fight.isTooGoodMe ? 'ATK' : 'DEF' }}</span>
+                <span class="fa-badge badge-toogood">TOO GOOD: {{ (fight.isTooGoodMe ? !isFlipped : isFlipped) ? 'МЫ' : 'ВРАГ' }}</span>
               </div>
               <div v-if="fight.isTooStronkMe || fight.isTooStronkEnemy" class="fa-badge-row" :class="{ visible: showR1Result }">
-                <span class="fa-badge badge-toostronk">TOO STRONK: {{ fight.isTooStronkMe ? 'ATK' : 'DEF' }}</span>
+                <span class="fa-badge badge-toostronk">TOO STRONK: {{ (fight.isTooStronkMe ? !isFlipped : isFlipped) ? 'МЫ' : 'ВРАГ' }}</span>
               </div>
             </div>
-            <!-- R1 result -->
-            <div v-if="showR1Result" class="fa-round-result" :class="roundResultClass(fight.round1PointsWon)">
-              {{ roundResultLabel(fight.round1PointsWon) }}
+            <!-- R1 result (flipped) -->
+            <div v-if="showR1Result" class="fa-round-result" :class="roundResultClass(fight.round1PointsWon * sign)">
+              {{ roundResultLabel(fight.round1PointsWon * sign) }}
             </div>
 
             <!-- ── Round 2: Справедливость ── -->
             <div class="fa-round-header" :class="{ visible: showR2 }">Раунд 2 — Справедливость</div>
             <div v-if="showR2" class="fa-factor justice visible">
               <span class="fa-factor-label">Справедливость</span>
-              <span class="fa-factor-detail">{{ fight.justiceMe }} vs {{ fight.justiceTarget }}</span>
+              <span class="fa-factor-detail">{{ isFlipped ? fight.justiceTarget : fight.justiceMe }} vs {{ isFlipped ? fight.justiceMe : fight.justiceTarget }}</span>
               <span class="fa-factor-value" v-if="fight.pointsFromJustice !== 0">
-                {{ fight.pointsFromJustice > 0 ? '+1 очко' : '-1 очко' }}
+                {{ fight.pointsFromJustice * sign > 0 ? '+1 очко' : '-1 очко' }}
               </span>
               <span class="fa-factor-value neutral-val" v-else>0</span>
             </div>
@@ -488,7 +553,7 @@ function getDisplayCharName(orig: string, u: string): string {
                   <span class="fa-factor-label">Справедливость</span>
                   <span class="fa-factor-detail">Макс. рандом: {{ fmtVal(-fight.justiceRandomChange) }}</span>
                 </div>
-                <!-- Roll result -->
+                <!-- Roll result (flip: attacker wins roll if <= threshold, so flip the display) -->
                 <div class="fa-factor random visible">
                   <span class="fa-factor-label">🎲 Бросок</span>
                   <span class="fa-factor-detail">
@@ -496,7 +561,7 @@ function getDisplayCharName(orig: string, u: string): string {
                     (порог: {{ fight.randomForPoint.toFixed(0) }})
                   </span>
                   <span class="fa-factor-value">
-                    {{ fight.randomNumber <= fight.randomForPoint ? '+1' : '-1' }}
+                    {{ (fight.randomNumber <= fight.randomForPoint ? 1 : -1) * sign > 0 ? '+1' : '-1' }}
                   </span>
                 </div>
               </div>
@@ -513,15 +578,21 @@ function getDisplayCharName(orig: string, u: string): string {
 
           <!-- ═══ Final result (both own & enemy) ═══ -->
           <div v-if="showFinalResult" class="fa-result">
-            <div class="fa-outcome" :class="outcomeClass(fight)">{{ outcomeLabel(fight) }}</div>
+            <div class="fa-outcome" :class="leftWon ? 'outcome-attacker' : (fight.outcome === 'block' || fight.outcome === 'skip') ? 'outcome-neutral' : 'outcome-defender'">
+              {{ fight.outcome === 'block' ? 'БЛОК' : fight.outcome === 'skip' ? 'СКИП' : (leftWon ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ') }}
+            </div>
             <div v-if="isMyFight" class="fa-result-details">
-              <!-- Moral: only when attacker won (outcome=win) -->
-              <span v-if="fight.outcome === 'win' && fight.moralChange !== 0" class="fa-detail-item fa-moral">
-                Мораль: {{ fight.outcome === 'win' ? 'DEF' : 'ATK' }} {{ fight.moralChange > 0 ? '+' : '' }}{{ fight.moralChange }}
+              <!-- Skill gained from target (attacker always gains) -->
+              <span v-if="fight.skillGainedFromTarget > 0" class="fa-detail-item fa-skill-gain">
+                {{ isFlipped ? rightName : leftName }} +{{ fight.skillGainedFromTarget }} Скилл (Мишень)
+              </span>
+              <!-- Moral: only when we won (leftWon) -->
+              <span v-if="leftWon && fight.moralChange !== 0" class="fa-detail-item fa-moral">
+                {{ leftWon ? rightName : leftName }} {{ fight.moralChange > 0 ? '+' : '' }}{{ fight.moralChange }} Мораль
               </span>
               <!-- Justice change: loser gains justice -->
               <span v-if="fight.justiceChange > 0" class="fa-detail-item fa-justice">
-                Справедливость: {{ fight.outcome === 'win' ? 'DEF' : 'ATK' }} +{{ fight.justiceChange }} Справедливость
+                {{ leftWon ? rightName : leftName }} +{{ fight.justiceChange }} Справедливость
               </span>
               <!-- Quality damage details -->
               <template v-if="fight.qualityDamageApplied">
@@ -590,7 +661,9 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-portrait.winner .fa-avatar { border-color: var(--accent-green); box-shadow: 0 0 8px rgba(72, 199, 142, 0.4); }
 .fa-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
 .fa-char { font-size: 10px; color: var(--text-muted); }
-.fa-vs { font-size: 18px; font-weight: 900; color: var(--accent-red); text-shadow: 0 0 6px rgba(255, 82, 82, 0.3); }
+.fa-vs-arrow { font-size: 22px; font-weight: 900; text-shadow: 0 0 6px rgba(255, 82, 82, 0.3); }
+.fa-vs-arrow.arrow-right { color: var(--accent-red); }
+.fa-vs-arrow.arrow-left { color: var(--accent-blue); }
 
 /* ── Bar ── */
 .fa-bar-container { display: flex; align-items: center; gap: 6px; padding: 4px 0; }
@@ -651,6 +724,7 @@ div.fa-round-header { opacity: 1; }
 
 .fa-result-details { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; font-size: 11px; padding-top: 2px; }
 .fa-detail-item { padding: 1px 8px; border-radius: 4px; background: var(--bg-secondary); }
+.fa-skill-gain { color: var(--accent-green); font-weight: 700; }
 .fa-moral { color: var(--accent-purple); }
 .fa-justice { color: var(--accent-blue); }
 .fa-resist { color: var(--accent-orange); }
@@ -675,20 +749,20 @@ div.fa-round-header { opacity: 1; }
 .fa-tab:hover { color: var(--text-primary); }
 .fa-tab.active { background: var(--bg-card); color: var(--text-primary); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
 
-/* ── All Fights compact list ── */
+/* ── All Fights list ── */
 .fa-all-fights { flex: 1; overflow-y: auto; }
-.fa-all-list { display: flex; flex-direction: column; gap: 2px; }
-.fa-all-row { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 4px; background: var(--bg-primary); font-size: 11px; }
-.fa-all-row.is-mine { background: rgba(99, 102, 241, 0.08); border-left: 2px solid var(--accent-purple); }
-.fa-all-ava { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
-.fa-all-name { font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; }
-.fa-all-vs { color: var(--text-muted); font-size: 10px; flex-shrink: 0; }
-.fa-all-result { margin-left: auto; font-weight: 700; font-size: 10px; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
-.fa-all-result.co-win { color: var(--accent-green); }
-.fa-all-result.co-loss { color: var(--accent-red); }
-.fa-all-result.co-neutral { color: var(--accent-orange); }
+.fa-all-list { display: flex; flex-direction: column; gap: 4px; }
+.fa-all-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; background: var(--bg-primary); font-size: 14px; }
+.fa-all-row.is-mine { background: rgba(99, 102, 241, 0.1); border-left: 3px solid var(--accent-purple); }
+.fa-all-ava { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid var(--border); }
+.fa-all-name { font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
+.fa-all-vs { color: var(--text-muted); font-size: 13px; flex-shrink: 0; font-weight: 700; }
+.fa-all-result { margin-left: auto; font-weight: 800; font-size: 13px; padding: 3px 10px; border-radius: 6px; white-space: nowrap; }
+.fa-all-result.co-win { color: var(--accent-green); background: rgba(72, 199, 142, 0.1); }
+.fa-all-result.co-loss { color: var(--accent-red); background: rgba(255, 82, 82, 0.1); }
+.fa-all-result.co-neutral { color: var(--accent-orange); background: rgba(251, 191, 36, 0.1); }
 .fa-all-result.co-other { color: var(--text-secondary); }
-.fa-all-drop { font-size: 9px; font-weight: 900; color: white; background: var(--accent-red); padding: 0 4px; border-radius: 3px; line-height: 14px; flex-shrink: 0; }
+.fa-all-drop { font-size: 11px; font-weight: 900; color: white; background: var(--accent-red); padding: 2px 8px; border-radius: 4px; line-height: 18px; flex-shrink: 0; }
 
 /* ── Летопись ── */
 .fa-letopis { flex: 1; overflow-y: auto; padding: 4px; background: var(--bg-primary); border-radius: var(--radius); }

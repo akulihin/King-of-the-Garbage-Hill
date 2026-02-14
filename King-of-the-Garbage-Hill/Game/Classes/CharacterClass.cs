@@ -718,6 +718,16 @@ public class CharacterClass
         return "***Братишка***... буль-буль...";
     }
 
+    public string GetClassStatDisplayTextWeb()
+    {
+        if (GetIntelligence() == 0 && GetStrength() == 0 && GetSpeed() == 0) return "Братишка... || буль-буль...";
+        if (GetIntelligence() >= GetStrength() && GetIntelligence() >= GetSpeed())
+            return "Умный || нападает на тех, кто без *Справедливости*.";
+        if (GetStrength() >= GetIntelligence() && GetStrength() >= GetSpeed()) return "Сильный || побеждает!";
+        if (GetSpeed() >= GetIntelligence() && GetSpeed() >= GetStrength()) return "Быстрый || успевает во все битвы...";
+        return "Братишка... || буль-буль...";
+    }
+
      /*
      GetIntelligence() => GetSpeed()
      GetStrength() => GetIntelligence()

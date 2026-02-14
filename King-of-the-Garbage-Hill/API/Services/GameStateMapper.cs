@@ -162,6 +162,7 @@ public static class GameStateMapper
                 Justice = -1,
                 SeenJustice = -1,
                 SkillClass = "?",
+                SkillTarget = "",
                 ClassStatDisplayText = "",
                 Passives = new List<PassiveDto>(),
             };
@@ -183,7 +184,8 @@ public static class GameStateMapper
             Justice = character.Justice.GetRealJusticeNow(),
             SeenJustice = character.Justice.GetSeenJusticeNow(),
             SkillClass = character.GetSkillClass(),
-            ClassStatDisplayText = character.GetClassStatDisplayText(),
+            SkillTarget = isMe ? character.GetCurrentSkillClassTarget() : "",
+            ClassStatDisplayText = character.GetClassStatDisplayTextWeb(),
 
             // Quality resists
             IntelligenceResist = isMe ? character.GetIntelligenceQualityResistInt() : 0,
@@ -368,6 +370,8 @@ public static class GameStateMapper
             PointsFromJustice = f.PointsFromJustice,
             TotalPointsWon = f.TotalPointsWon > 0 ? 1 : (f.TotalPointsWon < 0 ? -1 : 0),
             // Zero out all numeric details
+            AttackerClass = "", DefenderClass = "",
+            WhoIsBetterIntel = 0, WhoIsBetterStr = 0, WhoIsBetterSpeed = 0,
             ScaleMe = 0, ScaleTarget = 0,
             ContrMultiplier = 0,
             SkillMultiplierMe = 0, SkillMultiplierTarget = 0,
@@ -384,7 +388,7 @@ public static class GameStateMapper
             MoralChange = 0,
             ResistIntelDamage = 0, ResistStrDamage = 0, ResistPsycheDamage = 0,
             IntellectualDamage = false, EmotionalDamage = false,
-            JusticeChange = 0,
+            JusticeChange = 0, SkillGainedFromTarget = 0,
         };
     }
 }
