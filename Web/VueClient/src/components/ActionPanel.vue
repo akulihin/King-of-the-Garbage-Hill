@@ -7,12 +7,6 @@ const canAct = computed(() => store.isMyTurn)
 const me = computed(() => store.myPlayer)
 const game = computed(() => store.gameState)
 
-const hasLvlUpPoints = computed(() => (me.value?.status.lvlUpPoints ?? 0) > 0)
-const hasMoral = computed(() => {
-  if (!me.value) return false
-  const moral = Number.parseFloat(me.value.character.moralDisplay) || 0
-  return moral >= 1
-})
 const isReady = computed(() => me.value?.status.isReady && !me.value?.status.isSkip)
 const hasPredictions = computed(() => (me.value?.predictions?.length ?? 0) > 0)
 
@@ -81,25 +75,6 @@ function togglePreferWeb() {
         @click="store.confirmPredict()"
       >
         {{ isLockedPredict ? '🔮 Predicted ✓' : '🔮 Confirm Predict' }}
-      </button>
-    </div>
-
-    <!-- Level up -->
-    <div v-if="hasLvlUpPoints" class="action-group lvl-group">
-      <span class="lvl-label">LVL UP ({{ me?.status.lvlUpPoints }})</span>
-      <button class="act-btn lvl" title="Intelligence" @click="store.levelUp(1)">🧠 INT</button>
-      <button class="act-btn lvl" title="Strength" @click="store.levelUp(2)">💪 STR</button>
-      <button class="act-btn lvl" title="Speed" @click="store.levelUp(3)">⚡ SPD</button>
-      <button class="act-btn lvl" title="Psyche" @click="store.levelUp(4)">🧘 PSY</button>
-    </div>
-
-    <!-- Moral exchange -->
-    <div v-if="hasMoral" class="action-group">
-      <button class="act-btn moral" title="Moral → Points" @click="store.moralToPoints()">
-        Moral → Points
-      </button>
-      <button class="act-btn moral" title="Moral → Skill" @click="store.moralToSkill()">
-        Moral → Skill
       </button>
     </div>
 
@@ -202,33 +177,6 @@ function togglePreferWeb() {
   color: var(--accent-green);
   opacity: 0.7;
 }
-
-.lvl-group {
-  gap: 4px;
-}
-
-.lvl-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--accent-gold);
-  text-transform: uppercase;
-  white-space: nowrap;
-  margin-right: 4px;
-}
-
-.act-btn.lvl {
-  height: 38px;
-  padding: 0 10px;
-  font-size: 12px;
-}
-
-.act-btn.moral {
-  padding: 0 12px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.act-btn.moral:hover:not(:disabled) { border-color: var(--accent-orange); }
 
 .web-toggle {
   margin-left: auto;

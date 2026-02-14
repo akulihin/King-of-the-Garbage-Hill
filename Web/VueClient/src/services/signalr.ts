@@ -64,6 +64,17 @@ export type Character = {
   seenJustice: number
   skillClass: string
   classStatDisplayText: string
+
+  // Quality resists & bonuses
+  intelligenceResist: number
+  strengthResist: number
+  speedResist: number
+  psycheResist: number
+  intelligenceBonusText: string
+  strengthBonusText: string
+  speedBonusText: string
+  psycheBonusText: string
+
   passives: Passive[]
 }
 

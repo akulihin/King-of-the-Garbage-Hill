@@ -1,18 +1,14 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, ref } from 'vue'
+import { onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from 'src/store/game'
 import Leaderboard from 'src/components/Leaderboard.vue'
 import PlayerCard from 'src/components/PlayerCard.vue'
 import ActionPanel from 'src/components/ActionPanel.vue'
 import SkillsPanel from 'src/components/SkillsPanel.vue'
-import BattleLog from 'src/components/BattleLog.vue'
 import FightAnimation from 'src/components/FightAnimation.vue'
 import MediaMessages from 'src/components/MediaMessages.vue'
 import RoundTimer from 'src/components/RoundTimer.vue'
-
-/** Toggle between current global events and all-game history in the global events panel */
-const showAllGlobalLogs = ref(false)
 
 const props = defineProps<{ gameId: string }>()
 const store = useGameStore()
@@ -46,6 +42,49 @@ function formatLogs(text: string): string {
     .replace(/\|>Phrase<\|/g, '')
     .replace(/\n/g, '<br>')
 }
+
+/** Filter out fight-result lines (containing ⟶ or →) from log text */
+function filterFightLines(text: string): string {
+  if (!text) return ''
+  return text.split('\n').filter(line => !line.includes('⟶') && !line.includes('→') && !line.includes('Раунд #')).join('\n')
+}
+
+/** Merge personal logs + global events (minus fight results) */
+const mergedEvents = computed(() => {
+  const personal = store.myPlayer?.status.personalLogs || ''
+  const global = filterFightLines(store.gameState?.globalLogs || '')
+  const parts: string[] = []
+  if (personal.trim()) parts.push(personal)
+  if (global.trim()) parts.push(global)
+  return parts.join('\n')
+})
+
+/**
+ * "Летопись" — full game chronicle built from:
+ *   - AllPersonalLogs (InGamePersonalLogsAll) — rounds split by "|||"
+ *   - AllGlobalLogs (AllGameGlobalLogs)
+ */
+const letopis = computed(() => {
+  const allGlobal = store.gameState?.allGlobalLogs || ''
+  const allPersonal = store.myPlayer?.status.allPersonalLogs || ''
+
+  const parts: string[] = []
+
+  // Format personal logs: split by ||| into per-round sections
+  if (allPersonal.trim()) {
+    const rounds = allPersonal.split('|||').filter((r: string) => r.trim())
+    rounds.forEach((roundText: string, idx: number) => {
+      parts.push(`**Раунд #${idx + 1}**\n${roundText.trim()}`)
+    })
+  }
+
+  // Append global logs at the end
+  if (allGlobal.trim()) {
+    parts.push(`**--- Глобальные события ---**\n${allGlobal}`)
+  }
+
+  return parts.join('\n\n')
+})
 </script>
 
 <template>
@@ -131,19 +170,18 @@ function formatLogs(text: string): string {
           :messages="store.myPlayer.status.mediaMessages"
         />
 
-        <!-- Logs: top row (personal) + bottom row (global + fight animation) -->
-        <div class="logs-grid">
-          <!-- Row 1: personal logs -->
-          <div class="log-panel card">
-            <div class="card-header">События этого раунда</div>
+        <!-- Logs: Row 1 = events side-by-side, Row 2 = full-width fight panel -->
+        <div class="logs-row-top">
+          <div class="log-panel card events-panel">
+            <div class="card-header">События</div>
             <div
-              v-if="store.myPlayer?.status.personalLogs"
+              v-if="mergedEvents.trim()"
               class="log-content"
-              v-html="formatLogs(store.myPlayer.status.personalLogs)"
+              v-html="formatLogs(mergedEvents)"
             />
             <div v-else class="log-empty">Еще ничего не произошло. Наверное...</div>
           </div>
-          <div class="log-panel card">
+          <div class="log-panel card events-panel">
             <div class="card-header">События прошлого раунда</div>
             <div
               v-if="store.myPlayer?.status.previousRoundLogs"
@@ -152,32 +190,12 @@ function formatLogs(text: string): string {
             />
             <div v-else class="log-empty">В прошлом раунде ничего не произошло.</div>
           </div>
-
-          <!-- Row 2: global events (with toggle) + fight animation -->
-          <div class="log-panel card">
-            <div class="card-header global-header">
-              <span>Глобальные события</span>
-              <button
-                class="toggle-btn"
-                @click="showAllGlobalLogs = !showAllGlobalLogs"
-              >
-                {{ showAllGlobalLogs ? '← Текущие' : 'Вся история →' }}
-              </button>
-            </div>
-            <BattleLog
-              v-if="!showAllGlobalLogs"
-              :logs="store.gameState.globalLogs || ''"
-              :hide-battles="true"
-            />
-            <BattleLog
-              v-else
-              :logs="store.gameState.allGlobalLogs || ''"
-            />
-          </div>
-          <div class="log-panel card fight-panel">
-            <div class="card-header">Бои раунда</div>
-            <FightAnimation :fights="store.gameState.fightLog || []" />
-          </div>
+        </div>
+        <div class="log-panel card fight-panel">
+          <FightAnimation
+            :fights="store.gameState.fightLog || []"
+            :letopis="letopis"
+          />
         </div>
       </div>
 
@@ -290,7 +308,7 @@ function formatLogs(text: string): string {
 .dm-item :deep(em) { color: var(--accent-blue); }
 
 /* ── Logs ────────────────────────────────────────────────────────── */
-.logs-grid {
+.logs-row-top {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
@@ -298,38 +316,20 @@ function formatLogs(text: string): string {
 }
 
 @media (max-width: 800px) {
-  .logs-grid { grid-template-columns: 1fr; }
+  .logs-row-top { grid-template-columns: 1fr; }
 }
 
 .log-panel {
-  max-height: 280px;
   display: flex;
   flex-direction: column;
 }
 
+.events-panel {
+  max-height: 220px;
+}
+
 .fight-panel {
-  max-height: 420px;
-}
-
-.global-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.toggle-btn {
-  background: var(--accent-blue);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  padding: 2px 10px;
-  font-size: 11px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 0.15s;
-}
-.toggle-btn:hover {
-  background: var(--accent-purple);
+  margin-top: 12px;
 }
 
 .log-content {

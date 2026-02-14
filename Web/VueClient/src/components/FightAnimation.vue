@@ -2,9 +2,16 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import type { FightEntry } from 'src/services/signalr'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   fights: FightEntry[]
-}>()
+  /** Full game history text (Летопись) shown as an alternative view */
+  letopis?: string
+}>(), {
+  letopis: '',
+})
+
+/** Toggle between fight animation and Летопись text */
+const showLetopis = ref(false)
 
 // ── Playback state ──────────────────────────────────────────────────
 const currentFightIdx = ref(0)
@@ -279,10 +286,47 @@ function outcomeClass(f: FightEntry): string {
   if (f.outcome === 'win') return 'outcome-attacker'
   return 'outcome-defender'
 }
+
+function formatLetopis(text: string): string {
+  return text
+    .replace(/<:[^:]+:(\d+)>/g, '')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/__(.*?)__/g, '<u>$1</u>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/~~(.*?)~~/g, '<del>$1</del>')
+    .replace(/\|>Phrase<\|/g, '')
+    .replace(/\n/g, '<br>')
+}
 </script>
 
 <template>
   <div class="fight-animation">
+    <!-- Tab header: Бои раунда / Летопись -->
+    <div class="fa-tab-header">
+      <button
+        class="fa-tab"
+        :class="{ active: !showLetopis }"
+        @click="showLetopis = false"
+      >
+        Бои раунда
+      </button>
+      <button
+        class="fa-tab"
+        :class="{ active: showLetopis }"
+        @click="showLetopis = true"
+      >
+        Летопись
+      </button>
+    </div>
+
+    <!-- Летопись (full text history) -->
+    <div v-if="showLetopis" class="fa-letopis">
+      <div v-if="letopis.trim()" class="fa-letopis-content" v-html="formatLetopis(letopis)" />
+      <div v-else class="fa-empty">История пуста</div>
+    </div>
+
+    <!-- Fight animation view -->
+    <template v-else>
     <!-- No fights -->
     <div v-if="!fights.length" class="fa-empty">
       Бои еще не начались
@@ -431,6 +475,7 @@ function outcomeClass(f: FightEntry): string {
           <span class="thumb-idx">{{ idx + 1 }}</span>
         </button>
       </div>
+    </template>
     </template>
   </div>
 </template>
@@ -736,4 +781,54 @@ function outcomeClass(f: FightEntry): string {
 }
 .fa-thumb.is-block { border-color: var(--accent-orange); }
 .fa-thumb.is-skip { border-color: var(--accent-red); opacity: 0.6; }
+
+/* ── Tab header ──────────────────────────────────────────────────── */
+.fa-tab-header {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.fa-tab {
+  flex: 1;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.fa-tab:hover { color: var(--text-primary); }
+.fa-tab.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* ── Летопись ────────────────────────────────────────────────────── */
+.fa-letopis {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--bg-primary);
+  border-radius: var(--radius);
+  max-height: 420px;
+}
+
+.fa-letopis-content {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.fa-letopis-content :deep(strong) { color: var(--accent-gold); }
+.fa-letopis-content :deep(em) { color: var(--accent-blue); }
+.fa-letopis-content :deep(u) { color: var(--accent-green); }
+.fa-letopis-content :deep(del) { color: var(--text-muted); text-decoration: line-through; }
 </style>

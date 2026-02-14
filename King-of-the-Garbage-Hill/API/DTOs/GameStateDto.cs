@@ -95,6 +95,21 @@ public class CharacterDto
     public string SkillClass { get; set; }
     public string ClassStatDisplayText { get; set; }
 
+    // Quality resists & bonuses
+    public int IntelligenceResist { get; set; }
+    public int StrengthResist { get; set; }
+    public int SpeedResist { get; set; }
+    public int PsycheResist { get; set; }
+
+    /// <summary>Intelligence quality skill bonus text (e.g. "+10% Skill"), empty if none.</summary>
+    public string IntelligenceBonusText { get; set; }
+    /// <summary>Strength quality drop bonus ("+1 Drop Power"), empty if none.</summary>
+    public string StrengthBonusText { get; set; }
+    /// <summary>Speed quality kite distance bonus (e.g. "+2 Kite Distance"), empty if none.</summary>
+    public string SpeedBonusText { get; set; }
+    /// <summary>Psyche quality moral bonus text (e.g. "+20% Moral"), empty if none.</summary>
+    public string PsycheBonusText { get; set; }
+
     // Passives (only visible ones for opponents)
     public List<PassiveDto> Passives { get; set; } = new();
 }

@@ -1,10 +1,23 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Player } from 'src/services/signalr'
+import { useGameStore } from 'src/store/game'
 
-defineProps<{
+const props = defineProps<{
   player: Player
   isMe: boolean
 }>()
+
+const store = useGameStore()
+
+const hasLvlUpPoints = computed(() => props.isMe && (props.player?.status.lvlUpPoints ?? 0) > 0)
+const lvlUpPoints = computed(() => props.player?.status.lvlUpPoints ?? 0)
+
+const hasMoral = computed(() => {
+  if (!props.isMe || !props.player) return false
+  const moral = Number.parseFloat(props.player.character.moralDisplay) || 0
+  return moral >= 1
+})
 </script>
 
 <template>
@@ -28,39 +41,74 @@ defineProps<{
       <div class="pc-username">{{ player.discordUsername }}</div>
     </div>
 
-    <!-- Stats with bars -->
+    <!-- Stats with bars + resist/quality -->
     <div class="pc-stats">
-      <div class="stat-row">
-        <span class="stat-icon stat-intelligence">🧠</span>
-        <span class="stat-label">Intelligence</span>
-        <div class="stat-bar-bg">
-          <div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" />
-        </div>
-        <span class="stat-val">{{ player.character.intelligence }}</span>
+      <div v-if="hasLvlUpPoints" class="lvl-up-badge">
+        +{{ lvlUpPoints }} очков
       </div>
-      <div class="stat-row">
-        <span class="stat-icon stat-strength">💪</span>
-        <span class="stat-label">Strength</span>
-        <div class="stat-bar-bg">
-          <div class="stat-bar strength" :style="{ width: `${player.character.strength * 10}%` }" />
+      <!-- Intelligence -->
+      <div class="stat-block">
+        <div class="stat-row">
+          <span class="stat-icon stat-intelligence">🧠</span>
+          <span class="stat-label">Intelligence</span>
+          <div class="stat-bar-bg">
+            <div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" />
+          </div>
+          <span class="stat-val">{{ player.character.intelligence }}</span>
+          <button v-if="hasLvlUpPoints" class="lvl-btn" title="+1 Intelligence" @click="store.levelUp(1)">+</button>
         </div>
-        <span class="stat-val">{{ player.character.strength }}</span>
+        <div v-if="isMe" class="resist-row">
+          <span class="resist-badge">🛡{{ player.character.intelligenceResist }}</span>
+          <span v-if="player.character.intelligenceBonusText" class="resist-bonus">{{ player.character.intelligenceBonusText }}</span>
+        </div>
       </div>
-      <div class="stat-row">
-        <span class="stat-icon stat-speed">⚡</span>
-        <span class="stat-label">Speed</span>
-        <div class="stat-bar-bg">
-          <div class="stat-bar speed" :style="{ width: `${player.character.speed * 10}%` }" />
+      <!-- Strength -->
+      <div class="stat-block">
+        <div class="stat-row">
+          <span class="stat-icon stat-strength">💪</span>
+          <span class="stat-label">Strength</span>
+          <div class="stat-bar-bg">
+            <div class="stat-bar strength" :style="{ width: `${player.character.strength * 10}%` }" />
+          </div>
+          <span class="stat-val">{{ player.character.strength }}</span>
+          <button v-if="hasLvlUpPoints" class="lvl-btn" title="+1 Strength" @click="store.levelUp(2)">+</button>
         </div>
-        <span class="stat-val">{{ player.character.speed }}</span>
+        <div v-if="isMe" class="resist-row">
+          <span class="resist-badge">🛡{{ player.character.strengthResist }}</span>
+          <span v-if="player.character.strengthBonusText" class="resist-bonus">{{ player.character.strengthBonusText }}</span>
+        </div>
       </div>
-      <div class="stat-row">
-        <span class="stat-icon stat-psyche">🧘</span>
-        <span class="stat-label">Psyche</span>
-        <div class="stat-bar-bg">
-          <div class="stat-bar psyche" :style="{ width: `${player.character.psyche * 10}%` }" />
+      <!-- Speed -->
+      <div class="stat-block">
+        <div class="stat-row">
+          <span class="stat-icon stat-speed">⚡</span>
+          <span class="stat-label">Speed</span>
+          <div class="stat-bar-bg">
+            <div class="stat-bar speed" :style="{ width: `${player.character.speed * 10}%` }" />
+          </div>
+          <span class="stat-val">{{ player.character.speed }}</span>
+          <button v-if="hasLvlUpPoints" class="lvl-btn" title="+1 Speed" @click="store.levelUp(3)">+</button>
         </div>
-        <span class="stat-val">{{ player.character.psyche }}</span>
+        <div v-if="isMe" class="resist-row">
+          <span class="resist-badge">🛡{{ player.character.speedResist }}</span>
+          <span v-if="player.character.speedBonusText" class="resist-bonus">{{ player.character.speedBonusText }}</span>
+        </div>
+      </div>
+      <!-- Psyche -->
+      <div class="stat-block">
+        <div class="stat-row">
+          <span class="stat-icon stat-psyche">🧘</span>
+          <span class="stat-label">Psyche</span>
+          <div class="stat-bar-bg">
+            <div class="stat-bar psyche" :style="{ width: `${player.character.psyche * 10}%` }" />
+          </div>
+          <span class="stat-val">{{ player.character.psyche }}</span>
+          <button v-if="hasLvlUpPoints" class="lvl-btn" title="+1 Psyche" @click="store.levelUp(4)">+</button>
+        </div>
+        <div v-if="isMe" class="resist-row">
+          <span class="resist-badge">🛡{{ player.character.psycheResist }}</span>
+          <span v-if="player.character.psycheBonusText" class="resist-bonus">{{ player.character.psycheBonusText }}</span>
+        </div>
       </div>
     </div>
 
@@ -78,6 +126,16 @@ defineProps<{
         <span class="meta-label">Justice</span>
         <span class="meta-value stat-justice">{{ player.character.justice }}</span>
       </div>
+    </div>
+
+    <!-- Moral exchange -->
+    <div v-if="hasMoral" class="pc-moral-actions">
+      <button class="moral-btn" title="Обменять мораль на очки" @click="store.moralToPoints()">
+        Мораль → Очки
+      </button>
+      <button class="moral-btn" title="Обменять мораль на навык" @click="store.moralToSkill()">
+        Мораль → Навык
+      </button>
     </div>
 
     <!-- Class text -->
@@ -201,6 +259,67 @@ defineProps<{
   font-size: 13px;
 }
 
+.stat-block {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.resist-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 26px; /* align with stat label (icon width + gap) */
+}
+
+.resist-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-blue);
+}
+
+.resist-bonus {
+  font-size: 9px;
+  color: var(--accent-gold);
+  font-weight: 700;
+}
+
+.lvl-up-badge {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-gold);
+  padding: 2px 8px;
+  background: rgba(255, 193, 7, 0.1);
+  border-radius: 6px;
+  margin-bottom: 2px;
+}
+
+.lvl-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent-green);
+  background: rgba(74, 222, 128, 0.1);
+  color: var(--accent-green);
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.lvl-btn:hover {
+  background: var(--accent-green);
+  color: white;
+  transform: scale(1.1);
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
+}
+
 /* Meta */
 .pc-meta {
   display: flex;
@@ -226,6 +345,30 @@ defineProps<{
 .meta-value {
   font-size: 18px;
   font-weight: 800;
+}
+
+/* Moral exchange */
+.pc-moral-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.moral-btn {
+  flex: 1;
+  padding: 5px 4px;
+  border: 1px solid var(--accent-orange);
+  border-radius: 6px;
+  background: rgba(251, 146, 60, 0.08);
+  color: var(--accent-orange);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.moral-btn:hover {
+  background: var(--accent-orange);
+  color: white;
 }
 
 /* Class */

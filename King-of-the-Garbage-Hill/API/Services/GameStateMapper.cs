@@ -183,6 +183,18 @@ public static class GameStateMapper
             SeenJustice = character.Justice.GetSeenJusticeNow(),
             SkillClass = character.GetSkillClass(),
             ClassStatDisplayText = character.GetClassStatDisplayText(),
+
+            // Quality resists
+            IntelligenceResist = isMe ? character.GetIntelligenceQualityResistInt() : 0,
+            StrengthResist = isMe ? character.GetStrengthQualityResistInt() : 0,
+            SpeedResist = isMe ? character.GetSpeedQualityResistInt() : 0,
+            PsycheResist = isMe ? character.GetPsycheQualityResistInt() : 0,
+
+            // Quality bonuses
+            IntelligenceBonusText = isMe ? GetIntelligenceBonusText(character) : "",
+            StrengthBonusText = isMe ? (character.GetStrengthQualityDropBonus() ? "+1 Drop Power" : "") : "",
+            SpeedBonusText = isMe ? GetSpeedBonusText(character) : "",
+            PsycheBonusText = isMe ? GetPsycheBonusText(character) : "",
         };
 
         // Show all passives to the owning player, only visible ones to opponents (admin)
@@ -286,5 +298,31 @@ public static class GameStateMapper
         }
 
         return url;
+    }
+
+    // ── Quality bonus text helpers (mirror the logic from CharacterClass Get*Resist methods) ──
+
+    private static string GetIntelligenceBonusText(CharacterClass character)
+    {
+        var skillBonus = character.GetIntelligenceQualitySkillBonus();
+        if (skillBonus == 1.0m) return "";
+        var pct = (skillBonus - 1) * 100;
+        var plus = pct > 0 ? "+" : "";
+        return $"{plus}{Math.Round(pct)}% Skill";
+    }
+
+    private static string GetSpeedBonusText(CharacterClass character)
+    {
+        var kite = character.GetSpeedQualityKiteBonus();
+        return kite > 0 ? $"+{kite} Kite Distance" : "";
+    }
+
+    private static string GetPsycheBonusText(CharacterClass character)
+    {
+        var moralBonus = character.GetPsycheQualityMoralBonus();
+        if (moralBonus == 1.0m) return "";
+        var pct = (moralBonus - 1) * 100;
+        var plus = pct > 0 ? "+" : "";
+        return $"{plus}{Math.Round(pct)}% Moral";
     }
 }

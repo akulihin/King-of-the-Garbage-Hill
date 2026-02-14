@@ -453,6 +453,21 @@ public class CharacterClass
         return SpeedQualityBonus;
     }
 
+    public int GetIntelligenceQualityResistInt()
+    {
+        return IntelligenceQualityResist;
+    }
+
+    public int GetStrengthQualityResistInt()
+    {
+        return StrengthQualityResist;
+    }
+
+    public int GetPsycheQualityResistInt()
+    {
+        return PsycheQualityResist;
+    }
+
     public void SetIntelligenceResist()
     {
         IntelligenceQualityResist = GetIntelligence() switch
@@ -961,7 +976,7 @@ public class CharacterClass
     
     
     
-    private decimal GetPsycheQualityMoralBonus()
+    public decimal GetPsycheQualityMoralBonus()
     {
         decimal toReturn = 1;
         var bonus = 0.2;
