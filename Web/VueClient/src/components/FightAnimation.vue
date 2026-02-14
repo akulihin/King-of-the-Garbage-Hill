@@ -111,7 +111,25 @@ const round1Factors = computed<Factor[]>(() => {
   // Helper: after applying sign, positive = good for us
   const hl = (v: number): 'good' | 'bad' | 'neutral' => v > 0 ? 'good' : v < 0 ? 'bad' : 'neutral'
 
-  // 1. Contre
+
+  // 1. WhoIsBetter
+  if (f.whoIsBetterWeighingDelta !== 0) {
+    const v = f.whoIsBetterWeighingDelta * s
+    // Build stat-by-stat breakdown from our (left) perspective
+    const wi = f.whoIsBetterIntel * (isFlipped.value ? -1 : 1)
+    const ws = f.whoIsBetterStr * (isFlipped.value ? -1 : 1)
+    const wsp = f.whoIsBetterSpeed * (isFlipped.value ? -1 : 1)
+    const ic = (val: number) => val > 0 ? '↑' : val < 0 ? '↓' : '↕'
+    const detail = `🧠${ic(wi)}  💪${ic(ws)}  ⚡${ic(wsp)}`
+    list.push({
+      label: 'Кто разностороннее',
+      detail,
+      value: v,
+      highlight: hl(v),
+    })
+  }
+
+  // 2. Contre
   if (f.contrWeighingDelta !== 0) {
     const v = f.contrWeighingDelta * s
     // Determine who contres from our (left) perspective
@@ -137,7 +155,7 @@ const round1Factors = computed<Factor[]>(() => {
     })
   }
 
-  // 2. Scale (stats + skill*multiplier)
+  // 3. Scale (stats + skill*multiplier)
   {
     const v = f.scaleWeighingDelta * s
     const ourScale = isFlipped.value ? f.scaleTarget : f.scaleMe
@@ -150,22 +168,7 @@ const round1Factors = computed<Factor[]>(() => {
     })
   }
 
-  // 3. WhoIsBetter
-  if (f.whoIsBetterWeighingDelta !== 0) {
-    const v = f.whoIsBetterWeighingDelta * s
-    // Build stat-by-stat breakdown from our (left) perspective
-    const wi = f.whoIsBetterIntel * (isFlipped.value ? -1 : 1)
-    const ws = f.whoIsBetterStr * (isFlipped.value ? -1 : 1)
-    const wsp = f.whoIsBetterSpeed * (isFlipped.value ? -1 : 1)
-    const ic = (val: number) => val > 0 ? '↑' : val < 0 ? '↓' : '↕'
-    const detail = `🧠${ic(wi)}  💪${ic(ws)}  ⚡${ic(wsp)}`
-    list.push({
-      label: 'Кто разностороннее',
-      detail,
-      value: v,
-      highlight: hl(v),
-    })
-  }
+
 
   // 4. Psyche
   if (f.psycheWeighingDelta !== 0) {
@@ -366,6 +369,61 @@ function formatLetopis(text: string): string {
 function fmtVal(v: number): string {
   return (v > 0 ? '+' : '') + v.toFixed(1)
 }
+/** Format a percentage delta with sign and 2 decimal places */
+function fmtPct(v: number): string {
+  return (v > 0 ? '+' : '') + v.toFixed(2) + '%'
+}
+/** CSS class for a R3 modifier value */
+function r3ModClass(v: number): string {
+  return v > 0 ? 'pct-good' : v < 0 ? 'pct-bad' : ''
+}
+
+/** Round 3: Our win chance (percentage) */
+const r3OurChance = computed(() => {
+  const f = fight.value
+  if (!f || f.maxRandomNumber === 0) return 50
+  const s = sign.value
+  const attackerChance = f.randomForPoint / f.maxRandomNumber * 100
+  return s > 0 ? attackerChance : 100 - attackerChance
+})
+
+/** Round 3: Justice contribution to our chance (percentage points) */
+const r3JusticePct = computed(() => {
+  const f = fight.value
+  if (!f || f.maxRandomNumber === 0 || f.justiceRandomChange === 0) return 0
+  const s = sign.value
+  // justiceRandomChange = 100 - maxRandom (positive = shrunk range = attacker benefits)
+  // Attacker's chance delta: rfp * (100/maxRandom - 1)
+  const attackerDelta = f.randomForPoint * (100 / f.maxRandomNumber - 1)
+  return attackerDelta * s
+})
+
+/** Round 3: Our roll as percentage of the range */
+const r3RollPct = computed(() => {
+  const f = fight.value
+  if (!f || f.maxRandomNumber === 0) return 0
+  const s = sign.value
+  const rollPct = f.randomNumber / f.maxRandomNumber * 100
+  // From our perspective: if we attack, low roll = good; if we defend, high roll = good
+  // Normalize so that < ourChance% means we win
+  return s > 0 ? rollPct : 100 - rollPct
+})
+
+/** Round 3: Margin — how close/far the roll was from the threshold.
+ *  Positive = we got lucky (roll was within our zone), negative = we didn't. */
+const r3Margin = computed(() => {
+  return r3OurChance.value - r3RollPct.value
+})
+
+/** Round 3: Did we win the roll? */
+const r3WeWon = computed(() => {
+  const f = fight.value
+  if (!f) return false
+  const s = sign.value
+  const attackerWon = f.randomNumber <= f.randomForPoint
+  return s > 0 ? attackerWon : !attackerWon
+})
+
 function compactOutcome(f: FightEntry): string {
   if (f.outcome === 'block') return 'БЛОК'
   if (f.outcome === 'skip') return 'СКИП'
@@ -540,28 +598,47 @@ function getDisplayCharName(orig: string, u: string): string {
             <template v-if="fight.usedRandomRoll">
               <div class="fa-round-header" :class="{ visible: showR3 }">Раунд 3 — Рандом</div>
               <div v-if="showR3" class="fa-r3-details">
-                <!-- Random modifiers -->
+                <!-- Our base win chance -->
+                <div class="fa-factor random visible">
+                  <span class="fa-factor-label">Базовый шанс</span>
+                  <span class="fa-factor-detail">{{ sign > 0 ? '50.00' : '50.00' }}%</span>
+                </div>
+                <!-- Modifier: TooGood -->
                 <div v-if="fight.tooGoodRandomChange !== 0" class="fa-factor random visible">
                   <span class="fa-factor-label">TooGood</span>
-                  <span class="fa-factor-detail">Порог: {{ fmtVal(fight.tooGoodRandomChange) }}</span>
+                  <span class="fa-factor-detail" :class="r3ModClass(fight.tooGoodRandomChange * sign)">
+                    {{ fmtPct(fight.tooGoodRandomChange * sign) }}
+                  </span>
                 </div>
+                <!-- Modifier: TooStronk -->
                 <div v-if="fight.tooStronkRandomChange !== 0" class="fa-factor random visible">
                   <span class="fa-factor-label">TooStronk</span>
-                  <span class="fa-factor-detail">Порог: {{ fmtVal(fight.tooStronkRandomChange) }}</span>
+                  <span class="fa-factor-detail" :class="r3ModClass(fight.tooStronkRandomChange * sign)">
+                    {{ fmtPct(fight.tooStronkRandomChange * sign) }}
+                  </span>
                 </div>
+                <!-- Modifier: Justice -->
                 <div v-if="fight.justiceRandomChange !== 0" class="fa-factor random visible">
                   <span class="fa-factor-label">Справедливость</span>
-                  <span class="fa-factor-detail">Макс. рандом: {{ fmtVal(-fight.justiceRandomChange) }}</span>
-                </div>
-                <!-- Roll result (flip: attacker wins roll if <= threshold, so flip the display) -->
-                <div class="fa-factor random visible">
-                  <span class="fa-factor-label">🎲 Бросок</span>
-                  <span class="fa-factor-detail">
-                    {{ fight.randomNumber }} / {{ fight.maxRandomNumber.toFixed(0) }}
-                    (порог: {{ fight.randomForPoint.toFixed(0) }})
+                  <span class="fa-factor-detail" :class="r3ModClass(r3JusticePct)">
+                    {{ fmtPct(r3JusticePct) }}
                   </span>
-                  <span class="fa-factor-value">
-                    {{ (fight.randomNumber <= fight.randomForPoint ? 1 : -1) * sign > 0 ? '+1' : '-1' }}
+                </div>
+                <!-- Our final win chance -->
+                <div class="fa-factor random visible">
+                  <span class="fa-factor-label">Наш шанс</span>
+                  <span class="fa-factor-detail fa-chance-total" :class="r3OurChance >= 50 ? 'pct-good' : 'pct-bad'">
+                    {{ r3OurChance.toFixed(2) }}%
+                  </span>
+                </div>
+                <!-- Roll result: show margin (how close/far from winning) -->
+                <div class="fa-factor random visible fa-roll-result">
+                  <span class="fa-factor-label">🎲 Бросок</span>
+                  <span class="fa-factor-detail" :class="r3WeWon ? 'pct-good' : 'pct-bad'">
+                    {{ fmtPct(r3Margin) }}
+                  </span>
+                  <span class="fa-factor-value" :class="r3WeWon ? 'good-val' : 'bad-val'">
+                    {{ r3WeWon ? '+1' : '-1' }}
                   </span>
                 </div>
               </div>
@@ -601,15 +678,15 @@ function getDisplayCharName(orig: string, u: string): string {
                 <span v-if="fight.resistPsycheDamage > 0" class="fa-detail-item fa-resist">🧘 -{{ fight.resistPsycheDamage }}</span>
                 <!-- Intellectual damage: intel resist broke -->
                 <span v-if="fight.intellectualDamage" class="fa-detail-item fa-intellectual">
-                  Intellectual Damage!
+                  {{ leftWon ?  leftName: rightName }}Intellectual Damage!
                 </span>
                 <!-- Emotional damage: psyche resist broke -->
                 <span v-if="fight.emotionalDamage" class="fa-detail-item fa-emotional">
-                  Emotional Damage!
+                  {{ leftWon ?  leftName: rightName }} Emotional Damage!
                 </span>
               </template>
               <span v-if="fight.drops > 0" class="fa-detail-item fa-drop">
-                DROP x{{ fight.drops }}!
+                {{ leftWon ?  leftName: rightName }} DROP x{{ fight.drops }}!
               </span>
             </div>
             <!-- Drops visible to ALL players -->
@@ -700,6 +777,8 @@ div.fa-round-header { opacity: 1; }
 .fa-factor-label { font-weight: 700; color: var(--text-primary); min-width: 100px; }
 .fa-factor-detail { color: var(--text-secondary); flex: 1; }
 .fa-factor-value { font-weight: 700; color: var(--accent-gold); margin-left: auto; }
+.fa-factor-value.good-val { color: var(--accent-green); }
+.fa-factor-value.bad-val { color: var(--accent-red, #ef4444); }
 .neutral-val { color: var(--text-muted); }
 
 /* ── Badges (TooGood / TooStronk) ── */
@@ -711,6 +790,10 @@ div.fa-round-header { opacity: 1; }
 
 /* ── R3 details ── */
 .fa-r3-details { display: flex; flex-direction: column; gap: 3px; }
+.pct-good { color: var(--accent-green); font-weight: 700; }
+.pct-bad { color: var(--accent-red, #ef4444); font-weight: 700; }
+.fa-chance-total { font-size: 14px; font-weight: 800; }
+.fa-roll-result { border-top: 1px solid var(--border-color); padding-top: 4px; margin-top: 2px; }
 
 /* ── Enemy summary ── */
 .fa-enemy-summary { display: flex; gap: 6px; justify-content: center; padding: 4px 0; }
