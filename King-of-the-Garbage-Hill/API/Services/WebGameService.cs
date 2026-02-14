@@ -78,38 +78,40 @@ public class WebGameService
     private static readonly Dictionary<string, string> EmojiMap = new(StringComparer.OrdinalIgnoreCase)
     {
         // Weedwick
-        { "weed", "🌿" },
-        { "bong", "🌿" },
-        { "WUF", "🐺" },
+        { "weed", "<img class='lb-emoji' src='/art/emojis/weed.png'/>" },
+        { "bong", "<img class='lb-emoji' src='/art/emojis/bone_1.png'/>" },
+        { "WUF", "<img class='lb-emoji' src='/art/emojis/wolf_mark.png'/>" },
         // Pets
-        { "pet", "🔗" },
+        { "pet", "<img class='lb-emoji' src='/art/emojis/collar.png'/>" },
         // Tigr
-        { "pepe_down", "⬇️" },
+        { "pepe_down", "<img class='lb-emoji' src='/art/emojis/pepe.png'/>" },
         // Spartan / Mylorik
-        { "sparta", "<img class='lb-emoji' src='/art/emojis/sparta.png'/>" },
-        { "Spartaneon", "⚔️" },
-        { "yasuo", "⚔️" },
-        { "broken_shield", "🛡️💥" },
+        { "sparta", "<img class='lb-emoji' src='/art/emojis/spartan_mark.png'/>" },
+        { "Spartaneon", "<img class='lb-emoji' src='/art/emojis/spartan_mark.png'/>" },
+        { "yasuo", "<img class='lb-emoji' src='/art/emojis/shame_shame.png'/>" },
+        { "broken_shield", "<img class='lb-emoji' src='/art/emojis/broken_shield.png'/>" },
         // DeepList
-        { "yo_filled", "<img class='lb-emoji' src='/art/emojis/yo.png'/>" },
+        { "yo_filled", "<img class='lb-emoji' src='/art/emojis/gambit.png'/>" },
         // Vampyr
-        { "Y_", "🩸" },
+        { "Y_", "<img class='lb-emoji' src='/art/emojis/vampyr_mark.png'/>" },
         // Ranks / Awdka
-        { "bronze", "🥉" },
-        { "plat", "💎" },
+        { "bronze", "<img class='lb-emoji' src='/art/emojis/bronze.png'/>" },
+        { "plat", "<img class='lb-emoji' src='/art/emojis/plat.png'/>" },
         // HardKitty
-        { "393", "💬" },
-        { "LoveLetter", "💌" },
+        { "393", "<img class='lb-emoji' src='/art/emojis/mail_2.png'/>" },
+        { "LoveLetter", "<img class='lb-emoji' src='/art/emojis/mail_1.png'/>" },
         // Sirinoks
-        { "fr", "🤝" },
-        { "edu", "📚" },
+        { "fr", "<img class='lb-emoji' src='/art/emojis/friend.png'/>" },
+        { "edu", "<img class='lb-emoji' src='/art/emojis/learning.png'/>" },
         // Jaws (Shark)
-        { "jaws", "🦈" },
+        { "jaws", "<img class='lb-emoji' src='/art/emojis/fin.png'/>" },
         // Luck
-        { "luck", "🍀" },
+        { "luck", "<img class='lb-emoji' src='/art/emojis/luck.png'/>" },
         // Generic
         { "e_", "" },
         { "war", "<img class='lb-emoji' src='/art/emojis/war.png'/>" },
+        { "volibir", "<img class='lb-emoji' src='/art/emojis/voli.png'/>" },
+        { "🐙", "<img class='lb-emoji' src='/art/emojis/fish.png'/>" },
     };
 
     /// <summary>Converts Discord markdown + custom emojis to web-safe HTML.</summary>

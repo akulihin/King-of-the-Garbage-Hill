@@ -96,13 +96,15 @@ const letopis = computed(() => {
 
     <!-- Active Game (or finished — same layout, just no actions) -->
     <div v-else class="game-layout">
-      <!-- Left: Player info panel -->
+      <!-- Left: Player info panel + action buttons -->
       <div class="game-left">
         <PlayerCard
           v-if="store.myPlayer"
           :player="store.myPlayer"
           :is-me="true"
         />
+        <!-- Action bar (only during active game) -->
+        <ActionPanel v-if="store.myPlayer && !store.gameState.isFinished" />
       </div>
 
       <!-- Center: Header + Leaderboard + Actions + Logs -->
@@ -137,12 +139,10 @@ const letopis = computed(() => {
           :is-admin="store.isAdmin"
           :round-no="store.gameState.roundNo"
           :confirmed-predict="store.myPlayer?.status.confirmedPredict"
+          :fight-log="store.gameState.fightLog || []"
           @attack="store.attack($event)"
           @predict="store.predict($event.playerId, $event.characterName)"
         />
-
-        <!-- Action bar (only during active game) -->
-        <ActionPanel v-if="store.myPlayer && !store.gameState.isFinished" />
 
         <!-- "Back to Lobby" after game ends -->
         <div v-if="store.gameState.isFinished" class="finished-actions">
@@ -195,6 +195,11 @@ const letopis = computed(() => {
           <FightAnimation
             :fights="store.gameState.fightLog || []"
             :letopis="letopis"
+            :players="store.gameState.players"
+            :my-player-id="store.myPlayer?.playerId"
+            :predictions="store.myPlayer?.predictions"
+            :is-admin="store.isAdmin"
+            :character-catalog="store.gameState.allCharacters || []"
           />
         </div>
       </div>
@@ -311,8 +316,8 @@ const letopis = computed(() => {
 .logs-row-top {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 12px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 @media (max-width: 800px) {
@@ -325,20 +330,28 @@ const letopis = computed(() => {
 }
 
 .events-panel {
-  max-height: 220px;
+  max-height: 160px;
+  padding: 8px 10px;
+}
+
+.events-panel :deep(.card-header),
+.events-panel .card-header {
+  font-size: 13px;
+  margin-bottom: 4px;
 }
 
 .fight-panel {
-  margin-top: 12px;
+  margin-top: 8px;
+  padding: 8px 10px;
 }
 
 .log-content {
   font-size: 12px;
-  line-height: 1.6;
+  line-height: 1.4;
   color: var(--text-secondary);
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 4px 6px;
   background: var(--bg-primary);
   border-radius: var(--radius);
   font-family: var(--font-mono);
@@ -352,8 +365,8 @@ const letopis = computed(() => {
 .log-empty {
   color: var(--text-muted);
   font-style: italic;
-  padding: 16px;
+  padding: 8px;
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
 }
 </style>

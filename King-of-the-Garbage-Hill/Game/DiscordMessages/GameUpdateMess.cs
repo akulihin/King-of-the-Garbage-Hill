@@ -545,13 +545,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                     customString += $"\n**IN: {other.GameCharacter.GetIntelligence()}** ST: {other.GameCharacter.GetStrength()} **SP: {other.GameCharacter.GetSpeed()}** PS: {other.GameCharacter.GetPsyche()} | **JS: {other.GameCharacter.Justice.GetRealJusticeNow()}** MR: {other.GameCharacter.GetMoral()} **SK: {other.GameCharacter.GetSkill()}**"; //| TG: {other.GameCharacter.GetCurrentSkillClassTarget()}
 
-                    var (isTooGoodMe, isTooGoodEnemy, isTooStronkMe, isTooStronkEnemy, isStatsBetterMe,
-                        isStatsBettterEnemy, r1, isContrLost, randomForPoint, weighingMachine, contrMultiplier,
-                        skillMultiplierMe, skillMultiplierTarget) = _calculateRounds.CalculateStep1(me, other);
+                    var step1 = _calculateRounds.CalculateStep1(me, other);
                     var r2 = _calculateRounds.CalculateStep2(me, other);
-                    var (r3, _, _) = _calculateRounds.CalculateStep3(me, other, randomForPoint, contrMultiplier);
+                    var (r3, _, _) = _calculateRounds.CalculateStep3(me, other, step1.RandomForPoint, step1.ContrMultiplier);
                     
-                    customString += $"\nDoomsday: {r1} | {r2} | {r3}~";
+                    customString += $"\nDoomsday: {step1.PointsWon} | {r2} | {r3}~";
                     break;
             }
 

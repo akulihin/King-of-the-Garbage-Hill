@@ -5,6 +5,32 @@ using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic
 {
+    /// <summary>Result of CalculateStep1 — contains all intermediate values for web fight animation.</summary>
+    public class Step1Result
+    {
+        // Existing fields (previously in tuple)
+        public bool IsTooGoodMe, IsTooGoodEnemy, IsTooStronkMe, IsTooStronkEnemy;
+        public bool IsStatsBetterMe, IsStatsBetterEnemy;
+        public int PointsWon, IsContrLost;
+        public decimal RandomForPoint, WeighingMachine, ContrMultiplier;
+        public int SkillMultiplierMe, SkillMultiplierTarget;
+
+        // Per-step weighing deltas (for web animation)
+        public decimal ContrWeighingDelta;       // +2/-2/0 from contre
+        public decimal ScaleWeighingDelta;       // scaleMe - scaleTarget
+        public decimal WhoIsBetterWeighingDelta; // +5/-5
+        public decimal PsycheWeighingDelta;      // mapped +1/+2/+4/-1/-2/-4 (NOT raw psyche diff)
+        public decimal SkillWeighingDelta;       // skillDifference
+        public decimal JusticeWeighingDelta;     // justiceMe - justiceTarget (in step1 weighing)
+
+        // Random modifiers (for Round 3 display)
+        public decimal TooGoodRandomChange;      // 75 or 25 (the set value), 0 if not triggered
+        public decimal TooStronkRandomChange;    // the tooStronkAdd delta, 0 if not triggered
+
+        // Intermediate values
+        public decimal ScaleMe, ScaleTarget;
+    }
+
     public class CalculateRounds : IServiceSingleton
     {
         private readonly SecureRandom _random;
@@ -56,9 +82,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         }
 
 
-        public (bool isTooGoodMe, bool isTooGoodEnemy, bool isTooStronkMe, bool isTooStronkEnemy, bool isStatsBetterMe, bool isStatsBettterEnemy, int pointsWined, int isContrLost, decimal randomForPoint, decimal weighingMachine, decimal contrMultiplier, int skillMultiplierMe, int skillMultiplierTarget) CalculateStep1(GamePlayerBridgeClass player, GamePlayerBridgeClass playerIamAttacking, bool isLog = false)
+        public Step1Result CalculateStep1(GamePlayerBridgeClass player, GamePlayerBridgeClass playerIamAttacking, bool isLog = false)
         {
-            bool isTooGoodMe = false, isTooGoodEnemy = false, isTooStronkMe = false, isTooStronkEnemy = false, isStatsBetterMe = false, isStatsBettterEnemy = false;
+            var r = new Step1Result();
 
             var pointsWined = 0;
             var isContrLost = 0;
@@ -74,7 +100,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             var target = playerIamAttacking.GameCharacter;
 
 
-
+            // ── 1. Contre ──────────────────────────────────────────────
+            var wmBefore = weighingMachine;
 
             if (me.GetWhoIContre() == target.GetSkillClass())
             {
@@ -91,6 +118,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 isContrLost += 1;
                 weighingMachine -= 2;
             }
+
+            r.ContrWeighingDelta = weighingMachine - wmBefore;
 
             if (weighingMachine != 0 && isLog)
             {
@@ -120,10 +149,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
 
 
+            // ── 2. Scale (stats + skill*multiplier) ────────────────────
+            wmBefore = weighingMachine;
 
             var scaleMe = me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() + me.GetSkill() * skillMultiplierMe / 60;
             var scaleTarget = target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche() + target.GetSkill() * skillMultiplierTarget / 60;
             weighingMachine += scaleMe - scaleTarget;
+
+            r.ScaleWeighingDelta = weighingMachine - wmBefore;
+            r.ScaleMe = scaleMe;
+            r.ScaleTarget = scaleTarget;
 
             if (isLog)
             {
@@ -136,6 +171,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 playerIamAttacking.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
             }
 
+
+            // ── 3. WhoIsBetter ─────────────────────────────────────────
+            wmBefore = weighingMachine;
 
             switch (WhoIsBetter(player.GameCharacter, playerIamAttacking.GameCharacter))
             {
@@ -159,9 +197,13 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     break;
             }
 
+            r.WhoIsBetterWeighingDelta = weighingMachine - wmBefore;
+
+
+            // ── 4. Psyche difference ───────────────────────────────────
+            wmBefore = weighingMachine;
 
             var psycheDifference = me.GetPsyche() - target.GetPsyche();
-
 
             if (isLog)
             {
@@ -193,9 +235,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     break;
             }
 
+            r.PsycheWeighingDelta = weighingMachine - wmBefore;
 
-            //tooGOOD
+
+            // ── 5. TooGOOD (affects random, not weighing) ──────────────
             var tooGoodDebug = weighingMachine;
+            var rfpBefore = randomForPoint;
             switch (weighingMachine)
             {
                 case >= 13:
@@ -205,7 +250,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         playerIamAttacking.Status.AddFightingData($"WhoIsTooGood: Enemy");
                     }
 
-                    isTooGoodMe = true;
+                    r.IsTooGoodMe = true;
                     randomForPoint = 75;
 
                     break;
@@ -216,10 +261,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         playerIamAttacking.Status.AddFightingData($"WhoIsTooGood: Me");
                     }
 
-                    isTooGoodEnemy = true;
+                    r.IsTooGoodEnemy = true;
                     randomForPoint = 25;
                     break;
             }
+
+            r.TooGoodRandomChange = randomForPoint - rfpBefore;
 
             if (isLog)
             {
@@ -230,33 +277,39 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
 
 
+            // ── 6. Skill difference ────────────────────────────────────
+            wmBefore = weighingMachine;
+
             //1.2 = 200 * 2 / 500 * 1.5
-            var myWtf = me.GetSkill() * skillMultiplierMe / 600 * contrMultiplier;
+            var mySkill = me.GetSkill() * skillMultiplierMe / 600 * contrMultiplier;
             //0.1 = 50 * 1 / 500
-            var targetWtf = target.GetSkill() * skillMultiplierTarget / 600;
+            var targetSkill = target.GetSkill() * skillMultiplierTarget / 600;
             // 10 * (1 + (1.2-0.1)) - 10
             //var wtf = scaleMe * (1 + (myWtf - targetWtf)) - scaleMe;
             //29.64 * 1.846 - 24.9 * 1.19 - 29.64 + 24.9
-            var wtf = scaleMe * (1 + myWtf) - scaleTarget * (1 + targetWtf) - scaleMe + scaleTarget;
+            var skillDifference = scaleMe * (1 + mySkill) - scaleTarget * (1 + targetSkill) - scaleMe + scaleTarget;
 
-            weighingMachine += wtf;
+            weighingMachine += skillDifference;
+
+            r.SkillWeighingDelta = weighingMachine - wmBefore;
 
             if (isLog)
             {
-                player.Status.AddFightingData($"wtfMe: {Math.Round(myWtf, 2)}");
-                player.Status.AddFightingData($"wtfEnemy: {Math.Round(targetWtf, 2)}");
-                playerIamAttacking.Status.AddFightingData($"wtfMe: {Math.Round(targetWtf, 2)}");
-                playerIamAttacking.Status.AddFightingData($"wtfEnemy: {Math.Round(myWtf, 2)}");
+                player.Status.AddFightingData($"skillMe: {Math.Round(mySkill, 2)}");
+                player.Status.AddFightingData($"skillEnemy: {Math.Round(targetSkill, 2)}");
+                playerIamAttacking.Status.AddFightingData($"skillMe: {Math.Round(targetSkill, 2)}");
+                playerIamAttacking.Status.AddFightingData($"skillEnemy: {Math.Round(mySkill, 2)}");
 
-                player.Status.AddFightingData($"wtf: {Math.Round(wtf, 2)}");
-                playerIamAttacking.Status.AddFightingData($"wtf: {Math.Round(wtf, 2)}");
+                player.Status.AddFightingData($"skill: {Math.Round(skillDifference, 2)}");
+                playerIamAttacking.Status.AddFightingData($"skill: {Math.Round(skillDifference, 2)}");
 
                 player.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
                 playerIamAttacking.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
             }
 
 
-            //tooSTONK
+            // ── 7. TooSTONK (affects random, not weighing) ─────────────
+            rfpBefore = randomForPoint;
             switch (weighingMachine)
             {
                 case >= 30:
@@ -266,7 +319,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         playerIamAttacking.Status.AddFightingData($"**WhoIsTooSTONK: Enemy**");
                     }
 
-                    isTooStronkMe = true;
+                    r.IsTooStronkMe = true;
 
                     var tooStronkAdd = weighingMachine / 2;
                     if (tooStronkAdd > 20)
@@ -286,9 +339,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                     if (playerIamAttacking.DiscordId == 238337696316129280)
                     {
-                        playerIamAttacking.Status.AddInGamePersonalLogs($"DEBUG: You tooSTONK {(int)Math.Ceiling(wtf)} (vs {player.DiscordUsername}, {player.GameCharacter.Name}) \n");
+                        playerIamAttacking.Status.AddInGamePersonalLogs($"DEBUG: You tooSTONK {(int)Math.Ceiling(skillDifference)} (vs {player.DiscordUsername}, {player.GameCharacter.Name}) \n");
                     }
-                    isTooStronkEnemy = true;
+                    r.IsTooStronkEnemy = true;
 
                     tooStronkAdd = weighingMachine / 2;
                     if (tooStronkAdd < -20)
@@ -300,8 +353,15 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     break;
             }
 
+            r.TooStronkRandomChange = randomForPoint - rfpBefore;
+
+
+            // ── 8. Justice (in weighing machine) ───────────────────────
+            wmBefore = weighingMachine;
 
             weighingMachine += player.GameCharacter.Justice.GetRealJusticeNow() - playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow();
+
+            r.JusticeWeighingDelta = weighingMachine - wmBefore;
 
             if (isLog)
             {
@@ -318,17 +378,18 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
 
 
+            // ── Round 1 result ─────────────────────────────────────────
             switch (weighingMachine)
             {
                 case > 0:
                     pointsWined++;
                     isContrLost -= 1;
-                    isStatsBetterMe = true;
+                    r.IsStatsBetterMe = true;
                     break;
                 case < 0:
                     pointsWined--;
                     isContrLost += 1;
-                    isStatsBettterEnemy = true;
+                    r.IsStatsBetterEnemy = true;
                     break;
             }
 
@@ -338,7 +399,16 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 playerIamAttacking.Status.AddFightingData($"pointsWined: {pointsWined}");
             }
 
-            return (isTooGoodMe, isTooGoodEnemy, isTooStronkMe, isTooStronkEnemy, isStatsBetterMe, isStatsBettterEnemy, pointsWined, isContrLost, randomForPoint, weighingMachine, contrMultiplier, skillMultiplierMe, skillMultiplierTarget);
+            // Populate result object
+            r.PointsWon = pointsWined;
+            r.IsContrLost = isContrLost;
+            r.RandomForPoint = randomForPoint;
+            r.WeighingMachine = weighingMachine;
+            r.ContrMultiplier = contrMultiplier;
+            r.SkillMultiplierMe = skillMultiplierMe;
+            r.SkillMultiplierTarget = skillMultiplierTarget;
+
+            return r;
         }
 
 

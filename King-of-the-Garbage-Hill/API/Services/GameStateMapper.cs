@@ -94,8 +94,9 @@ public static class GameStateMapper
             AllCharacters = _allCharacters,
         };
 
-        // Map structured fight log for web animation
-        dto.FightLog = game.WebFightLog.ToList();
+        // Map structured fight log for web animation (scoped: only own fights get full details)
+        var myUsername = requestingPlayer?.DiscordUsername;
+        dto.FightLog = game.WebFightLog.Select(f => ScopeFightEntry(f, myUsername, isAdmin)).ToList();
 
         foreach (var player in game.PlayersList)
         {
@@ -324,5 +325,66 @@ public static class GameStateMapper
         var pct = (moralBonus - 1) * 100;
         var plus = pct > 0 ? "+" : "";
         return $"{plus}{Math.Round(pct)}% Moral";
+    }
+
+    /// <summary>
+    /// Scope fight data visibility: full details only for fights involving the requesting player.
+    /// Other fights get stripped of numeric details but keep outcome, participants, and drops (visible to all).
+    /// </summary>
+    private static FightEntryDto ScopeFightEntry(FightEntryDto f, string myUsername, bool isAdmin)
+    {
+        // Admins and participants in the fight get full data
+        if (isAdmin) return f;
+        if (myUsername != null && (f.AttackerName == myUsername || f.DefenderName == myUsername)) return f;
+
+        // Non-participant: strip detailed numeric data, keep participant info + outcome + drops
+        return new FightEntryDto
+        {
+            // Keep: participant identity & outcome
+            AttackerName = f.AttackerName,
+            AttackerCharName = f.AttackerCharName,
+            AttackerAvatar = f.AttackerAvatar,
+            DefenderName = f.DefenderName,
+            DefenderCharName = f.DefenderCharName,
+            DefenderAvatar = f.DefenderAvatar,
+            Outcome = f.Outcome,
+            WinnerName = f.WinnerName,
+            // Keep booleans (no numeric leak)
+            IsContrMe = f.IsContrMe,
+            IsContrTarget = f.IsContrTarget,
+            IsTooGoodMe = f.IsTooGoodMe,
+            IsTooGoodEnemy = f.IsTooGoodEnemy,
+            IsTooStronkMe = f.IsTooStronkMe,
+            IsTooStronkEnemy = f.IsTooStronkEnemy,
+            IsStatsBetterMe = f.IsStatsBetterMe,
+            IsStatsBetterEnemy = f.IsStatsBetterEnemy,
+            UsedRandomRoll = f.UsedRandomRoll,
+            QualityDamageApplied = f.QualityDamageApplied,
+            // Keep drops (visible to all players)
+            Drops = f.Drops,
+            DroppedPlayerName = f.DroppedPlayerName,
+            // Keep round results (just win/loss direction, no magnitudes)
+            Round1PointsWon = f.Round1PointsWon,
+            PointsFromJustice = f.PointsFromJustice,
+            TotalPointsWon = f.TotalPointsWon > 0 ? 1 : (f.TotalPointsWon < 0 ? -1 : 0),
+            // Zero out all numeric details
+            ScaleMe = 0, ScaleTarget = 0,
+            ContrMultiplier = 0,
+            SkillMultiplierMe = 0, SkillMultiplierTarget = 0,
+            PsycheDifference = 0,
+            WeighingMachine = 0,
+            RandomForPoint = 0,
+            ContrWeighingDelta = 0, ScaleWeighingDelta = 0,
+            WhoIsBetterWeighingDelta = 0, PsycheWeighingDelta = 0,
+            SkillWeighingDelta = 0, JusticeWeighingDelta = 0,
+            TooGoodRandomChange = 0, TooStronkRandomChange = 0,
+            JusticeRandomChange = 0,
+            JusticeMe = 0, JusticeTarget = 0,
+            RandomNumber = 0, MaxRandomNumber = 0,
+            MoralChange = 0,
+            ResistIntelDamage = 0, ResistStrDamage = 0, ResistPsycheDamage = 0,
+            IntellectualDamage = false, EmotionalDamage = false,
+            JusticeChange = 0,
+        };
     }
 }

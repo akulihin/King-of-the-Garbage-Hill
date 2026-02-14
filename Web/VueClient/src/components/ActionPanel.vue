@@ -96,19 +96,19 @@ function togglePreferWeb() {
 .action-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: 6px;
+  padding: 8px 10px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
-  margin-top: 10px;
+  margin-top: 8px;
   flex-wrap: wrap;
 }
 
 .status-chip {
-  padding: 6px 14px;
-  border-radius: 12px;
-  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -126,23 +126,24 @@ function togglePreferWeb() {
 .action-group {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding-left: 10px;
+  gap: 4px;
+  padding-left: 6px;
   border-left: 1px solid var(--border-color);
+  flex-wrap: wrap;
 }
 
 .act-btn {
-  height: 40px;
-  padding: 0 14px;
+  height: 32px;
+  padding: 0 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
@@ -179,7 +180,9 @@ function togglePreferWeb() {
 }
 
 .web-toggle {
-  margin-left: auto;
+  margin-left: 0;
+  border-left: none;
+  padding-left: 0;
 }
 
 .act-btn.web-mode {

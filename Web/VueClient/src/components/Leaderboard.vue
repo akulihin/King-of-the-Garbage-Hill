@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import type { Player, Prediction, CharacterInfo } from 'src/services/signalr'
+import { ref, computed, watch } from 'vue'
+import type { Player, Prediction, CharacterInfo, FightEntry } from 'src/services/signalr'
 
 const props = defineProps<{
   players: Player[]
@@ -12,6 +12,7 @@ const props = defineProps<{
   isAdmin?: boolean
   roundNo?: number
   confirmedPredict?: boolean
+  fightLog?: FightEntry[]
 }>()
 
 const emit = defineEmits<{
@@ -183,6 +184,44 @@ function tierStars(tier: number): string {
   if (tier <= 0) return ''
   return '★'.repeat(Math.min(tier, 6))
 }
+
+// ── Drop flash animation ────────────────────────────────────────────
+const droppedPlayers = ref<Set<string>>(new Set())
+let dropClearTimers: ReturnType<typeof setTimeout>[] = []
+
+function getDropCount(discordUsername: string): number {
+  if (!props.fightLog) return 0
+  let total = 0
+  for (const f of props.fightLog) {
+    if (f.droppedPlayerName === discordUsername && f.drops > 0) {
+      total += f.drops
+    }
+  }
+  return total
+}
+
+function isDropped(player: Player): boolean {
+  return droppedPlayers.value.has(player.discordUsername)
+}
+
+watch(() => props.fightLog, (newLog) => {
+  if (!newLog || !newLog.length) return
+  // Clear old timers
+  dropClearTimers.forEach(t => clearTimeout(t))
+  dropClearTimers = []
+  const newDropped = new Set<string>()
+  for (const f of newLog) {
+    if (f.drops > 0 && f.droppedPlayerName) {
+      newDropped.add(f.droppedPlayerName)
+    }
+  }
+  droppedPlayers.value = newDropped
+  // Auto-clear after 5 seconds
+  if (newDropped.size > 0) {
+    const t = setTimeout(() => { droppedPlayers.value = new Set() }, 5000)
+    dropClearTimers.push(t)
+  }
+}, { deep: true })
 </script>
 
 <template>
@@ -197,6 +236,7 @@ function tierStars(tier: number): string {
           'is-bot': player.isBot,
           'is-ready': player.status.isReady,
           'can-click': canAttack && player.playerId !== myPlayerId,
+          'dropped': isDropped(player),
         }"
         @click="handleAttack(player)"
       >
@@ -305,6 +345,9 @@ function tierStars(tier: number): string {
           </div>
           <span class="score-value" :class="{ 'score-hidden': player.status.score < 0 }">
             {{ getDisplayScore(player) }}
+          </span>
+          <span v-if="isDropped(player)" class="drop-badge">
+            -{{ getDropCount(player.discordUsername) }}
           </span>
         </div>
 
@@ -570,6 +613,7 @@ function tierStars(tier: number): string {
   align-items: center;
   gap: 6px;
   min-width: 80px;
+  position: relative;
 }
 
 .score-bar-bg {
@@ -718,5 +762,36 @@ function tierStars(tier: number): string {
   text-align: center;
   color: var(--text-muted, #6b6b80);
   font-size: 13px;
+}
+
+/* ── Drop flash animation ── */
+.lb-row.dropped {
+  animation: drop-flash 1s ease-in-out;
+}
+
+@keyframes drop-flash {
+  0%, 100% { background: inherit; }
+  15%, 40% { background: rgba(255, 82, 82, 0.25); }
+}
+
+.drop-badge {
+  position: absolute;
+  right: -4px;
+  top: -2px;
+  font-size: 10px;
+  font-weight: 900;
+  color: white;
+  background: var(--accent-red, #ff5252);
+  padding: 0 5px;
+  border-radius: 8px;
+  line-height: 16px;
+  animation: drop-badge-pop 0.5s ease-out;
+  z-index: 2;
+}
+
+@keyframes drop-badge-pop {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); opacity: 1; }
 }
 </style>

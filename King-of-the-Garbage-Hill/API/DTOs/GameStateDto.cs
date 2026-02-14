@@ -278,6 +278,25 @@ public class FightEntryDto
     public bool IsStatsBetterEnemy { get; set; }
     public decimal RandomForPoint { get; set; }
 
+    // Round 1 per-step weighing deltas (for web fight animation)
+    public decimal ContrWeighingDelta { get; set; }
+    public decimal ScaleWeighingDelta { get; set; }
+    public decimal WhoIsBetterWeighingDelta { get; set; }
+    public decimal PsycheWeighingDelta { get; set; }
+    public decimal SkillWeighingDelta { get; set; }
+    public decimal JusticeWeighingDelta { get; set; }
+
+    // Round 3 random modifiers
+    /// <summary>How TooGood shifted randomForPoint (e.g. +25 or -25), 0 if not triggered.</summary>
+    public decimal TooGoodRandomChange { get; set; }
+    /// <summary>How TooStronk shifted randomForPoint, 0 if not triggered.</summary>
+    public decimal TooStronkRandomChange { get; set; }
+    /// <summary>How Justice shifted maxRandomNumber in Step3 (100 - maxRandom), 0 if not triggered.</summary>
+    public decimal JusticeRandomChange { get; set; }
+
+    /// <summary>Points won from Round 1 alone (before Step2/Step3).</summary>
+    public int Round1PointsWon { get; set; }
+
     // Step2: Justice comparison
     public int JusticeMe { get; set; }
     public int JusticeTarget { get; set; }
@@ -291,6 +310,26 @@ public class FightEntryDto
     // Final
     public int TotalPointsWon { get; set; }
     public int MoralChange { get; set; }
+
+    // Fight outcome details (resist damage to the loser)
+    /// <summary>Intelligence resist lost by the loser.</summary>
+    public int ResistIntelDamage { get; set; }
+    /// <summary>Strength resist lost by the loser.</summary>
+    public int ResistStrDamage { get; set; }
+    /// <summary>Psyche resist lost by the loser.</summary>
+    public int ResistPsycheDamage { get; set; }
+    /// <summary>Number of score drops (-1 each) suffered by the loser.</summary>
+    public int Drops { get; set; }
+    /// <summary>Discord username of the player who got dropped.</summary>
+    public string DroppedPlayerName { get; set; }
+    /// <summary>Whether quality resist damage was applied this fight.</summary>
+    public bool QualityDamageApplied { get; set; }
+    /// <summary>Whether intelligence resist broke (IntelligenceQualitySkillBonus decreased).</summary>
+    public bool IntellectualDamage { get; set; }
+    /// <summary>Whether psyche resist broke (PsycheQualityMoralBonus decreased).</summary>
+    public bool EmotionalDamage { get; set; }
+    /// <summary>Justice gained by the loser of this fight (+1), 0 if teammate fight.</summary>
+    public int JusticeChange { get; set; }
 }
 
 // ── Auth DTOs ─────────────────────────────────────────────────────────

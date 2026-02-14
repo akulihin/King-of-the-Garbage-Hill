@@ -470,7 +470,21 @@ Speed => Strength
                 //main formula:
 
                 //round 1 (Stats)
-                var (isTooGoodMe, isTooGoodEnemy, isTooStronkMe, isTooStronkEnemy, isStatsBetterMe, isStatsBettterEnemy, pointsWined, isContrLost, randomForPoint, weighingMachine, contrMultiplier, skillMultiplierMe, skillMultiplierTarget) = _calculateRounds.CalculateStep1(player, playerIamAttacking, true);
+                var step1 = _calculateRounds.CalculateStep1(player, playerIamAttacking, true);
+                var isTooGoodMe = step1.IsTooGoodMe;
+                var isTooGoodEnemy = step1.IsTooGoodEnemy;
+                var isTooStronkMe = step1.IsTooStronkMe;
+                var isTooStronkEnemy = step1.IsTooStronkEnemy;
+                var isStatsBetterMe = step1.IsStatsBetterMe;
+                var isStatsBettterEnemy = step1.IsStatsBetterEnemy;
+                var pointsWined = step1.PointsWon;
+                var isContrLost = step1.IsContrLost;
+                var randomForPoint = step1.RandomForPoint;
+                var weighingMachine = step1.WeighingMachine;
+                var contrMultiplier = step1.ContrMultiplier;
+                var skillMultiplierMe = step1.SkillMultiplierMe;
+                var skillMultiplierTarget = step1.SkillMultiplierTarget;
+                var round1PointsWon = step1.PointsWon; // save before step2/step3 modify it
                 //end round 1
 
 
@@ -503,6 +517,7 @@ Speed => Strength
                 var usedRandomRoll = false;
                 var step3RandomNumber = 0;
                 var step3MaxRandom = 0m;
+                decimal justiceRandomChange = 0;
                 if (pointsWined == 0)
                 {
                     var (step3Points, rndNum, rndMax) = _calculateRounds.CalculateStep3(player, playerIamAttacking, randomForPoint, contrMultiplier, true);
@@ -510,6 +525,7 @@ Speed => Strength
                     usedRandomRoll = true;
                     step3RandomNumber = rndNum;
                     step3MaxRandom = rndMax;
+                    justiceRandomChange = 100 - rndMax; // how much justice shifted the max range
                 }
                 //end round 3
 
@@ -534,6 +550,20 @@ Speed => Strength
                         teamMate = true;
                     }
                 }
+
+                // Quality resist snapshot (declared before if/else so accessible in FightEntryDto creation)
+                var resistIntelBefore = 0;
+                var resistStrBefore = 0;
+                var resistPsycheBefore = 0;
+                var resistIntelAfter = 0;
+                var resistStrAfter = 0;
+                var resistPsycheAfter = 0;
+                var dropsBefore = 0;
+                var dropsAfter = 0;
+                var intellectualDamage = false; // IntelligenceQualityResist broke (<0)
+                var emotionalDamage = false;    // PsycheQualityResist broke (<0)
+                var qualityDamageApplied = false;
+                var fightJusticeChange = 0; // justice gained by the loser
 
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 1)
@@ -588,7 +618,7 @@ Speed => Strength
                     playerIamAttacking.Status.IsLostThisCalculation = player.GetPlayerId();
                     playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.GetPlayerId(), game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy, isStatsBettterEnemy, player.GetPlayerId()));
 
-                    //Quality
+                    //Quality — snapshot resist values before damage
                     var range = player.GameCharacter.GetSpeedQualityResistInt();
                     range -= playerIamAttacking.GameCharacter.GetSpeedQualityKiteBonus();
 
@@ -596,11 +626,26 @@ Speed => Strength
                     if (placeDiff < 0)
                         placeDiff *= -1;
 
+                    resistIntelBefore = playerIamAttacking.FightCharacter.GetIntelligenceQualityResistInt();
+                    resistStrBefore = playerIamAttacking.FightCharacter.GetStrengthQualityResistInt();
+                    resistPsycheBefore = playerIamAttacking.FightCharacter.GetPsycheQualityResistInt();
+                    dropsBefore = playerIamAttacking.FightCharacter.GetStrengthQualityDropTimes();
 
                     if (placeDiff <= range)
                     {
                         playerIamAttacking.FightCharacter.LowerQualityResist(playerIamAttacking, game, player);
+                        qualityDamageApplied = true;
                     }
+
+                    resistIntelAfter = playerIamAttacking.FightCharacter.GetIntelligenceQualityResistInt();
+                    resistStrAfter = playerIamAttacking.FightCharacter.GetStrengthQualityResistInt();
+                    resistPsycheAfter = playerIamAttacking.FightCharacter.GetPsycheQualityResistInt();
+                    dropsAfter = playerIamAttacking.FightCharacter.GetStrengthQualityDropTimes();
+                    // Detect if intel/psyche resist broke (went below 0 and was reset)
+                    intellectualDamage = qualityDamageApplied && resistIntelAfter > resistIntelBefore;
+                    emotionalDamage = qualityDamageApplied && resistPsycheAfter > resistPsycheBefore;
+                    // Justice: loser (defender) gains +1 justice
+                    if (!teamMate) fightJusticeChange = 1;
 
                     //end Quality
                 }
@@ -645,7 +690,10 @@ Speed => Strength
                             playerIamAttacking.GameCharacter.Justice.IsWonThisRound = false;
 
                     if (!teamMate)
+                    {
                         player.GameCharacter.Justice.AddJusticeForNextRoundFromFight();
+                        fightJusticeChange = 1; // loser (attacker) gains +1 justice
+                    }
 
                     playerIamAttacking.Status.IsWonThisCalculation = player.GetPlayerId();
                     player.Status.IsLostThisCalculation = playerIamAttacking.GetPlayerId();
@@ -656,9 +704,30 @@ Speed => Strength
                 {
                     var me = player.GameCharacter;
                     var target = playerIamAttacking.GameCharacter;
-                    var scaleMe = me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() + me.GetSkill() * skillMultiplierMe / 60m;
-                    var scaleTarget = target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche() + target.GetSkill() * skillMultiplierTarget / 60m;
                     var attackerWon = pointsWined >= 1;
+
+                    // Resist/drop data — only set when attacker won (quality damage only applies to loser)
+                    var resistIntelDmg = 0;
+                    var resistStrDmg = 0;
+                    var resistPsycheDmg = 0;
+                    var fightDrops = 0;
+                    var fightDroppedPlayer = "";
+                    var fightQualityApplied = false;
+                    var fightIntellectualDmg = false;
+                    var fightEmotionalDmg = false;
+
+                    if (attackerWon)
+                    {
+                        resistIntelDmg = resistIntelBefore - resistIntelAfter;
+                        resistStrDmg = resistStrBefore - resistStrAfter;
+                        resistPsycheDmg = resistPsycheBefore - resistPsycheAfter;
+                        fightDrops = dropsAfter - dropsBefore; // actual drops from StrengthQualityDropTimes
+                        fightDroppedPlayer = fightDrops > 0 ? playerIamAttacking.DiscordUsername : "";
+                        fightQualityApplied = qualityDamageApplied;
+                        fightIntellectualDmg = intellectualDamage;
+                        fightEmotionalDmg = emotionalDamage;
+                    }
+
                     game.WebFightLog.Add(new FightEntryDto
                     {
                         AttackerName = player.DiscordUsername,
@@ -669,8 +738,8 @@ Speed => Strength
                         DefenderAvatar = GameStateMapper.GetLocalAvatarUrl(target.AvatarCurrent ?? target.Avatar),
                         Outcome = attackerWon ? "win" : "loss",
                         WinnerName = attackerWon ? player.DiscordUsername : playerIamAttacking.DiscordUsername,
-                        ScaleMe = Math.Round(scaleMe, 2),
-                        ScaleTarget = Math.Round(scaleTarget, 2),
+                        ScaleMe = Math.Round(step1.ScaleMe, 2),
+                        ScaleTarget = Math.Round(step1.ScaleTarget, 2),
                         IsContrMe = me.GetWhoIContre() == target.GetSkillClass(),
                         IsContrTarget = target.GetWhoIContre() == me.GetSkillClass(),
                         ContrMultiplier = contrMultiplier,
@@ -685,6 +754,19 @@ Speed => Strength
                         IsStatsBetterMe = isStatsBetterMe,
                         IsStatsBetterEnemy = isStatsBettterEnemy,
                         RandomForPoint = Math.Round(randomForPoint, 2),
+                        // Round 1 per-step deltas
+                        ContrWeighingDelta = Math.Round(step1.ContrWeighingDelta, 2),
+                        ScaleWeighingDelta = Math.Round(step1.ScaleWeighingDelta, 2),
+                        WhoIsBetterWeighingDelta = Math.Round(step1.WhoIsBetterWeighingDelta, 2),
+                        PsycheWeighingDelta = Math.Round(step1.PsycheWeighingDelta, 2),
+                        SkillWeighingDelta = Math.Round(step1.SkillWeighingDelta, 2),
+                        JusticeWeighingDelta = Math.Round(step1.JusticeWeighingDelta, 2),
+                        // Round 3 random modifiers
+                        TooGoodRandomChange = Math.Round(step1.TooGoodRandomChange, 2),
+                        TooStronkRandomChange = Math.Round(step1.TooStronkRandomChange, 2),
+                        JusticeRandomChange = Math.Round(justiceRandomChange, 2),
+                        // Round results
+                        Round1PointsWon = round1PointsWon,
                         JusticeMe = (int)justiceMe,
                         JusticeTarget = (int)justiceTarget,
                         PointsFromJustice = step2Points,
@@ -693,6 +775,16 @@ Speed => Strength
                         MaxRandomNumber = step3MaxRandom,
                         TotalPointsWon = pointsWined,
                         MoralChange = moral,
+                        // Resist/drop details
+                        ResistIntelDamage = resistIntelDmg,
+                        ResistStrDamage = resistStrDmg,
+                        ResistPsycheDamage = resistPsycheDmg,
+                        Drops = fightDrops,
+                        DroppedPlayerName = fightDroppedPlayer,
+                        QualityDamageApplied = fightQualityApplied,
+                        IntellectualDamage = fightIntellectualDmg,
+                        EmotionalDamage = fightEmotionalDmg,
+                        JusticeChange = fightJusticeChange,
                     });
                 }
 

@@ -184,6 +184,22 @@ export type FightEntry = {
   isStatsBetterEnemy: boolean
   randomForPoint: number
 
+  // Round 1 per-step weighing deltas
+  contrWeighingDelta: number
+  scaleWeighingDelta: number
+  whoIsBetterWeighingDelta: number
+  psycheWeighingDelta: number
+  skillWeighingDelta: number
+  justiceWeighingDelta: number
+
+  // Round 3 random modifiers
+  tooGoodRandomChange: number
+  tooStronkRandomChange: number
+  justiceRandomChange: number
+
+  // Round results
+  round1PointsWon: number
+
   // Step2: Justice
   justiceMe: number
   justiceTarget: number
@@ -197,6 +213,17 @@ export type FightEntry = {
   // Final
   totalPointsWon: number
   moralChange: number
+
+  // Resist/drop details
+  resistIntelDamage: number
+  resistStrDamage: number
+  resistPsycheDamage: number
+  drops: number
+  droppedPlayerName: string
+  qualityDamageApplied: boolean
+  intellectualDamage: boolean
+  emotionalDamage: boolean
+  justiceChange: number
 }
 
 export type ActionResult = {

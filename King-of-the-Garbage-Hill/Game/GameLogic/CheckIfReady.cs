@@ -184,7 +184,7 @@ public class CheckIfReady : IServiceSingleton
                      let enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId)
                      where enemy!.GameCharacter.Name == predict.CharacterName
                      select player)
-                player.Status.AddBonusPoints(3, "Предположение");
+                player.Status.AddBonusPoints(1, "Предположение");
         // predict
 
 
