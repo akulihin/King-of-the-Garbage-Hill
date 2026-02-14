@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed } from 'vue'
+import { onMounted, onUnmounted, computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from 'src/store/game'
 import Leaderboard from 'src/components/Leaderboard.vue'
@@ -7,8 +7,12 @@ import PlayerCard from 'src/components/PlayerCard.vue'
 import ActionPanel from 'src/components/ActionPanel.vue'
 import SkillsPanel from 'src/components/SkillsPanel.vue'
 import BattleLog from 'src/components/BattleLog.vue'
+import FightAnimation from 'src/components/FightAnimation.vue'
 import MediaMessages from 'src/components/MediaMessages.vue'
 import RoundTimer from 'src/components/RoundTimer.vue'
+
+/** Toggle between current global events and all-game history in the global events panel */
+const showAllGlobalLogs = ref(false)
 
 const props = defineProps<{ gameId: string }>()
 const store = useGameStore()
@@ -127,8 +131,9 @@ function formatLogs(text: string): string {
           :messages="store.myPlayer.status.mediaMessages"
         />
 
-        <!-- Logs: 2x2 grid -->
+        <!-- Logs: top row (personal) + bottom row (global + fight animation) -->
         <div class="logs-grid">
+          <!-- Row 1: personal logs -->
           <div class="log-panel card">
             <div class="card-header">События этого раунда</div>
             <div
@@ -147,13 +152,31 @@ function formatLogs(text: string): string {
             />
             <div v-else class="log-empty">В прошлом раунде ничего не произошло.</div>
           </div>
+
+          <!-- Row 2: global events (with toggle) + fight animation -->
           <div class="log-panel card">
-            <div class="card-header">Глобальные события</div>
-            <BattleLog :logs="store.gameState.globalLogs || ''" />
+            <div class="card-header global-header">
+              <span>Глобальные события</span>
+              <button
+                class="toggle-btn"
+                @click="showAllGlobalLogs = !showAllGlobalLogs"
+              >
+                {{ showAllGlobalLogs ? '← Текущие' : 'Вся история →' }}
+              </button>
+            </div>
+            <BattleLog
+              v-if="!showAllGlobalLogs"
+              :logs="store.gameState.globalLogs || ''"
+              :hide-battles="true"
+            />
+            <BattleLog
+              v-else
+              :logs="store.gameState.allGlobalLogs || ''"
+            />
           </div>
-          <div class="log-panel card">
-            <div class="card-header">Все события игры</div>
-            <BattleLog :logs="store.gameState.allGlobalLogs || ''" />
+          <div class="log-panel card fight-panel">
+            <div class="card-header">Бои раунда</div>
+            <FightAnimation :fights="store.gameState.fightLog || []" />
           </div>
         </div>
       </div>
@@ -282,6 +305,31 @@ function formatLogs(text: string): string {
   max-height: 280px;
   display: flex;
   flex-direction: column;
+}
+
+.fight-panel {
+  max-height: 420px;
+}
+
+.global-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.toggle-btn {
+  background: var(--accent-blue);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.toggle-btn:hover {
+  background: var(--accent-purple);
 }
 
 .log-content {

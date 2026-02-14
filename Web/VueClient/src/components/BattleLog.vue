@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   logs: string
-}>()
+  /** When true, hide battle entries (show only headers + events) */
+  hideBattles?: boolean
+}>(), {
+  hideBattles: false,
+})
 
 type BattleEntry = {
   type: 'battle' | 'event' | 'header'
@@ -34,6 +38,7 @@ const entries = computed<BattleEntry[]>(() => {
     // The pattern is: "AttackerName DefenderName → WinnerName"
     const battleMatch = line.match(/^(.+?)\s+(.+?)\s*→\s*(.+)$/)
     if (battleMatch) {
+      if (props.hideBattles) continue
       const winner = battleMatch[3].trim()
       // Check if it's a "no fight" result
       const isNoFight = winner.includes('не состоялся') || winner.includes('не состоялась')

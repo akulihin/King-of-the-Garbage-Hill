@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using King_of_the_Garbage_Hill.API.DTOs;
+using King_of_the_Garbage_Hill.API.Services;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 
@@ -191,6 +193,9 @@ Speed => Strength
                     p.WebMediaMessages.RemoveAt(mi);
             }
         }
+
+        // Clear previous round's fight log
+        game.WebFightLog.Clear();
 
         game.TimePassed.Stop();
         var roundNumber = game.RoundNo + 1;
@@ -388,6 +393,19 @@ Speed => Strength
 
                     playerIamAttacking.GameCharacter.Justice.AddJusticeForNextRoundFromFight();
 
+                    // Web fight entry for block
+                    game.WebFightLog.Add(new FightEntryDto
+                    {
+                        AttackerName = player.DiscordUsername,
+                        AttackerCharName = player.GameCharacter.Name,
+                        AttackerAvatar = GameStateMapper.GetLocalAvatarUrl(player.GameCharacter.AvatarCurrent ?? player.GameCharacter.Avatar),
+                        DefenderName = playerIamAttacking.DiscordUsername,
+                        DefenderCharName = playerIamAttacking.GameCharacter.Name,
+                        DefenderAvatar = GameStateMapper.GetLocalAvatarUrl(playerIamAttacking.GameCharacter.AvatarCurrent ?? playerIamAttacking.GameCharacter.Avatar),
+                        Outcome = "block",
+                        WinnerName = playerIamAttacking.DiscordUsername,
+                    });
+
                     //fight Reset
                     await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
                     await _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
@@ -415,6 +433,18 @@ Speed => Strength
                     if (game.PlayersList.Any(x => x.PlayerType == 1))
                         logMess = " ⟶ *Бой не состоялся (Скип)...*";
                     game.AddGlobalLogs(logMess);
+
+                    // Web fight entry for skip
+                    game.WebFightLog.Add(new FightEntryDto
+                    {
+                        AttackerName = player.DiscordUsername,
+                        AttackerCharName = player.GameCharacter.Name,
+                        AttackerAvatar = GameStateMapper.GetLocalAvatarUrl(player.GameCharacter.AvatarCurrent ?? player.GameCharacter.Avatar),
+                        DefenderName = playerIamAttacking.DiscordUsername,
+                        DefenderCharName = playerIamAttacking.GameCharacter.Name,
+                        DefenderAvatar = GameStateMapper.GetLocalAvatarUrl(playerIamAttacking.GameCharacter.AvatarCurrent ?? playerIamAttacking.GameCharacter.Avatar),
+                        Outcome = "skip",
+                    });
 
                     //fight Reset
                     await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
@@ -462,14 +492,24 @@ Speed => Strength
 
                 
                 //round 2 (Justice)
-                pointsWined += _calculateRounds.CalculateStep2(player, playerIamAttacking, true);
+                var justiceMe = player.GameCharacter.Justice.GetRealJusticeNow();
+                var justiceTarget = playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow();
+                var step2Points = _calculateRounds.CalculateStep2(player, playerIamAttacking, true);
+                pointsWined += step2Points;
                 //end round 2
 
 
                 //round 3 (Random)
+                var usedRandomRoll = false;
+                var step3RandomNumber = 0;
+                var step3MaxRandom = 0m;
                 if (pointsWined == 0)
                 {
-                    pointsWined += _calculateRounds.CalculateStep3(player, playerIamAttacking, randomForPoint, contrMultiplier, true);
+                    var (step3Points, rndNum, rndMax) = _calculateRounds.CalculateStep3(player, playerIamAttacking, randomForPoint, contrMultiplier, true);
+                    pointsWined += step3Points;
+                    usedRandomRoll = true;
+                    step3RandomNumber = rndNum;
+                    step3MaxRandom = rndMax;
                 }
                 //end round 3
 
@@ -612,7 +652,50 @@ Speed => Strength
                     player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.GetPlayerId(), game.RoundNo, isTooGoodEnemy, isStatsBettterEnemy, isTooGoodMe, isStatsBetterMe, player.GetPlayerId()));
                 }
 
-                
+                // ── Collect structured fight data for web animation ──
+                {
+                    var me = player.GameCharacter;
+                    var target = playerIamAttacking.GameCharacter;
+                    var scaleMe = me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche() + me.GetSkill() * skillMultiplierMe / 60m;
+                    var scaleTarget = target.GetIntelligence() + target.GetStrength() + target.GetSpeed() + target.GetPsyche() + target.GetSkill() * skillMultiplierTarget / 60m;
+                    var attackerWon = pointsWined >= 1;
+                    game.WebFightLog.Add(new FightEntryDto
+                    {
+                        AttackerName = player.DiscordUsername,
+                        AttackerCharName = me.Name,
+                        AttackerAvatar = GameStateMapper.GetLocalAvatarUrl(me.AvatarCurrent ?? me.Avatar),
+                        DefenderName = playerIamAttacking.DiscordUsername,
+                        DefenderCharName = target.Name,
+                        DefenderAvatar = GameStateMapper.GetLocalAvatarUrl(target.AvatarCurrent ?? target.Avatar),
+                        Outcome = attackerWon ? "win" : "loss",
+                        WinnerName = attackerWon ? player.DiscordUsername : playerIamAttacking.DiscordUsername,
+                        ScaleMe = Math.Round(scaleMe, 2),
+                        ScaleTarget = Math.Round(scaleTarget, 2),
+                        IsContrMe = me.GetWhoIContre() == target.GetSkillClass(),
+                        IsContrTarget = target.GetWhoIContre() == me.GetSkillClass(),
+                        ContrMultiplier = contrMultiplier,
+                        SkillMultiplierMe = skillMultiplierMe,
+                        SkillMultiplierTarget = skillMultiplierTarget,
+                        PsycheDifference = me.GetPsyche() - target.GetPsyche(),
+                        WeighingMachine = Math.Round(weighingMachine, 2),
+                        IsTooGoodMe = isTooGoodMe,
+                        IsTooGoodEnemy = isTooGoodEnemy,
+                        IsTooStronkMe = isTooStronkMe,
+                        IsTooStronkEnemy = isTooStronkEnemy,
+                        IsStatsBetterMe = isStatsBetterMe,
+                        IsStatsBetterEnemy = isStatsBettterEnemy,
+                        RandomForPoint = Math.Round(randomForPoint, 2),
+                        JusticeMe = (int)justiceMe,
+                        JusticeTarget = (int)justiceTarget,
+                        PointsFromJustice = step2Points,
+                        UsedRandomRoll = usedRandomRoll,
+                        RandomNumber = step3RandomNumber,
+                        MaxRandomNumber = step3MaxRandom,
+                        TotalPointsWon = pointsWined,
+                        MoralChange = moral,
+                    });
+                }
+
                 switch (isContrLost)
                 {
                     case 3:

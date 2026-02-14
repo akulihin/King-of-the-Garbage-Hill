@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using King_of_the_Garbage_Hill.API.DTOs;
 using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 
@@ -80,6 +81,9 @@ public class GameClass
     public List<GamePlayerBridgeClass> ExploitPlayersList { get; set; }
     public int LastExploit { get; set; } = -1;
     public int TotalExploit { get; set; } = 0;
+
+    /// <summary>Structured fight log for the current round (persists until next round starts).</summary>
+    public List<FightEntryDto> WebFightLog { get; set; } = new();
 
 
 

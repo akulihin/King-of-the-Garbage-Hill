@@ -1,4 +1,4 @@
-﻿using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.Classes;
 using System;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Helpers;
@@ -365,7 +365,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             return pointsWined;
         }
 
-        public int CalculateStep3(GamePlayerBridgeClass player, GamePlayerBridgeClass playerIamAttacking, decimal randomForPoint, decimal contrMultiplier, bool isLog = false)
+        public (int pointsWined, int randomNumber, decimal maxRandomNumber) CalculateStep3(GamePlayerBridgeClass player, GamePlayerBridgeClass playerIamAttacking, decimal randomForPoint, decimal contrMultiplier, bool isLog = false)
         {
             var pointsWined = 0;
 
@@ -407,7 +407,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 playerIamAttacking.Status.AddFightingData($"pointsWined (Random): {pointsWined}");
             }
 
-            return pointsWined;
+            return (pointsWined, randomNumber, maxRandomNumber);
         }
 
 

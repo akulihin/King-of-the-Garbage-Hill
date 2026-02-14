@@ -50,7 +50,7 @@ public static class GameStateMapper
                 _allCharacters = visible.Select(c => new DTOs.CharacterInfoDto
                 {
                     Name = c.Name,
-                    Avatar = ToLocalAvatarUrl(c.Avatar),
+                    Avatar = GetLocalAvatarUrl(c.Avatar),
                     Description = c.Description,
                     Tier = c.Tier,
                     Intelligence = c.GetIntelligence(),
@@ -93,6 +93,9 @@ public static class GameStateMapper
             AllCharacterNames = _allCharacterNames,
             AllCharacters = _allCharacters,
         };
+
+        // Map structured fight log for web animation
+        dto.FightLog = game.WebFightLog.ToList();
 
         foreach (var player in game.PlayersList)
         {
@@ -166,8 +169,8 @@ public static class GameStateMapper
         var dto = new CharacterDto
         {
             Name = character.Name,
-            Avatar = ToLocalAvatarUrl(character.Avatar),
-            AvatarCurrent = ToLocalAvatarUrl(character.AvatarCurrent),
+            Avatar = GetLocalAvatarUrl(character.Avatar),
+            AvatarCurrent = GetLocalAvatarUrl(character.AvatarCurrent),
             Description = isMe ? character.Description : "",
             Tier = character.Tier,
             Intelligence = character.GetIntelligence(),
@@ -262,7 +265,7 @@ public static class GameStateMapper
     /// Converts a remote avatar URL (Discord CDN, imgur, etc.) to a local /art/avatars/ path
     /// if the file exists locally. Otherwise returns the original URL.
     /// </summary>
-    private static string ToLocalAvatarUrl(string url)
+    public static string GetLocalAvatarUrl(string url)
     {
         if (string.IsNullOrEmpty(url)) return url;
 

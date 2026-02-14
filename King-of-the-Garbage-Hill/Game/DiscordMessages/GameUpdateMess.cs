@@ -549,7 +549,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         isStatsBettterEnemy, r1, isContrLost, randomForPoint, weighingMachine, contrMultiplier,
                         skillMultiplierMe, skillMultiplierTarget) = _calculateRounds.CalculateStep1(me, other);
                     var r2 = _calculateRounds.CalculateStep2(me, other);
-                    var r3 = _calculateRounds.CalculateStep3(me, other, randomForPoint, contrMultiplier);
+                    var (r3, _, _) = _calculateRounds.CalculateStep3(me, other, randomForPoint, contrMultiplier);
                     
                     customString += $"\nDoomsday: {r1} | {r2} | {r3}~";
                     break;

@@ -38,6 +38,9 @@ public class GameStateDto
 
     public List<PlayerDto> Players { get; set; } = new();
     public List<TeamDto> Teams { get; set; } = new();
+
+    /// <summary>Structured fight log for the current round (for web fight animation).</summary>
+    public List<FightEntryDto> FightLog { get; set; } = new();
 }
 
 // ── Per-player state (scoped to the requesting player) ────────────────
@@ -224,6 +227,55 @@ public class CharacterInfoDto
     public int Strength { get; set; }
     public int Speed { get; set; }
     public int Psyche { get; set; }
+}
+
+// ── Fight Animation DTOs ──────────────────────────────────────────────
+
+public class FightEntryDto
+{
+    // Participants
+    public string AttackerName { get; set; }
+    public string AttackerCharName { get; set; }
+    public string AttackerAvatar { get; set; }
+    public string DefenderName { get; set; }
+    public string DefenderCharName { get; set; }
+    public string DefenderAvatar { get; set; }
+
+    /// <summary>"win" (attacker wins), "loss" (defender wins), "block", "skip"</summary>
+    public string Outcome { get; set; }
+    public string WinnerName { get; set; }
+
+    // Step1: Stats calculation from CalculateStep1
+    public decimal ScaleMe { get; set; }
+    public decimal ScaleTarget { get; set; }
+    public bool IsContrMe { get; set; }
+    public bool IsContrTarget { get; set; }
+    public decimal ContrMultiplier { get; set; }
+    public int SkillMultiplierMe { get; set; }
+    public int SkillMultiplierTarget { get; set; }
+    public int PsycheDifference { get; set; }
+    public decimal WeighingMachine { get; set; }
+    public bool IsTooGoodMe { get; set; }
+    public bool IsTooGoodEnemy { get; set; }
+    public bool IsTooStronkMe { get; set; }
+    public bool IsTooStronkEnemy { get; set; }
+    public bool IsStatsBetterMe { get; set; }
+    public bool IsStatsBetterEnemy { get; set; }
+    public decimal RandomForPoint { get; set; }
+
+    // Step2: Justice comparison
+    public int JusticeMe { get; set; }
+    public int JusticeTarget { get; set; }
+    public int PointsFromJustice { get; set; }
+
+    // Step3: Random roll (only if tie after step1+step2)
+    public bool UsedRandomRoll { get; set; }
+    public int RandomNumber { get; set; }
+    public decimal MaxRandomNumber { get; set; }
+
+    // Final
+    public int TotalPointsWon { get; set; }
+    public int MoralChange { get; set; }
 }
 
 // ── Auth DTOs ─────────────────────────────────────────────────────────

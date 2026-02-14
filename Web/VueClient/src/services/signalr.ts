@@ -27,6 +27,8 @@ export type GameState = {
   allCharacters: CharacterInfo[]
   players: Player[]
   teams: Team[]
+  /** Structured fight log for the current round (for fight animation) */
+  fightLog: FightEntry[]
 }
 
 export type Player = {
@@ -138,6 +140,52 @@ export type MediaMessage = {
   fileType: string
   /** How many rounds this media should play. Audio with >1 loops across rounds. */
   roundsToPlay: number
+}
+
+export type FightEntry = {
+  // Participants
+  attackerName: string
+  attackerCharName: string
+  attackerAvatar: string
+  defenderName: string
+  defenderCharName: string
+  defenderAvatar: string
+
+  // Outcome: "win" (attacker wins), "loss" (defender wins), "block", "skip"
+  outcome: string
+  winnerName: string | null
+
+  // Step1: Stats
+  scaleMe: number
+  scaleTarget: number
+  isContrMe: boolean
+  isContrTarget: boolean
+  contrMultiplier: number
+  skillMultiplierMe: number
+  skillMultiplierTarget: number
+  psycheDifference: number
+  weighingMachine: number
+  isTooGoodMe: boolean
+  isTooGoodEnemy: boolean
+  isTooStronkMe: boolean
+  isTooStronkEnemy: boolean
+  isStatsBetterMe: boolean
+  isStatsBetterEnemy: boolean
+  randomForPoint: number
+
+  // Step2: Justice
+  justiceMe: number
+  justiceTarget: number
+  pointsFromJustice: number
+
+  // Step3: Random roll (only if tie)
+  usedRandomRoll: boolean
+  randomNumber: number
+  maxRandomNumber: number
+
+  // Final
+  totalPointsWon: number
+  moralChange: number
 }
 
 export type ActionResult = {
