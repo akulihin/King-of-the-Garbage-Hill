@@ -668,11 +668,16 @@ function getDisplayCharName(orig: string, u: string): string {
               <div class="fa-id-info">
                 <span class="fa-id-name">{{ leftName }}</span>
               </div>
-              <div class="fa-vs-arrow" :class="{ 'arrow-right': attackedRight, 'arrow-left': !attackedRight }">
-                {{ attackedRight ? '→' : '←' }}
+            </div>
+            <div class="phase-tracker phase-tracker-inline">
+              <div class="phase-role-pip" :class="attackedRight ? 'role-atk' : 'role-def'">
+                <span class="phase-role-text">{{ attackedRight ? 'ATK' : 'DEF' }}</span>
+              </div>
+              <div class="phase-connector revealed"></div>
+              <div class="phase-outcome-pip" :class="outcomeClass(fight)">
+                <span class="phase-outcome-text">{{ outcomeLabel(fight) }}</span>
               </div>
             </div>
-            <div class="fa-outcome-inline" :class="outcomeClass(fight)">{{ outcomeLabel(fight) }}</div>
             <div class="fa-id-right">
               <div class="fa-id-info" style="text-align:right">
                 <span class="fa-id-name">{{ rightName }}</span>
@@ -692,12 +697,13 @@ function getDisplayCharName(orig: string, u: string): string {
                 <span class="fa-id-name">{{ leftName }}</span>
                 <span class="fa-id-char">{{ getDisplayCharName(leftCharName, leftName) }}</span>
               </div>
-              <div class="fa-vs-arrow" :class="{ 'arrow-right': attackedRight, 'arrow-left': !attackedRight }">
-                {{ attackedRight ? '→' : '←' }}
-              </div>
             </div>
             <!-- Phase tracker between avatars -->
             <div v-if="isMyFight" class="phase-tracker phase-tracker-inline">
+              <div class="phase-role-pip" :class="attackedRight ? 'role-atk' : 'role-def'">
+                <span class="phase-role-text">{{ attackedRight ? 'ATK' : 'DEF' }}</span>
+              </div>
+              <div class="phase-connector revealed"></div>
               <div class="phase-pip" :class="phaseClass(phase1Result, showR1Result)">
                 <span v-if="!showR1Result" class="phase-icon phase-icon-pending">?</span>
                 <span v-else-if="phase1Result > 0" class="phase-icon phase-icon-win">✓</span>
@@ -952,10 +958,6 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-id-info { display: flex; flex-direction: column; line-height: 1.2; }
 .fa-id-name { font-size: 10px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; }
 .fa-id-char { font-size: 8px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; }
-.fa-vs-arrow { font-size: 14px; font-weight: 900; flex-shrink: 0; }
-.fa-vs-arrow.arrow-right { color: var(--accent-red); }
-.fa-vs-arrow.arrow-left { color: var(--accent-blue); }
-.fa-identity-row { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 4px 0; }
 
 /* ── Bar ── */
 .fa-bar-container { display: flex; align-items: center; gap: 6px; padding: 4px 0; }
@@ -992,15 +994,23 @@ div.fa-round-header { opacity: 1; }
 /* ── Phase tracker (3 pips) ── */
 .phase-tracker { display: flex; align-items: center; justify-content: center; gap: 0; padding: 4px 0 2px; }
 .phase-tracker-inline { flex: 1; min-width: 0; justify-content: center; }
+.phase-role-pip { padding: 2px 5px; border-radius: 4px; border: 1.5px solid var(--border-subtle); background: var(--bg-inset); flex-shrink: 0; }
+.phase-role-text { font-size: 8px; font-weight: 900; letter-spacing: 0.5px; }
+.phase-role-pip.role-atk { border-color: rgba(239, 128, 128, 0.4); background: rgba(239, 128, 128, 0.08); }
+.phase-role-pip.role-atk .phase-role-text { color: var(--accent-red); }
+.phase-role-pip.role-def { border-color: rgba(100, 160, 255, 0.4); background: rgba(100, 160, 255, 0.08); }
+.phase-role-pip.role-def .phase-role-text { color: var(--accent-blue); }
 .phase-pip { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px 6px; border-radius: 6px; border: 1.5px solid var(--border-subtle); background: var(--bg-inset); transition: all 0.4s ease; min-width: 28px; }
 .phase-connector-outcome { width: 12px; }
 .phase-outcome-pip { padding: 2px 8px; border-radius: 4px; border: 1.5px solid var(--border-subtle); background: var(--bg-inset); transition: all 0.4s ease; animation: phase-pop 0.4s ease; }
 .phase-outcome-pending { opacity: 0.3; }
-.phase-outcome-pip.phase-ours { border-color: rgba(63, 167, 61, 0.5); background: rgba(63, 167, 61, 0.1); }
-.phase-outcome-pip.phase-theirs { border-color: rgba(239, 128, 128, 0.4); background: rgba(239, 128, 128, 0.08); }
+.phase-outcome-pip.phase-ours, .phase-outcome-pip.outcome-attacker { border-color: rgba(63, 167, 61, 0.5); background: rgba(63, 167, 61, 0.1); }
+.phase-outcome-pip.phase-theirs, .phase-outcome-pip.outcome-defender { border-color: rgba(239, 128, 128, 0.4); background: rgba(239, 128, 128, 0.08); }
+.phase-outcome-pip.outcome-neutral { border-color: rgba(230, 148, 74, 0.4); background: rgba(230, 148, 74, 0.08); }
 .phase-outcome-text { font-size: 8px; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; }
-.phase-outcome-pip.phase-ours .phase-outcome-text { color: var(--accent-green); }
-.phase-outcome-pip.phase-theirs .phase-outcome-text { color: var(--accent-red); }
+.phase-outcome-pip.phase-ours .phase-outcome-text, .phase-outcome-pip.outcome-attacker .phase-outcome-text { color: var(--accent-green); }
+.phase-outcome-pip.phase-theirs .phase-outcome-text, .phase-outcome-pip.outcome-defender .phase-outcome-text { color: var(--accent-red); }
+.phase-outcome-pip.outcome-neutral .phase-outcome-text { color: var(--accent-orange); }
 .phase-outcome-pending .phase-outcome-text { color: var(--text-dim); }
 .phase-icon { font-size: 13px; font-weight: 900; line-height: 1; transition: all 0.3s; }
 .phase-icon-pending { color: var(--text-dim); opacity: 0.4; }
@@ -1094,7 +1104,6 @@ div.fa-round-header { opacity: 1; }
 /* ── Result ── */
 .fa-result { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0 4px; }
 .fa-outcome { font-size: 12px; font-weight: 900; text-transform: uppercase; padding: 4px 16px; border-radius: var(--radius); letter-spacing: 0.5px; }
-.fa-outcome-inline { font-size: 10px; font-weight: 900; text-transform: uppercase; padding: 3px 10px; border-radius: 4px; letter-spacing: 0.5px; white-space: nowrap; flex-shrink: 0; }
 .outcome-attacker { background: var(--kh-c-secondary-success-500); color: var(--text-primary); border: 1px solid var(--accent-green); }
 .outcome-defender { background: var(--accent-red-dim); color: var(--text-primary); border: 1px solid var(--accent-red); }
 .outcome-neutral { background: rgba(230, 148, 74, 0.3); color: var(--accent-orange); border: 1px solid var(--accent-orange); }
