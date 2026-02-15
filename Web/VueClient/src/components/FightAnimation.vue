@@ -558,7 +558,7 @@ function getDisplayCharName(orig: string, u: string): string {
     <template v-else>
     <div v-if="!myFights.length" class="fa-empty">Нет ваших боев в этом раунде</div>
     <template v-else>
-      <!-- Controls -->
+      <!-- Controls + fight thumbnails -->
       <div class="fa-controls">
         <button class="fa-btn" @click="togglePlay">{{ isPlaying ? '⏸' : '▶' }}</button>
         <button class="fa-btn" @click="restart" title="Restart">⏮</button>
@@ -566,7 +566,14 @@ function getDisplayCharName(orig: string, u: string): string {
         <div class="fa-speed">
           <button v-for="s in [1, 2, 4]" :key="s" class="fa-speed-btn" :class="{ active: speed === s }" @click="setSpeed(s)">{{ s }}x</button>
         </div>
-        <span class="fa-progress">{{ currentFightIdx + 1 }} / {{ myFights.length }}</span>
+        <div class="fa-thumbs">
+          <button v-for="(f, idx) in myFights" :key="idx" class="fa-thumb"
+            :class="{ active: idx === currentFightIdx, 'is-block': f.outcome === 'block', 'is-skip': f.outcome === 'skip' }"
+            @click="currentFightIdx = idx; currentStep = totalSteps - 1; skippedToEnd = true; isPlaying = false; clearTimer()"
+            :title="`${f.attackerName} vs ${f.defenderName}`">
+            <span class="thumb-idx">{{ (idx as number) + 1 }}</span>
+          </button>
+        </div>
       </div>
 
       <!-- Fight card -->
@@ -757,15 +764,6 @@ function getDisplayCharName(orig: string, u: string): string {
         </template>
       </div>
 
-      <!-- Fight thumbnails -->
-      <div class="fa-thumbs">
-        <button v-for="(f, idx) in myFights" :key="idx" class="fa-thumb"
-          :class="{ active: idx === currentFightIdx, 'is-block': f.outcome === 'block', 'is-skip': f.outcome === 'skip' }"
-          @click="currentFightIdx = idx; currentStep = totalSteps - 1; skippedToEnd = true; isPlaying = false; clearTimer()"
-          :title="`${f.attackerName} vs ${f.defenderName}`">
-          <span class="thumb-idx">{{ (idx as number) + 1 }}</span>
-        </button>
-      </div>
     </template>
     </template>
   </div>
@@ -792,7 +790,6 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-speed { display: flex; gap: 2px; margin-left: 6px; }
 .fa-speed-btn { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 700; cursor: pointer; color: var(--text-muted); transition: all 0.15s; }
 .fa-speed-btn.active { background: var(--kh-c-secondary-purple-500); color: var(--text-primary); border-color: var(--accent-purple); }
-.fa-progress { margin-left: auto; font-size: 11px; color: var(--text-muted); font-weight: 700; font-family: var(--font-mono); }
 
 /* ── Card ── */
 .fa-card { background: var(--bg-inset); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 6px 8px; display: flex; flex-direction: column; gap: 5px; }
@@ -890,7 +887,7 @@ div.fa-round-header { opacity: 1; }
 .fa-special { display: flex; justify-content: center; padding: 12px 0; }
 
 /* ── Thumbnails ── */
-.fa-thumbs { display: flex; gap: 2px; flex-wrap: wrap; padding-top: 4px; }
+.fa-thumbs { display: flex; gap: 2px; flex-wrap: wrap; margin-left: auto; }
 .fa-thumb { width: 24px; height: 24px; border-radius: var(--radius); border: 1px solid var(--border-subtle); background: var(--bg-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 800; color: var(--text-muted); transition: all 0.15s; font-family: var(--font-mono); }
 .fa-thumb:hover { border-color: var(--accent-blue); color: var(--text-primary); }
 .fa-thumb.active { background: var(--kh-c-secondary-info-500); color: var(--text-primary); border-color: var(--accent-blue); }

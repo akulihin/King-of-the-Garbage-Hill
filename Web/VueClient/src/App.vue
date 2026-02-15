@@ -420,6 +420,10 @@ function handleLogout() {
   100% { color: hsl(360, 85%, 72%); }
 }
 .gi-def { background: rgba(63, 167, 61, 0.12); color: var(--kh-c-secondary-success-200); }
+/* Action badges */
+.gi-auto { background: rgba(110, 170, 240, 0.10); color: var(--kh-c-secondary-info-300); }
+.gi-undo { background: rgba(230, 148, 74, 0.10); color: #e6944a; }
+.gi-skip { background: rgba(148, 156, 164, 0.10); color: var(--kh-c-text-primary-700); }
 /* Larger variant for stat rows / prominent display */
 .gi-lg { font-size: 10px; padding: 2px 5px; }
 /* XL variant for lobby / big displays */

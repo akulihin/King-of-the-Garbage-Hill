@@ -411,6 +411,10 @@ class SignalRService {
   async setPreferWeb(gameId: number, preferWeb: boolean): Promise<void> {
     await this.connection?.invoke('SetPreferWeb', gameId, preferWeb)
   }
+
+  async finishGame(gameId: number): Promise<void> {
+    await this.connection?.invoke('FinishGame', gameId)
+  }
 }
 
 // Singleton instance

@@ -46,6 +46,18 @@ function goToLobby() {
   router.push('/')
 }
 
+// ── Header status (moved from ActionPanel) ──────────────────────────
+const me = computed(() => store.myPlayer)
+const preferWeb = computed(() => store.gameState?.preferWeb ?? false)
+function togglePreferWeb() { store.setPreferWeb(!preferWeb.value) }
+
+const showFinishConfirm = ref(false)
+function finishGame() {
+  store.finishGame()
+  showFinishConfirm.value = false
+  router.push('/')
+}
+
 function formatLogs(text: string): string {
   return text
     .replace(/<:[^:]+:(\d+)>/g, '') // strip Discord custom emoji like <:war:123>
@@ -140,8 +152,32 @@ const letopis = computed(() => {
             <span v-if="store.gameState.isFinished" class="finished-badge">
               Finished
             </span>
+            <!-- Status chip (moved from ActionPanel) -->
+            <span v-if="me && !store.gameState.isFinished" class="status-chip" :class="{ ready: me.status.isReady, waiting: !me.status.isReady }">
+              {{ me.status.isReady ? '✓ Ready' : me.status.isSkip ? '⏭ Skip' : '⏳ Your turn' }}
+            </span>
           </div>
-          <RoundTimer v-if="!store.gameState.isFinished" />
+          <div class="header-right">
+            <!-- Web-only toggle -->
+            <button v-if="me && !store.gameState.isFinished"
+              class="btn btn-ghost btn-sm web-mode-btn" :class="{ active: preferWeb }"
+              title="When enabled, Discord messages are suppressed — play only via Web"
+              @click="togglePreferWeb()">
+              {{ preferWeb ? '🌐 Web ✓' : '🌐 Web' }}
+            </button>
+            <RoundTimer v-if="!store.gameState.isFinished" />
+            <!-- Finish game -->
+            <button v-if="me && !store.gameState.isFinished"
+              class="btn btn-ghost btn-sm finish-btn"
+              @click="showFinishConfirm = !showFinishConfirm">
+              Finish
+            </button>
+            <div v-if="showFinishConfirm" class="finish-confirm">
+              <span>Leave and be replaced by a bot?</span>
+              <button class="btn btn-sm finish-confirm-yes" @click="finishGame()">Yes, leave</button>
+              <button class="btn btn-ghost btn-sm" @click="showFinishConfirm = false">Cancel</button>
+            </div>
+          </div>
         </div>
 
         <!-- Leaderboard (click to attack only during active game) -->
@@ -313,6 +349,74 @@ const letopis = computed(() => {
   letter-spacing: 0.3px;
   border: 1px solid var(--accent-purple);
 }
+
+.status-chip {
+  padding: 3px 8px;
+  border-radius: var(--radius);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.status-chip.ready {
+  background: rgba(63, 167, 61, 0.1);
+  color: var(--accent-green);
+  border: 1px solid rgba(63, 167, 61, 0.2);
+}
+.status-chip.waiting {
+  background: rgba(230, 148, 74, 0.1);
+  color: var(--accent-orange);
+  border: 1px solid rgba(230, 148, 74, 0.2);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.web-mode-btn {
+  font-size: 10px;
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+.web-mode-btn:hover { color: var(--accent-blue); border-color: var(--accent-blue); }
+.web-mode-btn.active { color: var(--accent-blue); border-color: var(--accent-blue); font-weight: 800; }
+
+.finish-btn {
+  font-size: 10px;
+  color: var(--accent-red);
+  border: 1px solid rgba(239, 128, 128, 0.2);
+}
+.finish-btn:hover { background: rgba(239, 128, 128, 0.1); border-color: var(--accent-red); }
+
+.finish-confirm {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--accent-red);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  z-index: 100;
+  box-shadow: var(--shadow-lg);
+}
+.finish-confirm-yes {
+  background: var(--accent-red-dim);
+  color: white;
+  border: 1px solid var(--accent-red);
+  font-weight: 700;
+}
+.finish-confirm-yes:hover { background: var(--accent-red); }
 
 /* ── Direct Messages ──────────────────────────────────────────────── */
 .direct-messages {

@@ -7,6 +7,7 @@ using King_of_the_Garbage_Hill.API.DTOs;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
+using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.API.Services;
 
@@ -22,12 +23,14 @@ public class WebGameService
     private readonly Global _global;
     private readonly GameReaction _gameReaction;
     private readonly GameUpdateMess _gameUpdateMess;
+    private readonly HelperFunctions _helper;
 
-    public WebGameService(Global global, GameReaction gameReaction, GameUpdateMess gameUpdateMess)
+    public WebGameService(Global global, GameReaction gameReaction, GameUpdateMess gameUpdateMess, HelperFunctions helper)
     {
         _global = global;
         _gameReaction = gameReaction;
         _gameUpdateMess = gameUpdateMess;
+        _helper = helper;
     }
 
     // ── Queries ───────────────────────────────────────────────────────
@@ -367,6 +370,22 @@ public class WebGameService
 
         player.Status.IsAramRollConfirmed = true;
         return Task.FromResult((true, (string)null));
+    }
+
+    // ── Leave / Finish ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Player finishes / leaves the game: replaced by a bot.
+    /// </summary>
+    public (bool success, string error) FinishGame(ulong gameId, ulong discordId)
+    {
+        var game = _global.GamesList.Find(x => x.GameId == gameId);
+        if (game == null) return (false, "Game not found.");
+        var player = game.PlayersList.Find(x => x.DiscordId == discordId);
+        if (player == null) return (false, "Player not in game.");
+
+        _helper.EndGame(discordId);
+        return (true, null);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────

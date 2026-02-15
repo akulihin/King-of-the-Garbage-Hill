@@ -16,20 +16,10 @@ const isLockedPredict = computed(() => {
   return me.value.status.confirmedPredict && game.value.roundNo >= 8
 })
 
-const preferWeb = computed(() => game.value?.preferWeb ?? false)
-
-function togglePreferWeb() {
-  store.setPreferWeb(!preferWeb.value)
-}
 </script>
 
 <template>
   <div class="action-bar">
-    <!-- Status -->
-    <div class="status-chip" :class="{ ready: me?.status.isReady, waiting: !me?.status.isReady }">
-      {{ me?.status.isReady ? '✓ Ready' : me?.status.isSkip ? '⏭ Skip' : '⏳ Your turn' }}
-    </div>
-
     <!-- Core actions -->
     <div class="action-group">
       <button
@@ -46,7 +36,7 @@ function togglePreferWeb() {
         title="Auto Move"
         @click="store.autoMove()"
       >
-        🤖 Auto
+        <span class="gi gi-lg gi-auto">AUTO</span> Move
       </button>
       <button
         v-if="isReady"
@@ -54,7 +44,7 @@ function togglePreferWeb() {
         title="Change Mind"
         @click="store.changeMind()"
       >
-        ↩ Undo
+        <span class="gi gi-lg gi-undo">UNDO</span> Change
       </button>
       <button
         v-if="!me?.status.confirmedSkip"
@@ -62,11 +52,11 @@ function togglePreferWeb() {
         title="Confirm Skip"
         @click="store.confirmSkip()"
       >
-        ⏭ Skip
+        <span class="gi gi-lg gi-skip">SKIP</span>
       </button>
     </div>
 
-    <div v-if="(game?.roundNo ?? 0) >= 8 && (hasPredictions || isLockedPredict)" class="action-group">
+    <div v-if="(game?.roundNo ?? 0) >= 8 && !isLockedPredict" class="action-group">
       <button
         class="act-btn predict-confirm"
         :class="{ confirmed: isLockedPredict }"
@@ -74,21 +64,10 @@ function togglePreferWeb() {
         title="Confirm Predictions"
         @click="store.confirmPredict()"
       >
-        {{ isLockedPredict ? '🔮 Predicted ✓' : '🔮 Confirm Predict' }}
+        {{ isLockedPredict ? '🔮 Predicted ✓' : 'Confirm Prediction' }}
       </button>
     </div>
 
-    <!-- Web-only mode toggle -->
-    <div class="action-group web-toggle">
-      <button
-        class="act-btn web-mode"
-        :class="{ active: preferWeb }"
-        title="When enabled, Discord messages are suppressed — play only via Web"
-        @click="togglePreferWeb()"
-      >
-        {{ preferWeb ? '🌐 Web Only ✓' : '🌐 Web Only' }}
-      </button>
-    </div>
   </div>
 </template>
 
@@ -103,28 +82,6 @@ function togglePreferWeb() {
   border-radius: var(--radius);
   margin-top: 6px;
   flex-wrap: wrap;
-}
-
-.status-chip {
-  padding: 3px 8px;
-  border-radius: var(--radius);
-  font-size: 10px;
-  font-weight: 700;
-  white-space: nowrap;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.status-chip.ready {
-  background: rgba(63, 167, 61, 0.1);
-  color: var(--accent-green);
-  border: 1px solid rgba(63, 167, 61, 0.2);
-}
-
-.status-chip.waiting {
-  background: rgba(230, 148, 74, 0.1);
-  color: var(--accent-orange);
-  border: 1px solid rgba(230, 148, 74, 0.2);
 }
 
 .action-group {
@@ -182,26 +139,4 @@ function togglePreferWeb() {
   opacity: 0.7;
 }
 
-.web-toggle {
-  margin-left: 0;
-  border-left: none;
-  padding-left: 0;
-}
-
-.act-btn.web-mode {
-  background: rgba(80, 150, 230, 0.05);
-  border-color: var(--border-subtle);
-  color: var(--text-muted);
-  font-size: 11px;
-}
-.act-btn.web-mode:hover {
-  border-color: var(--accent-blue);
-  color: var(--accent-blue);
-}
-.act-btn.web-mode.active {
-  background: rgba(80, 150, 230, 0.1);
-  border-color: var(--accent-blue);
-  color: var(--accent-blue);
-  font-weight: 800;
-}
 </style>

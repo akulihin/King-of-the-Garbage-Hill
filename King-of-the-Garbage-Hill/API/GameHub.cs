@@ -242,6 +242,20 @@ public class GameHub : Hub
         if (success) await PushStateToPlayer(gameId, discordId);
     }
 
+    // ── Leave / Finish ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Player voluntarily leaves the game (replaced by bot).
+    /// </summary>
+    public async Task FinishGame(ulong gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _gameService.FinishGame(gameId, discordId);
+        await Clients.Caller.SendAsync("ActionResult", new { action = "finishGame", success, error });
+    }
+
     // ── Settings ───────────────────────────────────────────────────────
 
     /// <summary>

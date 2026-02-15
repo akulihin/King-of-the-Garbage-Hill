@@ -319,6 +319,13 @@ public sealed class HelperFunctions : IServiceSingleton
         }
     }
 
+    public void EndGame(ulong discordId)
+    {
+        SubstituteUserWithBot(discordId);
+        var globalAccount = _global.Client.GetUser(discordId);
+        var account = _accounts.GetAccount(globalAccount);
+        account.IsPlaying = false;
+    }
 
     public void SubstituteUserWithBot(ulong discordId)
     {
