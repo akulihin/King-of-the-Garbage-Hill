@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from 'src/store/game'
 import Leaderboard from 'src/components/Leaderboard.vue'
@@ -37,6 +37,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  clearPrevLogTimer()
   if (store.isConnected && gameIdNum.value) {
     store.leaveGame(gameIdNum.value)
   }
@@ -111,6 +112,82 @@ const letopis = computed(() => {
 
   return parts.join('\n\n')
 })
+
+// ── Animated Previous Round Logs ─────────────────────────────────────
+interface PrevLogEntry {
+  raw: string
+  html: string
+  type: 'skill' | 'score' | 'skillup' | 'other'
+  comboCount: number // for score lines: number of '+' in the source breakdown
+}
+
+function cleanDiscord(text: string): string {
+  return text
+    .replace(/<:[^:]+:(\d+)>/g, '')
+    .replace(/\|>Phrase<\|/g, '')
+}
+
+function parsePrevLogs(raw: string): PrevLogEntry[] {
+  if (!raw) return []
+  const lines = raw.split('\n').filter((l: string) => l.trim())
+  return lines.map((line: string) => {
+    const clean = cleanDiscord(line)
+    let type: PrevLogEntry['type'] = 'other'
+    let comboCount = 0
+
+    if (/[Сс]килла/i.test(clean) || /[Сс]кілла/i.test(clean) || /Cкилла/i.test(clean)) {
+      type = 'skillup'
+    } else if (/очков/i.test(clean)) {
+      type = 'score'
+      // Count combo: extract (Reason+Reason+Reason) and count '+'
+      const parenMatch = clean.match(/\(([^)]+)\)/)
+      if (parenMatch) {
+        comboCount = (parenMatch[1].match(/\+/g) || []).length
+      }
+    } else if (clean.includes(':')) {
+      type = 'skill'
+    }
+
+    const html = clean
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/__(.*?)__/g, '<u>$1</u>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/~~(.*?)~~/g, '<del>$1</del>')
+
+    return { raw: clean, html, type, comboCount }
+  })
+}
+
+const prevLogEntries = computed(() => parsePrevLogs(store.myPlayer?.status.previousRoundLogs || ''))
+
+// Animation: reveal entries one by one
+const prevLogVisibleCount = ref(999)
+let prevLogTimer: ReturnType<typeof setInterval> | null = null
+let prevLogSnapshot = ''
+
+function clearPrevLogTimer() {
+  if (prevLogTimer !== null) { clearInterval(prevLogTimer); prevLogTimer = null }
+}
+
+watch(() => store.myPlayer?.status.previousRoundLogs, (newVal: string | undefined) => {
+  const val = newVal || ''
+  if (val === prevLogSnapshot) return
+  prevLogSnapshot = val
+  clearPrevLogTimer()
+  if (!val) { prevLogVisibleCount.value = 999; return }
+  const count = parsePrevLogs(val).length
+  if (count === 0) { prevLogVisibleCount.value = 999; return }
+  prevLogVisibleCount.value = 0
+  // Defer animation start to next frame so Vue finishes its DOM patch first
+  setTimeout(() => {
+    let i = 0
+    prevLogTimer = setInterval(() => {
+      i++
+      prevLogVisibleCount.value = i
+      if (i >= count) clearPrevLogTimer()
+    }, 250)
+  }, 50)
+}, { immediate: true })
 </script>
 
 <template>
@@ -233,13 +310,25 @@ const letopis = computed(() => {
             />
             <div v-else class="log-empty">Еще ничего не произошло. Наверное...</div>
           </div>
-          <div class="log-panel card events-panel">
+          <div class="log-panel card events-panel prev-logs-panel">
             <div class="card-header">События прошлого раунда</div>
-            <div
-              v-if="store.myPlayer?.status.previousRoundLogs"
-              class="log-content"
-              v-html="formatLogs(store.myPlayer.status.previousRoundLogs)"
-            />
+            <div v-if="prevLogEntries.length" class="prev-logs">
+              <div
+                v-for="(entry, idx) in prevLogEntries"
+                :key="idx"
+                class="prev-log-item"
+                :class="[
+                  'prev-log-' + entry.type,
+                  { 'prev-log-visible': idx < prevLogVisibleCount },
+                  { 'prev-log-combo': entry.type === 'score' && entry.comboCount > 0 }
+                ]"
+              >
+                <span class="prev-log-text" v-html="entry.html"></span>
+                <span v-if="entry.type === 'score' && entry.comboCount > 0" class="prev-log-combo-badge">
+                  x{{ entry.comboCount + 1 }} combo
+                </span>
+              </div>
+            </div>
             <div v-else class="log-empty">В прошлом раунде ничего не произошло.</div>
           </div>
         </div>
@@ -498,5 +587,94 @@ const letopis = computed(() => {
   padding: 8px;
   text-align: center;
   font-size: 11px;
+}
+
+/* ── Animated Previous Round Logs ──────────────────────────────────── */
+.prev-logs-panel { max-height: 220px; }
+
+.prev-logs {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+
+.prev-log-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  border-left: 3px solid transparent;
+  opacity: 0;
+  transform: translateY(8px) scale(0.97);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.prev-log-item.prev-log-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.prev-log-text {
+  flex: 1;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.prev-log-text :deep(strong) { color: var(--accent-gold); }
+.prev-log-text :deep(em) { color: var(--accent-blue); }
+.prev-log-text :deep(u) { color: var(--accent-green); }
+
+/* Skill passive (contains :) */
+.prev-log-skill {
+  background: rgba(139, 92, 246, 0.06);
+  border-left-color: rgba(139, 92, 246, 0.5);
+}
+
+/* Score (contains очков) */
+.prev-log-score {
+  background: rgba(233, 219, 61, 0.06);
+  border-left-color: rgba(233, 219, 61, 0.5);
+}
+
+/* Skill gain (contains Cкилла) */
+.prev-log-skillup {
+  background: rgba(63, 167, 61, 0.06);
+  border-left-color: rgba(63, 167, 61, 0.5);
+}
+
+/* Other */
+.prev-log-other {
+  background: var(--bg-inset);
+  border-left-color: var(--border-subtle);
+}
+
+/* Combo badge for score lines */
+.prev-log-combo-badge {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--accent-gold);
+  background: rgba(233, 219, 61, 0.12);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(233, 219, 61, 0.25);
+  white-space: nowrap;
+  flex-shrink: 0;
+  animation: combo-pop 0.4s ease;
+}
+
+.prev-log-combo .prev-log-text :deep(strong) {
+  color: var(--accent-gold);
+  text-shadow: 0 0 6px rgba(233, 219, 61, 0.3);
+}
+
+@keyframes combo-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
 }
 </style>

@@ -337,12 +337,6 @@ watch(() => props.fightLog, (newLog) => {
 
         <!-- Score bar -->
         <div class="lb-score-area">
-          <div class="score-bar-bg">
-            <div
-              class="score-bar-fill"
-              :style="{ width: `${(getScoreForBar(player) / maxScore) * 100}%` }"
-            />
-          </div>
           <span class="score-value" :class="{ 'score-hidden': player.status.score < 0 }">
             {{ getDisplayScore(player) }}
           </span>
@@ -351,7 +345,7 @@ watch(() => props.fightLog, (newLog) => {
           </span>
         </div>
 
-        <!-- Predict button (opponents only, if allowed) -->
+        <!-- Predict button (o  pponents only, if allowed) -->
         <div
           v-if="player.playerId !== myPlayerId && canPredict"
           class="lb-predict"

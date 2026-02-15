@@ -196,7 +196,7 @@ const round1Factors = computed<Factor[]>(() => {
     const ourScale = isFlipped.value ? f.scaleTarget : f.scaleMe
     const theirScale = isFlipped.value ? f.scaleMe : f.scaleTarget
     list.push({
-      label: 'Статы',
+      label: 'INT + STR + SPD',
       detail: `${ourScale.toFixed(1)} vs ${theirScale.toFixed(1)}`,
       value: v,
       highlight: hl(v),
@@ -209,7 +209,7 @@ const round1Factors = computed<Factor[]>(() => {
   if (f.psycheWeighingDelta !== 0) {
     const v = f.psycheWeighingDelta * s
     list.push({
-      label: 'Психика',
+      label: 'Разница в PSY',
       detail: v > 0 ? '<span class="gi gi-psy">PSY</span> <span class="gi-ok">&#x2713;</span>' : '<span class="gi gi-psy">PSY</span> <span class="gi-fail">&#x2717;</span>',
       value: v,
       highlight: hl(v),
@@ -222,9 +222,9 @@ const round1Factors = computed<Factor[]>(() => {
     const ourMult = isFlipped.value ? f.skillMultiplierTarget : f.skillMultiplierMe
     const theirMult = isFlipped.value ? f.skillMultiplierMe : f.skillMultiplierTarget
     list.push({
-      label: 'Навык',
+      label: 'Skill',
       //detail: `Skill x${ourMult} vs x${theirMult}`,
-      detail: `x${ourMult} vs x${theirMult}`,
+      detail: `Multiplier x${ourMult} vs x${theirMult}`,
       value: v,
       highlight: hl(v),
     })
@@ -253,7 +253,7 @@ const totalSteps = computed(() => {
   if (isSpecialOutcome.value) return 2
   if (!isMyFight.value) return 2 // enemy: intro + result
   let steps = 1 + round1Factors.value.length + 1 + 1 + 1 // intro + R1factors + R1result + R2 + finalResult
-  if (fight.value?.usedRandomRoll) steps += 1 // R3
+  if (fight.value?.usedRandomRoll) steps += 2 // R3 modifiers + roll animation
   return steps
 })
 
@@ -301,6 +301,13 @@ const showR3 = computed(() => {
   if (!fight.value?.usedRandomRoll) return false
   if (skippedToEnd.value || !isMyFight.value) return true
   return currentStep.value > round1Factors.value.length + 2
+})
+
+/** Show the animated roll bar (one step after R3 modifiers appear) */
+const showR3Roll = computed(() => {
+  if (!fight.value?.usedRandomRoll) return false
+  if (skippedToEnd.value || !isMyFight.value) return true
+  return currentStep.value > round1Factors.value.length + 3
 })
 
 const showFinalResult = computed(() => {
@@ -429,16 +436,48 @@ function outcomeClass(f: FightEntry): string {
   if (f.outcome === 'block' || f.outcome === 'skip') return 'outcome-neutral'
   return f.outcome === 'win' ? 'outcome-attacker' : 'outcome-defender'
 }
-function roundResultLabel(pts: number): string {
-  if (pts > 0) return '+1 очко'
-  if (pts < 0) return '-1 очко'
-  return 'Ничья'
+// ── Phase tracker: 3 phases of each fight ────────────────────────────
+// Each phase result: 1 = we won, -1 = we lost, 0 = draw/not reached
+const phase1Result = computed(() => {
+  if (!fight.value || !isMyFight.value) return 0
+  const pts = fight.value.round1PointsWon * sign.value
+  return pts > 0 ? 1 : pts < 0 ? -1 : 0
+})
+const phase2Result = computed(() => {
+  if (!fight.value || !isMyFight.value) return 0
+  const pts = fight.value.pointsFromJustice * sign.value
+  return pts > 0 ? 1 : pts < 0 ? -1 : 0
+})
+
+// Justice bar values (from our perspective)
+const ourJustice = computed(() => {
+  if (!fight.value) return 0
+  return isFlipped.value ? fight.value.justiceTarget : fight.value.justiceMe
+})
+const enemyJustice = computed(() => {
+  if (!fight.value) return 0
+  return isFlipped.value ? fight.value.justiceMe : fight.value.justiceTarget
+})
+const justiceBarOurs = computed(() => {
+  const total = ourJustice.value + enemyJustice.value
+  if (total === 0) return 50
+  return (ourJustice.value / total) * 100
+})
+const justiceBarEnemy = computed(() => {
+  return 100 - justiceBarOurs.value
+})
+const phase3Result = computed(() => {
+  if (!fight.value || !isMyFight.value || !fight.value.usedRandomRoll) return 0
+  return r3WeWon.value ? 1 : -1
+})
+
+function phaseClass(result: number, revealed: boolean): string {
+  if (!revealed) return 'phase-pending'
+  if (result > 0) return 'phase-ours'
+  if (result < 0) return 'phase-theirs'
+  return 'phase-draw'
 }
-function roundResultClass(pts: number): string {
-  if (pts > 0) return 'round-win'
-  if (pts < 0) return 'round-loss'
-  return 'round-draw'
-}
+
 function formatLetopis(text: string): string {
   return text
     .replace(/<:[^:]+:(\d+)>/g, '')
@@ -492,10 +531,16 @@ const r3RollPct = computed(() => {
   return s > 0 ? rollPct : 100 - rollPct
 })
 
-/** Round 3: Margin — how close/far the roll was from the threshold.
- *  Positive = we got lucky (roll was within our zone), negative = we didn't. */
-const r3Margin = computed(() => {
-  return r3OurChance.value - r3RollPct.value
+
+/** Animated needle position for the roll bar — starts at 0, transitions to target */
+const r3NeedlePos = ref(0)
+watch(showR3Roll, (show: boolean) => {
+  if (show) {
+    r3NeedlePos.value = 0
+    nextTick(() => { setTimeout(() => { r3NeedlePos.value = r3RollPct.value }, 50) })
+  } else {
+    r3NeedlePos.value = 0
+  }
 })
 
 /** Round 3: Did we win the roll? */
@@ -617,21 +662,24 @@ function getDisplayCharName(orig: string, u: string): string {
       <div v-if="fight" ref="fightCardRef" class="fa-card">
         <!-- Block/Skip -->
         <div v-if="isSpecialOutcome" class="fa-special">
-          <!-- Compact identity row for special outcomes -->
-          <div class="fa-identity-row">
-            <div class="fa-id-left" :class="{ winner: leftWon }">
+          <div class="fa-bar-container">
+            <div class="fa-id-left">
               <img :src="getDisplayAvatar(leftAvatar, leftName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
-              <span class="fa-id-name">{{ leftName }}</span>
+              <div class="fa-id-info">
+                <span class="fa-id-name">{{ leftName }}</span>
+              </div>
+              <div class="fa-vs-arrow" :class="{ 'arrow-right': attackedRight, 'arrow-left': !attackedRight }">
+                {{ attackedRight ? '→' : '←' }}
+              </div>
             </div>
-            <div class="fa-vs-arrow" :class="{ 'arrow-right': attackedRight, 'arrow-left': !attackedRight }">
-              {{ attackedRight ? '→' : '←' }}
-            </div>
+            <div class="fa-outcome-inline" :class="outcomeClass(fight)">{{ outcomeLabel(fight) }}</div>
             <div class="fa-id-right">
-              <span class="fa-id-name">{{ rightName }}</span>
+              <div class="fa-id-info" style="text-align:right">
+                <span class="fa-id-name">{{ rightName }}</span>
+              </div>
               <img :src="getDisplayAvatar(rightAvatar, rightName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
             </div>
           </div>
-          <div class="fa-outcome" :class="outcomeClass(fight)">{{ outcomeLabel(fight) }}</div>
         </div>
 
         <!-- Normal fight -->
@@ -648,9 +696,43 @@ function getDisplayCharName(orig: string, u: string): string {
                 {{ attackedRight ? '→' : '←' }}
               </div>
             </div>
-            <div class="fa-bar-track">
+            <!-- Phase tracker between avatars -->
+            <div v-if="isMyFight" class="phase-tracker phase-tracker-inline">
+              <div class="phase-pip" :class="phaseClass(phase1Result, showR1Result)">
+                <span v-if="!showR1Result" class="phase-icon phase-icon-pending">?</span>
+                <span v-else-if="phase1Result > 0" class="phase-icon phase-icon-win">✓</span>
+                <span v-else-if="phase1Result < 0" class="phase-icon phase-icon-lose">✗</span>
+                <span v-else class="phase-icon phase-icon-draw">—</span>
+              </div>
+              <div class="phase-connector" :class="{ revealed: showR2 }"></div>
+              <div class="phase-pip" :class="phaseClass(phase2Result, showR2)">
+                <span v-if="!showR2" class="phase-icon phase-icon-pending">?</span>
+                <span v-else-if="phase2Result > 0" class="phase-icon phase-icon-win">✓</span>
+                <span v-else-if="phase2Result < 0" class="phase-icon phase-icon-lose">✗</span>
+                <span v-else class="phase-icon phase-icon-draw">—</span>
+              </div>
+              <div class="phase-connector" :class="{ revealed: fight?.usedRandomRoll && showR3, broken: !fight?.usedRandomRoll }"></div>
+              <div class="phase-pip" :class="[phaseClass(phase3Result, fight?.usedRandomRoll ? showR3Roll : false), { 'phase-skipped': !fight?.usedRandomRoll }]">
+                <template v-if="!fight?.usedRandomRoll">
+                  <span class="phase-icon phase-icon-skip">—</span>
+                </template>
+                <template v-else>
+                  <span v-if="!showR3Roll" class="phase-icon phase-icon-pending">?</span>
+                  <span v-else-if="phase3Result > 0" class="phase-icon phase-icon-win">✓</span>
+                  <span v-else class="phase-icon phase-icon-lose">✗</span>
+                </template>
+              </div>
+              <div class="phase-connector phase-connector-outcome" :class="{ revealed: showFinalResult }"></div>
+              <div v-if="showFinalResult" class="phase-outcome-pip" :class="leftWon ? 'phase-ours' : 'phase-theirs'">
+                <span class="phase-outcome-text">{{ leftWon ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ' }}</span>
+              </div>
+              <div v-else class="phase-outcome-pip phase-outcome-pending">
+                <span class="phase-outcome-text">?</span>
+              </div>
+            </div>
+            <!-- Fallback bar for enemy fights -->
+            <div v-else class="fa-bar-track">
               <div class="fa-bar-fill" :style="{ width: barPosition + '%' }" :class="{ 'bar-attacker': animatedWeighingValue > 0, 'bar-defender': animatedWeighingValue < 0, 'bar-even': animatedWeighingValue === 0 }">
-                <span v-if="isMyFight" class="fa-bar-value">{{ fmtVal(animatedWeighingValue) }}</span>
               </div>
             </div>
             <div class="fa-id-right" :class="{ winner: !leftWon && (fight.outcome === 'win' || fight.outcome === 'loss') }">
@@ -664,8 +746,8 @@ function getDisplayCharName(orig: string, u: string): string {
 
           <!-- ═══ MY FIGHT: Full 3-round detail ═══ -->
           <template v-if="isMyFight">
-            <!-- ── Round 1: Весы ── -->
-            <div class="fa-round-header">Раунд 1 — Весы</div>
+            <!-- ── Phase 1: Весы ── -->
+            <div class="fa-round-header">Весы</div>
             <div class="fa-factors">
               <div v-for="(fac, idx) in round1Factors" :key="'r1-'+idx"
                 class="fa-factor" :class="[fac.highlight, { visible: showR1Factor(idx) }]">
@@ -682,31 +764,43 @@ function getDisplayCharName(orig: string, u: string): string {
                 <span class="fa-badge badge-toostronk">TOO STRONK: {{ (fight.isTooStronkMe ? !isFlipped : isFlipped) ? 'МЫ' : 'ВРАГ' }}</span>
               </div>
             </div>
-            <!-- R1 result (flipped) -->
-            <div v-if="showR1Result" class="fa-round-result" :class="roundResultClass(fight.round1PointsWon * sign)">
-              {{ roundResultLabel(fight.round1PointsWon * sign) }}
+            <!-- R1 result: weighing bar -->
+            <!--<div v-if="showR1Result" class="fa-phase-result" :class="phaseClass(phase1Result, true)">
+              <span class="phase-result-icon">{{ phase1Result > 0 ? '✓' : phase1Result < 0 ? '✗' : '—' }}</span>
+              <span>{{ phase1Result > 0 ? 'Весы в нашу сторону' : phase1Result < 0 ? 'Весы в сторону врага' : 'Весы равны' }}</span>
+            </div>-->
+            <div v-if="showR1Result" class="fa-bar-container fa-bar-compact">
+              <div class="fa-bar-track">
+                <div class="fa-bar-fill" :style="{ width: barPosition + '%' }" :class="{ 'bar-attacker': animatedWeighingValue > 0, 'bar-defender': animatedWeighingValue < 0, 'bar-even': animatedWeighingValue === 0 }">
+                  <span class="fa-bar-value">{{ fmtVal(animatedWeighingValue) }}</span>
+                </div>
+              </div>
             </div>
 
-            <!-- ── Round 2: Справедливость ── -->
-            <div class="fa-round-header" :class="{ visible: showR2 }">Раунд 2 — Справедливость</div>
-            <div v-if="showR2" class="fa-factor justice visible">
-              <span class="fa-factor-label">Справедливость</span>
-              <span class="fa-factor-detail">{{ isFlipped ? fight.justiceTarget : fight.justiceMe }} vs {{ isFlipped ? fight.justiceMe : fight.justiceTarget }}</span>
-              <span class="fa-factor-value" v-if="fight.pointsFromJustice !== 0">
-                {{ fight.pointsFromJustice * sign > 0 ? '+1 очко' : '-1 очко' }}
-              </span>
-              <span class="fa-factor-value neutral-val" v-else>0</span>
+            <!-- ── Phase 2: Справедливость ── -->
+            <div class="fa-round-header" :class="{ visible: showR2 }">Справедливость</div>
+            <div v-if="showR2" class="fa-justice-bar-wrap">
+              <div class="fa-justice-bar">
+                <span class="fj-val fj-val-left" :class="{ 'fj-winner': ourJustice > enemyJustice }">{{ ourJustice }}</span>
+                <div class="fj-track">
+                  <div class="fj-fill fj-fill-ours" :style="{ width: justiceBarOurs + '%' }" :class="{ 'fj-winning': ourJustice > enemyJustice }"></div>
+                  <div class="fj-center"></div>
+                  <div class="fj-fill fj-fill-enemy" :style="{ width: justiceBarEnemy + '%' }" :class="{ 'fj-winning': enemyJustice > ourJustice }"></div>
+                </div>
+                <span class="fj-val fj-val-right" :class="{ 'fj-winner': enemyJustice > ourJustice }">{{ enemyJustice }}</span>
+              </div>
             </div>
 
-            <!-- ── Round 3: Рандом (only if used) ── -->
+            <!-- ── Phase 3: Рандом (only if used) ── -->
             <template v-if="fight.usedRandomRoll">
-              <div class="fa-round-header" :class="{ visible: showR3 }">Раунд 3 — Рандом</div>
+              <div class="fa-round-header" :class="{ visible: showR3 }">Рандом</div>
               <div v-if="showR3" class="fa-r3-details">
-                <!-- Our base win chance -->
+                <!-- Our base win chance 
                 <div class="fa-factor random visible">
                   <span class="fa-factor-label">Базовый шанс</span>
                   <span class="fa-factor-detail">{{ sign > 0 ? '50.00' : '50.00' }}%</span>
                 </div>
+                -->
                 <!-- Modifier: TooGood -->
                 <div v-if="fight.tooGoodRandomChange !== 0" class="fa-factor random visible">
                   <span class="fa-factor-label">TooGood</span>
@@ -730,22 +824,31 @@ function getDisplayCharName(orig: string, u: string): string {
                 </div>
                 <!-- Our final win chance -->
                 <div class="fa-factor random visible">
-                  <span class="fa-factor-label">Наш шанс</span>
+                  <span class="fa-factor-label">Шанс победы</span>
                   <span class="fa-factor-detail fa-chance-total" :class="r3OurChance >= 50 ? 'pct-good' : 'pct-bad'">
                     {{ r3OurChance.toFixed(2) }}%
                   </span>
                 </div>
-                <!-- Roll result: show margin (how close/far from winning) -->
-                <div class="fa-factor random visible fa-roll-result">
-                  <span class="fa-factor-label"><span class="gi gi-rnd">RND</span> Бросок</span>
-                  <span class="fa-factor-detail" :class="r3WeWon ? 'pct-good' : 'pct-bad'">
-                    {{ fmtPct(r3Margin) }}
-                  </span>
-                  <span class="fa-factor-value" :class="r3WeWon ? 'good-val' : 'bad-val'">
-                    {{ r3WeWon ? '+1' : '-1' }}
-                  </span>
+                <!-- Roll result: animated bar -->
+                <div v-if="showR3Roll" class="fa-roll-bar-wrap">
+                  <div class="fa-roll-bar-track">
+                    <!-- Threshold marker at our win chance -->
+                    <div class="fa-roll-threshold" :style="{ left: r3OurChance + '%' }">
+                      <span class="fa-roll-threshold-label">{{ r3OurChance.toFixed(0) }}%</span>
+                    </div>
+                    <!-- Win zone (0 to threshold) -->
+                    <div class="fa-roll-zone-win" :style="{ width: r3OurChance + '%' }"></div>
+                    <!-- Roll needle animates in -->
+                    <div class="fa-roll-needle" :style="{ left: r3NeedlePos + '%' }" :class="r3WeWon ? 'needle-win' : 'needle-lose'">
+                      <span class="fa-roll-needle-val">{{ r3RollPct.toFixed(1) }}%</span>
+                    </div>
+                  </div>
                 </div>
               </div>
+            <!--<div v-if="showR3Roll" class="fa-phase-result" :class="phaseClass(phase3Result, true)">
+              <span class="phase-result-icon">{{ phase3Result > 0 ? '✓' : '✗' }}</span>
+              <span>{{ phase3Result > 0 ? 'Удача на нашей стороне' : 'Удача на стороне врага' }}</span>
+            </div>-->
             </template>
           </template>
 
@@ -757,11 +860,8 @@ function getDisplayCharName(orig: string, u: string): string {
             </div>
           </template>
 
-          <!-- ═══ Final result (both own & enemy) ═══ -->
+          <!-- ═══ Final result details (outcome shown in phase tracker above) ═══ -->
           <div v-if="showFinalResult" class="fa-result">
-            <div class="fa-outcome" :class="leftWon ? 'outcome-attacker' : (fight.outcome === 'block' || fight.outcome === 'skip') ? 'outcome-neutral' : 'outcome-defender'">
-              {{ fight.outcome === 'block' ? 'БЛОК' : fight.outcome === 'skip' ? 'СКИП' : (leftWon ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ') }}
-            </div>
             <div v-if="isMyFight" class="fa-result-details">
               <!-- Skill gained: only show when WE are the attacker -->
               <span v-if="!isFlipped && fight.skillGainedFromTarget > 0" class="fa-detail-item fa-skill-gain">
@@ -859,6 +959,23 @@ function getDisplayCharName(orig: string, u: string): string {
 
 /* ── Bar ── */
 .fa-bar-container { display: flex; align-items: center; gap: 6px; padding: 4px 0; }
+.fa-bar-compact { padding: 2px 0; }
+.fa-bar-compact .fa-bar-track { height: 16px; }
+
+/* ── Justice bar ── */
+.fa-justice-bar-wrap { padding: 2px 0; }
+.fa-justice-bar { display: flex; align-items: center; gap: 6px; }
+.fj-val { font-size: 10px; font-weight: 800; font-family: var(--font-mono); color: var(--text-dim); min-width: 18px; transition: all 0.4s; }
+.fj-val-left { text-align: right; }
+.fj-val-right { text-align: left; }
+.fj-val.fj-winner { color: var(--accent-gold); text-shadow: 0 0 6px rgba(233, 219, 61, 0.3); }
+.fj-track { flex: 1; height: 14px; display: flex; align-items: center; position: relative; background: var(--bg-inset); border-radius: 7px; border: 1px solid var(--border-subtle); overflow: hidden; }
+.fj-fill { height: 100%; transition: width 0.6s ease; }
+.fj-fill-ours { background: rgba(139, 92, 246, 0.15); border-radius: 7px 0 0 7px; }
+.fj-fill-enemy { background: rgba(239, 128, 128, 0.1); border-radius: 0 7px 7px 0; margin-left: auto; }
+.fj-fill-ours.fj-winning { background: rgba(139, 92, 246, 0.35); }
+.fj-fill-enemy.fj-winning { background: rgba(239, 128, 128, 0.25); }
+.fj-center { position: absolute; left: 50%; top: 2px; bottom: 2px; width: 1px; background: var(--border-subtle); transform: translateX(-0.5px); z-index: 1; }
 .fa-bar-track { flex: 1; height: 20px; background: var(--bg-secondary); border-radius: 10px; overflow: hidden; position: relative; border: 1px solid var(--border-subtle); }
 .fa-bar-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; min-width: 40px; }
 .fa-bar-fill.bar-attacker { background: linear-gradient(90deg, var(--kh-c-secondary-success-500), var(--accent-green)); }
@@ -872,11 +989,61 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-card > .fa-round-header:first-of-type { opacity: 1; }
 div.fa-round-header { opacity: 1; }
 
-/* ── Round result badge ── */
-.fa-round-result { text-align: center; font-size: 10px; font-weight: 800; padding: 2px 10px; border-radius: 4px; margin: 2px 0; }
-.fa-round-result.round-win { background: rgba(63, 167, 61, 0.1); color: var(--accent-green); border: 1px solid rgba(63, 167, 61, 0.2); }
-.fa-round-result.round-loss { background: rgba(239, 128, 128, 0.08); color: var(--accent-red); border: 1px solid rgba(239, 128, 128, 0.15); }
-.fa-round-result.round-draw { background: rgba(230, 148, 74, 0.08); color: var(--accent-orange); border: 1px solid rgba(230, 148, 74, 0.15); }
+/* ── Phase tracker (3 pips) ── */
+.phase-tracker { display: flex; align-items: center; justify-content: center; gap: 0; padding: 4px 0 2px; }
+.phase-tracker-inline { flex: 1; min-width: 0; justify-content: center; }
+.phase-pip { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px 6px; border-radius: 6px; border: 1.5px solid var(--border-subtle); background: var(--bg-inset); transition: all 0.4s ease; min-width: 28px; }
+.phase-connector-outcome { width: 12px; }
+.phase-outcome-pip { padding: 2px 8px; border-radius: 4px; border: 1.5px solid var(--border-subtle); background: var(--bg-inset); transition: all 0.4s ease; animation: phase-pop 0.4s ease; }
+.phase-outcome-pending { opacity: 0.3; }
+.phase-outcome-pip.phase-ours { border-color: rgba(63, 167, 61, 0.5); background: rgba(63, 167, 61, 0.1); }
+.phase-outcome-pip.phase-theirs { border-color: rgba(239, 128, 128, 0.4); background: rgba(239, 128, 128, 0.08); }
+.phase-outcome-text { font-size: 8px; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; }
+.phase-outcome-pip.phase-ours .phase-outcome-text { color: var(--accent-green); }
+.phase-outcome-pip.phase-theirs .phase-outcome-text { color: var(--accent-red); }
+.phase-outcome-pending .phase-outcome-text { color: var(--text-dim); }
+.phase-icon { font-size: 13px; font-weight: 900; line-height: 1; transition: all 0.3s; }
+.phase-icon-pending { color: var(--text-dim); opacity: 0.4; }
+.phase-icon-win { color: var(--accent-green); animation: phase-icon-in 0.4s ease; }
+.phase-icon-lose { color: var(--accent-red); animation: phase-icon-in 0.4s ease; }
+.phase-icon-draw { color: var(--accent-orange); animation: phase-icon-in 0.4s ease; }
+.phase-icon-skip { color: var(--text-dim); opacity: 0.3; }
+.phase-label { font-size: 7px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.3px; transition: color 0.4s; }
+.phase-connector { width: 16px; height: 2px; background: var(--border-subtle); transition: background 0.4s; flex-shrink: 0; }
+.phase-connector.revealed { background: var(--text-muted); }
+.phase-connector.broken { background: none; border-top: 2px dashed var(--border-subtle); height: 0; }
+
+.phase-pip.phase-ours { border-color: rgba(63, 167, 61, 0.5); background: rgba(63, 167, 61, 0.08); animation: phase-pop 0.4s ease; }
+.phase-pip.phase-ours .phase-label { color: var(--accent-green); }
+.phase-pip.phase-theirs { border-color: rgba(239, 128, 128, 0.4); background: rgba(239, 128, 128, 0.06); animation: phase-pop 0.4s ease; }
+.phase-pip.phase-theirs .phase-label { color: var(--accent-red); }
+.phase-pip.phase-draw { border-color: rgba(230, 148, 74, 0.4); background: rgba(230, 148, 74, 0.06); animation: phase-pop 0.4s ease; }
+.phase-pip.phase-draw .phase-label { color: var(--accent-orange); }
+.phase-pip.phase-skipped { opacity: 0.3; border-style: dashed; }
+
+@keyframes phase-icon-in {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes phase-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* ── Phase result badge (replaces old round-result) ── */
+.fa-phase-result { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 10px; font-weight: 700; padding: 2px 10px; border-radius: 4px; margin: 2px 0; animation: phase-result-in 0.3s ease; }
+.phase-result-icon { font-size: 11px; font-weight: 900; }
+.fa-phase-result.phase-ours { background: rgba(63, 167, 61, 0.1); color: var(--accent-green); border: 1px solid rgba(63, 167, 61, 0.2); }
+.fa-phase-result.phase-theirs { background: rgba(239, 128, 128, 0.08); color: var(--accent-red); border: 1px solid rgba(239, 128, 128, 0.15); }
+.fa-phase-result.phase-draw { background: rgba(230, 148, 74, 0.08); color: var(--accent-orange); border: 1px solid rgba(230, 148, 74, 0.15); }
+
+@keyframes phase-result-in {
+  0% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
 
 /* ── Factors ── */
 .fa-factors { display: flex; flex-direction: column; gap: 2px; }
@@ -906,7 +1073,20 @@ div.fa-round-header { opacity: 1; }
 .pct-good { color: var(--accent-green); font-weight: 700; }
 .pct-bad { color: var(--accent-red); font-weight: 700; }
 .fa-chance-total { font-size: 13px; font-weight: 800; }
-.fa-roll-result { border-top: 1px solid var(--border-subtle); padding-top: 4px; margin-top: 2px; }
+/* ── Roll bar ── */
+.fa-roll-bar-wrap { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-subtle); }
+.fa-roll-verdict { font-weight: 900; font-size: 11px; }
+.fa-roll-bar-track { position: relative; height: 22px; background: rgba(239, 128, 128, 0.12); border-radius: 6px; overflow: visible; border: 1px solid var(--border-subtle); }
+.fa-roll-zone-win { position: absolute; left: 0; top: 0; height: 100%; background: rgba(63, 167, 61, 0.15); border-radius: 6px 0 0 6px; transition: width 0.6s ease; }
+.fa-roll-threshold { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--accent-gold); z-index: 2; transform: translateX(-1px); }
+.fa-roll-threshold-label { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); font-size: 8px; font-weight: 800; color: var(--accent-gold); white-space: nowrap; font-family: var(--font-mono); }
+.fa-roll-needle { position: absolute; top: -2px; bottom: -2px; width: 3px; z-index: 3; transform: translateX(-1.5px); border-radius: 2px; transition: left 1.2s cubic-bezier(0.1, 0.7, 0.3, 1); }
+.fa-roll-needle.needle-win { background: var(--accent-green); box-shadow: 0 0 8px rgba(63, 167, 61, 0.6); }
+.fa-roll-needle.needle-lose { background: var(--accent-red); box-shadow: 0 0 8px rgba(239, 128, 128, 0.6); }
+.fa-roll-needle-val { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); font-size: 8px; font-weight: 800; white-space: nowrap; font-family: var(--font-mono); }
+.needle-win .fa-roll-needle-val { color: var(--accent-green); }
+.needle-lose .fa-roll-needle-val { color: var(--accent-red); }
+.fa-roll-bar-labels { display: flex; justify-content: space-between; font-size: 7px; color: var(--text-dim); margin-top: 14px; font-family: var(--font-mono); }
 
 /* ── Enemy summary ── */
 .fa-enemy-summary { display: flex; gap: 6px; justify-content: center; padding: 4px 0; }
@@ -914,6 +1094,7 @@ div.fa-round-header { opacity: 1; }
 /* ── Result ── */
 .fa-result { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0 4px; }
 .fa-outcome { font-size: 12px; font-weight: 900; text-transform: uppercase; padding: 4px 16px; border-radius: var(--radius); letter-spacing: 0.5px; }
+.fa-outcome-inline { font-size: 10px; font-weight: 900; text-transform: uppercase; padding: 3px 10px; border-radius: 4px; letter-spacing: 0.5px; white-space: nowrap; flex-shrink: 0; }
 .outcome-attacker { background: var(--kh-c-secondary-success-500); color: var(--text-primary); border: 1px solid var(--accent-green); }
 .outcome-defender { background: var(--accent-red-dim); color: var(--text-primary); border: 1px solid var(--accent-red); }
 .outcome-neutral { background: rgba(230, 148, 74, 0.3); color: var(--accent-orange); border: 1px solid var(--accent-orange); }
