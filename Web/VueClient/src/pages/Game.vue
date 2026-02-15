@@ -470,6 +470,8 @@ const letopis = computed(() => {
 .fight-panel {
   margin-top: 6px;
   padding: 8px 10px;
+  max-height: 500px;
+  overflow-y: auto;
 }
 
 .log-content {

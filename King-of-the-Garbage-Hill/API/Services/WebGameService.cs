@@ -231,7 +231,7 @@ public class WebGameService
         player.Status.ChangeMindWhat = text;
         player.Status.IsAutoMove = true;
         player.Status.IsReady = true;
-
+        game.Phrases.AutoMove.SendLogSeparateWeb(player, delete:true, isRandomOrder:false, isEvent:false);
         return Task.FromResult((true, (string)null));
     }
 

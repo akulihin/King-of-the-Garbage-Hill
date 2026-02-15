@@ -26,6 +26,12 @@ const emit = defineEmits<{
 
 /** Active tab: 'fights' = replay, 'all' = compact results list, 'letopis' = full text log */
 const activeTab = ref<'fights' | 'all' | 'letopis'>('fights')
+/** Tracks whether user manually switched tabs this round (prevents auto-transition) */
+const userSwitchedTab = ref(false)
+function setTab(tab: 'fights' | 'all' | 'letopis') {
+  activeTab.value = tab
+  userSwitchedTab.value = true
+}
 
 // ── Playback state ──────────────────────────────────────────────────
 const currentFightIdx = ref(0)
@@ -341,6 +347,10 @@ function advanceStep() {
         scheduleNext()
       } else {
         isPlaying.value = false
+        // Auto-transition to 'all' tab after replay finishes (unless user already switched)
+        if (!userSwitchedTab.value && activeTab.value === 'fights') {
+          setTimeout(() => { activeTab.value = 'all' }, 800)
+        }
       }
     }, delay)
   }
@@ -366,18 +376,26 @@ function restart() {
 watch(() => props.fights, () => {
   if (!props.fights.length) return
   const fp = props.fights.map((f: FightEntry) => `${f.attackerName}-${f.defenderName}`).join('|')
-  if (fp !== lastAnimatedRound.value) { lastAnimatedRound.value = fp; restart() }
+  if (fp !== lastAnimatedRound.value) {
+    lastAnimatedRound.value = fp
+    userSwitchedTab.value = false
+    activeTab.value = 'fights'
+    restart()
+  }
 }, { deep: true })
 
 onUnmounted(() => { clearTimer() })
 
-// ── Auto-scroll: keep the latest animated step visible ──────────────
+// ── Auto-scroll: keep the latest animated step visible in panel ──────
 const fightCardRef = ref<HTMLElement | null>(null)
 watch(currentStep, () => {
   nextTick(() => {
     if (!fightCardRef.value) return
-    // Scroll the bottom of the fight card into view smoothly
-    fightCardRef.value.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    // Find the scrollable parent (.fight-panel)
+    const panel = fightCardRef.value.closest('.fight-panel') || fightCardRef.value.parentElement
+    if (panel) {
+      panel.scrollTop = panel.scrollHeight
+    }
   })
 })
 
@@ -526,9 +544,9 @@ function getDisplayCharName(orig: string, u: string): string {
   <div class="fight-animation">
     <!-- Tab header -->
     <div class="fa-tab-header">
-      <button class="fa-tab" :class="{ active: activeTab === 'fights' }" @click="activeTab = 'fights'">Бои раунда</button>
-      <button class="fa-tab" :class="{ active: activeTab === 'all' }" @click="activeTab = 'all'">Все бои</button>
-      <button class="fa-tab" :class="{ active: activeTab === 'letopis' }" @click="activeTab = 'letopis'">Летопись</button>
+      <button class="fa-tab" :class="{ active: activeTab === 'fights' }" @click="setTab('fights')">Бои раунда</button>
+      <button class="fa-tab" :class="{ active: activeTab === 'all' }" @click="setTab('all')">Все бои</button>
+      <button class="fa-tab" :class="{ active: activeTab === 'letopis' }" @click="setTab('letopis')">Летопись</button>
     </div>
 
     <!-- Летопись -->
@@ -578,39 +596,51 @@ function getDisplayCharName(orig: string, u: string): string {
 
       <!-- Fight card -->
       <div v-if="fight" ref="fightCardRef" class="fa-card">
-        <!-- Portraits (left = us, right = opponent) -->
-        <div class="fa-portraits">
-          <div class="fa-portrait" :class="{ winner: leftWon }">
-            <img :src="getDisplayAvatar(leftAvatar, leftName)" :alt="getDisplayCharName(leftCharName, leftName)" class="fa-avatar" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
-            <div class="fa-name">{{ leftName }}</div>
-            <div class="fa-char">{{ getDisplayCharName(leftCharName, leftName) }}</div>
-          </div>
-          <div class="fa-vs-arrow" :class="{ 'arrow-right': attackedRight, 'arrow-left': !attackedRight }">
-            {{ attackedRight ? '⟶' : '⟵' }}
-          </div>
-          <div class="fa-portrait" :class="{ winner: !leftWon && (fight.outcome === 'win' || fight.outcome === 'loss') }">
-            <img :src="getDisplayAvatar(rightAvatar, rightName)" :alt="getDisplayCharName(rightCharName, rightName)" class="fa-avatar" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
-            <div class="fa-name">{{ rightName }}</div>
-            <div class="fa-char">{{ getDisplayCharName(rightCharName, rightName) }}</div>
-          </div>
-        </div>
-
         <!-- Block/Skip -->
         <div v-if="isSpecialOutcome" class="fa-special">
+          <!-- Compact identity row for special outcomes -->
+          <div class="fa-identity-row">
+            <div class="fa-id-left" :class="{ winner: leftWon }">
+              <img :src="getDisplayAvatar(leftAvatar, leftName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
+              <span class="fa-id-name">{{ leftName }}</span>
+            </div>
+            <div class="fa-vs-arrow" :class="{ 'arrow-right': attackedRight, 'arrow-left': !attackedRight }">
+              {{ attackedRight ? '→' : '←' }}
+            </div>
+            <div class="fa-id-right">
+              <span class="fa-id-name">{{ rightName }}</span>
+              <img :src="getDisplayAvatar(rightAvatar, rightName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
+            </div>
+          </div>
           <div class="fa-outcome" :class="outcomeClass(fight)">{{ outcomeLabel(fight) }}</div>
         </div>
 
         <!-- Normal fight -->
         <template v-else>
-          <!-- Weighing Machine Bar -->
+          <!-- Compact scale row: avatar+name | bar | avatar+name -->
           <div class="fa-bar-container">
-            <span class="fa-bar-label left">МЫ</span>
+            <div class="fa-id-left" :class="{ winner: leftWon }">
+              <img :src="getDisplayAvatar(leftAvatar, leftName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
+              <div class="fa-id-info">
+                <span class="fa-id-name">{{ leftName }}</span>
+                <span class="fa-id-char">{{ getDisplayCharName(leftCharName, leftName) }}</span>
+              </div>
+              <div class="fa-vs-arrow" :class="{ 'arrow-right': attackedRight, 'arrow-left': !attackedRight }">
+                {{ attackedRight ? '→' : '←' }}
+              </div>
+            </div>
             <div class="fa-bar-track">
               <div class="fa-bar-fill" :style="{ width: barPosition + '%' }" :class="{ 'bar-attacker': animatedWeighingValue > 0, 'bar-defender': animatedWeighingValue < 0, 'bar-even': animatedWeighingValue === 0 }">
                 <span v-if="isMyFight" class="fa-bar-value">{{ fmtVal(animatedWeighingValue) }}</span>
               </div>
             </div>
-            <span class="fa-bar-label right">ВРАГ</span>
+            <div class="fa-id-right" :class="{ winner: !leftWon && (fight.outcome === 'win' || fight.outcome === 'loss') }">
+              <div class="fa-id-info" style="text-align:right">
+                <span class="fa-id-name">{{ rightName }}</span>
+                <span class="fa-id-char">{{ getDisplayCharName(rightCharName, rightName) }}</span>
+              </div>
+              <img :src="getDisplayAvatar(rightAvatar, rightName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
+            </div>
           </div>
 
           <!-- ═══ MY FIGHT: Full 3-round detail ═══ -->
@@ -770,7 +800,7 @@ function getDisplayCharName(orig: string, u: string): string {
 </template>
 
 <style scoped>
-.fight-animation { display: flex; flex-direction: column; gap: 4px; padding: 4px; overflow-y: auto; }
+.fight-animation { display: flex; flex-direction: column; gap: 4px; padding: 4px; }
 .fa-empty { color: var(--text-muted); font-style: italic; padding: 12px; text-align: center; font-size: 13px; }
 
 /* ── v-html icon badges (bypass scoped CSS) ── */
@@ -795,21 +825,21 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-card { background: var(--bg-inset); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 6px 8px; display: flex; flex-direction: column; gap: 5px; }
 
 /* ── Portraits ── */
-.fa-portraits { display: flex; align-items: center; justify-content: center; gap: 12px; }
-.fa-portrait { display: flex; flex-direction: column; align-items: center; gap: 3px; opacity: 0.6; transition: all 0.3s; }
-.fa-portrait.winner { opacity: 1; transform: scale(1.05); }
-.fa-portrait.winner .fa-name { color: var(--accent-green); font-weight: 800; }
-.fa-avatar { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-subtle); }
-.fa-portrait.winner .fa-avatar { border-color: var(--accent-green); box-shadow: var(--glow-green); }
-.fa-name { font-size: 11px; font-weight: 700; color: var(--text-primary); }
-.fa-char { font-size: 9px; color: var(--text-muted); }
-.fa-vs-arrow { font-size: 20px; font-weight: 900; }
-.fa-vs-arrow.arrow-right { color: var(--accent-red); text-shadow: var(--glow-red); }
+/* ── Compact identity + scale row ── */
+.fa-id-left, .fa-id-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.fa-id-left.winner .fa-id-name, .fa-id-right.winner .fa-id-name { color: var(--accent-green); font-weight: 800; }
+.fa-id-left.winner .fa-ava-sm, .fa-id-right.winner .fa-ava-sm { border-color: var(--accent-green); box-shadow: var(--glow-green); }
+.fa-ava-sm { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-subtle); flex-shrink: 0; }
+.fa-id-info { display: flex; flex-direction: column; line-height: 1.2; }
+.fa-id-name { font-size: 10px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; }
+.fa-id-char { font-size: 8px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; }
+.fa-vs-arrow { font-size: 14px; font-weight: 900; flex-shrink: 0; }
+.fa-vs-arrow.arrow-right { color: var(--accent-red); }
 .fa-vs-arrow.arrow-left { color: var(--accent-blue); }
+.fa-identity-row { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 4px 0; }
 
 /* ── Bar ── */
 .fa-bar-container { display: flex; align-items: center; gap: 6px; padding: 4px 0; }
-.fa-bar-label { font-size: 9px; font-weight: 800; color: var(--text-muted); width: 28px; text-align: center; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.5px; }
 .fa-bar-track { flex: 1; height: 20px; background: var(--bg-secondary); border-radius: 10px; overflow: hidden; position: relative; border: 1px solid var(--border-subtle); }
 .fa-bar-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; min-width: 40px; }
 .fa-bar-fill.bar-attacker { background: linear-gradient(90deg, var(--kh-c-secondary-success-500), var(--accent-green)); }

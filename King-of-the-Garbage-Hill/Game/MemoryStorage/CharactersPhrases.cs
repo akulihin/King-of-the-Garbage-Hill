@@ -891,6 +891,51 @@ public class CharactersUniquePhrase
                 Console.Write(exception.StackTrace);
             }
         }
+        public void SendLogSeparateWeb(GamePlayerBridgeClass player, bool delete, bool isRandomOrder = true, bool isEvent = true)
+        {
+            var description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
+            if (!isRandomOrder)
+            {
+                description = PassiveLogRus.First();
+            }
+            if (delete)
+            {
+                if (PassiveLogRus.Count > 1)
+                    PassiveLogRus.Remove(description);
+            }
+            else
+            {
+                var personalLogs = player.Status.GetInGamePersonalLogs();
+                var i = 0;
+                while (i < 20)
+                {
+                    i++;
+                    if (!personalLogs.Contains(description))
+                        break;
+                    description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
+                    if (!isRandomOrder)
+                    {
+                        description = PassiveLogRus.First();
+                    }
+                }
+            }
+
+            if (PassiveLogRus.Count > 1)
+                PassiveLogRus.Remove(description);
+
+            if (isEvent){
+            player.WebMediaMessages.Add(new GamePlayerBridgeClass.WebMediaEntry
+            {
+                PassiveName = PassiveNameRus,
+                Text = description,
+                FileUrl = null,
+                FileType = "text"
+            });
+            }
+            else{
+                player.WebMessages.Add($"{PassiveNameRus}: {description}");
+            }
+        }
 
         public async Task SendLogSeparateWithFile(GamePlayerBridgeClass player, bool delete, string filePath, bool clearNextRound, int delayMs, bool isRandomOrder = true, int roundsToPlay = 1)
         {
