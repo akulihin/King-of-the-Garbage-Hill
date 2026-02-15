@@ -120,7 +120,7 @@ public sealed class UserAccounts : IServiceSingleton
             DiscordId = user.Id,
             DiscordUserName = user.Username,
             IsPlaying = false,
-            PlayerType = 0,
+            PlayerType = 0, // 0 == Normal, 1 == Casual, 2 == Admin, 404 == Bot
             ZbsPoints = 0,
             IsNewPlayer = true,
             PassedTutorial = false,

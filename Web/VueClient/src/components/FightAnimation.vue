@@ -54,6 +54,23 @@ function isFightMine(f: FightEntry): boolean {
   return f.attackerName === myUsername.value || f.defenderName === myUsername.value
 }
 
+/** Find the index of a fight from the full list within myFights and jump to its replay */
+function jumpToFightReplay(f: FightEntry) {
+  if (!isFightMine(f)) return
+  // Find which myFights index this fight corresponds to
+  const idx = myFights.value.findIndex((mf: FightEntry) =>
+    mf.attackerName === f.attackerName && mf.defenderName === f.defenderName
+  )
+  if (idx === -1) return
+  clearTimer()
+  isPlaying.value = false
+  skippedToEnd.value = true
+  currentFightIdx.value = idx
+  // Switch tab after setting fight index so totalSteps computes correctly
+  activeTab.value = 'fights'
+  nextTick(() => { currentStep.value = totalSteps.value - 1 })
+}
+
 /** Fights shown in the replay — only own fights (admins see all) */
 const myFights = computed(() => props.fights.filter(isFightMine))
 
@@ -560,7 +577,8 @@ function getDisplayCharName(orig: string, u: string): string {
       <div v-if="!fights.length" class="fa-empty">Бои еще не начались</div>
       <div v-else class="fa-all-list">
         <div v-for="(f, idx) in fights" :key="idx"
-          class="fa-all-row" :class="{ 'is-mine': isFightMine(f) }">
+          class="fa-all-row" :class="{ 'is-mine': isFightMine(f), 'clickable': isFightMine(f) }"
+          @click="jumpToFightReplay(f)">
           <img :src="getDisplayAvatar(f.attackerAvatar, f.attackerName)" class="fa-all-ava" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
           <span class="fa-all-name">{{ f.attackerName }}</span>
           <span class="fa-all-vs">vs</span>
@@ -568,6 +586,7 @@ function getDisplayCharName(orig: string, u: string): string {
           <img :src="getDisplayAvatar(f.defenderAvatar, f.defenderName)" class="fa-all-ava" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
           <span class="fa-all-result" :class="compactOutcomeClass(f)">{{ compactOutcome(f) }}</span>
           <span v-if="f.drops > 0" class="fa-all-drop">DROP</span>
+          <span v-if="isFightMine(f)" class="fa-all-play" title="Смотреть бой">▶</span>
         </div>
       </div>
     </div>
@@ -933,8 +952,12 @@ div.fa-round-header { opacity: 1; }
 /* ── All Fights list ── */
 .fa-all-fights { flex: 1; overflow-y: auto; }
 .fa-all-list { display: flex; flex-direction: column; gap: 3px; }
-.fa-all-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--radius); background: var(--bg-inset); font-size: 13px; border: 1px solid transparent; }
+.fa-all-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--radius); background: var(--bg-inset); font-size: 13px; border: 1px solid transparent; transition: all 0.15s; }
 .fa-all-row.is-mine { background: rgba(180, 150, 255, 0.05); border-color: rgba(180, 150, 255, 0.15); }
+.fa-all-row.clickable { cursor: pointer; }
+.fa-all-row.clickable:hover { background: rgba(180, 150, 255, 0.12); border-color: rgba(180, 150, 255, 0.3); }
+.fa-all-play { font-size: 10px; color: var(--text-dim); flex-shrink: 0; opacity: 0.4; transition: opacity 0.15s; }
+.fa-all-row.clickable:hover .fa-all-play { opacity: 1; color: var(--accent-gold); }
 .fa-all-ava { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid var(--border-subtle); }
 .fa-all-name { font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; font-size: 12px; }
 .fa-all-vs { color: var(--text-dim); font-size: 11px; flex-shrink: 0; font-weight: 700; }
