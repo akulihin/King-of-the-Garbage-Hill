@@ -42,27 +42,35 @@ const currency = ref(124)
 <style scoped>
 * { display: flex; }
 .homeProfile {
-  background-color: var(--kh-c-neutrals-sat-600);
+  background-color: var(--kh-c-neutrals-sat-700);
+  border: 1px solid var(--kh-c-neutrals-pale-375);
+  border-radius: 10px;
   flex-direction: column;
-  gap: 1rem;
-  padding: 1.5rem;
+  gap: 0.75rem;
+  padding: 1.25rem;
 }
 
 .homeProfile h4 {
-  font-size: 1rem;
+  font-size: 0.8rem;
   color: var(--kh-c-text-primary-700);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 800;
 }
 
 .userInfo {
   flex-direction: column;
-  font-size: 1.5rem;
-  color: var(--kh-c-text-primary-700);
-  gap: 0.75rem;
+  font-size: 1.25rem;
+  color: var(--kh-c-text-primary-600);
+  gap: 0.5rem;
 }
 
 .currency {
   gap: 0.25rem;
   color: var(--kh-c-text-highlight-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 800;
+  font-size: 1.1rem;
 }
 
 .homeProfile > div {
@@ -71,10 +79,11 @@ const currency = ref(124)
 
 .matches {
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .matchList, .chanceList {
   flex-direction: column;
+  gap: 2px;
 }
 </style>

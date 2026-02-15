@@ -666,7 +666,7 @@ public class BotsBehavior : IServiceSingleton
                         
 
                         break;
-                    case "Mit*suki*":
+                    case "Школоло":
                         if (target.AttackPreference >= 5)
                         {
                             if (bot.GameCharacter.GetCurrentSkillClassTarget() == target.Player.GameCharacter.GetSkillClass())
@@ -1170,7 +1170,7 @@ public class BotsBehavior : IServiceSingleton
                                    target3.AttackPreference = realAttackPreference;
                             }
                             break;
-                        case "Mit*suki*":
+                        case "Школоло":
                             break;
                         case "mylorik":
                             var mylorikRevenge = bot.Passives.MylorikRevenge;
@@ -1417,7 +1417,7 @@ public class BotsBehavior : IServiceSingleton
                 case "Краборак":
                     isBlock = noBlock;
                     break;
-                case "Mit*suki*":
+                case "Школоло":
                     switch (game.RoundNo)
                     {
                         case < 8:
@@ -1644,9 +1644,9 @@ public class BotsBehavior : IServiceSingleton
             if (player.GameCharacter.Name == "LeCrisp" && strength < 10) skillNumber = 2;
             if (player.GameCharacter.Name == "Darksci" && psyche < 10) skillNumber = 4;
 
-            if (player.GameCharacter.Name == "Mit*suki*" && strength < 10) skillNumber = 2;
-            if (player.GameCharacter.Name == "Mit*suki*" && intelligence == 9) skillNumber = 1;
-            if (player.GameCharacter.Name == "Mit*suki*" && strength == 10 && intelligence < 10) skillNumber = 1;
+            if (player.GameCharacter.Name == "Школоло" && strength < 10) skillNumber = 2;
+            if (player.GameCharacter.Name == "Школоло" && intelligence == 9) skillNumber = 1;
+            if (player.GameCharacter.Name == "Школоло" && strength == 10 && intelligence < 10) skillNumber = 1;
 
             if (player.GameCharacter.Name == "HardKitty" && speed < 10 && game.RoundNo < 6) skillNumber = 3;
             if (player.GameCharacter.Name == "HardKitty" && psyche < 10 && game.RoundNo > 6) skillNumber = 4;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import type { FightEntry, Player, Prediction, CharacterInfo } from 'src/services/signalr'
 
 const props = withDefaults(defineProps<{
@@ -18,6 +18,11 @@ const props = withDefaults(defineProps<{
   isAdmin: false,
   characterCatalog: () => [],
 })
+
+const emit = defineEmits<{
+  (e: 'resist-flash', stats: string[]): void
+  (e: 'justice-reset'): void
+}>()
 
 /** Active tab: 'fights' = replay, 'all' = compact results list, 'letopis' = full text log */
 const activeTab = ref<'fights' | 'all' | 'letopis'>('fights')
@@ -93,6 +98,14 @@ const attackedRight = computed(() => !isFlipped.value)
 /** Sign multiplier: when flipped, negate all delta values so + = good for us */
 const sign = computed(() => isFlipped.value ? -1 : 1)
 
+/** Our actual moral change from this fight (using per-player snapshots) */
+const ourMoralChange = computed(() => {
+  const f = fight.value
+  if (!f) return 0
+  // We are left; if flipped we are the defender, otherwise the attacker
+  return isFlipped.value ? f.defenderMoralChange : f.attackerMoralChange
+})
+
 // ── Round 1 factors (weighing machine deltas) ───────────────────────
 type Factor = {
   label: string
@@ -119,8 +132,8 @@ const round1Factors = computed<Factor[]>(() => {
     const wi = f.whoIsBetterIntel * (isFlipped.value ? -1 : 1)
     const ws = f.whoIsBetterStr * (isFlipped.value ? -1 : 1)
     const wsp = f.whoIsBetterSpeed * (isFlipped.value ? -1 : 1)
-    const ic = (val: number) => val > 0 ? '↑' : val < 0 ? '↓' : '↕'
-    const detail = `🧠${ic(wi)}  💪${ic(ws)}  ⚡${ic(wsp)}`
+    const ic = (val: number) => val > 0 ? '<span class="gi-ok">&#x2713;</span>' : val < 0 ? '<span class="gi-fail">&#x2717;</span>' : '<span class="gi-tie">&#x2015;</span>'
+    const detail = `<span class="gi gi-int">INT</span>${ic(wi)} <span class="gi gi-str">STR</span>${ic(ws)} <span class="gi gi-spd">SPD</span>${ic(wsp)}`
     list.push({
       label: 'Кто разностороннее',
       detail,
@@ -137,8 +150,7 @@ const round1Factors = computed<Factor[]>(() => {
     const theyContre = isFlipped.value ? f.isContrMe : f.isContrTarget
     const ourClass = isFlipped.value ? f.defenderClass : f.attackerClass
     const theirClass = isFlipped.value ? f.attackerClass : f.defenderClass
-    //🫧 is буль но его не будет навеное
-    const ci = (c: string) => c === 'Интеллект' ? '🧠' : c === 'Сила' ? '💪' : c === 'Скорость' ? '⚡' : '🫧'
+    const ci = (c: string) => c === 'Интеллект' ? '<span class="gi gi-int">INT</span>' : c === 'Сила' ? '<span class="gi gi-str">STR</span>' : c === 'Скорость' ? '<span class="gi gi-spd">SPD</span>' : '<span class="gi">?</span>'
     let detail: string
     if (weContre && theyContre) {
       detail = `Обоюдная: ${ci(ourClass)}→${ci(theirClass)} / ${ci(theirClass)}→${ci(ourClass)}`
@@ -175,7 +187,7 @@ const round1Factors = computed<Factor[]>(() => {
     const v = f.psycheWeighingDelta * s
     list.push({
       label: 'Психика',
-      detail: v > 0 ? '✅' : '❌',
+      detail: v > 0 ? '<span class="gi gi-psy">PSY</span> <span class="gi-ok">&#x2713;</span>' : '<span class="gi gi-psy">PSY</span> <span class="gi-fail">&#x2717;</span>',
       value: v,
       highlight: hl(v),
     })
@@ -273,6 +285,32 @@ const showFinalResult = computed(() => {
   return currentStep.value >= totalSteps.value - 1
 })
 
+// ── Emit resist flash / justice reset to PlayerCard when result appears ──
+watch(showFinalResult, (show: boolean) => {
+  if (!show || !fight.value || !isMyFight.value) return
+  const f = fight.value
+  const weWon = isFlipped.value ? f.outcome === 'loss' : f.outcome === 'win'
+  const weLost = !weWon && f.outcome !== 'block' && f.outcome !== 'skip'
+
+  // Justice resets when we win
+  if (weWon) {
+    emit('justice-reset')
+  }
+
+  // Resist flash when we lost
+  if (weLost) {
+    const flashStats: string[] = []
+    if (f.intellectualDamage) flashStats.push('intelligence')
+    if (f.emotionalDamage) flashStats.push('psyche')
+    if (f.resistIntelDamage > 0) flashStats.push('intelligence')
+    if (f.resistStrDamage > 0) flashStats.push('strength')
+    if (f.resistPsycheDamage > 0) flashStats.push('psyche')
+    if (flashStats.length > 0) {
+      emit('resist-flash', [...new Set(flashStats)])
+    }
+  }
+})
+
 // ── Playback control ────────────────────────────────────────────────
 function clearTimer() {
   if (timer) { clearTimeout(timer); timer = null }
@@ -332,6 +370,16 @@ watch(() => props.fights, () => {
 }, { deep: true })
 
 onUnmounted(() => { clearTimer() })
+
+// ── Auto-scroll: keep the latest animated step visible ──────────────
+const fightCardRef = ref<HTMLElement | null>(null)
+watch(currentStep, () => {
+  nextTick(() => {
+    if (!fightCardRef.value) return
+    // Scroll the bottom of the fight card into view smoothly
+    fightCardRef.value.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  })
+})
 
 // ── Helpers ─────────────────────────────────────────────────────────
 function outcomeLabel(f: FightEntry): string {
@@ -522,7 +570,7 @@ function getDisplayCharName(orig: string, u: string): string {
       </div>
 
       <!-- Fight card -->
-      <div v-if="fight" class="fa-card">
+      <div v-if="fight" ref="fightCardRef" class="fa-card">
         <!-- Portraits (left = us, right = opponent) -->
         <div class="fa-portraits">
           <div class="fa-portrait" :class="{ winner: leftWon }">
@@ -566,7 +614,7 @@ function getDisplayCharName(orig: string, u: string): string {
               <div v-for="(fac, idx) in round1Factors" :key="'r1-'+idx"
                 class="fa-factor" :class="[fac.highlight, { visible: showR1Factor(idx) }]">
                 <span class="fa-factor-label">{{ fac.label }}</span>
-                <span class="fa-factor-detail">{{ fac.detail }}</span>
+                <span class="fa-factor-detail" v-html="fac.detail"></span>
                 <span class="fa-factor-value" v-if="fac.value !== 0">{{ fmtVal(fac.value) }}</span>
               </div>
 
@@ -633,7 +681,7 @@ function getDisplayCharName(orig: string, u: string): string {
                 </div>
                 <!-- Roll result: show margin (how close/far from winning) -->
                 <div class="fa-factor random visible fa-roll-result">
-                  <span class="fa-factor-label">🎲 Бросок</span>
+                  <span class="fa-factor-label"><span class="gi gi-rnd">RND</span> Бросок</span>
                   <span class="fa-factor-detail" :class="r3WeWon ? 'pct-good' : 'pct-bad'">
                     {{ fmtPct(r3Margin) }}
                   </span>
@@ -659,34 +707,44 @@ function getDisplayCharName(orig: string, u: string): string {
               {{ fight.outcome === 'block' ? 'БЛОК' : fight.outcome === 'skip' ? 'СКИП' : (leftWon ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ') }}
             </div>
             <div v-if="isMyFight" class="fa-result-details">
-              <!-- Skill gained from target (attacker always gains) -->
-              <span v-if="fight.skillGainedFromTarget > 0" class="fa-detail-item fa-skill-gain">
-                {{ isFlipped ? rightName : leftName }} +{{ fight.skillGainedFromTarget }} Скилл (Мишень)
+              <!-- Skill gained: only show when WE are the attacker -->
+              <span v-if="!isFlipped && fight.skillGainedFromTarget > 0" class="fa-detail-item fa-skill-gain">
+                +{{ fight.skillGainedFromTarget }} Скилл (Мишень)
               </span>
-              <!-- Moral: only when we won (leftWon) -->
-              <span v-if="leftWon && fight.moralChange !== 0" class="fa-detail-item fa-moral">
-                {{ leftWon ? rightName : leftName }} {{ fight.moralChange > 0 ? '+' : '' }}{{ fight.moralChange }} Мораль
+              <!-- Moral: show OUR actual moral change (win or loss) -->
+              <span v-if="ourMoralChange !== 0" class="fa-detail-item fa-moral">
+                {{ ourMoralChange > 0 ? '+' : '' }}{{ ourMoralChange }} Мораль
               </span>
-              <!-- Justice change: loser gains justice -->
-              <span v-if="fight.justiceChange > 0" class="fa-detail-item fa-justice">
-                {{ leftWon ? rightName : leftName }} +{{ fight.justiceChange }} Справедливость
+              <!-- Justice: show when WE lost (loser gains justice) -->
+              <span v-if="!leftWon && fight.justiceChange > 0" class="fa-detail-item fa-justice">
+                +{{ fight.justiceChange }} Справедливость
               </span>
-              <!-- Quality damage details -->
-              <template v-if="fight.qualityDamageApplied">
-                <span v-if="fight.resistIntelDamage > 0" class="fa-detail-item fa-resist">🧠 -{{ fight.resistIntelDamage }}</span>
-                <span v-if="fight.resistStrDamage > 0" class="fa-detail-item fa-resist">💪 -{{ fight.resistStrDamage }}</span>
-                <span v-if="fight.resistPsycheDamage > 0" class="fa-detail-item fa-resist">🧘 -{{ fight.resistPsycheDamage }}</span>
-                <!-- Intellectual damage: intel resist broke -->
-                <span v-if="fight.intellectualDamage" class="fa-detail-item fa-intellectual">
-                  {{ leftWon ?  leftName: rightName }}Intellectual Damage!
-                </span>
-                <!-- Emotional damage: psyche resist broke -->
-                <span v-if="fight.emotionalDamage" class="fa-detail-item fa-emotional">
-                  {{ leftWon ?  leftName: rightName }} Emotional Damage!
-                </span>
+              <!-- Resist damage that happened to US (loser) -->
+              <template v-if="!leftWon && fight.qualityDamageApplied">
+                <span v-if="fight.resistIntelDamage > 0" class="fa-detail-item fa-resist"><span class="gi gi-int">INT</span> <span class="gi gi-def">DEF</span> -{{ fight.resistIntelDamage }}</span>
+                <span v-if="fight.resistStrDamage > 0" class="fa-detail-item fa-resist"><span class="gi gi-str">STR</span> <span class="gi gi-def">DEF</span> -{{ fight.resistStrDamage }}</span>
+                <span v-if="fight.resistPsycheDamage > 0" class="fa-detail-item fa-resist"><span class="gi gi-psy">PSY</span> <span class="gi gi-def">DEF</span> -{{ fight.resistPsycheDamage }}</span>
               </template>
-              <span v-if="fight.drops > 0" class="fa-detail-item fa-drop">
-                {{ leftWon ?  leftName: rightName }} DROP x{{ fight.drops }}!
+              <!-- Intellectual / Emotional damage: show for BOTH sides with different colors -->
+              <span v-if="!leftWon && fight.intellectualDamage" class="fa-detail-item fa-dmg-us">
+                <span class="gi gi-int">INT</span> Intellectual Damage!
+              </span>
+              <span v-if="leftWon && fight.intellectualDamage" class="fa-detail-item fa-dmg-enemy">
+                <span class="gi gi-int">INT</span> {{ rightName }}: Intellectual Damage!
+              </span>
+              <span v-if="!leftWon && fight.emotionalDamage" class="fa-detail-item fa-dmg-us">
+                <span class="gi gi-psy">PSY</span> Emotional Damage!
+              </span>
+              <span v-if="leftWon && fight.emotionalDamage" class="fa-detail-item fa-dmg-enemy">
+                <span class="gi gi-psy">PSY</span> {{ rightName }}: Emotional Damage!
+              </span>
+              <!-- Drop (us losing) -->
+              <span v-if="!leftWon && fight.drops > 0" class="fa-detail-item fa-drop">
+                 DROP x{{ fight.drops }}!
+              </span>
+              <!-- Drop (enemy losing) -->
+              <span v-if="leftWon && fight.drops > 0" class="fa-detail-item fa-drop-enemy">
+                {{ rightName }}: DROP x{{ fight.drops }}!
               </span>
             </div>
             <!-- Drops visible to ALL players -->
@@ -705,7 +763,7 @@ function getDisplayCharName(orig: string, u: string): string {
           :class="{ active: idx === currentFightIdx, 'is-block': f.outcome === 'block', 'is-skip': f.outcome === 'skip' }"
           @click="currentFightIdx = idx; currentStep = totalSteps - 1; skippedToEnd = true; isPlaying = false; clearTimer()"
           :title="`${f.attackerName} vs ${f.defenderName}`">
-          <span class="thumb-idx">{{ idx + 1 }}</span>
+          <span class="thumb-idx">{{ (idx as number) + 1 }}</span>
         </button>
       </div>
     </template>
@@ -717,139 +775,152 @@ function getDisplayCharName(orig: string, u: string): string {
 .fight-animation { display: flex; flex-direction: column; gap: 4px; padding: 4px; overflow-y: auto; }
 .fa-empty { color: var(--text-muted); font-style: italic; padding: 12px; text-align: center; font-size: 13px; }
 
+/* ── v-html icon badges (bypass scoped CSS) ── */
+.fa-factor-detail :deep(.gi) { display: inline-block; font-size: 9px; font-weight: 800; padding: 1px 4px; border-radius: 3px; letter-spacing: 0.5px; vertical-align: middle; }
+.fa-factor-detail :deep(.gi-int) { background: rgba(110, 170, 240, 0.12); color: var(--kh-c-secondary-info-200); }
+.fa-factor-detail :deep(.gi-str) { background: rgba(239, 128, 128, 0.12); color: var(--kh-c-secondary-danger-200); }
+.fa-factor-detail :deep(.gi-spd) { background: rgba(200, 185, 50, 0.12); color: var(--kh-c-text-highlight-dim); }
+.fa-factor-detail :deep(.gi-psy) { background: rgba(232, 121, 249, 0.12); color: #e879f9; }
+.fa-factor-detail :deep(.gi-ok) { color: var(--accent-green); font-weight: 800; }
+.fa-factor-detail :deep(.gi-fail) { color: var(--accent-red); font-weight: 800; }
+.fa-factor-detail :deep(.gi-tie) { color: var(--text-muted); }
+
 /* ── Controls ── */
 .fa-controls { display: flex; align-items: center; gap: 4px; padding: 4px 0; }
-.fa-btn { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; font-size: 14px; cursor: pointer; color: var(--text-primary); transition: background 0.15s; }
-.fa-btn:hover { background: var(--accent-blue); color: white; }
+.fa-btn { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 3px 10px; font-size: 13px; cursor: pointer; color: var(--text-primary); transition: all 0.15s; }
+.fa-btn:hover { background: var(--accent-blue); color: white; border-color: var(--accent-blue); }
 .fa-speed { display: flex; gap: 2px; margin-left: 6px; }
-.fa-speed-btn { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; color: var(--text-secondary); transition: all 0.15s; }
-.fa-speed-btn.active { background: var(--accent-purple); color: white; border-color: var(--accent-purple); }
-.fa-progress { margin-left: auto; font-size: 12px; color: var(--text-muted); font-weight: 600; }
+.fa-speed-btn { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 700; cursor: pointer; color: var(--text-muted); transition: all 0.15s; }
+.fa-speed-btn.active { background: var(--kh-c-secondary-purple-500); color: var(--text-primary); border-color: var(--accent-purple); }
+.fa-progress { margin-left: auto; font-size: 11px; color: var(--text-muted); font-weight: 700; font-family: var(--font-mono); }
 
 /* ── Card ── */
-.fa-card { background: var(--bg-primary); border-radius: var(--radius); padding: 6px 8px; display: flex; flex-direction: column; gap: 5px; }
+.fa-card { background: var(--bg-inset); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 6px 8px; display: flex; flex-direction: column; gap: 5px; }
 
 /* ── Portraits ── */
 .fa-portraits { display: flex; align-items: center; justify-content: center; gap: 12px; }
-.fa-portrait { display: flex; flex-direction: column; align-items: center; gap: 3px; opacity: 0.7; transition: all 0.3s; }
+.fa-portrait { display: flex; flex-direction: column; align-items: center; gap: 3px; opacity: 0.6; transition: all 0.3s; }
 .fa-portrait.winner { opacity: 1; transform: scale(1.05); }
-.fa-portrait.winner .fa-name { color: var(--accent-green); font-weight: 700; }
-.fa-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border); }
-.fa-portrait.winner .fa-avatar { border-color: var(--accent-green); box-shadow: 0 0 8px rgba(72, 199, 142, 0.4); }
-.fa-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
-.fa-char { font-size: 10px; color: var(--text-muted); }
-.fa-vs-arrow { font-size: 22px; font-weight: 900; text-shadow: 0 0 6px rgba(255, 82, 82, 0.3); }
-.fa-vs-arrow.arrow-right { color: var(--accent-red); }
+.fa-portrait.winner .fa-name { color: var(--accent-green); font-weight: 800; }
+.fa-avatar { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-subtle); }
+.fa-portrait.winner .fa-avatar { border-color: var(--accent-green); box-shadow: var(--glow-green); }
+.fa-name { font-size: 11px; font-weight: 700; color: var(--text-primary); }
+.fa-char { font-size: 9px; color: var(--text-muted); }
+.fa-vs-arrow { font-size: 20px; font-weight: 900; }
+.fa-vs-arrow.arrow-right { color: var(--accent-red); text-shadow: var(--glow-red); }
 .fa-vs-arrow.arrow-left { color: var(--accent-blue); }
 
 /* ── Bar ── */
 .fa-bar-container { display: flex; align-items: center; gap: 6px; padding: 4px 0; }
-.fa-bar-label { font-size: 10px; font-weight: 700; color: var(--text-muted); width: 28px; text-align: center; flex-shrink: 0; }
-.fa-bar-track { flex: 1; height: 22px; background: var(--bg-secondary); border-radius: 11px; overflow: hidden; position: relative; }
-.fa-bar-fill { height: 100%; border-radius: 11px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; min-width: 40px; }
-.fa-bar-fill.bar-attacker { background: linear-gradient(90deg, var(--accent-green), #48c78e); }
-.fa-bar-fill.bar-defender { background: linear-gradient(90deg, var(--accent-red), #ff5252); }
-.fa-bar-fill.bar-even { background: linear-gradient(90deg, var(--accent-orange), #ffb347); }
-.fa-bar-value { font-size: 10px; font-weight: 700; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+.fa-bar-label { font-size: 9px; font-weight: 800; color: var(--text-muted); width: 28px; text-align: center; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.5px; }
+.fa-bar-track { flex: 1; height: 20px; background: var(--bg-secondary); border-radius: 10px; overflow: hidden; position: relative; border: 1px solid var(--border-subtle); }
+.fa-bar-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; min-width: 40px; }
+.fa-bar-fill.bar-attacker { background: linear-gradient(90deg, var(--kh-c-secondary-success-500), var(--accent-green)); }
+.fa-bar-fill.bar-defender { background: linear-gradient(90deg, var(--accent-red-dim), var(--accent-red)); }
+.fa-bar-fill.bar-even { background: linear-gradient(90deg, rgba(230, 148, 74, 0.6), var(--accent-orange)); }
+.fa-bar-value { font-size: 9px; font-weight: 800; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.5); font-family: var(--font-mono); }
 
 /* ── Round headers ── */
-.fa-round-header { font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 0 1px; border-bottom: 1px solid var(--border); opacity: 0; transition: opacity 0.3s; }
+.fa-round-header { font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 0 1px; border-bottom: 1px solid var(--border-subtle); opacity: 0; transition: opacity 0.3s; }
 .fa-round-header.visible, .fa-factors + .fa-round-header, .fa-round-header:first-of-type { opacity: 1; }
-/* Always show the first round header */
 .fa-card > .fa-round-header:first-of-type { opacity: 1; }
 div.fa-round-header { opacity: 1; }
 
 /* ── Round result badge ── */
-.fa-round-result { text-align: center; font-size: 11px; font-weight: 800; padding: 2px 10px; border-radius: 4px; margin: 2px 0; }
-.fa-round-result.round-win { background: rgba(72, 199, 142, 0.15); color: var(--accent-green); }
-.fa-round-result.round-loss { background: rgba(255, 82, 82, 0.15); color: var(--accent-red); }
-.fa-round-result.round-draw { background: rgba(251, 191, 36, 0.15); color: var(--accent-orange); }
+.fa-round-result { text-align: center; font-size: 10px; font-weight: 800; padding: 2px 10px; border-radius: 4px; margin: 2px 0; }
+.fa-round-result.round-win { background: rgba(63, 167, 61, 0.1); color: var(--accent-green); border: 1px solid rgba(63, 167, 61, 0.2); }
+.fa-round-result.round-loss { background: rgba(239, 128, 128, 0.08); color: var(--accent-red); border: 1px solid rgba(239, 128, 128, 0.15); }
+.fa-round-result.round-draw { background: rgba(230, 148, 74, 0.08); color: var(--accent-orange); border: 1px solid rgba(230, 148, 74, 0.15); }
 
 /* ── Factors ── */
-.fa-factors { display: flex; flex-direction: column; gap: 3px; }
-.fa-factor { display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 4px; font-size: 11px; background: var(--bg-secondary); opacity: 0; transform: translateY(4px); transition: opacity 0.3s, transform 0.3s; }
+.fa-factors { display: flex; flex-direction: column; gap: 2px; }
+.fa-factor { display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 4px; font-size: 11px; background: var(--bg-secondary); opacity: 0; transform: translateY(4px); transition: opacity 0.3s, transform 0.3s; border: 1px solid transparent; }
 .fa-factor.visible { opacity: 1; transform: translateY(0); }
-.fa-factor.good { border-left: 3px solid var(--accent-green); }
-.fa-factor.bad { border-left: 3px solid var(--accent-red); }
-.fa-factor.neutral { border-left: 3px solid var(--accent-orange); }
-.fa-factor.justice { border-left: 3px solid var(--accent-purple); }
-.fa-factor.random { border-left: 3px solid var(--accent-blue); }
-.fa-factor-label { font-weight: 700; color: var(--text-primary); min-width: 100px; }
-.fa-factor-detail { color: var(--text-secondary); flex: 1; }
-.fa-factor-value { font-weight: 700; color: var(--accent-gold); margin-left: auto; }
+.fa-factor.good { border-left: 2px solid var(--accent-green); }
+.fa-factor.bad { border-left: 2px solid var(--accent-red); }
+.fa-factor.neutral { border-left: 2px solid var(--accent-orange); }
+.fa-factor.justice { border-left: 2px solid var(--accent-purple); }
+.fa-factor.random { border-left: 2px solid var(--accent-blue); }
+.fa-factor-label { font-weight: 700; color: var(--text-primary); min-width: 100px; font-size: 10px; }
+.fa-factor-detail { color: var(--text-secondary); flex: 1; font-size: 10px; }
+.fa-factor-value { font-weight: 800; color: var(--accent-gold); margin-left: auto; font-family: var(--font-mono); font-size: 11px; }
 .fa-factor-value.good-val { color: var(--accent-green); }
-.fa-factor-value.bad-val { color: var(--accent-red, #ef4444); }
+.fa-factor-value.bad-val { color: var(--accent-red); }
 .neutral-val { color: var(--text-muted); }
 
 /* ── Badges (TooGood / TooStronk) ── */
 .fa-badge-row { display: flex; justify-content: center; padding: 2px 0; opacity: 0; transition: opacity 0.3s; }
 .fa-badge-row.visible { opacity: 1; }
-.fa-badge { font-size: 10px; font-weight: 900; padding: 2px 10px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-.badge-toogood { background: rgba(72, 199, 142, 0.2); color: var(--accent-green); border: 1px solid var(--accent-green); }
-.badge-toostronk { background: rgba(167, 139, 250, 0.2); color: var(--accent-purple); border: 1px solid var(--accent-purple); }
+.fa-badge { font-size: 9px; font-weight: 900; padding: 2px 10px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.badge-toogood { background: rgba(63, 167, 61, 0.1); color: var(--accent-green); border: 1px solid rgba(63, 167, 61, 0.3); }
+.badge-toostronk { background: rgba(180, 150, 255, 0.1); color: var(--accent-purple); border: 1px solid rgba(180, 150, 255, 0.3); }
 
 /* ── R3 details ── */
-.fa-r3-details { display: flex; flex-direction: column; gap: 3px; }
+.fa-r3-details { display: flex; flex-direction: column; gap: 2px; }
 .pct-good { color: var(--accent-green); font-weight: 700; }
-.pct-bad { color: var(--accent-red, #ef4444); font-weight: 700; }
-.fa-chance-total { font-size: 14px; font-weight: 800; }
-.fa-roll-result { border-top: 1px solid var(--border-color); padding-top: 4px; margin-top: 2px; }
+.pct-bad { color: var(--accent-red); font-weight: 700; }
+.fa-chance-total { font-size: 13px; font-weight: 800; }
+.fa-roll-result { border-top: 1px solid var(--border-subtle); padding-top: 4px; margin-top: 2px; }
 
 /* ── Enemy summary ── */
 .fa-enemy-summary { display: flex; gap: 6px; justify-content: center; padding: 4px 0; }
 
 /* ── Result ── */
 .fa-result { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0 4px; }
-.fa-outcome { font-size: 14px; font-weight: 900; text-transform: uppercase; padding: 4px 16px; border-radius: 8px; }
-.outcome-attacker { background: var(--accent-green); color: white; }
-.outcome-defender { background: var(--accent-red); color: white; }
-.outcome-neutral { background: var(--accent-orange); color: white; }
+.fa-outcome { font-size: 12px; font-weight: 900; text-transform: uppercase; padding: 4px 16px; border-radius: var(--radius); letter-spacing: 0.5px; }
+.outcome-attacker { background: var(--kh-c-secondary-success-500); color: var(--text-primary); border: 1px solid var(--accent-green); }
+.outcome-defender { background: var(--accent-red-dim); color: var(--text-primary); border: 1px solid var(--accent-red); }
+.outcome-neutral { background: rgba(230, 148, 74, 0.3); color: var(--accent-orange); border: 1px solid var(--accent-orange); }
 
-.fa-result-details { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; font-size: 11px; padding-top: 2px; }
-.fa-detail-item { padding: 1px 8px; border-radius: 4px; background: var(--bg-secondary); }
+.fa-result-details { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; font-size: 10px; padding-top: 2px; }
+.fa-detail-item { padding: 1px 8px; border-radius: 4px; background: var(--bg-secondary); border: 1px solid var(--border-subtle); }
 .fa-skill-gain { color: var(--accent-green); font-weight: 700; }
 .fa-moral { color: var(--accent-purple); }
 .fa-justice { color: var(--accent-blue); }
 .fa-resist { color: var(--accent-orange); }
-.fa-intellectual { color: var(--accent-blue); font-weight: 700; font-style: italic; }
-.fa-emotional { color: var(--accent-purple); font-weight: 700; font-style: italic; }
-.fa-drop { color: white; background: var(--accent-red) !important; font-weight: 700; }
+/* Damage to US — alarming red pulse */
+.fa-dmg-us { color: var(--accent-red); font-weight: 800; font-style: italic; animation: dmg-pulse 0.6s ease-in-out 2; }
+/* Damage to ENEMY — muted, informational */
+.fa-dmg-enemy { color: var(--text-muted); font-weight: 600; font-style: italic; }
+@keyframes dmg-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+.fa-drop { color: white; background: var(--accent-red-dim) !important; border-color: var(--accent-red) !important; font-weight: 800; animation: dmg-pulse 0.6s ease-in-out 2; }
+.fa-drop-enemy { color: var(--text-muted); font-weight: 600; }
 
 /* ── Special (block/skip) ── */
 .fa-special { display: flex; justify-content: center; padding: 12px 0; }
 
 /* ── Thumbnails ── */
-.fa-thumbs { display: flex; gap: 3px; flex-wrap: wrap; padding-top: 4px; }
-.fa-thumb { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--text-secondary); transition: all 0.15s; }
-.fa-thumb:hover { border-color: var(--accent-blue); }
-.fa-thumb.active { background: var(--accent-blue); color: white; border-color: var(--accent-blue); }
-.fa-thumb.is-block { border-color: var(--accent-orange); }
-.fa-thumb.is-skip { border-color: var(--accent-red); opacity: 0.6; }
+.fa-thumbs { display: flex; gap: 2px; flex-wrap: wrap; padding-top: 4px; }
+.fa-thumb { width: 24px; height: 24px; border-radius: var(--radius); border: 1px solid var(--border-subtle); background: var(--bg-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 800; color: var(--text-muted); transition: all 0.15s; font-family: var(--font-mono); }
+.fa-thumb:hover { border-color: var(--accent-blue); color: var(--text-primary); }
+.fa-thumb.active { background: var(--kh-c-secondary-info-500); color: var(--text-primary); border-color: var(--accent-blue); }
+.fa-thumb.is-block { border-color: rgba(230, 148, 74, 0.4); }
+.fa-thumb.is-skip { border-color: rgba(239, 128, 128, 0.3); opacity: 0.5; }
 
 /* ── Tabs ── */
-.fa-tab-header { display: flex; gap: 2px; background: var(--bg-secondary); border-radius: 8px; padding: 2px; }
-.fa-tab { flex: 1; padding: 5px 12px; border: none; border-radius: 6px; background: transparent; color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+.fa-tab-header { display: flex; gap: 2px; background: var(--bg-secondary); border-radius: var(--radius); padding: 2px; }
+.fa-tab { flex: 1; padding: 4px 10px; border: none; border-radius: 4px; background: transparent; color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.15s; }
 .fa-tab:hover { color: var(--text-primary); }
-.fa-tab.active { background: var(--bg-card); color: var(--text-primary); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.fa-tab.active { background: var(--bg-card); color: var(--accent-gold); }
 
 /* ── All Fights list ── */
 .fa-all-fights { flex: 1; overflow-y: auto; }
-.fa-all-list { display: flex; flex-direction: column; gap: 4px; }
-.fa-all-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; background: var(--bg-primary); font-size: 14px; }
-.fa-all-row.is-mine { background: rgba(99, 102, 241, 0.1); border-left: 3px solid var(--accent-purple); }
-.fa-all-ava { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid var(--border); }
-.fa-all-name { font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
-.fa-all-vs { color: var(--text-muted); font-size: 13px; flex-shrink: 0; font-weight: 700; }
-.fa-all-result { margin-left: auto; font-weight: 800; font-size: 13px; padding: 3px 10px; border-radius: 6px; white-space: nowrap; }
-.fa-all-result.co-win { color: var(--accent-green); background: rgba(72, 199, 142, 0.1); }
-.fa-all-result.co-loss { color: var(--accent-red); background: rgba(255, 82, 82, 0.1); }
-.fa-all-result.co-neutral { color: var(--accent-orange); background: rgba(251, 191, 36, 0.1); }
-.fa-all-result.co-other { color: var(--text-secondary); }
-.fa-all-drop { font-size: 11px; font-weight: 900; color: white; background: var(--accent-red); padding: 2px 8px; border-radius: 4px; line-height: 18px; flex-shrink: 0; }
+.fa-all-list { display: flex; flex-direction: column; gap: 3px; }
+.fa-all-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--radius); background: var(--bg-inset); font-size: 13px; border: 1px solid transparent; }
+.fa-all-row.is-mine { background: rgba(180, 150, 255, 0.05); border-color: rgba(180, 150, 255, 0.15); }
+.fa-all-ava { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid var(--border-subtle); }
+.fa-all-name { font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; font-size: 12px; }
+.fa-all-vs { color: var(--text-dim); font-size: 11px; flex-shrink: 0; font-weight: 700; }
+.fa-all-result { margin-left: auto; font-weight: 800; font-size: 11px; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+.fa-all-result.co-win { color: var(--accent-green); background: rgba(63, 167, 61, 0.08); }
+.fa-all-result.co-loss { color: var(--accent-red); background: rgba(239, 128, 128, 0.06); }
+.fa-all-result.co-neutral { color: var(--accent-orange); background: rgba(230, 148, 74, 0.06); }
+.fa-all-result.co-other { color: var(--text-muted); }
+.fa-all-drop { font-size: 9px; font-weight: 900; color: white; background: var(--accent-red-dim); padding: 2px 6px; border-radius: 4px; line-height: 16px; flex-shrink: 0; border: 1px solid var(--accent-red); }
 
 /* ── Летопись ── */
-.fa-letopis { flex: 1; overflow-y: auto; padding: 4px; background: var(--bg-primary); border-radius: var(--radius); }
-.fa-letopis-content { font-size: 12px; line-height: 1.6; color: var(--text-secondary); font-family: var(--font-mono); }
+.fa-letopis { flex: 1; overflow-y: auto; padding: 4px; background: var(--bg-inset); border-radius: var(--radius); border: 1px solid var(--border-subtle); }
+.fa-letopis-content { font-size: 11px; line-height: 1.6; color: var(--text-secondary); font-family: var(--font-mono); }
 .fa-letopis-content :deep(strong) { color: var(--accent-gold); }
 .fa-letopis-content :deep(em) { color: var(--accent-blue); }
 .fa-letopis-content :deep(u) { color: var(--accent-green); }

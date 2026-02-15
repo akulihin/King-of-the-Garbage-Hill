@@ -57,21 +57,33 @@ onUnmounted(() => {
 .spectate-header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.spectate-header h2 {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-primary);
 }
 
 .loading {
   text-align: center;
-  padding: 80px;
+  padding: 60px;
   color: var(--text-muted);
+  font-size: 13px;
 }
 
 .spectate-log {
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1.6;
   color: var(--text-secondary);
   white-space: pre-wrap;
   word-break: break-word;
+  font-family: var(--font-mono);
+  background: var(--bg-inset);
+  padding: 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-subtle);
 }
 </style>

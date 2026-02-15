@@ -90,7 +90,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         var randIndex = _rand.Random(0, playersList.Count - 1);
                         enemy1 = playersList[randIndex].GetPlayerId();
-                        if (playersList[randIndex].GameCharacter.Name is "Mit*suki*" or "Глеб" or "mylorik"
+                        if (playersList[randIndex].GameCharacter.Name is "Школоло" or "Глеб" or "mylorik"
                             or "Загадочный Спартанец в маске")
                             enemy1 = player.GetPlayerId();
                     } while (enemy1 == player.GetPlayerId());
@@ -99,7 +99,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         var randIndex = _rand.Random(0, playersList.Count - 1);
                         enemy2 = playersList[randIndex].GetPlayerId();
-                        if (playersList[randIndex].GameCharacter.Name is "Mit*suki*" or "Глеб" or "mylorik"
+                        if (playersList[randIndex].GameCharacter.Name is "Школоло" or "Глеб" or "mylorik"
                             or "Загадочный Спартанец в маске")
                             enemy2 = player.GetPlayerId();
                         if (enemy2 == enemy1)
@@ -1168,7 +1168,7 @@ public class CharacterPassives : IServiceSingleton
 
                                 var howMuchToAdd = -1;
 
-                                if (target!.GameCharacter.Name == "Mit*suki*")
+                                if (target!.GameCharacter.Name == "Школоло")
                                 {
                                     howMuchToAdd = -2;
                                     target.Status.AddInGamePersonalLogs(
@@ -1946,7 +1946,7 @@ public class CharacterPassives : IServiceSingleton
                             if (game.PlayersList[randIndex].GameCharacter.Name is "Глеб" or "mylorik" or
                                 "Загадочный Спартанец в маске")
                                 enemy1 = player.GetPlayerId();
-                            if (game.PlayersList[randIndex].GameCharacter.Name is "Mit*suki*" && game.RoundNo < 4)
+                            if (game.PlayersList[randIndex].GameCharacter.Name is "Школоло" && game.RoundNo < 4)
                                 enemy1 = player.GetPlayerId();
                             if (game.PlayersList[randIndex].GameCharacter.Name is "Вампур" && game.RoundNo >= 4)
                                 enemy1 = player.GetPlayerId();
@@ -1959,7 +1959,7 @@ public class CharacterPassives : IServiceSingleton
                             if (game.PlayersList[randIndex].GameCharacter.Name is "Глеб" or "mylorik" or
                                 "Загадочный Спартанец в маске")
                                 enemy2 = player.GetPlayerId();
-                            if (game.PlayersList[randIndex].GameCharacter.Name is "Mit*suki*" && game.RoundNo < 4)
+                            if (game.PlayersList[randIndex].GameCharacter.Name is "Школоло" && game.RoundNo < 4)
                                 enemy2 = player.GetPlayerId();
                             if (game.PlayersList[randIndex].GameCharacter.Name is "Вампур" && game.RoundNo >= 4)
                                 enemy2 = player.GetPlayerId();
@@ -2990,7 +2990,7 @@ public class CharacterPassives : IServiceSingleton
         }
 
         characters.Add("Sirinoks");
-        characters.Add("Mit*suki*");
+        characters.Add("Школоло");
         characters.Add("AWDKA");
         characters.Add("Вампур");
 
@@ -3042,7 +3042,7 @@ public class CharacterPassives : IServiceSingleton
                                             break;
                                         case 9:
                                             if (player.Predict.All(x => x.PlayerId != playerClass!.GetPlayerId()))
-                                                player.Predict.Add(new PredictClass("Mit*suki*",
+                                                player.Predict.Add(new PredictClass("Школоло",
                                                     playerClass.GetPlayerId()));
                                             break;
                                         case 8:

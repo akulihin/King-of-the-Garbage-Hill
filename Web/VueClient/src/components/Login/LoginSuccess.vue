@@ -60,10 +60,13 @@ onMounted(() => {
   flex-direction: column;
   width: 30vw;
   min-width: 320px;
-  background-color: var(--kh-c-neutrals-pale-300);
+  background-color: var(--kh-c-neutrals-sat-700);
+  border: 1px solid var(--kh-c-neutrals-pale-375);
+  border-radius: 10px;
   justify-content: center;
   padding: 2rem 1.75rem;
   gap: 1.5rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .loginBox > div {
@@ -80,16 +83,23 @@ onMounted(() => {
 }
 
 .user > .loggedInMessage {
-  font-size: 0.75rem;
-  color: var(--kh-c-text-primary-600);
+  font-size: 0.7rem;
+  color: var(--kh-c-text-primary-700);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
 }
 
 .user > .userName {
-  font-size: 1.25rem;
-  color: var(--kh-c-text-primary-500);
-  background-color: var(--kh-c-neutrals-sat-650);
+  font-size: 1.125rem;
+  color: var(--kh-c-text-highlight-primary);
+  background-color: var(--kh-c-neutrals-sat-800);
+  border: 1px solid var(--kh-c-neutrals-pale-375);
+  border-radius: 6px;
   justify-content: center;
-  padding: 0.8rem;
+  padding: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
 }
 
 .loginBox > div:last-child {
@@ -101,55 +111,57 @@ onMounted(() => {
 }
 
 .redirectMessage {
-  font-size: 0.75rem;
-  color: var(--kh-c-text-primary-600);
+  font-size: 0.7rem;
+  color: var(--kh-c-text-primary-700);
 }
 
 .okButton {
   width: 11.25rem;
-  height: 3rem;
+  height: 2.75rem;
   justify-content: center;
   align-items: center;
   padding: 0.5rem;
   background-color: var(--kh-c-secondary-success-500);
   color: var(--kh-c-text-primary-500);
   border: none;
-  font-size: 1.125rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 700;
   z-index: 5;
-  transition: background-color 0.15s ease-out, color 0.15s ease-out;
+  transition: all 0.15s ease-out;
   cursor: pointer;
 }
 
 .okButton:hover {
-  background-color: var(--kh-c-text-primary-600);
-  color: var(--kh-c-secondary-success-300);
-  border: 1px solid var(--kh-c-secondary-success-500);
+  background-color: var(--kh-c-secondary-success-300);
+  box-shadow: 0 0 12px rgba(63, 167, 61, 0.25);
 }
 
 .okButton:active {
-  background-color: transparent;
-  color: var(--kh-c-secondary-success-300);
-  border: 1px solid var(--kh-c-secondary-success-500);
+  background-color: var(--kh-c-secondary-success-600);
 }
 
 .version {
-  color: var(--kh-c-text-primary-700);
-  font-size: 0.75rem;
+  color: var(--kh-c-text-primary-800);
+  font-size: 0.7rem;
   justify-content: center;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
-/* Mobile */
 @media only screen and (max-width: 800px) {
   .loginBox {
     width: 100vw;
     padding: 2.375rem 1.75rem;
     gap: 1.5rem;
+    border-radius: 0;
   }
 
   .okButton {
     width: 50vw;
-    height: 4rem;
-    font-size: 1.5rem;
+    height: 3.5rem;
+    font-size: 1.25rem;
   }
 }
 </style>

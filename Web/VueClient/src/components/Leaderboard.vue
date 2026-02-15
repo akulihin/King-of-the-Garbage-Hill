@@ -282,7 +282,7 @@ watch(() => props.fightLog, (newLog) => {
         <!-- Mini stats (editable for non-admin opponents) -->
         <div class="lb-stats">
           <template v-if="isMasked(player)">
-            <span class="stat stat-intelligence" title="Intelligence">🧠
+            <span class="stat stat-intelligence" title="Intelligence"><span class="gi gi-int">INT</span>
               <input
                 type="number"
                 class="stat-guess-input"
@@ -293,7 +293,7 @@ watch(() => props.fightLog, (newLog) => {
                 @click.stop
               >
             </span>
-            <span class="stat stat-strength" title="Strength">💪
+            <span class="stat stat-strength" title="Strength"><span class="gi gi-str">STR</span>
               <input
                 type="number"
                 class="stat-guess-input"
@@ -304,7 +304,7 @@ watch(() => props.fightLog, (newLog) => {
                 @click.stop
               >
             </span>
-            <span class="stat stat-speed" title="Speed">⚡
+            <span class="stat stat-speed" title="Speed"><span class="gi gi-spd">SPD</span>
               <input
                 type="number"
                 class="stat-guess-input"
@@ -315,7 +315,7 @@ watch(() => props.fightLog, (newLog) => {
                 @click.stop
               >
             </span>
-            <span class="stat stat-psyche" title="Psyche">🧘
+            <span class="stat stat-psyche" title="Psyche"><span class="gi gi-psy">PSY</span>
               <input
                 type="number"
                 class="stat-guess-input"
@@ -328,10 +328,10 @@ watch(() => props.fightLog, (newLog) => {
             </span>
           </template>
           <template v-else>
-            <span class="stat stat-intelligence" title="Intelligence">🧠{{ player.character.intelligence }}</span>
-            <span class="stat stat-strength" title="Strength">💪{{ player.character.strength }}</span>
-            <span class="stat stat-speed" title="Speed">⚡{{ player.character.speed }}</span>
-            <span class="stat stat-psyche" title="Psyche">🧘{{ player.character.psyche }}</span>
+            <span class="stat stat-intelligence" title="Intelligence"><span class="gi gi-int">INT</span>{{ player.character.intelligence }}</span>
+            <span class="stat stat-strength" title="Strength"><span class="gi gi-str">STR</span>{{ player.character.strength }}</span>
+            <span class="stat stat-speed" title="Speed"><span class="gi gi-spd">SPD</span>{{ player.character.speed }}</span>
+            <span class="stat stat-psyche" title="Psyche"><span class="gi gi-psy">PSY</span>{{ player.character.psyche }}</span>
           </template>
         </div>
 
@@ -407,10 +407,10 @@ watch(() => props.fightLog, (newLog) => {
               >
               <span>{{ name }}</span>
               <span v-if="charCatalogMap[name]" class="predict-option-stats">
-                🧠{{ charCatalogMap[name].intelligence }}
-                💪{{ charCatalogMap[name].strength }}
-                ⚡{{ charCatalogMap[name].speed }}
-                🧘{{ charCatalogMap[name].psyche }}
+                <span class="gi gi-int">INT</span>{{ charCatalogMap[name].intelligence }}
+                <span class="gi gi-str">STR</span>{{ charCatalogMap[name].strength }}
+                <span class="gi gi-spd">SPD</span>{{ charCatalogMap[name].speed }}
+                <span class="gi gi-psy">PSY</span>{{ charCatalogMap[name].psyche }}
               </span>
             </button>
             <div v-if="filteredCharacters().length === 0" class="predict-empty">
@@ -427,17 +427,18 @@ watch(() => props.fightLog, (newLog) => {
 .lb-table {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
 .lb-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 6px 10px;
   border-radius: var(--radius);
   background: var(--bg-secondary);
   transition: all 0.15s;
+  border: 1px solid transparent;
 }
 
 .lb-row:hover { background: var(--bg-card-hover); }
@@ -445,82 +446,81 @@ watch(() => props.fightLog, (newLog) => {
 .lb-row.can-click { cursor: crosshair; }
 
 .lb-row.can-click:hover {
-  background: rgba(248, 113, 113, 0.1);
-  border-left: 3px solid var(--accent-red);
-  padding-left: 7px;
+  background: rgba(239, 128, 128, 0.06);
+  border-color: var(--accent-red-dim);
 }
 
 .lb-row.is-me {
-  border-left: 3px solid var(--accent-gold);
-  padding-left: 7px;
-  background: rgba(255, 215, 0, 0.05);
+  border-color: var(--accent-gold-dim);
+  background: rgba(233, 219, 61, 0.04);
 }
 
 .lb-row.is-me.can-click:hover {
-  border-left-color: var(--accent-gold);
-  background: rgba(255, 215, 0, 0.05);
+  border-color: var(--accent-gold-dim);
+  background: rgba(233, 219, 61, 0.04);
   cursor: default;
 }
 
-.lb-row.is-bot { opacity: 0.75; }
+.lb-row.is-bot { opacity: 0.7; }
 
 .lb-place {
-  width: 24px;
+  width: 22px;
   text-align: center;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 800;
   color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 
 .lb-prefix {
-  font-size: 14px;
+  font-size: 13px;
   margin-right: 1px;
 }
 
-.lb-row:nth-child(1) .lb-place { color: var(--accent-gold); }
-.lb-row:nth-child(2) .lb-place { color: #c0c0c0; }
-.lb-row:nth-child(3) .lb-place { color: #cd7f32; }
+.lb-row:nth-child(1) .lb-place { color: var(--accent-gold); text-shadow: var(--glow-gold); }
+.lb-row:nth-child(2) .lb-place { color: #b0b0b8; }
+.lb-row:nth-child(3) .lb-place { color: #c08040; }
 
 .lb-avatar {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
   position: relative;
 }
 
 .avatar-img {
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius);
   object-fit: cover;
-  border: 2px solid var(--border-color);
+  border: 1px solid var(--border-subtle);
 }
 
 .avatar-placeholder {
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
-  background: var(--bg-primary);
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius);
+  background: var(--bg-inset);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 14px;
-  color: var(--text-muted);
-  border: 2px solid var(--border-color);
+  font-size: 13px;
+  color: var(--text-dim);
+  border: 1px solid var(--border-subtle);
 }
 
 .ready-dot, .block-dot {
   position: absolute;
   bottom: -2px;
   right: -2px;
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   border: 2px solid var(--bg-secondary);
 }
 
-.ready-dot { background: var(--accent-green); }
+.ready-dot { background: var(--accent-green); box-shadow: var(--glow-green); }
 .block-dot { background: var(--accent-blue); }
 
 .lb-info { flex: 1; min-width: 0; }
@@ -532,18 +532,26 @@ watch(() => props.fightLog, (newLog) => {
 }
 
 .player-name {
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: 700;
+  font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text-primary);
 }
 
-.badge { padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 700; }
-.bot-badge { background: var(--text-muted); color: var(--bg-primary); }
+.badge {
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.bot-badge { background: var(--text-dim); color: var(--bg-primary); }
 
 .lb-custom {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--accent-orange);
   font-weight: 500;
   white-space: nowrap;
@@ -555,38 +563,38 @@ watch(() => props.fightLog, (newLog) => {
 .lb-custom :deep(em) { color: var(--accent-blue); }
 .lb-custom :deep(u) { color: var(--accent-green); }
 .lb-custom :deep(.lb-emoji) {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   vertical-align: middle;
   display: inline;
   margin: 0 1px;
 }
 
-.lb-character { font-size: 11px; color: var(--text-muted); }
-.lb-character.masked-name { color: var(--text-muted); font-style: italic; opacity: 0.6; }
-.tier-stars { color: var(--accent-gold); font-size: 9px; }
+.lb-character { font-size: 10px; color: var(--text-muted); }
+.lb-character.masked-name { color: var(--text-dim); font-style: italic; }
+.tier-stars { color: var(--accent-gold-dim); font-size: 8px; }
 
-.masked-avatar { opacity: 0.6; filter: grayscale(0.3); }
+.masked-avatar { opacity: 0.5; filter: grayscale(0.4); }
 
 .lb-stats {
   display: flex;
-  gap: 4px;
-  font-size: 11px;
+  gap: 3px;
+  font-size: 10px;
   font-family: var(--font-mono);
 }
 
 .stat { white-space: nowrap; display: flex; align-items: center; gap: 1px; }
 
 .stat-guess-input {
-  width: 28px;
-  height: 20px;
+  width: 26px;
+  height: 18px;
   padding: 0 2px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  background: var(--bg-inset);
   color: var(--accent-orange);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-align: center;
   outline: none;
@@ -599,42 +607,41 @@ watch(() => props.fightLog, (newLog) => {
   margin: 0;
 }
 
-.stat-guess-input::placeholder { color: var(--text-muted); font-style: italic; }
+.stat-guess-input::placeholder { color: var(--text-dim); font-style: italic; }
 
 .stat-guess-input:focus {
   border-color: var(--accent-orange);
-  box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.3);
 }
 
-.score-hidden { color: var(--text-muted); font-style: italic; }
+.score-hidden { color: var(--text-dim); font-style: italic; }
 
 .lb-score-area {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-width: 80px;
   position: relative;
 }
 
 .score-bar-bg {
   flex: 1;
-  height: 6px;
-  background: var(--bg-primary);
-  border-radius: 3px;
+  height: 4px;
+  background: var(--bg-inset);
+  border-radius: 2px;
   overflow: hidden;
 }
 
 .score-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent-green), var(--accent-gold));
-  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent-green-dim), var(--accent-gold-dim));
+  border-radius: 2px;
   transition: width 0.5s ease;
 }
 
 .score-value {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
-  min-width: 24px;
+  min-width: 22px;
   text-align: right;
   color: var(--accent-gold);
   font-family: var(--font-mono);
@@ -644,12 +651,12 @@ watch(() => props.fightLog, (newLog) => {
 .lb-predict { flex-shrink: 0; }
 
 .predict-btn {
-  padding: 4px 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-primary);
+  padding: 3px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
   white-space: nowrap;
   max-width: 100px;
@@ -665,20 +672,20 @@ watch(() => props.fightLog, (newLog) => {
 
 .predict-btn.has-prediction {
   color: var(--accent-purple);
-  border-color: var(--accent-purple);
-  background: rgba(167, 139, 250, 0.1);
+  border-color: rgba(180, 150, 255, 0.3);
+  background: rgba(180, 150, 255, 0.06);
 }
 
 /* Locked prediction (confirmed, read-only) */
 .lb-predict-locked { flex-shrink: 0; }
 
 .predict-locked-text {
-  padding: 4px 10px;
-  border-radius: 6px;
-  background: rgba(167, 139, 250, 0.05);
-  border: 1px solid rgba(167, 139, 250, 0.2);
+  padding: 3px 8px;
+  border-radius: var(--radius);
+  background: rgba(180, 150, 255, 0.04);
+  border: 1px solid rgba(180, 150, 255, 0.15);
   color: var(--accent-purple);
-  font-size: 12px;
+  font-size: 11px;
   opacity: 0.7;
 }
 </style>
@@ -692,32 +699,33 @@ watch(() => props.fightLog, (newLog) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
 }
 
 .predict-dropdown {
-  width: 280px;
-  max-height: 360px;
-  background: var(--bg-card, #16213e);
-  border: 1px solid var(--border-color, #2a2a4a);
-  border-radius: 12px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  width: 300px;
+  max-height: 380px;
+  background: var(--bg-card, #2d2b31);
+  border: 1px solid var(--border-color, #3a3640);
+  border-radius: var(--radius-lg, 10px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
   overflow: hidden;
 }
 
 .predict-search {
   width: 100%;
-  padding: 12px 16px;
+  padding: 10px 14px;
   border: none;
-  border-bottom: 1px solid var(--border-color, #2a2a4a);
+  border-bottom: 1px solid var(--border-subtle, #2c2a33);
   background: transparent;
-  color: var(--text-primary, #e0e0e0);
-  font-size: 14px;
+  color: var(--text-primary, #f3f3ea);
+  font-size: 13px;
   outline: none;
 }
 
 .predict-list {
-  max-height: 280px;
+  max-height: 300px;
   overflow-y: auto;
 }
 
@@ -726,42 +734,43 @@ watch(() => props.fightLog, (newLog) => {
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 8px 16px;
+  padding: 7px 14px;
   border: none;
   background: transparent;
-  color: var(--text-secondary, #a0a0b0);
-  font-size: 14px;
+  color: var(--text-secondary, #eceff2);
+  font-size: 13px;
   text-align: left;
   cursor: pointer;
   transition: background 0.1s;
 }
 
 .predict-option:hover {
-  background: var(--bg-card-hover, #1a2744);
-  color: var(--text-primary, #e0e0e0);
+  background: var(--bg-card-hover, #413f46);
+  color: var(--text-primary, #f3f3ea);
 }
 
 .predict-option-avatar {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 4px;
   object-fit: cover;
   flex-shrink: 0;
+  border: 1px solid var(--border-subtle, #2c2a33);
 }
 
 .predict-option-stats {
   margin-left: auto;
-  font-size: 10px;
+  font-size: 9px;
   font-family: var(--font-mono, monospace);
-  color: var(--text-muted, #6b6b80);
+  color: var(--text-muted, #949ca4);
   white-space: nowrap;
 }
 
 .predict-empty {
   padding: 16px;
   text-align: center;
-  color: var(--text-muted, #6b6b80);
-  font-size: 13px;
+  color: var(--text-muted, #949ca4);
+  font-size: 12px;
 }
 
 /* ── Drop flash animation ── */
@@ -771,22 +780,23 @@ watch(() => props.fightLog, (newLog) => {
 
 @keyframes drop-flash {
   0%, 100% { background: inherit; }
-  15%, 40% { background: rgba(255, 82, 82, 0.25); }
+  15%, 40% { background: rgba(239, 128, 128, 0.15); }
 }
 
 .drop-badge {
   position: absolute;
   right: -4px;
   top: -2px;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 900;
   color: white;
-  background: var(--accent-red, #ff5252);
+  background: var(--accent-red-dim, #a02d2d);
   padding: 0 5px;
-  border-radius: 8px;
-  line-height: 16px;
+  border-radius: 6px;
+  line-height: 15px;
   animation: drop-badge-pop 0.5s ease-out;
   z-index: 2;
+  border: 1px solid var(--accent-red, #ef8080);
 }
 
 @keyframes drop-badge-pop {

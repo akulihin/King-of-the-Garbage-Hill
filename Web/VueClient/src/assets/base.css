@@ -1,6 +1,7 @@
 /* ── KOTGH Color Palette (from designer) ───────────────────────────── */
 :root {
-  /* Neutrals – pale */
+  /* Neutrals – pale (purple-tinted greys for borders, surfaces) */
+  --kh-c-neutrals-pale-200: rgba(100, 98, 106, 1);
   --kh-c-neutrals-pale-240: rgba(89, 88, 92, 1);
   --kh-c-neutrals-pale-260: rgba(77, 75, 82, 1);
   --kh-c-neutrals-pale-300: rgba(66, 62, 71, 1);
@@ -10,12 +11,13 @@
   --kh-c-neutrals-pale-575: rgba(36, 33, 43, 1);
   --kh-c-neutrals-655: rgba(21, 20, 28, 1);
 
-  /* Neutrals – saturated */
+  /* Neutrals – saturated (core backgrounds) */
   --kh-c-neutrals-sat-400: rgba(77, 76, 82, 1);
   --kh-c-neutrals-sat-500: rgba(65, 63, 70, 1);
   --kh-c-neutrals-sat-600: rgba(45, 43, 49, 1);
   --kh-c-neutrals-sat-650: rgba(38, 36, 43, 1);
   --kh-c-neutrals-sat-700: rgba(33, 31, 38, 1);
+  --kh-c-neutrals-sat-750: rgba(28, 26, 33, 1);
   --kh-c-neutrals-sat-800: rgba(23, 22, 28, 1);
 
   /* Greens / success */
@@ -25,12 +27,32 @@
   --kh-c-secondary-success-500: rgba(48, 108, 51, 1);
   --kh-c-secondary-success-600: rgba(31, 95, 37, 1);
 
+  /* Reds / danger */
+  --kh-c-secondary-danger-200: rgba(239, 128, 128, 1);
+  --kh-c-secondary-danger-300: rgba(220, 90, 90, 1);
+  --kh-c-secondary-danger-400: rgba(190, 60, 60, 1);
+  --kh-c-secondary-danger-500: rgba(160, 45, 45, 1);
+  --kh-c-secondary-danger-600: rgba(120, 30, 30, 1);
+
+  /* Blues / info */
+  --kh-c-secondary-info-200: rgba(110, 170, 240, 1);
+  --kh-c-secondary-info-300: rgba(80, 150, 230, 1);
+  --kh-c-secondary-info-400: rgba(60, 130, 210, 1);
+  --kh-c-secondary-info-500: rgba(50, 100, 170, 1);
+
+  /* Purples / ability */
+  --kh-c-secondary-purple-200: rgba(180, 150, 255, 1);
+  --kh-c-secondary-purple-300: rgba(155, 120, 240, 1);
+  --kh-c-secondary-purple-400: rgba(130, 100, 210, 1);
+  --kh-c-secondary-purple-500: rgba(100, 75, 170, 1);
+
   /* Text */
   --kh-c-text-primary-500: rgba(243, 243, 234, 1);
   --kh-c-text-primary-600: rgba(236, 239, 242, 1);
   --kh-c-text-primary-700: rgba(148, 156, 164, 1);
   --kh-c-text-primary-800: rgba(71, 83, 88, 1);
 
-  /* Highlight */
+  /* Highlight / gold */
   --kh-c-text-highlight-primary: rgba(233, 219, 61, 1);
+  --kh-c-text-highlight-dim: rgba(200, 185, 50, 1);
 }

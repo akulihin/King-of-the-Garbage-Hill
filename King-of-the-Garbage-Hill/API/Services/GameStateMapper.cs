@@ -386,6 +386,7 @@ public static class GameStateMapper
             JusticeMe = 0, JusticeTarget = 0,
             RandomNumber = 0, MaxRandomNumber = 0,
             MoralChange = 0,
+            AttackerMoralChange = 0, DefenderMoralChange = 0,
             ResistIntelDamage = 0, ResistStrDamage = 0, ResistPsycheDamage = 0,
             IntellectualDamage = false, EmotionalDamage = false,
             JusticeChange = 0, SkillGainedFromTarget = 0,

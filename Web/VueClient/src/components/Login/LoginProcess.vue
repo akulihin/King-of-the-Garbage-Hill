@@ -57,21 +57,28 @@ function handleLogin() {
   flex-direction: column;
   width: 30vw;
   min-width: 320px;
-  background-color: var(--kh-c-neutrals-pale-300);
+  background-color: var(--kh-c-neutrals-sat-700);
+  border: 1px solid var(--kh-c-neutrals-pale-375);
+  border-radius: 10px;
   justify-content: center;
   padding: 2rem 1.75rem;
   gap: 1.5rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .info {
   color: var(--kh-c-text-primary-600);
-  font-size: 0.875rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
 
 .version {
-  color: var(--kh-c-text-primary-700);
-  font-size: 0.75rem;
+  color: var(--kh-c-text-primary-800);
+  font-size: 0.7rem;
   justify-content: center;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 .loginForm {
@@ -81,40 +88,48 @@ function handleLogin() {
 
 .discordInput {
   width: 100%;
-  height: 3rem;
+  height: 2.75rem;
   padding: 0.5rem 1rem;
-  border: 1px solid var(--kh-c-neutrals-pale-260);
-  background-color: var(--kh-c-neutrals-sat-650);
+  border: 1px solid var(--kh-c-neutrals-pale-375);
+  border-radius: 6px;
+  background-color: var(--kh-c-neutrals-sat-800);
   color: var(--kh-c-text-primary-500);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   outline: none;
+  font-family: 'JetBrains Mono', monospace;
+  transition: border-color 0.15s;
 }
 
 .discordInput:focus {
-  border-color: var(--kh-c-text-primary-700);
+  border-color: var(--kh-c-text-highlight-primary);
 }
 
 .discordInput::placeholder {
   color: var(--kh-c-text-primary-800);
+  font-family: 'Inter', sans-serif;
 }
 
 .loginButton {
   display: flex;
   justify-content: center;
   width: 100%;
-  height: 3rem;
+  height: 2.75rem;
   align-items: center;
   padding: 0.5rem;
   cursor: pointer;
   border: none;
-  font-size: 0.95rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
   background-color: var(--kh-c-secondary-success-500);
   color: var(--kh-c-text-primary-500);
-  transition: background-color 0.15s ease-out, color 0.15s ease-out;
+  transition: all 0.15s ease-out;
 }
 
 .loginButton:hover:not(:disabled) {
   background-color: var(--kh-c-secondary-success-300);
+  box-shadow: 0 0 12px rgba(63, 167, 61, 0.25);
 }
 
 .loginButton:active:not(:disabled) {
@@ -122,26 +137,22 @@ function handleLogin() {
 }
 
 .loginButton:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .hint {
   color: var(--kh-c-text-primary-800);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   line-height: 1.5;
 }
 
-/* Mobile */
 @media only screen and (max-width: 800px) {
   .loginBox {
     width: 100vw;
     padding: 2.375rem 1.75rem;
     gap: 1.5rem;
-  }
-
-  .loginButton {
-    font-size: 1rem;
+    border-radius: 0;
   }
 }
 </style>

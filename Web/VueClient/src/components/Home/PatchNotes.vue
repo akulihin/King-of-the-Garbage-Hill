@@ -48,41 +48,50 @@ const patchNotes = [
 .patchNotes {
   align-self: flex-start;
   background-color: var(--kh-c-neutrals-sat-700);
+  border: 1px solid var(--kh-c-neutrals-pale-375);
+  border-radius: 10px;
   flex-direction: column;
-  padding: 0.5rem;
+  padding: 0.75rem;
   gap: 0.25rem;
 }
 
 .version {
-  color: var(--kh-c-text-primary-700);
-  font-size: 0.625rem;
+  color: var(--kh-c-text-primary-800);
+  font-size: 0.6rem;
   justify-content: center;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 .patchNotes > header {
   flex-direction: column;
-  padding: 1rem 0px;
+  padding: 0.5rem 0;
   gap: 0.125rem;
 }
 
 .patchNotes > header > h2 {
   color: var(--kh-c-text-primary-700);
-  font-size: 1.125rem;
+  font-size: 0.9rem;
+  font-weight: 800;
   justify-content: center;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .notesList {
   flex-direction: column;
-  gap: 0.625rem;
+  gap: 0.5rem;
 }
 
 .notesList > .patchNoteBox {
-  width: 25rem;
+  width: 22rem;
   flex-direction: column;
-  padding: 1.5rem;
-  gap: 0.625rem;
-  border: 1px solid var(--kh-c-neutrals-sat-500);
-  background-color: var(--kh-c-neutrals-sat-600);
+  padding: 1rem;
+  gap: 0.5rem;
+  border: 1px solid var(--kh-c-neutrals-pale-375);
+  border-radius: 6px;
+  background-color: var(--kh-c-neutrals-sat-650);
 }
 
 .patchNoteBox > div:first-child {
@@ -90,27 +99,32 @@ const patchNotes = [
 }
 
 .patchNoteBox > div:first-child > .patchVersion {
-  font-size: 1.25rem;
+  font-size: 1rem;
+  font-weight: 800;
   color: var(--kh-c-text-primary-600);
 }
 
 .patchNoteBox > div:first-child > .patchDate {
-  font-size: 0.625rem;
+  font-size: 0.6rem;
   align-items: center;
-  color: var(--kh-c-text-primary-700);
+  color: var(--kh-c-text-primary-800);
+  font-family: 'JetBrains Mono', monospace;
 }
 
 .patchNoteBox > .patchContents {
   flex-direction: column;
-  gap: 0.625rem;
+  gap: 0.4rem;
 }
 
 .patchNoteBox > .patchContents > h4 {
-  font-size: 0.875rem;
-  color: var(--kh-c-text-primary-500);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--kh-c-text-highlight-primary);
 }
 
 .patchNoteBox > .patchContents > p {
-  color: var(--kh-c-text-primary-600);
+  color: var(--kh-c-text-primary-700);
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 </style>

@@ -38,7 +38,7 @@ function togglePreferWeb() {
         title="Block"
         @click="store.block()"
       >
-        🛡️ Block
+        <span class="gi gi-lg gi-def">DEF</span> Block
       </button>
       <button
         class="act-btn auto"
@@ -96,55 +96,59 @@ function togglePreferWeb() {
 .action-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
+  gap: 4px;
+  padding: 6px 8px;
   background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
-  margin-top: 8px;
+  margin-top: 6px;
   flex-wrap: wrap;
 }
 
 .status-chip {
-  padding: 4px 10px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--radius);
+  font-size: 10px;
+  font-weight: 700;
   white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .status-chip.ready {
-  background: rgba(74, 222, 128, 0.15);
+  background: rgba(63, 167, 61, 0.1);
   color: var(--accent-green);
+  border: 1px solid rgba(63, 167, 61, 0.2);
 }
 
 .status-chip.waiting {
-  background: rgba(251, 146, 60, 0.15);
+  background: rgba(230, 148, 74, 0.1);
   color: var(--accent-orange);
+  border: 1px solid rgba(230, 148, 74, 0.2);
 }
 
 .action-group {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   padding-left: 6px;
-  border-left: 1px solid var(--border-color);
+  border-left: 1px solid var(--border-subtle);
   flex-wrap: wrap;
 }
 
 .act-btn {
-  height: 32px;
-  padding: 0 10px;
+  height: 28px;
+  padding: 0 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 3px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
   background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
@@ -153,11 +157,10 @@ function togglePreferWeb() {
 .act-btn:hover:not(:disabled) {
   background: var(--bg-card-hover);
   border-color: var(--accent-blue);
-  transform: translateY(-1px);
 }
 
 .act-btn:disabled {
-  opacity: 0.35;
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
@@ -167,14 +170,14 @@ function togglePreferWeb() {
 .act-btn.skip:hover:not(:disabled) { border-color: var(--text-muted); }
 
 .act-btn.predict-confirm {
-  background: rgba(167, 139, 250, 0.1);
-  border-color: var(--accent-purple);
+  background: rgba(180, 150, 255, 0.06);
+  border-color: rgba(180, 150, 255, 0.3);
   color: var(--accent-purple);
 }
-.act-btn.predict-confirm:hover:not(:disabled) { background: rgba(167, 139, 250, 0.2); }
+.act-btn.predict-confirm:hover:not(:disabled) { background: rgba(180, 150, 255, 0.12); }
 .act-btn.predict-confirm.confirmed {
-  background: rgba(74, 222, 128, 0.1);
-  border-color: var(--accent-green);
+  background: rgba(63, 167, 61, 0.06);
+  border-color: rgba(63, 167, 61, 0.2);
   color: var(--accent-green);
   opacity: 0.7;
 }
@@ -186,20 +189,19 @@ function togglePreferWeb() {
 }
 
 .act-btn.web-mode {
-  background: rgba(96, 165, 250, 0.08);
-  border-color: var(--border-color);
+  background: rgba(80, 150, 230, 0.05);
+  border-color: var(--border-subtle);
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11px;
 }
 .act-btn.web-mode:hover {
   border-color: var(--accent-blue);
   color: var(--accent-blue);
-  background: rgba(96, 165, 250, 0.15);
 }
 .act-btn.web-mode.active {
-  background: rgba(96, 165, 250, 0.15);
+  background: rgba(80, 150, 230, 0.1);
   border-color: var(--accent-blue);
   color: var(--accent-blue);
-  font-weight: 700;
+  font-weight: 800;
 }
 </style>

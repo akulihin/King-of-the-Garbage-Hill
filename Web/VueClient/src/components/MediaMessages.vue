@@ -197,22 +197,22 @@ function getMediaIcon(fileType: string): string {
 
 <style scoped>
 .media-messages {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .media-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: 6px 10px;
   background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius) var(--radius) 0 0;
 }
 
 .media-title {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   color: var(--accent-purple);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -221,19 +221,19 @@ function getMediaIcon(fileType: string): string {
 .volume-control {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .vol-icon {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .vol-slider {
-  width: 80px;
-  height: 4px;
+  width: 70px;
+  height: 3px;
   -webkit-appearance: none;
   appearance: none;
-  background: var(--bg-secondary);
+  background: var(--bg-inset);
   border-radius: 2px;
   outline: none;
   cursor: pointer;
@@ -241,16 +241,16 @@ function getMediaIcon(fileType: string): string {
 
 .vol-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: var(--accent-purple);
   cursor: pointer;
 }
 
 .vol-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: var(--accent-purple);
   cursor: pointer;
@@ -258,26 +258,27 @@ function getMediaIcon(fileType: string): string {
 }
 
 .vol-label {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
-  min-width: 32px;
+  min-width: 28px;
   text-align: right;
+  font-family: var(--font-mono);
 }
 
 .media-list {
   display: flex;
   flex-direction: column;
   gap: 0;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-subtle);
   border-top: none;
   border-radius: 0 0 var(--radius) var(--radius);
   overflow: hidden;
 }
 
 .media-card {
-  padding: 10px 14px;
+  padding: 8px 12px;
   background: var(--bg-card);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-subtle);
   transition: background 0.15s;
 }
 
@@ -292,30 +293,30 @@ function getMediaIcon(fileType: string): string {
 .media-card-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
+  gap: 5px;
+  margin-bottom: 3px;
 }
 
 .media-icon {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .passive-name {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 800;
   color: var(--accent-gold);
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
 
 .media-card-body {
-  padding-left: 22px;
+  padding-left: 20px;
 }
 
 .phrase-text {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-primary);
-  margin: 0 0 6px 0;
+  margin: 0 0 4px 0;
   line-height: 1.4;
   font-style: italic;
 }
@@ -326,21 +327,21 @@ function getMediaIcon(fileType: string): string {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
-  background: rgba(167, 139, 250, 0.08);
-  border: 1px solid rgba(167, 139, 250, 0.2);
-  border-radius: 8px;
+  padding: 5px 8px;
+  background: rgba(180, 150, 255, 0.05);
+  border: 1px solid rgba(180, 150, 255, 0.15);
+  border-radius: var(--radius);
   margin-top: 4px;
 }
 
 .play-btn {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: none;
   border-radius: 50%;
-  background: var(--accent-purple);
+  background: var(--kh-c-secondary-purple-500);
   color: #fff;
-  font-size: 14px;
+  font-size: 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -350,8 +351,8 @@ function getMediaIcon(fileType: string): string {
 }
 
 .play-btn:hover {
-  transform: scale(1.1);
-  background: #8b5cf6;
+  background: var(--accent-purple);
+  box-shadow: var(--glow-purple);
 }
 
 .play-btn.playing {
@@ -359,24 +360,25 @@ function getMediaIcon(fileType: string): string {
 }
 
 .play-btn.playing:hover {
-  background: #f59e0b;
+  background: #d4830f;
 }
 
 .audio-file {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-family: var(--font-mono);
 }
 
 .loop-badge {
-  font-size: 9px;
-  font-weight: 700;
+  font-size: 8px;
+  font-weight: 800;
   color: var(--accent-purple);
-  background: rgba(167, 139, 250, 0.15);
+  background: rgba(180, 150, 255, 0.1);
   padding: 2px 5px;
-  border-radius: 4px;
+  border-radius: 3px;
   letter-spacing: 0.5px;
   flex-shrink: 0;
 }
@@ -384,10 +386,10 @@ function getMediaIcon(fileType: string): string {
 /* ── Image ────────────────────────────────────────── */
 
 .image-container {
-  margin-top: 6px;
-  border-radius: 8px;
+  margin-top: 4px;
+  border-radius: var(--radius);
   overflow: hidden;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-subtle);
   max-width: 400px;
 }
 
@@ -397,20 +399,20 @@ function getMediaIcon(fileType: string): string {
   display: block;
   max-height: 300px;
   object-fit: contain;
-  background: var(--bg-secondary);
+  background: var(--bg-inset);
 }
 
 /* ── Type-specific card accents ───────────────────── */
 
 .media-audio {
-  border-left: 3px solid var(--accent-purple);
+  border-left: 2px solid var(--accent-purple);
 }
 
 .media-image {
-  border-left: 3px solid var(--accent-blue);
+  border-left: 2px solid var(--accent-blue);
 }
 
 .media-text {
-  border-left: 3px solid var(--accent-gold);
+  border-left: 2px solid var(--accent-gold);
 }
 </style>

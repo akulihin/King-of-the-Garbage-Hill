@@ -44,33 +44,31 @@ function logout() {
 
 .homePage > nav {
   align-self: center;
-  gap: 0.25rem;
+  gap: 2px;
   padding: 0 0.25rem;
 }
 
 .homePage > nav > a {
-  background-color: var(--kh-c-neutrals-pale-500);
-  padding: 0.625rem 1rem;
-  color: var(--kh-c-text-primary-600);
+  background-color: var(--kh-c-neutrals-sat-600);
+  padding: 0.5rem 1rem;
+  color: var(--kh-c-text-primary-700);
   text-decoration: none;
-  font-size: 1.125rem;
-  border: 1px solid var(--kh-c-neutrals-pale-260);
-  transition: background-color 0.15s;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px solid var(--kh-c-neutrals-pale-375);
+  border-radius: 6px;
+  transition: all 0.15s;
 }
 
 .homePage > nav > a:hover {
-  background-color: var(--kh-c-neutrals-pale-350);
-  border: 1px solid var(--kh-c-neutrals-pale-240);
-}
-
-.homePage > nav > a:active {
-  background-color: var(--kh-c-neutrals-pale-575);
-  border: 1px solid var(--kh-c-neutrals-pale-375);
+  background-color: var(--kh-c-neutrals-pale-500);
+  color: var(--kh-c-text-primary-600);
 }
 
 .homePage > nav > a.router-link-active {
   background-color: var(--kh-c-neutrals-pale-575);
-  border-bottom: 2px solid var(--kh-c-text-highlight-primary);
+  color: var(--kh-c-text-highlight-primary);
+  border-color: var(--kh-c-neutrals-pale-300);
 }
 
 .homePage > .homeContent {
@@ -87,16 +85,19 @@ function logout() {
 .logoutBtn {
   align-self: flex-start;
   margin: 1rem;
-  padding: 0.5rem 1rem;
-  background-color: var(--kh-c-neutrals-pale-500);
-  color: var(--kh-c-text-primary-700);
-  border: 1px solid var(--kh-c-neutrals-pale-260);
+  padding: 0.4rem 0.75rem;
+  background-color: transparent;
+  color: var(--kh-c-text-primary-800);
+  border: 1px solid var(--kh-c-neutrals-pale-375);
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 0.875rem;
-  transition: background-color 0.15s;
+  font-size: 0.75rem;
+  font-weight: 700;
+  transition: all 0.15s;
 }
 
 .logoutBtn:hover {
-  background-color: var(--kh-c-neutrals-pale-350);
+  background-color: var(--kh-c-neutrals-pale-500);
+  color: var(--kh-c-text-primary-700);
 }
 </style>

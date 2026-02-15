@@ -1,6 +1,6 @@
 @import './base.css';
 
-/* ── Global Reset & Base (designer) ───────────────────────────────── */
+/* ── Global Reset & Base ─────────────────────────────────────────── */
 *,
 *::before,
 *::after {
@@ -17,7 +17,6 @@ body {
   min-height: 100vh;
   color: var(--kh-c-text-primary-600);
   background: var(--kh-c-neutrals-sat-800);
-  transition: color 0.5s, background-color 0.5s;
   line-height: 1.6;
   font-family: 'Inter', Verdana, Geneva, Tahoma, sans-serif;
   font-size: 0.875rem;
@@ -32,8 +31,29 @@ body {
   min-height: 100vh;
 }
 
-/* ── Scrollbar ────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: var(--kh-c-neutrals-sat-800); }
-::-webkit-scrollbar-thumb { background: var(--kh-c-neutrals-pale-260); border-radius: 4px; }
+/* ── Selection ───────────────────────────────────────────────────── */
+::selection {
+  background: rgba(233, 219, 61, 0.25);
+  color: var(--kh-c-text-primary-500);
+}
+
+/* ── Scrollbar (thin, matches theme) ─────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--kh-c-neutrals-pale-300);
+  border-radius: 3px;
+}
 ::-webkit-scrollbar-thumb:hover { background: var(--kh-c-neutrals-pale-240); }
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--kh-c-neutrals-pale-300) transparent;
+}
+
+/* ── Focus ring ──────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--kh-c-text-highlight-primary);
+  outline-offset: 2px;
+}

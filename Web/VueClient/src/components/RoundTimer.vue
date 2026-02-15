@@ -46,22 +46,22 @@ const isUrgent = computed(() => store.roundTimeLeft < 30)
 .round-timer {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 120px;
+  gap: 6px;
+  min-width: 110px;
 }
 
 .timer-bar {
   flex: 1;
-  height: 6px;
-  background: var(--bg-primary);
-  border-radius: 3px;
+  height: 4px;
+  background: var(--bg-inset);
+  border-radius: 2px;
   overflow: hidden;
 }
 
 .timer-fill {
   height: 100%;
   background: var(--accent-blue);
-  border-radius: 3px;
+  border-radius: 2px;
   transition: width 1s linear;
 }
 
@@ -72,18 +72,20 @@ const isUrgent = computed(() => store.roundTimeLeft < 30)
 
 .timer-text {
   font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 16px;
-  min-width: 50px;
+  font-weight: 800;
+  font-size: 14px;
+  min-width: 44px;
   text-align: right;
+  color: var(--text-primary);
 }
 
 .urgent .timer-text {
   color: var(--accent-red);
+  text-shadow: var(--glow-red);
 }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  50% { opacity: 0.5; }
 }
 </style>

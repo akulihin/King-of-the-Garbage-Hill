@@ -108,46 +108,48 @@ const entries = computed<BattleEntry[]>(() => {
 .battle-log {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   max-height: 260px;
   overflow-y: auto;
-  padding: 6px;
-  background: var(--bg-primary);
+  padding: 4px;
+  background: var(--bg-inset);
   border-radius: var(--radius);
+  border: 1px solid var(--border-subtle);
 }
 
 .log-empty {
-  color: var(--text-muted);
+  color: var(--text-dim);
   font-style: italic;
   padding: 16px;
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .bl-header {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   color: var(--accent-gold);
   padding: 6px 8px 2px;
-  text-decoration: underline;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .bl-battle {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 8px;
-  border-radius: 6px;
+  padding: 4px 8px;
+  border-radius: var(--radius);
   background: var(--bg-secondary);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .bl-battle.no-fight {
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 .bl-player {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-secondary);
 }
 
@@ -156,16 +158,16 @@ const entries = computed<BattleEntry[]>(() => {
 }
 
 .bl-sword {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   object-fit: contain;
   flex-shrink: 0;
-  filter: brightness(0) invert(0.6);
+  filter: brightness(0) invert(0.5);
 }
 
 .bl-result {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
 }
 
@@ -178,8 +180,8 @@ const entries = computed<BattleEntry[]>(() => {
 }
 
 .bl-event {
-  padding: 4px 8px;
-  font-size: 12px;
+  padding: 3px 8px;
+  font-size: 11px;
   color: var(--accent-orange);
   font-style: italic;
 }

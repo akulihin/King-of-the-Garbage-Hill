@@ -569,6 +569,9 @@ Speed => Strength
                 var emotionalDamage = false;    // PsycheQualityResist broke (<0)
                 var qualityDamageApplied = false;
                 var fightJusticeChange = 0; // justice gained by the loser
+                // Moral snapshots — capture actual change after AddMoral (passives may block)
+                decimal attackerMoralActual = 0;
+                decimal defenderMoralActual = 0;
 
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 1)
@@ -608,8 +611,12 @@ Speed => Strength
                     {
                         if (!teamMate)
                         {
+                            var atkMoralBefore = player.FightCharacter.GetMoral();
+                            var defMoralBefore = playerIamAttacking.FightCharacter.GetMoral();
                             player.FightCharacter.AddMoral(moral, "Победа", isFightMoral:true);
                             playerIamAttacking.FightCharacter.AddMoral(moral * -1, "Поражение", isFightMoral: true);
+                            attackerMoralActual = player.FightCharacter.GetMoral() - atkMoralBefore;
+                            defenderMoralActual = playerIamAttacking.FightCharacter.GetMoral() - defMoralBefore;
 
                             player.Status.AddFightingData($"moral: {moral} ({player.Status.GetPlaceAtLeaderBoard()} - {playerIamAttacking.Status.GetPlaceAtLeaderBoard()})");
                             playerIamAttacking.Status.AddFightingData($"moral: {moral * -1} ({player.Status.GetPlaceAtLeaderBoard()} - {playerIamAttacking.Status.GetPlaceAtLeaderBoard()})");
@@ -682,8 +689,12 @@ Speed => Strength
                     {
                         if (!teamMate)
                         {
+                            var atkMoralBefore = player.FightCharacter.GetMoral();
+                            var defMoralBefore = playerIamAttacking.FightCharacter.GetMoral();
                             player.FightCharacter.AddMoral(moral, "Поражение", isFightMoral: true);
                             playerIamAttacking.FightCharacter.AddMoral(moral * -1, "Победа", isFightMoral: true);
+                            attackerMoralActual = player.FightCharacter.GetMoral() - atkMoralBefore;
+                            defenderMoralActual = playerIamAttacking.FightCharacter.GetMoral() - defMoralBefore;
 
                             player.Status.AddFightingData($"moral: {moral} ({player.Status.GetPlaceAtLeaderBoard()} - {playerIamAttacking.Status.GetPlaceAtLeaderBoard()})");
                             playerIamAttacking.Status.AddFightingData($"moral: {moral * -1} ({player.Status.GetPlaceAtLeaderBoard()} - {playerIamAttacking.Status.GetPlaceAtLeaderBoard()})");
@@ -785,6 +796,8 @@ Speed => Strength
                         MaxRandomNumber = step3MaxRandom,
                         TotalPointsWon = pointsWined,
                         MoralChange = moral,
+                        AttackerMoralChange = Math.Round(attackerMoralActual, 1),
+                        DefenderMoralChange = Math.Round(defenderMoralActual, 1),
                         // Resist/drop details
                         ResistIntelDamage = resistIntelDmg,
                         ResistStrDamage = resistStrDmg,

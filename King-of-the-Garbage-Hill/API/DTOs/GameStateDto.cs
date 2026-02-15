@@ -319,7 +319,12 @@ public class FightEntryDto
 
     // Final
     public int TotalPointsWon { get; set; }
+    /// <summary>Deprecated: raw moral calc. Use AttackerMoralChange/DefenderMoralChange instead.</summary>
     public int MoralChange { get; set; }
+    /// <summary>Actual moral change received by the attacker (after passive checks). Can be 0 if blocked.</summary>
+    public decimal AttackerMoralChange { get; set; }
+    /// <summary>Actual moral change received by the defender (after passive checks). Can be 0 if blocked.</summary>
+    public decimal DefenderMoralChange { get; set; }
 
     // Fight outcome details (resist damage to the loser)
     /// <summary>Intelligence resist lost by the loser.</summary>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from 'src/store/game'
 import Leaderboard from 'src/components/Leaderboard.vue'
@@ -15,6 +15,20 @@ const store = useGameStore()
 const router = useRouter()
 
 const gameIdNum = computed(() => Number(props.gameId))
+
+/** Stats currently flashing in PlayerCard due to resist damage */
+const resistFlashStats = ref<string[]>([])
+function onResistFlash(stats: string[]) {
+  resistFlashStats.value = stats
+  setTimeout(() => { resistFlashStats.value = [] }, 1500)
+}
+
+/** Justice reset flash in PlayerCard */
+const justiceResetFlash = ref(false)
+function onJusticeReset() {
+  justiceResetFlash.value = true
+  setTimeout(() => { justiceResetFlash.value = false }, 2000)
+}
 
 onMounted(async () => {
   if (store.isConnected) {
@@ -102,6 +116,8 @@ const letopis = computed(() => {
           v-if="store.myPlayer"
           :player="store.myPlayer"
           :is-me="true"
+          :resist-flash="resistFlashStats"
+          :justice-reset="justiceResetFlash"
         />
         <!-- Action bar (only during active game) -->
         <ActionPanel v-if="store.myPlayer && !store.gameState.isFinished" />
@@ -200,6 +216,8 @@ const letopis = computed(() => {
             :predictions="store.myPlayer?.predictions"
             :is-admin="store.isAdmin"
             :character-catalog="store.gameState.allCharacters || []"
+            @resist-flash="onResistFlash"
+            @justice-reset="onJusticeReset"
           />
         </div>
       </div>
@@ -216,24 +234,25 @@ const letopis = computed(() => {
 .game-page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .loading {
   text-align: center;
   padding: 80px;
   color: var(--text-muted);
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .finished-badge {
   background: var(--accent-gold);
   color: var(--bg-primary);
-  padding: 4px 14px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: var(--radius);
+  font-size: 11px;
+  font-weight: 800;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .finished-actions {
@@ -245,8 +264,8 @@ const letopis = computed(() => {
 /* ── 3-column layout ────────────────────────────────────────────── */
 .game-layout {
   display: grid;
-  grid-template-columns: 260px 1fr 260px;
-  gap: 16px;
+  grid-template-columns: 250px 1fr 250px;
+  gap: 12px;
   align-items: start;
 }
 
@@ -262,49 +281,53 @@ const letopis = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .header-center {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .round-badge {
-  background: var(--accent-blue);
-  color: white;
-  padding: 4px 14px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 600;
+  background: var(--kh-c-secondary-info-500);
+  color: var(--text-primary);
+  padding: 3px 12px;
+  border-radius: var(--radius);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  border: 1px solid var(--accent-blue);
 }
 
 .mode-badge {
-  background: var(--accent-purple);
-  color: white;
-  padding: 4px 14px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 600;
+  background: var(--kh-c-secondary-purple-500);
+  color: var(--text-primary);
+  padding: 3px 12px;
+  border-radius: var(--radius);
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border: 1px solid var(--accent-purple);
 }
 
 /* ── Direct Messages ──────────────────────────────────────────────── */
 .direct-messages {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 10px;
+  gap: 4px;
+  margin-top: 8px;
 }
 
 .dm-item {
-  padding: 8px 14px;
-  background: var(--kh-c-neutrals-pale-300, var(--bg-card));
-  border-left: 3px solid var(--accent-orange);
+  padding: 6px 12px;
+  background: var(--bg-surface);
+  border-left: 2px solid var(--accent-orange);
   border-radius: 0 var(--radius) var(--radius) 0;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-primary);
   line-height: 1.5;
 }
@@ -316,8 +339,8 @@ const letopis = computed(() => {
 .logs-row-top {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 @media (max-width: 800px) {
@@ -330,31 +353,32 @@ const letopis = computed(() => {
 }
 
 .events-panel {
-  max-height: 160px;
+  max-height: 150px;
   padding: 8px 10px;
 }
 
 .events-panel :deep(.card-header),
 .events-panel .card-header {
-  font-size: 13px;
+  font-size: 11px;
   margin-bottom: 4px;
 }
 
 .fight-panel {
-  margin-top: 8px;
+  margin-top: 6px;
   padding: 8px 10px;
 }
 
 .log-content {
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.4;
   color: var(--text-secondary);
   flex: 1;
   overflow-y: auto;
   padding: 4px 6px;
-  background: var(--bg-primary);
+  background: var(--bg-inset);
   border-radius: var(--radius);
   font-family: var(--font-mono);
+  border: 1px solid var(--border-subtle);
 }
 
 .log-content :deep(strong) { color: var(--accent-gold); }
@@ -363,10 +387,10 @@ const letopis = computed(() => {
 .log-content :deep(del) { color: var(--text-muted); text-decoration: line-through; }
 
 .log-empty {
-  color: var(--text-muted);
+  color: var(--text-dim);
   font-style: italic;
   padding: 8px;
   text-align: center;
-  font-size: 12px;
+  font-size: 11px;
 }
 </style>

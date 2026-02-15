@@ -100,30 +100,22 @@ function spectateGame(gameId: number) {
       </h2>
       <div class="rules-grid">
         <div class="rule-card card">
-          <div class="rule-icon">
-            ⚔️
-          </div>
+          <div class="rule-icon"><span class="gi gi-xl gi-str">ATK</span></div>
           <h3>Attack</h3>
           <p>Choose a player on the leaderboard to attack. Win fights to earn points.</p>
         </div>
         <div class="rule-card card">
-          <div class="rule-icon">
-            🛡️
-          </div>
+          <div class="rule-icon"><span class="gi gi-xl gi-def">DEF</span></div>
           <h3>Block</h3>
           <p>Skip your attack to defend. No fights this round, but no risk either.</p>
         </div>
         <div class="rule-card card">
-          <div class="rule-icon">
-            📈
-          </div>
+          <div class="rule-icon"><span class="gi gi-xl gi-rnd">LVL</span></div>
           <h3>Level Up</h3>
           <p>Spend level-up points on Intelligence, Strength, Speed, or Psyche.</p>
         </div>
         <div class="rule-card card">
-          <div class="rule-icon">
-            🔮
-          </div>
+          <div class="rule-icon"><span class="gi gi-xl gi-psy">PSY</span></div>
           <h3>Predict</h3>
           <p>Guess which character each player is to earn bonus points.</p>
         </div>
@@ -134,102 +126,115 @@ function spectateGame(gameId: number) {
 
 <style scoped>
 .lobby {
-  max-width: 1000px;
+  max-width: 960px;
   margin: 0 auto;
 }
 
 .lobby-header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 }
 
 .lobby-header h1 {
-  font-size: 36px;
-  background: linear-gradient(135deg, var(--accent-gold), var(--accent-orange));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-bottom: 8px;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--accent-gold);
+  letter-spacing: 1px;
+  margin-bottom: 6px;
 }
 
 .subtitle {
-  color: var(--text-secondary);
-  font-size: 16px;
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .subtitle code {
   background: var(--bg-card);
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: 4px;
   color: var(--accent-gold);
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
 
 .section {
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 }
 
 .section-title {
-  font-size: 20px;
-  margin-bottom: 16px;
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   gap: 8px;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .badge {
-  background: var(--accent-blue);
-  color: white;
-  padding: 2px 10px;
-  border-radius: 12px;
-  font-size: 14px;
+  background: var(--kh-c-secondary-info-500);
+  color: var(--text-primary);
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid var(--accent-blue);
 }
 
 .empty-state {
   text-align: center;
   padding: 40px;
   color: var(--text-muted);
+  font-size: 13px;
 }
 
 .empty-state .hint {
-  margin-top: 8px;
-  font-size: 14px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
 }
 
 .games-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
 }
 
 .game-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .game-id {
-  font-weight: 700;
-  font-size: 18px;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--text-primary);
 }
 
 .game-mode {
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: var(--radius);
+  font-size: 10px;
+  font-weight: 800;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.game-mode.normal { background: var(--accent-blue); color: white; }
-.game-mode.aram { background: var(--accent-purple); color: white; }
-.game-mode.team { background: var(--accent-green); color: var(--kh-c-neutrals-sat-800); }
+.game-mode.normal { background: var(--kh-c-secondary-info-500); color: var(--text-primary); border: 1px solid var(--accent-blue); }
+.game-mode.aram { background: var(--kh-c-secondary-purple-500); color: var(--text-primary); border: 1px solid var(--accent-purple); }
+.game-mode.team { background: var(--kh-c-secondary-success-500); color: var(--text-primary); border: 1px solid var(--accent-green); }
 
 .game-card-stats {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
 .stat-row {
@@ -239,12 +244,13 @@ function spectateGame(gameId: number) {
 
 .stat-label {
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .stat-value {
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 700;
+  font-size: 12px;
+  font-family: var(--font-mono);
 }
 
 .stat-value.finished {
@@ -253,7 +259,7 @@ function spectateGame(gameId: number) {
 
 .game-card-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .game-card-actions .btn {
@@ -262,27 +268,30 @@ function spectateGame(gameId: number) {
 
 .rules-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
 }
 
 .rule-card {
   text-align: center;
+  padding: 14px;
 }
 
 .rule-icon {
-  font-size: 36px;
-  margin-bottom: 12px;
+  font-size: 28px;
+  margin-bottom: 8px;
 }
 
 .rule-card h3 {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   color: var(--accent-gold);
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .rule-card p {
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.5;
 }
 </style>

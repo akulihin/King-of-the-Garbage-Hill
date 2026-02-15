@@ -221,6 +221,8 @@ export type FightEntry = {
   // Final
   totalPointsWon: number
   moralChange: number
+  attackerMoralChange: number
+  defenderMoralChange: number
 
   // Resist/drop details
   resistIntelDamage: number

@@ -104,7 +104,7 @@ public class CheckIfReady : IServiceSingleton
                 case "HardKitty":
                     player.Status.AddInGamePersonalLogs("Даже имя мое написать нормально не можете");
                     break;
-                case "Mit*suki*":
+                case "Школоло":
                     player.Status.AddInGamePersonalLogs("Блять, суки, че вы меня таким слабым сделали?");
                     break;
                 case "Тигр":
@@ -221,7 +221,7 @@ public class CheckIfReady : IServiceSingleton
                         "Толя" => "Раммус Продал Тормейл",
                         "HardKitty" => "Пакет Молока Пролился На Клавиатуру",
                         "Sirinoks" => "Айсик Затроллилась#",
-                        "Mit*suki*" => "МитСУКИ Затроллился",
+                        "Школоло" => "МитСУКИ Затроллился",
                         "AWDKA" => "AWDKA Затроллился сам по себе...",
                         "Осьминожка" => "Осьминожка Забулькался",
                         "Darksci" => "Даркси Нe Повeзло...",
