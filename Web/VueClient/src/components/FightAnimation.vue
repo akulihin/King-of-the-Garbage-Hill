@@ -1104,7 +1104,7 @@ div.fa-round-header { opacity: 1; }
 .pct-bad { color: var(--accent-red); font-weight: 700; }
 .fa-chance-total { font-size: 13px; font-weight: 800; }
 /* ── Roll bar ── */
-.fa-roll-bar-wrap { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-subtle); }
+.fa-roll-bar-wrap { margin-top: 6px; padding-top: 6px; }
 .fa-roll-verdict { font-weight: 900; font-size: 11px; }
 .fa-roll-bar-track { position: relative; height: 22px; background: rgba(239, 128, 128, 0.12); border-radius: 6px; overflow: visible; border: 1px solid var(--border-subtle); }
 .fa-roll-zone-win { position: absolute; left: 0; top: 0; height: 100%; background: rgba(63, 167, 61, 0.15); border-radius: 6px 0 0 6px; transition: width 0.6s ease; }
