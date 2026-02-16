@@ -77,15 +77,14 @@ function filterFightLines(text: string): string {
 }
 
 /** Merge personal logs + global events (minus fight results) */
-const mergedEvents = computed(() => {
+function mergeEvents(): string {
   const personal = store.myPlayer?.status.personalLogs || ''
   const global = filterFightLines(store.gameState?.globalLogs || '')
   const parts: string[] = []
   if (personal.trim()) parts.push(personal)
   if (global.trim()) parts.push(global)
   return parts.join('\n')
-})
-
+}
 /**
  * "Летопись" — full game chronicle built from:
  *   - AllPersonalLogs (InGamePersonalLogsAll) — rounds split by "|||"
@@ -130,6 +129,8 @@ function cleanDiscord(text: string): string {
 
 function parsePrevLogs(raw: string): PrevLogEntry[] {
   if (!raw) return []
+  if (raw.length < 3) return []
+  
   // Lines to hide (already shown elsewhere in the UI)
   const hiddenPatterns: ((line: string) => boolean)[] = [
     l => l.includes('Мишень'),
@@ -145,14 +146,16 @@ function parsePrevLogs(raw: string): PrevLogEntry[] {
     l => l.includes('Обмен'),
     l => l.includes('пресанул'),
     l => l.includes('Победа') &&  l.includes('Морали'),
-    l => l.includes('обогнал'),
+    l => l.includes('скинули'),
     l => l.includes('обогнал'),
     l => l.includes('обогнал'),
     l => l.includes('обогнал'),
     l => l.includes('обогнал'),
     l => l.includes('обогнал'),
   ]
-  const lines = raw.split('\n').filter((l: string) => l.trim() && !hiddenPatterns.some(fn => fn(l)))
+
+  const lines = raw.split('\n').filter((l: string) => l.trim() && !hiddenPatterns.some(fn => fn(l)) && l.length > 2)
+
   return lines.map((line: string) => {
     const clean = cleanDiscord(line)
     let type: PrevLogColor = 'muted'
@@ -191,14 +194,21 @@ muted	(Grey)
 }
 
 const prevLogEntries = computed(() => parsePrevLogs(store.myPlayer?.status.previousRoundLogs || ''))
+const currentLogEntries = computed(() => parsePrevLogs(mergeEvents() || ''))
 
 // Animation: reveal entries one by one
 const prevLogVisibleCount = ref(999)
+const currentLogVisibleCount = ref(999)
 let prevLogTimer: ReturnType<typeof setInterval> | null = null
 let prevLogSnapshot = ''
+let currentLogTimer: ReturnType<typeof setInterval> | null = null
+let currentLogSnapshot = ''
 
 function clearPrevLogTimer() {
   if (prevLogTimer !== null) { clearInterval(prevLogTimer); prevLogTimer = null }
+}
+function clearCurrentLogTimer() {
+  if (currentLogTimer !== null) { clearInterval(currentLogTimer); currentLogTimer = null }
 }
 
 watch(() => store.myPlayer?.status.previousRoundLogs, (newVal: string | undefined) => {
@@ -217,6 +227,26 @@ watch(() => store.myPlayer?.status.previousRoundLogs, (newVal: string | undefine
       i++
       prevLogVisibleCount.value = i
       if (i >= count) clearPrevLogTimer()
+    }, 250)
+  }, 50)
+}, { immediate: true })
+
+watch(() => mergeEvents(), (newVal: string | undefined) => {
+  const val = newVal || ''
+  if (val === currentLogSnapshot) return
+  currentLogSnapshot = val
+  clearCurrentLogTimer()
+  if (!val) { currentLogVisibleCount.value = 999; return }
+  const count = parsePrevLogs(val).length
+  if (count === 0) { currentLogVisibleCount.value = 999; return }
+  currentLogVisibleCount.value = 0
+  // Defer animation start to next frame so Vue finishes its DOM patch first
+  setTimeout(() => {
+    let i = 0
+    currentLogTimer = setInterval(() => {
+      i++
+      currentLogVisibleCount.value = i
+      if (i >= count) clearCurrentLogTimer()
     }, 250)
   }, 50)
 }, { immediate: true })
@@ -333,17 +363,36 @@ watch(() => store.myPlayer?.status.previousRoundLogs, (newVal: string | undefine
 
         <!-- Logs: Row 1 = events side-by-side, Row 2 = full-width fight panel -->
         <div class="logs-row-top">
+          
           <div class="log-panel card events-panel">
             <div class="card-header">События</div>
-            <div
-              v-if="mergedEvents.trim()"
-              class="log-content"
-              v-html="formatLogs(mergedEvents)"
-            />
+
+
+            <div v-if="currentLogEntries.length" class="prev-logs">
+              <div
+                v-for="(entry, idx) in currentLogEntries"
+                :key="idx"
+                class="prev-log-item"
+                :class="[
+                  'prev-log-' + entry.type,
+                  { 'prev-log-visible': idx < currentLogVisibleCount },
+                  { 'prev-log-combo': entry.type === 'gold' && entry.comboCount > 0 }
+                ]"
+              >
+                <span class="prev-log-text" v-html="entry.html"></span>
+                <span v-if="entry.type === 'gold' && entry.comboCount > 0" class="prev-log-combo-badge">
+                  x{{ entry.comboCount + 1 }} combo
+                </span>
+              </div>
+            </div>
+
+
             <div v-else class="log-empty">Еще ничего не произошло. Наверное...</div>
           </div>
+
           <div class="log-panel card events-panel prev-logs-panel">
             <div class="card-header">События прошлого раунда</div>
+
             <div v-if="prevLogEntries.length" class="prev-logs">
               <div
                 v-for="(entry, idx) in prevLogEntries"
@@ -361,9 +410,12 @@ watch(() => store.myPlayer?.status.previousRoundLogs, (newVal: string | undefine
                 </span>
               </div>
             </div>
+
             <div v-else class="log-empty">В прошлом раунде ничего не произошло.</div>
           </div>
+          
         </div>
+
         <div class="log-panel card fight-panel">
           <FightAnimation
             :fights="store.gameState.fightLog || []"

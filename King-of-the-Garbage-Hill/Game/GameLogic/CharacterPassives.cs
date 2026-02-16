@@ -1104,7 +1104,7 @@ public class CharacterPassives : IServiceSingleton
                         game.IsKratosEvent = true;
                         game.AddGlobalLogs("Бегите! На Гору Мусорной Горы идёт Кратос и НИЧТО его не остановит!");
                         foreach (var p in game.PlayersList.Where(x => !x.IsBot()))
-                            await game.Phrases.KratosEventYes.SendLogSeparateWithFile(p, false, "DataBase/sound/Kratos_PLAY_ME.mp3", false, 15000, roundsToPlay: 5);
+                            await game.Phrases.KratosEventYes.SendLogSeparateWithFile(p, false, "DataBase/sound/Kratos.mp3", false, 15000, roundsToPlay: 5);
 
                         player.FightCharacter.SetSkillFightMultiplier(4);
                         player.FightCharacter.SetClassSkillMultiplier(4);
@@ -2491,8 +2491,8 @@ public class CharacterPassives : IServiceSingleton
 
                             gleb.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
 
-                            game.Phrases.GlebChallengerPhrase.SendLog(player, true);
-                            await game.Phrases.GlebChallengerSeparatePhrase.SendLogSeparate(player, true, 0);
+                            //game.Phrases.GlebChallengerPhrase.SendLog(player, true);
+                            await game.Phrases.GlebChallengerSeparatePhrase.SendLogSeparateWithFile(player, true, "DataBase/sound/Irelia.mp3", true, 0, roundsToPlay: 1);
                         }
 
                         break;
