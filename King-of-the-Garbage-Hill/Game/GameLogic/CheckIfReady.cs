@@ -640,6 +640,9 @@ public class CheckIfReady : IServiceSingleton
                 //round 11 is the end of the game, no fights on round 11
                 if (game.RoundNo >= 11 && !game.IsKratosEvent) game.IsFinished = true;
 
+                //protection against infinite games
+                if (game.RoundNo >= 20) game.IsFinished = true;
+
                 if (game.IsFinished)
                 {
                     await HandleLastRound(game);
