@@ -212,7 +212,7 @@ public class CharacterClass
         if (Status.GetPlaceAtLeaderBoard() == 6) return;
 
         StrengthQualityDropTimes++;
-        Status.AddBonusPoints(-1, "Quality");
+        Status.AddBonusPoints(-1, "DROP");
         game.AddGlobalLogs($"Они скинули **{discordUsername}**! Сволочи!");
     }
 
@@ -1564,7 +1564,7 @@ public class JusticeClass
     }
 
 
-    public void HandleEndOfRoundJustice()
+    public bool HandleEndOfRoundJustice()
     {
         if (IsWonThisRound)
         {
@@ -1604,7 +1604,7 @@ public class JusticeClass
             if (extraPoints > 0)
                 Status.AddRegularPoints(extraPoints, "Болевой порог");
             if (howMuchToAdd == 0)
-                return;
+                return false;
         }
         //end Болевой порог
 
@@ -1616,9 +1616,12 @@ public class JusticeClass
         if (RealJusticeNow > 5)
             RealJusticeNow = 5;
 
-        if (howMuchToAdd > 0)
-            Status.AddInGamePersonalLogs(
-                $"*Справедливость*: ***+ {howMuchToAdd}!***<:e_:562879579694301184>{justricePhrases[new Random().Next(0, justricePhrases.Count)]}\n");
+        if (howMuchToAdd > 0) {
+            var justicePhrase = justricePhrases[new Random().Next(0, justricePhrases.Count)];
+            Status.AddInGamePersonalLogs($"*Справедливость*: ***+ {howMuchToAdd}!***<:e_:562879579694301184>{justicePhrase}\n");
+            return true;
+        }
+        return false;
     }
 
 

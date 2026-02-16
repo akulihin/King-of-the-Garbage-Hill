@@ -137,11 +137,13 @@ public class CharactersUniquePhrase
 
     //end
     public PhraseClass AutoMove;
-
+    public PhraseClass JusticePhrase;
 
     public CharactersUniquePhrase()
     {
         AutoMove = new PhraseClass("Авто Ход");
+
+        JusticePhrase = new PhraseClass("Справедливость");
 
         //add values
         FirstСommandment = new PhraseClass("Первая заповедь");
@@ -277,6 +279,16 @@ public class CharactersUniquePhrase
         AutoMove.PassiveLogRus.Add("Давай-давай, игра уже щас закончится... Ну же... Ну... НУ!!! ПОХОДИ");
         AutoMove.PassiveLogRus.Add("ДАВАЙ, ВСЕГО ОДИН ХОД");
         AutoMove.PassiveLogRus.Add("Пиздец. Всю игру просидел в автоходе... Вы там вообще живой? Может вы умер?... Глеб?");
+        //
+
+        //
+        JusticePhrase.PassiveLogRus.Add("Ты сможешь!");
+        JusticePhrase.PassiveLogRus.Add("Еще немного!");
+        JusticePhrase.PassiveLogRus.Add("Верь в себя!");
+        JusticePhrase.PassiveLogRus.Add("Верь в мою веру в тебя!");
+        JusticePhrase.PassiveLogRus.Add("Не повeзло, но всё получится!");
+        JusticePhrase.PassiveLogRus.Add("Справедливость на нашей стороне!");
+        JusticePhrase.PassiveLogRus.Add("Мы им покажем!");
         //
 
         //add  as many phrases as you wany

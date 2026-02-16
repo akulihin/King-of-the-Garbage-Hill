@@ -134,6 +134,23 @@ function parsePrevLogs(raw: string): PrevLogEntry[] {
   const hiddenPatterns: ((line: string) => boolean)[] = [
     l => l.includes('Мишень'),
     l => l.includes('Поражение') && l.includes('Морали'),
+    l => l.includes('обогнал'),
+    l => l.includes('Справедливость'),
+    l => l.includes('вреда'),
+    l => l.includes('TOO GOOD'),
+    l => l.includes('TOO STRONK'),
+    l => l.includes('скинули'),
+    l => l.includes('напали'),
+    l => l.includes('улучшили'),
+    l => l.includes('Обмен'),
+    l => l.includes('пресанул'),
+    l => l.includes('Победа') &&  l.includes('Морали'),
+    l => l.includes('обогнал'),
+    l => l.includes('обогнал'),
+    l => l.includes('обогнал'),
+    l => l.includes('обогнал'),
+    l => l.includes('обогнал'),
+    l => l.includes('обогнал'),
   ]
   const lines = raw.split('\n').filter((l: string) => l.trim() && !hiddenPatterns.some(fn => fn(l)))
   return lines.map((line: string) => {

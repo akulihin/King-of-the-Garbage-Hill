@@ -874,7 +874,11 @@ Speed => Strength
 
             player.GameCharacter.SetSpeedResist();
             player.GameCharacter.NormalizeMoral();
-            player.GameCharacter.Justice.HandleEndOfRoundJustice();
+            var justicePhrase = player.GameCharacter.Justice.HandleEndOfRoundJustice();
+            if (justicePhrase)
+            {
+                game.Phrases.JusticePhrase.SendLogSeparateWeb(player, delete:false, isEvent:false);
+            }
 
             player.Status.CombineRoundScoreAndGameScore(game);
             player.Status.ClearInGamePersonalLogs();
