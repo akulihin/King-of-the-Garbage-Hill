@@ -209,7 +209,7 @@ const round1Factors = computed<Factor[]>(() => {
   if (f.psycheWeighingDelta !== 0) {
     const v = f.psycheWeighingDelta * s
     list.push({
-      label: 'Разница в PSY',
+      label: 'PSY difference',
       detail: v > 0 ? '<span class="gi gi-psy">PSY</span> <span class="gi-ok">&#x2713;</span>' : '<span class="gi gi-psy">PSY</span> <span class="gi-fail">&#x2717;</span>',
       value: v,
       highlight: hl(v),
@@ -752,7 +752,7 @@ function getDisplayCharName(orig: string, u: string): string {
               </div>
               <div class="phase-connector phase-connector-outcome" :class="{ revealed: showFinalResult }"></div>
               <div v-if="showFinalResult" class="phase-outcome-pip" :class="leftWon ? 'phase-ours' : 'phase-theirs'">
-                <span class="phase-outcome-text">{{ leftWon ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ' }}</span>
+                <span class="phase-outcome-text">{{ leftWon ? 'Victory' : 'Defeat' }}</span>
               </div>
               <div v-else class="phase-outcome-pip phase-outcome-pending">
                 <span class="phase-outcome-text">?</span>
