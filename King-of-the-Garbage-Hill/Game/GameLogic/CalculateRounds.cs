@@ -12,7 +12,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         public bool IsTooGoodMe, IsTooGoodEnemy, IsTooStronkMe, IsTooStronkEnemy;
         public bool IsStatsBetterMe, IsStatsBetterEnemy;
         public int PointsWon, IsContrLost;
-        public decimal RandomForPoint, WeighingMachine, ContrMultiplier;
+        public decimal RandomForPoint, WeighingMachine, ContrMultiplier, SkillDifferenceRandomModifier;
         public int SkillMultiplierMe, SkillMultiplierTarget;
 
         // Per-step weighing deltas (for web animation)
@@ -385,6 +385,18 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 playerIamAttacking.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
             }
 
+            // ── 8. Random Modifier based on skill difference ───────────────────────
+            var skillDifferenceRandomModifier = (me.GetSkill() * skillMultiplierMe - target.GetSkill() * skillMultiplierTarget) / 60;
+
+            if (skillDifferenceRandomModifier > 0)
+            {
+                randomForPoint += skillDifferenceRandomModifier;
+            }
+            else
+            {
+                randomForPoint -= skillDifferenceRandomModifier;
+            }
+
 
             // ── Round 1 result ─────────────────────────────────────────
             switch (weighingMachine)
@@ -415,6 +427,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             r.ContrMultiplier = contrMultiplier;
             r.SkillMultiplierMe = skillMultiplierMe;
             r.SkillMultiplierTarget = skillMultiplierTarget;
+            r.SkillDifferenceRandomModifier = skillDifferenceRandomModifier;
 
             return r;
         }

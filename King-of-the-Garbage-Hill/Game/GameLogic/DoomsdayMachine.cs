@@ -257,6 +257,12 @@ Speed => Strength
 
             foreach (var playerIamAttacking in player.Status.WhoToAttackThisTurn.Select(t => game.PlayersList.Find(x => x.GetPlayerId() == t)))
             {
+                //add skill
+                decimal skillGainedFromTarget = 0;
+                decimal skillGainedFromClassAttacker = 0;
+                decimal skillGainedFromClassDefender = 0;
+
+
                 player.Status.AddFightingData("\n");
                 playerIamAttacking.Status.AddFightingData("\n");
                 player.Status.AddFightingData($"**you VS {playerIamAttacking.GameCharacter.Name} ({playerIamAttacking.DiscordUsername})**");
@@ -274,7 +280,7 @@ Speed => Strength
                 //умный
                 if (player.GameCharacter.GetSkillClass() == "Интеллект" && playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow() == 0)
                 {
-                    player.FightCharacter.AddExtraSkill(6 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                    skillGainedFromClassAttacker = player.FightCharacter.AddExtraSkill(6 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
                 }
 
 
@@ -282,8 +288,6 @@ Speed => Strength
 
                 game.AddGlobalLogs($"{player.DiscordUsername} <:war:561287719838547981> {playerIamAttacking.DiscordUsername}", "");
 
-                //add skill
-                decimal skillGainedFromTarget = 0;
                 if (player.GameCharacter.GetCurrentSkillClassTarget() == playerIamAttacking.GameCharacter.GetSkillClass())
                 {
                     string text1;
@@ -407,6 +411,8 @@ Speed => Strength
                         Outcome = "block",
                         WinnerName = playerIamAttacking.DiscordUsername,
                         SkillGainedFromTarget = Math.Round(skillGainedFromTarget, 1),
+                        SkillGainedFromClassAttacker = Math.Round(skillGainedFromClassAttacker, 1),
+                        SkillGainedFromClassDefender = Math.Round(skillGainedFromClassDefender, 1),
                     });
 
                     //fight Reset
@@ -448,6 +454,8 @@ Speed => Strength
                         DefenderAvatar = GameStateMapper.GetLocalAvatarUrl(playerIamAttacking.GameCharacter.AvatarCurrent ?? playerIamAttacking.GameCharacter.Avatar),
                         Outcome = "skip",
                         SkillGainedFromTarget = Math.Round(skillGainedFromTarget, 1),
+                        SkillGainedFromClassAttacker = Math.Round(skillGainedFromClassAttacker, 1),
+                        SkillGainedFromClassDefender = Math.Round(skillGainedFromClassDefender, 1),
                     });
 
                     //fight Reset
@@ -465,10 +473,10 @@ Speed => Strength
 
                 //быстрый
                 if (playerIamAttacking.GameCharacter.GetSkillClass() == "Скорость")
-                    playerIamAttacking.FightCharacter.AddExtraSkill(2 * playerIamAttacking.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                    skillGainedFromClassDefender = playerIamAttacking.FightCharacter.AddExtraSkill(2 * playerIamAttacking.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
                 if (player.GameCharacter.GetSkillClass() == "Скорость")
-                    player.FightCharacter.AddExtraSkill(2 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                    skillGainedFromClassAttacker = player.FightCharacter.AddExtraSkill(2 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
 
                 //main formula:
@@ -578,7 +586,7 @@ Speed => Strength
                     var point = 1;
                     //сильный
                     if (player.GameCharacter.GetSkillClass() == "Сила")
-                        player.FightCharacter.AddExtraSkill(4 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                        skillGainedFromClassAttacker = player.FightCharacter.AddExtraSkill(4 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
                     isContrLost -= 1;
                     game.AddGlobalLogs($" ⟶ {player.DiscordUsername}");
@@ -664,7 +672,7 @@ Speed => Strength
                 {
                     //сильный
                     if (playerIamAttacking.GameCharacter.GetSkillClass() == "Сила")
-                        playerIamAttacking.FightCharacter.AddExtraSkill(4 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                        skillGainedFromClassDefender = playerIamAttacking.FightCharacter.AddExtraSkill(4 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
                     if (isTooGoodEnemy && !isTooStronkEnemy)
                         player.Status.AddInGamePersonalLogs($"{playerIamAttacking.DiscordUsername} is __TOO GOOD__ for you\n");
@@ -808,6 +816,9 @@ Speed => Strength
                         EmotionalDamage = fightEmotionalDmg,
                         JusticeChange = fightJusticeChange,
                         SkillGainedFromTarget = Math.Round(skillGainedFromTarget, 1),
+                        SkillGainedFromClassAttacker = Math.Round(skillGainedFromClassAttacker, 1),
+                        SkillGainedFromClassDefender = Math.Round(skillGainedFromClassDefender, 1),
+                        SkillDifferenceRandomModifier = Math.Round(step1.SkillDifferenceRandomModifier, 2),
                     });
                 }
 

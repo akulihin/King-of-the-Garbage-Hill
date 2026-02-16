@@ -896,6 +896,14 @@ function getDisplayCharName(orig: string, u: string): string {
                     {{ fmtPct(r3JusticePct) }}
                   </span>
                 </div>
+
+                <!-- Modifier: Skill Difference -->
+                <div v-if="fight.skillDifferenceRandomModifier !== 0" class="fa-factor random visible">
+                  <span class="fa-factor-label">Skill Difference</span>
+                  <span class="fa-factor-detail" :class="r3ModClass(fight.skillDifferenceRandomModifier * sign)">
+                    {{ fmtPct(fight.skillDifferenceRandomModifier * sign) }}
+                  </span>
+                </div>
                 <!-- Our final win chance -->
                 <!-- <div class="fa-factor random visible">
                   <span class="fa-factor-label">Шанс победы</span>
@@ -940,6 +948,12 @@ function getDisplayCharName(orig: string, u: string): string {
               <!-- Skill gained: only show when WE are the attacker -->
               <span v-if="!isFlipped && fight.skillGainedFromTarget > 0" class="fa-detail-item fa-skill-gain">
                 +{{ fight.skillGainedFromTarget }} Скилл (Мишень)
+              </span>
+              <span v-if="!isFlipped && fight.skillGainedFromClassAttacker > 0" class="fa-detail-item fa-skill-gain">
+                +{{ fight.skillGainedFromClassAttacker }} Скилл (Класс)
+              </span>
+              <span v-if="isFlipped && fight.skillGainedFromClassDefender > 0" class="fa-detail-item fa-skill-gain">
+                +{{ fight.skillGainedFromClassDefender }} Скилл (Класс)
               </span>
               <!-- Moral: show OUR actual moral change (win or loss) -->
               <span v-if="ourMoralChange !== 0" class="fa-detail-item fa-moral">

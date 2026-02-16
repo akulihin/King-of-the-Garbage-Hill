@@ -958,7 +958,7 @@ public class CharacterClass
         return total;
     }
 
-    public void AddExtraSkill(decimal howMuchToAdd, string skillName, bool isLog = true)
+    public decimal AddExtraSkill(decimal howMuchToAdd, string skillName, bool isLog = true)
     {
         var skillText = "Cкилла";
         if (skillName != "Обмен Морали" && skillName != "Класс")
@@ -967,7 +967,7 @@ public class CharacterClass
         }
 
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
-            return;
+            return 0;
 
         if (ExtraSkillMultiplier > 0 && howMuchToAdd > 0)
             howMuchToAdd *= ExtraSkillMultiplier + 1;
@@ -980,9 +980,9 @@ public class CharacterClass
         }
 
         SkillExtra += howMuchToAdd;
+        return howMuchToAdd;
     }
 
-    
 
     
     

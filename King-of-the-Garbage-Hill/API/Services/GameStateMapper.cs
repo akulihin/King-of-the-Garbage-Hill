@@ -389,7 +389,8 @@ public static class GameStateMapper
             AttackerMoralChange = 0, DefenderMoralChange = 0,
             ResistIntelDamage = 0, ResistStrDamage = 0, ResistPsycheDamage = 0,
             IntellectualDamage = false, EmotionalDamage = false,
-            JusticeChange = 0, SkillGainedFromTarget = 0,
+            JusticeChange = 0, SkillGainedFromTarget = 0, SkillGainedFromClassAttacker = 0, SkillGainedFromClassDefender = 0,
+            SkillDifferenceRandomModifier = 0,
         };
     }
 }

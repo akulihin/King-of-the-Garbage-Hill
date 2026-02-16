@@ -347,6 +347,13 @@ public class FightEntryDto
     public int JusticeChange { get; set; }
     /// <summary>Skill gained by the attacker from hitting their SkillTarget class. 0 if not applicable.</summary>
     public decimal SkillGainedFromTarget { get; set; }
+    /// <summary>Skill gained by the attacker from  their Skill Class. 0 if not applicable.</summary>
+    public decimal SkillGainedFromClassAttacker { get; set; }
+    /// <summary>Skill gained by the defender from  their Skill Class. 0 if not applicable.</summary>
+    public decimal SkillGainedFromClassDefender { get; set; }
+
+    /// <summary>Skill difference random modifier (based on skill difference between attacker and defender).</summary>
+    public decimal SkillDifferenceRandomModifier { get; set; }
 }
 
 // ── Auth DTOs ─────────────────────────────────────────────────────────

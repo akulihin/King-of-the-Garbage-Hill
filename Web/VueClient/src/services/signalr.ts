@@ -234,7 +234,11 @@ export type FightEntry = {
   intellectualDamage: boolean
   emotionalDamage: boolean
   justiceChange: number
+  
   skillGainedFromTarget: number
+  skillGainedFromClassAttacker: number
+  skillGainedFromClassDefender: number
+  skillDifferenceRandomModifier: number
 }
 
 export type ActionResult = {

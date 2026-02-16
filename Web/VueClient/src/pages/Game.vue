@@ -154,7 +154,7 @@ function parsePrevLogs(raw: string): PrevLogEntry[] {
     l => l.includes('Победа') &&  l.includes('Морали'),
     l => l.includes('скинули'),
     l => l.includes('обманул'),
-    l => l.includes('обогнал'),
+    l => l.includes('Класс'),
     l => l.includes('обогнал'),
     l => l.includes('обогнал'),
     l => l.includes('обогнал'),
@@ -356,7 +356,6 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
         <div class="logs-row-top">
           
           <div class="log-panel card events-panel">
-            <div class="card-header">События</div>
 
             <div v-if="currentLogEntries.length" class="prev-logs">
               <div
@@ -380,7 +379,6 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
           </div>
 
           <div class="log-panel card events-panel prev-logs-panel">
-            <div class="card-header">События прошлого раунда</div>
 
             <div v-if="prevLogEntries.length" class="prev-logs">
               <div
