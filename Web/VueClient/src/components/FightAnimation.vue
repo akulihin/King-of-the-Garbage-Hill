@@ -158,7 +158,7 @@ const round1Factors = computed<Factor[]>(() => {
     const ic = (val: number) => val > 0 ? '<span class="gi-ok">&#x2713;</span>' : val < 0 ? '<span class="gi-fail">&#x2717;</span>' : '<span class="gi-tie">&#x2015;</span>'
     const detail = `<span class="gi gi-int">INT</span>${ic(wi)} <span class="gi gi-str">STR</span>${ic(ws)} <span class="gi gi-spd">SPD</span>${ic(wsp)}`
     list.push({
-      label: 'Кто разностороннее',
+      label: 'Versatility',
       detail,
       value: v,
       highlight: hl(v),
@@ -176,14 +176,14 @@ const round1Factors = computed<Factor[]>(() => {
     const ci = (c: string) => c === 'Интеллект' ? '<span class="gi gi-int">INT</span>' : c === 'Сила' ? '<span class="gi gi-str">STR</span>' : c === 'Скорость' ? '<span class="gi gi-spd">SPD</span>' : '<span class="gi">?</span>'
     let detail: string
     if (weContre && theyContre) {
-      detail = `Обоюдная: ${ci(ourClass)}→${ci(theirClass)} / ${ci(theirClass)}→${ci(ourClass)}`
+      detail = `Neutral: ${ci(ourClass)}→${ci(theirClass)} / ${ci(theirClass)}→${ci(ourClass)}`
     } else if (weContre) {
-      detail = `${ci(ourClass)} контрит ${ci(theirClass)} (x${f.contrMultiplier})`
+      detail = `${ci(ourClass)} Dominates ${ci(theirClass)} (Multiplier x${f.contrMultiplier})`
     } else {
-      detail = `${ci(theirClass)} контрит ${ci(ourClass)}`
+      detail = `${ci(theirClass)} Dominates ${ci(ourClass)}`
     }
     list.push({
-      label: 'Контра',
+      label: 'Nemesis',
       detail,
       value: v,
       highlight: hl(v),
@@ -236,7 +236,7 @@ const round1Factors = computed<Factor[]>(() => {
     const ourJ = isFlipped.value ? f.justiceTarget : f.justiceMe
     const theirJ = isFlipped.value ? f.justiceMe : f.justiceTarget
     list.push({
-      label: 'Справедливость',
+      label: 'Justice',
       detail: `${ourJ} vs ${theirJ}`,
       value: v,
       highlight: hl(v),
@@ -552,18 +552,26 @@ const r3WeWon = computed(() => {
   return s > 0 ? attackerWon : !attackerWon
 })
 
-function compactOutcome(f: FightEntry): string {
+/** All-fights row: attacker always on left, defender on right, highlight winner */
+function allFightLeft(f: FightEntry) {
+  return {
+    name: f.attackerName,
+    avatar: f.attackerAvatar,
+    isWinner: f.winnerName === f.attackerName
+  }
+}
+function allFightRight(f: FightEntry) {
+  return {
+    name: f.defenderName,
+    avatar: f.defenderAvatar,
+    isWinner: f.winnerName === f.defenderName
+  }
+}
+function allFightCenterLabel(f: FightEntry): string {
   if (f.outcome === 'block') return 'БЛОК'
   if (f.outcome === 'skip') return 'СКИП'
-  return f.winnerName ?? ''
-}
-function compactOutcomeClass(f: FightEntry): string {
-  if (f.outcome === 'block' || f.outcome === 'skip') return 'co-neutral'
-  return isFightMine(f) ? (
-    (f.outcome === 'win' && f.attackerName === myUsername.value) ||
-    (f.outcome === 'loss' && f.defenderName === myUsername.value)
-      ? 'co-win' : 'co-loss'
-  ) : 'co-other'
+  if (f.drops > 0) return 'DROP'
+  return 'vs'
 }
 
 // ── Avatar/name masking ─────────────────────────────────────────────
@@ -624,13 +632,27 @@ function getDisplayCharName(orig: string, u: string): string {
         <div v-for="(f, idx) in fights" :key="idx"
           class="fa-all-row" :class="{ 'is-mine': isFightMine(f), 'clickable': isFightMine(f) }"
           @click="jumpToFightReplay(f)">
-          <img :src="getDisplayAvatar(f.attackerAvatar, f.attackerName)" class="fa-all-ava" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
-          <span class="fa-all-name">{{ f.attackerName }}</span>
-          <span class="fa-all-vs">vs</span>
-          <span class="fa-all-name">{{ f.defenderName }}</span>
-          <img :src="getDisplayAvatar(f.defenderAvatar, f.defenderName)" class="fa-all-ava" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
-          <span class="fa-all-result" :class="compactOutcomeClass(f)">{{ compactOutcome(f) }}</span>
-          <span v-if="f.drops > 0" class="fa-all-drop">DROP</span>
+          <!-- Left player (winner if normal fight) -->
+          <img :src="getDisplayAvatar(allFightLeft(f).avatar, allFightLeft(f).name)"
+            class="fa-all-ava" :class="{ 'ava-winner': allFightLeft(f).isWinner }"
+            @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
+          <span class="fa-all-name" :class="{ 'name-winner': allFightLeft(f).isWinner }" :title="allFightLeft(f).name">
+            {{ allFightLeft(f).name }}
+          </span>
+          <!-- Center: vs / БЛОК / DROP -->
+          <span class="fa-all-center" :class="{
+            'center-neutral': f.outcome === 'block' || f.outcome === 'skip',
+            'center-drop': f.drops > 0 && f.outcome !== 'block' && f.outcome !== 'skip',
+            'center-vs': f.outcome !== 'block' && f.outcome !== 'skip' && f.drops === 0
+          }">{{ allFightCenterLabel(f) }}</span>
+          <!-- Right player -->
+          <span class="fa-all-name fa-all-name-right" :class="{ 'name-winner': allFightRight(f).isWinner, 'name-loser': !allFightRight(f).isWinner && f.outcome !== 'block' && f.outcome !== 'skip' }" :title="allFightRight(f).name">
+            {{ allFightRight(f).name }}
+          </span>
+          <img :src="getDisplayAvatar(allFightRight(f).avatar, allFightRight(f).name)"
+            class="fa-all-ava" :class="{ 'ava-winner': allFightRight(f).isWinner }"
+            @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
+          <!-- Play button for own fights -->
           <span v-if="isFightMine(f)" class="fa-all-play" title="Смотреть бой">▶</span>
         </div>
       </div>
@@ -763,11 +785,9 @@ function getDisplayCharName(orig: string, u: string): string {
               </div>
 
               <!-- TooGood / TooStronk badges (flipped labels when we are defender) -->
-              <div v-if="fight.isTooGoodMe || fight.isTooGoodEnemy" class="fa-badge-row" :class="{ visible: showR1Result }">
-                <span class="fa-badge badge-toogood">TOO GOOD: {{ (fight.isTooGoodMe ? !isFlipped : isFlipped) ? 'МЫ' : 'ВРАГ' }}</span>
-              </div>
-              <div v-if="fight.isTooStronkMe || fight.isTooStronkEnemy" class="fa-badge-row" :class="{ visible: showR1Result }">
-                <span class="fa-badge badge-toostronk">TOO STRONK: {{ (fight.isTooStronkMe ? !isFlipped : isFlipped) ? 'МЫ' : 'ВРАГ' }}</span>
+              <div v-if="(fight.isTooGoodMe || fight.isTooGoodEnemy) || (fight.isTooStronkMe || fight.isTooStronkEnemy)" class="fa-badge-row" :class="{ visible: showR1Result }">
+                <span v-if="fight.isTooGoodMe || fight.isTooGoodEnemy" class="fa-badge badge-toogood">TOO GOOD: {{ (fight.isTooGoodMe ? !isFlipped : isFlipped) ? 'МЫ' : 'ВРАГ' }}</span>
+                <span v-if="fight.isTooStronkMe || fight.isTooStronkEnemy" class="fa-badge badge-toostronk">TOO STRONK: {{ (fight.isTooStronkMe ? !isFlipped : isFlipped) ? 'МЫ' : 'ВРАГ' }}</span>
               </div>
             </div>
             <!-- R1 result: weighing bar -->
@@ -829,12 +849,12 @@ function getDisplayCharName(orig: string, u: string): string {
                   </span>
                 </div>
                 <!-- Our final win chance -->
-                <div class="fa-factor random visible">
+                <!-- <div class="fa-factor random visible">
                   <span class="fa-factor-label">Шанс победы</span>
                   <span class="fa-factor-detail fa-chance-total" :class="r3OurChance >= 50 ? 'pct-good' : 'pct-bad'">
                     {{ r3OurChance.toFixed(2) }}%
                   </span>
-                </div>
+                </div>  -->
                 <!-- Roll result: animated bar -->
                 <div v-if="showR3Roll" class="fa-roll-bar-wrap">
                   <div class="fa-roll-bar-track">
@@ -1072,7 +1092,7 @@ div.fa-round-header { opacity: 1; }
 .neutral-val { color: var(--text-muted); }
 
 /* ── Badges (TooGood / TooStronk) ── */
-.fa-badge-row { display: flex; justify-content: center; padding: 2px 0; opacity: 0; transition: opacity 0.3s; }
+.fa-badge-row { display: flex; justify-content: center; gap: 6px; padding: 2px 0; opacity: 0; transition: opacity 0.3s; }
 .fa-badge-row.visible { opacity: 1; }
 .fa-badge { font-size: 9px; font-weight: 900; padding: 2px 10px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
 .badge-toogood { background: rgba(63, 167, 61, 0.1); color: var(--accent-green); border: 1px solid rgba(63, 167, 61, 0.3); }
@@ -1140,23 +1160,25 @@ div.fa-round-header { opacity: 1; }
 .fa-tab.active { background: var(--bg-card); color: var(--accent-gold); }
 
 /* ── All Fights list ── */
+/* ── All Fights list ── */
 .fa-all-fights { flex: 1; overflow-y: auto; }
-.fa-all-list { display: flex; flex-direction: column; gap: 3px; }
-.fa-all-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--radius); background: var(--bg-inset); font-size: 13px; border: 1px solid transparent; transition: all 0.15s; }
+.fa-all-list { display: flex; flex-direction: column; gap: 3px; max-width: 420px; margin: 0 auto; }
+.fa-all-row { display: grid; grid-template-columns: 28px 1fr auto 1fr 28px auto; align-items: center; gap: 6px; padding: 5px 8px; border-radius: var(--radius); background: var(--bg-inset); font-size: 12px; border: 1px solid transparent; transition: all 0.15s; }
 .fa-all-row.is-mine { background: rgba(180, 150, 255, 0.05); border-color: rgba(180, 150, 255, 0.15); }
 .fa-all-row.clickable { cursor: pointer; }
 .fa-all-row.clickable:hover { background: rgba(180, 150, 255, 0.12); border-color: rgba(180, 150, 255, 0.3); }
 .fa-all-play { font-size: 10px; color: var(--text-dim); flex-shrink: 0; opacity: 0.4; transition: opacity 0.15s; }
 .fa-all-row.clickable:hover .fa-all-play { opacity: 1; color: var(--accent-gold); }
-.fa-all-ava { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid var(--border-subtle); }
-.fa-all-name { font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; font-size: 12px; }
-.fa-all-vs { color: var(--text-dim); font-size: 11px; flex-shrink: 0; font-weight: 700; }
-.fa-all-result { margin-left: auto; font-weight: 800; font-size: 11px; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
-.fa-all-result.co-win { color: var(--accent-green); background: rgba(63, 167, 61, 0.08); }
-.fa-all-result.co-loss { color: var(--accent-red); background: rgba(239, 128, 128, 0.06); }
-.fa-all-result.co-neutral { color: var(--accent-orange); background: rgba(230, 148, 74, 0.06); }
-.fa-all-result.co-other { color: var(--text-muted); }
-.fa-all-drop { font-size: 9px; font-weight: 900; color: white; background: var(--accent-red-dim); padding: 2px 6px; border-radius: 4px; line-height: 16px; flex-shrink: 0; border: 1px solid var(--accent-red); }
+.fa-all-ava { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-subtle); transition: all 0.3s; }
+.fa-all-ava.ava-winner { border-color: var(--accent-green); box-shadow: 0 0 6px rgba(63, 167, 61, 0.4); }
+.fa-all-name { font-weight: 700; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+.fa-all-name.name-winner { color: var(--accent-green); font-weight: 800; }
+.fa-all-name.name-loser { color: var(--text-dim); opacity: 0.7; }
+.fa-all-name-right { text-align: right; }
+.fa-all-center { font-size: 10px; font-weight: 800; text-align: center; flex-shrink: 0; padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+.fa-all-center.center-vs { color: var(--text-dim); }
+.fa-all-center.center-neutral { color: var(--accent-orange); background: rgba(230, 148, 74, 0.1); border: 1px solid rgba(230, 148, 74, 0.2); }
+.fa-all-center.center-drop { color: var(--accent-red); background: rgba(239, 128, 128, 0.1); border: 1px solid rgba(239, 128, 128, 0.2); }
 
 /* ── Летопись ── */
 .fa-letopis { flex: 1; overflow-y: auto; padding: 4px; background: var(--bg-inset); border-radius: var(--radius); border: 1px solid var(--border-subtle); }

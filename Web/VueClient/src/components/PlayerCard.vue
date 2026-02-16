@@ -18,10 +18,55 @@ const store = useGameStore()
 const hasLvlUpPoints = computed(() => props.isMe && (props.player?.status.lvlUpPoints ?? 0) > 0)
 const lvlUpPoints = computed(() => props.player?.status.lvlUpPoints ?? 0)
 
-const hasMoral = computed(() => {
-  if (!props.isMe || !props.player) return false
-  const moral = Number.parseFloat(props.player.character.moralDisplay) || 0
-  return moral >= 1
+const moral = computed(() => {
+  if (!props.player) return 0
+  return Number.parseFloat(props.player.character.moralDisplay) || 0
+})
+
+const hasMoral = computed(() => props.isMe && moral.value >= 1)
+
+const roundNo = computed(() => store.gameState?.roundNo ?? 0)
+const isLastRound = computed(() => roundNo.value === 10)
+
+const hasBulkaet = computed(() => {
+  if (!props.player) return false
+  return props.player.character.passives.some((p: { name: string }) => p.name === 'Булькает')
+})
+
+const isDeepList = computed(() => {
+  if (!props.player) return false
+  return props.player.character.name === 'DeepList'
+})
+
+/** Moral → Points exchange rate (matching backend GameUpdateMess.cs) */
+const moralToPointsRate = computed(() => {
+  if (isDeepList.value) return null
+  const m = moral.value
+  if (m >= 20) return { cost: 20, gain: 10 }
+  if (m >= 13) return { cost: 13, gain: 5 }
+  if (m >= 8)  return { cost: 8,  gain: 2 }
+  if (m >= 5)  return { cost: 5,  gain: 1 }
+  return null
+})
+
+const hasEvreiPassive = computed(() => {
+  if (!props.player) return false
+  return props.player.character.passives.some((p: { name: string }) => p.name === 'Еврей')
+})
+
+/** Moral → Skill exchange rate (matching backend GameUpdateMess.cs) */
+const moralToSkillRate = computed(() => {
+  if (hasBulkaet.value) return null
+  const m = moral.value
+  if (m >= 20) return { cost: 20, gain: 100 }
+  if (m >= 13) return { cost: 13, gain: 50 }
+  if (hasEvreiPassive.value && m >= 7) return { cost: 7, gain: 40 }
+  if (m >= 8)  return { cost: 8,  gain: 30 }
+  if (m >= 5)  return { cost: 5,  gain: 18 }
+  if (m >= 3)  return { cost: 3,  gain: 10 }
+  if (m >= 2)  return { cost: 2,  gain: 6 }
+  if (m >= 1)  return { cost: 1,  gain: 2 }
+  return null
 })
 
 /** Parse "ClassName || description" from classStatDisplayText */
@@ -209,12 +254,26 @@ function hideTip() {
 
     <!-- Moral exchange -->
     <div v-if="hasMoral" class="pc-moral-actions">
-      <button class="moral-btn" title="Обменять мораль на очки" @click="store.moralToPoints()">
-        Мораль → Очки
-      </button>
-      <button class="moral-btn" title="Обменять мораль на навык" @click="store.moralToSkill()">
-        Мораль → Навык
-      </button>
+      <div v-if="isLastRound" class="moral-last-round">Последний шанс!</div>
+      <!-- Булькает: both disabled -->
+      <template v-if="hasBulkaet">
+        <button class="moral-btn moral-btn-disabled" disabled>Ничего не понимает, но Булькает!</button>
+      </template>
+      <template v-else>
+        <!-- Points button (DeepList can't use) -->
+        <button v-if="isDeepList" class="moral-btn moral-btn-disabled" disabled>Только скилл</button>
+        <button v-else-if="moralToPointsRate" class="moral-btn" @click="store.moralToPoints()"
+          :title="`Обменять ${moralToPointsRate.cost} Морали на ${moralToPointsRate.gain} бонусных очков`">
+          {{ moralToPointsRate.cost }} Moral → {{ moralToPointsRate.gain }} pts
+        </button>
+        <button v-else class="moral-btn moral-btn-disabled" disabled>Мало морали</button>
+        <!-- Skill button -->
+        <button v-if="moralToSkillRate" class="moral-btn" @click="store.moralToSkill()"
+          :title="`Обменять ${moralToSkillRate.cost} Морали на ${moralToSkillRate.gain} Cкилла`">
+          {{ moralToSkillRate.cost }} Moral → {{ moralToSkillRate.gain }} skill
+        </button>
+        <button v-else class="moral-btn moral-btn-disabled" disabled>Мало морали</button>
+      </template>
     </div>
 
     <!-- Score -->
@@ -483,7 +542,24 @@ function hideTip() {
 /* Moral exchange */
 .pc-moral-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
+  position: relative;
+}
+
+.moral-last-round {
+  width: 100%;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: #ff4444;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  animation: lastChancePulse 1.2s ease-in-out infinite;
+}
+@keyframes lastChancePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .moral-btn {
@@ -498,11 +574,20 @@ function hideTip() {
   cursor: pointer;
   transition: all 0.15s;
   text-align: center;
+  min-width: 0;
+  white-space: nowrap;
 }
-.moral-btn:hover {
+.moral-btn:hover:not(:disabled) {
   background: var(--accent-orange);
   color: var(--bg-primary);
   border-color: var(--accent-orange);
+}
+.moral-btn-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: rgba(100, 100, 100, 0.3);
+  color: rgba(180, 180, 180, 0.7);
+  background: rgba(60, 60, 60, 0.15);
 }
 
 /* Score */

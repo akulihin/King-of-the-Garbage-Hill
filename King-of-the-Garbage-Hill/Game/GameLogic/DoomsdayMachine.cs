@@ -311,8 +311,7 @@ Speed => Strength
                     }
 
                     var skillBefore = player.FightCharacter.GetSkill();
-                    player.FightCharacter.AddMainSkill(text1);
-                    skillGainedFromTarget = player.FightCharacter.GetSkill() - skillBefore;
+                    skillGainedFromTarget = player.FightCharacter.AddMainSkill(text1);
 
                     var known = player.Status.KnownPlayerClass.Find(x => x.EnemyId == playerIamAttacking.GetPlayerId());
                     if (known != null)

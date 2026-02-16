@@ -920,10 +920,10 @@ public class CharacterClass
         SkillExtra = howMuchToSet;
     }
 
-    public void AddMainSkill(string skillName, bool isLog = true)
+    public decimal AddMainSkill(string skillName, bool isLog = true)
     {
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
-            return;
+            return 0;
         decimal howMuchToAdd = SkillMain switch
         {
             0 => 10,
@@ -955,6 +955,7 @@ public class CharacterClass
 
         if (isLog)
             Status.AddInGamePersonalLogs($"Мишень: +{total} *Cкилла* (за {skillName} врага)\n");
+        return total;
     }
 
     public void AddExtraSkill(decimal howMuchToAdd, string skillName, bool isLog = true)

@@ -114,11 +114,12 @@ const letopis = computed(() => {
 })
 
 // ── Animated Previous Round Logs ─────────────────────────────────────
+type PrevLogColor = 'purple' | 'gold' | 'green' | 'red' | 'blue' | 'orange' | 'muted'
 interface PrevLogEntry {
   raw: string
   html: string
-  type: 'skill' | 'score' | 'skillup' | 'other'
-  comboCount: number // for score lines: number of '+' in the source breakdown
+  type: PrevLogColor
+  comboCount: number
 }
 
 function cleanDiscord(text: string): string {
@@ -129,25 +130,39 @@ function cleanDiscord(text: string): string {
 
 function parsePrevLogs(raw: string): PrevLogEntry[] {
   if (!raw) return []
-  const lines = raw.split('\n').filter((l: string) => l.trim())
+  // Lines to hide (already shown elsewhere in the UI)
+  const hiddenPatterns: ((line: string) => boolean)[] = [
+    l => l.includes('Мишень'),
+    l => l.includes('Поражение') && l.includes('Морали'),
+  ]
+  const lines = raw.split('\n').filter((l: string) => l.trim() && !hiddenPatterns.some(fn => fn(l)))
   return lines.map((line: string) => {
     const clean = cleanDiscord(line)
-    let type: PrevLogEntry['type'] = 'other'
+    let type: PrevLogColor = 'muted'
     let comboCount = 0
 
-    if (/[Сс]килла/i.test(clean) || /[Сс]кілла/i.test(clean) || /Cкилла/i.test(clean)) {
-      type = 'skillup'
+    if (/[Сс]килла/i.test(clean) || /Справедливость/i.test(clean) || /Cкилла/i.test(clean) || /Морали/i.test(clean)) {
+      type = 'green'  
     } else if (/очков/i.test(clean)) {
-      type = 'score'
-      // Count combo: extract (Reason+Reason+Reason) and count '+'
+      type = 'gold'
       const parenMatch = clean.match(/\(([^)]+)\)/)
       if (parenMatch) {
         comboCount = (parenMatch[1].match(/\+/g) || []).length
       }
+    } else if (/Поражение/i.test(clean) || /вреда/i.test(clean)) {
+      type = 'red'
     } else if (clean.includes(':')) {
-      type = 'skill'
+      type = 'purple'
     }
-
+    /*
+purple
+gold
+green
+red
+blue
+orange
+muted	(Grey)
+    */
     const html = clean
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/__(.*?)__/g, '<u>$1</u>')
@@ -320,11 +335,11 @@ watch(() => store.myPlayer?.status.previousRoundLogs, (newVal: string | undefine
                 :class="[
                   'prev-log-' + entry.type,
                   { 'prev-log-visible': idx < prevLogVisibleCount },
-                  { 'prev-log-combo': entry.type === 'score' && entry.comboCount > 0 }
+                  { 'prev-log-combo': entry.type === 'gold' && entry.comboCount > 0 }
                 ]"
               >
                 <span class="prev-log-text" v-html="entry.html"></span>
-                <span v-if="entry.type === 'score' && entry.comboCount > 0" class="prev-log-combo-badge">
+                <span v-if="entry.type === 'gold' && entry.comboCount > 0" class="prev-log-combo-badge">
                   x{{ entry.comboCount + 1 }} combo
                 </span>
               </div>
@@ -629,26 +644,32 @@ watch(() => store.myPlayer?.status.previousRoundLogs, (newVal: string | undefine
 .prev-log-text :deep(em) { color: var(--accent-blue); }
 .prev-log-text :deep(u) { color: var(--accent-green); }
 
-/* Skill passive (contains :) */
-.prev-log-skill {
+/* Log colors */
+.prev-log-purple {
   background: rgba(139, 92, 246, 0.06);
   border-left-color: rgba(139, 92, 246, 0.5);
 }
-
-/* Score (contains очков) */
-.prev-log-score {
+.prev-log-gold {
   background: rgba(233, 219, 61, 0.06);
   border-left-color: rgba(233, 219, 61, 0.5);
 }
-
-/* Skill gain (contains Cкилла) */
-.prev-log-skillup {
+.prev-log-green {
   background: rgba(63, 167, 61, 0.06);
   border-left-color: rgba(63, 167, 61, 0.5);
 }
-
-/* Other */
-.prev-log-other {
+.prev-log-red {
+  background: rgba(239, 128, 128, 0.06);
+  border-left-color: rgba(239, 128, 128, 0.5);
+}
+.prev-log-blue {
+  background: rgba(100, 160, 255, 0.06);
+  border-left-color: rgba(100, 160, 255, 0.5);
+}
+.prev-log-orange {
+  background: rgba(230, 148, 74, 0.06);
+  border-left-color: rgba(230, 148, 74, 0.5);
+}
+.prev-log-muted {
   background: var(--bg-inset);
   border-left-color: var(--border-subtle);
 }
