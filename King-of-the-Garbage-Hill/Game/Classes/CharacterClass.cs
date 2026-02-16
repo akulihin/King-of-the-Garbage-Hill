@@ -1031,6 +1031,11 @@ public class CharacterClass
 
         return text;
     }
+    public string GetMoralStringWeb()
+    {
+        var text = $"{(int)Math.Round(Moral + MoralBonus)}";
+        return text;
+    }
 
     public void SetMoralBonus()
     {

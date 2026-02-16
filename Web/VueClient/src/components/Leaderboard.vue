@@ -418,6 +418,8 @@ watch(() => props.fightLog, (newLog) => {
 </template>
 
 <style scoped>
+.leaderboard.card { padding: 8px; }
+
 .lb-table {
   display: flex;
   flex-direction: column;

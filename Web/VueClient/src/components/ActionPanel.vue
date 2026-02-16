@@ -76,12 +76,12 @@ const isLockedPredict = computed(() => {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 8px;
+  padding: 4px 8px;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius);
-  margin-top: 6px;
+  border-radius: var(--radius-lg);
   flex-wrap: wrap;
+  margin-bottom: 4px;
 }
 
 .action-group {

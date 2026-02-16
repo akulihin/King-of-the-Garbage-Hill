@@ -22,6 +22,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: 'resist-flash', stats: string[]): void
   (e: 'justice-reset'): void
+  (e: 'replay-ended'): void
 }>()
 
 /** Active tab: 'fights' = replay, 'all' = compact results list, 'letopis' = full text log */
@@ -178,9 +179,9 @@ const round1Factors = computed<Factor[]>(() => {
     if (weContre && theyContre) {
       detail = `Neutral: ${ci(ourClass)}→${ci(theirClass)} / ${ci(theirClass)}→${ci(ourClass)}`
     } else if (weContre) {
-      detail = `${ci(ourClass)} Dominates ${ci(theirClass)} (Multiplier x${f.contrMultiplier})`
+      detail = `${ci(ourClass)} <span class="dom-good">Dominates</span> ${ci(theirClass)} (x${f.contrMultiplier})`
     } else {
-      detail = `${ci(theirClass)} Dominates ${ci(ourClass)}`
+      detail = `${ci(theirClass)} <span class="dom-bad">Dominates</span> ${ci(ourClass)}`
     }
     list.push({
       label: 'Nemesis',
@@ -258,8 +259,8 @@ const totalSteps = computed(() => {
 })
 
 // ── Weighing machine bar animation ──────────────────────────────────
-// Values are flipped so positive = good for left (us)
-const animatedWeighingValue = computed(() => {
+// Target value (jumps per step)
+const targetWeighingValue = computed(() => {
   if (!fight.value || isSpecialOutcome.value) return 0
   if (skippedToEnd.value || !isMyFight.value) return fight.value.weighingMachine * sign.value
 
@@ -274,6 +275,28 @@ const animatedWeighingValue = computed(() => {
   }
   return accumulated
 })
+
+// Smoothly animated weighing value
+const animatedWeighingValue = ref(0)
+let weighingAnimFrame: ReturnType<typeof requestAnimationFrame> | null = null
+
+watch(targetWeighingValue, (target: number) => {
+  if (weighingAnimFrame) cancelAnimationFrame(weighingAnimFrame)
+  const start = animatedWeighingValue.value
+  const diff = target - start
+  if (Math.abs(diff) < 0.01) { animatedWeighingValue.value = target; return }
+  const duration = 500 // ms
+  const startTime = performance.now()
+  function tick(now: number) {
+    const elapsed = now - startTime
+    const t = Math.min(elapsed / duration, 1)
+    // ease-out cubic
+    const ease = 1 - Math.pow(1 - t, 3)
+    animatedWeighingValue.value = start + diff * ease
+    if (t < 1) weighingAnimFrame = requestAnimationFrame(tick)
+  }
+  weighingAnimFrame = requestAnimationFrame(tick)
+}, { immediate: true })
 
 const barPosition = computed(() => {
   const val = animatedWeighingValue.value
@@ -371,6 +394,7 @@ function advanceStep() {
         scheduleNext()
       } else {
         isPlaying.value = false
+        emit('replay-ended')
         // Auto-transition to 'all' tab after replay finishes (unless user already switched)
         if (!userSwitchedTab.value && activeTab.value === 'fights') {
           setTimeout(() => { activeTab.value = 'all' }, 800)
@@ -390,6 +414,7 @@ function skipToEnd() {
   clearTimer(); isPlaying.value = false; skippedToEnd.value = true
   currentFightIdx.value = myFights.value.length - 1
   currentStep.value = totalSteps.value - 1
+  emit('replay-ended')
 }
 function setSpeed(s: number) { speed.value = s }
 function restart() {
@@ -408,7 +433,11 @@ watch(() => props.fights, () => {
   }
 }, { deep: true })
 
-onUnmounted(() => { clearTimer() })
+onUnmounted(() => {
+  clearTimer()
+  if (weighingAnimFrame) cancelAnimationFrame(weighingAnimFrame)
+  if (justiceAnimFrame) cancelAnimationFrame(justiceAnimFrame)
+})
 
 // ── Auto-scroll: keep the latest animated step visible in panel ──────
 const fightCardRef = ref<HTMLElement | null>(null)
@@ -458,14 +487,35 @@ const enemyJustice = computed(() => {
   if (!fight.value) return 0
   return isFlipped.value ? fight.value.justiceMe : fight.value.justiceTarget
 })
-const justiceBarOurs = computed(() => {
+const targetJusticeBarOurs = computed(() => {
   const total = ourJustice.value + enemyJustice.value
   if (total === 0) return 50
   return (ourJustice.value / total) * 100
 })
-const justiceBarEnemy = computed(() => {
-  return 100 - justiceBarOurs.value
-})
+
+// Animated justice bar width
+const justiceBarOurs = ref(50)
+let justiceAnimFrame: ReturnType<typeof requestAnimationFrame> | null = null
+
+watch([showR2, targetJusticeBarOurs], ([visible, target]: [boolean, number]) => {
+  if (justiceAnimFrame) cancelAnimationFrame(justiceAnimFrame)
+  if (!visible) { justiceBarOurs.value = 50; return }
+  const start = justiceBarOurs.value
+  const diff = target - start
+  if (Math.abs(diff) < 0.05) { justiceBarOurs.value = target; return }
+  const duration = 700
+  const startTime = performance.now()
+  function tick(now: number) {
+    const elapsed = now - startTime
+    const t = Math.min(elapsed / duration, 1)
+    const ease = 1 - Math.pow(1 - t, 3)
+    justiceBarOurs.value = start + diff * ease
+    if (t < 1) justiceAnimFrame = requestAnimationFrame(tick)
+  }
+  justiceAnimFrame = requestAnimationFrame(tick)
+}, { immediate: true })
+
+const justiceBarEnemy = computed(() => 100 - justiceBarOurs.value)
 const phase3Result = computed(() => {
   if (!fight.value || !isMyFight.value || !fight.value.usedRandomRoll) return 0
   return r3WeWon.value ? 1 : -1
@@ -632,26 +682,28 @@ function getDisplayCharName(orig: string, u: string): string {
         <div v-for="(f, idx) in fights" :key="idx"
           class="fa-all-row" :class="{ 'is-mine': isFightMine(f), 'clickable': isFightMine(f) }"
           @click="jumpToFightReplay(f)">
-          <!-- Left player (winner if normal fight) -->
-          <img :src="getDisplayAvatar(allFightLeft(f).avatar, allFightLeft(f).name)"
-            class="fa-all-ava" :class="{ 'ava-winner': allFightLeft(f).isWinner }"
-            @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
-          <span class="fa-all-name" :class="{ 'name-winner': allFightLeft(f).isWinner }" :title="allFightLeft(f).name">
+          <!-- Left name -->
+          <span class="fa-all-name fa-all-name-left" :class="{ 'name-winner': allFightLeft(f).isWinner, 'name-loser': !allFightLeft(f).isWinner && f.outcome !== 'block' && f.outcome !== 'skip' }" :title="allFightLeft(f).name">
             {{ allFightLeft(f).name }}
           </span>
-          <!-- Center: vs / БЛОК / DROP -->
-          <span class="fa-all-center" :class="{
-            'center-neutral': f.outcome === 'block' || f.outcome === 'skip',
-            'center-drop': f.drops > 0 && f.outcome !== 'block' && f.outcome !== 'skip',
-            'center-vs': f.outcome !== 'block' && f.outcome !== 'skip' && f.drops === 0
-          }">{{ allFightCenterLabel(f) }}</span>
-          <!-- Right player -->
+          <!-- Center block: avatar | label | avatar -->
+          <div class="fa-all-mid">
+            <img :src="getDisplayAvatar(allFightLeft(f).avatar, allFightLeft(f).name)"
+              class="fa-all-ava" :class="{ 'ava-winner': allFightLeft(f).isWinner }"
+              @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
+            <span class="fa-all-center" :class="{
+              'center-neutral': f.outcome === 'block' || f.outcome === 'skip',
+              'center-drop': f.drops > 0 && f.outcome !== 'block' && f.outcome !== 'skip',
+              'center-vs': f.outcome !== 'block' && f.outcome !== 'skip' && f.drops === 0
+            }">{{ allFightCenterLabel(f) }}</span>
+            <img :src="getDisplayAvatar(allFightRight(f).avatar, allFightRight(f).name)"
+              class="fa-all-ava" :class="{ 'ava-winner': allFightRight(f).isWinner }"
+              @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
+          </div>
+          <!-- Right name -->
           <span class="fa-all-name fa-all-name-right" :class="{ 'name-winner': allFightRight(f).isWinner, 'name-loser': !allFightRight(f).isWinner && f.outcome !== 'block' && f.outcome !== 'skip' }" :title="allFightRight(f).name">
             {{ allFightRight(f).name }}
           </span>
-          <img :src="getDisplayAvatar(allFightRight(f).avatar, allFightRight(f).name)"
-            class="fa-all-ava" :class="{ 'ava-winner': allFightRight(f).isWinner }"
-            @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
           <!-- Play button for own fights -->
           <span v-if="isFightMine(f)" class="fa-all-play" title="Смотреть бой">▶</span>
         </div>
@@ -776,6 +828,14 @@ function getDisplayCharName(orig: string, u: string): string {
           <template v-if="isMyFight">
             <!-- ── Phase 1: Весы ── -->
             <div class="fa-round-header">Весы</div>
+            <!-- Weighing bar: visible from the start, animates as factors appear -->
+            <div class="fa-bar-container fa-bar-compact">
+              <div class="fa-bar-track">
+                <div class="fa-bar-fill" :style="{ width: barPosition + '%' }" :class="{ 'bar-attacker': animatedWeighingValue > 0, 'bar-defender': animatedWeighingValue < 0, 'bar-even': animatedWeighingValue === 0 }">
+                  <span class="fa-bar-value">{{ fmtVal(animatedWeighingValue) }}</span>
+                </div>
+              </div>
+            </div>
             <div class="fa-factors">
               <div v-for="(fac, idx) in round1Factors" :key="'r1-'+idx"
                 class="fa-factor" :class="[fac.highlight, { visible: showR1Factor(idx) }]">
@@ -788,18 +848,6 @@ function getDisplayCharName(orig: string, u: string): string {
               <div v-if="(fight.isTooGoodMe || fight.isTooGoodEnemy) || (fight.isTooStronkMe || fight.isTooStronkEnemy)" class="fa-badge-row" :class="{ visible: showR1Result }">
                 <span v-if="fight.isTooGoodMe || fight.isTooGoodEnemy" class="fa-badge badge-toogood">TOO GOOD: {{ (fight.isTooGoodMe ? !isFlipped : isFlipped) ? 'МЫ' : 'ВРАГ' }}</span>
                 <span v-if="fight.isTooStronkMe || fight.isTooStronkEnemy" class="fa-badge badge-toostronk">TOO STRONK: {{ (fight.isTooStronkMe ? !isFlipped : isFlipped) ? 'МЫ' : 'ВРАГ' }}</span>
-              </div>
-            </div>
-            <!-- R1 result: weighing bar -->
-            <!--<div v-if="showR1Result" class="fa-phase-result" :class="phaseClass(phase1Result, true)">
-              <span class="phase-result-icon">{{ phase1Result > 0 ? '✓' : phase1Result < 0 ? '✗' : '—' }}</span>
-              <span>{{ phase1Result > 0 ? 'Весы в нашу сторону' : phase1Result < 0 ? 'Весы в сторону врага' : 'Весы равны' }}</span>
-            </div>-->
-            <div v-if="showR1Result" class="fa-bar-container fa-bar-compact">
-              <div class="fa-bar-track">
-                <div class="fa-bar-fill" :style="{ width: barPosition + '%' }" :class="{ 'bar-attacker': animatedWeighingValue > 0, 'bar-defender': animatedWeighingValue < 0, 'bar-even': animatedWeighingValue === 0 }">
-                  <span class="fa-bar-value">{{ fmtVal(animatedWeighingValue) }}</span>
-                </div>
               </div>
             </div>
 
@@ -957,6 +1005,8 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-factor-detail :deep(.gi-ok) { color: var(--accent-green); font-weight: 800; }
 .fa-factor-detail :deep(.gi-fail) { color: var(--accent-red); font-weight: 800; }
 .fa-factor-detail :deep(.gi-tie) { color: var(--text-muted); }
+.fa-factor-detail :deep(.dom-good) { color: var(--accent-green); font-weight: 900; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px; }
+.fa-factor-detail :deep(.dom-bad) { color: var(--accent-red); font-weight: 900; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px; }
 
 /* ── Controls ── */
 .fa-controls { display: flex; align-items: center; gap: 4px; padding: 4px 0; }
@@ -1162,20 +1212,22 @@ div.fa-round-header { opacity: 1; }
 /* ── All Fights list ── */
 /* ── All Fights list ── */
 .fa-all-fights { flex: 1; overflow-y: auto; }
-.fa-all-list { display: flex; flex-direction: column; gap: 3px; max-width: 420px; margin: 0 auto; }
-.fa-all-row { display: grid; grid-template-columns: 28px 1fr auto 1fr 28px auto; align-items: center; gap: 6px; padding: 5px 8px; border-radius: var(--radius); background: var(--bg-inset); font-size: 12px; border: 1px solid transparent; transition: all 0.15s; }
+.fa-all-list { display: flex; flex-direction: column; gap: 3px; max-width: 480px; margin: 0 auto; }
+.fa-all-row { display: grid; grid-template-columns: 1fr auto 1fr auto; align-items: center; gap: 4px; padding: 5px 8px; border-radius: var(--radius); background: var(--bg-inset); font-size: 12px; border: 1px solid transparent; transition: all 0.15s; }
 .fa-all-row.is-mine { background: rgba(180, 150, 255, 0.05); border-color: rgba(180, 150, 255, 0.15); }
 .fa-all-row.clickable { cursor: pointer; }
 .fa-all-row.clickable:hover { background: rgba(180, 150, 255, 0.12); border-color: rgba(180, 150, 255, 0.3); }
 .fa-all-play { font-size: 10px; color: var(--text-dim); flex-shrink: 0; opacity: 0.4; transition: opacity 0.15s; }
 .fa-all-row.clickable:hover .fa-all-play { opacity: 1; color: var(--accent-gold); }
-.fa-all-ava { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-subtle); transition: all 0.3s; }
+.fa-all-mid { display: flex; align-items: center; gap: 6px; justify-content: center; flex-shrink: 0; }
+.fa-all-ava { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-subtle); transition: all 0.3s; flex-shrink: 0; }
 .fa-all-ava.ava-winner { border-color: var(--accent-green); box-shadow: 0 0 6px rgba(63, 167, 61, 0.4); }
-.fa-all-name { font-weight: 700; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+.fa-all-name { font-weight: 700; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; min-width: 0; }
 .fa-all-name.name-winner { color: var(--accent-green); font-weight: 800; }
 .fa-all-name.name-loser { color: var(--text-dim); opacity: 0.7; }
-.fa-all-name-right { text-align: right; }
-.fa-all-center { font-size: 10px; font-weight: 800; text-align: center; flex-shrink: 0; padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+.fa-all-name-left { text-align: right; }
+.fa-all-name-right { text-align: left; }
+.fa-all-center { font-size: 10px; font-weight: 800; text-align: center; flex-shrink: 0; padding: 1px 0; border-radius: 3px; white-space: nowrap; width: 42px; display: inline-block; }
 .fa-all-center.center-vs { color: var(--text-dim); }
 .fa-all-center.center-neutral { color: var(--accent-orange); background: rgba(230, 148, 74, 0.1); border: 1px solid rgba(230, 148, 74, 0.2); }
 .fa-all-center.center-drop { color: var(--accent-red); background: rgba(239, 128, 128, 0.1); border: 1px solid rgba(239, 128, 128, 0.2); }

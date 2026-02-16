@@ -30,6 +30,12 @@ function onJusticeReset() {
   setTimeout(() => { justiceResetFlash.value = false }, 2000)
 }
 
+/** Fight replay ended — trigger score combo animation */
+const fightReplayEnded = ref(false)
+function onReplayEnded() {
+  fightReplayEnded.value = true
+}
+
 onMounted(async () => {
   if (store.isConnected) {
     await store.joinGame(gameIdNum.value)
@@ -147,7 +153,7 @@ function parsePrevLogs(raw: string): PrevLogEntry[] {
     l => l.includes('пресанул'),
     l => l.includes('Победа') &&  l.includes('Морали'),
     l => l.includes('скинули'),
-    l => l.includes('обогнал'),
+    l => l.includes('обманул'),
     l => l.includes('обогнал'),
     l => l.includes('обогнал'),
     l => l.includes('обогнал'),
@@ -163,13 +169,13 @@ function parsePrevLogs(raw: string): PrevLogEntry[] {
 
     if (/[Сс]килла/i.test(clean) || /Справедливость/i.test(clean) || /Cкилла/i.test(clean) || /Морали/i.test(clean)) {
       type = 'green'  
-    } else if (/очков/i.test(clean)) {
+    } else if (/очков/i.test(clean) && !clean.includes('отнял в общей сумме')) {
       type = 'gold'
       const parenMatch = clean.match(/\(([^)]+)\)/)
       if (parenMatch) {
         comboCount = (parenMatch[1].match(/\+/g) || []).length
       }
-    } else if (/Поражение/i.test(clean) || /вреда/i.test(clean)) {
+    } else if (/Поражение/i.test(clean) || /вреда/i.test(clean) || clean.includes('отнял в общей сумме')) {
       type = 'red'
     } else if (clean.includes(':')) {
       type = 'purple'
@@ -193,8 +199,18 @@ muted	(Grey)
   })
 }
 
-const prevLogEntries = computed(() => parsePrevLogs(store.myPlayer?.status.previousRoundLogs || ''))
-const currentLogEntries = computed(() => parsePrevLogs(mergeEvents() || ''))
+const prevLogEntriesAll = computed(() => parsePrevLogs(store.myPlayer?.status.previousRoundLogs || ''))
+const currentLogEntriesAll = computed(() => parsePrevLogs(mergeEvents() || ''))
+
+// Split: "очков" entries go to PlayerCard, rest stay in log panels
+const prevLogEntries = computed(() => prevLogEntriesAll.value.filter((e: PrevLogEntry) => e.type !== 'gold'))
+const currentLogEntries = computed(() => currentLogEntriesAll.value.filter((e: PrevLogEntry) => e.type !== 'gold'))
+
+// All score entries (from both current + previous logs) for the PlayerCard combo display
+const scoreEntries = computed(() => [
+  ...currentLogEntriesAll.value.filter((e: PrevLogEntry) => e.type === 'gold'),
+  ...prevLogEntriesAll.value.filter((e: PrevLogEntry) => e.type === 'gold'),
+])
 
 // Animation: reveal entries one by one
 const prevLogVisibleCount = ref(999)
@@ -215,6 +231,7 @@ watch(() => store.myPlayer?.status.previousRoundLogs, (newVal: string | undefine
   const val = newVal || ''
   if (val === prevLogSnapshot) return
   prevLogSnapshot = val
+  fightReplayEnded.value = false
   clearPrevLogTimer()
   if (!val) { prevLogVisibleCount.value = 999; return }
   const count = parsePrevLogs(val).length
@@ -269,9 +286,9 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
           :is-me="true"
           :resist-flash="resistFlashStats"
           :justice-reset="justiceResetFlash"
+          :score-entries="scoreEntries"
+          :score-anim-ready="fightReplayEnded"
         />
-        <!-- Action bar (only during active game) -->
-        <ActionPanel v-if="store.myPlayer && !store.gameState.isFinished" />
       </div>
 
       <!-- Center: Header + Leaderboard + Actions + Logs -->
@@ -319,54 +336,27 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
           </div>
         </div>
 
-        <!-- Leaderboard (click to attack only during active game) -->
-        <Leaderboard
-          :players="store.gameState.players"
-          :my-player-id="store.myPlayer?.playerId"
-          :can-attack="!store.gameState.isFinished && store.isMyTurn"
-          :predictions="store.myPlayer?.predictions"
-          :character-names="store.gameState.allCharacterNames || []"
-          :character-catalog="store.gameState.allCharacters || []"
-          :is-admin="store.isAdmin"
-          :round-no="store.gameState.roundNo"
-          :confirmed-predict="store.myPlayer?.status.confirmedPredict"
-          :fight-log="store.gameState.fightLog || []"
-          @attack="store.attack($event)"
-          @predict="store.predict($event.playerId, $event.characterName)"
-        />
-
-        <!-- "Back to Lobby" after game ends -->
-        <div v-if="store.gameState.isFinished" class="finished-actions">
-          <button class="btn btn-primary btn-lg" @click="goToLobby">
-            Back to Lobby
-          </button>
-        </div>
-
-        <!-- Direct Messages (ephemeral alerts) -->
-        <div
-          v-if="store.myPlayer?.status.directMessages?.length"
-          class="direct-messages"
-        >
-          <div
-            v-for="(msg, idx) in store.myPlayer.status.directMessages"
-            :key="idx"
-            class="dm-item"
-            v-html="formatLogs(msg)"
+        <!-- Fight Panel (moved above leaderboard for prominence) -->
+        <div class="log-panel card fight-panel">
+          <FightAnimation
+            :fights="store.gameState.fightLog || []"
+            :letopis="letopis"
+            :players="store.gameState.players"
+            :my-player-id="store.myPlayer?.playerId"
+            :predictions="store.myPlayer?.predictions"
+            :is-admin="store.isAdmin"
+            :character-catalog="store.gameState.allCharacters || []"
+            @resist-flash="onResistFlash"
+            @justice-reset="onJusticeReset"
+            @replay-ended="onReplayEnded"
           />
         </div>
 
-        <!-- Character Phrase Media Messages (text, audio, images) -->
-        <MediaMessages
-          v-if="store.myPlayer?.status.mediaMessages?.length"
-          :messages="store.myPlayer.status.mediaMessages"
-        />
-
-        <!-- Logs: Row 1 = events side-by-side, Row 2 = full-width fight panel -->
+        <!-- Logs: events side-by-side -->
         <div class="logs-row-top">
           
           <div class="log-panel card events-panel">
             <div class="card-header">События</div>
-
 
             <div v-if="currentLogEntries.length" class="prev-logs">
               <div
@@ -385,7 +375,6 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
                 </span>
               </div>
             </div>
-
 
             <div v-else class="log-empty">Еще ничего не произошло. Наверное...</div>
           </div>
@@ -416,19 +405,51 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
           
         </div>
 
-        <div class="log-panel card fight-panel">
-          <FightAnimation
-            :fights="store.gameState.fightLog || []"
-            :letopis="letopis"
+        <!-- Leaderboard + Action bar integrated -->
+        <div class="lb-action-block">
+          <ActionPanel v-if="store.myPlayer && !store.gameState.isFinished" />
+          <Leaderboard
             :players="store.gameState.players"
             :my-player-id="store.myPlayer?.playerId"
+            :can-attack="!store.gameState.isFinished && store.isMyTurn"
             :predictions="store.myPlayer?.predictions"
-            :is-admin="store.isAdmin"
+            :character-names="store.gameState.allCharacterNames || []"
             :character-catalog="store.gameState.allCharacters || []"
-            @resist-flash="onResistFlash"
-            @justice-reset="onJusticeReset"
+            :is-admin="store.isAdmin"
+            :round-no="store.gameState.roundNo"
+            :confirmed-predict="store.myPlayer?.status.confirmedPredict"
+            :fight-log="store.gameState.fightLog || []"
+            @attack="store.attack($event)"
+            @predict="store.predict($event.playerId, $event.characterName)"
           />
         </div>
+
+        <!-- "Back to Lobby" after game ends -->
+        <div v-if="store.gameState.isFinished" class="finished-actions">
+          <button class="btn btn-primary btn-lg" @click="goToLobby">
+            Back to Lobby
+          </button>
+        </div>
+
+        <!-- Direct Messages (ephemeral alerts) -->
+        <div
+          v-if="store.myPlayer?.status.directMessages?.length"
+          class="direct-messages"
+        >
+          <div
+            v-for="(msg, idx) in store.myPlayer.status.directMessages"
+            :key="idx"
+            class="dm-item"
+            v-html="formatLogs(msg)"
+          />
+        </div>
+
+        <!-- Character Phrase Media Messages (text, audio, images) -->
+        <MediaMessages
+          v-if="store.myPlayer?.status.mediaMessages?.length"
+          :messages="store.myPlayer.status.mediaMessages"
+        />
+
       </div>
 
       <!-- Right: Skills / Passives -->
@@ -443,7 +464,7 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 .game-page {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 5px;
 }
 
 .loading {
@@ -467,14 +488,14 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 .finished-actions {
   display: flex;
   justify-content: center;
-  padding: 16px 0;
+  padding: 6px 0;
 }
 
 /* ── 3-column layout ────────────────────────────────────────────── */
 .game-layout {
   display: grid;
   grid-template-columns: 250px 1fr 250px;
-  gap: 12px;
+  gap: 6px;
   align-items: start;
 }
 
@@ -490,8 +511,8 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 6px;
+  margin-bottom: 5px;
 }
 
 .header-center {
@@ -595,12 +616,12 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 .direct-messages {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 8px;
+  gap: 3px;
+  margin-top: 4px;
 }
 
 .dm-item {
-  padding: 6px 12px;
+  padding: 4px 10px;
   background: var(--bg-surface);
   border-left: 2px solid var(--accent-orange);
   border-radius: 0 var(--radius) var(--radius) 0;
@@ -612,12 +633,19 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 .dm-item :deep(strong) { color: var(--accent-gold); }
 .dm-item :deep(em) { color: var(--accent-blue); }
 
+/* ── Leaderboard + Action bar block ─────────────────────────────── */
+.lb-action-block {
+  display: flex;
+  flex-direction: column;
+}
+
 /* ── Logs ────────────────────────────────────────────────────────── */
 .logs-row-top {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 5px;
+  margin-top: 5px;
+  margin-bottom: 6px;
 }
 
 @media (max-width: 800px) {
@@ -631,7 +659,7 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 
 .events-panel {
   max-height: 150px;
-  padding: 8px 10px;
+  padding: 5px 8px;
 }
 
 .events-panel :deep(.card-header),
@@ -641,10 +669,10 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 }
 
 .fight-panel {
-  margin-top: 6px;
-  padding: 8px 10px;
+  padding: 5px 8px;
   max-height: 500px;
   overflow-y: auto;
+  margin-bottom: 5px;
 }
 
 .log-content {

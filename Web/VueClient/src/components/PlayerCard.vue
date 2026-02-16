@@ -1,16 +1,27 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import type { Player } from 'src/services/signalr'
 import { useGameStore } from 'src/store/game'
+
+interface ScoreEntry {
+  raw: string
+  html: string
+  type: string
+  comboCount: number
+}
 
 const props = withDefaults(defineProps<{
   player: Player
   isMe: boolean
   resistFlash?: string[]
   justiceReset?: boolean
+  scoreEntries?: ScoreEntry[]
+  scoreAnimReady?: boolean
 }>(), {
   resistFlash: () => [],
   justiceReset: false,
+  scoreEntries: () => [],
+  scoreAnimReady: false,
 })
 
 const store = useGameStore()
@@ -68,6 +79,105 @@ const moralToSkillRate = computed(() => {
   if (m >= 1)  return { cost: 1,  gain: 2 }
   return null
 })
+
+// ── Score combo animation ──────────────────────────────────────────
+
+/** A single "hit" — one combo source within a score entry */
+interface ComboHit {
+  label: string        // e.g. "Победа", "Заводить друзей"
+  pointsDelta: number  // points this hit adds
+  hitIndex: number     // global sequential index across all entries
+  comboNum: number     // 1-based combo counter within the entry (1 = first, 2+ = combo)
+  totalInEntry: number // how many hits in this entry
+}
+
+/** Expand all score entries into individual hits */
+const comboHits = computed<ComboHit[]>(() => {
+  const hits: ComboHit[] = []
+  let globalIdx = 0
+  for (const entryR of props.scoreEntries) {
+    // Remove Discord markdown formatting
+    const entry = entryR.raw.replaceAll("**", "").replaceAll("__", "").replaceAll("~~", "")
+    // Parse total points: "+8 обычных очков ..." or "Блок: -1 бонусных очков"
+    const ptsMatch = entry.match(/([+-]?\d+)\s*(?:обычных|бонусных)?\s*очков/i)
+    const totalPts = ptsMatch ? parseInt(ptsMatch[1]) : 0
+    // Parse combo sources from parentheses: "(Победа+Заводить друзей+Победа)"
+    const parenMatch = entry.match(/\(([^)]+)\)/)
+    let sources: string[]
+    if (parenMatch) {
+      sources = parenMatch[1].split('+').map((s: string) => s.trim()).filter((s: string) => s)
+    } else {
+      // Use text before the number as label, e.g. "Блок:" → "Блок"
+      const prefixMatch = entry.match(/^([^0-9+-]+)/)
+      const prefix = prefixMatch ? prefixMatch[1].replace(/[:\s]+$/, '').trim() : ''
+      sources = [prefix || 'Очки']
+    }
+    const perHit = sources.length > 0 ? Math.round(totalPts / sources.length) : totalPts
+    for (let i = 0; i < sources.length; i++) {
+      hits.push({
+        label: sources[i],
+        pointsDelta: perHit,
+        hitIndex: globalIdx++,
+        comboNum: i + 1,
+        totalInEntry: sources.length,
+      })
+    }
+  }
+  return hits
+})
+
+const hitVisibleCount = ref(0)
+const hitActiveIdx = ref(-1)
+const animatedScoreDelta = ref(0)
+let comboTimer: ReturnType<typeof setInterval> | null = null
+let lastScoreSnapshot = ''
+
+function clearComboTimer() {
+  if (comboTimer !== null) { clearInterval(comboTimer); comboTimer = null }
+}
+
+function startComboAnimation() {
+  clearComboTimer()
+  const entries = props.scoreEntries
+  if (!entries.length) {
+    hitVisibleCount.value = 0; hitActiveIdx.value = -1; animatedScoreDelta.value = 0
+    return
+  }
+  hitVisibleCount.value = 0
+  hitActiveIdx.value = -1
+  animatedScoreDelta.value = 0
+  setTimeout(() => {
+    let i = 0
+    const allHits = comboHits.value
+    comboTimer = setInterval(() => {
+      if (i >= allHits.length) { clearComboTimer(); setTimeout(() => { hitActiveIdx.value = -1 }, 600); return }
+      hitActiveIdx.value = i
+      animatedScoreDelta.value += allHits[i].pointsDelta
+      i++
+      hitVisibleCount.value = i
+    }, 350)
+  }, 100)
+}
+
+// Reset when score entries change (new round)
+watch(() => props.scoreEntries, (entries: ScoreEntry[]) => {
+  const snap = entries.map((e: ScoreEntry) => e.raw).join('|')
+  if (snap === lastScoreSnapshot) return
+  lastScoreSnapshot = snap
+  clearComboTimer()
+  hitVisibleCount.value = 0; hitActiveIdx.value = -1; animatedScoreDelta.value = 0
+  // If replay already ended (e.g. no fights), start immediately
+  if (props.scoreAnimReady) startComboAnimation()
+}, { immediate: true, deep: true })
+
+// Start combo when fight replay ends
+watch(() => props.scoreAnimReady, (ready: boolean) => {
+  if (ready && props.scoreEntries.length > 0 && hitVisibleCount.value === 0) {
+    startComboAnimation()
+  }
+})
+
+onUnmounted(() => { clearComboTimer() })
 
 /** Parse "ClassName || description" from classStatDisplayText */
 const classLabel = computed(() => {
@@ -215,16 +325,18 @@ function hideTip() {
       </div>
     </div>
 
-    <!-- Class / Skill / Moral / Justice / Target -->
-    <div class="pc-meta">
-      <div class="meta-box" :class="{ 'justice-reset-flash': justiceReset }"
-        @mouseenter="showTip($event, 'Justice allows you to win Round 2 and influences Round 1. You gain it when you\'re defeated and it is fully reset on victory')"
-        @mousemove="moveTip" @mouseleave="hideTip">
-        <span class="meta-label">Justice</span>
-        <span class="meta-value stat-justice">{{ player.character.justice }}</span>
-        <span v-if="justiceReset" class="justice-reset-label">RESET</span>
-      </div>
+    <!-- Justice: highlighted, own row -->
+    <div class="pc-justice-row" :class="{ 'justice-reset-flash': justiceReset }"
+      @mouseenter="showTip($event, 'Justice allows you to win Round 2 and influences Round 1. You gain it when you\'re defeated and it is fully reset on victory')"
+      @mousemove="moveTip" @mouseleave="hideTip">
+      <span class="justice-icon">⚖</span>
+      <span class="justice-label">Justice</span>
+      <span class="justice-value">{{ player.character.justice }}</span>
+      <span v-if="justiceReset" class="justice-reset-label">RESET</span>
+    </div>
 
+    <!-- Moral / Skill / Class / Target -->
+    <div class="pc-meta">
       <div class="meta-box"
         @mouseenter="showTip($event, 'You can exchange moral for Skill or Points. Gain it by winning and lose it when you\'re defeated')"
         @mousemove="moveTip" @mouseleave="hideTip">
@@ -276,11 +388,38 @@ function hideTip() {
       </template>
     </div>
 
-    <!-- Score -->
+    <!-- Score + animated delta -->
     <div class="pc-score-row">
       <span class="pc-score">{{ player.status.score }}</span>
       <span class="pc-score-label">pts</span>
-      <span class="pc-place">#{{ player.status.place }}</span>
+      <span v-if="animatedScoreDelta !== 0" class="pc-score-delta" :class="{ 'delta-big': comboHits.length >= 4, 'delta-huge': comboHits.length >= 6, 'delta-negative': animatedScoreDelta < 0 }" :key="animatedScoreDelta">
+        {{ animatedScoreDelta > 0 ? '+' : '' }}{{ animatedScoreDelta }}
+      </span>
+    </div>
+
+    <!-- Score combo hits (each + source animated individually) -->
+    <div v-if="isMe && comboHits.length > 0" class="pc-combo-feed">
+      <div
+        v-for="(hit, idx) in comboHits"
+        :key="idx"
+        class="combo-entry"
+        :class="{
+          'combo-visible': idx < hitVisibleCount,
+          'combo-active': idx === hitActiveIdx,
+          'combo-big': hit.comboNum >= 3 && hit.pointsDelta > 0,
+          'combo-huge': hit.comboNum >= 5 && hit.pointsDelta > 0,
+          'combo-negative': hit.pointsDelta < 0,
+        }"
+      >
+        <span class="combo-hit-pts" :class="{ 'combo-hit-negative': hit.pointsDelta < 0 }">{{ hit.pointsDelta > 0 ? '+' : '' }}{{ hit.pointsDelta }}</span>
+        <span class="combo-hit-label">{{ hit.label }}</span>
+        <span v-if="hit.comboNum >= 2" class="combo-badge" :class="{ 'combo-badge-big': hit.comboNum >= 3, 'combo-badge-huge': hit.comboNum >= 5 }">
+          x{{ hit.comboNum }}
+        </span>
+      </div>
+      <div v-if="comboHits.length >= 3 && hitVisibleCount >= comboHits.length" class="combo-total" :class="{ 'combo-total-big': comboHits.length >= 5, 'combo-total-huge': comboHits.length >= 8 }">
+        {{ comboHits.length }} Combo!
+      </div>
     </div>
 
     <!-- In-game tooltip (teleported to body for correct positioning) -->
@@ -382,7 +521,7 @@ function hideTip() {
 
 .stat-bar.intelligence { background: linear-gradient(90deg, var(--kh-c-secondary-info-400), var(--kh-c-secondary-info-200)); }
 .stat-bar.strength { background: linear-gradient(90deg, var(--kh-c-secondary-danger-400), var(--kh-c-secondary-danger-200)); }
-.stat-bar.speed { background: linear-gradient(90deg, var(--kh-c-secondary-success-400), var(--kh-c-secondary-success-200)); }
+.stat-bar.speed { background: linear-gradient(90deg, var(--kh-c-secondary-warning-400), var(--kh-c-secondary-warning-200)); }
 .stat-bar.psyche { background: linear-gradient(90deg, var(--kh-c-secondary-purple-400), var(--kh-c-secondary-purple-200)); }
 
 .stat-val {
@@ -468,6 +607,42 @@ function hideTip() {
   box-shadow: var(--glow-green);
 }
 
+/* Justice highlight row */
+.pc-justice-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(180, 150, 255, 0.04));
+  border: 1.5px solid rgba(139, 92, 246, 0.25);
+  border-radius: var(--radius);
+  position: relative;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.pc-justice-row:hover {
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.15);
+}
+.justice-icon {
+  font-size: 16px;
+  opacity: 0.8;
+}
+.justice-label {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(180, 150, 255, 0.8);
+}
+.justice-value {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--accent-purple);
+  font-family: var(--font-mono);
+  text-shadow: 0 0 10px rgba(139, 92, 246, 0.25);
+}
+
 /* Meta row */
 .pc-meta {
   display: flex;
@@ -508,35 +683,34 @@ function hideTip() {
 .stat-class { font-size: 12px; color: var(--accent-gold); }
 
 /* Justice reset animation */
-.justice-reset-flash {
-  position: relative;
+.pc-justice-row.justice-reset-flash {
   animation: justice-reset 2s ease-out;
 }
 
 .justice-reset-label {
   position: absolute;
-  top: -6px;
-  right: -4px;
-  font-size: 7px;
+  top: -8px;
+  right: 6px;
+  font-size: 8px;
   font-weight: 900;
   color: #e879f9;
-  background: rgba(232, 121, 249, 0.15);
-  padding: 1px 4px;
+  background: rgba(232, 121, 249, 0.2);
+  padding: 1px 6px;
   border-radius: 3px;
   letter-spacing: 0.5px;
   animation: justice-reset-label 2s ease-out forwards;
 }
 
 @keyframes justice-reset {
-  0% { border-color: #e879f9; box-shadow: 0 0 12px rgba(232, 121, 249, 0.5); }
-  30% { border-color: #e879f9; box-shadow: 0 0 8px rgba(232, 121, 249, 0.3); }
-  100% { border-color: var(--border-subtle); box-shadow: none; }
+  0% { border-color: #e879f9; box-shadow: 0 0 16px rgba(232, 121, 249, 0.6); }
+  30% { border-color: #e879f9; box-shadow: 0 0 10px rgba(232, 121, 249, 0.3); }
+  100% { border-color: rgba(139, 92, 246, 0.25); box-shadow: none; }
 }
 
 @keyframes justice-reset-label {
   0% { opacity: 1; transform: translateY(0); }
   70% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-6px); }
+  100% { opacity: 0; transform: translateY(-8px); }
 }
 
 /* Moral exchange */
@@ -613,12 +787,183 @@ function hideTip() {
   font-weight: 600;
 }
 
+.pc-score-delta {
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--accent-green);
+  font-family: var(--font-mono);
+  animation: score-delta-pop 0.35s ease;
+}
+.pc-score-delta.delta-big {
+  color: var(--accent-orange);
+  font-size: 18px;
+}
+.pc-score-delta.delta-huge {
+  color: var(--accent-red);
+  font-size: 20px;
+  text-shadow: 0 0 8px rgba(239, 128, 128, 0.5);
+}
+.pc-score-delta.delta-negative {
+  color: var(--accent-red);
+}
+@keyframes score-delta-pop {
+  0% { transform: scale(0.6); opacity: 0.3; }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 .pc-place {
   font-size: 13px;
   font-weight: 700;
   color: var(--text-muted);
   margin-left: 6px;
   font-family: var(--font-mono);
+}
+
+/* ── Score combo feed ── */
+.pc-combo-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0;
+}
+
+.combo-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent-gold);
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(233, 219, 61, 0.04);
+  border: 1px solid rgba(233, 219, 61, 0.1);
+  opacity: 0;
+  transform: translateY(6px) scale(0.9);
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.combo-entry.combo-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.combo-entry.combo-active {
+  animation: combo-pop 0.4s ease;
+  background: rgba(233, 219, 61, 0.1);
+  border-color: rgba(233, 219, 61, 0.3);
+}
+
+.combo-entry.combo-big.combo-active {
+  animation: combo-pop-big 0.5s ease;
+  background: rgba(230, 148, 74, 0.12);
+  border-color: rgba(230, 148, 74, 0.4);
+  color: var(--accent-orange);
+}
+
+.combo-entry.combo-huge.combo-active {
+  animation: combo-pop-huge 0.6s ease;
+  background: rgba(239, 128, 128, 0.12);
+  border-color: rgba(239, 128, 128, 0.4);
+  color: var(--accent-red);
+  font-size: 11px;
+}
+
+.combo-hit-pts {
+  font-weight: 900;
+  font-family: var(--font-mono);
+  color: var(--accent-green);
+  font-size: 11px;
+  min-width: 24px;
+}
+.combo-entry.combo-big .combo-hit-pts { color: var(--accent-orange); }
+.combo-entry.combo-huge .combo-hit-pts { color: var(--accent-red); }
+.combo-hit-negative { color: var(--accent-red) !important; }
+
+.combo-entry.combo-negative {
+  background: rgba(239, 128, 128, 0.04);
+  border-color: rgba(239, 128, 128, 0.15);
+}
+.combo-entry.combo-negative.combo-active {
+  background: rgba(239, 128, 128, 0.1);
+  border-color: rgba(239, 128, 128, 0.3);
+}
+
+.combo-hit-label {
+  flex: 1;
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.combo-badge {
+  font-size: 9px;
+  font-weight: 900;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(233, 219, 61, 0.15);
+  color: var(--accent-gold);
+  letter-spacing: 0.3px;
+}
+.combo-badge-big {
+  background: rgba(230, 148, 74, 0.2);
+  color: var(--accent-orange);
+}
+.combo-badge-huge {
+  background: rgba(239, 128, 128, 0.2);
+  color: var(--accent-red);
+  font-size: 10px;
+}
+
+.combo-total {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 900;
+  color: var(--accent-gold);
+  padding: 2px 0;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  animation: combo-total-in 0.5s ease;
+}
+.combo-total-big {
+  color: var(--accent-orange);
+  font-size: 11px;
+  text-shadow: 0 0 8px rgba(230, 148, 74, 0.3);
+}
+.combo-total-huge {
+  color: var(--accent-red);
+  font-size: 12px;
+  text-shadow: 0 0 12px rgba(239, 128, 128, 0.4);
+  animation: combo-total-in 0.5s ease, combo-glow 1s ease-in-out 0.5s 2;
+}
+
+@keyframes combo-pop {
+  0% { transform: translateY(6px) scale(0.8); opacity: 0; }
+  50% { transform: translateY(-2px) scale(1.05); }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes combo-pop-big {
+  0% { transform: translateY(8px) scale(0.7); opacity: 0; }
+  40% { transform: translateY(-4px) scale(1.12); }
+  70% { transform: translateY(1px) scale(0.98); }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes combo-pop-huge {
+  0% { transform: translateY(10px) scale(0.6); opacity: 0; }
+  30% { transform: translateY(-6px) scale(1.2); }
+  60% { transform: translateY(2px) scale(0.95); }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes combo-total-in {
+  0% { opacity: 0; transform: scale(0.5); }
+  60% { transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes combo-glow {
+  0%, 100% { text-shadow: 0 0 12px rgba(239, 128, 128, 0.4); }
+  50% { text-shadow: 0 0 20px rgba(239, 128, 128, 0.8), 0 0 40px rgba(239, 128, 128, 0.3); }
 }
 
 /* PSY separated box */

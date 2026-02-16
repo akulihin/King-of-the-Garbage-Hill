@@ -180,7 +180,7 @@ public static class GameStateMapper
             Speed = character.GetSpeed(),
             Psyche = character.GetPsyche(),
             SkillDisplay = character.GetSkillDisplay(),
-            MoralDisplay = character.GetMoralString(),
+            MoralDisplay = character.GetMoralStringWeb(),
             Justice = character.Justice.GetRealJusticeNow(),
             SeenJustice = character.Justice.GetSeenJusticeNow(),
             SkillClass = character.GetSkillClass(),

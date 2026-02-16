@@ -27,6 +27,13 @@
   --kh-c-secondary-success-500: rgba(48, 108, 51, 1);
   --kh-c-secondary-success-600: rgba(31, 95, 37, 1);
 
+  /* Yellows / warning */
+  --kh-c-secondary-warning-200: rgba(233, 219, 61, 1);
+  --kh-c-secondary-warning-300: rgba(220, 195, 50, 1);
+  --kh-c-secondary-warning-400: rgba(190, 170, 45, 1);
+  --kh-c-secondary-warning-500: rgba(160, 145, 40, 1);
+  --kh-c-secondary-warning-600: rgba(120, 110, 30, 1);
+
   /* Reds / danger */
   --kh-c-secondary-danger-200: rgba(239, 128, 128, 1);
   --kh-c-secondary-danger-300: rgba(220, 90, 90, 1);
