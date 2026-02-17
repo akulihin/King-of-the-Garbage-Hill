@@ -382,7 +382,7 @@ public static class GameStateMapper
             WhoIsBetterWeighingDelta = 0, PsycheWeighingDelta = 0,
             SkillWeighingDelta = 0, JusticeWeighingDelta = 0,
             TooGoodRandomChange = 0, TooStronkRandomChange = 0,
-            JusticeRandomChange = 0,
+            JusticeRandomChange = 0, ContrRandomChange = 0,
             JusticeMe = 0, JusticeTarget = 0,
             RandomNumber = 0, MaxRandomNumber = 0,
             MoralChange = 0,
@@ -391,6 +391,7 @@ public static class GameStateMapper
             IntellectualDamage = false, EmotionalDamage = false,
             JusticeChange = 0, SkillGainedFromTarget = 0, SkillGainedFromClassAttacker = 0, SkillGainedFromClassDefender = 0,
             SkillDifferenceRandomModifier = 0,
+            ContrMultiplierSkillDifference = 0,
         };
     }
 }

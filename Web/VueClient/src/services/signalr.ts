@@ -204,6 +204,7 @@ export type FightEntry = {
   tooGoodRandomChange: number
   tooStronkRandomChange: number
   justiceRandomChange: number
+  contrRandomChange: number
 
   // Round results
   round1PointsWon: number
@@ -234,11 +235,12 @@ export type FightEntry = {
   intellectualDamage: boolean
   emotionalDamage: boolean
   justiceChange: number
-  
+
   skillGainedFromTarget: number
   skillGainedFromClassAttacker: number
   skillGainedFromClassDefender: number
   skillDifferenceRandomModifier: number
+  contrMultiplierSkillDifference: number
 }
 
 export type ActionResult = {

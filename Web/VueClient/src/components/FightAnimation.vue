@@ -168,7 +168,7 @@ const round1Factors = computed<Factor[]>(() => {
 
   // 2. Contre
   if (f.contrWeighingDelta !== 0) {
-    const v = f.contrWeighingDelta * s
+    const v = f.contrWeighingDelta * s + f.contrMultiplierSkillDifference
     // Determine who contres from our (left) perspective
     const weContre = isFlipped.value ? f.isContrTarget : f.isContrMe
     const theyContre = isFlipped.value ? f.isContrMe : f.isContrTarget
@@ -179,7 +179,7 @@ const round1Factors = computed<Factor[]>(() => {
     if (weContre && theyContre) {
       detail = `Neutral: ${ci(ourClass)}→${ci(theirClass)} / ${ci(theirClass)}→${ci(ourClass)}`
     } else if (weContre) {
-      detail = `${ci(ourClass)} <span class="dom-good">Dominates</span> ${ci(theirClass)} (x${f.contrMultiplier})`
+      detail = `${ci(ourClass)} <span class="dom-good">Dominates</span> ${ci(theirClass)}`
     } else {
       detail = `${ci(theirClass)} <span class="dom-bad">Dominates</span> ${ci(ourClass)}`
     }
@@ -219,13 +219,13 @@ const round1Factors = computed<Factor[]>(() => {
 
   // 5. Skill difference
   if (f.skillWeighingDelta !== 0) {
-    const v = f.skillWeighingDelta * s
+    const v = f.skillWeighingDelta * s - f.contrMultiplierSkillDifference;
     const ourMult = isFlipped.value ? f.skillMultiplierTarget : f.skillMultiplierMe
     const theirMult = isFlipped.value ? f.skillMultiplierMe : f.skillMultiplierTarget
     list.push({
       label: 'Skill',
       //detail: `Skill x${ourMult} vs x${theirMult}`,
-      detail: `Multiplier x${ourMult} vs x${theirMult}`,
+      detail: `x${ourMult} Multiplier`,
       value: v,
       highlight: hl(v),
     })
@@ -559,15 +559,32 @@ const r3OurChance = computed(() => {
   return s > 0 ? attackerChance : 100 - attackerChance
 })
 
-/** Round 3: Justice contribution to our chance (percentage points) */
+/** Round 3: Pure Justice contribution to our chance (percentage points) */
 const r3JusticePct = computed(() => {
   const f = fight.value
   if (!f || f.maxRandomNumber === 0 || f.justiceRandomChange === 0) return 0
   const s = sign.value
-  // justiceRandomChange = 100 - maxRandom (positive = shrunk range = attacker benefits)
-  // Attacker's chance delta: rfp * (100/maxRandom - 1)
-  const attackerDelta = f.randomForPoint * (100 / f.maxRandomNumber - 1)
+  // maxRandom with only justice applied (no contr effect)
+  const maxRandomJusticeOnly = 100 - f.justiceRandomChange
+  if (maxRandomJusticeOnly === 0) return 0
+  const attackerDelta = f.randomForPoint * (100 / maxRandomJusticeOnly - 1)
   return attackerDelta * s
+})
+
+/** Round 3: ContrMultiplier contribution to our chance (percentage points) */
+const r3ContrPct = computed(() => {
+  //console.log('contrRandomChange', fight.value.contrRandomChange)
+  const f = fight.value
+  if (!f || f.maxRandomNumber === 0 || f.contrRandomChange === 0) return 0
+  const s = sign.value
+  // total attacker delta from both justice + contr
+  const totalDelta = f.randomForPoint * (100 / f.maxRandomNumber - 1)
+  // subtract the pure-justice part to isolate contr effect
+  const maxRandomJusticeOnly = 100 - f.justiceRandomChange
+  const justiceDelta = maxRandomJusticeOnly !== 0
+    ? f.randomForPoint * (100 / maxRandomJusticeOnly - 1)
+    : 0
+  return (totalDelta - justiceDelta) * s
 })
 
 /** Round 3: Our roll as percentage of the range */
@@ -891,9 +908,16 @@ function getDisplayCharName(orig: string, u: string): string {
                 </div>
                 <!-- Modifier: Justice -->
                 <div v-if="fight.justiceRandomChange !== 0" class="fa-factor random visible">
-                  <span class="fa-factor-label">Справедливость</span>
+                  <span class="fa-factor-label">Justice</span>
                   <span class="fa-factor-detail" :class="r3ModClass(r3JusticePct)">
                     {{ fmtPct(r3JusticePct) }}
+                  </span>
+                </div>
+                <!-- Modifier: ContrMultiplier (Nemesis) -->
+                <div v-if="fight.contrRandomChange !== 0" class="fa-factor random visible">
+                  <span class="fa-factor-label">Nemesis</span>
+                  <span class="fa-factor-detail" :class="r3ModClass(r3ContrPct)">
+                    {{ fmtPct(r3ContrPct) }}
                   </span>
                 </div>
 

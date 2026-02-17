@@ -301,8 +301,10 @@ public class FightEntryDto
     public decimal TooGoodRandomChange { get; set; }
     /// <summary>How TooStronk shifted randomForPoint, 0 if not triggered.</summary>
     public decimal TooStronkRandomChange { get; set; }
-    /// <summary>How Justice shifted maxRandomNumber in Step3 (100 - maxRandom), 0 if not triggered.</summary>
+    /// <summary>How pure Justice difference shifted maxRandomNumber in Step3: (meJustice - targetJustice) * 5, 0 if not triggered.</summary>
     public decimal JusticeRandomChange { get; set; }
+    /// <summary>How ContrMultiplier shifted maxRandomNumber in Step3: meJustice * (contrMultiplier - 1) * 5, 0 if not triggered.</summary>
+    public decimal ContrRandomChange { get; set; }
 
     /// <summary>Points won from Round 1 alone (before Step2/Step3).</summary>
     public int Round1PointsWon { get; set; }
@@ -354,6 +356,9 @@ public class FightEntryDto
 
     /// <summary>Skill difference random modifier (based on skill difference between attacker and defender).</summary>
     public decimal SkillDifferenceRandomModifier { get; set; }
+
+    /// <summary>How much skill is added from counter.</summary>
+    public decimal ContrMultiplierSkillDifference { get; set; }
 }
 
 // ── Auth DTOs ─────────────────────────────────────────────────────────

@@ -478,7 +478,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         game.Phrases.KratosTarget.SendLog(me, false);
                         me.FightCharacter.SetSkillFightMultiplier(2);
-                        if (game.IsKratosEvent)
+                        if (game.IsKratosEvent && game.RoundNo > 10)
                             me.FightCharacter.SetSkillFightMultiplier(4);
                     }
 

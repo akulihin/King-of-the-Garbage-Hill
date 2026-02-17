@@ -23,63 +23,24 @@ public class CharacterClass
         AvatarCurrent = avatar;
     }
 
+    /// <summary>
+    /// Creates a copy of this character for use during fights.
+    /// MemberwiseClone handles all value types (int, decimal, bool) and strings automatically.
+    /// Only mutable reference-type fields need explicit handling below.
+    /// Status and Justice are intentionally SHARED — both copies point to the same instance.
+    /// If you add a new List, Dictionary, or other mutable reference-type field to this class,
+    /// you MUST add a deep-copy line for it here.
+    /// </summary>
     public CharacterClass DeepCopy()
     {
         var other = (CharacterClass)MemberwiseClone();
 
+        // SHARED links (same instance on purpose — Status is for logging, Justice is read-only during fights)
+        // other.Status = Status;   — already the same ref via MemberwiseClone
+        // other.Justice = Justice;  — already the same ref via MemberwiseClone
 
-        //LINKS, not a deep copy
-        other.Status = Status;
-        other.Justice = Justice;
-
-        //Copy
+        // Deep-copy mutable reference types
         other.Passive = Passive.Select(x => x.DeepCopy()).ToList();
-        //other.Justice = Justice.DeepCopy();
-        other.Moral = Moral;
-        other.MoralBonus = MoralBonus;
-        other.BonusPointsFromMoral = BonusPointsFromMoral;
-        other.LastMoralRound = LastMoralRound;
-
-        other.Name = Name;
-        other.Avatar = Avatar;
-        other.AvatarCurrent = AvatarCurrent;
-        other.Description = Description;
-        other.Tier = Tier;
-        other.WonTimes = WonTimes;
-        other.WinStreak = WinStreak;
-        other.Intelligence = Intelligence;
-        other.IntelligenceForOneFight = IntelligenceForOneFight;
-        other.IntelligenceExtraText = IntelligenceExtraText;
-        other.Psyche = Psyche;
-        other.PsycheForOneFight = PsycheForOneFight;
-        other.PsycheExtraText = PsycheExtraText;
-        other.Speed = Speed;
-        other.SpeedForOneFight = SpeedForOneFight;
-        other.SpeedExtraText = SpeedExtraText;
-        other.Strength = Strength;
-        other.StrengthForOneFight = StrengthForOneFight;
-        other.StrengthExtraText = StrengthExtraText;
-        other.SkillMain = SkillMain;
-        other.SkillExtra = SkillExtra;
-        other.SkillForOneFight = SkillForOneFight;
-        other.TargetSkillMultiplier = TargetSkillMultiplier;
-        other.ExtraSkillMultiplier = ExtraSkillMultiplier;
-        other.SkillFightMultiplier = SkillFightMultiplier;
-        other.CurrentSkillTarget = CurrentSkillTarget;
-        
-        other.SpeedQualityBonus = SpeedQualityBonus;
-        other.StrengthQualityDropBonus = StrengthQualityDropBonus;
-        other.StrengthQualityDropTimes = StrengthQualityDropTimes;
-        other.IsSpeedQualityKiteBonus = IsSpeedQualityKiteBonus;
-        other.SpeedQualityKiteBonus = SpeedQualityKiteBonus;
-        other.PsycheQualityMoralBonus = PsycheQualityMoralBonus;
-        other.IsPsycheQualityMoralBonus = IsPsycheQualityMoralBonus;
-        other.IsIntelligenceQualitySkillBonus = IsIntelligenceQualitySkillBonus;
-        other.IntelligenceQualitySkillBonus = IntelligenceQualitySkillBonus;
-        other.StrengthQualityResist = StrengthQualityResist;
-        other.IntelligenceQualityResist = IntelligenceQualityResist;
-        other.PsycheQualityResist = PsycheQualityResist;
-
 
         return other;
     }
@@ -849,12 +810,12 @@ public class CharacterClass
         return SkillFightMultiplier;
     }
 
-    public decimal GetSkill()
+    public decimal GetSkill(decimal skillMultiplierAdditional = 0)
     {
         var skillFightMultiplier = GetSkillFightMultiplier();
         var intelligenceQualitySkillBonus = GetIntelligenceQualitySkillBonus();
 
-        var realSkill = (SkillMain + SkillExtra) * skillFightMultiplier * intelligenceQualitySkillBonus;
+        var realSkill = (SkillMain + SkillExtra) * (skillFightMultiplier + skillMultiplierAdditional) * intelligenceQualitySkillBonus;
 
 
         if (Passive.Any(x => x.PassiveName == "Skill 228") && realSkill > 228)
@@ -1488,13 +1449,8 @@ public class Passive
 
     public Passive DeepCopy()
     {
-        var other = (Passive)MemberwiseClone();
-
-        other.PassiveDescription = PassiveDescription;
-        other.PassiveName = PassiveName;
-        other.Visible = Visible;
-
-        return other;
+        // All fields are value types or strings — MemberwiseClone is sufficient
+        return (Passive)MemberwiseClone();
     }
 
     public Passive()
@@ -1527,22 +1483,13 @@ public class AvatarEventClass
 
 public class JusticeClass
 {
+    /// <summary>
+    /// All fields are value types — MemberwiseClone is sufficient.
+    /// Status is a shared link (same instance) via MemberwiseClone.
+    /// </summary>
     public JusticeClass DeepCopy()
     {
-        var other = (JusticeClass)MemberwiseClone();
-
-        //LINKS, not a deep copy
-        other.Status = Status;
-
-        //Copy
-        other.RealJusticeNow = RealJusticeNow;
-        other.SeenJusticeNow = SeenJusticeNow;
-        other.JusticeForNextRoundFromFights = JusticeForNextRoundFromFights;
-        other.JusticeForNextRoundFromSkills = JusticeForNextRoundFromSkills;
-        other.IsWonThisRound = IsWonThisRound;
-        other.JusticeForOneFight = JusticeForOneFight;
-
-        return other;
+        return (JusticeClass)MemberwiseClone();
     }
 
     public JusticeClass()

@@ -494,8 +494,6 @@ Speed => Strength
                 var randomForPoint = step1.RandomForPoint;
                 var weighingMachine = step1.WeighingMachine;
                 var contrMultiplier = step1.ContrMultiplier;
-                var skillMultiplierMe = step1.SkillMultiplierMe;
-                var skillMultiplierTarget = step1.SkillMultiplierTarget;
                 var round1PointsWon = step1.PointsWon; // save before step2/step3 modify it
                 //end round 1
 
@@ -530,14 +528,16 @@ Speed => Strength
                 var step3RandomNumber = 0;
                 var step3MaxRandom = 0m;
                 decimal justiceRandomChange = 0;
+                decimal contrRandomChange = 0;
                 if (pointsWined == 0)
                 {
-                    var (step3Points, rndNum, rndMax) = _calculateRounds.CalculateStep3(player, playerIamAttacking, randomForPoint, contrMultiplier, true);
+                    var (step3Points, rndNum, rndMax, justiceRandomChangeL, contrRandomChangeL) = _calculateRounds.CalculateStep3(player, playerIamAttacking, randomForPoint, contrMultiplier, true);
                     pointsWined += step3Points;
                     usedRandomRoll = true;
                     step3RandomNumber = rndNum;
                     step3MaxRandom = rndMax;
-                    justiceRandomChange = 100 - rndMax; // how much justice shifted the max range
+                    justiceRandomChange = justiceRandomChangeL;
+                    contrRandomChange = contrRandomChangeL;
                 }
                 //end round 3
 
@@ -771,8 +771,8 @@ Speed => Strength
                         IsContrMe = me.GetWhoIContre() == target.GetSkillClass(),
                         IsContrTarget = target.GetWhoIContre() == me.GetSkillClass(),
                         ContrMultiplier = contrMultiplier,
-                        SkillMultiplierMe = skillMultiplierMe,
-                        SkillMultiplierTarget = skillMultiplierTarget,
+                        SkillMultiplierMe = (int)step1.SkillMultiplierMe,
+                        SkillMultiplierTarget = (int)step1.SkillMultiplierTarget,
                         PsycheDifference = me.GetPsyche() - target.GetPsyche(),
                         WeighingMachine = Math.Round(weighingMachine, 2),
                         IsTooGoodMe = isTooGoodMe,
@@ -793,6 +793,7 @@ Speed => Strength
                         TooGoodRandomChange = Math.Round(step1.TooGoodRandomChange, 2),
                         TooStronkRandomChange = Math.Round(step1.TooStronkRandomChange, 2),
                         JusticeRandomChange = Math.Round(justiceRandomChange, 2),
+                        ContrRandomChange = Math.Round(contrRandomChange, 2),
                         // Round results
                         Round1PointsWon = round1PointsWon,
                         JusticeMe = (int)justiceMe,
@@ -819,6 +820,7 @@ Speed => Strength
                         SkillGainedFromClassAttacker = Math.Round(skillGainedFromClassAttacker, 1),
                         SkillGainedFromClassDefender = Math.Round(skillGainedFromClassDefender, 1),
                         SkillDifferenceRandomModifier = Math.Round(step1.SkillDifferenceRandomModifier, 2),
+                        ContrMultiplierSkillDifference = Math.Round(step1.ContrMultiplierSkillDifference, 2),
                     });
                 }
 
