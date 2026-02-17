@@ -66,13 +66,13 @@ Speed => Strength
 
             if (player.Status.IsWonThisCalculation != Guid.Empty)
             {
-                player.FightCharacter.AddWinStreak();
+                player.GameCharacter.AddWinStreak();
                 player.Passives.WeedwickWeed++;
             }
 
             if (player.Status.IsLostThisCalculation != Guid.Empty)
             {
-                player.FightCharacter.SetWinStreak();
+                player.GameCharacter.SetWinStreak();
             }
 
             if (player.Status.IsLostThisCalculation != Guid.Empty && player.Passives.IsExploitable)
@@ -225,7 +225,9 @@ Speed => Strength
 
         game.SetGlobalLogs($"\n__**Раунд #{roundNumber}**__:\n\n");
 
-        //FIGHT, user only GameCharacter to READ and FightCharacter to WRITE
+        //FightCharacter == READ ONLY
+        //GameCharacter == WRITE ONLY
+        //FightCharacter writes cans happens only "for one fight" not for the whole round!
         DeepCopyGameCharacterToFightCharacter(game);
 
         
@@ -280,7 +282,7 @@ Speed => Strength
                 //умный
                 if (player.GameCharacter.GetSkillClass() == "Интеллект" && playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow() == 0)
                 {
-                    skillGainedFromClassAttacker = player.FightCharacter.AddExtraSkill(6 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                    skillGainedFromClassAttacker = player.GameCharacter.AddExtraSkill(6 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
                 }
 
 
@@ -314,8 +316,8 @@ Speed => Strength
                         text2 = "(**БУЛЬ** ?!) ";
                     }
 
-                    var skillBefore = player.FightCharacter.GetSkill();
-                    skillGainedFromTarget = player.FightCharacter.AddMainSkill(text1);
+                    var skillBefore = player.GameCharacter.GetSkill();
+                    skillGainedFromTarget = player.GameCharacter.AddMainSkill(text1);
 
                     var known = player.Status.KnownPlayerClass.Find(x => x.EnemyId == playerIamAttacking.GetPlayerId());
                     if (known != null)
@@ -473,10 +475,10 @@ Speed => Strength
 
                 //быстрый
                 if (playerIamAttacking.GameCharacter.GetSkillClass() == "Скорость")
-                    skillGainedFromClassDefender = playerIamAttacking.FightCharacter.AddExtraSkill(2 * playerIamAttacking.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                    skillGainedFromClassDefender = playerIamAttacking.GameCharacter.AddExtraSkill(2 * playerIamAttacking.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
                 if (player.GameCharacter.GetSkillClass() == "Скорость")
-                    skillGainedFromClassAttacker = player.FightCharacter.AddExtraSkill(2 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                    skillGainedFromClassAttacker = player.GameCharacter.AddExtraSkill(2 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
 
                 //main formula:
@@ -586,7 +588,7 @@ Speed => Strength
                     var point = 1;
                     //сильный
                     if (player.GameCharacter.GetSkillClass() == "Сила")
-                        skillGainedFromClassAttacker = player.FightCharacter.AddExtraSkill(4 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                        skillGainedFromClassAttacker = player.GameCharacter.AddExtraSkill(4 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
                     isContrLost -= 1;
                     game.AddGlobalLogs($" ⟶ {player.DiscordUsername}");
@@ -618,12 +620,12 @@ Speed => Strength
                     {
                         if (!teamMate)
                         {
-                            var atkMoralBefore = player.FightCharacter.GetMoral();
-                            var defMoralBefore = playerIamAttacking.FightCharacter.GetMoral();
-                            player.FightCharacter.AddMoral(moral, "Победа", isFightMoral:true);
-                            playerIamAttacking.FightCharacter.AddMoral(moral * -1, "Поражение", isFightMoral: true);
-                            attackerMoralActual = player.FightCharacter.GetMoral() - atkMoralBefore;
-                            defenderMoralActual = playerIamAttacking.FightCharacter.GetMoral() - defMoralBefore;
+                            var atkMoralBefore = player.GameCharacter.GetMoral();
+                            var defMoralBefore = playerIamAttacking.GameCharacter.GetMoral();
+                            player.GameCharacter.AddMoral(moral, "Победа", isFightMoral:true);
+                            playerIamAttacking.GameCharacter.AddMoral(moral * -1, "Поражение", isFightMoral: true);
+                            attackerMoralActual = player.GameCharacter.GetMoral() - atkMoralBefore;
+                            defenderMoralActual = playerIamAttacking.GameCharacter.GetMoral() - defMoralBefore;
 
                             player.Status.AddFightingData($"moral: {moral} ({player.Status.GetPlaceAtLeaderBoard()} - {playerIamAttacking.Status.GetPlaceAtLeaderBoard()})");
                             playerIamAttacking.Status.AddFightingData($"moral: {moral * -1} ({player.Status.GetPlaceAtLeaderBoard()} - {playerIamAttacking.Status.GetPlaceAtLeaderBoard()})");
@@ -645,21 +647,21 @@ Speed => Strength
                     if (placeDiff < 0)
                         placeDiff *= -1;
 
-                    resistIntelBefore = playerIamAttacking.FightCharacter.GetIntelligenceQualityResistInt();
-                    resistStrBefore = playerIamAttacking.FightCharacter.GetStrengthQualityResistInt();
-                    resistPsycheBefore = playerIamAttacking.FightCharacter.GetPsycheQualityResistInt();
-                    dropsBefore = playerIamAttacking.FightCharacter.GetStrengthQualityDropTimes();
+                    resistIntelBefore = playerIamAttacking.GameCharacter.GetIntelligenceQualityResistInt();
+                    resistStrBefore = playerIamAttacking.GameCharacter.GetStrengthQualityResistInt();
+                    resistPsycheBefore = playerIamAttacking.GameCharacter.GetPsycheQualityResistInt();
+                    dropsBefore = playerIamAttacking.GameCharacter.GetStrengthQualityDropTimes();
 
                     if (placeDiff <= range)
                     {
-                        playerIamAttacking.FightCharacter.LowerQualityResist(playerIamAttacking, game, player);
+                        playerIamAttacking.GameCharacter.LowerQualityResist(playerIamAttacking, game, player);
                         qualityDamageApplied = true;
                     }
 
-                    resistIntelAfter = playerIamAttacking.FightCharacter.GetIntelligenceQualityResistInt();
-                    resistStrAfter = playerIamAttacking.FightCharacter.GetStrengthQualityResistInt();
-                    resistPsycheAfter = playerIamAttacking.FightCharacter.GetPsycheQualityResistInt();
-                    dropsAfter = playerIamAttacking.FightCharacter.GetStrengthQualityDropTimes();
+                    resistIntelAfter = playerIamAttacking.GameCharacter.GetIntelligenceQualityResistInt();
+                    resistStrAfter = playerIamAttacking.GameCharacter.GetStrengthQualityResistInt();
+                    resistPsycheAfter = playerIamAttacking.GameCharacter.GetPsycheQualityResistInt();
+                    dropsAfter = playerIamAttacking.GameCharacter.GetStrengthQualityDropTimes();
                     // Detect if intel/psyche resist broke (went below 0 and was reset)
                     intellectualDamage = qualityDamageApplied && resistIntelAfter > resistIntelBefore;
                     emotionalDamage = qualityDamageApplied && resistPsycheAfter > resistPsycheBefore;
@@ -672,7 +674,7 @@ Speed => Strength
                 {
                     //сильный
                     if (playerIamAttacking.GameCharacter.GetSkillClass() == "Сила")
-                        skillGainedFromClassDefender = playerIamAttacking.FightCharacter.AddExtraSkill(4 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                        skillGainedFromClassDefender = playerIamAttacking.GameCharacter.AddExtraSkill(4 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
                     if (isTooGoodEnemy && !isTooStronkEnemy)
                         player.Status.AddInGamePersonalLogs($"{playerIamAttacking.DiscordUsername} is __TOO GOOD__ for you\n");
@@ -696,12 +698,12 @@ Speed => Strength
                     {
                         if (!teamMate)
                         {
-                            var atkMoralBefore = player.FightCharacter.GetMoral();
-                            var defMoralBefore = playerIamAttacking.FightCharacter.GetMoral();
-                            player.FightCharacter.AddMoral(moral, "Поражение", isFightMoral: true);
-                            playerIamAttacking.FightCharacter.AddMoral(moral * -1, "Победа", isFightMoral: true);
-                            attackerMoralActual = player.FightCharacter.GetMoral() - atkMoralBefore;
-                            defenderMoralActual = playerIamAttacking.FightCharacter.GetMoral() - defMoralBefore;
+                            var atkMoralBefore = player.GameCharacter.GetMoral();
+                            var defMoralBefore = playerIamAttacking.GameCharacter.GetMoral();
+                            player.GameCharacter.AddMoral(moral, "Поражение", isFightMoral: true);
+                            playerIamAttacking.GameCharacter.AddMoral(moral * -1, "Победа", isFightMoral: true);
+                            attackerMoralActual = player.GameCharacter.GetMoral() - atkMoralBefore;
+                            defenderMoralActual = playerIamAttacking.GameCharacter.GetMoral() - defMoralBefore;
 
                             player.Status.AddFightingData($"moral: {moral} ({player.Status.GetPlaceAtLeaderBoard()} - {playerIamAttacking.Status.GetPlaceAtLeaderBoard()})");
                             playerIamAttacking.Status.AddFightingData($"moral: {moral * -1} ({player.Status.GetPlaceAtLeaderBoard()} - {playerIamAttacking.Status.GetPlaceAtLeaderBoard()})");
@@ -866,7 +868,7 @@ Speed => Strength
 
 
         //AFTER Fight, use only GameCharacter.
-        DeepCopyFightCharactersToGameCharacter(game);
+        //DeepCopyFightCharactersToGameCharacter(game);
 
         await _characterPassives.HandleEndOfRound(game);
 

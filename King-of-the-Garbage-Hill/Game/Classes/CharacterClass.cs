@@ -187,7 +187,7 @@ public class CharacterClass
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Испанец"))
         {
             var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
-            mylorik!.FightCharacter.AddMoral(howMuch, "Испанец", false);
+            mylorik!.GameCharacter.AddMoral(howMuch, "Испанец", false);
             mylorik.Status.AddInGamePersonalLogs($"Испанец: То, что мертво, умереть не может! +{howMuch} *Мораль*\n");
             return;
         }
@@ -197,7 +197,7 @@ public class CharacterClass
         if (target.GameCharacter.Passive.Any(x => x.PassiveName == "Много выебывается") && target.Status.GetPlaceAtLeaderBoard() == 1 && target.GameCharacter.GetSkill() < me.GameCharacter.GetSkill())
         {
             target.Status.AddInGamePersonalLogs("Много выебывается: Да блять, я не бущенный!\n");
-            target.FightCharacter.HandleDrop(target.DiscordUsername, game);
+            target.GameCharacter.HandleDrop(target.DiscordUsername, game);
         }
         //end Много выебывается
 

@@ -220,7 +220,7 @@ public class AdminPanel : ModuleBaseCustom
         if (foundCharacter == null)
         {
             var extra = allCharacters.Aggregate("", (current, c) => current + $"`{c.Name}`\n");
-            await SendMessageAsync($"ERROR: 404 - No Such FightCharacter ({character})\nAvailable:\n{extra}");
+            await SendMessageAsync($"ERROR: 404 - No Such Character ({character})\nAvailable:\n{extra}");
             return;
         }
 
