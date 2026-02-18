@@ -5,7 +5,7 @@
     "Psyche": 0,
     "Speed": 7,
     "Strength": 5,
-    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898217732078706688/deepList.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/deepList.png",
     "Passive": [
       {
         "PassiveDescription": "Проигрывает первую схватку каждому новому игроку (<:yo_filled:902361411840266310>), после чего получает +1 очко за победу над ними до конца игры.",
@@ -42,7 +42,7 @@
     "Psyche": 3,
     "Speed": 9,
     "Strength": 8,
-    "Avatar": "https://cdn.discordapp.com/attachments/895072182051430401/945071055188426763/mylorik.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/mylorik.png",
     "Passive": [
       {
         "PassiveDescription": "Получает дополнительно 2 очка за победу над каждым уникальным врагом (<:sparta:561287745675329567>), поразившим его ранее. Успешное отмщение прибавляет ему 1 Психики и 3 *Морали*.",
@@ -89,7 +89,7 @@
     "Psyche": 8,
     "Speed": 1,
     "Strength": 6,
-    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218210082578532/gleb.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/gleb.png",
     "Passive": [
       {
         "PassiveDescription": "Большой шанс заснуть и пропустить ход. Засыпая, Глеб понимает что уже не молод и теряет 30 *Скилла*.",
@@ -126,7 +126,7 @@
     "Psyche": 8,
     "Speed": 5,
     "Strength": 4,
-    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218325300088832/le_crisp.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/le_crisp.png",
     "Passive": [
       {
         "PassiveDescription": "Забирает себе все очки победы при нападение на одного и того же игрока вместе с кем-то.",
@@ -158,7 +158,7 @@
     "Psyche": 2,
     "Speed": 2,
     "Strength": 5,
-    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898218461677907968/tolya.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/tolya.png",
     "Passive": [
       {
         "PassiveDescription": "Забирает себе все очки победы при нападение на одного и того же игрока вместе с кем-то.",
@@ -190,7 +190,7 @@
     "Psyche": 7,
     "Speed": 5,
     "Strength": 5,
-    "Avatar": "https://media.discordapp.net/attachments/895072182051430401/1471346982684590344/amumu.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/amumu.png",
     "Passive": [
       {
         "PassiveDescription": "Получает очко каждый раз, когда на него нападет хоть кто-то...",
@@ -222,7 +222,7 @@
     "Psyche": 4,
     "Speed": 5,
     "Strength": 1,
-    "Avatar": "https://media.discordapp.net/attachments/895072182051430401/1471346982684590344/sirinoks.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/sirinoks.png",
     "Passive": [
       {
         "PassiveDescription": "Каждый раунд получает +1 к главному стату, из-за которого она проиграла в прошлый раз в нападении. Когда стат сравняется с победившим оппонентом, Сири получит +3 *Морали* и 10% *Скилла*. Цель (<:edu:1003751490290204753>) не может смениться, пока Айсик не завершит обучение.",
@@ -254,7 +254,7 @@
     "Psyche": 9,
     "Speed": 9,
     "Strength": 9,
-    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219463403524116/mitsuki5.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/mitsuki5.png",
     "Passive": [
       {
         "PassiveDescription": "Начинает игру со всеми статами на 9 и 100 *Скилла*, но теряет 2 рандомных стата и 20 *Скилла* после каждого хода.",
@@ -291,7 +291,7 @@
     "Psyche": 6,
     "Speed": 4,
     "Strength": 2,
-    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219562452025384/awdka.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/awdka.png",
     "Passive": [
       {
         "PassiveDescription": "Копирует лучший стат от атакуемого врага (<:volibir:894286361895522434>) на один следующий ход.",
@@ -323,7 +323,7 @@
     "Psyche": 10,
     "Speed": 8,
     "Strength": 2,
-    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219652029751316/octopus.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/octopus.png",
     "Passive": [
       {
         "PassiveDescription": "Получает очко за каждое уникальное место в таблице (🐙), на которое он переходит.",
@@ -360,7 +360,7 @@
     "Psyche": 5,
     "Speed": 8,
     "Strength": 7,
-    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219764223209490/darksci2.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/darksci2.png",
     "Passive": [
       {
         "PassiveDescription": "Удваивает текущие очки после состоявшегося боя с последним нетронутым ранее врагом (<:luck:1051721236322988092>). Получает 2 Психики и 2 *Морали*.",
@@ -392,7 +392,7 @@
     "Psyche": 1,
     "Speed": 9,
     "Strength": 9,
-    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898219869697343508/tigr.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/tigr.png",
     "Passive": [
       {
         "PassiveDescription": "Тигр принимает единомышленников в свой клан и получает +3 __бонусных__ очка за каждого уникального игрока (<:pepe_down:896514760823144478>), сравнявшегося с его уровнем Интеллекта или Психики.",
@@ -429,7 +429,7 @@
     "Psyche": 10,
     "Speed": 0,
     "Strength": 0,
-    "Avatar": "https://media.discordapp.net/attachments/895072182051430401/1471346982684590344/bratishka.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/bratishka.png",
     "Passive": [
       {
         "PassiveDescription": "Игнорирует интеллект атакующего врага, ведь аргументами его не убедить. А каждый кто свяжется с Братишкой потеряет 1 Интеллект при первом нападение на него.",
@@ -466,7 +466,7 @@
     "Psyche": 1,
     "Speed": 6,
     "Strength": 10,
-    "Avatar": "https://cdn.discordapp.com/attachments/353432193730871296/898220034172801094/tain.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/tain.png",
     "Passive": [
       {
         "PassiveDescription": "Спартанеца триггерит непонятная метка охотника (<:sparta:561287745675329567>) на двух случаныйх игроках, победы над которыми будут приносить ему +1 обычное и __бонусное__ очко. Побеждает, если они в блоке!",
@@ -565,7 +565,7 @@
     "Psyche": 9,
     "Speed": 1,
     "Strength": 3,
-    "Avatar": "https://cdn.discordapp.com/attachments/895072182051430401/937069648724230326/kraborak.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/kraborak.png",
     "Passive": [
       {
         "PassiveDescription": "Обороняется от первого нападения каждого уникального врага, получая 3 *Мораль* и 33 *Скилла*",
@@ -602,7 +602,7 @@
     "Psyche": 10,
     "Speed": 6,
     "Strength": 10,
-    "Avatar": "https://cdn.discordapp.com/attachments/895072182051430401/1000045314008432700/sakura.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/sakura.png",
     "Passive": [
     ],
     "Description": "",
@@ -614,7 +614,7 @@
     "Psyche": 6,
     "Speed": 3,
     "Strength": 3,
-    "Avatar": "https://cdn.discordapp.com/attachments/895072182051430401/1003118614754365501/weedwick.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/weedwick.png",
     "Passive": [
       {
         "PassiveDescription": "Меняется параметром Силы с врагом на момент нападения. Ауф!",
@@ -656,7 +656,7 @@
     "Psyche": 0,
     "Speed": 8,
     "Strength": 9,
-    "Avatar": "https://cdn.discordapp.com/attachments/895072182051430401/1005705251862610012/kratos.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/kratos.png",
     "Passive": [
       {
         "PassiveDescription": "Кратос атакует не только выбранного врага, но и цели вокруг него.",
@@ -693,7 +693,7 @@
     "Psyche": 8,
     "Speed": 8,
     "Strength": 8,
-    "Avatar": "https://media.discordapp.net/attachments/895072182051430401/1057435141435306065/irelia.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/irelia.png",
     "Passive": [
       {
         "PassiveDescription": "Молодой Глеб мечтает однажды взять Претендент и всё еще играет на одном из самых страшных персонажей и восходит в топ, поэтому у него 8 всех статов. Вот только Ирелию постоянно нерфают, так что вместо того, чтобы как нормальный человек прокачивать статы, Глеб выбирает какой из них потерять. ",
@@ -725,7 +725,7 @@
     "Psyche": 7,
     "Speed": 3,
     "Strength": 3,
-    "Avatar": "https://media.discordapp.net/attachments/895072182051430401/1057503587225321502/mylorik_avatar_for_an_RPG_game_that_looks_like_an_error_980dae7d-83c6-4db4-b47d-b9999e16c5ed.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/mylorik_avatar_for_an_RPG_game_that_looks_like_an_error_980dae7d-83c6-4db4-b47d-b9999e16c5ed.png",
     "Passive": [
       {
         "PassiveDescription": "`me.PlayerType = 2;`\n//Видит всех врагов и их статы",
@@ -756,7 +756,7 @@
     "Psyche": 10,
     "Speed": 10,
     "Strength": 10,
-    "Avatar": "https://media.discordapp.net/attachments/895072182051430401/saitama.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/saitama.png",
     "Passive": [
       {
         "PassiveDescription": "Когда нет денег, Сайтама серьезно берется за работу: получает __бонусное__ очко, если побеждает цель мишени. Дополнительно 1 очко, если на побежденного врага больше никто не нападал.",
