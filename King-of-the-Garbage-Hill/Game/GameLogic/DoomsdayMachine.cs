@@ -674,7 +674,7 @@ Speed => Strength
                 {
                     //сильный
                     if (playerIamAttacking.GameCharacter.GetSkillClass() == "Сила")
-                        skillGainedFromClassDefender = playerIamAttacking.GameCharacter.AddExtraSkill(4 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                        skillGainedFromClassDefender = playerIamAttacking.GameCharacter.AddExtraSkill(4 * playerIamAttacking.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
                     if (isTooGoodEnemy && !isTooStronkEnemy)
                         player.Status.AddInGamePersonalLogs($"{playerIamAttacking.DiscordUsername} is __TOO GOOD__ for you\n");

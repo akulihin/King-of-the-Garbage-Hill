@@ -235,7 +235,7 @@ public class CharacterPassives : IServiceSingleton
                         me.GameCharacter.AddIntelligence(-1, "Ничего не понимает");
                     }
 
-                    me.GameCharacter.SetIntelligenceForOneFight(0, "Ничего не понимает");
+                    me.FightCharacter.SetIntelligenceForOneFight(0, "Ничего не понимает");
                     break;
 
                 case "Я щас приду":
@@ -497,10 +497,10 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Оборотень":
-                    var myTempStrength = me.GameCharacter.GetStrength();
-                    var targetTempStrength = target.GameCharacter.GetStrength();
-                    me.GameCharacter.SetStrengthForOneFight(targetTempStrength, "Оборотень");
-                    target.GameCharacter.SetStrengthForOneFight(myTempStrength, "Оборотень");
+                    var myTempStrength = me.FightCharacter.GetStrength();
+                    var targetTempStrength = target.FightCharacter.GetStrength();
+                    me.FightCharacter.SetStrengthForOneFight(targetTempStrength, "Оборотень");
+                    target.FightCharacter.SetStrengthForOneFight(myTempStrength, "Оборотень");
 
                     /*var myTempSkillMain = me.GameCharacter.GetSkillForOneFight();
                     var targetTempSkill = target.GameCharacter.GetSkillForOneFight();
@@ -517,8 +517,8 @@ public class CharacterPassives : IServiceSingleton
 
                     if (target.GameCharacter.Justice.GetRealJusticeNow() == 0)
                     {
-                        var tempSpeed = me.GameCharacter.GetSpeed() * 2;
-                        me.GameCharacter.SetSpeedForOneFight(tempSpeed, "Безжалостный охотник");
+                        var tempSpeed = me.FightCharacter.GetSpeed() * 2;
+                        me.FightCharacter.SetSpeedForOneFight(tempSpeed, "Безжалостный охотник");
                     }
 
                     break;
