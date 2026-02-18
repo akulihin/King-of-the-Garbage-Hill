@@ -85,8 +85,8 @@ public static class GameStateMapper
             IsFinished = game.IsFinished,
             IsAramPickPhase = game.IsAramPickPhase,
             IsKratosEvent = game.IsKratosEvent,
-            GlobalLogs = game.GetGlobalLogs(),
-            AllGlobalLogs = game.GetAllGlobalLogs(),
+            GlobalLogs = isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets),
+            AllGlobalLogs = isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.HiddenGlobalLogSnippets),
             MyPlayerId = requestingPlayer?.GetPlayerId(),
             MyPlayerType = requestingPlayer?.PlayerType ?? 0,
             PreferWeb = requestingPlayer?.PreferWeb ?? false,
@@ -96,7 +96,12 @@ public static class GameStateMapper
 
         // Map structured fight log for web animation (scoped: only own fights get full details)
         var myUsername = requestingPlayer?.DiscordUsername;
-        dto.FightLog = game.WebFightLog.Select(f => ScopeFightEntry(f, myUsername, isAdmin)).ToList();
+        dto.FightLog = game.WebFightLog
+            // Hidden fights are invisible to non-admin players who aren't a participant
+            .Where(f => !f.HiddenFromNonAdmin || isAdmin
+                        || (myUsername != null && (f.AttackerName == myUsername || f.DefenderName == myUsername)))
+            .Select(f => ScopeFightEntry(f, myUsername, isAdmin))
+            .ToList();
 
         foreach (var player in game.PlayersList)
         {
@@ -393,5 +398,17 @@ public static class GameStateMapper
             SkillDifferenceRandomModifier = 0,
             ContrMultiplierSkillDifference = 0,
         };
+    }
+
+    /// <summary>Remove hidden fight text snippets from global logs for non-admin players.</summary>
+    private static string StripHiddenLogs(string logs, List<string> hiddenSnippets)
+    {
+        if (string.IsNullOrEmpty(logs) || hiddenSnippets == null || hiddenSnippets.Count == 0)
+            return logs;
+
+        foreach (var snippet in hiddenSnippets)
+            logs = logs.Replace(snippet, "");
+
+        return logs;
     }
 }

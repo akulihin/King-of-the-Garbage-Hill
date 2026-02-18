@@ -359,6 +359,9 @@ public class FightEntryDto
 
     /// <summary>How much skill is added from counter.</summary>
     public decimal ContrMultiplierSkillDifference { get; set; }
+
+    /// <summary>When true, this fight entry is hidden from non-admin players (e.g. Saitama solo kills).</summary>
+    public bool HiddenFromNonAdmin { get; set; }
 }
 
 // ── Auth DTOs ─────────────────────────────────────────────────────────
