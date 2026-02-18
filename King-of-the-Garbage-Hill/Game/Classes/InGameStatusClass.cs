@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -60,6 +60,9 @@ public class InGameStatus
     public bool IsAutoMove { get; set; }
     public int AutoMoveTimes { get; set; }
     public bool IsAbleToWin { get; set; }
+
+    /// <summary>Temporary flag: when true, the current fight should be hidden from non-admin logs.</summary>
+    public bool HideCurrentFight { get; set; }
 
     private int PlaceAtLeaderBoard { get; set; }
     public List<Guid> WhoToAttackThisTurn { get; set; }
@@ -317,8 +320,10 @@ public class InGameStatus
         public bool IsTooGoodMe;
         public bool IsStatsBetterMe;
         public Guid WhoAttacked;
+        public int PlaceAtLeaderBoardMe;
+        public int PlaceAtLeaderBoardEnemy;
 
-        public WhoToLostPreviousRoundClass(Guid enemyId, int roundNo, bool isTooGoodEnemy, bool isStatsBetterEnemy, bool isTooGoodMe, bool isStatsBetterMe, Guid whoAttacked)
+        public WhoToLostPreviousRoundClass(Guid enemyId, int roundNo, bool isTooGoodEnemy, bool isStatsBetterEnemy, bool isTooGoodMe, bool isStatsBetterMe, Guid whoAttacked, int placeAtLeaderBoardMe, int placeAtLeaderBoardEnemy)
         {
             EnemyId = enemyId;
             RoundNo = roundNo;
@@ -327,6 +332,9 @@ public class InGameStatus
             IsTooGoodMe = isTooGoodMe;
             IsStatsBetterMe = isStatsBetterMe;
             WhoAttacked = whoAttacked;
+            PlaceAtLeaderBoardMe = placeAtLeaderBoardMe;
+            PlaceAtLeaderBoardEnemy = placeAtLeaderBoardEnemy;
+
         }
     }
 

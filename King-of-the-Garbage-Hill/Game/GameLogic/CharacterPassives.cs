@@ -160,6 +160,22 @@ public class CharacterPassives : IServiceSingleton
                     //x3 class for target
                     //player.GameCharacter.SetTargetSkillMultiplier(2);
                     break;
+
+                case "Лысина":
+                    player.GameCharacter.AddExtraSkill(1000, "Лысина");
+                    player.Status.AddInGamePersonalLogs("*100 отжиманий. 100 приседаний. 100 подъёмов корпуса. 10 км бега. КАЖДЫЙ ДЕНЬ. Побочный эффект - потеря волос.*\n");
+                    break;
+
+                case "Неприметность":
+                    // Compute top 2 enemies by combat power (Skill) to fight seriously against
+                    var saitamaUnnoticed = player.Passives.SaitamaUnnoticed;
+                    saitamaUnnoticed.SeriousTargets = playersList
+                        .Where(x => x.GetPlayerId() != player.GetPlayerId())
+                        .OrderByDescending(x => x.GameCharacter.GetSkill())
+                        .Take(2)
+                        .Select(x => x.GetPlayerId())
+                        .ToList();
+                    break;
             }
 
         return playersList;
@@ -342,6 +358,22 @@ public class CharacterPassives : IServiceSingleton
                     else
                         mitsuki.Training.Add(new Mitsuki.GarbageSubClass(me.GetPlayerId()));
 
+                    break;
+
+                case "Неприметность":
+                    if (game.RoundNo  >= 10) break;
+
+                    // Saitama holds back against enemies NOT in top 2 — they appear to win
+                    var saitamaDefUnnoticed = target.Passives.SaitamaUnnoticed;
+                    if (!saitamaDefUnnoticed.SeriousTargets.Contains(me.GetPlayerId()))
+                    {
+                        target.Status.IsAbleToWin = false;
+                        game.Phrases.SaitamaHoldsBack.SendLog(target, false);
+                    }
+                    else
+                    {
+                        game.Phrases.SaitamaSerious.SendLog(target, false);
+                    }
                     break;
             }
     }
@@ -727,6 +759,21 @@ public class CharacterPassives : IServiceSingleton
                 case "Питается водорослями":
                     if (target.Status.GetPlaceAtLeaderBoard() >= 4) me.Status.AddBonusPoints(1, "Питается водорослями");
                     break;
+
+                case "Неприметность":
+                    // Saitama holds back against enemies NOT in top 2
+                    if (game.RoundNo  >= 10) break;
+                    var saitamaAtkUnnoticed = me.Passives.SaitamaUnnoticed;
+                    if (!saitamaAtkUnnoticed.SeriousTargets.Contains(target.GetPlayerId()))
+                    {
+                        me.Status.IsAbleToWin = false;
+                        game.Phrases.SaitamaHoldsBack.SendLog(me, false);
+                    }
+                    else
+                    {
+                        game.Phrases.SaitamaSerious.SendLog(me, false);
+                    }
+                    break;
             }
     }
 
@@ -1060,6 +1107,56 @@ public class CharacterPassives : IServiceSingleton
                 case "Я пытаюсь!":
                     //Я пытаюсь reset FightMultiplier
                     me.FightCharacter.SetSkillFightMultiplier();
+                    break;
+
+                case "На мели":
+                    if (me.Status.IsWonThisCalculation == target.GetPlayerId())
+                    {
+                        // Bonus point for beating the skill-class target
+                        if (me.GameCharacter.GetCurrentSkillClassTarget() == target.GameCharacter.GetSkillClass())
+                        {
+                            me.Status.AddBonusPoints(1, "На мели");
+                            game.Phrases.SaitamaBroke.SendLog(me, false);
+                        }
+
+                        // Extra point if nobody else attacked this target this round
+                        var othersAttackedTarget = game.PlayersList.Any(p =>
+                            p.GetPlayerId() != me.GetPlayerId() &&
+                            p.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()));
+
+                        if (!othersAttackedTarget)
+                        {
+                            me.Status.AddBonusPoints(1, "На мели");
+                            game.Phrases.SaitamaBrokeMonster.SendLog(me, false);
+
+                            // Hide this fight from non-admin players
+                            me.Status.HideCurrentFight = true;
+                        }
+                    }
+                    break;
+
+                case "Неприметность":
+                    // If Saitama won against someone who was also attacked by another player,
+                    // defer his points and moral (they go into the "box")
+                    if (game.RoundNo  >= 10) break;
+
+                    if (me.Status.IsWonThisCalculation == target.GetPlayerId())
+                    {
+                        var saitamaAtkUnnoticedAfter = me.Passives.SaitamaUnnoticed;
+
+                        // Check if another player also attacked this same target
+                        var anotherAttacker = game.PlayersList.Any(p =>
+                            p.GetPlayerId() != me.GetPlayerId() &&
+                            p.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()));
+
+                        if (anotherAttacker && !saitamaAtkUnnoticedAfter.SeriousTargets.Contains(target.GetPlayerId()))
+                        {
+                            // Defer the win point (remove 1 from pending score)
+                            me.Status.AddRegularPoints(-1, "Неприметность");
+                            saitamaAtkUnnoticedAfter.DeferredPoints += 1;
+                            game.Phrases.SaitamaUnnoticed.SendLog(me, false);
+                        }
+                    }
                     break;
             }
     }
@@ -2098,6 +2195,21 @@ public class CharacterPassives : IServiceSingleton
                         if (game.RoundNo is 2 or 4 or 6 or 8 or 10)
                             player.GameCharacter.AddMoral(vampyr.HematophagiaCurrent.Count, "Вампуризм");
                     break;
+
+                case "Неприметность":
+                    // Recalculate top 2 serious targets every round based on current combat power
+                    var saitamaEndUnnoticed = player.Passives.SaitamaUnnoticed;
+                    saitamaEndUnnoticed.SeriousTargets = game.PlayersList
+                        .Where(x => x.GetPlayerId() != player.GetPlayerId())
+                        .OrderByDescending(x => x.GameCharacter.GetSkill())
+                        .Take(2)
+                        .Select(x => x.GetPlayerId())
+                        .ToList();
+                    break;
+
+                case "Ищет достойного противника":
+                    
+                    break;
             }
     }
 
@@ -2129,6 +2241,35 @@ public class CharacterPassives : IServiceSingleton
                         foreach (var index in indexes)
                         {
                             player.Passives.YongGlebMetaClass.Add(game.PlayersList[index].GetPlayerId());
+                        }
+                        break;
+
+                    case "Ищет достойного противника":
+                        if (game.RoundNo == 11)
+                        {
+                            // Round 10 just finished; RoundNo is already 11.
+                            var saitamaWorthy = player.Passives.SaitamaUnnoticed;
+
+                            //if (saitamaWorthy.SeriousTargets.Count > 0)
+                            //{
+
+                            var saitamaBeatTop1All = game.PlayersList.FindAll(x => x.Status.WhoToLostEveryRound.Any(y => y.RoundNo == 10 && y.EnemyId == player.GetPlayerId()));
+                            var saitamaBeatTop1 = saitamaBeatTop1All.FindAll(x => x.Status.WhoToLostEveryRound.Any(y => y.PlaceAtLeaderBoardMe == 1 && y.WhoAttacked == player.GetPlayerId()));
+
+                            if (saitamaBeatTop1.Count > 0)
+                                {
+                                    // ONE PUUUUUUNCH! Restore all deferred points!
+                                    var deferred = saitamaWorthy.DeferredPoints;
+                                    if (deferred > 0)
+                                    {
+                                       player.Status.AddRegularPoints(deferred, "🐙🐙🐙Ищет достойного противника🐙🐙🐙");
+                                    player.Status.AddBonusPoints(deferred, "🐙🐙🐙");
+                                    saitamaWorthy.DeferredPoints = 0;
+                                       game.AddGlobalLogs($"{player.DiscordUsername} наконец показал свою ИСТИННУЮ СИЛУ! ONE PUUUUUUNCH!!! {deferred}");
+                                }
+                                    
+                                }
+                            //}
                         }
                         break;
 

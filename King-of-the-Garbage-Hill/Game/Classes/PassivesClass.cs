@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
@@ -153,6 +153,8 @@ public class PassivesClass
     public bool KratosIsDead { get; set; } = false;
 
     public int VampyrIgnoresOneJustice { get; set; } = 0;
+
+    public Saitama.UnnoticedClass SaitamaUnnoticed { get; set; } = new();
 
     public Guid PointFunneledTo { get; set; } = Guid.Empty;
     public bool IsExploitable { get; set; } = false;

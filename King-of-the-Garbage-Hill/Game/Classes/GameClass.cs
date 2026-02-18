@@ -85,6 +85,9 @@ public class GameClass
     /// <summary>Structured fight log for the current round (persists until next round starts).</summary>
     public List<FightEntryDto> WebFightLog { get; set; } = new();
 
+    /// <summary>Text snippets in GlobalLogs that should be stripped for non-admin players (e.g. Saitama hidden fights).</summary>
+    public List<string> HiddenGlobalLogSnippets { get; set; } = new();
+
 
 
 

@@ -196,6 +196,7 @@ Speed => Strength
 
         // Clear previous round's fight log
         game.WebFightLog.Clear();
+        game.HiddenGlobalLogSnippets.Clear();
 
         game.TimePassed.Stop();
         var roundNumber = game.RoundNo + 1;
@@ -259,6 +260,9 @@ Speed => Strength
 
             foreach (var playerIamAttacking in player.Status.WhoToAttackThisTurn.Select(t => game.PlayersList.Find(x => x.GetPlayerId() == t)))
             {
+                // Snapshot GlobalLogs length before this fight (for hidden-fight mechanism)
+                var globalLogsLenBefore = game.GetGlobalLogs().Length;
+
                 //add skill
                 decimal skillGainedFromTarget = 0;
                 decimal skillGainedFromClassAttacker = 0;
@@ -637,7 +641,7 @@ Speed => Strength
 
                     player.Status.IsWonThisCalculation = playerIamAttacking.GetPlayerId();
                     playerIamAttacking.Status.IsLostThisCalculation = player.GetPlayerId();
-                    playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.GetPlayerId(), game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy, isStatsBettterEnemy, player.GetPlayerId()));
+                    playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.GetPlayerId(), game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy, isStatsBettterEnemy, player.GetPlayerId(), playerIamAttacking.Status.GetPlaceAtLeaderBoard(), player.Status.GetPlaceAtLeaderBoard()));
 
                     //Quality — snapshot resist values before damage
                     var range = player.GameCharacter.GetSpeedQualityResistInt();
@@ -722,7 +726,7 @@ Speed => Strength
 
                     playerIamAttacking.Status.IsWonThisCalculation = player.GetPlayerId();
                     player.Status.IsLostThisCalculation = playerIamAttacking.GetPlayerId();
-                    player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.GetPlayerId(), game.RoundNo, isTooGoodEnemy, isStatsBettterEnemy, isTooGoodMe, isStatsBetterMe, player.GetPlayerId()));
+                    player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.GetPlayerId(), game.RoundNo, isTooGoodEnemy, isStatsBettterEnemy, isTooGoodMe, isStatsBetterMe, player.GetPlayerId(), player.Status.GetPlaceAtLeaderBoard(), playerIamAttacking.Status.GetPlaceAtLeaderBoard()));
                 }
 
                 // ── Collect structured fight data for web animation ──
@@ -849,6 +853,26 @@ Speed => Strength
                 await _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
                 
                 _characterPassives.HandleShark(game); //used only for shark...
+
+                // Hide fight from non-admin logs (e.g. Saitama solo kills)
+                if (player.Status.HideCurrentFight || playerIamAttacking.Status.HideCurrentFight)
+                {
+                    // Mark the WebFightLog entry as hidden
+                    var lastFight = game.WebFightLog.LastOrDefault();
+                    if (lastFight != null)
+                        lastFight.HiddenFromNonAdmin = true;
+
+                    // Extract the global log text written during this fight and mark it as hidden
+                    var globalLogsNow = game.GetGlobalLogs();
+                    if (globalLogsNow.Length > globalLogsLenBefore)
+                    {
+                        var fightLogText = globalLogsNow.Substring(globalLogsLenBefore);
+                        game.HiddenGlobalLogSnippets.Add(fightLogText);
+                    }
+
+                    player.Status.HideCurrentFight = false;
+                    playerIamAttacking.Status.HideCurrentFight = false;
+                }
 
                 ResetFight(game, player, playerIamAttacking);
             }

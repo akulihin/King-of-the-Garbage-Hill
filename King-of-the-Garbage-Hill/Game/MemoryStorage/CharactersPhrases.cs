@@ -134,7 +134,11 @@ public class CharactersUniquePhrase
     public PhraseClass KratosEventKill;
     public PhraseClass KratosTarget;
 
-
+    public PhraseClass SaitamaBroke;
+    public PhraseClass SaitamaBrokeMonster;
+    public PhraseClass SaitamaUnnoticed;
+    public PhraseClass SaitamaHoldsBack;
+    public PhraseClass SaitamaSerious;
     //end
     public PhraseClass AutoMove;
     public PhraseClass JusticePhrase;
@@ -266,6 +270,13 @@ public class CharactersUniquePhrase
         KratosEventFailed = new PhraseClass("Возвращение из мертвых");
         KratosEventKill = new PhraseClass("Возвращение из мертвых");
         KratosTarget = new PhraseClass("Охота на богов");
+
+        SaitamaBroke = new PhraseClass("На мели");
+        SaitamaBrokeMonster = new PhraseClass("На мели (монстр)");
+        SaitamaUnnoticed = new PhraseClass("Неприметность (напал кто-то еще)");
+        SaitamaHoldsBack = new PhraseClass("Неприметность (снисходителен)");
+        SaitamaSerious = new PhraseClass("Неприметность (топ2 по силе)");
+
         //end
 
         //
@@ -738,6 +749,30 @@ public class CharactersUniquePhrase
         KratosTarget.PassiveLogRus.Add("Ща как покажу!");
         KratosTarget.PassiveLogRus.Add("The power to creater the power to creater the power to destroy!");
         KratosTarget.PassiveLogRus.Add("Призрак Спарты в заброшенном доме... Буууу!");
+
+
+        // ── Сайтама ──
+
+        SaitamaBroke.PassiveLogRus.Add("О, сегодня скидка на доширак!");
+        SaitamaBroke.PassiveLogRus.Add("Суббота. Сегодня капуста на распродаже!");
+        SaitamaBroke.PassiveLogRus.Add("Герой - это хобби, а хобби не приносит денег");
+
+        SaitamaBrokeMonster.PassiveLogRus.Add("Если никто не видел, считается ли это за подвиг?");
+        //против сиринокса
+        SaitamaBrokeMonster.PassiveLogRus.Add("О, уровень Дракон!");
+
+        SaitamaUnnoticed.PassiveLogRus.Add("Этот монстр пал от руки Кинга! ...наверное.");
+
+        SaitamaHoldsBack.PassiveLogRus.Add("Это... всё?");
+        SaitamaHoldsBack.PassiveLogRus.Add("Скучно. Пойду домой.");
+
+        SaitamaSerious.PassiveLogRus.Add("Серьёзная серия ударов.");
+
+        //not in the game
+
+        //SaitamaWorthyFound.PassiveLogRus.Add("Наконец-то... Ты заставил меня стараться. Спасибо.");
+        //SaitamaWorthyFound.PassiveLogRus.Add("Три года я ждал этого момента!");
+        //SaitamaWorthyFound.PassiveLogRus.Add("**ONE PUUUUUUNCH!!!**");
 
         //end
     }

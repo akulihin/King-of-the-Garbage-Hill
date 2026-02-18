@@ -854,7 +854,12 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
 
-        var desc = HandleIsNewPlayerDescription(game!.GetGlobalLogs(), player, game);
+        var globalLogs = game!.GetGlobalLogs();
+        // Hide fight logs from non-admin players
+        if (player.PlayerType != 2)
+            foreach (var snippet in game.HiddenGlobalLogSnippets)
+                globalLogs = globalLogs.Replace(snippet, "");
+        var desc = HandleIsNewPlayerDescription(globalLogs, player, game);
 
         if (player.TeamId > 0) desc = desc.Replace($"Команда #{player.TeamId}", $"**Команда #{player.TeamId}**");
 
