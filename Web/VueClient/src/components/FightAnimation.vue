@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import type { FightEntry, Player, Prediction, CharacterInfo } from 'src/services/signalr'
+import {
+  FightSoundPool,
+  playDoomsDayFight,
+  playDoomsDayWinLose,
+  playDoomsDayDraw,
+  playDoomsDayRndRoll,
+  playDoomsDayScroll,
+  playDoomsDayNoFights,
+} from 'src/services/sound'
 
 const props = withDefaults(defineProps<{
   fights: FightEntry[]
@@ -346,8 +355,11 @@ watch(showFinalResult, (show: boolean) => {
   const weWon = isFlipped.value ? f.outcome === 'loss' : f.outcome === 'win'
   const weLost = !weWon && f.outcome !== 'block' && f.outcome !== 'skip'
 
-  // Justice resets when we win
-  if (weWon) {
+  // Our pre-fight justice value
+  const ourPreFightJustice = isFlipped.value ? f.justiceTarget : f.justiceMe
+
+  // Justice resets when we win AND we had justice > 0
+  if (weWon && ourPreFightJustice > 0) {
     emit('justice-reset')
   }
 
@@ -362,7 +374,8 @@ watch(showFinalResult, (show: boolean) => {
     if (flashStats.length > 0) {
       emit('resist-flash', [...new Set(flashStats)])
     }
-    if (f.justiceChange > 0) {
+    // Justice up: only if change > 0 AND we weren't already at max (5)
+    if (f.justiceChange > 0 && ourPreFightJustice < 5) {
       emit('justice-up')
     }
   }
@@ -393,6 +406,9 @@ function advanceStep() {
     setTimeout(() => {
       if (!isPlaying.value) return
       if (currentFightIdx.value < myFights.value.length - 1) {
+        // Play scroll sound between fights and reset round results
+        playDoomsDayScroll()
+        roundResults.value = []
         currentFightIdx.value++
         currentStep.value = 0
         scheduleNext()
@@ -433,6 +449,8 @@ watch(() => props.fights, () => {
     lastAnimatedRound.value = fp
     userSwitchedTab.value = false
     activeTab.value = 'fights'
+    fightSoundPool.reset()
+    roundResults.value = []
     restart()
   }
 }, { deep: true })
@@ -441,6 +459,85 @@ onUnmounted(() => {
   clearTimer()
   if (weighingAnimFrame) cancelAnimationFrame(weighingAnimFrame)
   if (justiceAnimFrame) cancelAnimationFrame(justiceAnimFrame)
+})
+
+// ── Dooms Day sound system ───────────────────────────────────────────
+
+const fightSoundPool = new FightSoundPool()
+const roundResults = ref<('w' | 'l')[]>([])
+
+// Watch currentStep to trigger dooms_day sounds during MY fight animation
+watch(currentStep, (step: number) => {
+  if (!fight.value || !isMyFight.value || isSpecialOutcome.value) return
+  if (skippedToEnd.value) return
+
+  const f = fight.value
+  const factorCount = round1Factors.value.length
+  const hasR3 = f.usedRandomRoll
+
+  // Steps 1..factorCount: R1 factor sounds
+  if (step >= 1 && step <= factorCount) {
+    const isLastFactor = step === factorCount
+    playDoomsDayFight(fightSoundPool, isLastFactor)
+    return
+  }
+
+  // Step factorCount+1: R1 result
+  if (step === factorCount + 1) {
+    const r1pts = f.round1PointsWon * sign.value
+    const r1result: 'w' | 'l' = r1pts > 0 ? 'w' : 'l'
+    roundResults.value = [r1result]
+    playDoomsDayWinLose([r1result], false, false)
+    return
+  }
+
+  // Step factorCount+2: R2 justice
+  if (step === factorCount + 2) {
+    const r2pts = f.pointsFromJustice * sign.value
+    if (r2pts === 0) {
+      // Draw in round 2
+      playDoomsDayDraw()
+    } else {
+      const r2result: 'w' | 'l' = r2pts > 0 ? 'w' : 'l'
+      roundResults.value = [...roundResults.value, r2result]
+      playDoomsDayWinLose(roundResults.value, !hasR3, false)
+    }
+    return
+  }
+
+  if (hasR3) {
+    // Step factorCount+3: R3 modifiers
+    if (step === factorCount + 3) {
+      playDoomsDayRndRoll()
+      return
+    }
+
+    // Step factorCount+4: R3 roll result
+    if (step === factorCount + 4) {
+      const s = sign.value
+      const attackerWon = f.randomNumber <= f.randomForPoint
+      const weWonR3 = s > 0 ? attackerWon : !attackerWon
+      const r3result: 'w' | 'l' = weWonR3 ? 'w' : 'l'
+      roundResults.value = [...roundResults.value, r3result]
+      playDoomsDayWinLose(roundResults.value, false, false)
+      return
+    }
+  }
+
+  // Final result step
+  if (step === totalSteps.value - 1 && step > factorCount + 2) {
+    const isLastFight = currentFightIdx.value === myFights.value.length - 1
+    const allSame = roundResults.value.length > 0 && roundResults.value.every(r => r === roundResults.value[0])
+    const isAbsolute = isLastFight && allSame
+    playDoomsDayWinLose(roundResults.value, true, isAbsolute)
+  }
+})
+
+// No-fights sound: fights exist but none are mine
+watch(myFights, (mine: FightEntry[]) => {
+  if (props.fights.length > 0 && mine.length === 0) {
+    playDoomsDayNoFights()
+  }
 })
 
 // ── Auto-scroll: keep the latest animated step visible in panel ──────
@@ -685,9 +782,9 @@ function getDisplayCharName(orig: string, u: string): string {
   <div class="fight-animation">
     <!-- Tab header -->
     <div class="fa-tab-header">
-      <button class="fa-tab" :class="{ active: activeTab === 'fights' }" @click="setTab('fights')">Бои раунда</button>
-      <button class="fa-tab" :class="{ active: activeTab === 'all' }" @click="setTab('all')">Все бои</button>
-      <button class="fa-tab" :class="{ active: activeTab === 'letopis' }" @click="setTab('letopis')">Летопись</button>
+      <button class="fa-tab" :class="{ active: activeTab === 'fights' }" data-sfx-utility="true" @click="setTab('fights')">Бои раунда</button>
+      <button class="fa-tab" :class="{ active: activeTab === 'all' }" data-sfx-utility="true" @click="setTab('all')">Все бои</button>
+      <button class="fa-tab" :class="{ active: activeTab === 'letopis' }" data-sfx-utility="true" @click="setTab('letopis')">Летопись</button>
     </div>
 
     <!-- Летопись -->
@@ -737,15 +834,16 @@ function getDisplayCharName(orig: string, u: string): string {
     <template v-else>
       <!-- Controls + fight thumbnails -->
       <div class="fa-controls">
-        <button class="fa-btn" @click="togglePlay">{{ isPlaying ? '⏸' : '▶' }}</button>
-        <button class="fa-btn" @click="restart" title="Restart">⏮</button>
-        <button class="fa-btn" @click="skipToEnd" title="Skip to end">⏭</button>
+        <button class="fa-btn" data-sfx-utility="true" @click="togglePlay">{{ isPlaying ? '⏸' : '▶' }}</button>
+        <button class="fa-btn" data-sfx-utility="true" @click="restart" title="Restart">⏮</button>
+        <button class="fa-btn" data-sfx-utility="true" @click="skipToEnd" title="Skip to end">⏭</button>
         <div class="fa-speed">
-          <button v-for="s in [1, 2, 4]" :key="s" class="fa-speed-btn" :class="{ active: speed === s }" @click="setSpeed(s)">{{ s }}x</button>
+          <button v-for="s in [1, 2, 4]" :key="s" class="fa-speed-btn" :class="{ active: speed === s }" data-sfx-utility="true" @click="setSpeed(s)">{{ s }}x</button>
         </div>
         <div class="fa-thumbs">
           <button v-for="(f, idx) in myFights" :key="idx" class="fa-thumb"
             :class="{ active: idx === currentFightIdx, 'is-block': f.outcome === 'block', 'is-skip': f.outcome === 'skip' }"
+            data-sfx-utility="true"
             @click="currentFightIdx = idx; currentStep = totalSteps - 1; skippedToEnd = true; isPlaying = false; clearTimer()"
             :title="`${f.attackerName} vs ${f.defenderName}`">
             <span class="thumb-idx">{{ (idx as number) + 1 }}</span>

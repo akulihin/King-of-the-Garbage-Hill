@@ -1,5 +1,6 @@
 const SOUND_BASE_URL = 'https://r2.ozvmusic.com/kotgh/sound/'
 const DEFAULT_BUTTON_SKIP_ATTR = 'data-sfx-skip-default'
+const UTILITY_ATTR = 'data-sfx-utility'
 const SOUND_CACHE_NAME = 'kotgh-sound-cache-v1'
 const SOUND_CACHE_META_KEY = 'kotgh-sound-cache-meta-v1'
 const SOUND_CACHE_TTL_MS = 24 * 60 * 60 * 1000
@@ -7,6 +8,120 @@ const SOUND_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 type StatKey = 'intelligence' | 'strength' | 'speed' | 'psyche'
 type PlaybackChannel = 'lvl-up-extra'
 type BlobEntry = { objectUrl: string; cachedAt: number }
+
+// ── Volume config types ──────────────────────────────────────────────
+
+type VolumeGroup =
+  | 'buttons' | 'mainMenu' | 'utility'
+  | 'attack' | 'levelUp' | 'moralExchange'
+  | 'combo' | 'comboHype' | 'justice'
+  | 'points' | 'doomsDay' | 'doomsDayWinLose'
+  | 'doomsDayScrolls'
+
+interface VolumeConfig {
+  masterVolume: number
+  groups: Record<VolumeGroup, number>
+}
+
+const DEFAULT_VOLUME_CONFIG: VolumeConfig = {
+  masterVolume: 0.8,
+  groups: {
+    buttons: 0.7, mainMenu: 0.7, utility: 0.6,
+    attack: 0.9, levelUp: 0.8, moralExchange: 0.8,
+    combo: 0.85, comboHype: 0.9, justice: 0.85,
+    points: 0.8, doomsDay: 0.9, doomsDayWinLose: 0.85,
+    doomsDayScrolls: 0.7,
+  },
+}
+
+const MASTER_VOLUME_STORAGE_KEY = 'kotgh-master-volume'
+
+let cachedVolumeConfig: VolumeConfig | null = null
+let volumeConfigPromise: Promise<VolumeConfig> | null = null
+/** User override — applied on top of the config file's masterVolume */
+let userMasterVolume: number | null = null
+
+function loadUserMasterVolume(): number | null {
+  try {
+    const raw = localStorage.getItem(MASTER_VOLUME_STORAGE_KEY)
+    if (raw === null) return null
+    const val = parseFloat(raw)
+    if (Number.isFinite(val) && val >= 0 && val <= 1) return val
+    return null
+  } catch {
+    return null
+  }
+}
+
+async function getVolumeConfig(): Promise<VolumeConfig> {
+  if (cachedVolumeConfig) return cachedVolumeConfig
+  if (volumeConfigPromise) return volumeConfigPromise
+  volumeConfigPromise = (async () => {
+    try {
+      const resp = await fetch('/sound-config.json', { cache: 'no-store' })
+      if (!resp.ok) return DEFAULT_VOLUME_CONFIG
+      const json = await resp.json()
+      const config: VolumeConfig = {
+        masterVolume: typeof json.masterVolume === 'number' ? json.masterVolume : DEFAULT_VOLUME_CONFIG.masterVolume,
+        groups: { ...DEFAULT_VOLUME_CONFIG.groups },
+      }
+      if (json.groups && typeof json.groups === 'object') {
+        for (const key of Object.keys(DEFAULT_VOLUME_CONFIG.groups) as VolumeGroup[]) {
+          if (typeof json.groups[key] === 'number') {
+            config.groups[key] = json.groups[key]
+          }
+        }
+      }
+      cachedVolumeConfig = config
+      return config
+    } catch {
+      return DEFAULT_VOLUME_CONFIG
+    }
+  })()
+  return volumeConfigPromise
+}
+
+/** Effective master volume: user override (localStorage) takes priority over config file */
+async function getEffectiveMasterVolume(): Promise<number> {
+  if (userMasterVolume === null) {
+    userMasterVolume = loadUserMasterVolume()
+  }
+  if (userMasterVolume !== null) return userMasterVolume
+  const config = await getVolumeConfig()
+  return config.masterVolume
+}
+
+/** Get current master volume (0–1). Returns cached/stored value synchronously when available. */
+export function getMasterVolume(): number {
+  if (userMasterVolume === null) {
+    userMasterVolume = loadUserMasterVolume()
+  }
+  if (userMasterVolume !== null) return userMasterVolume
+  if (cachedVolumeConfig) return cachedVolumeConfig.masterVolume
+  return DEFAULT_VOLUME_CONFIG.masterVolume
+}
+
+/** Set master volume (0–1). Persisted to localStorage. */
+export function setMasterVolume(vol: number): void {
+  const clamped = Math.max(0, Math.min(1, vol))
+  userMasterVolume = clamped
+  try {
+    localStorage.setItem(MASTER_VOLUME_STORAGE_KEY, String(clamped))
+  } catch {
+    // ignore storage errors
+  }
+}
+
+// ── Sound context ────────────────────────────────────────────────────
+
+export type SoundContext = 'game' | 'menu'
+let currentSoundContext: SoundContext = 'menu'
+
+export function setSoundContext(ctx: SoundContext): void {
+  currentSoundContext = ctx
+}
+
+// ── Internal state ───────────────────────────────────────────────────
 
 const channelAudio = new Map<PlaybackChannel, HTMLAudioElement>()
 const soundBlobCache = new Map<string, BlobEntry>()
@@ -151,20 +266,34 @@ async function getOrFetchSoundBlobUrl(sourceUrl: string): Promise<string | null>
   }
 }
 
-async function playClip(relativePath: string, channel?: PlaybackChannel): Promise<boolean> {
+// ── Core playback ────────────────────────────────────────────────────
+
+interface PlayClipOptions {
+  channel?: PlaybackChannel
+  group?: VolumeGroup
+}
+
+async function playClip(relativePath: string, options?: PlayClipOptions): Promise<boolean> {
   const sourceUrl = await getOrFetchSoundBlobUrl(toSoundUrl(relativePath))
   if (!sourceUrl) return false
 
   const audio = new Audio(sourceUrl)
   audio.preload = 'auto'
 
-  if (channel) {
-    const previous = channelAudio.get(channel)
+  // Apply volume
+  if (options?.group) {
+    const masterVol = await getEffectiveMasterVolume()
+    const config = await getVolumeConfig()
+    audio.volume = masterVol * (config.groups[options.group] ?? 1)
+  }
+
+  if (options?.channel) {
+    const previous = channelAudio.get(options.channel)
     if (previous) {
       previous.pause()
       previous.currentTime = 0
     }
-    channelAudio.set(channel, audio)
+    channelAudio.set(options.channel, audio)
   }
 
   try {
@@ -175,6 +304,8 @@ async function playClip(relativePath: string, channel?: PlaybackChannel): Promis
     return false
   }
 }
+
+// ── Helpers ──────────────────────────────────────────────────────────
 
 function statSoundSuffix(stat: StatKey): 'int' | 'str' | 'spd' | 'psy' {
   switch (stat) {
@@ -197,8 +328,31 @@ function sanitizeAttackCharacterName(characterName: string): string {
   return characterName.trim()
 }
 
+function weightedRandomButtonSound(): string {
+  // everything_1 has 10x weight vs everything_2 and everything_3
+  const roll = Math.random() * 12 // 10 + 1 + 1
+  if (roll < 10) return 'buttons/everything_1.mp3'
+  if (roll < 11) return 'buttons/everything_2.mp3'
+  return 'buttons/everything_3.mp3'
+}
+
+function randomJusticeUpVariant(): string {
+  const idx = Math.floor(Math.random() * 5) + 1
+  return `ui_ux/justice/justice_up_${idx}.mp3`
+}
+
+// ── Exported sound functions ─────────────────────────────────────────
+
 export function playDefaultButtonSound(): void {
-  void playClip('buttons/everything.mp3')
+  void playClip(weightedRandomButtonSound(), { group: 'buttons' })
+}
+
+export function playMainMenuButtonSound(): void {
+  void playClip('buttons/main_menu.mp3', { group: 'mainMenu' })
+}
+
+export function playUtilitySound(): void {
+  void playClip('buttons/utility.mp3', { group: 'utility' })
 }
 
 export function installGlobalButtonSound(): () => void {
@@ -209,6 +363,19 @@ export function installGlobalButtonSound(): () => void {
     if (!(button instanceof HTMLButtonElement)) return
     if (button.disabled) return
     if (button.getAttribute(DEFAULT_BUTTON_SKIP_ATTR) === 'true') return
+
+    // Utility buttons (fight tabs, speed, thumbnails, predict)
+    if (button.getAttribute(UTILITY_ATTR) === 'true') {
+      playUtilitySound()
+      return
+    }
+
+    // Context-aware: menu vs game
+    if (currentSoundContext === 'menu') {
+      playMainMenuButtonSound()
+      return
+    }
+
     playDefaultButtonSound()
   }
 
@@ -217,65 +384,64 @@ export function installGlobalButtonSound(): () => void {
 }
 
 export async function playAttackSelection(characterName?: string): Promise<void> {
+  // Always play attack_click simultaneously
+  void playClip('buttons/attack/attack_click.mp3', { group: 'attack' })
+
   if (characterName) {
     const normalized = sanitizeAttackCharacterName(characterName)
     if (normalized && normalized !== '???') {
       const specialPath = `buttons/attack/special/attack_for_${encodeURIComponent(normalized)}.mp3`
-      if (normalized === 'LeCrisp') {
-        void playClip(specialPath)
-        return
-      }
-      const played = await playClip(specialPath)
+      const played = await playClip(specialPath, { group: 'attack' })
       if (played) return
     }
   }
 
   const variants = ['buttons/attack/attack_1.mp3', 'buttons/attack/attack_2.mp3', 'buttons/attack/attack_3.mp3']
   const randomPath = variants[Math.floor(Math.random() * variants.length)]
-  void playClip(randomPath)
+  void playClip(randomPath, { group: 'attack' })
 }
 
 export function playBlockSound(): void {
-  void playClip('buttons/attack/block.mp3')
+  void playClip('buttons/attack/block.mp3', { group: 'attack' })
 }
 
 export function playLevelUpDefaultSound(): void {
-  void playClip('buttons/lvl_up/lvl_up_default.mp3')
+  void playClip('buttons/lvl_up/lvl_up_default.mp3', { group: 'levelUp' })
 }
 
 export function playLevelUpStatSound(stat: StatKey, isMax: boolean): void {
   const suffix = statSoundSuffix(stat)
   const path = isMax ? `buttons/lvl_up/lvl_up_${suffix}_max.mp3` : `buttons/lvl_up/lvl_up_${suffix}.mp3`
-  void playClip(path, 'lvl-up-extra')
+  void playClip(path, { channel: 'lvl-up-extra', group: 'levelUp' })
 }
 
 export function playMoralForPointsSound(): void {
-  void playClip('buttons/moral_exchange/moral_for_points.mp3')
+  void playClip('buttons/moral_exchange/moral_for_points.mp3', { group: 'moralExchange' })
 }
 
 export function playMoralForSkillSound(): void {
-  void playClip('buttons/moral_exchange/moral_for_skill.mp3')
+  void playClip('buttons/moral_exchange/moral_for_skill.mp3', { group: 'moralExchange' })
 }
 
 export function playJusticeResetSound(): void {
-  void playClip('ui_ux/justice/justice_reset.mp3')
+  void playClip('ui_ux/justice/justice_reset.mp3', { group: 'justice' })
 }
 
 export function playJusticeUpSound(): void {
-  void playClip('ui_ux/justice/justice_up.mp3')
+  void playClip(randomJusticeUpVariant(), { group: 'justice' })
 }
 
 export function playPointsIncreaseSound(pointsDelta: number): void {
   if (pointsDelta <= 0) return
   if (pointsDelta >= 10) {
-    void playClip('ui_ux/points/points_up_10_plus.mp3')
+    void playClip('ui_ux/points/points_up_10_plus.mp3', { group: 'points' })
     return
   }
   if (pointsDelta >= 5) {
-    void playClip('ui_ux/points/points_up_5_plus.mp3')
+    void playClip('ui_ux/points/points_up_5_plus.mp3', { group: 'points' })
     return
   }
-  void playClip('ui_ux/points/points_up_1_plus.mp3')
+  void playClip('ui_ux/points/points_up_1_plus.mp3', { group: 'points' })
 }
 
 export function playComboPluck(comboSize: number): void {
@@ -283,6 +449,10 @@ export function playComboPluck(comboSize: number): void {
   const durationSec = Math.min(10, safeCombo * 0.85)
 
   void (async () => {
+    const masterVol = await getEffectiveMasterVolume()
+    const config = await getVolumeConfig()
+    const vol = masterVol * config.groups.combo
+
     const sourceUrl = await getOrFetchSoundBlobUrl(toSoundUrl('ui_ux/combo/pluck.mp3'))
     if (!sourceUrl) return
 
@@ -301,6 +471,7 @@ export function playComboPluck(comboSize: number): void {
       pluckStopTimer = null
     }
 
+    pluckAudio.volume = vol
     pluckAudio.pause()
     pluckAudio.currentTime = 0
     void pluckAudio.play().catch(() => undefined)
@@ -318,8 +489,138 @@ export function playComboHype(comboSize: number): void {
 
   const delayMs = comboSize >= 7 ? 200 : 0
   if (delayMs > 0) {
-    setTimeout(() => { void playClip(path) }, delayMs)
+    setTimeout(() => { void playClip(path, { group: 'comboHype' }) }, delayMs)
     return
   }
-  void playClip(path)
+  void playClip(path, { group: 'comboHype' })
+}
+
+// ── Dooms Day sound system ───────────────────────────────────────────
+
+const FIGHT_SOUND_COUNT = 14
+const FIGHT_FIN_COUNT = 3
+
+/**
+ * Pool of fight sounds: random excluding already-played, resets when exhausted.
+ * 1/100 chance to play the DV variant instead.
+ */
+export class FightSoundPool {
+  private remaining: number[] = []
+
+  constructor() {
+    this.reset()
+  }
+
+  reset(): void {
+    this.remaining = Array.from({ length: FIGHT_SOUND_COUNT }, (_, i) => i + 1)
+  }
+
+  /** Pick a random fight sound for a regular factor step */
+  next(): string {
+    // 1/100 chance for DV variant
+    if (Math.random() < 0.01) {
+      return 'dooms_day/round_1/fight_dv/Fght DV.mp3'
+    }
+
+    if (this.remaining.length === 0) {
+      this.reset()
+    }
+    const idx = Math.floor(Math.random() * this.remaining.length)
+    const num = this.remaining.splice(idx, 1)[0]
+    return `dooms_day/round_1/fight/fght_${num}.mp3`
+  }
+
+  /** Pick a random fight_fin sound for the LAST factor in a fight */
+  nextFin(): string {
+    const num = Math.floor(Math.random() * FIGHT_FIN_COUNT) + 1
+    return `dooms_day/round_1/fight_fin/Fght Fin ${num}.mp3`
+  }
+}
+
+/**
+ * Resolve the correct win_lose file path based on the accumulated round results.
+ *
+ * roundResults: array of 'w' or 'l' for each completed round so far
+ * isFinal: true when this is the final outcome of the entire fight
+ * isAbsolute: true when this is the last fight of the turn AND all rounds same outcome
+ */
+export function doomsDayWinLosePath(
+  roundResults: readonly ('w' | 'l')[],
+  isFinal: boolean,
+  isAbsolute: boolean,
+): string {
+  const len = roundResults.length
+  if (len === 0) return 'dooms_day/win_lose/1_w.mp3' // fallback
+
+  if (isFinal) {
+    // Final outcome
+    const allWin = roundResults.every(r => r === 'w')
+    const allLose = roundResults.every(r => r === 'l')
+
+    if (isAbsolute && allWin) return 'dooms_day/win_lose/f_ww_absolute.mp3'
+    if (isAbsolute && allLose) return 'dooms_day/win_lose/f_ll_absolute.mp3'
+
+    // Non-absolute finals
+    if (len === 2) {
+      const seq = roundResults.join('')
+      if (seq === 'ww') return 'dooms_day/win_lose/f_ww.mp3'
+      // any loss final
+      return 'dooms_day/win_lose/f_any_lose.mp3'
+    }
+    if (len >= 3) {
+      const first2 = roundResults.slice(0, 2).join('')
+      if (first2 === 'lw') return 'dooms_day/win_lose/f_lww.mp3'
+      if (first2 === 'wl') return 'dooms_day/win_lose/f_wlw.mp3'
+      return 'dooms_day/win_lose/f_any_lose.mp3'
+    }
+    // len === 1 final (no R2/R3) — use the round 1 file
+    return `dooms_day/win_lose/1_${roundResults[0]}.mp3`
+  }
+
+  // Non-final: per-round sounds
+  if (len === 1) {
+    return `dooms_day/win_lose/1_${roundResults[0]}.mp3`
+  }
+  if (len === 2) {
+    const seq = roundResults.join('')
+    return `dooms_day/win_lose/2_${seq}.mp3`
+  }
+  if (len >= 3) {
+    // Round 3 result: first char is round number, then full sequence
+    const seq = roundResults.join('')
+    return `dooms_day/win_lose/3_${seq}.mp3`
+  }
+
+  return 'dooms_day/win_lose/1_w.mp3'
+}
+
+export function playDoomsDayFight(pool: FightSoundPool, isLastFactor: boolean): void {
+  const path = isLastFactor ? pool.nextFin() : pool.next()
+  void playClip(path, { group: 'doomsDay' })
+}
+
+export function playDoomsDayWinLose(
+  roundResults: readonly ('w' | 'l')[],
+  isFinal: boolean,
+  isAbsolute: boolean,
+): void {
+  const path = doomsDayWinLosePath(roundResults, isFinal, isAbsolute)
+  void playClip(path, { group: 'doomsDayWinLose' })
+}
+
+export function playDoomsDayDraw(): void {
+  void playClip('dooms_day/round_2/draw.mp3', { group: 'doomsDayWinLose' })
+}
+
+export function playDoomsDayRndRoll(): void {
+  void playClip('dooms_day/round_3/rnd_roll.mp3', { group: 'doomsDay' })
+}
+
+export function playDoomsDayScroll(): void {
+  const num = Math.random() < 0.5 ? 1 : 2
+  void playClip(`dooms_day/scrolls/scroll_${num}.mp3`, { group: 'doomsDayScrolls' })
+}
+
+export function playDoomsDayNoFights(): void {
+  void playClip('dooms_day/no_fights_this_turn.mp3', { group: 'doomsDay' })
 }

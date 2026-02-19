@@ -13,6 +13,9 @@ import {
   playAttackSelection,
   playJusticeResetSound,
   playJusticeUpSound,
+  setSoundContext,
+  getMasterVolume,
+  setMasterVolume,
 } from 'src/services/sound'
 
 const props = defineProps<{ gameId: string }>()
@@ -52,12 +55,14 @@ function onAttack(place: number) {
 }
 
 onMounted(async () => {
+  setSoundContext('game')
   if (store.isConnected) {
     await store.joinGame(gameIdNum.value)
   }
 })
 
 onUnmounted(() => {
+  setSoundContext('menu')
   clearPrevLogTimer()
   if (store.isConnected && gameIdNum.value) {
     store.leaveGame(gameIdNum.value)
@@ -72,6 +77,24 @@ function goToLobby() {
 const me = computed(() => store.myPlayer)
 const preferWeb = computed(() => store.gameState?.preferWeb ?? false)
 function togglePreferWeb() { store.setPreferWeb(!preferWeb.value) }
+
+// ── Volume control ──────────────────────────────────────────────────
+const volume = ref(getMasterVolume())
+const isMuted = computed(() => volume.value === 0)
+function onVolumeInput(e: Event) {
+  const val = parseFloat((e.target as HTMLInputElement).value)
+  volume.value = val
+  setMasterVolume(val)
+}
+function toggleMute() {
+  if (volume.value > 0) {
+    volume.value = 0
+    setMasterVolume(0)
+  } else {
+    volume.value = 0.8
+    setMasterVolume(0.8)
+  }
+}
 
 const showFinishConfirm = ref(false)
 function finishGame() {
@@ -329,6 +352,22 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
             </span>
           </div>
           <div class="header-right">
+            <!-- Volume control -->
+            <div class="vol-control" data-sfx-skip-default="true">
+              <button class="vol-mute-btn" data-sfx-skip-default="true" :title="isMuted ? 'Unmute' : 'Mute'" @click="toggleMute">
+                <span v-if="isMuted" class="vol-icon vol-icon-off">&#x1F507;</span>
+                <span v-else-if="volume < 0.4" class="vol-icon">&#x1F508;</span>
+                <span v-else-if="volume < 0.75" class="vol-icon">&#x1F509;</span>
+                <span v-else class="vol-icon">&#x1F50A;</span>
+              </button>
+              <input
+                type="range"
+                class="vol-slider"
+                min="0" max="1" step="0.05"
+                :value="volume"
+                @input="onVolumeInput"
+              >
+            </div>
             <!-- Web-only toggle -->
             <button v-if="me && !store.gameState.isFinished"
               class="btn btn-ghost btn-sm web-mode-btn" :class="{ active: preferWeb }"
@@ -583,6 +622,67 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
   align-items: center;
   gap: 6px;
   position: relative;
+}
+
+/* ── Volume control ────────────────────────────────────────────── */
+.vol-control {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.vol-mute-btn {
+  background: none;
+  border: none;
+  padding: 0 2px;
+  cursor: pointer;
+  line-height: 1;
+}
+.vol-icon {
+  font-size: 14px;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.vol-mute-btn:hover .vol-icon { opacity: 1; }
+.vol-icon-off { opacity: 0.35; }
+.vol-slider {
+  width: 60px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--bg-inset);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent-gold);
+  border: 1.5px solid var(--bg-card);
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+.vol-slider::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 6px rgba(233, 219, 61, 0.4);
+}
+.vol-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent-gold);
+  border: 1.5px solid var(--bg-card);
+  cursor: pointer;
+}
+.vol-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+}
+.vol-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-inset);
 }
 
 .web-mode-btn {

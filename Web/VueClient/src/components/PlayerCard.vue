@@ -136,6 +136,7 @@ const hitVisibleCount = ref(0)
 const hitActiveIdx = ref(-1)
 const animatedScoreDelta = ref(0)
 let comboTimer: ReturnType<typeof setInterval> | null = null
+let comboAnimStarted = false
 let lastScoreSnapshot = ''
 
 function clearComboTimer() {
@@ -143,6 +144,8 @@ function clearComboTimer() {
 }
 
 function startComboAnimation() {
+  if (comboAnimStarted) return
+  comboAnimStarted = true
   clearComboTimer()
   const entries = props.scoreEntries
   if (!entries.length) {
@@ -178,6 +181,7 @@ watch(() => props.scoreEntries, (entries: ScoreEntry[]) => {
   const snap = entries.map((e: ScoreEntry) => e.raw).join('|')
   if (snap === lastScoreSnapshot) return
   lastScoreSnapshot = snap
+  comboAnimStarted = false
   clearComboTimer()
   hitVisibleCount.value = 0; hitActiveIdx.value = -1; animatedScoreDelta.value = 0
   // If replay already ended (e.g. no fights), start immediately

@@ -355,6 +355,7 @@ watch(() => props.fightLog, (newLog) => {
             class="predict-btn"
             :class="{ 'has-prediction': !!getPrediction(player.playerId) }"
             :title="getPrediction(player.playerId) || 'Predict character'"
+            data-sfx-utility="true"
             @click="togglePredict(player.playerId)"
           >
             <template v-if="getPrediction(player.playerId)">
@@ -391,6 +392,7 @@ watch(() => props.fightLog, (newLog) => {
               v-for="name in filteredCharacters()"
               :key="name"
               class="predict-option"
+              data-sfx-utility="true"
               @click="selectPredict(predictOpenFor!, name)"
             >
               <img

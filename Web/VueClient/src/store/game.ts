@@ -20,6 +20,8 @@ type StatKey = 'intelligence' | 'strength' | 'speed' | 'psyche'
 type PendingLevelUp = { stat: StatKey; startedAt: number }
 
 const STAT_KEYS: StatKey[] = ['intelligence', 'strength', 'speed', 'psyche']
+/** Priority order for level-up sound selection (INT > STR > SPD > PSY) */
+const STAT_PRIORITY: StatKey[] = ['intelligence', 'strength', 'speed', 'psyche']
 const STAT_INDEX_TO_KEY: Record<number, StatKey> = {
   1: 'intelligence',
   2: 'strength',
@@ -117,22 +119,31 @@ export const useGameStore = defineStore('game', () => {
           const classChanged = classLabel(previousMyPlayer.character.classStatDisplayText)
             !== classLabel(nextMyPlayer.character.classStatDisplayText)
 
-          const pendingStat = pendingLevelUp.value?.stat ?? null
-          const leveledStat = pendingStat && statsUp.includes(pendingStat)
-            ? pendingStat
-            : (statsUp.length === 1 ? statsUp[0] : null)
-
-          if (leveledStat) {
-            const reachedMax = previousMyPlayer.character[leveledStat] < 10
-              && nextMyPlayer.character[leveledStat] >= 10
-            if (reachedMax) {
-              playLevelUpStatSound(leveledStat, true)
-            }
-            else if (classChanged) {
-              playLevelUpStatSound(leveledStat, false)
+          // Check ALL increased stats in priority order for max sounds
+          let playedMaxSound = false
+          for (const stat of STAT_PRIORITY) {
+            if (statsUp.includes(stat)
+              && previousMyPlayer.character[stat] < 10
+              && nextMyPlayer.character[stat] >= 10) {
+              playLevelUpStatSound(stat, true)
+              playedMaxSound = true
+              break
             }
           }
 
+          // If no max sound played, check for class-change sound
+          if (!playedMaxSound && classChanged) {
+            // Pick the pending stat if it increased, otherwise first increased stat by priority
+            const pendingStat = pendingLevelUp.value?.stat ?? null
+            const soundStat = (pendingStat && statsUp.includes(pendingStat))
+              ? pendingStat
+              : STAT_PRIORITY.find(s => statsUp.includes(s)) ?? null
+            if (soundStat) {
+              playLevelUpStatSound(soundStat, false)
+            }
+          }
+
+          const pendingStat = pendingLevelUp.value?.stat ?? null
           if (
             pendingStat
             && (
@@ -141,6 +152,16 @@ export const useGameStore = defineStore('game', () => {
             )
           ) {
             pendingLevelUp.value = null
+          }
+        }
+
+        // Game-start max check: first state received with a stat already at 10
+        if (!previousMyPlayer && nextMyPlayer) {
+          for (const stat of STAT_PRIORITY) {
+            if (nextMyPlayer.character[stat] >= 10) {
+              playLevelUpStatSound(stat, true)
+              break
+            }
           }
         }
       }

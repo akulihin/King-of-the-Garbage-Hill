@@ -1,0 +1,18 @@
+{
+  "masterVolume": 0.8,
+  "groups": {
+    "buttons": 0.7,
+    "mainMenu": 0.7,
+    "utility": 0.6,
+    "attack": 0.9,
+    "levelUp": 0.8,
+    "moralExchange": 0.8,
+    "combo": 0.85,
+    "comboHype": 0.9,
+    "justice": 0.85,
+    "points": 0.8,
+    "doomsDay": 0.9,
+    "doomsDayWinLose": 0.85,
+    "doomsDayScrolls": 0.7
+  }
+}
