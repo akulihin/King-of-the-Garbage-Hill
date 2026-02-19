@@ -8,6 +8,37 @@ import {
   type ActionResult,
   type GameEvent,
 } from 'src/services/signalr'
+import {
+  playBlockSound,
+  playLevelUpDefaultSound,
+  playLevelUpStatSound,
+  playMoralForPointsSound,
+  playMoralForSkillSound,
+} from 'src/services/sound'
+
+type StatKey = 'intelligence' | 'strength' | 'speed' | 'psyche'
+type PendingLevelUp = { stat: StatKey; startedAt: number }
+
+const STAT_KEYS: StatKey[] = ['intelligence', 'strength', 'speed', 'psyche']
+const STAT_INDEX_TO_KEY: Record<number, StatKey> = {
+  1: 'intelligence',
+  2: 'strength',
+  3: 'speed',
+  4: 'psyche',
+}
+
+function classLabel(classStatDisplayText: string): string {
+  if (!classStatDisplayText) return ''
+  return classStatDisplayText.split('||')[0].trim()
+}
+
+function increasedStats(previous: Player, next: Player): StatKey[] {
+  return STAT_KEYS.filter((key) => next.character[key] > previous.character[key])
+}
+
+function isLevelUpAction(action: string): boolean {
+  return action.toLowerCase().includes('levelup')
+}
 
 export const useGameStore = defineStore('game', () => {
   // ── State ─────────────────────────────────────────────────────────
@@ -22,6 +53,9 @@ export const useGameStore = defineStore('game', () => {
   const lastEvent = ref<GameEvent | null>(null)
   const errorMessage = ref<string | null>(null)
   const isLoading = ref(false)
+  const pendingLevelUp = ref<PendingLevelUp | null>(null)
+  const lastMoralToPointsRound = ref<number | null>(null)
+  const lastMoralToSkillRound = ref<number | null>(null)
 
   // ── Derived State ─────────────────────────────────────────────────
 
@@ -29,7 +63,7 @@ export const useGameStore = defineStore('game', () => {
     if (!gameState.value) return null
     // Use the server-provided myPlayerId for reliable identification
     if (gameState.value.myPlayerId) {
-      return gameState.value.players.find(p => p.playerId === gameState.value!.myPlayerId) ?? null
+      return gameState.value.players.find((p: Player) => p.playerId === gameState.value!.myPlayerId) ?? null
     }
     return null // spectator — no "my" player
   })
@@ -37,7 +71,7 @@ export const useGameStore = defineStore('game', () => {
   const opponents = computed<Player[]>(() => {
     if (!gameState.value || !myPlayer.value) return []
     return gameState.value.players.filter(
-      p => p.playerId !== myPlayer.value!.playerId,
+      (p: Player) => p.playerId !== myPlayer.value!.playerId,
     )
   })
 
@@ -62,8 +96,53 @@ export const useGameStore = defineStore('game', () => {
     try {
       // Set up event handlers before connecting
       signalrService.onGameState = (state) => {
+        const previousState = gameState.value
+        const previousMyPlayer = previousState?.myPlayerId
+          ? previousState.players.find((p: Player) => p.playerId === previousState.myPlayerId) ?? null
+          : null
+
         gameState.value = state
         errorMessage.value = null
+
+        const nextMyPlayer = state.myPlayerId
+          ? state.players.find((p: Player) => p.playerId === state.myPlayerId) ?? null
+          : null
+
+        if (pendingLevelUp.value && Date.now() - pendingLevelUp.value.startedAt > 8000) {
+          pendingLevelUp.value = null
+        }
+
+        if (previousMyPlayer && nextMyPlayer) {
+          const statsUp = increasedStats(previousMyPlayer, nextMyPlayer)
+          const classChanged = classLabel(previousMyPlayer.character.classStatDisplayText)
+            !== classLabel(nextMyPlayer.character.classStatDisplayText)
+
+          const pendingStat = pendingLevelUp.value?.stat ?? null
+          const leveledStat = pendingStat && statsUp.includes(pendingStat)
+            ? pendingStat
+            : (statsUp.length === 1 ? statsUp[0] : null)
+
+          if (leveledStat) {
+            const reachedMax = previousMyPlayer.character[leveledStat] < 10
+              && nextMyPlayer.character[leveledStat] >= 10
+            if (reachedMax) {
+              playLevelUpStatSound(leveledStat, true)
+            }
+            else if (classChanged) {
+              playLevelUpStatSound(leveledStat, false)
+            }
+          }
+
+          if (
+            pendingStat
+            && (
+              previousMyPlayer.character[pendingStat] !== nextMyPlayer.character[pendingStat]
+              || previousMyPlayer.status.lvlUpPoints !== nextMyPlayer.status.lvlUpPoints
+            )
+          ) {
+            pendingLevelUp.value = null
+          }
+        }
       }
 
       signalrService.onLobbyState = (state) => {
@@ -72,6 +151,9 @@ export const useGameStore = defineStore('game', () => {
 
       signalrService.onActionResult = (result) => {
         lastAction.value = result
+        if (!result.success && isLevelUpAction(result.action)) {
+          pendingLevelUp.value = null
+        }
         if (!result.success && result.error) {
           errorMessage.value = result.error
           setTimeout(() => {
@@ -141,6 +223,7 @@ export const useGameStore = defineStore('game', () => {
 
   async function block() {
     if (!gameState.value) return
+    playBlockSound()
     await signalrService.block(gameState.value.gameId)
   }
 
@@ -166,16 +249,28 @@ export const useGameStore = defineStore('game', () => {
 
   async function levelUp(statIndex: number) {
     if (!gameState.value) return
+    const stat = STAT_INDEX_TO_KEY[statIndex]
+    if (!stat) return
+    pendingLevelUp.value = { stat, startedAt: Date.now() }
+    playLevelUpDefaultSound()
     await signalrService.levelUp(gameState.value.gameId, statIndex)
   }
 
   async function moralToPoints() {
     if (!gameState.value) return
+    if (lastMoralToPointsRound.value !== gameState.value.roundNo) {
+      playMoralForPointsSound()
+      lastMoralToPointsRound.value = gameState.value.roundNo
+    }
     await signalrService.moralToPoints(gameState.value.gameId)
   }
 
   async function moralToSkill() {
     if (!gameState.value) return
+    if (lastMoralToSkillRound.value !== gameState.value.roundNo) {
+      playMoralForSkillSound()
+      lastMoralToSkillRound.value = gameState.value.roundNo
+    }
     await signalrService.moralToSkill(gameState.value.gameId)
   }
 

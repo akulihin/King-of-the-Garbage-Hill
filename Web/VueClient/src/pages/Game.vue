@@ -9,6 +9,11 @@ import SkillsPanel from 'src/components/SkillsPanel.vue'
 import FightAnimation from 'src/components/FightAnimation.vue'
 import MediaMessages from 'src/components/MediaMessages.vue'
 import RoundTimer from 'src/components/RoundTimer.vue'
+import {
+  playAttackSelection,
+  playJusticeResetSound,
+  playJusticeUpSound,
+} from 'src/services/sound'
 
 const props = defineProps<{ gameId: string }>()
 const store = useGameStore()
@@ -27,13 +32,23 @@ function onResistFlash(stats: string[]) {
 const justiceResetFlash = ref(false)
 function onJusticeReset() {
   justiceResetFlash.value = true
+  playJusticeResetSound()
   setTimeout(() => { justiceResetFlash.value = false }, 2000)
+}
+
+function onJusticeUp() {
+  playJusticeUpSound()
 }
 
 /** Fight replay ended — trigger score combo animation */
 const fightReplayEnded = ref(false)
 function onReplayEnded() {
   fightReplayEnded.value = true
+}
+
+function onAttack(place: number) {
+  void playAttackSelection(store.myPlayer?.character.name)
+  void store.attack(place)
 }
 
 onMounted(async () => {
@@ -348,6 +363,7 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
             :character-catalog="store.gameState.allCharacters || []"
             @resist-flash="onResistFlash"
             @justice-reset="onJusticeReset"
+            @justice-up="onJusticeUp"
             @replay-ended="onReplayEnded"
           />
         </div>
@@ -417,7 +433,7 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
             :round-no="store.gameState.roundNo"
             :confirmed-predict="store.myPlayer?.status.confirmedPredict"
             :fight-log="store.gameState.fightLog || []"
-            @attack="store.attack($event)"
+            @attack="onAttack"
             @predict="store.predict($event.playerId, $event.characterName)"
           />
         </div>

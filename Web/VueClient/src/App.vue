@@ -1,21 +1,29 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useGameStore } from './store/game'
 import LoginProcess from 'src/components/Login/LoginProcess.vue'
 import LoginSuccess from 'src/components/Login/LoginSuccess.vue'
-import { useRouter } from 'vue-router'
+import { installGlobalButtonSound } from 'src/services/sound'
 
 const store = useGameStore()
-const router = useRouter()
 
 const showLogin = ref(true)
 const loginSuccess = ref(false)
 const loggedInUsername = ref('')
+let removeGlobalButtonSound: (() => void) | null = null
 
 onMounted(async () => {
+  removeGlobalButtonSound = installGlobalButtonSound()
   const stored = localStorage.getItem('discordId')
   if (stored) {
     await connectAndAuth(stored)
+  }
+})
+
+onUnmounted(() => {
+  if (removeGlobalButtonSound) {
+    removeGlobalButtonSound()
+    removeGlobalButtonSound = null
   }
 })
 

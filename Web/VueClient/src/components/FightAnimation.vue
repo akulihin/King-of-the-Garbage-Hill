@@ -22,6 +22,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: 'resist-flash', stats: string[]): void
   (e: 'justice-reset'): void
+  (e: 'justice-up'): void
   (e: 'replay-ended'): void
 }>()
 
@@ -360,6 +361,9 @@ watch(showFinalResult, (show: boolean) => {
     if (f.resistPsycheDamage > 0) flashStats.push('psyche')
     if (flashStats.length > 0) {
       emit('resist-flash', [...new Set(flashStats)])
+    }
+    if (f.justiceChange > 0) {
+      emit('justice-up')
     }
   }
 })

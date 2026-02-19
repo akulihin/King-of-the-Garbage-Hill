@@ -2,6 +2,11 @@
 import { computed, ref, watch, onUnmounted } from 'vue'
 import type { Player } from 'src/services/signalr'
 import { useGameStore } from 'src/store/game'
+import {
+  playComboHype,
+  playComboPluck,
+  playPointsIncreaseSound,
+} from 'src/services/sound'
 
 interface ScoreEntry {
   raw: string
@@ -25,6 +30,7 @@ const props = withDefaults(defineProps<{
 })
 
 const store = useGameStore()
+type LevelUpStatIndex = 1 | 2 | 3 | 4
 
 const hasLvlUpPoints = computed(() => props.isMe && (props.player?.status.lvlUpPoints ?? 0) > 0)
 const lvlUpPoints = computed(() => props.player?.status.lvlUpPoints ?? 0)
@@ -152,7 +158,15 @@ function startComboAnimation() {
     comboTimer = setInterval(() => {
       if (i >= allHits.length) { clearComboTimer(); setTimeout(() => { hitActiveIdx.value = -1 }, 600); return }
       hitActiveIdx.value = i
-      animatedScoreDelta.value += allHits[i].pointsDelta
+      const hit = allHits[i]
+      if (hit.pointsDelta > 0) {
+        playPointsIncreaseSound(hit.pointsDelta)
+        if (hit.comboNum === 1) {
+          playComboPluck(hit.totalInEntry)
+          playComboHype(hit.totalInEntry)
+        }
+      }
+      animatedScoreDelta.value += hit.pointsDelta
       i++
       hitVisibleCount.value = i
     }, 350)
@@ -232,6 +246,18 @@ function hideTip() {
   if (tipTimer) clearTimeout(tipTimer)
   tipVisible.value = false
 }
+
+function handleLevelUp(statIndex: LevelUpStatIndex) {
+  void store.levelUp(statIndex)
+}
+
+function handleMoralToPoints() {
+  void store.moralToPoints()
+}
+
+function handleMoralToSkill() {
+  void store.moralToSkill()
+}
 </script>
 
 <template>
@@ -268,7 +294,7 @@ function hideTip() {
             <div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" />
           </div>
           <span class="stat-val stat-intelligence">{{ player.character.intelligence }}</span>
-          <button v-if="hasLvlUpPoints" class="lvl-btn" title="+1 Intelligence" @click="store.levelUp(1)">+</button>
+          <button v-if="hasLvlUpPoints" class="lvl-btn" data-sfx-skip-default="true" title="+1 Intelligence" @click="handleLevelUp(1)">+</button>
         </div>
         <div v-if="isMe" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.intelligenceResist }}</span>
@@ -283,7 +309,7 @@ function hideTip() {
             <div class="stat-bar strength" :style="{ width: `${player.character.strength * 10}%` }" />
           </div>
           <span class="stat-val stat-strength">{{ player.character.strength }}</span>
-          <button v-if="hasLvlUpPoints" class="lvl-btn" title="+1 Strength" @click="store.levelUp(2)">+</button>
+          <button v-if="hasLvlUpPoints" class="lvl-btn" data-sfx-skip-default="true" title="+1 Strength" @click="handleLevelUp(2)">+</button>
         </div>
         <div v-if="isMe" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.strengthResist }}</span>
@@ -298,7 +324,7 @@ function hideTip() {
             <div class="stat-bar speed" :style="{ width: `${player.character.speed * 10}%` }" />
           </div>
           <span class="stat-val stat-speed">{{ player.character.speed }}</span>
-          <button v-if="hasLvlUpPoints" class="lvl-btn" title="+1 Speed" @click="store.levelUp(3)">+</button>
+          <button v-if="hasLvlUpPoints" class="lvl-btn" data-sfx-skip-default="true" title="+1 Speed" @click="handleLevelUp(3)">+</button>
         </div>
         <div v-if="isMe" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.speedResist }}</span>
@@ -316,7 +342,7 @@ function hideTip() {
             <div class="stat-bar psyche" :style="{ width: `${player.character.psyche * 10}%` }" />
           </div>
           <span class="stat-val stat-psyche">{{ player.character.psyche }}</span>
-          <button v-if="hasLvlUpPoints" class="lvl-btn" title="+1 Psyche" @click="store.levelUp(4)">+</button>
+          <button v-if="hasLvlUpPoints" class="lvl-btn" data-sfx-skip-default="true" title="+1 Psyche" @click="handleLevelUp(4)">+</button>
         </div>
         <div v-if="isMe" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.psycheResist }}</span>
@@ -374,13 +400,13 @@ function hideTip() {
       <template v-else>
         <!-- Points button (DeepList can't use) -->
         <button v-if="isDeepList" class="moral-btn moral-btn-disabled" disabled>Только скилл</button>
-        <button v-else-if="moralToPointsRate" class="moral-btn" @click="store.moralToPoints()"
+        <button v-else-if="moralToPointsRate" class="moral-btn" data-sfx-skip-default="true" @click="handleMoralToPoints()"
           :title="`Обменять ${moralToPointsRate.cost} Морали на ${moralToPointsRate.gain} бонусных очков`">
           {{ moralToPointsRate.cost }} Moral → {{ moralToPointsRate.gain }} pts
         </button>
         <button v-else class="moral-btn moral-btn-disabled" disabled>Мало морали</button>
         <!-- Skill button -->
-        <button v-if="moralToSkillRate" class="moral-btn" @click="store.moralToSkill()"
+        <button v-if="moralToSkillRate" class="moral-btn" data-sfx-skip-default="true" @click="handleMoralToSkill()"
           :title="`Обменять ${moralToSkillRate.cost} Морали на ${moralToSkillRate.gain} Cкилла`">
           {{ moralToSkillRate.cost }} Moral → {{ moralToSkillRate.gain }} skill
         </button>

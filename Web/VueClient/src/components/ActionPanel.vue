@@ -24,6 +24,7 @@ const isLockedPredict = computed(() => {
     <div class="action-group">
       <button
         class="act-btn shield"
+        data-sfx-skip-default="true"
         :disabled="!canAct"
         title="Block"
         @click="store.block()"
