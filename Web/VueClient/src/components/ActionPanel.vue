@@ -16,6 +16,9 @@ const isLockedPredict = computed(() => {
   return me.value.status.confirmedPredict && game.value.roundNo >= 8
 })
 
+const darksciChoiceNeeded = computed(() => me.value?.darksciChoiceNeeded ?? false)
+const youngGlebAvailable = computed(() => me.value?.youngGlebAvailable ?? false)
+
 </script>
 
 <template>
@@ -57,7 +60,7 @@ const isLockedPredict = computed(() => {
       </button>
     </div>
 
-    <div v-if="(game?.roundNo ?? 0) >= 8 && !isLockedPredict" class="action-group">
+    <div v-if="(game?.roundNo ?? 0) >= 8 && !store.isKira" class="action-group">
       <button
         class="act-btn predict-confirm"
         :class="{ confirmed: isLockedPredict }"
@@ -66,6 +69,33 @@ const isLockedPredict = computed(() => {
         @click="store.confirmPredict()"
       >
         {{ isLockedPredict ? '🔮 Predicted ✓' : 'Confirm Prediction' }}
+      </button>
+    </div>
+
+    <div v-if="darksciChoiceNeeded" class="action-group darksci-choice">
+      <button
+        class="act-btn darksci-stable"
+        title="Стабильный: +20 Skill, +2 Moral"
+        @click="store.darksciChoice(true)"
+      >
+        Мне не везёт...
+      </button>
+      <button
+        class="act-btn darksci-unstable"
+        title="Нестабильный: удача решит"
+        @click="store.darksciChoice(false)"
+      >
+        Мне повезёт!
+      </button>
+    </div>
+
+    <div v-if="youngGlebAvailable" class="action-group">
+      <button
+        class="act-btn young-gleb"
+        title="Трансформироваться в Молодого Глеба"
+        @click="store.youngGleb()"
+      >
+        Вспомнить Молодость
       </button>
     </div>
 
@@ -139,5 +169,26 @@ const isLockedPredict = computed(() => {
   color: var(--accent-green);
   opacity: 0.7;
 }
+
+.act-btn.darksci-stable {
+  background: rgba(60, 120, 255, 0.08);
+  border-color: rgba(60, 120, 255, 0.3);
+  color: #6eaaff;
+}
+.act-btn.darksci-stable:hover { background: rgba(60, 120, 255, 0.15); }
+
+.act-btn.darksci-unstable {
+  background: rgba(255, 60, 60, 0.08);
+  border-color: rgba(255, 60, 60, 0.3);
+  color: #ff6e6e;
+}
+.act-btn.darksci-unstable:hover { background: rgba(255, 60, 60, 0.15); }
+
+.act-btn.young-gleb {
+  background: rgba(255, 180, 40, 0.08);
+  border-color: rgba(255, 180, 40, 0.3);
+  color: #ffb428;
+}
+.act-btn.young-gleb:hover { background: rgba(255, 180, 40, 0.15); }
 
 </style>

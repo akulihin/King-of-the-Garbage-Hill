@@ -139,6 +139,21 @@ public class CharactersUniquePhrase
     public PhraseClass SaitamaUnnoticed;
     public PhraseClass SaitamaHoldsBack;
     public PhraseClass SaitamaSerious;
+
+    public PhraseClass RickGiantBeans;
+    public PhraseClass RickGiantBeansDrink;
+    public PhraseClass RickPickleTransform;
+    public PhraseClass RickPickleWin;
+    public PhraseClass RickPicklePenalty;
+    public PhraseClass RickPortalGunInvented;
+    public PhraseClass RickPortalGunFired;
+    public PhraseClass RickMostWanted;
+
+    public PhraseClass KiraDeathNoteKill;
+    public PhraseClass KiraDeathNoteFailed;
+    public PhraseClass KiraShinigamiEyes;
+    public PhraseClass KiraLNoFight;
+    public PhraseClass KiraArrested;
     //end
     public PhraseClass AutoMove;
     public PhraseClass JusticePhrase;
@@ -276,6 +291,21 @@ public class CharactersUniquePhrase
         SaitamaUnnoticed = new PhraseClass("Неприметность (напал кто-то еще)");
         SaitamaHoldsBack = new PhraseClass("Неприметность (снисходителен)");
         SaitamaSerious = new PhraseClass("Неприметность (топ2 по силе)");
+
+        RickGiantBeans = new PhraseClass("Гигантские бобы");
+        RickGiantBeansDrink = new PhraseClass("Гигантские бобы");
+        RickPickleTransform = new PhraseClass("Огурчик Рик");
+        RickPickleWin = new PhraseClass("Огурчик Рик");
+        RickPicklePenalty = new PhraseClass("Огурчик Рик");
+        RickPortalGunInvented = new PhraseClass("Портальная пушка");
+        RickPortalGunFired = new PhraseClass("Портальная пушка");
+        RickMostWanted = new PhraseClass("Most wanted");
+
+        KiraDeathNoteKill = new PhraseClass("Тетрадь смерти");
+        KiraDeathNoteFailed = new PhraseClass("Тетрадь смерти");
+        KiraShinigamiEyes = new PhraseClass("Глаза бога смерти");
+        KiraLNoFight = new PhraseClass("L");
+        KiraArrested = new PhraseClass("L");
 
         //end
 
@@ -767,6 +797,61 @@ public class CharactersUniquePhrase
         SaitamaHoldsBack.PassiveLogRus.Add("Скучно. Пойду домой.");
 
         SaitamaSerious.PassiveLogRus.Add("Серьёзная серия ударов.");
+
+        // ── Рик Санчез ──
+
+        RickGiantBeans.PassiveLogRus.Add("Вижу ингредиенты... Мне нужны эти бобы, Морти!");
+        RickGiantBeans.PassiveLogRus.Add("Морти, иди сюда. Видишь эти бобы?");
+        RickGiantBeans.PassiveLogRus.Add("Это не просто бобы, Морти. Это ГИГАНТСКИЕ бобы!");
+
+        RickGiantBeansDrink.PassiveLogRus.Add("*бурп* Это... это наука, Морти!");
+        RickGiantBeansDrink.PassiveLogRus.Add("Еще один ингредиент собран. *бурп*");
+        RickGiantBeansDrink.PassiveLogRus.Add("Wubba Lubba Dub Dub! Ингредиент!");
+
+        RickPickleTransform.PassiveLogRus.Add("Я ОГУРЧИК РИИИК!");
+        RickPickleTransform.PassiveLogRus.Add("PICKLE RIIICK!");
+        RickPickleTransform.PassiveLogRus.Add("Я превратил себя в огурец, Морти! Я ОГУРЧИК РИК!");
+
+        RickPickleWin.PassiveLogRus.Add("Огурчик Рик побеждает!");
+        RickPickleWin.PassiveLogRus.Add("Ты только что проиграл огурцу!");
+        RickPickleWin.PassiveLogRus.Add("Solenya... Огурчик мести!");
+
+        RickPicklePenalty.PassiveLogRus.Add("Кто-нибудь... переверните огурец...");
+        RickPicklePenalty.PassiveLogRus.Add("Ладно, может идея с огурцом была не лучшей...");
+
+        RickPortalGunInvented.PassiveLogRus.Add("Портальная пушка изобретена!");
+        RickPortalGunInvented.PassiveLogRus.Add("*щёлк* Теперь у меня есть портальная пушка!");
+
+        RickPortalGunFired.PassiveLogRus.Add("*щёлк* Портал открыт!");
+        RickPortalGunFired.PassiveLogRus.Add("И мы в деле! Портал!");
+        RickPortalGunFired.PassiveLogRus.Add("Заходи в портал, Морти! Быстро!");
+
+        RickMostWanted.PassiveLogRus.Add("У Рика снова проблемы...");
+        RickMostWanted.PassiveLogRus.Add("Рик привлекает слишком много внимания...");
+        RickMostWanted.PassiveLogRus.Add("Галактическая федерация опять на хвосте!");
+
+        // -- Кира --
+
+        KiraDeathNoteKill.PassiveLogRus.Add("Удалить... Удалить... Удалить!");
+        KiraDeathNoteKill.PassiveLogRus.Add("Я - бог нового мира!");
+        KiraDeathNoteKill.PassiveLogRus.Add("Правосудие свершилось.");
+        KiraDeathNoteKill.PassiveLogRus.Add("Сакудзё... Сакудзё...");
+        KiraDeathNoteKill.PassiveLogRus.Add("Всё по плану, Рюк.");
+
+        KiraDeathNoteFailed.PassiveLogRus.Add("Это имя... неправильное?!");
+        KiraDeathNoteFailed.PassiveLogRus.Add("Невозможно! Ошибка в расчетах!");
+        KiraDeathNoteFailed.PassiveLogRus.Add("Тч... Рюк, ты мог бы предупредить.");
+
+        KiraShinigamiEyes.PassiveLogRus.Add("Глаза бога смерти видят всё.");
+        KiraShinigamiEyes.PassiveLogRus.Add("Теперь я вижу твоё настоящее имя...");
+        KiraShinigamiEyes.PassiveLogRus.Add("Сделка с Рюком заключена.");
+
+        KiraLNoFight.PassiveLogRus.Add("L не подозревает ничего...");
+        KiraLNoFight.PassiveLogRus.Add("Пока L занят расследованием, я действую.");
+        KiraLNoFight.PassiveLogRus.Add("L никогда не узнает правду.");
+
+        KiraArrested.PassiveLogRus.Add("Нет... это невозможно! L... ты...");
+        KiraArrested.PassiveLogRus.Add("Всё кончено. L победил.");
 
         //not in the game
 

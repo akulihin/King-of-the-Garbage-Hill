@@ -648,7 +648,9 @@ public sealed class GameReaction : IServiceSingleton
         switch (skillNumber)
         {
             case 1:
-                if (player.GameCharacter.GetIntelligence() >= 10 && 
+                // "Гигантские бобы" (Rick) can level INT past 10
+                if (player.GameCharacter.GetIntelligence() >= 10 &&
+                    !player.GameCharacter.Passive.Any(x => x.PassiveName == "Гигантские бобы") &&
                     (player.GameCharacter.GetPsyche() <= 9 || player.GameCharacter.GetStrength() <= 9 || player.GameCharacter.GetSpeed() <= 9))
                 {
                     await LvlUp10(player);
@@ -750,7 +752,48 @@ public sealed class GameReaction : IServiceSingleton
 
         player.Status.LvlUpPoints--;
 
-        
+        // Giant Beans — track base intelligence on INT upgrade
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Гигантские бобы") && skillNumber == 1)
+        {
+            var beans = player.Passives.RickGiantBeans;
+            beans.BaseIntelligence++;
+            if (beans.BeanStacks > 0)
+            {
+                var oldFake = beans.FakeIntelligence;
+                beans.FakeIntelligence = beans.BaseIntelligence * beans.BeanStacks;
+                player.GameCharacter.AddIntelligence(beans.FakeIntelligence - oldFake, "Гигантские бобы");
+            }
+        }
+
+        // Giant Beans — assign ingredient targets immediately on level-up
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Гигантские бобы"))
+        {
+            var beans = player.Passives.RickGiantBeans;
+            beans.IngredientTargets.Clear();
+            beans.IngredientsActive = true;
+            var enemies = game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()).ToList();
+            while (beans.IngredientTargets.Count < 3 && beans.IngredientTargets.Count < enemies.Count)
+            {
+                var rand = enemies[_random.Random(0, enemies.Count - 1)];
+                if (!beans.IngredientTargets.Contains(rand.GetPlayerId()))
+                    beans.IngredientTargets.Add(rand.GetPlayerId());
+            }
+            game.Phrases.RickGiantBeans.SendLog(player, false);
+        }
+
+        // Portal Gun — check invention + grant charge on level-up
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Портальная пушка"))
+        {
+            var gun = player.Passives.RickPortalGun;
+            if (!gun.Invented && player.GameCharacter.GetIntelligence() >= 30)
+            {
+                gun.Invented = true;
+                game.Phrases.RickPortalGunInvented.SendLog(player, false);
+            }
+            if (gun.Invented)
+                gun.Charges++;
+        }
+
         if (player.Status.LvlUpPoints > 0)
         {
             //Я пытаюсь!

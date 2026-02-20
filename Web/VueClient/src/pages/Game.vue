@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from 'src/store/game'
 import Leaderboard from 'src/components/Leaderboard.vue'
+import DeathNote from 'src/components/DeathNote.vue'
 import PlayerCard from 'src/components/PlayerCard.vue'
 import ActionPanel from 'src/components/ActionPanel.vue'
 import SkillsPanel from 'src/components/SkillsPanel.vue'
@@ -472,8 +473,23 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
             :round-no="store.gameState.roundNo"
             :confirmed-predict="store.myPlayer?.status.confirmedPredict"
             :fight-log="store.gameState.fightLog || []"
+            :is-kira="store.isKira"
+            :death-note="store.myPlayer?.deathNote"
+            :is-bug="store.isBug"
             @attack="onAttack"
             @predict="store.predict($event.playerId, $event.characterName)"
+          />
+          <DeathNote
+            v-if="store.isKira && store.myPlayer?.deathNote"
+            :death-note="store.myPlayer.deathNote"
+            :players="store.gameState.players"
+            :my-player-id="store.myPlayer.playerId"
+            :character-names="store.gameState.allCharacterNames || []"
+            :character-catalog="store.gameState.allCharacters || []"
+            :is-finished="store.gameState.isFinished"
+            :moral="store.myPlayer.character.moralDisplay"
+            @write="store.deathNoteWrite($event.targetPlayerId, $event.characterName)"
+            @shinigami-eyes="store.shinigamiEyes()"
           />
         </div>
 
@@ -615,6 +631,12 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
   background: rgba(230, 148, 74, 0.1);
   color: var(--accent-orange);
   border: 1px solid rgba(230, 148, 74, 0.2);
+  animation: turn-pulse 2s ease-in-out infinite;
+}
+
+@keyframes turn-pulse {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 8px rgba(230, 148, 74, 0.4); }
 }
 
 .header-right {
@@ -772,6 +794,7 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 }
 
 .events-panel {
+  min-height: 80px;
   max-height: 150px;
   padding: 5px 8px;
 }
@@ -784,6 +807,7 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 
 .fight-panel {
   padding: 5px 8px;
+  min-height: 200px;
   max-height: 500px;
   overflow-y: auto;
   margin-bottom: 5px;

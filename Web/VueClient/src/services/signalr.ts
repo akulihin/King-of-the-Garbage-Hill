@@ -39,6 +39,26 @@ export type Player = {
   teamId: number
   /** Whether this player was killed by Kratos (hidden from leaderboard). */
   kratosIsDead: boolean
+  /** Whether this player was killed by Kira's Death Note. */
+  kiraDeathNoteDead: boolean
+  /** Whether this player is Kira (uses Death Note instead of predictions). */
+  isKira: boolean
+  /** Whether this player is Баг (sees exploit markers). */
+  isBug: boolean
+  /** Death Note state (only populated for the Kira player). */
+  deathNote?: DeathNote
+  /** Portal Gun state (only populated for Rick). */
+  portalGun?: PortalGun
+  /** Exploit state (only populated for the Баг player). */
+  exploitState?: ExploitState
+  /** Whether this player is currently marked as exploitable (only visible to Баг). */
+  isExploitable?: boolean
+  /** Whether this player's exploit has been fixed by Баг. */
+  isExploitFixed?: boolean
+  /** True when Darksci needs to choose stable/unstable (round 1). */
+  darksciChoiceNeeded?: boolean
+  /** True when Gleb can transform to Young Gleb (round 1). */
+  youngGlebAvailable?: boolean
   character: Character
   status: PlayerStatus
   predictions?: Prediction[]
@@ -46,6 +66,40 @@ export type Player = {
   customLeaderboardPrefix?: string
   /** Custom leaderboard annotations from passives (web-safe HTML) */
   customLeaderboardText?: string
+}
+
+export type DeathNote = {
+  currentRoundTarget: string
+  currentRoundName: string
+  entries: DeathNoteEntry[]
+  failedTargets: string[]
+  lPlayerId: string
+  isArrested: boolean
+  shinigamiEyesActive: boolean
+  revealedPlayers: DeathNoteRevealedPlayer[]
+}
+
+export type DeathNoteEntry = {
+  targetPlayerId: string
+  writtenName: string
+  roundWritten: number
+  wasCorrect: boolean
+}
+
+export type DeathNoteRevealedPlayer = {
+  playerId: string
+  characterName: string
+}
+
+export type PortalGun = {
+  invented: boolean
+  charges: number
+}
+
+export type ExploitState = {
+  totalExploit: number
+  fixedCount: number
+  totalPlayers: number
 }
 
 export type Character = {
@@ -241,6 +295,9 @@ export type FightEntry = {
   skillGainedFromClassDefender: number
   skillDifferenceRandomModifier: number
   contrMultiplierSkillDifference: number
+
+  /** Whether a Portal Gun swap occurred in this fight. */
+  portalGunSwap: boolean
 }
 
 export type ActionResult = {
@@ -412,6 +469,26 @@ class SignalRService {
 
   async aramConfirm(gameId: number): Promise<void> {
     await this.connection?.invoke('AramConfirm', gameId)
+  }
+
+  // ── Darksci / Young Gleb ───────────────────────────────────────
+
+  async darksciChoice(gameId: number, isStable: boolean): Promise<void> {
+    await this.connection?.invoke('DarksciChoice', gameId, isStable)
+  }
+
+  async youngGleb(gameId: number): Promise<void> {
+    await this.connection?.invoke('YoungGleb', gameId)
+  }
+
+  // ── Kira Actions ───────────────────────────────────────────────
+
+  async deathNoteWrite(gameId: number, targetPlayerId: string, characterName: string): Promise<void> {
+    await this.connection?.invoke('DeathNoteWrite', gameId, targetPlayerId, characterName)
+  }
+
+  async shinigamiEyes(gameId: number): Promise<void> {
+    await this.connection?.invoke('ShinigamiEyes', gameId)
   }
 
   async setPreferWeb(gameId: number, preferWeb: boolean): Promise<void> {

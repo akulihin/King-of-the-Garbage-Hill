@@ -242,6 +242,54 @@ public class GameHub : Hub
         if (success) await PushStateToPlayer(gameId, discordId);
     }
 
+    // ── Darksci / Young Gleb ─────────────────────────────────────────
+
+    public async Task DarksciChoice(ulong gameId, bool isStable)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = await _gameService.DarksciChoice(gameId, discordId, isStable);
+        await Clients.Caller.SendAsync("ActionResult", new { action = "darksciChoice", success, error });
+
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
+    public async Task YoungGleb(ulong gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = await _gameService.YoungGleb(gameId, discordId);
+        await Clients.Caller.SendAsync("ActionResult", new { action = "youngGleb", success, error });
+
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
+    // ── Kira Actions ─────────────────────────────────────────────────
+
+    public async Task DeathNoteWrite(ulong gameId, Guid targetPlayerId, string characterName)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = await _gameService.DeathNoteWrite(gameId, discordId, targetPlayerId, characterName);
+        await Clients.Caller.SendAsync("ActionResult", new { action = "deathNoteWrite", success, error });
+
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
+    public async Task ShinigamiEyes(ulong gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = await _gameService.ShinigamiEyes(gameId, discordId);
+        await Clients.Caller.SendAsync("ActionResult", new { action = "shinigamiEyes", success, error });
+
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
     // ── Leave / Finish ────────────────────────────────────────────────
 
     /// <summary>

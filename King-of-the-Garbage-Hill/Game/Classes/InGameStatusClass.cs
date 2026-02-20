@@ -164,13 +164,10 @@ public class InGameStatus
 
         if (player.Passives.PointFunneledTo != Guid.Empty)
         {
-            if (regularPoints < 0)
-            {
-                regularPoints *= -1;
-            }
+            var funnelPoints = regularPoints < 0 ? regularPoints * -1 : regularPoints;
             var bug = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.PointFunneledTo);
-            bug.Status.AddRegularPoints(regularPoints, "PointFunnel", isLog);
-
+            bug.Status.AddRegularPoints(funnelPoints, "PointFunnel", isLog);
+            bug.Status.AddInGamePersonalLogs($"```siphon\nPointFunnel: +{funnelPoints} from {player.DiscordUsername}\n```\n");
         }
 
         AddRegularPoints(regularPoints, reason, isLog);

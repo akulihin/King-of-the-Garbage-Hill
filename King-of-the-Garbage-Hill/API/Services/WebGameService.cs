@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.API.DTOs;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
 
@@ -24,13 +25,15 @@ public class WebGameService
     private readonly GameReaction _gameReaction;
     private readonly GameUpdateMess _gameUpdateMess;
     private readonly HelperFunctions _helper;
+    private readonly CharactersPull _charactersPull;
 
-    public WebGameService(Global global, GameReaction gameReaction, GameUpdateMess gameUpdateMess, HelperFunctions helper)
+    public WebGameService(Global global, GameReaction gameReaction, GameUpdateMess gameUpdateMess, HelperFunctions helper, CharactersPull charactersPull)
     {
         _global = global;
         _gameReaction = gameReaction;
         _gameUpdateMess = gameUpdateMess;
         _helper = helper;
+        _charactersPull = charactersPull;
     }
 
     // ── Queries ───────────────────────────────────────────────────────
@@ -369,6 +372,119 @@ public class WebGameService
         if (!game.IsAramPickPhase) return Task.FromResult((false, "Not in ARAM pick phase"));
 
         player.Status.IsAramRollConfirmed = true;
+        return Task.FromResult((true, (string)null));
+    }
+
+    // ── Kira Actions ─────────────────────────────────────────────────
+
+    public Task<(bool success, string error)> DeathNoteWrite(ulong gameId, ulong discordId, Guid targetPlayerId, string characterName)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId);
+        if (game == null) return Task.FromResult((false, "Game not found"));
+        if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (!player.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти"))
+            return Task.FromResult((false, "You don't have the Death Note"));
+
+        var dn = player.Passives.KiraDeathNote;
+        if (dn.CurrentRoundTarget != Guid.Empty)
+            return Task.FromResult((false, "Already written this round"));
+
+        var target = game.PlayersList.Find(p => p.GetPlayerId() == targetPlayerId);
+        if (target == null) return Task.FromResult((false, "Target not found"));
+        if (target.GetPlayerId() == player.GetPlayerId())
+            return Task.FromResult((false, "Cannot write your own name"));
+        if (target.Passives.KiraDeathNoteDead || target.Passives.KratosIsDead)
+            return Task.FromResult((false, "Target is already dead"));
+        if (dn.FailedTargets.Contains(targetPlayerId))
+            return Task.FromResult((false, "Already failed for this target"));
+
+        dn.CurrentRoundTarget = targetPlayerId;
+        dn.CurrentRoundName = characterName?.Trim() ?? "";
+        player.Status.AddInGamePersonalLogs($"Тетрадь смерти: Ты записал имя **{dn.CurrentRoundName}** для {target.DiscordUsername}\n");
+
+        return Task.FromResult((true, (string)null));
+    }
+
+    public Task<(bool success, string error)> ShinigamiEyes(ulong gameId, ulong discordId)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId);
+        if (game == null) return Task.FromResult((false, "Game not found"));
+        if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (!player.GameCharacter.Passive.Any(p => p.PassiveName == "Глаза бога смерти"))
+            return Task.FromResult((false, "You don't have Shinigami Eyes"));
+        if (player.GameCharacter.GetMoral() < 25)
+            return Task.FromResult((false, "Not enough moral (need 25)"));
+        if (player.Passives.KiraShinigamiEyes.EyesActiveForNextAttack)
+            return Task.FromResult((false, "Already active"));
+
+        player.GameCharacter.AddMoral(-25, "Глаза бога смерти");
+        player.Passives.KiraShinigamiEyes.EyesActiveForNextAttack = true;
+        player.Status.AddInGamePersonalLogs("Глаза бога смерти: Активированы! Следующая атака раскроет имя врага.\n");
+
+        return Task.FromResult((true, (string)null));
+    }
+
+    // ── Darksci / Young Gleb ──────────────────────────────────────────
+
+    public Task<(bool success, string error)> DarksciChoice(ulong gameId, ulong discordId, bool isStable)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId);
+        if (game == null) return Task.FromResult((false, "Game not found"));
+        if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (!player.GameCharacter.Passive.Any(p => p.PassiveName == "Мне (не)везет"))
+            return Task.FromResult((false, "You don't have this passive"));
+
+        var darksciType = player.Passives.DarksciTypeList;
+        if (darksciType.Triggered)
+            return Task.FromResult((false, "Already chosen"));
+
+        darksciType.Triggered = true;
+        darksciType.IsStableType = isStable;
+
+        if (isStable)
+        {
+            player.GameCharacter.AddExtraSkill(20, "Не повезло");
+            player.GameCharacter.AddMoral(2, "Не повезло");
+            player.Status.AddInGamePersonalLogs("Ну, сегодня мне не повезёт...\n");
+        }
+        else
+        {
+            player.Status.AddInGamePersonalLogs("Я чувствую удачу!\n");
+        }
+
+        return Task.FromResult((true, (string)null));
+    }
+
+    public Task<(bool success, string error)> YoungGleb(ulong gameId, ulong discordId)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId);
+        if (game == null) return Task.FromResult((false, "Game not found"));
+        if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (!player.GameCharacter.Passive.Any(p => p.PassiveName == "Yong Gleb"))
+            return Task.FromResult((false, "You don't have this passive"));
+        if (player.GameCharacter.Name == "Молодой Глеб")
+            return Task.FromResult((false, "Already transformed"));
+
+        var character = _charactersPull.GetAllCharactersNoFilter().First(x => x.Name == "Молодой Глеб");
+        player.GameCharacter.Passive = new List<Passive>();
+        player.GameCharacter.Passive = character.Passive;
+        player.GameCharacter.Avatar = character.Avatar;
+        player.GameCharacter.AvatarCurrent = character.Avatar;
+        player.GameCharacter.Description = character.Description;
+        player.GameCharacter.Tier = character.Tier;
+        player.GameCharacter.SetIntelligence(character.GetIntelligence(), "yong-gleb", false);
+        player.GameCharacter.SetStrength(character.GetStrength(), "yong-gleb", false);
+        player.GameCharacter.SetSpeed(character.GetSpeed(), "yong-gleb", false);
+        player.GameCharacter.SetPsyche(character.GetPsyche(), "yong-gleb", false);
+
+        // Clear sleep state (Спящее хуйло)
+        player.Status.IsSkip = false;
+        player.Status.ConfirmedSkip = true;
+        player.Status.IsReady = false;
+        player.Status.WhoToAttackThisTurn = new List<Guid>();
+        player.GameCharacter.AddExtraSkill(30, "Спящее хуйло", false);
+        player.Status.ClearInGamePersonalLogs();
+
         return Task.FromResult((true, (string)null));
     }
 

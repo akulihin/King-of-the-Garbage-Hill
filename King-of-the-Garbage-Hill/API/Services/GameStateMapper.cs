@@ -85,8 +85,8 @@ public static class GameStateMapper
             IsFinished = game.IsFinished,
             IsAramPickPhase = game.IsAramPickPhase,
             IsKratosEvent = game.IsKratosEvent,
-            GlobalLogs = isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets),
-            AllGlobalLogs = isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.HiddenGlobalLogSnippets),
+            GlobalLogs = isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game),
+            AllGlobalLogs = isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game),
             MyPlayerId = requestingPlayer?.GetPlayerId(),
             MyPlayerType = requestingPlayer?.PlayerType ?? 0,
             PreferWeb = requestingPlayer?.PreferWeb ?? false,
@@ -103,10 +103,13 @@ public static class GameStateMapper
             .Select(f => ScopeFightEntry(f, myUsername, isAdmin))
             .ToList();
 
+        var viewerIsBug = requestingPlayer != null
+            && requestingPlayer.GameCharacter.Passive.Any(p => p.PassiveName == "Exploit");
+
         foreach (var player in game.PlayersList)
         {
             var isMe = requestingPlayer != null && player.GetPlayerId() == requestingPlayer.GetPlayerId();
-            dto.Players.Add(MapPlayer(player, isMe, isAdmin));
+            dto.Players.Add(MapPlayer(player, isMe, isAdmin, game.PlayersList, game, viewerIsBug));
         }
 
         foreach (var team in game.Teams)
@@ -121,8 +124,10 @@ public static class GameStateMapper
         return dto;
     }
 
-    private static PlayerDto MapPlayer(GamePlayerBridgeClass player, bool isMe, bool isAdmin)
+    private static PlayerDto MapPlayer(GamePlayerBridgeClass player, bool isMe, bool isAdmin, List<GamePlayerBridgeClass> allPlayers, GameClass game = null, bool viewerIsBug = false)
     {
+        var hasDeathNote = player.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти");
+
         var dto = new PlayerDto
         {
             PlayerId = player.GetPlayerId(),
@@ -131,6 +136,8 @@ public static class GameStateMapper
             IsWebPlayer = player.IsWebPlayer,
             TeamId = player.TeamId,
             KratosIsDead = player.Passives.KratosIsDead,
+            KiraDeathNoteDead = player.Passives.KiraDeathNoteDead,
+            IsKira = isMe && hasDeathNote,
             Character = MapCharacter(player.GameCharacter, isMe, isAdmin),
             Status = MapStatus(player, isMe, isAdmin),
         };
@@ -141,6 +148,90 @@ public static class GameStateMapper
             dto.Predictions = player.Predict
                 .Select(p => new PredictDto { PlayerId = p.PlayerId, CharacterName = p.CharacterName })
                 .ToList();
+        }
+
+        // Death Note state — only visible to the Kira player
+        if (isMe && hasDeathNote)
+        {
+            var dn = player.Passives.KiraDeathNote;
+            var eyes = player.Passives.KiraShinigamiEyes;
+            var kiraL = player.Passives.KiraL;
+
+            dto.DeathNote = new DeathNoteDto
+            {
+                CurrentRoundTarget = dn.CurrentRoundTarget,
+                CurrentRoundName = dn.CurrentRoundName,
+                Entries = dn.Entries.Select(e => new DeathNoteEntryDto
+                {
+                    TargetPlayerId = e.TargetPlayerId,
+                    WrittenName = e.WrittenName,
+                    RoundWritten = e.RoundWritten,
+                    WasCorrect = e.WasCorrect,
+                }).ToList(),
+                FailedTargets = new List<Guid>(dn.FailedTargets),
+                LPlayerId = kiraL.LPlayerId,
+                IsArrested = kiraL.IsArrested,
+                ShinigamiEyesActive = eyes.EyesActiveForNextAttack,
+                RevealedPlayers = eyes.RevealedPlayers.Select(rp =>
+                {
+                    var revealed = allPlayers.Find(x => x.GetPlayerId() == rp);
+                    return new DeathNoteRevealedPlayerDto
+                    {
+                        PlayerId = rp,
+                        CharacterName = revealed?.GameCharacter.Name ?? "?"
+                    };
+                }).ToList(),
+            };
+        }
+
+        // Portal Gun state — only visible to the Rick player
+        if (isMe && player.GameCharacter.Passive.Any(p => p.PassiveName == "Портальная пушка"))
+        {
+            var gun = player.Passives.RickPortalGun;
+            dto.PortalGun = new PortalGunDto
+            {
+                Invented = gun.Invented,
+                Charges = gun.Charges,
+            };
+        }
+
+        // Darksci choice — round 1, not yet triggered
+        if (isMe && game != null && game.RoundNo == 1
+            && player.GameCharacter.Passive.Any(p => p.PassiveName == "Мне (не)везет")
+            && !player.Passives.DarksciTypeList.Triggered)
+        {
+            dto.DarksciChoiceNeeded = true;
+        }
+
+        // Young Gleb — round 1, hasn't transformed yet
+        if (isMe && game != null && game.RoundNo == 1
+            && player.GameCharacter.Passive.Any(p => p.PassiveName == "Yong Gleb")
+            && player.GameCharacter.Name != "Молодой Глеб")
+        {
+            dto.YoungGlebAvailable = true;
+        }
+
+        // Баг — exploit state visible to the Баг player
+        var hasExploit = player.GameCharacter.Passive.Any(p => p.PassiveName == "Exploit");
+        if (isMe && hasExploit)
+        {
+            dto.IsBug = true;
+            if (game != null)
+            {
+                dto.ExploitState = new ExploitStateDto
+                {
+                    TotalExploit = game.TotalExploit,
+                    FixedCount = game.ExploitPlayersList.Count(x => x.Passives.IsExploitFixed),
+                    TotalPlayers = game.ExploitPlayersList.Count,
+                };
+            }
+        }
+
+        // Exploit markers visible to the Баг viewer on all player cards
+        if (viewerIsBug)
+        {
+            dto.IsExploitable = player.Passives.IsExploitable;
+            dto.IsExploitFixed = player.Passives.IsExploitFixed;
         }
 
         return dto;
@@ -397,17 +488,31 @@ public static class GameStateMapper
             JusticeChange = 0, SkillGainedFromTarget = 0, SkillGainedFromClassAttacker = 0, SkillGainedFromClassDefender = 0,
             SkillDifferenceRandomModifier = 0,
             ContrMultiplierSkillDifference = 0,
+            // Portal swaps are visible to everyone
+            PortalGunSwap = f.PortalGunSwap,
         };
     }
 
-    /// <summary>Remove hidden fight text snippets from global logs for non-admin players.</summary>
-    private static string StripHiddenLogs(string logs, List<string> hiddenSnippets)
+    /// <summary>Remove hidden fight text snippets from global logs for non-admin players.
+    /// Also strips Kira-hidden log snippets for players with the "Гений" passive.</summary>
+    private static string StripHiddenLogs(string logs, List<string> hiddenSnippets,
+        GamePlayerBridgeClass requestingPlayer, GameClass game)
     {
-        if (string.IsNullOrEmpty(logs) || hiddenSnippets == null || hiddenSnippets.Count == 0)
+        if (string.IsNullOrEmpty(logs))
             return logs;
 
-        foreach (var snippet in hiddenSnippets)
-            logs = logs.Replace(snippet, "");
+        if (hiddenSnippets != null && hiddenSnippets.Count > 0)
+            foreach (var snippet in hiddenSnippets)
+                logs = logs.Replace(snippet, "");
+
+        // Genius: strip character-revealing logs for Kira
+        if (requestingPlayer != null
+            && requestingPlayer.GameCharacter.Passive.Any(p => p.PassiveName == "Гений")
+            && game.KiraHiddenLogSnippets != null && game.KiraHiddenLogSnippets.Count > 0)
+        {
+            foreach (var snippet in game.KiraHiddenLogSnippets)
+                logs = logs.Replace(snippet, "");
+        }
 
         return logs;
     }

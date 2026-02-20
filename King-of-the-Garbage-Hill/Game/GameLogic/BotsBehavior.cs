@@ -48,8 +48,12 @@ public class BotsBehavior : IServiceSingleton
 
         await HandleBotMoral(player, game);
 
-        if (player.Status.LvlUpPoints > 0) 
+        if (player.Status.LvlUpPoints > 0)
             await HandleLvlUpBot(player, game);
+
+        // Kira bot: write Death Note and use Shinigami Eyes
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Тетрадь смерти"))
+            HandleBotKira(player, game);
 
         await HandleBotAttack(player, game);
     }
@@ -263,6 +267,52 @@ public class BotsBehavior : IServiceSingleton
         await HandleBotMoralForPoints(bot, game);
     }
 
+
+    private void HandleBotKira(GamePlayerBridgeClass bot, GameClass game)
+    {
+        var dn = bot.Passives.KiraDeathNote;
+        var eyes = bot.Passives.KiraShinigamiEyes;
+
+        // Use Shinigami Eyes if moral >= 25 and not already active (25% chance)
+        if (bot.GameCharacter.GetMoral() >= 25 && !eyes.EyesActiveForNextAttack && _rand.Luck(1, 4))
+        {
+            bot.GameCharacter.AddMoral(-25, "Глаза бога смерти");
+            eyes.EyesActiveForNextAttack = true;
+            bot.Status.AddInGamePersonalLogs("Глаза бога смерти: Активированы!\n");
+        }
+
+        // Write Death Note if not already written this round
+        if (dn.CurrentRoundTarget == Guid.Empty)
+        {
+            var candidates = game.PlayersList
+                .Where(x => x.GetPlayerId() != bot.GetPlayerId()
+                            && !x.Passives.KiraDeathNoteDead
+                            && !x.Passives.KratosIsDead
+                            && !dn.FailedTargets.Contains(x.GetPlayerId()))
+                .ToList();
+
+            if (candidates.Count > 0)
+            {
+                var target = candidates[_rand.Random(0, candidates.Count - 1)];
+                dn.CurrentRoundTarget = target.GetPlayerId();
+
+                // Bot has low intelligence about characters — pick from revealed or guess randomly
+                var revealed = eyes.RevealedPlayers.Find(rp => rp == target.GetPlayerId());
+                if (revealed != Guid.Empty && revealed != default)
+                {
+                    // Know the name from Shinigami Eyes — find it
+                    var revealedPlayer = game.PlayersList.Find(x => x.GetPlayerId() == revealed);
+                    dn.CurrentRoundName = revealedPlayer?.GameCharacter.Name ?? "???";
+                }
+                else
+                {
+                    // Guess randomly from known character names
+                    var allNames = game.PlayersList.Select(x => x.GameCharacter.Name).Distinct().ToList();
+                    dn.CurrentRoundName = allNames[_rand.Random(0, allNames.Count - 1)];
+                }
+            }
+        }
+    }
 
     public async Task HandleBotAttack(GamePlayerBridgeClass bot, GameClass game)
     {
@@ -966,6 +1016,18 @@ public class BotsBehavior : IServiceSingleton
 
 
                         break;
+                    case "Рик Санчез":
+                        // Giant Beans — prioritize ingredient targets
+                        var rickBeans = bot.Passives.RickGiantBeans;
+                        if (rickBeans.IngredientsActive && rickBeans.IngredientTargets.Contains(target.GetPlayerId()))
+                            target.AttackPreference += 10;
+
+                        // Portal Gun — target #1 player when charged
+                        var rickGun = bot.Passives.RickPortalGun;
+                        if (rickGun.Invented && rickGun.Charges > 0 && target.PlaceAtLeaderBoard() == 1)
+                            mandatoryAttack = target.PlaceAtLeaderBoard();
+
+                        break;
                     case "Вампур":
                         if (target.Player.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
                         {
@@ -1485,6 +1547,24 @@ public class BotsBehavior : IServiceSingleton
                     // end на последнем ходу блок -2 (от 2 до 5)
                     break;
 
+                case "Рик Санчез":
+                    var rickPickle = bot.Passives.RickPickle;
+                    var rickGun2 = bot.Passives.RickPortalGun;
+                    // Never block when pickle is active or on penalty cooldown
+                    if (rickPickle.PickleTurnsRemaining > 0 || rickPickle.PenaltyTurnsRemaining > 0)
+                        isBlock = noBlock;
+                    // If portal gun is charged, never block — always attack
+                    else if (rickGun2.Invented && rickGun2.Charges > 0)
+                        isBlock = noBlock;
+                    // Block when 3+ opponents likely to attack (low stats scenario)
+                    else if (bot.GameCharacter.GetStrength() + bot.GameCharacter.GetSpeed() + bot.GameCharacter.GetPsyche() <= 6)
+                    {
+                        minimumRandomNumberForBlock = 2;
+                        maximumRandomNumberForBlock = 4;
+                    }
+                    else
+                        isBlock = noBlock;
+                    break;
                 case "Толя":
                     //rammus
                     var count = allTargets.FindAll(x => x.AttackPreference >= 10).Count;
@@ -1672,6 +1752,9 @@ public class BotsBehavior : IServiceSingleton
 
             if (player.GameCharacter.Name == "Загадочный Спартанец в маске" && psyche < 10 && game.RoundNo <= 3) skillNumber = 4;
             if (player.GameCharacter.Name == "Загадочный Спартанец в маске" && speed < 10 && game.RoundNo > 3) skillNumber = 3;
+
+            // Rick Sanchez — prioritize INT for portal gun invention (30+ INT needed)
+            if (player.GameCharacter.Name == "Рик Санчез") skillNumber = 1;
 
 
             await _gameReaction.HandleLvlUp(player, null, skillNumber);

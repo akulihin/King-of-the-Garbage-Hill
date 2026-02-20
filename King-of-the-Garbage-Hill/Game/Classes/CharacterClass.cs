@@ -1103,11 +1103,12 @@ public class CharacterClass
 
         UpdateIntelligenceResist(intelligenceOld, intelligenceNew);
 
-        
+
         if (GetIntelligence() < 0)
             Intelligence = 0;
 
-        if (GetIntelligence() > 10)
+        // "Гигантские бобы" (Rick) allows intelligence to exceed the 10 cap
+        if (GetIntelligence() > 10 && !Passive.Any(x => x.PassiveName == "Гигантские бобы"))
             Intelligence = 10;
     }
 
@@ -1148,7 +1149,8 @@ public class CharacterClass
 
         if (GetIntelligence() < 0)
             Intelligence = 0;
-        if (GetIntelligence() > 10)
+        // "Гигантские бобы" (Rick) allows intelligence to exceed the 10 cap
+        if (GetIntelligence() > 10 && !Passive.Any(x => x.PassiveName == "Гигантские бобы"))
             Intelligence = 10;
     }
 

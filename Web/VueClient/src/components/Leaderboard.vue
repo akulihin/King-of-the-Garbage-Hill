@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { Player, Prediction, CharacterInfo, FightEntry } from 'src/services/signalr'
+import type { Player, Prediction, CharacterInfo, FightEntry, DeathNote } from 'src/services/signalr'
 
 const props = defineProps<{
   players: Player[]
@@ -13,6 +13,9 @@ const props = defineProps<{
   roundNo?: number
   confirmedPredict?: boolean
   fightLog?: FightEntry[]
+  isKira?: boolean
+  deathNote?: DeathNote
+  isBug?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -29,7 +32,7 @@ const statGuesses = ref<Record<string, { intelligence: number; strength: number;
 
 const sorted = computed(() =>
   [...props.players]
-    .filter((p: Player) => !p.kratosIsDead)
+    .filter((p: Player) => !p.kratosIsDead && !p.kiraDeathNoteDead)
     .sort((a, b) => a.status.place - b.status.place),
 )
 
@@ -40,8 +43,9 @@ const maxScore = computed(() => {
   return Math.max(...scores, 1)
 })
 
-// After round 8 + confirmed, predictions are locked
+// After round 8 + confirmed, predictions are locked. Kira doesn't predict.
 const canPredict = computed(() => {
+  if (props.isKira) return false
   if (!props.characterNames || props.characterNames.length === 0) return false
   if (props.confirmedPredict && (props.roundNo ?? 0) > 8) return false
   return true
@@ -185,6 +189,33 @@ function tierStars(tier: number): string {
   return '★'.repeat(Math.min(tier, 6))
 }
 
+// ── Score change flash animation ─────────────────────────────────────
+const prevScores = ref<Record<string, number>>({})
+const scoreFlash = ref<Record<string, 'up' | 'down'>>({})
+let scoreFlashTimers: ReturnType<typeof setTimeout>[] = []
+
+watch(() => props.players, (newPlayers) => {
+  if (!newPlayers || !newPlayers.length) return
+  const newFlashes: Record<string, 'up' | 'down'> = {}
+  for (const p of newPlayers) {
+    const prev = prevScores.value[p.playerId]
+    if (prev !== undefined && p.status.score !== prev && p.status.score >= 0) {
+      newFlashes[p.playerId] = p.status.score > prev ? 'up' : 'down'
+    }
+    prevScores.value[p.playerId] = p.status.score
+  }
+  if (Object.keys(newFlashes).length > 0) {
+    scoreFlash.value = { ...scoreFlash.value, ...newFlashes }
+    const t = setTimeout(() => {
+      for (const id of Object.keys(newFlashes)) {
+        delete scoreFlash.value[id]
+      }
+      scoreFlash.value = { ...scoreFlash.value }
+    }, 1500)
+    scoreFlashTimers.push(t)
+  }
+}, { deep: true })
+
 // ── Drop flash animation ────────────────────────────────────────────
 const droppedPlayers = ref<Set<string>>(new Set())
 let dropClearTimers: ReturnType<typeof setTimeout>[] = []
@@ -266,12 +297,16 @@ watch(() => props.fightLog, (newLog) => {
           <div class="lb-name">
             <span class="player-name">{{ player.discordUsername }}</span>
             <span v-if="player.isBot" class="badge bot-badge">BOT</span>
+            <span v-if="isKira && deathNote && player.playerId === deathNote.lPlayerId" class="badge l-badge">L</span>
             <!-- Custom leaderboard annotations from passives -->
             <span
               v-if="player.customLeaderboardText"
               class="lb-custom"
               v-html="player.customLeaderboardText"
             />
+            <!-- Exploit markers (visible only to Баг) -->
+            <span v-if="isBug && player.isExploitable" class="badge vuln-badge">VULN</span>
+            <span v-if="isBug && player.isExploitFixed" class="badge patched-badge">PATCHED</span>
           </div>
           <div class="lb-character" :class="{ 'masked-name': isMasked(player) && !getPrediction(player.playerId) }">
             {{ getDisplayCharName(player) }}
@@ -337,7 +372,7 @@ watch(() => props.fightLog, (newLog) => {
 
         <!-- Score bar -->
         <div class="lb-score-area">
-          <span class="score-value" :class="{ 'score-hidden': player.status.score < 0 }">
+          <span class="score-value" :class="{ 'score-hidden': player.status.score < 0, 'score-up': scoreFlash[player.playerId] === 'up', 'score-down': scoreFlash[player.playerId] === 'down' }">
             {{ getDisplayScore(player) }}
           </span>
           <span v-if="isDropped(player)" class="drop-badge">
@@ -547,6 +582,23 @@ watch(() => props.fightLog, (newLog) => {
   letter-spacing: 0.3px;
 }
 .bot-badge { background: var(--text-dim); color: var(--bg-primary); }
+.l-badge { background: #c03030; color: #fff; }
+.vuln-badge {
+  background: rgba(0, 255, 65, 0.15);
+  color: #00ff41;
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  text-shadow: 0 0 4px rgba(0, 255, 65, 0.5);
+  animation: vuln-pulse 2s ease-in-out infinite;
+}
+.patched-badge {
+  background: rgba(0, 255, 65, 0.06);
+  color: rgba(0, 255, 65, 0.4);
+  border: 1px solid rgba(0, 255, 65, 0.15);
+}
+@keyframes vuln-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
 
 .lb-custom {
   font-size: 11px;
@@ -612,6 +664,22 @@ watch(() => props.fightLog, (newLog) => {
 }
 
 .score-hidden { color: var(--text-dim); font-style: italic; }
+
+.score-value.score-up {
+  animation: score-flash-up 1.5s ease-out;
+}
+.score-value.score-down {
+  animation: score-flash-down 1.5s ease-out;
+}
+
+@keyframes score-flash-up {
+  0% { color: var(--accent-green); transform: scale(1.3); }
+  100% { color: var(--accent-gold); transform: scale(1); }
+}
+@keyframes score-flash-down {
+  0% { color: var(--accent-red); transform: scale(1.3); }
+  100% { color: var(--accent-gold); transform: scale(1); }
+}
 
 .lb-score-area {
   display: flex;

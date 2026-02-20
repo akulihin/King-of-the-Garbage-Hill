@@ -266,6 +266,31 @@ async function getOrFetchSoundBlobUrl(sourceUrl: string): Promise<string | null>
   }
 }
 
+// ── Kill switch: detect runaway sounds ───────────────────────────────
+
+const KILL_SWITCH_LIMIT = 15
+const KILL_SWITCH_WINDOW_MS = 10_000
+const recentPlays = new Map<string, number[]>()
+
+function checkKillSwitch(relativePath: string): boolean {
+  const now = Date.now()
+  let timestamps = recentPlays.get(relativePath)
+  if (!timestamps) {
+    timestamps = []
+    recentPlays.set(relativePath, timestamps)
+  }
+  // Prune entries outside the window
+  while (timestamps.length > 0 && now - timestamps[0] > KILL_SWITCH_WINDOW_MS) {
+    timestamps.shift()
+  }
+  timestamps.push(now)
+  if (timestamps.length >= KILL_SWITCH_LIMIT) {
+    console.error(`[SoundKillSwitch] "${relativePath}" played ${timestamps.length} times in ${KILL_SWITCH_WINDOW_MS / 1000}s — blocking further playback`)
+    return true
+  }
+  return false
+}
+
 // ── Core playback ────────────────────────────────────────────────────
 
 interface PlayClipOptions {
@@ -274,6 +299,7 @@ interface PlayClipOptions {
 }
 
 async function playClip(relativePath: string, options?: PlayClipOptions): Promise<boolean> {
+  if (checkKillSwitch(relativePath)) return false
   const sourceUrl = await getOrFetchSoundBlobUrl(toSoundUrl(relativePath))
   if (!sourceUrl) return false
 

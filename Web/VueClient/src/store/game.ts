@@ -91,6 +91,14 @@ export const useGameStore = defineStore('game', () => {
 
   const isAdmin = computed(() => (gameState.value?.myPlayerType ?? 0) === 2)
 
+  const isKira = computed(() => myPlayer.value?.isKira ?? false)
+
+  const myPortalGun = computed(() => myPlayer.value?.portalGun ?? null)
+
+  const isBug = computed(() => myPlayer.value?.isBug ?? false)
+
+  const myExploitState = computed(() => myPlayer.value?.exploitState ?? null)
+
   // ── Actions ───────────────────────────────────────────────────────
 
   async function connect() {
@@ -310,6 +318,26 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.aramConfirm(gameState.value.gameId)
   }
 
+  async function darksciChoice(isStable: boolean) {
+    if (!gameState.value) return
+    await signalrService.darksciChoice(gameState.value.gameId, isStable)
+  }
+
+  async function youngGleb() {
+    if (!gameState.value) return
+    await signalrService.youngGleb(gameState.value.gameId)
+  }
+
+  async function deathNoteWrite(targetPlayerId: string, characterName: string) {
+    if (!gameState.value) return
+    await signalrService.deathNoteWrite(gameState.value.gameId, targetPlayerId, characterName)
+  }
+
+  async function shinigamiEyes() {
+    if (!gameState.value) return
+    await signalrService.shinigamiEyes(gameState.value.gameId)
+  }
+
   async function setPreferWeb(preferWeb: boolean) {
     if (!gameState.value) return
     await signalrService.setPreferWeb(gameState.value.gameId, preferWeb)
@@ -338,6 +366,10 @@ export const useGameStore = defineStore('game', () => {
     roundTimeLeft,
     isInGame,
     isAdmin,
+    isKira,
+    myPortalGun,
+    isBug,
+    myExploitState,
     // Actions
     connect,
     authenticate,
@@ -357,6 +389,10 @@ export const useGameStore = defineStore('game', () => {
     predict,
     aramReroll,
     aramConfirm,
+    darksciChoice,
+    youngGleb,
+    deathNoteWrite,
+    shinigamiEyes,
     setPreferWeb,
     finishGame,
   }

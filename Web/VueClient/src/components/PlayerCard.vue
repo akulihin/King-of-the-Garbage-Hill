@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue'
-import type { Player } from 'src/services/signalr'
+import type { Player, PortalGun, ExploitState } from 'src/services/signalr'
 import { useGameStore } from 'src/store/game'
 import {
   playComboHype,
@@ -53,6 +53,17 @@ const hasBulkaet = computed(() => {
 const isDeepList = computed(() => {
   if (!props.player) return false
   return props.player.character.name === 'DeepList'
+})
+
+const portalGun = computed<PortalGun | null>(() => {
+  if (!props.isMe) return null
+  return props.player?.portalGun ?? null
+})
+
+const isBug = computed(() => props.player?.isBug ?? false)
+const exploitState = computed<ExploitState | null>(() => {
+  if (!props.isMe) return null
+  return props.player?.exploitState ?? null
 })
 
 /** Moral → Points exchange rate (matching backend GameUpdateMess.cs) */
@@ -265,7 +276,7 @@ function handleMoralToSkill() {
 </script>
 
 <template>
-  <div class="player-card" :class="{ 'is-me': isMe }">
+  <div class="player-card" :class="{ 'is-me': isMe, 'is-bug': isBug }">
     <!-- Large avatar -->
     <div class="pc-avatar-wrap">
       <img
@@ -291,7 +302,7 @@ function handleMoralToSkill() {
         +{{ lvlUpPoints }} очков
       </div>
       <!-- Intelligence -->
-      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('intelligence') }">
+      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('intelligence'), 'lvl-up-available': hasLvlUpPoints }">
         <div class="stat-row">
           <span class="gi gi-lg gi-int">INT</span>
           <div class="stat-bar-bg">
@@ -306,7 +317,7 @@ function handleMoralToSkill() {
         </div>
       </div>
       <!-- Strength -->
-      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('strength') }">
+      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('strength'), 'lvl-up-available': hasLvlUpPoints }">
         <div class="stat-row">
           <span class="gi gi-lg gi-str">STR</span>
           <div class="stat-bar-bg">
@@ -321,7 +332,7 @@ function handleMoralToSkill() {
         </div>
       </div>
       <!-- Speed -->
-      <div class="stat-block">
+      <div class="stat-block" :class="{ 'lvl-up-available': hasLvlUpPoints }">
         <div class="stat-row">
           <span class="gi gi-lg gi-spd">SPD</span>
           <div class="stat-bar-bg">
@@ -339,7 +350,7 @@ function handleMoralToSkill() {
 
     <!-- Psyche (separated — different stat type) -->
     <div class="pc-psyche-box">
-      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('psyche') }">
+      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('psyche'), 'lvl-up-available': hasLvlUpPoints }">
         <div class="stat-row">
           <span class="gi gi-lg gi-psy">PSY</span>
           <div class="stat-bar-bg">
@@ -416,6 +427,42 @@ function handleMoralToSkill() {
         </button>
         <button v-else class="moral-btn moral-btn-disabled" disabled>Мало морали</button>
       </template>
+      <!-- Shinigami Eyes button for Kira -->
+      <button
+        v-if="store.isKira && moral >= 25"
+        class="moral-btn shinigami-btn"
+        @click="store.shinigamiEyes()"
+        title="Глаза бога смерти: потратить 25 морали, чтобы увидеть имя следующего противника"
+      >
+        Shinigami Eyes (25)
+      </button>
+    </div>
+
+    <!-- Portal Gun (Rick special ability) -->
+    <div v-if="portalGun" class="pc-special-ability">
+      <div class="sa-header">Портальная пушка</div>
+      <div v-if="!portalGun.invented" class="sa-status sa-not-invented">
+        Не изобретена (INT 30)
+      </div>
+      <div v-else class="sa-status sa-invented">
+        <span class="sa-charge-count">{{ portalGun.charges }}</span>
+        <span class="sa-charge-label">charges</span>
+      </div>
+    </div>
+
+    <!-- Exploit state (Баг special ability) -->
+    <div v-if="exploitState" class="pc-exploit-state">
+      <div class="exploit-header">
+        <span class="exploit-title">EXPLOIT</span>
+        <span class="exploit-progress">{{ exploitState.fixedCount }}/{{ exploitState.totalPlayers }}</span>
+      </div>
+      <div class="exploit-accumulated">
+        <span class="exploit-value">{{ exploitState.totalExploit }}</span>
+        <span class="exploit-label">pending</span>
+      </div>
+      <div class="exploit-bar-bg">
+        <div class="exploit-bar-fill" :style="{ width: `${exploitState.totalPlayers > 0 ? (exploitState.fixedCount / exploitState.totalPlayers) * 100 : 0}%` }" />
+      </div>
     </div>
 
     <!-- Score + animated delta -->
@@ -581,6 +628,17 @@ function handleMoralToSkill() {
   100% { background: transparent; box-shadow: none; }
 }
 
+.stat-block.lvl-up-available {
+  animation: lvl-glow 2s ease-in-out infinite;
+  border: 1px solid rgba(63, 167, 61, 0.3);
+  border-radius: 6px;
+}
+
+@keyframes lvl-glow {
+  0%, 100% { box-shadow: 0 0 4px rgba(63, 167, 61, 0.15); }
+  50% { box-shadow: 0 0 12px rgba(63, 167, 61, 0.35); }
+}
+
 .resist-row {
   display: flex;
   align-items: center;
@@ -611,6 +669,12 @@ function handleMoralToSkill() {
   border-radius: var(--radius);
   margin-bottom: 2px;
   letter-spacing: 0.3px;
+  animation: badge-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 
 .lvl-btn {
@@ -792,6 +856,16 @@ function handleMoralToSkill() {
   border-color: rgba(100, 100, 100, 0.3);
   color: rgba(180, 180, 180, 0.7);
   background: rgba(60, 60, 60, 0.15);
+}
+
+.shinigami-btn {
+  border-color: rgba(200, 50, 50, 0.4);
+  color: #ef5050;
+  background: rgba(200, 50, 50, 0.08);
+}
+.shinigami-btn:hover {
+  background: rgba(200, 50, 50, 0.15);
+  border-color: rgba(200, 50, 50, 0.6);
 }
 
 /* Score */
@@ -1002,6 +1076,116 @@ function handleMoralToSkill() {
   border-radius: var(--radius);
   padding: 4px 6px;
   background: rgba(232, 121, 249, 0.03);
+}
+
+/* Portal Gun special ability box */
+.pc-special-ability {
+  padding: 6px 8px;
+  background: linear-gradient(135deg, rgba(0, 200, 100, 0.06), rgba(0, 200, 100, 0.02));
+  border: 1px solid rgba(0, 200, 100, 0.2);
+  border-radius: var(--radius);
+}
+.sa-header {
+  font-size: 10px; font-weight: 800; color: var(--accent-green);
+  text-transform: uppercase; letter-spacing: 0.3px;
+}
+.sa-status { margin-top: 2px; font-size: 11px; }
+.sa-not-invented { color: var(--text-muted); }
+.sa-invented { display: flex; align-items: baseline; gap: 4px; }
+.sa-charge-count {
+  font-size: 18px; font-weight: 900; font-family: var(--font-mono);
+  color: var(--accent-green); text-shadow: 0 0 8px rgba(0, 200, 100, 0.3);
+}
+.sa-charge-label { font-size: 10px; color: var(--text-muted); }
+
+/* ── Matrix theme for Баг ── */
+.player-card.is-bug {
+  border-color: rgba(0, 255, 65, 0.25);
+  box-shadow: 0 0 12px rgba(0, 255, 65, 0.08);
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 255, 65, 0.015) 2px,
+      rgba(0, 255, 65, 0.015) 4px
+    ),
+    var(--bg-card);
+}
+.player-card.is-bug.is-me {
+  border-color: rgba(0, 255, 65, 0.35);
+  box-shadow: 0 0 16px rgba(0, 255, 65, 0.12), 0 0 40px rgba(0, 255, 65, 0.04);
+}
+.player-card.is-bug .pc-name {
+  color: #00ff41;
+  text-shadow: 0 0 6px rgba(0, 255, 65, 0.4);
+  font-family: var(--font-mono);
+}
+.player-card.is-bug .pc-username {
+  color: rgba(0, 255, 65, 0.5);
+}
+.player-card.is-bug .pc-score {
+  color: #00ff41;
+  text-shadow: 0 0 8px rgba(0, 255, 65, 0.3);
+}
+.player-card.is-bug .pc-score-row {
+  border-top-color: rgba(0, 255, 65, 0.15);
+}
+.player-card.is-bug .justice-value {
+  color: #00ff41;
+  text-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+}
+.player-card.is-bug .pc-justice-row {
+  background: linear-gradient(135deg, rgba(0, 255, 65, 0.06), rgba(0, 255, 65, 0.02));
+  border-color: rgba(0, 255, 65, 0.2);
+}
+.player-card.is-bug .justice-label {
+  color: rgba(0, 255, 65, 0.6);
+}
+
+/* Exploit state box */
+.pc-exploit-state {
+  padding: 6px 8px;
+  background: linear-gradient(135deg, rgba(0, 255, 65, 0.08), rgba(0, 255, 65, 0.02));
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  border-radius: var(--radius);
+}
+.exploit-header {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.exploit-title {
+  font-size: 10px; font-weight: 900; color: #00ff41;
+  text-transform: uppercase; letter-spacing: 1px;
+  font-family: var(--font-mono);
+  text-shadow: 0 0 4px rgba(0, 255, 65, 0.4);
+}
+.exploit-progress {
+  font-size: 10px; font-weight: 700; color: rgba(0, 255, 65, 0.6);
+  font-family: var(--font-mono);
+}
+.exploit-accumulated {
+  display: flex; align-items: baseline; gap: 4px;
+  margin-top: 2px;
+}
+.exploit-value {
+  font-size: 20px; font-weight: 900; font-family: var(--font-mono);
+  color: #00ff41; text-shadow: 0 0 10px rgba(0, 255, 65, 0.4);
+}
+.exploit-label {
+  font-size: 10px; color: rgba(0, 255, 65, 0.5);
+  font-family: var(--font-mono);
+}
+.exploit-bar-bg {
+  height: 3px; margin-top: 4px;
+  background: rgba(0, 255, 65, 0.1);
+  border-radius: 2px; overflow: hidden;
+}
+.exploit-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00ff41, #00cc33);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+  box-shadow: 0 0 4px rgba(0, 255, 65, 0.3);
 }
 </style>
 

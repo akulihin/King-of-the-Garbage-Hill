@@ -86,6 +86,7 @@ public class ProgramKingOfTheGarbageHill
             builder.Services.AddSingleton(_services.GetRequiredService<Game.GameLogic.CheckIfReady>());
             builder.Services.AddSingleton(_services.GetRequiredService<Game.DiscordMessages.GameUpdateMess>());
             builder.Services.AddSingleton(_services.GetRequiredService<Helpers.HelperFunctions>());
+            builder.Services.AddSingleton(_services.GetRequiredService<Game.MemoryStorage.CharactersPull>());
 
             // Register web-specific services
             builder.Services.AddSingleton<WebGameService>();

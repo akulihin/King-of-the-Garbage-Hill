@@ -70,7 +70,7 @@ public class CheckIfReady : IServiceSingleton
 
     private void HandlePostGameEvents(GameClass game)
     {
-        var playerWhoWon = game.PlayersList.Where(x => !x.Passives.KratosIsDead).ToList().First();
+        var playerWhoWon = game.PlayersList.Where(x => !x.Passives.KratosIsDead && !x.Passives.KiraDeathNoteDead).ToList().First();
 
         //if won phrases
         switch (playerWhoWon.GameCharacter.Name)
@@ -177,9 +177,10 @@ public class CheckIfReady : IServiceSingleton
             } 
         }
 
-        //predict
+        //predict (skip Kira — uses Death Note instead of predictions)
         if (game.PlayersList.Count == 6 && game.PlayersList.Count(x => x.IsBot()) <= 5)
             foreach (var player in from player in game.PlayersList
+                     where !player.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти")
                      from predict in player.Predict
                      let enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId)
                      where enemy!.GameCharacter.Name == predict.CharacterName
@@ -230,6 +231,13 @@ public class CheckIfReady : IServiceSingleton
                         "Вампур" => "ВампYр Затроллился",
                         "Тигр" => "Тигр Обоссался, и кто теперь обоссан!?",
                         "Краборак" => "За**Краборак**чился",
+                        "Weedwick" => "Видвик Забулькался, ауф!",
+                        "Сайтама" => "Сайтама Затроллился одним ударом!",
+                        "Рик Санчез" => "Рик Затроллился, Wubba Lubba Dub Dub!",
+                        "Кира" => "Кира записал себя в тетрадь...",
+                        "Молодой Глеб" => "Молодой Глеб Затроллился, но хотя бы не уснул",
+                        "Баг" => "Баг Затроллился, ошибка 404",
+                        "Кратос" => "Кратос пал от руки троллинга!",
                         _ => ""
                     };
 
@@ -270,7 +278,7 @@ public class CheckIfReady : IServiceSingleton
             t.Status.PlaceAtLeaderBoardHistory.Add(
                 new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo, t.Status.GetPlaceAtLeaderBoard()));
 
-        var playerWhoWon = game.PlayersList.Where(x => !x.Passives.KratosIsDead).ToList().First();
+        var playerWhoWon = game.PlayersList.Where(x => !x.Passives.KratosIsDead && !x.Passives.KiraDeathNoteDead).ToList().First();
         HandlePostGameEvents(game);
 
 
@@ -411,7 +419,7 @@ public class CheckIfReady : IServiceSingleton
                 zbsPointsToGive =
                     game.Teams.Find(x => x.TeamId == wonTeam)!.TeamPlayers.Contains(player.Status.PlayerId) ? 100 : 50;
 
-            if (player.Passives.KratosIsDead) zbsPointsToGive = 0;
+            if (player.Passives.KratosIsDead || player.Passives.KiraDeathNoteDead) zbsPointsToGive = 0;
 
             account.ZbsPoints += zbsPointsToGive;
 

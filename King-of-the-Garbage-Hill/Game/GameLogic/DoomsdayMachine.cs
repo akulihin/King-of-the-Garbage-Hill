@@ -243,6 +243,33 @@ Speed => Strength
 
 
 
+        // Pickle Rick — convert block to pickle form
+        foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Огурчик Рик")).ToList())
+        {
+            if (player.Status.IsBlock)
+            {
+                var pickle = player.Passives.RickPickle;
+                if (pickle.PickleTurnsRemaining == 0 && pickle.PenaltyTurnsRemaining == 0)
+                {
+                    player.Status.IsBlock = false;
+                    pickle.PickleTurnsRemaining = 2;
+                    pickle.WasAttackedAsPickle = false;
+                    game.Phrases.RickPickleTransform.SendLog(player, false);
+                }
+            }
+        }
+
+        // Portal Gun — override external skip/block if Rick wants to attack
+        foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Портальная пушка")).ToList())
+        {
+            var gun = player.Passives.RickPortalGun;
+            if ((player.Status.IsBlock || player.Status.IsSkip) && gun.Invented && gun.Charges > 0 && player.Status.WhoToAttackThisTurn.Count > 0)
+            {
+                player.Status.IsBlock = false;
+                player.Status.IsSkip = false;
+            }
+        }
+
         foreach (var player in game.PlayersList)
         {
 
@@ -258,7 +285,7 @@ Speed => Strength
                 continue;
             }
 
-            foreach (var playerIamAttacking in player.Status.WhoToAttackThisTurn.Select(t => game.PlayersList.Find(x => x.GetPlayerId() == t)))
+            foreach (var playerIamAttacking in player.Status.WhoToAttackThisTurn.Select(t => game.PlayersList.Find(x => x.GetPlayerId() == t)).ToList())
             {
                 // Snapshot GlobalLogs length before this fight (for hidden-fight mechanism)
                 var globalLogsLenBefore = game.GetGlobalLogs().Length;
@@ -874,6 +901,14 @@ Speed => Strength
                     playerIamAttacking.Status.HideCurrentFight = false;
                 }
 
+                // Mark Portal Gun swap on the WebFightLog entry
+                if (player.Passives.RickPortalGun.SwapActive)
+                {
+                    var lastFight = game.WebFightLog.LastOrDefault();
+                    if (lastFight != null)
+                        lastFight.PortalGunSwap = true;
+                }
+
                 ResetFight(game, player, playerIamAttacking);
             }
         }
@@ -969,6 +1004,28 @@ Speed => Strength
             }
         }
         //end Тигр топ, а ты холоп
+
+
+        //Portal Gun position swap
+        foreach (var p in game.PlayersList
+            .Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Портальная пушка")).ToList())
+        {
+            var gun = p.Passives.RickPortalGun;
+            if (gun.SwapActive)
+            {
+                var swapTarget = game.PlayersList.Find(x => x.GetPlayerId() == gun.SwappedWith);
+                if (swapTarget != null)
+                {
+                    var rickIdx = game.PlayersList.IndexOf(p);
+                    var targetIdx = game.PlayersList.IndexOf(swapTarget);
+                    game.PlayersList[rickIdx] = swapTarget;
+                    game.PlayersList[targetIdx] = p;
+                }
+                gun.SwapActive = false;
+                gun.SwappedWith = Guid.Empty;
+            }
+        }
+        //end Portal Gun position swap
 
 
         //Никому не нужен

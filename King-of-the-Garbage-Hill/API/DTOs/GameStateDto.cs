@@ -65,6 +65,36 @@ public class PlayerDto
     /// <summary>Whether this player has been killed by Kratos (should be hidden from leaderboard).</summary>
     public bool KratosIsDead { get; set; }
 
+    /// <summary>Whether this player has been killed by Kira's Death Note.</summary>
+    public bool KiraDeathNoteDead { get; set; }
+
+    /// <summary>Whether this player is Kira (uses Death Note instead of predictions).</summary>
+    public bool IsKira { get; set; }
+
+    /// <summary>Whether the viewing player is Баг (sees exploit markers on all players).</summary>
+    public bool IsBug { get; set; }
+
+    /// <summary>Death Note state (only populated for the Kira player viewing their own state).</summary>
+    public DeathNoteDto DeathNote { get; set; }
+
+    /// <summary>Portal Gun state (only populated for Rick viewing their own state).</summary>
+    public PortalGunDto PortalGun { get; set; }
+
+    /// <summary>Exploit state (only populated for the Баг player viewing their own state).</summary>
+    public ExploitStateDto ExploitState { get; set; }
+
+    /// <summary>Whether this player is currently marked as exploitable (only visible to Баг).</summary>
+    public bool IsExploitable { get; set; }
+
+    /// <summary>Whether this player's exploit has been permanently fixed by Баг.</summary>
+    public bool IsExploitFixed { get; set; }
+
+    /// <summary>True when this player is Darksci and hasn't chosen stable/unstable yet (round 1 only).</summary>
+    public bool DarksciChoiceNeeded { get; set; }
+
+    /// <summary>True when this player is Gleb and can transform to "Молодой Глеб" (round 1 only).</summary>
+    public bool YoungGlebAvailable { get; set; }
+
     /// <summary>Custom prefix before the player's place number (e.g. octopus tentacles). Web-friendly HTML.</summary>
     public string CustomLeaderboardPrefix { get; set; }
 
@@ -362,6 +392,61 @@ public class FightEntryDto
 
     /// <summary>When true, this fight entry is hidden from non-admin players (e.g. Saitama solo kills).</summary>
     public bool HiddenFromNonAdmin { get; set; }
+
+    /// <summary>Whether a Portal Gun swap occurred in this fight (Rick swaps leaderboard position with the loser).</summary>
+    public bool PortalGunSwap { get; set; }
+}
+
+// ── Portal Gun DTOs ──────────────────────────────────────────────────
+
+public class PortalGunDto
+{
+    public bool Invented { get; set; }
+    public int Charges { get; set; }
+}
+
+// ── Exploit (Баг) DTOs ──────────────────────────────────────────────
+
+public class ExploitStateDto
+{
+    /// <summary>Current accumulated exploit counter.</summary>
+    public int TotalExploit { get; set; }
+    /// <summary>Number of players permanently fixed.</summary>
+    public int FixedCount { get; set; }
+    /// <summary>Total exploitable players (excluding Баг).</summary>
+    public int TotalPlayers { get; set; }
+}
+
+// ── Death Note DTOs ──────────────────────────────────────────────────
+
+public class DeathNoteDto
+{
+    public Guid CurrentRoundTarget { get; set; }
+    public string CurrentRoundName { get; set; }
+    public List<DeathNoteEntryDto> Entries { get; set; } = new();
+    public List<Guid> FailedTargets { get; set; } = new();
+
+    /// <summary>The player designated as L.</summary>
+    public Guid LPlayerId { get; set; }
+    public bool IsArrested { get; set; }
+    public bool ShinigamiEyesActive { get; set; }
+
+    /// <summary>Players whose character names have been revealed by Shinigami Eyes.</summary>
+    public List<DeathNoteRevealedPlayerDto> RevealedPlayers { get; set; } = new();
+}
+
+public class DeathNoteEntryDto
+{
+    public Guid TargetPlayerId { get; set; }
+    public string WrittenName { get; set; }
+    public int RoundWritten { get; set; }
+    public bool WasCorrect { get; set; }
+}
+
+public class DeathNoteRevealedPlayerDto
+{
+    public Guid PlayerId { get; set; }
+    public string CharacterName { get; set; }
 }
 
 // ── Auth DTOs ─────────────────────────────────────────────────────────

@@ -505,6 +505,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                             customString += " <:pepe_down:896514760823144478>";
                     break;
 
+                case "Гигантские бобы":
+                    if (other.GetPlayerId() == me.GetPlayerId()) break;
+                    var beans = me.Passives.RickGiantBeans;
+                    if (beans.IngredientsActive && beans.IngredientTargets.Contains(other.GetPlayerId()))
+                        customString += " 🧪";
+                    break;
+
                 case "3-0 обоссан":
                     var tigr2 = me.Passives.TigrThreeZeroList;
 

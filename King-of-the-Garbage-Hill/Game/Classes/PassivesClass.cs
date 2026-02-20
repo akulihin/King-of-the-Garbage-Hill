@@ -156,6 +156,15 @@ public class PassivesClass
 
     public Saitama.UnnoticedClass SaitamaUnnoticed { get; set; } = new();
 
+    public RickSanchez.GiantBeansClass RickGiantBeans { get; set; } = new();
+    public RickSanchez.PickleRickClass RickPickle { get; set; } = new();
+    public RickSanchez.PortalGunClass RickPortalGun { get; set; } = new();
+
+    public Kira.DeathNoteClass KiraDeathNote { get; set; } = new();
+    public Kira.ShinigamiEyesClass KiraShinigamiEyes { get; set; } = new();
+    public Kira.LClass KiraL { get; set; } = new();
+    public bool KiraDeathNoteDead { get; set; } = false;
+
     public Guid PointFunneledTo { get; set; } = Guid.Empty;
     public bool IsExploitable { get; set; } = false;
     public bool IsExploitFixed { get; set; } = false;

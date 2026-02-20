@@ -88,6 +88,9 @@ public class GameClass
     /// <summary>Text snippets in GlobalLogs that should be stripped for non-admin players (e.g. Saitama hidden fights).</summary>
     public List<string> HiddenGlobalLogSnippets { get; set; } = new();
 
+    /// <summary>Text snippets that should be stripped from GlobalLogs for Kira's "Genius" passive (character-revealing info).</summary>
+    public List<string> KiraHiddenLogSnippets { get; set; } = new();
+
 
 
 
