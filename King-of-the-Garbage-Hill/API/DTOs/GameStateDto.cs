@@ -39,6 +39,12 @@ public class GameStateDto
     public List<PlayerDto> Players { get; set; } = new();
     public List<TeamDto> Teams { get; set; } = new();
 
+    /// <summary>
+    /// Full game chronicle for the Летопись tab (populated only when IsFinished = true).
+    /// Contains AllGlobalLogs + per-player personal logs with character name headers.
+    /// </summary>
+    public string FullChronicle { get; set; }
+
     /// <summary>Structured fight log for the current round (for web fight animation).</summary>
     public List<FightEntryDto> FightLog { get; set; } = new();
 }
@@ -89,11 +95,20 @@ public class PlayerDto
     /// <summary>Whether this player's exploit has been permanently fixed by Баг.</summary>
     public bool IsExploitFixed { get; set; }
 
+    /// <summary>Tsukuyomi state (only populated for the Itachi player viewing their own state).</summary>
+    public TsukuyomiStateDto TsukuyomiState { get; set; }
+
+    /// <summary>Passive ability widget states (only populated for the owning player).</summary>
+    public PassiveAbilityStatesDto PassiveAbilityStates { get; set; }
+
     /// <summary>True when this player is Darksci and hasn't chosen stable/unstable yet (round 1 only).</summary>
     public bool DarksciChoiceNeeded { get; set; }
 
     /// <summary>True when this player is Gleb and can transform to "Молодой Глеб" (round 1 only).</summary>
     public bool YoungGlebAvailable { get; set; }
+
+    /// <summary>True when this player is Dopa and hasn't chosen a tactic yet.</summary>
+    public bool DopaChoiceNeeded { get; set; }
 
     /// <summary>Custom prefix before the player's place number (e.g. octopus tentacles). Web-friendly HTML.</summary>
     public string CustomLeaderboardPrefix { get; set; }
@@ -417,6 +432,15 @@ public class ExploitStateDto
     public int TotalPlayers { get; set; }
 }
 
+// ── Tsukuyomi DTOs ──────────────────────────────────────────────────
+
+public class TsukuyomiStateDto
+{
+    public int ChargeCounter { get; set; }
+    public bool IsReady { get; set; }
+    public decimal TotalStolenPoints { get; set; }
+}
+
 // ── Death Note DTOs ──────────────────────────────────────────────────
 
 public class DeathNoteDto
@@ -447,6 +471,144 @@ public class DeathNoteRevealedPlayerDto
 {
     public Guid PlayerId { get; set; }
     public string CharacterName { get; set; }
+}
+
+// ── Passive Ability Widget DTOs ───────────────────────────────────────
+
+public class PassiveAbilityStatesDto
+{
+    public BulkStateDto Bulk { get; set; }
+    public TeaStateDto Tea { get; set; }
+    public JewStateDto Jew { get; set; }
+    public HardKittyStateDto HardKitty { get; set; }
+    public TrainingStateDto Training { get; set; }
+    public DragonStateDto Dragon { get; set; }
+    public GarbageStateDto Garbage { get; set; }
+    public CopycatStateDto Copycat { get; set; }
+    public InkScreenStateDto InkScreen { get; set; }
+    public TigerTopStateDto TigerTop { get; set; }
+    public JawsStateDto Jaws { get; set; }
+    public PrivilegeStateDto Privilege { get; set; }
+    public VampirismStateDto Vampirism { get; set; }
+    public WeedStateDto Weed { get; set; }
+    public SaitamaStateDto Saitama { get; set; }
+    public ShinigamiEyesWidgetDto ShinigamiEyes { get; set; }
+    public SellerStateDto Seller { get; set; }
+    public SellerMarkStateDto SellerMark { get; set; }
+    public DopaStateDto Dopa { get; set; }
+}
+
+public class BulkStateDto
+{
+    public int DrownChance { get; set; }
+    public bool IsBuffed { get; set; }
+}
+
+public class TeaStateDto
+{
+    public bool IsReady { get; set; }
+}
+
+public class JewStateDto
+{
+    public int StolenPsyche { get; set; }
+}
+
+public class HardKittyStateDto
+{
+    public int FriendsCount { get; set; }
+}
+
+public class TrainingStateDto
+{
+    public int CurrentStatIndex { get; set; }
+    public string StatName { get; set; }
+    public int TargetStatValue { get; set; }
+}
+
+public class DragonStateDto
+{
+    public bool IsAwakened { get; set; }
+    public int RoundsUntilAwaken { get; set; }
+}
+
+public class GarbageStateDto
+{
+    public int MarkedCount { get; set; }
+    public int TotalTracked { get; set; }
+}
+
+public class CopycatStateDto
+{
+    public string CopiedStatName { get; set; }
+    public int HistoryCount { get; set; }
+}
+
+public class InkScreenStateDto
+{
+    public int FakeDefeatCount { get; set; }
+    public int TotalDeferredScore { get; set; }
+}
+
+public class TigerTopStateDto
+{
+    public bool IsActive { get; set; }
+    public int SwapsRemaining { get; set; }
+}
+
+public class JawsStateDto
+{
+    public int CurrentSpeed { get; set; }
+    public int UniqueDefeated { get; set; }
+    public int UniquePositions { get; set; }
+}
+
+public class PrivilegeStateDto
+{
+    public int MarkedCount { get; set; }
+}
+
+public class VampirismStateDto
+{
+    public int ActiveFeeds { get; set; }
+    public int IgnoredJustice { get; set; }
+}
+
+public class WeedStateDto
+{
+    public int TotalWeedAvailable { get; set; }
+    public int LastHarvestRound { get; set; }
+}
+
+public class SaitamaStateDto
+{
+    public int DeferredPoints { get; set; }
+    public decimal DeferredMoral { get; set; }
+}
+
+public class ShinigamiEyesWidgetDto
+{
+    public bool IsActive { get; set; }
+}
+
+public class SellerStateDto
+{
+    public int Cooldown { get; set; }
+    public int MarkedCount { get; set; }
+    public decimal SecretBuildSkill { get; set; }
+}
+
+public class SellerMarkStateDto
+{
+    public int RoundsRemaining { get; set; }
+}
+
+public class DopaStateDto
+{
+    public bool VisionReady { get; set; }
+    public int VisionCooldown { get; set; }
+    public string ChosenTactic { get; set; }
+    public bool NeedSecondAttack { get; set; }
 }
 
 // ── Auth DTOs ─────────────────────────────────────────────────────────

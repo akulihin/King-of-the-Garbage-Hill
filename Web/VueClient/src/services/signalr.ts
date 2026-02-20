@@ -15,6 +15,8 @@ export type GameState = {
   globalLogs: string
   /** Full history of global logs across all rounds */
   allGlobalLogs: string
+  /** Full game chronicle (global events + all players' personal logs). Only set when isFinished. */
+  fullChronicle?: string
   /** The PlayerId of the requesting player, or null for spectators */
   myPlayerId: string | null
   /** PlayerType: 0/1 = normal, 2 = admin, 404 = bot */
@@ -51,6 +53,10 @@ export type Player = {
   portalGun?: PortalGun
   /** Exploit state (only populated for the Баг player). */
   exploitState?: ExploitState
+  /** Tsukuyomi state (only populated for the Itachi player). */
+  tsukuyomiState?: TsukuyomiState
+  /** Passive ability widget states (only populated for the owning player). */
+  passiveAbilityStates?: PassiveAbilityStates
   /** Whether this player is currently marked as exploitable (only visible to Баг). */
   isExploitable?: boolean
   /** Whether this player's exploit has been fixed by Баг. */
@@ -59,6 +65,8 @@ export type Player = {
   darksciChoiceNeeded?: boolean
   /** True when Gleb can transform to Young Gleb (round 1). */
   youngGlebAvailable?: boolean
+  /** True when Dopa needs to choose a tactic. */
+  dopaChoiceNeeded?: boolean
   character: Character
   status: PlayerStatus
   predictions?: Prediction[]
@@ -100,6 +108,59 @@ export type ExploitState = {
   totalExploit: number
   fixedCount: number
   totalPlayers: number
+}
+
+export type TsukuyomiState = {
+  chargeCounter: number
+  isReady: boolean
+  totalStolenPoints: number
+}
+
+export type PassiveAbilityStates = {
+  bulk?: BulkState
+  tea?: TeaState
+  jew?: JewState
+  hardKitty?: HardKittyState
+  training?: TrainingState
+  dragon?: DragonState
+  garbage?: GarbageState
+  copycat?: CopycatState
+  inkScreen?: InkScreenState
+  tigerTop?: TigerTopState
+  jaws?: JawsState
+  privilege?: PrivilegeState
+  vampirism?: VampirismState
+  weed?: WeedState
+  saitama?: SaitamaState
+  shinigamiEyes?: ShinigamiEyesWidgetState
+  seller?: SellerState
+  sellerMark?: SellerMarkState
+  dopa?: DopaState
+}
+
+export type BulkState = { drownChance: number; isBuffed: boolean }
+export type TeaState = { isReady: boolean }
+export type JewState = { stolenPsyche: number }
+export type HardKittyState = { friendsCount: number }
+export type TrainingState = { currentStatIndex: number; statName: string; targetStatValue: number }
+export type DragonState = { isAwakened: boolean; roundsUntilAwaken: number }
+export type GarbageState = { markedCount: number; totalTracked: number }
+export type CopycatState = { copiedStatName: string; historyCount: number }
+export type InkScreenState = { fakeDefeatCount: number; totalDeferredScore: number }
+export type TigerTopState = { isActive: boolean; swapsRemaining: number }
+export type JawsState = { currentSpeed: number; uniqueDefeated: number; uniquePositions: number }
+export type PrivilegeState = { markedCount: number }
+export type VampirismState = { activeFeeds: number; ignoredJustice: number }
+export type WeedState = { totalWeedAvailable: number; lastHarvestRound: number }
+export type SaitamaState = { deferredPoints: number; deferredMoral: number }
+export type ShinigamiEyesWidgetState = { isActive: boolean }
+export type SellerState = { cooldown: number; markedCount: number; secretBuildSkill: number }
+export type SellerMarkState = { roundsRemaining: number }
+export type DopaState = {
+  visionReady: boolean
+  visionCooldown: number
+  chosenTactic: string
+  needSecondAttack: boolean
 }
 
 export type Character = {
@@ -306,6 +367,11 @@ export type ActionResult = {
   error?: string
 }
 
+/**
+ * Game event pushed via SignalR.
+ * Known eventTypes: "RoundChanged", "GameFinished", "GameStory"
+ * - GameStory data: { story: string } — AI-generated narrative summary
+ */
 export type GameEvent = {
   eventType: string
   data?: unknown
@@ -479,6 +545,10 @@ class SignalRService {
 
   async youngGleb(gameId: number): Promise<void> {
     await this.connection?.invoke('YoungGleb', gameId)
+  }
+
+  async dopaChoice(gameId: number, tactic: string): Promise<void> {
+    await this.connection?.invoke('DopaChoice', gameId, tactic)
   }
 
   // ── Kira Actions ───────────────────────────────────────────────

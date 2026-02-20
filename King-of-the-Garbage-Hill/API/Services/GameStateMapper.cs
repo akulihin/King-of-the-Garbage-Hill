@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
 using King_of_the_Garbage_Hill.API.DTOs;
 using King_of_the_Garbage_Hill.Game.Classes;
 
@@ -121,6 +123,12 @@ public static class GameStateMapper
             });
         }
 
+        // Build full chronicle for Летопись tab when game is finished
+        if (game.IsFinished)
+        {
+            dto.FullChronicle = BuildFullChronicle(game);
+        }
+
         return dto;
     }
 
@@ -211,6 +219,13 @@ public static class GameStateMapper
             dto.YoungGlebAvailable = true;
         }
 
+        // Dopa — tactic choice needed
+        if (isMe && player.GameCharacter.Passive.Any(p => p.PassiveName == "Законодатель меты")
+            && !player.Passives.DopaMetaChoice.Triggered)
+        {
+            dto.DopaChoiceNeeded = true;
+        }
+
         // Баг — exploit state visible to the Баг player
         var hasExploit = player.GameCharacter.Passive.Any(p => p.PassiveName == "Exploit");
         if (isMe && hasExploit)
@@ -227,11 +242,171 @@ public static class GameStateMapper
             }
         }
 
+        // Tsukuyomi state — only visible to the Itachi player
+        if (isMe && player.GameCharacter.Passive.Any(p => p.PassiveName == "Глаза Итачи"))
+        {
+            var tsukuyomiState = player.Passives.ItachiTsukuyomi;
+            dto.TsukuyomiState = new TsukuyomiStateDto
+            {
+                ChargeCounter = tsukuyomiState.ChargeCounter,
+                IsReady = tsukuyomiState.ChargeCounter >= 2,
+                TotalStolenPoints = tsukuyomiState.TotalStolenPoints,
+            };
+        }
+
         // Exploit markers visible to the Баг viewer on all player cards
         if (viewerIsBug)
         {
             dto.IsExploitable = player.Passives.IsExploitable;
             dto.IsExploitFixed = player.Passives.IsExploitFixed;
+        }
+
+        // Passive ability widgets — only visible to the owning player
+        if (isMe && game != null)
+        {
+            var pas = new PassiveAbilityStatesDto();
+            bool anySet = false;
+
+            foreach (var passive in player.GameCharacter.Passive)
+            {
+                switch (passive.PassiveName)
+                {
+                    case "Буль":
+                        var psyche = player.GameCharacter.GetPsyche();
+                        pas.Bulk = new BulkStateDto
+                        {
+                            DrownChance = psyche < 7 ? (int)Math.Round(100.0 / (10 + psyche * 5)) : 0,
+                            IsBuffed = player.Passives.MylorikBoole.IsBoole,
+                        };
+                        anySet = true;
+                        break;
+                    case "Я за чаем":
+                        pas.Tea = new TeaStateDto { IsReady = player.Passives.GlebTea.Ready };
+                        anySet = true;
+                        break;
+                    case "Еврей":
+                        pas.Jew = new JewStateDto { StolenPsyche = player.Passives.LeCrispAssassins.AdditionalPsycheCurrent };
+                        anySet = true;
+                        break;
+                    case "Одиночество":
+                        var hist = player.Passives.HardKittyLoneliness.AttackHistory;
+                        pas.HardKitty = new HardKittyStateDto { FriendsCount = hist.Sum(h => h.Times) };
+                        anySet = true;
+                        break;
+                    case "Обучение":
+                        var tr = player.Passives.SirinoksTraining;
+                        var lastTraining = tr.Training.LastOrDefault();
+                        var statIdx = lastTraining?.StatIndex ?? 0;
+                        pas.Training = new TrainingStateDto
+                        {
+                            CurrentStatIndex = statIdx,
+                            StatName = statIdx switch { 1 => "INT", 2 => "STR", 3 => "SPD", 4 => "PSY", _ => "—" },
+                            TargetStatValue = lastTraining?.StatNumber ?? 0,
+                        };
+                        anySet = true;
+                        break;
+                    case "Дракон":
+                        pas.Dragon = new DragonStateDto { IsAwakened = game.RoundNo >= 10, RoundsUntilAwaken = Math.Max(0, 10 - game.RoundNo) };
+                        anySet = true;
+                        break;
+                    case "Запах мусора":
+                        var garb = player.Passives.MitsukiGarbageList.Training;
+                        pas.Garbage = new GarbageStateDto { MarkedCount = garb.Count(t => t.Times >= 2), TotalTracked = garb.Count };
+                        anySet = true;
+                        break;
+                    case "Научите играть":
+                        var copyHist = player.Passives.AwdkaTeachToPlayHistory.History;
+                        var lastCopy = copyHist.LastOrDefault();
+                        var copyStat = lastCopy?.Stat ?? 0;
+                        pas.Copycat = new CopycatStateDto
+                        {
+                            CopiedStatName = copyStat switch { 1 => "INT", 2 => "STR", 3 => "SPD", 4 => "PSY", _ => "—" },
+                            HistoryCount = copyHist.Count,
+                        };
+                        anySet = true;
+                        break;
+                    case "Чернильная завеса":
+                        var ink = player.Passives.OctopusInkList.RealScoreList;
+                        pas.InkScreen = new InkScreenStateDto { FakeDefeatCount = ink.Count, TotalDeferredScore = ink.Sum(i => i.RealScore) };
+                        anySet = true;
+                        break;
+                    case "Тигр топ, а ты холоп":
+                        pas.TigerTop = new TigerTopStateDto { IsActive = player.Status.GetPlaceAtLeaderBoard() == 1, SwapsRemaining = player.Passives.TigrTop.TimeCount };
+                        anySet = true;
+                        break;
+                    case "Челюсти":
+                        pas.Jaws = new JawsStateDto
+                        {
+                            CurrentSpeed = player.GameCharacter.GetSpeed(),
+                            UniqueDefeated = player.Passives.SharkJawsWin.FriendList.Count,
+                            UniquePositions = player.Passives.SharkJawsLeader.FriendList.Count,
+                        };
+                        anySet = true;
+                        break;
+                    case "Это привилегия - умереть от моей руки":
+                        pas.Privilege = new PrivilegeStateDto { MarkedCount = player.Passives.SpartanMark.FriendList.Count(x => x != Guid.Empty) };
+                        anySet = true;
+                        break;
+                    case "Вампуризм":
+                        pas.Vampirism = new VampirismStateDto
+                        {
+                            ActiveFeeds = player.Passives.VampyrHematophagiaList.HematophagiaCurrent.Count,
+                            IgnoredJustice = player.Passives.VampyrIgnoresOneJustice,
+                        };
+                        anySet = true;
+                        break;
+                    case "Weed":
+                        pas.Weed = new WeedStateDto
+                        {
+                            TotalWeedAvailable = allPlayers.Where(p => p.GetPlayerId() != player.GetPlayerId()).Sum(p => p.Passives.WeedwickWeed),
+                            LastHarvestRound = player.Passives.WeedwickLastRoundWeed,
+                        };
+                        anySet = true;
+                        break;
+                    case "Неприметность":
+                        pas.Saitama = new SaitamaStateDto { DeferredPoints = player.Passives.SaitamaUnnoticed.DeferredPoints, DeferredMoral = player.Passives.SaitamaUnnoticed.DeferredMoral };
+                        anySet = true;
+                        break;
+                    case "Глаза бога смерти":
+                        pas.ShinigamiEyes = new ShinigamiEyesWidgetDto { IsActive = player.Passives.KiraShinigamiEyes.EyesActiveForNextAttack };
+                        anySet = true;
+                        break;
+                    case "Макро":
+                        pas.Dopa = new DopaStateDto
+                        {
+                            VisionReady = player.Passives.DopaVision.Cooldown == 0,
+                            VisionCooldown = player.Passives.DopaVision.Cooldown,
+                            ChosenTactic = player.Passives.DopaMetaChoice.ChosenTactic,
+                            NeedSecondAttack = player.Status.WhoToAttackThisTurn.Count == 1 && !player.Status.IsReady,
+                        };
+                        anySet = true;
+                        break;
+                    case "Впарить говна":
+                        pas.Seller = new SellerStateDto
+                        {
+                            Cooldown = player.Passives.SellerVparitGovna.Cooldown,
+                            MarkedCount = player.Passives.SellerVparitGovna.MarkedPlayers.Count,
+                            SecretBuildSkill = player.Passives.SellerSecretBuild.AccumulatedSkill
+                                + game.PlayersList
+                                    .Where(p => p.GameCharacter.SkillSiphonBox.HasValue)
+                                    .Sum(p => p.GameCharacter.SkillSiphonBox.Value),
+                        };
+                        anySet = true;
+                        break;
+                }
+            }
+
+            // Show mark widget to marked players (not tied to a passive on their character)
+            if (player.Passives.SellerVparitGovnaRoundsLeft > 0)
+            {
+                pas.SellerMark = new SellerMarkStateDto
+                {
+                    RoundsRemaining = player.Passives.SellerVparitGovnaRoundsLeft
+                };
+                anySet = true;
+            }
+
+            if (anySet) dto.PassiveAbilityStates = pas;
         }
 
         return dto;
@@ -515,5 +690,70 @@ public static class GameStateMapper
         }
 
         return logs;
+    }
+
+    /// <summary>
+    /// Builds the full game chronicle (same structure as what gets sent to the LLM).
+    /// Contains: Fight History (global logs with round numbers), then per-player personal logs.
+    /// Replaces Discord usernames with character names throughout.
+    /// </summary>
+    private static string BuildFullChronicle(GameClass game)
+    {
+        // Build username → character name mapping
+        var nameMap = game.PlayersList
+            .Where(p => !string.IsNullOrWhiteSpace(p.DiscordUsername) && !string.IsNullOrWhiteSpace(p.GameCharacter.Name))
+            .OrderByDescending(p => p.DiscordUsername.Length)
+            .ToDictionary(p => p.DiscordUsername, p => p.GameCharacter.Name);
+
+        var sb = new StringBuilder();
+
+        // Section 1: Fight History (global logs already contain round headers like "Раунд #N")
+        var globalLogs = game.GetAllGlobalLogs() ?? "";
+        if (!string.IsNullOrWhiteSpace(globalLogs))
+        {
+            sb.AppendLine("**--- Fight History ---**");
+            sb.AppendLine(ReplaceUsernames(globalLogs.Trim(), nameMap));
+        }
+
+        // Section 2: Per-player personal logs with round numbers
+        var playersWithLogs = game.PlayersList
+            .OrderBy(p => p.Status.GetPlaceAtLeaderBoard())
+            .Where(p => !string.IsNullOrWhiteSpace(p.Status.InGamePersonalLogsAll))
+            .ToList();
+
+        if (playersWithLogs.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("**--- Ключевые моменты по персонажам ---**");
+
+            foreach (var p in playersWithLogs)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"**{p.GameCharacter.Name}** (#{p.Status.GetPlaceAtLeaderBoard()}, {p.Status.GetScore()} очков):");
+                var rounds = p.Status.InGamePersonalLogsAll.Split("|||")
+                    .Select(r => r.Trim())
+                    .Where(r => r.Length > 0)
+                    .ToList();
+                for (var i = 0; i < rounds.Count; i++)
+                {
+                    sb.AppendLine($"*Раунд #{i + 1}:*");
+                    sb.AppendLine(ReplaceUsernames(rounds[i], nameMap));
+                    sb.AppendLine($"--");
+                }
+            }
+        }
+
+        return sb.ToString().Trim();
+    }
+
+    /// <summary>
+    /// Replaces all Discord usernames in text with character names.
+    /// </summary>
+    private static string ReplaceUsernames(string text, Dictionary<string, string> nameMap)
+    {
+        if (string.IsNullOrEmpty(text) || nameMap.Count == 0) return text;
+        foreach (var pair in nameMap)
+            text = text.Replace(pair.Key, pair.Value);
+        return text;
     }
 }

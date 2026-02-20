@@ -613,11 +613,11 @@ watch(() => props.fightLog, (newLog) => {
 .lb-custom :deep(em) { color: var(--accent-blue); }
 .lb-custom :deep(u) { color: var(--accent-green); }
 .lb-custom :deep(.lb-emoji) {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   vertical-align: middle;
   display: inline;
-  margin: 0 1px;
+  margin: 0 2px;
 }
 
 .lb-character { font-size: 10px; color: var(--text-muted); }

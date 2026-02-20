@@ -25,6 +25,7 @@ public sealed class Config : IServiceSingleton
     }
 
     [JsonProperty("Token")] public string Token { get; private set; }
+    [JsonProperty("AnthropicApiKey")] public string AnthropicApiKey { get; private set; }
 
     public Task InitializeAsync()
     {

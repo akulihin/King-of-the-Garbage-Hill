@@ -266,6 +266,17 @@ public class GameHub : Hub
         if (success) await PushStateToPlayer(gameId, discordId);
     }
 
+    public async Task DopaChoice(ulong gameId, string tactic)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = await _gameService.DopaChoice(gameId, discordId, tactic);
+        await Clients.Caller.SendAsync("ActionResult", new { action = "dopaChoice", success, error });
+
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
     // ── Kira Actions ─────────────────────────────────────────────────
 
     public async Task DeathNoteWrite(ulong gameId, Guid targetPlayerId, string characterName)

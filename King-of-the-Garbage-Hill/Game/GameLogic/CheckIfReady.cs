@@ -188,6 +188,23 @@ public class CheckIfReady : IServiceSingleton
                 player.Status.AddBonusPoints(1, "Предположение");
         // predict
 
+        // Tsukuyomi end-game deduction: deduct stolen points from victims
+        foreach (var itachiPlayer in game.PlayersList.Where(x =>
+                     x.GameCharacter.Passive.Any(p => p.PassiveName == "Глаза Итачи")))
+        {
+            var tsukuyomiEnd = itachiPlayer.Passives.ItachiTsukuyomi;
+            foreach (var (victimId, stolenAmount) in tsukuyomiEnd.StolenFromPlayers)
+            {
+                if (stolenAmount <= 0) continue;
+                var victim = game.PlayersList.Find(x => x.GetPlayerId() == victimId);
+                if (victim == null) continue;
+                victim.Status.AddBonusPoints(-stolenAmount, "Глаза Итачи");
+                victim.Status.AddInGamePersonalLogs(
+                    $"Вы заработали *{stolenAmount} очков*, но всё это было в глазах у Итачи...\n*-{stolenAmount} очков*\n");
+                game.Phrases.ItachiTsukuyomiReveal.SendLog(victim, false);
+            }
+        }
+        // end Tsukuyomi
 
         //sort
         game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
@@ -238,6 +255,7 @@ public class CheckIfReady : IServiceSingleton
                         "Молодой Глеб" => "Молодой Глеб Затроллился, но хотя бы не уснул",
                         "Баг" => "Баг Затроллился, ошибка 404",
                         "Кратос" => "Кратос пал от руки троллинга!",
+                        "Итачи" => "Итачи попал в свою же иллюзию!",
                         _ => ""
                     };
 
@@ -859,6 +877,10 @@ public class CheckIfReady : IServiceSingleton
                         {
                             t.Status.ConfirmedPredict = false;
                             extraText = "Это последний раунд, когда можно сделать **предложение**!";
+
+                            // Kira uses Death Note instead of predictions — auto-confirm
+                            if (t.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти"))
+                                t.Status.ConfirmedPredict = true;
                         }
 
                         if (game.RoundNo == 9) t.Status.ConfirmedPredict = true;

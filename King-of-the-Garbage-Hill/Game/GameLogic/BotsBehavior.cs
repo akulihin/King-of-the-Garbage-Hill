@@ -201,6 +201,27 @@ public class BotsBehavior : IServiceSingleton
             }
         }
 
+        if (bot.GameCharacter.Name == "Dopa")
+        {
+            await HandleBotMoralForPoints(bot, game);
+            return;
+        }
+
+        if (bot.GameCharacter.Name == "Продавец Сомнительных Тактик")
+        {
+            var sellerV = bot.Passives.SellerVparitGovna;
+            if (sellerV.Cooldown <= 0)
+            {
+                // Prefer attacking unmarked players to spread marks
+                await HandleBotMoralForPoints(bot, game);
+            }
+            else
+            {
+                await HandleBotMoralForSkill(bot, game);
+            }
+            return;
+        }
+
         if (bot.GameCharacter.Name == "Sirinoks")
         {
             //логика до 10го раунда
@@ -1028,6 +1049,15 @@ public class BotsBehavior : IServiceSingleton
                             mandatoryAttack = target.PlaceAtLeaderBoard();
 
                         break;
+                    case "Итачи":
+                        // Prefer enemies with most crows (easier kills via Amaterasu)
+                        var itachiCrows = bot.Passives.ItachiCrows;
+                        if (itachiCrows.CrowCounts.TryGetValue(target.GetPlayerId(), out var crows) && crows > 0)
+                            target.AttackPreference += crows * 3;
+                        // Prefer enemies with low speed (Amaterasu auto-win)
+                        if (target.Player.GameCharacter.GetSpeed() < bot.GameCharacter.GetSpeed())
+                            target.AttackPreference += 5;
+                        break;
                     case "Вампур":
                         if (target.Player.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
                         {
@@ -1502,6 +1532,10 @@ public class BotsBehavior : IServiceSingleton
                     isBlock = noBlock;
                     break;
 
+                case "Итачи":
+                    isBlock = noBlock;
+                    break;
+
                 case "DeepList":
                     var deepList = bot.Passives.DeepListMadnessTriggeredWhen;
                     if (deepList.WhenToTrigger.Contains(game.RoundNo))
@@ -1665,6 +1699,24 @@ public class BotsBehavior : IServiceSingleton
                 await _gameReaction.HandleAttack(bot, null, -10);
             }
 
+            // Dopa Макро — bot needs second attack
+            if (isAttacked && !bot.Status.IsReady
+                && bot.GameCharacter.Passive.Any(x => x.PassiveName == "Макро"))
+            {
+                var secondTargets = allTargets.Where(x =>
+                    !bot.Status.WhoToAttackThisTurn.Contains(x.Player.GetPlayerId())).ToList();
+                if (secondTargets.Any())
+                {
+                    var pick = secondTargets[_rand.Random(0, secondTargets.Count - 1)];
+                    await AttackPlayer(bot, pick.Player.Status.GetPlaceAtLeaderBoard());
+                }
+                else if (allTargets.Any())
+                {
+                    var pick = allTargets[_rand.Random(0, allTargets.Count - 1)];
+                    await AttackPlayer(bot, pick.Player.Status.GetPlaceAtLeaderBoard());
+                }
+            }
+
             ResetTens(allTargets);
         }
         catch (Exception e)
@@ -1755,6 +1807,28 @@ public class BotsBehavior : IServiceSingleton
 
             // Rick Sanchez — prioritize INT for portal gun invention (30+ INT needed)
             if (player.GameCharacter.Name == "Рик Санчез") skillNumber = 1;
+
+            // Itachi — prioritize Intelligence, then Psyche
+            if (player.GameCharacter.Name == "Итачи" && intelligence < 10) skillNumber = 1;
+            if (player.GameCharacter.Name == "Итачи" && intelligence >= 10 && psyche < 10) skillNumber = 4;
+
+            // Продавец — with 10x multiplier: prioritize INT for skill, then PSY, STR, SPD
+            if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Закуп"))
+            {
+                if (intelligence < 10) skillNumber = 1;
+                else if (psyche < 10) skillNumber = 4;
+                else if (strength < 10) skillNumber = 2;
+                else skillNumber = 3;
+            }
+
+            // Dopa — INT-focused build
+            if (player.GameCharacter.Name == "Dopa")
+            {
+                if (intelligence < 10) skillNumber = 1;
+                else if (psyche < 10) skillNumber = 4;
+                else if (speed < 10) skillNumber = 3;
+                else skillNumber = 2;
+            }
 
 
             await _gameReaction.HandleLvlUp(player, null, skillNumber);

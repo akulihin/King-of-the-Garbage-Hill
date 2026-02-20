@@ -225,6 +225,8 @@ Speed => Strength
          */
 
         game.SetGlobalLogs($"\n__**Раунд #{roundNumber}**__:\n\n");
+        // Also mark the round boundary in the cumulative log (SetGlobalLogs only sets per-round GlobalLogs)
+        game.AddGlobalLogsRaw($"\n__**Раунд #{roundNumber-1}**__:\n");
 
         //FightCharacter == READ ONLY
         //GameCharacter == WRITE ONLY
@@ -422,6 +424,10 @@ Speed => Strength
                     player.Status.IsTargetBlocked = playerIamAttacking.GetPlayerId();
                     // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
 
+                    // Sirinoks block — "НЕТ!"
+                    if (playerIamAttacking.GameCharacter.Name == "Sirinoks")
+                        game.Phrases.SirinoksBlockNoPhrase.SendLog(playerIamAttacking, false);
+
                     var logMess = " ⟶ *Бой не состоялся...*";
                     if (game.PlayersList.Any(x => x.PlayerType == 1))
                         logMess = " ⟶ *Бой не состоялся (Блок)...*";
@@ -579,9 +585,20 @@ Speed => Strength
 
 
                 //octopus  // playerIamAttacking is octopus
-                if (pointsWined <= 0) 
+                if (pointsWined <= 0)
                     pointsWined = await _characterPassives.HandleOctopus(playerIamAttacking, player, game);
                 //end octopus
+
+                //izanagi  // playerIamAttacking is Itachi (defender)
+                if (pointsWined >= 1
+                    && playerIamAttacking.GameCharacter.Passive.Any(p => p.PassiveName == "Изанаги")
+                    && playerIamAttacking.Passives.ItachiIzanagi.UsesRemaining > 0)
+                {
+                    playerIamAttacking.Passives.ItachiIzanagi.UsesRemaining--;
+                    pointsWined = -1;
+                    game.Phrases.ItachiIzanagi.SendLog(playerIamAttacking, false);
+                }
+                //end izanagi
 
 
                 //team

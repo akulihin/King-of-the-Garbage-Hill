@@ -56,6 +56,7 @@ public class CharacterClass
     public List<Passive> Passive { get; set; }
     public string Description { get; set; }
     public int Tier { get; set; }
+    public string StoryAgent { get; set; }
 
 
     // PRIVATE
@@ -78,6 +79,9 @@ public class CharacterClass
     private string StrengthExtraText { get; set; }
     private decimal SkillMain { get; set; }
     private decimal SkillExtra { get; set; }
+
+    /// <summary>Seller's "Секретный билд" siphon. null = inactive, number = accumulated.</summary>
+    public decimal? SkillSiphonBox { get; set; } = null;
     private decimal SkillForOneFight { get; set; } = -228;
     private decimal TargetSkillMultiplier { get; set; }
     private decimal ClassSkillMultiplier { get; set; } = 1;
@@ -914,6 +918,9 @@ public class CharacterClass
         total += multiplier;
         SkillExtra += multiplier;
 
+        if (SkillSiphonBox.HasValue && total > 0)
+            SkillSiphonBox += total;
+
         if (isLog)
             Status.AddInGamePersonalLogs($"Мишень: +{total} *Cкилла* (за {skillName} врага)\n");
         return total;
@@ -941,13 +948,17 @@ public class CharacterClass
         }
 
         SkillExtra += howMuchToAdd;
+
+        if (SkillSiphonBox.HasValue && howMuchToAdd > 0)
+            SkillSiphonBox += howMuchToAdd;
+
         return howMuchToAdd;
     }
 
 
-    
-    
-    
+
+
+
     public decimal GetPsycheQualityMoralBonus()
     {
         decimal toReturn = 1;
@@ -1339,6 +1350,14 @@ public class CharacterClass
             Speed = 0;
         if (GetSpeed() > 10)
             Speed = 10;
+    }
+
+    public void AddSpeedForOneFight(int howMuchToAdd)
+    {
+        //Add delta to current speed for one fight only
+        var current = GetSpeed();
+        Status.IsSpeedForOneFight = true;
+        SpeedForOneFight = Math.Max(0, current + howMuchToAdd);
     }
 
     public void SetSpeedForOneFight(int howMuchToSet, string skillName)

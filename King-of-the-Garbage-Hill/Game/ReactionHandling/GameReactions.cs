@@ -612,6 +612,17 @@ public sealed class GameReaction : IServiceSingleton
                 return false;
             }
 
+            // Dopa Макро — first attack doesn't set ready
+            if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Макро")
+                && status.WhoToAttackThisTurn.Count == 1)
+            {
+                var macroText = $"Макро: Первая цель - {whoToAttack.DiscordUsername}. Выберите вторую цель.\n";
+                player.Status.AddInGamePersonalLogs(macroText);
+                player.Status.ChangeMindWhat = macroText;
+                return true;
+            }
+            // end Dopa Макро
+
             status.IsReady = true;
             status.IsBlock = false;
             var text = $"Вы напали на игрока {whoToAttack.DiscordUsername}\n";
@@ -645,6 +656,12 @@ public sealed class GameReaction : IServiceSingleton
             howMuchTooAdd = -1;
         }
 
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Закуп"))
+        {
+            howMuchTooAdd = 10;
+            game.Phrases.SellerZakup.SendLog(player, false);
+        }
+
         switch (skillNumber)
         {
             case 1:
@@ -671,6 +688,14 @@ public sealed class GameReaction : IServiceSingleton
                 else
                 {
                     player.Status.AddInGamePersonalLogs($"Вы улучшили Интеллект до {player.GameCharacter.GetIntelligence()}\n");
+                }
+
+                // Sirinoks — intelligence reaches 10 before round 10
+                if (player.GameCharacter.Name == "Sirinoks"
+                    && player.GameCharacter.GetIntelligence() >= 10
+                    && game != null && game.RoundNo < 10)
+                {
+                    game.Phrases.SirinoksGeniusPhrase.SendLog(player, false);
                 }
                 break;
 
@@ -746,6 +771,14 @@ public sealed class GameReaction : IServiceSingleton
                 else
                 {
                     player.Status.AddInGamePersonalLogs($"Вы улучшили Психику до {player.GameCharacter.GetPsyche()}\n");
+                }
+
+                // Gleb — psyche reaches 10
+                if (player.GameCharacter.Name == "Глеб"
+                    && player.GameCharacter.GetPsyche() >= 10
+                    && game != null)
+                {
+                    game.Phrases.GlebPsyche10.SendLog(player, false);
                 }
                 break;
         }

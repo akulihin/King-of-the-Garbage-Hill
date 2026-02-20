@@ -18,6 +18,8 @@ const isLockedPredict = computed(() => {
 
 const darksciChoiceNeeded = computed(() => me.value?.darksciChoiceNeeded ?? false)
 const youngGlebAvailable = computed(() => me.value?.youngGlebAvailable ?? false)
+const dopaChoiceNeeded = computed(() => me.value?.dopaChoiceNeeded ?? false)
+const dopaSecondAttack = computed(() => me.value?.passiveAbilityStates?.dopa?.needSecondAttack ?? false)
 
 </script>
 
@@ -97,6 +99,17 @@ const youngGlebAvailable = computed(() => me.value?.youngGlebAvailable ?? false)
       >
         Вспомнить Молодость
       </button>
+    </div>
+
+    <div v-if="dopaChoiceNeeded" class="action-group dopa-choice">
+      <button class="act-btn dopa-stomp" title="Стомп: +9 Силы и 99 Скилла" @click="store.dopaChoice('Стомп')">Стомп</button>
+      <button class="act-btn dopa-farm" title="Фарм: Взгляд в будущее x2" @click="store.dopaChoice('Фарм')">Фарм</button>
+      <button class="act-btn dopa-domination" title="Доминация: +20 Skill/win, target -1 bonus" @click="store.dopaChoice('Доминация')">Доминация</button>
+      <button class="act-btn dopa-roam" title="Роум: Steal from non-adjacent" @click="store.dopaChoice('Роум')">Роум</button>
+    </div>
+
+    <div v-if="dopaSecondAttack" class="action-group">
+      <span class="dopa-second-hint">Выберите вторую цель (скрытая атака)</span>
     </div>
 
   </div>
@@ -190,5 +203,44 @@ const youngGlebAvailable = computed(() => me.value?.youngGlebAvailable ?? false)
   color: #ffb428;
 }
 .act-btn.young-gleb:hover { background: rgba(255, 180, 40, 0.15); }
+
+.act-btn.dopa-stomp {
+  background: rgba(255, 60, 60, 0.08);
+  border-color: rgba(255, 60, 60, 0.3);
+  color: #ff6e6e;
+}
+.act-btn.dopa-stomp:hover { background: rgba(255, 60, 60, 0.15); }
+
+.act-btn.dopa-farm {
+  background: rgba(60, 180, 60, 0.08);
+  border-color: rgba(60, 180, 60, 0.3);
+  color: #6ecc6e;
+}
+.act-btn.dopa-farm:hover { background: rgba(60, 180, 60, 0.15); }
+
+.act-btn.dopa-domination {
+  background: rgba(180, 60, 255, 0.08);
+  border-color: rgba(180, 60, 255, 0.3);
+  color: #b46eff;
+}
+.act-btn.dopa-domination:hover { background: rgba(180, 60, 255, 0.15); }
+
+.act-btn.dopa-roam {
+  background: rgba(74, 144, 217, 0.08);
+  border-color: rgba(74, 144, 217, 0.3);
+  color: #4a90d9;
+}
+.act-btn.dopa-roam:hover { background: rgba(74, 144, 217, 0.15); }
+
+.dopa-second-hint {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4a90d9;
+  animation: dopa-pulse 1.5s ease-in-out infinite;
+}
+@keyframes dopa-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
 
 </style>

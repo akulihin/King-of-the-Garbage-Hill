@@ -1,13 +1,9 @@
 const SOUND_BASE_URL = 'https://r2.ozvmusic.com/kotgh/sound/'
 const DEFAULT_BUTTON_SKIP_ATTR = 'data-sfx-skip-default'
 const UTILITY_ATTR = 'data-sfx-utility'
-const SOUND_CACHE_NAME = 'kotgh-sound-cache-v1'
-const SOUND_CACHE_META_KEY = 'kotgh-sound-cache-meta-v1'
-const SOUND_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
 type StatKey = 'intelligence' | 'strength' | 'speed' | 'psyche'
 type PlaybackChannel = 'lvl-up-extra'
-type BlobEntry = { objectUrl: string; cachedAt: number }
 
 // ── Volume config types ──────────────────────────────────────────────
 
@@ -73,22 +69,13 @@ async function getVolumeConfig(): Promise<VolumeConfig> {
         }
       }
       cachedVolumeConfig = config
+      applyGroupGains()
       return config
     } catch {
       return DEFAULT_VOLUME_CONFIG
     }
   })()
   return volumeConfigPromise
-}
-
-/** Effective master volume: user override (localStorage) takes priority over config file */
-async function getEffectiveMasterVolume(): Promise<number> {
-  if (userMasterVolume === null) {
-    userMasterVolume = loadUserMasterVolume()
-  }
-  if (userMasterVolume !== null) return userMasterVolume
-  const config = await getVolumeConfig()
-  return config.masterVolume
 }
 
 /** Get current master volume (0–1). Returns cached/stored value synchronously when available. */
@@ -101,10 +88,11 @@ export function getMasterVolume(): number {
   return DEFAULT_VOLUME_CONFIG.masterVolume
 }
 
-/** Set master volume (0–1). Persisted to localStorage. */
+/** Set master volume (0–1). Persisted to localStorage. Live-updates all playing sounds. */
 export function setMasterVolume(vol: number): void {
   const clamped = Math.max(0, Math.min(1, vol))
   userMasterVolume = clamped
+  if (masterGain) masterGain.gain.value = clamped
   try {
     localStorage.setItem(MASTER_VOLUME_STORAGE_KEY, String(clamped))
   } catch {
@@ -121,148 +109,79 @@ export function setSoundContext(ctx: SoundContext): void {
   currentSoundContext = ctx
 }
 
-// ── Internal state ───────────────────────────────────────────────────
+// ── Web Audio API state ─────────────────────────────────────────────
 
-const channelAudio = new Map<PlaybackChannel, HTMLAudioElement>()
-const soundBlobCache = new Map<string, BlobEntry>()
-const pendingSrcResolve = new Map<string, Promise<string | null>>()
-
-let pluckAudio: HTMLAudioElement | null = null
+let audioCtx: AudioContext | null = null
+let masterGain: GainNode | null = null
+const groupGains = new Map<VolumeGroup, GainNode>()
+const audioBufferCache = new Map<string, AudioBuffer>()
+const pendingBufferResolve = new Map<string, Promise<AudioBuffer | null>>()
+const channelSources = new Map<PlaybackChannel, AudioBufferSourceNode>()
+let pluckSource: AudioBufferSourceNode | null = null
 let pluckStopTimer: ReturnType<typeof setTimeout> | null = null
-let didStorageSweep = false
+
+const ALL_VOLUME_GROUPS: VolumeGroup[] = [
+  'buttons', 'mainMenu', 'utility', 'attack', 'levelUp', 'moralExchange',
+  'combo', 'comboHype', 'justice', 'points', 'doomsDay', 'doomsDayWinLose', 'doomsDayScrolls',
+]
+
+/** Apply group volume levels from cached config (or defaults) to gain nodes */
+function applyGroupGains(): void {
+  const config = cachedVolumeConfig ?? DEFAULT_VOLUME_CONFIG
+  for (const [group, gain] of groupGains) {
+    gain.gain.value = config.groups[group] ?? 1
+  }
+}
+
+/** Lazily create AudioContext + gain graph. Safe to call repeatedly. */
+function ensureAudioContext(): AudioContext {
+  if (!audioCtx) {
+    audioCtx = new AudioContext()
+    masterGain = audioCtx.createGain()
+    masterGain.gain.value = getMasterVolume()
+    masterGain.connect(audioCtx.destination)
+
+    for (const group of ALL_VOLUME_GROUPS) {
+      const g = audioCtx.createGain()
+      g.connect(masterGain)
+      groupGains.set(group, g)
+    }
+    applyGroupGains()
+    // Kick off config load so group gains get updated from server config
+    void getVolumeConfig()
+  }
+  if (audioCtx.state === 'suspended') {
+    void audioCtx.resume()
+  }
+  return audioCtx
+}
 
 function toSoundUrl(relativePath: string): string {
   return `${SOUND_BASE_URL}${relativePath}`
 }
 
-function nowMs(): number {
-  return Date.now()
-}
+async function getOrFetchAudioBuffer(sourceUrl: string): Promise<AudioBuffer | null> {
+  const cached = audioBufferCache.get(sourceUrl)
+  if (cached) return cached
 
-function isFresh(cachedAt: number): boolean {
-  return nowMs() - cachedAt <= SOUND_CACHE_TTL_MS
-}
+  const pending = pendingBufferResolve.get(sourceUrl)
+  if (pending) return pending
 
-function isBrowserStorageAvailable(): boolean {
-  return typeof window !== 'undefined' && typeof caches !== 'undefined' && typeof localStorage !== 'undefined'
-}
-
-function readCacheMeta(): Record<string, number> {
-  if (!isBrowserStorageAvailable()) return {}
-  try {
-    const raw = localStorage.getItem(SOUND_CACHE_META_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw) as Record<string, unknown>
-    const sanitized: Record<string, number> = {}
-    for (const [url, value] of Object.entries(parsed)) {
-      if (typeof value === 'number' && Number.isFinite(value)) {
-        sanitized[url] = value
-      }
-    }
-    return sanitized
-  }
-  catch {
-    return {}
-  }
-}
-
-function writeCacheMeta(meta: Record<string, number>): void {
-  if (!isBrowserStorageAvailable()) return
-  try {
-    localStorage.setItem(SOUND_CACHE_META_KEY, JSON.stringify(meta))
-  }
-  catch {
-    // ignore quota/storage errors and keep runtime functional
-  }
-}
-
-function revokeBlobEntry(url: string): void {
-  const entry = soundBlobCache.get(url)
-  if (!entry) return
-  URL.revokeObjectURL(entry.objectUrl)
-  soundBlobCache.delete(url)
-}
-
-async function getSoundCacheStore(): Promise<Cache | null> {
-  if (!isBrowserStorageAvailable()) return null
-  try {
-    return await caches.open(SOUND_CACHE_NAME)
-  }
-  catch {
-    return null
-  }
-}
-
-async function sweepExpiredCacheEntries(cacheStore: Cache, meta: Record<string, number>): Promise<void> {
-  const expiredUrls = Object.entries(meta)
-    .filter(([, cachedAt]) => !isFresh(cachedAt))
-    .map(([url]) => url)
-
-  if (expiredUrls.length === 0) return
-
-  await Promise.all(expiredUrls.map(async (url) => {
-    await cacheStore.delete(url)
-    revokeBlobEntry(url)
-    delete meta[url]
-  }))
-}
-
-async function getOrFetchSoundBlobUrl(sourceUrl: string): Promise<string | null> {
-  if (!isBrowserStorageAvailable()) return sourceUrl
-
-  const existingResolve = pendingSrcResolve.get(sourceUrl)
-  if (existingResolve) return existingResolve
-
-  const resolvePromise = (async () => {
-    const inMemory = soundBlobCache.get(sourceUrl)
-    if (inMemory && isFresh(inMemory.cachedAt)) {
-      return inMemory.objectUrl
-    }
-    if (inMemory && !isFresh(inMemory.cachedAt)) {
-      revokeBlobEntry(sourceUrl)
-    }
-
-    const cacheStore = await getSoundCacheStore()
-    if (!cacheStore) return sourceUrl
-
-    const meta = readCacheMeta()
-    if (!didStorageSweep) {
-      await sweepExpiredCacheEntries(cacheStore, meta)
-      didStorageSweep = true
-      writeCacheMeta(meta)
-    }
-
-    const cachedAt = meta[sourceUrl]
-    if (typeof cachedAt === 'number' && isFresh(cachedAt)) {
-      const cachedResponse = await cacheStore.match(sourceUrl)
-      if (cachedResponse) {
-        const cachedBlob = await cachedResponse.blob()
-        const objectUrl = URL.createObjectURL(cachedBlob)
-        soundBlobCache.set(sourceUrl, { objectUrl, cachedAt })
-        return objectUrl
-      }
-    }
-
-    const response = await fetch(sourceUrl, { cache: 'no-store' }).catch(() => null)
+  const ctx = ensureAudioContext()
+  const promise = (async () => {
+    const response = await fetch(sourceUrl).catch(() => null)
     if (!response || !response.ok) return null
-
-    const cachedNow = nowMs()
-    await cacheStore.put(sourceUrl, response.clone())
-    meta[sourceUrl] = cachedNow
-    writeCacheMeta(meta)
-
-    const freshBlob = await response.blob()
-    const objectUrl = URL.createObjectURL(freshBlob)
-    soundBlobCache.set(sourceUrl, { objectUrl, cachedAt: cachedNow })
-    return objectUrl
+    const arrayBuffer = await response.arrayBuffer()
+    const buffer = await ctx.decodeAudioData(arrayBuffer)
+    audioBufferCache.set(sourceUrl, buffer)
+    return buffer
   })()
 
-  pendingSrcResolve.set(sourceUrl, resolvePromise)
+  pendingBufferResolve.set(sourceUrl, promise)
   try {
-    return await resolvePromise
-  }
-  finally {
-    pendingSrcResolve.delete(sourceUrl)
+    return await promise
+  } finally {
+    pendingBufferResolve.delete(sourceUrl)
   }
 }
 
@@ -300,33 +219,23 @@ interface PlayClipOptions {
 
 async function playClip(relativePath: string, options?: PlayClipOptions): Promise<boolean> {
   if (checkKillSwitch(relativePath)) return false
-  const sourceUrl = await getOrFetchSoundBlobUrl(toSoundUrl(relativePath))
-  if (!sourceUrl) return false
-
-  const audio = new Audio(sourceUrl)
-  audio.preload = 'auto'
-
-  // Apply volume
-  if (options?.group) {
-    const masterVol = await getEffectiveMasterVolume()
-    const config = await getVolumeConfig()
-    audio.volume = masterVol * (config.groups[options.group] ?? 1)
-  }
-
-  if (options?.channel) {
-    const previous = channelAudio.get(options.channel)
-    if (previous) {
-      previous.pause()
-      previous.currentTime = 0
-    }
-    channelAudio.set(options.channel, audio)
-  }
-
   try {
-    await audio.play()
+    const ctx = ensureAudioContext()
+    const buffer = await getOrFetchAudioBuffer(toSoundUrl(relativePath))
+    if (!buffer) return false
+
+    const source = ctx.createBufferSource()
+    source.buffer = buffer
+    source.connect(options?.group ? (groupGains.get(options.group) ?? masterGain!) : masterGain!)
+
+    if (options?.channel) {
+      try { channelSources.get(options.channel)?.stop() } catch { /* already stopped */ }
+      channelSources.set(options.channel, source)
+    }
+
+    source.start(0)
     return true
-  }
-  catch {
+  } catch {
     return false
   }
 }
@@ -475,37 +384,32 @@ export function playComboPluck(comboSize: number): void {
   const durationSec = Math.min(10, safeCombo * 0.85)
 
   void (async () => {
-    const masterVol = await getEffectiveMasterVolume()
-    const config = await getVolumeConfig()
-    const vol = masterVol * config.groups.combo
+    try {
+      const ctx = ensureAudioContext()
+      const buffer = await getOrFetchAudioBuffer(toSoundUrl('ui_ux/combo/pluck.mp3'))
+      if (!buffer) return
 
-    const sourceUrl = await getOrFetchSoundBlobUrl(toSoundUrl('ui_ux/combo/pluck.mp3'))
-    if (!sourceUrl) return
+      // Stop previous pluck
+      if (pluckStopTimer) {
+        clearTimeout(pluckStopTimer)
+        pluckStopTimer = null
+      }
+      try { pluckSource?.stop() } catch { /* already stopped */ }
 
-    if (!pluckAudio) {
-      pluckAudio = new Audio(sourceUrl)
-      pluckAudio.preload = 'auto'
+      const source = ctx.createBufferSource()
+      source.buffer = buffer
+      source.connect(groupGains.get('combo') ?? masterGain!)
+      pluckSource = source
+
+      source.start(0)
+
+      pluckStopTimer = setTimeout(() => {
+        try { pluckSource?.stop() } catch { /* already stopped */ }
+        pluckSource = null
+      }, durationSec * 1000)
+    } catch {
+      // ignore playback errors
     }
-    else if (pluckAudio.src !== sourceUrl) {
-      pluckAudio.pause()
-      pluckAudio = new Audio(sourceUrl)
-      pluckAudio.preload = 'auto'
-    }
-
-    if (pluckStopTimer) {
-      clearTimeout(pluckStopTimer)
-      pluckStopTimer = null
-    }
-
-    pluckAudio.volume = vol
-    pluckAudio.pause()
-    pluckAudio.currentTime = 0
-    void pluckAudio.play().catch(() => undefined)
-
-    pluckStopTimer = setTimeout(() => {
-      if (!pluckAudio) return
-      pluckAudio.pause()
-    }, durationSec * 1000)
   })()
 }
 

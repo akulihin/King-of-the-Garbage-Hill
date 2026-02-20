@@ -104,9 +104,45 @@ function finishGame() {
   router.push('/')
 }
 
+/** Map Discord custom emoji names to local /art/emojis/ images (mirrors C# EmojiMap). */
+const discordEmojiMap: Record<string, string> = {
+  weed: '/art/emojis/weed.png',
+  bong: '/art/emojis/bone_1.png',
+  WUF: '/art/emojis/wolf_mark.png',
+  pet: '/art/emojis/collar.png',
+  pepe_down: '/art/emojis/pepe.png',
+  sparta: '/art/emojis/spartan_mark.png',
+  Spartaneon: '/art/emojis/sparta.png',
+  pantheon: '/art/emojis/spartan_mark.png',
+  yasuo: '/art/emojis/shame_shame.png',
+  broken_shield: '/art/emojis/broken_shield.png',
+  yo_filled: '/art/emojis/gambit.png',
+  Y_: '/art/emojis/vampyr_mark.png',
+  bronze: '/art/emojis/bronze.png',
+  plat: '/art/emojis/plat.png',
+  393: '/art/emojis/mail_2.png',
+  LoveLetter: '/art/emojis/mail_1.png',
+  fr: '/art/emojis/friend.png',
+  edu: '/art/emojis/learning.png',
+  jaws: '/art/emojis/fin.png',
+  luck: '/art/emojis/luck.png',
+  war: '/art/emojis/war.png',
+  volibir: '/art/emojis/voli.png',
+  e_: '',
+}
+
+/** Convert Discord custom emoji codes to <img> tags (or remove if mapped to empty). */
+function convertDiscordEmoji(text: string): string {
+  return text.replace(/<:(\w+):\d+>/g, (_match, name: string) => {
+    const src = discordEmojiMap[name]
+    if (src === undefined) return `[${name}]`
+    if (src === '') return ''
+    return `<img class="lb-emoji" src="${src}" alt="${name}">`
+  })
+}
+
 function formatLogs(text: string): string {
-  return text
-    .replace(/<:[^:]+:(\d+)>/g, '') // strip Discord custom emoji like <:war:123>
+  return convertDiscordEmoji(text)
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/__(.*?)__/g, '<u>$1</u>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -131,11 +167,16 @@ function mergeEvents(): string {
   return parts.join('\n')
 }
 /**
- * "Летопись" — full game chronicle built from:
- *   - AllPersonalLogs (InGamePersonalLogsAll) — rounds split by "|||"
- *   - AllGlobalLogs (AllGameGlobalLogs)
+ * "Летопись" — full game chronicle.
+ * When the game is finished, uses the server-built FullChronicle (global events + ALL players' personal logs).
+ * During gameplay, falls back to the requesting player's own logs + global events.
  */
 const letopis = computed(() => {
+  // Finished game: use server-built chronicle with all players' logs
+  const chronicle = store.gameState?.fullChronicle
+  if (chronicle) return chronicle
+
+  // In-progress: show own personal logs + global events
   const allGlobal = store.gameState?.allGlobalLogs || ''
   const allPersonal = store.myPlayer?.status.allPersonalLogs || ''
 
@@ -151,7 +192,7 @@ const letopis = computed(() => {
 
   // Append global logs at the end
   if (allGlobal.trim()) {
-    parts.push(`**--- Глобальные события ---**\n${allGlobal}`)
+    parts.push(`**--- Fight History ---**\n${allGlobal}`)
   }
 
   return parts.join('\n\n')
@@ -167,8 +208,7 @@ interface PrevLogEntry {
 }
 
 function cleanDiscord(text: string): string {
-  return text
-    .replace(/<:[^:]+:(\d+)>/g, '')
+  return convertDiscordEmoji(text)
     .replace(/\|>Phrase<\|/g, '')
 }
 
@@ -396,6 +436,7 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
           <FightAnimation
             :fights="store.gameState.fightLog || []"
             :letopis="letopis"
+            :game-story="store.gameStory"
             :players="store.gameState.players"
             :my-player-id="store.myPlayer?.playerId"
             :predictions="store.myPlayer?.predictions"
@@ -500,6 +541,7 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
           </button>
         </div>
 
+
         <!-- Direct Messages (ephemeral alerts) -->
         <div
           v-if="store.myPlayer?.status.directMessages?.length"
@@ -559,6 +601,7 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
   justify-content: center;
   padding: 6px 0;
 }
+
 
 /* ── 3-column layout ────────────────────────────────────────────── */
 .game-layout {
@@ -768,6 +811,13 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 
 .dm-item :deep(strong) { color: var(--accent-gold); }
 .dm-item :deep(em) { color: var(--accent-blue); }
+.dm-item :deep(.lb-emoji) {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  display: inline;
+  margin: 0 2px;
+}
 
 /* ── Leaderboard + Action bar block ─────────────────────────────── */
 .lb-action-block {
@@ -878,6 +928,13 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 .prev-log-text :deep(strong) { color: var(--accent-gold); }
 .prev-log-text :deep(em) { color: var(--accent-blue); }
 .prev-log-text :deep(u) { color: var(--accent-green); }
+.prev-log-text :deep(.lb-emoji) {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  display: inline;
+  margin: 0 2px;
+}
 
 /* Log colors */
 .prev-log-purple {

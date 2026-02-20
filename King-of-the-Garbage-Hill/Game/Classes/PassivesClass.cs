@@ -165,6 +165,25 @@ public class PassivesClass
     public Kira.LClass KiraL { get; set; } = new();
     public bool KiraDeathNoteDead { get; set; } = false;
 
+    public Itachi.CrowsClass ItachiCrows { get; set; } = new();
+    public Itachi.IzanagiClass ItachiIzanagi { get; set; } = new();
+    public Itachi.TsukuyomiClass ItachiTsukuyomi { get; set; } = new();
+
+    // Продавец — seller state (on the seller player)
+    public Seller.VparitGovnaClass SellerVparitGovna { get; set; } = new();
+    public Seller.SecretBuildClass SellerSecretBuild { get; set; } = new();
+    public int SellerProfitableDealsThisRound { get; set; } = 0;
+
+    // Продавец — mark state (on ANY player who gets marked)
+    public int SellerVparitGovnaRoundsLeft { get; set; } = 0;
+    public decimal SellerVparitGovnaTotalSkill { get; set; } = 0;
+
+    // Dopa
+    public Dopa.MacroClass DopaMacro { get; set; } = new();
+    public Dopa.VisionClass DopaVision { get; set; } = new();
+    public Dopa.MetaChoiceClass DopaMetaChoice { get; set; } = new();
+    public bool DopaWonThisRound { get; set; } = false;
+
     public Guid PointFunneledTo { get; set; } = Guid.Empty;
     public bool IsExploitable { get; set; } = false;
     public bool IsExploitFixed { get; set; } = false;

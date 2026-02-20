@@ -100,6 +100,12 @@ public class GameClass
         AllGameGlobalLogs += str + newLine;
     }
 
+    public void AddGlobalLogsRaw(string str)
+    {
+       AllGameGlobalLogs = str;
+    }
+
+
     public string GetGlobalLogs()
     {
         return GlobalLogs;

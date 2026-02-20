@@ -7,6 +7,7 @@ using King_of_the_Garbage_Hill.API.DTOs;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
+using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
 
@@ -26,14 +27,16 @@ public class WebGameService
     private readonly GameUpdateMess _gameUpdateMess;
     private readonly HelperFunctions _helper;
     private readonly CharactersPull _charactersPull;
+    private readonly CharacterPassives _characterPassives;
 
-    public WebGameService(Global global, GameReaction gameReaction, GameUpdateMess gameUpdateMess, HelperFunctions helper, CharactersPull charactersPull)
+    public WebGameService(Global global, GameReaction gameReaction, GameUpdateMess gameUpdateMess, HelperFunctions helper, CharactersPull charactersPull, CharacterPassives characterPassives)
     {
         _global = global;
         _gameReaction = gameReaction;
         _gameUpdateMess = gameUpdateMess;
         _helper = helper;
         _charactersPull = charactersPull;
+        _characterPassives = characterPassives;
     }
 
     // ── Queries ───────────────────────────────────────────────────────
@@ -93,7 +96,8 @@ public class WebGameService
         { "pepe_down", "<img class='lb-emoji' src='/art/emojis/pepe.png'/>" },
         // Spartan / Mylorik
         { "sparta", "<img class='lb-emoji' src='/art/emojis/spartan_mark.png'/>" },
-        { "Spartaneon", "<img class='lb-emoji' src='/art/emojis/spartan_mark.png'/>" },
+        { "Spartaneon", "<img class='lb-emoji' src='/art/emojis/sparta.png'/>" },
+        { "pantheon", "<img class='lb-emoji' src='/art/emojis/spartan_mark.png'/>" },
         { "yasuo", "<img class='lb-emoji' src='/art/emojis/shame_shame.png'/>" },
         { "broken_shield", "<img class='lb-emoji' src='/art/emojis/broken_shield.png'/>" },
         // DeepList
@@ -452,6 +456,24 @@ public class WebGameService
             player.Status.AddInGamePersonalLogs("Я чувствую удачу!\n");
         }
 
+        return Task.FromResult((true, (string)null));
+    }
+
+    public Task<(bool success, string error)> DopaChoice(ulong gameId, ulong discordId, string tactic)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId);
+        if (game == null) return Task.FromResult((false, "Game not found"));
+        if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (!player.GameCharacter.Passive.Any(p => p.PassiveName == "Законодатель меты"))
+            return Task.FromResult((false, "You don't have this passive"));
+        if (player.Passives.DopaMetaChoice.Triggered)
+            return Task.FromResult((false, "Already chosen"));
+
+        var validTactics = new[] { "Стомп", "Фарм", "Доминация", "Роум" };
+        if (!validTactics.Contains(tactic))
+            return Task.FromResult((false, "Invalid tactic"));
+
+        _characterPassives.ApplyDopaChoice(player, game, tactic);
         return Task.FromResult((true, (string)null));
     }
 

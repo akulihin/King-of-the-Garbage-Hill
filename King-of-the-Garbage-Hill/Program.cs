@@ -87,10 +87,14 @@ public class ProgramKingOfTheGarbageHill
             builder.Services.AddSingleton(_services.GetRequiredService<Game.DiscordMessages.GameUpdateMess>());
             builder.Services.AddSingleton(_services.GetRequiredService<Helpers.HelperFunctions>());
             builder.Services.AddSingleton(_services.GetRequiredService<Game.MemoryStorage.CharactersPull>());
+            builder.Services.AddSingleton(_services.GetRequiredService<Game.GameLogic.CharacterPassives>());
+            builder.Services.AddSingleton(_services.GetRequiredService<Config>());
+            builder.Services.AddSingleton(_services.GetRequiredService<HttpClient>());
 
             // Register web-specific services
             builder.Services.AddSingleton<WebGameService>();
             builder.Services.AddSingleton<GameNotificationService>();
+            builder.Services.AddSingleton<GameStoryService>();
 
             // Add SignalR for real-time communication
             builder.Services.AddSignalR()

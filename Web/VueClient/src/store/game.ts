@@ -58,6 +58,7 @@ export const useGameStore = defineStore('game', () => {
   const pendingLevelUp = ref<PendingLevelUp | null>(null)
   const lastMoralToPointsRound = ref<number | null>(null)
   const lastMoralToSkillRound = ref<number | null>(null)
+  const gameStory = ref<string | null>(null)
 
   // ── Derived State ─────────────────────────────────────────────────
 
@@ -193,6 +194,12 @@ export const useGameStore = defineStore('game', () => {
 
       signalrService.onGameEvent = (event) => {
         lastEvent.value = event
+        if (event.eventType === 'GameStory') {
+          const data = event.data as { story: string } | undefined
+          if (data?.story) {
+            gameStory.value = data.story
+          }
+        }
       }
 
       signalrService.onError = (error) => {
@@ -233,6 +240,7 @@ export const useGameStore = defineStore('game', () => {
   async function leaveGame(gameId: number) {
     await signalrService.leaveGame(gameId)
     gameState.value = null
+    gameStory.value = null
   }
 
   async function refreshLobby() {
@@ -328,6 +336,11 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.youngGleb(gameState.value.gameId)
   }
 
+  async function dopaChoice(tactic: string) {
+    if (!gameState.value) return
+    await signalrService.dopaChoice(gameState.value.gameId, tactic)
+  }
+
   async function deathNoteWrite(targetPlayerId: string, characterName: string) {
     if (!gameState.value) return
     await signalrService.deathNoteWrite(gameState.value.gameId, targetPlayerId, characterName)
@@ -359,6 +372,7 @@ export const useGameStore = defineStore('game', () => {
     lastEvent,
     errorMessage,
     isLoading,
+    gameStory,
     // Computed
     myPlayer,
     opponents,
@@ -391,6 +405,7 @@ export const useGameStore = defineStore('game', () => {
     aramConfirm,
     darksciChoice,
     youngGleb,
+    dopaChoice,
     deathNoteWrite,
     shinigamiEyes,
     setPreferWeb,

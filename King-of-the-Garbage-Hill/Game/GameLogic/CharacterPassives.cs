@@ -302,6 +302,9 @@ public class CharacterPassives : IServiceSingleton
                             target.Passives.GlebSkip = true;
                             game.Phrases.GlebComeBackPhrase.SendLog(target, true);
 
+                            // Enemy sees message in their log
+                            game.Phrases.GlebComeBackEnemy.SendLog(target, false);
+
                             var glebSkipFriendList = target.Passives.GlebSkipFriendList;
                             if (!glebSkipFriendList.FriendList.Contains(me.GetPlayerId()))
                                 glebSkipFriendList.FriendList.Add(me.GetPlayerId());
@@ -394,17 +397,57 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Неприметность":
                     if (game.RoundNo  >= 10) break;
-
+                    var saitamaAtkUnnoticedAfter = target.Passives.SaitamaUnnoticed;
                     // Saitama holds back against enemies NOT in top 2 — they appear to win
                     var saitamaDefUnnoticed = target.Passives.SaitamaUnnoticed;
                     if (!saitamaDefUnnoticed.SeriousTargets.Contains(me.GetPlayerId()))
                     {
                         target.Status.IsAbleToWin = false;
                         game.Phrases.SaitamaHoldsBack.SendLog(target, false);
+                        
+                        // Defer the win point (remove 1 from pending score)
+                        target.Status.AddRegularPoints(-1, "Неприметность");
+                        saitamaAtkUnnoticedAfter.DeferredPoints += 1;
+                        
+                        // Defer moral too (underdog moral only applies when we had worse place)
+                        var moralGain = target.Status.GetPlaceAtLeaderBoard() - me.Status.GetPlaceAtLeaderBoard();
+                        if (moralGain > 0 && game.RoundNo > 1)
+                        {
+                            target.GameCharacter.AddMoral(-moralGain, "Неприметность", isFightMoral: true);
+                            saitamaAtkUnnoticedAfter.DeferredMoral += moralGain;
+                        }
                     }
                     else
                     {
                         game.Phrases.SaitamaSerious.SendLog(target, false);
+                    }
+                    break;
+
+                case "Огурчик Рик":
+                    if (target.Passives.RickPickle.PickleTurnsRemaining > 0)
+                    {
+                        target.Passives.RickPickle.WasAttackedAsPickle = true;
+                        me.Status.IsAbleToWin = false;
+                    }
+                    break;
+
+                // Вороны (defense): reduce attacker speed by crow count on attacker
+                case "Вороны":
+                    var crowsDef = target.Passives.ItachiCrows;
+                    if (crowsDef.CrowCounts.TryGetValue(me.GetPlayerId(), out var crowCountDef) && crowCountDef > 0)
+                    {
+                        me.GameCharacter.AddSpeedForOneFight(-crowCountDef);
+                    }
+                    break;
+
+                // Аматерасу (defense): auto-win if attacker effective speed < Itachi's speed
+                case "Аматерасу":
+                    var itachiSpeedDef = target.GameCharacter.GetSpeed();
+                    var attackerEffectiveSpeedDef = me.GameCharacter.GetSpeed();
+                    if (attackerEffectiveSpeedDef < itachiSpeedDef)
+                    {
+                        me.Status.IsAbleToWin = false;
+                        game.Phrases.ItachiAmaterasu.SendLog(target, false);
                     }
                     break;
             }
@@ -490,13 +533,23 @@ public class CharacterPassives : IServiceSingleton
                     //game.Phrases.HardKittyDoebatsyaAnswerPhrase.SendLog(target, false);
                     break;
 
-                case "Огурчик Рик":
-                    if (target.Passives.RickPickle.PickleTurnsRemaining > 0)
+                case "Гигантские бобы":
+                    var beansDefAfter = target.Passives.RickGiantBeans;
+                    if (beansDefAfter.IngredientsActive && beansDefAfter.IngredientTargets.Contains(me.GetPlayerId())
+                        && target.Status.IsWonThisCalculation == me.GetPlayerId())
                     {
-                        target.Passives.RickPickle.WasAttackedAsPickle = true;
-                        me.Status.IsAbleToWin = false;
+                        beansDefAfter.IngredientTargets.Remove(me.GetPlayerId());
+                        beansDefAfter.BeanStacks++;
+                        target.GameCharacter.AddStrength(-1, "Гигантские бобы");
+                        target.GameCharacter.AddSpeed(-1, "Гигантские бобы");
+                        target.GameCharacter.AddPsyche(-1, "Гигантские бобы");
+                        var oldFakeBeansD = beansDefAfter.FakeIntelligence;
+                        beansDefAfter.FakeIntelligence = beansDefAfter.BaseIntelligence * beansDefAfter.BeanStacks;
+                        target.GameCharacter.AddIntelligence(beansDefAfter.FakeIntelligence - oldFakeBeansD, "Гигантские бобы");
+                        game.Phrases.RickGiantBeansDrink.SendLog(target, false);
                     }
                     break;
+
             }
     }
 
@@ -827,17 +880,17 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Неприметность":
                     // Saitama holds back against enemies NOT in top 2
-                    if (game.RoundNo  >= 10) break;
-                    var saitamaAtkUnnoticed = me.Passives.SaitamaUnnoticed;
-                    if (!saitamaAtkUnnoticed.SeriousTargets.Contains(target.GetPlayerId()))
-                    {
-                        me.Status.IsAbleToWin = false;
-                        game.Phrases.SaitamaHoldsBack.SendLog(me, false);
-                    }
-                    else
-                    {
-                        game.Phrases.SaitamaSerious.SendLog(me, false);
-                    }
+                    //if (game.RoundNo  >= 10) break;
+                    //var saitamaAtkUnnoticed = me.Passives.SaitamaUnnoticed;
+                    //if (!saitamaAtkUnnoticed.SeriousTargets.Contains(target.GetPlayerId()))
+                    //{
+                    //    me.Status.IsAbleToWin = false;
+                    //    game.Phrases.SaitamaHoldsBack.SendLog(me, false);
+                    //}
+                    //else
+                    //{
+                    //    game.Phrases.SaitamaSerious.SendLog(me, false);
+                    //}
                     break;
 
                 case "Портальная пушка":
@@ -848,6 +901,56 @@ public class CharacterPassives : IServiceSingleton
                         me.Status.IsArmorBreak = true;
                         me.Status.IsSkipBreak = true;
                     }
+                    break;
+
+                // Вороны: reduce target speed by crow count
+                case "Вороны":
+                    var crowsAtk = me.Passives.ItachiCrows;
+                    if (crowsAtk.CrowCounts.TryGetValue(target.GetPlayerId(), out var crowCount) && crowCount > 0)
+                    {
+                        target.GameCharacter.AddSpeedForOneFight(-crowCount);
+                    }
+                    break;
+
+                // Аматерасу: auto-win if target effective speed < Itachi's speed
+                case "Аматерасу":
+                    var itachiSpeedAtk = me.GameCharacter.GetSpeed();
+                    var targetEffectiveSpeedAtk = target.GameCharacter.GetSpeed();
+                    if (targetEffectiveSpeedAtk < itachiSpeedAtk)
+                    {
+                        target.Status.IsAbleToWin = false;
+                        game.Phrases.ItachiAmaterasu.SendLog(me, false);
+                    }
+                    break;
+
+                case "Впарить говна":
+                    var sellerVparit = me.Passives.SellerVparitGovna;
+                    if (sellerVparit.Cooldown <= 0)
+                    {
+                        // Add 500 skill BEFORE enabling siphon (so 500 is excluded)
+                        var savedSiphon = target.GameCharacter.SkillSiphonBox;
+                        target.GameCharacter.SkillSiphonBox = null;
+                        target.GameCharacter.AddExtraSkill(500, "Впарить говна");
+                        target.GameCharacter.SkillSiphonBox = savedSiphon ?? 0; // enable/restore siphon
+
+                        // Track total skill added (for removal when mark expires)
+                        target.Passives.SellerVparitGovnaTotalSkill += 500;
+                        target.Passives.SellerVparitGovnaRoundsLeft = 4;
+
+                        // Track in seller's list
+                        if (!sellerVparit.MarkedPlayers.Contains(target.GetPlayerId()))
+                            sellerVparit.MarkedPlayers.Add(target.GetPlayerId());
+
+                        sellerVparit.Cooldown = 2;
+                        game.Phrases.SellerVparit.SendLog(me, false);
+                        game.Phrases.SellerVparitEnemy.SendLog(target, false);
+                    }
+                    break;
+
+                case "Макро":
+                    me.Passives.DopaMacro.FightsProcessed++;
+                    if (me.Passives.DopaMacro.FightsProcessed > 1)
+                        me.Status.HideCurrentFight = true;
                     break;
             }
     }
@@ -1276,6 +1379,38 @@ public class CharacterPassives : IServiceSingleton
                         game.Phrases.RickPortalGunFired.SendLog(me, false);
                     }
                     break;
+
+                case "Пассивный импакт":
+                    if (me.Status.IsWonThisCalculation != Guid.Empty)
+                        me.Passives.DopaWonThisRound = true;
+                    break;
+
+                case "Доминация":
+                    if (me.Status.IsWonThisCalculation != Guid.Empty)
+                    {
+                        me.GameCharacter.AddExtraSkill(20, "Доминация");
+                        target.Status.AddBonusPoints(-1, "Доминация");
+                        if (_rand.Luck(1, 3))
+                            target.GameCharacter.AddPsyche(-1, "Доминация");
+                        game.Phrases.DopaDomination.SendLog(me, false);
+                    }
+                    break;
+
+                case "Роум":
+                    if (me.Status.IsWonThisCalculation != Guid.Empty)
+                    {
+                        var myPlace = me.Status.GetPlaceAtLeaderBoard();
+                        var targetPlace = target.Status.GetPlaceAtLeaderBoard();
+                        if (Math.Abs(myPlace - targetPlace) > 1)
+                        {
+                            target.Status.AddBonusPoints(-1, "Роум");
+                            me.Status.AddBonusPoints(1, "Роум");
+                            target.GameCharacter.AddMoral(-3, "Роум");
+                            me.GameCharacter.AddMoral(3, "Роум");
+                            game.Phrases.DopaRoam.SendLog(me, false);
+                        }
+                    }
+                    break;
             }
     }
 
@@ -1300,6 +1435,42 @@ public class CharacterPassives : IServiceSingleton
                         }
                     }
 
+                    break;
+
+                case "Впарить говна":
+                    // p = seller, player = fight participant
+                    // Give marked winners +1 bonus point
+                    if (p.GetPlayerId() != player.GetPlayerId() &&
+                        player.Passives.SellerVparitGovnaRoundsLeft > 0 &&
+                        player.Status.IsWonThisCalculation != Guid.Empty)
+                    {
+                        player.Status.AddBonusPoints(1, "Впарить говна");
+                    }
+                    break;
+
+                case "Выгодная сделка":
+                    // p = seller (has this passive), player = fight participant
+                    if (p.GetPlayerId() != player.GetPlayerId() &&
+                        player.Status.IsWonThisCalculation != Guid.Empty)
+                    {
+                        bool isMarked = player.Passives.SellerVparitGovnaRoundsLeft > 0;
+                        bool hasTactic = player.GameCharacter.Passive.Any(x => x.PassiveName == "Сомнительная тактика");
+                        if (isMarked || hasTactic)
+                            p.Passives.SellerProfitableDealsThisRound++;
+                    }
+                    break;
+
+                case "Большой куш":
+                    // p = seller, player = fight participant who attacked seller and won
+                    if (attack && player.Status.IsWonThisCalculation == p.GetPlayerId())
+                    {
+                        if (_rand.Luck(1, 10))
+                        {
+                            player.Status.AddBonusPoints(2, "Большой куш");
+                            p.Status.AddBonusPoints(-2, "Большой куш");
+                            game.Phrases.SellerBolshoiKushEnemy.SendLog(player, false);
+                        }
+                    }
                     break;
             }
 
@@ -1397,6 +1568,11 @@ public class CharacterPassives : IServiceSingleton
 
                                 player.Status.AddRegularPoints(1, "Стёб");
                                 game.Phrases.DeepListPokePhrase.SendLog(player, true);
+
+                                // БОЛЬШЕ МОЛОКА ДЛЯ ХАРДКИТТИ!
+                                if (target!.GameCharacter.Name == "HardKitty")
+                                    game.Phrases.DeepListMockeryHardKittyMilk.SendLog(player, false);
+
                                 if (target.GameCharacter.GetPsyche() < 4)
                                     if (target.GameCharacter.Justice.GetRealJusticeNow() > 0)
                                         if (target.GameCharacter.Name != "LeCrisp")
@@ -1478,6 +1654,13 @@ public class CharacterPassives : IServiceSingleton
                     {
                         player.Status.IsSkip = false;
                         player.Passives.GlebSkip = false;
+
+                        // 33% chance "POSTAV ROLI" when waking up and NOT in Challenger mode
+                        var glebChallenger = player.Passives.GlebChallengerTriggeredWhen;
+                        if (!glebChallenger.WhenToTrigger.Contains(game.RoundNo) && _rand.Luck(1, 3))
+                        {
+                            game.Phrases.GlebWakeUpRoli.SendLog(player, false);
+                        }
                     }
 
                     break;
@@ -1771,6 +1954,30 @@ public class CharacterPassives : IServiceSingleton
                     {
                         player.Status.AddRegularPoints(2, "Огурчик Рик");
                         game.Phrases.RickPickleWin.SendLog(player, false);
+                    }
+                    break;
+
+                // Вороны: place crow on enemy on win (attack only)
+                case "Вороны":
+                    if (attack && player.Status.IsWonThisCalculation != Guid.Empty)
+                    {
+                        var crowsAfter = player.Passives.ItachiCrows;
+                        var crowTargetId = player.Status.IsWonThisCalculation;
+                        if (!crowsAfter.CrowCounts.ContainsKey(crowTargetId))
+                            crowsAfter.CrowCounts[crowTargetId] = 0;
+                        crowsAfter.CrowCounts[crowTargetId]++;
+                        game.Phrases.ItachiCrows.SendLog(player, false);
+                    }
+                    break;
+
+                // Глаза Итачи: activate Tsukuyomi if charged (attack only)
+                case "Глаза Итачи":
+                    if (attack && player.Status.IsWonThisCalculation != Guid.Empty
+                        && player.Passives.ItachiTsukuyomi.ChargeCounter >= 2)
+                    {
+                        player.Passives.ItachiTsukuyomi.TsukuyomiTargetThisRound = player.Status.IsWonThisCalculation;
+                        player.Passives.ItachiTsukuyomi.ChargeCounter = 0;
+                        game.Phrases.ItachiTsukuyomiActivate.SendLog(player, false);
                     }
                     break;
             }
@@ -2438,7 +2645,115 @@ public class CharacterPassives : IServiceSingleton
                         }
                     }
                     break;
+
+                // Глаза Итачи: steal points from active target + charge
+                case "Глаза Итачи":
+                    var tsukuyomi = player.Passives.ItachiTsukuyomi;
+
+                    // Steal points from active target
+                    if (tsukuyomi.TsukuyomiActiveTarget != Guid.Empty)
+                    {
+                        var tsukuyomiVictim = game.PlayersList.Find(x => x.GetPlayerId() == tsukuyomi.TsukuyomiActiveTarget);
+                        if (tsukuyomiVictim != null)
+                        {
+                            var stolenPoints = tsukuyomiVictim.Status.GetScoresToGiveAtEndOfRound();
+                            if (stolenPoints > 0)
+                            {
+                                player.Status.AddBonusPoints(stolenPoints, "Глаза Итачи");
+                                tsukuyomi.TotalStolenPoints += stolenPoints;
+                                if (!tsukuyomi.StolenFromPlayers.ContainsKey(tsukuyomi.TsukuyomiActiveTarget))
+                                    tsukuyomi.StolenFromPlayers[tsukuyomi.TsukuyomiActiveTarget] = 0;
+                                tsukuyomi.StolenFromPlayers[tsukuyomi.TsukuyomiActiveTarget] += stolenPoints;
+                                game.Phrases.ItachiTsukuyomiSteal.SendLog(player, false);
+                            }
+                        }
+                        tsukuyomi.TsukuyomiActiveTarget = Guid.Empty;
+                        game.Phrases.ItachiTsukuyomiEnd.SendLog(player, false);
+                    }
+
+                    // Charge counter (cap at 2)
+                    if (tsukuyomi.ChargeCounter < 2)
+                    {
+                        tsukuyomi.ChargeCounter++;
+                        if (tsukuyomi.ChargeCounter >= 2)
+                            game.Phrases.ItachiTsukuyomiCharge.SendLog(player, false);
+                    }
+                    break;
+
+                case "Выгодная сделка":
+                    var deals = player.Passives.SellerProfitableDealsThisRound;
+                    if (deals > 0)
+                    {
+                        player.Status.AddBonusPoints(deals, "Выгодная сделка");
+                        if (deals >= 3)
+                            game.Phrases.SellerProfitBig.SendLog(player, false);
+                        else
+                            game.Phrases.SellerProfit.SendLog(player, false);
+                    }
+                    player.Passives.SellerProfitableDealsThisRound = 0;
+                    break;
+
+                case "Пассивный импакт":
+                    if (player.Passives.DopaWonThisRound)
+                    {
+                        player.Status.AddBonusPoints(1, "Пассивный импакт");
+                        game.Phrases.DopaImpact.SendLog(player, false);
+                    }
+                    player.Passives.DopaWonThisRound = false;
+                    break;
+
+                case "Взгляд в будущее":
+                    if (player.Passives.DopaVision.Cooldown > 0) break;
+                    if (player.Status.WhoToAttackThisTurn.Count < 2) break;
+
+                    var t1Id = player.Status.WhoToAttackThisTurn[0];
+                    var t2Id = player.Status.WhoToAttackThisTurn[1];
+                    var t1 = game.PlayersList.Find(x => x.GetPlayerId() == t1Id);
+                    var t2 = game.PlayersList.Find(x => x.GetPlayerId() == t2Id);
+                    if (t1 == null || t2 == null) break;
+
+                    bool visionProc = false;
+                    if (t1.Status.WhoToAttackThisTurn.Contains(t2Id)) visionProc = true;
+                    if (t2.Status.WhoToAttackThisTurn.Contains(t1Id)) visionProc = true;
+                    if (t1.Status.IsBlock) visionProc = true;
+                    if (t2.Status.IsBlock) visionProc = true;
+
+                    if (visionProc)
+                    {
+                        int pointsAward = player.GameCharacter.Passive.Any(x => x.PassiveName == "Фарм") ? 4 : 2;
+                        player.Status.AddRegularPoints(pointsAward, "Взгляд в будущее");
+                        player.GameCharacter.AddExtraSkill(50, "Взгляд в будущее");
+                        player.Passives.DopaVision.Cooldown = 1;
+                        game.Phrases.DopaVisionProc.SendLog(player, false);
+                    }
+                    break;
             }
+
+        // High Elo repeated loss — any player losing to a high-elo character for 2nd+ consecutive time
+        var highEloNames = new HashSet<string> { "DeepList", "mylorik", "Глеб", "Dopa", "Загадочный Спартанец в маске" };
+        foreach (var player in game.PlayersList)
+        {
+            if (player.Status.IsLostThisCalculation == Guid.Empty) continue;
+            var enemy = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsLostThisCalculation);
+            if (enemy == null || !highEloNames.Contains(enemy.GameCharacter.Name)) continue;
+
+            // Check if also lost to this same enemy last round
+            if (player.Status.WhoToLostEveryRound.Any(x =>
+                    x.RoundNo == game.RoundNo - 1 && x.EnemyId == enemy.GetPlayerId()))
+            {
+                game.Phrases.HighEloLoss.SendLog(player, false);
+            }
+        }
+
+        // LeCrisp Stonks — earned more than 10 regular points this round
+        foreach (var player in game.PlayersList)
+        {
+            if (player.GameCharacter.Name != "LeCrisp") continue;
+            if (player.Status.GetScoresToGiveAtEndOfRound() > 10)
+            {
+                game.Phrases.LeCrispStonks.SendLog(player, false);
+            }
+        }
     }
 
     public async Task HandleNextRound(GameClass game)
@@ -2513,7 +2828,7 @@ public class CharacterPassives : IServiceSingleton
                                 var deferred = saitamaWorthy.DeferredPoints;
                                 if (deferred > 0)
                                 {
-                                    player.Status.AddRegularPoints(deferred, "🐙🐙🐙Ищет достойного противника🐙🐙🐙");
+                                    player.Status.AddBonusPoints(4*deferred, "🐙🐙🐙Ищет достойного противника🐙🐙🐙");
                                     saitamaWorthy.DeferredPoints = 0;
                                 }
 
@@ -2524,7 +2839,7 @@ public class CharacterPassives : IServiceSingleton
                                     saitamaWorthy.DeferredMoral = 0;
                                 }
 
-                                game.AddGlobalLogs($"{player.DiscordUsername} наконец показал свою ИСТИННУЮ СИЛУ! ONE PUUUUUUNCH!!! +{deferred} очков");
+                                game.AddGlobalLogs($"{player.DiscordUsername} наконец показал свою ИСТИННУЮ СИЛУ! ONE PUUUUUUNCH!!!");
                             }
                         }
                         break;
@@ -2847,6 +3162,12 @@ public class CharacterPassives : IServiceSingleton
                             game.Phrases.GlebSleepyPhrase.SendLog(player, false);
                         }
 
+                        // Gleb sees Sirinoks become dragon on round 10
+                        if (game.RoundNo == 10 && game.PlayersList.Any(x => x.GameCharacter.Name == "Sirinoks"))
+                        {
+                            game.AddGlobalLogs($"\n{player.DiscordUsername}: Ogo, drakon, nihuya sebe");
+                        }
+
                         break;
 
                     case "Претендент русского сервера":
@@ -3020,6 +3341,11 @@ public class CharacterPassives : IServiceSingleton
                                 //me.Status.AddBonusPoints(-3, "Безумие");
 
                                 game.Phrases.DeepListMadnessPhrase.SendLog(player, true);
+
+                                // БОЛЬШЕ МОЛОКА ДЛЯ ХАРДКИТТИ!
+                                if (game.PlayersList.Any(x => x.GameCharacter.Name == "HardKitty"))
+                                    game.Phrases.DeepListMadnessHardKittyMilk.SendLog(player, false);
+
                                 curr.MadnessList.Add(new DeepList.MadnessSub(2, intel, str, speed, pshy));
                             }
 
@@ -3089,6 +3415,89 @@ public class CharacterPassives : IServiceSingleton
                             game.Phrases.RickPicklePenalty.SendLog(player, true);
                         }
                         break;
+
+                    // Глаза Итачи: move this-round target to active target for next round
+                    case "Глаза Итачи":
+                        var tsukuyomiNext = player.Passives.ItachiTsukuyomi;
+                        if (tsukuyomiNext.TsukuyomiTargetThisRound != Guid.Empty)
+                        {
+                            tsukuyomiNext.TsukuyomiActiveTarget = tsukuyomiNext.TsukuyomiTargetThisRound;
+                            tsukuyomiNext.TsukuyomiTargetThisRound = Guid.Empty;
+                        }
+                        break;
+
+                    case "Впарить говна":
+                        // Decrement cooldown
+                        var sellerVNext = player.Passives.SellerVparitGovna;
+                        sellerVNext.Cooldown = Math.Max(0, sellerVNext.Cooldown - 1);
+
+                        // Decrement mark timers on all players
+                        foreach (var marked in game.PlayersList)
+                        {
+                            if (marked.Passives.SellerVparitGovnaRoundsLeft > 0)
+                            {
+                                marked.Passives.SellerVparitGovnaRoundsLeft--;
+                                if (marked.Passives.SellerVparitGovnaRoundsLeft <= 0)
+                                {
+                                    // Mark expired — remove temporary skill
+                                    marked.GameCharacter.AddExtraSkill(
+                                        -marked.Passives.SellerVparitGovnaTotalSkill, "Впарить говна", false);
+                                    marked.Passives.SellerVparitGovnaTotalSkill = 0;
+
+                                    // Collect siphoned skill into seller's box and stop siphoning
+                                    var siphoned = marked.GameCharacter.SkillSiphonBox ?? 0;
+                                    player.Passives.SellerSecretBuild.AccumulatedSkill += siphoned;
+                                    marked.GameCharacter.SkillSiphonBox = null;
+                                }
+                            }
+                        }
+                        break;
+
+                    case "Секретный билд":
+                        if (game.RoundNo == 10)
+                        {
+                            // Collect remaining active siphons from still-marked players
+                            decimal totalSiphoned = player.Passives.SellerSecretBuild.AccumulatedSkill;
+                            foreach (var marked in game.PlayersList)
+                            {
+                                if (marked.GameCharacter.SkillSiphonBox.HasValue)
+                                {
+                                    totalSiphoned += marked.GameCharacter.SkillSiphonBox.Value;
+                                    marked.GameCharacter.SkillSiphonBox = null;
+                                }
+                            }
+
+                            if (totalSiphoned > 0)
+                            {
+                                player.GameCharacter.AddExtraSkill(totalSiphoned, "Секретный билд");
+                                player.Status.AddInGamePersonalLogs(
+                                    $"Пришло время играть по-настоящему. Мой секретный билд: +{totalSiphoned} Скилла\n");
+                                game.Phrases.SellerSecretBuild.SendLog(player, false);
+                            }
+                        }
+                        break;
+
+                    case "Макро":
+                        player.Passives.DopaMacro.FightsProcessed = 0;
+                        break;
+
+                    case "Взгляд в будущее":
+                        if (player.Passives.DopaVision.Cooldown > 0)
+                        {
+                            player.Passives.DopaVision.Cooldown--;
+                            if (player.Passives.DopaVision.Cooldown == 0)
+                                game.Phrases.DopaVisionReady.SendLog(player, false);
+                        }
+                        break;
+
+                    case "Законодатель меты":
+                        if (game.RoundNo == 1 && player.IsBot() && !player.Passives.DopaMetaChoice.Triggered)
+                        {
+                            var tactics = new[] { "Стомп", "Фарм", "Доминация", "Роум" };
+                            var chosen = tactics[_rand.Random(0, 3)];
+                            ApplyDopaChoice(player, game, chosen);
+                        }
+                        break;
                 }
 
             //Я за чаем
@@ -3114,6 +3523,26 @@ public class CharacterPassives : IServiceSingleton
 
 
 
+
+    public void ApplyDopaChoice(GamePlayerBridgeClass player, GameClass game, string tactic)
+    {
+        player.Passives.DopaMetaChoice.Triggered = true;
+        player.Passives.DopaMetaChoice.ChosenTactic = tactic;
+
+        var allTactics = new[] { "Стомп", "Фарм", "Доминация", "Роум" };
+        foreach (var t in allTactics.Where(t => t != tactic))
+            player.GameCharacter.Passive.RemoveAll(x => x.PassiveName == t);
+        player.GameCharacter.Passive.RemoveAll(x => x.PassiveName == "Законодатель меты");
+
+        if (tactic == "Стомп")
+        {
+            player.GameCharacter.AddStrength(9, "Стомп");
+            player.GameCharacter.AddExtraSkill(99, "Стомп");
+        }
+
+        game.Phrases.DopaMetaChosen.SendLog(player, false);
+        player.Status.AddInGamePersonalLogs($"Тактика выбрана: {tactic}\n");
+    }
 
     public void HandleNextRoundAfterSorting(GameClass game)
     {
@@ -3432,6 +3861,7 @@ public class CharacterPassives : IServiceSingleton
         characters.Add("Школоло");
         characters.Add("AWDKA");
         characters.Add("Вампур");
+        characters.Add("Итачи");
 
 
         return characters;

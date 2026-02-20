@@ -313,6 +313,23 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         customString += " <:jaws:565741834219945986>";
                     break;
 
+                case "Вороны":
+                    if (other.GetPlayerId() == me.GetPlayerId()) break;
+                    var crows = me.Passives.ItachiCrows;
+                    if (crows.CrowCounts.TryGetValue(other.GetPlayerId(), out var crowCount2) && crowCount2 > 0)
+                    {
+                        for (var c = 0; c < crowCount2; c++)
+                            customString += " 🐦‍⬛";
+                    }
+                    break;
+
+                case "Неприметность":
+                    if (other.GetPlayerId() == me.GetPlayerId()) break;
+                    var saitamaTargets = me.Passives.SaitamaUnnoticed.SeriousTargets;
+                    if (saitamaTargets.Contains(other.GetPlayerId()))
+                        customString += " 👊";
+                    break;
+
                 case "Повезло":
                     var dar = me.Passives.DarksciLuckyList;
 
@@ -528,10 +545,20 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                                 customString += " 2:0";
                                 break;
                             default:
-                                if (enemy.WinsSeries >= 3 || !enemy.IsUnique) 
+                                if (enemy.WinsSeries >= 3 || !enemy.IsUnique)
                                     customString += " 3:0, обоссан";
                                 break;
                         }
+                    }
+                    break;
+
+                case "Впарить говна":
+                    if (other.GetPlayerId() != me.GetPlayerId())
+                    {
+                        if (other.Passives.SellerVparitGovnaRoundsLeft > 0)
+                            customString += " **💰**";
+                        else if (other.GameCharacter.Passive.Any(x => x.PassiveName == "Сомнительная тактика"))
+                            customString += " 💰";
                     }
                     break;
             }

@@ -14,6 +14,7 @@ import {
 const props = withDefaults(defineProps<{
   fights: FightEntry[]
   letopis?: string
+  gameStory?: string | null
   players?: Player[]
   myPlayerId?: string
   predictions?: Prediction[]
@@ -21,6 +22,7 @@ const props = withDefaults(defineProps<{
   characterCatalog?: CharacterInfo[]
 }>(), {
   letopis: '',
+  gameStory: null,
   players: () => [],
   myPlayerId: '',
   predictions: () => [],
@@ -35,17 +37,34 @@ const emit = defineEmits<{
   (e: 'replay-ended'): void
 }>()
 
-/** Active tab: 'fights' = replay, 'all' = compact results list, 'letopis' = full text log */
-const activeTab = ref<'fights' | 'all' | 'letopis'>('fights')
+/** Active tab: 'fights' = replay, 'all' = compact results list, 'letopis' = full text log, 'story' = AI story */
+const activeTab = ref<'fights' | 'all' | 'letopis' | 'story'>('fights')
 /** Tracks whether user manually switched tabs this round (prevents auto-transition) */
 const userSwitchedTab = ref(false)
 /** True when new fights arrived while user was on a non-fights tab */
 const hasUnseenFights = ref(false)
-function setTab(tab: 'fights' | 'all' | 'letopis') {
+/** Whether the story popup overlay is visible */
+const showStoryPopup = ref(false)
+/** Whether the story popup has been shown once already (don't auto-show again) */
+const storyPopupShown = ref(false)
+
+function setTab(tab: 'fights' | 'all' | 'letopis' | 'story') {
   activeTab.value = tab
   userSwitchedTab.value = true
   if (tab === 'fights') hasUnseenFights.value = false
 }
+
+function dismissStoryPopup() {
+  showStoryPopup.value = false
+}
+
+// Auto-show story popup when story arrives
+watch(() => props.gameStory, (val) => {
+  if (val && !storyPopupShown.value) {
+    showStoryPopup.value = true
+    storyPopupShown.value = true
+  }
+})
 
 // ── Playback state ──────────────────────────────────────────────────
 const currentFightIdx = ref(0)
@@ -631,9 +650,41 @@ function phaseClass(result: number, revealed: boolean): string {
   return 'phase-draw'
 }
 
+/** Map Discord custom emoji names to local /art/emojis/ images. */
+const discordEmojiMap: Record<string, string> = {
+  weed: '/art/emojis/weed.png',
+  bong: '/art/emojis/bone_1.png',
+  WUF: '/art/emojis/wolf_mark.png',
+  pet: '/art/emojis/collar.png',
+  pepe_down: '/art/emojis/pepe.png',
+  sparta: '/art/emojis/spartan_mark.png',
+  Spartaneon: '/art/emojis/sparta.png',
+  pantheon: '/art/emojis/spartan_mark.png',
+  yasuo: '/art/emojis/shame_shame.png',
+  broken_shield: '/art/emojis/broken_shield.png',
+  yo_filled: '/art/emojis/gambit.png',
+  Y_: '/art/emojis/vampyr_mark.png',
+  bronze: '/art/emojis/bronze.png',
+  plat: '/art/emojis/plat.png',
+  393: '/art/emojis/mail_2.png',
+  LoveLetter: '/art/emojis/mail_1.png',
+  fr: '/art/emojis/friend.png',
+  edu: '/art/emojis/learning.png',
+  jaws: '/art/emojis/fin.png',
+  luck: '/art/emojis/luck.png',
+  war: '/art/emojis/war.png',
+  volibir: '/art/emojis/voli.png',
+  e_: '',
+}
+
 function formatLetopis(text: string): string {
   return text
-    .replace(/<:[^:]+:(\d+)>/g, '')
+    .replace(/<:(\w+):\d+>/g, (_match, name: string) => {
+      const src = discordEmojiMap[name]
+      if (src === undefined) return `[${name}]`
+      if (src === '') return ''
+      return `<img class="lb-emoji" src="${src}" alt="${name}">`
+    })
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/__(.*?)__/g, '<u>$1</u>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -867,12 +918,29 @@ function getDisplayCharName(orig: string, u: string): string {
       <button class="fa-tab" :class="{ active: activeTab === 'fights' }" data-sfx-utility="true" @click="setTab('fights')">Бои раунда<span v-if="hasUnseenFights && activeTab !== 'fights'" class="fa-tab-dot"></span></button>
       <button class="fa-tab" :class="{ active: activeTab === 'all' }" data-sfx-utility="true" @click="setTab('all')">Все бои</button>
       <button class="fa-tab" :class="{ active: activeTab === 'letopis' }" data-sfx-utility="true" @click="setTab('letopis')">Летопись</button>
+      <button v-if="gameStory" class="fa-tab fa-tab-story" :class="{ active: activeTab === 'story' }" data-sfx-utility="true" @click="setTab('story')">История</button>
     </div>
 
     <!-- Летопись -->
     <div v-if="activeTab === 'letopis'" class="fa-letopis">
       <div v-if="letopis.trim()" class="fa-letopis-content" v-html="formatLetopis(letopis)" />
       <div v-else class="fa-empty">История пуста</div>
+    </div>
+
+    <!-- AI Story tab -->
+    <div v-else-if="activeTab === 'story' && gameStory" class="fa-letopis">
+      <div class="fa-story-content" v-html="gameStory"></div>
+    </div>
+
+    <!-- Story popup overlay -->
+    <div v-if="showStoryPopup && gameStory" class="fa-story-overlay" @click.self="dismissStoryPopup">
+      <div class="fa-story-popup">
+        <div class="fa-story-popup-header">
+          <span class="fa-story-popup-title">История этой битвы</span>
+          <button class="fa-story-popup-close" @click="dismissStoryPopup">&times;</button>
+        </div>
+        <div class="fa-story-popup-body" v-html="gameStory"></div>
+      </div>
     </div>
 
     <!-- All Fights (compact results list) -->
@@ -1557,4 +1625,61 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-letopis-content :deep(em) { color: var(--accent-blue); }
 .fa-letopis-content :deep(u) { color: var(--accent-green); }
 .fa-letopis-content :deep(del) { color: var(--text-muted); text-decoration: line-through; }
+.fa-letopis-content :deep(.lb-emoji) { width: 20px; height: 20px; vertical-align: middle; display: inline; margin: 0 2px; }
+
+/* ── AI Story tab ── */
+.fa-tab-story { color: var(--accent-gold) !important; }
+.fa-story-content { font-size: 12px; line-height: 1.7; color: var(--text-secondary); padding: 8px; white-space: pre-line; }
+.fa-story-content :deep(strong) { color: var(--accent-gold); font-weight: 800; }
+.fa-story-content :deep(em) { color: var(--accent-blue); }
+
+/* ── Story popup overlay ── */
+.fa-story-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center;
+  animation: story-overlay-in 0.3s ease-out;
+}
+@keyframes story-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+
+.fa-story-popup {
+  background: var(--bg-card);
+  border: 1px solid var(--accent-gold);
+  border-radius: 8px;
+  max-width: 560px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 0 40px rgba(233, 219, 61, 0.15), var(--shadow-lg);
+  animation: story-popup-in 0.4s ease-out;
+}
+@keyframes story-popup-in {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.fa-story-popup-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.fa-story-popup-title {
+  font-size: 14px; font-weight: 800; color: var(--accent-gold);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.fa-story-popup-close {
+  background: none; border: none; color: var(--text-muted);
+  font-size: 22px; cursor: pointer; padding: 0 4px; line-height: 1;
+  transition: color 0.15s;
+}
+.fa-story-popup-close:hover { color: var(--text-primary); }
+
+.fa-story-popup-body {
+  padding: 16px;
+  font-size: 13px; line-height: 1.7;
+  color: var(--text-secondary);
+  white-space: pre-line;
+}
+.fa-story-popup-body :deep(strong) { color: var(--accent-gold); font-weight: 800; }
+.fa-story-popup-body :deep(em) { color: var(--accent-blue); }
 </style>

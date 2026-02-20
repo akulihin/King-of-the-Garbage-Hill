@@ -154,6 +154,43 @@ public class CharactersUniquePhrase
     public PhraseClass KiraShinigamiEyes;
     public PhraseClass KiraLNoFight;
     public PhraseClass KiraArrested;
+
+    public PhraseClass ItachiCrows;
+    public PhraseClass ItachiIzanagi;
+    public PhraseClass ItachiAmaterasu;
+    public PhraseClass ItachiTsukuyomiCharge;
+    public PhraseClass ItachiTsukuyomiActivate;
+    public PhraseClass ItachiTsukuyomiEnd;
+    public PhraseClass ItachiTsukuyomiSteal;
+    public PhraseClass ItachiTsukuyomiReveal;
+
+    public PhraseClass SellerVparit;
+    public PhraseClass SellerVparitEnemy;
+    public PhraseClass SellerZakup;
+    public PhraseClass SellerProfit;
+    public PhraseClass SellerProfitBig;
+    public PhraseClass SellerSecretBuild;
+    public PhraseClass SellerBolshoiKushEnemy;
+
+    // Dopa
+    public PhraseClass DopaVisionReady;
+    public PhraseClass DopaVisionProc;
+    public PhraseClass DopaMetaChosen;
+    public PhraseClass DopaImpact;
+    public PhraseClass DopaDomination;
+    public PhraseClass DopaRoam;
+
+    // Misc new phrases
+    public PhraseClass HighEloLoss;
+    public PhraseClass SirinoksGeniusPhrase;
+    public PhraseClass SirinoksBlockNoPhrase;
+    public PhraseClass GlebDragonReaction;
+    public PhraseClass GlebWakeUpRoli;
+    public PhraseClass GlebPsyche10;
+    public PhraseClass GlebComeBackEnemy;
+    public PhraseClass LeCrispStonks;
+    public PhraseClass DeepListMadnessHardKittyMilk;
+    public PhraseClass DeepListMockeryHardKittyMilk;
     //end
     public PhraseClass AutoMove;
     public PhraseClass JusticePhrase;
@@ -852,6 +889,143 @@ public class CharactersUniquePhrase
 
         KiraArrested.PassiveLogRus.Add("Нет... это невозможно! L... ты...");
         KiraArrested.PassiveLogRus.Add("Всё кончено. L победил.");
+
+        // -- Итачи --
+
+        ItachiCrows = new PhraseClass("Вороны");
+        ItachiIzanagi = new PhraseClass("Изанаги");
+        ItachiAmaterasu = new PhraseClass("Аматерасу");
+        ItachiTsukuyomiCharge = new PhraseClass("Глаза Итачи");
+        ItachiTsukuyomiActivate = new PhraseClass("Глаза Итачи");
+        ItachiTsukuyomiEnd = new PhraseClass("Глаза Итачи");
+        ItachiTsukuyomiSteal = new PhraseClass("Глаза Итачи");
+        ItachiTsukuyomiReveal = new PhraseClass("Глаза Итачи");
+
+        ItachiCrows.PassiveLogRus.Add("Черный ворон...");
+        ItachiCrows.PassiveLogRus.Add("Лети, лети моя хуерга!");
+        ItachiCrows.PassiveLogRus.Add("Курлык-курлык!");
+        ItachiCrows.PassiveLogRus.Add("Загадочный ворон");
+        ItachiCrows.PassiveLogRus.Add("Откуда у меня столько ворон?");
+        ItachiCrows.PassiveLogRus.Add("Что есть ложь - Мои глаза или моя ворона?");
+        ItachiCrows.PassiveLogRus.Add("\u30A4\u30BF\u30C1");
+
+        ItachiIzanagi.PassiveLogRus.Add("О, ебать, а я не сдох");
+        ItachiIzanagi.PassiveLogRus.Add("Это очередная запретная техника моего клана...");
+
+        ItachiAmaterasu.PassiveLogRus.Add("Беги, глупый братец!");
+        ItachiAmaterasu.PassiveLogRus.Add("Беги, братишка!");
+        ItachiAmaterasu.PassiveLogRus.Add("Живи, но живи в страхе");
+        ItachiAmaterasu.PassiveLogRus.Add("НЕНАВИДЬ МЕНЯ ВСЕМ СЕРДЦЕМ!");
+        ItachiAmaterasu.PassiveLogRus.Add("Черное пламя в твоем сердце");
+        ItachiAmaterasu.PassiveLogRus.Add("Наши глаза... погружаются во тьму");
+        ItachiAmaterasu.PassiveLogRus.Add("Я жру тьму");
+        ItachiAmaterasu.PassiveLogRus.Add("Беги и цепляйся за жизнь...");
+        ItachiAmaterasu.PassiveLogRus.Add("Тебе нехватает... ненависти.");
+        ItachiAmaterasu.PassiveLogRus.Add("Приходи, когда получишь такие же глаза... *_*");
+
+        ItachiTsukuyomiCharge.PassiveLogRus.Add("Цукуеми готово...");
+
+        ItachiTsukuyomiActivate.PassiveLogRus.Add("Ты УЖЕ внутри моей иллюзии. ");
+
+        ItachiTsukuyomiEnd.PassiveLogRus.Add("У меня кончилась чакра");
+
+        ItachiTsukuyomiSteal.PassiveLogRus.Add("Get confused");
+        ItachiTsukuyomiSteal.PassiveLogRus.Add("My eyes! My eyes!");
+        ItachiTsukuyomiSteal.PassiveLogRus.Add("У меня всегда есть ворона в рукаве");
+        ItachiTsukuyomiSteal.PassiveLogRus.Add("Я планировал это с самого начала");
+        ItachiTsukuyomiSteal.PassiveLogRus.Add("Все это ради деревни");
+
+        ItachiTsukuyomiReveal.PassiveLogRus.Add("Всё это было в глазах у Итачи...");
+
+        // Продавец
+        SellerVparit = new PhraseClass("Впарить говна");
+        SellerVparit.PassiveLogRus.Add("Пст... Попробуй это.");
+        SellerVparit.PassiveLogRus.Add("Эй парень, сегодня твой счастливый день");
+        SellerVparit.PassiveLogRus.Add("Только тсс...");
+        SellerVparit.PassiveLogRus.Add("Это работает, мамой клянусь!");
+        SellerVparit.PassiveLogRus.Add("Клиент всегда прав...");
+
+        SellerVparitEnemy = new PhraseClass("Впарить говна");
+        SellerVparitEnemy.PassiveLogRus.Add("Вам впарили говна");
+
+        SellerZakup = new PhraseClass("Закуп");
+        SellerZakup.PassiveLogRus.Add("Беру оптом!");
+        SellerZakup.PassiveLogRus.Add("Сегодня низкие цены!");
+        SellerZakup.PassiveLogRus.Add("Хороший товар!");
+        SellerZakup.PassiveLogRus.Add("Настало МОЁ время!");
+
+        SellerProfit = new PhraseClass("Выгодная сделка");
+        SellerProfit.PassiveLogRus.Add("Подоходный налог");
+        SellerProfit.PassiveLogRus.Add("Плата по счетам");
+        SellerProfit.PassiveLogRus.Add("Всё по контракту");
+
+        SellerProfitBig = new PhraseClass("Выгодная сделка");
+        SellerProfitBig.PassiveLogRus.Add("Какой процент!");
+
+        SellerBolshoiKushEnemy = new PhraseClass("Выгодная сделка");
+        SellerBolshoiKushEnemy.PassiveLogRus.Add("Welcome, stranger.");
+        SellerBolshoiKushEnemy.PassiveLogRus.Add("What are you buing and what are you selling?");
+        SellerBolshoiKushEnemy.PassiveLogRus.Add("Good choice...");
+        SellerBolshoiKushEnemy.PassiveLogRus.Add("ОЧЕНЬ дорого!");
+        SellerBolshoiKushEnemy.PassiveLogRus.Add("Отличный рудник");
+
+        SellerSecretBuild = new PhraseClass("Секретный билд");
+        SellerSecretBuild.PassiveLogRus.Add("Пришло время играть по-настоящему.");
+
+        // Dopa
+        DopaVisionReady = new PhraseClass("Взгляд в будущее");
+        DopaVisionReady.PassiveLogRus.Add("Взгляд в будущее готов: Кажется я знаю его следующий ход...");
+
+        DopaVisionProc = new PhraseClass("Взгляд в будущее");
+        DopaVisionProc.PassiveLogRus.Add("쉽고 간단합니다.");
+        DopaVisionProc.PassiveLogRus.Add("Faker 그렇게 할 수 없었다.");
+        DopaVisionProc.PassiveLogRus.Add("이것은 나의 재능으로서 명백하다.");
+        DopaVisionProc.PassiveLogRus.Add("럭키. 골든.");
+        DopaVisionProc.PassiveLogRus.Add("나는 미래를 본다. 사이트를 통해 나를 번역하지 마라.");
+
+        DopaMetaChosen = new PhraseClass("Законодатель меты");
+        DopaMetaChosen.PassiveLogRus.Add("잘 생긴");
+        DopaMetaChosen.PassiveLogRus.Add("이제 내가 보여줄거야.");
+
+        DopaImpact = new PhraseClass("Пассивный импакт");
+        DopaImpact.PassiveLogRus.Add("Импакт.");
+
+        DopaDomination = new PhraseClass("Доминация");
+        DopaDomination.PassiveLogRus.Add("Доминирую.");
+
+        DopaRoam = new PhraseClass("Роум");
+        DopaRoam.PassiveLogRus.Add("Роумлю.");
+
+        // Misc new phrases
+        HighEloLoss = new PhraseClass("Хай эло");
+        HighEloLoss.PassiveLogRus.Add("кажется у врага 2к эло!");
+
+        SirinoksGeniusPhrase = new PhraseClass("Обучение");
+        SirinoksGeniusPhrase.PassiveLogRus.Add("Интеллект **10** - ты ***Гений Говна*** (с) Sirinoks");
+
+        SirinoksBlockNoPhrase = new PhraseClass("Блок");
+        SirinoksBlockNoPhrase.PassiveLogRus.Add("НЕТ!");
+
+        GlebDragonReaction = new PhraseClass("Спящее хуйло");
+        GlebDragonReaction.PassiveLogRus.Add("Ogo, drakon, nihuya sebe");
+
+        GlebWakeUpRoli = new PhraseClass("Спящее хуйло");
+        GlebWakeUpRoli.PassiveLogRus.Add("POSTAV ROLI");
+
+        GlebPsyche10 = new PhraseClass("Прокачка");
+        GlebPsyche10.PassiveLogRus.Add("vobshe baldej");
+
+        GlebComeBackEnemy = new PhraseClass("Я щас приду");
+        GlebComeBackEnemy.PassiveLogRus.Add("ты ушел ждать глеба... НАВЕЧНО...");
+
+        LeCrispStonks = new PhraseClass("Импакт");
+        LeCrispStonks.PassiveLogRus.Add("Stonks");
+
+        DeepListMadnessHardKittyMilk = new PhraseClass("Безумие");
+        DeepListMadnessHardKittyMilk.PassiveLogRus.Add("БОЛЬШЕ МОЛОКА ДЛЯ ХАРДКИТТИ!");
+
+        DeepListMockeryHardKittyMilk = new PhraseClass("Стёб");
+        DeepListMockeryHardKittyMilk.PassiveLogRus.Add("БОЛЬШЕ МОЛОКА ДЛЯ ХАРДКИТТИ!");
 
         //not in the game
 
