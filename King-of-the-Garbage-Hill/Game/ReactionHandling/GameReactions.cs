@@ -315,6 +315,37 @@ public sealed class GameReaction : IServiceSingleton
                             break;
                         }
 
+                        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Aggress"))
+                        {
+                            await _help.SendMsgAndDeleteItAfterRound(player, "I. WONT. STOP.", 0);
+                            break;
+                        }
+
+                        // Dopa Макро — block counts as one of two actions
+                        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Макро"))
+                        {
+                            if (status.WhoToAttackThisTurn.Count == 0)
+                            {
+                                // Block first — register self as first target, wait for attack
+                                status.WhoToAttackThisTurn.Add(player.GetPlayerId());
+                                var macroBlockText = "Макро: Блок зарегистрирован. Выберите цель для нападения.\n";
+                                status.AddInGamePersonalLogs(macroBlockText);
+                                status.ChangeMindWhat = macroBlockText;
+                                await _upd.UpdateMessage(player);
+                                break;
+                            }
+                            else if (status.WhoToAttackThisTurn.Count == 1)
+                            {
+                                // Attack was first — block is second action, mark self as second target
+                                status.WhoToAttackThisTurn.Add(player.GetPlayerId());
+                                status.IsReady = true;
+                                var macroBlockText2 = "Макро: Блок зарегистрирован как второе действие.\n";
+                                status.AddInGamePersonalLogs(macroBlockText2);
+                                status.ChangeMindWhat = macroBlockText2;
+                                await _upd.UpdateMessage(player);
+                                break;
+                            }
+                        }
 
                         status.IsBlock = true;
                         status.IsReady = true;
@@ -605,7 +636,8 @@ public sealed class GameReaction : IServiceSingleton
             }
 
 
-            if (status.WhoToAttackThisTurn.Contains(player.GetPlayerId()))
+            if (status.WhoToAttackThisTurn.Contains(player.GetPlayerId())
+                && !player.GameCharacter.Passive.Any(x => x.PassiveName == "Макро"))
             {
                 status.WhoToAttackThisTurn = new List<Guid>();
                 await _help.SendMsgAndDeleteItAfterRound(player, "Зачем ты себя бьешь?", 0);
@@ -642,6 +674,64 @@ public sealed class GameReaction : IServiceSingleton
     private async Task GetLvlUp(GamePlayerBridgeClass player, int skillNumber)
     {
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+
+        // Стая Гоблинов — custom level-up
+        if (player.GameCharacter.Name == "Стая Гоблинов")
+        {
+            var pop = player.Passives.GoblinPopulation;
+            switch (skillNumber)
+            {
+                case 1: // Правильное питание - Hob rate: 15→14→13→12→11
+                    if (pop.HobUpgradeLevel < 4)
+                    {
+                        pop.HobRate = 15 - 1 - pop.HobUpgradeLevel; // 14, 13, 12, 11
+                        pop.HobUpgradeLevel++;
+                        player.Status.AddInGamePersonalLogs($"Правильное питание! Хобы: каждый {pop.HobRate}й\n");
+                    }
+                    else
+                    {
+                        player.Status.AddInGamePersonalLogs("Правильное питание: Максимальный уровень!\n");
+                    }
+                    break;
+                case 2: // Контрактная армия - Warrior rate: 6→5→4→3→2
+                    if (pop.WarriorUpgradeLevel < 4)
+                    {
+                        pop.WarriorRate = 6 - 1 - pop.WarriorUpgradeLevel; // 5, 4, 3, 2
+                        pop.WarriorUpgradeLevel++;
+                        player.Status.AddInGamePersonalLogs($"Контрактная армия! Воины: каждый {pop.WarriorRate}й\n");
+                    }
+                    else
+                    {
+                        player.Status.AddInGamePersonalLogs("Контрактная армия: Максимальный уровень!\n");
+                    }
+                    break;
+                case 3: // Трудовые условия - Worker rate: 10→9→8→7→6
+                    if (pop.WorkerUpgradeLevel < 4)
+                    {
+                        pop.WorkerRate = 10 - 1 - pop.WorkerUpgradeLevel; // 9, 8, 7, 6
+                        pop.WorkerUpgradeLevel++;
+                        player.Status.AddInGamePersonalLogs($"Трудовые условия! Трудяги: каждый {pop.WorkerRate}й\n");
+                    }
+                    else
+                    {
+                        player.Status.AddInGamePersonalLogs("Трудовые условия: Максимальный уровень!\n");
+                    }
+                    break;
+                case 4: // Праздник Гоблинов - double population (one-time only)
+                    if (pop.FestivalUsed)
+                    {
+                        player.Status.AddInGamePersonalLogs("Праздник Гоблинов уже был!\n");
+                        return;
+                    }
+                    pop.TotalGoblins *= 2;
+                    pop.FestivalUsed = true;
+                    player.Status.AddInGamePersonalLogs($"Праздник Гоблинов! Гоблинов: {pop.TotalGoblins}\n");
+                    break;
+            }
+            player.Status.LvlUpPoints--;
+            return;
+        }
+        //end Стая Гоблинов
 
         /*//Vampyr Позорный
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Vampyr Позорный"))

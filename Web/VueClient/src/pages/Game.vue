@@ -10,6 +10,7 @@ import SkillsPanel from 'src/components/SkillsPanel.vue'
 import FightAnimation from 'src/components/FightAnimation.vue'
 import MediaMessages from 'src/components/MediaMessages.vue'
 import RoundTimer from 'src/components/RoundTimer.vue'
+import Blackjack21 from 'src/components/Blackjack21.vue'
 import {
   playAttackSelection,
   playJusticeResetSound,
@@ -448,6 +449,11 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
             @replay-ended="onReplayEnded"
           />
         </div>
+
+        <!-- Blackjack mini-game for players killed by Death Note -->
+        <Blackjack21
+          v-if="store.myPlayer?.kiraDeathNoteDead && !store.gameState.isFinished"
+        />
 
         <!-- Logs: events side-by-side -->
         <div class="logs-row-top">

@@ -30,10 +30,10 @@ public class GameClass
             "Арт Дизайнер - <@!207707809339539457>\n" +
             "GitHub <:e_:562879579694301184><:e_:562879579694301184><:e_:562879579694301184>- https://github.com/mylorik/King-of-the-Garbage-Hill" +
             "\n\n<:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567> <:e_:562879579694301184> <:sparta:561287745675329567>\n";
-    
+        GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 2.9.8 пожалуйста...";
+        GameVersion = "Версия: 3.7.0 WEB?!";
         //GameVersion = "Версия: 2.9.9 helpпуда";
         GameMode = gameMode;
         CreatorId = creatorId;

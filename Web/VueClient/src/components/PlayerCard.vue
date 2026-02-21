@@ -76,6 +76,26 @@ const passiveStates = computed<PassiveAbilityStates | null>(() => {
   return props.player?.passiveAbilityStates ?? null
 })
 
+const isGoblin = computed(() => props.player?.character.name === 'Стая Гоблинов')
+const goblin = computed(() => passiveStates.value?.goblinSwarm ?? null)
+
+// Goblin population bar segment percentages
+const warriorPct = computed(() => {
+  const g = goblin.value
+  if (!g || g.totalGoblins === 0) return 0
+  return Math.round((g.warriors / g.totalGoblins) * 100)
+})
+const hobPct = computed(() => {
+  const g = goblin.value
+  if (!g || g.totalGoblins === 0) return 0
+  return Math.round((g.hobs / g.totalGoblins) * 100)
+})
+const workerPct = computed(() => {
+  const g = goblin.value
+  if (!g || g.totalGoblins === 0) return 0
+  return Math.round((g.workers / g.totalGoblins) * 100)
+})
+
 /** Moral → Points exchange rate (matching backend GameUpdateMess.cs) */
 const moralToPointsRate = computed(() => {
   if (isDeepList.value) return null
@@ -313,6 +333,29 @@ function handleMoralToSkill() {
       <div v-if="hasLvlUpPoints" class="lvl-up-badge">
         +{{ lvlUpPoints }} очков
       </div>
+
+      <!-- Goblin level-up upgrades (replaces stat +buttons) -->
+      <div v-if="isGoblin && hasLvlUpPoints && goblin" class="goblin-lvlup">
+        <button class="goblin-lvlup-btn" data-sfx-skip-default="true" @click="handleLevelUp(1)">
+          <span class="goblin-lvlup-name">Правильное питание</span>
+          <span class="goblin-lvlup-desc">Больше Хобгоблинов (сейчас каждый {{ goblin.hobRate }}й)</span>
+        </button>
+        <button class="goblin-lvlup-btn" data-sfx-skip-default="true" @click="handleLevelUp(2)">
+          <span class="goblin-lvlup-name">Контрактная армия</span>
+          <span class="goblin-lvlup-desc">Больше Воинов (сейчас каждый {{ goblin.warriorRate }}й)</span>
+        </button>
+        <button class="goblin-lvlup-btn" data-sfx-skip-default="true" @click="handleLevelUp(3)">
+          <span class="goblin-lvlup-name">Трудовые условия</span>
+          <span class="goblin-lvlup-desc">Больше Трудяг (сейчас каждый {{ goblin.workerRate }}й)</span>
+        </button>
+        <button class="goblin-lvlup-btn" :class="{ 'goblin-lvlup-disabled': goblin.festivalUsed }" :disabled="goblin.festivalUsed" data-sfx-skip-default="true" @click="handleLevelUp(4)">
+          <span class="goblin-lvlup-name">Праздник Гоблинов</span>
+          <span v-if="goblin.festivalUsed" class="goblin-lvlup-desc">Уже использовано</span>
+          <span v-else class="goblin-lvlup-desc">Удвоить гоблинов ({{ goblin.totalGoblins }} &rarr; {{ goblin.totalGoblins * 2 }})</span>
+        </button>
+      </div>
+
+      <template v-else>
       <!-- Intelligence -->
       <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('intelligence'), 'lvl-up-available': hasLvlUpPoints }">
         <div class="stat-row">
@@ -358,10 +401,11 @@ function handleMoralToSkill() {
           <span v-if="player.character.speedBonusText" class="resist-bonus">{{ player.character.speedBonusText }}</span>
         </div>
       </div>
+      </template>
     </div>
 
-    <!-- Psyche (separated — different stat type) -->
-    <div class="pc-psyche-box">
+    <!-- Psyche (separated — different stat type, hidden during goblin lvl-up) -->
+    <div v-if="!(isGoblin && hasLvlUpPoints && goblin)" class="pc-psyche-box">
       <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('psyche'), 'lvl-up-available': hasLvlUpPoints }">
         <div class="stat-row">
           <span class="gi gi-lg gi-psy">PSY</span>
@@ -778,6 +822,46 @@ function handleMoralToSkill() {
           <span class="pw-value">{{ passiveStates.sellerMark.roundsRemaining }}</span>
           <span class="pw-label">rounds left</span>
         </div>
+      </div>
+    </div>
+
+    <!-- 20. Стая Гоблинов (Goblin Swarm) -->
+    <div v-if="passiveStates?.goblinSwarm" class="pc-passive-widget goblin-widget">
+      <div class="pw-header">
+        <span class="pw-title goblin-title">СТАЯ ГОБЛИНОВ</span>
+        <span v-if="passiveStates.goblinSwarm.isInZiggurat" class="pw-status goblin-zig-active">🏛️ ZIGGURAT</span>
+      </div>
+      <!-- Population bar -->
+      <div class="goblin-pop-bar">
+        <div class="goblin-pop-total">{{ passiveStates.goblinSwarm.totalGoblins }}</div>
+        <div class="goblin-pop-track">
+          <div class="goblin-seg goblin-seg-warrior" :style="{ width: warriorPct + '%' }" />
+          <div class="goblin-seg goblin-seg-hob" :style="{ width: hobPct + '%' }" />
+          <div class="goblin-seg goblin-seg-worker" :style="{ width: workerPct + '%' }" />
+        </div>
+      </div>
+      <!-- Type breakdown -->
+      <div class="goblin-types">
+        <div class="goblin-type">
+          <span class="goblin-type-icon">⚔️</span>
+          <span class="goblin-type-val">{{ passiveStates.goblinSwarm.warriors }}</span>
+          <span class="goblin-type-rate">1/{{ passiveStates.goblinSwarm.warriorRate }}</span>
+        </div>
+        <div class="goblin-type">
+          <span class="goblin-type-icon">🧙</span>
+          <span class="goblin-type-val">{{ passiveStates.goblinSwarm.hobs }}</span>
+          <span class="goblin-type-rate">1/{{ passiveStates.goblinSwarm.hobRate }}</span>
+        </div>
+        <div class="goblin-type">
+          <span class="goblin-type-icon">⛏️</span>
+          <span class="goblin-type-val">{{ passiveStates.goblinSwarm.workers }}</span>
+          <span class="goblin-type-rate">1/{{ passiveStates.goblinSwarm.workerRate }}</span>
+        </div>
+      </div>
+      <!-- Ziggurat positions + Festival status -->
+      <div class="goblin-footer" v-if="passiveStates.goblinSwarm.zigguratPositions.length || passiveStates.goblinSwarm.festivalUsed">
+        <span v-for="pos in passiveStates.goblinSwarm.zigguratPositions" :key="pos" class="goblin-zig-badge">🏛️{{ pos }}</span>
+        <span v-if="passiveStates.goblinSwarm.festivalUsed" class="goblin-festival-used">🎉 Праздник был</span>
       </div>
     </div>
 
@@ -1835,6 +1919,84 @@ function handleMoralToSkill() {
 .seller-mark-title { color: #8b4513; text-shadow: 0 0 4px rgba(139, 69, 19, 0.4); }
 .seller-mark-widget .pw-value { color: #8b4513; text-shadow: 0 0 8px rgba(139, 69, 19, 0.4); }
 .seller-mark-widget .pw-label { color: rgba(139, 69, 19, 0.5); }
+
+/* 20. Goblin Swarm */
+.goblin-widget {
+  background: linear-gradient(135deg, rgba(76, 153, 0, 0.08), rgba(76, 153, 0, 0.02));
+  border-color: rgba(76, 153, 0, 0.25);
+}
+.goblin-title { color: #4c9900; text-shadow: 0 0 4px rgba(76, 153, 0, 0.4); }
+.goblin-zig-active { color: #daa520; font-size: 9px; font-weight: 700; text-shadow: 0 0 4px rgba(218, 165, 32, 0.5); }
+
+/* Goblin population bar */
+.goblin-pop-bar { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.goblin-pop-total { font-size: 18px; font-weight: 800; color: #4c9900; text-shadow: 0 0 8px rgba(76, 153, 0, 0.4); min-width: 32px; }
+.goblin-pop-track { flex: 1; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); display: flex; overflow: hidden; }
+.goblin-seg { height: 100%; transition: width 0.4s ease; }
+.goblin-seg-warrior { background: #c0392b; }
+.goblin-seg-hob { background: #8e44ad; }
+.goblin-seg-worker { background: #d4a017; }
+
+/* Goblin type breakdown */
+.goblin-types { display: flex; gap: 8px; justify-content: space-around; padding: 2px 0; }
+.goblin-type { display: flex; align-items: center; gap: 3px; }
+.goblin-type-icon { font-size: 11px; }
+.goblin-type-val { font-size: 12px; font-weight: 700; color: #4c9900; }
+.goblin-type-rate { font-size: 9px; color: rgba(255, 255, 255, 0.4); }
+
+/* Goblin footer (ziggurat badges + festival) */
+.goblin-footer { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding-top: 2px; }
+.goblin-zig-badge { font-size: 10px; font-weight: 700; color: #daa520; background: rgba(218, 165, 32, 0.12); border: 1px solid rgba(218, 165, 32, 0.3); border-radius: 4px; padding: 1px 4px; }
+.goblin-festival-used { font-size: 9px; color: rgba(255, 255, 255, 0.4); font-style: italic; }
+
+/* Goblin level-up panel */
+.goblin-lvlup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0;
+}
+.goblin-lvlup-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, rgba(76, 153, 0, 0.12), rgba(76, 153, 0, 0.04));
+  border: 1px solid rgba(76, 153, 0, 0.3);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+}
+.goblin-lvlup-btn:hover {
+  background: linear-gradient(135deg, rgba(76, 153, 0, 0.25), rgba(76, 153, 0, 0.1));
+  border-color: rgba(76, 153, 0, 0.6);
+  box-shadow: 0 0 8px rgba(76, 153, 0, 0.3);
+}
+.goblin-lvlup-btn:active {
+  transform: scale(0.98);
+}
+.goblin-lvlup-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4c9900;
+  text-shadow: 0 0 4px rgba(76, 153, 0, 0.3);
+}
+.goblin-lvlup-desc {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+}
+.goblin-lvlup-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.goblin-lvlup-disabled .goblin-lvlup-name {
+  color: rgba(76, 153, 0, 0.4);
+}
 </style>
 
 <!-- Tooltip needs to be unscoped to work with Teleport to body -->

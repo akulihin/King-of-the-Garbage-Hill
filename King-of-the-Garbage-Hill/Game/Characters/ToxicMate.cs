@@ -10,5 +10,6 @@ public class ToxicMate
         public Guid CurrentHolder { get; set; } = Guid.Empty;
         public int TransferCount { get; set; }
         public bool FirstLossTriggered { get; set; }
+        public bool TransferredThisRound { get; set; }
     }
 }

@@ -217,6 +217,15 @@ public class CharactersUniquePhrase
     public PhraseClass LeCrispStonks;
     public PhraseClass DeepListMadnessHardKittyMilk;
     public PhraseClass DeepListMockeryHardKittyMilk;
+    // Стая Гоблинов
+    public PhraseClass GoblinTunnelEscape;
+    public PhraseClass GoblinGrowthAttack;
+    public PhraseClass GoblinDeath;
+    public PhraseClass GoblinMine;
+    public PhraseClass GoblinZigguratBuild;
+    public PhraseClass GoblinZigguratNoMoney;
+    public PhraseClass GoblinZigguratWorkerDeath;
+
     //end
     public PhraseClass AutoMove;
     public PhraseClass JusticePhrase;
@@ -370,6 +379,15 @@ public class CharactersUniquePhrase
         KiraLNoFight = new PhraseClass("L");
         KiraArrested = new PhraseClass("L");
 
+        // Стая Гоблинов
+        GoblinTunnelEscape = new PhraseClass("Тоннели Гоблинов");
+        GoblinGrowthAttack = new PhraseClass("Гоблины");
+        GoblinDeath = new PhraseClass("Гоблины");
+        GoblinMine = new PhraseClass("Отличный рудник");
+        GoblinZigguratBuild = new PhraseClass("Гоблины тупые, но не идиоты");
+        GoblinZigguratNoMoney = new PhraseClass("Гоблины тупые, но не идиоты");
+        GoblinZigguratWorkerDeath = new PhraseClass("Гоблины тупые, но не идиоты");
+
         //end
 
         //
@@ -519,7 +537,7 @@ public class CharactersUniquePhrase
         DeepListPokePhrase.PassiveLogRus.Add("I hate Sirinokses!"); 
         DeepListPokePhrase.PassiveLogRus.Add("Надеваю кепку."); 
         DeepListPokePhrase.PassiveLogRus.Add("I DC'd again."); 
-        DeepListPokePhrase.PassiveLogRus.Add("Школоло"); 
+        DeepListPokePhrase.PassiveLogRus.Add("Злой Школьник"); 
         DeepListPokePhrase.PassiveLogRus.Add("Почему гиены смеются? Потому что смешно!"); 
         DeepListPokePhrase.PassiveLogRus.Add("**Лол** коронный, **Кек** похоронный"); 
         DeepListPokePhrase.PassiveLogRus.Add("Витамин C содержится в курице и __**БОБАХ**__"); 
@@ -1134,6 +1152,39 @@ public class CharactersUniquePhrase
         SupportPremadeMark = new PhraseClass("Premade");
         SupportPremadeMark.PassiveLogRus.Add("Ты теперь мой напарник...");
         //end Таинственный Суппорт
+
+        // Стая Гоблинов
+        GoblinTunnelEscape.PassiveLogRus.Add("Отлично! Сбежали.");
+        GoblinTunnelEscape.PassiveLogRus.Add("Выкрутились из ситуации!");
+        GoblinTunnelEscape.PassiveLogRus.Add("Хорошенько оторвались!!!");
+        GoblinTunnelEscape.PassiveLogRus.Add("Теперь все подумают что мы Глеб, хехех");
+
+        GoblinGrowthAttack.PassiveLogRus.Add("Дали поебаться");
+        GoblinGrowthAttack.PassiveLogRus.Add("Гоблины трахают!");
+        GoblinGrowthAttack.PassiveLogRus.Add("Гоблины.");
+        GoblinGrowthAttack.PassiveLogRus.Add("Больше гоблинов богу гоблинов!");
+        GoblinGrowthAttack.PassiveLogRus.Add("Я трахался на летних каникулах... Никому это не понравилось");
+        GoblinGrowthAttack.PassiveLogRus.Add("Меня интересуют только сиськи и джем, это моя маленькая мечта");
+
+        GoblinDeath.PassiveLogRus.Add("Тупое говно, тупого говна");
+        GoblinDeath.PassiveLogRus.Add("Хайп. Мем. Флеш-моб.");
+        GoblinDeath.PassiveLogRus.Add("Малолетние Дебилы.");
+        GoblinDeath.PassiveLogRus.Add("Дебилы.");
+        GoblinDeath.PassiveLogRus.Add("Пендальф серый");
+
+        GoblinMine.PassiveLogRus.Add("Отличный рудник!");
+        GoblinMine.PassiveLogRus.Add("Надежный как швейцарские часы!");
+
+        GoblinZigguratBuild.PassiveLogRus.Add("Зиккурат построен!");
+        GoblinZigguratBuild.PassiveLogRus.Add("Гоблины умеют строить!");
+        GoblinZigguratBuild.PassiveLogRus.Add("Новая крепость!");
+
+        GoblinZigguratNoMoney.PassiveLogRus.Add("Невозможно! Оочччччччччень дорого!");
+
+        GoblinZigguratWorkerDeath.PassiveLogRus.Add("Трудяга умер - кранчил как в CDPR");
+        GoblinZigguratWorkerDeath.PassiveLogRus.Add("Трудяга погиб - мы построили Зиккурат, но какой ценой..?");
+        GoblinZigguratWorkerDeath.PassiveLogRus.Add("Трудяга погиб - его хватил сердечный приступ, когда он увидел дворец на ютубе");
+        //end Стая Гоблинов
 
         //not in the game
 

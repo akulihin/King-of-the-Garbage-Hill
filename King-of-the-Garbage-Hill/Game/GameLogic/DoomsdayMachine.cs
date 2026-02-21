@@ -156,7 +156,7 @@ Speed => Strength
                         case "PointFunnel":
                             if (player.Status.WhoToAttackThisTurn.Count > 0)
                             {
-                                foreach (var targetId in player.Status.WhoToAttackThisTurn)
+                                foreach (var targetId in player.Status.WhoToAttackThisTurn.Where(t => t != player.GetPlayerId()))
                                 {
                                     var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
                                     target.Passives.PointFunneledTo = player.GetPlayerId();
@@ -277,6 +277,7 @@ Speed => Strength
         {
             if (player.Status.IsBlock || player.Status.IsSkip)
             {
+                player.WebMessages.Add("Aggress: Ты не можешь пропустить ход!");
                 player.Status.IsBlock = false;
                 player.Status.IsSkip = false;
             }
@@ -297,7 +298,9 @@ Speed => Strength
                 continue;
             }
 
-            foreach (var playerIamAttacking in player.Status.WhoToAttackThisTurn.Select(t => game.PlayersList.Find(x => x.GetPlayerId() == t)).ToList())
+            foreach (var playerIamAttacking in player.Status.WhoToAttackThisTurn
+                         .Where(t => t != player.GetPlayerId())
+                         .Select(t => game.PlayersList.Find(x => x.GetPlayerId() == t)).ToList())
             {
                 // Snapshot GlobalLogs length before this fight (for hidden-fight mechanism)
                 var globalLogsLenBefore = game.GetGlobalLogs().Length;
@@ -894,7 +897,13 @@ Speed => Strength
                         break;
                 }
 
-                //т.е. он получил урон, какие у него дебаффы на этот счет 
+                // Set fight context for goblin death percentage calculation
+                playerIamAttacking.Status.FightEnemyWasTooGood = isTooGoodMe;
+                playerIamAttacking.Status.FightEnemyWasTooStronk = isTooStronkMe;
+                player.Status.FightEnemyWasTooGood = isTooGoodEnemy;
+                player.Status.FightEnemyWasTooStronk = isTooStronkEnemy;
+
+                //т.е. он получил урон, какие у него дебаффы на этот счет
                 _characterPassives.HandleDefenseAfterFight(playerIamAttacking, player, game);
                 _characterPassives.HandleDefenseAfterBlockOrFight(playerIamAttacking, player, game);
                 _characterPassives.HandleDefenseAfterBlockOrFightOrSkip(playerIamAttacking, player, game);
@@ -907,6 +916,12 @@ Speed => Strength
                 await _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
                 
                 _characterPassives.HandleShark(game); //used only for shark...
+
+                // Clear fight context flags
+                playerIamAttacking.Status.FightEnemyWasTooGood = false;
+                playerIamAttacking.Status.FightEnemyWasTooStronk = false;
+                player.Status.FightEnemyWasTooGood = false;
+                player.Status.FightEnemyWasTooStronk = false;
 
                 // Hide fight from non-admin logs (e.g. Saitama solo kills)
                 if (player.Status.HideCurrentFight || playerIamAttacking.Status.HideCurrentFight)
@@ -1011,6 +1026,15 @@ Speed => Strength
         await _characterPassives.HandleNextRound(game);
 
 
+        // Save ziggurat positions BEFORE score sort so they can be restored after
+        var zigguratPositionLocks = new Dictionary<Guid, int>();
+        foreach (var pl in game.PlayersList)
+        {
+            if (pl.Passives.GoblinZiggurat.IsInZiggurat && pl.Passives.GoblinZiggurat.ZigguratStayRoundsLeft > 0)
+            {
+                zigguratPositionLocks[pl.GetPlayerId()] = game.PlayersList.IndexOf(pl);
+            }
+        }
 
         game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
 
@@ -1022,6 +1046,13 @@ Speed => Strength
 
             if (tigr is { TimeCount: > 0 })
             {
+                // Can't swap a player in ziggurat
+                if (game.PlayersList.First().Passives.GoblinZiggurat.IsInZiggurat)
+                {
+                    player.WebMessages.Add("🏛️ Зиккурат Гоблинов защищает первое место!");
+                    continue;
+                }
+
                 var tigrIndex = game.PlayersList.IndexOf(player);
 
                 game.PlayersList[tigrIndex] = game.PlayersList.First();
@@ -1041,6 +1072,13 @@ Speed => Strength
             if (gun.SwapActive)
             {
                 var swapTarget = game.PlayersList.Find(x => x.GetPlayerId() == gun.SwappedWith);
+                if (swapTarget?.Passives.GoblinZiggurat.IsInZiggurat == true)
+                {
+                    p.WebMessages.Add("🏛️ Зиккурат защищает позицию цели! Телепортация отменена.");
+                    gun.SwapActive = false;
+                    gun.SwappedWith = Guid.Empty;
+                    continue;
+                }
                 if (swapTarget != null)
                 {
                     var rickIdx = game.PlayersList.IndexOf(p);
@@ -1082,17 +1120,40 @@ Speed => Strength
         }
         //end sorting
 
+        // Restore ziggurat-locked positions
+        foreach (var kvp in zigguratPositionLocks)
+        {
+            var zigPlayer = game.PlayersList.Find(x => x.GetPlayerId() == kvp.Key);
+            if (zigPlayer == null) continue;
+            var currentIdx = game.PlayersList.IndexOf(zigPlayer);
+            var savedIdx = kvp.Value;
+            if (currentIdx != savedIdx && savedIdx < game.PlayersList.Count)
+            {
+                game.PlayersList[currentIdx] = game.PlayersList[savedIdx];
+                game.PlayersList[savedIdx] = zigPlayer;
+                // Re-assign places
+                for (var i = 0; i < game.PlayersList.Count; i++)
+                    game.PlayersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
+            }
+        }
+
         //Quality Drop
         var droppedPlayers = game.PlayersList.Where(x => x.GameCharacter.GetStrengthQualityDropTimes() != 0 && x.Status.GetPlaceAtLeaderBoard() != 6).OrderByDescending(x => x.Status.GetPlaceAtLeaderBoard()).ToList();
         
         foreach (var player in droppedPlayers)
         {
+            // Skip drop for players in ziggurat
+            if (player.Passives.GoblinZiggurat.IsInZiggurat) continue;
+
             for (var i = 0; i < player.GameCharacter.GetStrengthQualityDropTimes(); i++)
             {
                 var oldIndex = game.PlayersList.IndexOf(player);
                 var newIndex = oldIndex + 1;
 
                 if (newIndex == 5 && game.PlayersList[newIndex].GameCharacter.Passive.Any(x => x.PassiveName == "Никому не нужен"))
+                    continue;
+                // Can't drop onto a player in ziggurat
+                if (newIndex < 6 && game.PlayersList[newIndex].Passives.GoblinZiggurat.IsInZiggurat)
                     continue;
                 if(newIndex >= 6)
                     continue;
@@ -1110,6 +1171,20 @@ Speed => Strength
             }
         }
         //end //Quality Drop
+
+        // Round 10 ziggurat at place 1 win condition
+        if (game.RoundNo == 10)
+        {
+            var goblinAtTop = game.PlayersList.Find(x =>
+                x.GameCharacter.Name == "Стая Гоблинов" &&
+                x.Status.GetPlaceAtLeaderBoard() == 1 &&
+                x.Passives.GoblinZiggurat.BuiltPositions.Contains(1));
+            if (goblinAtTop != null)
+            {
+                game.AddGlobalLogs($"Гоблины построили Зиккурат на вершине! {goblinAtTop.DiscordUsername} побеждает!");
+            }
+        }
+        //end ziggurat win condition
 
         SortGameLogs(game);
         _characterPassives.HandleNextRoundAfterSorting(game);

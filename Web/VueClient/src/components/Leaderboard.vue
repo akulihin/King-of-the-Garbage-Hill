@@ -178,9 +178,17 @@ function closePredict() {
   predictSearch.value = ''
 }
 
+function isProtected(player: Player): boolean {
+  if ((props.roundNo ?? 0) === 10 && player.character.passives.some(
+    (p: { name: string }) => p.name === 'Стримснайпят и банят и банят и банят'
+  )) return true
+  return false
+}
+
 function handleAttack(player: Player) {
   if (!props.canAttack) return
   if (player.playerId === props.myPlayerId) return
+  if (isProtected(player)) return
   emit('attack', player.status.place)
 }
 
@@ -266,7 +274,8 @@ watch(() => props.fightLog, (newLog) => {
           'is-me': player.playerId === myPlayerId,
           'is-bot': player.isBot,
           'is-ready': player.status.isReady,
-          'can-click': canAttack && player.playerId !== myPlayerId,
+          'can-click': canAttack && player.playerId !== myPlayerId && !isProtected(player),
+          'is-protected': isProtected(player),
           'dropped': isDropped(player),
         }"
         @click="handleAttack(player)"
@@ -495,6 +504,23 @@ watch(() => props.fightLog, (newLog) => {
 }
 
 .lb-row.is-bot { opacity: 0.7; }
+
+.lb-row.is-protected {
+  opacity: 0.5;
+  pointer-events: none;
+  position: relative;
+}
+.lb-row.is-protected::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg, transparent, transparent 4px,
+    rgba(255, 60, 60, 0.06) 4px, rgba(255, 60, 60, 0.06) 8px
+  );
+  border-radius: inherit;
+  pointer-events: none;
+}
 
 .lb-place {
   width: 22px;

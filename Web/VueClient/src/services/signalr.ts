@@ -136,6 +136,7 @@ export type PassiveAbilityStates = {
   seller?: SellerState
   sellerMark?: SellerMarkState
   dopa?: DopaState
+  goblinSwarm?: GoblinSwarmState
 }
 
 export type BulkState = { drownChance: number; isBuffed: boolean }
@@ -161,6 +162,18 @@ export type DopaState = {
   visionCooldown: number
   chosenTactic: string
   needSecondAttack: boolean
+}
+export type GoblinSwarmState = {
+  totalGoblins: number
+  warriors: number
+  hobs: number
+  workers: number
+  hobRate: number
+  warriorRate: number
+  workerRate: number
+  zigguratPositions: number[]
+  isInZiggurat: boolean
+  festivalUsed: boolean
 }
 
 export type Character = {

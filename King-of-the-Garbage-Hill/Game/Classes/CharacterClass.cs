@@ -717,7 +717,7 @@ public class CharacterClass
 
         if (GetIntelligence() >= GetStrength() && GetIntelligence() >= GetSpeed()) return "Скорость";
         if (GetStrength() >= GetIntelligence() && GetStrength() >= GetSpeed()) return "Интеллект";
-        if (GetStrength() >= GetIntelligence() && GetSpeed() >= GetStrength()) return "Сила";
+        if (GetSpeed() >= GetIntelligence() && GetSpeed() >= GetStrength()) return "Сила";
 
         return "Буль";
     }
@@ -1475,6 +1475,7 @@ public class Passive
     public string PassiveDescription;
     public string PassiveName;
     public bool Visible;
+    public bool Standalone { get; set; } = false;
 
     public Passive DeepCopy()
     {

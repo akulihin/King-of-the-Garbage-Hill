@@ -207,6 +207,13 @@ public class BotsBehavior : IServiceSingleton
             return;
         }
 
+        if (bot.GameCharacter.Name == "Стая Гоблинов")
+        {
+            // Goblins prefer points for mine income and ziggurat building
+            await HandleBotMoralForPoints(bot, game);
+            return;
+        }
+
         if (bot.GameCharacter.Name == "Продавец Сомнительных Тактик")
         {
             var sellerV = bot.Passives.SellerVparitGovna;
@@ -755,7 +762,7 @@ public class BotsBehavior : IServiceSingleton
                         
 
                         break;
-                    case "Школоло":
+                    case "Злой Школьник":
                         if (target.AttackPreference >= 5)
                         {
                             if (bot.GameCharacter.GetCurrentSkillClassTarget() == target.Player.GameCharacter.GetSkillClass())
@@ -1131,6 +1138,15 @@ public class BotsBehavior : IServiceSingleton
                                 target.AttackPreference += 15;
                         }
                         break;
+
+                    case "Стая Гоблинов":
+                        // Prefer attacking mine positions (1, 2, 6) for resource gain
+                        if (target.PlaceAtLeaderBoard() is 1 or 2 or 6)
+                            target.AttackPreference += 5;
+                        // Avoid attacking much stronger targets (goblins are fragile)
+                        if (target.Player.GameCharacter.GetStrength() > bot.GameCharacter.GetStrength() + 3)
+                            target.AttackPreference -= 3;
+                        break;
                 }
                 //end custom bot behavior
 
@@ -1306,7 +1322,7 @@ public class BotsBehavior : IServiceSingleton
                                    target3.AttackPreference = realAttackPreference;
                             }
                             break;
-                        case "Школоло":
+                        case "Злой Школьник":
                             break;
                         case "mylorik":
                             var mylorikRevenge = bot.Passives.MylorikRevenge;
@@ -1553,7 +1569,7 @@ public class BotsBehavior : IServiceSingleton
                 case "Краборак":
                     isBlock = noBlock;
                     break;
-                case "Школоло":
+                case "Злой Школьник":
                     switch (game.RoundNo)
                     {
                         case < 8:
@@ -1679,6 +1695,18 @@ public class BotsBehavior : IServiceSingleton
                     minimumRandomNumberForBlock += assassinsCount;
 
                     //end block chances
+                    break;
+
+                case "Стая Гоблинов":
+                    // Build ziggurat when conditions are met
+                    var gobBotPop = bot.Passives.GoblinPopulation;
+                    var gobBotZig = bot.Passives.GoblinZiggurat;
+                    var gobBotPlace = bot.Status.GetPlaceAtLeaderBoard();
+                    if (gobBotPop.Warriors >= 1 && gobBotPop.Hobs >= 1 && gobBotPop.Workers >= 1 &&
+                        bot.Status.GetScore() >= 3 && !gobBotZig.BuiltPositions.Contains(gobBotPlace))
+                    {
+                        isBlock = yesBlock; // Force block to build ziggurat
+                    }
                     break;
             }
             //end custom behaviour After calculation Tens
@@ -1824,9 +1852,9 @@ public class BotsBehavior : IServiceSingleton
             if (player.GameCharacter.Name == "LeCrisp" && strength < 10) skillNumber = 2;
             if (player.GameCharacter.Name == "Darksci" && psyche < 10) skillNumber = 4;
 
-            if (player.GameCharacter.Name == "Школоло" && strength < 10) skillNumber = 2;
-            if (player.GameCharacter.Name == "Школоло" && intelligence == 9) skillNumber = 1;
-            if (player.GameCharacter.Name == "Школоло" && strength == 10 && intelligence < 10) skillNumber = 1;
+            if (player.GameCharacter.Name == "Злой Школьник" && strength < 10) skillNumber = 2;
+            if (player.GameCharacter.Name == "Злой Школьник" && intelligence == 9) skillNumber = 1;
+            if (player.GameCharacter.Name == "Злой Школьник" && strength == 10 && intelligence < 10) skillNumber = 1;
 
             if (player.GameCharacter.Name == "HardKitty" && speed < 10 && game.RoundNo < 6) skillNumber = 3;
             if (player.GameCharacter.Name == "HardKitty" && psyche < 10 && game.RoundNo > 6) skillNumber = 4;
@@ -1878,6 +1906,17 @@ public class BotsBehavior : IServiceSingleton
             // Napoleon — PSY-focused build
             if (player.GameCharacter.Name == "Napoleon Wonnafcuk" && psyche < 10) skillNumber = 4;
 
+            // Стая Гоблинов — balanced upgrade approach
+            if (player.GameCharacter.Name == "Стая Гоблинов")
+            {
+                var gobPop = player.Passives.GoblinPopulation;
+                if (game.RoundNo <= 5)
+                    skillNumber = 2; // Warriors early (more combat power)
+                else if (gobPop.WorkerUpgradeLevel < 2)
+                    skillNumber = 3; // Workers mid (more resources)
+                else
+                    skillNumber = 4; // Double population late
+            }
 
             await _gameReaction.HandleLvlUp(player, null, skillNumber);
         } while (player.Status.LvlUpPoints > 0);

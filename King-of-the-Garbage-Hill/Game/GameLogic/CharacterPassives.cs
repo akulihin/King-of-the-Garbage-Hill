@@ -90,7 +90,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         var randIndex = _rand.Random(0, playersList.Count - 1);
                         enemy1 = playersList[randIndex].GetPlayerId();
-                        if (playersList[randIndex].GameCharacter.Name is "Школоло" or "Глеб" or "mylorik"
+                        if (playersList[randIndex].GameCharacter.Name is "Злой Школьник" or "Глеб" or "mylorik"
                             or "Загадочный Спартанец в маске")
                             enemy1 = player.GetPlayerId();
                     } while (enemy1 == player.GetPlayerId());
@@ -104,7 +104,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         var randIndex = _rand.Random(0, playersList.Count - 1);
                         enemy2 = playersList[randIndex].GetPlayerId();
-                        if (playersList[randIndex].GameCharacter.Name is "Школоло" or "Глеб" or "mylorik"
+                        if (playersList[randIndex].GameCharacter.Name is "Злой Школьник" or "Глеб" or "mylorik"
                             or "Загадочный Спартанец в маске")
                             enemy2 = player.GetPlayerId();
                         if (enemy2 == enemy1)
@@ -181,13 +181,14 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "L":
-                    // Pick random enemy as L
-                    Guid lTarget;
-                    do
-                    {
-                        var randIdx = _rand.Random(0, playersList.Count - 1);
-                        lTarget = playersList[randIdx].GetPlayerId();
-                    } while (lTarget == player.GetPlayerId());
+                    // Pick random enemy as L (prefer human players)
+                    var lCandidates = playersList
+                        .Where(x => x.GetPlayerId() != player.GetPlayerId() && x.PlayerType != 404)
+                        .ToList();
+                    if (lCandidates.Count == 0)
+                        lCandidates = playersList.Where(x => x.GetPlayerId() != player.GetPlayerId()).ToList();
+
+                    var lTarget = lCandidates[_rand.Random(0, lCandidates.Count - 1)].GetPlayerId();
 
                     // Most wanted: force Rick as L target
                     var rickMwL = playersList.Find(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Most wanted"));
@@ -224,6 +225,14 @@ public class CharacterPassives : IServiceSingleton
                 case "INT":
                     foreach (var p in playersList)
                         p.Status.AddInGamePersonalLogs("**U are FoCKING retards!**\n");
+                    break;
+
+                case "Гоблины":
+                    var gobPop = player.Passives.GoblinPopulation;
+                    player.GameCharacter.SetStrength(gobPop.Warriors, "Гоблины");
+                    player.GameCharacter.SetIntelligence(gobPop.Hobs, "Гоблины");
+                    player.GameCharacter.SetPsyche(5 + gobPop.Hobs, "Гоблины");
+                    player.Status.AddInGamePersonalLogs($"Стая Гоблинов: {gobPop.TotalGoblins} гоблинов (⚔️{gobPop.Warriors} 🧙{gobPop.Hobs} ⛏️{gobPop.Workers})\n");
                     break;
             }
 
@@ -488,6 +497,23 @@ public class CharacterPassives : IServiceSingleton
                         game.Phrases.NapoleonFace.SendLog(target, false);
                     }
                     break;
+
+                case "Тоннели Гоблинов":
+                    // 33% chance to escape if goblin speed >= enemy speed + 2
+                    if (target.FightCharacter.GetSpeed() >= me.FightCharacter.GetSpeed() + 2)
+                    {
+                        if (_rand.Random(0, 99) < 33)
+                        {
+                            me.Status.IsAbleToWin = false;
+                            game.Phrases.GoblinTunnelEscape.SendLog(target, false);
+                            target.Status.AddInGamePersonalLogs("Тоннели Гоблинов: Сбежали!\n");
+                        }
+                    }
+                    break;
+
+                case "Гоблины":
+                    // Stats already include warrior/hob bonuses via Set calls
+                    break;
             }
     }
 
@@ -503,6 +529,10 @@ public class CharacterPassives : IServiceSingleton
                         if (!target.Passives.NapoleonPeaceTreaty.TreatyEnemies.Contains(me.GetPlayerId()))
                             target.Passives.NapoleonPeaceTreaty.TreatyEnemies.Add(me.GetPlayerId());
                     }
+                    break;
+
+                case "Гоблины тупые, но не идиоты":
+                    // Ziggurat build logic moved to HandleEndOfRound (fires on block regardless of attacker)
                     break;
             }
     }
@@ -622,6 +652,21 @@ public class CharacterPassives : IServiceSingleton
                                 target.GameCharacter.AddMoral(moral, "Сало");
                             game.Phrases.SaldorumSalo.SendLog(target, me, delete: true);
                         }
+                    }
+                    break;
+
+                case "Гоблины":
+                    // Goblins die when losing on defense (percentage-based)
+                    if (target.Status.IsLostThisCalculation != Guid.Empty)
+                    {
+                        var gobDefLossPop = target.Passives.GoblinPopulation;
+                        var defDeathPct = 10;
+                        if (target.Status.FightEnemyWasTooGood) defDeathPct += 5;
+                        if (target.Status.FightEnemyWasTooStronk) defDeathPct += 5;
+                        var defDeathCount = Math.Max(1, (int)Math.Ceiling(gobDefLossPop.TotalGoblins * defDeathPct / 100.0));
+                        gobDefLossPop.TotalGoblins = Math.Max(1, gobDefLossPop.TotalGoblins - defDeathCount);
+                        game.Phrases.GoblinDeath.SendLog(target, false);
+                        target.Status.AddInGamePersonalLogs($"Гоблины: -{defDeathCount} ({defDeathPct}%). Осталось: {gobDefLossPop.TotalGoblins}\n");
                     }
                     break;
 
@@ -765,6 +810,16 @@ public class CharacterPassives : IServiceSingleton
                     if (game.RoundNo == 10)
                         if (target.GameCharacter.Passive.Any(x => x.PassiveName == "Дракон"))
                         {
+                            var isBuffed = game.PlayersList.Any(p =>
+                                p.GameCharacter.Passive.Any(x => x.PassiveName == "Buffing") &&
+                                p.Passives.SupportPremade.MarkedPlayerId == target.GetPlayerId());
+
+                            if (isBuffed)
+                            {
+                                game.AddGlobalLogs("**DragonSlayer**: Дракон под защитой Суппорта!\n");
+                                break;
+                            }
+
                             target.Status.IsAbleToWin = false;
                             game.AddGlobalLogs("**Я DRAGONSLAYER!**\n" +
                                                $"{me.DiscordUsername} побеждает дракона и забирает **1000 голды**!");
@@ -1097,6 +1152,25 @@ public class CharacterPassives : IServiceSingleton
                         me.Status.AddInGamePersonalLogs($"Buffing: Усилил {target.DiscordUsername}\n");
                     }
                     break;
+
+                case "Гоблины":
+                    me.Passives.GoblinLastAttackedPlayer = target.GetPlayerId();
+                    break;
+
+                case "Отличный рудник":
+                    // Attacking mine position (1, 2, or 6) — raid for bonus points
+                    var targetPlace = target.Status.GetPlaceAtLeaderBoard();
+                    if (targetPlace is 1 or 2 or 6)
+                    {
+                        var raidWorkers = me.Passives.GoblinPopulation.Workers;
+                        if (raidWorkers > 0)
+                        {
+                            me.Status.AddBonusPoints(raidWorkers, "Отличный рудник");
+                            game.Phrases.GoblinMine.SendLog(me, false);
+                            me.Status.AddInGamePersonalLogs($"Рудник: Обчистили на {raidWorkers} очков!\n");
+                        }
+                    }
+                    break;
             }
     }
 
@@ -1134,6 +1208,8 @@ public class CharacterPassives : IServiceSingleton
                     if (game.IsKratosEvent && game.RoundNo > 10)
                         if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                         {
+                            // Goblins are immune to kill effects
+                            if (target.GameCharacter.Name == "Стая Гоблинов") break;
                             game.AddGlobalLogs($"{me.GameCharacter.Name} **УБИЛ** {target.GameCharacter.Name}!");
                             game.AddGlobalLogs($"Они скинули **{target.DiscordUsername}**! Сволочи!");
                             game.Phrases.KratosEventKill.SendLog(me, true, isRandomOrder:false);
@@ -1624,6 +1700,31 @@ public class CharacterPassives : IServiceSingleton
                         }
                     }
                     break;
+
+                case "Гоблины":
+                    var gobAtkAfterPop = me.Passives.GoblinPopulation;
+                    if (me.Status.IsWonThisCalculation == target.GetPlayerId())
+                    {
+                        // Win: x2 growth, +1 vs tooGood, +2 vs tooStronk
+                        var growth = 2 * gobAtkAfterPop.GrowthThisRound;
+                        if (me.Status.FightEnemyWasTooGood) growth += 1;
+                        if (me.Status.FightEnemyWasTooStronk) growth += 2;
+                        gobAtkAfterPop.TotalGoblins += growth;
+                        game.Phrases.GoblinGrowthAttack.SendLog(me, false);
+                        me.Status.AddInGamePersonalLogs($"Гоблины: +{growth} гоблинов! Всего: {gobAtkAfterPop.TotalGoblins}\n");
+                    }
+                    else if (me.Status.IsLostThisCalculation != Guid.Empty)
+                    {
+                        // Loss: kill goblins (percentage-based)
+                        var atkDeathPct = 10;
+                        if (me.Status.FightEnemyWasTooGood) atkDeathPct += 5;
+                        if (me.Status.FightEnemyWasTooStronk) atkDeathPct += 5;
+                        var atkDeathCount = Math.Max(1, (int)Math.Ceiling(gobAtkAfterPop.TotalGoblins * atkDeathPct / 100.0));
+                        gobAtkAfterPop.TotalGoblins = Math.Max(1, gobAtkAfterPop.TotalGoblins - atkDeathCount);
+                        game.Phrases.GoblinDeath.SendLog(me, false);
+                        me.Status.AddInGamePersonalLogs($"Гоблины: -{atkDeathCount} ({atkDeathPct}%). Осталось: {gobAtkAfterPop.TotalGoblins}\n");
+                    }
+                    break;
             }
     }
 
@@ -1702,7 +1803,7 @@ public class CharacterPassives : IServiceSingleton
                 case "Get cancer":
                     // p = Toxic Mate (cancer owner), player = fight participant
                     var cancerAll = p.Passives.ToxicMateCancer;
-                    if (cancerAll.IsActive && attack && player.Status.IsWonThisCalculation != Guid.Empty
+                    if (cancerAll.IsActive && !cancerAll.TransferredThisRound && attack && player.Status.IsWonThisCalculation != Guid.Empty
                         && player.Passives.HasToxicMateCancer && player.Passives.ToxicMateCancerSourceId == p.GetPlayerId())
                     {
                         var cancerTarget = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation);
@@ -1713,6 +1814,7 @@ public class CharacterPassives : IServiceSingleton
                             player.Passives.ToxicMateCancerSourceId = Guid.Empty;
                             player.GameCharacter.BlockMoralGain = false;
                             cancerAll.TransferCount++;
+                            cancerAll.TransferredThisRound = true;
 
                             if (cancerTarget.GetPlayerId() == p.GetPlayerId())
                             {
@@ -1820,7 +1922,7 @@ public class CharacterPassives : IServiceSingleton
 
                                 var howMuchToAdd = -1;
 
-                                if (target!.GameCharacter.Name == "Школоло")
+                                if (target!.GameCharacter.Name == "Злой Школьник")
                                 {
                                     howMuchToAdd = -2;
                                     target.Status.AddInGamePersonalLogs(
@@ -2708,7 +2810,7 @@ public class CharacterPassives : IServiceSingleton
                             if (game.PlayersList[randIndex].GameCharacter.Name is "Глеб" or "mylorik" or
                                 "Загадочный Спартанец в маске")
                                 enemy1 = player.GetPlayerId();
-                            if (game.PlayersList[randIndex].GameCharacter.Name is "Школоло" && game.RoundNo < 4)
+                            if (game.PlayersList[randIndex].GameCharacter.Name is "Злой Школьник" && game.RoundNo < 4)
                                 enemy1 = player.GetPlayerId();
                             if (game.PlayersList[randIndex].GameCharacter.Name is "Вампур" && game.RoundNo >= 4)
                                 enemy1 = player.GetPlayerId();
@@ -2726,7 +2828,7 @@ public class CharacterPassives : IServiceSingleton
                             if (game.PlayersList[randIndex].GameCharacter.Name is "Глеб" or "mylorik" or
                                 "Загадочный Спартанец в маске")
                                 enemy2 = player.GetPlayerId();
-                            if (game.PlayersList[randIndex].GameCharacter.Name is "Школоло" && game.RoundNo < 4)
+                            if (game.PlayersList[randIndex].GameCharacter.Name is "Злой Школьник" && game.RoundNo < 4)
                                 enemy2 = player.GetPlayerId();
                             if (game.PlayersList[randIndex].GameCharacter.Name is "Вампур" && game.RoundNo >= 4)
                                 enemy2 = player.GetPlayerId();
@@ -2912,10 +3014,21 @@ public class CharacterPassives : IServiceSingleton
                         var dnTarget = game.PlayersList.Find(x => x.GetPlayerId() == deathNote.CurrentRoundTarget);
                         if (dnTarget != null)
                         {
+                            // 15% chance Kira writes on glass instead of the Death Note
+                            if (_rand.Luck(15))
+                            {
+                                player.Status.AddInGamePersonalLogs("Рюк: ЛАЙТ, ТЫ ПИШЕШЬ НА СТЕКЛЕ\n");
+                                deathNote.CurrentRoundTarget = Guid.Empty;
+                                deathNote.CurrentRoundName = "";
+                                break;
+                            }
+
                             var writtenName = deathNote.CurrentRoundName.Trim();
                             var actualName = dnTarget.GameCharacter.Name;
                             if (string.Equals(writtenName, actualName, StringComparison.OrdinalIgnoreCase))
                             {
+                                // Goblins are immune to kill effects
+                                if (dnTarget.GameCharacter.Name == "Стая Гоблинов") break;
                                 // Correct — target dies
                                 dnTarget.Passives.KiraDeathNoteDead = true;
                                 var isL = dnTarget.GetPlayerId() == player.Passives.KiraL.LPlayerId;
@@ -3087,27 +3200,8 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Napoleon — Вступить в союз: both allies see each other's targets
+                // Napoleon — Вступить в союз: target info now shown via ⚔️ icon in leaderboard
                 case "Вступить в союз":
-                    var napAllyEnd = game.PlayersList.Find(x =>
-                        x.GetPlayerId() == player.Passives.NapoleonAlliance.AllyId);
-                    if (napAllyEnd != null)
-                    {
-                        foreach (var tId in napAllyEnd.Status.WhoToAttackThisTurn)
-                        {
-                            var tPlayer = game.PlayersList.Find(x => x.GetPlayerId() == tId);
-                            if (tPlayer != null)
-                                player.Status.AddInGamePersonalLogs(
-                                    $"Союзник выбрал **{tPlayer.DiscordUsername}** целью\n");
-                        }
-                        foreach (var tId in player.Status.WhoToAttackThisTurn)
-                        {
-                            var tPlayer = game.PlayersList.Find(x => x.GetPlayerId() == tId);
-                            if (tPlayer != null)
-                                napAllyEnd.Status.AddInGamePersonalLogs(
-                                    $"Napoleon выбрал **{tPlayer.DiscordUsername}** целью\n");
-                        }
-                    }
                     break;
 
                 // Таинственный Суппорт — "Protect": block gives +1 justice
@@ -3211,6 +3305,8 @@ public class CharacterPassives : IServiceSingleton
                                         string.Equals(p.CharacterName, "Кира", StringComparison.OrdinalIgnoreCase));
                                     if (lPredictedKira)
                                     {
+                                        // Goblins are immune to kill effects
+                                        if (player.GameCharacter.Name == "Стая Гоблинов") break;
                                         kiraLNext.IsArrested = true;
                                         player.Passives.KiraDeathNoteDead = true;
                                         var arrestLog = $"L арестовал {player.DiscordUsername}!";
@@ -3890,6 +3986,10 @@ public class CharacterPassives : IServiceSingleton
                         player.Passives.DopaMacro.FightsProcessed = 0;
                         break;
 
+                    case "Get cancer":
+                        player.Passives.ToxicMateCancer.TransferredThisRound = false;
+                        break;
+
                     case "Взгляд в будущее":
                         if (player.Passives.DopaVision.Cooldown > 0)
                         {
@@ -4204,6 +4304,100 @@ public class CharacterPassives : IServiceSingleton
                         player.Status.IsReady = true;
                     }
                     break;
+
+                case "Гоблины":
+                    // Auto-grow goblins each round
+                    var gobEndPop = player.Passives.GoblinPopulation;
+                    var autoGrowth = gobEndPop.GrowthThisRound;
+                    gobEndPop.TotalGoblins += autoGrowth;
+                    // Update persistent stat bonuses based on new population
+                    player.GameCharacter.SetStrength(gobEndPop.Warriors, "Гоблины");
+                    player.GameCharacter.SetIntelligence(gobEndPop.Hobs, "Гоблины");
+                    player.GameCharacter.SetPsyche(5 + gobEndPop.Hobs, "Гоблины");
+                    player.Status.AddInGamePersonalLogs($"Гоблины: +{autoGrowth} прирост. Всего: {gobEndPop.TotalGoblins} (⚔️{gobEndPop.Warriors} 🧙{gobEndPop.Hobs} ⛏️{gobEndPop.Workers})\n");
+                    break;
+
+                case "Отличный рудник":
+                    // Mine income at positions 1, 2, or 6
+                    var gobMinePop = player.Passives.GoblinPopulation;
+                    var myPlace = player.Status.GetPlaceAtLeaderBoard();
+                    if (myPlace is 1 or 2 or 6 && gobMinePop.Workers > 0)
+                    {
+                        player.Status.AddBonusPoints(gobMinePop.Workers, "Отличный рудник");
+                        game.Phrases.GoblinMine.SendLog(player, false);
+                        player.Status.AddInGamePersonalLogs($"Рудник: +{gobMinePop.Workers} очков от трудяг!\n");
+                    }
+                    break;
+
+                case "Гоблины тупые, но не идиоты":
+                    var gobZigEnd = player.Passives.GoblinZiggurat;
+                    var placeEnd = player.Status.GetPlaceAtLeaderBoard();
+
+                    // Build ziggurat on block (fires regardless of whether anyone attacked)
+                    if (player.Status.IsBlock)
+                    {
+                        var zigPop = player.Passives.GoblinPopulation;
+
+                        if (zigPop.Warriors < 1 || zigPop.Hobs < 1 || zigPop.Workers < 1 ||
+                            player.Status.GetScore() < 3)
+                        {
+                            game.Phrases.GoblinZigguratNoMoney.SendLog(player, false);
+                        }
+                        else if (gobZigEnd.BuiltPositions.Contains(placeEnd))
+                        {
+                            player.Status.AddInGamePersonalLogs("Зиккурат уже построен на этом месте!\n");
+                        }
+                        else
+                        {
+                            player.Status.AddBonusPoints(-3, "Гоблины тупые, но не идиоты");
+                            var workerDeathCost = zigPop.WorkerRate;
+                            zigPop.TotalGoblins = Math.Max(1, zigPop.TotalGoblins - workerDeathCost);
+                            game.Phrases.GoblinZigguratWorkerDeath.SendLog(player, false);
+                            player.Status.AddInGamePersonalLogs($"Зиккурат: -{workerDeathCost} гоблинов (1 трудяга). Осталось: {zigPop.TotalGoblins}\n");
+
+                            gobZigEnd.BuiltPositions.Add(placeEnd);
+                            gobZigEnd.IsInZiggurat = true;
+                            gobZigEnd.ZigguratStayRoundsLeft = 1;
+
+                            var allPassives = _charactersPull.GetAllPassives();
+                            var standalonePassives = allPassives
+                                .Where(p => p.Standalone && !gobZigEnd.LearnedPassives.Contains(p.PassiveName)
+                                    && player.GameCharacter.Passive.All(x => x.PassiveName != p.PassiveName))
+                                .ToList();
+
+                            if (standalonePassives.Count > 0)
+                            {
+                                var learnedPassive = standalonePassives[_rand.Random(0, standalonePassives.Count - 1)];
+                                gobZigEnd.LearnedPassives.Add(learnedPassive.PassiveName);
+                                player.GameCharacter.Passive.Add(learnedPassive.DeepCopy());
+                                player.Status.AddInGamePersonalLogs($"Отлично! Гоблины постарались как следует и научились производить: {learnedPassive.PassiveName}\n");
+                            }
+
+                            game.Phrases.GoblinZigguratBuild.SendLog(player, false);
+                            player.Status.AddInGamePersonalLogs($"Зиккурат построен на месте {placeEnd}! Позиция защищена.\n");
+                        }
+                    }
+
+                    // Check if current position has a built ziggurat
+                    if (gobZigEnd.BuiltPositions.Contains(placeEnd))
+                    {
+                        gobZigEnd.IsInZiggurat = true;
+                        gobZigEnd.ZigguratStayRoundsLeft = 1;
+                    }
+                    else
+                    {
+                        gobZigEnd.IsInZiggurat = false;
+                        gobZigEnd.ZigguratStayRoundsLeft = 0;
+                    }
+
+                    // Ziggurat grants Justice and Moral each round
+                    if (gobZigEnd.IsInZiggurat)
+                    {
+                        player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(1);
+                        player.GameCharacter.AddMoral(5, "Зиккурат");
+                        player.Status.AddInGamePersonalLogs("Зиккурат: +1 Справедливость, +5 Мораль\n");
+                    }
+                    break;
             }
     }
     //end after all fight
@@ -4281,7 +4475,7 @@ public class CharacterPassives : IServiceSingleton
         }
 
         characters.Add("Sirinoks");
-        characters.Add("Школоло");
+        characters.Add("Злой Школьник");
         characters.Add("AWDKA");
         characters.Add("Вампур");
         characters.Add("Итачи");
@@ -4336,7 +4530,7 @@ public class CharacterPassives : IServiceSingleton
                                             break;
                                         case 9:
                                             if (player.Predict.All(x => x.PlayerId != playerClass!.GetPlayerId()))
-                                                player.Predict.Add(new PredictClass("Школоло",
+                                                player.Predict.Add(new PredictClass("Злой Школьник",
                                                     playerClass.GetPlayerId()));
                                             break;
                                         case 8:

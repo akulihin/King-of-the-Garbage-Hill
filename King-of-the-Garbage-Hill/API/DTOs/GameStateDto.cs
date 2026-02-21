@@ -498,6 +498,7 @@ public class PassiveAbilityStatesDto
     public SellerStateDto Seller { get; set; }
     public SellerMarkStateDto SellerMark { get; set; }
     public DopaStateDto Dopa { get; set; }
+    public GoblinSwarmStateDto GoblinSwarm { get; set; }
 }
 
 public class BulkStateDto
@@ -611,6 +612,20 @@ public class DopaStateDto
     public int VisionCooldown { get; set; }
     public string ChosenTactic { get; set; }
     public bool NeedSecondAttack { get; set; }
+}
+
+public class GoblinSwarmStateDto
+{
+    public int TotalGoblins { get; set; }
+    public int Warriors { get; set; }
+    public int Hobs { get; set; }
+    public int Workers { get; set; }
+    public int HobRate { get; set; }
+    public int WarriorRate { get; set; }
+    public int WorkerRate { get; set; }
+    public List<int> ZigguratPositions { get; set; }
+    public bool IsInZiggurat { get; set; }
+    public bool FestivalUsed { get; set; }
 }
 
 // ── Auth DTOs ─────────────────────────────────────────────────────────

@@ -204,6 +204,11 @@ public class PassivesClass
     public bool HasToxicMateCancer { get; set; }
     public Guid ToxicMateCancerSourceId { get; set; } = Guid.Empty;
 
+    // Стая Гоблинов
+    public GoblinSwarm.GoblinPopulationClass GoblinPopulation { get; set; } = new();
+    public GoblinSwarm.ZigguratClass GoblinZiggurat { get; set; } = new();
+    public Guid GoblinLastAttackedPlayer { get; set; } = Guid.Empty;
+
     public Guid PointFunneledTo { get; set; } = Guid.Empty;
     public bool IsExploitable { get; set; } = false;
     public bool IsExploitFixed { get; set; } = false;

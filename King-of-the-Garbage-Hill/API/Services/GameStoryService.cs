@@ -53,6 +53,7 @@ public class GameStoryService
             try
             {
                 var prompt = BuildPrompt(snapshot);
+                Console.WriteLine($"[GameStory] Prompt for game {gameId}:\n{prompt}");
                 var story = await CallClaudeApi(prompt);
 
                 if (!string.IsNullOrWhiteSpace(story))
@@ -131,63 +132,118 @@ public class GameStoryService
     {
         var sb = new StringBuilder();
 
+        sb.AppendLine("<game-commentary>");
+
+        // ── Instructions ──
+        sb.AppendLine("<instructions>");
         sb.AppendLine("Ты — комментатор игры 'King of the Garbage Hill' (Король Мусорной Горы).");
         sb.AppendLine("Это тактическая пошаговая игра на 6 игроков с уникальными персонажами.");
         sb.AppendLine();
         sb.AppendLine("ЗАДАНИЕ: напиши весёлую историю-пересказ этой партии (8-15 строк).");
         sb.AppendLine("ПРАВИЛА:");
         sb.AppendLine("- Описывай взаимодействия МЕЖДУ персонажами: кто кого бил, кто кому мстил, какие способности сработали друг против друга");
-        sb.AppendLine("- Привязывай события к раундам из Fight History (\"в раунде #3...\", \"к раунду #7...\")");
+        sb.AppendLine("- Привязывай события к раундам (\"в раунде #3...\", \"к раунду #7...\")");
         sb.AppendLine("- Шутки должны быть 'in character' — основаны на личности, фразах и способностях персонажа");
         sb.AppendLine("- НЕ описывай каждый раунд — выдели 3-5 самых ярких столкновений и поворотных моментов");
         sb.AppendLine("- Стиль: неформальный, с юмором, сленгом, цитатами персонажей из логов");
         sb.AppendLine("- Используй **жирный** для имён персонажей и ключевых моментов");
         sb.AppendLine("- Каждый момент — отдельная строка (абзац)");
         sb.AppendLine("- Напиши только историю, без заголовков и пояснений");
-        sb.AppendLine();
+        sb.AppendLine("- Не выдумывай ничего своего, используй только информацию из логов.");
+        sb.AppendLine("- Твоя цель - пересказать историю каждого раунда.");
+        sb.AppendLine("</instructions>");
 
-        // ── Characters ──
-        sb.AppendLine($"=== РЕЗУЛЬТАТЫ ({snapshot.RoundCount} раундов, режим: {snapshot.GameMode}) ===");
-        sb.AppendLine();
-        sb.AppendLine("ПЕРСОНАЖИ:");
+        // ── Characters / Results ──
+        sb.AppendLine($"<results rounds=\"{snapshot.RoundCount}\" mode=\"{snapshot.GameMode}\">");
         foreach (var p in snapshot.Players)
         {
-            var botTag = p.IsBot ? " [БОТ]" : "";
-            sb.AppendLine($"  #{p.Place} {p.CharacterName}{botTag} ({p.Score} очков)");
+            var botAttr = p.IsBot ? " bot=\"true\"" : "";
+            sb.AppendLine($"  <character place=\"{p.Place}\" name=\"{p.CharacterName}\" score=\"{p.Score}\"{botAttr}>");
 
             if (!string.IsNullOrWhiteSpace(p.StoryAgent))
-                sb.AppendLine($"    Характер: {p.StoryAgent}");
+                sb.AppendLine($"    <personality>{p.StoryAgent}</personality>");
 
             if (p.Passives.Count > 0)
-                sb.AppendLine($"    Способности: {string.Join(" | ", p.Passives)}");
-        }
-
-        // ── Fight History (global logs with round numbers, usernames already replaced) ──
-        sb.AppendLine();
-        sb.AppendLine("=== FIGHT HISTORY ===");
-        sb.AppendLine("(⟶ означает победу: проигравший ⟶ победитель)");
-        sb.AppendLine(Truncate(StripDiscordEmoji(snapshot.AllGlobalLogs), 3000));
-
-        // ── Per-character personal logs with round numbers ──
-        sb.AppendLine();
-        sb.AppendLine("=== PERSONAL LOGS (по раундам) ===");
-        foreach (var p in snapshot.Players)
-        {
-            if (string.IsNullOrWhiteSpace(p.PersonalLogs)) continue;
-            sb.AppendLine();
-            sb.AppendLine($"--- {p.CharacterName} (#{p.Place}) ---");
-            // Split by ||| into per-round sections
-            var rounds = p.PersonalLogs.Split("|||")
-                .Select(r => r.Trim())
-                .Where(r => r.Length > 0)
-                .ToList();
-            for (var i = 0; i < rounds.Count; i++)
             {
-                sb.AppendLine($"  Раунд #{i + 1}: {Truncate(StripDiscordEmoji(rounds[i]), 200)}");
+                sb.AppendLine("    <abilities>");
+                foreach (var pas in p.Passives)
+                    sb.AppendLine($"      <ability>{pas}</ability>");
+                sb.AppendLine("    </abilities>");
             }
+
+            sb.AppendLine("  </character>");
         }
+        sb.AppendLine("</results>");
+
+        // ── Per-round structured data ──
+        var globalRounds = SplitGlobalLogsByRound(snapshot.AllGlobalLogs);
+        var personalRoundLogs = snapshot.Players.Select(p => new
+        {
+            p.CharacterName,
+            Rounds = (p.PersonalLogs ?? "").Split("|||")
+                .Select(r => r.Trim())
+                .ToList()
+        }).ToList();
+
+        var maxRounds = snapshot.RoundCount;
+        if (maxRounds == 0)
+            maxRounds = Math.Max(
+                globalRounds.Count,
+                personalRoundLogs.Select(x => x.Rounds.Count(r => r.Length > 0)).DefaultIfEmpty(0).Max()
+            );
+
+        sb.AppendLine("<rounds>");
+        for (var i = 0; i < maxRounds; i++)
+        {
+            sb.AppendLine($"  <round number=\"{i + 1}\">");
+
+            if (i < globalRounds.Count && !string.IsNullOrWhiteSpace(globalRounds[i]))
+            {
+                sb.AppendLine("    <fight-history>");
+                sb.AppendLine($"      {Truncate(StripDiscordEmoji(globalRounds[i].Trim()), 500)}");
+                sb.AppendLine("    </fight-history>");
+            }
+
+            var hasAnyLogs = personalRoundLogs.Any(p =>
+                i < p.Rounds.Count && !string.IsNullOrWhiteSpace(p.Rounds[i]));
+
+            if (hasAnyLogs)
+            {
+                sb.AppendLine("    <personal-logs>");
+                foreach (var p in personalRoundLogs)
+                {
+                    if (i < p.Rounds.Count && !string.IsNullOrWhiteSpace(p.Rounds[i]))
+                        sb.AppendLine(
+                            $"      <character name=\"{p.CharacterName}\">{Truncate(StripDiscordEmoji(p.Rounds[i]), 300)}</character>");
+                }
+                sb.AppendLine("    </personal-logs>");
+            }
+
+            sb.AppendLine("  </round>");
+        }
+        sb.AppendLine("</rounds>");
+
+        sb.AppendLine("</game-commentary>");
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Splits AllGameGlobalLogs by round markers (__**Раунд #N**__:).
+    /// Returns a list where index 0 = round 1 content, index 1 = round 2, etc.
+    /// </summary>
+    private static List<string> SplitGlobalLogsByRound(string allLogs)
+    {
+        if (string.IsNullOrWhiteSpace(allLogs))
+            return new List<string>();
+
+        var parts = Regex.Split(allLogs, @"__\*\*Раунд #\d+\*\*__:");
+
+        // First element is pre-round content (usually empty), skip it
+        return parts
+            .Skip(1)
+            .Select(p => p.Trim())
+            .ToList();
     }
 
     // ── Formatting ───────────────────────────────────────────────────

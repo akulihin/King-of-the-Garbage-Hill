@@ -97,6 +97,10 @@ public class InGameStatus
 
     public int AramRerolledPassivesTimes { get; set; } = 0;
     public int AramRerolledStatsTimes { get; set; } = 0;
+
+    // Temporary fight context flags for goblin death percentage calculation
+    public bool FightEnemyWasTooGood { get; set; }
+    public bool FightEnemyWasTooStronk { get; set; }
     public bool IsAramRollConfirmed { get; set; }
     private string FightingData { get; set; } = "";
 

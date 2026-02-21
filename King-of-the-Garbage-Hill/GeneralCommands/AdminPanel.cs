@@ -199,7 +199,7 @@ public class AdminPanel : ModuleBaseCustom
         //238337696316129280 == DeepList
         if (character == null)
         {
-            _accounts.GetAccount(238337696316129280).CharacterToGiveNextTime = "Школоло";
+            _accounts.GetAccount(238337696316129280).CharacterToGiveNextTime = "Злой Школьник";
             _accounts.GetAccount(181514288278536193).CharacterToGiveNextTime = "Загадочный Спартанец в маске";
             return;
         }

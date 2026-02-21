@@ -300,7 +300,8 @@ public class WebGameService
         if (!result)
         {
             player.Status.IsAutoMove = wasAutoMove;
-            return (false, "Attack rejected (invalid target or passive prevented it)");
+            var specificError = player.WebMessages.LastOrDefault() ?? "Attack rejected";
+            return (false, specificError);
         }
 
         player.Status.IsAutoMove = false;
@@ -317,6 +318,34 @@ public class WebGameService
         // Check Sparta passive (cannot block)
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Спарта"))
             return Task.FromResult((false, "Спартанцы не капитулируют!!"));
+
+        // Aggress passive (cannot block)
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Aggress"))
+            return Task.FromResult((false, "I. WONT. STOP."));
+
+        // Dopa Макро — block counts as one of two actions
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Макро"))
+        {
+            if (player.Status.WhoToAttackThisTurn.Count == 0)
+            {
+                // Block first — register self as first target, wait for attack
+                player.Status.WhoToAttackThisTurn.Add(player.GetPlayerId());
+                var macroBlockText = "Макро: Блок зарегистрирован. Выберите цель для нападения.\n";
+                player.Status.AddInGamePersonalLogs(macroBlockText);
+                player.Status.ChangeMindWhat = macroBlockText;
+                return Task.FromResult((true, (string)null));
+            }
+            else if (player.Status.WhoToAttackThisTurn.Count == 1)
+            {
+                // Attack was first — block is second action, mark self as second target
+                player.Status.WhoToAttackThisTurn.Add(player.GetPlayerId());
+                player.Status.IsReady = true;
+                var macroBlockText2 = "Макро: Блок зарегистрирован как второе действие.\n";
+                player.Status.AddInGamePersonalLogs(macroBlockText2);
+                player.Status.ChangeMindWhat = macroBlockText2;
+                return Task.FromResult((true, (string)null));
+            }
+        }
 
         player.Status.IsBlock = true;
         player.Status.IsReady = true;

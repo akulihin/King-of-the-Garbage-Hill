@@ -317,10 +317,10 @@ public static class GameStateMapper
                     case "Научите играть":
                         var copyHist = player.Passives.AwdkaTeachToPlayHistory.History;
                         var lastCopy = copyHist.LastOrDefault();
-                        var copyStat = lastCopy?.Stat ?? 0;
+                        var copyStatIndex = lastCopy?.Text ?? "0";
                         pas.Copycat = new CopycatStateDto
                         {
-                            CopiedStatName = copyStat switch { 1 => "INT", 2 => "STR", 3 => "SPD", 4 => "PSY", _ => "—" },
+                            CopiedStatName = copyStatIndex switch { "1" => "INT", "2" => "STR", "3" => "SPD", "4" => "PSY", _ => "—" },
                             HistoryCount = copyHist.Count,
                         };
                         anySet = true;
@@ -378,6 +378,24 @@ public static class GameStateMapper
                             VisionCooldown = player.Passives.DopaVision.Cooldown,
                             ChosenTactic = player.Passives.DopaMetaChoice.ChosenTactic,
                             NeedSecondAttack = player.Status.WhoToAttackThisTurn.Count == 1 && !player.Status.IsReady,
+                        };
+                        anySet = true;
+                        break;
+                    case "Гоблины":
+                        var gobPop = player.Passives.GoblinPopulation;
+                        var gobZig = player.Passives.GoblinZiggurat;
+                        pas.GoblinSwarm = new GoblinSwarmStateDto
+                        {
+                            TotalGoblins = gobPop.TotalGoblins,
+                            Warriors = gobPop.Warriors,
+                            Hobs = gobPop.Hobs,
+                            Workers = gobPop.Workers,
+                            HobRate = gobPop.HobRate,
+                            WarriorRate = gobPop.WarriorRate,
+                            WorkerRate = gobPop.WorkerRate,
+                            ZigguratPositions = gobZig.BuiltPositions,
+                            IsInZiggurat = gobZig.IsInZiggurat,
+                            FestivalUsed = gobPop.FestivalUsed,
                         };
                         anySet = true;
                         break;

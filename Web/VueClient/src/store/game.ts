@@ -254,6 +254,7 @@ export const useGameStore = defineStore('game', () => {
   }
 
   async function joinGame(gameId: number) {
+    gameStory.value = null
     await signalrService.joinGame(gameId)
   }
 

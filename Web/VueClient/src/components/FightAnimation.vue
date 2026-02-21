@@ -58,11 +58,14 @@ function dismissStoryPopup() {
   showStoryPopup.value = false
 }
 
-// Auto-show story popup when story arrives
+// Auto-show story popup when story arrives; reset when story is cleared
 watch(() => props.gameStory, (val) => {
   if (val && !storyPopupShown.value) {
     showStoryPopup.value = true
     storyPopupShown.value = true
+  } else if (!val) {
+    storyPopupShown.value = false
+    showStoryPopup.value = false
   }
 })
 
@@ -564,7 +567,7 @@ watch(currentStep, (step: number) => {
 
 // No-fights sound: fights exist but none are mine (play only once per round)
 const noFightsSoundPlayed = ref(false)
-watch(() => props.fights, () => { noFightsSoundPlayed.value = false })
+watch(() => props.fights.length, (cur, prev) => { if (cur === 0 && (prev ?? 0) > 0) noFightsSoundPlayed.value = false })
 watch(myFights, (mine: FightEntry[]) => {
   if (props.fights.length > 0 && mine.length === 0 && !noFightsSoundPlayed.value) {
     noFightsSoundPlayed.value = true

@@ -95,6 +95,10 @@ public class CheckIfReady : IServiceSingleton
             case "Кратос":
                 game.AddGlobalLogs("Я умер как **Воин**, вернулся как **Бог**, а закончил **Королем Мусорной Горы**!");
                 break;
+
+            case "Saitama":
+                game.AddGlobalLogs("Наконец-то я победил Кинга! Пойду дальше геройствовать.");
+                break;
         }
 
         //if lost phrases
@@ -104,11 +108,14 @@ public class CheckIfReady : IServiceSingleton
                 case "HardKitty":
                     player.Status.AddInGamePersonalLogs("Даже имя мое написать нормально не можете");
                     break;
-                case "Школоло":
+                case "Злой Школьник":
                     player.Status.AddInGamePersonalLogs("Блять, суки, че вы меня таким слабым сделали?");
                     break;
                 case "Тигр":
                     player.Status.AddInGamePersonalLogs("Обоссанная игра, обоссанный баланс");
+                    break;
+                case "Saitama":
+                    player.Status.AddInGamePersonalLogs("Да ну эти видеоигры! Монстров убивать проще... Как Кинг всё время выигрывает?");
                     break;
             }
 
@@ -250,7 +257,7 @@ public class CheckIfReady : IServiceSingleton
                         "Толя" => "Раммус Продал Тормейл",
                         "HardKitty" => "Пакет Молока Пролился На Клавиатуру",
                         "Sirinoks" => "Айсик Затроллилась#",
-                        "Школоло" => "МитСУКИ Затроллился",
+                        "Злой Школьник" => "МитСУКИ Затроллился",
                         "AWDKA" => "AWDKA Затроллился сам по себе...",
                         "Осьминожка" => "Осьминожка Забулькался",
                         "Darksci" => "Даркси Нe Повeзло...",
@@ -786,6 +793,16 @@ public class CheckIfReady : IServiceSingleton
                     var textAutomove = "Вы не походили. Использовался Авто Ход\n";
                     t.Status.AddInGamePersonalLogs(textAutomove);
                     t.Status.ChangeMindWhat = textAutomove;
+                }
+
+                // Dopa Макро — if only one action was completed, auto-move the second
+                foreach (var t in players.Where(t =>
+                             !t.IsBot() && !t.Status.IsReady && !t.Status.IsSkip
+                             && t.GameCharacter.Passive.Any(x => x.PassiveName == "Макро")
+                             && t.Status.WhoToAttackThisTurn.Count == 1))
+                {
+                    t.Status.IsAutoMove = true;
+                    t.Status.AddInGamePersonalLogs("Макро: Второе действие не выбрано. Использовался Авто Ход\n");
                 }
 
 

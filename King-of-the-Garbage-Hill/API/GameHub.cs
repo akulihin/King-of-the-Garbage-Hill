@@ -201,7 +201,7 @@ public class GameHub : Hub
         var (success, error) = await _gameService.Attack(gameId, discordId, targetPlace);
         await Clients.Caller.SendAsync("ActionResult", new { action = "attack", success, error });
 
-        if (success) await PushStateToPlayer(gameId, discordId);
+        await PushStateToPlayer(gameId, discordId);
     }
 
     public async Task Block(ulong gameId)

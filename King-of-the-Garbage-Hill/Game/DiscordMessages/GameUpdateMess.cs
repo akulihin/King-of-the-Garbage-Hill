@@ -203,8 +203,24 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 case "Челюсти":
                     if (!player1.Passives.SharkJawsLeader.FriendList.Contains(number)) customString += "🐙";
                     break;
+
+                case "Отличный рудник":
+                    if (number is 1 or 2 or 6) customString += "⛏️";
+                    break;
+
+                case "Гоблины тупые, но не идиоты":
+                    if (player1.Passives.GoblinZiggurat.BuiltPositions.Contains(number)) customString += "🏛️";
+                    break;
             }
 
+
+        // Protection indicators — visible to all players
+        if (player2.Passives.GoblinZiggurat.IsInZiggurat)
+            customString += "🛡️";
+
+        if (game.RoundNo == 10 && player2.GameCharacter.Passive.Any(
+            x => x.PassiveName == "Стримснайпят и банят и банят и банят"))
+            customString += "🚫";
 
         return customString + " ";
     }
@@ -270,6 +286,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                     if (other.GameCharacter.GetWinStreak() > 0)
                         customString += $" <:bong:1046462826539130950>: {other.GameCharacter.GetWinStreak()}";
+                    break;
+
+                case "Гоблины":
+                    if (other.GetPlayerId() == me.GetPlayerId())
+                    {
+                        var pop = me.Passives.GoblinPopulation;
+                        customString += $" 👺{pop.TotalGoblins} (⚔️{pop.Warriors} 🧙{pop.Hobs} ⛏️{pop.Workers})";
+                    }
                     break;
 
                 case "Я пытаюсь!":
@@ -577,14 +601,44 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     if (other.GetPlayerId() == me.GetPlayerId()) break;
                     if (me.Passives.NapoleonAlliance.AllyId == other.GetPlayerId())
                         customString += " 🤝";
+                    // Show ⚔️ on the player that the ally is currently targeting
+                    var napAlly = game.PlayersList.Find(x => x.GetPlayerId() == me.Passives.NapoleonAlliance.AllyId);
+                    if (napAlly != null && napAlly.Status.WhoToAttackThisTurn.Contains(other.GetPlayerId()))
+                        customString += " ⚔️";
+                    break;
+
+                case "Premade":
+                    if (other.GetPlayerId() == me.GetPlayerId()) break;
+                    if (me.Passives.SupportPremade.MarkedPlayerId == other.GetPlayerId())
+                        customString += " 🤝";
                     break;
             }
 
-        
+
         // Ally sees 🤝 on Napoleon
         if (other.GameCharacter.Passive.Any(p => p.PassiveName == "Вступить в союз")
             && other.Passives.NapoleonAlliance.AllyId == me.GetPlayerId())
             customString += " 🤝";
+
+        // Ally sees ⚔️ on the player that Napoleon is currently targeting
+        if (other.GameCharacter.Passive.Any(p => p.PassiveName == "Вступить в союз") is false)
+        {
+            var napOther = game.PlayersList.Find(x =>
+                x.GameCharacter.Passive.Any(p => p.PassiveName == "Вступить в союз")
+                && x.Passives.NapoleonAlliance.AllyId == me.GetPlayerId());
+            if (napOther != null && napOther.Status.WhoToAttackThisTurn.Contains(other.GetPlayerId()))
+                customString += " ⚔️";
+        }
+
+        // Marked player sees 🤝 on Support
+        if (other.GameCharacter.Passive.Any(p => p.PassiveName == "Premade")
+            && other.Passives.SupportPremade.MarkedPlayerId == me.GetPlayerId())
+            customString += " 🤝";
+
+        // Saitama sees top 1 player as "King"
+        if (me.GameCharacter.Name == "Saitama" && other.Status.GetPlaceAtLeaderBoard() == 1
+            && other.GetPlayerId() != me.GetPlayerId())
+            customString += " 👑 King";
 
         var knownClass = me.Status.KnownPlayerClass.Find(x => x.EnemyId == other.GetPlayerId());
 
@@ -1033,13 +1087,31 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         var character = player.GameCharacter;
         var embed = new EmbedBuilder();
-        var text = "__Подними один из статов на 1:__";
-        if (player.GameCharacter.Name == "Молодой Глеб") text = "**Понизить** один из статов на 1!";
+
+        // Goblin-specific level-up page
+        if (player.GameCharacter.Name == "Стая Гоблинов")
+        {
+            var pop = player.Passives.GoblinPopulation;
+            var text = "__Выберите улучшение для Стаи:__";
+            embed.WithColor(Color.DarkGreen);
+            embed.WithFooter($"{GetTimeLeft(player)}");
+            embed.AddField("_____",
+                $"{text}\n \n" +
+                $"1. **Правильное питание:** Больше Хобгоблинов (сейчас каждый {pop.HobRate}й)\n" +
+                $"2. **Контрактная армия:** Больше Воинов (сейчас каждый {pop.WarriorRate}й)\n" +
+                $"3. **Трудовые условия:** Больше Трудяг (сейчас каждый {pop.WorkerRate}й)\n" +
+                $"4. **Праздник Гоблинов:** Удвоить гоблинов ({pop.TotalGoblins} → {pop.TotalGoblins * 2}){(pop.FestivalUsed ? " *(уже использовано)*" : "")}\n");
+            embed.WithThumbnailUrl(character.AvatarCurrent);
+            return embed;
+        }
+
+        var text2 = "__Подними один из статов на 1:__";
+        if (player.GameCharacter.Name == "Молодой Глеб") text2 = "**Понизить** один из статов на 1!";
         embed.WithColor(Color.Blue);
         embed.WithFooter($"{GetTimeLeft(player)}");
         //embed.WithCurrentTimestamp();
         embed.AddField("_____",
-            $"{text}\n \n" +
+            $"{text2}\n \n" +
             $"1. **Интеллект:** {character.GetIntelligence()}\n" +
             $"2. **Сила:** {character.GetStrength()}\n" +
             $"3. **Скорость:** {character.GetSpeed()}\n" +
