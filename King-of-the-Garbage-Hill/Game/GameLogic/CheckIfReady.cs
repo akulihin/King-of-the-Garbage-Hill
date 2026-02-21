@@ -112,6 +112,14 @@ public class CheckIfReady : IServiceSingleton
                     break;
             }
 
+        // Салдорум end-game corruption count
+        foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Name == "Салдорум"))
+        {
+            if (player.Passives.SaldorumCorruptionCount > 0)
+                player.Status.AddInGamePersonalLogs(
+                    $"Великий летописец: испорчено {player.Passives.SaldorumCorruptionCount} записей за игру");
+        }
+
         //unique
         if (game.PlayersList.Any(x => x.GameCharacter.Name == "DeepList") &&
             game.PlayersList.Any(x => x.GameCharacter.Name == "mylorik"))
@@ -185,7 +193,10 @@ public class CheckIfReady : IServiceSingleton
                      let enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId)
                      where enemy!.GameCharacter.Name == predict.CharacterName
                      select player)
-                player.Status.AddBonusPoints(1, "Предположение");
+            {
+                var predBonus = player.GameCharacter.Passive.Any(p => p.PassiveName == "Великий летописец") ? 2 : 1;
+                player.Status.AddBonusPoints(predBonus, "Предположение");
+            }
         // predict
 
         // Tsukuyomi end-game deduction: deduct stolen points from victims

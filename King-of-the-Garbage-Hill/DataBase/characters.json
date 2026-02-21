@@ -998,5 +998,38 @@
     "Description": "200IQ Challenger",
     "StoryAgent": "200IQ челленджер. Делает два действия за ход. Видит будущее. Выбирает тактику в начале и доминирует. Законодатель меты.",
     "Tier": 1
+  },
+  {
+    "Name": "Салдорум",
+    "Intelligence": 6,
+    "Psyche": 8,
+    "Speed": 6,
+    "Strength": 4,
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/saldorum.png",
+    "Passive": [
+      {
+        "PassiveDescription": "Проигрыш тому, кто выше в таблице → помечает врага как Хохла. +5 Морали (33%: +5 ещё)",
+        "PassiveName": "Парень с сюрпризом",
+        "Visible": true
+      },
+      {
+        "PassiveDescription": "+1 Справедливости и удвоенная Мораль против Хохлов (помеченные + mylorik/Sirinoks). +1 Мораль при атаке на mylorik",
+        "PassiveName": "Сало",
+        "Visible": true
+      },
+      {
+        "PassiveDescription": "50% шанс скрыть бой. Скрытое убийство даёт +50% Скилла",
+        "PassiveName": "Ниндзя",
+        "Visible": false
+      },
+      {
+        "PassiveDescription": "Видит чужие логи. 20% шанс испортить логи случайного врага. Удвоенный бонус за предположения",
+        "PassiveName": "Великий летописец",
+        "Visible": false
+      }
+    ],
+    "Description": "Салдорум — загадочный летописец, помечающий врагов и управляющий информацией на поле боя.",
+    "StoryAgent": "Хитрый летописец с салом за пазухой. Метит врагов и переписывает историю.",
+    "Tier": 5
   }
 ]

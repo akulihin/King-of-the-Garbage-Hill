@@ -196,7 +196,7 @@ async function getOrFetchAudioBuffer(sourceUrl: string): Promise<AudioBuffer | n
 
 // ── Kill switch: detect runaway sounds ───────────────────────────────
 
-const KILL_SWITCH_LIMIT = 15
+const KILL_SWITCH_LIMIT = 150
 const KILL_SWITCH_WINDOW_MS = 10_000
 const recentPlays = new Map<string, number[]>()
 

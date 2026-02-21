@@ -550,6 +550,36 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
+                case "Парень с сюрпризом":
+                    // Салдорум defending — lost to higher-ranked attacker → mark attacker as Хохол
+                    if (target.Status.IsLostThisCalculation != Guid.Empty
+                        && me.Status.GetPlaceAtLeaderBoard() < target.Status.GetPlaceAtLeaderBoard())
+                    {
+                        if (!target.Passives.SaldorumKhokholList.MarkedEnemies.Contains(me.GetPlayerId()))
+                            target.Passives.SaldorumKhokholList.MarkedEnemies.Add(me.GetPlayerId());
+                        target.GameCharacter.AddMoral(5, "Парень с сюрпризом");
+                        if (new Random().Next(0, 100) < 33)
+                            target.GameCharacter.AddMoral(5, "Парень с сюрпризом");
+                        game.Phrases.SaldorumSurprise.SendLog(target, me, delete: true);
+                    }
+                    break;
+
+                case "Сало":
+                    {
+                        // target = Салдорум (defender), me = attacker
+                        var isKhokhol = target.Passives.SaldorumKhokholList.MarkedEnemies.Contains(me.GetPlayerId())
+                                        || me.GameCharacter.Name is "mylorik" or "Sirinoks";
+                        if (isKhokhol && target.Status.IsWonThisCalculation != Guid.Empty)
+                        {
+                            target.GameCharacter.Justice.AddJusticeForNextRoundFromSkill();
+                            var moral = Math.Abs(me.Status.GetPlaceAtLeaderBoard() - target.Status.GetPlaceAtLeaderBoard());
+                            if (moral > 0 && target.Status.GetPlaceAtLeaderBoard() > me.Status.GetPlaceAtLeaderBoard())
+                                target.GameCharacter.AddMoral(moral, "Сало");
+                            game.Phrases.SaldorumSalo.SendLog(target, me, delete: true);
+                        }
+                    }
+                    break;
+
             }
     }
 
@@ -951,6 +981,15 @@ public class CharacterPassives : IServiceSingleton
                     me.Passives.DopaMacro.FightsProcessed++;
                     if (me.Passives.DopaMacro.FightsProcessed > 1)
                         me.Status.HideCurrentFight = true;
+                    break;
+
+                case "Ниндзя":
+                    me.Passives.SaldorumNinjaHidden = false;
+                    if (new Random().Next(0, 100) < 50)
+                    {
+                        me.Passives.SaldorumNinjaHidden = true;
+                        me.Status.HideCurrentFight = true;
+                    }
                     break;
             }
     }
@@ -1410,6 +1449,49 @@ public class CharacterPassives : IServiceSingleton
                             game.Phrases.DopaRoam.SendLog(me, false);
                         }
                     }
+                    break;
+
+                case "Парень с сюрпризом":
+                    // Lost to higher-ranked enemy → mark as Хохол
+                    if (me.Status.IsLostThisCalculation != Guid.Empty
+                        && target.Status.GetPlaceAtLeaderBoard() < me.Status.GetPlaceAtLeaderBoard())
+                    {
+                        if (!me.Passives.SaldorumKhokholList.MarkedEnemies.Contains(target.GetPlayerId()))
+                            me.Passives.SaldorumKhokholList.MarkedEnemies.Add(target.GetPlayerId());
+                        me.GameCharacter.AddMoral(5, "Парень с сюрпризом");
+                        if (new Random().Next(0, 100) < 33)
+                            me.GameCharacter.AddMoral(5, "Парень с сюрпризом");
+                        game.Phrases.SaldorumSurprise.SendLog(me, target, delete: true);
+                    }
+                    break;
+
+                case "Сало":
+                    {
+                        var isKhokhol = me.Passives.SaldorumKhokholList.MarkedEnemies.Contains(target.GetPlayerId())
+                                        || target.GameCharacter.Name is "mylorik" or "Sirinoks";
+                        if (isKhokhol && me.Status.IsWonThisCalculation != Guid.Empty)
+                        {
+                            me.GameCharacter.Justice.AddJusticeForNextRoundFromSkill();
+                            // Doubled moral: add extra equal to standard fight moral
+                            var moral = Math.Abs(me.Status.GetPlaceAtLeaderBoard() - target.Status.GetPlaceAtLeaderBoard());
+                            if (moral > 0 && me.Status.GetPlaceAtLeaderBoard() > target.Status.GetPlaceAtLeaderBoard())
+                                me.GameCharacter.AddMoral(moral, "Сало");
+                            game.Phrases.SaldorumSalo.SendLog(me, target, delete: true);
+                        }
+                        // +1 Moral when attacking mylorik (regardless of win/loss)
+                        if (target.GameCharacter.Name == "mylorik")
+                            me.GameCharacter.AddMoral(1, "Сало");
+                    }
+                    break;
+
+                case "Ниндзя":
+                    // Stealth kill bonus
+                    if (me.Passives.SaldorumNinjaHidden && me.Status.IsWonThisCalculation != Guid.Empty)
+                    {
+                        me.GameCharacter.AddExtraSkill(5, "Ниндзя");
+                        game.Phrases.SaldorumNinja.SendLog(me, target, delete: true);
+                    }
+                    me.Passives.SaldorumNinjaHidden = false;
                     break;
             }
     }
@@ -2725,6 +2807,40 @@ public class CharacterPassives : IServiceSingleton
                         player.GameCharacter.AddExtraSkill(50, "Взгляд в будущее");
                         player.Passives.DopaVision.Cooldown = 1;
                         game.Phrases.DopaVisionProc.SendLog(player, false);
+                    }
+                    break;
+
+                case "Великий летописец":
+                    // 1. See others' logs
+                    foreach (var other in game.PlayersList.Where(p => p.GetPlayerId() != player.GetPlayerId()))
+                    {
+                        var otherLogs = other.Status.GetInGamePersonalLogs();
+                        if (!string.IsNullOrEmpty(otherLogs))
+                            player.Status.AddInGamePersonalLogs($"[{other.DiscordUsername}]: {otherLogs}\n");
+                    }
+
+                    // 2. 20% chance to corrupt a random enemy's logs
+                    if (new Random().Next(0, 100) < 20)
+                    {
+                        var enemies = game.PlayersList
+                            .Where(p => p.GetPlayerId() != player.GetPlayerId()
+                                     && !string.IsNullOrEmpty(p.Status.GetInGamePersonalLogs()))
+                            .ToList();
+                        if (enemies.Count > 0)
+                        {
+                            var victim = enemies[new Random().Next(enemies.Count)];
+                            var lines = victim.Status.GetInGamePersonalLogs().Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                            if (lines.Length > 0)
+                            {
+                                var idx = new Random().Next(lines.Length);
+                                if (new Random().Next(0, 100) < 50)
+                                    lines[idx] = "██████████████████";
+                                else
+                                    lines[idx] = "Салдорум был здесь...";
+                                victim.Status.SetInGamePersonalLogs(string.Join('\n', lines) + '\n');
+                                player.Passives.SaldorumCorruptionCount++;
+                            }
+                        }
                     }
                     break;
             }

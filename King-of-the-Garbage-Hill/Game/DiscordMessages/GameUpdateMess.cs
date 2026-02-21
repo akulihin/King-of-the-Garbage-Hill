@@ -561,6 +561,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                             customString += " 💰";
                     }
                     break;
+
+                case "Сало":
+                    if (other.GetPlayerId() == me.GetPlayerId()) break;
+                    if (me.Passives.SaldorumKhokholList.MarkedEnemies.Contains(other.GetPlayerId())
+                        || other.GameCharacter.Name is "mylorik" or "Sirinoks")
+                        customString += " \U0001F416";
+                    break;
             }
 
         

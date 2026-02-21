@@ -222,6 +222,12 @@ public class BotsBehavior : IServiceSingleton
             return;
         }
 
+        if (bot.GameCharacter.Name == "Салдорум")
+        {
+            await HandleBotMoralForSkill(bot, game);
+            return;
+        }
+
         if (bot.GameCharacter.Name == "Sirinoks")
         {
             //логика до 10го раунда
@@ -1093,6 +1099,13 @@ public class BotsBehavior : IServiceSingleton
                         if (bot.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.GetPlayerId()))
                             target.AttackPreference = 0;
                         break;
+                    case "Салдорум":
+                        if (bot.Passives.SaldorumKhokholList.MarkedEnemies.Contains(target.GetPlayerId())
+                            || target.Player.GameCharacter.Name is "mylorik" or "Sirinoks")
+                            target.AttackPreference += 5;
+                        if (target.Player.GameCharacter.Name == "mylorik")
+                            target.AttackPreference += 3;
+                        break;
                 }
                 //end custom bot behavior
 
@@ -1829,6 +1842,9 @@ public class BotsBehavior : IServiceSingleton
                 else if (speed < 10) skillNumber = 3;
                 else skillNumber = 2;
             }
+
+            // Салдорум — PSY-focused build
+            if (player.GameCharacter.Name == "Салдорум" && psyche < 10) skillNumber = 4;
 
 
             await _gameReaction.HandleLvlUp(player, null, skillNumber);

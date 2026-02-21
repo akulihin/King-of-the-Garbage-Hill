@@ -184,6 +184,11 @@ public class PassivesClass
     public Dopa.MetaChoiceClass DopaMetaChoice { get; set; } = new();
     public bool DopaWonThisRound { get; set; } = false;
 
+    // Салдорум
+    public Saldorum.KhokholListClass SaldorumKhokholList { get; set; } = new();
+    public bool SaldorumNinjaHidden { get; set; } = false;
+    public int SaldorumCorruptionCount { get; set; } = 0;
+
     public Guid PointFunneledTo { get; set; } = Guid.Empty;
     public bool IsExploitable { get; set; } = false;
     public bool IsExploitFixed { get; set; } = false;

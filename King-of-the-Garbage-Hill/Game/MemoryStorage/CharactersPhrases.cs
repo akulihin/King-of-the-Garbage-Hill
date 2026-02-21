@@ -180,6 +180,12 @@ public class CharactersUniquePhrase
     public PhraseClass DopaDomination;
     public PhraseClass DopaRoam;
 
+    // Салдорум
+    public PhraseClass SaldorumSurprise;
+    public PhraseClass SaldorumSalo;
+    public PhraseClass SaldorumNinja;
+    public PhraseClass SaldorumChronicler;
+
     // Misc new phrases
     public PhraseClass HighEloLoss;
     public PhraseClass SirinoksGeniusPhrase;
@@ -1026,6 +1032,22 @@ public class CharactersUniquePhrase
 
         DeepListMockeryHardKittyMilk = new PhraseClass("Стёб");
         DeepListMockeryHardKittyMilk.PassiveLogRus.Add("БОЛЬШЕ МОЛОКА ДЛЯ ХАРДКИТТИ!");
+
+        // Салдорум
+        SaldorumSurprise = new PhraseClass("Парень с сюрпризом");
+        SaldorumSurprise.PassiveLogRus.Add("Хохол помечен! Сюрприз, сука!");
+        SaldorumSurprise.PassiveLogRus.Add("Ещё один Хохол в коллекции...");
+
+        SaldorumSalo = new PhraseClass("Сало");
+        SaldorumSalo.PassiveLogRus.Add("Сало рулит! Двойная мораль!");
+        SaldorumSalo.PassiveLogRus.Add("Хохлы получают по заслугам...");
+
+        SaldorumNinja = new PhraseClass("Ниндзя");
+        SaldorumNinja.PassiveLogRus.Add("Тихо пришёл, тихо ушёл...");
+        SaldorumNinja.PassiveLogRus.Add("Никто не видел, никто не знает...");
+
+        SaldorumChronicler = new PhraseClass("Великий летописец");
+        SaldorumChronicler.PassiveLogRus.Add("История пишется победителями...");
 
         //not in the game
 
