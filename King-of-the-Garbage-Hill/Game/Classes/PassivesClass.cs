@@ -189,6 +189,11 @@ public class PassivesClass
     public bool SaldorumNinjaHidden { get; set; } = false;
     public int SaldorumCorruptionCount { get; set; } = 0;
 
+    // Napoleon
+    public Napoleon.AllianceClass NapoleonAlliance { get; set; } = new();
+    public Napoleon.PeaceTreatyClass NapoleonPeaceTreaty { get; set; } = new();
+    public FriendsClass NapoleonFirstFightList { get; set; } = new();
+
     public Guid PointFunneledTo { get; set; } = Guid.Empty;
     public bool IsExploitable { get; set; } = false;
     public bool IsExploitFixed { get; set; } = false;

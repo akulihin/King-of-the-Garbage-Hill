@@ -246,6 +246,8 @@ export type ActiveGame = {
   humanCount: number
   gameMode: string
   isFinished: boolean
+  botCount: number
+  canJoin: boolean
 }
 
 export type CharacterInfo = {
@@ -391,6 +393,9 @@ class SignalRService {
   onError: ((error: string) => void) | null = null
   onAuthenticated: ((data: { success: boolean; discordId: string }) => void) | null = null
   onConnectionChanged: ((connected: boolean) => void) | null = null
+  onWebAccountCreated: ((data: { discordId: string; username: string }) => void) | null = null
+  onGameCreated: ((data: { gameId: number }) => void) | null = null
+  onGameJoined: ((data: { gameId: number }) => void) | null = null
 
   get isConnected() {
     return this._isConnected
@@ -429,6 +434,18 @@ class SignalRService {
 
     this.connection.on('Authenticated', (data: { success: boolean; discordId: string }) => {
       this.onAuthenticated?.(data)
+    })
+
+    this.connection.on('WebAccountCreated', (data: { discordId: string; username: string }) => {
+      this.onWebAccountCreated?.(data)
+    })
+
+    this.connection.on('GameCreated', (data: { gameId: number }) => {
+      this.onGameCreated?.(data)
+    })
+
+    this.connection.on('GameJoined', (data: { gameId: number }) => {
+      this.onGameJoined?.(data)
     })
 
     this.connection.onreconnecting(() => {
@@ -567,6 +584,20 @@ class SignalRService {
 
   async finishGame(gameId: number): Promise<void> {
     await this.connection?.invoke('FinishGame', gameId)
+  }
+
+  // ── Web Game Creation ──────────────────────────────────────────
+
+  async registerWebAccount(username: string): Promise<void> {
+    await this.connection?.invoke('RegisterWebAccount', username)
+  }
+
+  async createWebGame(): Promise<void> {
+    await this.connection?.invoke('CreateWebGame')
+  }
+
+  async joinWebGame(gameId: number): Promise<void> {
+    await this.connection?.invoke('JoinWebGame', gameId)
   }
 }
 

@@ -228,6 +228,12 @@ public class BotsBehavior : IServiceSingleton
             return;
         }
 
+        if (bot.GameCharacter.Name == "Napoleon Wonnafcuk")
+        {
+            await HandleBotMoralForSkill(bot, game);
+            return;
+        }
+
         if (bot.GameCharacter.Name == "Sirinoks")
         {
             //логика до 10го раунда
@@ -1106,6 +1112,17 @@ public class BotsBehavior : IServiceSingleton
                         if (target.Player.GameCharacter.Name == "mylorik")
                             target.AttackPreference += 3;
                         break;
+                    case "Napoleon Wonnafcuk":
+                        var napBotAlliance = bot.Passives.NapoleonAlliance;
+                        if (napBotAlliance.AllyId != Guid.Empty)
+                        {
+                            if (target.GetPlayerId() == napBotAlliance.AllyId)
+                                target.AttackPreference -= 20;
+                            var napBotAlly = game.PlayersList.Find(x => x.GetPlayerId() == napBotAlliance.AllyId);
+                            if (napBotAlly != null && napBotAlly.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()))
+                                target.AttackPreference += 10;
+                        }
+                        break;
                 }
                 //end custom bot behavior
 
@@ -1845,6 +1862,9 @@ public class BotsBehavior : IServiceSingleton
 
             // Салдорум — PSY-focused build
             if (player.GameCharacter.Name == "Салдорум" && psyche < 10) skillNumber = 4;
+
+            // Napoleon — PSY-focused build
+            if (player.GameCharacter.Name == "Napoleon Wonnafcuk" && psyche < 10) skillNumber = 4;
 
 
             await _gameReaction.HandleLvlUp(player, null, skillNumber);

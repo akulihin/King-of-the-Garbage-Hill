@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from 'src/store/game'
+import { signalrService } from 'src/services/signalr'
 
 const store = useGameStore()
 const router = useRouter()
+
+const isCreatingGame = ref(false)
 
 let pollInterval: ReturnType<typeof setInterval> | null = null
 
@@ -13,13 +16,32 @@ onMounted(() => {
   pollInterval = setInterval(() => {
     if (store.isConnected) store.refreshLobby()
   }, 3000)
+
+  signalrService.onGameCreated = (data) => {
+    isCreatingGame.value = false
+    router.push(`/game/${data.gameId}`)
+  }
+  signalrService.onGameJoined = (data) => {
+    router.push(`/game/${data.gameId}`)
+  }
 })
 
 onUnmounted(() => {
   if (pollInterval) clearInterval(pollInterval)
+  signalrService.onGameCreated = null
+  signalrService.onGameJoined = null
 })
 
-function joinGame(gameId: number) {
+async function createGame() {
+  isCreatingGame.value = true
+  await store.createWebGame()
+}
+
+async function handleJoinGame(gameId: number) {
+  await store.joinWebGame(gameId)
+}
+
+function viewGame(gameId: number) {
   router.push(`/game/${gameId}`)
 }
 
@@ -33,21 +55,31 @@ function spectateGame(gameId: number) {
     <div class="lobby-header">
       <h1>Game Lobby</h1>
       <p class="subtitle">
-        Start a game from Discord with <code>*st</code> and play it here, or spectate ongoing games.
+        Create a new game, join an existing one, or spectate ongoing games.
       </p>
     </div>
 
     <!-- Active Games -->
     <div class="section">
-      <h2 class="section-title">
-        Active Games
-        <span v-if="store.lobbyState" class="badge">{{ store.lobbyState.activeGames }}</span>
-      </h2>
+      <div class="section-header">
+        <h2 class="section-title">
+          Active Games
+          <span v-if="store.lobbyState" class="badge">{{ store.lobbyState.activeGames }}</span>
+        </h2>
+        <button
+          v-if="store.isAuthenticated"
+          class="btn btn-primary btn-sm"
+          :disabled="isCreatingGame"
+          @click="createGame"
+        >
+          {{ isCreatingGame ? 'Creating...' : '+ New Game' }}
+        </button>
+      </div>
 
       <div v-if="!store.lobbyState || store.lobbyState.games.length === 0" class="empty-state">
         <p>No active games right now.</p>
         <p class="hint">
-          Start a game in Discord with <code>*st</code> command!
+          Create a new game above or start one in Discord with <code>*st</code>!
         </p>
       </div>
 
@@ -73,6 +105,10 @@ function spectateGame(gameId: number) {
               <span class="stat-label">Players</span>
               <span class="stat-value">{{ game.humanCount }} / {{ game.playerCount }}</span>
             </div>
+            <div v-if="game.botCount > 0" class="stat-row">
+              <span class="stat-label">Bots</span>
+              <span class="stat-value">{{ game.botCount }}</span>
+            </div>
             <div class="stat-row">
               <span class="stat-label">Status</span>
               <span class="stat-value" :class="{ finished: game.isFinished }">
@@ -82,8 +118,19 @@ function spectateGame(gameId: number) {
           </div>
 
           <div class="game-card-actions">
-            <button class="btn btn-primary" @click="joinGame(game.gameId)">
+            <button
+              v-if="game.canJoin && store.isAuthenticated"
+              class="btn btn-primary"
+              @click="handleJoinGame(game.gameId)"
+            >
               Join
+            </button>
+            <button
+              v-else
+              class="btn btn-primary"
+              @click="viewGame(game.gameId)"
+            >
+              View
             </button>
             <button class="btn btn-ghost" @click="spectateGame(game.gameId)">
               Spectate
@@ -161,16 +208,23 @@ function spectateGame(gameId: number) {
   margin-bottom: 32px;
 }
 
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
 .section-title {
   font-size: 16px;
   font-weight: 800;
-  margin-bottom: 12px;
   display: flex;
   align-items: center;
   gap: 8px;
   color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  margin: 0;
 }
 
 .badge {

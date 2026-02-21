@@ -450,6 +450,27 @@ public class CharacterPassives : IServiceSingleton
                         game.Phrases.ItachiAmaterasu.SendLog(target, false);
                     }
                     break;
+
+                // Napoleon — Мирный договор: enforce treaty from previous round
+                case "Мирный договор":
+                    if (target.Passives.NapoleonPeaceTreaty.TreatyEnemies.Contains(me.GetPlayerId()))
+                    {
+                        me.Status.IsAbleToWin = false;
+                        target.Passives.NapoleonPeaceTreaty.TreatyEnemies.Remove(me.GetPlayerId());
+                        game.Phrases.NapoleonPeaceTreaty.SendLog(target, false);
+                    }
+                    break;
+
+                // Napoleon — Меня надо знать в лицо: auto-win first fight vs each unique attacker
+                case "Меня надо знать в лицо":
+                    var napFirstFight = target.Passives.NapoleonFirstFightList;
+                    if (!napFirstFight.FriendList.Contains(me.GetPlayerId()))
+                    {
+                        napFirstFight.FriendList.Add(me.GetPlayerId());
+                        me.Status.IsAbleToWin = false;
+                        game.Phrases.NapoleonFace.SendLog(target, false);
+                    }
+                    break;
             }
     }
 
@@ -458,7 +479,14 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in target.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
-
+                // Napoleon — Мирный договор: register treaty when enemy attacks Napoleon's block
+                case "Мирный договор":
+                    if (target.Status.IsBlock)
+                    {
+                        if (!target.Passives.NapoleonPeaceTreaty.TreatyEnemies.Contains(me.GetPlayerId()))
+                            target.Passives.NapoleonPeaceTreaty.TreatyEnemies.Add(me.GetPlayerId());
+                    }
+                    break;
             }
     }
 
@@ -991,6 +1019,24 @@ public class CharacterPassives : IServiceSingleton
                         me.Status.HideCurrentFight = true;
                     }
                     break;
+
+                // Napoleon — Вступить в союз: form alliance on first attack; check joint attacks
+                case "Вступить в союз":
+                    var napAlliance = me.Passives.NapoleonAlliance;
+                    if (napAlliance.AllyId == Guid.Empty)
+                    {
+                        napAlliance.AllyId = target.GetPlayerId();
+                        target.Status.AddInGamePersonalLogs(
+                            "Napoleon Wonnafuck предлагает вам вступить в союз, нападайте вместе на одну цель, для избежания поражений\n");
+                        break;
+                    }
+                    var napAlly = game.PlayersList.Find(x => x.GetPlayerId() == napAlliance.AllyId);
+                    if (napAlly != null && napAlly.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()))
+                    {
+                        target.Status.IsAbleToWin = false;
+                        me.GameCharacter.AddMoral(3, "Вступить в союз");
+                    }
+                    break;
             }
     }
 
@@ -1492,6 +1538,31 @@ public class CharacterPassives : IServiceSingleton
                         game.Phrases.SaldorumNinja.SendLog(me, target, delete: true);
                     }
                     me.Passives.SaldorumNinjaHidden = false;
+                    break;
+
+                // Napoleon — Завоеватель: bonus point for winning vs enemy between Napoleon and Ally
+                case "Завоеватель":
+                    if (me.Status.IsWonThisCalculation != Guid.Empty)
+                    {
+                        var napAllyConq = me.Passives.NapoleonAlliance;
+                        if (napAllyConq.AllyId != Guid.Empty)
+                        {
+                            var allyConq = game.PlayersList.Find(x => x.GetPlayerId() == napAllyConq.AllyId);
+                            if (allyConq != null)
+                            {
+                                var napPlace = me.Status.GetPlaceAtLeaderBoard();
+                                var allyPlace = allyConq.Status.GetPlaceAtLeaderBoard();
+                                var enemyPlace = target.Status.GetPlaceAtLeaderBoard();
+                                var minPlace = Math.Min(napPlace, allyPlace);
+                                var maxPlace = Math.Max(napPlace, allyPlace);
+                                if (enemyPlace > minPlace && enemyPlace < maxPlace)
+                                {
+                                    me.Status.AddBonusPoints(1, "Завоеватель");
+                                    game.Phrases.NapoleonConqueror.SendLog(me, false);
+                                }
+                            }
+                        }
+                    }
                     break;
             }
     }
@@ -2840,6 +2911,29 @@ public class CharacterPassives : IServiceSingleton
                                 victim.Status.SetInGamePersonalLogs(string.Join('\n', lines) + '\n');
                                 player.Passives.SaldorumCorruptionCount++;
                             }
+                        }
+                    }
+                    break;
+
+                // Napoleon — Вступить в союз: both allies see each other's targets
+                case "Вступить в союз":
+                    var napAllyEnd = game.PlayersList.Find(x =>
+                        x.GetPlayerId() == player.Passives.NapoleonAlliance.AllyId);
+                    if (napAllyEnd != null)
+                    {
+                        foreach (var tId in napAllyEnd.Status.WhoToAttackThisTurn)
+                        {
+                            var tPlayer = game.PlayersList.Find(x => x.GetPlayerId() == tId);
+                            if (tPlayer != null)
+                                player.Status.AddInGamePersonalLogs(
+                                    $"Союзник выбрал **{tPlayer.DiscordUsername}** целью\n");
+                        }
+                        foreach (var tId in player.Status.WhoToAttackThisTurn)
+                        {
+                            var tPlayer = game.PlayersList.Find(x => x.GetPlayerId() == tId);
+                            if (tPlayer != null)
+                                napAllyEnd.Status.AddInGamePersonalLogs(
+                                    $"Napoleon выбрал **{tPlayer.DiscordUsername}** целью\n");
                         }
                     }
                     break;
@@ -4325,6 +4419,7 @@ public class CharacterPassives : IServiceSingleton
         var toReturn = 1;
 
         if (me.GameCharacter.Passive.Any(x => x.PassiveName == "Еврей")) return toReturn;
+        if (me.GameCharacter.Passive.Any(x => x.PassiveName == "Вступить в союз")) return toReturn;
 
         foreach (var player in game.PlayersList)
         foreach (var passive in player.GameCharacter.Passive.ToList())

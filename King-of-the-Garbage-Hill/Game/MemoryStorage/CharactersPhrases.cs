@@ -186,6 +186,12 @@ public class CharactersUniquePhrase
     public PhraseClass SaldorumNinja;
     public PhraseClass SaldorumChronicler;
 
+    // Napoleon
+    public PhraseClass NapoleonAlliance;
+    public PhraseClass NapoleonConqueror;
+    public PhraseClass NapoleonPeaceTreaty;
+    public PhraseClass NapoleonFace;
+
     // Misc new phrases
     public PhraseClass HighEloLoss;
     public PhraseClass SirinoksGeniusPhrase;
@@ -1048,6 +1054,23 @@ public class CharactersUniquePhrase
 
         SaldorumChronicler = new PhraseClass("Великий летописец");
         SaldorumChronicler.PassiveLogRus.Add("История пишется победителями...");
+
+        // Napoleon
+        NapoleonAlliance = new PhraseClass("Вступить в союз");
+        NapoleonAlliance.PassiveLogRus.Add("Napoleon Wonnafuck предлагает вам вступить в союз...");
+
+        NapoleonConqueror = new PhraseClass("Завоеватель");
+        NapoleonConqueror.PassiveLogRus.Add("Теперь это наша земля!");
+
+        NapoleonPeaceTreaty = new PhraseClass("Мирный договор");
+        NapoleonPeaceTreaty.PassiveLogRus.Add("Перемирие");
+
+        NapoleonFace = new PhraseClass("Меня надо знать в лицо");
+        NapoleonFace.PassiveLogRus.Add("Эффект неожиданности");
+        NapoleonFace.PassiveLogRus.Add("Застал врасплох");
+        NapoleonFace.PassiveLogRus.Add("Такова моя стратегия!");
+        NapoleonFace.PassiveLogRus.Add("Аламут");
+        NapoleonFace.PassiveLogRus.Add("Построение Черепахи");
 
         //not in the game
 

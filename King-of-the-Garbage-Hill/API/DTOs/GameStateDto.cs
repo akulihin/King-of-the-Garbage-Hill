@@ -274,6 +274,8 @@ public class ActiveGameDto
     public int HumanCount { get; set; }
     public string GameMode { get; set; }
     public bool IsFinished { get; set; }
+    public int BotCount { get; set; }
+    public bool CanJoin { get; set; }
 }
 
 public class CharacterInfoDto

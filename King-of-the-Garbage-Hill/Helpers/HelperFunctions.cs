@@ -299,6 +299,11 @@ public sealed class HelperFunctions : IServiceSingleton
                 return;
             }
 
+            if (player.IsWebPlayer || player.PreferWeb)
+            {
+                return;
+            }
+
             foreach (var message in player.DeleteMessages.ToList())
             {
                 player.DeleteMessages.Remove(message);
@@ -322,9 +327,8 @@ public sealed class HelperFunctions : IServiceSingleton
     public void EndGame(ulong discordId)
     {
         SubstituteUserWithBot(discordId);
-        var globalAccount = _global.Client.GetUser(discordId);
-        var account = _accounts.GetAccount(globalAccount);
-        account.IsPlaying = false;
+        var account = _accounts.GetAccount(discordId);
+        if (account != null) account.IsPlaying = false;
     }
 
     public void SubstituteUserWithBot(ulong discordId)

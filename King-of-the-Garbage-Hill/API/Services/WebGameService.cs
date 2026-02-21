@@ -10,6 +10,7 @@ using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
+using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
 namespace King_of_the_Garbage_Hill.API.Services;
 
@@ -28,8 +29,10 @@ public class WebGameService
     private readonly HelperFunctions _helper;
     private readonly CharactersPull _charactersPull;
     private readonly CharacterPassives _characterPassives;
+    private readonly StartGameLogic _startGameLogic;
+    private readonly UserAccounts _userAccounts;
 
-    public WebGameService(Global global, GameReaction gameReaction, GameUpdateMess gameUpdateMess, HelperFunctions helper, CharactersPull charactersPull, CharacterPassives characterPassives)
+    public WebGameService(Global global, GameReaction gameReaction, GameUpdateMess gameUpdateMess, HelperFunctions helper, CharactersPull charactersPull, CharacterPassives characterPassives, StartGameLogic startGameLogic, UserAccounts userAccounts)
     {
         _global = global;
         _gameReaction = gameReaction;
@@ -37,6 +40,8 @@ public class WebGameService
         _helper = helper;
         _charactersPull = charactersPull;
         _characterPassives = characterPassives;
+        _startGameLogic = startGameLogic;
+        _userAccounts = userAccounts;
     }
 
     // ── Queries ───────────────────────────────────────────────────────
@@ -50,6 +55,7 @@ public class WebGameService
 
         foreach (var game in _global.GamesList)
         {
+            var botCount = game.PlayersList.Count(p => p.IsBot());
             dto.Games.Add(new ActiveGameDto
             {
                 GameId = game.GameId,
@@ -58,6 +64,8 @@ public class WebGameService
                 HumanCount = game.PlayersList.Count(p => !p.IsBot()),
                 GameMode = game.GameMode,
                 IsFinished = game.IsFinished,
+                BotCount = botCount,
+                CanJoin = botCount > 0 && !game.IsFinished,
             });
         }
 
@@ -166,6 +174,99 @@ public class WebGameService
                 playerDto.CustomLeaderboardPrefix = ConvertDiscordToWeb(rawBefore);
             }
         }
+    }
+
+    // ── Web Game Creation / Joining ─────────────────────────────────
+
+    /// <summary>
+    /// Creates a new 6-player game from the web (1 creator + 5 bots).
+    /// Mirrors the flow in General.cs StartGame but skips Discord DMs.
+    /// </summary>
+    public async Task<(ulong gameId, string error)> CreateGame(ulong creatorId, string creatorUsername)
+    {
+        var creatorAccount = _userAccounts.GetAccount(creatorId);
+        if (creatorAccount == null)
+            return (0, "Account not found");
+        if (creatorAccount.IsPlaying)
+            return (0, "Already in a game");
+
+        // Roll characters for 6 bots (null = bot slot)
+        var gameId = _global.GetNewtGamePlayingAndId();
+        var players = new List<Discord.IUser> { null, null, null, null, null, null };
+        var playersList = _startGameLogic.HandleCharacterRoll(players, gameId, mode: "bot");
+
+        // Shuffle and sort
+        playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
+        playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+        playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
+
+        // Assign leaderboard positions
+        for (var i = 0; i < playersList.Count; i++)
+            playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
+
+        // Replace the first bot with the creator
+        var botToReplace = playersList[0];
+        var oldBotAccount = _userAccounts.GetAccount(botToReplace.DiscordId);
+        if (oldBotAccount != null) oldBotAccount.IsPlaying = false;
+
+        botToReplace.DiscordId = creatorId;
+        botToReplace.DiscordUsername = creatorUsername;
+        botToReplace.PlayerType = creatorAccount.PlayerType;
+        botToReplace.IsWebPlayer = true;
+        botToReplace.PreferWeb = true;
+        creatorAccount.IsPlaying = true;
+
+        // Create game
+        var game = new GameClass(playersList, gameId, creatorId) { IsCheckIfReady = false };
+        game.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
+        game.TimePassed.Start();
+        _global.GamesList.Add(game);
+
+        // Handle round #0 (passives + bot predictions)
+        await _characterPassives.HandleNextRound(game);
+        _characterPassives.HandleBotPredict(game);
+
+        game.IsCheckIfReady = true;
+        Console.WriteLine($"[WebAPI] Web game {gameId} created by {creatorUsername} ({creatorId})");
+        return (gameId, null);
+    }
+
+    /// <summary>
+    /// Joins an existing game by replacing a random bot with the web player.
+    /// </summary>
+    public (bool success, string error) JoinWebGame(ulong gameId, ulong playerId, string playerUsername)
+    {
+        var game = FindGame(gameId);
+        if (game == null) return (false, "Game not found");
+        if (game.IsFinished) return (false, "Game is finished");
+
+        // If player is already in this game, just return success
+        var existingPlayer = game.PlayersList.Find(p => p.DiscordId == playerId);
+        if (existingPlayer != null) return (true, null);
+
+        var playerAccount = _userAccounts.GetAccount(playerId);
+        if (playerAccount == null) return (false, "Account not found");
+        if (playerAccount.IsPlaying) return (false, "Already in a game");
+
+        // Find a bot to replace
+        var bot = game.PlayersList.Find(p => p.IsBot());
+        if (bot == null) return (false, "No bot slots available");
+
+        // Release the bot account
+        var botAccount = _userAccounts.GetAccount(bot.DiscordId);
+        if (botAccount != null) botAccount.IsPlaying = false;
+
+        // Replace bot with the joining player
+        bot.DiscordId = playerId;
+        bot.DiscordUsername = playerUsername;
+        bot.PlayerType = playerAccount.PlayerType;
+        bot.IsWebPlayer = true;
+        bot.PreferWeb = true;
+        bot.DiscordStatus.SocketGameMessage = null;
+        playerAccount.IsPlaying = true;
+
+        Console.WriteLine($"[WebAPI] Player {playerUsername} ({playerId}) joined game {gameId}");
+        return (true, null);
     }
 
     // ── Find helpers ──────────────────────────────────────────────────

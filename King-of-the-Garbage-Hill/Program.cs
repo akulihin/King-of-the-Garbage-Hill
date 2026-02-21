@@ -90,6 +90,8 @@ public class ProgramKingOfTheGarbageHill
             builder.Services.AddSingleton(_services.GetRequiredService<Game.GameLogic.CharacterPassives>());
             builder.Services.AddSingleton(_services.GetRequiredService<Config>());
             builder.Services.AddSingleton(_services.GetRequiredService<HttpClient>());
+            builder.Services.AddSingleton(_services.GetRequiredService<Game.GameLogic.StartGameLogic>());
+            builder.Services.AddSingleton(_services.GetRequiredService<LocalPersistentData.UsersAccounts.UserAccounts>());
 
             // Register web-specific services
             builder.Services.AddSingleton<WebGameService>();

@@ -100,12 +100,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     public async Task DeleteGameMessage(GamePlayerBridgeClass player)
     {
         if (player.DiscordId <= 1000000) return;
+        if (player.IsWebPlayer || player.PreferWeb) return;
         await player.DiscordStatus.SocketGameMessage.DeleteAsync();
     }
 
     public async Task SendCharacterMessage(GamePlayerBridgeClass player, SocketUser user = null)
     {
         if (player.DiscordId <= 1000000) return;
+        if (player.IsWebPlayer || player.PreferWeb) return;
         user ??= _global.Client.GetUser(player.DiscordId);
         var embed = GetCharacterMessage(player);
         var message = await user.SendMessageAsync("", false, embed.Build());
@@ -115,6 +117,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     public async Task UpdateCharacterMessage(GamePlayerBridgeClass player)
     {
         if (player.DiscordId <= 1000000) return;
+        if (player.IsWebPlayer || player.PreferWeb) return;
         var user = _global.Client.GetUser(player.DiscordId);
         var embed = GetCharacterMessage(player);
         await player.DiscordStatus.SocketCharacterMessage.ModifyAsync(message =>
@@ -127,6 +130,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     public async Task WaitMess(GamePlayerBridgeClass player, GameClass game)
     {
         if (player.DiscordId <= 1000000) return;
+        if (player.IsWebPlayer || player.PreferWeb) return;
 
         var globalAccount = _global.Client.GetUser(player.DiscordId);
 
@@ -568,9 +572,20 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         || other.GameCharacter.Name is "mylorik" or "Sirinoks")
                         customString += " \U0001F416";
                     break;
+
+                case "Вступить в союз":
+                    if (other.GetPlayerId() == me.GetPlayerId()) break;
+                    if (me.Passives.NapoleonAlliance.AllyId == other.GetPlayerId())
+                        customString += " 🤝";
+                    break;
             }
 
         
+        // Ally sees 🤝 on Napoleon
+        if (other.GameCharacter.Passive.Any(p => p.PassiveName == "Вступить в союз")
+            && other.Passives.NapoleonAlliance.AllyId == me.GetPlayerId())
+            customString += " 🤝";
+
         var knownClass = me.Status.KnownPlayerClass.Find(x => x.EnemyId == other.GetPlayerId());
 
         //if (knownClass != null && me.GameCharacter.Name != "AWDKA")

@@ -48,6 +48,8 @@ export const useGameStore = defineStore('game', () => {
   const discordId = ref<string>('')
   const isAuthenticated = ref(false)
   const isConnected = ref(false)
+  const webUsername = ref<string>('')
+  const isWebAccount = ref(false)
 
   const gameState = ref<GameState | null>(null)
   const lobbyState = ref<LobbyState | null>(null)
@@ -214,6 +216,24 @@ export const useGameStore = defineStore('game', () => {
         }
       }
 
+      signalrService.onWebAccountCreated = (data) => {
+        isAuthenticated.value = true
+        isWebAccount.value = true
+        discordId.value = data.discordId
+        webUsername.value = data.username
+        // Persist for session restoration
+        localStorage.setItem('kotgh_web_id', data.discordId)
+        localStorage.setItem('kotgh_web_username', data.username)
+      }
+
+      signalrService.onGameCreated = (_data) => {
+        // Navigation handled by the caller
+      }
+
+      signalrService.onGameJoined = (_data) => {
+        // Navigation handled by the caller
+      }
+
       signalrService.onConnectionChanged = (connected) => {
         isConnected.value = connected
       }
@@ -361,11 +381,38 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.finishGame(gameState.value.gameId)
   }
 
+  async function registerWebAccount(username: string) {
+    await signalrService.registerWebAccount(username)
+  }
+
+  async function createWebGame() {
+    await signalrService.createWebGame()
+  }
+
+  async function joinWebGame(gameId: number) {
+    await signalrService.joinWebGame(gameId)
+  }
+
+  /** Restore a previously created web account from localStorage */
+  async function restoreWebSession() {
+    const savedId = localStorage.getItem('kotgh_web_id')
+    const savedUsername = localStorage.getItem('kotgh_web_username')
+    if (savedId && savedUsername) {
+      discordId.value = savedId
+      webUsername.value = savedUsername
+      isWebAccount.value = true
+      // Authenticate with the saved web ID
+      await signalrService.authenticate(savedId)
+    }
+  }
+
   return {
     // State
     discordId,
     isAuthenticated,
     isConnected,
+    webUsername,
+    isWebAccount,
     gameState,
     lobbyState,
     lastAction,
@@ -410,5 +457,9 @@ export const useGameStore = defineStore('game', () => {
     shinigamiEyes,
     setPreferWeb,
     finishGame,
+    registerWebAccount,
+    createWebGame,
+    joinWebGame,
+    restoreWebSession,
   }
 })

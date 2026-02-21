@@ -102,7 +102,7 @@ public class GameClass
 
     public void AddGlobalLogsRaw(string str)
     {
-       AllGameGlobalLogs = str;
+       AllGameGlobalLogs += str;
     }
 
 

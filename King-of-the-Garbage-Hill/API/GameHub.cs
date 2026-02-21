@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.API.Services;
+using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 using Microsoft.AspNetCore.SignalR;
 
 namespace King_of_the_Garbage_Hill.API;
@@ -18,12 +19,14 @@ public class GameHub : Hub
     private readonly WebGameService _gameService;
     private readonly GameNotificationService _notificationService;
     private readonly Global _global;
+    private readonly UserAccounts _userAccounts;
 
-    public GameHub(WebGameService gameService, GameNotificationService notificationService, Global global)
+    public GameHub(WebGameService gameService, GameNotificationService notificationService, Global global, UserAccounts userAccounts)
     {
         _gameService = gameService;
         _notificationService = notificationService;
         _global = global;
+        _userAccounts = userAccounts;
     }
 
     public override async Task OnConnectedAsync()
@@ -106,6 +109,86 @@ public class GameHub : Hub
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"game-{gameId}");
         _notificationService.RemoveGameConnection(gameId, Context.ConnectionId);
+    }
+
+    // ── Web Account & Game Creation ──────────────────────────────────
+
+    /// <summary>
+    /// Register a web-only account (no Discord required).
+    /// Generates a unique ID in the 9000000000000000000+ range.
+    /// </summary>
+    public async Task RegisterWebAccount(string username)
+    {
+        if (string.IsNullOrWhiteSpace(username) || username.Length > 32)
+        {
+            await Clients.Caller.SendAsync("Error", "Username must be 1-32 characters.");
+            return;
+        }
+
+        var webId = _userAccounts.GenerateWebUserId();
+        _userAccounts.CreateWebAccount(webId, username.Trim());
+
+        // Authenticate this connection with the new web ID
+        Context.Items["discordId"] = webId;
+        _notificationService.RegisterConnection(webId, Context.ConnectionId);
+
+        await Clients.Caller.SendAsync("WebAccountCreated", new { discordId = webId.ToString(), username = username.Trim() });
+        Console.WriteLine($"[WebAPI] Web account created: {username} ({webId})");
+    }
+
+    /// <summary>
+    /// Create a new web game (1 creator + 5 bots).
+    /// </summary>
+    public async Task CreateWebGame()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        var username = account?.DiscordUserName ?? "WebPlayer";
+
+        var (gameId, error) = await _gameService.CreateGame(discordId, username);
+        if (error != null)
+        {
+            await Clients.Caller.SendAsync("Error", error);
+            return;
+        }
+
+        // Auto-join the SignalR room
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"game-{gameId}");
+        Context.Items["gameId"] = gameId;
+        _notificationService.RegisterGameConnection(gameId, Context.ConnectionId);
+
+        await Clients.Caller.SendAsync("GameCreated", new { gameId });
+    }
+
+    /// <summary>
+    /// Join an existing game by replacing a bot.
+    /// </summary>
+    public async Task JoinWebGame(ulong gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        var username = account?.DiscordUserName ?? "WebPlayer";
+
+        var (success, error) = _gameService.JoinWebGame(gameId, discordId, username);
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("Error", error);
+            return;
+        }
+
+        // Auto-join the SignalR room
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"game-{gameId}");
+        Context.Items["gameId"] = gameId;
+        _notificationService.RegisterGameConnection(gameId, Context.ConnectionId);
+
+        await Clients.Caller.SendAsync("GameJoined", new { gameId });
+
+        // Push initial state
+        await PushStateToPlayer(gameId, discordId);
     }
 
     // ── Game Actions ──────────────────────────────────────────────────

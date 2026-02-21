@@ -14,6 +14,13 @@ let removeGlobalButtonSound: (() => void) | null = null
 
 onMounted(async () => {
   removeGlobalButtonSound = installGlobalButtonSound()
+  // Check for saved web account first
+  const savedWebId = localStorage.getItem('kotgh_web_id')
+  const savedWebUsername = localStorage.getItem('kotgh_web_username')
+  if (savedWebId && savedWebUsername) {
+    await connectAndAuthWeb(savedWebId, savedWebUsername)
+    return
+  }
   const stored = localStorage.getItem('discordId')
   if (stored) {
     await connectAndAuth(stored)
@@ -36,8 +43,24 @@ async function connectAndAuth(id: string) {
   loginSuccess.value = true
 }
 
+async function connectAndAuthWeb(webId: string, username: string) {
+  await store.connect()
+  await store.authenticate(webId)
+  store.webUsername = username
+  store.isWebAccount = true
+  loggedInUsername.value = username
+  loginSuccess.value = true
+}
+
 async function handleLogin(discordId: string) {
   await connectAndAuth(discordId)
+}
+
+async function handleWebLogin(username: string) {
+  await store.connect()
+  await store.registerWebAccount(username)
+  loggedInUsername.value = username
+  loginSuccess.value = true
 }
 
 function handleContinue() {
@@ -46,10 +69,14 @@ function handleContinue() {
 
 function handleLogout() {
   localStorage.removeItem('discordId')
+  localStorage.removeItem('kotgh_web_id')
+  localStorage.removeItem('kotgh_web_username')
   showLogin.value = true
   loginSuccess.value = false
   store.discordId = ''
   store.isAuthenticated = false
+  store.isWebAccount = false
+  store.webUsername = ''
 }
 </script>
 
@@ -60,6 +87,7 @@ function handleLogout() {
       <LoginProcess
         version="1.0"
         @login="handleLogin"
+        @web-login="handleWebLogin"
       />
     </div>
 
@@ -92,7 +120,7 @@ function handleLogout() {
             :class="{ connected: store.isConnected, disconnected: !store.isConnected }"
           />
           <span v-if="store.isAuthenticated" class="user-info">
-            {{ store.discordId }}
+            {{ store.isWebAccount ? store.webUsername : store.discordId }}
           </span>
           <button class="top-btn" @click="handleLogout">Logout</button>
         </div>

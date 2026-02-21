@@ -20,6 +20,9 @@ public sealed class UserAccounts : IServiceSingleton
     private bool _saving;
     private string _executionPath;
 
+    private static ulong _nextWebId = 9_000_000_000_000_000_000;
+    private static readonly object _webIdLock = new();
+
     public UserAccounts(DiscordShardedClient client, UserAccountsDataStorage usersDataStorage)
     {
         _client = client;
@@ -33,6 +36,12 @@ public sealed class UserAccounts : IServiceSingleton
 
     public async Task InitializeAsync()
     {
+        // Resume web ID counter from max existing web account ID + 1
+        foreach (var kv in _userAccountsDictionary)
+        {
+            if (kv.Key >= 9_000_000_000_000_000_000 && kv.Key >= _nextWebId)
+                _nextWebId = kv.Key + 1;
+        }
         await Task.CompletedTask;
     }
 
@@ -68,20 +77,19 @@ public sealed class UserAccounts : IServiceSingleton
 
     public DiscordAccountClass GetAccount(ulong userId)
     {
-        //return a human
-        if (userId > 1000000)
-            return GetOrCreateAccount(_client.GetUser(userId));
+        // Bot
+        if (userId <= 1000000)
+        {
+            _userAccountsDictionary.TryGetValue(userId, out var account);
+            return account ?? CreateBotAccount(userId);
+        }
 
+        // Web-only player
+        if (userId >= 9_000_000_000_000_000_000)
+            return GetOrCreateWebAccount(userId);
 
-        //return a bot
-
-
-        _userAccountsDictionary.TryGetValue(userId, out var account);
-
-        if (account != null)
-            return account;
-
-        return CreateBotAccount(userId);
+        // Discord human
+        return GetOrCreateAccount(_client.GetUser(userId));
     }
 
     public DiscordAccountClass GetOrCreateAccount(IUser user)
@@ -159,5 +167,38 @@ public sealed class UserAccounts : IServiceSingleton
         _userAccountsDictionary.GetOrAdd(newAccount.DiscordId, newAccount);
 
         return newAccount;
+    }
+
+    public DiscordAccountClass GetOrCreateWebAccount(ulong webUserId)
+    {
+        _userAccountsDictionary.TryGetValue(webUserId, out var account);
+        return account ?? CreateWebAccount(webUserId, "WebPlayer");
+    }
+
+    public DiscordAccountClass CreateWebAccount(ulong webUserId, string username)
+    {
+        var newAccount = new DiscordAccountClass
+        {
+            DiscordId = webUserId,
+            DiscordUserName = username,
+            IsPlaying = false,
+            PlayerType = 0,
+            ZbsPoints = 0,
+            IsNewPlayer = true,
+            PassedTutorial = false,
+            MyPrefix = "*"
+        };
+
+        _userAccountsDictionary.GetOrAdd(newAccount.DiscordId, newAccount);
+
+        return newAccount;
+    }
+
+    public ulong GenerateWebUserId()
+    {
+        lock (_webIdLock)
+        {
+            return _nextWebId++;
+        }
     }
 }
