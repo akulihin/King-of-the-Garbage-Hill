@@ -91,6 +91,7 @@ public class CharacterClass
     private decimal Moral { get; set; }
     private decimal MoralBonus { get; set; }
     private int BonusPointsFromMoral { get; set; }
+    public bool BlockMoralGain { get; set; }
 
     //resists
     private int IntelligenceQualityResist { get; set; }
@@ -1055,6 +1056,13 @@ public class CharacterClass
             ResetMoralBonus();
             return;
         }
+
+        //BlockMoralGain (Toxic Mate cancer)
+        if (howMuchToAdd > 0 && BlockMoralGain)
+        {
+            return;
+        }
+        //end BlockMoralGain
 
         //Привет со дна
         if (howMuchToAdd < 0 && Status.GameCharacter.Passive.Any(x => x.PassiveName == "Привет со дна") && !isMoralPoints)

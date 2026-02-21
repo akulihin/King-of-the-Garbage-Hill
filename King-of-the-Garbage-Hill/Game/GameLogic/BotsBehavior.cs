@@ -1123,6 +1123,14 @@ public class BotsBehavior : IServiceSingleton
                                 target.AttackPreference += 10;
                         }
                         break;
+                    case "Таинственный Суппорт":
+                        var supportMark = bot.Passives.SupportPremade;
+                        if (supportMark.MarkedPlayerId != Guid.Empty)
+                        {
+                            if (target.GetPlayerId() == supportMark.MarkedPlayerId)
+                                target.AttackPreference += 15;
+                        }
+                        break;
                 }
                 //end custom bot behavior
 
@@ -1563,6 +1571,10 @@ public class BotsBehavior : IServiceSingleton
                     break;
 
                 case "Итачи":
+                    isBlock = noBlock;
+                    break;
+
+                case "Toxic Mate":
                     isBlock = noBlock;
                     break;
 

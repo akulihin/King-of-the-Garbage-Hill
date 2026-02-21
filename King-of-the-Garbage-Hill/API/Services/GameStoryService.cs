@@ -41,6 +41,10 @@ public class GameStoryService
         if (string.IsNullOrWhiteSpace(_apiKey))
             return;
 
+        // Don't waste API calls on bot-only games — no humans to read the story
+        if (game.PlayersList.All(p => p.IsBot()))
+            return;
+
         var snapshot = CaptureSnapshot(game);
         var gameId = game.GameId;
 

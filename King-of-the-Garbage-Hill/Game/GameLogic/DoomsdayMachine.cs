@@ -272,6 +272,16 @@ Speed => Strength
             }
         }
 
+        // Aggress — Toxic Mate can't block or skip
+        foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Aggress")).ToList())
+        {
+            if (player.Status.IsBlock || player.Status.IsSkip)
+            {
+                player.Status.IsBlock = false;
+                player.Status.IsSkip = false;
+            }
+        }
+
         foreach (var player in game.PlayersList)
         {
 
@@ -650,7 +660,7 @@ Speed => Strength
 
                     //add regular points
                     if (!teamMate)
-                        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Никому не нужен"))
+                        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Никому не нужен" || x.PassiveName == "INT"))
                         {
                             player.Status.AddWinPoints(game, player, point * -1, "Победа");
                         }

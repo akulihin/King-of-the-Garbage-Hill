@@ -839,6 +839,20 @@ public class CheckIfReady : IServiceSingleton
 
 
                 //end //AWDKA last
+
+                // Aggress — Toxic Mate auto-attacks random target instead of auto-blocking
+                foreach (var t in players.Where(t =>
+                             t.Status.WhoToAttackThisTurn.Count == 0 && t.Status.IsBlock == false &&
+                             t.Status.IsSkip == false && t.GameCharacter.Passive.Any(x => x.PassiveName == "Aggress")))
+                {
+                    var targets = players.Where(p => p.GetPlayerId() != t.GetPlayerId()).ToList();
+                    if (targets.Count > 0)
+                    {
+                        t.Status.WhoToAttackThisTurn.Add(targets[new Random().Next(targets.Count)].GetPlayerId());
+                        t.Status.IsReady = true;
+                    }
+                }
+
                 foreach (var t in players.Where(t =>
                              t.Status.WhoToAttackThisTurn.Count == 0 && t.Status.IsBlock == false &&
                              t.Status.IsSkip == false))

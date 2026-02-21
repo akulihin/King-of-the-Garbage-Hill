@@ -208,6 +208,23 @@ public class CharacterPassives : IServiceSingleton
                         .Select(x => x.GetPlayerId())
                         .ToList();
                     break;
+
+                // Toxic Mate — "Fuck this game, I'm done.": start with -1000 moral
+                case "Fuck this game, I'm done.":
+                    player.GameCharacter.AddMoral(-1000, "Fuck this game, I'm done.");
+                    player.Status.AddInGamePersonalLogs("Fuck this game, I'm done.: -1000 *Морали*\n");
+                    break;
+
+                // Toxic Mate — "FF 20": start with -20 bonus points
+                case "FF 20":
+                    player.Status.AddBonusPoints(-20, "FF 20");
+                    break;
+
+                // Toxic Mate — "INT": announce to all players
+                case "INT":
+                    foreach (var p in playersList)
+                        p.Status.AddInGamePersonalLogs("**U are FoCKING retards!**\n");
+                    break;
             }
 
         return playersList;
@@ -1037,6 +1054,49 @@ public class CharacterPassives : IServiceSingleton
                         me.GameCharacter.AddMoral(3, "Вступить в союз");
                     }
                     break;
+
+                // Toxic Mate — "Aggress": if IsSkip or IsBlock was set by other passives, clear them
+                case "Aggress":
+                    if (me.Status.IsSkip || me.Status.IsBlock)
+                    {
+                        game.Phrases.ToxicMateAggressWontStop.SendLog(me, false);
+                        me.Status.IsSkip = false;
+                        me.Status.IsBlock = false;
+                    }
+                    break;
+
+                // Таинственный Суппорт — "Premade": mark first target as partner
+                case "Premade":
+                    if (me.Passives.SupportPremade.MarkedPlayerId == Guid.Empty)
+                    {
+                        me.Passives.SupportPremade.MarkedPlayerId = target.GetPlayerId();
+                        me.Status.AddInGamePersonalLogs($"Premade: {target.DiscordUsername} теперь твой напарник\n");
+                        game.Phrases.SupportPremadeMark.SendLog(me, false);
+                    }
+                    break;
+
+                // Таинственный Суппорт — "Buffing": buff marked player's lowest stat
+                case "Buffing":
+                    if (target.GetPlayerId() == me.Passives.SupportPremade.MarkedPlayerId)
+                    {
+                        var bInt = target.GameCharacter.GetIntelligence();
+                        var bStr = target.GameCharacter.GetStrength();
+                        var bSpd = target.GameCharacter.GetSpeed();
+                        var bPsy = target.GameCharacter.GetPsyche();
+                        var bMin = Math.Min(Math.Min(bInt, bStr), Math.Min(bSpd, bPsy));
+
+                        if (bMin == bInt)
+                            target.GameCharacter.AddIntelligence(2, "Buffing", isLog: false);
+                        else if (bMin == bStr)
+                            target.GameCharacter.AddStrength(2, "Buffing", isLog: false);
+                        else if (bMin == bSpd)
+                            target.GameCharacter.AddSpeed(2, "Buffing", isLog: false);
+                        else
+                            target.GameCharacter.AddPsyche(2, "Buffing", isLog: false);
+
+                        me.Status.AddInGamePersonalLogs($"Buffing: Усилил {target.DiscordUsername}\n");
+                    }
+                    break;
             }
     }
 
@@ -1625,6 +1685,60 @@ public class CharacterPassives : IServiceSingleton
                         }
                     }
                     break;
+
+                // Таинственный Суппорт — "Premade": gain/lose points based on marked player's fights
+                case "Premade":
+                    if (p.Passives.SupportPremade.MarkedPlayerId != Guid.Empty &&
+                        player.GetPlayerId() == p.Passives.SupportPremade.MarkedPlayerId)
+                    {
+                        if (player.Status.IsWonThisCalculation != Guid.Empty)
+                            p.Status.AddRegularPoints(1, "Premade");
+                        if (player.Status.IsLostThisCalculation != Guid.Empty)
+                            p.Status.AddRegularPoints(-1, "Premade");
+                    }
+                    break;
+
+                // Toxic Mate — "Get cancer": transfer cancer when holder wins a fight
+                case "Get cancer":
+                    // p = Toxic Mate (cancer owner), player = fight participant
+                    var cancerAll = p.Passives.ToxicMateCancer;
+                    if (cancerAll.IsActive && attack && player.Status.IsWonThisCalculation != Guid.Empty
+                        && player.Passives.HasToxicMateCancer && player.Passives.ToxicMateCancerSourceId == p.GetPlayerId())
+                    {
+                        var cancerTarget = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation);
+                        if (cancerTarget != null)
+                        {
+                            // Remove cancer from current holder
+                            player.Passives.HasToxicMateCancer = false;
+                            player.Passives.ToxicMateCancerSourceId = Guid.Empty;
+                            player.GameCharacter.BlockMoralGain = false;
+                            cancerAll.TransferCount++;
+
+                            if (cancerTarget.GetPlayerId() == p.GetPlayerId())
+                            {
+                                // Cancer returned to Toxic Mate — award bonus points and deactivate
+                                var cancerBonus = cancerAll.TransferCount * 2;
+                                p.Status.AddBonusPoints(cancerBonus, "Get cancer");
+                                cancerAll.IsActive = false;
+                                cancerAll.CurrentHolder = Guid.Empty;
+                                game.Phrases.ToxicMateCancerReturn.SendLog(p, false);
+                            }
+                            else
+                            {
+                                // Transfer cancer to new victim
+                                cancerTarget.Passives.HasToxicMateCancer = true;
+                                cancerTarget.Passives.ToxicMateCancerSourceId = p.GetPlayerId();
+                                cancerTarget.GameCharacter.BlockMoralGain = true;
+                                cancerAll.CurrentHolder = cancerTarget.GetPlayerId();
+
+                                var infectPhrases = game.Phrases.ToxicMateCancerInfect.PassiveLogRus;
+                                var infectPhrase = infectPhrases[_rand.Random(0, infectPhrases.Count - 1)];
+                                infectPhrase = infectPhrase.Replace("{name}", cancerTarget.DiscordUsername);
+                                game.AddGlobalLogs($"Get cancer: {infectPhrase}");
+                            }
+                        }
+                    }
+                    break;
             }
 
         foreach (var passive in player.GameCharacter.Passive.ToList())
@@ -2131,6 +2245,64 @@ public class CharacterPassives : IServiceSingleton
                         player.Passives.ItachiTsukuyomi.TsukuyomiTargetThisRound = player.Status.IsWonThisCalculation;
                         player.Passives.ItachiTsukuyomi.ChargeCounter = 0;
                         game.Phrases.ItachiTsukuyomiActivate.SendLog(player, false);
+                    }
+                    break;
+
+                // Таинственный Суппорт — "Stakes!": bonus point every 3rd round on non-marked win
+                case "Stakes!":
+                    if (game.RoundNo % 3 == 0 && attack &&
+                        player.Status.IsWonThisCalculation != Guid.Empty &&
+                        player.Status.IsWonThisCalculation != player.Passives.SupportPremade.MarkedPlayerId)
+                    {
+                        player.Status.AddRegularPoints(1, "Stakes!");
+                        game.Phrases.SupportStakes.SendLog(player, false);
+                    }
+                    break;
+
+                // Toxic Mate — "INT": +1 point on loss, first loss global log
+                case "INT":
+                    if (player.Status.IsLostThisCalculation != Guid.Empty)
+                    {
+                        player.Status.AddRegularPoints(1, "INT");
+                        var cancerInt = player.Passives.ToxicMateCancer;
+                        if (!cancerInt.FirstLossTriggered)
+                        {
+                            cancerInt.FirstLossTriggered = true;
+                            game.AddGlobalLogs("**Ok. I'm trolling.**");
+                        }
+                    }
+                    break;
+
+                // Toxic Mate — "Get cancer": infect target on first win (cancer not yet active)
+                case "Get cancer":
+                    var cancerOwn = player.Passives.ToxicMateCancer;
+                    if (attack && player.Status.IsWonThisCalculation != Guid.Empty && !cancerOwn.IsActive)
+                    {
+                        var cancerVictim = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation);
+                        if (cancerVictim != null)
+                        {
+                            cancerOwn.IsActive = true;
+                            cancerOwn.CurrentHolder = cancerVictim.GetPlayerId();
+                            cancerOwn.TransferCount = 0;
+                            cancerVictim.Passives.HasToxicMateCancer = true;
+                            cancerVictim.Passives.ToxicMateCancerSourceId = player.GetPlayerId();
+                            cancerVictim.GameCharacter.BlockMoralGain = true;
+
+                            var infectMsgs = game.Phrases.ToxicMateCancerInfect.PassiveLogRus;
+                            var infectMsg = infectMsgs[_rand.Random(0, infectMsgs.Count - 1)];
+                            infectMsg = infectMsg.Replace("{name}", cancerVictim.DiscordUsername);
+                            game.AddGlobalLogs($"Get cancer: {infectMsg}");
+                        }
+                    }
+                    break;
+
+                // Toxic Mate — "Aggress": +1 point if attack didn't result in a fight (target blocked/skipped)
+                case "Aggress":
+                    if (attack && player.Status.IsWonThisCalculation == Guid.Empty && player.Status.IsLostThisCalculation == Guid.Empty)
+                    {
+                        player.Status.AddRegularPoints(1, "Aggress");
+                        player.GameCharacter.Justice.SetRealJusticeNow(0, "Aggress");
+                        game.Phrases.ToxicMateAggressPoint.SendLog(player, false);
                     }
                     break;
             }
@@ -2937,6 +3109,33 @@ public class CharacterPassives : IServiceSingleton
                         }
                     }
                     break;
+
+                // Таинственный Суппорт — "Protect": block gives +1 justice
+                case "Protect":
+                    if (player.Status.IsBlock)
+                    {
+                        player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(1);
+                        game.Phrases.SupportProtect.SendLog(player, false);
+                    }
+                    break;
+
+                // Toxic Mate — "Tilted": +1 per enemy skip, +50 if ALL enemies blocked/skipped
+                case "Tilted":
+                    var tiltedEnemies = game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()).ToList();
+                    var skipCount = tiltedEnemies.Count(x => x.Status.IsSkip);
+                    if (skipCount > 0)
+                    {
+                        player.Status.AddBonusPoints(skipCount, "Tilted");
+                        game.Phrases.ToxicMateTiltedReact.SendLog(player, false);
+                    }
+
+                    var allPassive = tiltedEnemies.All(x => x.Status.IsBlock || x.Status.IsSkip);
+                    if (allPassive)
+                    {
+                        player.Status.AddBonusPoints(50, "Tilted");
+                        game.AddGlobalLogs("__**OPEN MID!** +20 **очков**__");
+                    }
+                    break;
             }
 
         // High Elo repeated loss — any player losing to a high-elo character for 2nd+ consecutive time
@@ -3726,6 +3925,20 @@ public class CharacterPassives : IServiceSingleton
                 player.Status.AddInGamePersonalLogs("Тебя усыпили...\n");
             }
             //end Я за чаем
+        }
+
+        // Таинственный Суппорт — "Premade": prevent marked player from skipping
+        foreach (var supporter in game.PlayersList)
+        {
+            if (!supporter.GameCharacter.Passive.Any(x => x.PassiveName == "Premade")) continue;
+            var markedId = supporter.Passives.SupportPremade.MarkedPlayerId;
+            if (markedId == Guid.Empty) continue;
+            var marked = game.PlayersList.Find(x => x.GetPlayerId() == markedId);
+            if (marked != null && marked.Status.IsSkip && !marked.Status.ConfirmedSkip)
+            {
+                marked.Status.IsSkip = false;
+                marked.Status.IsReady = false;
+            }
         }
     }
 

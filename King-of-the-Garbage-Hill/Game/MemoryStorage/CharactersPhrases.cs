@@ -192,6 +192,20 @@ public class CharactersUniquePhrase
     public PhraseClass NapoleonPeaceTreaty;
     public PhraseClass NapoleonFace;
 
+    // Toxic Mate
+    public PhraseClass ToxicMateIntFirstLoss;
+    public PhraseClass ToxicMateCancerInfect;
+    public PhraseClass ToxicMateCancerReturn;
+    public PhraseClass ToxicMateAggressPoint;
+    public PhraseClass ToxicMateAggressWontStop;
+    public PhraseClass ToxicMateTiltedReact;
+    public PhraseClass ToxicMateTiltedOpenMid;
+
+    // Таинственный Суппорт
+    public PhraseClass SupportStakes;
+    public PhraseClass SupportProtect;
+    public PhraseClass SupportPremadeMark;
+
     // Misc new phrases
     public PhraseClass HighEloLoss;
     public PhraseClass SirinoksGeniusPhrase;
@@ -1071,6 +1085,55 @@ public class CharactersUniquePhrase
         NapoleonFace.PassiveLogRus.Add("Такова моя стратегия!");
         NapoleonFace.PassiveLogRus.Add("Аламут");
         NapoleonFace.PassiveLogRus.Add("Построение Черепахи");
+
+        // Toxic Mate
+        ToxicMateIntFirstLoss = new PhraseClass("INT");
+        ToxicMateIntFirstLoss.PassiveLogRus.Add("Ok. I'm trolling.");
+
+        ToxicMateCancerInfect = new PhraseClass("Get cancer");
+        ToxicMateCancerInfect.PassiveLogRus.Add("{name} infected");
+        ToxicMateCancerInfect.PassiveLogRus.Add("{name} is no0b");
+        ToxicMateCancerInfect.PassiveLogRus.Add("{name} reported!");
+        ToxicMateCancerInfect.PassiveLogRus.Add("{name} almost done");
+        ToxicMateCancerInfect.PassiveLogRus.Add("{name} FEEDER!");
+
+        ToxicMateCancerReturn = new PhraseClass("Get cancer");
+        ToxicMateCancerReturn.PassiveLogRus.Add("Fuking idiots! All reported.");
+
+        ToxicMateAggressPoint = new PhraseClass("Aggress");
+        ToxicMateAggressPoint.PassiveLogRus.Add("LET'S TALK ABOUT IT");
+        ToxicMateAggressPoint.PassiveLogRus.Add("SHUT UP I WON");
+        ToxicMateAggressPoint.PassiveLogRus.Add("EZ");
+        ToxicMateAggressPoint.PassiveLogRus.Add("Yeah stay afk!");
+
+        ToxicMateAggressWontStop = new PhraseClass("Aggress");
+        ToxicMateAggressWontStop.PassiveLogRus.Add("I. WONT. STOP.");
+
+        ToxicMateTiltedReact = new PhraseClass("Tilted");
+        ToxicMateTiltedReact.PassiveLogRus.Add("Hahaha look at this");
+        ToxicMateTiltedReact.PassiveLogRus.Add("Are you mad?");
+        ToxicMateTiltedReact.PassiveLogRus.Add("Go cry!");
+        ToxicMateTiltedReact.PassiveLogRus.Add("Report this kid");
+        ToxicMateTiltedReact.PassiveLogRus.Add("KYS");
+        ToxicMateTiltedReact.PassiveLogRus.Add("Tilted");
+        ToxicMateTiltedReact.PassiveLogRus.Add("OMG IDIOT");
+        ToxicMateTiltedReact.PassiveLogRus.Add("Pepega");
+
+        ToxicMateTiltedOpenMid = new PhraseClass("Tilted");
+        ToxicMateTiltedOpenMid.PassiveLogRus.Add("OPEN MID!");
+        //end Toxic Mate
+
+        // Таинственный Суппорт
+        SupportStakes = new PhraseClass("Stakes!");
+        SupportStakes.PassiveLogRus.Add("СТАКИ!!!");
+        SupportStakes.PassiveLogRus.Add("Пора дамажить!");
+
+        SupportProtect = new PhraseClass("Protect");
+        SupportProtect.PassiveLogRus.Add("Пепега");
+
+        SupportPremadeMark = new PhraseClass("Premade");
+        SupportPremadeMark.PassiveLogRus.Add("Ты теперь мой напарник...");
+        //end Таинственный Суппорт
 
         //not in the game
 

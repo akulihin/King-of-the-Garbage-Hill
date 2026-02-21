@@ -194,6 +194,16 @@ public class PassivesClass
     public Napoleon.PeaceTreatyClass NapoleonPeaceTreaty { get; set; } = new();
     public FriendsClass NapoleonFirstFightList { get; set; } = new();
 
+    // Таинственный Суппорт
+    public TainovennyiSupport.PremadeClass SupportPremade { get; set; } = new();
+
+    // Toxic Mate — per-character
+    public ToxicMate.CancerClass ToxicMateCancer { get; set; } = new();
+
+    // Toxic Mate — per-player (any player can hold cancer)
+    public bool HasToxicMateCancer { get; set; }
+    public Guid ToxicMateCancerSourceId { get; set; } = Guid.Empty;
+
     public Guid PointFunneledTo { get; set; } = Guid.Empty;
     public bool IsExploitable { get; set; } = false;
     public bool IsExploitFixed { get; set; } = false;
