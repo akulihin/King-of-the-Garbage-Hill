@@ -115,10 +115,9 @@ let audioCtx: AudioContext | null = null
 let masterGain: GainNode | null = null
 const groupGains = new Map<VolumeGroup, GainNode>()
 const audioBufferCache = new Map<string, AudioBuffer>()
+const failedUrls = new Set<string>()
 const pendingBufferResolve = new Map<string, Promise<AudioBuffer | null>>()
 const channelSources = new Map<PlaybackChannel, AudioBufferSourceNode>()
-let pluckSource: AudioBufferSourceNode | null = null
-let pluckStopTimer: ReturnType<typeof setTimeout> | null = null
 
 const ALL_VOLUME_GROUPS: VolumeGroup[] = [
   'buttons', 'mainMenu', 'utility', 'attack', 'levelUp', 'moralExchange',
@@ -161,6 +160,8 @@ function toSoundUrl(relativePath: string): string {
 }
 
 async function getOrFetchAudioBuffer(sourceUrl: string): Promise<AudioBuffer | null> {
+  if (failedUrls.has(sourceUrl)) return null
+
   const cached = audioBufferCache.get(sourceUrl)
   if (cached) return cached
 
@@ -170,11 +171,19 @@ async function getOrFetchAudioBuffer(sourceUrl: string): Promise<AudioBuffer | n
   const ctx = ensureAudioContext()
   const promise = (async () => {
     const response = await fetch(sourceUrl).catch(() => null)
-    if (!response || !response.ok) return null
-    const arrayBuffer = await response.arrayBuffer()
-    const buffer = await ctx.decodeAudioData(arrayBuffer)
-    audioBufferCache.set(sourceUrl, buffer)
-    return buffer
+    if (!response || !response.ok) {
+      failedUrls.add(sourceUrl)
+      return null
+    }
+    try {
+      const arrayBuffer = await response.arrayBuffer()
+      const buffer = await ctx.decodeAudioData(arrayBuffer)
+      audioBufferCache.set(sourceUrl, buffer)
+      return buffer
+    } catch {
+      failedUrls.add(sourceUrl)
+      return null
+    }
   })()
 
   pendingBufferResolve.set(sourceUrl, promise)
@@ -218,6 +227,7 @@ interface PlayClipOptions {
 }
 
 async function playClip(relativePath: string, options?: PlayClipOptions): Promise<boolean> {
+  if (getMasterVolume() === 0) return false
   if (checkKillSwitch(relativePath)) return false
   try {
     const ctx = ensureAudioContext()
@@ -380,37 +390,8 @@ export function playPointsIncreaseSound(pointsDelta: number): void {
 }
 
 export function playComboPluck(comboSize: number): void {
-  const safeCombo = Math.max(1, comboSize)
-  const durationSec = Math.min(10, safeCombo * 0.85)
-
-  void (async () => {
-    try {
-      const ctx = ensureAudioContext()
-      const buffer = await getOrFetchAudioBuffer(toSoundUrl('ui_ux/combo/pluck.mp3'))
-      if (!buffer) return
-
-      // Stop previous pluck
-      if (pluckStopTimer) {
-        clearTimeout(pluckStopTimer)
-        pluckStopTimer = null
-      }
-      try { pluckSource?.stop() } catch { /* already stopped */ }
-
-      const source = ctx.createBufferSource()
-      source.buffer = buffer
-      source.connect(groupGains.get('combo') ?? masterGain!)
-      pluckSource = source
-
-      source.start(0)
-
-      pluckStopTimer = setTimeout(() => {
-        try { pluckSource?.stop() } catch { /* already stopped */ }
-        pluckSource = null
-      }, durationSec * 1000)
-    } catch {
-      // ignore playback errors
-    }
-  })()
+  const level = Math.max(1, Math.min(7, comboSize))
+  void playClip(`ui_ux/combo/pluck_${level}.mp3`, { group: 'combo' })
 }
 
 export function playComboHype(comboSize: number): void {
@@ -478,6 +459,7 @@ export function doomsDayWinLosePath(
   roundResults: readonly ('w' | 'l')[],
   isFinal: boolean,
   isAbsolute: boolean,
+  weWon?: boolean,
 ): string {
   const len = roundResults.length
   if (len === 0) return 'dooms_day/win_lose/1_w.mp3' // fallback
@@ -492,15 +474,16 @@ export function doomsDayWinLosePath(
 
     // Non-absolute finals
     if (len === 2) {
-      const seq = roundResults.join('')
-      if (seq === 'ww') return 'dooms_day/win_lose/f_ww.mp3'
-      // any loss final
+      if (allWin) return 'dooms_day/win_lose/f_ww.mp3'
+      // Mixed rounds: use actual outcome to pick victory vs defeat sound
+      if (weWon === true) return 'dooms_day/win_lose/f_ww.mp3'
       return 'dooms_day/win_lose/f_any_lose.mp3'
     }
     if (len >= 3) {
-      const first2 = roundResults.slice(0, 2).join('')
-      if (first2 === 'lw') return 'dooms_day/win_lose/f_lww.mp3'
-      if (first2 === 'wl') return 'dooms_day/win_lose/f_wlw.mp3'
+      // Check full sequence — must verify R3 was actually won before using victory sounds
+      const seq = roundResults.join('')
+      if (seq === 'lww') return 'dooms_day/win_lose/f_lww.mp3'
+      if (seq === 'wlw') return 'dooms_day/win_lose/f_wlw.mp3'
       return 'dooms_day/win_lose/f_any_lose.mp3'
     }
     // len === 1 final (no R2/R3) — use the round 1 file
@@ -533,8 +516,9 @@ export function playDoomsDayWinLose(
   roundResults: readonly ('w' | 'l')[],
   isFinal: boolean,
   isAbsolute: boolean,
+  weWon?: boolean,
 ): void {
-  const path = doomsDayWinLosePath(roundResults, isFinal, isAbsolute)
+  const path = doomsDayWinLosePath(roundResults, isFinal, isAbsolute, weWon)
   void playClip(path, { group: 'doomsDayWinLose' })
 }
 

@@ -529,7 +529,7 @@ watch(currentStep, (step: number) => {
     } else {
       const r2result: 'w' | 'l' = r2pts > 0 ? 'w' : 'l'
       roundResults.value = [...roundResults.value, r2result]
-      playDoomsDayWinLose(roundResults.value, !hasR3, false)
+      playDoomsDayWinLose(roundResults.value, !hasR3, false, leftWon.value)
     }
     return
   }
@@ -558,7 +558,7 @@ watch(currentStep, (step: number) => {
     const isLastFight = currentFightIdx.value === myFights.value.length - 1
     const allSame = roundResults.value.length > 0 && roundResults.value.every(r => r === roundResults.value[0])
     const isAbsolute = isLastFight && allSame
-    playDoomsDayWinLose(roundResults.value, true, isAbsolute)
+    playDoomsDayWinLose(roundResults.value, true, isAbsolute, leftWon.value)
   }
 })
 
