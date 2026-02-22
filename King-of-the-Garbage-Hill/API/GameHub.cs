@@ -21,14 +21,16 @@ public class GameHub : Hub
     private readonly Global _global;
     private readonly UserAccounts _userAccounts;
     private readonly BlackjackService _blackjackService;
+    private readonly GameStoryService _storyService;
 
-    public GameHub(WebGameService gameService, GameNotificationService notificationService, Global global, UserAccounts userAccounts, BlackjackService blackjackService)
+    public GameHub(WebGameService gameService, GameNotificationService notificationService, Global global, UserAccounts userAccounts, BlackjackService blackjackService, GameStoryService storyService)
     {
         _gameService = gameService;
         _notificationService = notificationService;
         _global = global;
         _userAccounts = userAccounts;
         _blackjackService = blackjackService;
+        _storyService = storyService;
     }
 
     public override async Task OnConnectedAsync()
@@ -105,6 +107,11 @@ public class GameHub : Hub
             else
                 await Clients.Caller.SendAsync("Error", "Game not found.");
         }
+
+        // Send stored story if available (covers reconnect / late join)
+        var story = _storyService.GetStory(gameId);
+        if (story != null)
+            await Clients.Caller.SendAsync("GameEvent", new { eventType = "GameStory", data = new { story } });
     }
 
     public async Task LeaveGame(ulong gameId)

@@ -32,6 +32,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
         // Intermediate values
         public decimal ScaleMe, ScaleTarget;
+
+        // Class snapshot (from FightCharacter at step1 time, before passives modify stats)
+        public string AttackerClass, DefenderClass;
+        public bool IsNemesisMe, IsNemesisTarget;
     }
 
     public class CalculateRounds : IServiceSingleton
@@ -87,6 +91,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
 
             r.NemesisWeighingDelta = weighingMachine - wmBefore;
+            r.IsNemesisMe = me.HasNemesisOver(target);
+            r.IsNemesisTarget = target.HasNemesisOver(me);
+            r.AttackerClass = me.GetSkillClass();
+            r.DefenderClass = target.GetSkillClass();
 
             if (weighingMachine != 0 && isLog)
             {
@@ -147,12 +155,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             r.VersatilityStr = me.GetStrength() > target.GetStrength() ? 1 : me.GetStrength() < target.GetStrength() ? -1 : 0;
             r.VersatilitySpeed = me.GetSpeed() > target.GetSpeed() ? 1 : me.GetSpeed() < target.GetSpeed() ? -1 : 0;
 
-            // Derive winner: need 2+ stat wins for a clear advantage.
-            // ✓✓✓ (3), ✓✓― (2) → me wins. XX― (-2), XXX (-3) → enemy wins.
-            // ✓X― (1/-1), ――― (0) → draw, no weighing change.
-            var statSum = r.VersatilityIntel + r.VersatilityStr + r.VersatilitySpeed;
+            // Derive winner: whoever wins more individual stats gets the bonus.
+            // wins > losses → me (+5). losses > wins → enemy (-5). Equal → draw.
+            var wins = (r.VersatilityIntel > 0 ? 1 : 0) + (r.VersatilityStr > 0 ? 1 : 0) + (r.VersatilitySpeed > 0 ? 1 : 0);
+            var losses = (r.VersatilityIntel < 0 ? 1 : 0) + (r.VersatilityStr < 0 ? 1 : 0) + (r.VersatilitySpeed < 0 ? 1 : 0);
 
-            if (statSum >= 2)
+            if (wins > losses)
             {
                 if (isLog)
                 {
@@ -162,7 +170,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 weighingMachine += 5;
             }
-            else if (statSum <= -2)
+            else if (losses > wins)
             {
                 if (isLog)
                 {

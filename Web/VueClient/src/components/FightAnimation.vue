@@ -184,8 +184,8 @@ const round1Factors = computed<Factor[]>(() => {
   const hl = (v: number): 'good' | 'bad' | 'neutral' => v > 0 ? 'good' : v < 0 ? 'bad' : 'neutral'
 
 
-  // 1. Versatility
-  if (f.versatilityWeighingDelta !== 0) {
+  // 1. Versatility — show whenever any stat differs, even if weighing bonus is 0
+  if (f.versatilityIntel !== 0 || f.versatilityStr !== 0 || f.versatilitySpeed !== 0) {
     const v = f.versatilityWeighingDelta * s
     // Build stat-by-stat breakdown from our (left) perspective
     const wi = f.versatilityIntel * (isFlipped.value ? -1 : 1)

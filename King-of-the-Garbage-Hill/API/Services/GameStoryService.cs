@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -20,10 +21,12 @@ public class GameStoryService
     private readonly IHubContext<GameHub> _hubContext;
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
+    private readonly ConcurrentDictionary<ulong, string> _stories = new();
 
     private const string ApiUrl = "https://api.anthropic.com/v1/messages";
     private const string Model = "claude-haiku-4-5-20251001";
     private const int MaxTokens = 1024;
+    private const int MaxStoredStories = 50;
 
     public GameStoryService(IHubContext<GameHub> hubContext, HttpClient httpClient, Config config)
     {
@@ -61,6 +64,9 @@ public class GameStoryService
                     // Convert markdown-style formatting to HTML for web display
                     var html = FormatStoryHtml(story);
 
+                    // Store for later retrieval (e.g. on reconnect/rejoin)
+                    StoreStory(gameId, html);
+
                     await _hubContext.Clients.Group($"game-{gameId}")
                         .SendAsync("GameEvent", new { eventType = "GameStory", data = new { story = html } });
                     Console.WriteLine($"[GameStory] Story delivered for game {gameId} ({html.Length} chars)");
@@ -71,6 +77,29 @@ public class GameStoryService
                 Console.WriteLine($"[GameStory] Error generating story for game {gameId}: {ex.Message}");
             }
         });
+    }
+
+    // ── Story Storage ─────────────────────────────────────────────────
+
+    public string GetStory(ulong gameId)
+    {
+        return _stories.TryGetValue(gameId, out var story) ? story : null;
+    }
+
+    private void StoreStory(ulong gameId, string html)
+    {
+        _stories[gameId] = html;
+
+        // Trim oldest entries if we exceed the cap
+        if (_stories.Count > MaxStoredStories)
+        {
+            var keysToRemove = _stories.Keys
+                .OrderBy(k => k)
+                .Take(_stories.Count - MaxStoredStories)
+                .ToList();
+            foreach (var key in keysToRemove)
+                _stories.TryRemove(key, out _);
+        }
     }
 
     // ── Snapshot ──────────────────────────────────────────────────────
@@ -200,7 +229,7 @@ public class GameStoryService
             if (i < globalRounds.Count && !string.IsNullOrWhiteSpace(globalRounds[i]))
             {
                 sb.AppendLine("    <fight-history>");
-                sb.AppendLine($"      {Truncate(StripDiscordEmoji(globalRounds[i].Trim()), 500)}");
+                sb.AppendLine($"      {Truncate(StripDiscordEmoji(globalRounds[i].Trim()), 1000)}");
                 sb.AppendLine("    </fight-history>");
             }
 
@@ -214,7 +243,7 @@ public class GameStoryService
                 {
                     if (i < p.Rounds.Count && !string.IsNullOrWhiteSpace(p.Rounds[i]))
                         sb.AppendLine(
-                            $"      <character name=\"{p.CharacterName}\">{Truncate(StripDiscordEmoji(p.Rounds[i]), 300)}</character>");
+                            $"      <character name=\"{p.CharacterName}\">{Truncate(StripDiscordEmoji(p.Rounds[i]), 1000)}</character>");
                 }
                 sb.AppendLine("    </personal-logs>");
             }
@@ -225,7 +254,7 @@ public class GameStoryService
 
         sb.AppendLine("</game-commentary>");
 
-        return sb.ToString();
+        return sb.ToString().Replace("|>Phrase<|", "").Replace("*", "").Replace("_", "");
     }
 
     /// <summary>

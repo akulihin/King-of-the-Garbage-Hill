@@ -468,6 +468,11 @@ public class General : ModuleBaseCustom
         }
 
         foreach (var player in playersList) await _upd.UpdateMessage(player);
+
+        // Send web link to each human player (deleted on next round)
+        foreach (var player in playersList)
+            await _helperFunctions.SendMsgAndDeleteItAfterRound(player, $"🌐 https://kotgh.ozvmusic.com/game/{gameId}", 0);
+
         game.IsCheckIfReady = true;
     }
 

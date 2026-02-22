@@ -439,6 +439,8 @@ export type GameEvent = {
 class SignalRService {
   private connection: signalR.HubConnection | null = null
   private _isConnected = false
+  private _lastDiscordId: string | null = null
+  private _currentGameId: number | null = null
 
   // Event callbacks
   onGameState: ((state: GameState) => void) | null = null
@@ -514,10 +516,14 @@ class SignalRService {
       this.onConnectionChanged?.(false)
     })
 
-    this.connection.onreconnected(() => {
+    this.connection.onreconnected(async () => {
       console.log('[SignalR] Reconnected')
       this._isConnected = true
       this.onConnectionChanged?.(true)
+
+      // Re-authenticate and re-join game group after reconnect
+      if (this._lastDiscordId) await this.authenticate(this._lastDiscordId)
+      if (this._currentGameId) await this.joinGame(this._currentGameId)
     })
 
     this.connection.onclose(() => {
@@ -545,14 +551,17 @@ class SignalRService {
 
   async authenticate(discordId: string): Promise<void> {
     // Send as string to avoid JS number precision loss on large snowflake IDs
+    this._lastDiscordId = discordId
     await this.connection?.invoke('Authenticate', discordId)
   }
 
   async joinGame(gameId: number): Promise<void> {
+    this._currentGameId = gameId
     await this.connection?.invoke('JoinGame', gameId)
   }
 
   async leaveGame(gameId: number): Promise<void> {
+    this._currentGameId = null
     await this.connection?.invoke('LeaveGame', gameId)
   }
 

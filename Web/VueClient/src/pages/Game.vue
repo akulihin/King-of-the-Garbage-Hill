@@ -56,6 +56,13 @@ function onAttack(place: number) {
   void store.attack(place)
 }
 
+// Redirect to the correct game URL if the server sends a different gameId
+watch(() => store.gameState?.gameId, (actualGameId: number | undefined) => {
+  if (actualGameId && actualGameId !== gameIdNum.value) {
+    router.replace(`/game/${actualGameId}`)
+  }
+})
+
 onMounted(async () => {
   setSoundContext('game')
   if (store.isConnected) {
