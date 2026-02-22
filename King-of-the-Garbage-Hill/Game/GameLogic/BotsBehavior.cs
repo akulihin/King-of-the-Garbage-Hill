@@ -523,7 +523,7 @@ public class BotsBehavior : IServiceSingleton
 
                 //target
                 if (target.AttackPreference >= 5)
-                    if (bot.GameCharacter.GetCurrentSkillClassTarget() == target.Player.GameCharacter.GetSkillClass())
+                    if (bot.GameCharacter.HasSkillTargetOn(target.Player.GameCharacter))
                     {
                         target.AttackPreference += isTargetTaretNumber;
                         isTargetTaret = true;
@@ -531,7 +531,7 @@ public class BotsBehavior : IServiceSingleton
 
                 //nemesis
                 if (target.AttackPreference >= 5)
-                    if (bot.GameCharacter.GetNemesisClass() == target.Player.GameCharacter.GetSkillClass())
+                    if (bot.GameCharacter.HasNemesisOver(target.Player.GameCharacter))
                     {
                         target.AttackPreference += isTargetNemesisNumber;
                         isTargetNemesis = true;
@@ -573,7 +573,7 @@ public class BotsBehavior : IServiceSingleton
                         var deepListMadness = bot.Passives.DeepListMadnessTriggeredWhen;
                         if (deepListMadness.WhenToTrigger.Contains(game.RoundNo))
                         {
-                            if (bot.GameCharacter.GetCurrentSkillClassTarget() == target.Player.GameCharacter.GetSkillClass())
+                            if (bot.GameCharacter.HasSkillTargetOn(target.Player.GameCharacter))
                             {
                                 target.AttackPreference += 3;
                             }
@@ -765,7 +765,7 @@ public class BotsBehavior : IServiceSingleton
                     case "Злой Школьник":
                         if (target.AttackPreference >= 5)
                         {
-                            if (bot.GameCharacter.GetCurrentSkillClassTarget() == target.Player.GameCharacter.GetSkillClass())
+                            if (bot.GameCharacter.HasSkillTargetOn(target.Player.GameCharacter))
                                 target.AttackPreference += 3;
 
                             if (game.RoundNo < 5 && target.Player.GameCharacter.Name == "HardKitty")
@@ -878,7 +878,7 @@ public class BotsBehavior : IServiceSingleton
                         //После первого хода:  преференс -3 всем, кто не подходит под текущую мишень (мишень скилла).
                         if (game.RoundNo > 1)
                         {
-                            if (bot.GameCharacter.GetCurrentSkillClassTarget() != target.Player.GameCharacter.GetSkillClass())
+                            if (!bot.GameCharacter.HasSkillTargetOn(target.Player.GameCharacter))
                             {
                                 target.AttackPreference -= 3;
                             }
@@ -918,7 +918,7 @@ public class BotsBehavior : IServiceSingleton
                                         target.AttackPreference = 0;
                                     }
 
-                                    if (bot.GameCharacter.GetCurrentSkillClassTarget() == target.Player.GameCharacter.GetSkillClass())
+                                    if (bot.GameCharacter.HasSkillTargetOn(target.Player.GameCharacter))
                                     {
                                         mandatoryAttack = target.PlaceAtLeaderBoard();
                                     }
@@ -1370,14 +1370,14 @@ public class BotsBehavior : IServiceSingleton
                                     target3.AttackPreference = realAttackPreference;
 
                                 //снимается 0 со всех тех, кто подходит под мишень.
-                                if (bot.GameCharacter.GetCurrentSkillClassTarget() == target3.Player.GameCharacter.GetSkillClass())
+                                if (bot.GameCharacter.HasSkillTargetOn(target3.Player.GameCharacter))
                                     target3.AttackPreference = realAttackPreference;
 
                                 //если кол-во оставшихся ходов - 3 <= союзникам в друзьях, то нападает только на союзников которых можно добавить в друзья. (выбирает из них по мишени. если под мишень не подходит, то выбирает рандомно)
                                 if (game.RoundNo < 9)
                                 {
                                     if (!siriFriends.FriendList.Contains(target3.GetPlayerId()))
-                                        if (bot.GameCharacter.GetCurrentSkillClassTarget() == target3.Player.GameCharacter.GetSkillClass())
+                                        if (bot.GameCharacter.HasSkillTargetOn(target3.Player.GameCharacter))
                                             mandatoryAttack = target3.PlaceAtLeaderBoard();
                                 }
                             }

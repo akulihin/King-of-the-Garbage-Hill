@@ -743,7 +743,7 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Охота на богов":
-                    if (me.GameCharacter.GetCurrentSkillClassTarget() == target.GameCharacter.GetSkillClass())
+                    if (me.GameCharacter.HasSkillTargetOn(target.GameCharacter))
                     {
                         game.Phrases.KratosTarget.SendLog(me, false);
                         me.FightCharacter.SetSkillFightMultiplier(2);
@@ -1197,7 +1197,7 @@ public class CharacterPassives : IServiceSingleton
                 case "Много выебывается":
                     if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                     {
-                        if (me.GameCharacter.GetCurrentSkillClassTarget() == target.GameCharacter.GetSkillClass())
+                        if (me.GameCharacter.HasSkillTargetOn(target.GameCharacter))
                         {
                             me.GameCharacter.AddExtraSkill(40, "Много выебывается");
                         }
@@ -1510,7 +1510,7 @@ public class CharacterPassives : IServiceSingleton
                     if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                     {
                         // Bonus point for beating the skill-class target
-                        if (me.GameCharacter.GetCurrentSkillClassTarget() == target.GameCharacter.GetSkillClass())
+                        if (me.GameCharacter.HasSkillTargetOn(target.GameCharacter))
                         {
                             me.Status.AddBonusPoints(1, "На мели");
                             game.Phrases.SaitamaBroke.SendLog(me, false);

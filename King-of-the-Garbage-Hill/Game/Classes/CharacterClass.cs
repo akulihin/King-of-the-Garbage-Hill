@@ -4,6 +4,8 @@ using System.Linq;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
+public enum SkillClassType { None, Intelligence, Strength, Speed }
+
 public class CharacterClass
 {
     public CharacterClass(int intelligence, int strength, int speed, int psyche, string name, string description, int tier, string avatar)
@@ -674,53 +676,99 @@ public class CharacterClass
         StrengthQualityDropTimes = 0;
     }
 
-    public string GetClassStatDisplayText()
-    {
-        if (GetIntelligence() == 0 && GetStrength() == 0 && GetSpeed() == 0) return "***Братишка***... буль-буль...";
-        if (GetIntelligence() >= GetStrength() && GetIntelligence() >= GetSpeed())
-            return "***Умный*** нападает на тех, кто без *Справедливости*.";
-        if (GetStrength() >= GetIntelligence() && GetStrength() >= GetSpeed()) return "***Сильный*** побеждает!";
-        if (GetSpeed() >= GetIntelligence() && GetSpeed() >= GetStrength()) return "***Быстрый*** успевает во все битвы...";
-        return "***Братишка***... буль-буль...";
-    }
+    // ── Skill Class helpers ─────────────────────────────────────
 
-    public string GetClassStatDisplayTextWeb()
+    public static string ClassToString(SkillClassType c) => c switch
     {
-        if (GetIntelligence() == 0 && GetStrength() == 0 && GetSpeed() == 0) return "Братишка... || буль-буль...";
-        if (GetIntelligence() >= GetStrength() && GetIntelligence() >= GetSpeed())
-            return "Умный || нападает на тех, кто без *Справедливости*.";
-        if (GetStrength() >= GetIntelligence() && GetStrength() >= GetSpeed()) return "Сильный || побеждает!";
-        if (GetSpeed() >= GetIntelligence() && GetSpeed() >= GetStrength()) return "Быстрый || успевает во все битвы...";
-        return "Братишка... || буль-буль...";
-    }
+        SkillClassType.Intelligence => "Интеллект",
+        SkillClassType.Strength => "Сила",
+        SkillClassType.Speed => "Скорость",
+        _ => "Буль"
+    };
 
-     /*
+    // "**умного**" / "**сильного**" etc. — used in skill target reward text
+    public static (string FlavorName, string KnownTag) ClassToFlavorText(SkillClassType c) => c switch
+    {
+        SkillClassType.Intelligence => ("**умного**", "(**Умный** ?) "),
+        SkillClassType.Strength => ("**сильного**", "(**Сильный** ?) "),
+        SkillClassType.Speed => ("**быстрого**", "(**Быстрый** ?) "),
+        _ => ("**буля**", "(**БУЛЬ** ?!) ")
+    };
+
+    // Keyword found in KnownPlayerClass.Text for each class
+    public static string ClassToKnownKeyword(SkillClassType c) => c switch
+    {
+        SkillClassType.Intelligence => "Умный",
+        SkillClassType.Strength => "Сильный",
+        SkillClassType.Speed => "Быстрый",
+        SkillClassType.None => "БУЛЬ",
+        _ => ""
+    };
+
+    /*
+     Nemesis (rock-paper-scissors):
      Intelligence => Speed
-     Speed        => Strength
      Strength     => Intelligence
+     Speed        => Strength
      */
-
-    public string GetSkillClass()
+    public static SkillClassType NemesisOf(SkillClassType c) => c switch
     {
-        if (GetIntelligence() == 0 && GetStrength() == 0 && GetSpeed() == 0) return "Буль";
+        SkillClassType.Intelligence => SkillClassType.Speed,
+        SkillClassType.Strength => SkillClassType.Intelligence,
+        SkillClassType.Speed => SkillClassType.Strength,
+        _ => SkillClassType.None
+    };
 
-        if (GetIntelligence() >= GetStrength() && GetIntelligence() >= GetSpeed()) return "Интеллект";
-        if (GetStrength() >= GetIntelligence() && GetStrength() >= GetSpeed()) return "Сила";
-        if (GetSpeed() >= GetIntelligence() && GetSpeed() >= GetStrength()) return "Скорость";
+    // Target cycling (all players): INT → STR → SPD → INT
+    public static SkillClassType NextTarget(SkillClassType c) => c switch
+    {
+        SkillClassType.Intelligence => SkillClassType.Strength,
+        SkillClassType.Strength => SkillClassType.Speed,
+        SkillClassType.Speed => SkillClassType.Intelligence,
+        _ => SkillClassType.None
+    };
 
-        return "Буль";
+    public SkillClassType GetSkillClassType()
+    {
+        if (GetIntelligence() == 0 && GetStrength() == 0 && GetSpeed() == 0) return SkillClassType.None;
+
+        if (GetIntelligence() >= GetStrength() && GetIntelligence() >= GetSpeed()) return SkillClassType.Intelligence;
+        if (GetStrength() >= GetIntelligence() && GetStrength() >= GetSpeed()) return SkillClassType.Strength;
+        if (GetSpeed() >= GetIntelligence() && GetSpeed() >= GetStrength()) return SkillClassType.Speed;
+
+        return SkillClassType.None;
     }
 
-    public string GetNemesisClass()
+    public bool HasNemesisOver(CharacterClass target)
     {
-        if (GetIntelligence() == 0 && GetStrength() == 0 && GetSpeed() == 0) return "Буль";
-
-        if (GetIntelligence() >= GetStrength() && GetIntelligence() >= GetSpeed()) return "Скорость";
-        if (GetStrength() >= GetIntelligence() && GetStrength() >= GetSpeed()) return "Интеллект";
-        if (GetSpeed() >= GetIntelligence() && GetSpeed() >= GetStrength()) return "Сила";
-
-        return "Буль";
+        var myType = GetSkillClassType();
+        return myType != SkillClassType.None && NemesisOf(myType) == target.GetSkillClassType();
     }
+
+    public bool HasSkillTargetOn(CharacterClass target)
+    {
+        return CurrentSkillTarget == target.GetSkillClass();
+    }
+
+    public string GetClassStatDisplayText() => GetSkillClassType() switch
+    {
+        SkillClassType.Intelligence => "***Умный*** нападает на тех, кто без *Справедливости*.",
+        SkillClassType.Strength => "***Сильный*** побеждает!",
+        SkillClassType.Speed => "***Быстрый*** успевает во все битвы...",
+        _ => "***Братишка***... буль-буль..."
+    };
+
+    public string GetClassStatDisplayTextWeb() => GetSkillClassType() switch
+    {
+        SkillClassType.Intelligence => "Умный || нападает на тех, кто без *Справедливости*.",
+        SkillClassType.Strength => "Сильный || побеждает!",
+        SkillClassType.Speed => "Быстрый || успевает во все битвы...",
+        _ => "Братишка... || буль-буль..."
+    };
+
+    public string GetSkillClass() => ClassToString(GetSkillClassType());
+
+    public string GetNemesisClass() => ClassToString(NemesisOf(GetSkillClassType()));
 
     public int GetBonusPointsFromMoral()
     {
@@ -742,25 +790,26 @@ public class CharacterClass
         return CurrentSkillTarget;
     }
 
+    public SkillClassType GetSkillClassTargetType() => CurrentSkillTarget switch
+    {
+        "Интеллект" => SkillClassType.Intelligence,
+        "Сила" => SkillClassType.Strength,
+        "Скорость" => SkillClassType.Speed,
+        _ => SkillClassType.None
+    };
+
     public void RollSkillTargetForNextRound()
     {
-        switch (CurrentSkillTarget)
+        if (CurrentSkillTarget == "Ничего")
         {
-            case "Интеллект":
-                CurrentSkillTarget = "Сила";
-                break;
-            case "Сила":
-                CurrentSkillTarget = "Скорость";
-                break;
-            case "Скорость":
-                CurrentSkillTarget = "Интеллект";
-                break;
-            case "Ничего":
-                var skillsSet = new List<string> { "Интеллект", "Скорость", "Сила" };
-                var rand = new Random();
-                CurrentSkillTarget = skillsSet[rand.Next(0, 2)];
-                break;
+            SkillClassType[] initial = { SkillClassType.Intelligence, SkillClassType.Speed, SkillClassType.Strength };
+            CurrentSkillTarget = ClassToString(initial[new Random().Next(0, 2)]);
+            return;
         }
+
+        var current = GetSkillClassTargetType();
+        if (current != SkillClassType.None)
+            CurrentSkillTarget = ClassToString(NextTarget(current));
     }
 
 

@@ -28,33 +28,21 @@ public class DoomsdayMachine : IServiceSingleton
         await Task.CompletedTask;
     }
 
-    /*
-Intelligence => Speed
-Strength => Intelligence
-Speed => Strength
-*/
+    // Called when attacker (me) has nemesis advantage over target
     public string GetLostNemesisText(GamePlayerBridgeClass me, GamePlayerBridgeClass target)
     {
-        if (me.GameCharacter.GetSkillClass() == "Интеллект" && target.GameCharacter.GetSkillClass() == "Скорость")
+        var (knownClass, flavorText) = me.GameCharacter.GetSkillClassType() switch
         {
-            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Умный** ?) "));
+            SkillClassType.Intelligence => ("(**Умный** ?) ", "вас обманул"),
+            SkillClassType.Strength => ("(**Сильный** ?) ", "вас пресанул"),
+            SkillClassType.Speed => ("(**Быстрый** ?) ", "вас обогнал"),
+            _ => ("", "буль?")
+        };
 
-            return "вас обманул";
-        }
+        if (knownClass != "")
+            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), knownClass));
 
-        if (me.GameCharacter.GetSkillClass() == "Сила" && target.GameCharacter.GetSkillClass() == "Интеллект")
-        {
-            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Сильный** ?) "));
-            return "вас пресанул";
-        }
-
-        if (me.GameCharacter.GetSkillClass() == "Скорость" && target.GameCharacter.GetSkillClass() == "Сила")
-        {
-            target.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(me.GetPlayerId(), "(**Быстрый** ?) "));
-            return "вас обогнал";
-        }
-
-        return "буль?";
+        return flavorText;
     }
 
 
@@ -335,31 +323,9 @@ Speed => Strength
 
                 game.AddGlobalLogs($"{player.DiscordUsername} <:war:561287719838547981> {playerIamAttacking.DiscordUsername}", "");
 
-                if (player.GameCharacter.GetCurrentSkillClassTarget() == playerIamAttacking.GameCharacter.GetSkillClass())
+                if (player.GameCharacter.HasSkillTargetOn(playerIamAttacking.GameCharacter))
                 {
-                    string text1;
-                    string text2;
-
-                    if (playerIamAttacking.GameCharacter.GetSkillClass() == "Интеллект")
-                    {
-                        text1 = "**умного**";
-                        text2 = "(**Умный** ?) ";
-                    }
-                    else if (playerIamAttacking.GameCharacter.GetSkillClass() == "Сила")
-                    {
-                        text1 = "**сильного**";
-                        text2 = "(**Сильный** ?) ";
-                    }
-                    else if (playerIamAttacking.GameCharacter.GetSkillClass() == "Скорость")
-                    {
-                        text1 = "**быстрого**";
-                        text2 = "(**Быстрый** ?) ";
-                    }
-                    else
-                    {
-                        text1 = "**буля**";
-                        text2 = "(**БУЛЬ** ?!) ";
-                    }
+                    var (text1, text2) = CharacterClass.ClassToFlavorText(playerIamAttacking.GameCharacter.GetSkillClassType());
 
                     var skillBefore = player.GameCharacter.GetSkill();
                     skillGainedFromTarget = player.GameCharacter.AddMainSkill(text1);
@@ -371,57 +337,17 @@ Speed => Strength
                 }
 
 
-                //check skill text
-                switch (player.GameCharacter.GetCurrentSkillClassTarget())
+                //check skill text — remove stale known-class info when target doesn't match
+                if (!player.GameCharacter.HasSkillTargetOn(playerIamAttacking.GameCharacter))
                 {
-                    case "Интеллект":
-                        if (playerIamAttacking.GameCharacter.GetSkillClass() != "Интеллект")
-                        {
-                            var knownEnemy =
-                                player.Status.KnownPlayerClass.Find(
-                                    x => x.EnemyId == playerIamAttacking.GetPlayerId());
-                            if (knownEnemy != null)
-                                if (knownEnemy.Text.Contains("Умный"))
-                                    player.Status.KnownPlayerClass.Remove(knownEnemy);
-                        }
-
-                        break;
-                    case "Сила":
-                        if (playerIamAttacking.GameCharacter.GetSkillClass() != "Сила")
-                        {
-                            var knownEnemy =
-                                player.Status.KnownPlayerClass.Find(
-                                    x => x.EnemyId == playerIamAttacking.GetPlayerId());
-                            if (knownEnemy != null)
-                                if (knownEnemy.Text.Contains("Сильный"))
-                                    player.Status.KnownPlayerClass.Remove(knownEnemy);
-                        }
-
-                        break;
-                    case "Скорость":
-                        if (playerIamAttacking.GameCharacter.GetSkillClass() != "Скорость")
-                        {
-                            var knownEnemy =
-                                player.Status.KnownPlayerClass.Find(
-                                    x => x.EnemyId == playerIamAttacking.GetPlayerId());
-                            if (knownEnemy != null)
-                                if (knownEnemy.Text.Contains("Быстрый"))
-                                    player.Status.KnownPlayerClass.Remove(knownEnemy);
-                        }
-
-                        break;
-                    case "Буль":
-                        if (playerIamAttacking.GameCharacter.GetSkillClass() != "Буль")
-                        {
-                            var knownEnemy =
-                                player.Status.KnownPlayerClass.Find(
-                                    x => x.EnemyId == playerIamAttacking.GetPlayerId());
-                            if (knownEnemy != null)
-                                if (knownEnemy.Text.Contains("БУЛЬ"))
-                                    player.Status.KnownPlayerClass.Remove(knownEnemy);
-                        }
-
-                        break;
+                    var keyword = CharacterClass.ClassToKnownKeyword(player.GameCharacter.GetSkillClassTargetType());
+                    if (keyword != "")
+                    {
+                        var knownEnemy = player.Status.KnownPlayerClass.Find(
+                            x => x.EnemyId == playerIamAttacking.GetPlayerId());
+                        if (knownEnemy != null && knownEnemy.Text.Contains(keyword))
+                            player.Status.KnownPlayerClass.Remove(knownEnemy);
+                    }
                 }
 
 
@@ -541,7 +467,7 @@ Speed => Strength
                 var isStatsBetterMe = step1.IsStatsBetterMe;
                 var isStatsBettterEnemy = step1.IsStatsBetterEnemy;
                 var pointsWined = step1.PointsWon;
-                var isNemesisLost = step1.IsContrLost;
+                var isNemesisLost = step1.IsNemesisLost;
                 var randomForPoint = step1.RandomForPoint;
                 var weighingMachine = step1.WeighingMachine;
                 var nemesisMultiplier = step1.NemesisMultiplier;
@@ -830,8 +756,8 @@ Speed => Strength
                         VersatilitySpeed = step1.VersatilitySpeed,
                         ScaleMe = Math.Round(step1.ScaleMe, 2),
                         ScaleTarget = Math.Round(step1.ScaleTarget, 2),
-                        IsNemesisMe = me.GetNemesisClass() == target.GetSkillClass(),
-                        IsNemesisTarget = target.GetNemesisClass() == me.GetSkillClass(),
+                        IsNemesisMe = me.HasNemesisOver(target),
+                        IsNemesisTarget = target.HasNemesisOver(me),
                         NemesisMultiplier = nemesisMultiplier,
                         SkillMultiplierMe = (int)step1.SkillMultiplierMe,
                         SkillMultiplierTarget = (int)step1.SkillMultiplierTarget,

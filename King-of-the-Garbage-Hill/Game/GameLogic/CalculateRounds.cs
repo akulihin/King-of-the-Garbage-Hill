@@ -70,7 +70,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             // ── 1. Nemesis ──────────────────────────────────────────────
             var wmBefore = weighingMachine;
 
-            if (me.GetNemesisClass() == target.GetSkillClass())
+            if (me.HasNemesisOver(target))
             {
                 nemesisMultiplier = (decimal)1.5;
 
@@ -79,7 +79,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 weighingMachine += 2;
             }
 
-            if (target.GetNemesisClass() == me.GetSkillClass())
+            if (target.HasNemesisOver(me))
             {
                 skillMultiplierTarget += 1;
                 isNemesisLost += 1;
