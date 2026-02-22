@@ -20,13 +20,15 @@ public class GameHub : Hub
     private readonly GameNotificationService _notificationService;
     private readonly Global _global;
     private readonly UserAccounts _userAccounts;
+    private readonly BlackjackService _blackjackService;
 
-    public GameHub(WebGameService gameService, GameNotificationService notificationService, Global global, UserAccounts userAccounts)
+    public GameHub(WebGameService gameService, GameNotificationService notificationService, Global global, UserAccounts userAccounts, BlackjackService blackjackService)
     {
         _gameService = gameService;
         _notificationService = notificationService;
         _global = global;
         _userAccounts = userAccounts;
+        _blackjackService = blackjackService;
     }
 
     public override async Task OnConnectedAsync()
@@ -450,6 +452,127 @@ public class GameHub : Hub
     {
         var state = _gameService.GetLobbyState();
         await Clients.Caller.SendAsync("LobbyState", state);
+    }
+
+    // ── Blackjack (Dead Player Mini-Game) ────────────────────────────
+
+    public async Task BlackjackJoin(ulong gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        var username = account?.DiscordUserName ?? "Player";
+
+        var (state, error) = _blackjackService.JoinTable(gameId, discordId, username);
+        if (error != null)
+        {
+            await Clients.Caller.SendAsync("Error", error);
+            return;
+        }
+
+        await PushBlackjackState(gameId);
+    }
+
+    public async Task BlackjackHit(ulong gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (state, error) = _blackjackService.Hit(gameId, discordId);
+        if (error != null)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "blackjackHit", success = false, error });
+            return;
+        }
+
+        await PushBlackjackState(gameId);
+    }
+
+    public async Task BlackjackStand(ulong gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (state, error) = _blackjackService.Stand(gameId, discordId);
+        if (error != null)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "blackjackStand", success = false, error });
+            return;
+        }
+
+        await PushBlackjackState(gameId);
+    }
+
+    public async Task BlackjackNewRound(ulong gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (state, error) = _blackjackService.StartNewRound(gameId, discordId);
+        if (error != null)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "blackjackNewRound", success = false, error });
+            return;
+        }
+
+        await PushBlackjackState(gameId);
+    }
+
+    public async Task BlackjackSendMessage(ulong gameId, string[] words)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (state, error) = _blackjackService.ComposeMessage(gameId, discordId, words);
+        if (error != null)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "blackjackSendMessage", success = false, error });
+            return;
+        }
+
+        // error is null, state contains the updated table — the message text is in the second return value
+        // Inject the message into the active game's global logs
+        var message = string.Join(" ", words);
+        await InjectGlobalLogMessage(gameId, state, message);
+
+        await PushBlackjackState(gameId);
+    }
+
+    private async Task PushBlackjackState(ulong gameId)
+    {
+        // Send personalized state to each player at the table
+        var table = _blackjackService.GetTableState(gameId, 0);
+        if (table == null) return;
+
+        foreach (var bjPlayer in table.Players)
+        {
+            if (!ulong.TryParse(bjPlayer.DiscordId, out var pid)) continue;
+            var personalState = _blackjackService.GetTableState(gameId, pid);
+            if (personalState == null) continue;
+
+            var connections = _notificationService.GetConnections(pid);
+            if (connections.Count > 0)
+                await Clients.Clients(connections.ToList()).SendAsync("BlackjackState", personalState);
+        }
+    }
+
+    private async Task InjectGlobalLogMessage(ulong gameId, DTOs.BlackjackTableStateDto tableState, string message)
+    {
+        // Find the author from the table state (the player who just sent the message)
+        var author = tableState?.LastMessage?.Author ?? "???";
+        var logEntry = $"[Шинигами] {author}: \"{message}\"";
+
+        // Try to add to active game's global logs
+        var game = _global.GamesList.Find(x => x.GameId == gameId);
+        if (game != null)
+        {
+            game.AddGlobalLogs(logEntry);
+            await _notificationService.BroadcastGameState(game);
+        }
+
+        // Also broadcast as a game event so spectators see it
+        await _notificationService.SendGameEvent(gameId, "BlackjackMessage", new { author, message });
     }
 
     // ── Private helpers ───────────────────────────────────────────────

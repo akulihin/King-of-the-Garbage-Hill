@@ -736,6 +736,14 @@ public class CheckIfReady : IServiceSingleton
 
 
                 //end Возвращение из мертвых
+
+                // Auto-ready players killed by Kira's Death Note
+                foreach (var player in players.Where(x => x.Passives.KiraDeathNoteDead))
+                {
+                    player.Status.IsReady = true;
+                    player.Status.IsBlock = true;
+                }
+
                 foreach (var player in players.Where(x => !x.IsBot()))
                 {
                     //if (game.TimePassed.Elapsed.TotalSeconds < 30) continue;

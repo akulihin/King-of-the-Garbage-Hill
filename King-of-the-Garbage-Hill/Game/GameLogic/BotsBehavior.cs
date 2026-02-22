@@ -421,7 +421,7 @@ public class BotsBehavior : IServiceSingleton
             var isTargetFirstNumber = 1;
             var isTargetSecondWhenBotFirstNumber = 1;
             var isBotWonAndTooGoodNumber = 4;
-            var isTargetContrNumber = 3;
+            var isTargetNemesisNumber = 3;
             var isTargetTaretNumber = 1;
             var isTargetTooGood = false;
             var isJusticeTheSame = false;
@@ -431,7 +431,7 @@ public class BotsBehavior : IServiceSingleton
             var isLostLastRoundAndTargetIsBetter = false;
             var isBotWonAndTooGood = false;
             var isTargetTaret = false;
-            var isTargetContr = false;
+            var isTargetNemesis = false;
             var howManyAttackingTheSameTarget = 0;
             var justiceDifference = 0;
             //
@@ -529,12 +529,12 @@ public class BotsBehavior : IServiceSingleton
                         isTargetTaret = true;
                     }
 
-                //contr
+                //nemesis
                 if (target.AttackPreference >= 5)
-                    if (bot.GameCharacter.GetWhoIContre() == target.Player.GameCharacter.GetSkillClass())
+                    if (bot.GameCharacter.GetNemesisClass() == target.Player.GameCharacter.GetSkillClass())
                     {
-                        target.AttackPreference += isTargetContrNumber;
-                        isTargetContr = true;
+                        target.AttackPreference += isTargetNemesisNumber;
+                        isTargetNemesis = true;
                     }
 
 

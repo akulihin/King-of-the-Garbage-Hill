@@ -33,7 +33,7 @@ Intelligence => Speed
 Strength => Intelligence
 Speed => Strength
 */
-    public string GetLostContrText(GamePlayerBridgeClass me, GamePlayerBridgeClass target)
+    public string GetLostNemesisText(GamePlayerBridgeClass me, GamePlayerBridgeClass target)
     {
         if (me.GameCharacter.GetSkillClass() == "Интеллект" && target.GameCharacter.GetSkillClass() == "Скорость")
         {
@@ -81,41 +81,49 @@ Speed => Strength
             }
 
 
-            //OneFight Mechanics, use GameCharacter only
+            //OneFight Mechanics, reset on BOTH GameCharacter and FightCharacter
+            //FightCharacter is deep-copied once per round, so ForOneFight overrides
+            //set by before-fight passives would leak into subsequent fights without this.
             if (player.Status.IsIntelligenceForOneFight)
             {
                 player.Status.IsIntelligenceForOneFight = false;
                 player.GameCharacter.ResetIntelligenceForOneFight();
+                player.FightCharacter.ResetIntelligenceForOneFight();
             }
 
             if (player.Status.IsStrengthForOneFight)
             {
                 player.Status.IsStrengthForOneFight = false;
                 player.GameCharacter.ResetStrengthForOneFight();
+                player.FightCharacter.ResetStrengthForOneFight();
             }
 
             if (player.Status.IsSpeedForOneFight)
             {
                 player.Status.IsSpeedForOneFight = false;
                 player.GameCharacter.ResetSpeedForOneFight();
+                player.FightCharacter.ResetSpeedForOneFight();
             }
 
             if (player.Status.IsPsycheForOneFight)
             {
                 player.Status.IsPsycheForOneFight = false;
                 player.GameCharacter.ResetPsycheForOneFight();
+                player.FightCharacter.ResetPsycheForOneFight();
             }
 
             if (player.Status.IsJusticeForOneFight )
             {
                 player.Status.IsJusticeForOneFight = false;
                 player.GameCharacter.Justice.ResetJusticeForOneFight();
+                player.FightCharacter.Justice.ResetJusticeForOneFight();
             }
 
             if (player.Status.IsSkillForOneFight)
             {
                 player.Status.IsSkillForOneFight = false;
                 player.GameCharacter.ResetSkillForOneFight();
+                player.FightCharacter.ResetSkillForOneFight();
             }
             //end OneFight Mechanics
 
@@ -125,15 +133,6 @@ Speed => Strength
             player.Status.IsTargetSkipped = Guid.Empty;
             player.Status.IsTargetBlocked = Guid.Empty;
             player.Status.IsAbleToWin = true;
-        }
-    }
-
-    public void DeepCopyFightCharactersToGameCharacter(GameClass game)
-    {
-        foreach (var player in game.PlayersList)
-        {
-            player.GameCharacter = player.FightCharacter.DeepCopy();
-            player.Status.GameCharacter = player.GameCharacter;
         }
     }
 
@@ -520,7 +519,7 @@ Speed => Strength
                     continue;
                 }
 
-                //round 1 (contr)
+                //round 1 (nemesis)
 
 
                 //быстрый
@@ -542,10 +541,10 @@ Speed => Strength
                 var isStatsBetterMe = step1.IsStatsBetterMe;
                 var isStatsBettterEnemy = step1.IsStatsBetterEnemy;
                 var pointsWined = step1.PointsWon;
-                var isContrLost = step1.IsContrLost;
+                var isNemesisLost = step1.IsContrLost;
                 var randomForPoint = step1.RandomForPoint;
                 var weighingMachine = step1.WeighingMachine;
-                var contrMultiplier = step1.ContrMultiplier;
+                var nemesisMultiplier = step1.NemesisMultiplier;
                 var round1PointsWon = step1.PointsWon; // save before step2/step3 modify it
                 //end round 1
 
@@ -580,16 +579,16 @@ Speed => Strength
                 var step3RandomNumber = 0;
                 var step3MaxRandom = 0m;
                 decimal justiceRandomChange = 0;
-                decimal contrRandomChange = 0;
+                decimal nemesisRandomChange = 0;
                 if (pointsWined == 0)
                 {
-                    var (step3Points, rndNum, rndMax, justiceRandomChangeL, contrRandomChangeL) = _calculateRounds.CalculateStep3(player, playerIamAttacking, randomForPoint, contrMultiplier, true);
+                    var (step3Points, rndNum, rndMax, justiceRandomChangeL, nemesisRandomChangeL) = _calculateRounds.CalculateStep3(player, playerIamAttacking, randomForPoint, nemesisMultiplier, true);
                     pointsWined += step3Points;
                     usedRandomRoll = true;
                     step3RandomNumber = rndNum;
                     step3MaxRandom = rndMax;
                     justiceRandomChange = justiceRandomChangeL;
-                    contrRandomChange = contrRandomChangeL;
+                    nemesisRandomChange = nemesisRandomChangeL;
                 }
                 //end round 3
 
@@ -651,7 +650,7 @@ Speed => Strength
                     if (player.GameCharacter.GetSkillClass() == "Сила")
                         skillGainedFromClassAttacker = player.GameCharacter.AddExtraSkill(4 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
-                    isContrLost -= 1;
+                    isNemesisLost -= 1;
                     game.AddGlobalLogs($" ⟶ {player.DiscordUsername}");
 
                     //еврей
@@ -742,7 +741,7 @@ Speed => Strength
                     if (isTooStronkEnemy)
                         player.Status.AddInGamePersonalLogs($"{playerIamAttacking.DiscordUsername} is __TOO STONK__ for you\n");
 
-                    isContrLost += 1;
+                    isNemesisLost += 1;
 
 
                     game.AddGlobalLogs($" ⟶ {playerIamAttacking.DiscordUsername}");
@@ -826,14 +825,14 @@ Speed => Strength
                         WinnerName = attackerWon ? player.DiscordUsername : playerIamAttacking.DiscordUsername,
                         AttackerClass = me.GetSkillClass(),
                         DefenderClass = target.GetSkillClass(),
-                        WhoIsBetterIntel = step1.WhoIsBetterIntel,
-                        WhoIsBetterStr = step1.WhoIsBetterStr,
-                        WhoIsBetterSpeed = step1.WhoIsBetterSpeed,
+                        VersatilityIntel = step1.VersatilityIntel,
+                        VersatilityStr = step1.VersatilityStr,
+                        VersatilitySpeed = step1.VersatilitySpeed,
                         ScaleMe = Math.Round(step1.ScaleMe, 2),
                         ScaleTarget = Math.Round(step1.ScaleTarget, 2),
-                        IsContrMe = me.GetWhoIContre() == target.GetSkillClass(),
-                        IsContrTarget = target.GetWhoIContre() == me.GetSkillClass(),
-                        ContrMultiplier = contrMultiplier,
+                        IsNemesisMe = me.GetNemesisClass() == target.GetSkillClass(),
+                        IsNemesisTarget = target.GetNemesisClass() == me.GetSkillClass(),
+                        NemesisMultiplier = nemesisMultiplier,
                         SkillMultiplierMe = (int)step1.SkillMultiplierMe,
                         SkillMultiplierTarget = (int)step1.SkillMultiplierTarget,
                         PsycheDifference = me.GetPsyche() - target.GetPsyche(),
@@ -846,9 +845,9 @@ Speed => Strength
                         IsStatsBetterEnemy = isStatsBettterEnemy,
                         RandomForPoint = Math.Round(randomForPoint, 2),
                         // Round 1 per-step deltas
-                        ContrWeighingDelta = Math.Round(step1.ContrWeighingDelta, 2),
+                        NemesisWeighingDelta = Math.Round(step1.NemesisWeighingDelta, 2),
                         ScaleWeighingDelta = Math.Round(step1.ScaleWeighingDelta, 2),
-                        WhoIsBetterWeighingDelta = Math.Round(step1.WhoIsBetterWeighingDelta, 2),
+                        VersatilityWeighingDelta = Math.Round(step1.VersatilityWeighingDelta, 2),
                         PsycheWeighingDelta = Math.Round(step1.PsycheWeighingDelta, 2),
                         SkillWeighingDelta = Math.Round(step1.SkillWeighingDelta, 2),
                         JusticeWeighingDelta = Math.Round(step1.JusticeWeighingDelta, 2),
@@ -856,7 +855,7 @@ Speed => Strength
                         TooGoodRandomChange = Math.Round(step1.TooGoodRandomChange, 2),
                         TooStronkRandomChange = Math.Round(step1.TooStronkRandomChange, 2),
                         JusticeRandomChange = Math.Round(justiceRandomChange, 2),
-                        ContrRandomChange = Math.Round(contrRandomChange, 2),
+                        NemesisRandomChange = Math.Round(nemesisRandomChange, 2),
                         // Round results
                         Round1PointsWon = round1PointsWon,
                         JusticeMe = (int)justiceMe,
@@ -883,17 +882,17 @@ Speed => Strength
                         SkillGainedFromClassAttacker = Math.Round(skillGainedFromClassAttacker, 1),
                         SkillGainedFromClassDefender = Math.Round(skillGainedFromClassDefender, 1),
                         SkillDifferenceRandomModifier = Math.Round(step1.SkillDifferenceRandomModifier, 2),
-                        ContrMultiplierSkillDifference = Math.Round(step1.ContrMultiplierSkillDifference, 2),
+                        NemesisMultiplierSkillDifference = Math.Round(step1.NemesisMultiplierSkillDifference, 2),
                     });
                 }
 
-                switch (isContrLost)
+                switch (isNemesisLost)
                 {
                     case 3:
-                        player.Status.AddInGamePersonalLogs($"Поражение: {playerIamAttacking.DiscordUsername} {GetLostContrText(playerIamAttacking, player)}\n");
+                        player.Status.AddInGamePersonalLogs($"Поражение: {playerIamAttacking.DiscordUsername} {GetLostNemesisText(playerIamAttacking, player)}\n");
                         break;
                     case -3:
-                        playerIamAttacking.Status.AddInGamePersonalLogs($"Поражение: {player.DiscordUsername} {GetLostContrText(player, playerIamAttacking)}\n");
+                        playerIamAttacking.Status.AddInGamePersonalLogs($"Поражение: {player.DiscordUsername} {GetLostNemesisText(player, playerIamAttacking)}\n");
                         break;
                 }
 
@@ -968,8 +967,6 @@ Speed => Strength
 
 
 
-        //AFTER Fight, use only GameCharacter.
-        //DeepCopyFightCharactersToGameCharacter(game);
 
         await _characterPassives.HandleEndOfRound(game);
 
@@ -983,6 +980,14 @@ Speed => Strength
             player.Status.IsAbleToWin = true;
             player.Status.IsSkip = false;
             player.Status.IsReady = false;
+
+            // Auto-ready players killed by Kira's Death Note so they don't block the game
+            if (player.Passives.KiraDeathNoteDead)
+            {
+                player.Status.IsReady = true;
+                player.Status.IsBlock = true;
+            }
+
             player.Status.WhoToAttackThisTurn = new List<Guid>();
             player.Status.MoveListPage = 1;
             player.Status.IsAbleToChangeMind = true;

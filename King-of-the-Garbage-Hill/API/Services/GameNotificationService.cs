@@ -21,6 +21,7 @@ public class GameNotificationService
     private readonly Global _global;
     private readonly GameUpdateMess _gameUpdateMess;
     private readonly GameStoryService _storyService;
+    private readonly BlackjackService _blackjackService;
     private readonly Timer _pushTimer;
 
     // Track which Discord IDs are connected to which SignalR connection(s)
@@ -32,12 +33,13 @@ public class GameNotificationService
     // Track last known state per game to detect changes
     private readonly ConcurrentDictionary<ulong, GameSnapshot> _lastSnapshot = new();
 
-    public GameNotificationService(IHubContext<GameHub> hubContext, Global global, GameUpdateMess gameUpdateMess, GameStoryService storyService)
+    public GameNotificationService(IHubContext<GameHub> hubContext, Global global, GameUpdateMess gameUpdateMess, GameStoryService storyService, BlackjackService blackjackService)
     {
         _hubContext = hubContext;
         _global = global;
         _gameUpdateMess = gameUpdateMess;
         _storyService = storyService;
+        _blackjackService = blackjackService;
 
         // Register callback so CheckIfReady can trigger a final broadcast
         // before removing the game from GamesList
@@ -49,7 +51,10 @@ public class GameNotificationService
                 await SendGameEvent(game.GameId, "GameFinished");
                 _storyService.GenerateStoryAsync(game);
                 _lastSnapshot.TryRemove(game.GameId, out _);
-                _gameConnections.TryRemove(game.GameId, out _);
+
+                // Preserve game connections if Blackjack table is still active
+                if (!_blackjackService.HasActiveTable(game.GameId))
+                    _gameConnections.TryRemove(game.GameId, out _);
             }
             catch (Exception ex)
             {

@@ -11,14 +11,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         // Existing fields (previously in tuple)
         public bool IsTooGoodMe, IsTooGoodEnemy, IsTooStronkMe, IsTooStronkEnemy;
         public bool IsStatsBetterMe, IsStatsBetterEnemy;
-        public int PointsWon, IsContrLost;
-        public decimal RandomForPoint, WeighingMachine, ContrMultiplier, SkillDifferenceRandomModifier, ContrMultiplierSkillDifference;
+        public int PointsWon, IsNemesisLost;
+        public decimal RandomForPoint, WeighingMachine, NemesisMultiplier, SkillDifferenceRandomModifier, NemesisMultiplierSkillDifference;
         public decimal SkillMultiplierMe, SkillMultiplierTarget;
 
         // Per-step weighing deltas (for web animation)
-        public decimal ContrWeighingDelta;       // +2/-2/0 from contre
+        public decimal NemesisWeighingDelta;       // +2/-2/0 from nemesis
         public decimal ScaleWeighingDelta;       // scaleMe - scaleTarget
-        public decimal WhoIsBetterWeighingDelta; // +5/-5
+        public decimal VersatilityWeighingDelta; // +5/-5
         public decimal PsycheWeighingDelta;      // mapped +1/+2/+4/-1/-2/-4 (NOT raw psyche diff)
         public decimal SkillWeighingDelta;       // skillDifference
         public decimal JusticeWeighingDelta;     // justiceMe - justiceTarget (in step1 weighing)
@@ -27,8 +27,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         public decimal TooGoodRandomChange;      // 75 or 25 (the set value), 0 if not triggered
         public decimal TooStronkRandomChange;    // the tooStronkAdd delta, 0 if not triggered
 
-        // WhoIsBetter stat breakdown (+1 me better, -1 enemy better, 0 equal)
-        public int WhoIsBetterIntel, WhoIsBetterStr, WhoIsBetterSpeed;
+        // Versatility stat breakdown (+1 me better, -1 enemy better, 0 equal)
+        public int VersatilityIntel, VersatilityStr, VersatilitySpeed;
 
         // Intermediate values
         public decimal ScaleMe, ScaleTarget;
@@ -48,53 +48,17 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             await Task.CompletedTask;
         }
 
-        public int WhoIsBetter(CharacterClass me, CharacterClass target)
-        {
-
-            int intel = 0, speed = 0, str = 0;
-
-            if (me.GetIntelligence() - target.GetIntelligence() > 0)
-                intel = 1;
-            if (me.GetIntelligence() - target.GetIntelligence() < 0)
-                intel = -1;
-
-            if (me.GetSpeed() - target.GetSpeed() > 0)
-                speed = 1;
-            if (me.GetSpeed() - target.GetSpeed() < 0)
-                speed = -1;
-
-            if (me.GetStrength() - target.GetStrength() > 0)
-                str = 1;
-            if (me.GetStrength() - target.GetStrength() < 0)
-                str = -1;
-
-
-            if (intel + speed + str >= 2)
-                return 1;
-            if (intel + speed + str <= -2)
-                return 2;
-
-            if (intel == 1 && str != -1)
-                return 1;
-            if (str == 1 && speed != -1)
-                return 1;
-            if (speed == 1 && intel != -1)
-                return 1;
-
-            return 2;
-        }
-
 
         public Step1Result CalculateStep1(GamePlayerBridgeClass player, GamePlayerBridgeClass playerIamAttacking, bool isLog = false)
         {
             var r = new Step1Result();
 
             var pointsWined = 0;
-            var isContrLost = 0;
+            var isNemesisLost = 0;
 
             decimal randomForPoint = 50;
             decimal weighingMachine = 0;
-            decimal contrMultiplier = 1;
+            decimal nemesisMultiplier = 1;
 
             var skillMultiplierMe = 0;
             var skillMultiplierTarget = 0;
@@ -103,32 +67,32 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             var target = playerIamAttacking.FightCharacter;
 
 
-            // ── 1. Contre ──────────────────────────────────────────────
+            // ── 1. Nemesis ──────────────────────────────────────────────
             var wmBefore = weighingMachine;
 
-            if (me.GetWhoIContre() == target.GetSkillClass())
+            if (me.GetNemesisClass() == target.GetSkillClass())
             {
-                contrMultiplier = (decimal)1.5;
+                nemesisMultiplier = (decimal)1.5;
 
                 skillMultiplierMe += 1;
-                isContrLost -= 1;
+                isNemesisLost -= 1;
                 weighingMachine += 2;
             }
 
-            if (target.GetWhoIContre() == me.GetSkillClass())
+            if (target.GetNemesisClass() == me.GetSkillClass())
             {
                 skillMultiplierTarget += 1;
-                isContrLost += 1;
+                isNemesisLost += 1;
                 weighingMachine -= 2;
             }
 
-            r.ContrWeighingDelta = weighingMachine - wmBefore;
+            r.NemesisWeighingDelta = weighingMachine - wmBefore;
 
             if (weighingMachine != 0 && isLog)
             {
-                player.Status.AddFightingData($"GetWhoIContre: {me.GetWhoIContre()}");
+                player.Status.AddFightingData($"NemesisClass: {me.GetNemesisClass()}");
                 player.Status.AddFightingData($"SkillClassEnemy: {target.GetSkillClass()}");
-                playerIamAttacking.Status.AddFightingData($"GetWhoIContre: {target.GetWhoIContre()}");
+                playerIamAttacking.Status.AddFightingData($"NemesisClass: {target.GetNemesisClass()}");
                 playerIamAttacking.Status.AddFightingData($"SkillClassEnemy: {me.GetSkillClass()}");
 
                 player.Status.AddFightingData($"skillMultiplierMe: {skillMultiplierMe}");
@@ -136,8 +100,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 playerIamAttacking.Status.AddFightingData($"skillMultiplierMe: {skillMultiplierTarget}");
                 playerIamAttacking.Status.AddFightingData($"skillMultiplierEnemy: {skillMultiplierMe}");
 
-                player.Status.AddFightingData($"contrMultiplierMe: {contrMultiplier}");
-                playerIamAttacking.Status.AddFightingData($"contrMultiplierEnemy: {contrMultiplier}");
+                player.Status.AddFightingData($"nemesisMultiplierMe: {nemesisMultiplier}");
+                playerIamAttacking.Status.AddFightingData($"nemesisMultiplierEnemy: {nemesisMultiplier}");
 
                 player.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
                 playerIamAttacking.Status.AddFightingData($"weighingMachine: {Math.Round(weighingMachine, 2)}");
@@ -175,37 +139,41 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
 
 
-            // ── 3. WhoIsBetter ─────────────────────────────────────────
+            // ── 3. Versatility ─────────────────────────────────────────
             wmBefore = weighingMachine;
 
             // Capture individual stat comparisons for display
-            r.WhoIsBetterIntel = me.GetIntelligence() > target.GetIntelligence() ? 1 : me.GetIntelligence() < target.GetIntelligence() ? -1 : 0;
-            r.WhoIsBetterStr = me.GetStrength() > target.GetStrength() ? 1 : me.GetStrength() < target.GetStrength() ? -1 : 0;
-            r.WhoIsBetterSpeed = me.GetSpeed() > target.GetSpeed() ? 1 : me.GetSpeed() < target.GetSpeed() ? -1 : 0;
+            r.VersatilityIntel = me.GetIntelligence() > target.GetIntelligence() ? 1 : me.GetIntelligence() < target.GetIntelligence() ? -1 : 0;
+            r.VersatilityStr = me.GetStrength() > target.GetStrength() ? 1 : me.GetStrength() < target.GetStrength() ? -1 : 0;
+            r.VersatilitySpeed = me.GetSpeed() > target.GetSpeed() ? 1 : me.GetSpeed() < target.GetSpeed() ? -1 : 0;
 
-            switch (WhoIsBetter(me, target))
+            // Derive winner: need 2+ stat wins for a clear advantage.
+            // ✓✓✓ (3), ✓✓― (2) → me wins. XX― (-2), XXX (-3) → enemy wins.
+            // ✓X― (1/-1), ――― (0) → draw, no weighing change.
+            var statSum = r.VersatilityIntel + r.VersatilityStr + r.VersatilitySpeed;
+
+            if (statSum >= 2)
             {
-                case 1:
-                    if (isLog)
-                    {
-                        player.Status.AddFightingData($"WhoIsBetter: Me");
-                        playerIamAttacking.Status.AddFightingData($"WhoIsBetter: Enemy");
-                    }
+                if (isLog)
+                {
+                    player.Status.AddFightingData($"Versatility: Me");
+                    playerIamAttacking.Status.AddFightingData($"Versatility: Enemy");
+                }
 
-                    weighingMachine += 5;
-                    break;
-                case 2:
-                    if (isLog)
-                    {
-                        player.Status.AddFightingData($"WhoIsBetter: Enemy");
-                        playerIamAttacking.Status.AddFightingData($"WhoIsBetter: me");
-                    }
+                weighingMachine += 5;
+            }
+            else if (statSum <= -2)
+            {
+                if (isLog)
+                {
+                    player.Status.AddFightingData($"Versatility: Enemy");
+                    playerIamAttacking.Status.AddFightingData($"Versatility: me");
+                }
 
-                    weighingMachine -= 5;
-                    break;
+                weighingMachine -= 5;
             }
 
-            r.WhoIsBetterWeighingDelta = weighingMachine - wmBefore;
+            r.VersatilityWeighingDelta = weighingMachine - wmBefore;
 
 
             // ── 4. Psyche difference ───────────────────────────────────
@@ -289,7 +257,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             wmBefore = weighingMachine;
 
             //1.2 = 200 * 2 / 500 * 1.5
-            var mySkill             = me.GetSkill(skillMultiplierMe) / 600 * contrMultiplier;
+            var mySkill             = me.GetSkill(skillMultiplierMe) / 600 * nemesisMultiplier;
             var mySkillWithoutContr = me.GetSkill(skillMultiplierMe) / 600;
         
             //0.1 = 50 * 1 / 500
@@ -301,7 +269,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             var skillDifferenceWithoutContr = scaleMe * (1 + mySkillWithoutContr) - scaleTarget * (1 + targetSkill) - scaleMe + scaleTarget;
 
             //this skill difference used in Web animation
-            var contrMultiplierSkillDifference = skillDifference - skillDifferenceWithoutContr;
+            var nemesisMultiplierSkillDifference = skillDifference - skillDifferenceWithoutContr;
 
             weighingMachine += skillDifference;
 
@@ -409,12 +377,12 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             {
                 case > 0:
                     pointsWined++;
-                    isContrLost -= 1;
+                    isNemesisLost -= 1;
                     r.IsStatsBetterMe = true;
                     break;
                 case < 0:
                     pointsWined--;
-                    isContrLost += 1;
+                    isNemesisLost += 1;
                     r.IsStatsBetterEnemy = true;
                     break;
             }
@@ -427,14 +395,14 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
             // Populate result object
             r.PointsWon = pointsWined;
-            r.IsContrLost = isContrLost;
+            r.IsNemesisLost = isNemesisLost;
             r.RandomForPoint = randomForPoint;
             r.WeighingMachine = weighingMachine;
-            r.ContrMultiplier = contrMultiplier;
+            r.NemesisMultiplier = nemesisMultiplier;
             r.SkillMultiplierMe = me.GetSkillFightMultiplier() + skillMultiplierMe;
             r.SkillMultiplierTarget = target.GetSkillFightMultiplier() + skillMultiplierTarget;
             r.SkillDifferenceRandomModifier = skillDifferenceRandomModifier;
-            r.ContrMultiplierSkillDifference = contrMultiplierSkillDifference;
+            r.NemesisMultiplierSkillDifference = nemesisMultiplierSkillDifference;
 
             return r;
         }
@@ -465,10 +433,10 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             return pointsWined;
         }
 
-        public (int pointsWined, int randomNumber, decimal maxRandomNumber, decimal justiceRandomChange, decimal contrRandomChange) CalculateStep3(GamePlayerBridgeClass player, GamePlayerBridgeClass playerIamAttacking, decimal randomForPoint, decimal contrMultiplier, bool isLog = false)
+        public (int pointsWined, int randomNumber, decimal maxRandomNumber, decimal justiceRandomChange, decimal nemesisRandomChange) CalculateStep3(GamePlayerBridgeClass player, GamePlayerBridgeClass playerIamAttacking, decimal randomForPoint, decimal nemesisMultiplier, bool isLog = false)
         {
             decimal justiceRandomChange = 0;
-            decimal contrRandomChange = 0;
+            decimal nemesisRandomChange = 0;
             var pointsWined = 0;
             var me = player.FightCharacter;
             var target = playerIamAttacking.FightCharacter;
@@ -476,18 +444,18 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             decimal maxRandomNumber = 100;
             if (me.Justice.GetRealJusticeNow() > 1 || target.Justice.GetRealJusticeNow() > 1)
             {
-                var myJustice = me.Justice.GetRealJusticeNow() * contrMultiplier;
+                var myJustice = me.Justice.GetRealJusticeNow() * nemesisMultiplier;
                 var targetJustice = target.Justice.GetRealJusticeNow();
                 maxRandomNumber -= (myJustice - targetJustice) * 5;
             }
 
-            // decompose the maxRandom shift into pure-justice and contr parts
+            // decompose the maxRandom shift into pure-justice and nemesis parts
             var fightJusticeMe = me.Justice.GetRealJusticeNow();
             var fightJusticeTarget = target.Justice.GetRealJusticeNow();
             if (fightJusticeMe > 1 || fightJusticeTarget > 1)
             {
                 justiceRandomChange = (fightJusticeMe - fightJusticeTarget) * 5;
-                contrRandomChange = fightJusticeMe * (contrMultiplier - 1) * 5;
+                nemesisRandomChange = fightJusticeMe * (nemesisMultiplier - 1) * 5;
             }
 
 
@@ -519,7 +487,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                 playerIamAttacking.Status.AddFightingData($"pointsWined (Random): {pointsWined}");
             }
 
-            return (pointsWined, randomNumber, maxRandomNumber, justiceRandomChange, contrRandomChange);
+            return (pointsWined, randomNumber, maxRandomNumber, justiceRandomChange, nemesisRandomChange);
         }
 
 

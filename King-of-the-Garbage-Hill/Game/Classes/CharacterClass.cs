@@ -695,9 +695,9 @@ public class CharacterClass
     }
 
      /*
-     GetIntelligence() => GetSpeed()
-     GetStrength() => GetIntelligence()
-     GetSpeed() => GetStrength()
+     Intelligence => Speed
+     Speed        => Strength
+     Strength     => Intelligence
      */
 
     public string GetSkillClass()
@@ -711,7 +711,7 @@ public class CharacterClass
         return "Буль";
     }
 
-    public string GetWhoIContre()
+    public string GetNemesisClass()
     {
         if (GetIntelligence() == 0 && GetStrength() == 0 && GetSpeed() == 0) return "Буль";
 

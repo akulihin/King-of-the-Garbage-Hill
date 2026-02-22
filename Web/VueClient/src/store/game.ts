@@ -7,6 +7,7 @@ import {
   type LobbyState,
   type ActionResult,
   type GameEvent,
+  type BlackjackTableState,
 } from 'src/services/signalr'
 import {
   playBlockSound,
@@ -61,6 +62,7 @@ export const useGameStore = defineStore('game', () => {
   const lastMoralToPointsRound = ref<number | null>(null)
   const lastMoralToSkillRound = ref<number | null>(null)
   const gameStory = ref<string | null>(null)
+  const blackjackState = ref<BlackjackTableState | null>(null)
 
   // ── Derived State ─────────────────────────────────────────────────
 
@@ -175,6 +177,15 @@ export const useGameStore = defineStore('game', () => {
             }
           }
         }
+
+        // Auto-join Blackjack when killed by Kira
+        if (nextMyPlayer?.kiraDeathNoteDead && !previousMyPlayer?.kiraDeathNoteDead) {
+          signalrService.blackjackJoin(state.gameId)
+        }
+      }
+
+      signalrService.onBlackjackState = (state) => {
+        blackjackState.value = state
       }
 
       signalrService.onLobbyState = (state) => {
@@ -372,6 +383,33 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.shinigamiEyes(gameState.value.gameId)
   }
 
+  // ── Blackjack Actions ──────────────────────────────────────────────
+
+  async function blackjackJoin() {
+    if (!gameState.value) return
+    await signalrService.blackjackJoin(gameState.value.gameId)
+  }
+
+  async function blackjackHit() {
+    if (!gameState.value) return
+    await signalrService.blackjackHit(gameState.value.gameId)
+  }
+
+  async function blackjackStand() {
+    if (!gameState.value) return
+    await signalrService.blackjackStand(gameState.value.gameId)
+  }
+
+  async function blackjackNewRound() {
+    if (!gameState.value) return
+    await signalrService.blackjackNewRound(gameState.value.gameId)
+  }
+
+  async function blackjackSendMessage(words: string[]) {
+    if (!gameState.value) return
+    await signalrService.blackjackSendMessage(gameState.value.gameId, words)
+  }
+
   async function setPreferWeb(preferWeb: boolean) {
     if (!gameState.value) return
     await signalrService.setPreferWeb(gameState.value.gameId, preferWeb)
@@ -421,6 +459,7 @@ export const useGameStore = defineStore('game', () => {
     errorMessage,
     isLoading,
     gameStory,
+    blackjackState,
     // Computed
     myPlayer,
     opponents,
@@ -456,6 +495,11 @@ export const useGameStore = defineStore('game', () => {
     dopaChoice,
     deathNoteWrite,
     shinigamiEyes,
+    blackjackJoin,
+    blackjackHit,
+    blackjackStand,
+    blackjackNewRound,
+    blackjackSendMessage,
     setPreferWeb,
     finishGame,
     registerWebAccount,

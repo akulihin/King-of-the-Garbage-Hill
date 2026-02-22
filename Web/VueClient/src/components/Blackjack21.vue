@@ -1,243 +1,225 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useGameStore } from 'src/store/game'
+import type { BlackjackPlayerState } from 'src/services/signalr'
 
-// ── Types ──────────────────────────────────────────────────────────────
-type Suit = '♠' | '♣' | '♥' | '♦'
-type Rank = 'A' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K'
-interface Card { suit: Suit; rank: Rank; faceUp: boolean }
-type Phase = 'betting' | 'playing' | 'dealer-turn' | 'finished'
+defineProps<{ gameId: number }>()
+const store = useGameStore()
 
-// ── State ──────────────────────────────────────────────────────────────
-const phase = ref<Phase>('betting')
-const deck = ref<Card[]>([])
-const playerHand = ref<Card[]>([])
-const dealerHand = ref<Card[]>([])
-const resultText = ref('')
-const resultClass = ref('')
-const wins = ref(0)
-const losses = ref(0)
-const draws = ref(0)
-const dealing = ref(false)
+// ── Dark Souls Message Composer ─────────────────────────────────────
+const selectedWords = ref<string[]>([])
+const messageSent = ref(false)
 
-// ── Helpers ────────────────────────────────────────────────────────────
-function makeDeck(): Card[] {
-  const suits: Suit[] = ['♠', '♣', '♥', '♦']
-  const ranks: Rank[] = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
-  const d: Card[] = []
-  for (const suit of suits)
-    for (const rank of ranks)
-      d.push({ suit, rank, faceUp: true })
-  // Fisher-Yates shuffle
-  for (let i = d.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[d[i], d[j]] = [d[j], d[i]]
-  }
-  return d
-}
-
-function cardValue(card: Card): number {
-  if (['J', 'Q', 'K'].includes(card.rank)) return 10
-  if (card.rank === 'A') return 11
-  return parseInt(card.rank)
-}
-
-function handTotal(hand: Card[]): number {
-  let total = 0
-  let aces = 0
-  for (const c of hand) {
-    total += cardValue(c)
-    if (c.rank === 'A') aces++
-  }
-  while (total > 21 && aces > 0) {
-    total -= 10
-    aces--
-  }
-  return total
-}
-
-function isRed(suit: Suit): boolean {
-  return suit === '♥' || suit === '♦'
-}
-
-function drawCard(faceUp = true): Card {
-  const card = deck.value.pop()!
-  card.faceUp = faceUp
-  return card
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
-// ── Computed ───────────────────────────────────────────────────────────
-const playerTotal = computed(() => handTotal(playerHand.value))
-const dealerTotal = computed(() => handTotal(dealerHand.value.filter(c => c.faceUp)))
-const dealerTrueTotal = computed(() => handTotal(dealerHand.value))
-
-// ── Game Flow ──────────────────────────────────────────────────────────
-async function startGame() {
-  deck.value = makeDeck()
-  playerHand.value = []
-  dealerHand.value = []
-  resultText.value = ''
-  resultClass.value = ''
-  phase.value = 'playing'
-  dealing.value = true
-
-  // Staggered deal: player, dealer, player, dealer(hidden)
-  await sleep(100)
-  playerHand.value.push(drawCard())
-  await sleep(200)
-  dealerHand.value.push(drawCard())
-  await sleep(200)
-  playerHand.value.push(drawCard())
-  await sleep(200)
-  dealerHand.value.push(drawCard(false))
-
-  dealing.value = false
-
-  // Natural blackjack check
-  if (playerTotal.value === 21) {
-    await stand()
+function toggleWord(word: string) {
+  const idx = selectedWords.value.indexOf(word)
+  if (idx >= 0) {
+    selectedWords.value.splice(idx, 1)
+  } else if (selectedWords.value.length < 10) {
+    selectedWords.value.push(word)
   }
 }
 
-function hit() {
-  if (phase.value !== 'playing' || dealing.value) return
-  playerHand.value.push(drawCard())
-  if (playerTotal.value > 21) {
-    finishGame('Перебор! Вы проиграли.', 'loss')
-    losses.value++
-  } else if (playerTotal.value === 21) {
-    stand()
+function isWordSelected(word: string): boolean {
+  return selectedWords.value.includes(word)
+}
+
+async function sendMessage() {
+  if (selectedWords.value.length === 0) return
+  await store.blackjackSendMessage(selectedWords.value)
+  messageSent.value = true
+  selectedWords.value = []
+}
+
+// ── Computed ────────────────────────────────────────────────────────
+const bjState = computed(() => store.blackjackState)
+const mePlayer = computed(() => bjState.value?.players.find((p: BlackjackPlayerState) => p.isMe) ?? null)
+const canSendMessage = computed(() => mePlayer.value?.canSendMessage && !messageSent.value)
+const isWaiting = computed(() => bjState.value?.phase === 'waiting')
+const isFinished = computed(() => bjState.value?.phase === 'finished')
+const isMyTurn = computed(() => {
+  if (!bjState.value || bjState.value.phase !== 'playerturns') return false
+  const me = mePlayer.value
+  return me?.isCurrentTurn ?? false
+})
+
+// Reset messageSent when a new round starts
+watch(() => bjState.value?.phase, (newPhase, oldPhase) => {
+  if (newPhase === 'playerturns' && oldPhase === 'finished') {
+    messageSent.value = false
+  }
+})
+
+function isRed(suit: string | null): boolean {
+  return suit === 'hearts' || suit === 'diamonds'
+}
+
+function suitSymbol(suit: string | null): string {
+  switch (suit) {
+    case 'spades': return '♠'
+    case 'clubs': return '♣'
+    case 'hearts': return '♥'
+    case 'diamonds': return '♦'
+    default: return ''
   }
 }
 
-async function stand() {
-  if (phase.value !== 'playing' || dealing.value) return
-  phase.value = 'dealer-turn'
-
-  // Reveal hidden card
-  if (dealerHand.value.length > 1) {
-    dealerHand.value[1].faceUp = true
-  }
-
-  await sleep(400)
-
-  // Dealer draws until 17+
-  while (handTotal(dealerHand.value) < 17) {
-    await sleep(500)
-    dealerHand.value.push(drawCard())
-  }
-
-  await sleep(300)
-  resolveGame()
-}
-
-function resolveGame() {
-  const pTotal = playerTotal.value
-  const dTotal = handTotal(dealerHand.value)
-
-  if (dTotal > 21) {
-    finishGame('Дилер перебрал! Вы выиграли!', 'win')
-    wins.value++
-  } else if (pTotal === 21 && playerHand.value.length === 2 && !(dTotal === 21 && dealerHand.value.length === 2)) {
-    finishGame('Блэкджек! Вы выиграли!', 'blackjack')
-    wins.value++
-  } else if (dTotal === 21 && dealerHand.value.length === 2 && !(pTotal === 21 && playerHand.value.length === 2)) {
-    finishGame('Блэкджек у дилера!', 'loss')
-    losses.value++
-  } else if (pTotal > dTotal) {
-    finishGame('Вы выиграли!', 'win')
-    wins.value++
-  } else if (dTotal > pTotal) {
-    finishGame('Дилер выиграл.', 'loss')
-    losses.value++
-  } else {
-    finishGame('Ничья!', 'push')
-    draws.value++
+function playerResultText(player: BlackjackPlayerState): string {
+  switch (player.result) {
+    case 'win': return 'Победа!'
+    case 'loss': return 'Проигрыш'
+    case 'push': return 'Ничья'
+    case 'blackjack': return 'Блэкджек!'
+    default: return ''
   }
 }
 
-function finishGame(text: string, cls: string) {
-  resultText.value = text
-  resultClass.value = cls
-  phase.value = 'finished'
+function playerStatusText(player: BlackjackPlayerState): string {
+  switch (player.status) {
+    case 'busted': return 'Перебор!'
+    case 'stood': return 'Стоит'
+    case 'playing': return player.isCurrentTurn ? 'Ходит...' : 'Ждёт'
+    default: return ''
+  }
 }
 </script>
 
 <template>
-  <div class="bj-panel card">
+  <div class="bj-panel card" v-if="bjState">
     <!-- Header -->
     <div class="bj-header">
       <div class="bj-title">Мир Шинигами — Игра 21</div>
-      <div class="bj-stats">
-        <span class="bj-stat bj-stat-win">W: {{ wins }}</span>
-        <span class="bj-stat bj-stat-loss">L: {{ losses }}</span>
-        <span class="bj-stat bj-stat-draw">D: {{ draws }}</span>
-      </div>
+      <div class="bj-player-count">{{ bjState.players.length }} / 5</div>
     </div>
 
-    <!-- Dealer Hand -->
-    <div class="bj-hand-area">
-      <div class="bj-hand-label">
-        Дилер
-        <span class="bj-hand-total">{{ phase === 'dealer-turn' || phase === 'finished' ? dealerTrueTotal : dealerTotal }}</span>
+    <!-- Waiting / No round yet -->
+    <template v-if="isWaiting">
+      <div class="bj-waiting-msg">Ожидание начала раунда...</div>
+      <div class="bj-controls">
+        <button class="bj-btn bj-btn-start" @click="store.blackjackNewRound()">Начать раунд</button>
       </div>
-      <TransitionGroup name="card-deal" tag="div" class="bj-cards">
-        <div
-          v-for="(card, i) in dealerHand"
-          :key="'d' + i"
-          class="bj-card"
-          :class="{ 'bj-card-hidden': !card.faceUp, 'bj-card-red': card.faceUp && isRed(card.suit) }"
-        >
-          <template v-if="card.faceUp">
+    </template>
+
+    <!-- Active round or finished -->
+    <template v-else>
+      <!-- Dealer Hand -->
+      <div class="bj-hand-area">
+        <div class="bj-hand-label">
+          {{ bjState.dealerName }}
+          <span class="bj-hand-total">{{ bjState.dealerTotal }}</span>
+        </div>
+        <TransitionGroup name="card-deal" tag="div" class="bj-cards">
+          <div
+            v-for="(card, i) in bjState.dealerHand"
+            :key="'d' + i"
+            class="bj-card"
+            :class="{ 'bj-card-hidden': !card.faceUp, 'bj-card-red': card.faceUp && isRed(card.suit) }"
+          >
+            <template v-if="card.faceUp">
+              <span class="bj-card-rank">{{ card.rank }}</span>
+              <span class="bj-card-suit">{{ suitSymbol(card.suit) }}</span>
+            </template>
+            <template v-else>
+              <span class="bj-card-back">?</span>
+            </template>
+          </div>
+        </TransitionGroup>
+      </div>
+
+      <!-- All Players' Hands -->
+      <div
+        v-for="player in bjState.players"
+        :key="player.discordId"
+        class="bj-hand-area"
+        :class="{ 'bj-hand-me': player.isMe, 'bj-hand-active': player.isCurrentTurn }"
+      >
+        <div class="bj-hand-label">
+          <span :class="{ 'bj-name-me': player.isMe }">{{ player.username }}</span>
+          <span class="bj-hand-total">{{ player.total }}</span>
+          <span class="bj-wins-badge" v-if="player.wins > 0">W: {{ player.wins }}</span>
+          <span
+            v-if="isFinished && player.result"
+            class="bj-player-result"
+            :class="'bj-result-' + player.result"
+          >{{ playerResultText(player) }}</span>
+          <span
+            v-else-if="bjState.phase === 'playerturns'"
+            class="bj-player-status"
+            :class="{ 'bj-status-active': player.isCurrentTurn }"
+          >{{ playerStatusText(player) }}</span>
+        </div>
+        <TransitionGroup name="card-deal" tag="div" class="bj-cards">
+          <div
+            v-for="(card, i) in player.hand"
+            :key="'p' + player.discordId + i"
+            class="bj-card"
+            :class="{ 'bj-card-red': isRed(card.suit) }"
+          >
             <span class="bj-card-rank">{{ card.rank }}</span>
-            <span class="bj-card-suit">{{ card.suit }}</span>
-          </template>
-          <template v-else>
-            <span class="bj-card-back">?</span>
-          </template>
-        </div>
-      </TransitionGroup>
-    </div>
-
-    <!-- Player Hand -->
-    <div class="bj-hand-area">
-      <div class="bj-hand-label">
-        Игрок
-        <span class="bj-hand-total">{{ playerTotal }}</span>
+            <span class="bj-card-suit">{{ suitSymbol(card.suit) }}</span>
+          </div>
+        </TransitionGroup>
       </div>
-      <TransitionGroup name="card-deal" tag="div" class="bj-cards">
-        <div
-          v-for="(card, i) in playerHand"
-          :key="'p' + i"
-          class="bj-card"
-          :class="{ 'bj-card-red': isRed(card.suit) }"
-        >
-          <span class="bj-card-rank">{{ card.rank }}</span>
-          <span class="bj-card-suit">{{ card.suit }}</span>
-        </div>
-      </TransitionGroup>
-    </div>
 
-    <!-- Controls -->
-    <div class="bj-controls">
-      <template v-if="phase === 'betting'">
-        <button class="bj-btn bj-btn-start" @click="startGame">Начать игру</button>
-      </template>
-      <template v-else-if="phase === 'playing'">
-        <button class="bj-btn bj-btn-hit" :disabled="dealing" @click="hit">Ещё</button>
-        <button class="bj-btn bj-btn-stand" :disabled="dealing" @click="stand">Хватит</button>
-      </template>
-      <template v-else-if="phase === 'dealer-turn'">
-        <div class="bj-dealer-msg">Дилер берёт карты...</div>
-      </template>
-      <template v-else-if="phase === 'finished'">
-        <div class="bj-result" :class="'bj-result-' + resultClass">{{ resultText }}</div>
-        <button class="bj-btn bj-btn-start" @click="startGame">Новая игра</button>
-      </template>
-    </div>
+      <!-- Controls -->
+      <div class="bj-controls">
+        <template v-if="bjState.phase === 'playerturns' && isMyTurn">
+          <button class="bj-btn bj-btn-hit" @click="store.blackjackHit()">Ещё</button>
+          <button class="bj-btn bj-btn-stand" @click="store.blackjackStand()">Хватит</button>
+        </template>
+        <template v-else-if="bjState.phase === 'playerturns' && !isMyTurn">
+          <div class="bj-dealer-msg">Ожидание хода другого игрока...</div>
+        </template>
+        <template v-else-if="bjState.phase === 'dealerturn'">
+          <div class="bj-dealer-msg">Дилер берёт карты...</div>
+        </template>
+        <template v-else-if="isFinished">
+          <button class="bj-btn bj-btn-start" @click="store.blackjackNewRound()">Новый раунд</button>
+        </template>
+      </div>
+
+      <!-- Dark Souls Message Panel (for winners) -->
+      <div v-if="canSendMessage" class="bj-message-panel">
+        <div class="bj-message-title">Оставить послание</div>
+        <div class="bj-message-preview" v-if="selectedWords.length > 0">
+          {{ selectedWords.join(' ') }}
+        </div>
+        <div class="bj-message-preview bj-message-empty" v-else>
+          Выберите слова...
+        </div>
+
+        <div
+          v-for="category in bjState.wordCategories"
+          :key="category.name"
+          class="bj-word-category"
+        >
+          <div class="bj-category-name">{{ category.name }}</div>
+          <div class="bj-word-list">
+            <button
+              v-for="word in category.words"
+              :key="word"
+              class="bj-word-btn"
+              :class="{ 'bj-word-selected': isWordSelected(word) }"
+              @click="toggleWord(word)"
+            >{{ word }}</button>
+          </div>
+        </div>
+
+        <div class="bj-message-actions">
+          <span class="bj-word-count">{{ selectedWords.length }} / 10</span>
+          <button
+            class="bj-btn bj-btn-send"
+            :disabled="selectedWords.length === 0"
+            @click="sendMessage"
+          >Отправить</button>
+        </div>
+      </div>
+
+      <!-- Last Message Display -->
+      <div v-if="bjState.lastMessage" class="bj-last-message">
+        <span class="bj-msg-author">{{ bjState.lastMessage.author }}:</span>
+        "{{ bjState.lastMessage.text }}"
+      </div>
+    </template>
   </div>
 </template>
 
@@ -264,18 +246,25 @@ function finishGame(text: string, cls: string) {
   text-shadow: 0 0 12px rgba(140, 80, 220, 0.5);
 }
 
-.bj-stats {
-  display: flex;
-  gap: 10px;
+.bj-player-count {
   font-size: 0.85rem;
+  color: #999;
   font-weight: 600;
 }
-.bj-stat-win { color: #4caf50; }
-.bj-stat-loss { color: #ef5350; }
-.bj-stat-draw { color: #9e9e9e; }
 
 .bj-hand-area {
   margin-bottom: 12px;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+.bj-hand-me {
+  background: rgba(120, 60, 200, 0.08);
+  border: 1px solid rgba(120, 60, 200, 0.2);
+}
+
+.bj-hand-active {
+  border-color: rgba(120, 60, 200, 0.5);
 }
 
 .bj-hand-label {
@@ -285,6 +274,12 @@ function finishGame(text: string, cls: string) {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bj-name-me {
+  color: #d4b8ff;
+  font-weight: 700;
 }
 
 .bj-hand-total {
@@ -294,6 +289,30 @@ function finishGame(text: string, cls: string) {
   border-radius: 8px;
   font-size: 0.8rem;
   font-weight: 700;
+}
+
+.bj-wins-badge {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.bj-player-result {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.bj-player-status {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.bj-status-active {
+  color: #b47aff;
+  animation: pulse-msg 1s ease-in-out infinite;
 }
 
 .bj-cards {
@@ -414,20 +433,29 @@ function finishGame(text: string, cls: string) {
   background: #43a047;
 }
 
+.bj-btn-send {
+  background: #7b2ff2;
+  color: #fff;
+}
+.bj-btn-send:hover:not(:disabled) {
+  background: #8e44ff;
+}
+
 .bj-dealer-msg {
   color: #b47aff;
   font-weight: 600;
   animation: pulse-msg 1s ease-in-out infinite;
 }
 
+.bj-waiting-msg {
+  text-align: center;
+  color: #888;
+  padding: 16px;
+}
+
 @keyframes pulse-msg {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
-}
-
-.bj-result {
-  font-size: 1rem;
-  font-weight: 700;
 }
 
 .bj-result-win {
@@ -451,5 +479,110 @@ function finishGame(text: string, cls: string) {
 @keyframes gold-glow {
   0%, 100% { text-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
   50% { text-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 30px rgba(255, 215, 0, 0.3); }
+}
+
+/* ── Message Panel ──────────────────────────────────────────────── */
+
+.bj-message-panel {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(30, 20, 50, 0.6);
+  border: 1px solid rgba(120, 60, 200, 0.25);
+  border-radius: 10px;
+}
+
+.bj-message-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #d4b8ff;
+  margin-bottom: 8px;
+}
+
+.bj-message-preview {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: #e0d0ff;
+  font-style: italic;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+
+.bj-message-empty {
+  color: #666;
+}
+
+.bj-word-category {
+  margin-bottom: 8px;
+}
+
+.bj-category-name {
+  font-size: 0.75rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.bj-word-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.bj-word-btn {
+  padding: 3px 10px;
+  border: 1px solid rgba(120, 60, 200, 0.25);
+  border-radius: 14px;
+  background: rgba(120, 60, 200, 0.08);
+  color: #bbb;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.bj-word-btn:hover {
+  background: rgba(120, 60, 200, 0.2);
+  color: #d4b8ff;
+}
+
+.bj-word-selected {
+  background: rgba(120, 60, 200, 0.4);
+  color: #fff;
+  border-color: rgba(120, 60, 200, 0.6);
+}
+
+.bj-message-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.bj-word-count {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+/* ── Last Message Display ───────────────────────────────────────── */
+
+.bj-last-message {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: rgba(255, 215, 0, 0.05);
+  border: 1px solid rgba(255, 215, 0, 0.15);
+  border-radius: 8px;
+  color: #d4b8ff;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.bj-msg-author {
+  color: #ffd700;
+  font-weight: 700;
+  font-style: normal;
 }
 </style>

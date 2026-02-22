@@ -308,21 +308,21 @@ public class FightEntryDto
     public string Outcome { get; set; }
     public string WinnerName { get; set; }
 
-    // Class info for contre/WhoIsBetter display
+    // Class info for Nemesis/Versatility display
     public string AttackerClass { get; set; }
     public string DefenderClass { get; set; }
 
-    // WhoIsBetter stat breakdown (+1 attacker better, -1 defender better, 0 equal)
-    public int WhoIsBetterIntel { get; set; }
-    public int WhoIsBetterStr { get; set; }
-    public int WhoIsBetterSpeed { get; set; }
+    // Versatility stat breakdown (+1 attacker better, -1 defender better, 0 equal)
+    public int VersatilityIntel { get; set; }
+    public int VersatilityStr { get; set; }
+    public int VersatilitySpeed { get; set; }
 
     // Step1: Stats calculation from CalculateStep1
     public decimal ScaleMe { get; set; }
     public decimal ScaleTarget { get; set; }
-    public bool IsContrMe { get; set; }
-    public bool IsContrTarget { get; set; }
-    public decimal ContrMultiplier { get; set; }
+    public bool IsNemesisMe { get; set; }
+    public bool IsNemesisTarget { get; set; }
+    public decimal NemesisMultiplier { get; set; }
     public int SkillMultiplierMe { get; set; }
     public int SkillMultiplierTarget { get; set; }
     public int PsycheDifference { get; set; }
@@ -336,9 +336,9 @@ public class FightEntryDto
     public decimal RandomForPoint { get; set; }
 
     // Round 1 per-step weighing deltas (for web fight animation)
-    public decimal ContrWeighingDelta { get; set; }
+    public decimal NemesisWeighingDelta { get; set; }
     public decimal ScaleWeighingDelta { get; set; }
-    public decimal WhoIsBetterWeighingDelta { get; set; }
+    public decimal VersatilityWeighingDelta { get; set; }
     public decimal PsycheWeighingDelta { get; set; }
     public decimal SkillWeighingDelta { get; set; }
     public decimal JusticeWeighingDelta { get; set; }
@@ -350,8 +350,8 @@ public class FightEntryDto
     public decimal TooStronkRandomChange { get; set; }
     /// <summary>How pure Justice difference shifted maxRandomNumber in Step3: (meJustice - targetJustice) * 5, 0 if not triggered.</summary>
     public decimal JusticeRandomChange { get; set; }
-    /// <summary>How ContrMultiplier shifted maxRandomNumber in Step3: meJustice * (contrMultiplier - 1) * 5, 0 if not triggered.</summary>
-    public decimal ContrRandomChange { get; set; }
+    /// <summary>How NemesisMultiplier shifted maxRandomNumber in Step3: meJustice * (nemesisMultiplier - 1) * 5, 0 if not triggered.</summary>
+    public decimal NemesisRandomChange { get; set; }
 
     /// <summary>Points won from Round 1 alone (before Step2/Step3).</summary>
     public int Round1PointsWon { get; set; }
@@ -405,7 +405,7 @@ public class FightEntryDto
     public decimal SkillDifferenceRandomModifier { get; set; }
 
     /// <summary>How much skill is added from counter.</summary>
-    public decimal ContrMultiplierSkillDifference { get; set; }
+    public decimal NemesisMultiplierSkillDifference { get; set; }
 
     /// <summary>When true, this fight entry is hidden from non-admin players (e.g. Saitama solo kills).</summary>
     public bool HiddenFromNonAdmin { get; set; }
@@ -626,6 +626,53 @@ public class GoblinSwarmStateDto
     public List<int> ZigguratPositions { get; set; }
     public bool IsInZiggurat { get; set; }
     public bool FestivalUsed { get; set; }
+}
+
+// ── Blackjack DTOs ────────────────────────────────────────────────────
+
+public class BlackjackTableStateDto
+{
+    public string Phase { get; set; }
+    public int CurrentPlayerIndex { get; set; }
+    public string DealerName { get; set; }
+    public List<BlackjackCardDto> DealerHand { get; set; } = new();
+    public int DealerTotal { get; set; }
+    public BlackjackMessageDto LastMessage { get; set; }
+    public List<WordCategoryDto> WordCategories { get; set; } = new();
+    public List<BlackjackPlayerDto> Players { get; set; } = new();
+}
+
+public class BlackjackPlayerDto
+{
+    public string DiscordId { get; set; }
+    public string Username { get; set; }
+    public List<BlackjackCardDto> Hand { get; set; } = new();
+    public int Total { get; set; }
+    public string Status { get; set; }
+    public string Result { get; set; }
+    public int Wins { get; set; }
+    public bool IsCurrentTurn { get; set; }
+    public bool IsMe { get; set; }
+    public bool CanSendMessage { get; set; }
+}
+
+public class BlackjackCardDto
+{
+    public string Suit { get; set; }
+    public string Rank { get; set; }
+    public bool FaceUp { get; set; }
+}
+
+public class BlackjackMessageDto
+{
+    public string Author { get; set; }
+    public string Text { get; set; }
+}
+
+public class WordCategoryDto
+{
+    public string Name { get; set; }
+    public List<string> Words { get; set; } = new();
 }
 
 // ── Auth DTOs ─────────────────────────────────────────────────────────

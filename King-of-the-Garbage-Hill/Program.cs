@@ -97,6 +97,7 @@ public class ProgramKingOfTheGarbageHill
             builder.Services.AddSingleton<WebGameService>();
             builder.Services.AddSingleton<GameNotificationService>();
             builder.Services.AddSingleton<GameStoryService>();
+            builder.Services.AddSingleton<BlackjackService>();
 
             // Add SignalR for real-time communication
             builder.Services.AddSignalR()

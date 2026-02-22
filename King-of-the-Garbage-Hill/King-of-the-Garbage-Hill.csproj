@@ -26,6 +26,11 @@
     <None Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" LinkBase="wwwroot" />
   </ItemGroup>
 
+  <!-- Copy DataBase JSON files to output directory -->
+  <ItemGroup>
+    <None Include="DataBase\blackjack_words.json" CopyToOutputDirectory="PreserveNewest" LinkBase="DataBase" />
+  </ItemGroup>
+
   <ProjectExtensions><VisualStudio><UserProperties /></VisualStudio></ProjectExtensions>
 
 </Project>

@@ -184,13 +184,13 @@ const round1Factors = computed<Factor[]>(() => {
   const hl = (v: number): 'good' | 'bad' | 'neutral' => v > 0 ? 'good' : v < 0 ? 'bad' : 'neutral'
 
 
-  // 1. WhoIsBetter
-  if (f.whoIsBetterWeighingDelta !== 0) {
-    const v = f.whoIsBetterWeighingDelta * s
+  // 1. Versatility
+  if (f.versatilityWeighingDelta !== 0) {
+    const v = f.versatilityWeighingDelta * s
     // Build stat-by-stat breakdown from our (left) perspective
-    const wi = f.whoIsBetterIntel * (isFlipped.value ? -1 : 1)
-    const ws = f.whoIsBetterStr * (isFlipped.value ? -1 : 1)
-    const wsp = f.whoIsBetterSpeed * (isFlipped.value ? -1 : 1)
+    const wi = f.versatilityIntel * (isFlipped.value ? -1 : 1)
+    const ws = f.versatilityStr * (isFlipped.value ? -1 : 1)
+    const wsp = f.versatilitySpeed * (isFlipped.value ? -1 : 1)
     const ic = (val: number) => val > 0 ? '<span class="gi-ok">&#x2713;</span>' : val < 0 ? '<span class="gi-fail">&#x2717;</span>' : '<span class="gi-tie">&#x2015;</span>'
     const detail = `<span class="gi gi-int">INT</span>${ic(wi)} <span class="gi gi-str">STR</span>${ic(ws)} <span class="gi gi-spd">SPD</span>${ic(wsp)}`
     list.push({
@@ -201,19 +201,19 @@ const round1Factors = computed<Factor[]>(() => {
     })
   }
 
-  // 2. Contre
-  if (f.contrWeighingDelta !== 0) {
-    const v = f.contrWeighingDelta * s + f.contrMultiplierSkillDifference
-    // Determine who contres from our (left) perspective
-    const weContre = isFlipped.value ? f.isContrTarget : f.isContrMe
-    const theyContre = isFlipped.value ? f.isContrMe : f.isContrTarget
+  // 2. Nemesis
+  if (f.nemesisWeighingDelta !== 0) {
+    const v = f.nemesisWeighingDelta * s + f.nemesisMultiplierSkillDifference
+    // Determine who has nemesis from our (left) perspective
+    const weNemesis = isFlipped.value ? f.isNemesisTarget : f.isNemesisMe
+    const theyNemesis = isFlipped.value ? f.isNemesisMe : f.isNemesisTarget
     const ourClass = isFlipped.value ? f.defenderClass : f.attackerClass
     const theirClass = isFlipped.value ? f.attackerClass : f.defenderClass
     const ci = (c: string) => c === 'Интеллект' ? '<span class="gi gi-int">INT</span>' : c === 'Сила' ? '<span class="gi gi-str">STR</span>' : c === 'Скорость' ? '<span class="gi gi-spd">SPD</span>' : '<span class="gi">?</span>'
     let detail: string
-    if (weContre && theyContre) {
+    if (weNemesis && theyNemesis) {
       detail = `Neutral: ${ci(ourClass)}→${ci(theirClass)} / ${ci(theirClass)}→${ci(ourClass)}`
-    } else if (weContre) {
+    } else if (weNemesis) {
       detail = `${ci(ourClass)} <span class="dom-good">Dominates</span> ${ci(theirClass)}`
     } else {
       detail = `${ci(theirClass)} <span class="dom-bad">Dominates</span> ${ci(ourClass)}`
@@ -254,7 +254,7 @@ const round1Factors = computed<Factor[]>(() => {
 
   // 5. Skill difference
   if (f.skillWeighingDelta !== 0) {
-    const v = f.skillWeighingDelta * s - f.contrMultiplierSkillDifference;
+    const v = f.skillWeighingDelta * s - f.nemesisMultiplierSkillDifference;
     const ourMult = isFlipped.value ? f.skillMultiplierTarget : f.skillMultiplierMe
     const theirMult = isFlipped.value ? f.skillMultiplierMe : f.skillMultiplierTarget
     list.push({
@@ -721,22 +721,22 @@ const r3JusticePct = computed(() => {
   const f = fight.value
   if (!f || f.maxRandomNumber === 0 || f.justiceRandomChange === 0) return 0
   const s = sign.value
-  // maxRandom with only justice applied (no contr effect)
+  // maxRandom with only justice applied (no nemesis effect)
   const maxRandomJusticeOnly = 100 - f.justiceRandomChange
   if (maxRandomJusticeOnly === 0) return 0
   const attackerDelta = f.randomForPoint * (100 / maxRandomJusticeOnly - 1)
   return attackerDelta * s
 })
 
-/** Round 3: ContrMultiplier contribution to our chance (percentage points) */
-const r3ContrPct = computed(() => {
-  //console.log('contrRandomChange', fight.value.contrRandomChange)
+/** Round 3: NemesisMultiplier contribution to our chance (percentage points) */
+const r3NemesisPct = computed(() => {
+  //console.log('nemesisRandomChange', fight.value.nemesisRandomChange)
   const f = fight.value
-  if (!f || f.maxRandomNumber === 0 || f.contrRandomChange === 0) return 0
+  if (!f || f.maxRandomNumber === 0 || f.nemesisRandomChange === 0) return 0
   const s = sign.value
-  // total attacker delta from both justice + contr
+  // total attacker delta from both justice + nemesis
   const totalDelta = f.randomForPoint * (100 / f.maxRandomNumber - 1)
-  // subtract the pure-justice part to isolate contr effect
+  // subtract the pure-justice part to isolate nemesis effect
   const maxRandomJusticeOnly = 100 - f.justiceRandomChange
   const justiceDelta = maxRandomJusticeOnly !== 0
     ? f.randomForPoint * (100 / maxRandomJusticeOnly - 1)
@@ -1176,11 +1176,11 @@ function getDisplayCharName(orig: string, u: string): string {
                     {{ fmtPct(r3JusticePct) }}
                   </span>
                 </div>
-                <!-- Modifier: ContrMultiplier (Nemesis) -->
-                <div v-if="fight.contrRandomChange !== 0" class="fa-factor random visible">
+                <!-- Modifier: NemesisMultiplier -->
+                <div v-if="fight.nemesisRandomChange !== 0" class="fa-factor random visible">
                   <span class="fa-factor-label">Nemesis</span>
-                  <span class="fa-factor-detail" :class="r3ModClass(r3ContrPct)">
-                    {{ fmtPct(r3ContrPct) }}
+                  <span class="fa-factor-detail" :class="r3ModClass(r3NemesisPct)">
+                    {{ fmtPct(r3NemesisPct) }}
                   </span>
                 </div>
 

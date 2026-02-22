@@ -452,7 +452,8 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 
         <!-- Blackjack mini-game for players killed by Death Note -->
         <Blackjack21
-          v-if="store.myPlayer?.kiraDeathNoteDead && !store.gameState.isFinished"
+          v-if="store.myPlayer?.kiraDeathNoteDead && store.blackjackState"
+          :game-id="store.gameState.gameId"
         />
 
         <!-- Logs: events side-by-side -->

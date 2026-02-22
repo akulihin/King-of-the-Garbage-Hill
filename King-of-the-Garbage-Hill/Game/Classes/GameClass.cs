@@ -33,7 +33,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 3.7.0 WEB?!";
+        GameVersion = "Версия: 3.7.1 WEB?!";
         //GameVersion = "Версия: 2.9.9 helpпуда";
         GameMode = gameMode;
         CreatorId = creatorId;

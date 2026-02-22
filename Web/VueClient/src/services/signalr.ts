@@ -176,6 +176,48 @@ export type GoblinSwarmState = {
   festivalUsed: boolean
 }
 
+// ── Blackjack Types ───────────────────────────────────────────────
+
+export type BlackjackTableState = {
+  phase: string
+  currentPlayerIndex: number
+  dealerName: string
+  dealerHand: BlackjackCard[]
+  dealerTotal: number
+  lastMessage: BlackjackMessage | null
+  wordCategories: WordCategory[]
+  players: BlackjackPlayerState[]
+}
+
+export type BlackjackPlayerState = {
+  discordId: string
+  username: string
+  hand: BlackjackCard[]
+  total: number
+  status: string
+  result: string | null
+  wins: number
+  isCurrentTurn: boolean
+  isMe: boolean
+  canSendMessage: boolean
+}
+
+export type BlackjackCard = {
+  suit: string | null
+  rank: string | null
+  faceUp: boolean
+}
+
+export type BlackjackMessage = {
+  author: string
+  text: string
+}
+
+export type WordCategory = {
+  name: string
+  words: string[]
+}
+
 export type Character = {
   name: string
   avatar: string
@@ -297,19 +339,19 @@ export type FightEntry = {
   outcome: string
   winnerName: string | null
 
-  // Class info for contre/WhoIsBetter display
+  // Class info for Nemesis/Versatility display
   attackerClass: string
   defenderClass: string
-  whoIsBetterIntel: number  // +1 attacker better, -1 defender, 0 equal
-  whoIsBetterStr: number
-  whoIsBetterSpeed: number
+  versatilityIntel: number  // +1 attacker better, -1 defender, 0 equal
+  versatilityStr: number
+  versatilitySpeed: number
 
   // Step1: Stats
   scaleMe: number
   scaleTarget: number
-  isContrMe: boolean
-  isContrTarget: boolean
-  contrMultiplier: number
+  isNemesisMe: boolean
+  isNemesisTarget: boolean
+  nemesisMultiplier: number
   skillMultiplierMe: number
   skillMultiplierTarget: number
   psycheDifference: number
@@ -323,9 +365,9 @@ export type FightEntry = {
   randomForPoint: number
 
   // Round 1 per-step weighing deltas
-  contrWeighingDelta: number
+  nemesisWeighingDelta: number
   scaleWeighingDelta: number
-  whoIsBetterWeighingDelta: number
+  versatilityWeighingDelta: number
   psycheWeighingDelta: number
   skillWeighingDelta: number
   justiceWeighingDelta: number
@@ -334,7 +376,7 @@ export type FightEntry = {
   tooGoodRandomChange: number
   tooStronkRandomChange: number
   justiceRandomChange: number
-  contrRandomChange: number
+  nemesisRandomChange: number
 
   // Round results
   round1PointsWon: number
@@ -370,7 +412,7 @@ export type FightEntry = {
   skillGainedFromClassAttacker: number
   skillGainedFromClassDefender: number
   skillDifferenceRandomModifier: number
-  contrMultiplierSkillDifference: number
+  nemesisMultiplierSkillDifference: number
 
   /** Whether a Portal Gun swap occurred in this fight. */
   portalGunSwap: boolean
@@ -409,6 +451,7 @@ class SignalRService {
   onWebAccountCreated: ((data: { discordId: string; username: string }) => void) | null = null
   onGameCreated: ((data: { gameId: number }) => void) | null = null
   onGameJoined: ((data: { gameId: number }) => void) | null = null
+  onBlackjackState: ((state: BlackjackTableState) => void) | null = null
 
   get isConnected() {
     return this._isConnected
@@ -459,6 +502,10 @@ class SignalRService {
 
     this.connection.on('GameJoined', (data: { gameId: number }) => {
       this.onGameJoined?.(data)
+    })
+
+    this.connection.on('BlackjackState', (state: BlackjackTableState) => {
+      this.onBlackjackState?.(state)
     })
 
     this.connection.onreconnecting(() => {
@@ -597,6 +644,28 @@ class SignalRService {
 
   async finishGame(gameId: number): Promise<void> {
     await this.connection?.invoke('FinishGame', gameId)
+  }
+
+  // ── Blackjack (Dead Player Mini-Game) ──────────────────────────
+
+  async blackjackJoin(gameId: number): Promise<void> {
+    await this.connection?.invoke('BlackjackJoin', gameId)
+  }
+
+  async blackjackHit(gameId: number): Promise<void> {
+    await this.connection?.invoke('BlackjackHit', gameId)
+  }
+
+  async blackjackStand(gameId: number): Promise<void> {
+    await this.connection?.invoke('BlackjackStand', gameId)
+  }
+
+  async blackjackNewRound(gameId: number): Promise<void> {
+    await this.connection?.invoke('BlackjackNewRound', gameId)
+  }
+
+  async blackjackSendMessage(gameId: number, words: string[]): Promise<void> {
+    await this.connection?.invoke('BlackjackSendMessage', gameId, words)
   }
 
   // ── Web Game Creation ──────────────────────────────────────────
