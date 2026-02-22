@@ -27,5 +27,6 @@ public class RickSanchez
         public int Charges = 0;
         public bool SwapActive = false;
         public Guid SwappedWith = Guid.Empty;
+        public bool FiredThisRound = false;
     }
 }

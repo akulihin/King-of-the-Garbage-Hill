@@ -182,6 +182,13 @@ public class CharacterClass
         StrengthQualityDropTimes++;
         Status.AddBonusPoints(-1, "DROP");
         game.AddGlobalLogs($"Они скинули **{discordUsername}**! Сволочи!");
+
+        // Монстр без имени: +1 bonus point per drop
+        foreach (var mp in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
+        {
+            mp.Status.AddBonusPoints(1, "Монстр");
+            game.Phrases.MonsterDrop.SendLog(mp, false);
+        }
     }
 
     public void LowerQualityResist(GamePlayerBridgeClass target, GameClass game, GamePlayerBridgeClass me)

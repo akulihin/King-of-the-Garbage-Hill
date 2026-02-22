@@ -137,6 +137,10 @@ export type PassiveAbilityStates = {
   sellerMark?: SellerMarkState
   dopa?: DopaState
   goblinSwarm?: GoblinSwarmState
+  kotiki?: KotikiState
+  kotikiCatOnMe?: KotikiCatOnMe
+  monster?: MonsterState
+  monsterPawnOnMe?: MonsterPawnOnMe
 }
 
 export type BulkState = { drownChance: number; isBuffed: boolean }
@@ -156,7 +160,7 @@ export type WeedState = { totalWeedAvailable: number; lastHarvestRound: number }
 export type SaitamaState = { deferredPoints: number; deferredMoral: number }
 export type ShinigamiEyesWidgetState = { isActive: boolean }
 export type SellerState = { cooldown: number; markedCount: number; secretBuildSkill: number }
-export type SellerMarkState = { roundsRemaining: number }
+export type SellerMarkState = { roundsRemaining: number; debt: number }
 export type DopaState = {
   visionReady: boolean
   visionCooldown: number
@@ -174,6 +178,30 @@ export type GoblinSwarmState = {
   zigguratPositions: number[]
   isInZiggurat: boolean
   festivalUsed: boolean
+}
+
+export type KotikiState = {
+  tauntedCount: number
+  tauntedMax: number
+  minkaOnPlayerName: string
+  stormOnPlayerName: string
+  minkaCooldown: number
+  stormCooldown: number
+  minkaRoundsOnEnemy: number
+}
+
+export type KotikiCatOnMe = {
+  catType: string
+  catOwnerName: string
+  roundsDeployed: number
+}
+
+export type MonsterState = {
+  pawnCount: number
+}
+
+export type MonsterPawnOnMe = {
+  pawnOwnerName: string
 }
 
 // ── Blackjack Types ───────────────────────────────────────────────

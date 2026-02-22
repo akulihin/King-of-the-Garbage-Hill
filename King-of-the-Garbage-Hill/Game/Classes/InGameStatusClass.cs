@@ -39,6 +39,7 @@ public class InGameStatus
         ChangeMindWhat = "";
         AutoMoveTimes = 0;
         TimesUpdated = 0;
+        MoralGainedThisFight = 0;
     }
 
 
@@ -71,6 +72,7 @@ public class InGameStatus
     public Guid IsLostThisCalculation { get; set; }
     public Guid IsTargetSkipped { get; set; }
     public Guid IsTargetBlocked { get; set; }
+    public decimal MoralGainedThisFight { get; set; }
     public Guid IsFighting { get; set; }
     private decimal ScoresToGiveAtEndOfRound { get; set; }
     public int LvlUpPoints { get; set; }

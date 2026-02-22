@@ -11,6 +11,8 @@ import {
 } from 'src/services/signalr'
 import {
   playBlockSound,
+  playAnyMoveTurn10PlusLayer,
+  isLateGameCharacter,
   playLevelUpDefaultSound,
   playLevelUpStatSound,
   playMoralForPointsSound,
@@ -293,11 +295,19 @@ export const useGameStore = defineStore('game', () => {
   async function block() {
     if (!gameState.value) return
     playBlockSound()
+    if (gameState.value.roundNo >= 10) {
+      const charName = myPlayer.value?.character.name
+      playAnyMoveTurn10PlusLayer(charName ? isLateGameCharacter(charName) : false)
+    }
     await signalrService.block(gameState.value.gameId)
   }
 
   async function autoMove() {
     if (!gameState.value) return
+    if (gameState.value.roundNo >= 10) {
+      const charName = myPlayer.value?.character.name
+      playAnyMoveTurn10PlusLayer(charName ? isLateGameCharacter(charName) : false)
+    }
     await signalrService.autoMove(gameState.value.gameId)
   }
 
@@ -308,6 +318,10 @@ export const useGameStore = defineStore('game', () => {
 
   async function confirmSkip() {
     if (!gameState.value) return
+    if (gameState.value.roundNo >= 10) {
+      const charName = myPlayer.value?.character.name
+      playAnyMoveTurn10PlusLayer(charName ? isLateGameCharacter(charName) : false)
+    }
     await signalrService.confirmSkip(gameState.value.gameId)
   }
 

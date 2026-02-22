@@ -70,7 +70,7 @@ public class CheckIfReady : IServiceSingleton
 
     private void HandlePostGameEvents(GameClass game)
     {
-        var playerWhoWon = game.PlayersList.Where(x => !x.Passives.KratosIsDead && !x.Passives.KiraDeathNoteDead).ToList().First();
+        var playerWhoWon = game.PlayersList.Where(x => !x.Passives.KratosIsDead && !x.Passives.KiraDeathNoteDead && !x.Passives.MonsterPawnDead).ToList().First();
 
         //if won phrases
         switch (playerWhoWon.GameCharacter.Name)
@@ -98,6 +98,14 @@ public class CheckIfReady : IServiceSingleton
 
             case "Saitama":
                 game.AddGlobalLogs("Наконец-то я победил Кинга! Пойду дальше геройствовать.");
+                break;
+
+            case "Монстр без имени":
+                game.AddGlobalLogs("Я должен исчезнуть из этого мира, а вместе со мной и все, кто когда либо видел меня.");
+                break;
+
+            case "Рик Санчез":
+                game.AddGlobalLogs("Я прошерстил тысячу так же мусорных гор, но ни на одной Рика Прайма так и не было.");
                 break;
         }
 
@@ -169,6 +177,83 @@ public class CheckIfReady : IServiceSingleton
         {
             //ignored
         }
+
+        // Кира end-game events
+        var kiraPlayer = game.PlayersList.Find(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Тетрадь смерти"));
+        if (kiraPlayer != null)
+        {
+            var kiraDeathNote = kiraPlayer.Passives.KiraDeathNote;
+            var kills = kiraDeathNote.Entries.Count(x => x.WasCorrect);
+            var totalEntries = kiraDeathNote.Entries.Count;
+            var kiraWon = kiraPlayer.Status.GetPlaceAtLeaderBoard() == 1;
+            var killedAll = game.PlayersList
+                .Where(x => x.GetPlayerId() != kiraPlayer.GetPlayerId())
+                .All(x => x.Passives.KiraDeathNoteDead);
+
+            // Kira never wrote in the Death Note at all
+            if (totalEntries == 0 && !kiraPlayer.Passives.KiraDeathNoteDead)
+            {
+                if (kiraWon)
+                {
+                    game.AddGlobalLogs(
+                        "**Рюк:** Что? Как?! Он ведь даже не использовал Тетрадь Смерти.\n" +
+                        "**Ягами Лайт:** Я ее продал Миками Теру за 500 гривен. Он заработал мне денег, убивая конкурентов компании Юцуба.");
+                }
+                else
+                {
+                    game.AddGlobalLogs(
+                        "**Рюк:** Лайт, это Тетрадь Смерти. Тебе надо записывать в нее имена, чтобы я... Чтобы ты стал богом.\n" +
+                        "**Ягами Лайт:** Да нафига мне это надо. Мне еще к экзаменам готовиться. Надеюсь продать ее за 10 гривен.\n" +
+                        "**Рюк:** Тебе в руки попало оружие массового убийства, а ты хочешь его продать за 10 гривен как лох?!\n" +
+                        "**Ягами Лайт:** Что? Так она убивать может... Тогда продам за 500.");
+                }
+            }
+            // Kira killed everyone except L
+            else if (!killedAll && kills > 0)
+            {
+                var aliveNonKira = game.PlayersList
+                    .Where(x => x.GetPlayerId() != kiraPlayer.GetPlayerId() && !x.Passives.KiraDeathNoteDead)
+                    .ToList();
+                if (aliveNonKira.Count == 1 && aliveNonKira[0].GameCharacter.Passive.Any(p => p.PassiveName == "L"))
+                {
+                    game.AddGlobalLogs(
+                        "**L:** А куда все подевались? Почему я один?");
+                }
+            }
+
+            // Kira killed everyone
+            if (killedAll)
+            {
+                game.AddGlobalLogs(
+                    "**Kira:** Теперь я... Бог... \n" +
+                    "**Рюк:** А не лох...");
+            }
+            // Kira won but didn't guess anyone correctly (had entries but all failed)
+            else if (kiraWon && kills == 0 && totalEntries > 0)
+            {
+                game.AddGlobalLogs(
+                    "**Kira:** А? Что? Как это произошло?\n" +
+                    "**Рюк:** Зря я сбрасывал Тетрадь Смерти в Украину.");
+            }
+            // Kira is first place (but didn't kill everyone, and had some kills)
+            else if (kiraWon)
+            {
+                game.AddGlobalLogs(
+                    "**Kira:** Всё идет по моему плану...\n" +
+                    "**Рюк:** Какие планы дальше? Убьешь следователей?\n" +
+                    "**Kira:** А нафига? Буду и дальше игнорить **L** и убивать преступников.");
+            }
+
+            // Kira had no kills at all (wrote entries but all failed)
+            if (kills == 0 && totalEntries > 0 && !kiraPlayer.Passives.KiraDeathNoteDead)
+            {
+                game.AddGlobalLogs(
+                    "**Kira:** Стоп, а почему никто не умер?\n" +
+                    "**L:** Похоже никакого Киры здесь нет, попробую поискать в Беларуси.\n" +
+                    "**Рюк:** Лайт, ты писал на стекле.\n" +
+                    "**Kira:** Блин, что же делать? А, я ведь могу со стекла переписать, пусть они уже после игры помрут, кек. Я должен доказать **L** что я **бог**! __А не лох!__");
+            }
+        }
     }
 
 
@@ -192,13 +277,14 @@ public class CheckIfReady : IServiceSingleton
             } 
         }
 
-        //predict (skip Kira — uses Death Note instead of predictions)
+        //predict (skip Kira — uses Death Note instead of predictions; skip Monster — can't be predicted)
         if (game.PlayersList.Count == 6 && game.PlayersList.Count(x => x.IsBot()) <= 5)
             foreach (var player in from player in game.PlayersList
                      where !player.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти")
                      from predict in player.Predict
                      let enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId)
                      where enemy!.GameCharacter.Name == predict.CharacterName
+                     where !enemy.GameCharacter.Passive.Any(p => p.PassiveName == "Выдуманный персонаж")
                      select player)
             {
                 var predBonus = player.GameCharacter.Passive.Any(p => p.PassiveName == "Великий летописец") ? 2 : 1;
@@ -314,7 +400,49 @@ public class CheckIfReady : IServiceSingleton
             t.Status.PlaceAtLeaderBoardHistory.Add(
                 new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo, t.Status.GetPlaceAtLeaderBoard()));
 
-        var playerWhoWon = game.PlayersList.Where(x => !x.Passives.KratosIsDead && !x.Passives.KiraDeathNoteDead).ToList().First();
+        // Premade: if Support and Carry both in top 2, Support wins
+        var supportPlayer = game.PlayersList.FirstOrDefault(x =>
+            x.GameCharacter.Passive.Any(p => p.PassiveName == "Premade") &&
+            x.Passives.SupportPremade.MarkedPlayerId != Guid.Empty);
+        if (supportPlayer != null)
+        {
+            var carryPlayer = game.PlayersList.Find(x =>
+                x.GetPlayerId() == supportPlayer.Passives.SupportPremade.MarkedPlayerId);
+            if (carryPlayer != null)
+            {
+                var suppPos = supportPlayer.Status.GetPlaceAtLeaderBoard();
+                var carryPos = carryPlayer.Status.GetPlaceAtLeaderBoard();
+                if (suppPos <= 2 && carryPos <= 2 && suppPos > carryPos)
+                {
+                    var diff = carryPlayer.Status.GetScore() - supportPlayer.Status.GetScore() + 1;
+                    supportPlayer.Status.AddBonusPoints(diff, "Premade");
+                    game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+                    for (var k = 0; k < game.PlayersList.Count; k++)
+                        game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);
+                    game.AddGlobalLogs("Суппорт и Carry оба в топ 2! Суппорт засчитан как победитель.");
+                }
+            }
+        }
+
+        // Одна из трех: if player with this passive is in top 3, they win
+        var top3Player = game.PlayersList.FirstOrDefault(x =>
+            x.GameCharacter.Passive.Any(p => p.PassiveName == "Одна из трех") &&
+            x.Status.GetPlaceAtLeaderBoard() <= 3);
+        if (top3Player != null)
+        {
+            if (top3Player.Status.GetPlaceAtLeaderBoard() > 1)
+            {
+                var first = game.PlayersList.First();
+                var diff = first.Status.GetScore() - top3Player.Status.GetScore() + 1;
+                top3Player.Status.AddBonusPoints(diff, "Одна из трех");
+                game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+                for (var k = 0; k < game.PlayersList.Count; k++)
+                    game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);
+            }
+            game.AddGlobalLogs("**Sakura:** Я одна из легендарной тройки. И этого вполне достаточно!");
+        }
+
+        var playerWhoWon = game.PlayersList.Where(x => !x.Passives.KratosIsDead && !x.Passives.KiraDeathNoteDead && !x.Passives.MonsterPawnDead).ToList().First();
         HandlePostGameEvents(game);
 
 
@@ -455,7 +583,7 @@ public class CheckIfReady : IServiceSingleton
                 zbsPointsToGive =
                     game.Teams.Find(x => x.TeamId == wonTeam)!.TeamPlayers.Contains(player.Status.PlayerId) ? 100 : 50;
 
-            if (player.Passives.KratosIsDead || player.Passives.KiraDeathNoteDead) zbsPointsToGive = 0;
+            if (player.Passives.KratosIsDead || player.Passives.KiraDeathNoteDead || player.Passives.MonsterPawnDead) zbsPointsToGive = 0;
 
             account.ZbsPoints += zbsPointsToGive;
 
@@ -744,6 +872,13 @@ public class CheckIfReady : IServiceSingleton
                     player.Status.IsBlock = true;
                 }
 
+                // Auto-ready players killed as Monster pawns
+                foreach (var player in players.Where(x => x.Passives.MonsterPawnDead))
+                {
+                    player.Status.IsReady = true;
+                    player.Status.IsBlock = true;
+                }
+
                 foreach (var player in players.Where(x => !x.IsBot()))
                 {
                     //if (game.TimePassed.Elapsed.TotalSeconds < 30) continue;
@@ -875,6 +1010,58 @@ public class CheckIfReady : IServiceSingleton
                     {
                         t.Status.WhoToAttackThisTurn.Add(targets[new Random().Next(targets.Count)].GetPlayerId());
                         t.Status.IsReady = true;
+                    }
+                }
+
+                // Kira round 1: forced random attack (secretly excludes 1st and last place)
+                if (game.RoundNo == 1)
+                {
+                    foreach (var kira in players.Where(k =>
+                        k.GameCharacter.Passive.Any(x => x.PassiveName == "Тетрадь смерти")))
+                    {
+                        var eligible = players.Where(p =>
+                            p.GetPlayerId() != kira.GetPlayerId() &&
+                            p.Status.GetPlaceAtLeaderBoard() != 1 &&
+                            p.Status.GetPlaceAtLeaderBoard() != players.Count).ToList();
+                        if (eligible.Count > 0)
+                        {
+                            kira.Status.WhoToAttackThisTurn = new List<Guid>
+                                { eligible[new Random().Next(eligible.Count)].GetPlayerId() };
+                            kira.Status.IsReady = true;
+                        }
+                    }
+                }
+
+                // Штормяк — taunt on block: force random enemy to attack the blocker as second action
+                foreach (var taunter in players.Where(t =>
+                             t.Status.IsBlock &&
+                             t.GameCharacter.Passive.Any(x => x.PassiveName == "Штормяк")))
+                {
+                    var isOriginalKotiki = taunter.Passives.KotikiCatOwnerId == Guid.Empty;
+                    // Only original Котики tracks TauntedPlayers (once per enemy per game)
+                    // Transferred Storm cat can taunt every round but Котики is immune
+                    var eligibleTargets = players.Where(p =>
+                        p.GetPlayerId() != taunter.GetPlayerId() &&
+                        // Immunity: Котики immune to transferred Storm taunts
+                        !(p.GameCharacter.Passive.Any(x => x.PassiveName == "Кошачья засада") && !isOriginalKotiki) &&
+                        // Original Котики: once per enemy per game
+                        (!isOriginalKotiki || !taunter.Passives.KotikiStorm.TauntedPlayers.Contains(p.GetPlayerId()))
+                    ).ToList();
+
+                    if (eligibleTargets.Count > 0)
+                    {
+                        var target = eligibleTargets[new Random().Next(eligibleTargets.Count)];
+                        target.Status.WhoToAttackThisTurn.Add(taunter.GetPlayerId());
+
+                        if (isOriginalKotiki)
+                        {
+                            var storm = taunter.Passives.KotikiStorm;
+                            storm.TauntedPlayers.Add(target.GetPlayerId());
+                            storm.CurrentTauntTarget = target.GetPlayerId();
+                        }
+
+                        taunter.Status.AddInGamePersonalLogs($"Штормяк провоцирует {target.DiscordUsername}!\n");
+                        target.Status.AddInGamePersonalLogs($"Штормяк провоцирует вас! Атакуйте {taunter.DiscordUsername}!\n");
                     }
                 }
 

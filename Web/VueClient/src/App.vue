@@ -109,7 +109,7 @@ function handleLogout() {
           <RouterLink to="/" class="logo-text">KOTGH</RouterLink>
 
           <nav class="top-nav">
-            <RouterLink to="/">Games</RouterLink>
+            <RouterLink to="/games">Games</RouterLink>
             <RouterLink to="/home">Home</RouterLink>
           </nav>
         </div>

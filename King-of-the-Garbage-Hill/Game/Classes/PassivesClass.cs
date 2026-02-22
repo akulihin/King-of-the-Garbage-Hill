@@ -177,6 +177,9 @@ public class PassivesClass
     // Продавец — mark state (on ANY player who gets marked)
     public int SellerVparitGovnaRoundsLeft { get; set; } = 0;
     public decimal SellerVparitGovnaTotalSkill { get; set; } = 0;
+    public bool SellerForcedLossNextAttack { get; set; } = false;
+    public List<Guid> SellerOutplayTargets { get; set; } = new();
+    public decimal SellerTacticBonusEarned { get; set; } = 0;
 
     // Dopa
     public Dopa.MacroClass DopaMacro { get; set; } = new();
@@ -208,6 +211,19 @@ public class PassivesClass
     public GoblinSwarm.GoblinPopulationClass GoblinPopulation { get; set; } = new();
     public GoblinSwarm.ZigguratClass GoblinZiggurat { get; set; } = new();
     public Guid GoblinLastAttackedPlayer { get; set; } = Guid.Empty;
+
+    // Котики
+    public Kotiki.StormClass KotikiStorm { get; set; } = new();
+    public Kotiki.AmbushClass KotikiAmbush { get; set; } = new();
+
+    // Per-player: any player can carry a Котики cat
+    public string KotikiCatType { get; set; } = "";           // "Минька" or "Штормяк" (empty = no cat)
+    public Guid KotikiCatOwnerId { get; set; } = Guid.Empty;  // Which Котики player owns this cat
+
+    // Монстр без имени — per-player: any player can be a Johan pawn
+    public bool IsJohanPawn { get; set; } = false;
+    public Guid JohanPawnOwnerId { get; set; } = Guid.Empty;
+    public bool MonsterPawnDead { get; set; } = false;
 
     public Guid PointFunneledTo { get; set; } = Guid.Empty;
     public bool IsExploitable { get; set; } = false;

@@ -214,6 +214,12 @@ public class BotsBehavior : IServiceSingleton
             return;
         }
 
+        if (bot.GameCharacter.Name == "Котики")
+        {
+            await HandleBotMoralForPoints(bot, game);
+            return;
+        }
+
         if (bot.GameCharacter.Name == "Продавец Сомнительных Тактик")
         {
             var sellerV = bot.Passives.SellerVparitGovna;
@@ -1147,6 +1153,21 @@ public class BotsBehavior : IServiceSingleton
                         if (target.Player.GameCharacter.GetStrength() > bot.GameCharacter.GetStrength() + 3)
                             target.AttackPreference -= 3;
                         break;
+
+                    case "Котики":
+                        // Prefer attacking enemies with cats on them (cat return bonus)
+                        if (target.Player.Passives.KotikiCatOwnerId == bot.GetPlayerId())
+                            target.AttackPreference += 20;
+                        // Slightly prefer weaker enemies (better chance of winning for Штормяк)
+                        if (target.Player.GameCharacter.GetStrength() < bot.GameCharacter.GetStrength())
+                            target.AttackPreference += 3;
+                        break;
+
+                    case "Монстр без имени":
+                        // Prefer enemies with high Justice (to steal via Близнец block)
+                        var monsterTargetJustice = target.Player.GameCharacter.Justice.GetSeenJusticeNow();
+                        if (monsterTargetJustice > 0) target.AttackPreference += monsterTargetJustice * 2;
+                        break;
                 }
                 //end custom bot behavior
 
@@ -1707,6 +1728,22 @@ public class BotsBehavior : IServiceSingleton
                     {
                         isBlock = yesBlock; // Force block to build ziggurat
                     }
+                    break;
+
+                case "Котики":
+                    // Block to trigger Штормяк taunt if there are still untaunted enemies
+                    var kotikiStorm = bot.Passives.KotikiStorm;
+                    var untaunted = game.PlayersList.Count(p =>
+                        p.GetPlayerId() != bot.GetPlayerId() &&
+                        !kotikiStorm.TauntedPlayers.Contains(p.GetPlayerId()));
+                    if (untaunted > 0)
+                        isBlock = yesBlock;
+                    break;
+
+                case "Монстр без имени":
+                    // Default: block (trigger Близнец justice steal)
+                    minimumRandomNumberForBlock = 3;
+                    maximumRandomNumberForBlock = 4;
                     break;
             }
             //end custom behaviour After calculation Tens

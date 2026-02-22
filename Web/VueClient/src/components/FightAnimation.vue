@@ -9,6 +9,7 @@ import {
   playDoomsDayRndRoll,
   playDoomsDayScroll,
   playDoomsDayNoFights,
+  playWinSpecial,
 } from 'src/services/sound'
 
 const props = withDefaults(defineProps<{
@@ -215,13 +216,14 @@ const round1Factors = computed<Factor[]>(() => {
     const ourClass = isFlipped.value ? f.defenderClass : f.attackerClass
     const theirClass = isFlipped.value ? f.attackerClass : f.defenderClass
     const ci = (c: string) => c === 'Интеллект' ? '<span class="gi gi-int">INT</span>' : c === 'Сила' ? '<span class="gi gi-str">STR</span>' : c === 'Скорость' ? '<span class="gi gi-spd">SPD</span>' : '<span class="gi">?</span>'
+    const nemesisVerb = (c: string) => c === 'Сила' ? 'Пресанул' : c === 'Интеллект' ? 'Обманул' : c === 'Скорость' ? 'Обогнал' : '???'
     let detail: string
     if (weNemesis && theyNemesis) {
       detail = `Neutral: ${ci(ourClass)}→${ci(theirClass)} / ${ci(theirClass)}→${ci(ourClass)}`
     } else if (weNemesis) {
-      detail = `${ci(ourClass)} <span class="dom-good">Dominates</span> ${ci(theirClass)}`
+      detail = `${ci(ourClass)} <span class="dom-good">${nemesisVerb(ourClass)}</span> ${ci(theirClass)}`
     } else {
-      detail = `${ci(theirClass)} <span class="dom-bad">Dominates</span> ${ci(ourClass)}`
+      detail = `${ci(theirClass)} <span class="dom-bad">${nemesisVerb(theirClass)}</span> ${ci(ourClass)}`
     }
     const nTier = Math.abs(v) <= 3 ? 0 : Math.abs(v) <= 6 ? 1 : 2
     list.push({
@@ -311,11 +313,14 @@ const totalSteps = computed(() => {
 })
 
 // ── Weighing machine bar animation ──────────────────────────────────
+// Switch: false = show real (unclamped) bar for all players, true = clamp factors for non-admins
+const normalizeBar = false
+
 // Target value (jumps per step)
 const targetWeighingValue = computed(() => {
   if (!fight.value || isSpecialOutcome.value) return 0
   const factors = round1Factors.value
-  const useRaw = props.isAdmin
+  const useRaw = !normalizeBar || props.isAdmin
   const addFactor = (v: number) => useRaw ? v : clampFactor(v)
 
   if (skippedToEnd.value || !isMyFight.value) {
@@ -359,7 +364,7 @@ watch(targetWeighingValue, (target: number) => {
   weighingAnimFrame = requestAnimationFrame(tick)
 }, { immediate: true })
 
-// Per-fight random nudge (0–15%) that pushes the bar further in the winning direction
+// Per-fight random nudge (0–15%) that pushes the bar further in the winning direction (only when normalized)
 const barRandomNudge = ref(Math.random() * 15)
 watch(currentFightIdx, () => { barRandomNudge.value = Math.random() * 15 })
 
@@ -367,6 +372,7 @@ const barPosition = computed(() => {
   const val = animatedWeighingValue.value
   const clamped = Math.max(-50, Math.min(50, val))
   const base = 50 + (clamped / 50) * 50
+  if (!normalizeBar) return base
   // Nudge away from center in the winning direction
   if (val > 0) return Math.min(100, base + barRandomNudge.value)
   if (val < 0) return Math.max(0, base - barRandomNudge.value)
@@ -596,15 +602,21 @@ watch(currentStep, (step: number) => {
     const allSame = roundResults.value.length > 0 && roundResults.value.every(r => r === roundResults.value[0])
     const isAbsolute = isLastFight && allSame
     playDoomsDayWinLose(roundResults.value, true, isAbsolute, leftWon.value)
+    // Play character-specific victory sound alongside the win sound
+    if (leftWon.value) {
+      playWinSpecial(leftCharName.value)
+    }
   }
 })
 
 // No-fights sound: fights exist but none are mine (play only once per round)
-const noFightsSoundPlayed = ref(false)
-watch(() => props.fights.length, (cur, prev) => { if (cur === 0 && (prev ?? 0) > 0) noFightsSoundPlayed.value = false })
-watch(myFights, (mine: FightEntry[]) => {
-  if (props.fights.length > 0 && mine.length === 0 && !noFightsSoundPlayed.value) {
-    noFightsSoundPlayed.value = true
+// Track the fights array length we last reacted to, so we only fire once per new fightLog push
+let lastSeenFightsLength = 0
+watch(() => props.fights.length, (cur) => {
+  if (cur === 0) { lastSeenFightsLength = 0; return }
+  if (cur === lastSeenFightsLength) return
+  lastSeenFightsLength = cur
+  if (myFights.value.length === 0) {
     playDoomsDayNoFights()
   }
 })
@@ -646,7 +658,11 @@ const enemyJustice = computed(() => {
   if (!fight.value) return 0
   return isFlipped.value ? fight.value.justiceMe : fight.value.justiceTarget
 })
-// Justice block layout: { front, back } — back row only at justice 10 (secret easter egg)
+// Switch between numbers and blocks for justice slam display
+// Set to true to show block pyramids, false to show raw numbers
+const justiceUseBlocks = false
+
+// Justice block layout: { front, back, top } — pyramid at justice 10 (secret easter egg)
 function justiceBlockLayout(j: number): { front: number; back: number } {
   if (j >= 10) return { front: 3, back: 2, top: 1 }
   return { front: j <= 2 ? 1 : j <= 4 ? 2 : 3, back: 0, top: 0 }
@@ -1006,10 +1022,10 @@ function getDisplayCharName(orig: string, u: string): string {
   <div class="fight-animation">
     <!-- Tab header -->
     <div class="fa-tab-header">
-      <button class="fa-tab" :class="{ active: activeTab === 'fights' }" data-sfx-utility="true" @click="setTab('fights')">Бои раунда<span v-if="hasUnseenFights && activeTab !== 'fights'" class="fa-tab-dot"></span></button>
-      <button class="fa-tab" :class="{ active: activeTab === 'all' }" data-sfx-utility="true" @click="setTab('all')">Все бои</button>
-      <button class="fa-tab" :class="{ active: activeTab === 'letopis' }" data-sfx-utility="true" @click="setTab('letopis')">Летопись</button>
-      <button v-if="gameStory" class="fa-tab fa-tab-story" :class="{ active: activeTab === 'story' }" data-sfx-utility="true" @click="setTab('story')">История</button>
+      <button class="fa-tab" :class="{ active: activeTab === 'fights' }" data-sfx-fight-tab="true" @click="setTab('fights')">Бои раунда<span v-if="hasUnseenFights && activeTab !== 'fights'" class="fa-tab-dot"></span></button>
+      <button class="fa-tab" :class="{ active: activeTab === 'all' }" data-sfx-fight-tab="true" @click="setTab('all')">Все бои</button>
+      <button class="fa-tab" :class="{ active: activeTab === 'letopis' }" data-sfx-fight-tab="true" @click="setTab('letopis')">Летопись</button>
+      <button v-if="gameStory" class="fa-tab fa-tab-story" :class="{ active: activeTab === 'story' }" data-sfx-fight-tab="true" @click="setTab('story')">История</button>
     </div>
 
     <!-- Летопись -->
@@ -1192,7 +1208,6 @@ function getDisplayCharName(orig: string, u: string): string {
             <div class="fa-bar-container fa-bar-compact">
               <div class="fa-bar-track">
                 <div class="fa-bar-fill" :style="{ width: barPosition + '%' }" :class="{ 'bar-attacker': animatedWeighingValue > 0, 'bar-defender': animatedWeighingValue < 0, 'bar-even': animatedWeighingValue === 0 }">
-                  <span class="fa-bar-value" v-if="isAdmin">{{ fmtVal(animatedWeighingValue) }}</span>
                 </div>
               </div>
             </div>
@@ -1213,43 +1228,60 @@ function getDisplayCharName(orig: string, u: string): string {
             </div>
 
             <div v-if="showR2" class="fj-slam-wrap" :class="{ 'fj-slam-impact': slamPhase === 'impact' }">
-              <!-- Our blocks -->
-              <div class="fj-slam-tower fj-slam-left" :class="{
-                winner: slamPhase === 'resolved' && ourJustice > enemyJustice,
-                loser: slamPhase === 'resolved' && ourJustice < enemyJustice,
-                tied: slamPhase === 'resolved' && ourJustice === enemyJustice,
-              }">
-                <div v-if="ourJusticeLayout.top" class="fj-slam-row fj-slam-top">
-                  <div v-for="b in ourJusticeLayout.top" :key="'ot'+b" class="fj-block fj-block-ours"></div>
+              <template v-if="justiceUseBlocks">
+                <!-- Block pyramid mode -->
+                <div class="fj-slam-tower fj-slam-left" :class="{
+                  winner: slamPhase === 'resolved' && ourJustice > enemyJustice,
+                  loser: slamPhase === 'resolved' && ourJustice < enemyJustice,
+                  tied: slamPhase === 'resolved' && ourJustice === enemyJustice,
+                }">
+                  <div v-if="ourJusticeLayout.top" class="fj-slam-row fj-slam-top">
+                    <div v-for="b in ourJusticeLayout.top" :key="'ot'+b" class="fj-block fj-block-ours"></div>
+                  </div>
+                  <div v-if="ourJusticeLayout.back" class="fj-slam-row fj-slam-back">
+                    <div v-for="b in ourJusticeLayout.back" :key="'ob'+b" class="fj-block fj-block-ours"></div>
+                  </div>
+                  <div class="fj-slam-row">
+                    <div v-for="b in ourJusticeLayout.front" :key="'of'+b" class="fj-block fj-block-ours"></div>
+                  </div>
                 </div>
-                <div v-if="ourJusticeLayout.back" class="fj-slam-row fj-slam-back">
-                  <div v-for="b in ourJusticeLayout.back" :key="'ob'+b" class="fj-block fj-block-ours"></div>
+                <div class="fj-slam-vs" :class="{ visible: slamPhase === 'impact' || slamPhase === 'resolved' }">
+                  <span v-if="slamPhase === 'impact'" class="fj-slam-spark">⚖</span>
+                  <span v-else>vs</span>
                 </div>
-                <div class="fj-slam-row">
-                  <div v-for="b in ourJusticeLayout.front" :key="'of'+b" class="fj-block fj-block-ours"></div>
+                <div class="fj-slam-tower fj-slam-right" :class="{
+                  winner: slamPhase === 'resolved' && enemyJustice > ourJustice,
+                  loser: slamPhase === 'resolved' && enemyJustice < ourJustice,
+                  tied: slamPhase === 'resolved' && ourJustice === enemyJustice,
+                }">
+                  <div v-if="enemyJusticeLayout.top" class="fj-slam-row fj-slam-top">
+                    <div v-for="b in enemyJusticeLayout.top" :key="'et'+b" class="fj-block fj-block-enemy"></div>
+                  </div>
+                  <div v-if="enemyJusticeLayout.back" class="fj-slam-row fj-slam-back">
+                    <div v-for="b in enemyJusticeLayout.back" :key="'eb'+b" class="fj-block fj-block-enemy"></div>
+                  </div>
+                  <div class="fj-slam-row">
+                    <div v-for="b in enemyJusticeLayout.front" :key="'ef'+b" class="fj-block fj-block-enemy"></div>
+                  </div>
                 </div>
-              </div>
-              <!-- VS / spark -->
-              <div class="fj-slam-vs" :class="{ visible: slamPhase === 'impact' || slamPhase === 'resolved' }">
-                <span v-if="slamPhase === 'impact'" class="fj-slam-spark">⚖</span>
-                <span v-else>vs</span>
-              </div>
-              <!-- Enemy blocks -->
-              <div class="fj-slam-tower fj-slam-right" :class="{
-                winner: slamPhase === 'resolved' && enemyJustice > ourJustice,
-                loser: slamPhase === 'resolved' && enemyJustice < ourJustice,
-                tied: slamPhase === 'resolved' && ourJustice === enemyJustice,
-              }">
-                <div v-if="enemyJusticeLayout.top" class="fj-slam-row fj-slam-top">
-                  <div v-for="b in enemyJusticeLayout.top" :key="'et'+b" class="fj-block fj-block-enemy"></div>
+              </template>
+              <template v-else>
+                <!-- Number mode -->
+                <div class="fj-slam-num fj-slam-left" :class="{
+                  winner: slamPhase === 'resolved' && ourJustice > enemyJustice,
+                  loser: slamPhase === 'resolved' && ourJustice < enemyJustice,
+                  tied: slamPhase === 'resolved' && ourJustice === enemyJustice,
+                }">{{ ourJustice }}</div>
+                <div class="fj-slam-vs" :class="{ visible: slamPhase === 'impact' || slamPhase === 'resolved' }">
+                  <span v-if="slamPhase === 'impact'" class="fj-slam-spark">⚖</span>
+                  <span v-else>vs</span>
                 </div>
-                <div v-if="enemyJusticeLayout.back" class="fj-slam-row fj-slam-back">
-                  <div v-for="b in enemyJusticeLayout.back" :key="'eb'+b" class="fj-block fj-block-enemy"></div>
-                </div>
-                <div class="fj-slam-row">
-                  <div v-for="b in enemyJusticeLayout.front" :key="'ef'+b" class="fj-block fj-block-enemy"></div>
-                </div>
-              </div>
+                <div class="fj-slam-num fj-slam-right" :class="{
+                  winner: slamPhase === 'resolved' && enemyJustice > ourJustice,
+                  loser: slamPhase === 'resolved' && enemyJustice < ourJustice,
+                  tied: slamPhase === 'resolved' && ourJustice === enemyJustice,
+                }">{{ enemyJustice }}</div>
+              </template>
             </div>
 
             <template v-if="fight.usedRandomRoll">
@@ -1462,7 +1494,14 @@ function getDisplayCharName(orig: string, u: string): string {
   75% { transform: translateX(-1px); }
 }
 
-/* Block towers */
+/* Numbers (justiceUseBlocks = false) */
+.fj-slam-num { font-size: 16px; font-weight: 900; font-family: var(--font-mono); color: var(--text-muted); min-width: 24px; text-align: center; transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1.2); }
+.fj-slam-num.winner { font-size: 20px; color: var(--accent-purple); text-shadow: 0 0 8px rgba(139, 92, 246, 0.5); transform: scale(1.1); }
+.fj-slam-num.winner.fj-slam-right { color: var(--accent-red); text-shadow: 0 0 8px rgba(239, 128, 128, 0.5); }
+.fj-slam-num.loser { font-size: 11px; color: var(--text-dim); opacity: 0.35; transform: scale(0.7); }
+.fj-slam-num.tied { color: var(--accent-orange); animation: fj-tied-tremble 0.3s ease-in-out infinite; }
+
+/* Block towers (justiceUseBlocks = true) */
 .fj-slam-tower { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 24px; transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1.2); }
 .fj-slam-row { display: flex; gap: 2px; }
 /* Pyramid depth rows */

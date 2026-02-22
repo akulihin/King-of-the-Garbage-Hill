@@ -147,6 +147,7 @@ public class StartGameLogic : IServiceSingleton
                 if (character.Tier == 4 && account.IsBot()) range *= 3;
                 if (character.Tier < 4 && account.IsBot()) continue;
                 if (character.Passive.Any(x => x.PassiveName == "Top Laner")) range = (int)(range * topLaner);
+                if (character.Name == "Таинственный Суппорт" && team == 0) range /= 5;
                 var temp = totalPool +
                     Convert.ToInt32(range * account.CharacterChance.Find(x => x.CharacterName == character.Name)
                         .Multiplier) - 1;

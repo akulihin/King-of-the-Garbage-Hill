@@ -292,6 +292,10 @@ public class WebGameService
         if (player == null) return (false, "Player not in this game");
         if (!CanAct(player)) return (false, "Cannot act right now");
 
+        // Kira round 1: forced random attack — no manual choice allowed
+        if (game.RoundNo == 1 && player.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти"))
+            return (false, "Первый ход — нападение рандомно");
+
         // Use the existing HandleAttack with botChoice parameter
         // We temporarily flag the player so the method reads botChoice instead of button data
         var wasAutoMove = player.Status.IsAutoMove;

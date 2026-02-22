@@ -214,6 +214,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             }
 
 
+        // Cat icon — visible to all when Котики cat is sitting on a player
+        if (player2.Passives.KotikiCatType != "")
+            customString += "🐱";
+
         // Protection indicators — visible to all players
         if (player2.Passives.GoblinZiggurat.IsInZiggurat)
             customString += "🛡️";
@@ -221,6 +225,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (game.RoundNo == 10 && player2.GameCharacter.Passive.Any(
             x => x.PassiveName == "Стримснайпят и банят и банят и банят"))
             customString += "🚫";
+
+        // Pawn icon for Johan pawns
+        if (player2.Passives.IsJohanPawn)
+            customString += "♟️";
+
+        // Dead pawn skull
+        if (player2.Passives.MonsterPawnDead)
+            customString += "💀";
 
         return customString + " ";
     }
@@ -293,6 +305,24 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     {
                         var pop = me.Passives.GoblinPopulation;
                         customString += $" 👺{pop.TotalGoblins} (⚔️{pop.Warriors} 🧙{pop.Hobs} ⛏️{pop.Workers})";
+                    }
+                    break;
+
+                case "Кошачья засада":
+                    if (other.GetPlayerId() == me.GetPlayerId())
+                    {
+                        var ambushLb = me.Passives.KotikiAmbush;
+                        var stormLb = me.Passives.KotikiStorm;
+                        customString += $" 🐱 Провокаций: {stormLb.TauntedPlayers.Count}/5";
+                        if (ambushLb.MinkaOnPlayer != Guid.Empty)
+                            customString += " | Минька на враге";
+                        if (ambushLb.StormOnPlayer != Guid.Empty)
+                            customString += " | Штормяк на враге";
+                    }
+                    // Show cat on enemy to the enemy
+                    if (other.GetPlayerId() != me.GetPlayerId() && other.Passives.KotikiCatOwnerId == me.GetPlayerId())
+                    {
+                        customString += $" 🐱{other.Passives.KotikiCatType}";
                     }
                     break;
 
@@ -587,6 +617,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                             customString += " **💰**";
                         else if (other.GameCharacter.Passive.Any(x => x.PassiveName == "Сомнительная тактика"))
                             customString += " 💰";
+
+                        if (game.RoundNo == 10 && other.Passives.SellerTacticBonusEarned > 0)
+                            customString += $" 💸{other.Passives.SellerTacticBonusEarned}";
                     }
                     break;
 
@@ -611,6 +644,15 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     if (other.GetPlayerId() == me.GetPlayerId()) break;
                     if (me.Passives.SupportPremade.MarkedPlayerId == other.GetPlayerId())
                         customString += " 🤝";
+                    break;
+
+                case "Монстр":
+                    // Show pawn count to Monster owner
+                    if (other.GetPlayerId() == me.GetPlayerId())
+                    {
+                        var pawnCount = game.PlayersList.Count(x => x.Passives.IsJohanPawn && x.Passives.JohanPawnOwnerId == me.GetPlayerId());
+                        if (pawnCount > 0) customString += $" ♟️{pawnCount}";
+                    }
                     break;
             }
 

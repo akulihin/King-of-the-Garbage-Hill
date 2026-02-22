@@ -9,8 +9,12 @@ export type AppRouteNames =
 
 export const routes: RouteRecordRaw[] = [
   {
-    name: 'lobby',
     path: '/',
+    redirect: '/games',
+  },
+  {
+    name: 'lobby',
+    path: '/games',
     component: () => import('./pages/Lobby.vue'),
   },
   {

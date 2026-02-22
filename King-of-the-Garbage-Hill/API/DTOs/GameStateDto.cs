@@ -499,6 +499,12 @@ public class PassiveAbilityStatesDto
     public SellerMarkStateDto SellerMark { get; set; }
     public DopaStateDto Dopa { get; set; }
     public GoblinSwarmStateDto GoblinSwarm { get; set; }
+    public KotikiStateDto Kotiki { get; set; }
+    /// <summary>Shown on any player who has a Котики cat sitting on them.</summary>
+    public KotikiCatOnMeDto KotikiCatOnMe { get; set; }
+    public MonsterStateDto Monster { get; set; }
+    /// <summary>Shown on any player who is a Johan pawn.</summary>
+    public MonsterPawnOnMeDto MonsterPawnOnMe { get; set; }
 }
 
 public class BulkStateDto
@@ -604,6 +610,7 @@ public class SellerStateDto
 public class SellerMarkStateDto
 {
     public int RoundsRemaining { get; set; }
+    public decimal Debt { get; set; }
 }
 
 public class DopaStateDto
@@ -626,6 +633,36 @@ public class GoblinSwarmStateDto
     public List<int> ZigguratPositions { get; set; }
     public bool IsInZiggurat { get; set; }
     public bool FestivalUsed { get; set; }
+}
+
+public class KotikiStateDto
+{
+    public int TauntedCount { get; set; }
+    public int TauntedMax { get; set; }
+    public string MinkaOnPlayerName { get; set; }
+    public string StormOnPlayerName { get; set; }
+    public int MinkaCooldown { get; set; }
+    public int StormCooldown { get; set; }
+    public int MinkaRoundsOnEnemy { get; set; }
+}
+
+public class KotikiCatOnMeDto
+{
+    public string CatType { get; set; }         // "Минька" or "Штормяк"
+    public string CatOwnerName { get; set; }    // Name of the Котики player
+    public int RoundsDeployed { get; set; }     // How many rounds the cat has been here
+}
+
+// ── Монстр без имени DTOs ────────────────────────────────────────────
+
+public class MonsterStateDto
+{
+    public int PawnCount { get; set; }
+}
+
+public class MonsterPawnOnMeDto
+{
+    public string PawnOwnerName { get; set; }
 }
 
 // ── Blackjack DTOs ────────────────────────────────────────────────────

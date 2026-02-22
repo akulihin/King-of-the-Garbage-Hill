@@ -13,11 +13,20 @@ import RoundTimer from 'src/components/RoundTimer.vue'
 import Blackjack21 from 'src/components/Blackjack21.vue'
 import {
   playAttackSelection,
+  playAnyMoveTurn10PlusLayer,
+  isLateGameCharacter,
   playJusticeResetSound,
   playJusticeUpSound,
   setSoundContext,
   getMasterVolume,
   setMasterVolume,
+  playRickGameStartTheme,
+  stopRickGameStartTheme,
+  playPortalGunCharged,
+  stopPortalGunCharged,
+  playPortalGunUse,
+  playKiraArrest,
+  playSaitamaGameWinTheme,
 } from 'src/services/sound'
 
 const props = defineProps<{ gameId: string }>()
@@ -52,7 +61,12 @@ function onReplayEnded() {
 }
 
 function onAttack(place: number) {
-  void playAttackSelection(store.myPlayer?.character.name)
+  const roundNo = store.gameState?.roundNo ?? 0
+  const charName = store.myPlayer?.character.name
+  void playAttackSelection(charName, roundNo)
+  if (roundNo >= 10) {
+    playAnyMoveTurn10PlusLayer(charName ? isLateGameCharacter(charName) : false)
+  }
   void store.attack(place)
 }
 
@@ -72,9 +86,70 @@ onMounted(async () => {
 
 onUnmounted(() => {
   setSoundContext('menu')
+  stopRickGameStartTheme()
+  stopPortalGunCharged()
   clearPrevLogTimer()
   if (store.isConnected && gameIdNum.value) {
     store.leaveGame(gameIdNum.value)
+  }
+})
+
+// ── Character passive sound watchers ──────────────────────────────────
+
+// Rick: game start theme — play when Rick joins, stop on first action
+const rickThemePlaying = ref(false)
+watch(() => store.myPlayer?.character.name, (name) => {
+  if (name === 'Рик' && !rickThemePlaying.value && (store.gameState?.roundNo ?? 0) <= 1) {
+    rickThemePlaying.value = true
+    playRickGameStartTheme()
+  }
+})
+watch(() => store.myPlayer?.status.isReady, (ready) => {
+  if (ready && rickThemePlaying.value) {
+    rickThemePlaying.value = false
+    stopRickGameStartTheme()
+  }
+})
+
+// Rick: portal gun — loop charged theme while charges > 0
+const prevPortalCharges = ref<number | null>(null)
+watch(() => store.myPortalGun, (pg) => {
+  if (!pg || !pg.invented) {
+    if (prevPortalCharges.value !== null && prevPortalCharges.value > 0) {
+      stopPortalGunCharged()
+    }
+    prevPortalCharges.value = null
+    return
+  }
+  const prev = prevPortalCharges.value
+  if (pg.charges > 0 && (prev === null || prev === 0)) {
+    playPortalGunCharged()
+  } else if (pg.charges === 0 && prev !== null && prev > 0) {
+    stopPortalGunCharged()
+    playPortalGunUse()
+  }
+  prevPortalCharges.value = pg.charges
+}, { deep: true })
+
+// Kira: arrest sound
+watch(() => store.myPlayer?.deathNote?.isArrested, (arrested, prevArrested) => {
+  if (arrested && !prevArrested) {
+    playKiraArrest()
+  }
+})
+
+// Game finish: character win themes (play for all players)
+watch(() => store.gameState?.isFinished, (finished, prevFinished) => {
+  if (finished && !prevFinished && store.gameState) {
+    // Saitama game win theme
+    const hasSaitama = store.gameState.players.some(p => p.character.name === 'Сайтама')
+    if (hasSaitama) playSaitamaGameWinTheme()
+
+    // Rick portal gun charged theme on Rick game win (plays for everyone)
+    const rickWinner = store.gameState.players.find(p => p.character.name === 'Рик')
+    if (rickWinner && rickWinner.status.place === 1) {
+      playPortalGunCharged()
+    }
   }
 })
 

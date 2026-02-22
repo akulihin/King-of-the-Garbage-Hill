@@ -6,7 +6,7 @@ public class GoblinSwarm
 {
     public class GoblinPopulationClass
     {
-        public int TotalGoblins { get; set; } = 15;
+        public int TotalGoblins { get; set; } = 20;
 
         // Rates (every Nth goblin is this type) - modified by level-up upgrades
         public int HobRate { get; set; } = 15;      // default every 15th
@@ -34,6 +34,7 @@ public class GoblinSwarm
     {
         public List<int> BuiltPositions { get; set; } = new();       // Leaderboard places with ziggurats
         public List<string> LearnedPassives { get; set; } = new();   // Passive names learned
+        public bool WantsToBuild { get; set; } = false;               // Block was used this round — build pending
         public bool IsInZiggurat { get; set; } = false;              // Currently on a ziggurat position
         public int ZigguratStayRoundsLeft { get; set; } = 0;        // Rounds of position lock remaining
     }

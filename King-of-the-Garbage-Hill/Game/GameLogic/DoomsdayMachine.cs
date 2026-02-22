@@ -115,6 +115,7 @@ public class DoomsdayMachine : IServiceSingleton
             }
             //end OneFight Mechanics
 
+            player.Status.MoralGainedThisFight = 0;
             player.Status.IsWonThisCalculation = Guid.Empty;
             player.Status.IsLostThisCalculation = Guid.Empty;
             player.Status.IsFighting = Guid.Empty;
@@ -282,7 +283,11 @@ public class DoomsdayMachine : IServiceSingleton
                 //fight Reset
                 await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
                 ResetFight(game, player);
-                continue;
+
+                // Allow forced attacks (e.g. Котики Штормяк taunt) even when blocking/skipping
+                if (player.Status.WhoToAttackThisTurn.Count == 0)
+                    continue;
+                // else fall through to process forced fights
             }
 
             foreach (var playerIamAttacking in player.Status.WhoToAttackThisTurn
@@ -571,6 +576,9 @@ public class DoomsdayMachine : IServiceSingleton
                 //CheckIfWin to remove Justice
                 if (pointsWined >= 1)
                 {
+                    // Минька: winner never deals harm — skip quality damage and moral loss on opponent
+                    var isHarmless = player.GameCharacter.Passive.Any(x => x.PassiveName == "Минька");
+
                     var point = 1;
                     //сильный
                     if (player.GameCharacter.GetSkillClass() == "Сила")
@@ -609,9 +617,12 @@ public class DoomsdayMachine : IServiceSingleton
                             var atkMoralBefore = player.GameCharacter.GetMoral();
                             var defMoralBefore = playerIamAttacking.GameCharacter.GetMoral();
                             player.GameCharacter.AddMoral(moral, "Победа", isFightMoral:true);
-                            playerIamAttacking.GameCharacter.AddMoral(moral * -1, "Поражение", isFightMoral: true);
+                            if (!isHarmless)
+                                playerIamAttacking.GameCharacter.AddMoral(moral * -1, "Поражение", isFightMoral: true);
                             attackerMoralActual = player.GameCharacter.GetMoral() - atkMoralBefore;
                             defenderMoralActual = playerIamAttacking.GameCharacter.GetMoral() - defMoralBefore;
+                            player.Status.MoralGainedThisFight = attackerMoralActual;
+                            playerIamAttacking.Status.MoralGainedThisFight = defenderMoralActual;
 
                             player.Status.AddFightingData($"moral: {moral} ({player.Status.GetPlaceAtLeaderBoard()} - {playerIamAttacking.Status.GetPlaceAtLeaderBoard()})");
                             playerIamAttacking.Status.AddFightingData($"moral: {moral * -1} ({player.Status.GetPlaceAtLeaderBoard()} - {playerIamAttacking.Status.GetPlaceAtLeaderBoard()})");
@@ -638,7 +649,7 @@ public class DoomsdayMachine : IServiceSingleton
                     resistPsycheBefore = playerIamAttacking.GameCharacter.GetPsycheQualityResistInt();
                     dropsBefore = playerIamAttacking.GameCharacter.GetStrengthQualityDropTimes();
 
-                    if (placeDiff <= range)
+                    if (placeDiff <= range && !isHarmless)
                     {
                         playerIamAttacking.GameCharacter.LowerQualityResist(playerIamAttacking, game, player);
                         qualityDamageApplied = true;
@@ -690,6 +701,8 @@ public class DoomsdayMachine : IServiceSingleton
                             playerIamAttacking.GameCharacter.AddMoral(moral * -1, "Победа", isFightMoral: true);
                             attackerMoralActual = player.GameCharacter.GetMoral() - atkMoralBefore;
                             defenderMoralActual = playerIamAttacking.GameCharacter.GetMoral() - defMoralBefore;
+                            player.Status.MoralGainedThisFight = attackerMoralActual;
+                            playerIamAttacking.Status.MoralGainedThisFight = defenderMoralActual;
 
                             player.Status.AddFightingData($"moral: {moral} ({player.Status.GetPlaceAtLeaderBoard()} - {playerIamAttacking.Status.GetPlaceAtLeaderBoard()})");
                             playerIamAttacking.Status.AddFightingData($"moral: {moral * -1} ({player.Status.GetPlaceAtLeaderBoard()} - {playerIamAttacking.Status.GetPlaceAtLeaderBoard()})");
@@ -909,6 +922,13 @@ public class DoomsdayMachine : IServiceSingleton
 
             // Auto-ready players killed by Kira's Death Note so they don't block the game
             if (player.Passives.KiraDeathNoteDead)
+            {
+                player.Status.IsReady = true;
+                player.Status.IsBlock = true;
+            }
+
+            // Auto-ready players killed as Monster pawns
+            if (player.Passives.MonsterPawnDead)
             {
                 player.Status.IsReady = true;
                 player.Status.IsBlock = true;

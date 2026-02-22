@@ -1,9 +1,11 @@
 const SOUND_BASE_URL = 'https://r2.ozvmusic.com/kotgh/sound/'
 const DEFAULT_BUTTON_SKIP_ATTR = 'data-sfx-skip-default'
 const UTILITY_ATTR = 'data-sfx-utility'
+const FIGHT_TAB_ATTR = 'data-sfx-fight-tab'
+const PREDICT_CLICK_ATTR = 'data-sfx-predict'
 
 type StatKey = 'intelligence' | 'strength' | 'speed' | 'psyche'
-type PlaybackChannel = 'lvl-up-extra'
+type PlaybackChannel = 'lvl-up-extra' | 'rick-theme' | 'portal-gun'
 
 // ── Volume config types ──────────────────────────────────────────────
 
@@ -12,7 +14,8 @@ type VolumeGroup =
   | 'attack' | 'levelUp' | 'moralExchange'
   | 'combo' | 'comboHype' | 'justice'
   | 'points' | 'doomsDay' | 'doomsDayWinLose'
-  | 'doomsDayScrolls'
+  | 'doomsDayScrolls' | 'winSpecial' | 'characterPassives'
+  | 'specialAttack' | 'specialAbility' | 'winTheme' | 'characterTheme'
 
 interface VolumeConfig {
   masterVolume: number
@@ -26,7 +29,8 @@ const DEFAULT_VOLUME_CONFIG: VolumeConfig = {
     attack: 0.9, levelUp: 0.8, moralExchange: 0.8,
     combo: 0.85, comboHype: 0.9, justice: 0.85,
     points: 0.8, doomsDay: 0.9, doomsDayWinLose: 0.85,
-    doomsDayScrolls: 0.7,
+    doomsDayScrolls: 0.7, winSpecial: 0.8, characterPassives: 0.85,
+    specialAttack: 0.9, specialAbility: 0.85, winTheme: 0.8, characterTheme: 0.8,
   },
 }
 
@@ -122,6 +126,8 @@ const channelSources = new Map<PlaybackChannel, AudioBufferSourceNode>()
 const ALL_VOLUME_GROUPS: VolumeGroup[] = [
   'buttons', 'mainMenu', 'utility', 'attack', 'levelUp', 'moralExchange',
   'combo', 'comboHype', 'justice', 'points', 'doomsDay', 'doomsDayWinLose', 'doomsDayScrolls',
+  'winSpecial', 'characterPassives',
+  'specialAttack', 'specialAbility', 'winTheme', 'characterTheme',
 ]
 
 /** Apply group volume levels from cached config (or defaults) to gain nodes */
@@ -224,6 +230,7 @@ function checkKillSwitch(relativePath: string): boolean {
 interface PlayClipOptions {
   channel?: PlaybackChannel
   group?: VolumeGroup
+  loop?: boolean
 }
 
 async function playClip(relativePath: string, options?: PlayClipOptions): Promise<boolean> {
@@ -236,6 +243,7 @@ async function playClip(relativePath: string, options?: PlayClipOptions): Promis
 
     const source = ctx.createBufferSource()
     source.buffer = buffer
+    if (options?.loop) source.loop = true
     source.connect(options?.group ? (groupGains.get(options.group) ?? masterGain!) : masterGain!)
 
     if (options?.channel) {
@@ -309,7 +317,19 @@ export function installGlobalButtonSound(): () => void {
     if (button.disabled) return
     if (button.getAttribute(DEFAULT_BUTTON_SKIP_ATTR) === 'true') return
 
-    // Utility buttons (fight tabs, speed, thumbnails, predict)
+    // Fight tabs (Бои раунда, Все бои, Летопись) → everything_1.mp3
+    if (button.getAttribute(FIGHT_TAB_ATTR) === 'true') {
+      playFightTabSound()
+      return
+    }
+
+    // Prediction list click/select → click_prediction_list.mp3
+    if (button.getAttribute(PREDICT_CLICK_ATTR) === 'true') {
+      playPredictionClickSound()
+      return
+    }
+
+    // Utility buttons (speed, thumbnails, etc.)
     if (button.getAttribute(UTILITY_ATTR) === 'true') {
       playUtilitySound()
       return
@@ -328,9 +348,14 @@ export function installGlobalButtonSound(): () => void {
   return () => document.removeEventListener('click', onClick, true)
 }
 
-export async function playAttackSelection(characterName?: string): Promise<void> {
+export async function playAttackSelection(characterName?: string, roundNo?: number): Promise<void> {
   // Always play attack_click simultaneously
   void playClip('buttons/attack/attack_click.mp3', { group: 'attack' })
+
+  // Round 5+ layer: extra attack click layer
+  if (roundNo && roundNo >= 5) {
+    void playClip('buttons/attack/attack_click_layer_turn_5_plus.mp3', { group: 'attack' })
+  }
 
   if (characterName) {
     const normalized = sanitizeAttackCharacterName(characterName)
@@ -537,4 +562,128 @@ export function playDoomsDayScroll(): void {
 
 export function playDoomsDayNoFights(): void {
   void playClip('dooms_day/no_fights_this_turn.mp3', { group: 'doomsDay' })
+}
+
+// ── New sound functions (sound pack 3) ──────────────────────────────
+
+/** Fight tabs (Бои раунда, Все бои, Летопись) — uses everything_1 instead of utility */
+export function playFightTabSound(): void {
+  void playClip('buttons/everything_1.mp3', { group: 'buttons' })
+}
+
+/** Prediction list open/select */
+export function playPredictionClickSound(): void {
+  void playClip('buttons/click_prediction_list.mp3', { group: 'buttons' })
+}
+
+/** Extra layer for ANY turn-ending action (attack, block, skip) when round >= 10 */
+export function playAnyMoveTurn10PlusLayer(isLateGame?: boolean): void {
+  const path = isLateGame
+    ? 'buttons/attack/any_move_turn_10_plus_for_late_game_characters.mp3'
+    : 'buttons/attack/any_move_turn_10_plus.mp3'
+  void playClip(path, { group: 'attack' })
+}
+
+/** Stop a named playback channel */
+export function stopChannel(channel: PlaybackChannel): void {
+  try { channelSources.get(channel)?.stop() } catch { /* already stopped */ }
+  channelSources.delete(channel)
+}
+
+// ── Win special: character-specific victory sounds ────────────────────
+
+const WIN_SPECIAL_VARIANTS: Record<string, number> = {
+  lecrisp: 3,
+}
+
+/** Play character-specific victory sound alongside the normal win sound */
+export function playWinSpecial(characterName: string): void {
+  const key = characterName.toLowerCase().replace(/\s+/g, '')
+  const variants = WIN_SPECIAL_VARIANTS[key]
+  if (!variants) return
+  const idx = Math.floor(Math.random() * variants) + 1
+  void playClip(`dooms_day/win_special/win_special_${key}_${idx}.mp3`, { group: 'winSpecial' })
+}
+
+// ── Character passive sounds ──────────────────────────────────────────
+
+/** Rick: game start theme (loops, stops on first action) */
+export function playRickGameStartTheme(): void {
+  void playClip('character_passives/rick/game_start_theme.mp3', {
+    group: 'characterPassives', channel: 'rick-theme', loop: true,
+  })
+}
+
+export function stopRickGameStartTheme(): void {
+  stopChannel('rick-theme')
+}
+
+/** Rick: portal gun charged theme (loops while charge available) */
+export function playPortalGunCharged(): void {
+  void playClip('character_passives/rick/portal_gun/portal_gun_charged.mp3', {
+    group: 'characterPassives', channel: 'portal-gun', loop: true,
+  })
+}
+
+export function stopPortalGunCharged(): void {
+  stopChannel('portal-gun')
+}
+
+/** Rick: portal gun use (one-shot) */
+export function playPortalGunUse(): void {
+  void playClip('character_passives/rick/portal_gun/portal_gun_use.mp3', { group: 'characterPassives' })
+}
+
+/** Rick: giant beans — pool-based random with exclusion */
+export class GiantBeansSoundPool {
+  private spawnRemaining: number[] = []
+  private collectRemaining: number[] = []
+
+  constructor() { this.reset() }
+
+  reset(): void {
+    this.spawnRemaining = [1, 2, 3, 4]
+    this.collectRemaining = [1, 2, 3, 4, 5]
+  }
+
+  playSpawn(): void {
+    if (this.spawnRemaining.length === 0) this.spawnRemaining = [1, 2, 3, 4]
+    const idx = Math.floor(Math.random() * this.spawnRemaining.length)
+    const num = this.spawnRemaining.splice(idx, 1)[0]
+    void playClip(`character_passives/rick/giant_beans/giant_beans_on_spawn_${num}.mp3`, { group: 'characterPassives' })
+  }
+
+  playCollect(): void {
+    if (this.collectRemaining.length === 0) this.collectRemaining = [1, 2, 3, 4, 5]
+    const idx = Math.floor(Math.random() * this.collectRemaining.length)
+    const num = this.collectRemaining.splice(idx, 1)[0]
+    void playClip(`character_passives/rick/giant_beans/giant_beans_on_collecting_${num}.mp3`, { group: 'characterPassives' })
+  }
+}
+
+/** Rick: pickle rick sounds */
+export function playPickleRickOnUse(): void {
+  void playClip('character_passives/rick/pickle_rick/pickle_rick_on_use.mp3', { group: 'characterPassives' })
+}
+
+export function playPickleRickOnWin(): void {
+  const idx = Math.floor(Math.random() * 2) + 1
+  void playClip(`character_passives/rick/pickle_rick/pickle_rick_on_win_${idx}.mp3`, { group: 'characterPassives' })
+}
+
+/** Kira: arrest sound */
+export function playKiraArrest(): void {
+  void playClip('character_passives/kira/kira_arrest.mp3', { group: 'characterPassives' })
+}
+
+/** Saitama: game win theme (plays for all players) */
+export function playSaitamaGameWinTheme(): void {
+  void playClip('character_passives/saitama/saitama_game_win_theme.mp3', { group: 'characterPassives' })
+}
+
+/** Check if a character has the "Late Game" passive (for turn 10+ sound variant) */
+const LATE_GAME_CHARACTERS = new Set(['Сайтама'])
+
+export function isLateGameCharacter(characterName: string): boolean {
+  return LATE_GAME_CHARACTERS.has(characterName)
 }

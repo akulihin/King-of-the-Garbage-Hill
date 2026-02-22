@@ -818,9 +818,13 @@ function handleMoralToSkill() {
         <span class="pw-title seller-mark-title">ВПАРИЛИ</span>
       </div>
       <div class="pw-body">
-        <div class="pw-stat-pair">
+        <div v-if="passiveStates.sellerMark.roundsRemaining > 0" class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.sellerMark.roundsRemaining }}</span>
           <span class="pw-label">rounds left</span>
+        </div>
+        <div v-if="passiveStates.sellerMark.debt" class="pw-stat-pair">
+          <span class="pw-value">{{ passiveStates.sellerMark.debt }}</span>
+          <span class="pw-label">debt</span>
         </div>
       </div>
     </div>
@@ -862,6 +866,80 @@ function handleMoralToSkill() {
       <div class="goblin-footer" v-if="passiveStates.goblinSwarm.zigguratPositions.length || passiveStates.goblinSwarm.festivalUsed">
         <span v-for="pos in passiveStates.goblinSwarm.zigguratPositions" :key="pos" class="goblin-zig-badge">🏛️{{ pos }}</span>
         <span v-if="passiveStates.goblinSwarm.festivalUsed" class="goblin-festival-used">🎉 Праздник был</span>
+      </div>
+    </div>
+
+    <!-- 21. Котики (owner widget) -->
+    <div v-if="passiveStates?.kotiki" class="pc-passive-widget kotiki-widget">
+      <div class="pw-header">
+        <span class="pw-title kotiki-title">КОТИКИ</span>
+      </div>
+      <div class="kotiki-info">
+        <div class="kotiki-row">
+          <span class="kotiki-label">Провокации:</span>
+          <span class="kotiki-val">{{ passiveStates.kotiki.tauntedCount }}/{{ passiveStates.kotiki.tauntedMax }}</span>
+        </div>
+        <!-- Deployed cats -->
+        <div v-if="passiveStates.kotiki.minkaOnPlayerName" class="kotiki-cat-card kotiki-cat-minka">
+          <div class="kotiki-cat-header">
+            <span class="kotiki-cat-icon">🐱</span>
+            <span class="kotiki-cat-name">Минька</span>
+            <span class="kotiki-cat-rounds">{{ passiveStates.kotiki.minkaRoundsOnEnemy }} р.</span>
+          </div>
+          <div class="kotiki-cat-target">на {{ passiveStates.kotiki.minkaOnPlayerName }}</div>
+        </div>
+        <div v-if="passiveStates.kotiki.stormOnPlayerName" class="kotiki-cat-card kotiki-cat-storm">
+          <div class="kotiki-cat-header">
+            <span class="kotiki-cat-icon">🐱</span>
+            <span class="kotiki-cat-name">Штормяк</span>
+          </div>
+          <div class="kotiki-cat-target">на {{ passiveStates.kotiki.stormOnPlayerName }}</div>
+        </div>
+        <!-- Cooldowns -->
+        <div v-if="passiveStates.kotiki.minkaCooldown > 0" class="kotiki-row kotiki-cooldown">
+          <span class="kotiki-label">Минька откат:</span>
+          <span class="kotiki-val">{{ passiveStates.kotiki.minkaCooldown }}</span>
+        </div>
+        <div v-if="passiveStates.kotiki.stormCooldown > 0" class="kotiki-row kotiki-cooldown">
+          <span class="kotiki-label">Штормяк откат:</span>
+          <span class="kotiki-val">{{ passiveStates.kotiki.stormCooldown }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 21b. Котики cat-on-me (shown to ANY player who has a cat sitting on them) -->
+    <div v-if="passiveStates?.kotikiCatOnMe" class="pc-passive-widget kotiki-cat-on-me-widget">
+      <div class="kotiki-cat-card" :class="passiveStates.kotikiCatOnMe.catType === 'Минька' ? 'kotiki-cat-minka' : 'kotiki-cat-storm'">
+        <div class="kotiki-cat-header">
+          <span class="kotiki-cat-icon">🐱</span>
+          <span class="kotiki-cat-name">{{ passiveStates.kotikiCatOnMe.catType }}</span>
+          <span v-if="passiveStates.kotikiCatOnMe.roundsDeployed > 0" class="kotiki-cat-rounds">{{ passiveStates.kotikiCatOnMe.roundsDeployed }} р.</span>
+        </div>
+        <div class="kotiki-cat-target">от {{ passiveStates.kotikiCatOnMe.catOwnerName }}</div>
+      </div>
+    </div>
+
+    <!-- 22. Монстр без имени (owner widget) -->
+    <div v-if="passiveStates?.monster" class="pc-passive-widget monster-widget">
+      <div class="pw-header">
+        <span class="pw-title monster-title">МОНСТР</span>
+      </div>
+      <div class="monster-info">
+        <div class="monster-row">
+          <span class="monster-label">Пешки:</span>
+          <span class="monster-val">{{ passiveStates.monster.pawnCount }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 22b. Monster pawn indicator (shown to ANY player who is a Johan pawn) -->
+    <div v-if="passiveStates?.monsterPawnOnMe" class="pc-passive-widget monster-pawn-on-me-widget">
+      <div class="monster-pawn-card">
+        <div class="monster-pawn-header">
+          <span class="monster-pawn-icon">♟️</span>
+          <span class="monster-pawn-name">Пешка Йохана</span>
+        </div>
+        <div class="monster-pawn-target">от {{ passiveStates.monsterPawnOnMe.pawnOwnerName }}</div>
       </div>
     </div>
 
@@ -1997,6 +2075,85 @@ function handleMoralToSkill() {
 .goblin-lvlup-disabled .goblin-lvlup-name {
   color: rgba(76, 153, 0, 0.4);
 }
+
+/* 21. Котики */
+.kotiki-widget {
+  background: linear-gradient(135deg, rgba(255, 165, 0, 0.08), rgba(255, 165, 0, 0.02));
+  border-color: rgba(255, 165, 0, 0.25);
+}
+.kotiki-title { color: #ffa500; text-shadow: 0 0 4px rgba(255, 165, 0, 0.4); }
+.kotiki-info { display: flex; flex-direction: column; gap: 4px; padding: 2px 0; }
+.kotiki-row { display: flex; align-items: center; gap: 6px; }
+.kotiki-label { font-size: 10px; color: rgba(255, 255, 255, 0.5); min-width: 80px; }
+.kotiki-val { font-size: 11px; font-weight: 700; color: #ffa500; }
+.kotiki-cooldown { opacity: 0.6; }
+
+/* Cat deployment cards (shared between owner & target views) */
+.kotiki-cat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 165, 0, 0.3);
+}
+.kotiki-cat-minka {
+  background: linear-gradient(135deg, rgba(100, 200, 255, 0.12), rgba(100, 200, 255, 0.04));
+  border-color: rgba(100, 200, 255, 0.35);
+}
+.kotiki-cat-storm {
+  background: linear-gradient(135deg, rgba(255, 80, 80, 0.12), rgba(255, 80, 80, 0.04));
+  border-color: rgba(255, 80, 80, 0.35);
+}
+.kotiki-cat-header { display: flex; align-items: center; gap: 4px; }
+.kotiki-cat-icon { font-size: 14px; }
+.kotiki-cat-name { font-size: 11px; font-weight: 700; color: #ffa500; }
+.kotiki-cat-rounds {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-left: auto;
+}
+.kotiki-cat-target { font-size: 10px; color: rgba(255, 255, 255, 0.6); }
+
+/* 21b. Cat-on-me widget (non-Котики players) */
+.kotiki-cat-on-me-widget {
+  background: linear-gradient(135deg, rgba(255, 165, 0, 0.06), rgba(255, 165, 0, 0.01));
+  border-color: rgba(255, 165, 0, 0.2);
+}
+
+/* 22. Монстр без имени */
+.monster-widget {
+  background: linear-gradient(135deg, rgba(100, 0, 0, 0.12), rgba(100, 0, 0, 0.04));
+  border-color: rgba(180, 0, 0, 0.3);
+}
+.monster-title { color: #cc3333; text-shadow: 0 0 4px rgba(180, 0, 0, 0.5); }
+.monster-info { display: flex; flex-direction: column; gap: 4px; padding: 2px 0; }
+.monster-row { display: flex; align-items: center; gap: 6px; }
+.monster-label { font-size: 10px; color: rgba(255, 255, 255, 0.5); min-width: 50px; }
+.monster-val { font-size: 11px; font-weight: 700; color: #cc3333; }
+
+/* 22b. Monster pawn-on-me widget */
+.monster-pawn-on-me-widget {
+  background: linear-gradient(135deg, rgba(100, 0, 0, 0.08), rgba(100, 0, 0, 0.02));
+  border-color: rgba(180, 0, 0, 0.2);
+}
+.monster-pawn-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(180, 0, 0, 0.3);
+  background: linear-gradient(135deg, rgba(180, 0, 0, 0.1), rgba(180, 0, 0, 0.03));
+}
+.monster-pawn-header { display: flex; align-items: center; gap: 4px; }
+.monster-pawn-icon { font-size: 14px; }
+.monster-pawn-name { font-size: 11px; font-weight: 700; color: #cc3333; }
+.monster-pawn-target { font-size: 10px; color: rgba(255, 255, 255, 0.6); }
 </style>
 
 <!-- Tooltip needs to be unscoped to work with Teleport to body -->

@@ -75,6 +75,8 @@ public static class GameStateMapper
     public static GameStateDto ToDto(GameClass game, GamePlayerBridgeClass requestingPlayer = null)
     {
         var isAdmin = requestingPlayer != null && requestingPlayer.PlayerType == 2;
+        var isKira = requestingPlayer?.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти") ?? false;
+        var kiraBlind = isKira && !isAdmin && !game.IsFinished;
 
         var dto = new GameStateDto
         {
@@ -87,8 +89,8 @@ public static class GameStateMapper
             IsFinished = game.IsFinished,
             IsAramPickPhase = game.IsAramPickPhase,
             IsKratosEvent = game.IsKratosEvent,
-            GlobalLogs = isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game),
-            AllGlobalLogs = isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game),
+            GlobalLogs = kiraBlind ? "" : (isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game)),
+            AllGlobalLogs = kiraBlind ? "" : (isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game)),
             MyPlayerId = requestingPlayer?.GetPlayerId(),
             MyPlayerType = requestingPlayer?.PlayerType ?? 0,
             PreferWeb = requestingPlayer?.PreferWeb ?? false,
@@ -98,12 +100,13 @@ public static class GameStateMapper
 
         // Map structured fight log for web animation (scoped: only own fights get full details)
         var myUsername = requestingPlayer?.DiscordUsername;
-        dto.FightLog = game.WebFightLog
-            // Hidden fights are invisible to non-admin players who aren't a participant
-            .Where(f => !f.HiddenFromNonAdmin || isAdmin
-                        || (myUsername != null && (f.AttackerName == myUsername || f.DefenderName == myUsername)))
-            .Select(f => ScopeFightEntry(f, myUsername, isAdmin))
-            .ToList();
+        dto.FightLog = kiraBlind
+            ? new List<FightEntryDto>()
+            : game.WebFightLog
+                .Where(f => !f.HiddenFromNonAdmin || isAdmin
+                            || (myUsername != null && (f.AttackerName == myUsername || f.DefenderName == myUsername)))
+                .Select(f => ScopeFightEntry(f, myUsername, isAdmin))
+                .ToList();
 
         var viewerIsBug = requestingPlayer != null
             && requestingPlayer.GameCharacter.Passive.Any(p => p.PassiveName == "Exploit");
@@ -111,7 +114,7 @@ public static class GameStateMapper
         foreach (var player in game.PlayersList)
         {
             var isMe = requestingPlayer != null && player.GetPlayerId() == requestingPlayer.GetPlayerId();
-            dto.Players.Add(MapPlayer(player, isMe, isAdmin, game.PlayersList, game, viewerIsBug));
+            dto.Players.Add(MapPlayer(player, isMe, isAdmin, game.PlayersList, game, viewerIsBug, kiraBlind));
         }
 
         foreach (var team in game.Teams)
@@ -132,7 +135,7 @@ public static class GameStateMapper
         return dto;
     }
 
-    private static PlayerDto MapPlayer(GamePlayerBridgeClass player, bool isMe, bool isAdmin, List<GamePlayerBridgeClass> allPlayers, GameClass game = null, bool viewerIsBug = false)
+    private static PlayerDto MapPlayer(GamePlayerBridgeClass player, bool isMe, bool isAdmin, List<GamePlayerBridgeClass> allPlayers, GameClass game = null, bool viewerIsBug = false, bool kiraBlind = false)
     {
         var hasDeathNote = player.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти");
 
@@ -147,7 +150,7 @@ public static class GameStateMapper
             KiraDeathNoteDead = player.Passives.KiraDeathNoteDead,
             IsKira = isMe && hasDeathNote,
             Character = MapCharacter(player.GameCharacter, isMe, isAdmin),
-            Status = MapStatus(player, isMe, isAdmin),
+            Status = MapStatus(player, isMe, isAdmin, kiraBlind, game?.RoundNo ?? 0),
         };
 
         // Predictions are private — only visible to the owning player
@@ -399,6 +402,25 @@ public static class GameStateMapper
                         };
                         anySet = true;
                         break;
+                    case "Кошачья засада":
+                        var kotikiAmbush = player.Passives.KotikiAmbush;
+                        var kotikiStorm = player.Passives.KotikiStorm;
+                        pas.Kotiki = new KotikiStateDto
+                        {
+                            TauntedCount = kotikiStorm.TauntedPlayers.Count,
+                            TauntedMax = game.PlayersList.Count - 1,
+                            MinkaOnPlayerName = kotikiAmbush.MinkaOnPlayer != Guid.Empty
+                                ? game.PlayersList.Find(x => x.GetPlayerId() == kotikiAmbush.MinkaOnPlayer)?.DiscordUsername ?? ""
+                                : "",
+                            StormOnPlayerName = kotikiAmbush.StormOnPlayer != Guid.Empty
+                                ? game.PlayersList.Find(x => x.GetPlayerId() == kotikiAmbush.StormOnPlayer)?.DiscordUsername ?? ""
+                                : "",
+                            MinkaCooldown = kotikiAmbush.MinkaCooldown,
+                            StormCooldown = kotikiAmbush.StormCooldown,
+                            MinkaRoundsOnEnemy = kotikiAmbush.MinkaRoundsOnEnemy,
+                        };
+                        anySet = true;
+                        break;
                     case "Впарить говна":
                         pas.Seller = new SellerStateDto
                         {
@@ -411,15 +433,54 @@ public static class GameStateMapper
                         };
                         anySet = true;
                         break;
+                    case "Монстр":
+                        pas.Monster = new MonsterStateDto
+                        {
+                            PawnCount = game.PlayersList.Count(x => x.Passives.IsJohanPawn && x.Passives.JohanPawnOwnerId == player.GetPlayerId()),
+                        };
+                        anySet = true;
+                        break;
                 }
             }
 
             // Show mark widget to marked players (not tied to a passive on their character)
-            if (player.Passives.SellerVparitGovnaRoundsLeft > 0)
+            if (player.Passives.SellerVparitGovnaRoundsLeft > 0 || player.Passives.SellerTacticBonusEarned > 0)
             {
                 pas.SellerMark = new SellerMarkStateDto
                 {
-                    RoundsRemaining = player.Passives.SellerVparitGovnaRoundsLeft
+                    RoundsRemaining = player.Passives.SellerVparitGovnaRoundsLeft,
+                    Debt = player.Passives.SellerTacticBonusEarned
+                };
+                anySet = true;
+            }
+
+            // Show cat widget to any player who has a Котики cat on them
+            if (player.Passives.KotikiCatType != "")
+            {
+                var catOwner = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.KotikiCatOwnerId);
+                var roundsDeployed = 0;
+                if (catOwner != null)
+                {
+                    var ownerAmbush = catOwner.Passives.KotikiAmbush;
+                    if (player.Passives.KotikiCatType == "Минька")
+                        roundsDeployed = ownerAmbush.MinkaRoundsOnEnemy;
+                }
+                pas.KotikiCatOnMe = new KotikiCatOnMeDto
+                {
+                    CatType = player.Passives.KotikiCatType,
+                    CatOwnerName = catOwner?.DiscordUsername ?? "",
+                    RoundsDeployed = roundsDeployed,
+                };
+                anySet = true;
+            }
+
+            // Show pawn widget to any player who is a Johan pawn
+            if (player.Passives.IsJohanPawn)
+            {
+                var pawnOwner = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.JohanPawnOwnerId);
+                pas.MonsterPawnOnMe = new MonsterPawnOnMeDto
+                {
+                    PawnOwnerName = pawnOwner?.DiscordUsername ?? "",
                 };
                 anySet = true;
             }
@@ -506,7 +567,7 @@ public static class GameStateMapper
         return dto;
     }
 
-    private static PlayerStatusDto MapStatus(GamePlayerBridgeClass player, bool isMe, bool isAdmin)
+    private static PlayerStatusDto MapStatus(GamePlayerBridgeClass player, bool isMe, bool isAdmin, bool kiraBlind = false, int roundNo = 0)
     {
         var status = player.Status;
         // Non-admin viewing an opponent: hide score (they only see place on leaderboard)
@@ -514,7 +575,7 @@ public static class GameStateMapper
 
         // Extract previous round logs from InGamePersonalLogsAll (split by "|||")
         var previousRoundLogs = "";
-        if (isMe)
+        if (isMe && !kiraBlind)
         {
             var splitLogs = status.InGamePersonalLogsAll.Split("|||");
             if (splitLogs.Length > 1 && splitLogs[^2].Length > 3)
@@ -526,7 +587,7 @@ public static class GameStateMapper
         var dto = new PlayerStatusDto
         {
             Score = canSeeScore ? status.GetScore() : -1,
-            Place = status.GetPlaceAtLeaderBoard(),
+            Place = kiraBlind && roundNo == 1 && !isMe ? 0 : status.GetPlaceAtLeaderBoard(),
             IsReady = status.IsReady,
             IsBlock = status.IsBlock,
             IsSkip = status.IsSkip,
@@ -535,9 +596,9 @@ public static class GameStateMapper
             ConfirmedSkip = status.ConfirmedSkip,
             LvlUpPoints = isMe ? status.LvlUpPoints : 0,
             MoveListPage = isMe ? status.MoveListPage : 1,
-            PersonalLogs = isMe ? status.GetInGamePersonalLogs() : "",
-            PreviousRoundLogs = previousRoundLogs,
-            AllPersonalLogs = isMe ? status.InGamePersonalLogsAll : "",
+            PersonalLogs = isMe && !kiraBlind ? status.GetInGamePersonalLogs() : "",
+            PreviousRoundLogs = !kiraBlind ? previousRoundLogs : "",
+            AllPersonalLogs = isMe && !kiraBlind ? status.InGamePersonalLogsAll : "",
             ScoreSource = isMe ? status.ScoreSource : "",
             DirectMessages = isMe ? new List<string>(player.WebMessages) : new List<string>(),
             MediaMessages = isMe ? player.WebMediaMessages.Select(m => new MediaMessageDto

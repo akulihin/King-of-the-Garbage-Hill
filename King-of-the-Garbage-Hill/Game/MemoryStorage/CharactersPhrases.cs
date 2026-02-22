@@ -148,6 +148,8 @@ public class CharactersUniquePhrase
     public PhraseClass RickPortalGunInvented;
     public PhraseClass RickPortalGunFired;
     public PhraseClass RickMostWanted;
+    public PhraseClass RickMostWantedProc;
+    public PhraseClass RickMostWantedPortalFollow;
 
     public PhraseClass KiraDeathNoteKill;
     public PhraseClass KiraDeathNoteFailed;
@@ -205,6 +207,7 @@ public class CharactersUniquePhrase
     public PhraseClass SupportStakes;
     public PhraseClass SupportProtect;
     public PhraseClass SupportPremadeMark;
+    public PhraseClass SupportPremadeAntiSkip;
 
     // Misc new phrases
     public PhraseClass HighEloLoss;
@@ -225,6 +228,20 @@ public class CharactersUniquePhrase
     public PhraseClass GoblinZigguratBuild;
     public PhraseClass GoblinZigguratNoMoney;
     public PhraseClass GoblinZigguratWorkerDeath;
+
+    // Котики
+    public PhraseClass KotikiMinka;
+    public PhraseClass KotikiStormTaunt;
+    public PhraseClass KotikiStormWin;
+    public PhraseClass KotikiCatDeploy;
+    public PhraseClass KotikiCatReturn;
+    public PhraseClass KotikiLevelUp;
+
+    // Монстр без имени
+    public PhraseClass MonsterDeath;
+    public PhraseClass MonsterDrop;
+    public PhraseClass MonsterTwinSteal;
+    public PhraseClass MonsterApocalypse;
 
     //end
     public PhraseClass AutoMove;
@@ -372,6 +389,8 @@ public class CharactersUniquePhrase
         RickPortalGunInvented = new PhraseClass("Портальная пушка");
         RickPortalGunFired = new PhraseClass("Портальная пушка");
         RickMostWanted = new PhraseClass("Most wanted");
+        RickMostWantedProc = new PhraseClass("Most wanted");
+        RickMostWantedPortalFollow = new PhraseClass("Most wanted");
 
         KiraDeathNoteKill = new PhraseClass("Тетрадь смерти");
         KiraDeathNoteFailed = new PhraseClass("Тетрадь смерти");
@@ -387,6 +406,20 @@ public class CharactersUniquePhrase
         GoblinZigguratBuild = new PhraseClass("Гоблины тупые, но не идиоты");
         GoblinZigguratNoMoney = new PhraseClass("Гоблины тупые, но не идиоты");
         GoblinZigguratWorkerDeath = new PhraseClass("Гоблины тупые, но не идиоты");
+
+        // Котики
+        KotikiMinka = new PhraseClass("Минька");
+        KotikiStormTaunt = new PhraseClass("Штормяк");
+        KotikiStormWin = new PhraseClass("Штормяк");
+        KotikiCatDeploy = new PhraseClass("Кошачья засада");
+        KotikiCatReturn = new PhraseClass("Кошачья засада");
+        KotikiLevelUp = new PhraseClass("lvl-мяк");
+
+        // Монстр без имени
+        MonsterDeath = new PhraseClass("Монстр");
+        MonsterDrop = new PhraseClass("Монстр");
+        MonsterTwinSteal = new PhraseClass("Близнец");
+        MonsterApocalypse = new PhraseClass("Пейзаж конца света");
 
         //end
 
@@ -884,6 +917,7 @@ public class CharactersUniquePhrase
         RickGiantBeans.PassiveLogRus.Add("Вижу ингредиенты... Мне нужны эти бобы, Морти!");
         RickGiantBeans.PassiveLogRus.Add("Морти, иди сюда. Видишь эти бобы?");
         RickGiantBeans.PassiveLogRus.Add("Это не просто бобы, Морти. Это ГИГАНТСКИЕ бобы!");
+        RickGiantBeans.PassiveLogRus.Add("Теперь-то я вижу у кого эти бобы! Не зря прокачался! Да! Science beatch!!");
 
         RickGiantBeansDrink.PassiveLogRus.Add("*бурп* Это... это наука, Морти!");
         RickGiantBeansDrink.PassiveLogRus.Add("Еще один ингредиент собран. *бурп*");
@@ -896,20 +930,29 @@ public class CharactersUniquePhrase
         RickPickleWin.PassiveLogRus.Add("Огурчик Рик побеждает!");
         RickPickleWin.PassiveLogRus.Add("Ты только что проиграл огурцу!");
         RickPickleWin.PassiveLogRus.Add("Solenya... Огурчик мести!");
+        RickPickleWin.PassiveLogRus.Add("Ах, Морти, чувствую себя как огурчик!");
 
         RickPicklePenalty.PassiveLogRus.Add("Кто-нибудь... переверните огурец...");
         RickPicklePenalty.PassiveLogRus.Add("Ладно, может идея с огурцом была не лучшей...");
 
         RickPortalGunInvented.PassiveLogRus.Add("Портальная пушка изобретена!");
         RickPortalGunInvented.PassiveLogRus.Add("*щёлк* Теперь у меня есть портальная пушка!");
+        RickPortalGunInvented.PassiveLogRus.Add("Я потерял всё, прежде чем создал эту пушку...");
 
         RickPortalGunFired.PassiveLogRus.Add("*щёлк* Портал открыт!");
         RickPortalGunFired.PassiveLogRus.Add("И мы в деле! Портал!");
         RickPortalGunFired.PassiveLogRus.Add("Заходи в портал, Морти! Быстро!");
+        RickPortalGunFired.PassiveLogRus.Add("Я самый риканутый среди всех фальшивых Риков.");
 
         RickMostWanted.PassiveLogRus.Add("У Рика снова проблемы...");
         RickMostWanted.PassiveLogRus.Add("Рик привлекает слишком много внимания...");
         RickMostWanted.PassiveLogRus.Add("Галактическая федерация опять на хвосте!");
+
+        RickMostWantedProc.PassiveLogRus.Add("Да чего этим федералам надо от меня?!");
+        RickMostWantedProc.PassiveLogRus.Add("Вся вселенная гоняется за рецептом моего особого топлива...");
+        RickMostWantedProc.PassiveLogRus.Add("Боже! Может умнейший человек во вселенной просто спокойно провести время с внуком?!");
+
+        RickMostWantedPortalFollow.PassiveLogRus.Add("Jeez, вам настолько нечем заняться? Заведите себе хобби!");
 
         // -- Кира --
 
@@ -1151,6 +1194,11 @@ public class CharactersUniquePhrase
 
         SupportPremadeMark = new PhraseClass("Premade");
         SupportPremadeMark.PassiveLogRus.Add("Ты теперь мой напарник...");
+
+        SupportPremadeAntiSkip = new PhraseClass("Premade");
+        SupportPremadeAntiSkip.PassiveLogRus.Add("QSS!");
+        SupportPremadeAntiSkip.PassiveLogRus.Add("Cleance!");
+        SupportPremadeAntiSkip.PassiveLogRus.Add("BKB!");
         //end Таинственный Суппорт
 
         // Стая Гоблинов
@@ -1185,6 +1233,21 @@ public class CharactersUniquePhrase
         GoblinZigguratWorkerDeath.PassiveLogRus.Add("Трудяга погиб - мы построили Зиккурат, но какой ценой..?");
         GoblinZigguratWorkerDeath.PassiveLogRus.Add("Трудяга погиб - его хватил сердечный приступ, когда он увидел дворец на ютубе");
         //end Стая Гоблинов
+
+        // Монстр без имени
+        MonsterDeath.PassiveLogRus.Add("Монстр наблюдает...");
+        MonsterDeath.PassiveLogRus.Add("Ещё одна смерть. Монстр доволен.");
+        MonsterDeath.PassiveLogRus.Add("Люди умирают так легко...");
+
+        MonsterDrop.PassiveLogRus.Add("Кто-то упал. Монстр запомнил.");
+        MonsterDrop.PassiveLogRus.Add("Падение... Какое прекрасное зрелище.");
+
+        MonsterTwinSteal.PassiveLogRus.Add("Близнец забрал всё.");
+        MonsterTwinSteal.PassiveLogRus.Add("Ты думал, что можешь атаковать Монстра? Наивно.");
+        MonsterTwinSteal.PassiveLogRus.Add("Справедливость? У тебя её больше нет.");
+
+        MonsterApocalypse.PassiveLogRus.Add("Пейзаж конца света раскрылся.");
+        //end Монстр без имени
 
         //not in the game
 

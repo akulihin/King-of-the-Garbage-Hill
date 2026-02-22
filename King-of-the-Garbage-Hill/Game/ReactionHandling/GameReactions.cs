@@ -733,6 +733,17 @@ public sealed class GameReaction : IServiceSingleton
         }
         //end Стая Гоблинов
 
+        // Котики — lvl-мяк: level up gives only +1 Justice
+        if (player.GameCharacter.Name == "Котики")
+        {
+            player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(1);
+            player.Status.AddInGamePersonalLogs("lvl-мяк: Мяу~ (+1 Справедливость)\n");
+            game.Phrases.KotikiLevelUp.SendLog(player, false);
+            player.Status.LvlUpPoints--;
+            return;
+        }
+        //end Котики
+
         /*//Vampyr Позорный
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Vampyr Позорный"))
         {
