@@ -172,6 +172,8 @@ type Factor = {
   value: number
   highlight: 'good' | 'bad' | 'neutral'
   badge?: string
+  showValue?: boolean
+  tier?: number  // 0 = slight, 1 = medium, 2 = strong (non-admin only)
 }
 
 const round1Factors = computed<Factor[]>(() => {
@@ -193,11 +195,14 @@ const round1Factors = computed<Factor[]>(() => {
     const wsp = f.versatilitySpeed * (isFlipped.value ? -1 : 1)
     const ic = (val: number) => val > 0 ? '<span class="gi-ok">&#x2713;</span>' : val < 0 ? '<span class="gi-fail">&#x2717;</span>' : '<span class="gi-tie">&#x2015;</span>'
     const detail = `<span class="gi gi-int">INT</span>${ic(wi)} <span class="gi gi-str">STR</span>${ic(ws)} <span class="gi gi-spd">SPD</span>${ic(wsp)}`
+    const vTier = Math.abs(v) <= 3 ? 0 : Math.abs(v) <= 6 ? 1 : 2
     list.push({
       label: 'Versatility',
       detail,
       value: v,
       highlight: hl(v),
+      showValue: props.isAdmin,
+      tier: props.isAdmin ? undefined : vTier,
     })
   }
 
@@ -218,11 +223,14 @@ const round1Factors = computed<Factor[]>(() => {
     } else {
       detail = `${ci(theirClass)} <span class="dom-bad">Dominates</span> ${ci(ourClass)}`
     }
+    const nTier = Math.abs(v) <= 3 ? 0 : Math.abs(v) <= 6 ? 1 : 2
     list.push({
       label: 'Nemesis',
       detail,
       value: v,
       highlight: hl(v),
+      showValue: props.isAdmin,
+      tier: props.isAdmin ? undefined : nTier,
     })
   }
 
@@ -231,11 +239,16 @@ const round1Factors = computed<Factor[]>(() => {
     const v = f.scaleWeighingDelta * s
     const ourScale = isFlipped.value ? f.scaleTarget : f.scaleMe
     const theirScale = isFlipped.value ? f.scaleMe : f.scaleTarget
+    const scaleHint = factorHint(v, { good: ['Slight edge', 'Stronger', 'Dominant'], bad: ['Slight gap', 'Weaker', 'Overpowered'], even: 'Even' })
     list.push({
       label: 'INT + STR + SPD',
-      detail: `${ourScale.toFixed(1)} vs ${theirScale.toFixed(1)}`,
+      detail: props.isAdmin
+        ? `${scaleHint.text} <span class="admin-extra">(${ourScale.toFixed(1)} vs ${theirScale.toFixed(1)})</span>`
+        : scaleHint.text,
       value: v,
+      showValue: props.isAdmin,
       highlight: hl(v),
+      tier: scaleHint.tier,
     })
   }
 
@@ -244,38 +257,42 @@ const round1Factors = computed<Factor[]>(() => {
   // 4. Psyche
   if (f.psycheWeighingDelta !== 0) {
     const v = f.psycheWeighingDelta * s
+    const psyHint = factorHint(v, { good: ['Composed', 'Composed', 'Composed'], bad: ['Shaken', 'Shaken', 'Shaken'], even: 'Neutral' })
     list.push({
       label: 'PSY difference',
-      detail: v > 0 ? '<span class="gi gi-psy">PSY</span> <span class="gi-ok">&#x2713;</span>' : '<span class="gi gi-psy">PSY</span> <span class="gi-fail">&#x2717;</span>',
+      detail: psyHint.text,
       value: v,
       highlight: hl(v),
+      showValue: props.isAdmin,
+      tier: psyHint.tier,
     })
   }
 
   // 5. Skill difference
   if (f.skillWeighingDelta !== 0) {
     const v = f.skillWeighingDelta * s - f.nemesisMultiplierSkillDifference;
-    const ourMult = isFlipped.value ? f.skillMultiplierTarget : f.skillMultiplierMe
-    const theirMult = isFlipped.value ? f.skillMultiplierMe : f.skillMultiplierTarget
+    const skillHint = factorHint(v, { good: ['Slight edge', 'Skilled', 'Mastery'], bad: ['Slight gap', 'Outskilled', 'Outclassed'], even: 'Even' })
     list.push({
       label: 'Skill',
-      //detail: `Skill x${ourMult} vs x${theirMult}`,
-      detail: `x${ourMult} Multiplier`,
+      detail: skillHint.text,
       value: v,
+      showValue: props.isAdmin,
       highlight: hl(v),
+      tier: skillHint.tier,
     })
   }
 
   // 6. Justice in weighing
   if (f.justiceWeighingDelta !== 0) {
     const v = f.justiceWeighingDelta * s
-    const ourJ = isFlipped.value ? f.justiceTarget : f.justiceMe
-    const theirJ = isFlipped.value ? f.justiceMe : f.justiceTarget
+    const justiceHint = factorHint(v, { good: ['Slight favor', 'Favored', 'Destined'], bad: ['Slight disfavor', 'Unfavored', 'Cursed'], even: 'Balanced' })
     list.push({
       label: 'Justice',
-      detail: `${ourJ} vs ${theirJ}`,
+      detail: justiceHint.text,
       value: v,
       highlight: hl(v),
+      showValue: props.isAdmin,
+      tier: justiceHint.tier,
     })
   }
 
@@ -297,16 +314,25 @@ const totalSteps = computed(() => {
 // Target value (jumps per step)
 const targetWeighingValue = computed(() => {
   if (!fight.value || isSpecialOutcome.value) return 0
-  if (skippedToEnd.value || !isMyFight.value) return fight.value.weighingMachine * sign.value
+  const factors = round1Factors.value
+  const useRaw = props.isAdmin
+  const addFactor = (v: number) => useRaw ? v : clampFactor(v)
 
-  const factorCount = round1Factors.value.length
+  if (skippedToEnd.value || !isMyFight.value) {
+    if (useRaw) return fight.value.weighingMachine * sign.value
+    return factors.reduce((sum, f) => sum + clampFactor(f.value), 0)
+  }
+
+  const factorCount = factors.length
   let accumulated = 0
   const factorStepsShown = Math.min(currentStep.value, factorCount)
   for (let i = 0; i < factorStepsShown; i++) {
-    accumulated += round1Factors.value[i].value // already sign-adjusted
+    accumulated += addFactor(factors[i].value)
   }
   if (currentStep.value > factorCount) {
-    accumulated = fight.value.weighingMachine * sign.value
+    accumulated = useRaw
+      ? fight.value.weighingMachine * sign.value
+      : factors.reduce((sum, f) => sum + clampFactor(f.value), 0)
   }
   return accumulated
 })
@@ -333,10 +359,18 @@ watch(targetWeighingValue, (target: number) => {
   weighingAnimFrame = requestAnimationFrame(tick)
 }, { immediate: true })
 
+// Per-fight random nudge (0–15%) that pushes the bar further in the winning direction
+const barRandomNudge = ref(Math.random() * 15)
+watch(currentFightIdx, () => { barRandomNudge.value = Math.random() * 15 })
+
 const barPosition = computed(() => {
   const val = animatedWeighingValue.value
   const clamped = Math.max(-50, Math.min(50, val))
-  return 50 + (clamped / 50) * 50
+  const base = 50 + (clamped / 50) * 50
+  // Nudge away from center in the winning direction
+  if (val > 0) return Math.min(100, base + barRandomNudge.value)
+  if (val < 0) return Math.max(0, base - barRandomNudge.value)
+  return base
 })
 
 // ── Visibility helpers ──────────────────────────────────────────────
@@ -612,6 +646,20 @@ const enemyJustice = computed(() => {
   if (!fight.value) return 0
   return isFlipped.value ? fight.value.justiceMe : fight.value.justiceTarget
 })
+// Justice block layout: { front, back } — back row only at justice 10 (secret easter egg)
+function justiceBlockLayout(j: number): { front: number; back: number } {
+  if (j >= 10) return { front: 3, back: 2, top: 1 }
+  return { front: j <= 2 ? 1 : j <= 4 ? 2 : 3, back: 0, top: 0 }
+}
+const ourJusticeLayout = computed(() => justiceBlockLayout(ourJustice.value))
+const enemyJusticeLayout = computed(() => justiceBlockLayout(enemyJustice.value))
+
+// Our skill multiplier (for badge row)
+const ourSkillMultiplier = computed(() => {
+  if (!fight.value) return 1
+  return isFlipped.value ? fight.value.skillMultiplierTarget : fight.value.skillMultiplierMe
+})
+
 // Justice: Number Slam animation
 const slamPhase = ref<'idle' | 'rush' | 'impact' | 'resolved'>('idle')
 let slamTimers: ReturnType<typeof setTimeout>[] = []
@@ -698,6 +746,26 @@ function formatLetopis(text: string): string {
 function fmtVal(v: number): string {
   return (v > 0 ? '+' : '') + v.toFixed(1)
 }
+/** Softcap a factor value for non-admin bar accumulation */
+const FACTOR_CAP = 8
+function clampFactor(v: number): number {
+  return Math.sign(v) * Math.min(Math.abs(v), FACTOR_CAP)
+}
+/** Arrow + intensity word for non-admin factor rows; arrow count scales with tier */
+function factorHint(v: number, tiers: { good: [string, string, string]; bad: [string, string, string]; even: string }, prefix?: string): { text: string; tier: number } {
+  const abs = Math.abs(v)
+  const tier = abs <= 3 ? 0 : abs <= 6 ? 1 : 2
+  let word: string, cls: string, baseArrow: string
+  if (v > 0) { word = tiers.good[tier]; cls = 'gi-ok'; baseArrow = '▲' }
+  else if (v < 0) { word = tiers.bad[tier]; cls = 'gi-fail'; baseArrow = '▼' }
+  else { word = tiers.even; cls = 'gi-tie'; baseArrow = '◆' }
+  const arrows = baseArrow.repeat(tier + 1)
+  const pre = prefix ? prefix + ' ' : ''
+  return {
+    text: `${pre}<span class="${cls}">${arrows} ${word}</span>`,
+    tier,
+  }
+}
 /** Format a percentage delta with sign and 2 decimal places */
 function fmtPct(v: number): string {
   return (v > 0 ? '+' : '') + v.toFixed(2) + '%'
@@ -715,6 +783,20 @@ const r3OurChance = computed(() => {
   const attackerChance = f.randomForPoint / f.maxRandomNumber * 100
   return s > 0 ? attackerChance : 100 - attackerChance
 })
+
+/** Displayed threshold — clamped for extreme values */
+const r3DisplayChance = computed(() => {
+  const raw = r3OurChance.value
+  if (raw > 100) return 100  // Visual cap; overflow effect handles the rest
+  if (raw < 0) return 1 + Math.abs(fight.value?.randomNumber ?? 0) % 4  // Deterministic 1-4%
+  return raw
+})
+
+/** Whether our chance overflows (>100%) — triggers break-through effect */
+const r3Overflow = computed(() => r3OurChance.value > 100)
+
+/** Whether our chance is negative — triggers minimal-chance display */
+const r3Underflow = computed(() => r3OurChance.value < 0)
 
 /** Round 3: Pure Justice contribution to our chance (percentage points) */
 const r3JusticePct = computed(() => {
@@ -839,7 +921,13 @@ watch(showR3Roll, (show: boolean) => {
   if (show) {
     r3NeedlePos.value = 0
     r3NeedleSettled.value = false
-    nextTick(() => { setTimeout(() => animateNeedleBounce(r3RollPct.value), 50) })
+    let target = r3RollPct.value
+    // When chance < 0%, we hardcoded a fake threshold at 1-4%.
+    // Ensure needle doesn't land inside the tiny fake zone.
+    if (r3Underflow.value && target <= r3DisplayChance.value) {
+      target = r3DisplayChance.value + 1
+    }
+    nextTick(() => { setTimeout(() => animateNeedleBounce(target), 50) })
   } else {
     r3NeedlePos.value = 0
     r3NeedleSettled.value = false
@@ -1104,46 +1192,63 @@ function getDisplayCharName(orig: string, u: string): string {
             <div class="fa-bar-container fa-bar-compact">
               <div class="fa-bar-track">
                 <div class="fa-bar-fill" :style="{ width: barPosition + '%' }" :class="{ 'bar-attacker': animatedWeighingValue > 0, 'bar-defender': animatedWeighingValue < 0, 'bar-even': animatedWeighingValue === 0 }">
-                  <span class="fa-bar-value">{{ fmtVal(animatedWeighingValue) }}</span>
+                  <span class="fa-bar-value" v-if="isAdmin">{{ fmtVal(animatedWeighingValue) }}</span>
                 </div>
               </div>
             </div>
             <div class="fa-factors">
               <div v-for="(fac, idx) in round1Factors" :key="'r1-'+idx"
-                class="fa-factor" :class="[fac.highlight, { visible: showR1Factor(idx) }]">
+                class="fa-factor" :class="[fac.highlight, { visible: showR1Factor(idx) }, fac.tier != null ? 'tier-' + fac.tier : '']">
                 <span class="fa-factor-label">{{ fac.label }}</span>
                 <span class="fa-factor-detail" v-html="fac.detail"></span>
-                <span class="fa-factor-value" v-if="fac.value !== 0">{{ fmtVal(fac.value) }}</span>
+                <span class="fa-factor-value" v-if="fac.value !== 0 && fac.showValue !== false">{{ fmtVal(fac.value) }}</span>
               </div>
 
-              <!-- TooGood / TooStronk badges (flipped labels when we are defender) -->
-              <div v-if="(fight.isTooGoodMe || fight.isTooGoodEnemy) || (fight.isTooStronkMe || fight.isTooStronkEnemy)" class="fa-badge-row" :class="{ visible: showR1Result }">
+              <!-- TooGood / TooStronk / Skill Multiplier badges -->
+              <div v-if="(fight.isTooGoodMe || fight.isTooGoodEnemy) || (fight.isTooStronkMe || fight.isTooStronkEnemy) || ourSkillMultiplier > 1" class="fa-badge-row" :class="{ visible: showR1Result }">
                 <span v-if="fight.isTooGoodMe || fight.isTooGoodEnemy" class="fa-badge badge-toogood">TOO GOOD: {{ (fight.isTooGoodMe ? !isFlipped : isFlipped) ? 'МЫ' : 'ВРАГ' }}</span>
                 <span v-if="fight.isTooStronkMe || fight.isTooStronkEnemy" class="fa-badge badge-toostronk">TOO STRONK: {{ (fight.isTooStronkMe ? !isFlipped : isFlipped) ? 'МЫ' : 'ВРАГ' }}</span>
+                <span v-if="ourSkillMultiplier > 1" class="fa-badge badge-skill">SKILL MULTIPLIER x{{ ourSkillMultiplier }}</span>
               </div>
             </div>
 
             <div v-if="showR2" class="fj-slam-wrap" :class="{ 'fj-slam-impact': slamPhase === 'impact' }">
-              <!-- Our number -->
-              <div class="fj-slam-num fj-slam-left" :class="{
+              <!-- Our blocks -->
+              <div class="fj-slam-tower fj-slam-left" :class="{
                 winner: slamPhase === 'resolved' && ourJustice > enemyJustice,
                 loser: slamPhase === 'resolved' && ourJustice < enemyJustice,
                 tied: slamPhase === 'resolved' && ourJustice === enemyJustice,
               }">
-                {{ ourJustice }}
+                <div v-if="ourJusticeLayout.top" class="fj-slam-row fj-slam-top">
+                  <div v-for="b in ourJusticeLayout.top" :key="'ot'+b" class="fj-block fj-block-ours"></div>
+                </div>
+                <div v-if="ourJusticeLayout.back" class="fj-slam-row fj-slam-back">
+                  <div v-for="b in ourJusticeLayout.back" :key="'ob'+b" class="fj-block fj-block-ours"></div>
+                </div>
+                <div class="fj-slam-row">
+                  <div v-for="b in ourJusticeLayout.front" :key="'of'+b" class="fj-block fj-block-ours"></div>
+                </div>
               </div>
               <!-- VS / spark -->
               <div class="fj-slam-vs" :class="{ visible: slamPhase === 'impact' || slamPhase === 'resolved' }">
                 <span v-if="slamPhase === 'impact'" class="fj-slam-spark">⚖</span>
                 <span v-else>vs</span>
               </div>
-              <!-- Enemy number -->
-              <div class="fj-slam-num fj-slam-right" :class="{
+              <!-- Enemy blocks -->
+              <div class="fj-slam-tower fj-slam-right" :class="{
                 winner: slamPhase === 'resolved' && enemyJustice > ourJustice,
                 loser: slamPhase === 'resolved' && enemyJustice < ourJustice,
                 tied: slamPhase === 'resolved' && ourJustice === enemyJustice,
               }">
-                {{ enemyJustice }}
+                <div v-if="enemyJusticeLayout.top" class="fj-slam-row fj-slam-top">
+                  <div v-for="b in enemyJusticeLayout.top" :key="'et'+b" class="fj-block fj-block-enemy"></div>
+                </div>
+                <div v-if="enemyJusticeLayout.back" class="fj-slam-row fj-slam-back">
+                  <div v-for="b in enemyJusticeLayout.back" :key="'eb'+b" class="fj-block fj-block-enemy"></div>
+                </div>
+                <div class="fj-slam-row">
+                  <div v-for="b in enemyJusticeLayout.front" :key="'ef'+b" class="fj-block fj-block-enemy"></div>
+                </div>
               </div>
             </div>
 
@@ -1199,14 +1304,16 @@ function getDisplayCharName(orig: string, u: string): string {
                   </span>
                 </div>  -->
                 <!-- Roll result: animated bar -->
-                <div v-if="showR3Roll" class="fa-roll-bar-wrap">
-                  <div class="fa-roll-bar-track">
+                <div v-if="showR3Roll" class="fa-roll-bar-wrap" :class="{ 'roll-overflow': r3Overflow }">
+                  <div class="fa-roll-bar-track" :class="{ 'track-overflow': r3Overflow }">
                     <!-- Threshold marker at our win chance -->
-                    <div class="fa-roll-threshold" :style="{ left: r3OurChance + '%' }">
-                      <span class="fa-roll-threshold-label">{{ r3OurChance.toFixed(0) }}%</span>
+                    <div class="fa-roll-threshold" :style="{ left: r3DisplayChance + '%' }">
+                      <span class="fa-roll-threshold-label">{{ r3Overflow ? '>100' : r3DisplayChance.toFixed(0) }}%</span>
                     </div>
                     <!-- Win zone (0 to threshold) -->
-                    <div class="fa-roll-zone-win" :style="{ width: r3OurChance + '%' }"></div>
+                    <div class="fa-roll-zone-win"
+                         :style="{ width: r3DisplayChance + '%' }"
+                         :class="{ 'zone-overflow': r3Overflow }"></div>
                     <!-- Roll needle animates in -->
                     <div class="fa-roll-needle" :style="{ left: r3NeedlePos + '%' }" :class="[r3WeWon ? 'needle-win' : 'needle-lose', { 'needle-settled': r3NeedleSettled }]">
                       <span class="fa-roll-needle-val">{{ r3RollPct.toFixed(1) }}%</span>
@@ -1355,29 +1462,41 @@ function getDisplayCharName(orig: string, u: string): string {
   75% { transform: translateX(-1px); }
 }
 
-/* Numbers */
-.fj-slam-num { font-size: 16px; font-weight: 900; font-family: var(--font-mono); color: var(--text-muted); min-width: 24px; text-align: center; transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1.2); }
+/* Block towers */
+.fj-slam-tower { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 24px; transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1.2); }
+.fj-slam-row { display: flex; gap: 2px; }
+/* Pyramid depth rows */
+.fj-slam-top { opacity: 0.35; transform: scale(0.6); margin-bottom: -3px; }
+.fj-slam-back { opacity: 0.5; transform: scale(0.8); margin-bottom: -2px; }
+.fj-block { width: 16px; height: 10px; border-radius: 2px; border: 1.5px solid var(--border-subtle); background: var(--bg-secondary); transition: all 0.4s ease; }
+.fj-block-ours { border-color: rgba(139, 92, 246, 0.4); background: rgba(139, 92, 246, 0.12); }
+.fj-block-enemy { border-color: rgba(239, 128, 128, 0.4); background: rgba(239, 128, 128, 0.12); }
 
 /* Fly-in from sides */
 .fj-slam-left { animation: fj-fly-left 0.4s ease-out both; }
 .fj-slam-right { animation: fj-fly-right 0.4s ease-out both; }
 
 @keyframes fj-fly-left {
-  0% { transform: translateX(-20px) scale(0.6); opacity: 0; }
-  70% { transform: translateX(2px) scale(1.05); opacity: 1; }
+  0% { transform: translateX(-24px) scale(0.5); opacity: 0; }
+  70% { transform: translateX(3px) scale(1.05); opacity: 1; }
   100% { transform: translateX(0) scale(1); }
 }
 @keyframes fj-fly-right {
-  0% { transform: translateX(20px) scale(0.6); opacity: 0; }
-  70% { transform: translateX(-2px) scale(1.05); opacity: 1; }
+  0% { transform: translateX(24px) scale(0.5); opacity: 0; }
+  70% { transform: translateX(-3px) scale(1.05); opacity: 1; }
   100% { transform: translateX(0) scale(1); }
 }
 
-/* Resolved states */
-.fj-slam-num.winner { font-size: 20px; color: var(--accent-purple); text-shadow: 0 0 8px rgba(139, 92, 246, 0.5); transform: scale(1.1); }
-.fj-slam-num.winner.fj-slam-right { color: var(--accent-red); text-shadow: 0 0 8px rgba(239, 128, 128, 0.5); }
-.fj-slam-num.loser { font-size: 11px; color: var(--text-dim); opacity: 0.35; transform: scale(0.7); }
-.fj-slam-num.tied { color: var(--accent-orange); animation: fj-tied-tremble 0.3s ease-in-out infinite; }
+/* Resolved states — winner glows, loser crumbles */
+.fj-slam-tower.winner .fj-block { transform: scale(1.15); }
+.fj-slam-tower.winner .fj-block-ours { background: rgba(139, 92, 246, 0.35); border-color: rgba(139, 92, 246, 0.7); box-shadow: 0 0 8px rgba(139, 92, 246, 0.4); }
+.fj-slam-tower.winner .fj-block-enemy { background: rgba(239, 128, 128, 0.35); border-color: rgba(239, 128, 128, 0.7); box-shadow: 0 0 8px rgba(239, 128, 128, 0.4); }
+.fj-slam-tower.winner .fj-slam-top { opacity: 0.65; }
+.fj-slam-tower.winner .fj-slam-back { opacity: 0.8; }
+.fj-slam-tower.loser { transform: scale(0.6); opacity: 0.3; }
+.fj-slam-tower.loser .fj-block { border-style: dashed; }
+.fj-slam-tower.tied .fj-block { border-color: rgba(230, 148, 74, 0.6); background: rgba(230, 148, 74, 0.15); }
+.fj-slam-tower.tied { animation: fj-tied-tremble 0.3s ease-in-out infinite; }
 
 @keyframes fj-tied-tremble {
   0%, 100% { transform: translateX(0); }
@@ -1475,8 +1594,30 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-factor.justice { border-left: 2px solid var(--accent-purple); }
 .fa-factor.random { border-left: 2px solid var(--accent-blue); }
 .fa-factor-label { font-weight: 700; color: var(--text-primary); min-width: 100px; font-size: 10px; }
-.fa-factor-detail { color: var(--text-secondary); flex: 1; font-size: 10px; }
-.fa-factor-value { font-weight: 800; color: var(--accent-gold); margin-left: auto; font-family: var(--font-mono); font-size: 11px; }
+.fa-factor-detail { color: var(--text-secondary); flex: 1; font-size: 10px; display: flex; align-items: center; gap: 3px; flex-wrap: wrap; }
+.fa-factor-value { font-weight: 800; color: var(--accent-gold); margin-left: auto; font-family: var(--font-mono); font-size: 11px; flex-shrink: 0; }
+.fa-factor-detail :deep(.admin-extra) { color: var(--text-dim); font-size: 9px; font-family: var(--font-mono); }
+
+/* ── Tier intensity (non-admin factor rows) ── */
+/* Border thickness scales with tier */
+.fa-factor.good.tier-0 { border-left-width: 2px; }
+.fa-factor.good.tier-1 { border-left-width: 3px; }
+.fa-factor.good.tier-2 { border-left-width: 4px; background: rgba(63, 167, 61, 0.06); }
+.fa-factor.bad.tier-0 { border-left-width: 2px; }
+.fa-factor.bad.tier-1 { border-left-width: 3px; }
+.fa-factor.bad.tier-2 { border-left-width: 4px; background: rgba(239, 128, 128, 0.06); }
+/* Tier 0: muted text */
+.fa-factor.tier-0 :deep(.gi-ok),
+.fa-factor.tier-0 :deep(.gi-fail) { opacity: 0.65; }
+/* Tier 1: normal (default styling) */
+/* Tier 2: bold glow + pulse */
+.fa-factor.tier-2 :deep(.gi-ok) { font-weight: 900; text-shadow: 0 0 6px rgba(63, 167, 61, 0.5); }
+.fa-factor.tier-2 :deep(.gi-fail) { font-weight: 900; text-shadow: 0 0 6px rgba(239, 128, 128, 0.5); }
+.fa-factor.tier-2.visible { animation: tier2-pulse 1.8s ease-in-out 1; }
+@keyframes tier2-pulse {
+  0%, 100% { filter: brightness(1); }
+  40% { filter: brightness(1.25); }
+}
 .fa-factor-value.good-val { color: var(--accent-green); }
 .fa-factor-value.bad-val { color: var(--accent-red); }
 .neutral-val { color: var(--text-muted); }
@@ -1487,6 +1628,7 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-badge { font-size: 9px; font-weight: 900; padding: 2px 10px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
 .badge-toogood { background: rgba(63, 167, 61, 0.1); color: var(--accent-green); border: 1px solid rgba(63, 167, 61, 0.3); }
 .badge-toostronk { background: rgba(180, 150, 255, 0.1); color: var(--accent-purple); border: 1px solid rgba(180, 150, 255, 0.3); }
+.badge-skill { background: rgba(233, 219, 61, 0.1); color: var(--accent-gold); border: 1px solid rgba(233, 219, 61, 0.3); }
 
 /* ── R3 details ── */
 .fa-r3-details { display: flex; flex-direction: column; gap: 2px; }
@@ -1508,6 +1650,28 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-roll-needle-val { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); font-size: 8px; font-weight: 800; white-space: nowrap; font-family: var(--font-mono); }
 .needle-win .fa-roll-needle-val { color: var(--accent-green); }
 .needle-lose .fa-roll-needle-val { color: var(--accent-red); }
+/* Overflow: chance > 100% — zone fills track and bursts through right edge */
+.fa-roll-bar-track.track-overflow {
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+}
+.fa-roll-zone-win.zone-overflow {
+  width: 100% !important;
+  border-radius: 6px 0 0 6px;
+  box-shadow: 4px 0 12px rgba(63, 167, 61, 0.4), 8px 0 24px rgba(63, 167, 61, 0.2);
+}
+.fa-roll-bar-wrap.roll-overflow { position: relative; }
+.fa-roll-bar-wrap.roll-overflow::after {
+  content: '';
+  position: absolute;
+  right: -8px;
+  top: 3px;
+  bottom: 0;
+  width: 16px;
+  background: linear-gradient(90deg, rgba(63, 167, 61, 0.3), transparent);
+  border-radius: 0 6px 6px 0;
+  pointer-events: none;
+}
 .fa-roll-bar-labels { display: flex; justify-content: space-between; font-size: 7px; color: var(--text-dim); margin-top: 14px; font-family: var(--font-mono); }
 
 /* ── Enemy summary ── */
