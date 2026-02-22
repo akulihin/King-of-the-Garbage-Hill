@@ -4,14 +4,14 @@
     "buttons": 0.7,
     "mainMenu": 0.7,
     "utility": 0.6,
-    "attack": 0.9,
+    "attack": 0.75,
     "levelUp": 0.8,
     "moralExchange": 0.65,
     "combo": 0.85,
     "comboHype": 0.9,
     "justice": 0.95,
     "points": 0.8,
-    "doomsDay": 0.9,
+    "doomsDay": 0.75,
     "doomsDayWinLose": 0.85,
     "doomsDayScrolls": 0.65
   }
