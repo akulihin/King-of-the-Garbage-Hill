@@ -977,6 +977,116 @@ function handleMoralToSkill() {
       </div>
     </div>
 
+    <!-- 23. Подсчет (Tolya Count) -->
+    <div v-if="passiveStates?.tolyaCount" class="pc-passive-widget tolya-widget">
+      <div class="pw-header">
+        <span class="pw-title tolya-title">ПОДСЧЕТ</span>
+        <span class="pw-status" :class="passiveStates.tolyaCount.isReady ? 'tolya-ready' : 'tolya-cooldown'">
+          {{ passiveStates.tolyaCount.isReady ? 'READY' : passiveStates.tolyaCount.cooldown }}
+        </span>
+      </div>
+    </div>
+
+    <!-- 24. Импакт (LeCrisp) -->
+    <div v-if="passiveStates?.impact" class="pc-passive-widget impact-widget">
+      <div class="pw-header">
+        <span class="pw-title impact-title">ИМПАКТ</span>
+        <span class="pw-status impact-streak">{{ passiveStates.impact.streak }}</span>
+      </div>
+    </div>
+
+    <!-- 25. Darksci (Luck) -->
+    <div v-if="passiveStates?.darksci" class="pc-passive-widget darksci-widget">
+      <div class="pw-header">
+        <span class="pw-title darksci-title">{{ passiveStates.darksci.typeChosen ? (passiveStates.darksci.isStableType ? 'СТАБИЛЬНЫЙ' : 'РИСКОВЫЙ') : 'ПОВЕЗЛО' }}</span>
+        <span class="pw-status darksci-left">{{ passiveStates.darksci.uniqueEnemiesLeft }}</span>
+      </div>
+    </div>
+
+    <!-- 26. DeepList -->
+    <div v-if="passiveStates?.deepList" class="pc-passive-widget deeplist-widget">
+      <div class="pw-header">
+        <span class="pw-title deeplist-title">DEEPLIST</span>
+      </div>
+      <div class="pw-body">
+        <div class="pw-stat-pair">
+          <span class="pw-value">{{ passiveStates.deepList.knownCount }}</span>
+          <span class="pw-label">known</span>
+        </div>
+        <div class="pw-stat-pair">
+          <span class="pw-value">{{ passiveStates.deepList.mockeryTriggered }}</span>
+          <span class="pw-label">mocked</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 27. Краборак (Shell) -->
+    <div v-if="passiveStates?.craboRack" class="pc-passive-widget craborack-widget">
+      <div class="pw-header">
+        <span class="pw-title craborack-title">ПАНЦИРЬ</span>
+        <span class="pw-status craborack-count">{{ 5 - passiveStates.craboRack.shellsUsed }}/5</span>
+      </div>
+    </div>
+
+    <!-- 28. Napoleon (Alliance) -->
+    <div v-if="passiveStates?.napoleon" class="pc-passive-widget napoleon-widget">
+      <div class="pw-header">
+        <span class="pw-title napoleon-title">НАПОЛЕОН</span>
+      </div>
+      <div class="pw-body">
+        <div class="pw-stat-pair" v-if="passiveStates.napoleon.allyName">
+          <span class="pw-value">{{ passiveStates.napoleon.allyName }}</span>
+          <span class="pw-label">ally</span>
+        </div>
+        <div class="pw-stat-pair">
+          <span class="pw-value">{{ passiveStates.napoleon.treatyCount }}</span>
+          <span class="pw-label">treaties</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 29. Суппорт (Carry) -->
+    <div v-if="passiveStates?.support" class="pc-passive-widget support-widget">
+      <div class="pw-header">
+        <span class="pw-title support-title">PREMADE</span>
+        <span class="pw-status support-carry">{{ passiveStates.support.carryName || '—' }}</span>
+      </div>
+    </div>
+
+    <!-- 30. Toxic Mate (Cancer owner) -->
+    <div v-if="passiveStates?.toxicMate" class="pc-passive-widget toxic-widget">
+      <div class="pw-header">
+        <span class="pw-title toxic-title">CANCER</span>
+        <span class="pw-status" :class="passiveStates.toxicMate.cancerActive ? 'toxic-active' : 'toxic-inactive'">
+          {{ passiveStates.toxicMate.cancerActive ? 'ACTIVE' : 'DORMANT' }}
+        </span>
+      </div>
+      <div class="pw-body" v-if="passiveStates.toxicMate.cancerActive">
+        <div class="pw-stat-pair">
+          <span class="pw-value">{{ passiveStates.toxicMate.transferCount }}</span>
+          <span class="pw-label">transfers</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 30b. Toxic Mate cancer on me (per-player) -->
+    <div v-if="passiveStates?.toxicMateCancerOnMe" class="pc-passive-widget toxic-on-me-widget">
+      <div class="pw-header">
+        <span class="pw-title toxic-on-me-title">INFECTED</span>
+        <span class="pw-status toxic-on-me-source">{{ passiveStates.toxicMateCancerOnMe.sourceName }}</span>
+      </div>
+    </div>
+
+    <!-- 31. Молодой Глеб (Tea) -->
+    <div v-if="passiveStates?.yongGleb" class="pc-passive-widget yonggleb-widget">
+      <div class="pw-header">
+        <span class="pw-title yonggleb-title">СПОКОЙСТВИЕ</span>
+        <span class="pw-status" :class="passiveStates.yongGleb.teaReady ? 'yonggleb-ready' : 'yonggleb-cooldown'">
+          {{ passiveStates.yongGleb.teaReady ? 'READY' : passiveStates.yongGleb.teaCooldown }}
+        </span>
+      </div>
+    </div>
+
     <!-- Score + animated delta -->
     <div class="pc-score-row">
       <span class="pc-score">{{ player.status.score }}</span>
@@ -2188,6 +2298,93 @@ function handleMoralToSkill() {
 .monster-pawn-icon { font-size: 14px; }
 .monster-pawn-name { font-size: 11px; font-weight: 700; color: #cc3333; }
 .monster-pawn-target { font-size: 10px; color: rgba(255, 255, 255, 0.6); }
+
+/* 23. Подсчет (Tolya Count) */
+.tolya-widget {
+  background: linear-gradient(135deg, rgba(138, 92, 200, 0.08), rgba(138, 92, 200, 0.02));
+  border-color: rgba(138, 92, 200, 0.25);
+}
+.tolya-title { color: #a06cd5; text-shadow: 0 0 4px rgba(138, 92, 200, 0.4); }
+.tolya-ready { color: #a06cd5; text-shadow: 0 0 6px rgba(138, 92, 200, 0.5); animation: tsukuyomi-pulse 1.5s ease-in-out infinite; }
+.tolya-cooldown { color: rgba(138, 92, 200, 0.5); }
+
+/* 24. Импакт (LeCrisp) */
+.impact-widget {
+  background: linear-gradient(135deg, rgba(76, 153, 76, 0.08), rgba(76, 153, 76, 0.02));
+  border-color: rgba(76, 153, 76, 0.25);
+}
+.impact-title { color: #4c994c; text-shadow: 0 0 4px rgba(76, 153, 76, 0.4); }
+.impact-streak { color: #4c994c; font-weight: 900; text-shadow: 0 0 6px rgba(76, 153, 76, 0.5); }
+
+/* 25. Darksci (Luck) */
+.darksci-widget {
+  background: linear-gradient(135deg, rgba(0, 200, 150, 0.08), rgba(0, 200, 150, 0.02));
+  border-color: rgba(0, 200, 150, 0.25);
+}
+.darksci-title { color: #00c896; text-shadow: 0 0 4px rgba(0, 200, 150, 0.4); }
+.darksci-left { color: #00c896; font-weight: 900; }
+
+/* 26. DeepList */
+.deeplist-widget {
+  background: linear-gradient(135deg, rgba(100, 180, 255, 0.08), rgba(100, 180, 255, 0.02));
+  border-color: rgba(100, 180, 255, 0.25);
+}
+.deeplist-title { color: #64b4ff; text-shadow: 0 0 4px rgba(100, 180, 255, 0.4); }
+.deeplist-widget .pw-value { color: #64b4ff; text-shadow: 0 0 8px rgba(100, 180, 255, 0.4); }
+.deeplist-widget .pw-label { color: rgba(100, 180, 255, 0.5); }
+
+/* 27. Краборак (Shell) */
+.craborack-widget {
+  background: linear-gradient(135deg, rgba(210, 105, 30, 0.08), rgba(210, 105, 30, 0.02));
+  border-color: rgba(210, 105, 30, 0.25);
+}
+.craborack-title { color: #d2691e; text-shadow: 0 0 4px rgba(210, 105, 30, 0.4); }
+.craborack-count { color: #d2691e; font-weight: 900; }
+
+/* 28. Napoleon (Alliance) */
+.napoleon-widget {
+  background: linear-gradient(135deg, rgba(200, 170, 50, 0.08), rgba(200, 170, 50, 0.02));
+  border-color: rgba(200, 170, 50, 0.25);
+}
+.napoleon-title { color: #c8aa32; text-shadow: 0 0 4px rgba(200, 170, 50, 0.4); }
+.napoleon-widget .pw-value { color: #c8aa32; text-shadow: 0 0 8px rgba(200, 170, 50, 0.4); }
+.napoleon-widget .pw-label { color: rgba(200, 170, 50, 0.5); }
+
+/* 29. Суппорт (Carry) */
+.support-widget {
+  background: linear-gradient(135deg, rgba(100, 200, 220, 0.08), rgba(100, 200, 220, 0.02));
+  border-color: rgba(100, 200, 220, 0.25);
+}
+.support-title { color: #64c8dc; text-shadow: 0 0 4px rgba(100, 200, 220, 0.4); }
+.support-carry { color: #64c8dc; }
+
+/* 30. Toxic Mate (Cancer) */
+.toxic-widget {
+  background: linear-gradient(135deg, rgba(0, 255, 0, 0.06), rgba(0, 255, 0, 0.01));
+  border-color: rgba(0, 255, 0, 0.2);
+}
+.toxic-title { color: #00dd00; text-shadow: 0 0 4px rgba(0, 255, 0, 0.4); }
+.toxic-widget .pw-value { color: #00dd00; text-shadow: 0 0 8px rgba(0, 255, 0, 0.4); }
+.toxic-widget .pw-label { color: rgba(0, 255, 0, 0.5); }
+.toxic-active { color: #00dd00; text-shadow: 0 0 6px rgba(0, 255, 0, 0.5); animation: tsukuyomi-pulse 1.5s ease-in-out infinite; }
+.toxic-inactive { color: rgba(0, 255, 0, 0.4); }
+
+/* 30b. Toxic Mate cancer on me */
+.toxic-on-me-widget {
+  background: linear-gradient(135deg, rgba(0, 255, 0, 0.06), rgba(0, 255, 0, 0.01));
+  border-color: rgba(0, 255, 0, 0.2);
+}
+.toxic-on-me-title { color: #00dd00; text-shadow: 0 0 4px rgba(0, 255, 0, 0.4); }
+.toxic-on-me-source { color: rgba(0, 255, 0, 0.7); }
+
+/* 31. Молодой Глеб (Tea/Calm) */
+.yonggleb-widget {
+  background: linear-gradient(135deg, rgba(150, 210, 180, 0.08), rgba(150, 210, 180, 0.02));
+  border-color: rgba(150, 210, 180, 0.25);
+}
+.yonggleb-title { color: #96d2b4; text-shadow: 0 0 4px rgba(150, 210, 180, 0.4); }
+.yonggleb-ready { color: #96d2b4; text-shadow: 0 0 6px rgba(150, 210, 180, 0.5); animation: tsukuyomi-pulse 1.5s ease-in-out infinite; }
+.yonggleb-cooldown { color: rgba(150, 210, 180, 0.5); }
 </style>
 
 <!-- Tooltip needs to be unscoped to work with Teleport to body -->

@@ -456,6 +456,80 @@ public static class GameStateMapper
                         };
                         anySet = true;
                         break;
+                    case "Подсчет":
+                        pas.TolyaCount = new TolyaCountStateDto
+                        {
+                            IsReady = player.Passives.TolyaCount.IsReadyToUse,
+                            Cooldown = player.Passives.TolyaCount.Cooldown,
+                        };
+                        anySet = true;
+                        break;
+                    case "Импакт":
+                        pas.Impact = new ImpactStateDto
+                        {
+                            Streak = player.Passives.LeCrispImpact.ImpactTimes,
+                        };
+                        anySet = true;
+                        break;
+                    case "Повезло":
+                        pas.Darksci = new DarksciStateDto
+                        {
+                            IsStableType = player.Passives.DarksciTypeList.IsStableType,
+                            TypeChosen = player.Passives.DarksciTypeList.Triggered,
+                            UniqueEnemiesLeft = 5 - player.Passives.DarksciLuckyList.TouchedPlayers.Count,
+                        };
+                        anySet = true;
+                        break;
+                    case "Сомнительная тактика":
+                        pas.DeepList = new DeepListStateDto
+                        {
+                            KnownCount = player.Passives.DeepListSupermindKnown.KnownPlayers.Count,
+                            MockeryTriggered = player.Passives.DeepListMockeryList.WhoWonTimes.Count(x => x.Triggered),
+                        };
+                        anySet = true;
+                        break;
+                    case "Панцирь":
+                        pas.CraboRack = new CraboRackStateDto
+                        {
+                            ShellsUsed = player.Passives.CraboRackShell.FriendList.Count,
+                        };
+                        anySet = true;
+                        break;
+                    case "Вступить в союз":
+                        var ally = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.NapoleonAlliance.AllyId);
+                        pas.Napoleon = new NapoleonStateDto
+                        {
+                            AllyName = ally?.DiscordUsername ?? "",
+                            TreatyCount = player.Passives.NapoleonPeaceTreaty.TreatyEnemies.Count,
+                        };
+                        anySet = true;
+                        break;
+                    case "Premade":
+                        var carry = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.SupportPremade.MarkedPlayerId);
+                        pas.Support = new SupportStateDto
+                        {
+                            CarryName = carry?.DiscordUsername ?? "",
+                        };
+                        anySet = true;
+                        break;
+                    case "Get cancer":
+                        var cancerHolder = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.ToxicMateCancer.CurrentHolder);
+                        pas.ToxicMate = new ToxicMateStateDto
+                        {
+                            CancerActive = player.Passives.ToxicMateCancer.IsActive,
+                            TransferCount = player.Passives.ToxicMateCancer.TransferCount,
+                            CurrentHolderName = cancerHolder?.DiscordUsername ?? "",
+                        };
+                        anySet = true;
+                        break;
+                    case "Спокойствие":
+                        pas.YongGleb = new YongGlebStateDto
+                        {
+                            TeaReady = player.Passives.YongGlebTea.IsReadyToUse,
+                            TeaCooldown = player.Passives.YongGlebTea.Cooldown,
+                        };
+                        anySet = true;
+                        break;
                 }
             }
 
@@ -466,6 +540,17 @@ public static class GameStateMapper
                 {
                     RoundsRemaining = player.Passives.SellerVparitGovnaRoundsLeft,
                     Debt = player.Passives.SellerTacticBonusEarned
+                };
+                anySet = true;
+            }
+
+            // Show cancer widget to any player infected by Toxic Mate
+            if (player.Passives.HasToxicMateCancer)
+            {
+                var cancerSource = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.ToxicMateCancerSourceId);
+                pas.ToxicMateCancerOnMe = new ToxicMateCancerOnMeDto
+                {
+                    SourceName = cancerSource?.DiscordUsername ?? "",
                 };
                 anySet = true;
             }

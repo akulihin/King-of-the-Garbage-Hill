@@ -143,6 +143,16 @@ export type PassiveAbilityStates = {
   monsterPawnOnMe?: MonsterPawnOnMe
   pickleRick?: PickleRickState
   giantBeans?: GiantBeansState
+  tolyaCount?: TolyaCountState
+  impact?: ImpactState
+  darksci?: DarksciState
+  deepList?: DeepListState
+  craboRack?: CraboRackState
+  napoleon?: NapoleonState
+  support?: SupportState
+  toxicMate?: ToxicMateState
+  toxicMateCancerOnMe?: ToxicMateCancerOnMe
+  yongGleb?: YongGlebState
 }
 
 export type BulkState = { drownChance: number; isBuffed: boolean }
@@ -217,6 +227,17 @@ export type GiantBeansState = {
   ingredientsActive: boolean
   ingredientTargetCount: number
 }
+
+export type TolyaCountState = { isReady: boolean; cooldown: number }
+export type ImpactState = { streak: number }
+export type DarksciState = { isStableType: boolean; typeChosen: boolean; uniqueEnemiesLeft: number }
+export type DeepListState = { knownCount: number; mockeryTriggered: number }
+export type CraboRackState = { shellsUsed: number }
+export type NapoleonState = { allyName: string; treatyCount: number }
+export type SupportState = { carryName: string }
+export type ToxicMateState = { cancerActive: boolean; transferCount: number; currentHolderName: string }
+export type ToxicMateCancerOnMe = { sourceName: string }
+export type YongGlebState = { teaReady: boolean; teaCooldown: number }
 
 // ── Blackjack Types ───────────────────────────────────────────────
 

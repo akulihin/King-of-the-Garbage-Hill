@@ -507,6 +507,17 @@ public class PassiveAbilityStatesDto
     public MonsterPawnOnMeDto MonsterPawnOnMe { get; set; }
     public PickleRickStateDto PickleRick { get; set; }
     public GiantBeansStateDto GiantBeans { get; set; }
+    public TolyaCountStateDto TolyaCount { get; set; }
+    public ImpactStateDto Impact { get; set; }
+    public DarksciStateDto Darksci { get; set; }
+    public DeepListStateDto DeepList { get; set; }
+    public CraboRackStateDto CraboRack { get; set; }
+    public NapoleonStateDto Napoleon { get; set; }
+    public SupportStateDto Support { get; set; }
+    public ToxicMateStateDto ToxicMate { get; set; }
+    /// <summary>Shown on any player who has Toxic Mate cancer.</summary>
+    public ToxicMateCancerOnMeDto ToxicMateCancerOnMe { get; set; }
+    public YongGlebStateDto YongGleb { get; set; }
 }
 
 public class BulkStateDto
@@ -681,6 +692,64 @@ public class GiantBeansStateDto
     public int BeanStacks { get; set; }
     public bool IngredientsActive { get; set; }
     public int IngredientTargetCount { get; set; }
+}
+
+public class TolyaCountStateDto
+{
+    public bool IsReady { get; set; }
+    public int Cooldown { get; set; }
+}
+
+public class ImpactStateDto
+{
+    public int Streak { get; set; }
+}
+
+public class DarksciStateDto
+{
+    public bool IsStableType { get; set; }
+    public bool TypeChosen { get; set; }
+    public int UniqueEnemiesLeft { get; set; }
+}
+
+public class DeepListStateDto
+{
+    public int KnownCount { get; set; }
+    public int MockeryTriggered { get; set; }
+}
+
+public class CraboRackStateDto
+{
+    public int ShellsUsed { get; set; }
+}
+
+public class NapoleonStateDto
+{
+    public string AllyName { get; set; }
+    public int TreatyCount { get; set; }
+}
+
+public class SupportStateDto
+{
+    public string CarryName { get; set; }
+}
+
+public class ToxicMateStateDto
+{
+    public bool CancerActive { get; set; }
+    public int TransferCount { get; set; }
+    public string CurrentHolderName { get; set; }
+}
+
+public class ToxicMateCancerOnMeDto
+{
+    public string SourceName { get; set; }
+}
+
+public class YongGlebStateDto
+{
+    public bool TeaReady { get; set; }
+    public int TeaCooldown { get; set; }
 }
 
 // ── Blackjack DTOs ────────────────────────────────────────────────────
