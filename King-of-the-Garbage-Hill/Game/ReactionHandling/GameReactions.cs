@@ -899,48 +899,48 @@ public sealed class GameReaction : IServiceSingleton
             }
         }
 
-        // Giant Beans — assign ingredient targets on level-up (keep existing, fill up to 3)
-        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Гигантские бобы"))
-        {
-            var beans = player.Passives.RickGiantBeans;
-            beans.IngredientsActive = true;
-            var enemies = game.PlayersList
-                .Where(x => x.GetPlayerId() != player.GetPlayerId())
-                .ToList();
-
-            // Remove targets that are no longer in the game
-            beans.IngredientTargets.RemoveAll(id => enemies.All(e => e.GetPlayerId() != id));
-
-            // Only add new targets if we don't already cover everyone
-            if (beans.IngredientTargets.Count < enemies.Count)
-            {
-                var available = enemies
-                    .Where(e => !beans.IngredientTargets.Contains(e.GetPlayerId()))
-                    .ToList();
-
-                while (beans.IngredientTargets.Count < 3 && available.Count > 0)
-                {
-                    var idx = _random.Random(0, available.Count - 1);
-                    beans.IngredientTargets.Add(available[idx].GetPlayerId());
-                    available.RemoveAt(idx);
-                }
-
-                game.Phrases.RickGiantBeans.SendLog(player, false);
-            }
-            // If everyone already has an ingredient — nothing happens
-        }
-
         // Portal Gun — check invention + grant charge on level-up
+        // (placed before ingredient code to avoid game-null NRE blocking the check)
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Портальная пушка"))
         {
             var gun = player.Passives.RickPortalGun;
             if (!gun.Invented && player.GameCharacter.GetIntelligence() >= 30)
             {
                 gun.Invented = true;
-                game.Phrases.RickPortalGunInvented.SendLog(player, false);
+                game?.Phrases.RickPortalGunInvented.SendLog(player, false);
             }
             if (gun.Invented)
                 gun.Charges++;
+        }
+
+        // Giant Beans — on each level-up, put ingredients on up to 3 enemies who don't have one yet
+        if (game != null && player.GameCharacter.Passive.Any(x => x.PassiveName == "Гигантские бобы"))
+        {
+            var beans = player.Passives.RickGiantBeans;
+            beans.IngredientsActive = true;
+
+            // Remove targets that are no longer in the game
+            var enemies = game.PlayersList
+                .Where(x => x.GetPlayerId() != player.GetPlayerId())
+                .ToList();
+            beans.IngredientTargets.RemoveAll(id => enemies.All(e => e.GetPlayerId() != id));
+
+            // Add ingredients on up to 3 enemies who don't currently have one
+            var available = enemies
+                .Where(e => !beans.IngredientTargets.Contains(e.GetPlayerId()))
+                .ToList();
+
+            var added = 0;
+            while (added < 3 && available.Count > 0)
+            {
+                var idx = _random.Random(0, available.Count - 1);
+                beans.IngredientTargets.Add(available[idx].GetPlayerId());
+                available.RemoveAt(idx);
+                added++;
+            }
+
+            if (added > 0)
+                game.Phrases.RickGiantBeans.SendLog(player, false);
         }
 
         if (player.Status.LvlUpPoints > 0)

@@ -11,7 +11,6 @@ King of the Garbage Hill is a turn-based 6-player tactical game with 20+ unique 
 ### Backend (.NET 10.0)
 ```bash
 dotnet build   
-dotnet run    # Starts both Discord bot and web server on port 80 (configurable via KOTGH_PORT)
 ```
 
 ### Frontend (Vue 3 + Vite)
@@ -20,20 +19,10 @@ cd Web/VueClient
 pnpm install
 pnpm dev          # Vite dev server (port 5173)
 pnpm build        # Production build → ../../King-of-the-Garbage-Hill/wwwroot/
-pnpm serve        # Preview production build on port 4137
-pnpm lint         # ESLint with auto-fix
-pnpm type-check   # Vue type checking via vue-tsc
-```
-
-### Testing
-```bash
-cd Web/VueClient
-npx vitest        # Unit tests (happy-dom environment, v8 coverage) — no npm script, use npx
-npx cypress       # E2E tests — no npm script, use npx
 ```
 
 ### Deployment
-`deploy_to_prod` script scps build to AWS EC2 (3.65.44.127), runs as systemd service.
+cd /mnt/d/git/King-of-the-Garbage-Hill/Web/VueClient; pnpm build; cd /mnt/d/git/King-of-the-Garbage-Hill/King-of-the-Garbage-Hill; dotnet build --no-incremental; cd /mnt/d/git/King-of-the-Garbage-Hill/King-of-the-Garbage-Hill/bin/Debug/ && rm -rf net10.0-prod && cp -R net10.0 net10.0-prod && rm -rf net10.0-prod/DataBase && tar -zcvf king-prod.tar.gz net10.0-prod/ && scp king-prod.tar.gz ubuntu@3.65.44.127:~ && echo "done";
 
 ## Architecture
 

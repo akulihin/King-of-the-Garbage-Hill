@@ -649,18 +649,8 @@ public class CharacterPassives : IServiceSingleton
                         beansDefAfter.FakeIntelligence = beansDefAfter.BaseIntelligence * beansDefAfter.BeanStacks;
                         target.GameCharacter.AddIntelligence(beansDefAfter.FakeIntelligence - oldFakeBeansD, "Гигантские бобы");
                         game.Phrases.RickGiantBeansDrink.SendLog(target, false);
-
-                        // Beans pushed INT to 30+ → invent portal gun + grant 1 charge immediately
-                        if (target.GameCharacter.Passive.Any(p => p.PassiveName == "Портальная пушка"))
-                        {
-                            var gunFromBeansD = target.Passives.RickPortalGun;
-                            if (!gunFromBeansD.Invented && target.GameCharacter.GetIntelligence() >= 30)
-                            {
-                                gunFromBeansD.Invented = true;
-                                gunFromBeansD.Charges++;
-                                game.Phrases.RickPortalGunInvented.SendLog(target, false);
-                            }
-                        }
+                        // Portal gun invention is handled by HandleEndOfRound (not here)
+                        // to prevent the gun from auto-firing on the same fight it was invented
                     }
                     break;
 
@@ -1698,18 +1688,8 @@ public class CharacterPassives : IServiceSingleton
                         beansAfter.FakeIntelligence = beansAfter.BaseIntelligence * beansAfter.BeanStacks;
                         me.GameCharacter.AddIntelligence(beansAfter.FakeIntelligence - oldFakeBeans, "Гигантские бобы");
                         game.Phrases.RickGiantBeansDrink.SendLog(me, false);
-
-                        // Beans pushed INT to 30+ → invent portal gun + grant 1 charge immediately
-                        if (me.GameCharacter.Passive.Any(p => p.PassiveName == "Портальная пушка"))
-                        {
-                            var gunFromBeans = me.Passives.RickPortalGun;
-                            if (!gunFromBeans.Invented && me.GameCharacter.GetIntelligence() >= 30)
-                            {
-                                gunFromBeans.Invented = true;
-                                gunFromBeans.Charges++;
-                                game.Phrases.RickPortalGunInvented.SendLog(me, false);
-                            }
-                        }
+                        // Portal gun invention is handled by HandleEndOfRound (not here)
+                        // to prevent the gun from auto-firing on the same fight it was invented
                     }
                     break;
 
