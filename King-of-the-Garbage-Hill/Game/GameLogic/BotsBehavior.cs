@@ -365,7 +365,11 @@ public class BotsBehavior : IServiceSingleton
         try
         {
             //local variables
-            var allTargets = game!.NanobotsList.Find(x => x.GameId == game.GameId)!.Nanobots.Where(x => x.GetPlayerId() != bot.GetPlayerId()).ToList();
+            var allTargets = game!.NanobotsList.Find(x => x.GameId == game.GameId)!.Nanobots
+                .Where(x => x.GetPlayerId() != bot.GetPlayerId()
+                    && !x.Player.Passives.KratosIsDead
+                    && !x.Player.Passives.KiraDeathNoteDead
+                    && !x.Player.Passives.MonsterPawnDead).ToList();
 
             if (game.RoundNo == 10)
             {
@@ -386,11 +390,6 @@ public class BotsBehavior : IServiceSingleton
                 }
             }
 
-            if (allTargets.Count < 4)
-            {
-                var testBoole = 0;
-            }
-            
             decimal maxRandomNumber = 0;
             var isBlock = allTargets.Count;
             var minimumRandomNumberForBlock = 1;
@@ -909,7 +908,7 @@ public class BotsBehavior : IServiceSingleton
                             {
                                 var sirisFried = allTargets.Find(x => x.GetPlayerId() == siriFriends.FriendList.First());
 
-                                if (target.GetPlayerId() != sirisFried.GetPlayerId())
+                                if (sirisFried == null || target.GetPlayerId() != sirisFried.GetPlayerId())
                                 {
                                     target.AttackPreference = 0;
                                 }
@@ -1254,15 +1253,18 @@ public class BotsBehavior : IServiceSingleton
                 //для всех ботов: если бот предположил братишку, то -1 преференс для врагов, которые рядом с братишкой по таблице. например братишка на 3м месте, значит нам нужно 3 - 1 и 3 +1 = 2 и 4. им преференс -1
                 if (bot.Predict.Any(x => x.CharacterName == "Братишка"))
                 {
-                    var shark = game.PlayersList.Find(x => x.GetPlayerId() == bot.Predict.Find(x => x.CharacterName == "Братишка").PlayerId);
-                    //6-5 = 1
-                    //3-4 = -1
-                    //5-4 = 1
-                    //1-2 = -1
-                    var placeDiff = target.PlaceAtLeaderBoard() - shark.Status.GetPlaceAtLeaderBoard();
-                    if (placeDiff is 1 or -1)
+                    var shark = game.PlayersList.Find(p => p.GetPlayerId() == bot.Predict.Find(pr => pr.CharacterName == "Братишка")!.PlayerId);
+                    if (shark != null)
                     {
-                        target.AttackPreference -= 1;
+                        //6-5 = 1
+                        //3-4 = -1
+                        //5-4 = 1
+                        //1-2 = -1
+                        var placeDiff = target.PlaceAtLeaderBoard() - shark.Status.GetPlaceAtLeaderBoard();
+                        if (placeDiff is 1 or -1)
+                        {
+                            target.AttackPreference -= 1;
+                        }
                     }
                 }
 
@@ -1733,12 +1735,13 @@ public class BotsBehavior : IServiceSingleton
                     break;
 
                 case "Котики":
-                    // Block to trigger Штормяк taunt if there are still untaunted enemies
+                    // Alternate between blocking (Штормяк taunt) and attacking
                     var kotikiStorm = bot.Passives.KotikiStorm;
                     var untaunted = game.PlayersList.Count(p =>
                         p.GetPlayerId() != bot.GetPlayerId() &&
                         !kotikiStorm.TauntedPlayers.Contains(p.GetPlayerId()));
-                    if (untaunted > 0)
+                    // Block every other round if there are untaunted enemies; attack otherwise
+                    if (untaunted > 0 && game.RoundNo % 2 == 0)
                         isBlock = yesBlock;
                     break;
 
@@ -1769,7 +1772,7 @@ public class BotsBehavior : IServiceSingleton
             }
 
             //"random" attack
-            var randomNumber = _rand.Random(1, (int)Math.Ceiling(maxRandomNumber));
+            var randomNumber = _rand.Random(1, Math.Max(1, (int)Math.Ceiling(maxRandomNumber)));
 
             decimal totalPreference = 0;
             int whoToAttack;

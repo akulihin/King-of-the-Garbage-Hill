@@ -319,43 +319,8 @@ public class DoomsdayMachine : IServiceSingleton
                 _characterPassives.HandleAttackBeforeFight(player, playerIamAttacking, game);
 
 
-                //умный
-                if (player.GameCharacter.GetSkillClass() == "Интеллект" && playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow() == 0)
-                {
-                    skillGainedFromClassAttacker = player.GameCharacter.AddExtraSkill(6 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
-                }
-
-
-
 
                 game.AddGlobalLogs($"{player.DiscordUsername} <:war:561287719838547981> {playerIamAttacking.DiscordUsername}", "");
-
-                if (player.GameCharacter.HasSkillTargetOn(playerIamAttacking.GameCharacter))
-                {
-                    var (text1, text2) = CharacterClass.ClassToFlavorText(playerIamAttacking.GameCharacter.GetSkillClassType());
-
-                    skillGainedFromTarget = player.GameCharacter.AddMainSkill(text1);
-
-                    var known = player.Status.KnownPlayerClass.Find(x => x.EnemyId == playerIamAttacking.GetPlayerId());
-                    if (known != null)
-                        player.Status.KnownPlayerClass.Remove(known);
-                    player.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(playerIamAttacking.GetPlayerId(), text2));
-                }
-
-
-                //check skill text — remove stale known-class info when target doesn't match
-                if (!player.GameCharacter.HasSkillTargetOn(playerIamAttacking.GameCharacter))
-                {
-                    var keyword = CharacterClass.ClassToKnownKeyword(player.GameCharacter.GetSkillClassTargetType());
-                    if (keyword != "")
-                    {
-                        var knownEnemy = player.Status.KnownPlayerClass.Find(
-                            x => x.EnemyId == playerIamAttacking.GetPlayerId());
-                        if (knownEnemy != null && knownEnemy.Text.Contains(keyword))
-                            player.Status.KnownPlayerClass.Remove(knownEnemy);
-                    }
-                }
-
 
                 player.Status.AddFightingData($"IsArmorBreak: {player.Status.IsArmorBreak}");
                 player.Status.AddFightingData($"IsBlockEnemy: {playerIamAttacking.Status.IsBlock}");
@@ -457,12 +422,43 @@ public class DoomsdayMachine : IServiceSingleton
 
                 //round 1 (nemesis)
 
+                // Skill target gain (moved after block/skip checks so blocked/skipped targets don't give free skill)
+                if (player.GameCharacter.HasSkillTargetOn(playerIamAttacking.GameCharacter))
+                {
+                    var (text1, text2) = CharacterClass.ClassToFlavorText(playerIamAttacking.FightCharacter.GetSkillClassType());
+
+                    skillGainedFromTarget = player.GameCharacter.AddMainSkill(text1);
+
+                    var known = player.Status.KnownPlayerClass.Find(x => x.EnemyId == playerIamAttacking.GetPlayerId());
+                    if (known != null)
+                        player.Status.KnownPlayerClass.Remove(known);
+                    player.Status.KnownPlayerClass.Add(new InGameStatus.KnownPlayerClassClass(playerIamAttacking.GetPlayerId(), text2));
+                }
+
+                //check skill text — remove stale known-class info when target doesn't match
+                if (!player.GameCharacter.HasSkillTargetOn(playerIamAttacking.GameCharacter))
+                {
+                    var keyword = CharacterClass.ClassToKnownKeyword(player.GameCharacter.GetSkillClassTargetType());
+                    if (keyword != "")
+                    {
+                        var knownEnemy = player.Status.KnownPlayerClass.Find(
+                            x => x.EnemyId == playerIamAttacking.GetPlayerId());
+                        if (knownEnemy != null && knownEnemy.Text.Contains(keyword))
+                            player.Status.KnownPlayerClass.Remove(knownEnemy);
+                    }
+                }
+
+                //умный (moved after block/skip checks)
+                if (player.FightCharacter.GetSkillClass() == "Интеллект" && playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow() == 0)
+                {
+                    skillGainedFromClassAttacker = player.GameCharacter.AddExtraSkill(6 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                }
 
                 //быстрый
-                if (playerIamAttacking.GameCharacter.GetSkillClass() == "Скорость")
+                if (playerIamAttacking.FightCharacter.GetSkillClass() == "Скорость")
                     skillGainedFromClassDefender = playerIamAttacking.GameCharacter.AddExtraSkill(2 * playerIamAttacking.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
-                if (player.GameCharacter.GetSkillClass() == "Скорость")
+                if (player.FightCharacter.GetSkillClass() == "Скорость")
                     skillGainedFromClassAttacker = player.GameCharacter.AddExtraSkill(2 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
 
@@ -553,9 +549,9 @@ public class DoomsdayMachine : IServiceSingleton
                 var teamMate = false;
                 if (game.Teams.Count > 0)
                 {
-                    var playerTeam = game.Teams.Find(x => x.TeamPlayers.Contains(player.Status.PlayerId)).TeamId;
-                    var playerIamAttackingTeam = game.Teams.Find(x => x.TeamPlayers.Contains(playerIamAttacking.Status.PlayerId)).TeamId;
-                    if (playerTeam == playerIamAttackingTeam)
+                    var playerTeamEntry = game.Teams.Find(x => x.TeamPlayers.Contains(player.Status.PlayerId));
+                    var playerIamAttackingTeamEntry = game.Teams.Find(x => x.TeamPlayers.Contains(playerIamAttacking.Status.PlayerId));
+                    if (playerTeamEntry != null && playerIamAttackingTeamEntry != null && playerTeamEntry.TeamId == playerIamAttackingTeamEntry.TeamId)
                     {
                         teamMate = true;
                     }
@@ -586,7 +582,7 @@ public class DoomsdayMachine : IServiceSingleton
 
                     var point = 1;
                     //сильный
-                    if (player.GameCharacter.GetSkillClass() == "Сила")
+                    if (player.FightCharacter.GetSkillClass() == "Сила")
                         skillGainedFromClassAttacker = player.GameCharacter.AddExtraSkill(4 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
                     isNemesisLost -= 1;
@@ -675,7 +671,7 @@ public class DoomsdayMachine : IServiceSingleton
                 else
                 {
                     //сильный
-                    if (playerIamAttacking.GameCharacter.GetSkillClass() == "Сила")
+                    if (playerIamAttacking.FightCharacter.GetSkillClass() == "Сила")
                         skillGainedFromClassDefender = playerIamAttacking.GameCharacter.AddExtraSkill(4 * playerIamAttacking.GameCharacter.GetClassSkillMultiplier(), "Класс");
 
                     if (isTooGoodEnemy && !isTooStronkEnemy)

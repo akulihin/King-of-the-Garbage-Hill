@@ -93,7 +93,7 @@ public class StartGameLogic : IServiceSingleton
         {
             if (character == null) continue;
             reservedCharacters.Add(character);
-            allCharacters.Remove(character);
+            allCharacters.RemoveAll(x => x.Name == character.Name);
         }
         //end
 

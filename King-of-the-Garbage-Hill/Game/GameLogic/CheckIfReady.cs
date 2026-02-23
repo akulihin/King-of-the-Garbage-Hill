@@ -70,7 +70,8 @@ public class CheckIfReady : IServiceSingleton
 
     private void HandlePostGameEvents(GameClass game)
     {
-        var playerWhoWon = game.PlayersList.Where(x => !x.Passives.KratosIsDead && !x.Passives.KiraDeathNoteDead && !x.Passives.MonsterPawnDead).ToList().First();
+        var playerWhoWon = game.PlayersList.Where(x => !x.Passives.KratosIsDead && !x.Passives.KiraDeathNoteDead && !x.Passives.MonsterPawnDead).FirstOrDefault()
+                           ?? game.PlayersList.First();
 
         //if won phrases
         switch (playerWhoWon.GameCharacter.Name)
@@ -428,7 +429,8 @@ public class CheckIfReady : IServiceSingleton
         // Одна из трех: if player with this passive is in top 3, they win
         var top3Player = game.PlayersList.FirstOrDefault(x =>
             x.GameCharacter.Passive.Any(p => p.PassiveName == "Одна из трех") &&
-            x.Status.GetPlaceAtLeaderBoard() <= 3);
+            x.Status.GetPlaceAtLeaderBoard() <= 3 &&
+            !x.Passives.KratosIsDead && !x.Passives.KiraDeathNoteDead && !x.Passives.MonsterPawnDead);
         if (top3Player != null)
         {
             if (top3Player.Status.GetPlaceAtLeaderBoard() > 1)
@@ -443,7 +445,8 @@ public class CheckIfReady : IServiceSingleton
             game.AddGlobalLogs("**Sakura:** Я одна из легендарной тройки. И этого вполне достаточно!");
         }
 
-        var playerWhoWon = game.PlayersList.Where(x => !x.Passives.KratosIsDead && !x.Passives.KiraDeathNoteDead && !x.Passives.MonsterPawnDead).ToList().First();
+        var playerWhoWon = game.PlayersList.Where(x => !x.Passives.KratosIsDead && !x.Passives.KiraDeathNoteDead && !x.Passives.MonsterPawnDead).FirstOrDefault()
+                           ?? game.PlayersList.First();
         HandlePostGameEvents(game);
 
 
@@ -942,6 +945,7 @@ public class CheckIfReady : IServiceSingleton
                 {
                     _logs.Warning($"\nWARN: {t.DiscordUsername} didn't do anything - Auto Move!\n");
                     t.Status.IsAutoMove = true;
+                    t.Status.ConfirmedPredict = true;
                     var textAutomove = "Вы не походили. Использовался Авто Ход\n";
                     t.Status.AddInGamePersonalLogs(textAutomove);
                     t.Status.ChangeMindWhat = textAutomove;

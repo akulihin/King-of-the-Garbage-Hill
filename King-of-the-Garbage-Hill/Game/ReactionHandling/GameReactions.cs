@@ -57,7 +57,7 @@ public sealed class GameReaction : IServiceSingleton
             player.GameCharacter.AddExtraSkill(50, "Обмен Морали");
             extraText = "Мораль: MVP! +50 *Скилла*";
         }
-        else if (!player.IsBot() && player.GameCharacter.GetMoral() >= 7 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Еврей"))
+        else if (player.GameCharacter.GetMoral() >= 7 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Еврей"))
         {
             player.GameCharacter.AddMoral(-7, "Обмен Морали", true, true);
             player.GameCharacter.AddExtraSkill(40, "Обмен Морали");
@@ -528,8 +528,9 @@ public sealed class GameReaction : IServiceSingleton
 
         var predictedPlayerUsername = splitted.First();
         var predictedCharacterName = splitted[1];
-        var predictedPlayerId =
-            game!.PlayersList.Find(x => x.DiscordUsername == predictedPlayerUsername)!.GetPlayerId();
+        var predictedPlayer = game!.PlayersList.Find(x => x.DiscordUsername == predictedPlayerUsername);
+        if (predictedPlayer == null) return;
+        var predictedPlayerId = predictedPlayer.GetPlayerId();
 
         var predicted = player.Predict.Find(x => x.PlayerId == predictedPlayerId);
 

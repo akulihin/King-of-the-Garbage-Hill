@@ -22,7 +22,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 3.7.7 WEB?!";
+        GameVersion = "Версия: 3.7.8 WEB?!";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -125,7 +125,8 @@ public class GameClass
 
     internal List<Guid> GetTeammates(GamePlayerBridgeClass player)
     {
-        return Teams.Find(x => x.TeamPlayers.Contains(player.GetPlayerId()))?.TeamPlayers.Where(y => y != player.GetPlayerId()).ToList();
+        return Teams.Find(x => x.TeamPlayers.Contains(player.GetPlayerId()))
+            ?.TeamPlayers.Where(y => y != player.GetPlayerId()).ToList() ?? new List<Guid>();
     }
 
     public void RollExploit()

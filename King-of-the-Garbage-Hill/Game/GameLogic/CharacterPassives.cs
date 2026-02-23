@@ -829,7 +829,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         tolya.TargetList.Add(new Tolya.TolyaCountSubClass(target.GetPlayerId(), game.RoundNo));
                         tolya.IsReadyToUse = false;
-                        tolya.Cooldown = _rand.Random(4, 5);
+                        tolya.Cooldown = _rand.Random(2, 3);
                     }
 
                     break;
@@ -986,10 +986,10 @@ public class CharacterPassives : IServiceSingleton
 
                     var player2Stats = new List<Sirinoks.TrainingSubClass>
                     {
-                        new(1, target.GameCharacter.GetIntelligence()),
-                        new(2, target.GameCharacter.GetStrength()),
-                        new(3, target.GameCharacter.GetSpeed()),
-                        new(4, target.GameCharacter.GetPsyche())
+                        new(1, target.FightCharacter.GetIntelligence()),
+                        new(2, target.FightCharacter.GetStrength()),
+                        new(3, target.FightCharacter.GetSpeed()),
+                        new(4, target.FightCharacter.GetPsyche())
                     };
                     var sup = player2Stats.OrderByDescending(x => x.StatNumber).ToList().First();
 
@@ -1385,7 +1385,7 @@ public class CharacterPassives : IServiceSingleton
                     if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                     {
                         var preyWinStreak = target.FightCharacter.GetWinStreak();
-                        if (preyWinStreak > 1)
+                        if (preyWinStreak > 0)
                         {
                             if (me.Status.GetPlaceAtLeaderBoard() > target.Status.GetPlaceAtLeaderBoard())
                             {
@@ -1904,19 +1904,12 @@ public class CharacterPassives : IServiceSingleton
                 case "Впарить говна":
                     if (p.GetPlayerId() != player.GetPlayerId())
                     {
-                        // +1 bonus for marked player wins
+                        // +1 bonus for wins over outplay-marked enemies only
                         if (player.Passives.SellerVparitGovnaRoundsLeft > 0 &&
-                            player.Status.IsWonThisCalculation != Guid.Empty)
-                        {
-                            player.Status.AddBonusPoints(1, "Впарить говна");
-                            player.Passives.SellerTacticBonusEarned++;
-                        }
-
-                        // outplay bonus: wins against outplay-marked enemies
-                        if (player.Passives.SellerOutplayTargets.Count > 0 &&
+                            player.Passives.SellerOutplayTargets.Count > 0 &&
                             player.Passives.SellerOutplayTargets.Contains(player.Status.IsWonThisCalculation))
                         {
-                            player.Status.AddBonusPoints(1, "outplay");
+                            player.Status.AddBonusPoints(1, "Впарить говна");
                             player.Passives.SellerTacticBonusEarned++;
                         }
                     }
@@ -2989,7 +2982,7 @@ public class CharacterPassives : IServiceSingleton
 
                         if (rammusCount > 0)
                         {
-                            player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(rammusCount);
+                            player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(1);
                             player.GameCharacter.AddMoral(rammusCount * rammusCount, "Раммус мейн");
                         }
 
@@ -3487,6 +3480,7 @@ public class CharacterPassives : IServiceSingleton
                             if (stolenPoints > 0)
                             {
                                 player.Status.AddBonusPoints(stolenPoints, "Глаза Итачи");
+                                tsukuyomiVictim.Status.SetScoresToGiveAtEndOfRound(0, "Цукуеми");
                                 tsukuyomi.TotalStolenPoints += stolenPoints;
                                 if (!tsukuyomi.StolenFromPlayers.ContainsKey(tsukuyomi.TsukuyomiActiveTarget))
                                     tsukuyomi.StolenFromPlayers[tsukuyomi.TsukuyomiActiveTarget] = 0;
@@ -4276,6 +4270,11 @@ public class CharacterPassives : IServiceSingleton
                                 }
                                 else
                                 {
+                                    // Guard: skip if all other players are already known
+                                    var knownCheck = player.Passives.DeepListSupermindKnown;
+                                    if (knownCheck != null && knownCheck.KnownPlayers.Count >= game.PlayersList.Count - 1)
+                                        break;
+
                                     do
                                     {
                                         randPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Count - 1)];

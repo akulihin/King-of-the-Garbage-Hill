@@ -879,14 +879,13 @@ public class CharacterClass
 
     public decimal GetSkill(decimal skillMultiplierAdditional = 0)
     {
+        if (SkillForOneFight != -228)
+            return SkillForOneFight;
+
         var skillFightMultiplier = GetSkillFightMultiplier();
         var intelligenceQualitySkillBonus = GetIntelligenceQualitySkillBonus();
 
         var realSkill = (SkillMain + SkillExtra) * (skillFightMultiplier + skillMultiplierAdditional) * intelligenceQualitySkillBonus;
-
-
-        if (SkillForOneFight != -228) 
-            return SkillForOneFight;
 
         if (Passive.Any(x => x.PassiveName == "Skill 228") && realSkill > 228)
         {
@@ -898,12 +897,10 @@ public class CharacterClass
 
     public decimal GetSkillForOneFight()
     {
-        var realSkill = (SkillMain + SkillExtra) * GetIntelligenceQualitySkillBonus();
-
         if (SkillForOneFight != -228)
             return SkillForOneFight;
 
-        return realSkill;
+        return (SkillMain + SkillExtra) * GetIntelligenceQualitySkillBonus();
     }
 
     public void SetSkillForOneFight(decimal howMuchToSet, string skillName)

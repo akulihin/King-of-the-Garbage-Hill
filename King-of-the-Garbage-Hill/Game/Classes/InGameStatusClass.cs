@@ -117,11 +117,11 @@ public class InGameStatus
         if (previous.Length > 1 && !str.Contains("Предположение") && !str.Contains("Безумие") && !str.Contains("Дракон") && !str.Contains("Претендент русского сервера"))
         {
             var currentSkills = str.Split(": ");
-            if (currentSkills.Length > 0)
+            if (currentSkills.Length > 1)
             {
                 var currentSkill = currentSkills[0];
                 var previousSkills = previous[^2].Split(": ");
-                if (previousSkills.Length > 0)
+                if (previousSkills.Length > 1)
                 {
                     var previousSkill = previousSkills[0];
                     if (previousSkill == currentSkill)
@@ -172,8 +172,11 @@ public class InGameStatus
         {
             var funnelPoints = regularPoints < 0 ? regularPoints * -1 : regularPoints;
             var bug = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.PointFunneledTo);
-            bug.Status.AddRegularPoints(funnelPoints, "PointFunnel", isLog);
-            bug.Status.AddInGamePersonalLogs($"```siphon\nPointFunnel: +{funnelPoints} from {player.DiscordUsername}\n```\n");
+            if (bug != null)
+            {
+                bug.Status.AddRegularPoints(funnelPoints, "PointFunnel", isLog);
+                bug.Status.AddInGamePersonalLogs($"```siphon\nPointFunnel: +{funnelPoints} from {player.DiscordUsername}\n```\n");
+            }
         }
 
         AddRegularPoints(regularPoints, reason, isLog);

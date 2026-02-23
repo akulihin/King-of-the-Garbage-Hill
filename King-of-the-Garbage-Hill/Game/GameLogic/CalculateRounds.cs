@@ -369,14 +369,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             // ── 8. Random Modifier based on skill difference ───────────────────────
             var skillDifferenceRandomModifier = (me.GetSkill(skillMultiplierMe)  - target.GetSkill(skillMultiplierTarget)) / 60;
 
-            if (skillDifferenceRandomModifier > 0)
-            {
-                randomForPoint += skillDifferenceRandomModifier;
-            }
-            else
-            {
-                randomForPoint -= skillDifferenceRandomModifier;
-            }
+            // Positive = attacker has more skill (favors attacker)
+            // Negative = defender has more skill (favors defender)
+            randomForPoint += skillDifferenceRandomModifier;
 
 
             // ── Round 1 result ─────────────────────────────────────────
