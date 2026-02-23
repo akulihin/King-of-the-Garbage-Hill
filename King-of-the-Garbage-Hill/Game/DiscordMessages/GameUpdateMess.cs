@@ -204,15 +204,15 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     if (!player1.Passives.SharkJawsLeader.FriendList.Contains(number)) customString += "🐙";
                     break;
 
-                case "Отличный рудник":
-                    if (number is 1 or 2 or 6) customString += "⛏️";
-                    break;
-
-                case "Гоблины тупые, но не идиоты":
-                    if (player1.Passives.GoblinZiggurat.BuiltPositions.Contains(number)) customString += "🏛️";
-                    break;
             }
 
+        // Goblin buildings — visible to all players
+        var goblinPlayer = game.PlayersList.Find(p => p.GameCharacter.Name == "Стая Гоблинов");
+        if (goblinPlayer != null)
+        {
+            if (number is 1 or 2 or 6) customString += "⛏️";
+            if (goblinPlayer.Passives.GoblinZiggurat.BuiltPositions.Contains(number)) customString += "🏛️";
+        }
 
         // Cat icon — visible to all when Котики cat is sitting on a player
         if (player2.Passives.KotikiCatType != "")

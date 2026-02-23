@@ -736,8 +736,7 @@ public sealed class GameReaction : IServiceSingleton
         // Котики — lvl-мяк: level up gives only +1 Justice
         if (player.GameCharacter.Name == "Котики")
         {
-            player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(1);
-            player.Status.AddInGamePersonalLogs("lvl-мяк: Мяу~ (+1 Справедливость)\n");
+            player.GameCharacter.Justice.AddRealJusticeNow(1);
             game.Phrases.KotikiLevelUp.SendLog(player, false);
             player.Status.LvlUpPoints--;
             return;
@@ -899,20 +898,35 @@ public sealed class GameReaction : IServiceSingleton
             }
         }
 
-        // Giant Beans — assign ingredient targets immediately on level-up
+        // Giant Beans — assign ingredient targets on level-up (keep existing, fill up to 3)
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Гигантские бобы"))
         {
             var beans = player.Passives.RickGiantBeans;
-            beans.IngredientTargets.Clear();
             beans.IngredientsActive = true;
-            var enemies = game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()).ToList();
-            while (beans.IngredientTargets.Count < 3 && beans.IngredientTargets.Count < enemies.Count)
+            var enemies = game.PlayersList
+                .Where(x => x.GetPlayerId() != player.GetPlayerId())
+                .ToList();
+
+            // Remove targets that are no longer in the game
+            beans.IngredientTargets.RemoveAll(id => enemies.All(e => e.GetPlayerId() != id));
+
+            // Only add new targets if we don't already cover everyone
+            if (beans.IngredientTargets.Count < enemies.Count)
             {
-                var rand = enemies[_random.Random(0, enemies.Count - 1)];
-                if (!beans.IngredientTargets.Contains(rand.GetPlayerId()))
-                    beans.IngredientTargets.Add(rand.GetPlayerId());
+                var available = enemies
+                    .Where(e => !beans.IngredientTargets.Contains(e.GetPlayerId()))
+                    .ToList();
+
+                while (beans.IngredientTargets.Count < 3 && available.Count > 0)
+                {
+                    var idx = _random.Random(0, available.Count - 1);
+                    beans.IngredientTargets.Add(available[idx].GetPlayerId());
+                    available.RemoveAt(idx);
+                }
+
+                game.Phrases.RickGiantBeans.SendLog(player, false);
             }
-            game.Phrases.RickGiantBeans.SendLog(player, false);
+            // If everyone already has an ingredient — nothing happens
         }
 
         // Portal Gun — check invention + grant charge on level-up

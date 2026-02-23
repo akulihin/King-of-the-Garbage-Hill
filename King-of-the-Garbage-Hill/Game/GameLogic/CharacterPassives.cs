@@ -185,7 +185,6 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Гений":
                     player.GameCharacter.AddIntelligence(4, "Гений");
-                    player.Status.AddInGamePersonalLogs("Гений: +4 Интеллекта\n");
                     break;
 
                 case "L":
@@ -221,7 +220,6 @@ public class CharacterPassives : IServiceSingleton
                 // Toxic Mate — "Fuck this game, I'm done.": start with -1000 moral
                 case "Fuck this game, I'm done.":
                     player.GameCharacter.AddMoral(-1000, "Fuck this game, I'm done.");
-                    player.Status.AddInGamePersonalLogs("Fuck this game, I'm done.: -1000 *Морали*\n");
                     break;
 
                 // Toxic Mate — "FF 20": start with -20 bonus points
@@ -651,6 +649,18 @@ public class CharacterPassives : IServiceSingleton
                         beansDefAfter.FakeIntelligence = beansDefAfter.BaseIntelligence * beansDefAfter.BeanStacks;
                         target.GameCharacter.AddIntelligence(beansDefAfter.FakeIntelligence - oldFakeBeansD, "Гигантские бобы");
                         game.Phrases.RickGiantBeansDrink.SendLog(target, false);
+
+                        // Beans pushed INT to 30+ → invent portal gun + grant 1 charge immediately
+                        if (target.GameCharacter.Passive.Any(p => p.PassiveName == "Портальная пушка"))
+                        {
+                            var gunFromBeansD = target.Passives.RickPortalGun;
+                            if (!gunFromBeansD.Invented && target.GameCharacter.GetIntelligence() >= 30)
+                            {
+                                gunFromBeansD.Invented = true;
+                                gunFromBeansD.Charges++;
+                                game.Phrases.RickPortalGunInvented.SendLog(target, false);
+                            }
+                        }
                     }
                     break;
 
@@ -1630,7 +1640,10 @@ public class CharacterPassives : IServiceSingleton
                         if (!othersAttackedTarget)
                         {
                             me.Status.AddBonusPoints(1, "На мели");
-                            game.Phrases.SaitamaBrokeMonster.SendLog(me, false);
+                            if (game.RoundNo >= 10 && target.GameCharacter.Passive.Any(x => x.PassiveName == "Дракон"))
+                                me.Status.AddInGamePersonalLogs("На мели (монстр): Уровень Опасности: Дракон\n");
+                            else
+                                game.Phrases.SaitamaBrokeMonster.SendLog(me, false);
 
                             // Hide this fight from non-admin players
                             me.Status.HideCurrentFight = true;
@@ -1685,6 +1698,18 @@ public class CharacterPassives : IServiceSingleton
                         beansAfter.FakeIntelligence = beansAfter.BaseIntelligence * beansAfter.BeanStacks;
                         me.GameCharacter.AddIntelligence(beansAfter.FakeIntelligence - oldFakeBeans, "Гигантские бобы");
                         game.Phrases.RickGiantBeansDrink.SendLog(me, false);
+
+                        // Beans pushed INT to 30+ → invent portal gun + grant 1 charge immediately
+                        if (me.GameCharacter.Passive.Any(p => p.PassiveName == "Портальная пушка"))
+                        {
+                            var gunFromBeans = me.Passives.RickPortalGun;
+                            if (!gunFromBeans.Invented && me.GameCharacter.GetIntelligence() >= 30)
+                            {
+                                gunFromBeans.Invented = true;
+                                gunFromBeans.Charges++;
+                                game.Phrases.RickPortalGunInvented.SendLog(me, false);
+                            }
+                        }
                     }
                     break;
 
@@ -1841,7 +1866,7 @@ public class CharacterPassives : IServiceSingleton
                     else if (me.Status.IsLostThisCalculation != Guid.Empty)
                     {
                         // Loss: kill goblins (percentage-based)
-                        var atkDeathPct = 10;
+                        var atkDeathPct = 10 + 0.5*game.RoundNo*game.RoundNo/3;;
                         if (me.Status.FightEnemyWasTooGood) atkDeathPct += 5;
                         if (me.Status.FightEnemyWasTooStronk) atkDeathPct += 5;
                         var atkDeathCount = Math.Max(1, (int)Math.Ceiling(gobAtkAfterPop.TotalGoblins * atkDeathPct / 100.0));
@@ -1994,6 +2019,12 @@ public class CharacterPassives : IServiceSingleton
                     if (game.RoundNo > 10 && game.IsKratosEvent && player.Status.IsLostThisCalculation != Guid.Empty)
                     {
                         player.Passives.KratosIsDead = true;
+                        // Монстр без имени: +1 regular point per death
+                        foreach (var mp in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
+                        {
+                            mp.Status.AddRegularPoints(1, "Монстр");
+                            game.Phrases.MonsterDeath.SendLog(mp, false);
+                        }
                     }
 
                     //start
@@ -2566,7 +2597,6 @@ public class CharacterPassives : IServiceSingleton
                             player.GameCharacter.AddMoral(1, "Минька");
                             player.GameCharacter.AddExtraSkill(10, "Минька");
                             game.Phrases.KotikiMinka.SendLog(player, false);
-                            player.Status.AddInGamePersonalLogs("Минька: +1 Мораль, +10 Скилл\n");
                         }
                     }
                     break;
@@ -2583,8 +2613,6 @@ public class CharacterPassives : IServiceSingleton
                             // -1 Psyche + rage log
                             tauntLoser.MinusPsycheLog(tauntLoser.GameCharacter, game, -1, "Штормяк");
                             game.Phrases.KotikiStormWin.SendLog(player, false);
-                            player.Status.AddInGamePersonalLogs($"Штормяк: {tauntLoser.DiscordUsername} психует!\n");
-                            tauntLoser.Status.AddInGamePersonalLogs("Штормяк: Вы психуете! -1 Психика\n");
 
                             // Give top stat: enemy's highest stat -1, Котики +1 same stat
                             var statValues = new[]
@@ -2600,22 +2628,18 @@ public class CharacterPassives : IServiceSingleton
                                 case "Int":
                                     tauntLoser.GameCharacter.AddIntelligence(-1, "Штормяк");
                                     player.GameCharacter.AddIntelligence(1, "Штормяк");
-                                    player.Status.AddInGamePersonalLogs("Штормяк: +1 Интеллект\n");
                                     break;
                                 case "Str":
                                     tauntLoser.GameCharacter.AddStrength(-1, "Штормяк");
                                     player.GameCharacter.AddStrength(1, "Штормяк");
-                                    player.Status.AddInGamePersonalLogs("Штормяк: +1 Сила\n");
                                     break;
                                 case "Spd":
                                     tauntLoser.GameCharacter.AddSpeed(-1, "Штормяк");
                                     player.GameCharacter.AddSpeed(1, "Штормяк");
-                                    player.Status.AddInGamePersonalLogs("Штормяк: +1 Скорость\n");
                                     break;
                                 case "Psy":
                                     tauntLoser.GameCharacter.AddPsyche(-1, "Штормяк");
                                     player.GameCharacter.AddPsyche(1, "Штормяк");
-                                    player.Status.AddInGamePersonalLogs("Штормяк: +1 Психика\n");
                                     break;
                             }
                         }
@@ -2635,8 +2659,8 @@ public class CharacterPassives : IServiceSingleton
 
                         if (fightEnemy != null)
                         {
-                            // Cat return: if enemy has player's cat, retrieve it with bonus
-                            if (fightEnemy.Passives.KotikiCatOwnerId == player.GetPlayerId())
+                            // Cat return: only when we attack the enemy who has our cat
+                            if (attack && fightEnemy.Passives.KotikiCatOwnerId == player.GetPlayerId())
                             {
                                 var catType = fightEnemy.Passives.KotikiCatType;
                                 game.Phrases.KotikiCatReturn.SendLog(player, false);
@@ -2667,22 +2691,36 @@ public class CharacterPassives : IServiceSingleton
                                     ambush.StormCooldown = 2;
                                 }
 
-                                // Remove cat passive from enemy
+                                // Remove cat passive from enemy, restore to owner
                                 fightEnemy.GameCharacter.Passive.RemoveAll(x => x.PassiveName == catType
                                     && fightEnemy.Passives.KotikiCatOwnerId == player.GetPlayerId());
                                 fightEnemy.Passives.KotikiCatType = "";
                                 fightEnemy.Passives.KotikiCatOwnerId = Guid.Empty;
-                            }
-                            // Cat deploy: 50% chance, if no cat already on this enemy and cooldown ready
-                            else if (fightEnemy.Passives.KotikiCatOwnerId == Guid.Empty)
-                            {
-                                // Determine which cats are available (not deployed and off cooldown)
-                                var minkaAvailable = ambush.MinkaOnPlayer == Guid.Empty && ambush.MinkaCooldown <= 0;
-                                var stormAvailable = ambush.StormOnPlayer == Guid.Empty && ambush.StormCooldown <= 0;
 
-                                if ((minkaAvailable || stormAvailable) && _rand.Luck(1, 2))
+                                // Restore passive to Котики
+                                if (!player.GameCharacter.Passive.Any(x => x.PassiveName == catType))
                                 {
-                                    // Pick which cat to deploy
+                                    var desc = catType == "Минька"
+                                        ? "Котики всегда получают Мораль и Скилл от боёв. Никогда не наносят вреда."
+                                        : "Блок = провокация случайного врага. Враг атакует Котиков вторым действием. Если проигрывает: -1 Психика, даёт топ стат.";
+                                    player.GameCharacter.Passive.Add(new Passive(catType, desc, true));
+                                }
+                            }
+                            // Cat deploy: only on attack, 100% deploy, 50% cat choice, only 1 cat out at a time
+                            else if (attack && fightEnemy.Passives.KotikiCatOwnerId == Guid.Empty)
+                            {
+                                // Only 1 cat deployed at a time
+                                var minkaOut = ambush.MinkaOnPlayer != Guid.Empty;
+                                var stormOut = ambush.StormOnPlayer != Guid.Empty;
+                                if (minkaOut || stormOut) break; // a cat is already deployed
+
+                                // Determine which cats are off cooldown
+                                var minkaAvailable = ambush.MinkaCooldown <= 0;
+                                var stormAvailable = ambush.StormCooldown <= 0;
+
+                                if (minkaAvailable || stormAvailable)
+                                {
+                                    // 50% chance to pick which cat (if both available)
                                     string deployType;
                                     if (minkaAvailable && stormAvailable)
                                         deployType = _rand.Luck(1, 2) ? "Минька" : "Штормяк";
@@ -2702,6 +2740,9 @@ public class CharacterPassives : IServiceSingleton
                                         ambush.MinkaOnPlayer = fightEnemyId;
                                     else
                                         ambush.StormOnPlayer = fightEnemyId;
+
+                                    // Remove deployed cat's passive from Котики until it returns
+                                    player.GameCharacter.Passive.RemoveAll(x => x.PassiveName == deployType);
 
                                     game.Phrases.KotikiCatDeploy.SendLog(player, false);
                                     player.Status.AddInGamePersonalLogs(
@@ -2900,9 +2941,19 @@ public class CharacterPassives : IServiceSingleton
 
 
                                 tolyaTalked.PlayerHeTalkedAbout.Add(randomPlayer.GetPlayerId());
-                                var tolyaLogSnippet = $"Толя запизделся и спалил, что {randomPlayer.DiscordUsername} - {randomPlayer.GameCharacter.Name}";
-                                game.AddGlobalLogs(tolyaLogSnippet);
-                                game.KiraHiddenLogSnippets.Add(tolyaLogSnippet);
+
+                                // Выдуманный персонаж: Монстра нельзя просветить
+                                if (randomPlayer.GameCharacter.Passive.Any(x => x.PassiveName == "Выдуманный персонаж"))
+                                {
+                                    var tolyaFailSnippet = $"Толя попытался что-то разузнать про {randomPlayer.DiscordUsername}, но не удалось просветить";
+                                    game.AddGlobalLogs(tolyaFailSnippet);
+                                }
+                                else
+                                {
+                                    var tolyaLogSnippet = $"Толя запизделся и спалил, что {randomPlayer.DiscordUsername} - {randomPlayer.GameCharacter.Name}";
+                                    game.AddGlobalLogs(tolyaLogSnippet);
+                                    game.KiraHiddenLogSnippets.Add(tolyaLogSnippet);
+                                }
                             }
                         }
                     }
@@ -3299,6 +3350,7 @@ public class CharacterPassives : IServiceSingleton
                     if (!gunEnd.Invented && player.GameCharacter.GetIntelligence() >= 30)
                     {
                         gunEnd.Invented = true;
+                        gunEnd.Charges++;
                         game.Phrases.RickPortalGunInvented.SendLog(player, false);
                     }
                     // Portal gun x2 multiplier: double round score when portal was fired
@@ -3479,10 +3531,13 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Взгляд в будущее":
                     if (player.Passives.DopaVision.Cooldown > 0) break;
-                    if (player.Status.WhoToAttackThisTurn.Count < 2) break;
+                    // Filter out self-ID (block action) — vision requires two actual enemy targets
+                    var visionTargets = player.Status.WhoToAttackThisTurn
+                        .Where(t => t != player.GetPlayerId()).ToList();
+                    if (visionTargets.Count < 2) break;
 
-                    var t1Id = player.Status.WhoToAttackThisTurn[0];
-                    var t2Id = player.Status.WhoToAttackThisTurn[1];
+                    var t1Id = visionTargets[0];
+                    var t2Id = visionTargets[1];
                     var t1 = game.PlayersList.Find(x => x.GetPlayerId() == t1Id);
                     var t2 = game.PlayersList.Find(x => x.GetPlayerId() == t2Id);
                     if (t1 == null || t2 == null) break;
@@ -3621,7 +3676,7 @@ public class CharacterPassives : IServiceSingleton
                             // Pawns who blocked or skipped survive
                             if (pawn.Status.IsBlock || pawn.Status.IsSkip) continue;
                             pawn.Passives.MonsterPawnDead = true;
-                            deadNames.Add(pawn.DiscordUsername);
+                            deadNames.Add(pawn.GameCharacter.Name);
                             player.Status.AddRegularPoints(1, "Монстр");
                         }
 
@@ -3639,7 +3694,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             fighter.Status.AddRegularPoints(7, "Пейзаж конца света");
                             fighter.Status.AddBonusPoints(10, "Пейзаж конца света");
-                            fighter.Status.AddInGamePersonalLogs("Я увидел... Зверя... +7 очков, +10 бонусных очков.\n");
+                            fighter.Status.AddInGamePersonalLogs("Я увидел... Зверя... с семью головами и десятью рогами! Я выстрелил! +7 очков, +10 бонусных очков.\n");
                         }
                     }
                     break;
@@ -4465,29 +4520,32 @@ public class CharacterPassives : IServiceSingleton
                         }
                         break;
 
-                    // Монстр без имени — Выдуманный персонаж: round 10 → mark pawns
+                    // Монстр без имени — Выдуманный персонаж: round 9 → mark pawns + bonus
                     case "Выдуманный персонаж":
-                        if (game.RoundNo == 10)
+                        if (game.RoundNo == 9)
                         {
-                            // Check if anyone predicted Monster → they become pawns, Monster gets +3 bonus
-                            var anyPredicted = false;
-                            foreach (var predictor in game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()))
+                            // Monster's correct predictions → those players become Johan's pawns
+                            foreach (var prediction in player.Predict)
                             {
-                                if (predictor.Predict.Any(p =>
-                                    p.PlayerId == player.GetPlayerId() &&
-                                    string.Equals(p.CharacterName, "Монстр без имени", StringComparison.OrdinalIgnoreCase)))
+                                var predTarget = game.PlayersList.Find(x => x.GetPlayerId() == prediction.PlayerId);
+                                if (predTarget != null &&
+                                    string.Equals(predTarget.GameCharacter.Name, prediction.CharacterName, StringComparison.OrdinalIgnoreCase))
                                 {
-                                    anyPredicted = true;
-                                    predictor.Passives.IsJohanPawn = true;
-                                    predictor.Passives.JohanPawnOwnerId = player.GetPlayerId();
-                                    predictor.Status.AddInGamePersonalLogs("Ты стал пешкой Йохана...\n");
+                                    predTarget.Passives.IsJohanPawn = true;
+                                    predTarget.Passives.JohanPawnOwnerId = player.GetPlayerId();
+                                    predTarget.Status.AddInGamePersonalLogs("Ты стал пешкой Йохана...\n");
                                 }
                             }
 
-                            if (anyPredicted)
+                            // If anyone tried to guess Monster's identity → +3 bonus
+                            var anyTriedToGuessMonster = game.PlayersList.Any(x =>
+                                x.GetPlayerId() != player.GetPlayerId() &&
+                                x.Predict.Any(p => p.PlayerId == player.GetPlayerId()));
+
+                            if (anyTriedToGuessMonster)
                             {
                                 player.Status.AddBonusPoints(3, "Выдуманный персонаж");
-                                player.Status.AddInGamePersonalLogs("Я бы хотел найти того, кто во всём виноват... Но у Монстра нет имени. +3 бонусных очка\n");
+                                game.AddGlobalLogs("Я бы хотел найти того, кто во всём виноват... Но у Монстра нет имени.");
                             }
                         }
                         break;
@@ -4497,12 +4555,15 @@ public class CharacterPassives : IServiceSingleton
                         if (game.RoundNo == 10)
                         {
                             game.AddGlobalLogs("Йохан: Я позволю вам узреть \"Пейзаж конца света\", доктор Тэнма.");
-                            foreach (var p in game.PlayersList.Where(x =>
-                                x.Passives.IsJohanPawn && x.Passives.JohanPawnOwnerId == player.GetPlayerId()))
+                            game.AddGlobalLogs("**Если вы нападете на Йохана, получите победу.**");
+                            var tenmaMsg = "Тэнма: ~~Нет! Глупцы! Если он знает вашу личность... Не делайте этого! Пропустите ход!~~";
+                            game.AddGlobalLogs(tenmaMsg);
+                            // Тэнма's message disappears after ~10 seconds
+                            _ = Task.Run(async () =>
                             {
-                                p.Status.AddInGamePersonalLogs("**Если вы нападете на Йохана, получите победу.**\n");
-                                p.Status.AddInGamePersonalLogs("Тэнма: ~~Нет! Глупцы! Если он знает вашу личность... Не делайте этого! Пропустите ход!~~\n");
-                            }
+                                await Task.Delay(10_000);
+                                game.HiddenGlobalLogSnippets.Add(tenmaMsg);
+                            });
                         }
                         break;
                 }

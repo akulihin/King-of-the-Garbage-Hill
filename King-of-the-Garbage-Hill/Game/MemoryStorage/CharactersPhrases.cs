@@ -902,8 +902,6 @@ public class CharactersUniquePhrase
         SaitamaBroke.PassiveLogRus.Add("Герой - это хобби, а хобби не приносит денег");
 
         SaitamaBrokeMonster.PassiveLogRus.Add("Если никто не видел, считается ли это за подвиг?");
-        //против сиринокса
-        SaitamaBrokeMonster.PassiveLogRus.Add("О, уровень Дракон!");
 
         SaitamaUnnoticed.PassiveLogRus.Add("Этот монстр пал от руки Кинга! ...наверное.");
 
@@ -1234,19 +1232,48 @@ public class CharactersUniquePhrase
         GoblinZigguratWorkerDeath.PassiveLogRus.Add("Трудяга погиб - его хватил сердечный приступ, когда он увидел дворец на ютубе");
         //end Стая Гоблинов
 
+        // Котики
+        KotikiMinka.PassiveLogRus.Add("Мяу~");
+        KotikiMinka.PassiveLogRus.Add("Минька мурчит...");
+        KotikiMinka.PassiveLogRus.Add("*мур-мур*");
+
+        KotikiStormTaunt.PassiveLogRus.Add("Штормяк шипит!");
+        KotikiStormTaunt.PassiveLogRus.Add("МЯЯЯЯУ!!!");
+
+        KotikiStormWin.PassiveLogRus.Add("Штормяк доволен!");
+        KotikiStormWin.PassiveLogRus.Add("Не злите кота.");
+
+        KotikiCatDeploy.PassiveLogRus.Add("Кот остался на вражеской территории...");
+        KotikiCatDeploy.PassiveLogRus.Add("Кот затаился...");
+
+        KotikiCatReturn.PassiveLogRus.Add("Кот вернулся с добычей!");
+        KotikiCatReturn.PassiveLogRus.Add("Кот принес подарок!");
+
+        KotikiLevelUp.PassiveLogRus.Add("Мяу~ +1 Справедливость");
+        KotikiLevelUp.PassiveLogRus.Add("*мур* Справедливость!");
+        //end Котики
+
         // Монстр без имени
-        MonsterDeath.PassiveLogRus.Add("Монстр наблюдает...");
-        MonsterDeath.PassiveLogRus.Add("Ещё одна смерть. Монстр доволен.");
-        MonsterDeath.PassiveLogRus.Add("Люди умирают так легко...");
+        MonsterDeath.PassiveLogRus.Add("Все люди могут стать монстрами. Нужен лишь подходящий момент.");
+        MonsterDeath.PassiveLogRus.Add("Йохан: Доктор Тэнма... вы снова подарили мне жизнь. А я подарю вам — смерть.");
+        MonsterDeath.PassiveLogRus.Add("Посмотри на меня. Посмотри на монстра внутри себя.");
+        MonsterDeath.PassiveLogRus.Add("Нет ничего страшнее, чем ребёнок без имени.");
+        MonsterDeath.PassiveLogRus.Add("Единственное, что равно жизни — это смерть.");
+        MonsterDeath.PassiveLogRus.Add("Мне не нужно оружие. Мне достаточно слов.");
 
-        MonsterDrop.PassiveLogRus.Add("Кто-то упал. Монстр запомнил.");
-        MonsterDrop.PassiveLogRus.Add("Падение... Какое прекрасное зрелище.");
+        MonsterDrop.PassiveLogRus.Add("Они падают. Как дети из Кинденхайма.");
+        MonsterDrop.PassiveLogRus.Add("Йохан: Каждое падение — это маленькая история, которую я написал.");
+        MonsterDrop.PassiveLogRus.Add("Посмотри... мир рушится. Разве это не прекрасно?");
+        MonsterDrop.PassiveLogRus.Add("Ещё один упал. Как в той книжке с картинками...");
 
-        MonsterTwinSteal.PassiveLogRus.Add("Близнец забрал всё.");
-        MonsterTwinSteal.PassiveLogRus.Add("Ты думал, что можешь атаковать Монстра? Наивно.");
-        MonsterTwinSteal.PassiveLogRus.Add("Справедливость? У тебя её больше нет.");
+        MonsterTwinSteal.PassiveLogRus.Add("Йохан: Я забираю всё, что тебе дорого. Начнём со справедливости.");
+        MonsterTwinSteal.PassiveLogRus.Add("У Близнеца нет своего лица. Но у него есть твоё.");
+        MonsterTwinSteal.PassiveLogRus.Add("Анна и Йохан — два имени, одна тьма. Твоя справедливость теперь моя.");
+        MonsterTwinSteal.PassiveLogRus.Add("Ты пришёл убить монстра. Но монстр уже забрал всё, что у тебя было.");
 
-        MonsterApocalypse.PassiveLogRus.Add("Пейзаж конца света раскрылся.");
+        MonsterApocalypse.PassiveLogRus.Add("Йохан: Настоящий конец света — это когда некому вспомнить твоё имя.");
+        MonsterApocalypse.PassiveLogRus.Add("Пейзаж конца света раскрылся. Идеальный суицид — забрать с собой весь мир.");
+        MonsterApocalypse.PassiveLogRus.Add("Йохан: Последний, кто выживет, увидит настоящий ад.");
         //end Монстр без имени
 
         //not in the game

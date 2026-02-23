@@ -27,6 +27,9 @@ import {
   playPortalGunUse,
   playKiraArrest,
   playSaitamaGameWinTheme,
+  playPickleRickOnUse,
+  playPickleRickOnWin,
+  GiantBeansSoundPool,
 } from 'src/services/sound'
 
 const props = defineProps<{ gameId: string }>()
@@ -152,6 +155,49 @@ watch(() => store.gameState?.isFinished, (finished, prevFinished) => {
     }
   }
 })
+
+// Rick: Pickle Rick — play sound when entering pickle form or winning while pickled
+const prevPickleTurns = ref<number>(0)
+watch(() => store.myPickleRick, (pickle, prevPickle) => {
+  if (!pickle) {
+    prevPickleTurns.value = 0
+    return
+  }
+  const prev = prevPickle?.pickleTurnsRemaining ?? prevPickleTurns.value
+  // Entered pickle form (turns went from 0 to >0)
+  if (pickle.pickleTurnsRemaining > 0 && prev === 0) {
+    playPickleRickOnUse()
+  }
+  // Won a fight while pickled (wasAttackedAsPickle flipped to true)
+  if (pickle.pickleTurnsRemaining > 0 && pickle.wasAttackedAsPickle && !(prevPickle?.wasAttackedAsPickle)) {
+    playPickleRickOnWin()
+  }
+  prevPickleTurns.value = pickle.pickleTurnsRemaining
+}, { deep: true })
+
+// Rick: Giant Beans — play spawn when ingredients appear, collect when beanStacks increase
+const giantBeansPool = new GiantBeansSoundPool()
+const prevBeanStacks = ref<number>(0)
+const prevIngredientsActive = ref<boolean>(false)
+watch(() => store.myGiantBeans, (beans, prevBeans) => {
+  if (!beans) {
+    prevBeanStacks.value = 0
+    prevIngredientsActive.value = false
+    return
+  }
+  const prevActive = prevBeans?.ingredientsActive ?? prevIngredientsActive.value
+  const prevStacks = prevBeans?.beanStacks ?? prevBeanStacks.value
+  // Ingredients spawned (ingredientsActive went from false to true, or target count increased)
+  if (beans.ingredientsActive && !prevActive) {
+    giantBeansPool.playSpawn()
+  }
+  // Bean collected (stacks increased)
+  if (beans.beanStacks > prevStacks) {
+    giantBeansPool.playCollect()
+  }
+  prevBeanStacks.value = beans.beanStacks
+  prevIngredientsActive.value = beans.ingredientsActive
+}, { deep: true })
 
 function goToLobby() {
   router.push('/')
@@ -516,7 +562,22 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 
         <!-- Fight Panel (moved above leaderboard for prominence) -->
         <div class="log-panel card fight-panel">
+          <!-- Kira: Death Note replaces fight animation -->
+          <DeathNote
+            v-if="store.isKira && store.myPlayer?.deathNote && !store.gameState.isFinished"
+            :death-note="store.myPlayer.deathNote"
+            :players="store.gameState.players"
+            :my-player-id="store.myPlayer.playerId"
+            :character-names="store.gameState.allCharacterNames || []"
+            :character-catalog="store.gameState.allCharacters || []"
+            :is-finished="store.gameState.isFinished"
+            :moral="store.myPlayer.character.moralDisplay"
+            @write="store.deathNoteWrite($event.targetPlayerId, $event.characterName)"
+            @shinigami-eyes="store.shinigamiEyes()"
+          />
+          <!-- Normal players: fight animation -->
           <FightAnimation
+            v-else
             :fights="store.gameState.fightLog || []"
             :letopis="letopis"
             :game-story="store.gameStory"
@@ -608,18 +669,6 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
             :is-bug="store.isBug"
             @attack="onAttack"
             @predict="store.predict($event.playerId, $event.characterName)"
-          />
-          <DeathNote
-            v-if="store.isKira && store.myPlayer?.deathNote"
-            :death-note="store.myPlayer.deathNote"
-            :players="store.gameState.players"
-            :my-player-id="store.myPlayer.playerId"
-            :character-names="store.gameState.allCharacterNames || []"
-            :character-catalog="store.gameState.allCharacters || []"
-            :is-finished="store.gameState.isFinished"
-            :moral="store.myPlayer.character.moralDisplay"
-            @write="store.deathNoteWrite($event.targetPlayerId, $event.characterName)"
-            @shinigami-eyes="store.shinigamiEyes()"
           />
         </div>
 

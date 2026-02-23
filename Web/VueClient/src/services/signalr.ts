@@ -141,6 +141,8 @@ export type PassiveAbilityStates = {
   kotikiCatOnMe?: KotikiCatOnMe
   monster?: MonsterState
   monsterPawnOnMe?: MonsterPawnOnMe
+  pickleRick?: PickleRickState
+  giantBeans?: GiantBeansState
 }
 
 export type BulkState = { drownChance: number; isBuffed: boolean }
@@ -202,6 +204,18 @@ export type MonsterState = {
 
 export type MonsterPawnOnMe = {
   pawnOwnerName: string
+}
+
+export type PickleRickState = {
+  pickleTurnsRemaining: number
+  wasAttackedAsPickle: boolean
+  penaltyTurnsRemaining: number
+}
+
+export type GiantBeansState = {
+  beanStacks: number
+  ingredientsActive: boolean
+  ingredientTargetCount: number
 }
 
 // ── Blackjack Types ───────────────────────────────────────────────

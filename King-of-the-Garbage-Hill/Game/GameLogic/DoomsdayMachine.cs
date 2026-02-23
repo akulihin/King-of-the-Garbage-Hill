@@ -362,7 +362,11 @@ public class DoomsdayMachine : IServiceSingleton
                 playerIamAttacking.Status.AddFightingData($"IsArmorBreakEnemy: {player.Status.IsArmorBreak}");
 
                 //if block => no one gets points
-                if (playerIamAttacking.Status.IsBlock && !player.Status.IsArmorBreak)
+                // Штормяк taunt bypass: provoked player fights the taunter normally (not as block)
+                var isTauntBypass = playerIamAttacking.Status.IsBlock
+                    && playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Штормяк")
+                    && playerIamAttacking.Passives.KotikiStorm.CurrentTauntTarget == player.GetPlayerId();
+                if (playerIamAttacking.Status.IsBlock && !player.Status.IsArmorBreak && !isTauntBypass)
                 {
                     player.Status.IsTargetBlocked = playerIamAttacking.GetPlayerId();
                     // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);

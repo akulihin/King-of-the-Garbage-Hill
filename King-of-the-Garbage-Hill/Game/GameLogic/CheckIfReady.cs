@@ -368,7 +368,8 @@ public class CheckIfReady : IServiceSingleton
                     foreach (var predict in awdka.Predict)
                     {
                         var found = game.PlayersList.Find(x =>
-                            predict.PlayerId == x.GetPlayerId() && predict.CharacterName == x.GameCharacter.Name);
+                            predict.PlayerId == x.GetPlayerId() && predict.CharacterName == x.GameCharacter.Name
+                            && !x.GameCharacter.Passive.Any(p => p.PassiveName == "Выдуманный персонаж"));
                         if (found != null) bonusTrolling += 1;
                     }
 
@@ -1013,25 +1014,6 @@ public class CheckIfReady : IServiceSingleton
                     }
                 }
 
-                // Kira round 1: forced random attack (secretly excludes 1st and last place)
-                if (game.RoundNo == 1)
-                {
-                    foreach (var kira in players.Where(k =>
-                        k.GameCharacter.Passive.Any(x => x.PassiveName == "Тетрадь смерти")))
-                    {
-                        var eligible = players.Where(p =>
-                            p.GetPlayerId() != kira.GetPlayerId() &&
-                            p.Status.GetPlaceAtLeaderBoard() != 1 &&
-                            p.Status.GetPlaceAtLeaderBoard() != players.Count).ToList();
-                        if (eligible.Count > 0)
-                        {
-                            kira.Status.WhoToAttackThisTurn = new List<Guid>
-                                { eligible[new Random().Next(eligible.Count)].GetPlayerId() };
-                            kira.Status.IsReady = true;
-                        }
-                    }
-                }
-
                 // Штормяк — taunt on block: force random enemy to attack the blocker as second action
                 foreach (var taunter in players.Where(t =>
                              t.Status.IsBlock &&
@@ -1053,11 +1035,12 @@ public class CheckIfReady : IServiceSingleton
                         var target = eligibleTargets[new Random().Next(eligibleTargets.Count)];
                         target.Status.WhoToAttackThisTurn.Add(taunter.GetPlayerId());
 
+                        // Always track who was taunted (needed for block bypass in DoomsdayMachine)
+                        taunter.Passives.KotikiStorm.CurrentTauntTarget = target.GetPlayerId();
+
                         if (isOriginalKotiki)
                         {
-                            var storm = taunter.Passives.KotikiStorm;
-                            storm.TauntedPlayers.Add(target.GetPlayerId());
-                            storm.CurrentTauntTarget = target.GetPlayerId();
+                            taunter.Passives.KotikiStorm.TauntedPlayers.Add(target.GetPlayerId());
                         }
 
                         taunter.Status.AddInGamePersonalLogs($"Штормяк провоцирует {target.DiscordUsername}!\n");

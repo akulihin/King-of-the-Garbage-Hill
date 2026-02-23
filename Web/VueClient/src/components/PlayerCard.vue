@@ -77,6 +77,7 @@ const passiveStates = computed<PassiveAbilityStates | null>(() => {
 })
 
 const isGoblin = computed(() => props.player?.character.name === 'Стая Гоблинов')
+const isKotiki = computed(() => props.player?.character.name === 'Котики')
 const goblin = computed(() => passiveStates.value?.goblinSwarm ?? null)
 
 // Goblin population bar segment percentages
@@ -355,6 +356,39 @@ function handleMoralToSkill() {
         </button>
       </div>
 
+      <!-- Котики lvl-мяк: single Justice button instead of stat buttons -->
+      <template v-else-if="isKotiki && hasLvlUpPoints">
+      <div class="stat-block lvl-up-available">
+        <div class="stat-row">
+          <span class="justice-icon">⚖</span>
+          <span class="stat-val" style="flex:1; text-align:center; font-size:13px;">lvl-мяк: +1 Справедливость</span>
+          <button class="lvl-btn" data-sfx-skip-default="true" title="+1 Justice" @click="handleLevelUp(1)">+</button>
+        </div>
+      </div>
+      <!-- Still show stats (read-only) -->
+      <div class="stat-block">
+        <div class="stat-row">
+          <span class="gi gi-lg gi-int">INT</span>
+          <div class="stat-bar-bg"><div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" /></div>
+          <span class="stat-val stat-intelligence">{{ player.character.intelligence }}</span>
+        </div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-row">
+          <span class="gi gi-lg gi-str">STR</span>
+          <div class="stat-bar-bg"><div class="stat-bar strength" :style="{ width: `${player.character.strength * 10}%` }" /></div>
+          <span class="stat-val stat-strength">{{ player.character.strength }}</span>
+        </div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-row">
+          <span class="gi gi-lg gi-spd">SPD</span>
+          <div class="stat-bar-bg"><div class="stat-bar speed" :style="{ width: `${player.character.speed * 10}%` }" /></div>
+          <span class="stat-val stat-speed">{{ player.character.speed }}</span>
+        </div>
+      </div>
+      </template>
+
       <template v-else>
       <!-- Intelligence -->
       <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('intelligence'), 'lvl-up-available': hasLvlUpPoints }">
@@ -405,7 +439,7 @@ function handleMoralToSkill() {
     </div>
 
     <!-- Psyche (separated — different stat type, hidden during goblin lvl-up) -->
-    <div v-if="!(isGoblin && hasLvlUpPoints && goblin)" class="pc-psyche-box">
+    <div v-if="!(isGoblin && hasLvlUpPoints && goblin) && !(isKotiki && hasLvlUpPoints)" class="pc-psyche-box">
       <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('psyche'), 'lvl-up-available': hasLvlUpPoints }">
         <div class="stat-row">
           <span class="gi gi-lg gi-psy">PSY</span>

@@ -106,6 +106,10 @@ export const useGameStore = defineStore('game', () => {
 
   const myExploitState = computed(() => myPlayer.value?.exploitState ?? null)
 
+  const myPickleRick = computed(() => myPlayer.value?.passiveAbilityStates?.pickleRick ?? null)
+
+  const myGiantBeans = computed(() => myPlayer.value?.passiveAbilityStates?.giantBeans ?? null)
+
   // ── Actions ───────────────────────────────────────────────────────
 
   async function connect() {
@@ -485,6 +489,8 @@ export const useGameStore = defineStore('game', () => {
     myPortalGun,
     isBug,
     myExploitState,
+    myPickleRick,
+    myGiantBeans,
     // Actions
     connect,
     authenticate,

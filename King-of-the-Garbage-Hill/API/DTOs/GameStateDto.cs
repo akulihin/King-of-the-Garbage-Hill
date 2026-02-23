@@ -505,6 +505,8 @@ public class PassiveAbilityStatesDto
     public MonsterStateDto Monster { get; set; }
     /// <summary>Shown on any player who is a Johan pawn.</summary>
     public MonsterPawnOnMeDto MonsterPawnOnMe { get; set; }
+    public PickleRickStateDto PickleRick { get; set; }
+    public GiantBeansStateDto GiantBeans { get; set; }
 }
 
 public class BulkStateDto
@@ -663,6 +665,22 @@ public class MonsterStateDto
 public class MonsterPawnOnMeDto
 {
     public string PawnOwnerName { get; set; }
+}
+
+// ── Rick Sanchez Passive DTOs ────────────────────────────────────────
+
+public class PickleRickStateDto
+{
+    public int PickleTurnsRemaining { get; set; }
+    public bool WasAttackedAsPickle { get; set; }
+    public int PenaltyTurnsRemaining { get; set; }
+}
+
+public class GiantBeansStateDto
+{
+    public int BeanStacks { get; set; }
+    public bool IngredientsActive { get; set; }
+    public int IngredientTargetCount { get; set; }
 }
 
 // ── Blackjack DTOs ────────────────────────────────────────────────────

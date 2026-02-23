@@ -185,13 +185,10 @@ function isProtected(player: Player): boolean {
   return false
 }
 
-const kiraBlindRound1 = computed(() => props.isKira && (props.roundNo ?? 0) === 1)
-
 function handleAttack(player: Player) {
   if (!props.canAttack) return
   if (player.playerId === props.myPlayerId) return
   if (isProtected(player)) return
-  if (kiraBlindRound1.value) return
   emit('attack', player.status.place)
 }
 
@@ -268,9 +265,6 @@ watch(() => props.fightLog, (newLog) => {
 
 <template>
   <div class="leaderboard card">
-    <div v-if="kiraBlindRound1" class="kira-blind-banner">
-      Первый ход — нападение вслепую
-    </div>
     <div class="lb-table">
       <div
         v-for="player in sorted"
@@ -280,7 +274,7 @@ watch(() => props.fightLog, (newLog) => {
           'is-me': player.playerId === myPlayerId,
           'is-bot': player.isBot,
           'is-ready': player.status.isReady,
-          'can-click': canAttack && player.playerId !== myPlayerId && !isProtected(player) && !kiraBlindRound1,
+          'can-click': canAttack && player.playerId !== myPlayerId && !isProtected(player),
           'is-protected': isProtected(player),
           'dropped': isDropped(player),
         }"
@@ -471,18 +465,6 @@ watch(() => props.fightLog, (newLog) => {
 
 <style scoped>
 .leaderboard.card { padding: 8px; }
-
-.kira-blind-banner {
-  text-align: center;
-  padding: 6px 12px;
-  margin-bottom: 6px;
-  border-radius: var(--radius);
-  background: rgba(200, 50, 50, 0.12);
-  border: 1px solid rgba(200, 50, 50, 0.3);
-  color: #ef8080;
-  font-size: 12px;
-  font-weight: 700;
-}
 
 .lb-table {
   display: flex;
