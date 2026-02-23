@@ -30,7 +30,7 @@ public class CheckIfReady : IServiceSingleton
 
 
     private int _finishedGames;
-    private bool _looping;
+    private int _looping;
     public Timer LoopingTimer;
 
     public CheckIfReady(Global global, GameUpdateMess upd, DoomsdayMachine round,
@@ -485,29 +485,33 @@ public class CheckIfReady : IServiceSingleton
                     wonTeam = 1;
                     wonScore = team1Score;
                 }
-
-                if (team2Score > team1Score && team2Score > team3Score)
+                else if (team2Score > team1Score && team2Score > team3Score)
                 {
                     wonTeam = 2;
                     wonScore = team2Score;
                 }
-
-                if (team3Score > team1Score && team3Score > team2Score)
+                else if (team3Score > team1Score && team3Score > team2Score)
                 {
                     wonTeam = 3;
                     wonScore = team3Score;
                 }
 
+                if (wonTeam == 0)
+                {
+                    game.AddGlobalLogs("\n**Ничья**");
+                }
+                else
+                {
+                    game.AddGlobalLogs($"\nКоманда #{wonTeam} победила набрав {wonScore} Очков!");
 
-                game.AddGlobalLogs($"\nКоманда #{wonTeam} победила набрав {wonScore} Очков!");
-
-                if (wonTeam != 1)
-                    game.AddGlobalLogs($"\nКоманда #1 Набрала {team1Score} Очков.");
-                if (wonTeam != 2)
-                    game.AddGlobalLogs($"Команда #2 Набрала {team2Score} Очков.");
-                if (wonTeam != 3)
-                    if (team3Score > 0)
-                        game.AddGlobalLogs($"Команда #3 Набрала {team3Score} Очков.");
+                    if (wonTeam != 1)
+                        game.AddGlobalLogs($"\nКоманда #1 Набрала {team1Score} Очков.");
+                    if (wonTeam != 2)
+                        game.AddGlobalLogs($"Команда #2 Набрала {team2Score} Очков.");
+                    if (wonTeam != 3)
+                        if (team3Score > 0)
+                            game.AddGlobalLogs($"Команда #3 Набрала {team3Score} Очков.");
+                }
             }
         }
         else
@@ -580,9 +584,12 @@ public class CheckIfReady : IServiceSingleton
             if (player.Status.GetScore() == playerWhoWon.Status.GetScore())
                 zbsPointsToGive = 100;
 
-            if (isTeam)
-                zbsPointsToGive =
-                    game.Teams.Find(x => x.TeamId == wonTeam)!.TeamPlayers.Contains(player.Status.PlayerId) ? 100 : 50;
+            if (isTeam && wonTeam > 0)
+            {
+                var winningTeam = game.Teams.Find(x => x.TeamId == wonTeam);
+                if (winningTeam != null)
+                    zbsPointsToGive = winningTeam.TeamPlayers.Contains(player.Status.PlayerId) ? 100 : 50;
+            }
 
             if (player.Passives.KratosIsDead || player.Passives.KiraDeathNoteDead || player.Passives.MonsterPawnDead) zbsPointsToGive = 0;
 
@@ -797,8 +804,9 @@ public class CheckIfReady : IServiceSingleton
 
     private async void CheckIfEveryoneIsReady(object sender, ElapsedEventArgs e)
     {
-        if (_looping) return;
-        _looping = true;
+        if (System.Threading.Interlocked.CompareExchange(ref _looping, 1, 0) != 0) return;
+        try
+        {
 
         var games = _global.GamesList;
 
@@ -889,19 +897,19 @@ public class CheckIfReady : IServiceSingleton
                         await _upd.UpdateMessage(player);
                     }
 
-                    if (game.TimePassed.Elapsed.TotalSeconds > 90 && player.Status.TimesUpdated == 4)
+                    if (game.TimePassed.Elapsed.TotalSeconds > 90 && player.Status.TimesUpdated == 1)
                     {
                         player.Status.TimesUpdated++;
                         await _upd.UpdateMessage(player);
                     }
 
-                    if (game.TimePassed.Elapsed.TotalSeconds > 150 && player.Status.TimesUpdated == 4)
+                    if (game.TimePassed.Elapsed.TotalSeconds > 150 && player.Status.TimesUpdated == 2)
                     {
                         player.Status.TimesUpdated++;
                         await _upd.UpdateMessage(player);
                     }
 
-                    if (game.TimePassed.Elapsed.TotalSeconds > 210 && player.Status.TimesUpdated == 4)
+                    if (game.TimePassed.Elapsed.TotalSeconds > 210 && player.Status.TimesUpdated == 3)
                     {
                         player.Status.TimesUpdated++;
                         await _upd.UpdateMessage(player);
@@ -1006,10 +1014,11 @@ public class CheckIfReady : IServiceSingleton
                              t.Status.WhoToAttackThisTurn.Count == 0 && t.Status.IsBlock == false &&
                              t.Status.IsSkip == false && t.GameCharacter.Passive.Any(x => x.PassiveName == "Aggress")))
                 {
-                    var targets = players.Where(p => p.GetPlayerId() != t.GetPlayerId()).ToList();
+                    var targets = players.Where(p => p.GetPlayerId() != t.GetPlayerId()
+                        && !p.Passives.KratosIsDead && !p.Passives.KiraDeathNoteDead && !p.Passives.MonsterPawnDead).ToList();
                     if (targets.Count > 0)
                     {
-                        t.Status.WhoToAttackThisTurn.Add(targets[new Random().Next(targets.Count)].GetPlayerId());
+                        t.Status.WhoToAttackThisTurn.Add(targets[Random.Shared.Next(targets.Count)].GetPlayerId());
                         t.Status.IsReady = true;
                     }
                 }
@@ -1024,6 +1033,8 @@ public class CheckIfReady : IServiceSingleton
                     // Transferred Storm cat can taunt every round but Котики is immune
                     var eligibleTargets = players.Where(p =>
                         p.GetPlayerId() != taunter.GetPlayerId() &&
+                        // Exclude dead players
+                        !p.Passives.KratosIsDead && !p.Passives.KiraDeathNoteDead && !p.Passives.MonsterPawnDead &&
                         // Immunity: Котики immune to transferred Storm taunts
                         !(p.GameCharacter.Passive.Any(x => x.PassiveName == "Кошачья засада") && !isOriginalKotiki) &&
                         // Original Котики: once per enemy per game
@@ -1032,8 +1043,9 @@ public class CheckIfReady : IServiceSingleton
 
                     if (eligibleTargets.Count > 0)
                     {
-                        var target = eligibleTargets[new Random().Next(eligibleTargets.Count)];
-                        target.Status.WhoToAttackThisTurn.Add(taunter.GetPlayerId());
+                        var target = eligibleTargets[Random.Shared.Next(eligibleTargets.Count)];
+                        if (!target.Status.WhoToAttackThisTurn.Contains(taunter.GetPlayerId()))
+                            target.Status.WhoToAttackThisTurn.Add(taunter.GetPlayerId());
 
                         // Always track who was taunted (needed for block bypass in DoomsdayMachine)
                         taunter.Passives.KotikiStorm.CurrentTauntTarget = target.GetPlayerId();
@@ -1125,7 +1137,11 @@ public class CheckIfReady : IServiceSingleton
                     .SendMessageAsync(exception.StackTrace);
             }
 
-        _looping = false;
+        }
+        finally
+        {
+            System.Threading.Interlocked.Exchange(ref _looping, 0);
+        }
     }
 
     public class EloPlusTop

@@ -70,6 +70,11 @@ public class StartGameLogic : IServiceSingleton
             allCharacters2 = allCharacters2.Where(x => x.Name != "HardKitty").ToList();
             allCharacters = allCharacters.Where(x => x.Name != "HardKitty").ToList();
         }
+        else
+        {
+            allCharacters2 = allCharacters2.Where(x => !x.TeamModeOnly).ToList();
+            allCharacters = allCharacters.Where(x => !x.TeamModeOnly).ToList();
+        }
 
         var reservedCharacters = new List<CharacterClass>();
         var playersList = new List<GamePlayerBridgeClass>();
@@ -77,15 +82,16 @@ public class StartGameLogic : IServiceSingleton
 
         players = players.OrderBy(_ => Guid.NewGuid()).ToList();
 
-        //handle custom selected character part #1
-        var characters = allCharacters;
+        //handle custom selected character part #1 (uses unfiltered pool so admins can force TeamModeOnly characters)
+        var unfilteredCharacters = _charactersPull.GetRollableCharacters();
         foreach (var character in from player in players
                  where player != null
                  select _accounts.GetAccount(player)
                  into account
                  where account.CharacterToGiveNextTime != null
-                 select characters!.Find(x => x.Name == account.CharacterToGiveNextTime))
+                 select unfilteredCharacters.Find(x => x.Name == account.CharacterToGiveNextTime))
         {
+            if (character == null) continue;
             reservedCharacters.Add(character);
             allCharacters.Remove(character);
         }
@@ -147,7 +153,6 @@ public class StartGameLogic : IServiceSingleton
                 if (character.Tier == 4 && account.IsBot()) range *= 3;
                 if (character.Tier < 4 && account.IsBot()) continue;
                 if (character.Passive.Any(x => x.PassiveName == "Top Laner")) range = (int)(range * topLaner);
-                if (character.Name == "Таинственный Суппорт" && team == 0) range /= 5;
                 var temp = totalPool +
                     Convert.ToInt32(range * account.CharacterChance.Find(x => x.CharacterName == character.Name)
                         .Multiplier) - 1;
@@ -300,7 +305,7 @@ public class StartGameLogic : IServiceSingleton
         embed.AddField("Всего Игр", $"{account.TotalPlays}", true);
         embed.AddField("Всего Топ 1", $"{account.TotalWins}", true);
 
-        if (totalPoints > 0)
+        if (totalPoints > 0 && account.TotalWins > 0)
             embed.AddField("Среднее количество очков за игру",
                 $"{totalPoints / account.TotalWins} - ({totalPoints}/{account.TotalWins})");
         if (topPoints != null)

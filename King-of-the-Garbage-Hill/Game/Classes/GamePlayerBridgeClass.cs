@@ -104,7 +104,7 @@ public class GamePlayerBridgeClass
     public bool IsTeamMember(GameClass game, Guid player2)
     {
         var team = game.Teams.Find(x => x.TeamPlayers.Contains(GetPlayerId()));
-        return team!.TeamPlayers.Contains(player2);
+        return team != null && team.TeamPlayers.Contains(player2);
     }
 
     public class DeleteMessagesClass

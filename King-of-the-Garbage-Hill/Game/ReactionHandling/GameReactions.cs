@@ -457,7 +457,7 @@ public sealed class GameReaction : IServiceSingleton
             passives.Remove(pp);
         }
 
-        var newPassive = passives[_random.Random(0, passives.Count)];
+        var newPassive = passives[_random.Random(0, passives.Count-1)];
         player.GameCharacter.Passive[choice - 1] = newPassive;
     }
 

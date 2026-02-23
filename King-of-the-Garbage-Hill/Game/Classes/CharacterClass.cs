@@ -59,6 +59,7 @@ public class CharacterClass
     public string Description { get; set; }
     public int Tier { get; set; }
     public string StoryAgent { get; set; }
+    public bool TeamModeOnly { get; set; }
 
 
     // PRIVATE
@@ -422,7 +423,7 @@ public class CharacterClass
     {
         //Импакт
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Импакт"))
-            SpeedQualityBonus = 6;
+            return 6;
         //end Импакт
 
         return SpeedQualityBonus;
@@ -556,7 +557,7 @@ public class CharacterClass
             StrengthQualityResist = 0;
         }
 
-        StrengthQualityDropBonus = GetStrength() > 9;
+        StrengthQualityDropBonus = statNew > 9;
     }
 
     public void UpdateSpeedResist(int statOld, int statNew)
@@ -583,7 +584,12 @@ public class CharacterClass
         var resistDiff = resistNew - resistOld;
         SpeedQualityBonus += resistDiff;
 
-        IsSpeedQualityKiteBonus = GetSpeed() > 9;
+        if (SpeedQualityBonus < 0)
+        {
+            SpeedQualityBonus = 0;
+        }
+
+        IsSpeedQualityKiteBonus = statNew > 9;
     }
 
     public void UpdatePsycheResist(int statOld, int statNew)
@@ -810,7 +816,7 @@ public class CharacterClass
         if (CurrentSkillTarget == "Ничего")
         {
             SkillClassType[] initial = { SkillClassType.Intelligence, SkillClassType.Speed, SkillClassType.Strength };
-            CurrentSkillTarget = ClassToString(initial[new Random().Next(0, 2)]);
+            CurrentSkillTarget = ClassToString(initial[new Random().Next(0, 3)]);
             return;
         }
 
@@ -879,13 +885,13 @@ public class CharacterClass
         var realSkill = (SkillMain + SkillExtra) * (skillFightMultiplier + skillMultiplierAdditional) * intelligenceQualitySkillBonus;
 
 
+        if (SkillForOneFight != -228) 
+            return SkillForOneFight;
+
         if (Passive.Any(x => x.PassiveName == "Skill 228") && realSkill > 228)
         {
             realSkill = 228;
         }
-
-        if (SkillForOneFight != -228) 
-            return SkillForOneFight;
 
         return realSkill;
     }

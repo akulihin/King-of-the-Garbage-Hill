@@ -243,7 +243,7 @@ public class PassivesClass
         uint ui;
         do
         {
-            var randomBytes = RandomNumberGenerator.GetBytes(555);
+            var randomBytes = RandomNumberGenerator.GetBytes(4);
             ui = BitConverter.ToUInt32(randomBytes, 0);
         } while (ui >= upperBound);
 

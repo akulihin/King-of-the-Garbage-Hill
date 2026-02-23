@@ -356,7 +356,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             if (isLog)
             {
                 player.Status.AddFightingData($"randomForPoint: {randomForPoint}");
-                player.Status.AddFightingData($"randomForPoint: {randomForPoint}");
 
                 player.Status.AddFightingData($"JusticeMe: {me.Justice.GetRealJusticeNow()}");
                 player.Status.AddFightingData($"JusticeEnemy: {target.Justice.GetRealJusticeNow()}");
@@ -467,7 +466,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             }
 
 
-            var randomNumber = _random.Random(1, (int)Math.Ceiling(maxRandomNumber));
+            var randomNumber = _random.Random(1, Math.Max(1, (int)Math.Ceiling(maxRandomNumber)));
 
 
 

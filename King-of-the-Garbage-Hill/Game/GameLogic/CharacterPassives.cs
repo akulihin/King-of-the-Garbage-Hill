@@ -358,7 +358,7 @@ public class CharacterPassives : IServiceSingleton
                     //end Сомнительная тактика
 
                     //10-7
-                    if (me.GameCharacter.GetStrength() - target.GameCharacter.GetStrength() >= 3 && !target.Status.IsBlock && !target.Status.IsSkip && ok)
+                    if (me.FightCharacter.GetStrength() - target.FightCharacter.GetStrength() >= 3 && !target.Status.IsBlock && !target.Status.IsSkip && ok)
                     {
                         target.Status.IsAbleToWin = false;
                         game.Phrases.LeCrispAssassinsPhrase.SendLog(target, false);
@@ -474,8 +474,8 @@ public class CharacterPassives : IServiceSingleton
 
                 // Аматерасу (defense): auto-win if attacker effective speed < Itachi's speed
                 case "Аматерасу":
-                    var itachiSpeedDef = target.GameCharacter.GetSpeed();
-                    var attackerEffectiveSpeedDef = me.GameCharacter.GetSpeed();
+                    var itachiSpeedDef = target.FightCharacter.GetSpeed();
+                    var attackerEffectiveSpeedDef = me.FightCharacter.GetSpeed();
                     if (attackerEffectiveSpeedDef < itachiSpeedDef)
                     {
                         me.Status.IsAbleToWin = false;
@@ -572,7 +572,7 @@ public class CharacterPassives : IServiceSingleton
             {
                 case "Гребанные ассассины":
                     //5-2 = 3
-                    if (me.GameCharacter.GetStrength() - target.GameCharacter.GetStrength() < 3)
+                    if (me.FightCharacter.GetStrength() - target.FightCharacter.GetStrength() < 3)
                     {
                         var leCrip = target.Passives.LeCrispAssassins;
                         leCrip.AdditionalPsycheForNextRound += 1;
@@ -644,7 +644,7 @@ public class CharacterPassives : IServiceSingleton
                         beansDefAfter.BeanStacks++;
                         target.GameCharacter.AddStrength(-1, "Гигантские бобы");
                         target.GameCharacter.AddSpeed(-1, "Гигантские бобы");
-                        target.GameCharacter.AddPsyche(-1, "Гигантские бобы");
+                        target.MinusPsycheLog(target.GameCharacter, game, -1, "Гигантские бобы");
                         var oldFakeBeansD = beansDefAfter.FakeIntelligence;
                         beansDefAfter.FakeIntelligence = beansDefAfter.BaseIntelligence * beansDefAfter.BeanStacks;
                         target.GameCharacter.AddIntelligence(beansDefAfter.FakeIntelligence - oldFakeBeansD, "Гигантские бобы");
@@ -672,7 +672,7 @@ public class CharacterPassives : IServiceSingleton
                         if (!target.Passives.SaldorumKhokholList.MarkedEnemies.Contains(me.GetPlayerId()))
                             target.Passives.SaldorumKhokholList.MarkedEnemies.Add(me.GetPlayerId());
                         target.GameCharacter.AddMoral(5, "Парень с сюрпризом");
-                        if (new Random().Next(0, 100) < 33)
+                        if (_rand.Random(0, 99) < 33)
                             target.GameCharacter.AddMoral(5, "Парень с сюрпризом");
                         game.Phrases.SaldorumSurprise.SendLog(target, me, delete: true);
                     }
@@ -719,8 +719,8 @@ public class CharacterPassives : IServiceSingleton
                             me.GameCharacter.Justice.SetRealJusticeNow(0, "Близнец");
                             target.GameCharacter.Justice.AddRealJusticeNow(stolenJustice);
                             target.Status.AddBonusPoints(stolenJustice, "Близнец");
-                            target.Status.AddInGamePersonalLogs($"Близнец: Украл {stolenJustice} Справедливости у {me.DiscordUsername}. +{stolenJustice} бонусных очков\n");
-                            me.Status.AddInGamePersonalLogs($"Близнец: {target.DiscordUsername} украл всю твою Справедливость!\n");
+                            //target.Status.AddInGamePersonalLogs($"Близнец: Украл {stolenJustice} Справедливости у {me.DiscordUsername}. +{stolenJustice} бонусных очков\n");
+                            //me.Status.AddInGamePersonalLogs($"Близнец: {target.DiscordUsername} украл всю твою Справедливость!\n");
                             game.Phrases.MonsterTwinSteal.SendLog(target, false);
                         }
                     }
@@ -1066,9 +1066,9 @@ public class CharacterPassives : IServiceSingleton
                                 break;
                         }
 
-                        if (me.GameCharacter.GetSkillFightMultiplier() > 1)
+                        if (me.FightCharacter.GetSkillFightMultiplier() > 1)
                             me.Status.AddInGamePersonalLogs(
-                                $"Спарта: {(int)(me.GameCharacter.GetSkill())} *Скилла* против {target.DiscordUsername}\n");
+                                $"Спарта: {(int)(me.FightCharacter.GetSkill())} *Скилла* против {target.DiscordUsername}\n");
                     }
 
                     break;
@@ -1113,8 +1113,8 @@ public class CharacterPassives : IServiceSingleton
 
                 // Аматерасу: auto-win if target effective speed < Itachi's speed
                 case "Аматерасу":
-                    var itachiSpeedAtk = me.GameCharacter.GetSpeed();
-                    var targetEffectiveSpeedAtk = target.GameCharacter.GetSpeed();
+                    var itachiSpeedAtk = me.FightCharacter.GetSpeed();
+                    var targetEffectiveSpeedAtk = target.FightCharacter.GetSpeed();
                     if (targetEffectiveSpeedAtk < itachiSpeedAtk)
                     {
                         target.Status.IsAbleToWin = false;
@@ -1155,7 +1155,7 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Ниндзя":
                     me.Passives.SaldorumNinjaHidden = false;
-                    if (new Random().Next(0, 100) < 50)
+                    if (_rand.Random(0, 99) < 50)
                     {
                         me.Passives.SaldorumNinjaHidden = true;
                         me.Status.HideCurrentFight = true;
@@ -1237,7 +1237,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             me.Status.AddBonusPoints(raidWorkers, "Отличный рудник");
                             game.Phrases.GoblinMine.SendLog(me, false);
-                            me.Status.AddInGamePersonalLogs($"Рудник: Обчистили на {raidWorkers} очков!\n");
+                            //me.Status.AddInGamePersonalLogs($"Рудник: Обчистили на {raidWorkers} очков!\n");
                         }
                     }
                     break;
@@ -1254,8 +1254,8 @@ public class CharacterPassives : IServiceSingleton
                     var tPsy = target.FightCharacter.GetPsyche();
                     if (meInt == tInt || meStr == tStr || meSpd == tSpd || mePsy == tPsy)
                     {
-                        me.GameCharacter.AddPsyche(-1, "Близнец");
-                        me.Status.AddInGamePersonalLogs("Близнец: Ваши статы совпали с врагом... психанул. -1 Психика\n");
+                        me.MinusPsycheLog(me.GameCharacter, game, -1, "Близнец");
+                        //me.Status.AddInGamePersonalLogs("Близнец: Ваши статы совпали с врагом...");
                     }
                     break;
             }
@@ -1693,7 +1693,7 @@ public class CharacterPassives : IServiceSingleton
                         beansAfter.BeanStacks++;
                         me.GameCharacter.AddStrength(-1, "Гигантские бобы");
                         me.GameCharacter.AddSpeed(-1, "Гигантские бобы");
-                        me.GameCharacter.AddPsyche(-1, "Гигантские бобы");
+                        me.MinusPsycheLog(me.GameCharacter, game, -1, "Гигантские бобы");
                         var oldFakeBeans = beansAfter.FakeIntelligence;
                         beansAfter.FakeIntelligence = beansAfter.BaseIntelligence * beansAfter.BeanStacks;
                         me.GameCharacter.AddIntelligence(beansAfter.FakeIntelligence - oldFakeBeans, "Гигантские бобы");
@@ -1762,7 +1762,7 @@ public class CharacterPassives : IServiceSingleton
                         me.GameCharacter.AddExtraSkill(20, "Доминация");
                         target.Status.AddBonusPoints(-1, "Доминация");
                         if (_rand.Luck(1, 3))
-                            target.GameCharacter.AddPsyche(-1, "Доминация");
+                            target.MinusPsycheLog(target.GameCharacter, game, -1, "Доминация");
                         game.Phrases.DopaDomination.SendLog(me, false);
                     }
                     break;
@@ -1791,7 +1791,7 @@ public class CharacterPassives : IServiceSingleton
                         if (!me.Passives.SaldorumKhokholList.MarkedEnemies.Contains(target.GetPlayerId()))
                             me.Passives.SaldorumKhokholList.MarkedEnemies.Add(target.GetPlayerId());
                         me.GameCharacter.AddMoral(5, "Парень с сюрпризом");
-                        if (new Random().Next(0, 100) < 33)
+                        if (_rand.Random(0, 99) < 33)
                             me.GameCharacter.AddMoral(5, "Парень с сюрпризом");
                         game.Phrases.SaldorumSurprise.SendLog(me, target, delete: true);
                     }
@@ -2430,7 +2430,7 @@ public class CharacterPassives : IServiceSingleton
                                 //поскольку мы вернули вампуру прокачку, надо добавить в условие на психику, что оно работает только когда психика <=8
                                 if (player.Passives.VampyrHematophagiaList.HematophagiaCurrent.Count < 4 && player.GameCharacter.GetPsyche() <= 8)
                                 {
-                                    if (player.Passives.VampyrHematophagiaList.HematophagiaCurrent.Where(x => x.StatIndex == 4) == null)
+                                    if (!player.Passives.VampyrHematophagiaList.HematophagiaCurrent.Any(x => x.StatIndex == 4))
                                     {
                                         statIndex = _rand.Random(4, 4);
                                     }
@@ -2638,7 +2638,7 @@ public class CharacterPassives : IServiceSingleton
                                     player.GameCharacter.AddSpeed(1, "Штормяк");
                                     break;
                                 case "Psy":
-                                    tauntLoser.GameCharacter.AddPsyche(-1, "Штормяк");
+                                    tauntLoser.MinusPsycheLog(tauntLoser.GameCharacter, game, -1, "Штормяк");
                                     player.GameCharacter.AddPsyche(1, "Штормяк");
                                     break;
                             }
@@ -2669,9 +2669,8 @@ public class CharacterPassives : IServiceSingleton
                                 {
                                     var roundsOnEnemy = ambush.MinkaRoundsOnEnemy;
                                     player.Status.AddBonusPoints(2, "Кошачья засада");
-                                    player.GameCharacter.AddExtraSkill(33 * roundsOnEnemy, "Кошачья засада");
-                                    player.Status.AddInGamePersonalLogs(
-                                        $"Кошачья засада: Минька вернулся! +2 очка, +{33 * roundsOnEnemy} скилл\n");
+                                    player.GameCharacter.AddExtraSkill(33 * roundsOnEnemy, "Кошачья засада (Минька)");
+                                    //player.Status.AddInGamePersonalLogs($"Кошачья засада: Минька вернулся! +2 очка, +{33 * roundsOnEnemy} скилл\n");
                                     ambush.MinkaOnPlayer = Guid.Empty;
                                     ambush.MinkaRoundsOnEnemy = 0;
                                     ambush.MinkaCooldown = 2;
@@ -2683,10 +2682,9 @@ public class CharacterPassives : IServiceSingleton
                                     if (stolenPoints > 0)
                                     {
                                         fightEnemy.Status.AddBonusPoints(-stolenPoints, "Кошачья засада");
-                                        player.Status.AddBonusPoints(stolenPoints, "Кошачья засада");
+                                        player.Status.AddBonusPoints(stolenPoints, "Кошачья засада (Штормяк)");
                                     }
-                                    player.Status.AddInGamePersonalLogs(
-                                        $"Кошачья засада: Штормяк вернулся! Украл {stolenPoints} очков\n");
+                                    //player.Status.AddInGamePersonalLogs($"Кошачья засада: Штормяк вернулся! Украл {stolenPoints} очков\n");
                                     ambush.StormOnPlayer = Guid.Empty;
                                     ambush.StormCooldown = 2;
                                 }
@@ -3116,6 +3114,7 @@ public class CharacterPassives : IServiceSingleton
                         player.GameCharacter.AddMoral(3, "3-0 обоссан");
 
                         var enemyAcc = game.PlayersList.Find(x => x.GetPlayerId() == win);
+                        if (enemyAcc == null) continue;
 
                         enemyAcc.GameCharacter.AddIntelligence(-1, "3-0 обоссан");
                         enemyAcc.MinusPsycheLog(enemyAcc.GameCharacter, game, -1, "3-0 обоссан");
@@ -3127,7 +3126,8 @@ public class CharacterPassives : IServiceSingleton
 
                     foreach (var threeZero in tigrThreeZero.WhoToLostThisRound.ToList().Select(lost => tigrThreeZero.FriendList.Find(x => x.EnemyPlayerId == lost)))
                     {
-                        threeZero.WinsSeries = 0;
+                        if (threeZero != null)
+                            threeZero.WinsSeries = 0;
                     }
                     
                     tigrThreeZero.WhoToLostThisRound.Clear();
@@ -3568,7 +3568,7 @@ public class CharacterPassives : IServiceSingleton
                     }
 
                     // 2. 20% chance to corrupt a random enemy's logs
-                    if (new Random().Next(0, 100) < 20)
+                    if (_rand.Random(0, 99) < 20)
                     {
                         var enemies = game.PlayersList
                             .Where(p => p.GetPlayerId() != player.GetPlayerId()
@@ -3576,12 +3576,12 @@ public class CharacterPassives : IServiceSingleton
                             .ToList();
                         if (enemies.Count > 0)
                         {
-                            var victim = enemies[new Random().Next(enemies.Count)];
+                            var victim = enemies[_rand.Random(0, enemies.Count - 1)];
                             var lines = victim.Status.GetInGamePersonalLogs().Split('\n', StringSplitOptions.RemoveEmptyEntries);
                             if (lines.Length > 0)
                             {
-                                var idx = new Random().Next(lines.Length);
-                                if (new Random().Next(0, 100) < 50)
+                                var idx = _rand.Random(0, lines.Length - 1);
+                                if (_rand.Random(0, 99) < 50)
                                     lines[idx] = "██████████████████";
                                 else
                                     lines[idx] = "Салдорум был здесь...";
@@ -3634,7 +3634,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             player.Status.AddBonusPoints(gobMinePopEor.Workers, "Отличный рудник");
                             game.Phrases.GoblinMine.SendLog(player, false);
-                            player.Status.AddInGamePersonalLogs($"Рудник: +{gobMinePopEor.Workers} очков от трудяг!\n");
+                            //player.Status.AddInGamePersonalLogs($"Рудник: +{gobMinePopEor.Workers} очков от трудяг!\n");
                         }
                     }
                     break;
@@ -3694,7 +3694,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             fighter.Status.AddRegularPoints(7, "Пейзаж конца света");
                             fighter.Status.AddBonusPoints(10, "Пейзаж конца света");
-                            fighter.Status.AddInGamePersonalLogs("Я увидел... Зверя... с семью головами и десятью рогами! Я выстрелил! +7 очков, +10 бонусных очков.\n");
+                            game.AddGlobalLogs("Я увидел... Зверя... с семью головами и десятью рогами! Я выстрелил!");
                         }
                     }
                     break;
@@ -4486,9 +4486,8 @@ public class CharacterPassives : IServiceSingleton
 
                             if (totalSiphoned > 0)
                             {
-                                player.GameCharacter.AddExtraSkill(totalSiphoned, "Секретный билд");
-                                player.Status.AddInGamePersonalLogs(
-                                    $"Пришло время играть по-настоящему. Мой секретный билд: +{totalSiphoned} Скилла\n");
+                                player.GameCharacter.AddExtraSkill(totalSiphoned, "Секретный билд", isLog:false);
+                                player.Status.AddInGamePersonalLogs($"Пришло время играть по-настоящему. Мой секретный билд: +{totalSiphoned} Скилла\n");
                                 game.Phrases.SellerSecretBuild.SendLog(player, false);
                             }
                         }
@@ -4786,10 +4785,8 @@ public class CharacterPassives : IServiceSingleton
                     */
                     //Да всё нахуй эту игру (3, 6 and 9 are in LVL up): Part #3
                     if (game.RoundNo == 9 && player.GameCharacter.GetPsyche() < 4)
-                        if (game.RoundNo == 9 ||
-                            (game.RoundNo == 10 && !game.GetAllGlobalLogs().Contains("Нахуй эту игру")))
-                            game.AddGlobalLogs(
-                                $"{player.DiscordUsername}: Нахуй эту игру..");
+                        if (!game.GetAllGlobalLogs().Contains("Нахуй эту игру"))
+                            game.AddGlobalLogs($"{player.DiscordUsername}: Нахуй эту игру..");
 
 
                     //end Да всё нахуй эту игру: Part #3
@@ -4803,8 +4800,7 @@ public class CharacterPassives : IServiceSingleton
                             player.Status.WhoToAttackThisTurn = new List<Guid>();
                             game.Phrases.DarksciFuckThisGame.SendLog(player, true);
 
-                            if (game.RoundNo == 9 ||
-                                (game.RoundNo == 10 && !game.GetAllGlobalLogs().Contains("Нахуй эту игру")))
+                            if (game.RoundNo == 10 && !game.GetAllGlobalLogs().Contains("Нахуй эту игру"))
                                 game.AddGlobalLogs(
                                     $"{player.DiscordUsername}: Нахуй эту игру..");
                         }
@@ -4948,7 +4944,6 @@ public class CharacterPassives : IServiceSingleton
                     {
                         player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(1);
                         player.GameCharacter.AddMoral(5, "Зиккурат");
-                        player.Status.AddInGamePersonalLogs("Зиккурат: +1 Справедливость, +5 Мораль\n");
                     }
                     break;
             }

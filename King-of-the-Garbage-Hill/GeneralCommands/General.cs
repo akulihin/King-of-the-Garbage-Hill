@@ -422,6 +422,43 @@ public class General : ModuleBaseCustom
                 break;
         }
 
+        //Суппорт + Sirinoks team bias: ~22% chance to land on the same team
+        if (teamCount > 0)
+        {
+            var support = playersList.Find(x => x.GameCharacter.Name == "Таинственный Суппорт");
+            var sirinoks = playersList.Find(x => x.GameCharacter.Name == "Sirinoks");
+            if (support != null && sirinoks != null)
+            {
+                var supportTeam = teamList.Find(x => x.TeamPlayers.Contains(support.GetPlayerId()));
+                var sirinoksTeam = teamList.Find(x => x.TeamPlayers.Contains(sirinoks.GetPlayerId()));
+                if (supportTeam != null && sirinoksTeam != null
+                    && supportTeam.TeamId != sirinoksTeam.TeamId
+                    && Random.Shared.Next(0, 100) < 22)
+                {
+                    var swapId = supportTeam.TeamPlayers.FirstOrDefault(id => id != support.GetPlayerId());
+                    if (swapId != default)
+                    {
+                        var swapIdx = supportTeam.TeamPlayers.IndexOf(swapId);
+                        var swapUsername = supportTeam.TeamPlayersUsernames[swapIdx];
+                        var swapPlayer = playersList.Find(x => x.GetPlayerId() == swapId);
+
+                        supportTeam.TeamPlayers.Remove(swapId);
+                        supportTeam.TeamPlayersUsernames.Remove(swapUsername);
+                        sirinoksTeam.TeamPlayers.Remove(sirinoks.GetPlayerId());
+                        sirinoksTeam.TeamPlayersUsernames.Remove(sirinoks.DiscordUsername);
+
+                        supportTeam.TeamPlayers.Add(sirinoks.GetPlayerId());
+                        supportTeam.TeamPlayersUsernames.Add(sirinoks.DiscordUsername);
+                        sirinoksTeam.TeamPlayers.Add(swapId);
+                        sirinoksTeam.TeamPlayersUsernames.Add(swapUsername);
+
+                        sirinoks.TeamId = supportTeam.TeamId;
+                        if (swapPlayer != null) swapPlayer.TeamId = sirinoksTeam.TeamId;
+                    }
+                }
+            }
+        }
+
         if (teamCount > 0)
             foreach (var teamPayer in playersList)
             {

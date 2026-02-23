@@ -280,13 +280,15 @@ public class DoomsdayMachine : IServiceSingleton
             {
                 player.Status.AddFightingData($"IsBlock: {player.Status.IsBlock}");
                 player.Status.AddFightingData($"IsSkip: {player.Status.IsSkip}");
-                //fight Reset
-                await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
-                ResetFight(game, player);
 
                 // Allow forced attacks (e.g. Котики Штормяк taunt) even when blocking/skipping
                 if (player.Status.WhoToAttackThisTurn.Count == 0)
+                {
+                    //fight Reset — only when truly blocking/skipping with no forced fights
+                    await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
+                    ResetFight(game, player);
                     continue;
+                }
                 // else fall through to process forced fights
             }
 
@@ -332,7 +334,6 @@ public class DoomsdayMachine : IServiceSingleton
                 {
                     var (text1, text2) = CharacterClass.ClassToFlavorText(playerIamAttacking.GameCharacter.GetSkillClassType());
 
-                    var skillBefore = player.GameCharacter.GetSkill();
                     skillGainedFromTarget = player.GameCharacter.AddMainSkill(text1);
 
                     var known = player.Status.KnownPlayerClass.Find(x => x.EnemyId == playerIamAttacking.GetPlayerId());
@@ -778,7 +779,7 @@ public class DoomsdayMachine : IServiceSingleton
                         NemesisMultiplier = nemesisMultiplier,
                         SkillMultiplierMe = (int)step1.SkillMultiplierMe,
                         SkillMultiplierTarget = (int)step1.SkillMultiplierTarget,
-                        PsycheDifference = me.GetPsyche() - target.GetPsyche(),
+                        PsycheDifference = player.FightCharacter.GetPsyche() - playerIamAttacking.FightCharacter.GetPsyche(),
                         WeighingMachine = Math.Round(weighingMachine, 2),
                         IsTooGoodMe = isTooGoodMe,
                         IsTooGoodEnemy = isTooGoodEnemy,

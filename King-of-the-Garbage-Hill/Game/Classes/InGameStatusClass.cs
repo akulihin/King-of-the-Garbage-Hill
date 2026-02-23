@@ -263,10 +263,16 @@ public class InGameStatus
         switch (score)
         {
             case > 0:
-                AddInGamePersonalLogs($"+{score} **обычных** очков ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
+                if (ScoreSource.Length > 0)
+                    AddInGamePersonalLogs($"+{score} **обычных** очков ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
+                else
+                    AddInGamePersonalLogs($"+{score} **обычных** очков\n");
                 break;
             case < 0:
-                AddInGamePersonalLogs($"{score} **очков**... ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
+                if (ScoreSource.Length > 0)
+                    AddInGamePersonalLogs($"{score} **очков**... ({ScoreSource.Remove(ScoreSource.Length - 1, 1)})\n");
+                else
+                    AddInGamePersonalLogs($"{score} **очков**...\n");
                 break;
             default:
             {

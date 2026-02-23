@@ -1566,9 +1566,10 @@ public class BotsBehavior : IServiceSingleton
                     {
                         var doebatsya = hardKitty.LostSeriesCurrent
                             .Where(x => allTargets.Any(y => y.GetPlayerId() == x.EnemyPlayerId)).ToList();
-                        var doebathsyaTarget = doebatsya.OrderByDescending(x => x.Series).First();
-                        mandatoryAttack = allTargets.Find(x => x.GetPlayerId() == doebathsyaTarget.EnemyPlayerId)
-                            .PlaceAtLeaderBoard();
+                        var doebathsyaTarget = doebatsya.OrderByDescending(x => x.Series).FirstOrDefault();
+                        if (doebathsyaTarget != null)
+                            mandatoryAttack = allTargets.Find(x => x.GetPlayerId() == doebathsyaTarget.EnemyPlayerId)
+                                ?.PlaceAtLeaderBoard() ?? mandatoryAttack;
                     }
 
                     if (allTargets.Any(x => x.AttackPreference > 5) && mandatoryAttack == -1)
@@ -1577,9 +1578,10 @@ public class BotsBehavior : IServiceSingleton
                             .OrderByDescending(x => x.AttackPreference).ToList();
                         var doebatsya = hardKitty.LostSeriesCurrent
                             .Where(x => doebathsyaTargets.Any(y => y.GetPlayerId() == x.EnemyPlayerId)).ToList();
-                        var doebathsyaTarget = doebatsya.OrderByDescending(x => x.Series).First();
-                        mandatoryAttack = allTargets.Find(x => x.GetPlayerId() == doebathsyaTarget.EnemyPlayerId)
-                            .PlaceAtLeaderBoard();
+                        var doebathsyaTarget = doebatsya.OrderByDescending(x => x.Series).FirstOrDefault();
+                        if (doebathsyaTarget != null)
+                            mandatoryAttack = allTargets.Find(x => x.GetPlayerId() == doebathsyaTarget.EnemyPlayerId)
+                                ?.PlaceAtLeaderBoard() ?? mandatoryAttack;
                     }
 
 
@@ -1947,12 +1949,18 @@ public class BotsBehavior : IServiceSingleton
             if (player.GameCharacter.Name == "Стая Гоблинов")
             {
                 var gobPop = player.Passives.GoblinPopulation;
-                if (game.RoundNo <= 5)
+                if (game.RoundNo <= 5 && gobPop.WarriorUpgradeLevel < 4)
                     skillNumber = 2; // Warriors early (more combat power)
                 else if (gobPop.WorkerUpgradeLevel < 2)
                     skillNumber = 3; // Workers mid (more resources)
+                else if (!gobPop.FestivalUsed)
+                    skillNumber = 4; // Double population late (only if not used yet)
+                else if (gobPop.WarriorUpgradeLevel < 4)
+                    skillNumber = 2; // Fall back to warriors
+                else if (gobPop.WorkerUpgradeLevel < 4)
+                    skillNumber = 3; // Fall back to workers
                 else
-                    skillNumber = 4; // Double population late
+                    skillNumber = 1; // All upgrades maxed, pick hob rate
             }
 
             await _gameReaction.HandleLvlUp(player, null, skillNumber);

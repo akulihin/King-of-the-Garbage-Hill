@@ -186,22 +186,30 @@ Add `case "PassiveName":` blocks in the relevant handler methods. Available hook
 | `HandleEndOfRound` | End of round (before flag reset) | Cooldown ticks, cleanup, IsBlock still true here |
 | `HandleNextRound` | Start of next round (after RoundNo++) | Per-round setup |
 | `HandleNextRoundAfterSorting` | After score-based leaderboard sort | Position-dependent effects |
+| `HandleBotPredict` | After sorting, before exploit roll | Bot AI prediction logic (guess opponent characters) |
+| `HandleShark` | During fight resolution (called from DoomsdayMachine) | Shark character-specific victory/defeat tracking |
 
 ### Step 6: Fight Resolution — `Game/GameLogic/DoomsdayMachine.cs`
 Modify only if the character changes core fight mechanics (e.g., skipping harm, allowing forced fights for blocking players, custom win/loss conditions). Key locations:
 - **Block/skip section** (~line 279): Players who block/skip get `HandleCharacterAfterFight` + `ResetFight`, then `continue` only if `WhoToAttackThisTurn.Count == 0` — forced-fight bypass already implemented
 - **Win branch** (~line 581): Moral changes, `LowerQualityResist` damage — add skip conditions if character is harmless
 - **Execution order** (approximate line numbers, may drift):
-  1. `HandleEndOfRound` (~914)
-  2. Reset flags (~916-959)
-  3. `RoundNo++` (~973)
-  4. `HandleNextRound` (~981)
-  5. Score sort (~994)
-  6. Position swaps: Tigr top, Portal Gun, HardKitty, Ziggurat restore, Quality Drop (~997-1128)
-  7. LvlUp point distribution on rounds 3, 5, 7, 9 (~1065)
-  8. `HandleNextRoundAfterSorting` (~1145)
-  9. `HandleBotPredict` (~1146)
-  10. `RollExploit` (~1147)
+  1. `HandleEndOfRound` (~915)
+  2. Reset flags (~917-960)
+  3. `RoundNo++` (~974)
+  4. `HandleNextRound` (~982)
+  5. Score sort (~995)
+  6. Tigr forced-top swap (~998)
+  7. Portal Gun forced-position swap (~1023)
+  8. HardKitty forced-last (~1052)
+  9. LvlUp point distribution on rounds 3, 5, 7, 9 + `SetPlaceAtLeaderBoard` + `RollSkillTargetForNextRound` (~1066)
+  10. Ziggurat restore — immovable players return to locked positions (~1079)
+  11. Quality Drop — players drop leaderboard positions based on `StrengthQualityDropTimes` (~1096)
+  12. Round 10 Ziggurat win condition check (~1131)
+  13. `SortGameLogs` (~1145)
+  14. `HandleNextRoundAfterSorting` (~1146)
+  15. `HandleBotPredict` (~1147)
+  16. `RollExploit` (~1148)
 
 ### Step 7: Turn Injection — `Game/GameLogic/CheckIfReady.cs`
 Add forced-attack or action-override logic if the character manipulates other players' turns (e.g., taunt, aggress). Inject targets into `WhoToAttackThisTurn`. Add after the Aggress section, before the safety-net block.
@@ -231,7 +239,7 @@ Add character widget in the passive abilities section (similar to goblin swarm w
 - **`Passive` class uses a constructor**: `new Passive(name, description, visible)` — NOT object initializer syntax. Also has a `Standalone` property (default false) for standalone passive display.
 - **No `AddJustice` method**: Use `AddJusticeForNextRoundFromSkill(int)` or `AddJusticeForNextRoundFromFight(int)` (both on `JusticeClass`)
 - **Score methods** (on `InGameStatus`): `AddBonusPoints(decimal, string)` adds to total; `GetScore()` returns total; `AddRegularPoints(int, string, bool)` adds to per-round bucket
-- **`MinusPsycheLog` signature** (on `GamePlayerBridgeClass`): `MinusPsycheLog(CharacterClass, GameClass, int, string)`
+- **Psyche loss MUST use `MinusPsycheLog`**: When reducing Psyche, NEVER call `AddPsyche(-N)` directly. Always use `player.MinusPsycheLog(player.GameCharacter, game, -N, "PassiveName")` instead. `MinusPsycheLog` does two things bare `AddPsyche` does not: (1) checks for "Спокойствие" passive immunity and skips the loss entirely if present, (2) writes a global log (`"X психанул"`) visible to all players. The only exceptions are passives with intentionally unique global log messages (e.g., "Дизмораль", "Стримснайпят и банят") or temporary buff reversals that aren't conceptually "rage". Signature (on `GamePlayerBridgeClass`): `MinusPsycheLog(CharacterClass, GameClass, int, string)`
 - **Transferred passives**: When adding a Passive to another player's list, existing switch-case handlers will process it — add immunity checks to prevent unintended behavior (e.g., infinite taunt loops)
 - **Block/skip players skip fight loop**: If your character forces fights on blocking/skipping players, you must modify the block/skip `continue` in DoomsdayMachine to check `WhoToAttackThisTurn.Count`
 - **Don't double-log stat changes**: Methods like `AddStrength(int, string, bool isLog = true)`, `AddPsyche(int, string, bool isLog = true)`, `AddExtraSkill(decimal, string, bool isLog = true)`, `AddMoral(decimal, string, bool isLog = true)`, `AddBonusPoints(decimal, string)` automatically write to **Personal logs** when `isLog` is true (the default). Do NOT manually call `AddInGamePersonalLogs` for the same change — that produces duplicate log entries. Pass `isLog: false` to suppress auto-logging.
