@@ -220,7 +220,7 @@ public sealed class HelperFunctions : IServiceSingleton
             return;
         }
 
-        if (embed.Footer.Text.Contains("ERROR"))
+        if (embed.Footer?.Text?.Contains("ERROR") == true)
         {
             return;
         }

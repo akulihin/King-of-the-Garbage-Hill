@@ -104,6 +104,7 @@ public class InGameStatus
     public bool FightEnemyWasTooGood { get; set; }
     public bool FightEnemyWasTooStronk { get; set; }
     public bool IsAramRollConfirmed { get; set; }
+    public bool IsDraftPickConfirmed { get; set; }
     private string FightingData { get; set; } = "";
 
 

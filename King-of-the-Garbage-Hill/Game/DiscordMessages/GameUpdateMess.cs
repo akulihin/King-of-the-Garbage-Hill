@@ -133,8 +133,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (player.IsWebPlayer || player.PreferWeb) return;
 
         var globalAccount = _global.Client.GetUser(player.DiscordId);
+        if (globalAccount == null) return;
 
-        if (!game.IsAramPickPhase)
+        if (!game.IsAramPickPhase && !game.IsDraftPickPhase)
         {
             await SendCharacterMessage(player, globalAccount);
         }
@@ -1616,6 +1617,66 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     }
 
 
+    public EmbedBuilder DraftPickPage(GamePlayerBridgeClass player, GameClass game)
+    {
+        var embed = new EmbedBuilder();
+        embed.WithColor(Color.Gold);
+        embed.WithTitle("Draft Pick — Choose Your Character");
+        embed.WithFooter("Draft Pick Phase");
+
+        if (player.Status.IsDraftPickConfirmed)
+        {
+            embed.WithDescription($"**Ты выбрал: {player.GameCharacter.Name}**\nОжидаем остальных игроков...");
+            embed.WithThumbnailUrl(player.GameCharacter.AvatarCurrent);
+            return embed;
+        }
+
+        if (!game.DraftOptions.TryGetValue(player.GetPlayerId(), out var options) || options.Count == 0)
+        {
+            embed.WithDescription("Нет доступных персонажей для выбора.");
+            return embed;
+        }
+
+        embed.WithDescription("Выбери одного из трёх персонажей:");
+
+        for (var i = 0; i < options.Count; i++)
+        {
+            var c = options[i];
+            var passiveNames = string.Join(", ", c.Passive.Where(p => p.Visible).Select(p => p.PassiveName));
+            if (string.IsNullOrEmpty(passiveNames)) passiveNames = "—";
+            embed.AddField(
+                $"{i + 1}. {c.Name} (Tier {c.Tier})",
+                $"INT: {c.GetIntelligence()} | STR: {c.GetStrength()} | SPD: {c.GetSpeed()} | PSY: {c.GetPsyche()}\n" +
+                $"Passives: {passiveNames}");
+        }
+
+        return embed;
+    }
+
+    public ComponentBuilder GetDraftPickButtons(GamePlayerBridgeClass player, GameClass game)
+    {
+        var components = new ComponentBuilder();
+
+        if (!player.Status.IsDraftPickConfirmed)
+        {
+            if (game.DraftOptions.TryGetValue(player.GetPlayerId(), out var options))
+            {
+                for (var i = 0; i < options.Count; i++)
+                {
+                    components.WithButton(new ButtonBuilder(options[i].Name, $"draft_pick_{i}", ButtonStyle.Primary));
+                }
+            }
+            components.WithButton(GetEndGameButton(player, game), row: 1);
+        }
+        else
+        {
+            components.WithButton(new ButtonBuilder("Ожидаем остальных", "draft_pick_wait", ButtonStyle.Success, isDisabled: true));
+            components.WithButton(GetEndGameButton(player, game));
+        }
+
+        return components;
+    }
+
     public ButtonBuilder GetBlockButton(GamePlayerBridgeClass player, GameClass game)
     {
         var playerIsReady = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady;
@@ -1688,6 +1749,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         }
 
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+        if (game == null) return;
         var embed = new EmbedBuilder();
         var builder = new ComponentBuilder();
 
@@ -1729,6 +1791,12 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             case 5:
                 embed = AramPickPage(player);
                 builder = GetAramPickButtons(player, game);
+                break;
+
+            //draft pick
+            case 6:
+                embed = DraftPickPage(player, game);
+                builder = GetDraftPickButtons(player, game);
                 break;
         }
 

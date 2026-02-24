@@ -89,7 +89,14 @@ public sealed class UserAccounts : IServiceSingleton
             return GetOrCreateWebAccount(userId);
 
         // Discord human
-        return GetOrCreateAccount(_client.GetUser(userId));
+        var user = _client.GetUser(userId);
+        if (user == null)
+        {
+            // User not in cache — fall back to dictionary lookup
+            _userAccountsDictionary.TryGetValue(userId, out var cached);
+            return cached;
+        }
+        return GetOrCreateAccount(user);
     }
 
     public DiscordAccountClass GetOrCreateAccount(IUser user)

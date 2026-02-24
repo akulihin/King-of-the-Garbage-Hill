@@ -484,6 +484,51 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
       <p>Connecting to game...</p>
     </div>
 
+    <!-- Draft Pick Phase Overlay -->
+    <div v-else-if="store.gameState.isDraftPickPhase && store.gameState.draftOptions" class="draft-pick-overlay">
+      <div class="draft-pick-container">
+        <h2 class="draft-pick-title">Choose Your Character</h2>
+        <p class="draft-pick-subtitle">Select one of these 3 characters to play</p>
+        <div class="draft-pick-cards">
+          <div
+            v-for="option in store.gameState.draftOptions"
+            :key="option.name"
+            class="draft-card"
+            @click="store.draftSelect(option.name)"
+          >
+            <div class="draft-card-avatar">
+              <img :src="option.avatar" :alt="option.name" />
+            </div>
+            <div class="draft-card-info">
+              <h3 class="draft-card-name">{{ option.name }}</h3>
+              <div class="draft-card-tier">Tier {{ option.tier }}</div>
+              <div class="draft-card-stats">
+                <span class="draft-stat" title="Intelligence">🧠 {{ option.intelligence }}</span>
+                <span class="draft-stat" title="Strength">💪 {{ option.strength }}</span>
+                <span class="draft-stat" title="Speed">⚡ {{ option.speed }}</span>
+                <span class="draft-stat" title="Psyche">🧿 {{ option.psyche }}</span>
+              </div>
+              <p class="draft-card-desc">{{ option.description }}</p>
+              <div class="draft-card-passives">
+                <div v-for="passive in option.passives" :key="passive.name" class="draft-passive">
+                  <strong>{{ passive.name }}</strong>
+                  <span v-if="passive.description">: {{ passive.description }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Draft pick waiting (already confirmed, waiting for others) -->
+    <div v-else-if="store.gameState.isDraftPickPhase && !store.gameState.draftOptions" class="draft-pick-overlay">
+      <div class="draft-pick-container">
+        <h2 class="draft-pick-title">Waiting for other players...</h2>
+        <p class="draft-pick-subtitle">Your character has been selected. The game will start soon.</p>
+      </div>
+    </div>
+
     <!-- Active Game (or finished — same layout, just no actions) -->
     <div v-else class="game-layout">
       <!-- Left: Player info panel + action buttons -->
@@ -721,6 +766,106 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
   padding: 80px;
   color: var(--text-muted);
   font-size: 16px;
+}
+
+/* ── Draft Pick Phase ─────────────────────────────────────────── */
+.draft-pick-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  padding: 20px;
+}
+.draft-pick-container {
+  text-align: center;
+  max-width: 1200px;
+  width: 100%;
+}
+.draft-pick-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.draft-pick-subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}
+.draft-pick-cards {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.draft-card {
+  background: var(--bg-secondary);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-lg, 12px);
+  padding: 16px;
+  width: 340px;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  text-align: left;
+}
+.draft-card:hover {
+  border-color: var(--accent-gold);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.draft-card-avatar {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  border-radius: var(--radius, 8px);
+  margin-bottom: 12px;
+}
+.draft-card-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.draft-card-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+.draft-card-tier {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.draft-card-stats {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.draft-stat {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.draft-card-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  line-height: 1.4;
+  max-height: 60px;
+  overflow: hidden;
+}
+.draft-card-passives {
+  font-size: 11px;
+  color: var(--text-secondary);
+  max-height: 120px;
+  overflow-y: auto;
+}
+.draft-passive {
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+.draft-passive strong {
+  color: var(--accent-gold);
 }
 
 .finished-badge {

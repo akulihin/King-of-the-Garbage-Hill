@@ -224,6 +224,77 @@ public class StartGameLogic : IServiceSingleton
         return playersList;
     }
 
+    public List<CharacterClass> RollDraftOptions(DiscordAccountClass account, List<CharacterClass> excludedCharacters, int count = 3)
+    {
+        var allCharacters = _charactersPull.GetRollableCharacters();
+
+        // Remove team-mode-only characters for non-team games
+        allCharacters = allCharacters.Where(x => !x.TeamModeOnly).ToList();
+
+        // Remove already-assigned characters
+        foreach (var excluded in excludedCharacters)
+            allCharacters.RemoveAll(x => x.Name == excluded.Name);
+
+        // Remove character played last time
+        allCharacters = allCharacters.Where(x => x.Name != account.CharacterPlayedLastTime).ToList();
+
+        // Ensure account has chance entries for all characters
+        var allCharacters2 = _charactersPull.GetRollableCharacters();
+        foreach (var character in allCharacters2)
+        {
+            if (account.CharacterChance.Find(x => x.CharacterName == character.Name) == null)
+                account.CharacterChance.Add(new DiscordAccountClass.CharacterChances(character.Name));
+        }
+
+        var result = new List<CharacterClass>();
+
+        for (var pick = 0; pick < count && allCharacters.Count > 0; pick++)
+        {
+            var allAvailableCharacters = new List<DiscordAccountClass.CharacterRollClass>();
+            var totalPool = 1;
+
+            foreach (var character in allCharacters)
+            {
+                var range = GetRangeFromTier(character.Tier);
+                var chanceEntry = account.CharacterChance.Find(x => x.CharacterName == character.Name);
+                if (chanceEntry == null) continue;
+                var temp = totalPool + Convert.ToInt32(range * chanceEntry.Multiplier) - 1;
+                allAvailableCharacters.Add(new DiscordAccountClass.CharacterRollClass(character.Name, totalPool, temp));
+                totalPool = temp + 1;
+            }
+
+            if (totalPool <= 1 || allAvailableCharacters.Count == 0) break;
+
+            var randomIndex = _secureRandom.Random(1, totalPool - 1);
+            var rolledCharacter = allAvailableCharacters.Find(x =>
+                randomIndex >= x.CharacterRangeMin && randomIndex <= x.CharacterRangeMax);
+            if (rolledCharacter == null) break;
+
+            var characterToAdd = allCharacters.Find(x => x.Name == rolledCharacter.CharacterName);
+            if (characterToAdd == null) break;
+
+            result.Add(characterToAdd);
+            allCharacters.Remove(characterToAdd);
+
+            // Respect tier-4 uniqueness: if we rolled a tier-4, remove all other tier-4s
+            if (characterToAdd.Tier == 4)
+                allCharacters = allCharacters.Where(x => x.Tier != 4).ToList();
+
+            // Respect LeCrisp/Толя exclusion
+            switch (characterToAdd.Name)
+            {
+                case "LeCrisp":
+                    allCharacters.RemoveAll(x => x.Name == "Толя");
+                    break;
+                case "Толя":
+                    allCharacters.RemoveAll(x => x.Name == "LeCrisp");
+                    break;
+            }
+        }
+
+        return result;
+    }
+
     public List<GamePlayerBridgeClass> HandleAramRoll(List<IUser> players, ulong gameId)
     {
         var playersList = new List<GamePlayerBridgeClass>();

@@ -366,6 +366,11 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.predict(gameState.value.gameId, targetPlayerId, characterName)
   }
 
+  async function draftSelect(characterName: string) {
+    if (!gameState.value) return
+    await signalrService.draftSelect(gameState.value.gameId, characterName)
+  }
+
   async function aramReroll(slot: number) {
     if (!gameState.value) return
     await signalrService.aramReroll(gameState.value.gameId, slot)
@@ -508,6 +513,7 @@ export const useGameStore = defineStore('game', () => {
     moralToPoints,
     moralToSkill,
     predict,
+    draftSelect,
     aramReroll,
     aramConfirm,
     darksciChoice,

@@ -410,6 +410,11 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.IsAramRollConfirmed  = true;
                         await _upd.UpdateMessage(player);
                         break;
+                    case "draft_pick_0":
+                    case "draft_pick_1":
+                    case "draft_pick_2":
+                        await HandleDraftPick(player, game, int.Parse(button.Data.CustomId.Split('_')[2]));
+                        break;
                 }
                 
                 return;
@@ -481,6 +486,56 @@ public sealed class GameReaction : IServiceSingleton
         player.GameCharacter.SetPsyche(psyche, "Aram", false);
     }
 
+
+    public async Task HandleDraftPick(GamePlayerBridgeClass player, GameClass game, int optionIndex)
+    {
+        if (!game.IsDraftPickPhase) return;
+        if (player.Status.IsDraftPickConfirmed) return;
+        if (!game.DraftOptions.TryGetValue(player.GetPlayerId(), out var options)) return;
+        if (optionIndex < 0 || optionIndex >= options.Count) return;
+
+        var selected = options[optionIndex];
+
+        // Replace the player's character with the selected one
+        var newBridge = new GamePlayerBridgeClass(
+            selected,
+            new InGameStatus(),
+            player.DiscordId,
+            player.GameId,
+            player.DiscordUsername,
+            player.PlayerType
+        );
+        newBridge.IsWebPlayer = player.IsWebPlayer;
+        newBridge.PreferWeb = player.PreferWeb;
+        newBridge.TeamId = player.TeamId;
+        newBridge.Predict = player.Predict;
+        newBridge.DiscordStatus = player.DiscordStatus;
+        newBridge.Status.IsDraftPickConfirmed = true;
+        newBridge.Status.MoveListPage = 6;
+
+        // Replace in the players list
+        var idx = game.PlayersList.IndexOf(player);
+        if (idx >= 0)
+            game.PlayersList[idx] = newBridge;
+
+        // Update ExploitPlayersList so it references the new bridge
+        var exploitIdx = game.ExploitPlayersList.IndexOf(player);
+        if (exploitIdx >= 0 && selected.Passive.All(p => p.PassiveName != "Exploit"))
+            game.ExploitPlayersList[exploitIdx] = newBridge;
+        else if (exploitIdx >= 0)
+            game.ExploitPlayersList.RemoveAt(exploitIdx);
+
+        // Update account's last played character
+        var account = _accounts.GetAccount(player.DiscordId);
+        if (account != null)
+            account.CharacterPlayedLastTime = selected.Name;
+
+        // Only show "waiting for others" if not everyone has picked yet.
+        // When all are confirmed, CheckIfReady handles the transition to avoid
+        // a race condition where this UpdateMessage overwrites the game page.
+        if (!game.PlayersList.All(x => x.Status.IsDraftPickConfirmed))
+            await _upd.UpdateMessage(newBridge);
+    }
 
     public async Task HandlePredic1(GamePlayerBridgeClass player, SocketMessageComponent button)
     {

@@ -86,6 +86,27 @@ public static class GameStateMapper
             GameMode = game.GameMode,
             IsFinished = game.IsFinished,
             IsAramPickPhase = game.IsAramPickPhase,
+            IsDraftPickPhase = game.IsDraftPickPhase,
+            DraftOptions = game.IsDraftPickPhase && requestingPlayer != null
+                && game.DraftOptions.TryGetValue(requestingPlayer.GetPlayerId(), out var draftOpts)
+                ? draftOpts.Select(c => new DraftOptionDto
+                {
+                    Name = c.Name,
+                    Avatar = GetLocalAvatarUrl(c.Avatar),
+                    Intelligence = c.GetIntelligence(),
+                    Psyche = c.GetPsyche(),
+                    Speed = c.GetSpeed(),
+                    Strength = c.GetStrength(),
+                    Description = c.Description,
+                    Tier = c.Tier,
+                    Passives = c.Passive.Select(p => new PassiveDto
+                    {
+                        Name = p.PassiveName,
+                        Description = p.PassiveDescription,
+                        Visible = p.Visible,
+                    }).ToList(),
+                }).ToList()
+                : null,
             IsKratosEvent = game.IsKratosEvent,
             GlobalLogs = isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game),
             AllGlobalLogs = isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game),
@@ -722,6 +743,7 @@ public static class GameStateMapper
                 RoundsToPlay = m.RoundsToPlay,
             }).ToList() : new List<MediaMessageDto>(),
             IsAramRollConfirmed = status.IsAramRollConfirmed,
+            IsDraftPickConfirmed = status.IsDraftPickConfirmed,
             AramRerolledPassivesTimes = isMe ? status.AramRerolledPassivesTimes : 0,
             AramRerolledStatsTimes = isMe ? status.AramRerolledStatsTimes : 0,
         };

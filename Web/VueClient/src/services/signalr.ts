@@ -11,6 +11,8 @@ export type GameState = {
   gameMode: string
   isFinished: boolean
   isAramPickPhase: boolean
+  isDraftPickPhase: boolean
+  draftOptions: DraftOptionDto[] | null
   isKratosEvent: boolean
   globalLogs: string
   /** Full history of global logs across all rounds */
@@ -336,6 +338,7 @@ export type PlayerStatus = {
   directMessages: string[]
   mediaMessages: MediaMessage[]
   isAramRollConfirmed: boolean
+  isDraftPickConfirmed: boolean
   aramRerolledPassivesTimes: number
   aramRerolledStatsTimes: number
   placeHistory: { round: number; place: number }[]
@@ -377,6 +380,18 @@ export type CharacterInfo = {
   strength: number
   speed: number
   psyche: number
+}
+
+export type DraftOptionDto = {
+  name: string
+  avatar: string
+  intelligence: number
+  psyche: number
+  speed: number
+  strength: number
+  description: string
+  tier: number
+  passives: { name: string; description: string; visible: boolean }[]
 }
 
 export type MediaMessage = {
@@ -684,6 +699,12 @@ class SignalRService {
 
   async aramConfirm(gameId: number): Promise<void> {
     await this.connection?.invoke('AramConfirm', gameId)
+  }
+
+  // ── Draft Pick ──────────────────────────────────────────────────
+
+  async draftSelect(gameId: number, characterName: string): Promise<void> {
+    await this.connection?.invoke('DraftSelect', gameId, characterName)
   }
 
   // ── Darksci / Young Gleb ───────────────────────────────────────

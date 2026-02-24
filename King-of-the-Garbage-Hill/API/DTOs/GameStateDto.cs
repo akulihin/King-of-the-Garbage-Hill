@@ -15,6 +15,8 @@ public class GameStateDto
     public string GameMode { get; set; }
     public bool IsFinished { get; set; }
     public bool IsAramPickPhase { get; set; }
+    public bool IsDraftPickPhase { get; set; }
+    public List<DraftOptionDto> DraftOptions { get; set; }
     public bool IsKratosEvent { get; set; }
     public string GlobalLogs { get; set; }
 
@@ -190,6 +192,7 @@ public class PlayerStatusDto
     /// <summary>Character phrase media messages (text, audio, images from SendLogSeparate/SendLogSeparateWithFile).</summary>
     public List<MediaMessageDto> MediaMessages { get; set; } = new();
     public bool IsAramRollConfirmed { get; set; }
+    public bool IsDraftPickConfirmed { get; set; }
     public int AramRerolledPassivesTimes { get; set; }
     public int AramRerolledStatsTimes { get; set; }
     public List<PlaceHistoryDto> PlaceHistory { get; set; } = new();
@@ -250,6 +253,19 @@ public class AramRerollRequest
 {
     /// <summary>1-4 for passive slots, 5 for base stats</summary>
     public int Slot { get; set; }
+}
+
+public class DraftOptionDto
+{
+    public string Name { get; set; }
+    public string Avatar { get; set; }
+    public int Intelligence { get; set; }
+    public int Psyche { get; set; }
+    public int Speed { get; set; }
+    public int Strength { get; set; }
+    public string Description { get; set; }
+    public int Tier { get; set; }
+    public List<PassiveDto> Passives { get; set; } = new();
 }
 
 public class StartGameRequest

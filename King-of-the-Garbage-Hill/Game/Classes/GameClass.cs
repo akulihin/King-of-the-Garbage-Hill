@@ -22,7 +22,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 3.8.1 WEB?!";
+        GameVersion = "Версия: 3.8.2 WEB?!";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -61,6 +61,8 @@ public class GameClass
     public List<BotsBehavior.NanobotClass> NanobotsList { get; set; } = new();
 
     public bool IsAramPickPhase { get; set; }
+    public bool IsDraftPickPhase { get; set; }
+    public Dictionary<Guid, List<CharacterClass>> DraftOptions { get; set; } = new();
 
     public List<GamePlayerBridgeClass> ExploitPlayersList { get; set; }
     public int LastExploit { get; set; } = -1;

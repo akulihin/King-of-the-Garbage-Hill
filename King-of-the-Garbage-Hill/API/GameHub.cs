@@ -334,6 +334,19 @@ public class GameHub : Hub
         if (success) await PushStateToPlayer(gameId, discordId);
     }
 
+    // ── Draft Pick ──────────────────────────────────────────────────
+
+    public async Task DraftSelect(ulong gameId, string characterName)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = await _gameService.DraftSelect(gameId, discordId, characterName);
+        await Clients.Caller.SendAsync("ActionResult", new { action = "draftSelect", success, error });
+
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
     // ── Darksci / Young Gleb ─────────────────────────────────────────
 
     public async Task DarksciChoice(ulong gameId, bool isStable)

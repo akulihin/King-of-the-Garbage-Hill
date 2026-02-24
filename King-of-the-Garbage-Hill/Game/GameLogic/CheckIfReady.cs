@@ -857,6 +857,38 @@ public class CheckIfReady : IServiceSingleton
 
 
                 //end ARAM
+
+                // Draft Pick phase — wait until all humans have selected a character
+                if (game.IsDraftPickPhase)
+                {
+                    if (game.PlayersList.All(x => x.Status.IsDraftPickConfirmed))
+                    {
+                        game.IsDraftPickPhase = false;
+                        game.DraftOptions.Clear();
+
+                        // Run deferred initialization (same as normal game creation)
+                        var draftPlayersList = _characterPassives.HandleEventsBeforeFirstRound(game.PlayersList);
+                        game.PlayersList = draftPlayersList;
+                        for (var j = 0; j < draftPlayersList.Count; j++)
+                            draftPlayersList[j].Status.SetPlaceAtLeaderBoard(j + 1);
+
+                        await _characterPassives.HandleNextRound(game);
+                        _characterPassives.HandleBotPredict(game);
+
+                        // Reset turn timer so the first real round gets a fresh countdown
+                        game.TimePassed.Restart();
+
+                        // Reset Discord players from draft page (6) to game page (1)
+                        foreach (var player in game.PlayersList.Where(p => p.PlayerType != 404))
+                        {
+                            player.Status.MoveListPage = 1;
+                            await _upd.UpdateMessage(player);
+                        }
+                    }
+                    continue; // Don't process turns while in draft phase
+                }
+                //end Draft Pick
+
                 //Возвращение из мертвых
                 if (game.IsKratosEvent)
                     foreach (var player in players.Where(x =>

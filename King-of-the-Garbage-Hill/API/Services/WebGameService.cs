@@ -23,6 +23,9 @@ namespace King_of_the_Garbage_Hill.API.Services;
 /// </summary>
 public class WebGameService
 {
+    /// <summary>Set to true to enable draft pick phase for all games, false to skip straight to game.</summary>
+    public const bool EnableDraftPick = true;
+
     private readonly Global _global;
     private readonly GameReaction _gameReaction;
     private readonly GameUpdateMess _gameUpdateMess;
@@ -198,11 +201,6 @@ public class WebGameService
         // Shuffle and sort
         playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
         playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-        playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
-
-        // Assign leaderboard positions
-        for (var i = 0; i < playersList.Count; i++)
-            playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
 
         // Replace the first bot with the creator
         var botToReplace = playersList[0];
@@ -222,12 +220,37 @@ public class WebGameService
         game.TimePassed.Start();
         _global.GamesList.Add(game);
 
-        // Handle round #0 (passives + bot predictions)
-        await _characterPassives.HandleNextRound(game);
-        _characterPassives.HandleBotPredict(game);
+        if (EnableDraftPick)
+        {
+            // Draft pick: include natural roll as first option, then roll 2 alternatives
+            var originalCharacter = botToReplace.GameCharacter;
+            var excludedCharacters = playersList.Select(x => x.GameCharacter).ToList();
+            var draftOptions = _startGameLogic.RollDraftOptions(creatorAccount, excludedCharacters, 2);
+            draftOptions.Insert(0, originalCharacter);
+            game.DraftOptions[botToReplace.GetPlayerId()] = draftOptions;
+            game.IsDraftPickPhase = true;
 
-        game.IsCheckIfReady = true;
-        Console.WriteLine($"[WebAPI] Web game {gameId} created by {creatorUsername} ({creatorId})");
+            foreach (var p in playersList.Where(p => p.IsBot()))
+                p.Status.IsDraftPickConfirmed = true;
+
+            game.IsCheckIfReady = true;
+            Console.WriteLine($"[WebAPI] Web game {gameId} created by {creatorUsername} ({creatorId}) — draft pick phase");
+        }
+        else
+        {
+            // No draft: run initialization immediately (original flow)
+            playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
+            game.PlayersList = playersList;
+            for (var i = 0; i < playersList.Count; i++)
+                playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
+
+            await _characterPassives.HandleNextRound(game);
+            _characterPassives.HandleBotPredict(game);
+
+            game.IsCheckIfReady = true;
+            Console.WriteLine($"[WebAPI] Web game {gameId} created by {creatorUsername} ({creatorId})");
+        }
+
         return (gameId, null);
     }
 
@@ -267,6 +290,51 @@ public class WebGameService
 
         Console.WriteLine($"[WebAPI] Player {playerUsername} ({playerId}) joined game {gameId}");
         return (true, null);
+    }
+
+    // ── Draft Pick ──────────────────────────────────────────────────
+
+    public Task<(bool success, string error)> DraftSelect(ulong gameId, ulong discordId, string characterName)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId);
+        if (game == null) return Task.FromResult((false, "Game not found"));
+        if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (!game.IsDraftPickPhase) return Task.FromResult((false, "Not in draft pick phase"));
+        if (player.Status.IsDraftPickConfirmed) return Task.FromResult((false, "Already confirmed"));
+
+        if (!game.DraftOptions.TryGetValue(player.GetPlayerId(), out var options))
+            return Task.FromResult((false, "No draft options found"));
+
+        var selected = options.Find(c => c.Name == characterName);
+        if (selected == null) return Task.FromResult((false, "Character not in your draft options"));
+
+        // Replace the player's character with the selected one
+        var newBridge = new GamePlayerBridgeClass(
+            selected,
+            new InGameStatus(),
+            player.DiscordId,
+            player.GameId,
+            player.DiscordUsername,
+            player.PlayerType
+        );
+        newBridge.IsWebPlayer = player.IsWebPlayer;
+        newBridge.PreferWeb = player.PreferWeb;
+        newBridge.TeamId = player.TeamId;
+        newBridge.Predict = player.Predict;
+        newBridge.DiscordStatus = player.DiscordStatus;
+        newBridge.Status.IsDraftPickConfirmed = true;
+
+        // Replace in the players list
+        var idx = game.PlayersList.IndexOf(player);
+        if (idx >= 0)
+            game.PlayersList[idx] = newBridge;
+
+        // Update account's last played character
+        var account = _userAccounts.GetAccount(discordId);
+        if (account != null)
+            account.CharacterPlayedLastTime = selected.Name;
+
+        return Task.FromResult((true, (string)null));
     }
 
     // ── Find helpers ──────────────────────────────────────────────────

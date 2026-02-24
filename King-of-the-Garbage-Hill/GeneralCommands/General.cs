@@ -324,7 +324,8 @@ public class General : ModuleBaseCustom
         //тасуем игроков
         playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
         playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-        if (mode != "aram")
+        var isDraftPick = API.Services.WebGameService.EnableDraftPick && mode == "normal";
+        if (mode != "aram" && !isDraftPick)
         {
             playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
         }
@@ -481,6 +482,25 @@ public class General : ModuleBaseCustom
             game.TurnLengthInSecond = 600;
             game.GameMode = "Aram";
         }
+        if (isDraftPick)
+        {
+            game.IsDraftPickPhase = true;
+            var allAssigned = playersList.Select(x => x.GameCharacter).ToList();
+            // NOTE: Can't use IsBot() here — SocketGameMessage is still null before WaitMess
+            foreach (var player in playersList.Where(p => p.PlayerType != 404))
+            {
+                var account = _accounts.GetAccount(player.DiscordId);
+                if (account == null) continue;
+                // Include the player's natural roll as first option, then roll 2 more alternatives
+                var originalCharacter = player.GameCharacter;
+                var options = _startGameLogic.RollDraftOptions(account, allAssigned, 2);
+                options.Insert(0, originalCharacter);
+                game.DraftOptions[player.GetPlayerId()] = options;
+                player.Status.MoveListPage = 6;
+            }
+            foreach (var p in playersList.Where(p => p.PlayerType == 404))
+                p.Status.IsDraftPickConfirmed = true;
+        }
 
         //отправить меню игры
         foreach (var player in playersList) await _upd.WaitMess(player, game);
@@ -498,7 +518,7 @@ public class General : ModuleBaseCustom
 
 
         //handle round #0
-        if (mode == "normal")
+        if (mode == "normal" && !isDraftPick)
         {
             await _characterPassives.HandleNextRound(game);
             _characterPassives.HandleBotPredict(game);
