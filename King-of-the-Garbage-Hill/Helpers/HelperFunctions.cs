@@ -346,7 +346,15 @@ public sealed class HelperFunctions : IServiceSingleton
         leftUser.PlayerType = freeBot.PlayerType;
         leftUser.DiscordStatus.SocketGameMessage = null;
         leftUser.Status.IsAramRollConfirmed = true;
+        leftUser.IsWebPlayer = false;
+        leftUser.PreferWeb = false;
         freeBot.IsPlaying = true;
+
+        if (!prevGame.PlayersList.Any(p => !p.IsBot()))
+        {
+            prevGame.IsFinished = true;
+            prevGame.AddGlobalLogs("Все игроки покинули игру. Игра завершена.");
+        }
     }
 
     public DiscordAccountClass GetFreeBot(List<GamePlayerBridgeClass> playerList)

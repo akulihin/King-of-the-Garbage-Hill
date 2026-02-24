@@ -332,8 +332,7 @@ public class BotsBehavior : IServiceSingleton
         {
             var candidates = game.PlayersList
                 .Where(x => x.GetPlayerId() != bot.GetPlayerId()
-                            && !x.Passives.KiraDeathNoteDead
-                            && !x.Passives.KratosIsDead
+                            && !x.Passives.IsDead
                             && !dn.FailedTargets.Contains(x.GetPlayerId()))
                 .ToList();
 
@@ -367,9 +366,7 @@ public class BotsBehavior : IServiceSingleton
             //local variables
             var allTargets = game!.NanobotsList.Find(x => x.GameId == game.GameId)!.Nanobots
                 .Where(x => x.GetPlayerId() != bot.GetPlayerId()
-                    && !x.Player.Passives.KratosIsDead
-                    && !x.Player.Passives.KiraDeathNoteDead
-                    && !x.Player.Passives.MonsterPawnDead).ToList();
+                    && !x.Player.Passives.IsDead).ToList();
 
             if (game.RoundNo == 10)
             {

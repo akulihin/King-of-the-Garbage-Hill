@@ -23,7 +23,7 @@ const writeSearch = ref('')
 
 const opponents = computed(() =>
   props.players.filter(
-    (p: Player) => p.playerId !== props.myPlayerId && !p.kratosIsDead && !p.kiraDeathNoteDead,
+    (p: Player) => p.playerId !== props.myPlayerId && !p.isDead,
   ),
 )
 

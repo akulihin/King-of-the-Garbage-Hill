@@ -39,10 +39,10 @@ export type Player = {
   isBot: boolean
   isWebPlayer: boolean
   teamId: number
-  /** Whether this player was killed by Kratos (hidden from leaderboard). */
-  kratosIsDead: boolean
-  /** Whether this player was killed by Kira's Death Note. */
-  kiraDeathNoteDead: boolean
+  /** Whether this player is dead (killed by any mechanic). */
+  isDead: boolean
+  /** Who/what killed this player ("Kratos", "Kira", "Monster", etc.). Empty if alive. */
+  deathSource: string
   /** Whether this player is Kira (uses Death Note instead of predictions). */
   isKira: boolean
   /** Whether this player is Баг (sees exploit markers). */
@@ -166,13 +166,13 @@ export type CopycatState = { copiedStatName: string; historyCount: number }
 export type InkScreenState = { fakeDefeatCount: number; totalDeferredScore: number }
 export type TigerTopState = { isActive: boolean; swapsRemaining: number }
 export type JawsState = { currentSpeed: number; uniqueDefeated: number; uniquePositions: number }
-export type PrivilegeState = { markedCount: number }
+export type PrivilegeState = { markedCount: number; markedNames: string[] }
 export type VampirismState = { activeFeeds: number; ignoredJustice: number }
 export type WeedState = { totalWeedAvailable: number; lastHarvestRound: number }
 export type SaitamaState = { deferredPoints: number; deferredMoral: number }
 export type ShinigamiEyesWidgetState = { isActive: boolean }
 export type SellerState = { cooldown: number; markedCount: number; secretBuildSkill: number }
-export type SellerMarkState = { roundsRemaining: number; debt: number }
+export type SellerMarkState = { roundsRemaining: number; debt: number; sellerName: string }
 export type DopaState = {
   visionReady: boolean
   visionCooldown: number

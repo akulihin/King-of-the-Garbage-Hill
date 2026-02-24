@@ -185,7 +185,7 @@ export const useGameStore = defineStore('game', () => {
         }
 
         // Auto-join Blackjack when killed by Kira
-        if (nextMyPlayer?.kiraDeathNoteDead && !previousMyPlayer?.kiraDeathNoteDead) {
+        if (nextMyPlayer?.isDead && nextMyPlayer?.deathSource === 'Kira' && !(previousMyPlayer?.isDead && previousMyPlayer?.deathSource === 'Kira')) {
           signalrService.blackjackJoin(state.gameId)
         }
       }

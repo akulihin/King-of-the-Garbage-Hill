@@ -22,15 +22,11 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 3.8.0 WEB?!";
+        GameVersion = "Версия: 3.8.1 WEB?!";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
-        ExploitPlayersList = new List<GamePlayerBridgeClass>();
-        foreach (var player in PlayersList.Where(player => player.GameCharacter.Passive.All(x => x.PassiveName != "Exploit")))
-        {
-            ExploitPlayersList.Add(player);
-        }
+        ExploitPlayersList = [.. PlayersList.Where(player => player.GameCharacter.Passive.All(x => x.PassiveName != "Exploit"))];
         RollExploit();
     }
 

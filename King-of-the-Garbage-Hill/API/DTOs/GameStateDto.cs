@@ -68,11 +68,11 @@ public class PlayerDto
     // Predictions (only visible to the owning player)
     public List<PredictDto> Predictions { get; set; }
 
-    /// <summary>Whether this player has been killed by Kratos (should be hidden from leaderboard).</summary>
-    public bool KratosIsDead { get; set; }
+    /// <summary>Whether this player is dead (killed by any mechanic).</summary>
+    public bool IsDead { get; set; }
 
-    /// <summary>Whether this player has been killed by Kira's Death Note.</summary>
-    public bool KiraDeathNoteDead { get; set; }
+    /// <summary>Who/what killed this player ("Kratos", "Kira", "Monster", etc.). Empty if alive.</summary>
+    public string DeathSource { get; set; }
 
     /// <summary>Whether this player is Kira (uses Death Note instead of predictions).</summary>
     public bool IsKira { get; set; }
@@ -588,6 +588,7 @@ public class JawsStateDto
 public class PrivilegeStateDto
 {
     public int MarkedCount { get; set; }
+    public List<string> MarkedNames { get; set; }
 }
 
 public class VampirismStateDto
@@ -624,6 +625,7 @@ public class SellerMarkStateDto
 {
     public int RoundsRemaining { get; set; }
     public decimal Debt { get; set; }
+    public string SellerName { get; set; }
 }
 
 public class DopaStateDto

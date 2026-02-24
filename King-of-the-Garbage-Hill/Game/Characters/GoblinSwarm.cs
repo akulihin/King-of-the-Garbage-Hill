@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace King_of_the_Garbage_Hill.Game.Characters;
@@ -18,10 +19,13 @@ public class GoblinSwarm
         public int WarriorUpgradeLevel { get; set; } = 0;
         public int WorkerUpgradeLevel { get; set; } = 0;
 
+        // Ziggurats built (each costs 1 worker from the count)
+        public int ZigguratWorkerDeductions { get; set; } = 0;
+
         // Computed type counts
         public int Warriors => TotalGoblins / WarriorRate;
         public int Hobs => TotalGoblins / HobRate;
-        public int Workers => TotalGoblins / WorkerRate;
+        public int Workers => Math.Max(0, TotalGoblins / WorkerRate - ZigguratWorkerDeductions);
 
         // Whether Праздник Гоблинов has been used (one-time only)
         public bool FestivalUsed { get; set; } = false;

@@ -335,8 +335,9 @@ function handleMoralToSkill() {
         +{{ lvlUpPoints }} очков
       </div>
 
-      <!-- Goblin level-up upgrades (replaces stat +buttons) -->
-      <div v-if="isGoblin && hasLvlUpPoints && goblin" class="goblin-lvlup">
+      <!-- Goblin level-up upgrades (replaces stat +buttons but shows read-only stats) -->
+      <template v-if="isGoblin && hasLvlUpPoints && goblin">
+      <div class="goblin-lvlup">
         <button class="goblin-lvlup-btn" data-sfx-skip-default="true" @click="handleLevelUp(1)">
           <span class="goblin-lvlup-name">Правильное питание</span>
           <span class="goblin-lvlup-desc">Больше Хобгоблинов (сейчас каждый {{ goblin.hobRate }}й)</span>
@@ -355,17 +356,7 @@ function handleMoralToSkill() {
           <span v-else class="goblin-lvlup-desc">Удвоить гоблинов ({{ goblin.totalGoblins }} &rarr; {{ goblin.totalGoblins * 2 }})</span>
         </button>
       </div>
-
-      <!-- Котики lvl-мяк: single Justice button instead of stat buttons -->
-      <template v-else-if="isKotiki && hasLvlUpPoints">
-      <div class="stat-block lvl-up-available">
-        <div class="stat-row">
-          <span class="justice-icon">⚖</span>
-          <span class="stat-val" style="flex:1; text-align:center; font-size:13px;">lvl-мяк: +1 Справедливость</span>
-          <button class="lvl-btn" data-sfx-skip-default="true" title="+1 Justice" @click="handleLevelUp(1)">+</button>
-        </div>
-      </div>
-      <!-- Still show stats (read-only) -->
+      <!-- Read-only stats during goblin lvl-up -->
       <div class="stat-block">
         <div class="stat-row">
           <span class="gi gi-lg gi-int">INT</span>
@@ -381,6 +372,39 @@ function handleMoralToSkill() {
         </div>
       </div>
       <div class="stat-block">
+        <div class="stat-row">
+          <span class="gi gi-lg gi-spd">SPD</span>
+          <div class="stat-bar-bg"><div class="stat-bar speed" :style="{ width: `${player.character.speed * 10}%` }" /></div>
+          <span class="stat-val stat-speed">{{ player.character.speed }}</span>
+        </div>
+      </div>
+      </template>
+
+      <!-- Котики lvl-мяк: single Justice button instead of stat buttons -->
+      <template v-else-if="isKotiki && hasLvlUpPoints">
+      <div class="stat-block lvl-up-available">
+        <div class="stat-row">
+          <span class="justice-icon">⚖</span>
+          <span class="stat-val" style="flex:1; text-align:center; font-size:13px;">lvl-мяк: +1 Справедливость</span>
+          <button class="lvl-btn" data-sfx-skip-default="true" title="+1 Justice" @click="handleLevelUp(1)">+</button>
+        </div>
+      </div>
+      <!-- Still show stats (read-only) with resist flash -->
+      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('intelligence') }">
+        <div class="stat-row">
+          <span class="gi gi-lg gi-int">INT</span>
+          <div class="stat-bar-bg"><div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" /></div>
+          <span class="stat-val stat-intelligence">{{ player.character.intelligence }}</span>
+        </div>
+      </div>
+      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('strength') }">
+        <div class="stat-row">
+          <span class="gi gi-lg gi-str">STR</span>
+          <div class="stat-bar-bg"><div class="stat-bar strength" :style="{ width: `${player.character.strength * 10}%` }" /></div>
+          <span class="stat-val stat-strength">{{ player.character.strength }}</span>
+        </div>
+      </div>
+      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('speed') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-spd">SPD</span>
           <div class="stat-bar-bg"><div class="stat-bar speed" :style="{ width: `${player.character.speed * 10}%` }" /></div>
@@ -438,8 +462,8 @@ function handleMoralToSkill() {
       </template>
     </div>
 
-    <!-- Psyche (separated — different stat type, hidden during goblin lvl-up) -->
-    <div v-if="!(isGoblin && hasLvlUpPoints && goblin) && !(isKotiki && hasLvlUpPoints)" class="pc-psyche-box">
+    <!-- Psyche (separated — different stat type, hidden during kotiki lvl-up) -->
+    <div v-if="!(isKotiki && hasLvlUpPoints)" class="pc-psyche-box">
       <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('psyche'), 'lvl-up-available': hasLvlUpPoints }">
         <div class="stat-row">
           <span class="gi gi-lg gi-psy">PSY</span>
@@ -572,6 +596,48 @@ function handleMoralToSkill() {
       </div>
     </div>
 
+    <!-- Pickle Rick (Rick passive) -->
+    <div v-if="passiveStates?.pickleRick" class="pc-passive-widget pickle-widget">
+      <div class="pw-header">
+        <span class="pw-title pickle-title">PICKLE RICK</span>
+        <span class="pw-status" :class="passiveStates.pickleRick.pickleTurnsRemaining > 0 ? 'pickle-active' : (passiveStates.pickleRick.penaltyTurnsRemaining > 0 ? 'pickle-penalty' : 'pickle-off')">
+          {{ passiveStates.pickleRick.pickleTurnsRemaining > 0 ? 'PICKLE' : (passiveStates.pickleRick.penaltyTurnsRemaining > 0 ? 'PENALTY' : 'NORMAL') }}
+        </span>
+      </div>
+      <div class="pw-body">
+        <div v-if="passiveStates.pickleRick.pickleTurnsRemaining > 0" class="pw-stat-pair">
+          <span class="pw-value">{{ passiveStates.pickleRick.pickleTurnsRemaining }}</span>
+          <span class="pw-label">turns left</span>
+        </div>
+        <div v-if="passiveStates.pickleRick.penaltyTurnsRemaining > 0" class="pw-stat-pair">
+          <span class="pw-value pickle-penalty-val">{{ passiveStates.pickleRick.penaltyTurnsRemaining }}</span>
+          <span class="pw-label">penalty</span>
+        </div>
+        <div v-if="passiveStates.pickleRick.wasAttackedAsPickle" class="pw-stat-pair">
+          <span class="pw-value pickle-attacked">!</span>
+          <span class="pw-label">attacked</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Giant Beans (Rick passive) -->
+    <div v-if="passiveStates?.giantBeans" class="pc-passive-widget beans-widget">
+      <div class="pw-header">
+        <span class="pw-title beans-title">GIANT BEANS</span>
+        <span v-if="passiveStates.giantBeans.ingredientsActive" class="pw-status beans-cooking">COOKING</span>
+      </div>
+      <div class="pw-body">
+        <div class="pw-stat-pair">
+          <span class="pw-value">{{ passiveStates.giantBeans.beanStacks }}</span>
+          <span class="pw-label">stacks</span>
+        </div>
+        <div v-if="passiveStates.giantBeans.ingredientsActive" class="pw-stat-pair">
+          <span class="pw-value">{{ passiveStates.giantBeans.ingredientTargetCount }}</span>
+          <span class="pw-label">targets</span>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Passive Ability Widgets ── -->
 
     <!-- 1. Буль (Drowning) -->
@@ -616,10 +682,10 @@ function handleMoralToSkill() {
     <div v-if="passiveStates?.hardKitty" class="pc-passive-widget hardkitty-widget">
       <div class="pw-header">
         <span class="pw-title hardkitty-title">FRIENDS</span>
+        <span class="pw-status hardkitty-count">{{ passiveStates.hardKitty.friendsCount }}</span>
       </div>
-      <div class="pw-body">
-        <span class="pw-value">{{ passiveStates.hardKitty.friendsCount }}</span>
-        <span class="pw-label">friends made</span>
+      <div class="hardkitty-bar-bg">
+        <div class="hardkitty-bar-fill" :style="{ width: `${Math.min(100, (passiveStates.hardKitty.friendsCount / 5) * 100)}%` }" />
       </div>
     </div>
 
@@ -627,14 +693,14 @@ function handleMoralToSkill() {
     <div v-if="passiveStates?.training" class="pc-passive-widget training-widget">
       <div class="pw-header">
         <span class="pw-title training-title">TRAINING</span>
-        <span class="pw-status training-stat">{{ passiveStates.training.statName }}</span>
+        <span v-if="passiveStates.training.statName !== '—'" class="pw-status training-stat">{{ passiveStates.training.statName }}</span>
       </div>
       <div v-if="passiveStates.training.targetStatValue > 0" class="pw-body">
         <span class="pw-value">{{ passiveStates.training.targetStatValue }}</span>
-        <span class="pw-label">target</span>
+        <span class="pw-label">target to beat</span>
       </div>
       <div v-else class="pw-body">
-        <span class="pw-label">waiting for defeat...</span>
+        <span class="pw-label training-waiting">need a defeat to start</span>
       </div>
     </div>
 
@@ -739,10 +805,10 @@ function handleMoralToSkill() {
     <div v-if="passiveStates?.privilege" class="pc-passive-widget privilege-widget" :class="{ 'privilege-active': passiveStates.privilege.markedCount > 0 }">
       <div class="pw-header">
         <span class="pw-title privilege-title">PRIVILEGE</span>
+        <span class="pw-status privilege-count">{{ passiveStates.privilege.markedCount }}</span>
       </div>
-      <div class="pw-body">
-        <span class="pw-value">{{ passiveStates.privilege.markedCount }}</span>
-        <span class="pw-label">marked</span>
+      <div v-if="passiveStates.privilege.markedNames?.length" class="pw-body privilege-names">
+        <span v-for="name in passiveStates.privilege.markedNames" :key="name" class="privilege-name-tag">{{ name }}</span>
       </div>
     </div>
 
@@ -758,7 +824,7 @@ function handleMoralToSkill() {
         </div>
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.vampirism.ignoredJustice }}</span>
-          <span class="pw-label">ignored</span>
+          <span class="pw-label">justice bypassed</span>
         </div>
       </div>
     </div>
@@ -773,9 +839,9 @@ function handleMoralToSkill() {
           <span class="pw-value">{{ passiveStates.weed.totalWeedAvailable }}</span>
           <span class="pw-label">available</span>
         </div>
-        <div class="pw-stat-pair">
-          <span class="pw-value">{{ passiveStates.weed.lastHarvestRound }}</span>
-          <span class="pw-label">last harvest</span>
+        <div v-if="passiveStates.weed.lastHarvestRound > 0" class="pw-stat-pair">
+          <span class="pw-value">{{ roundNo - passiveStates.weed.lastHarvestRound }}</span>
+          <span class="pw-label">rounds ago</span>
         </div>
       </div>
     </div>
@@ -791,7 +857,7 @@ function handleMoralToSkill() {
           <span class="pw-label">deferred pts</span>
         </div>
         <div class="pw-stat-pair">
-          <span class="pw-value">{{ passiveStates.saitama.deferredMoral }}</span>
+          <span class="pw-value">{{ Number(passiveStates.saitama.deferredMoral).toFixed(1) }}</span>
           <span class="pw-label">deferred moral</span>
         </div>
       </div>
@@ -846,10 +912,11 @@ function handleMoralToSkill() {
       </div>
     </div>
 
-    <!-- 18. Впарили говна (Seller Mark on marked player) -->
+    <!-- 18. Впарили говна (Seller Mark on marked player — visible to all) -->
     <div v-if="passiveStates?.sellerMark" class="pc-passive-widget seller-mark-widget">
       <div class="pw-header">
         <span class="pw-title seller-mark-title">ВПАРИЛИ</span>
+        <span v-if="passiveStates.sellerMark.sellerName" class="pw-status seller-mark-source">{{ passiveStates.sellerMark.sellerName }}</span>
       </div>
       <div class="pw-body">
         <div v-if="passiveStates.sellerMark.roundsRemaining > 0" class="pw-stat-pair">
@@ -991,7 +1058,9 @@ function handleMoralToSkill() {
     <div v-if="passiveStates?.impact" class="pc-passive-widget impact-widget">
       <div class="pw-header">
         <span class="pw-title impact-title">ИМПАКТ</span>
-        <span class="pw-status impact-streak">{{ passiveStates.impact.streak }}</span>
+        <span class="pw-status impact-streak" :class="{ 'impact-low': passiveStates.impact.streak <= 1, 'impact-mid': passiveStates.impact.streak >= 2 && passiveStates.impact.streak <= 3, 'impact-high': passiveStates.impact.streak >= 4 }">
+          {{ passiveStates.impact.streak }}x
+        </span>
       </div>
     </div>
 
@@ -999,7 +1068,7 @@ function handleMoralToSkill() {
     <div v-if="passiveStates?.darksci" class="pc-passive-widget darksci-widget">
       <div class="pw-header">
         <span class="pw-title darksci-title">{{ passiveStates.darksci.typeChosen ? (passiveStates.darksci.isStableType ? 'СТАБИЛЬНЫЙ' : 'РИСКОВЫЙ') : 'ПОВЕЗЛО' }}</span>
-        <span class="pw-status darksci-left">{{ passiveStates.darksci.uniqueEnemiesLeft }}</span>
+        <span class="pw-status darksci-left">{{ passiveStates.darksci.uniqueEnemiesLeft }} left</span>
       </div>
     </div>
 
@@ -1065,6 +1134,10 @@ function handleMoralToSkill() {
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.toxicMate.transferCount }}</span>
           <span class="pw-label">transfers</span>
+        </div>
+        <div v-if="passiveStates.toxicMate.currentHolderName" class="pw-stat-pair">
+          <span class="pw-value toxic-holder">{{ passiveStates.toxicMate.currentHolderName }}</span>
+          <span class="pw-label">holder</span>
         </div>
       </div>
     </div>
@@ -2385,6 +2458,67 @@ function handleMoralToSkill() {
 .yonggleb-title { color: #96d2b4; text-shadow: 0 0 4px rgba(150, 210, 180, 0.4); }
 .yonggleb-ready { color: #96d2b4; text-shadow: 0 0 6px rgba(150, 210, 180, 0.5); animation: tsukuyomi-pulse 1.5s ease-in-out infinite; }
 .yonggleb-cooldown { color: rgba(150, 210, 180, 0.5); }
+
+/* ── Pickle Rick ── */
+.pickle-widget { border-color: rgba(80, 200, 80, 0.25); }
+.pickle-title { color: #50c850; text-shadow: 0 0 4px rgba(80, 200, 80, 0.4); }
+.pickle-active { color: #50c850; text-shadow: 0 0 6px rgba(80, 200, 80, 0.5); }
+.pickle-penalty { color: #e05050; text-shadow: 0 0 6px rgba(224, 80, 80, 0.4); }
+.pickle-off { color: rgba(180, 180, 180, 0.5); }
+.pickle-penalty-val { color: #e05050; }
+.pickle-attacked { color: #e05050; font-weight: 800; }
+
+/* ── Giant Beans ── */
+.beans-widget { border-color: rgba(160, 120, 60, 0.25); }
+.beans-title { color: #c8a050; text-shadow: 0 0 4px rgba(200, 160, 80, 0.4); }
+.beans-cooking { color: #e0a030; text-shadow: 0 0 6px rgba(224, 160, 48, 0.5); animation: tsukuyomi-pulse 1.5s ease-in-out infinite; }
+
+/* ── HardKitty progress bar ── */
+.hardkitty-bar-bg {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  margin-top: 4px;
+  overflow: hidden;
+}
+.hardkitty-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #e0c060, #f0d070);
+  transition: width 0.4s ease;
+}
+.hardkitty-count { color: #e0c060; }
+
+/* ── Privilege names ── */
+.privilege-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.privilege-name-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(205, 127, 50, 0.15);
+  color: #cd7f32;
+  border: 1px solid rgba(205, 127, 50, 0.3);
+}
+.privilege-count { color: #cd7f32; font-weight: 700; }
+
+/* ── Impact streak colors ── */
+.impact-low { color: rgba(180, 180, 180, 0.6); }
+.impact-mid { color: #e0c060; text-shadow: 0 0 4px rgba(224, 192, 96, 0.3); }
+.impact-high { color: #e05050; text-shadow: 0 0 6px rgba(224, 80, 80, 0.5); font-weight: 800; }
+
+/* ── Training waiting ── */
+.training-waiting { color: rgba(180, 180, 180, 0.4); font-style: italic; }
+
+/* ── Toxic Mate holder ── */
+.toxic-holder { font-size: 11px; color: #a0e050; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Seller mark source ── */
+.seller-mark-source { color: rgba(200, 160, 60, 0.8); font-size: 10px; }
 </style>
 
 <!-- Tooltip needs to be unscoped to work with Teleport to body -->

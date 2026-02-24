@@ -527,7 +527,7 @@ public class WebGameService
         if (target == null) return Task.FromResult((false, "Target not found"));
         if (target.GetPlayerId() == player.GetPlayerId())
             return Task.FromResult((false, "Cannot write your own name"));
-        if (target.Passives.KiraDeathNoteDead || target.Passives.KratosIsDead)
+        if (target.Passives.IsDead)
             return Task.FromResult((false, "Target is already dead"));
         if (dn.FailedTargets.Contains(targetPlayerId))
             return Task.FromResult((false, "Already failed for this target"));

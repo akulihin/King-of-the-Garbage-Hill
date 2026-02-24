@@ -150,7 +150,11 @@ public class PassivesClass
     public int WeedwickWeed { get; set; } = 0;
     public int WeedwickLastRoundWeed { get; set; } = 0;
 
-    public bool KratosIsDead { get; set; } = false;
+    // Unified death mechanic
+    public bool IsDead { get; set; } = false;
+    public string DeathSource { get; set; } = ""; // "Kratos", "Kira", "Monster", etc.
+
+    public bool KratosGodSlayerUsed { get; set; } = false;
 
     public int VampyrIgnoresOneJustice { get; set; } = 0;
 
@@ -163,11 +167,11 @@ public class PassivesClass
     public Kira.DeathNoteClass KiraDeathNote { get; set; } = new();
     public Kira.ShinigamiEyesClass KiraShinigamiEyes { get; set; } = new();
     public Kira.LClass KiraL { get; set; } = new();
-    public bool KiraDeathNoteDead { get; set; } = false;
 
     public Itachi.CrowsClass ItachiCrows { get; set; } = new();
     public Itachi.IzanagiClass ItachiIzanagi { get; set; } = new();
     public Itachi.TsukuyomiClass ItachiTsukuyomi { get; set; } = new();
+    public bool ItachiShisuiUsed { get; set; } = false;
 
     // Продавец — seller state (on the seller player)
     public Seller.VparitGovnaClass SellerVparitGovna { get; set; } = new();
@@ -222,8 +226,8 @@ public class PassivesClass
 
     // Монстр без имени — per-player: any player can be a Johan pawn
     public bool IsJohanPawn { get; set; } = false;
+    public bool MonsterNoEscape { get; set; } = false;
     public Guid JohanPawnOwnerId { get; set; } = Guid.Empty;
-    public bool MonsterPawnDead { get; set; } = false;
 
     public Guid PointFunneledTo { get; set; } = Guid.Empty;
     public bool IsExploitable { get; set; } = false;

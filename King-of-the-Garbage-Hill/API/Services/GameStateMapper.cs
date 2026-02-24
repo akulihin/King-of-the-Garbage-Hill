@@ -142,8 +142,8 @@ public static class GameStateMapper
             IsBot = player.IsBot(),
             IsWebPlayer = player.IsWebPlayer,
             TeamId = player.TeamId,
-            KratosIsDead = player.Passives.KratosIsDead,
-            KiraDeathNoteDead = player.Passives.KiraDeathNoteDead,
+            IsDead = player.Passives.IsDead,
+            DeathSource = player.Passives.DeathSource,
             IsKira = isMe && hasDeathNote,
             Character = MapCharacter(player.GameCharacter, isMe, isAdmin),
             Status = MapStatus(player, isMe, isAdmin),
@@ -247,7 +247,7 @@ public static class GameStateMapper
             var tsukuyomiState = player.Passives.ItachiTsukuyomi;
             dto.TsukuyomiState = new TsukuyomiStateDto
             {
-                ChargeCounter = tsukuyomiState.ChargeCounter,
+                ChargeCounter = Math.Max(0, tsukuyomiState.ChargeCounter),
                 IsReady = tsukuyomiState.ChargeCounter >= 2,
                 TotalStolenPoints = tsukuyomiState.TotalStolenPoints,
             };
@@ -343,7 +343,15 @@ public static class GameStateMapper
                         anySet = true;
                         break;
                     case "Это привилегия - умереть от моей руки":
-                        pas.Privilege = new PrivilegeStateDto { MarkedCount = player.Passives.SpartanMark.FriendList.Count(x => x != Guid.Empty) };
+                        var markedGuids = player.Passives.SpartanMark.FriendList.Where(x => x != Guid.Empty).ToList();
+                        pas.Privilege = new PrivilegeStateDto
+                        {
+                            MarkedCount = markedGuids.Count,
+                            MarkedNames = markedGuids
+                                .Select(id => game.PlayersList.Find(p => p.GetPlayerId() == id)?.DiscordUsername ?? "")
+                                .Where(n => n != "")
+                                .ToList(),
+                        };
                         anySet = true;
                         break;
                     case "Вампуризм":
@@ -533,18 +541,21 @@ public static class GameStateMapper
                 }
             }
 
-            // Show mark widget to marked players (not tied to a passive on their character)
+            // Per-player marks — only visible to the affected player on their own card
             if (player.Passives.SellerVparitGovnaRoundsLeft > 0 || player.Passives.SellerTacticBonusEarned > 0)
             {
+                var seller = game.PlayersList.Find(x =>
+                    x.Passives.SellerVparitGovna.MarkedPlayers.Contains(player.GetPlayerId()));
                 pas.SellerMark = new SellerMarkStateDto
                 {
                     RoundsRemaining = player.Passives.SellerVparitGovnaRoundsLeft,
-                    Debt = player.Passives.SellerTacticBonusEarned
+                    Debt = player.Passives.SellerTacticBonusEarned,
+                    SellerName = seller?.DiscordUsername ?? "",
                 };
                 anySet = true;
             }
 
-            // Show cancer widget to any player infected by Toxic Mate
+            // Show cancer widget to the infected player
             if (player.Passives.HasToxicMateCancer)
             {
                 var cancerSource = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.ToxicMateCancerSourceId);
@@ -555,7 +566,7 @@ public static class GameStateMapper
                 anySet = true;
             }
 
-            // Show cat widget to any player who has a Котики cat on them
+            // Show cat widget to the player who has a cat on them
             if (player.Passives.KotikiCatType != "")
             {
                 var catOwner = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.KotikiCatOwnerId);
@@ -575,7 +586,7 @@ public static class GameStateMapper
                 anySet = true;
             }
 
-            // Show pawn widget to any player who is a Johan pawn
+            // Show pawn widget to the player who is a Johan pawn
             if (player.Passives.IsJohanPawn)
             {
                 var pawnOwner = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.JohanPawnOwnerId);

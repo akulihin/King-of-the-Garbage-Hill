@@ -158,7 +158,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         if (game == null) return "ERROR 404";
         var players = "";
-        var playersList = game.PlayersList.Where(x => !x.Passives.KratosIsDead).ToList();
+        var playersList = game.PlayersList.Where(x => !x.Passives.IsDead).ToList();
 
         for (var i = 0; i < playersList.Count; i++)
         {
@@ -229,10 +229,6 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         // Pawn icon for Johan pawns
         if (player2.Passives.IsJohanPawn)
             customString += "♟️";
-
-        // Dead pawn skull
-        if (player2.Passives.MonsterPawnDead)
-            customString += "💀";
 
         return customString + " ";
     }
@@ -1301,7 +1297,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         {
             var playerToAttack = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == i + 1);
             if (playerToAttack == null) continue;
-            if (playerToAttack.DiscordId != player.DiscordId && !playerToAttack.Passives.KratosIsDead)
+            if (playerToAttack.DiscordId != player.DiscordId && !playerToAttack.Passives.IsDead)
                 attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, $"{i + 1}", emote: _playerChoiceAttackList[i]);
         }
 

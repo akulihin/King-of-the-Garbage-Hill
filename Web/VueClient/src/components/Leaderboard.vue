@@ -32,7 +32,7 @@ const statGuesses = ref<Record<string, { intelligence: number; strength: number;
 
 const sorted = computed(() =>
   [...props.players]
-    .filter((p: Player) => !p.kratosIsDead && !p.kiraDeathNoteDead)
+    .filter((p: Player) => !p.isDead)
     .sort((a, b) => a.status.place - b.status.place),
 )
 

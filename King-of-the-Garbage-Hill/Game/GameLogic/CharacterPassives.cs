@@ -1303,6 +1303,10 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
+                case "Монстр":
+                    target.Passives.MonsterNoEscape = true;
+                    break;
+
                 case "Возвращение из мертвых":
                     if (game.IsKratosEvent && game.RoundNo > 10)
                         if (me.Status.IsWonThisCalculation == target.GetPlayerId())
@@ -1312,7 +1316,8 @@ public class CharacterPassives : IServiceSingleton
                             game.AddGlobalLogs($"{me.GameCharacter.Name} **УБИЛ** {target.GameCharacter.Name}!");
                             game.AddGlobalLogs($"Они скинули **{target.DiscordUsername}**! Сволочи!");
                             game.Phrases.KratosEventKill.SendLog(me, true, isRandomOrder:false);
-                            target.Passives.KratosIsDead = true;
+                            target.Passives.IsDead = true;
+                            target.Passives.DeathSource = "Kratos";
                             // Монстр без имени: +1 regular point per death
                             foreach (var mp in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
                             {
@@ -1991,7 +1996,8 @@ public class CharacterPassives : IServiceSingleton
                     //failed
                     if (game.RoundNo > 10 && game.IsKratosEvent && player.Status.IsLostThisCalculation != Guid.Empty)
                     {
-                        player.Passives.KratosIsDead = true;
+                        player.Passives.IsDead = true;
+                        player.Passives.DeathSource = "Kratos";
                         // Монстр без имени: +1 regular point per death
                         foreach (var mp in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
                         {
@@ -2485,14 +2491,19 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Глаза Итачи: activate Tsukuyomi if charged (attack only)
+                // Глаза Итачи: activate Tsukuyomi if charged (attack only, win or loss)
                 case "Глаза Итачи":
-                    if (attack && player.Status.IsWonThisCalculation != Guid.Empty
-                        && player.Passives.ItachiTsukuyomi.ChargeCounter >= 2)
+                    if (attack && player.Passives.ItachiTsukuyomi.ChargeCounter >= 2)
                     {
-                        player.Passives.ItachiTsukuyomi.TsukuyomiTargetThisRound = player.Status.IsWonThisCalculation;
-                        player.Passives.ItachiTsukuyomi.ChargeCounter = 0;
-                        game.Phrases.ItachiTsukuyomiActivate.SendLog(player, false);
+                        var tsukuyomiTarget = player.Status.IsWonThisCalculation != Guid.Empty
+                            ? player.Status.IsWonThisCalculation
+                            : player.Status.IsLostThisCalculation;
+                        if (tsukuyomiTarget != Guid.Empty)
+                        {
+                            player.Passives.ItachiTsukuyomi.TsukuyomiTargetThisRound = tsukuyomiTarget;
+                            player.Passives.ItachiTsukuyomi.ChargeCounter = -1; // recharges over 2 rounds
+                            game.Phrases.ItachiTsukuyomiActivate.SendLog(player, false);
+                        }
                     }
                     break;
 
@@ -2637,27 +2648,33 @@ public class CharacterPassives : IServiceSingleton
                             {
                                 var catType = fightEnemy.Passives.KotikiCatType;
                                 game.Phrases.KotikiCatReturn.SendLog(player, false);
+                                var isVictory = player.Status.IsWonThisCalculation == fightEnemyId;
 
                                 if (catType == "Минька")
                                 {
-                                    var roundsOnEnemy = ambush.MinkaRoundsOnEnemy;
-                                    player.Status.AddBonusPoints(2, "Кошачья засада");
-                                    player.GameCharacter.AddExtraSkill(33 * roundsOnEnemy, "Кошачья засада (Минька)");
-                                    //player.Status.AddInGamePersonalLogs($"Кошачья засада: Минька вернулся! +2 очка, +{33 * roundsOnEnemy} скилл\n");
+                                    if (isVictory)
+                                    {
+                                        var roundsOnEnemy = ambush.MinkaRoundsOnEnemy;
+                                        player.Status.AddBonusPoints(2, "Кошачья засада");
+                                        player.GameCharacter.AddExtraSkill(33 * roundsOnEnemy, "Кошачья засада (Минька)");
+                                    }
                                     ambush.MinkaOnPlayer = Guid.Empty;
                                     ambush.MinkaRoundsOnEnemy = 0;
                                     ambush.MinkaCooldown = 2;
                                 }
                                 else if (catType == "Штормяк")
                                 {
-                                    var enemyScore = fightEnemy.Status.GetScore();
-                                    var stolenPoints = Math.Floor(enemyScore / 2);
-                                    if (stolenPoints > 0)
+                                    if (isVictory)
                                     {
-                                        fightEnemy.Status.AddBonusPoints(-stolenPoints, "Кошачья засада");
-                                        player.Status.AddBonusPoints(stolenPoints, "Кошачья засада (Штормяк)");
+                                        var enemyScore = fightEnemy.Status.GetScore();
+                                        var stolenPoints = Math.Floor(enemyScore / 2);
+                                        if (stolenPoints > 0)
+                                        {
+                                            fightEnemy.Status.AddBonusPoints(-stolenPoints, "Кошачья засада");
+                                            player.Status.AddBonusPoints(stolenPoints, "Кошачья засада (Штормяк)");
+                                        }
+                                        fightEnemy.MinusPsycheLog(fightEnemy.GameCharacter, game, -1, "Кошачья засада");
                                     }
-                                    //player.Status.AddInGamePersonalLogs($"Кошачья засада: Штормяк вернулся! Украл {stolenPoints} очков\n");
                                     ambush.StormOnPlayer = Guid.Empty;
                                     ambush.StormCooldown = 2;
                                 }
@@ -2739,14 +2756,14 @@ public class CharacterPassives : IServiceSingleton
             {
                 case "Возвращение из мертвых":
                     //didn't fail but didn't succseed   
-                    if (game.IsKratosEvent && game.RoundNo >= 16 && game.PlayersList.Count(x => !x.Passives.KratosIsDead) < 5)
+                    if (game.IsKratosEvent && game.RoundNo >= 16 && game.PlayersList.Count(x => !x.Passives.IsDead) < 5)
                     {
                         game.IsKratosEvent = false;
                         game.AddGlobalLogs($"У {player.GameCharacter.Name}а есть тактика и он ее придерживался...");
                         await game.Phrases.KratosEventNo.SendLogSeparateWithFile(player, false, "DataBase/art/events/kratos_death.jpg", false, 15000);
                     }
 
-                    if (game.IsKratosEvent && player.Passives.KratosIsDead)
+                    if (game.IsKratosEvent && player.Passives.IsDead)
                     {
                         game.IsKratosEvent = false;
                         game.AddGlobalLogs($"{player.GameCharacter.Name} решил доверится богам зная последствия...");
@@ -3377,7 +3394,8 @@ public class CharacterPassives : IServiceSingleton
                                 // Goblins are immune to kill effects
                                 if (dnTarget.GameCharacter.Name == "Стая Гоблинов") break;
                                 // Correct — target dies
-                                dnTarget.Passives.KiraDeathNoteDead = true;
+                                dnTarget.Passives.IsDead = true;
+                                dnTarget.Passives.DeathSource = "Kira";
                                 // Монстр без имени: +1 regular point per death
                                 foreach (var mp in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
                                 {
@@ -3645,11 +3663,12 @@ public class CharacterPassives : IServiceSingleton
                         foreach (var pawn in game.PlayersList.Where(x =>
                             x.Passives.IsJohanPawn &&
                             x.Passives.JohanPawnOwnerId == player.GetPlayerId() &&
-                            !x.Passives.MonsterPawnDead))
+                            !x.Passives.IsDead))
                         {
                             // Pawns who blocked or skipped survive
                             if (pawn.Status.IsBlock || pawn.Status.IsSkip) continue;
-                            pawn.Passives.MonsterPawnDead = true;
+                            pawn.Passives.IsDead = true;
+                            pawn.Passives.DeathSource = "Monster";
                             deadNames.Add(pawn.GameCharacter.Name);
                             player.Status.AddRegularPoints(1, "Монстр");
                         }
@@ -3776,7 +3795,8 @@ public class CharacterPassives : IServiceSingleton
                                         // Goblins are immune to kill effects
                                         if (player.GameCharacter.Name == "Стая Гоблинов") break;
                                         kiraLNext.IsArrested = true;
-                                        player.Passives.KiraDeathNoteDead = true;
+                                        player.Passives.IsDead = true;
+                                        player.Passives.DeathSource = "Kira";
                                         // Монстр без имени: +1 regular point per death
                                         foreach (var mp in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
                                         {
@@ -4418,6 +4438,29 @@ public class CharacterPassives : IServiceSingleton
                         }
                         break;
 
+                    // Глаз Шусуи: resurrect once if killed
+                    case "Глаз Шусуи":
+                        if (!player.Passives.ItachiShisuiUsed && player.Passives.IsDead)
+                        {
+                            player.Passives.IsDead = false;
+                            player.Passives.DeathSource = "";
+                            player.Passives.ItachiShisuiUsed = true;
+                            game.AddGlobalLogs($"**Изанаги!**\n**{player.GameCharacter.Name}** вернулся к жизни\n\"Я планировал приберечь глаз Шисуи для кое-чего другого... но ладно.\"");
+                        }
+                        break;
+
+                    // Боги мне не указ: resurrect once if killed by a God (Kira)
+                    case "Боги мне не указ":
+                        if (!player.Passives.KratosGodSlayerUsed && player.Passives.IsDead && player.Passives.DeathSource == "Kira")
+                        {
+                            player.Passives.IsDead = false;
+                            player.Passives.DeathSource = "";
+                            player.Passives.KratosGodSlayerUsed = true;
+                            player.GameCharacter.AddExtraSkill(228, "Боги мне не указ");
+                            game.AddGlobalLogs($"**{player.GameCharacter.Name}:** Боги мне не указ!");
+                        }
+                        break;
+
                     case "Впарить говна":
                         // Decrement cooldown
                         var sellerVNext = player.Passives.SellerVparitGovna;
@@ -4543,6 +4586,11 @@ public class CharacterPassives : IServiceSingleton
                                 game.HiddenGlobalLogSnippets.Add(tenmaMsg);
                             });
                         }
+                        break;
+
+                    case "Монстр":
+                        foreach (var p in game.PlayersList)
+                            p.Passives.MonsterNoEscape = false;
                         break;
                 }
 
@@ -4865,8 +4913,11 @@ public class CharacterPassives : IServiceSingleton
                     {
                         var zigPop = player.Passives.GoblinPopulation;
 
-                        if (zigPop.Warriors < 1 || zigPop.Hobs < 1 || zigPop.Workers < 1 ||
-                            player.Status.GetScore() < 3)
+                        if (zigPop.Warriors < 1 || zigPop.Hobs < 1 || zigPop.Workers < 1)
+                        {
+                            game.Phrases.GoblinZigguratNoMoney.SendLog(player, false);
+                        }
+                        else if (player.Status.GetScore() < 3)
                         {
                             game.Phrases.GoblinZigguratNoMoney.SendLog(player, false);
                         }
@@ -4877,17 +4928,17 @@ public class CharacterPassives : IServiceSingleton
                         else
                         {
                             player.Status.AddBonusPoints(-3, "Гоблины тупые, но не идиоты");
-                            var workerDeathCost = zigPop.WorkerRate;
-                            zigPop.TotalGoblins = Math.Max(1, zigPop.TotalGoblins - workerDeathCost);
+                            zigPop.ZigguratWorkerDeductions++;
                             game.Phrases.GoblinZigguratWorkerDeath.SendLog(player, false);
-                            player.Status.AddInGamePersonalLogs($"Зиккурат: -{workerDeathCost} гоблинов (1 трудяга). Осталось: {zigPop.TotalGoblins}\n");
+                            player.Status.AddInGamePersonalLogs($"Зиккурат: -1 трудяга. Трудяг осталось: {zigPop.Workers}\n");
 
                             gobZigEnd.BuiltPositions.Add(placeEnd);
                             gobZigEnd.IsInZiggurat = true;
                             gobZigEnd.ZigguratStayRoundsLeft = 1;
 
-                            var allPassives = _charactersPull.GetAllPassives();
-                            var standalonePassives = allPassives
+                            var lastAttacked = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.GoblinLastAttackedPlayer);
+                            var enemyPassives = lastAttacked?.GameCharacter.Passive ?? new List<Passive>();
+                            var standalonePassives = enemyPassives
                                 .Where(p => p.Standalone && !gobZigEnd.LearnedPassives.Contains(p.PassiveName)
                                     && player.GameCharacter.Passive.All(x => x.PassiveName != p.PassiveName))
                                 .ToList();

@@ -921,18 +921,12 @@ public class DoomsdayMachine : IServiceSingleton
             player.Status.IsSkip = false;
             player.Status.IsReady = false;
 
-            // Auto-ready players killed by Kira's Death Note so they don't block the game
-            if (player.Passives.KiraDeathNoteDead)
+            // Auto-ready dead players so they don't block the game
+            if (player.Passives.IsDead)
             {
                 player.Status.IsReady = true;
                 player.Status.IsBlock = true;
-            }
-
-            // Auto-ready players killed as Monster pawns
-            if (player.Passives.MonsterPawnDead)
-            {
-                player.Status.IsReady = true;
-                player.Status.IsBlock = true;
+                player.Status.ConfirmedPredict = true;
             }
 
             player.Status.WhoToAttackThisTurn = new List<Guid>();
@@ -956,9 +950,9 @@ public class DoomsdayMachine : IServiceSingleton
         }
 
         //Возвращение из мертвых
-        //game.PlayersList = game.PlayersList.Where(x => !x.Passives.KratosIsDead).ToList();
+        //game.PlayersList = game.PlayersList.Where(x => !x.Passives.IsDead).ToList();
 
-        if (game.PlayersList.Count(x => x.Passives.KratosIsDead && x.GameCharacter.Name != "Кратос") == 5)
+        if (game.PlayersList.Count(x => x.Passives.IsDead && x.GameCharacter.Name != "Кратос") == 5)
         {
             game.IsKratosEvent = false;
             game.AddGlobalLogs("Все боги были убиты, открылась коробка Пандоры, стихийные бедствия уничтожили всё живое...");
