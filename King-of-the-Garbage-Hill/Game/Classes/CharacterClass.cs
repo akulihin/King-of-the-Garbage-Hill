@@ -1116,6 +1116,10 @@ public class CharacterClass
             return;
         }
 
+        //Геральт Мораль — blocks ALL moral (positive and negative)
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Геральт Мораль"))
+            return;
+
         //BlockMoralGain (Toxic Mate cancer)
         if (howMuchToAdd > 0 && BlockMoralGain)
         {

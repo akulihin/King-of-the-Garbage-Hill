@@ -40,6 +40,11 @@ public sealed class Global : IServiceSingleton
     /// </summary>
     public Func<GameClass, Task> OnGameFinished { get; set; }
 
+    /// <summary>
+    /// Callback registered by GameNotificationService to save a replay when the game finishes.
+    /// </summary>
+    public Action<GameClass> OnReplaySave { get; set; }
+
     public Task InitializeAsync()
     {
         return Task.CompletedTask;

@@ -7,6 +7,7 @@ using King_of_the_Garbage_Hill.API.DTOs;
 using King_of_the_Garbage_Hill.API.Services;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.DiscordMessages;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
@@ -15,12 +16,14 @@ public class DoomsdayMachine : IServiceSingleton
     private readonly CharacterPassives _characterPassives;
     private readonly LoginFromConsole _logs;
     private readonly CalculateRounds _calculateRounds;
+    private readonly GameUpdateMess _gameUpdateMess;
 
-    public DoomsdayMachine(CharacterPassives characterPassives, LoginFromConsole logs, CalculateRounds calculateRounds)
+    public DoomsdayMachine(CharacterPassives characterPassives, LoginFromConsole logs, CalculateRounds calculateRounds, GameUpdateMess gameUpdateMess)
     {
         _characterPassives = characterPassives;
         _logs = logs;
         _calculateRounds = calculateRounds;
+        _gameUpdateMess = gameUpdateMess;
     }
 
     public async Task InitializeAsync()
@@ -182,6 +185,9 @@ public class DoomsdayMachine : IServiceSingleton
             }
         }
 
+        // Capture replay snapshot before clearing fight log
+        ReplayService.CaptureRound(game, _gameUpdateMess);
+
         // Clear previous round's fight log
         game.WebFightLog.Clear();
         game.HiddenGlobalLogSnippets.Clear();
@@ -221,8 +227,36 @@ public class DoomsdayMachine : IServiceSingleton
         //FightCharacter writes cans happens only "for one fight" not for the whole round!
         DeepCopyGameCharacterToFightCharacter(game);
 
-        
+        // Геральт — Медитация: if blocking/skipping, check for attackers and counter-attack
+        foreach (var player in game.PlayersList.Where(x =>
+            x.GameCharacter.Passive.Any(y => y.PassiveName == "Медитация") &&
+            x.GameCharacter.Name == "Геральт" &&
+            (x.Status.IsBlock || x.Status.IsSkip)).ToList())
+        {
+            var geraltMedContracts = player.Passives.GeraltContracts;
+            geraltMedContracts.IsMeditating = true;
 
+            // Find all players whose WhoToAttackThisTurn contains Geralt
+            var attackers = game.PlayersList.Where(x =>
+                x.GetPlayerId() != player.GetPlayerId() &&
+                x.Status.WhoToAttackThisTurn.Contains(player.GetPlayerId())).ToList();
+
+            if (attackers.Count > 0)
+            {
+                geraltMedContracts.WasAttackedDuringMeditation = true;
+                // Remove Geralt from each attacker's targets
+                foreach (var attacker in attackers)
+                {
+                    attacker.Status.WhoToAttackThisTurn.RemoveAll(x => x == player.GetPlayerId());
+                    // Add attacker to Geralt's targets
+                    player.Status.WhoToAttackThisTurn.Add(attacker.GetPlayerId());
+                }
+                player.Status.IsBlock = false;
+                player.Status.IsSkip = false;
+                game.Phrases.GeraltMeditationInterrupted.SendLog(player, false);
+            }
+            // If no attackers: leave IsBlock/IsSkip, oil activates in HandleEndOfRound
+        }
 
 
 
@@ -268,6 +302,32 @@ public class DoomsdayMachine : IServiceSingleton
                 player.WebMessages.Add("Aggress: Ты не можешь пропустить ход!");
                 player.Status.IsBlock = false;
                 player.Status.IsSkip = false;
+            }
+        }
+
+        // Геральт — Ведьмачий Заказ: duplicate targets for multi-fight
+        foreach (var player in game.PlayersList.Where(x =>
+            x.GameCharacter.Passive.Any(y => y.PassiveName == "Ведьмачий Заказ") &&
+            x.GameCharacter.Name == "Геральт" &&
+            x.Status.WhoToAttackThisTurn.Count > 0).ToList())
+        {
+            var geraltMfContracts = player.Passives.GeraltContracts;
+            var targets = player.Status.WhoToAttackThisTurn.Distinct().ToList();
+            foreach (var targetId in targets)
+            {
+                if (geraltMfContracts.ContractMap.TryGetValue(targetId, out var contracts) && contracts.Count >= 2)
+                {
+                    for (var i = 1; i < contracts.Count; i++)
+                        player.Status.WhoToAttackThisTurn.Add(targetId);
+                }
+            }
+
+            // Build fight queue per target (one entry per contract type for oil matching)
+            geraltMfContracts.CurrentRoundFightQueue.Clear();
+            foreach (var targetId in player.Status.WhoToAttackThisTurn.Distinct())
+            {
+                if (geraltMfContracts.ContractMap.TryGetValue(targetId, out var contractTypes))
+                    geraltMfContracts.CurrentRoundFightQueue[targetId] = new Queue<string>(contractTypes);
             }
         }
 
@@ -652,7 +712,13 @@ public class DoomsdayMachine : IServiceSingleton
 
                     if (placeDiff <= range && !isHarmless)
                     {
-                        playerIamAttacking.GameCharacter.LowerQualityResist(playerIamAttacking, game, player);
+                        // TheBoys Butcher — multiply harm by poker count
+                        var harmRepeat = 1;
+                        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Кочерга Бучера"))
+                            harmRepeat = 1 + player.Passives.TheBoysButcher.PokerCount;
+
+                        for (var h = 0; h < harmRepeat; h++)
+                            playerIamAttacking.GameCharacter.LowerQualityResist(playerIamAttacking, game, player);
                         qualityDamageApplied = true;
                     }
 
@@ -907,6 +973,64 @@ public class DoomsdayMachine : IServiceSingleton
 
 
 
+
+        // ── Achievement tracking: per-round stats ──
+        foreach (var player in game.PlayersList)
+        {
+            var t = player.Passives.AchievementTracker;
+            // Track fight wins/losses this round
+            if (player.Status.IsWonThisCalculation != Guid.Empty)
+            {
+                t.TotalFightsWon++;
+                t.ConsecutiveWins++;
+                if (t.ConsecutiveWins > t.MaxConsecutiveWins)
+                    t.MaxConsecutiveWins = t.ConsecutiveWins;
+                // Track unique defeated players
+                var defeatedId = player.Status.IsWonThisCalculation;
+                var defeated = game.PlayersList.Find(x => x.GetPlayerId() == defeatedId);
+                if (defeated != null)
+                    t.DefeatedPlayerNames.Add(defeated.DiscordUsername);
+            }
+            if (player.Status.IsLostThisCalculation != Guid.Empty)
+            {
+                t.TotalFightsLost++;
+                t.ConsecutiveWins = 0;
+            }
+            // Track blocks and attacks
+            if (player.Status.IsBlock)
+            {
+                t.TotalBlocksUsed++;
+                t.NeverAttacked = t.NeverAttacked; // block doesn't count as attack
+            }
+            else
+            {
+                t.NeverBlocked = t.NeverBlocked; // keep checking
+            }
+            if (player.Status.WhoToAttackThisTurn.Count > 0 && !player.Status.IsBlock && !player.Status.IsSkip)
+                t.NeverAttacked = false;
+            if (player.Status.IsBlock)
+                t.NeverBlocked = false;
+            // Position tracking
+            var pos = player.Status.GetPlaceAtLeaderBoard();
+            if (pos == 1) t.RoundsAtFirst++;
+            if (pos == 6) t.RoundsAtLast++;
+            // Detect last-to-first and first-to-last transitions
+            if (game.RoundNo > 1)
+            {
+                var history = player.Status.PlaceAtLeaderBoardHistory;
+                if (history != null && history.Count > 0)
+                {
+                    if (history.Any(h => h.Place == 6) && pos == 1)
+                        t.CameFromLastToFirst = true;
+                    if (history.Any(h => h.Place == 1) && pos == 6)
+                        t.WentFromFirstToLast = true;
+                }
+            }
+            // Track justice
+            var justice = player.GameCharacter.Justice.GetRealJusticeNow();
+            if (justice > t.JusticeReached)
+                t.JusticeReached = justice;
+        }
 
         await _characterPassives.HandleEndOfRound(game);
 

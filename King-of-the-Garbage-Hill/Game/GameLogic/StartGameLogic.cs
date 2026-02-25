@@ -138,6 +138,7 @@ public class StartGameLogic : IServiceSingleton
                         account.DiscordUserName,
                         account.PlayerType)
                 );
+                playersList.Last().CharacterMasteryPoints = account.CharacterMastery.GetValueOrDefault(account.CharacterToGiveNextTime, 0);
                 account.CharacterPlayedLastTime = account.CharacterToGiveNextTime;
                 account.CharacterToGiveNextTime = null;
                 continue;
@@ -153,6 +154,8 @@ public class StartGameLogic : IServiceSingleton
                 if (character.Tier == 4 && account.IsBot()) range *= 3;
                 if (character.Tier < 4 && account.IsBot()) continue;
                 if (character.Passive.Any(x => x.PassiveName == "Top Laner")) range = (int)(range * topLaner);
+                var pityBonus = account.TierPity.GetValueOrDefault(character.Tier, 0);
+                range = (int)(range * (1.0 + pityBonus * 0.03));
                 var temp = totalPool +
                     Convert.ToInt32(range * account.CharacterChance.Find(x => x.CharacterName == character.Name)
                         .Multiplier) - 1;
@@ -205,6 +208,7 @@ public class StartGameLogic : IServiceSingleton
                 account.DiscordUserName,
                 account.PlayerType
             ));
+            playersList.Last().CharacterMasteryPoints = account.CharacterMastery.GetValueOrDefault(characterToAssign.Name, 0);
             account.CharacterPlayedLastTime = characterToAssign.Name;
             allCharacters.Remove(characterToAssign);
         }
@@ -256,6 +260,8 @@ public class StartGameLogic : IServiceSingleton
             foreach (var character in allCharacters)
             {
                 var range = GetRangeFromTier(character.Tier);
+                var pityBonus = account.TierPity.GetValueOrDefault(character.Tier, 0);
+                range = (int)(range * (1.0 + pityBonus * 0.03));
                 var chanceEntry = account.CharacterChance.Find(x => x.CharacterName == character.Name);
                 if (chanceEntry == null) continue;
                 var temp = totalPool + Convert.ToInt32(range * chanceEntry.Multiplier) - 1;

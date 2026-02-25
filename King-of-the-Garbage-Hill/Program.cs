@@ -98,6 +98,7 @@ public class ProgramKingOfTheGarbageHill
             builder.Services.AddSingleton<GameNotificationService>();
             builder.Services.AddSingleton<GameStoryService>();
             builder.Services.AddSingleton<BlackjackService>();
+            builder.Services.AddSingleton<ReplayService>();
 
             // Add SignalR for real-time communication
             builder.Services.AddSignalR()
@@ -136,8 +137,6 @@ public class ProgramKingOfTheGarbageHill
 
             var app = builder.Build();
 
-            app.UseCors();
-
             // Serve static files from wwwroot (for production Vue build)
             app.UseDefaultFiles();
             app.UseStaticFiles();
@@ -174,6 +173,7 @@ public class ProgramKingOfTheGarbageHill
             }
 
             app.UseRouting();
+            app.UseCors();
 
             app.MapControllers();
             app.MapHub<GameHub>("/gamehub");

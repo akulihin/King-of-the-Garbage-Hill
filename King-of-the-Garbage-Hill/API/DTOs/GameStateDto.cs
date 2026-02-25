@@ -49,6 +49,12 @@ public class GameStateDto
 
     /// <summary>Structured fight log for the current round (for web fight animation).</summary>
     public List<FightEntryDto> FightLog { get; set; } = new();
+
+    /// <summary>Loot box result for this game (populated on game finish for top 2 players).</summary>
+    public LootBoxResultDto LootBoxResult { get; set; }
+
+    /// <summary>Achievements newly unlocked this game (populated on game finish).</summary>
+    public List<AchievementEntryDto> NewlyUnlockedAchievements { get; set; } = new();
 }
 
 // ── Per-player state (scoped to the requesting player) ────────────────
@@ -111,6 +117,9 @@ public class PlayerDto
 
     /// <summary>True when this player is Dopa and hasn't chosen a tactic yet.</summary>
     public bool DopaChoiceNeeded { get; set; }
+
+    /// <summary>Character mastery points for this player's character (only set for isMe).</summary>
+    public int CharacterMasteryPoints { get; set; }
 
     /// <summary>Custom prefix before the player's place number (e.g. octopus tentacles). Web-friendly HTML.</summary>
     public string CustomLeaderboardPrefix { get; set; }
@@ -265,6 +274,7 @@ public class DraftOptionDto
     public int Strength { get; set; }
     public string Description { get; set; }
     public int Tier { get; set; }
+    public int Cost { get; set; }
     public List<PassiveDto> Passives { get; set; } = new();
 }
 
@@ -534,6 +544,11 @@ public class PassiveAbilityStatesDto
     /// <summary>Shown on any player who has Toxic Mate cancer.</summary>
     public ToxicMateCancerOnMeDto ToxicMateCancerOnMe { get; set; }
     public YongGlebStateDto YongGleb { get; set; }
+    public TheBoysStateDto TheBoys { get; set; }
+    public SalldorumStateDto Salldorum { get; set; }
+    public GeraltStateDto Geralt { get; set; }
+    /// <summary>Shown on any player who has Geralt contracts on them.</summary>
+    public GeraltContractOnMeDto GeraltContractOnMe { get; set; }
 }
 
 public class BulkStateDto
@@ -817,6 +832,48 @@ public class WordCategoryDto
     public List<string> Words { get; set; } = new();
 }
 
+// ── TheBoys DTOs ─────────────────────────────────────────────────────
+
+public class TheBoysStateDto
+{
+    // Francie
+    public int ChemWeaponLevel { get; set; }
+    public string OrderTargetName { get; set; }
+    public int OrderRoundsLeft { get; set; }
+    public int OrdersCompleted { get; set; }
+    public int OrdersFailed { get; set; }
+    // Butcher
+    public int PokerCount { get; set; }
+    // Kimiko
+    public int RegenLevel { get; set; }
+    public bool KimikoDisabled { get; set; }
+    public int TotalJusticeBlocked { get; set; }
+    // M.M.
+    public int KompromatCount { get; set; }
+    public bool NextAttackGathersKompromat { get; set; }
+    public List<TheBoysKompromatEntryDto> KompromatEntries { get; set; }
+}
+
+public class TheBoysKompromatEntryDto
+{
+    public string TargetName { get; set; }
+    public string Hint { get; set; }
+}
+
+// ── Salldorum DTOs ──────────────────────────────────────────────────
+
+public class SalldorumStateDto
+{
+    public int ShenCharges { get; set; }
+    public bool ShenActive { get; set; }
+    public int ShenTargetPosition { get; set; }
+    public bool ColaBuried { get; set; }
+    public int ColaBuriedPosition { get; set; }
+    public int ColaBuriedRound { get; set; }
+    public bool HistoryRewritten { get; set; }
+    public List<int> PositionHistory { get; set; } = new();
+}
+
 // ── Auth DTOs ─────────────────────────────────────────────────────────
 
 public class AuthResponse
@@ -826,4 +883,77 @@ public class AuthResponse
     public ulong DiscordId { get; set; }
     public string Username { get; set; }
     public string Error { get; set; }
+}
+
+public class GeraltStateDto
+{
+    public List<GeraltContractEntryDto> Contracts { get; set; } = new();
+    public List<string> OilInventory { get; set; } = new();
+    public bool OilsActivated { get; set; }
+    public bool IsMeditating { get; set; }
+    public int TotalContracts { get; set; }
+}
+
+public class GeraltContractEntryDto
+{
+    public string TargetName { get; set; }
+    public List<string> MonsterTypes { get; set; } = new();
+}
+
+public class GeraltContractOnMeDto
+{
+    public List<string> ContractTypes { get; set; } = new();
+    public string GeraltName { get; set; }
+}
+
+// ── Quest & Loot Box DTOs ────────────────────────────────────────────
+
+public class QuestStateDto
+{
+    public List<QuestProgressDto> Quests { get; set; } = new();
+    public bool AllCompletedToday { get; set; }
+    public int StreakDays { get; set; }
+    public int ZbsPoints { get; set; }
+}
+
+public class QuestProgressDto
+{
+    public string Id { get; set; }
+    public string Description { get; set; }
+    public int Current { get; set; }
+    public int Target { get; set; }
+    public bool IsCompleted { get; set; }
+    public int ZbsReward { get; set; }
+}
+
+public class LootBoxResultDto
+{
+    public string Rarity { get; set; }
+    public int ZbsAmount { get; set; }
+}
+
+// ── Achievement DTOs ─────────────────────────────────────────────────
+
+public class AchievementBoardDto
+{
+    public List<AchievementEntryDto> Achievements { get; set; } = new();
+    public int TotalUnlocked { get; set; }
+    public int TotalAchievements { get; set; }
+    public List<string> NewlyUnlocked { get; set; } = new();
+}
+
+public class AchievementEntryDto
+{
+    public string Id { get; set; }
+    public string Name { get; set; }
+    public string Description { get; set; }
+    public string SecretHint { get; set; }
+    public string Category { get; set; }
+    public bool IsSecret { get; set; }
+    public string Icon { get; set; }
+    public string Rarity { get; set; }
+    public int Target { get; set; }
+    public int Current { get; set; }
+    public bool IsUnlocked { get; set; }
+    public string UnlockedAt { get; set; }
 }

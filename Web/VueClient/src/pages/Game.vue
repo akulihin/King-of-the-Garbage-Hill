@@ -11,6 +11,8 @@ import FightAnimation from 'src/components/FightAnimation.vue'
 import MediaMessages from 'src/components/MediaMessages.vue'
 import RoundTimer from 'src/components/RoundTimer.vue'
 import Blackjack21 from 'src/components/Blackjack21.vue'
+import LootBox from 'src/components/LootBox.vue'
+import AchievementPopup from 'src/components/AchievementPopup.vue'
 import {
   playAttackSelection,
   playAnyMoveTurn10PlusLayer,
@@ -487,35 +489,73 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
     <!-- Draft Pick Phase Overlay -->
     <div v-else-if="store.gameState.isDraftPickPhase && store.gameState.draftOptions" class="draft-pick-overlay">
       <div class="draft-pick-container">
-        <h2 class="draft-pick-title">Choose Your Character</h2>
-        <p class="draft-pick-subtitle">Select one of these 3 characters to play</p>
-        <div class="draft-pick-cards">
-          <div
-            v-for="option in store.gameState.draftOptions"
-            :key="option.name"
-            class="draft-card"
-            @click="store.draftSelect(option.name)"
-          >
-            <div class="draft-card-avatar">
-              <img :src="option.avatar" :alt="option.name" />
-            </div>
-            <div class="draft-card-info">
-              <h3 class="draft-card-name">{{ option.name }}</h3>
-              <div class="draft-card-tier">Tier {{ option.tier }}</div>
-              <div class="draft-card-stats">
-                <span class="draft-stat" title="Intelligence">🧠 {{ option.intelligence }}</span>
-                <span class="draft-stat" title="Strength">💪 {{ option.strength }}</span>
-                <span class="draft-stat" title="Speed">⚡ {{ option.speed }}</span>
-                <span class="draft-stat" title="Psyche">🧿 {{ option.psyche }}</span>
+        <div class="draft-pick-layout">
+          <!-- Left side character (paid) -->
+          <div v-if="store.gameState.draftOptions[1]" class="draft-side-panel">
+            <div class="draft-side-card">
+              <div class="draft-side-avatar">
+                <img :src="store.gameState.draftOptions[1].avatar" :alt="store.gameState.draftOptions[1].name" />
               </div>
-              <p class="draft-card-desc">{{ option.description }}</p>
-              <div class="draft-card-passives">
-                <div v-for="passive in option.passives" :key="passive.name" class="draft-passive">
+              <div class="draft-side-name">{{ store.gameState.draftOptions[1].name }}</div>
+              <div class="draft-side-stats">
+                <span>🧠 {{ store.gameState.draftOptions[1].intelligence }}</span>
+                <span>💪 {{ store.gameState.draftOptions[1].strength }}</span>
+                <span>⚡ {{ store.gameState.draftOptions[1].speed }}</span>
+                <span>🧿 {{ store.gameState.draftOptions[1].psyche }}</span>
+              </div>
+            </div>
+            <button class="draft-switch-btn" @click="store.draftSelect(store.gameState.draftOptions[1].name)">
+              Switch
+            </button>
+            <div class="draft-cost-label">cost 5 ZBS points</div>
+          </div>
+
+          <!-- Center character (free) -->
+          <div v-if="store.gameState.draftOptions[0]" class="draft-center-panel">
+            <div class="draft-center-avatar">
+              <img :src="store.gameState.draftOptions[0].avatar" :alt="store.gameState.draftOptions[0].name" />
+            </div>
+            <div class="draft-center-info">
+              <h2 class="draft-center-name">{{ store.gameState.draftOptions[0].name }}</h2>
+              <div class="draft-center-tier">Tier {{ store.gameState.draftOptions[0].tier }}</div>
+              <div class="draft-center-stats">
+                <span class="draft-stat" title="Intelligence">🧠 {{ store.gameState.draftOptions[0].intelligence }}</span>
+                <span class="draft-stat" title="Strength">💪 {{ store.gameState.draftOptions[0].strength }}</span>
+                <span class="draft-stat" title="Speed">⚡ {{ store.gameState.draftOptions[0].speed }}</span>
+                <span class="draft-stat" title="Psyche">🧿 {{ store.gameState.draftOptions[0].psyche }}</span>
+              </div>
+              <p class="draft-center-desc">{{ store.gameState.draftOptions[0].description }}</p>
+              <div class="draft-center-passives">
+                <div v-for="passive in store.gameState.draftOptions[0].passives" :key="passive.name" class="draft-passive">
                   <strong>{{ passive.name }}</strong>
                   <span v-if="passive.description">: {{ passive.description }}</span>
                 </div>
               </div>
             </div>
+            <div class="draft-free-label">free character</div>
+            <button class="draft-play-btn" @click="store.draftSelect(store.gameState.draftOptions[0].name)">
+              PLAY
+            </button>
+          </div>
+
+          <!-- Right side character (paid) -->
+          <div v-if="store.gameState.draftOptions[2]" class="draft-side-panel">
+            <div class="draft-side-card">
+              <div class="draft-side-avatar">
+                <img :src="store.gameState.draftOptions[2].avatar" :alt="store.gameState.draftOptions[2].name" />
+              </div>
+              <div class="draft-side-name">{{ store.gameState.draftOptions[2].name }}</div>
+              <div class="draft-side-stats">
+                <span>🧠 {{ store.gameState.draftOptions[2].intelligence }}</span>
+                <span>💪 {{ store.gameState.draftOptions[2].strength }}</span>
+                <span>⚡ {{ store.gameState.draftOptions[2].speed }}</span>
+                <span>🧿 {{ store.gameState.draftOptions[2].psyche }}</span>
+              </div>
+            </div>
+            <button class="draft-switch-btn" @click="store.draftSelect(store.gameState.draftOptions[2].name)">
+              Switch
+            </button>
+            <div class="draft-cost-label">cost 5 ZBS points</div>
           </div>
         </div>
       </div>
@@ -724,6 +764,20 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
           </button>
         </div>
 
+        <!-- Loot Box popup for top 2 players -->
+        <LootBox
+          v-if="store.lootBoxResult && store.gameState.isFinished"
+          :result="store.lootBoxResult"
+          @dismiss="store.dismissLootBox()"
+        />
+
+        <!-- Achievement unlock popup -->
+        <AchievementPopup
+          v-if="store.newlyUnlockedAchievements.length > 0 && store.gameState.isFinished && !store.lootBoxResult"
+          :achievements="store.newlyUnlockedAchievements"
+          @dismiss="store.dismissAchievements()"
+        />
+
 
         <!-- Direct Messages (ephemeral alerts) -->
         <div
@@ -781,62 +835,111 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
   max-width: 1200px;
   width: 100%;
 }
-.draft-pick-title {
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-}
-.draft-pick-subtitle {
-  font-size: 14px;
-  color: var(--text-muted);
-  margin-bottom: 24px;
-}
-.draft-pick-cards {
+.draft-pick-layout {
   display: flex;
-  gap: 16px;
+  align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
+  gap: 24px;
 }
-.draft-card {
+
+/* ── Side panels (paid characters) ── */
+.draft-side-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 180px;
+  flex-shrink: 0;
+}
+.draft-side-card {
   background: var(--bg-secondary);
   border: 2px solid var(--border);
   border-radius: var(--radius-lg, 12px);
-  padding: 16px;
-  width: 340px;
-  cursor: pointer;
-  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
-  text-align: left;
-}
-.draft-card:hover {
-  border-color: var(--accent-gold);
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-}
-.draft-card-avatar {
+  padding: 10px;
   width: 100%;
-  height: 200px;
+  text-align: center;
+}
+.draft-side-avatar {
+  width: 100%;
+  height: 140px;
   overflow: hidden;
   border-radius: var(--radius, 8px);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
-.draft-card-avatar img {
+.draft-side-avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.draft-card-name {
-  font-size: 20px;
+.draft-side-name {
+  font-size: 14px;
   font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.draft-side-stats {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.draft-switch-btn {
+  background: transparent;
+  border: 2px solid #4caf50;
+  color: #4caf50;
+  font-size: 18px;
+  font-weight: 700;
+  padding: 6px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.draft-switch-btn:hover {
+  background: #4caf50;
+  color: #fff;
+}
+.draft-cost-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Center panel (free character) ── */
+.draft-center-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 480px;
+  flex: 1;
+}
+.draft-center-avatar {
+  width: 320px;
+  height: 260px;
+  overflow: hidden;
+  border-radius: var(--radius-lg, 12px);
+  margin-bottom: 16px;
+}
+.draft-center-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.draft-center-info {
+  text-align: left;
+  width: 100%;
+}
+.draft-center-name {
+  font-size: 24px;
+  font-weight: 800;
   color: var(--text-primary);
   margin: 0 0 4px;
 }
-.draft-card-tier {
+.draft-center-tier {
   font-size: 12px;
   color: var(--text-muted);
   margin-bottom: 8px;
 }
-.draft-card-stats {
+.draft-center-stats {
   display: flex;
   gap: 12px;
   margin-bottom: 10px;
@@ -846,19 +949,18 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
   font-weight: 600;
   color: var(--text-secondary);
 }
-.draft-card-desc {
-  font-size: 12px;
+.draft-center-desc {
+  font-size: 13px;
   color: var(--text-muted);
   margin-bottom: 10px;
   line-height: 1.4;
-  max-height: 60px;
-  overflow: hidden;
 }
-.draft-card-passives {
-  font-size: 11px;
+.draft-center-passives {
+  font-size: 12px;
   color: var(--text-secondary);
-  max-height: 120px;
+  max-height: 160px;
   overflow-y: auto;
+  margin-bottom: 12px;
 }
 .draft-passive {
   margin-bottom: 4px;
@@ -866,6 +968,27 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 }
 .draft-passive strong {
   color: var(--accent-gold);
+}
+.draft-free-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4caf50;
+  margin-bottom: 8px;
+}
+.draft-play-btn {
+  background: #4caf50;
+  border: none;
+  color: #fff;
+  font-size: 28px;
+  font-weight: 800;
+  padding: 12px 60px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+.draft-play-btn:hover {
+  background: #43a047;
+  transform: scale(1.05);
 }
 
 .finished-badge {

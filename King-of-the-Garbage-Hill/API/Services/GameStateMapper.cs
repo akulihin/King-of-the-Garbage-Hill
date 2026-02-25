@@ -24,6 +24,9 @@ public static class GameStateMapper
     // Full character catalog with base stats (for prediction avatar/stat lookup by non-admins)
     private static readonly List<DTOs.CharacterInfoDto> _allCharacters;
 
+    public static List<string> GetAllCharacterNames() => _allCharacterNames;
+    public static List<CharacterInfoDto> GetAllCharacters() => _allCharacters;
+
     static GameStateMapper()
     {
         _localAvatars = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -89,7 +92,7 @@ public static class GameStateMapper
             IsDraftPickPhase = game.IsDraftPickPhase,
             DraftOptions = game.IsDraftPickPhase && requestingPlayer != null
                 && game.DraftOptions.TryGetValue(requestingPlayer.GetPlayerId(), out var draftOpts)
-                ? draftOpts.Select(c => new DraftOptionDto
+                ? draftOpts.Select((c, i) => new DraftOptionDto
                 {
                     Name = c.Name,
                     Avatar = GetLocalAvatarUrl(c.Avatar),
@@ -99,6 +102,7 @@ public static class GameStateMapper
                     Strength = c.GetStrength(),
                     Description = c.Description,
                     Tier = c.Tier,
+                    Cost = i == 0 ? 0 : 5,
                     Passives = c.Passive.Select(p => new PassiveDto
                     {
                         Name = p.PassiveName,
@@ -149,6 +153,44 @@ public static class GameStateMapper
             dto.FullChronicle = BuildFullChronicle(game);
         }
 
+        // Populate loot box result for finished games (requesting player only)
+        if (game.IsFinished && requestingPlayer != null)
+        {
+            var questData = requestingPlayer.Passives?.QuestDataRef;
+            if (questData?.LastLootBox != null && questData.LastLootBoxGameId == game.GameId)
+            {
+                dto.LootBoxResult = new LootBoxResultDto
+                {
+                    Rarity = questData.LastLootBox.Rarity,
+                    ZbsAmount = questData.LastLootBox.ZbsAmount,
+                };
+            }
+
+            // Populate newly unlocked achievements
+            var achData = requestingPlayer.Passives?.AchievementDataRef;
+            if (achData?.NewlyUnlocked != null && achData.NewlyUnlocked.Count > 0)
+            {
+                foreach (var achId in achData.NewlyUnlocked)
+                {
+                    var def = AchievementService.GetDefinition(achId);
+                    if (def == null) continue;
+                    dto.NewlyUnlockedAchievements.Add(new AchievementEntryDto
+                    {
+                        Id = def.Id,
+                        Name = def.Name,
+                        Description = def.Description,
+                        Category = def.Category.ToString(),
+                        IsSecret = def.IsSecret,
+                        Icon = def.Icon,
+                        Rarity = def.Rarity,
+                        Target = def.Target,
+                        Current = def.Target,
+                        IsUnlocked = true,
+                    });
+                }
+            }
+        }
+
         return dto;
     }
 
@@ -176,6 +218,7 @@ public static class GameStateMapper
             dto.Predictions = player.Predict
                 .Select(p => new PredictDto { PlayerId = p.PlayerId, CharacterName = p.CharacterName })
                 .ToList();
+            dto.CharacterMasteryPoints = player.CharacterMasteryPoints;
         }
 
         // Death Note state — only visible to the Kira player
@@ -559,6 +602,79 @@ public static class GameStateMapper
                         };
                         anySet = true;
                         break;
+                    case "Пацаны":
+                        var tbFrancie = player.Passives.TheBoysFrancie;
+                        var tbButcher = player.Passives.TheBoysButcher;
+                        var tbKimiko = player.Passives.TheBoysKimiko;
+                        var tbMM = player.Passives.TheBoysMM;
+                        pas.TheBoys = new TheBoysStateDto
+                        {
+                            ChemWeaponLevel = tbFrancie.ChemWeaponLevel,
+                            OrderTargetName = tbFrancie.OrderTarget != Guid.Empty
+                                ? game.PlayersList.Find(x => x.GetPlayerId() == tbFrancie.OrderTarget)?.DiscordUsername ?? ""
+                                : "",
+                            OrderRoundsLeft = tbFrancie.OrderRoundsLeft,
+                            OrdersCompleted = tbFrancie.OrdersCompleted,
+                            OrdersFailed = tbFrancie.OrdersFailed,
+                            PokerCount = tbButcher.PokerCount,
+                            RegenLevel = tbKimiko.RegenLevel,
+                            KimikoDisabled = tbKimiko.IsDisabled,
+                            TotalJusticeBlocked = tbKimiko.TotalJusticeBlocked,
+                            KompromatCount = tbMM.KompromatTargets.Count,
+                            NextAttackGathersKompromat = tbMM.NextAttackGathersKompromat,
+                            KompromatEntries = tbMM.KompromatTargets.Select(targetId =>
+                            {
+                                var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
+                                return new TheBoysKompromatEntryDto
+                                {
+                                    TargetName = target?.DiscordUsername ?? "",
+                                    Hint = tbMM.KompromatHints.GetValueOrDefault(targetId, ""),
+                                };
+                            }).ToList(),
+                        };
+                        anySet = true;
+                        break;
+                    case "Шэн":
+                        var shen = player.Passives.SalldorumShen;
+                        var capsule = player.Passives.SalldorumTimeCapsule;
+                        var chronicler = player.Passives.SalldorumChronicler;
+                        pas.Salldorum = new SalldorumStateDto
+                        {
+                            ShenCharges = shen.Charges,
+                            ShenActive = shen.ActiveThisTurn,
+                            ShenTargetPosition = shen.TargetPosition,
+                            ColaBuried = capsule.Buried,
+                            ColaBuriedPosition = capsule.BuriedAtPosition,
+                            ColaBuriedRound = capsule.BuriedOnRound,
+                            HistoryRewritten = chronicler.HistoryRewritten,
+                            PositionHistory = chronicler.PositionHistory.ToList(),
+                        };
+                        anySet = true;
+                        break;
+
+                    case "Ведьмачий Заказ":
+                        if (player.GameCharacter.Name == "Геральт")
+                        {
+                            var geraltContracts = player.Passives.GeraltContracts;
+                            pas.Geralt = new GeraltStateDto
+                            {
+                                Contracts = geraltContracts.ContractMap.Select(kvp =>
+                                {
+                                    var targetPlayer = game.PlayersList.Find(x => x.GetPlayerId() == kvp.Key);
+                                    return new GeraltContractEntryDto
+                                    {
+                                        TargetName = targetPlayer?.DiscordUsername ?? "???",
+                                        MonsterTypes = kvp.Value.ToList(),
+                                    };
+                                }).ToList(),
+                                OilInventory = geraltContracts.OilInventory.ToList(),
+                                OilsActivated = geraltContracts.OilsActivated,
+                                IsMeditating = geraltContracts.IsMeditating,
+                                TotalContracts = geraltContracts.ContractMap.Values.Sum(x => x.Count),
+                            };
+                            anySet = true;
+                        }
+                        break;
                 }
             }
 
@@ -614,6 +730,18 @@ public static class GameStateMapper
                 pas.MonsterPawnOnMe = new MonsterPawnOnMeDto
                 {
                     PawnOwnerName = pawnOwner?.DiscordUsername ?? "",
+                };
+                anySet = true;
+            }
+
+            // Show Geralt contract widget to affected player
+            if (player.Passives.GeraltContractsOnMe.Count > 0)
+            {
+                var geraltOwner = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.GeraltContractOwnerId);
+                pas.GeraltContractOnMe = new GeraltContractOnMeDto
+                {
+                    ContractTypes = player.Passives.GeraltContractsOnMe.ToList(),
+                    GeraltName = geraltOwner?.DiscordUsername ?? "",
                 };
                 anySet = true;
             }
@@ -910,7 +1038,7 @@ public static class GameStateMapper
     /// Contains: Fight History (global logs with round numbers), then per-player personal logs.
     /// Replaces Discord usernames with character names throughout.
     /// </summary>
-    private static string BuildFullChronicle(GameClass game)
+    public static string BuildFullChronicle(GameClass game)
     {
         // Build username → character name mapping
         var nameMap = game.PlayersList

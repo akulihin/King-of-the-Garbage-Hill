@@ -56,6 +56,8 @@ public class GamePlayerBridgeClass
 
     public bool IsWebPlayer { get; set; }
 
+    public int CharacterMasteryPoints { get; set; }
+
     /// <summary>When true, suppress Discord messages and only use the web UI.</summary>
     public bool PreferWeb { get; set; }
 

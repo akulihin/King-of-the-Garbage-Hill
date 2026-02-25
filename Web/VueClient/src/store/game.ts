@@ -8,6 +8,10 @@ import {
   type ActionResult,
   type GameEvent,
   type BlackjackTableState,
+  type QuestState,
+  type LootBoxResult,
+  type AchievementBoard,
+  type AchievementEntry,
 } from 'src/services/signalr'
 import {
   playBlockSound,
@@ -65,6 +69,10 @@ export const useGameStore = defineStore('game', () => {
   const lastMoralToSkillRound = ref<number | null>(null)
   const gameStory = ref<string | null>(null)
   const blackjackState = ref<BlackjackTableState | null>(null)
+  const questState = ref<QuestState | null>(null)
+  const lootBoxResult = ref<LootBoxResult | null>(null)
+  const achievementBoard = ref<AchievementBoard | null>(null)
+  const newlyUnlockedAchievements = ref<AchievementEntry[]>([])
 
   // ── Derived State ─────────────────────────────────────────────────
 
@@ -188,10 +196,28 @@ export const useGameStore = defineStore('game', () => {
         if (nextMyPlayer?.isDead && nextMyPlayer?.deathSource === 'Kira' && !(previousMyPlayer?.isDead && previousMyPlayer?.deathSource === 'Kira')) {
           signalrService.blackjackJoin(state.gameId)
         }
+
+        // Detect loot box from finished game state
+        if (state.isFinished && state.lootBoxResult) {
+          lootBoxResult.value = state.lootBoxResult
+        }
+
+        // Detect newly unlocked achievements from finished game state
+        if (state.isFinished && state.newlyUnlockedAchievements?.length) {
+          newlyUnlockedAchievements.value = state.newlyUnlockedAchievements
+        }
       }
 
       signalrService.onBlackjackState = (state) => {
         blackjackState.value = state
+      }
+
+      signalrService.onQuestState = (state) => {
+        questState.value = state
+      }
+
+      signalrService.onAchievementBoard = (board) => {
+        achievementBoard.value = board
       }
 
       signalrService.onLobbyState = (state) => {
@@ -272,6 +298,8 @@ export const useGameStore = defineStore('game', () => {
 
   async function joinGame(gameId: number) {
     gameStory.value = null
+    lootBoxResult.value = null
+    newlyUnlockedAchievements.value = []
     await signalrService.joinGame(gameId)
   }
 
@@ -455,6 +483,27 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.joinWebGame(gameId)
   }
 
+  async function requestQuests() {
+    await signalrService.requestQuests()
+  }
+
+  function dismissLootBox() {
+    lootBoxResult.value = null
+  }
+
+  async function requestAchievements() {
+    await signalrService.requestAchievements()
+  }
+
+  async function clearNewAchievements() {
+    await signalrService.clearNewAchievements()
+    newlyUnlockedAchievements.value = []
+  }
+
+  function dismissAchievements() {
+    newlyUnlockedAchievements.value = []
+  }
+
   /** Restore a previously created web account from localStorage */
   async function restoreWebSession() {
     const savedId = localStorage.getItem('kotgh_web_id')
@@ -483,6 +532,10 @@ export const useGameStore = defineStore('game', () => {
     isLoading,
     gameStory,
     blackjackState,
+    questState,
+    lootBoxResult,
+    achievementBoard,
+    newlyUnlockedAchievements,
     // Computed
     myPlayer,
     opponents,
@@ -531,6 +584,11 @@ export const useGameStore = defineStore('game', () => {
     registerWebAccount,
     createWebGame,
     joinWebGame,
+    requestQuests,
+    dismissLootBox,
+    requestAchievements,
+    clearNewAchievements,
+    dismissAchievements,
     restoreWebSession,
   }
 })

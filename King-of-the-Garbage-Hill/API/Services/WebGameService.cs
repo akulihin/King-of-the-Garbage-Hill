@@ -308,6 +308,16 @@ public class WebGameService
         var selected = options.Find(c => c.Name == characterName);
         if (selected == null) return Task.FromResult((false, "Character not in your draft options"));
 
+        // Side characters (not first option) cost 5 ZBS points
+        var selectedIndex = options.IndexOf(selected);
+        if (selectedIndex > 0)
+        {
+            var acc = _userAccounts.GetAccount(discordId);
+            if (acc == null || acc.ZbsPoints < 5)
+                return Task.FromResult((false, "Not enough ZBS points (need 5)"));
+            acc.ZbsPoints -= 5;
+        }
+
         // Replace the player's character with the selected one
         var newBridge = new GamePlayerBridgeClass(
             selected,
@@ -329,8 +339,10 @@ public class WebGameService
         if (idx >= 0)
             game.PlayersList[idx] = newBridge;
 
-        // Update account's last played character
+        // Update account's last played character and mastery
         var account = _userAccounts.GetAccount(discordId);
+        if (account != null)
+            newBridge.CharacterMasteryPoints = account.CharacterMastery.GetValueOrDefault(selected.Name, 0);
         if (account != null)
             account.CharacterPlayedLastTime = selected.Name;
 
@@ -721,6 +733,111 @@ public class WebGameService
         if (player == null) return (false, "Player not in game.");
 
         _helper.EndGame(discordId);
+        return (true, null);
+    }
+
+    // ── Salldorum Actions ──────────────────────────────────────────────
+
+    public (bool success, string error) ActivateShen(ulong gameId, ulong discordId, int position)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId);
+        if (game == null) return (false, "Game not found");
+        if (player == null) return (false, "Player not in this game");
+        if (player.GameCharacter.Name != "Salldorum")
+            return (false, "Only Salldorum can use Shen");
+
+        var shen = player.Passives.SalldorumShen;
+        if (shen.Charges <= 0)
+            return (false, "No Shen charges available");
+        if (position < 1 || position > game.PlayersList.Count)
+            return (false, $"Invalid position (1-{game.PlayersList.Count})");
+
+        shen.Charges--;
+        shen.ActiveThisTurn = true;
+        shen.TargetPosition = position;
+        player.Status.AddInGamePersonalLogs($"Шэн: Активирован на позицию {position}. Зарядов: {shen.Charges}\n");
+
+        return (true, null);
+    }
+
+    public (bool success, string error) DeactivateShen(ulong gameId, ulong discordId)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId);
+        if (game == null) return (false, "Game not found");
+        if (player == null) return (false, "Player not in this game");
+        if (player.GameCharacter.Name != "Salldorum")
+            return (false, "Only Salldorum can use Shen");
+
+        var shen = player.Passives.SalldorumShen;
+        if (!shen.ActiveThisTurn)
+            return (false, "Shen is not active");
+
+        shen.Charges++;
+        shen.ActiveThisTurn = false;
+        shen.TargetPosition = -1;
+        player.Status.AddInGamePersonalLogs("Шэн: Деактивирован. Заряд возвращён.\n");
+
+        return (true, null);
+    }
+
+    public (bool success, string error) RewriteHistory(ulong gameId, ulong discordId, int roundNumber)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId);
+        if (game == null) return (false, "Game not found");
+        if (player == null) return (false, "Player not in this game");
+        if (player.GameCharacter.Name != "Salldorum")
+            return (false, "Only Salldorum can rewrite history");
+
+        var chronicler = player.Passives.SalldorumChronicler;
+        if (chronicler.HistoryRewritten)
+            return (false, "History has already been rewritten");
+        if (game.RoundNo >= 8)
+            return (false, "Too late to rewrite history (before round 8 only)");
+        if (roundNumber < 1 || roundNumber >= game.RoundNo)
+            return (false, "Invalid round number");
+
+        chronicler.HistoryRewritten = true;
+        chronicler.RewrittenRound = roundNumber;
+
+        // Find enemies who beat Salldorum in that round
+        var salloLosses = player.Status.WhoToLostEveryRound
+            .Where(x => x.RoundNo == roundNumber)
+            .ToList();
+
+        decimal totalStolen = 0;
+        foreach (var loss in salloLosses)
+        {
+            var enemy = game.PlayersList.Find(x => x.GetPlayerId() == loss.EnemyId);
+            if (enemy == null) continue;
+
+            // Steal 1 point (could scale with round multiplier)
+            var pointsToSteal = 1m;
+            enemy.Status.AddBonusPoints(-pointsToSteal, "Великий летописец");
+            player.Status.AddBonusPoints(pointsToSteal, "Великий летописец");
+            totalStolen += pointsToSteal;
+        }
+
+        // Grant psyche and justice
+        player.GameCharacter.AddPsyche(2, "Великий летописец");
+        player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(2);
+
+        // Check cola pickup via time travel
+        var capsule = player.Passives.SalldorumTimeCapsule;
+        if (capsule.Buried && chronicler.PositionHistory.Count >= roundNumber)
+        {
+            var posInThatRound = chronicler.PositionHistory[roundNumber - 1];
+            if (posInThatRound == capsule.BuriedAtPosition)
+            {
+                player.FightCharacter.AddSpeedForOneFight(5);
+                player.Status.AddBonusPoints(2, "Временная капсула");
+                capsule.PickedUpThisTurn = true;
+                player.Status.AddInGamePersonalLogs("Временная капсула: Кола подобрана через путешествие во времени!\n");
+            }
+        }
+
+        player.Status.AddInGamePersonalLogs($"Великий летописец: История раунда {roundNumber} переписана! Украдено {totalStolen} очков.\n");
+        game.AddGlobalLogs($"Salldorum переписал историю раунда {roundNumber}!");
+
         return (true, null);
     }
 

@@ -262,6 +262,14 @@ public class CheckIfReady : IServiceSingleton
     {
         game.IsCheckIfReady = false;
 
+        // Геральт — pitchfork death: if Geralt finishes last
+        var geraltLast = game.PlayersList.Find(x =>
+            x.GameCharacter.Name == "Геральт" && x.Status.GetPlaceAtLeaderBoard() == 6);
+        if (geraltLast != null)
+        {
+            game.AddGlobalLogs("Крестьяне с вилами настигли Ведьмака... Работа неблагодарная.");
+        }
+
         foreach (var player in game.PlayersList)
         {
             player.Status.ConfirmedSkip = true;
@@ -292,6 +300,38 @@ public class CheckIfReady : IServiceSingleton
                 player.Status.AddBonusPoints(predBonus, "Предположение");
             }
         // predict
+
+        // TheBoys — Компромат М.М.: multiply prediction bonus by kompromat count
+        foreach (var boysPlayer in game.PlayersList.Where(x =>
+                     x.GameCharacter.Passive.Any(p => p.PassiveName == "Компромат М.М.")))
+        {
+            var kompromatCount = boysPlayer.Passives.TheBoysMM.KompromatTargets.Count;
+            if (kompromatCount > 1)
+            {
+                // Count how many correct predictions this player made
+                var correctPredictions = 0;
+                foreach (var predict in boysPlayer.Predict)
+                {
+                    var enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId);
+                    if (enemy != null && enemy.GameCharacter.Name == predict.CharacterName
+                        && !enemy.GameCharacter.Passive.Any(p => p.PassiveName == "Выдуманный персонаж"))
+                        correctPredictions++;
+                }
+
+                if (correctPredictions > 0)
+                {
+                    // Already got 1× from the normal loop, add (multiplier - 1)× more
+                    var extraMultiplier = kompromatCount - 1;
+                    var predBonus = boysPlayer.GameCharacter.Passive.Any(p => p.PassiveName == "Великий летописец") ? 2 : 1;
+                    var extraPoints = correctPredictions * predBonus * extraMultiplier;
+                    boysPlayer.Status.AddBonusPoints(extraPoints, "Компромат М.М.");
+                    boysPlayer.Status.AddInGamePersonalLogs(
+                        $"Компромат М.М.: {correctPredictions} верных предположений × {kompromatCount} компромата = +{extraPoints} бонусных очков\n");
+                    game.Phrases.TheBoysKompromatReward.SendLog(boysPlayer, false);
+                }
+            }
+        }
+        // end TheBoys kompromat
 
         // Tsukuyomi end-game deduction: deduct stolen points from victims
         foreach (var itachiPlayer in game.PlayersList.Where(x =>
@@ -547,6 +587,15 @@ public class CheckIfReady : IServiceSingleton
             account.MatchHistory.Add(new DiscordAccountClass.MatchHistoryClass(player.GameCharacter.Name,
                 player.Status.GetScore(), player.Status.GetPlaceAtLeaderBoard()));
 
+            // Character mastery points
+            var masteryPointsToAdd = player.Status.GetPlaceAtLeaderBoard() switch
+            {
+                1 => 10, 2 => 7, 3 => 5, 4 => 3, 5 => 2, 6 => 1, _ => 0
+            };
+            if (!player.Passives.IsDead)
+                account.CharacterMastery[player.GameCharacter.Name] =
+                    account.CharacterMastery.GetValueOrDefault(player.GameCharacter.Name, 0) + masteryPointsToAdd;
+
             /*
             account.ZbsPoints += (player.Status.GetPlaceAtLeaderBoard() - 6) * -1 + 1;
             if (player.Status.GetPlaceAtLeaderBoard() == 1)
@@ -590,6 +639,31 @@ public class CheckIfReady : IServiceSingleton
 
             account.ZbsPoints += zbsPointsToGive;
 
+            // Quest progress tracking
+            QuestService.TrackGameEnd(account, player, game);
+
+            // Loot box for top 2 (alive players only)
+            if (player.Status.GetPlaceAtLeaderBoard() <= 2 && !player.Passives.IsDead)
+                QuestService.GenerateLootBox(account, game.GameId);
+
+            // Achievement tracking
+            // Set final state before evaluation
+            var tracker = player.Passives.AchievementTracker;
+            tracker.FinishedWithZeroPsyche = player.GameCharacter.GetPsyche() <= 0;
+            tracker.FinishedWithMaxPsyche = player.GameCharacter.GetPsyche() >= 10;
+            AchievementService.TrackGameEnd(account, player, game);
+            player.Passives.AchievementDataRef = account.Achievements;
+
+            // Store quest data ref for web mapper to read loot box result
+            player.Passives.QuestDataRef = account.Quests;
+
+            // Pity system: increment counters for tiers not played this game
+            foreach (var tier in new[] { 1, 2, 3, 4, 5, 6 })
+            {
+                if (tier != player.GameCharacter.Tier)
+                    account.TierPity[tier] = account.TierPity.GetValueOrDefault(tier, 0) + 1;
+            }
+
             var characterStatistics =
                 account.CharacterStatistics.Find(x =>
                     x.CharacterName == player.GameCharacter.Name);
@@ -627,6 +701,10 @@ public class CheckIfReady : IServiceSingleton
                 _logs.Critical(exception.StackTrace);
             }
         }
+
+        // Save replay before removing the game
+        try { _global.OnReplaySave?.Invoke(game); }
+        catch (Exception ex) { _logs.Critical($"Replay save failed: {ex.Message}"); }
 
         // Broadcast final state to web clients BEFORE removing the game.
         // Without this, PreferWeb players never see the last round's results because
@@ -1045,6 +1123,38 @@ public class CheckIfReady : IServiceSingleton
                     }
                 }
 
+                // Salldorum — Шэн: force players below Shen position to attack Salldorum
+                foreach (var sallo in players.Where(p =>
+                             p.GameCharacter.Name == "Salldorum" &&
+                             p.Passives.SalldorumShen.ActiveThisTurn &&
+                             !p.Passives.IsDead))
+                {
+                    var shenPos = sallo.Passives.SalldorumShen.TargetPosition;
+                    foreach (var victim in players.Where(p =>
+                                 p.GetPlayerId() != sallo.GetPlayerId() &&
+                                 !p.Passives.IsDead &&
+                                 p.Status.GetPlaceAtLeaderBoard() > shenPos))
+                    {
+                        if (!victim.Status.WhoToAttackThisTurn.Contains(sallo.GetPlayerId()))
+                            victim.Status.WhoToAttackThisTurn.Add(sallo.GetPlayerId());
+                    }
+                }
+
+                // Salldorum — Временная капсула: first block buries cola
+                foreach (var sallo in players.Where(p =>
+                             p.GameCharacter.Name == "Salldorum" &&
+                             p.Status.IsBlock &&
+                             !p.Passives.SalldorumTimeCapsule.FirstBlockUsed))
+                {
+                    var capsule = sallo.Passives.SalldorumTimeCapsule;
+                    capsule.FirstBlockUsed = true;
+                    capsule.Buried = true;
+                    capsule.BuriedAtPosition = sallo.Status.GetPlaceAtLeaderBoard();
+                    capsule.BuriedOnRound = game.RoundNo;
+                    game.Phrases.SalldorumTimeCapsuleBury.SendLog(sallo, false);
+                    sallo.Status.AddInGamePersonalLogs($"Временная капсула: Кола закопана на позиции {capsule.BuriedAtPosition} (раунд {game.RoundNo}).\n");
+                }
+
                 // Штормяк — taunt on block: force random enemy to attack the blocker as second action
                 foreach (var taunter in players.Where(t =>
                              t.Status.IsBlock &&
@@ -1144,6 +1254,17 @@ public class CheckIfReady : IServiceSingleton
                 }
 
                 await _round.CalculateAllFights(game);
+
+                // Pity system: reset played tier on round 2 (skip round 1 remakes)
+                if (game.RoundNo == 2)
+                {
+                    foreach (var player in game.PlayersList)
+                    {
+                        var acc = _accounts.GetAccount(player.DiscordId);
+                        acc.TierPity[player.GameCharacter.Tier] = 0;
+                    }
+                }
+
                 foreach (var player in game.PlayersList) player.GameCharacter.SetMoralBonus();
 
                 foreach (var t in players.Where(x => !x.IsBot()))

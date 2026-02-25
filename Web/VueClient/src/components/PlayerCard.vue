@@ -76,6 +76,19 @@ const passiveStates = computed<PassiveAbilityStates | null>(() => {
   return props.player?.passiveAbilityStates ?? null
 })
 
+// Mastery badge
+const masteryPoints = computed(() => props.player?.characterMasteryPoints ?? 0)
+const masteryLevel = computed(() => Math.floor(Math.sqrt(masteryPoints.value / 5)))
+const masteryTier = computed(() => {
+  const lvl = masteryLevel.value
+  if (lvl >= 20) return 'diamond'
+  if (lvl >= 15) return 'platinum'
+  if (lvl >= 10) return 'gold'
+  if (lvl >= 5) return 'silver'
+  if (lvl >= 1) return 'bronze'
+  return 'none'
+})
+
 const isGoblin = computed(() => props.player?.character.name === 'Стая Гоблинов')
 const isKotiki = computed(() => props.player?.character.name === 'Котики')
 const goblin = computed(() => passiveStates.value?.goblinSwarm ?? null)
@@ -326,6 +339,10 @@ function handleMoralToSkill() {
     <!-- Name & character -->
     <div class="pc-identity">
       <div class="pc-name">{{ player.character.name }}</div>
+      <div v-if="isMe && masteryLevel > 0" class="mastery-badge" :class="'mastery-' + masteryTier">
+        <span class="mastery-level">{{ masteryLevel }}</span>
+        <span class="mastery-label">{{ masteryTier }}</span>
+      </div>
       <div class="pc-username">{{ player.discordUsername }}</div>
     </div>
 
@@ -1160,6 +1177,129 @@ function handleMoralToSkill() {
       </div>
     </div>
 
+    <!-- 32. TheBoys -->
+    <div v-if="passiveStates?.theBoys" class="pc-passive-widget theboys-widget">
+      <div class="pw-header">
+        <span class="pw-title theboys-title">THE BOYS</span>
+      </div>
+      <div class="theboys-grid">
+        <!-- Francie -->
+        <div class="theboys-member">
+          <div class="theboys-member-header">
+            <span class="theboys-icon">🧪</span>
+            <span class="theboys-name">Француз</span>
+            <span class="theboys-val">Lv{{ passiveStates.theBoys.chemWeaponLevel }}</span>
+          </div>
+          <div v-if="passiveStates.theBoys.orderTargetName" class="theboys-order">
+            🎯 {{ passiveStates.theBoys.orderTargetName }}
+            <span class="theboys-order-rounds">({{ passiveStates.theBoys.orderRoundsLeft }})</span>
+          </div>
+          <div class="theboys-stats">
+            <span class="theboys-stat-ok">✅{{ passiveStates.theBoys.ordersCompleted }}</span>
+            <span class="theboys-stat-fail">❌{{ passiveStates.theBoys.ordersFailed }}</span>
+          </div>
+        </div>
+        <!-- Butcher -->
+        <div class="theboys-member theboys-butcher" :style="{ boxShadow: passiveStates.theBoys.pokerCount > 0 ? `0 0 ${4 + passiveStates.theBoys.pokerCount * 4}px rgba(255,50,50,${Math.min(0.2 + passiveStates.theBoys.pokerCount * 0.2, 1)})` : 'none' }">
+          <div class="theboys-member-header">
+            <span class="theboys-icon">🔪</span>
+            <span class="theboys-name">Бучер</span>
+            <span class="theboys-val theboys-poker-val">{{ passiveStates.theBoys.pokerCount }}</span>
+          </div>
+        </div>
+        <!-- Kimiko -->
+        <div class="theboys-member" :class="{ 'theboys-disabled': passiveStates.theBoys.kimikoDisabled }">
+          <div class="theboys-member-header">
+            <span class="theboys-icon">💚</span>
+            <span class="theboys-name">Kimiko</span>
+            <span class="theboys-val">Lv{{ passiveStates.theBoys.regenLevel }}</span>
+          </div>
+          <div v-if="passiveStates.theBoys.kimikoDisabled" class="theboys-kimiko-status">DISABLED</div>
+          <div v-if="passiveStates.theBoys.totalJusticeBlocked > 0" class="theboys-kimiko-blocked">
+            ⚖️ {{ passiveStates.theBoys.totalJusticeBlocked }} blocked
+          </div>
+        </div>
+        <!-- M.M. -->
+        <div class="theboys-member">
+          <div class="theboys-member-header">
+            <span class="theboys-icon">📋</span>
+            <span class="theboys-name">М.М.</span>
+            <span class="theboys-val">{{ passiveStates.theBoys.kompromatCount }}</span>
+          </div>
+          <div v-if="passiveStates.theBoys.nextAttackGathersKompromat" class="theboys-mm-active">📡 ACTIVE</div>
+          <div v-if="passiveStates.theBoys.kompromatEntries?.length" class="theboys-kompromat-list">
+            <div v-for="entry in passiveStates.theBoys.kompromatEntries" :key="entry.targetName" class="theboys-kompromat-entry">
+              <span class="theboys-kompromat-name">{{ entry.targetName }}</span>
+              <span class="theboys-kompromat-hint">{{ entry.hint }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 33. Salldorum -->
+    <div v-if="passiveStates?.salldorum" class="pc-passive-widget salldorum-widget">
+      <div class="pw-header">
+        <span class="pw-title salldorum-title">SALLDORUM</span>
+      </div>
+      <div class="salldorum-body">
+        <!-- Shen -->
+        <div class="salldorum-row">
+          <span class="salldorum-label">Shen</span>
+          <span class="salldorum-val">{{ passiveStates.salldorum.shenCharges }}</span>
+          <span v-if="passiveStates.salldorum.shenActive" class="salldorum-active">ACTIVE pos{{ passiveStates.salldorum.shenTargetPosition }}</span>
+        </div>
+        <!-- Cola -->
+        <div v-if="passiveStates.salldorum.colaBuried" class="salldorum-row">
+          <span class="salldorum-label">Cola</span>
+          <span class="salldorum-val">pos{{ passiveStates.salldorum.colaBuriedPosition }} (R{{ passiveStates.salldorum.colaBuriedRound }})</span>
+        </div>
+        <!-- Chronicler -->
+        <div class="salldorum-row">
+          <span class="salldorum-label">Rewrite</span>
+          <span v-if="passiveStates.salldorum.historyRewritten" class="salldorum-used">USED</span>
+          <span v-else class="salldorum-available">READY</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 25. Геральт (owner widget) -->
+    <div v-if="passiveStates?.geralt" class="pc-passive-widget geralt-widget">
+      <div class="pw-header">
+        <span class="pw-title geralt-title">ВЕДЬМАК</span>
+        <span class="pw-badge">⚔️{{ passiveStates.geralt.totalContracts }}</span>
+      </div>
+      <div class="geralt-body">
+        <!-- Contracts -->
+        <div v-for="c in passiveStates.geralt.contracts" :key="c.targetName" class="geralt-contract-row">
+          <span class="geralt-target">{{ c.targetName }}</span>
+          <span class="geralt-monsters">{{ c.monsterTypes.join(', ') }}</span>
+        </div>
+        <div v-if="passiveStates.geralt.contracts.length === 0" class="geralt-no-contracts">Нет контрактов</div>
+        <!-- Oil -->
+        <div class="geralt-oil-row">
+          <span class="geralt-label">Масла:</span>
+          <span v-if="passiveStates.geralt.oilInventory.length > 0">
+            {{ passiveStates.geralt.oilInventory.join(', ') }}
+            <span v-if="passiveStates.geralt.oilsActivated" class="geralt-oil-active">(активны)</span>
+            <span v-else class="geralt-oil-inactive">(нужна медитация)</span>
+          </span>
+          <span v-else class="geralt-oil-none">нет</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 25b. Геральт contract-on-me (shown to ANY player who has contracts) -->
+    <div v-if="passiveStates?.geraltContractOnMe" class="pc-passive-widget geralt-contract-on-me-widget">
+      <div class="pw-header">
+        <span class="pw-title">⚔️ КОНТРАКТ</span>
+      </div>
+      <div class="geralt-contract-on-me-body">
+        <div>{{ passiveStates.geraltContractOnMe.contractTypes.join(', ') }}</div>
+        <div class="geralt-contract-from">от {{ passiveStates.geraltContractOnMe.geraltName }}</div>
+      </div>
+    </div>
+
     <!-- Score + animated delta -->
     <div class="pc-score-row">
       <span class="pc-score">{{ player.status.score }}</span>
@@ -1262,6 +1402,61 @@ function handleMoralToSkill() {
   font-size: 11px;
   color: var(--text-muted);
   font-family: var(--font-mono);
+}
+
+/* Mastery badge */
+.mastery-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.mastery-level {
+  font-size: 11px;
+  font-weight: 800;
+}
+.mastery-bronze {
+  background: linear-gradient(135deg, rgba(184, 115, 51, 0.25), rgba(205, 127, 50, 0.15));
+  color: #cd7f32;
+  border: 1px solid rgba(205, 127, 50, 0.35);
+  text-shadow: 0 0 4px rgba(205, 127, 50, 0.3);
+}
+.mastery-silver {
+  background: linear-gradient(135deg, rgba(192, 192, 192, 0.25), rgba(169, 169, 169, 0.15));
+  color: #c0c0c0;
+  border: 1px solid rgba(192, 192, 192, 0.35);
+  text-shadow: 0 0 4px rgba(192, 192, 192, 0.3);
+}
+.mastery-gold {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.25), rgba(255, 193, 37, 0.15));
+  color: #ffd700;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  text-shadow: 0 0 6px rgba(255, 215, 0, 0.4);
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.1);
+}
+.mastery-platinum {
+  background: linear-gradient(135deg, rgba(180, 220, 255, 0.25), rgba(200, 230, 255, 0.15));
+  color: #b4dcff;
+  border: 1px solid rgba(180, 220, 255, 0.4);
+  text-shadow: 0 0 8px rgba(180, 220, 255, 0.5);
+  box-shadow: 0 0 12px rgba(180, 220, 255, 0.12);
+}
+.mastery-diamond {
+  background: linear-gradient(135deg, rgba(185, 242, 255, 0.3), rgba(255, 255, 255, 0.15));
+  color: #e0f7ff;
+  border: 1px solid rgba(185, 242, 255, 0.5);
+  text-shadow: 0 0 10px rgba(185, 242, 255, 0.6);
+  box-shadow: 0 0 16px rgba(185, 242, 255, 0.15);
+  animation: mastery-shimmer 2s ease-in-out infinite;
+}
+@keyframes mastery-shimmer {
+  0%, 100% { opacity: 1; box-shadow: 0 0 16px rgba(185, 242, 255, 0.15); }
+  50% { opacity: 0.85; box-shadow: 0 0 24px rgba(185, 242, 255, 0.3); }
 }
 
 /* Stats */
@@ -2519,6 +2714,23 @@ function handleMoralToSkill() {
 
 /* ── Seller mark source ── */
 .seller-mark-source { color: rgba(200, 160, 60, 0.8); font-size: 10px; }
+
+/* ── Geralt ── */
+.geralt-widget { border-color: rgba(160, 160, 160, 0.5); }
+.geralt-title { color: #c0c0c0; }
+.geralt-body { display: flex; flex-direction: column; gap: 3px; font-size: 11px; }
+.geralt-contract-row { display: flex; justify-content: space-between; gap: 4px; }
+.geralt-target { color: #f0d070; font-weight: 600; }
+.geralt-monsters { color: #e08080; }
+.geralt-no-contracts { color: rgba(180, 180, 180, 0.4); font-style: italic; }
+.geralt-oil-row { display: flex; gap: 4px; align-items: center; }
+.geralt-label { color: rgba(180, 180, 180, 0.6); }
+.geralt-oil-active { color: #80e080; font-weight: 600; }
+.geralt-oil-inactive { color: #e0a040; font-style: italic; }
+.geralt-oil-none { color: rgba(180, 180, 180, 0.4); }
+.geralt-contract-on-me-widget { border-color: rgba(200, 80, 80, 0.5); }
+.geralt-contract-on-me-body { font-size: 11px; color: #e08080; }
+.geralt-contract-from { color: rgba(180, 180, 180, 0.5); font-size: 10px; }
 </style>
 
 <!-- Tooltip needs to be unscoped to work with Teleport to body -->
@@ -2543,5 +2755,110 @@ function handleMoralToSkill() {
 @keyframes pc-tip-in {
   from { opacity: 0; transform: translate(12px, -100%) scale(0.95); }
   to { opacity: 1; transform: translate(12px, -100%) scale(1); }
+}
+
+/* ── TheBoys Widget ── */
+.theboys-widget {
+  border-color: #444;
+}
+.theboys-title {
+  color: #e63946;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.theboys-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 4px;
+}
+.theboys-member {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 4px 6px;
+  transition: box-shadow 0.3s ease;
+}
+.theboys-member-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8em;
+}
+.theboys-icon { font-size: 1em; }
+.theboys-name {
+  flex: 1;
+  color: #ccc;
+  font-weight: 600;
+}
+.theboys-val {
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9em;
+}
+.theboys-poker-val {
+  color: #ff4444;
+  text-shadow: 0 0 6px rgba(255, 68, 68, 0.6);
+}
+.theboys-butcher {
+  transition: box-shadow 0.4s ease;
+}
+.theboys-disabled {
+  opacity: 0.5;
+  border-color: rgba(255, 0, 0, 0.3);
+}
+.theboys-order {
+  font-size: 0.75em;
+  color: #ffb347;
+  margin-top: 2px;
+}
+.theboys-order-rounds { color: #999; }
+.theboys-stats {
+  display: flex;
+  gap: 6px;
+  font-size: 0.75em;
+  margin-top: 2px;
+}
+.theboys-stat-ok { color: #4caf50; }
+.theboys-stat-fail { color: #f44336; }
+.theboys-kimiko-status {
+  color: #f44336;
+  font-size: 0.7em;
+  font-weight: 700;
+  margin-top: 2px;
+}
+.theboys-kimiko-blocked {
+  font-size: 0.7em;
+  color: #90caf9;
+  margin-top: 2px;
+}
+.theboys-mm-active {
+  color: #4fc3f7;
+  font-size: 0.7em;
+  font-weight: 700;
+  margin-top: 2px;
+  animation: theboys-pulse 1s ease-in-out infinite;
+}
+@keyframes theboys-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.theboys-kompromat-list {
+  margin-top: 3px;
+}
+.theboys-kompromat-entry {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.7em;
+  padding: 2px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.theboys-kompromat-name {
+  color: #ffb347;
+  font-weight: 600;
+}
+.theboys-kompromat-hint {
+  color: #888;
+  font-style: italic;
 }
 </style>

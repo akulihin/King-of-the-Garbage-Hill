@@ -231,6 +231,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (player2.Passives.IsJohanPawn)
             customString += "♟️";
 
+        // Salldorum Shen active indicator
+        if (player2.GameCharacter.Name == "Salldorum" && player2.Passives.SalldorumShen.ActiveThisTurn)
+            customString += "🛡️";
+
+        // Геральт contract icon on players with contracts
+        if (player2.Passives.GeraltContractsOnMe.Count > 0)
+            customString += "⚔️";
+
         return customString + " ";
     }
 
@@ -651,6 +659,34 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         if (pawnCount > 0) customString += $" ♟️{pawnCount}";
                     }
                     break;
+
+                case "Пацаны":
+                    if (other.GetPlayerId() == me.GetPlayerId())
+                    {
+                        var tbFrancie = me.Passives.TheBoysFrancie;
+                        var tbButcher = me.Passives.TheBoysButcher;
+                        var tbKimiko = me.Passives.TheBoysKimiko;
+                        var tbMM = me.Passives.TheBoysMM;
+                        customString += $" 🔪{tbButcher.PokerCount} 🧪{tbFrancie.ChemWeaponLevel} 💚{tbKimiko.RegenLevel} 📋{tbMM.KompromatTargets.Count}";
+                        if (tbFrancie.OrderTarget != Guid.Empty)
+                        {
+                            var orderName = game.PlayersList.Find(x => x.GetPlayerId() == tbFrancie.OrderTarget)?.DiscordUsername ?? "?";
+                            customString += $" | 🎯{orderName}({tbFrancie.OrderRoundsLeft})";
+                        }
+                        if (tbKimiko.IsDisabled) customString += " | ❌Kimiko";
+                    }
+                    break;
+
+                case "Шэн":
+                    if (other.GetPlayerId() == me.GetPlayerId())
+                    {
+                        var salShen = me.Passives.SalldorumShen;
+                        var salCap = me.Passives.SalldorumTimeCapsule;
+                        customString += $" ⚡{salShen.Charges}";
+                        if (salShen.ActiveThisTurn) customString += " 🛡️";
+                        if (salCap.Buried) customString += $" 🥤pos{salCap.BuriedAtPosition}";
+                    }
+                    break;
             }
 
 
@@ -696,6 +732,24 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     //var r2 = _calculateRounds.CalculateStep2(me, other);
                     //var (r3, _, _) = _calculateRounds.CalculateStep3(me, other, step1.RandomForPoint, step1.NemesisMultiplier);
                     //customString += $"\nDoomsday: {step1.PointsWon} | {r2} | {r3}~";
+                    break;
+
+                case "Ведьмачий Заказ":
+                    if (me.GameCharacter.Name == "Геральт")
+                    {
+                        var geraltLbContracts = me.Passives.GeraltContracts;
+                        if (other.GetPlayerId() != me.GetPlayerId() &&
+                            geraltLbContracts.ContractMap.ContainsKey(other.GetPlayerId()) &&
+                            geraltLbContracts.ContractMap[other.GetPlayerId()].Count > 0)
+                        {
+                            customString += $" ⚔️[{string.Join(",", geraltLbContracts.ContractMap[other.GetPlayerId()])}]";
+                        }
+                        if (other.GetPlayerId() == me.GetPlayerId())
+                        {
+                            var totalContracts = geraltLbContracts.ContractMap.Values.Sum(x => x.Count);
+                            customString += $" ⚔️Контракты: {totalContracts}";
+                        }
+                    }
                     break;
             }
 
@@ -1642,10 +1696,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         for (var i = 0; i < options.Count; i++)
         {
             var c = options[i];
+            var costLabel = i == 0 ? "FREE" : "cost 5 ZBS points";
             var passiveNames = string.Join(", ", c.Passive.Where(p => p.Visible).Select(p => p.PassiveName));
             if (string.IsNullOrEmpty(passiveNames)) passiveNames = "—";
             embed.AddField(
-                $"{i + 1}. {c.Name} (Tier {c.Tier})",
+                $"{i + 1}. {c.Name} (Tier {c.Tier}) [{costLabel}]",
                 $"INT: {c.GetIntelligence()} | STR: {c.GetStrength()} | SPD: {c.GetSpeed()} | PSY: {c.GetPsyche()}\n" +
                 $"Passives: {passiveNames}");
         }
@@ -1663,7 +1718,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             {
                 for (var i = 0; i < options.Count; i++)
                 {
-                    components.WithButton(new ButtonBuilder(options[i].Name, $"draft_pick_{i}", ButtonStyle.Primary));
+                    var label = i == 0
+                        ? $"{options[i].Name} (FREE)"
+                        : $"{options[i].Name} (cost 5 ZBS points)";
+                    components.WithButton(new ButtonBuilder(label, $"draft_pick_{i}", ButtonStyle.Primary));
                 }
             }
             components.WithButton(GetEndGameButton(player, game), row: 1);

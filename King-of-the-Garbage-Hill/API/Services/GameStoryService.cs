@@ -28,6 +28,9 @@ public class GameStoryService
     private const int MaxTokens = 1024;
     private const int MaxStoredStories = 50;
 
+    /// <summary>Callback invoked when a story is generated, for backfilling into replay files.</summary>
+    public Action<ulong, string> OnStoryGenerated { get; set; }
+
     public GameStoryService(IHubContext<GameHub> hubContext, HttpClient httpClient, Config config)
     {
         _hubContext = hubContext;
@@ -66,6 +69,9 @@ public class GameStoryService
 
                     // Store for later retrieval (e.g. on reconnect/rejoin)
                     StoreStory(gameId, html);
+
+                    // Backfill story into replay file
+                    OnStoryGenerated?.Invoke(gameId, html);
 
                     await _hubContext.Clients.Group($"game-{gameId}")
                         .SendAsync("GameEvent", new { eventType = "GameStory", data = new { story = html } });

@@ -1,18 +1,42 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from 'src/store/game'
-import { signalrService } from 'src/services/signalr'
+import { signalrService, type ReplayListEntry } from 'src/services/signalr'
+import AchievementBoard from 'src/components/AchievementBoard.vue'
+
+const API_BASE = import.meta.env.VITE_API_BASE || ''
 
 const store = useGameStore()
 const router = useRouter()
 
 const isCreatingGame = ref(false)
+const showAchievements = ref(false)
+const recentReplays = ref<ReplayListEntry[]>([])
+
+const quests = computed(() => store.questState?.quests ?? [])
+const streakDays = computed(() => store.questState?.streakDays ?? 0)
+const allDone = computed(() => store.questState?.allCompletedToday ?? false)
+const zbsPoints = computed(() => store.questState?.zbsPoints ?? 0)
 
 let pollInterval: ReturnType<typeof setInterval> | null = null
 
+async function fetchReplays() {
+  if (!store.discordId) return
+  try {
+    const resp = await fetch(`${API_BASE}/api/game/replays?limit=10`, {
+      headers: { 'X-Discord-Id': store.discordId },
+    })
+    if (resp.ok) recentReplays.value = await resp.json()
+  } catch { /* ignore */ }
+}
+
 onMounted(() => {
   store.refreshLobby()
+  if (store.isAuthenticated) {
+    store.requestQuests()
+    fetchReplays()
+  }
   pollInterval = setInterval(() => {
     if (store.isConnected) store.refreshLobby()
   }, 3000)
@@ -48,6 +72,10 @@ function viewGame(gameId: number) {
 function spectateGame(gameId: number) {
   router.push(`/spectate/${gameId}`)
 }
+
+function viewReplay(hash: string) {
+  router.push(`/replay/${hash}`)
+}
 </script>
 
 <template>
@@ -58,6 +86,62 @@ function spectateGame(gameId: number) {
         Create a new game, join an existing one, or spectate ongoing games.
       </p>
     </div>
+
+    <!-- Daily Quests -->
+    <div v-if="store.isAuthenticated && quests.length > 0" class="section">
+      <div class="section-header">
+        <h2 class="section-title">
+          Daily Quests
+          <span v-if="allDone" class="badge badge-done">Complete!</span>
+        </h2>
+        <div class="quest-meta">
+          <span class="streak-badge" :class="{ active: streakDays > 0 }">
+            Streak: {{ streakDays }}/7
+          </span>
+          <span class="zbs-badge">{{ zbsPoints }} ZBS</span>
+        </div>
+      </div>
+
+      <div class="quests-grid">
+        <div
+          v-for="quest in quests"
+          :key="quest.id"
+          class="quest-card card"
+          :class="{ completed: quest.isCompleted }"
+        >
+          <div class="quest-info">
+            <span class="quest-desc">{{ quest.description }}</span>
+            <span class="quest-reward">+{{ quest.zbsReward }} ZBS</span>
+          </div>
+          <div class="quest-progress">
+            <div class="progress-bar">
+              <div
+                class="progress-fill"
+                :style="{ width: `${Math.min(100, (quest.current / quest.target) * 100)}%` }"
+              />
+            </div>
+            <span class="progress-text">{{ quest.current }} / {{ quest.target }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="allDone" class="quest-bonus">
+        All quests complete! +25 bonus ZBS
+      </div>
+      <div v-if="streakDays >= 7 && streakDays % 7 === 0" class="streak-bonus">
+        7-day streak! +500 ZBS bonus!
+      </div>
+    </div>
+
+    <!-- Achievements Button -->
+    <div v-if="store.isAuthenticated" class="section achievements-section">
+      <button class="btn btn-ghost achievements-btn" @click="showAchievements = true">
+        View Achievements
+      </button>
+    </div>
+
+    <!-- Achievement Board Overlay -->
+    <AchievementBoard v-if="showAchievements" @close="showAchievements = false" />
 
     <!-- Active Games -->
     <div class="section">
@@ -134,6 +218,50 @@ function spectateGame(gameId: number) {
             </button>
             <button class="btn btn-ghost" @click="spectateGame(game.gameId)">
               Spectate
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Replays (own games only) -->
+    <div v-if="store.isAuthenticated && recentReplays.length > 0" class="section">
+      <div class="section-header">
+        <h2 class="section-title">
+          Recent Replays
+          <span class="badge">{{ recentReplays.length }}</span>
+        </h2>
+      </div>
+
+      <div class="games-grid">
+        <div
+          v-for="replay in recentReplays"
+          :key="replay.replayHash"
+          class="game-card card replay-card"
+          @click="viewReplay(replay.replayHash)"
+        >
+          <div class="game-card-header">
+            <span class="game-id">Game {{ replay.replayHash }}</span>
+            <span class="game-mode" :class="replay.gameMode.toLowerCase()">
+              {{ replay.gameMode }}
+            </span>
+          </div>
+
+          <div class="replay-players">
+            <div
+              v-for="p in replay.players"
+              :key="p.discordUsername"
+              class="replay-player"
+            >
+              <img :src="p.characterAvatar" :alt="p.characterName" class="replay-avatar" />
+              <span class="replay-player-name">{{ p.discordUsername }}</span>
+              <span class="replay-player-place">#{{ p.finalPlace }}</span>
+            </div>
+          </div>
+
+          <div class="game-card-actions">
+            <button class="btn btn-primary" @click.stop="viewReplay(replay.replayHash)">
+              Watch Replay
             </button>
           </div>
         </div>
@@ -347,5 +475,205 @@ function spectateGame(gameId: number) {
   color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.5;
+}
+
+/* Quest Widget */
+.quest-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.streak-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+.streak-badge.active {
+  background: var(--kh-c-secondary-warning-500, rgba(255, 170, 0, 0.15));
+  color: var(--accent-gold);
+  border-color: var(--accent-gold);
+}
+
+.zbs-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  background: var(--kh-c-secondary-success-500, rgba(0, 200, 100, 0.15));
+  color: var(--accent-green);
+  border: 1px solid var(--accent-green);
+}
+
+.badge-done {
+  background: var(--kh-c-secondary-success-500, rgba(0, 200, 100, 0.15));
+  color: var(--accent-green);
+  border-color: var(--accent-green);
+}
+
+.quests-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quest-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  transition: opacity 0.3s ease;
+}
+
+.quest-card.completed {
+  opacity: 0.6;
+}
+
+.quest-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.quest-desc {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.quest-card.completed .quest-desc {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.quest-reward {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-gold);
+  font-family: var(--font-mono);
+}
+
+.quest-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-elevated);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent-gold);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.quest-card.completed .progress-fill {
+  background: var(--accent-green);
+}
+
+.progress-text {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  min-width: 40px;
+  text-align: right;
+}
+
+.quest-bonus, .streak-bonus {
+  text-align: center;
+  padding: 8px;
+  margin-top: 8px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.quest-bonus {
+  background: var(--kh-c-secondary-success-500, rgba(0, 200, 100, 0.15));
+  color: var(--accent-green);
+  border: 1px solid var(--accent-green);
+}
+
+.streak-bonus {
+  background: var(--kh-c-secondary-warning-500, rgba(255, 170, 0, 0.15));
+  color: var(--accent-gold);
+  border: 1px solid var(--accent-gold);
+  font-size: 14px;
+}
+
+/* Achievements */
+.achievements-section {
+  text-align: center;
+}
+
+.achievements-btn {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 8px 24px;
+  border: 1px solid var(--accent-gold);
+  color: var(--accent-gold);
+}
+.achievements-btn:hover {
+  background: rgba(233, 219, 61, 0.1);
+}
+
+/* Replay Cards */
+.replay-card {
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.replay-card:hover {
+  border-color: var(--accent-purple, #b464ff);
+}
+
+.replay-players {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.replay-player {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.replay-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.replay-player-name {
+  flex: 1;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.replay-player-place {
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent-gold);
 }
 </style>

@@ -19,12 +19,18 @@ public class DiscordAccountClass
     public bool PassedTutorial { get; set; }
 
     public int ZbsPoints { get; set; }
+    public QuestData Quests { get; set; }
+    public AchievementData Achievements { get; set; }
 
     public ulong TotalPlays { get; set; }
     public ulong TotalWins { get; set; }
 
     public string CharacterToGiveNextTime { get; set; }
     public string CharacterPlayedLastTime { get; set; }
+
+    public Dictionary<int, int> TierPity { get; set; } = new();
+    public Dictionary<string, int> CharacterMastery { get; set; } = new();
+    public List<string> ReplayHashes { get; set; } = new();
 
     /*
     0 == Normal

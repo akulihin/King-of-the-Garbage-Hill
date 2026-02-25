@@ -22,7 +22,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 3.8.2 WEB?!";
+        GameVersion = "Версия: 3.9.0 Replays?!";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -70,6 +70,9 @@ public class GameClass
 
     /// <summary>Structured fight log for the current round (persists until next round starts).</summary>
     public List<FightEntryDto> WebFightLog { get; set; } = new();
+
+    /// <summary>Accumulated per-round replay snapshots. Populated during gameplay by ReplayService.CaptureRound.</summary>
+    public List<ReplayRoundDto> ReplayRounds { get; set; } = new();
 
     /// <summary>Text snippets in GlobalLogs that should be stripped for non-admin players (e.g. Saitama hidden fights).</summary>
     public List<string> HiddenGlobalLogSnippets { get; set; } = new();

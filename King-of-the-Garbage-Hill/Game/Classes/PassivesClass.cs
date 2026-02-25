@@ -154,6 +154,16 @@ public class PassivesClass
     public bool IsDead { get; set; } = false;
     public string DeathSource { get; set; } = ""; // "Kratos", "Kira", "Monster", etc.
 
+    // Quest/LootBox reference (set at game end for web mapper)
+    [Newtonsoft.Json.JsonIgnore]
+    public QuestData QuestDataRef { get; set; }
+
+    // Achievement tracking during game
+    [Newtonsoft.Json.JsonIgnore]
+    public InGameAchievementTracker AchievementTracker { get; set; } = new();
+    [Newtonsoft.Json.JsonIgnore]
+    public AchievementData AchievementDataRef { get; set; }
+
     public bool KratosGodSlayerUsed { get; set; } = false;
 
     public int VampyrIgnoresOneJustice { get; set; } = 0;
@@ -223,6 +233,25 @@ public class PassivesClass
     // Per-player: any player can carry a Котики cat
     public string KotikiCatType { get; set; } = "";           // "Минька" or "Штормяк" (empty = no cat)
     public Guid KotikiCatOwnerId { get; set; } = Guid.Empty;  // Which Котики player owns this cat
+
+    // TheBoys
+    public TheBoys.FrancieClass TheBoysFrancie { get; set; } = new();
+    public TheBoys.ButcherClass TheBoysButcher { get; set; } = new();
+    public TheBoys.KimikoClass TheBoysKimiko { get; set; } = new();
+    public TheBoys.MMClass TheBoysMM { get; set; } = new();
+
+    // Salldorum
+    public Salldorum.ShenClass SalldorumShen { get; set; } = new();
+    public Salldorum.TimeCapsuleClass SalldorumTimeCapsule { get; set; } = new();
+    public Salldorum.ChroniclerClass SalldorumChronicler { get; set; } = new();
+
+    // Геральт — owner-only
+    public Geralt.ContractsClass GeraltContracts { get; set; } = new();
+    public Geralt.DetectiveClass GeraltDetective { get; set; } = new();
+
+    // Геральт — per-player: any player can have contracts on them
+    public List<string> GeraltContractsOnMe { get; set; } = new();
+    public Guid GeraltContractOwnerId { get; set; } = Guid.Empty;
 
     // Монстр без имени — per-player: any player can be a Johan pawn
     public bool IsJohanPawn { get; set; } = false;

@@ -132,6 +132,12 @@ public class BotsBehavior : IServiceSingleton
                 return;
             }
 
+            //Геральт не получает мораль вообще
+            if (bot.GameCharacter.Name == "Геральт")
+            {
+                return;
+            }
+
             //если Осьминожка - всегда ждет 20 морали
             if (bot.GameCharacter.Name is "Осьминожка" or "HardKitty")
             {
@@ -215,6 +221,12 @@ public class BotsBehavior : IServiceSingleton
         }
 
         if (bot.GameCharacter.Name == "Котики")
+        {
+            await HandleBotMoralForPoints(bot, game);
+            return;
+        }
+
+        if (bot.GameCharacter.Name == "TheBoys")
         {
             await HandleBotMoralForPoints(bot, game);
             return;
@@ -1164,6 +1176,39 @@ public class BotsBehavior : IServiceSingleton
                         var monsterTargetJustice = target.Player.GameCharacter.Justice.GetSeenJusticeNow();
                         if (monsterTargetJustice > 0) target.AttackPreference += monsterTargetJustice * 2;
                         break;
+
+                    case "TheBoys":
+                        // Prefer attacking order target (Francie's current order)
+                        var botFrancie = bot.Passives.TheBoysFrancie;
+                        if (botFrancie.OrderTarget == target.Player.GetPlayerId())
+                            target.AttackPreference += 15;
+                        // If kompromat flag active, prefer targets without kompromat
+                        if (bot.Passives.TheBoysMM.NextAttackGathersKompromat &&
+                            !bot.Passives.TheBoysMM.KompromatTargets.Contains(target.Player.GetPlayerId()))
+                            target.AttackPreference += 10;
+                        // Prefer higher-ranked enemies
+                        if (target.Player.Status.GetPlaceAtLeaderBoard() <= 3)
+                            target.AttackPreference += 3;
+                        break;
+
+                    case "Salldorum":
+                        // Prefer attacking enemies below for Очко synergy
+                        if (target.Player.Status.GetPlaceAtLeaderBoard() > bot.Status.GetPlaceAtLeaderBoard())
+                            target.AttackPreference += 5;
+                        // Prefer weaker enemies (low strength/justice)
+                        if (target.Player.GameCharacter.Justice.GetRealJusticeNow() == 0)
+                            target.AttackPreference += 3;
+                        break;
+
+                    case "Геральт":
+                        // Prioritize enemies with contracts
+                        var geraltBotContracts = bot.Passives.GeraltContracts;
+                        if (geraltBotContracts.ContractMap.ContainsKey(target.Player.GetPlayerId()))
+                        {
+                            var contractCount = geraltBotContracts.ContractMap[target.Player.GetPlayerId()].Count;
+                            target.AttackPreference += 10 + contractCount * 5;
+                        }
+                        break;
                 }
                 //end custom bot behavior
 
@@ -1747,6 +1792,37 @@ public class BotsBehavior : IServiceSingleton
                     minimumRandomNumberForBlock = 3;
                     maximumRandomNumberForBlock = 4;
                     break;
+
+                case "TheBoys":
+                    // TheBoys always attacks — never blocks
+                    break;
+
+                case "Salldorum":
+                    // Block once early to bury cola, then attack
+                    var salCapsule = bot.Passives.SalldorumTimeCapsule;
+                    if (!salCapsule.FirstBlockUsed && game.RoundNo <= 3)
+                        isBlock = yesBlock;
+                    // Activate Shen mid-game if charges available
+                    if (bot.Passives.SalldorumShen.Charges > 0 && game.RoundNo >= 3 && !bot.Passives.SalldorumShen.ActiveThisTurn)
+                    {
+                        bot.Passives.SalldorumShen.Charges--;
+                        bot.Passives.SalldorumShen.ActiveThisTurn = true;
+                        bot.Passives.SalldorumShen.TargetPosition = Math.Min(2, bot.Status.GetPlaceAtLeaderBoard());
+                    }
+                    // Use rewrite history around round 5-7
+                    if (!bot.Passives.SalldorumChronicler.HistoryRewritten && game.RoundNo >= 5 && game.RoundNo < 8)
+                    {
+                        bot.Passives.SalldorumChronicler.HistoryRewritten = true;
+                        bot.Passives.SalldorumChronicler.RewrittenRound = Math.Max(1, game.RoundNo - 2);
+                    }
+                    break;
+
+                case "Геральт":
+                    // Meditate when oil needs activation (has oil in inventory and needs reactivation or no active oil)
+                    var geraltBotCon = bot.Passives.GeraltContracts;
+                    if (geraltBotCon.OilInventory.Count > 0 && !geraltBotCon.OilsActivated)
+                        isBlock = yesBlock;
+                    break;
             }
             //end custom behaviour After calculation Tens
 
@@ -1944,6 +2020,14 @@ public class BotsBehavior : IServiceSingleton
 
             // Napoleon — PSY-focused build
             if (player.GameCharacter.Name == "Napoleon Wonnafcuk" && psyche < 10) skillNumber = 4;
+
+            // Геральт — prefer Speed (for Плотва), then Strength
+            if (player.GameCharacter.Name == "Геральт")
+            {
+                if (speed < 10) skillNumber = 3;
+                else if (strength < 10) skillNumber = 2;
+                else skillNumber = 1;
+            }
 
             // Стая Гоблинов — balanced upgrade approach
             if (player.GameCharacter.Name == "Стая Гоблинов")

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Timers;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 using Microsoft.AspNetCore.SignalR;
 
 namespace King_of_the_Garbage_Hill.API.Services;
@@ -22,6 +23,8 @@ public class GameNotificationService
     private readonly GameUpdateMess _gameUpdateMess;
     private readonly GameStoryService _storyService;
     private readonly BlackjackService _blackjackService;
+    private readonly ReplayService _replayService;
+    private readonly UserAccounts _userAccounts;
     private readonly Timer _pushTimer;
 
     // Track which Discord IDs are connected to which SignalR connection(s)
@@ -33,13 +36,42 @@ public class GameNotificationService
     // Track last known state per game to detect changes
     private readonly ConcurrentDictionary<ulong, GameSnapshot> _lastSnapshot = new();
 
-    public GameNotificationService(IHubContext<GameHub> hubContext, Global global, GameUpdateMess gameUpdateMess, GameStoryService storyService, BlackjackService blackjackService)
+    public GameNotificationService(IHubContext<GameHub> hubContext, Global global, GameUpdateMess gameUpdateMess, GameStoryService storyService, BlackjackService blackjackService, ReplayService replayService, UserAccounts userAccounts)
     {
         _hubContext = hubContext;
         _global = global;
         _gameUpdateMess = gameUpdateMess;
         _storyService = storyService;
         _blackjackService = blackjackService;
+        _replayService = replayService;
+        _userAccounts = userAccounts;
+
+        // Register replay save callback
+        _global.OnReplaySave = game =>
+        {
+            try
+            {
+                var replayData = _replayService.BuildReplayData(game);
+                _replayService.SaveReplay(replayData);
+
+                // Store replay hash on human player accounts
+                foreach (var player in game.PlayersList)
+                {
+                    if (player.IsBot()) continue;
+                    var account = _userAccounts.GetAccount(player.DiscordId);
+                    if (account != null)
+                        account.ReplayHashes.Add(replayData.ReplayHash);
+                }
+            }
+            catch (Exception ex) { Console.WriteLine($"[Replay] Save failed: {ex}"); }
+        };
+
+        // Backfill story into replay file when AI story is generated
+        _storyService.OnStoryGenerated = (gameId, html) =>
+        {
+            try { _replayService.AttachStory(gameId, html); }
+            catch (Exception ex) { Console.WriteLine($"[Replay] Story backfill failed: {ex.Message}"); }
+        };
 
         // Register callback so CheckIfReady can trigger a final broadcast
         // before removing the game from GamesList

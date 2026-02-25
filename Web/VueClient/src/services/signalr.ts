@@ -33,6 +33,10 @@ export type GameState = {
   teams: Team[]
   /** Structured fight log for the current round (for fight animation) */
   fightLog: FightEntry[]
+  /** Loot box result (populated on game finish for top 2 players) */
+  lootBoxResult?: LootBoxResult
+  /** Achievements newly unlocked this game (populated on game finish) */
+  newlyUnlockedAchievements?: AchievementEntry[]
 }
 
 export type Player = {
@@ -76,6 +80,8 @@ export type Player = {
   customLeaderboardPrefix?: string
   /** Custom leaderboard annotations from passives (web-safe HTML) */
   customLeaderboardText?: string
+  /** Character mastery points (only set for the owning player). */
+  characterMasteryPoints?: number
 }
 
 export type DeathNote = {
@@ -155,6 +161,10 @@ export type PassiveAbilityStates = {
   toxicMate?: ToxicMateState
   toxicMateCancerOnMe?: ToxicMateCancerOnMe
   yongGleb?: YongGlebState
+  theBoys?: TheBoysState
+  salldorum?: SalldorumState
+  geralt?: GeraltState
+  geraltContractOnMe?: GeraltContractOnMe
 }
 
 export type BulkState = { drownChance: number; isBuffed: boolean }
@@ -240,6 +250,50 @@ export type SupportState = { carryName: string }
 export type ToxicMateState = { cancerActive: boolean; transferCount: number; currentHolderName: string }
 export type ToxicMateCancerOnMe = { sourceName: string }
 export type YongGlebState = { teaReady: boolean; teaCooldown: number }
+
+export type TheBoysState = {
+  chemWeaponLevel: number
+  orderTargetName: string | null
+  orderRoundsLeft: number
+  ordersCompleted: number
+  ordersFailed: number
+  pokerCount: number
+  regenLevel: number
+  kimikoDisabled: boolean
+  totalJusticeBlocked: number
+  kompromatCount: number
+  nextAttackGathersKompromat: boolean
+  kompromatEntries: { targetName: string; hint: string }[]
+}
+
+export type SalldorumState = {
+  shenCharges: number
+  shenActive: boolean
+  shenTargetPosition: number
+  colaBuried: boolean
+  colaBuriedPosition: number
+  colaBuriedRound: number
+  historyRewritten: boolean
+  positionHistory: number[]
+}
+
+export type GeraltState = {
+  contracts: GeraltContractEntry[]
+  oilInventory: string[]
+  oilsActivated: boolean
+  isMeditating: boolean
+  totalContracts: number
+}
+
+export type GeraltContractEntry = {
+  targetName: string
+  monsterTypes: string[]
+}
+
+export type GeraltContractOnMe = {
+  contractTypes: string[]
+  geraltName: string
+}
 
 // ── Blackjack Types ───────────────────────────────────────────────
 
@@ -391,6 +445,7 @@ export type DraftOptionDto = {
   strength: number
   description: string
   tier: number
+  cost: number
   passives: { name: string; description: string; visible: boolean }[]
 }
 
@@ -496,10 +551,125 @@ export type FightEntry = {
   portalGunSwap: boolean
 }
 
+// ── Quest & Loot Box Types ──────────────────────────────────────────
+
+export type QuestState = {
+  quests: QuestProgress[]
+  allCompletedToday: boolean
+  streakDays: number
+  zbsPoints: number
+}
+
+export type QuestProgress = {
+  id: string
+  description: string
+  current: number
+  target: number
+  isCompleted: boolean
+  zbsReward: number
+}
+
+export type LootBoxResult = {
+  rarity: string
+  zbsAmount: number
+}
+
+// ── Achievement Types ────────────────────────────────────────────────
+
+export type AchievementBoard = {
+  achievements: AchievementEntry[]
+  totalUnlocked: number
+  totalAchievements: number
+  newlyUnlocked: string[]
+}
+
+export type AchievementEntry = {
+  id: string
+  name: string
+  description: string
+  secretHint: string
+  category: string
+  isSecret: boolean
+  icon: string
+  rarity: string
+  target: number
+  current: number
+  isUnlocked: boolean
+  unlockedAt: string | null
+}
+
 export type ActionResult = {
   action: string
   success: boolean
   error?: string
+}
+
+// ── Replay Types ────────────────────────────────────────────────────
+
+export type ReplayData = {
+  gameId: number
+  replayHash: string
+  gameVersion: string
+  gameMode: string
+  story: string | null
+  fullChronicle: string | null
+  totalRounds: number
+  finishedAt: string
+  allCharacterNames: string[]
+  allCharacters: CharacterInfo[]
+  teams: Team[]
+  playerSummaries: ReplayPlayerSummary[]
+  rounds: ReplayRound[]
+}
+
+export type ReplayPlayerSummary = {
+  playerId: string
+  discordUsername: string
+  isBot: boolean
+  isWebPlayer: boolean
+  characterName: string
+  characterAvatar: string
+  finalPlace: number
+  finalScore: number
+  characterMasteryPoints: number
+  teamId: number
+}
+
+export type ReplayRound = {
+  roundNo: number
+  globalLogs: string
+  allGlobalLogs: string
+  fightLog: FightEntry[]
+  players: ReplayRoundPlayer[]
+}
+
+export type ReplayRoundPlayer = {
+  playerId: string
+  playerState: Player
+  customLeaderboardView: ReplayCustomLeaderboardEntry[]
+}
+
+export type ReplayCustomLeaderboardEntry = {
+  playerId: string
+  customLeaderboardPrefix: string
+  customLeaderboardText: string
+}
+
+export type ReplayListEntry = {
+  gameId: number
+  replayHash: string
+  gameMode: string
+  totalRounds: number
+  finishedAt: string
+  players: ReplayListPlayer[]
+}
+
+export type ReplayListPlayer = {
+  discordUsername: string
+  characterName: string
+  characterAvatar: string
+  finalPlace: number
+  finalScore: number
 }
 
 /**
@@ -532,6 +702,8 @@ class SignalRService {
   onGameCreated: ((data: { gameId: number }) => void) | null = null
   onGameJoined: ((data: { gameId: number }) => void) | null = null
   onBlackjackState: ((state: BlackjackTableState) => void) | null = null
+  onQuestState: ((state: QuestState) => void) | null = null
+  onAchievementBoard: ((board: AchievementBoard) => void) | null = null
 
   get isConnected() {
     return this._isConnected
@@ -586,6 +758,14 @@ class SignalRService {
 
     this.connection.on('BlackjackState', (state: BlackjackTableState) => {
       this.onBlackjackState?.(state)
+    })
+
+    this.connection.on('QuestState', (state: QuestState) => {
+      this.onQuestState?.(state)
+    })
+
+    this.connection.on('AchievementBoard', (board: AchievementBoard) => {
+      this.onAchievementBoard?.(board)
     })
 
     this.connection.onreconnecting(() => {
@@ -735,6 +915,20 @@ class SignalRService {
     await this.connection?.invoke('SetPreferWeb', gameId, preferWeb)
   }
 
+  // ── Salldorum Actions ──────────────────────────────────────────
+
+  async activateShen(gameId: number, position: number): Promise<void> {
+    await this.connection?.invoke('ActivateShen', gameId, position)
+  }
+
+  async deactivateShen(gameId: number): Promise<void> {
+    await this.connection?.invoke('DeactivateShen', gameId)
+  }
+
+  async rewriteHistory(gameId: number, roundNumber: number): Promise<void> {
+    await this.connection?.invoke('RewriteHistory', gameId, roundNumber)
+  }
+
   async finishGame(gameId: number): Promise<void> {
     await this.connection?.invoke('FinishGame', gameId)
   }
@@ -773,6 +967,18 @@ class SignalRService {
 
   async joinWebGame(gameId: number): Promise<void> {
     await this.connection?.invoke('JoinWebGame', gameId)
+  }
+
+  async requestQuests(): Promise<void> {
+    await this.connection?.invoke('RequestQuests')
+  }
+
+  async requestAchievements(): Promise<void> {
+    await this.connection?.invoke('RequestAchievements')
+  }
+
+  async clearNewAchievements(): Promise<void> {
+    await this.connection?.invoke('ClearNewAchievements')
   }
 }
 

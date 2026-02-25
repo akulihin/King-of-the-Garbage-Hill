@@ -237,6 +237,41 @@ public class CharactersUniquePhrase
     public PhraseClass KotikiCatReturn;
     public PhraseClass KotikiLevelUp;
 
+    // TheBoys
+    public PhraseClass TheBoysOrderNew;
+    public PhraseClass TheBoysOrderComplete;
+    public PhraseClass TheBoysOrderFailed;
+    public PhraseClass TheBoysChemWeapon;
+    public PhraseClass TheBoysPoker;
+    public PhraseClass TheBoysKimikoRegen;
+    public PhraseClass TheBoysKimikoDisabled;
+    public PhraseClass TheBoysKimikoRecovered;
+    public PhraseClass TheBoysKompromatGathered;
+    public PhraseClass TheBoysKompromatReward;
+
+    // Salldorum
+    public PhraseClass SalldorumShen;
+    public PhraseClass SalldorumOchko;
+    public PhraseClass SalldorumTimeCapsuleBury;
+    public PhraseClass SalldorumTimeCapsulePickup;
+    public PhraseClass SalldorumChroniclerTriple;
+    public PhraseClass SalldorumChroniclerRewrite;
+    public PhraseClass SalldorumChroniclerRewriteGlobal;
+
+    // Геральт
+    public PhraseClass GeraltContractSpawn;
+    public PhraseClass GeraltContractWin;
+    public PhraseClass GeraltContractLost;
+    public PhraseClass GeraltMeditation;
+    public PhraseClass GeraltMeditationInterrupted;
+    public PhraseClass GeraltOilActivate;
+    public PhraseClass GeraltOilUsed;
+    public PhraseClass GeraltPlotva;
+    public PhraseClass GeraltLambertMixup;
+    public PhraseClass GeraltBountyStolen;
+    public PhraseClass GeraltDetective;
+    public PhraseClass GeraltMultiContract;
+
     // Монстр без имени
     public PhraseClass MonsterDeath;
     public PhraseClass MonsterDrop;
@@ -414,6 +449,18 @@ public class CharactersUniquePhrase
         KotikiCatDeploy = new PhraseClass("Кошачья засада");
         KotikiCatReturn = new PhraseClass("Кошачья засада");
         KotikiLevelUp = new PhraseClass("lvl-мяк");
+
+        // TheBoys
+        TheBoysOrderNew = new PhraseClass("Заказ Француза");
+        TheBoysOrderComplete = new PhraseClass("Заказ Француза");
+        TheBoysOrderFailed = new PhraseClass("Заказ Француза");
+        TheBoysChemWeapon = new PhraseClass("Хим.оружие");
+        TheBoysPoker = new PhraseClass("Кочерга Бучера");
+        TheBoysKimikoRegen = new PhraseClass("Регенерация Кимико");
+        TheBoysKimikoDisabled = new PhraseClass("Регенерация Кимико");
+        TheBoysKimikoRecovered = new PhraseClass("Регенерация Кимико");
+        TheBoysKompromatGathered = new PhraseClass("Компромат М.М.");
+        TheBoysKompromatReward = new PhraseClass("Компромат М.М.");
 
         // Монстр без имени
         MonsterDeath = new PhraseClass("Монстр");
@@ -1128,6 +1175,37 @@ public class CharactersUniquePhrase
         SaldorumChronicler = new PhraseClass("Великий летописец");
         SaldorumChronicler.PassiveLogRus.Add("История пишется победителями...");
 
+        // Salldorum
+        SalldorumShen = new PhraseClass("Шэн");
+        SalldorumShen.PassiveLogRus.Add("Таунт!");
+        SalldorumShen.PassiveLogRus.Add("Да я без палива.");
+        SalldorumShen.PassiveLogRus.Add("Я просто встану тут и бэкнусь.");
+
+        SalldorumOchko = new PhraseClass("Очко");
+        SalldorumOchko.PassiveLogRus.Add("Люблю получать очко.");
+        SalldorumOchko.PassiveLogRus.Add("Кто меня поймает?");
+        SalldorumOchko.PassiveLogRus.Add("Я просто без палива стою здесь и бэкаюсь... Такой беззащитный...");
+
+        SalldorumTimeCapsuleBury = new PhraseClass("Временная капсула");
+        SalldorumTimeCapsuleBury.PassiveLogRus.Add("Кола закопана. Когда-нибудь вернусь за ней...");
+        SalldorumTimeCapsuleBury.PassiveLogRus.Add("Зарыл колу на память.");
+
+        SalldorumTimeCapsulePickup = new PhraseClass("Временная капсула");
+        SalldorumTimeCapsulePickup.PassiveLogRus.Add("Кола найдена! Бодрость на максимум!");
+        SalldorumTimeCapsulePickup.PassiveLogRus.Add("Вернулся за колой. Она ещё холодная!");
+
+        SalldorumChroniclerTriple = new PhraseClass("Великий летописец");
+        SalldorumChroniclerTriple.PassiveLogRus.Add("Летопись помнит всё. Тройной Скилл!");
+        SalldorumChroniclerTriple.PassiveLogRus.Add("Победителей судят. Тройной Скилл активирован.");
+
+        SalldorumChroniclerRewrite = new PhraseClass("Великий летописец");
+        SalldorumChroniclerRewrite.PassiveLogRus.Add("История переписана!");
+        SalldorumChroniclerRewrite.PassiveLogRus.Add("Кто контролирует прошлое — контролирует будущее.");
+
+        SalldorumChroniclerRewriteGlobal = new PhraseClass("Великий летописец");
+        SalldorumChroniclerRewriteGlobal.PassiveLogRus.Add("Salldorum переписал историю раунда");
+        SalldorumChroniclerRewriteGlobal.PassiveLogRus.Add("Летописец изменил прошлое...");
+
         // Napoleon
         NapoleonAlliance = new PhraseClass("Вступить в союз");
         NapoleonAlliance.PassiveLogRus.Add("Napoleon Wonnafuck предлагает вам вступить в союз...");
@@ -1253,6 +1331,50 @@ public class CharactersUniquePhrase
         KotikiLevelUp.PassiveLogRus.Add("*мур* Справедливость!");
         //end Котики
 
+        // TheBoys
+        TheBoysOrderNew.PassiveLogRus.Add("Француз: Новый заказ. Работаем.");
+        TheBoysOrderNew.PassiveLogRus.Add("Француз: Цель определена. Приступаю.");
+        TheBoysOrderNew.PassiveLogRus.Add("Француз: *загружает дробовик* Погнали.");
+
+        TheBoysOrderComplete.PassiveLogRus.Add("Француз: Заказ выполнен. Чисто.");
+        TheBoysOrderComplete.PassiveLogRus.Add("Француз: Готово. Следующий.");
+        TheBoysOrderComplete.PassiveLogRus.Add("Француз: Ещё одна галочка в списке.");
+
+        TheBoysOrderFailed.PassiveLogRus.Add("Француз: Заказ провален. Merde.");
+        TheBoysOrderFailed.PassiveLogRus.Add("Француз: Не успел. Дерьмо.");
+        TheBoysOrderFailed.PassiveLogRus.Add("Француз: Цель ушла. Бывает.");
+
+        TheBoysChemWeapon.PassiveLogRus.Add("Француз: *распыляет* Вдохни поглубже.");
+        TheBoysChemWeapon.PassiveLogRus.Add("Француз: Хим.оружие не выбирает жертв.");
+        TheBoysChemWeapon.PassiveLogRus.Add("Француз: Маленький подарок от Франции.");
+
+        TheBoysPoker.PassiveLogRus.Add("Бучер: *взмах кочергой* Diabolical.");
+        TheBoysPoker.PassiveLogRus.Add("Бучер: Oi! Получи кочергой по ебалу!");
+        TheBoysPoker.PassiveLogRus.Add("Бучер: Кочерга решает всё.");
+
+        TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: ... .., ..!");
+        TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: я. не. сдамся.");
+        TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: ...き...も...ち...=)");
+        TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: *молча сжимает кулаки*");
+        TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: боль — это слабость, покидающая тело");
+        TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: ...");
+
+        TheBoysKimikoDisabled.PassiveLogRus.Add("Kimiko ранена. Регенерация отключена.");
+        TheBoysKimikoDisabled.PassiveLogRus.Add("Kimiko: *тяжело дышит* ...нужно время.");
+        TheBoysKimikoDisabled.PassiveLogRus.Add("Kimiko выведена из строя.");
+
+        TheBoysKimikoRecovered.PassiveLogRus.Add("Kimiko снова в строю!");
+        TheBoysKimikoRecovered.PassiveLogRus.Add("Kimiko: *разминает кулаки* Я вернулась.");
+        TheBoysKimikoRecovered.PassiveLogRus.Add("Kimiko восстановилась.");
+
+        TheBoysKompromatGathered.PassiveLogRus.Add("М.М.: Досье собрано. Это пригодится.");
+        TheBoysKompromatGathered.PassiveLogRus.Add("М.М.: *записывает в блокнот* Интересно...");
+        TheBoysKompromatGathered.PassiveLogRus.Add("М.М.: Компромат получен. Хорошая работа.");
+
+        TheBoysKompromatReward.PassiveLogRus.Add("М.М.: Все данные сходятся. Очки умножены.");
+        TheBoysKompromatReward.PassiveLogRus.Add("М.М.: Компромат работает. Результат налицо.");
+        //end TheBoys
+
         // Монстр без имени
         MonsterDeath.PassiveLogRus.Add("Все люди могут стать монстрами. Нужен лишь подходящий момент.");
         MonsterDeath.PassiveLogRus.Add("Йохан: Доктор Тэнма... вы снова подарили мне жизнь. А я подарю вам — смерть.");
@@ -1275,6 +1397,63 @@ public class CharactersUniquePhrase
         MonsterApocalypse.PassiveLogRus.Add("Пейзаж конца света раскрылся. Идеальный суицид — забрать с собой весь мир.");
         MonsterApocalypse.PassiveLogRus.Add("Йохан: Последний, кто выживет, увидит настоящий ад.");
         //end Монстр без имени
+
+        // Геральт
+        GeraltContractSpawn = new PhraseClass("Ведьмачий Заказ");
+        GeraltContractSpawn.PassiveLogRus.Add("На доске объявлений появился новый заказ...");
+        GeraltContractSpawn.PassiveLogRus.Add("Люди снова просят о помощи. Надо разобраться.");
+        GeraltContractSpawn.PassiveLogRus.Add("Сколько же вас тут развелось?");
+
+        GeraltContractWin = new PhraseClass("Ведьмачий Заказ");
+        GeraltContractWin.PassiveLogRus.Add("Контракт выполнен. Где мои деньги?");
+        GeraltContractWin.PassiveLogRus.Add("Готово. Заплатите и я уйду.");
+        GeraltContractWin.PassiveLogRus.Add("Монстра больше нет. Как и обещал.");
+
+        GeraltContractLost = new PhraseClass("Ведьмачий Заказ");
+        GeraltContractLost.PassiveLogRus.Add("Тварь оказалась сильнее, чем я думал.");
+        GeraltContractLost.PassiveLogRus.Add("Нужно лучше подготовиться...");
+        GeraltContractLost.PassiveLogRus.Add("Придётся вернуться позже.");
+
+        GeraltMeditation = new PhraseClass("Медитация");
+        GeraltMeditation.PassiveLogRus.Add("*медитирует у костра*");
+        GeraltMeditation.PassiveLogRus.Add("Мне нужно сосредоточиться...");
+        GeraltMeditation.PassiveLogRus.Add("Место Силы, должно быть...");
+
+        GeraltMeditationInterrupted = new PhraseClass("Медитация");
+        GeraltMeditationInterrupted.PassiveLogRus.Add("Никак они, блять, не научатся.");
+        GeraltMeditationInterrupted.PassiveLogRus.Add("Прервали медитацию? Плохая идея.");
+        GeraltMeditationInterrupted.PassiveLogRus.Add("Ну что ж, сами напросились.");
+
+        GeraltOilActivate = new PhraseClass("Ведьмачое Масло");
+        GeraltOilActivate.PassiveLogRus.Add("*наносит масло на меч*");
+        GeraltOilActivate.PassiveLogRus.Add("Серебряный? Стальной? Оба.");
+        GeraltOilActivate.PassiveLogRus.Add("Подготовка — половина победы.");
+
+        GeraltOilUsed = new PhraseClass("Ведьмачое Масло");
+        GeraltOilUsed.PassiveLogRus.Add("Масло истрачено. Нужна медитация.");
+        GeraltOilUsed.PassiveLogRus.Add("Клинок нужно снова подготовить.");
+
+        GeraltPlotva = new PhraseClass("Плотва");
+        GeraltPlotva.PassiveLogRus.Add("Плотва! Давай, девочка!");
+        GeraltPlotva.PassiveLogRus.Add("*свист* Плотва несётся галопом.");
+        GeraltPlotva.PassiveLogRus.Add("Как Плотва туда забралась?!");
+
+        GeraltLambertMixup = new PhraseClass("Медитация");
+        GeraltLambertMixup.PassiveLogRus.Add("Ламберт, Ламберт — хрен моржовый.");
+        GeraltLambertMixup.PassiveLogRus.Add("Ламберт с Эскелем подменили травы... опять.");
+        GeraltLambertMixup.PassiveLogRus.Add("Весёлая ночь в Каэр Морхене...");
+
+        GeraltBountyStolen = new PhraseClass("Ведьмачий Заказ");
+        GeraltBountyStolen.PassiveLogRus.Add("Награда ушла вместе с жертвой...");
+        GeraltBountyStolen.PassiveLogRus.Add("Мертвецы не платят. И за мертвецов тоже.");
+
+        GeraltDetective = new PhraseClass("Детектив");
+        GeraltDetective.PassiveLogRus.Add("Ведьмачье чутьё подсказывает...");
+
+        GeraltMultiContract = new PhraseClass("Ведьмачий Заказ");
+        GeraltMultiContract.PassiveLogRus.Add("Сколько же вас тут развелось?");
+        GeraltMultiContract.PassiveLogRus.Add("Одним заказом тут не обойтись.");
+        //end Геральт
 
         //not in the game
 

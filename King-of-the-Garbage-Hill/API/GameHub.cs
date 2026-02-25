@@ -406,6 +406,41 @@ public class GameHub : Hub
         if (success) await PushStateToPlayer(gameId, discordId);
     }
 
+    // ── Salldorum Actions ───────────────────────────────────────────────
+
+    public async Task ActivateShen(ulong gameId, int position)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _gameService.ActivateShen(gameId, discordId, position);
+        await Clients.Caller.SendAsync("ActionResult", new { action = "activateShen", success, error });
+
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
+    public async Task DeactivateShen(ulong gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _gameService.DeactivateShen(gameId, discordId);
+        await Clients.Caller.SendAsync("ActionResult", new { action = "deactivateShen", success, error });
+
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
+    public async Task RewriteHistory(ulong gameId, int roundNumber)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _gameService.RewriteHistory(gameId, discordId, roundNumber);
+        await Clients.Caller.SendAsync("ActionResult", new { action = "rewriteHistory", success, error });
+
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
     // ── Leave / Finish ────────────────────────────────────────────────
 
     /// <summary>
@@ -442,6 +477,96 @@ public class GameHub : Hub
         player.PreferWeb = preferWeb;
         await Clients.Caller.SendAsync("ActionResult", new { action = "setPreferWeb", success = true, error = (string)null });
         Console.WriteLine($"[WebAPI] Player {discordId} set PreferWeb={preferWeb} in game {gameId}");
+    }
+
+    // ── Quests ─────────────────────────────────────────────────────────
+
+    public async Task RequestQuests()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        if (account == null)
+        {
+            await Clients.Caller.SendAsync("Error", "Account not found.");
+            return;
+        }
+
+        Game.Classes.QuestService.EnsureQuestsInitialized(account);
+        var questState = new DTOs.QuestStateDto
+        {
+            ZbsPoints = account.ZbsPoints,
+            StreakDays = account.Quests.StreakDays,
+            AllCompletedToday = account.Quests.ActiveDay?.AllCompleted ?? false,
+            Quests = account.Quests.ActiveDay?.Quests.Select(q => new DTOs.QuestProgressDto
+            {
+                Id = q.QuestId,
+                Description = q.Description,
+                Current = q.Current,
+                Target = q.Target,
+                IsCompleted = q.IsCompleted,
+                ZbsReward = q.ZbsReward,
+            }).ToList() ?? new()
+        };
+
+        await Clients.Caller.SendAsync("QuestState", questState);
+    }
+
+    // ── Achievements ──────────────────────────────────────────────────
+
+    public async Task RequestAchievements()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        if (account == null)
+        {
+            await Clients.Caller.SendAsync("Error", "Account not found.");
+            return;
+        }
+
+        Game.Classes.AchievementService.EnsureInitialized(account);
+
+        var board = new DTOs.AchievementBoardDto
+        {
+            TotalAchievements = Game.Classes.AchievementService.AllAchievements.Count,
+            TotalUnlocked = account.Achievements.Progress.Count(p => p.IsUnlocked),
+            NewlyUnlocked = account.Achievements.NewlyUnlocked.ToList(),
+        };
+
+        foreach (var def in Game.Classes.AchievementService.AllAchievements)
+        {
+            var progress = account.Achievements.Progress.Find(p => p.AchievementId == def.Id);
+            board.Achievements.Add(new DTOs.AchievementEntryDto
+            {
+                Id = def.Id,
+                Name = def.IsSecret && (progress == null || !progress.IsUnlocked) ? "???" : def.Name,
+                Description = def.IsSecret && (progress == null || !progress.IsUnlocked) ? def.SecretHint : def.Description,
+                SecretHint = def.SecretHint,
+                Category = def.Category.ToString(),
+                IsSecret = def.IsSecret,
+                Icon = def.Icon,
+                Rarity = def.Rarity,
+                Target = def.Target,
+                Current = progress?.Current ?? 0,
+                IsUnlocked = progress?.IsUnlocked ?? false,
+                UnlockedAt = progress?.UnlockedAt?.ToString("o"),
+            });
+        }
+
+        await Clients.Caller.SendAsync("AchievementBoard", board);
+    }
+
+    public async Task ClearNewAchievements()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) return;
+
+        var account = _userAccounts.GetAccount(discordId);
+        if (account?.Achievements != null)
+            account.Achievements.NewlyUnlocked.Clear();
     }
 
     // ── Request State ─────────────────────────────────────────────────

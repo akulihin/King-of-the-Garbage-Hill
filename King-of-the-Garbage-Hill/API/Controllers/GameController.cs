@@ -1,6 +1,9 @@
+using System;
+using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.API.DTOs;
 using King_of_the_Garbage_Hill.API.Services;
+using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,10 +19,14 @@ namespace King_of_the_Garbage_Hill.API.Controllers;
 public class GameController : ControllerBase
 {
     private readonly WebGameService _gameService;
+    private readonly ReplayService _replayService;
+    private readonly UserAccounts _userAccounts;
 
-    public GameController(WebGameService gameService)
+    public GameController(WebGameService gameService, ReplayService replayService, UserAccounts userAccounts)
     {
         _gameService = gameService;
+        _replayService = replayService;
+        _userAccounts = userAccounts;
     }
 
     // ── Queries ───────────────────────────────────────────────────────
@@ -167,6 +174,29 @@ public class GameController : ControllerBase
 
         var (success, error) = await _gameService.AramConfirm(gameId, discordId);
         return success ? Ok(new { success = true }) : BadRequest(new { error });
+    }
+
+    // ── Replays ────────────────────────────────────────────────────────
+
+    [HttpGet("replay/{hash}")]
+    public IActionResult GetReplay(string hash)
+    {
+        var replay = _replayService.LoadReplay(hash);
+        return replay != null ? Ok(replay) : NotFound(new { error = "Replay not found" });
+    }
+
+    [HttpGet("replays")]
+    public IActionResult ListReplays([FromQuery] int limit = 20)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) return Unauthorized(new { error = "Missing X-Discord-Id header" });
+
+        var account = _userAccounts.GetAccount(discordId);
+        if (account == null) return Ok(Array.Empty<ReplayListEntryDto>());
+
+        var hashes = account.ReplayHashes;
+        var replays = _replayService.LoadReplaysByHashes(hashes, Math.Clamp(limit, 1, 50));
+        return Ok(replays);
     }
 
     // ── Helper ────────────────────────────────────────────────────────

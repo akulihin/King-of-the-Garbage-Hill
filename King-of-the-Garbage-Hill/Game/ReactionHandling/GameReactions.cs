@@ -494,6 +494,14 @@ public sealed class GameReaction : IServiceSingleton
         if (!game.DraftOptions.TryGetValue(player.GetPlayerId(), out var options)) return;
         if (optionIndex < 0 || optionIndex >= options.Count) return;
 
+        // Side characters (index > 0) cost 5 ZBS points
+        var account = _accounts.GetAccount(player.DiscordId);
+        if (optionIndex > 0)
+        {
+            if (account == null || account.ZbsPoints < 5) return;
+            account.ZbsPoints -= 5;
+        }
+
         var selected = options[optionIndex];
 
         // Replace the player's character with the selected one
@@ -512,6 +520,7 @@ public sealed class GameReaction : IServiceSingleton
         newBridge.DiscordStatus = player.DiscordStatus;
         newBridge.Status.IsDraftPickConfirmed = true;
         newBridge.Status.MoveListPage = 6;
+        newBridge.CharacterMasteryPoints = account?.CharacterMastery.GetValueOrDefault(selected.Name, 0) ?? 0;
 
         // Replace in the players list
         var idx = game.PlayersList.IndexOf(player);
@@ -526,7 +535,6 @@ public sealed class GameReaction : IServiceSingleton
             game.ExploitPlayersList.RemoveAt(exploitIdx);
 
         // Update account's last played character
-        var account = _accounts.GetAccount(player.DiscordId);
         if (account != null)
             account.CharacterPlayedLastTime = selected.Name;
 
@@ -789,6 +797,46 @@ public sealed class GameReaction : IServiceSingleton
         }
         //end Стая Гоблинов
 
+        // Геральт — oil + stat on level-up
+        if (player.GameCharacter.Name == "Геральт")
+        {
+            var geraltContracts = player.Passives.GeraltContracts;
+            var oilName = skillNumber switch
+            {
+                1 => "Бес",
+                2 => "Вампур",
+                3 => "Лютоволк",
+                4 => "Дракон",
+                _ => "Бес"
+            };
+            geraltContracts.OilInventory.Add(oilName);
+            player.Status.AddInGamePersonalLogs($"Ведьмачое Масло: получено масло \"{oilName}\"\n");
+
+            // Also give +1 to the corresponding stat (normal level-up)
+            switch (skillNumber)
+            {
+                case 1:
+                    player.GameCharacter.AddIntelligence(1, "Прокачка", false);
+                    player.Status.AddInGamePersonalLogs($"Вы улучшили Интеллект до {player.GameCharacter.GetIntelligence()}\n");
+                    break;
+                case 2:
+                    player.GameCharacter.AddStrength(1, "Прокачка", false);
+                    player.Status.AddInGamePersonalLogs($"Вы улучшили Силу до {player.GameCharacter.GetStrength()}\n");
+                    break;
+                case 3:
+                    player.GameCharacter.AddSpeed(1, "Прокачка", false);
+                    player.Status.AddInGamePersonalLogs($"Вы улучшили Скорость до {player.GameCharacter.GetSpeed()}\n");
+                    break;
+                case 4:
+                    player.GameCharacter.AddPsyche(1, "Прокачка", false);
+                    player.Status.AddInGamePersonalLogs($"Вы улучшили Психику до {player.GameCharacter.GetPsyche()}\n");
+                    break;
+            }
+            player.Status.LvlUpPoints--;
+            return;
+        }
+        //end Геральт
+
         // Котики — lvl-мяк: level up gives only +1 Justice
         if (player.GameCharacter.Name == "Котики")
         {
@@ -798,6 +846,39 @@ public sealed class GameReaction : IServiceSingleton
             return;
         }
         //end Котики
+
+        // TheBoys — Пацаны: +2 to chosen stat + upgrade team member
+        if (player.GameCharacter.Name == "TheBoys")
+        {
+            switch (skillNumber)
+            {
+                case 1: // Intelligence → Франция хим.оружие
+                    player.GameCharacter.AddIntelligence(2, "Пацаны");
+                    player.Passives.TheBoysFrancie.ChemWeaponLevel++;
+                    player.Status.AddInGamePersonalLogs($"Француз: Хим.оружие уровень {player.Passives.TheBoysFrancie.ChemWeaponLevel}\n");
+                    break;
+                case 2: // Strength → Бучер кочерга
+                    player.GameCharacter.AddStrength(2, "Пацаны");
+                    player.Passives.TheBoysButcher.PokerCount++;
+                    player.Status.AddInGamePersonalLogs($"Бучер: Кочерга #{player.Passives.TheBoysButcher.PokerCount}\n");
+                    break;
+                case 3: // Speed → Кимико регенерация
+                    player.GameCharacter.AddSpeed(2, "Пацаны");
+                    player.Passives.TheBoysKimiko.RegenLevel++;
+                    player.Passives.TheBoysKimiko.DisabledNextRound = false;
+                    player.Passives.TheBoysKimiko.IsDisabled = false;
+                    player.Status.AddInGamePersonalLogs($"Kimiko: Регенерация уровень {player.Passives.TheBoysKimiko.RegenLevel}\n");
+                    break;
+                case 4: // Psyche → М.М. компромат
+                    player.GameCharacter.AddPsyche(2, "Пацаны");
+                    player.Passives.TheBoysMM.NextAttackGathersKompromat = true;
+                    player.Status.AddInGamePersonalLogs("М.М.: Следующая атака соберёт компромат!\n");
+                    break;
+            }
+            player.Status.LvlUpPoints--;
+            return;
+        }
+        //end TheBoys
 
         /*//Vampyr Позорный
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Vampyr Позорный"))
@@ -966,6 +1047,13 @@ public sealed class GameReaction : IServiceSingleton
             }
             if (gun.Invented)
                 gun.Charges++;
+        }
+
+        // Salldorum — Шэн: +1 charge on level-up
+        if (player.GameCharacter.Name == "Salldorum")
+        {
+            player.Passives.SalldorumShen.Charges++;
+            player.Status.AddInGamePersonalLogs($"Шэн: +1 заряд. Всего: {player.Passives.SalldorumShen.Charges}\n");
         }
 
         // Giant Beans — on each level-up, put ingredients on up to 3 enemies who don't have one yet
