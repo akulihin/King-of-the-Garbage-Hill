@@ -922,6 +922,7 @@ public class CharactersUniquePhrase
         WeedwickWeedYes9.PassiveLogRus.Add("420");
         WeedwickWeedYes10.PassiveLogRus.Add("81@23 !7");
         WeedwickWeedYes11.PassiveLogRus.Add("Я выбиваю из них ДУРЬ");
+        WeedwickWeedYes11.PassiveLogRus.Add("Где же прячется эта псевдо-собака? Запомните, дети, если вы найдете где она прячется - не делайте из этого сигареты!");
 
         WeedwickWeedNo.PassiveLogRus.Add("ГДЕ МОЙ WEED СУКИ?");
         WeedwickWeedNo.PassiveLogRus.Add("ГДЕ ШО");
