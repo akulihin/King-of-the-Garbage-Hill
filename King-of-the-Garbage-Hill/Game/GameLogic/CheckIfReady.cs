@@ -1109,6 +1109,14 @@ public class CheckIfReady : IServiceSingleton
 
                 //end //AWDKA last
 
+                // Геральт: skip works as block (meditation)
+                foreach (var geralt in players.Where(p =>
+                    p.Status.IsSkip && p.GameCharacter.Name == "Геральт"))
+                {
+                    geralt.Status.IsSkip = false;
+                    geralt.Status.IsBlock = true;
+                }
+
                 // Aggress — Toxic Mate auto-attacks random target instead of auto-blocking
                 foreach (var t in players.Where(t =>
                              t.Status.WhoToAttackThisTurn.Count == 0 && t.Status.IsBlock == false &&

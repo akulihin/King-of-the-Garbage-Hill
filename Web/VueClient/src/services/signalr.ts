@@ -82,6 +82,8 @@ export type Player = {
   customLeaderboardText?: string
   /** Character mastery points (only set for the owning player). */
   characterMasteryPoints?: number
+  /** Whether this opponent is within the viewing player's harm range. */
+  isInMyHarmRange?: boolean
 }
 
 export type DeathNote = {
@@ -164,7 +166,7 @@ export type PassiveAbilityStates = {
   theBoys?: TheBoysState
   salldorum?: SalldorumState
   geralt?: GeraltState
-  geraltContractOnMe?: GeraltContractOnMe
+  geraltMonsterOnMe?: GeraltMonsterOnMe
 }
 
 export type BulkState = { drownChance: number; isBuffed: boolean }
@@ -278,21 +280,26 @@ export type SalldorumState = {
 }
 
 export type GeraltState = {
-  contracts: GeraltContractEntry[]
-  oilInventory: string[]
-  oilsActivated: boolean
-  isMeditating: boolean
-  totalContracts: number
+  drownersContracts: number
+  werewolvesContracts: number
+  vampiresContracts: number
+  dragonsContracts: number
+  drownersOilTier: number
+  werewolvesOilTier: number
+  vampiresOilTier: number
+  dragonsOilTier: number
+  isOilApplied: boolean
+  revealedCount: number
+  lambertUsed: boolean
+  lambertActive: boolean
+  enemyMonsterTypes: Record<string, string>
 }
 
-export type GeraltContractEntry = {
-  targetName: string
-  monsterTypes: string[]
-}
-
-export type GeraltContractOnMe = {
-  contractTypes: string[]
-  geraltName: string
+export type GeraltMonsterOnMe = {
+  monsterType: string
+  monsterColor: string
+  monsterEmoji: string
+  contractsOnType: number
 }
 
 // ── Blackjack Types ───────────────────────────────────────────────

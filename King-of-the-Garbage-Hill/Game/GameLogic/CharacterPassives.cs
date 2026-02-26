@@ -19,15 +19,18 @@ public class CharacterPassives : IServiceSingleton
     private readonly LoginFromConsole _log;
     private readonly SecureRandom _rand;
     private readonly CharactersPull _charactersPull;
+    private readonly ClaudeHaikuService _haikuService;
 
     public CharacterPassives(SecureRandom rand, HelperFunctions help,
-        LoginFromConsole log, GameUpdateMess gameUpdateMess, CharactersPull charactersPull)
+        LoginFromConsole log, GameUpdateMess gameUpdateMess, CharactersPull charactersPull,
+        ClaudeHaikuService haikuService)
     {
         _rand = rand;
         _help = help;
         _log = log;
         _gameUpdateMess = gameUpdateMess;
         _charactersPull = charactersPull;
+        _haikuService = haikuService;
     }
 
     public Task InitializeAsync()
@@ -269,30 +272,65 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Геральт — assign special first contracts for matching characters
-                case "Ведьмачий Заказ":
+                // Геральт — assign monster types to 4 of 5 enemies
+                case "Ведьмачьи заказы":
                     if (player.GameCharacter.Name == "Геральт")
                     {
                         var geraltContracts = player.Passives.GeraltContracts;
-                        var specialContracts = new Dictionary<string, string>
+                        var enemies = playersList.Where(x => x.GetPlayerId() != player.GetPlayerId()).ToList();
+
+                        // Fixed type assignments
+                        var fixedTypes = new Dictionary<string, Geralt.MonsterType>
                         {
-                            { "Sirinoks", "Дракон" },
-                            { "Weedwick", "Лютоволк" },
-                            { "Вампур", "Вампур" },
-                            { "Стая Гоблинов", "Бес" }
+                            { "Sirinoks", Geralt.MonsterType.Драконы },
+                            { "Weedwick", Geralt.MonsterType.Волколаки },
+                            { "Вампур", Geralt.MonsterType.Вампиры },
+                            { "mylorik", Geralt.MonsterType.Утопцы },
+                            { "Осьминожка", Geralt.MonsterType.Утопцы },
+                            { "Краборак", Geralt.MonsterType.Утопцы },
                         };
-                        foreach (var enemy in playersList.Where(x => x.GetPlayerId() != player.GetPlayerId()))
+
+                        var assigned = new List<Guid>();
+                        var typeCounts = new Dictionary<Geralt.MonsterType, int>
                         {
-                            if (specialContracts.TryGetValue(enemy.GameCharacter.Name, out var monsterType))
+                            { Geralt.MonsterType.Утопцы, 0 },
+                            { Geralt.MonsterType.Волколаки, 0 },
+                            { Geralt.MonsterType.Вампиры, 0 },
+                            { Geralt.MonsterType.Драконы, 0 },
+                        };
+
+                        // Assign fixed types first
+                        foreach (var enemy in enemies)
+                        {
+                            if (fixedTypes.TryGetValue(enemy.GameCharacter.Name, out var monsterType) && assigned.Count < 4)
                             {
-                                var enemyId = enemy.GetPlayerId();
-                                if (!geraltContracts.ContractMap.ContainsKey(enemyId))
-                                    geraltContracts.ContractMap[enemyId] = new List<string>();
-                                geraltContracts.ContractMap[enemyId].Add(monsterType);
-                                enemy.Passives.GeraltContractsOnMe.Add(monsterType);
-                                enemy.Passives.GeraltContractOwnerId = player.GetPlayerId();
+                                geraltContracts.EnemyTypes[enemy.GetPlayerId()] = monsterType;
+                                enemy.Passives.GeraltMonsterType = monsterType;
+                                assigned.Add(enemy.GetPlayerId());
+                                typeCounts[monsterType]++;
                             }
                         }
+
+                        // Assign random types to remaining (fill up to 4)
+                        var unassigned = enemies.Where(x => !assigned.Contains(x.GetPlayerId())).ToList();
+                        foreach (var enemy in unassigned)
+                        {
+                            if (assigned.Count >= 4) break;
+                            // Pick least-used type
+                            var leastUsedType = typeCounts.OrderBy(x => x.Value).ThenBy(_ => _rand.Random(0, 100)).First().Key;
+                            geraltContracts.EnemyTypes[enemy.GetPlayerId()] = leastUsedType;
+                            enemy.Passives.GeraltMonsterType = leastUsedType;
+                            assigned.Add(enemy.GetPlayerId());
+                            typeCounts[leastUsedType]++;
+                        }
+
+                        // Initialize ContractProcsOnEnemy
+                        foreach (var enemyId in assigned)
+                            geraltContracts.ContractProcsOnEnemy[enemyId] = 0;
+
+                        // Start with 1 contract of each assigned type
+                        foreach (var kvp in typeCounts.Where(x => x.Value > 0))
+                            geraltContracts.AddCount(kvp.Key, 1);
                     }
                     break;
             }
@@ -518,25 +556,19 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Вороны (defense): reduce attacker speed by crow count on attacker
+                // Вороны (defense): reduce attacker speed by 20% per crow (rounded up)
                 case "Вороны":
                     var crowsDef = target.Passives.ItachiCrows;
                     if (crowsDef.CrowCounts.TryGetValue(me.GetPlayerId(), out var crowCountDef) && crowCountDef > 0)
                     {
-                        me.FightCharacter.AddSpeedForOneFight(-crowCountDef);
+                        var attackerSpeedDef = me.FightCharacter.GetSpeed();
+                        var ignoredDef = (int)Math.Ceiling(attackerSpeedDef * 0.20 * crowCountDef);
+                        me.FightCharacter.AddSpeedForOneFight(-Math.Min(ignoredDef, attackerSpeedDef));
                     }
                     break;
 
-                // Аматерасу (defense): auto-win if attacker effective speed < Itachi's speed
-                case "Аматерасу":
-                    var itachiSpeedDef = target.FightCharacter.GetSpeed();
-                    var attackerEffectiveSpeedDef = me.FightCharacter.GetSpeed();
-                    if (attackerEffectiveSpeedDef < itachiSpeedDef)
-                    {
-                        me.Status.IsAbleToWin = false;
-                        game.Phrases.ItachiAmaterasu.SendLog(target, false);
-                    }
-                    break;
+                // Аматерасу: only works on attack now (removed from defense)
+
 
                 // Napoleon — Мирный договор: enforce treaty from previous round
                 case "Мирный договор":
@@ -589,24 +621,36 @@ public class CharacterPassives : IServiceSingleton
                                 Math.Max(0, currentJustice - reduction), "Регенерация Кимико");
                             kimikoDefBefore.TotalJusticeBlocked += reduction;
                             target.Status.AddInGamePersonalLogs(
-                                $"Kimiko поглотила {reduction} Справедливости\n");
+                                $"Kimiko поглотила {reduction} Справедливости (всего: {kimikoDefBefore.TotalJusticeBlocked})\n");
                             game.Phrases.TheBoysKimikoRegen.SendLog(target, false);
                         }
                     }
                     break;
 
-                // Геральт — Плотва: speed bonus when defending at lower position vs higher position attacker
-                case "Плотва":
+                // Геральт — Шевелись, Плотва: speed bonus when defending at lower position
+                case "Шевелись, Плотва":
                     if (target.GameCharacter.Name == "Геральт")
                     {
                         var geraltDefPos = target.Status.GetPlaceAtLeaderBoard();
                         var attackerDefPos = me.Status.GetPlaceAtLeaderBoard();
-                        if (geraltDefPos >= 4 && attackerDefPos <= 3)
+                        if (geraltDefPos > attackerDefPos)
                         {
                             var plotvaDefSpeed = geraltDefPos - attackerDefPos;
                             target.FightCharacter.AddSpeedForOneFight(plotvaDefSpeed);
-                            game.Phrases.GeraltPlotva.SendLog(target, false);
+                            if (!target.Passives.GeraltContracts.PlotvaPhrasedThisRound)
+                            {
+                                target.Passives.GeraltContracts.PlotvaPhrasedThisRound = true;
+                                game.Phrases.GeraltPlotva.SendLog(target, false);
+                            }
                         }
+                    }
+                    break;
+
+                // Геральт — Медитация (defense): Lambert skill zero
+                case "Медитация":
+                    if (target.GameCharacter.Name == "Геральт" && target.Passives.GeraltMeditation.LambertActive)
+                    {
+                        target.FightCharacter.SetSkillForOneFight(0, "Медитация");
                     }
                     break;
             }
@@ -639,6 +683,14 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Гоблины тупые, но не идиоты":
                     // Ziggurat build logic moved to HandleEndOfRound (fires on block regardless of attacker)
+                    break;
+
+                // Геральт — block phrase
+                case "Ведьмачьи заказы":
+                    if (target.GameCharacter.Name == "Геральт" && target.Status.IsBlock)
+                    {
+                        game.Phrases.GeraltBlock.SendLog(target, false);
+                    }
                     break;
             }
 
@@ -824,25 +876,22 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Геральт — Ведьмачий Заказ (defense after fight): remove contract from attacker when they beat Geralt
-                case "Ведьмачий Заказ":
-                    if (target.GameCharacter.Name == "Геральт" && me.Status.IsWonThisCalculation == target.GetPlayerId())
+                // Геральт — Ведьмачьи заказы (defense): contract skill bonus when defending
+                case "Ведьмачьи заказы":
+                    if (target.GameCharacter.Name == "Геральт")
                     {
                         var geraltDefContracts = target.Passives.GeraltContracts;
-                        var attackerId = me.GetPlayerId();
-                        if (geraltDefContracts.ContractMap.ContainsKey(attackerId) && geraltDefContracts.ContractMap[attackerId].Count > 0)
+                        var attackerType = me.Passives.GeraltMonsterType;
+                        if (attackerType != null)
                         {
-                            var removedDef = geraltDefContracts.ContractMap[attackerId][0];
-                            geraltDefContracts.ContractMap[attackerId].RemoveAt(0);
-                            if (me.Passives.GeraltContractsOnMe.Contains(removedDef))
-                                me.Passives.GeraltContractsOnMe.Remove(removedDef);
-                            if (geraltDefContracts.ContractMap[attackerId].Count == 0)
+                            var defCount = geraltDefContracts.GetCount(attackerType.Value);
+                            if (defCount > 0)
                             {
-                                geraltDefContracts.ContractMap.Remove(attackerId);
-                                me.Passives.GeraltContractsOnMe.Clear();
-                                me.Passives.GeraltContractOwnerId = Guid.Empty;
+                                target.GameCharacter.AddExtraSkill(10 * defCount, "Ведьмачьи заказы");
+                                geraltDefContracts.ContractProcsOnEnemy.TryAdd(me.GetPlayerId(), 0);
+                                geraltDefContracts.ContractProcsOnEnemy[me.GetPlayerId()] += defCount;
+                                geraltDefContracts.SetCount(attackerType.Value, 0);
                             }
-                            game.Phrases.GeraltContractLost.SendLog(target, false);
                         }
                     }
                     break;
@@ -1223,20 +1272,24 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Вороны: reduce target speed by crow count
+                // Вороны: reduce target speed by 20% per crow (rounded up)
                 case "Вороны":
                     var crowsAtk = me.Passives.ItachiCrows;
                     if (crowsAtk.CrowCounts.TryGetValue(target.GetPlayerId(), out var crowCount) && crowCount > 0)
                     {
-                        target.FightCharacter.AddSpeedForOneFight(-crowCount);
+                        var targetSpeedAtk = target.FightCharacter.GetSpeed();
+                        var ignoredAtk = (int)Math.Ceiling(targetSpeedAtk * 0.20 * crowCount);
+                        target.FightCharacter.AddSpeedForOneFight(-Math.Min(ignoredAtk, targetSpeedAtk));
                     }
                     break;
 
-                // Аматерасу: auto-win if target effective speed < Itachi's speed
+                // Аматерасу: auto-win only on attack, only vs adjacent leaderboard target
                 case "Аматерасу":
                     var itachiSpeedAtk = me.FightCharacter.GetSpeed();
                     var targetEffectiveSpeedAtk = target.FightCharacter.GetSpeed();
-                    if (targetEffectiveSpeedAtk < itachiSpeedAtk)
+                    var itachiPos = me.Status.GetPlaceAtLeaderBoard();
+                    var targetPos = target.Status.GetPlaceAtLeaderBoard();
+                    if (targetEffectiveSpeedAtk < itachiSpeedAtk && Math.Abs(itachiPos - targetPos) == 1)
                     {
                         target.Status.IsAbleToWin = false;
                         game.Phrases.ItachiAmaterasu.SendLog(me, false);
@@ -1390,51 +1443,77 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Геральт — Ведьмачое Масло: per-type oil stacking on contract fights
-                case "Ведьмачое Масло":
-                    var geraltOilContracts = me.Passives.GeraltContracts;
-                    geraltOilContracts.LastOilBonusCount = 0;
-                    if (geraltOilContracts.LambertMixup)
+                // Геральт — Масло: oil effects when attacking
+                case "Масло":
+                    if (me.GameCharacter.Name == "Геральт")
                     {
-                        me.FightCharacter.SetSkillForOneFight(0, "Ведьмачое Масло");
-                        game.Phrases.GeraltLambertMixup.SendLog(me, false);
-                        geraltOilContracts.LambertMixup = false;
-                        break;
-                    }
-                    if (geraltOilContracts.OilsActivated
-                        && !geraltOilContracts.WasAttackedDuringMeditation
-                        && geraltOilContracts.CurrentRoundFightQueue.TryGetValue(target.GetPlayerId(), out var fightQueue)
-                        && fightQueue.Count > 0)
-                    {
-                        var contractType = fightQueue.Dequeue();
-                        var matchingOils = geraltOilContracts.OilInventory.Count(o => o == contractType);
-                        if (matchingOils > 0)
+                        var geraltOil = me.Passives.GeraltOil;
+                        if (geraltOil.IsOilApplied)
                         {
-                            me.FightCharacter.AddExtraSkill(100 * matchingOils, "Ведьмачое Масло", false);
-                            me.FightCharacter.SetSkillFightMultiplier(
-                                (int)me.FightCharacter.GetSkillFightMultiplier() + matchingOils);
-                            var targetJustice = target.FightCharacter.Justice.GetRealJusticeNow();
-                            if (targetJustice > 0)
-                                target.FightCharacter.Justice.SetJusticeForOneFight(
-                                    Math.Max(0, targetJustice - matchingOils), "Ведьмачое Масло");
-                            geraltOilContracts.LastOilBonusCount = matchingOils;
-                            game.Phrases.GeraltOilUsed.SendLog(me, false);
+                            var targetMonsterType = target.Passives.GeraltMonsterType;
+                            if (targetMonsterType != null)
+                            {
+                                var oilTier = geraltOil.GetTier(targetMonsterType.Value);
+                                if (oilTier >= 1)
+                                {
+                                    // Tier 1+: ignore 1 Justice
+                                    var targetJustice = target.FightCharacter.Justice.GetRealJusticeNow();
+                                    if (targetJustice > 0)
+                                        target.FightCharacter.Justice.SetJusticeForOneFight(
+                                            Math.Max(0, targetJustice - 1), "Масло");
+                                }
+                                if (oilTier >= 2)
+                                {
+                                    // Tier 2+: +2 Strength
+                                    me.FightCharacter.SetStrengthForOneFight(
+                                        me.FightCharacter.GetStrength() + 2, "Масло");
+                                }
+                                if (oilTier >= 3)
+                                {
+                                    // Tier 3: triple Skill
+                                    me.FightCharacter.SetSkillForOneFight(
+                                        me.FightCharacter.GetSkill() * 3, "Масло");
+                                }
+                            }
+                            // Oil consumed by first attack
+                            geraltOil.IsOilApplied = false;
                         }
+
+                        // Contextual attack phrases
+                        if (target.GameCharacter.Name == "Вампур")
+                            game.Phrases.GeraltAttackVampire.SendLog(me, false);
+                        else if (target.GameCharacter.Name == "TheBoys")
+                            game.Phrases.GeraltAttackTheBoys.SendLog(me, false);
+                        else if (target.GameCharacter.Name == "Кира" ||
+                                 target.GameCharacter.Passive.Any(x => x.PassiveName == "Выдуманный персонаж"))
+                            game.Phrases.GeraltAttackMonster.SendLog(me, false);
                     }
                     break;
 
-                // Геральт — Плотва: speed bonus when attacking from lower position vs higher position target
-                case "Плотва":
+                // Геральт — Шевелись, Плотва: speed bonus when attacking from lower position
+                case "Шевелись, Плотва":
                     if (me.GameCharacter.Name == "Геральт")
                     {
                         var geraltAtkPos = me.Status.GetPlaceAtLeaderBoard();
                         var targetAtkPos = target.Status.GetPlaceAtLeaderBoard();
-                        if (geraltAtkPos >= 4 && targetAtkPos <= 3)
+                        if (geraltAtkPos > targetAtkPos)
                         {
                             var plotvaAtkSpeed = geraltAtkPos - targetAtkPos;
                             me.FightCharacter.AddSpeedForOneFight(plotvaAtkSpeed);
-                            game.Phrases.GeraltPlotva.SendLog(me, false);
+                            if (!me.Passives.GeraltContracts.PlotvaPhrasedThisRound)
+                            {
+                                me.Passives.GeraltContracts.PlotvaPhrasedThisRound = true;
+                                game.Phrases.GeraltPlotva.SendLog(me, false);
+                            }
                         }
+                    }
+                    break;
+
+                // Геральт — Медитация (attack): Lambert skill zero
+                case "Медитация":
+                    if (me.GameCharacter.Name == "Геральт" && me.Passives.GeraltMeditation.LambertActive)
+                    {
+                        me.FightCharacter.SetSkillForOneFight(0, "Медитация");
                     }
                     break;
             }
@@ -2084,48 +2163,35 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Геральт — Ведьмачий Заказ (attack after fight): contract win/loss
-                case "Ведьмачий Заказ":
+                // Геральт — Ведьмачьи заказы (attack after fight): contract skill bonus + phrases
+                case "Ведьмачьи заказы":
                     if (me.GameCharacter.Name == "Геральт")
                     {
-                        var geraltAtkAfter = me.Passives.GeraltContracts;
-                        var targetId = target.GetPlayerId();
-                        if (geraltAtkAfter.ContractMap.ContainsKey(targetId) && geraltAtkAfter.ContractMap[targetId].Count > 0)
-                        {
-                            if (me.Status.IsWonThisCalculation == targetId)
-                            {
-                                game.Phrases.GeraltContractWin.SendLog(me, false);
-                            }
-                            else if (me.Status.IsLostThisCalculation == targetId)
-                            {
-                                // Remove one contract on loss
-                                var removedContract = geraltAtkAfter.ContractMap[targetId][0];
-                                geraltAtkAfter.ContractMap[targetId].RemoveAt(0);
-                                if (target.Passives.GeraltContractsOnMe.Contains(removedContract))
-                                    target.Passives.GeraltContractsOnMe.Remove(removedContract);
-                                if (geraltAtkAfter.ContractMap[targetId].Count == 0)
-                                {
-                                    geraltAtkAfter.ContractMap.Remove(targetId);
-                                    target.Passives.GeraltContractsOnMe.Clear();
-                                    target.Passives.GeraltContractOwnerId = Guid.Empty;
-                                }
-                                game.Phrases.GeraltContractLost.SendLog(me, false);
-                            }
-                        }
-                    }
-                    break;
+                        var geraltAtkContracts = me.Passives.GeraltContracts;
+                        var fightCount = geraltAtkContracts.ContractsFoughtThisRound;
 
-                // Геральт — Ведьмачое Масло (attack after fight): undo oil buff using LastOilBonusCount
-                case "Ведьмачое Масло":
-                    if (me.GameCharacter.Name == "Геральт")
-                    {
-                        var geraltOilAfter = me.Passives.GeraltContracts;
-                        if (geraltOilAfter.LastOilBonusCount > 0)
+                        // Contract fight: give +10 skill per contract fight
+                        if (fightCount > 0)
                         {
-                            me.FightCharacter.AddExtraSkill(-100 * geraltOilAfter.LastOilBonusCount, "Ведьмачое Масло", false);
-                            me.FightCharacter.SetSkillFightMultiplier(
-                                (int)Math.Max(0, me.FightCharacter.GetSkillFightMultiplier() - geraltOilAfter.LastOilBonusCount));
-                            geraltOilAfter.LastOilBonusCount = 0;
+                            me.GameCharacter.AddExtraSkill(10, "Ведьмачьи заказы");
+                        }
+                        else if (me.Status.IsWonThisCalculation == target.GetPlayerId())
+                        {
+                            // Won vs non-contract enemy — loot
+                            geraltAtkContracts.NonContractWinsThisRound++;
+                        }
+
+                        // Nest phrase: if enemy has been proc'd more than once total
+                        var targetEnemyId = target.GetPlayerId();
+                        if (geraltAtkContracts.ContractProcsOnEnemy.TryGetValue(targetEnemyId, out var procs) && procs > 1)
+                        {
+                            game.Phrases.GeraltContractNest.SendLog(me, false);
+                        }
+
+                        // Win phrase
+                        if (me.Status.IsWonThisCalculation == target.GetPlayerId())
+                        {
+                            game.Phrases.GeraltWin.SendLog(me, false);
                         }
                     }
                     break;
@@ -2751,16 +2817,23 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Вороны: place crow on enemy on win (attack only)
+                // Вороны: place crow on attacked enemy if crow ready (after level-up)
                 case "Вороны":
-                    if (attack && player.Status.IsWonThisCalculation != Guid.Empty)
+                    if (attack && player.Passives.ItachiCrows.CrowReadyToThrow)
                     {
                         var crowsAfter = player.Passives.ItachiCrows;
-                        var crowTargetId = player.Status.IsWonThisCalculation;
-                        if (!crowsAfter.CrowCounts.ContainsKey(crowTargetId))
-                            crowsAfter.CrowCounts[crowTargetId] = 0;
-                        crowsAfter.CrowCounts[crowTargetId]++;
-                        game.Phrases.ItachiCrows.SendLog(player, false);
+                        // Place crow on the fight target (win or lose)
+                        var crowTargetId = player.Status.IsWonThisCalculation != Guid.Empty
+                            ? player.Status.IsWonThisCalculation
+                            : player.Status.IsLostThisCalculation;
+                        if (crowTargetId != Guid.Empty)
+                        {
+                            if (!crowsAfter.CrowCounts.ContainsKey(crowTargetId))
+                                crowsAfter.CrowCounts[crowTargetId] = 0;
+                            crowsAfter.CrowCounts[crowTargetId]++;
+                            crowsAfter.CrowReadyToThrow = false;
+                            game.Phrases.ItachiCrows.SendLog(player, false);
+                        }
                     }
                     break;
 
@@ -4040,43 +4113,110 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Геральт — Медитация: if meditated and NOT attacked → activate ALL oils
+                // Геральт — Медитация: oil, witcher senses, lambert, no-moral phrase
                 case "Медитация":
+                    if (player.GameCharacter.Name == "Геральт" && player.Status.IsBlock)
+                    {
+                        var geraltOilEor = player.Passives.GeraltOil;
+                        var geraltMedEor = player.Passives.GeraltMeditation;
+                        var geraltContractsEor = player.Passives.GeraltContracts;
+
+                        // Oil: apply oil
+                        geraltOilEor.IsOilApplied = true;
+
+                        // Witcher Senses: reveal enemy with most contracts (not yet revealed)
+                        var unrevealed = game.PlayersList.Where(x =>
+                            x.GetPlayerId() != player.GetPlayerId() &&
+                            !x.Passives.IsDead &&
+                            x.Passives.GeraltMonsterType != null &&
+                            !geraltMedEor.RevealedEnemies.Contains(x.GetPlayerId())).ToList();
+
+                        if (unrevealed.Count > 0)
+                        {
+                            // Prefer enemy with most contracts of their type
+                            var hintTarget = unrevealed
+                                .OrderByDescending(x => geraltContractsEor.GetCount(x.Passives.GeraltMonsterType!.Value))
+                                .ThenBy(_ => _rand.Random(0, 100))
+                                .First();
+
+                            geraltMedEor.RevealedEnemies.Add(hintTarget.GetPlayerId());
+
+                            string hint;
+                            // For human players, generate a unique hint via AI
+                            if (!player.IsBot())
+                            {
+                                var monsterTypeName = Geralt.GetMonsterTypeName(hintTarget.Passives.GeraltMonsterType!.Value);
+                                try
+                                {
+                                    hint = _haikuService.GenerateWitcherHintAsync(
+                                        hintTarget.GameCharacter.Name,
+                                        hintTarget.GameCharacter.Description,
+                                        monsterTypeName
+                                    ).GetAwaiter().GetResult();
+                                }
+                                catch
+                                {
+                                    hint = null;
+                                }
+                            }
+                            else
+                            {
+                                hint = null;
+                            }
+
+                            // Fallback to static dictionary
+                            if (string.IsNullOrWhiteSpace(hint))
+                                hint = Geralt.WitcherSensesHints.TryGetValue(hintTarget.GameCharacter.Name, out var h)
+                                    ? h : "Что-то странное. Неизвестный зверь.";
+
+                            player.Status.AddInGamePersonalLogs($"Чутьё: {hint} ({hintTarget.DiscordUsername})\n");
+                        }
+
+                        // Lambert: 20% chance, one-time per game
+                        if (!geraltMedEor.LambertUsed && _rand.Luck(20))
+                        {
+                            geraltMedEor.LambertActive = true;
+                            geraltMedEor.LambertUsed = true;
+                            geraltMedEor.LambertSkillLost = player.GameCharacter.GetSkill();
+                            game.Phrases.GeraltLambert.SendLog(player, false, suffix: $" - {(int)geraltMedEor.LambertSkillLost} *Скилла*.");
+                        }
+
+                        // No moral phrase
+                        game.Phrases.GeraltNoMoral.SendLog(player, false);
+                    }
+                    break;
+
+                // Геральт — Ведьмачьи заказы: end-of-round contract phrases + reset
+                case "Ведьмачьи заказы":
                     if (player.GameCharacter.Name == "Геральт")
                     {
                         var geraltEorContracts = player.Passives.GeraltContracts;
-                        if (geraltEorContracts.IsMeditating && !geraltEorContracts.WasAttackedDuringMeditation)
-                        {
-                            if (geraltEorContracts.OilInventory.Count > 0)
-                            {
-                                geraltEorContracts.OilsActivated = true;
-                                game.Phrases.GeraltOilActivate.SendLog(player, false);
-                            }
-                            else
-                                game.Phrases.GeraltMeditation.SendLog(player, false);
-                        }
+
+                        // Contract phrase based on fights this round
+                        var foughtThisRound = geraltEorContracts.ContractsFoughtThisRound;
+                        if (foughtThisRound == 1) game.Phrases.GeraltContract1.SendLog(player, false);
+                        else if (foughtThisRound == 2) game.Phrases.GeraltContract2.SendLog(player, false);
+                        else if (foughtThisRound == 3) game.Phrases.GeraltContract3.SendLog(player, false);
+                        else if (foughtThisRound == 4) game.Phrases.GeraltContract4.SendLog(player, false);
+                        else if (foughtThisRound >= 5) game.Phrases.GeraltContract5Plus.SendLog(player, false);
+
+                        // Loot phrases for non-contract wins
+                        if (geraltEorContracts.NonContractWinsThisRound == 1)
+                            game.Phrases.GeraltLoot.SendLog(player, false);
+                        else if (geraltEorContracts.NonContractWinsThisRound > 1)
+                            game.Phrases.GeraltLootMulti.SendLog(player, false);
+
+                        // Reset round counters
+                        geraltEorContracts.ContractsFoughtThisRound = 0;
+                        geraltEorContracts.NonContractWinsThisRound = 0;
+                        geraltEorContracts.PlotvaPhrasedThisRound = false;
+
+                        // Lambert reset
+                        if (player.Passives.GeraltMeditation.LambertActive)
+                            player.Passives.GeraltMeditation.LambertActive = false;
                     }
                     break;
             }
-
-        // Геральт — Ведьмачий Заказ: check dead players with contracts → stolen bounty
-        foreach (var geraltPlayer in game.PlayersList.Where(x => x.GameCharacter.Name == "Геральт"))
-        {
-            var geraltStolenContracts = geraltPlayer.Passives.GeraltContracts;
-            var deadWithContracts = game.PlayersList.Where(x =>
-                x.Passives.IsDead &&
-                geraltStolenContracts.ContractMap.ContainsKey(x.GetPlayerId()) &&
-                geraltStolenContracts.ContractMap[x.GetPlayerId()].Count > 0).ToList();
-
-            foreach (var deadPlayer in deadWithContracts)
-            {
-                geraltStolenContracts.ContractMap.Remove(deadPlayer.GetPlayerId());
-                deadPlayer.Passives.GeraltContractsOnMe.Clear();
-                deadPlayer.Passives.GeraltContractOwnerId = Guid.Empty;
-                geraltPlayer.MinusPsycheLog(geraltPlayer.GameCharacter, game, -1, "Ведьмачий Заказ");
-                game.Phrases.GeraltBountyStolen.SendLog(geraltPlayer, false);
-            }
-        }
 
         // High Elo repeated loss — any player losing to a high-elo character for 2nd+ consecutive time
         var highEloNames = new HashSet<string> { "DeepList", "mylorik", "Глеб", "Dopa", "Загадочный Спартанец в маске" };
@@ -5044,51 +5184,20 @@ public class CharacterPassives : IServiceSingleton
                         }
                         break;
 
-                    // Геральт — Ведьмачий Заказ: spawn contracts each round
-                    case "Ведьмачий Заказ":
+                    // Геральт — Ведьмачьи заказы: spawn 1 contract each round
+                    case "Ведьмачьи заказы":
                         if (player.GameCharacter.Name == "Геральт" && game.RoundNo > 1)
                         {
                             var geraltNrContracts = player.Passives.GeraltContracts;
-                            var monsterTypes = new[] { "Утопец", "Гуль", "Грифон", "Виверна", "Кикимора", "Лютоволк", "Вампур", "Дракон", "Бес", "Леший" };
-                            var enemies = game.PlayersList.Where(x =>
-                                x.GetPlayerId() != player.GetPlayerId() && !x.Passives.IsDead).ToList();
-                            if (enemies.Count > 0)
-                            {
-                                var randomEnemy = enemies[_rand.Random(0, enemies.Count - 1)];
-                                var randomMonster = monsterTypes[_rand.Random(0, monsterTypes.Length - 1)];
-                                var enemyId = randomEnemy.GetPlayerId();
-                                if (!geraltNrContracts.ContractMap.ContainsKey(enemyId))
-                                    geraltNrContracts.ContractMap[enemyId] = new List<string>();
-                                geraltNrContracts.ContractMap[enemyId].Add(randomMonster);
-                                randomEnemy.Passives.GeraltContractsOnMe.Add(randomMonster);
-                                randomEnemy.Passives.GeraltContractOwnerId = player.GetPlayerId();
-                                game.Phrases.GeraltContractSpawn.SendLog(player, false);
+                            // Only spawn types that have assigned enemies
+                            var assignedTypes = geraltNrContracts.EnemyTypes.Values.Distinct().ToArray();
+                            var randomType = assignedTypes[_rand.Random(0, assignedTypes.Length - 1)];
 
-                                // Bonus chance for extra contract on same enemy: 5%/10%/15% based on existing count
-                                var existingCount = geraltNrContracts.ContractMap[enemyId].Count;
-                                var bonusChance = Math.Min(existingCount * 5, 15);
-                                if (_rand.Luck(bonusChance))
-                                {
-                                    var bonusMonster = monsterTypes[_rand.Random(0, monsterTypes.Length - 1)];
-                                    geraltNrContracts.ContractMap[enemyId].Add(bonusMonster);
-                                    randomEnemy.Passives.GeraltContractsOnMe.Add(bonusMonster);
-                                    game.Phrases.GeraltMultiContract.SendLog(player, false);
-                                }
-                            }
-                        }
-                        break;
-
-                    // Геральт — Медитация: reset per-round state, roll Lambert mixup
-                    case "Медитация":
-                        if (player.GameCharacter.Name == "Геральт")
-                        {
-                            var geraltNrMed = player.Passives.GeraltContracts;
-                            geraltNrMed.IsMeditating = false;
-                            geraltNrMed.WasAttackedDuringMeditation = false;
-                            geraltNrMed.OilsActivated = false;
-                            geraltNrMed.CurrentRoundFightQueue.Clear();
-                            geraltNrMed.LastOilBonusCount = 0;
-                            geraltNrMed.LambertMixup = _rand.Luck(10);
+                            geraltNrContracts.AddCount(randomType, 1);
+                            var names = Geralt.GetNames(randomType);
+                            var randomName = names[_rand.Random(0, names.Length - 1)];
+                            
+                            game.Phrases.GeraltContractSpawn.SendLog(player, false, suffix: $"\n{randomName} ({Geralt.GetMonsterEmoji(randomType)})");
                         }
                         break;
                 }
@@ -5525,48 +5634,7 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Геральт — Детектив: ~33% chance per round, give witcher hint about unhinted enemy
-                case "Детектив":
-                    if (player.GameCharacter.Name == "Геральт" && _rand.Luck(33))
-                    {
-                        var geraltDetective = player.Passives.GeraltDetective;
-                        var unhinted = game.PlayersList.Where(x =>
-                            x.GetPlayerId() != player.GetPlayerId() &&
-                            !x.Passives.IsDead &&
-                            !geraltDetective.HintedPlayers.Contains(x.GetPlayerId())).ToList();
-
-                        if (unhinted.Count > 0)
-                        {
-                            var hintTarget = unhinted[_rand.Random(0, unhinted.Count - 1)];
-                            geraltDetective.HintedPlayers.Add(hintTarget.GetPlayerId());
-
-                            var hint = hintTarget.GameCharacter.Name switch
-                            {
-                                "Weedwick" => "Волчьи следы... Ведут в поле конопли...",
-                                "Вампур" => "Следы клыков на шее. Высший вампир?",
-                                "Sirinoks" => "Чешуя дракона. Огромные крылья.",
-                                "Стая Гоблинов" => "Маленькие следы. Много. Очень много.",
-                                "DeepList" => "Этот... слишком умный. Опасно.",
-                                "mylorik" => "Буйный воин. Жаждет мести.",
-                                "Глеб" => "Спит? Или притворяется?",
-                                "Тигр" => "Зверь на вершине. Территориальный.",
-                                "Толя" => "Бронированная тварь. Сам не нападёт.",
-                                "Осьминожка" => "Щупальца повсюду. Неуязвим.",
-                                "HardKitty" => "Одиночка. Не трогай — не тронет.",
-                                "LeCrisp" => "Ассасин в тенях. Быстрый.",
-                                "Кратос" => "Бог войны. Убивает богов.",
-                                "Кира" => "Тетрадь... Пишет имена. Опасно.",
-                                "Итачи" => "Шаринган. Не смотри в глаза.",
-                                "Котики" => "Коты... повсюду коты.",
-                                "Dopa" => "Анализирует. Адаптируется. Побеждает.",
-                                "Наполеон" => "Стратег. Строит альянсы.",
-                                _ => $"Что-то странное. Неизвестный зверь."
-                            };
-                            game.Phrases.GeraltDetective.SendLog(player, false);
-                            player.Status.AddInGamePersonalLogs($"Детектив: {hint} ({hintTarget.DiscordUsername})\n");
-                        }
-                    }
-                    break;
+                // (Geralt senses moved to HandleEndOfRound Медитация)
             }
     }
     //end after all fight

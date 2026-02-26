@@ -90,8 +90,10 @@ const masteryTier = computed(() => {
 })
 
 const isGoblin = computed(() => props.player?.character.name === 'Стая Гоблинов')
+const isGeralt = computed(() => props.player?.character.name === 'Геральт')
 const isKotiki = computed(() => props.player?.character.name === 'Котики')
 const goblin = computed(() => passiveStates.value?.goblinSwarm ?? null)
+const geralt = computed(() => passiveStates.value?.geralt ?? null)
 
 // Goblin population bar segment percentages
 const warriorPct = computed(() => {
@@ -252,6 +254,14 @@ watch(() => props.scoreAnimReady, (ready: boolean) => {
 
 onUnmounted(() => { clearComboTimer() })
 
+/** Geralt oil tier label */
+function geraltOilLabel(tier: number): string {
+  if (tier === 0) return '—'
+  if (tier === 1) return 'Масло'
+  if (tier === 2) return 'Улучш.'
+  return 'Отличн.'
+}
+
 /** Parse "ClassName || description" from classStatDisplayText */
 const classLabel = computed(() => {
   const raw = props.player?.character.classStatDisplayText ?? ''
@@ -374,6 +384,54 @@ function handleMoralToSkill() {
         </button>
       </div>
       <!-- Read-only stats during goblin lvl-up -->
+      <div class="stat-block">
+        <div class="stat-row">
+          <span class="gi gi-lg gi-int">INT</span>
+          <div class="stat-bar-bg"><div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" /></div>
+          <span class="stat-val stat-intelligence">{{ player.character.intelligence }}</span>
+        </div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-row">
+          <span class="gi gi-lg gi-str">STR</span>
+          <div class="stat-bar-bg"><div class="stat-bar strength" :style="{ width: `${player.character.strength * 10}%` }" /></div>
+          <span class="stat-val stat-strength">{{ player.character.strength }}</span>
+        </div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-row">
+          <span class="gi gi-lg gi-spd">SPD</span>
+          <div class="stat-bar-bg"><div class="stat-bar speed" :style="{ width: `${player.character.speed * 10}%` }" /></div>
+          <span class="stat-val stat-speed">{{ player.character.speed }}</span>
+        </div>
+      </div>
+      </template>
+
+      <!-- Geralt oil upgrade (replaces stat +buttons but shows read-only stats) -->
+      <template v-else-if="isGeralt && hasLvlUpPoints && geralt">
+      <div class="geralt-lvlup">
+        <button class="geralt-lvlup-btn" :class="{ 'geralt-lvlup-maxed': geralt.drownersOilTier >= 3 }" :disabled="geralt.drownersOilTier >= 3" data-sfx-skip-default="true" @click="handleLevelUp(1)" style="--oil-color: #3B82F6;">
+          <span class="geralt-lvlup-name">💀 Утопцы</span>
+          <span v-if="geralt.drownersOilTier >= 3" class="geralt-lvlup-desc">Макс. уровень</span>
+          <span v-else class="geralt-lvlup-desc">{{ geraltOilLabel(geralt.drownersOilTier) }} &rarr; {{ geraltOilLabel(geralt.drownersOilTier + 1) }}</span>
+        </button>
+        <button class="geralt-lvlup-btn" :class="{ 'geralt-lvlup-maxed': geralt.werewolvesOilTier >= 3 }" :disabled="geralt.werewolvesOilTier >= 3" data-sfx-skip-default="true" @click="handleLevelUp(2)" style="--oil-color: #22C55E;">
+          <span class="geralt-lvlup-name">🐺 Волколаки</span>
+          <span v-if="geralt.werewolvesOilTier >= 3" class="geralt-lvlup-desc">Макс. уровень</span>
+          <span v-else class="geralt-lvlup-desc">{{ geraltOilLabel(geralt.werewolvesOilTier) }} &rarr; {{ geraltOilLabel(geralt.werewolvesOilTier + 1) }}</span>
+        </button>
+        <button class="geralt-lvlup-btn" :class="{ 'geralt-lvlup-maxed': geralt.vampiresOilTier >= 3 }" :disabled="geralt.vampiresOilTier >= 3" data-sfx-skip-default="true" @click="handleLevelUp(3)" style="--oil-color: #A855F7;">
+          <span class="geralt-lvlup-name">🦇 Вампиры</span>
+          <span v-if="geralt.vampiresOilTier >= 3" class="geralt-lvlup-desc">Макс. уровень</span>
+          <span v-else class="geralt-lvlup-desc">{{ geraltOilLabel(geralt.vampiresOilTier) }} &rarr; {{ geraltOilLabel(geralt.vampiresOilTier + 1) }}</span>
+        </button>
+        <button class="geralt-lvlup-btn" :class="{ 'geralt-lvlup-maxed': geralt.dragonsOilTier >= 3 }" :disabled="geralt.dragonsOilTier >= 3" data-sfx-skip-default="true" @click="handleLevelUp(4)" style="--oil-color: #EF4444;">
+          <span class="geralt-lvlup-name">🐉 Драконы</span>
+          <span v-if="geralt.dragonsOilTier >= 3" class="geralt-lvlup-desc">Макс. уровень</span>
+          <span v-else class="geralt-lvlup-desc">{{ geraltOilLabel(geralt.dragonsOilTier) }} &rarr; {{ geraltOilLabel(geralt.dragonsOilTier + 1) }}</span>
+        </button>
+      </div>
+      <!-- Read-only stats during Geralt lvl-up -->
       <div class="stat-block">
         <div class="stat-row">
           <span class="gi gi-lg gi-int">INT</span>
@@ -1266,37 +1324,46 @@ function handleMoralToSkill() {
     <!-- 25. Геральт (owner widget) -->
     <div v-if="passiveStates?.geralt" class="pc-passive-widget geralt-widget">
       <div class="pw-header">
-        <span class="pw-title geralt-title">ВЕДЬМАК</span>
-        <span class="pw-badge">⚔️{{ passiveStates.geralt.totalContracts }}</span>
+        <span class="pw-title geralt-title">ДОСКА ЗАКАЗОВ</span>
+        <span class="pw-badge" v-if="passiveStates.geralt.isOilApplied" style="color: #2ecc71">МАСЛО</span>
+        <span class="pw-badge" v-if="passiveStates.geralt.lambertActive" style="color: #e74c3c">ЛАМБЕРТ</span>
       </div>
       <div class="geralt-body">
-        <!-- Contracts -->
-        <div v-for="c in passiveStates.geralt.contracts" :key="c.targetName" class="geralt-contract-row">
-          <span class="geralt-target">{{ c.targetName }}</span>
-          <span class="geralt-monsters">{{ c.monsterTypes.join(', ') }}</span>
+        <div class="geralt-row" style="border-left-color: #3B82F6; background: #3B82F612;">
+          <span style="color: #3B82F6">💀 Утопцы</span>
+          <span style="color: #3B82F6">x{{ passiveStates.geralt.drownersContracts }}</span>
+          <span class="geralt-oil-tier">{{ geraltOilLabel(passiveStates.geralt.drownersOilTier) }}</span>
         </div>
-        <div v-if="passiveStates.geralt.contracts.length === 0" class="geralt-no-contracts">Нет контрактов</div>
-        <!-- Oil -->
-        <div class="geralt-oil-row">
-          <span class="geralt-label">Масла:</span>
-          <span v-if="passiveStates.geralt.oilInventory.length > 0">
-            {{ passiveStates.geralt.oilInventory.join(', ') }}
-            <span v-if="passiveStates.geralt.oilsActivated" class="geralt-oil-active">(активны)</span>
-            <span v-else class="geralt-oil-inactive">(нужна медитация)</span>
-          </span>
-          <span v-else class="geralt-oil-none">нет</span>
+        <div class="geralt-row" style="border-left-color: #22C55E; background: #22C55E12;">
+          <span style="color: #22C55E">🐺 Волколаки</span>
+          <span style="color: #22C55E">x{{ passiveStates.geralt.werewolvesContracts }}</span>
+          <span class="geralt-oil-tier">{{ geraltOilLabel(passiveStates.geralt.werewolvesOilTier) }}</span>
+        </div>
+        <div class="geralt-row" style="border-left-color: #A855F7; background: #A855F712;">
+          <span style="color: #A855F7">🦇 Вампиры</span>
+          <span style="color: #A855F7">x{{ passiveStates.geralt.vampiresContracts }}</span>
+          <span class="geralt-oil-tier">{{ geraltOilLabel(passiveStates.geralt.vampiresOilTier) }}</span>
+        </div>
+        <div class="geralt-row" style="border-left-color: #EF4444; background: #EF444412;">
+          <span style="color: #EF4444">🐉 Драконы</span>
+          <span style="color: #EF4444">x{{ passiveStates.geralt.dragonsContracts }}</span>
+          <span class="geralt-oil-tier">{{ geraltOilLabel(passiveStates.geralt.dragonsOilTier) }}</span>
+        </div>
+        <div class="geralt-status-row">
+          <span v-if="passiveStates.geralt.revealedCount > 0">Чутьё: {{ passiveStates.geralt.revealedCount }}/5</span>
+          <span v-if="passiveStates.geralt.lambertUsed" style="color: #888">Ламберт: использован</span>
         </div>
       </div>
     </div>
 
-    <!-- 25b. Геральт contract-on-me (shown to ANY player who has contracts) -->
-    <div v-if="passiveStates?.geraltContractOnMe" class="pc-passive-widget geralt-contract-on-me-widget">
+    <!-- 25b. Геральт monster-on-me (shown to ANY player with assigned type) -->
+    <div v-if="passiveStates?.geraltMonsterOnMe" class="pc-passive-widget geralt-monster-on-me-widget"
+         :style="{ borderLeftColor: passiveStates.geraltMonsterOnMe.monsterColor, background: passiveStates.geraltMonsterOnMe.monsterColor + '12' }">
       <div class="pw-header">
-        <span class="pw-title">⚔️ КОНТРАКТ</span>
-      </div>
-      <div class="geralt-contract-on-me-body">
-        <div>{{ passiveStates.geraltContractOnMe.contractTypes.join(', ') }}</div>
-        <div class="geralt-contract-from">от {{ passiveStates.geraltContractOnMe.geraltName }}</div>
+        <span class="pw-title" :style="{ color: passiveStates.geraltMonsterOnMe.monsterColor }">
+          {{ passiveStates.geraltMonsterOnMe.monsterEmoji }} {{ passiveStates.geraltMonsterOnMe.monsterType }}
+        </span>
+        <span class="pw-badge" :style="{ color: passiveStates.geraltMonsterOnMe.monsterColor }">x{{ passiveStates.geraltMonsterOnMe.contractsOnType }}</span>
       </div>
     </div>
 
@@ -2488,6 +2555,56 @@ function handleMoralToSkill() {
   color: rgba(76, 153, 0, 0.4);
 }
 
+/* Geralt oil level-up panel */
+.geralt-lvlup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0;
+}
+.geralt-lvlup-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--oil-color) 12%, transparent), color-mix(in srgb, var(--oil-color) 4%, transparent));
+  border: 1px solid color-mix(in srgb, var(--oil-color) 30%, transparent);
+  border-left: 3px solid var(--oil-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+}
+.geralt-lvlup-btn:hover {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--oil-color) 25%, transparent), color-mix(in srgb, var(--oil-color) 10%, transparent));
+  border-color: color-mix(in srgb, var(--oil-color) 60%, transparent);
+  border-left-color: var(--oil-color);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--oil-color) 30%, transparent);
+}
+.geralt-lvlup-btn:active {
+  transform: scale(0.98);
+}
+.geralt-lvlup-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--oil-color);
+}
+.geralt-lvlup-desc {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+}
+.geralt-lvlup-maxed {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.geralt-lvlup-maxed .geralt-lvlup-name {
+  opacity: 0.5;
+}
+
 /* 21. Котики */
 .kotiki-widget {
   background: linear-gradient(135deg, rgba(255, 165, 0, 0.08), rgba(255, 165, 0, 0.02));
@@ -2716,21 +2833,13 @@ function handleMoralToSkill() {
 .seller-mark-source { color: rgba(200, 160, 60, 0.8); font-size: 10px; }
 
 /* ── Geralt ── */
-.geralt-widget { border-color: rgba(160, 160, 160, 0.5); }
-.geralt-title { color: #c0c0c0; }
+.geralt-widget { border-color: rgba(100, 80, 40, 0.5); }
+.geralt-title { color: #C8A050; text-shadow: 0 0 6px rgba(200, 160, 80, 0.25); }
 .geralt-body { display: flex; flex-direction: column; gap: 3px; font-size: 11px; }
-.geralt-contract-row { display: flex; justify-content: space-between; gap: 4px; }
-.geralt-target { color: #f0d070; font-weight: 600; }
-.geralt-monsters { color: #e08080; }
-.geralt-no-contracts { color: rgba(180, 180, 180, 0.4); font-style: italic; }
-.geralt-oil-row { display: flex; gap: 4px; align-items: center; }
-.geralt-label { color: rgba(180, 180, 180, 0.6); }
-.geralt-oil-active { color: #80e080; font-weight: 600; }
-.geralt-oil-inactive { color: #e0a040; font-style: italic; }
-.geralt-oil-none { color: rgba(180, 180, 180, 0.4); }
-.geralt-contract-on-me-widget { border-color: rgba(200, 80, 80, 0.5); }
-.geralt-contract-on-me-body { font-size: 11px; color: #e08080; }
-.geralt-contract-from { color: rgba(180, 180, 180, 0.5); font-size: 10px; }
+.geralt-row { display: flex; justify-content: space-between; gap: 6px; padding: 3px 6px; border-left: 3px solid transparent; border-radius: 3px; }
+.geralt-oil-tier { color: rgba(180, 180, 180, 0.6); font-size: 10px; min-width: 50px; text-align: right; }
+.geralt-status-row { display: flex; gap: 8px; font-size: 10px; color: rgba(180, 180, 180, 0.5); margin-top: 2px; }
+.geralt-monster-on-me-widget { border-left: 3px solid transparent; border-radius: 3px; }
 </style>
 
 <!-- Tooltip needs to be unscoped to work with Teleport to body -->

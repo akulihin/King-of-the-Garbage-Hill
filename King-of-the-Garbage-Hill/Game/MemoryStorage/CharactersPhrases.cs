@@ -259,18 +259,24 @@ public class CharactersUniquePhrase
     public PhraseClass SalldorumChroniclerRewriteGlobal;
 
     // Геральт
-    public PhraseClass GeraltContractSpawn;
-    public PhraseClass GeraltContractWin;
-    public PhraseClass GeraltContractLost;
-    public PhraseClass GeraltMeditation;
-    public PhraseClass GeraltMeditationInterrupted;
-    public PhraseClass GeraltOilActivate;
-    public PhraseClass GeraltOilUsed;
+    public PhraseClass GeraltLoot;
+    public PhraseClass GeraltLootMulti;
+    public PhraseClass GeraltContract1;
+    public PhraseClass GeraltContract2;
+    public PhraseClass GeraltContract3;
+    public PhraseClass GeraltContract4;
+    public PhraseClass GeraltContract5Plus;
+    public PhraseClass GeraltContractNest;
+    public PhraseClass GeraltLambert;
+    public PhraseClass GeraltNoMoral;
+
     public PhraseClass GeraltPlotva;
-    public PhraseClass GeraltLambertMixup;
-    public PhraseClass GeraltBountyStolen;
-    public PhraseClass GeraltDetective;
-    public PhraseClass GeraltMultiContract;
+    public PhraseClass GeraltContractSpawn;
+    public PhraseClass GeraltBlock;
+    public PhraseClass GeraltAttackVampire;
+    public PhraseClass GeraltAttackTheBoys;
+    public PhraseClass GeraltAttackMonster;
+    public PhraseClass GeraltWin;
 
     // Монстр без имени
     public PhraseClass MonsterDeath;
@@ -1200,7 +1206,7 @@ public class CharactersUniquePhrase
 
         SalldorumChroniclerRewrite = new PhraseClass("Великий летописец");
         SalldorumChroniclerRewrite.PassiveLogRus.Add("История переписана!");
-        SalldorumChroniclerRewrite.PassiveLogRus.Add("Кто контролирует прошлое — контролирует будущее.");
+        SalldorumChroniclerRewrite.PassiveLogRus.Add("Кто контролирует прошлое - контролирует будущее.");
 
         SalldorumChroniclerRewriteGlobal = new PhraseClass("Великий летописец");
         SalldorumChroniclerRewriteGlobal.PassiveLogRus.Add("Salldorum переписал историю раунда");
@@ -1353,11 +1359,17 @@ public class CharactersUniquePhrase
         TheBoysPoker.PassiveLogRus.Add("Бучер: Кочерга решает всё.");
 
         TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: ... .., ..!");
-        TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: я. не. сдамся.");
         TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: ...き...も...ち...=)");
         TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: *молча сжимает кулаки*");
-        TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: боль — это слабость, покидающая тело");
         TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: ...");
+        TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: ...つ...よ...く...なる...");
+        TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: *перехватывает удар* ...нет.");
+        TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: ...mo.tto... ha.ya.ku...");
+        TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: *тихо улыбается, вытирая кровь*");
+        TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: ...ま...だ... =)");
+        TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: ...не. трогай. моих. пацанов.");
+        TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: *кости хрустят, но она встаёт*");
+        TheBoysKimikoRegen.PassiveLogRus.Add("Kimiko: ...da.ij.ou.bu... ...大丈夫...");
 
         TheBoysKimikoDisabled.PassiveLogRus.Add("Kimiko ранена. Регенерация отключена.");
         TheBoysKimikoDisabled.PassiveLogRus.Add("Kimiko: *тяжело дышит* ...нужно время.");
@@ -1377,82 +1389,177 @@ public class CharactersUniquePhrase
 
         // Монстр без имени
         MonsterDeath.PassiveLogRus.Add("Все люди могут стать монстрами. Нужен лишь подходящий момент.");
-        MonsterDeath.PassiveLogRus.Add("Йохан: Доктор Тэнма... вы снова подарили мне жизнь. А я подарю вам — смерть.");
+        MonsterDeath.PassiveLogRus.Add("Йохан: Доктор Тэнма... вы снова подарили мне жизнь. А я подарю вам - смерть.");
         MonsterDeath.PassiveLogRus.Add("Посмотри на меня. Посмотри на монстра внутри себя.");
         MonsterDeath.PassiveLogRus.Add("Нет ничего страшнее, чем ребёнок без имени.");
-        MonsterDeath.PassiveLogRus.Add("Единственное, что равно жизни — это смерть.");
+        MonsterDeath.PassiveLogRus.Add("Единственное, что равно жизни - это смерть.");
         MonsterDeath.PassiveLogRus.Add("Мне не нужно оружие. Мне достаточно слов.");
 
         MonsterDrop.PassiveLogRus.Add("Они падают. Как дети из Кинденхайма.");
-        MonsterDrop.PassiveLogRus.Add("Йохан: Каждое падение — это маленькая история, которую я написал.");
+        MonsterDrop.PassiveLogRus.Add("Йохан: Каждое падение - это маленькая история, которую я написал.");
         MonsterDrop.PassiveLogRus.Add("Посмотри... мир рушится. Разве это не прекрасно?");
         MonsterDrop.PassiveLogRus.Add("Ещё один упал. Как в той книжке с картинками...");
 
         MonsterTwinSteal.PassiveLogRus.Add("Йохан: Я забираю всё, что тебе дорого. Начнём со справедливости.");
         MonsterTwinSteal.PassiveLogRus.Add("У Близнеца нет своего лица. Но у него есть твоё.");
-        MonsterTwinSteal.PassiveLogRus.Add("Анна и Йохан — два имени, одна тьма. Твоя справедливость теперь моя.");
+        MonsterTwinSteal.PassiveLogRus.Add("Анна и Йохан - два имени, одна тьма. Твоя справедливость теперь моя.");
         MonsterTwinSteal.PassiveLogRus.Add("Ты пришёл убить монстра. Но монстр уже забрал всё, что у тебя было.");
 
-        MonsterApocalypse.PassiveLogRus.Add("Йохан: Настоящий конец света — это когда некому вспомнить твоё имя.");
-        MonsterApocalypse.PassiveLogRus.Add("Пейзаж конца света раскрылся. Идеальный суицид — забрать с собой весь мир.");
+        MonsterApocalypse.PassiveLogRus.Add("Йохан: Настоящий конец света - это когда некому вспомнить твоё имя.");
+        MonsterApocalypse.PassiveLogRus.Add("Пейзаж конца света раскрылся. Идеальный суицид - забрать с собой весь мир.");
         MonsterApocalypse.PassiveLogRus.Add("Йохан: Последний, кто выживет, увидит настоящий ад.");
         //end Монстр без имени
 
         // Геральт
-        GeraltContractSpawn = new PhraseClass("Ведьмачий Заказ");
-        GeraltContractSpawn.PassiveLogRus.Add("На доске объявлений появился новый заказ...");
-        GeraltContractSpawn.PassiveLogRus.Add("Люди снова просят о помощи. Надо разобраться.");
-        GeraltContractSpawn.PassiveLogRus.Add("Сколько же вас тут развелось?");
+        GeraltLoot = new PhraseClass("Лут");
+        GeraltLoot.PassiveLogRus.Add("Это, конечно, не чудище... Но сойдёт.");
+        GeraltLoot.PassiveLogRus.Add("Такс... это мы продадим, это тоже...");
+        GeraltLoot.PassiveLogRus.Add("Шкура паршивая, но на что-нибудь сгодится.");
+        GeraltLoot.PassiveLogRus.Add("Неплохо. Хватит на пару эликсиров.");
+        GeraltLoot.PassiveLogRus.Add("Зуб... коготь... хм, за это дадут крону, не больше.");
+        GeraltLoot.PassiveLogRus.Add("*собирает трофеи с поля боя*");
 
-        GeraltContractWin = new PhraseClass("Ведьмачий Заказ");
-        GeraltContractWin.PassiveLogRus.Add("Контракт выполнен. Где мои деньги?");
-        GeraltContractWin.PassiveLogRus.Add("Готово. Заплатите и я уйду.");
-        GeraltContractWin.PassiveLogRus.Add("Монстра больше нет. Как и обещал.");
+        GeraltLootMulti = new PhraseClass("Лут");
+        GeraltLootMulti.PassiveLogRus.Add("Опять до первого торговца сто мечей в рюкзаке таскать...");
+        GeraltLootMulti.PassiveLogRus.Add("Полный рюкзак барахла. Плотва не потянет.");
+        GeraltLootMulti.PassiveLogRus.Add("Весемир говорил - не жадничай. Но я не послушал.");
+        GeraltLootMulti.PassiveLogRus.Add("Столько добычи... торговец будет рад.");
+        GeraltLootMulti.PassiveLogRus.Add("Мусорная Гора щедра на хлам. Как всегда.");
+        GeraltLootMulti.PassiveLogRus.Add("Оверлут. Продам оптом на Мусорке.");
 
-        GeraltContractLost = new PhraseClass("Ведьмачий Заказ");
-        GeraltContractLost.PassiveLogRus.Add("Тварь оказалась сильнее, чем я думал.");
-        GeraltContractLost.PassiveLogRus.Add("Нужно лучше подготовиться...");
-        GeraltContractLost.PassiveLogRus.Add("Придётся вернуться позже.");
+        GeraltContract1 = new PhraseClass("Ведьмачьи заказы");
+        GeraltContract1.PassiveLogRus.Add("И стоило мне ради одного контракта готовиться...");
+        GeraltContract1.PassiveLogRus.Add("Один контракт - один удар. Так и должно быть.");
+        GeraltContract1.PassiveLogRus.Add("Один заказ - чисто размяться.");
+        GeraltContract1.PassiveLogRus.Add("Мелкая работёнка. Но платят - значит, берём.");
+        GeraltContract1.PassiveLogRus.Add("Одна тварь. Одна монета. Честная сделка.");
 
-        GeraltMeditation = new PhraseClass("Медитация");
-        GeraltMeditation.PassiveLogRus.Add("*медитирует у костра*");
-        GeraltMeditation.PassiveLogRus.Add("Мне нужно сосредоточиться...");
-        GeraltMeditation.PassiveLogRus.Add("Место Силы, должно быть...");
+        GeraltContract2 = new PhraseClass("Ведьмачьи заказы");
+        GeraltContract2.PassiveLogRus.Add("Вот зачем ведьмаку два меча!");
+        GeraltContract2.PassiveLogRus.Add("Два контракта - двойная работа. И двойная плата.");
+        GeraltContract2.PassiveLogRus.Add("Серебряный для чудовищ. Стальной для людей. Оба для тебя.");
+        GeraltContract2.PassiveLogRus.Add("Два заказа за раз. Экономлю время.");
+        GeraltContract2.PassiveLogRus.Add("Пара контрактов. Нормальный рабочий день.");
+        GeraltContract2.PassiveLogRus.Add("Может, сыграем в гвинт? Нет? Ладно, тогда дерёмся.");
 
-        GeraltMeditationInterrupted = new PhraseClass("Медитация");
-        GeraltMeditationInterrupted.PassiveLogRus.Add("Никак они, блять, не научатся.");
-        GeraltMeditationInterrupted.PassiveLogRus.Add("Прервали медитацию? Плохая идея.");
-        GeraltMeditationInterrupted.PassiveLogRus.Add("Ну что ж, сами напросились.");
+        GeraltContract3 = new PhraseClass("Ведьмачьи заказы");
+        GeraltContract3.PassiveLogRus.Add("Игни!");
+        GeraltContract3.PassiveLogRus.Add("Три контракта? Это уже гнездо.");
+        GeraltContract3.PassiveLogRus.Add("Ведьмачья работа - грязная, но кто-то должен.");
+        GeraltContract3.PassiveLogRus.Add("Три удара. Три монстра. Всё по плану.");
+        GeraltContract3.PassiveLogRus.Add("Квен! Аард! Игни! Хватит на троих.");
+        GeraltContract3.PassiveLogRus.Add("Ветер воет... Нет, это с Мусорной Горы воняет.");
 
-        GeraltOilActivate = new PhraseClass("Ведьмачое Масло");
-        GeraltOilActivate.PassiveLogRus.Add("*наносит масло на меч*");
-        GeraltOilActivate.PassiveLogRus.Add("Серебряный? Стальной? Оба.");
-        GeraltOilActivate.PassiveLogRus.Add("Подготовка — половина победы.");
+        GeraltContract4 = new PhraseClass("Ведьмачьи заказы");
+        GeraltContract4.PassiveLogRus.Add("Четыре контракта. Каэр Морхен не зря учил.");
+        GeraltContract4.PassiveLogRus.Add("Аард! Квен! Игни! Ирден! Все Знаки в ход!");
+        GeraltContract4.PassiveLogRus.Add("Четыре твари. Мутагены пригодятся.");
+        GeraltContract4.PassiveLogRus.Add("Тренировка Весемира окупается с лихвой.");
+        GeraltContract4.PassiveLogRus.Add("Четыре боя. На Мусорной Горе это называется «вторник».");
 
-        GeraltOilUsed = new PhraseClass("Ведьмачое Масло");
-        GeraltOilUsed.PassiveLogRus.Add("Масло истрачено. Нужна медитация.");
-        GeraltOilUsed.PassiveLogRus.Add("Клинок нужно снова подготовить.");
+        GeraltContract5Plus = new PhraseClass("Ведьмачьи заказы");
+        GeraltContract5Plus.PassiveLogRus.Add("Их столько, что даже Весемир бы удивился.");
+        GeraltContract5Plus.PassiveLogRus.Add("Целая армия монстров. Хорошо, что я мутант.");
+        GeraltContract5Plus.PassiveLogRus.Add("Это уже не контракт, а Дикая Охота.");
+        GeraltContract5Plus.PassiveLogRus.Add("Мясник из Блавикена вернулся.");
+        GeraltContract5Plus.PassiveLogRus.Add("Столько заказов... Эликсиры кончатся раньше, чем монстры.");
+        GeraltContract5Plus.PassiveLogRus.Add("Мусорная Гора кишит тварями. Как в канализации Оксенфурта.");
+        GeraltContract5Plus.PassiveLogRus.Add("Тут монстров больше, чем мусора. А мусора тут дохера.");
 
-        GeraltPlotva = new PhraseClass("Плотва");
+        GeraltContractNest = new PhraseClass("Ведьмачьи заказы");
+        GeraltContractNest.PassiveLogRus.Add("Опять гнездо... Нужна бомба.");
+        GeraltContractNest.PassiveLogRus.Add("Здесь их логово. Неудивительно.");
+        GeraltContractNest.PassiveLogRus.Add("Знакомая тварь. Снова ты.");
+        GeraltContractNest.PassiveLogRus.Add("Этого я уже бил. Ну ничего, повторим.");
+        GeraltContractNest.PassiveLogRus.Add("Хм. Опять эта морда. Живучий.");
+
+        GeraltLambert = new PhraseClass("Медитация");
+        GeraltLambert.PassiveLogRus.Add("Ламберт, Ламберт - хрен моржовый. Ламберт, Ламберт - вредный хуй.");
+        GeraltLambert.PassiveLogRus.Add("Ламберт с Эскелем подменили травы... опять.");
+        GeraltLambert.PassiveLogRus.Add("Это была не Белая Чайка. Это был эль.");
+        GeraltLambert.PassiveLogRus.Add("Эскель ржёт. Ламберт делает вид, что ни при чём.");
+        GeraltLambert.PassiveLogRus.Add("Ламберт, сука, я тебя найду.");
+
+        GeraltNoMoral = new PhraseClass("Медитация");
+        GeraltNoMoral.PassiveLogRus.Add("Мораль сей сказки... никакая.");
+        GeraltNoMoral.PassiveLogRus.Add("Моё дело одно - изгонять заразу.");
+        GeraltNoMoral.PassiveLogRus.Add("Если выбор стоит между большим злом и меньшим злом, то из двух зол я лучше выберу больше... меньше... я запутался. Короче, я всех зарезал - дайте монету.");
+        GeraltNoMoral.PassiveLogRus.Add("*медитирует у костра*");
+        GeraltNoMoral.PassiveLogRus.Add("Место Силы, должно быть...");
+        GeraltNoMoral.PassiveLogRus.Add("Нейтралитет - единственная сторона, которую стоит занять.");
+        GeraltNoMoral.PassiveLogRus.Add("Ведьмаки не вмешиваются. Ведьмаки убивают чудовищ за деньги.");
+        GeraltNoMoral.PassiveLogRus.Add("Люди... хуже любого чудовища.");
+        GeraltNoMoral.PassiveLogRus.Add("Медитирую на Мусорной Горе. Дно пробито - но есть подвал.");
+        GeraltNoMoral.PassiveLogRus.Add("Место Силы... На Мусорной Горе? Серьёзно?");
+        GeraltNoMoral.PassiveLogRus.Add("Костёр, тишина, вонь мусора. Романтика.");
+        GeraltNoMoral.PassiveLogRus.Add("Весемир не учил медитировать на помойке. Приходится импровизировать.");
+        GeraltNoMoral.PassiveLogRus.Add("Закрываю глаза... Нет, запах никуда не делся.");
+        GeraltNoMoral.PassiveLogRus.Add("На Мусорной Горе нет морали. Только мусор. И я.");
+        GeraltNoMoral.PassiveLogRus.Add("Цири бы посмеялась. Геральт из Ривии - Король Мусорной Горы.");
+        GeraltNoMoral.PassiveLogRus.Add("Дзен-мастер. Мусорный дзен.");
+        GeraltNoMoral.PassiveLogRus.Add("Хм. Не самое странное место, где я медитировал. Но в тройке.");
+        GeraltNoMoral.PassiveLogRus.Add("Йеннифэр бы меня убила, если б увидела меня тут.");
+        GeraltNoMoral.PassiveLogRus.Add("Трисс звала в Ковир. Я выбрал Мусорную Гору. Мутации, наверное.");
+
+        GeraltPlotva = new PhraseClass("Шевелись, Плотва");
         GeraltPlotva.PassiveLogRus.Add("Плотва! Давай, девочка!");
         GeraltPlotva.PassiveLogRus.Add("*свист* Плотва несётся галопом.");
         GeraltPlotva.PassiveLogRus.Add("Как Плотва туда забралась?!");
+        GeraltPlotva.PassiveLogRus.Add("Плотва быстрее ветра. Когда хочет.");
+        GeraltPlotva.PassiveLogRus.Add("Хорошая девочка, Плотва. Вперёд!");
+        GeraltPlotva.PassiveLogRus.Add("Догоняй! *Плотва ржёт*");
+        GeraltPlotva.PassiveLogRus.Add("Плотва опять срезала через крышу.");
+        GeraltPlotva.PassiveLogRus.Add("Плотва на вершине Мусорной Горы. Как она?...");
+        GeraltPlotva.PassiveLogRus.Add("Плотва, слезь с мусорного бака!");
+        GeraltPlotva.PassiveLogRus.Add("Плотва обогнала. Опять. Я пешком, она на крыше.");
 
-        GeraltLambertMixup = new PhraseClass("Медитация");
-        GeraltLambertMixup.PassiveLogRus.Add("Ламберт, Ламберт — хрен моржовый.");
-        GeraltLambertMixup.PassiveLogRus.Add("Ламберт с Эскелем подменили травы... опять.");
-        GeraltLambertMixup.PassiveLogRus.Add("Весёлая ночь в Каэр Морхене...");
+        GeraltContractSpawn = new PhraseClass("Ведьмачьи заказы");
+        GeraltContractSpawn.PassiveLogRus.Add("На доске объявлений появился новый заказ...");
+        GeraltContractSpawn.PassiveLogRus.Add("Люди снова просят о помощи. Надо разобраться.");
+        GeraltContractSpawn.PassiveLogRus.Add("Сколько же вас тут развелось?");
+        GeraltContractSpawn.PassiveLogRus.Add("Ещё один контракт... Работа найдётся всегда.");
+        GeraltContractSpawn.PassiveLogRus.Add("Заказ оплачен. Наполовину, как обычно.");
+        GeraltContractSpawn.PassiveLogRus.Add("Староста деревни повесил объявление.");
+        GeraltContractSpawn.PassiveLogRus.Add("Тварь объявилась у дороги. Крестьяне в панике.");
+        GeraltContractSpawn.PassiveLogRus.Add("Кто-то нацарапал на доске: *ХЕЛПУДА*.");
+        GeraltContractSpawn.PassiveLogRus.Add("Новый заказ. Оплата - как договоримся.");
+        GeraltContractSpawn.PassiveLogRus.Add("Путники пропадают. Надо проверить.");
+        GeraltContractSpawn.PassiveLogRus.Add("На Мусорной Горе завелось ещё одно чудище.");
+        GeraltContractSpawn.PassiveLogRus.Add("Мусорка порождает монстров быстрее, чем я убиваю.");
 
-        GeraltBountyStolen = new PhraseClass("Ведьмачий Заказ");
-        GeraltBountyStolen.PassiveLogRus.Add("Награда ушла вместе с жертвой...");
-        GeraltBountyStolen.PassiveLogRus.Add("Мертвецы не платят. И за мертвецов тоже.");
+        GeraltBlock = new PhraseClass("Ведьмачьи заказы");
+        GeraltBlock.PassiveLogRus.Add("Никак они, блять, не научатся.");
+        GeraltBlock.PassiveLogRus.Add("Квен. Всегда Квен.");
+        GeraltBlock.PassiveLogRus.Add("*Знак Квена отразил удар*");
+        GeraltBlock.PassiveLogRus.Add("Хм. Предсказуемо.");
+        GeraltBlock.PassiveLogRus.Add("Это даже для тренировки слабовато.");
 
-        GeraltDetective = new PhraseClass("Детектив");
-        GeraltDetective.PassiveLogRus.Add("Ведьмачье чутьё подсказывает...");
+        GeraltAttackVampire = new PhraseClass("Ведьмачьи заказы");
+        GeraltAttackVampire.PassiveLogRus.Add("Выходи и дерись, сука!");
+        GeraltAttackVampire.PassiveLogRus.Add("Серебро для вампиров. Проверим?");
+        GeraltAttackVampire.PassiveLogRus.Add("Кровопийца... Ненавижу кровопийц.");
+        GeraltAttackVampire.PassiveLogRus.Add("Региса бы я не тронул. Тебя — трону.");
+        GeraltAttackVampire.PassiveLogRus.Add("Чёрная Кровь выпита. Кусай — обожжёшься.");
 
-        GeraltMultiContract = new PhraseClass("Ведьмачий Заказ");
-        GeraltMultiContract.PassiveLogRus.Add("Сколько же вас тут развелось?");
-        GeraltMultiContract.PassiveLogRus.Add("Одним заказом тут не обойтись.");
+        GeraltAttackTheBoys = new PhraseClass("Ведьмачьи заказы");
+        GeraltAttackTheBoys.PassiveLogRus.Add("Меня зовут Мясник из Блавикена.");
+        GeraltAttackTheBoys.PassiveLogRus.Add("Мясник на мясника. Посмотрим, кто кого.");
+        GeraltAttackTheBoys.PassiveLogRus.Add("Бучер, значит? У меня тоже есть прозвище.");
+        GeraltAttackTheBoys.PassiveLogRus.Add("Пацаны? Я видел пацанов пострашнее. В Блавикене.");
+
+        GeraltAttackMonster = new PhraseClass("Ведьмачьи заказы");
+        GeraltAttackMonster.PassiveLogRus.Add("— Что ты делаешь?!\n— Убиваю монстров.");
+        GeraltAttackMonster.PassiveLogRus.Add("Для таких, как ты, меня и создали.");
+        GeraltAttackMonster.PassiveLogRus.Add("Ведьмак охотится на чудовищ. Ничего личного.");
+        GeraltAttackMonster.PassiveLogRus.Add("Монстр есть монстр. Серебро рассудит.");
+
+        GeraltWin = new PhraseClass("Ведьмачьи заказы");
+        GeraltWin.PassiveLogRus.Add("Геральт: От тебя чудесно пахнет.\nЙен: Геральт! Мы на похоронах.\nГеральт: От тебя чудесно пахнет на этих похоронах.");
+        GeraltWin.PassiveLogRus.Add("Ведьмак сделал свою работу.");
+        GeraltWin.PassiveLogRus.Add("Ещё одна голова на седло Плотвы.");
+        GeraltWin.PassiveLogRus.Add("Хм. Ты был слабее, чем я думал.");
+        GeraltWin.PassiveLogRus.Add("*вытирает меч об траву*");
+        GeraltWin.PassiveLogRus.Add("Может, теперь сыграем в гвинт?");
         //end Геральт
 
         //not in the game
@@ -1705,7 +1812,7 @@ public class CharactersUniquePhrase
             if (PassiveLogRus.Count > 1)
                 PassiveLogRus.Remove(description);
 
-            // Always store for web display — convert DataBase path to web URL
+            // Always store for web display - convert DataBase path to web URL
             var webUrl = FilePathToWebUrl(filePath);
             var fileType = DetectFileType(filePath);
             player.WebMediaMessages.Add(new GamePlayerBridgeClass.WebMediaEntry

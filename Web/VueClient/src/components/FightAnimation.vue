@@ -9,7 +9,7 @@ import {
   playDoomsDayRndRoll,
   playDoomsDayScroll,
   playDoomsDayNoFights,
-  playWinSpecial,
+  playWinSpecialsForAll,
 } from 'src/services/sound'
 
 const props = withDefaults(defineProps<{
@@ -602,20 +602,18 @@ watch(currentStep, (step: number) => {
     const allSame = roundResults.value.length > 0 && roundResults.value.every(r => r === roundResults.value[0])
     const isAbsolute = isLastFight && allSame
     playDoomsDayWinLose(roundResults.value, true, isAbsolute, leftWon.value)
-    // Play character-specific victory sound alongside the win sound
-    if (leftWon.value) {
-      playWinSpecial(leftCharName.value)
-    }
   }
 })
 
 // No-fights sound: fights exist but none are mine (play only once per round)
-// Track the fights array length we last reacted to, so we only fire once per new fightLog push
+// Also: play character victory themes for ALL players when fight results arrive
 let lastSeenFightsLength = 0
 watch(() => props.fights.length, (cur) => {
   if (cur === 0) { lastSeenFightsLength = 0; return }
   if (cur === lastSeenFightsLength) return
   lastSeenFightsLength = cur
+  // Play character victory themes for everyone (not just the player in the fight)
+  playWinSpecialsForAll(props.fights)
   if (myFights.value.length === 0) {
     playDoomsDayNoFights()
   }
@@ -960,26 +958,61 @@ const r3WeWon = computed(() => {
   return s > 0 ? attackerWon : !attackerWon
 })
 
-/** All-fights row: attacker always on left, defender on right, highlight winner */
+/** All-fights row: loser on left, winner on right */
 function allFightLeft(f: FightEntry) {
+  if (f.outcome === 'block' || f.outcome === 'skip') {
+    return { name: f.defenderName, avatar: f.defenderAvatar, isWinner: false }
+  }
+  const loserIsAttacker = f.winnerName !== f.attackerName
   return {
-    name: f.attackerName,
-    avatar: f.attackerAvatar,
-    isWinner: f.winnerName === f.attackerName
+    name: loserIsAttacker ? f.attackerName : f.defenderName,
+    avatar: loserIsAttacker ? f.attackerAvatar : f.defenderAvatar,
+    isWinner: false,
   }
 }
 function allFightRight(f: FightEntry) {
+  if (f.outcome === 'block' || f.outcome === 'skip') {
+    return { name: f.attackerName, avatar: f.attackerAvatar, isWinner: false }
+  }
+  const winnerIsAttacker = f.winnerName === f.attackerName
   return {
-    name: f.defenderName,
-    avatar: f.defenderAvatar,
-    isWinner: f.winnerName === f.defenderName
+    name: winnerIsAttacker ? f.attackerName : f.defenderName,
+    avatar: winnerIsAttacker ? f.attackerAvatar : f.defenderAvatar,
+    isWinner: true,
   }
 }
 function allFightCenterLabel(f: FightEntry): string {
   if (f.outcome === 'block') return 'БЛОК'
   if (f.outcome === 'skip') return 'СКИП'
   if (f.drops > 0) return 'DROP'
-  return 'vs'
+  return '→'
+}
+
+const sortedFights = computed(() =>
+  [...props.fights].sort((a, b) => {
+    const aN = a.outcome === 'block' || a.outcome === 'skip'
+    const bN = b.outcome === 'block' || b.outcome === 'skip'
+    if (aN !== bN) return aN ? 1 : -1
+    return (a.winnerName ?? '').localeCompare(b.winnerName ?? '')
+  })
+)
+
+const perfectRoundPlayers = computed(() => {
+  const wins = new Set<string>()
+  const losses = new Set<string>()
+  for (const f of props.fights) {
+    if (f.outcome === 'block' || f.outcome === 'skip' || !f.winnerName) continue
+    wins.add(f.winnerName)
+    losses.add(f.winnerName === f.attackerName ? f.defenderName : f.attackerName)
+  }
+  const perfect = new Set<string>()
+  for (const w of wins) { if (!losses.has(w)) perfect.add(w) }
+  return perfect
+})
+
+function isMyAttack(f: FightEntry): boolean {
+  return f.attackerName === myUsername.value
+    && f.outcome !== 'block' && f.outcome !== 'skip'
 }
 
 // ── Avatar/name masking ─────────────────────────────────────────────
@@ -1054,10 +1087,10 @@ function getDisplayCharName(orig: string, u: string): string {
     <div v-else-if="activeTab === 'all'" class="fa-all-fights">
       <div v-if="!fights.length" class="fa-empty">Бои еще не начались</div>
       <div v-else class="fa-all-list">
-        <div v-for="(f, idx) in fights" :key="idx"
-          class="fa-all-row" :class="{ 'is-mine': isFightMine(f), 'clickable': isFightMine(f) }"
+        <div v-for="(f, idx) in sortedFights" :key="idx"
+          class="fa-all-row" :class="{ 'my-attack': isMyAttack(f), 'clickable': isFightMine(f) }"
           @click="jumpToFightReplay(f)">
-          <!-- Left name -->
+          <!-- Left name (loser / defender for block-skip) -->
           <span class="fa-all-name fa-all-name-left" :class="{ 'name-winner': allFightLeft(f).isWinner, 'name-loser': !allFightLeft(f).isWinner && f.outcome !== 'block' && f.outcome !== 'skip' }" :title="allFightLeft(f).name">
             {{ allFightLeft(f).name }}
           </span>
@@ -1069,15 +1102,15 @@ function getDisplayCharName(orig: string, u: string): string {
             <span class="fa-all-center" :class="{
               'center-neutral': f.outcome === 'block' || f.outcome === 'skip',
               'center-drop': f.drops > 0 && f.outcome !== 'block' && f.outcome !== 'skip',
-              'center-vs': f.outcome !== 'block' && f.outcome !== 'skip' && f.drops === 0
+              'center-arrow': f.outcome !== 'block' && f.outcome !== 'skip' && f.drops === 0
             }">{{ allFightCenterLabel(f) }}</span>
             <img :src="getDisplayAvatar(allFightRight(f).avatar, allFightRight(f).name)"
-              class="fa-all-ava" :class="{ 'ava-winner': allFightRight(f).isWinner }"
+              class="fa-all-ava" :class="{ 'ava-winner': allFightRight(f).isWinner, 'ava-perfect': allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).name) }"
               @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
           </div>
-          <!-- Right name -->
-          <span class="fa-all-name fa-all-name-right" :class="{ 'name-winner': allFightRight(f).isWinner, 'name-loser': !allFightRight(f).isWinner && f.outcome !== 'block' && f.outcome !== 'skip' }" :title="allFightRight(f).name">
-            {{ allFightRight(f).name }}
+          <!-- Right name (winner / attacker for block-skip) -->
+          <span class="fa-all-name fa-all-name-right" :class="{ 'name-winner': allFightRight(f).isWinner, 'name-perfect': allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).name), 'name-loser': !allFightRight(f).isWinner && f.outcome !== 'block' && f.outcome !== 'skip' }" :title="allFightRight(f).name">
+            {{ allFightRight(f).name }}<span v-if="allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).name)" class="perfect-icon">✦</span>
           </span>
           <!-- Portal badge -->
           <span v-if="f.portalGunSwap" class="fa-portal-badge">PORTAL</span>
@@ -1761,7 +1794,7 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-all-fights { flex: 1; overflow-y: auto; }
 .fa-all-list { display: flex; flex-direction: column; gap: 3px; max-width: 480px; margin: 0 auto; }
 .fa-all-row { display: grid; grid-template-columns: 1fr auto 1fr auto; align-items: center; gap: 4px; padding: 5px 8px; border-radius: var(--radius); background: var(--bg-inset); font-size: 12px; border: 1px solid transparent; transition: all 0.15s; }
-.fa-all-row.is-mine { background: rgba(180, 150, 255, 0.05); border-color: rgba(180, 150, 255, 0.15); }
+.fa-all-row.my-attack { border-left: 2px solid var(--accent-gold-dim); }
 .fa-all-row.clickable { cursor: pointer; }
 .fa-all-row.clickable:hover { background: rgba(180, 150, 255, 0.12); border-color: rgba(180, 150, 255, 0.3); }
 .fa-all-play { font-size: 10px; color: var(--text-dim); flex-shrink: 0; opacity: 0.4; transition: opacity 0.15s; }
@@ -1820,9 +1853,12 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-all-name-left { text-align: right; }
 .fa-all-name-right { text-align: left; }
 .fa-all-center { font-size: 10px; font-weight: 800; text-align: center; flex-shrink: 0; padding: 1px 0; border-radius: 3px; white-space: nowrap; width: 42px; display: inline-block; }
-.fa-all-center.center-vs { color: var(--text-dim); }
+.fa-all-center.center-arrow { color: var(--text-dim); opacity: 0.5; }
 .fa-all-center.center-neutral { color: var(--accent-orange); background: rgba(230, 148, 74, 0.1); border: 1px solid rgba(230, 148, 74, 0.2); }
 .fa-all-center.center-drop { color: var(--accent-red); background: rgba(239, 128, 128, 0.1); border: 1px solid rgba(239, 128, 128, 0.2); }
+.fa-all-ava.ava-perfect { border-color: var(--accent-gold); box-shadow: 0 0 6px rgba(233, 219, 61, 0.4); }
+.perfect-icon { color: var(--accent-gold); font-size: 9px; margin-left: 2px; text-shadow: 0 0 4px rgba(233, 219, 61, 0.5); }
+.fa-all-name.name-perfect { color: var(--accent-gold); }
 
 /* ── Летопись ── */
 .fa-letopis { flex: 1; overflow-y: auto; padding: 4px; background: var(--bg-inset); border-radius: var(--radius); border: 1px solid var(--border-subtle); }

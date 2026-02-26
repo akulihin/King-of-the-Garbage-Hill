@@ -23,7 +23,7 @@ interface VolumeConfig {
 }
 
 const DEFAULT_VOLUME_CONFIG: VolumeConfig = {
-  masterVolume: 0.8,
+  masterVolume: 0.25,
   groups: {
     buttons: 0.7, mainMenu: 0.7, utility: 0.6,
     attack: 0.9, levelUp: 0.8, moralExchange: 0.8,
@@ -596,6 +596,27 @@ const WIN_SPECIAL_VARIANTS: Record<string, number> = {
   lecrisp: 3,
 }
 
+/** Groups to duck while a win theme is playing */
+const FIGHT_GROUPS_TO_DUCK: VolumeGroup[] = ['doomsDay', 'doomsDayWinLose', 'doomsDayScrolls']
+const DUCK_GAIN = 0.08
+let winThemeActive = false
+let winThemeRestoreTimer: ReturnType<typeof setTimeout> | null = null
+
+/** Duck fight sound groups while win theme plays */
+function duckFightGroups(durationMs: number): void {
+  winThemeActive = true
+  for (const g of FIGHT_GROUPS_TO_DUCK) {
+    const node = groupGains.get(g)
+    if (node) node.gain.value = DUCK_GAIN
+  }
+  if (winThemeRestoreTimer) clearTimeout(winThemeRestoreTimer)
+  winThemeRestoreTimer = setTimeout(() => {
+    winThemeActive = false
+    applyGroupGains()
+    winThemeRestoreTimer = null
+  }, durationMs)
+}
+
 /** Play character-specific victory sound alongside the normal win sound */
 export function playWinSpecial(characterName: string): void {
   const key = characterName.toLowerCase().replace(/\s+/g, '')
@@ -603,6 +624,32 @@ export function playWinSpecial(characterName: string): void {
   if (!variants) return
   const idx = Math.floor(Math.random() * variants) + 1
   void playClip(`dooms_day/win_special/win_special_${key}_${idx}.mp3`, { group: 'winSpecial' })
+  // Duck fight sounds for the duration of the theme (~5s is a safe estimate)
+  duckFightGroups(5000)
+}
+
+/** Check if any character in the fight log has a win special and return their names */
+export function getWinSpecialCharacters(fights: readonly { outcome: string; winnerName: string | null; attackerName: string; attackerCharName: string; defenderName: string; defenderCharName: string }[]): string[] {
+  const chars: string[] = []
+  const seen = new Set<string>()
+  for (const f of fights) {
+    if (f.outcome === 'block' || f.outcome === 'skip' || !f.winnerName) continue
+    const charName = f.winnerName === f.attackerName ? f.attackerCharName : f.defenderCharName
+    const key = charName.toLowerCase().replace(/\s+/g, '')
+    if (WIN_SPECIAL_VARIANTS[key] && !seen.has(key)) {
+      seen.add(key)
+      chars.push(charName)
+    }
+  }
+  return chars
+}
+
+/** Play win specials for ALL winners in the fight log (called once when results arrive) */
+export function playWinSpecialsForAll(fights: readonly { outcome: string; winnerName: string | null; attackerName: string; attackerCharName: string; defenderName: string; defenderCharName: string }[]): void {
+  const chars = getWinSpecialCharacters(fights)
+  for (const c of chars) {
+    playWinSpecial(c)
+  }
 }
 
 // ── Character passive sounds ──────────────────────────────────────────

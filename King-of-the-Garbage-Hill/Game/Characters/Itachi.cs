@@ -9,6 +9,8 @@ public class Itachi
     {
         // Per-enemy crow count: playerId -> number of crows
         public Dictionary<Guid, int> CrowCounts { get; set; } = new();
+        // Set after level-up; next attack throws a crow
+        public bool CrowReadyToThrow { get; set; } = false;
     }
 
     public class IzanagiClass

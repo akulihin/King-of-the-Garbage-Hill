@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
@@ -623,8 +624,6 @@ public sealed class GameReaction : IServiceSingleton
     {
         var status = player.Status;
 
-        var emoteNum = !player.IsBot() && !player.Status.IsAutoMove ? Convert.ToInt32(string.Join("", button.Data.Values)) : botChoice;
-
         if (botChoice == -10)
         {
             var blockText = "Вы поставили блок\n";
@@ -635,12 +634,18 @@ public sealed class GameReaction : IServiceSingleton
             return true;
         }
 
-
-
-
-
             var game = _global.GamesList.Find(x => x.GameId == player.GameId);
-            var whoToAttack = game!.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == emoteNum);
+
+            GamePlayerBridgeClass whoToAttack;
+            if (!player.IsBot() && !player.Status.IsAutoMove)
+            {
+                var selectedId = Guid.Parse(string.Join("", button.Data.Values));
+                whoToAttack = game!.PlayersList.Find(x => x.GetPlayerId() == selectedId);
+            }
+            else
+            {
+                whoToAttack = game!.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == botChoice);
+            }
 
             if (whoToAttack == null) 
                 return false;
@@ -651,9 +656,10 @@ public sealed class GameReaction : IServiceSingleton
             //Клинки хаоса
             if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Клинки хаоса") && game.RoundNo <= 10)
             {
-                var whoToAttack2 = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == emoteNum-1);
-                var whoToAttack3 = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == emoteNum + 1);
-                
+                var targetPlace = whoToAttack.Status.GetPlaceAtLeaderBoard();
+                var whoToAttack2 = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == targetPlace - 1);
+                var whoToAttack3 = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == targetPlace + 1);
+
                 if (whoToAttack2 != null && whoToAttack2.GetPlayerId() != player.GetPlayerId())
                     status.WhoToAttackThisTurn.Add(whoToAttack2.GetPlayerId());
                 if (whoToAttack3 != null && whoToAttack3.GetPlayerId() != player.GetPlayerId())
@@ -684,7 +690,7 @@ public sealed class GameReaction : IServiceSingleton
             // end Weedwick
 
 
-            if (game.PlayersList.Any(x => x.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят") && x.Status.GetPlaceAtLeaderBoard() == emoteNum) && game.RoundNo == 10)
+            if (whoToAttack.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят") && game.RoundNo == 10)
             {
                 status.WhoToAttackThisTurn = new List<Guid>();
                 await _help.SendMsgAndDeleteItAfterRound(player, "Выбранный игрок недоступен в связи с баном за нарушение правил", 0);
@@ -797,41 +803,48 @@ public sealed class GameReaction : IServiceSingleton
         }
         //end Стая Гоблинов
 
-        // Геральт — oil + stat on level-up
+        // Геральт — oil tier upgrade on level-up
         if (player.GameCharacter.Name == "Геральт")
         {
-            var geraltContracts = player.Passives.GeraltContracts;
-            var oilName = skillNumber switch
-            {
-                1 => "Бес",
-                2 => "Вампур",
-                3 => "Лютоволк",
-                4 => "Дракон",
-                _ => "Бес"
-            };
-            geraltContracts.OilInventory.Add(oilName);
-            player.Status.AddInGamePersonalLogs($"Ведьмачое Масло: получено масло \"{oilName}\"\n");
-
-            // Also give +1 to the corresponding stat (normal level-up)
+            var oil = player.Passives.GeraltOil;
+            Geralt.MonsterType monsterType;
+            string typeName;
+            int currentTier;
             switch (skillNumber)
             {
                 case 1:
-                    player.GameCharacter.AddIntelligence(1, "Прокачка", false);
-                    player.Status.AddInGamePersonalLogs($"Вы улучшили Интеллект до {player.GameCharacter.GetIntelligence()}\n");
+                    monsterType = Geralt.MonsterType.Утопцы;
+                    if (oil.DrownersOilTier >= 3) { player.Status.AddInGamePersonalLogs("Масло против Утопцев уже максимального уровня!\n"); return; }
+                    oil.DrownersOilTier++;
+                    currentTier = oil.DrownersOilTier;
+                    typeName = Geralt.GetMonsterTypeName(monsterType);
                     break;
                 case 2:
-                    player.GameCharacter.AddStrength(1, "Прокачка", false);
-                    player.Status.AddInGamePersonalLogs($"Вы улучшили Силу до {player.GameCharacter.GetStrength()}\n");
+                    monsterType = Geralt.MonsterType.Волколаки;
+                    if (oil.WerewolvesOilTier >= 3) { player.Status.AddInGamePersonalLogs("Масло против Волколаков уже максимального уровня!\n"); return; }
+                    oil.WerewolvesOilTier++;
+                    currentTier = oil.WerewolvesOilTier;
+                    typeName = Geralt.GetMonsterTypeName(monsterType);
                     break;
                 case 3:
-                    player.GameCharacter.AddSpeed(1, "Прокачка", false);
-                    player.Status.AddInGamePersonalLogs($"Вы улучшили Скорость до {player.GameCharacter.GetSpeed()}\n");
+                    monsterType = Geralt.MonsterType.Вампиры;
+                    if (oil.VampiresOilTier >= 3) { player.Status.AddInGamePersonalLogs("Масло против Вампиров уже максимального уровня!\n"); return; }
+                    oil.VampiresOilTier++;
+                    currentTier = oil.VampiresOilTier;
+                    typeName = Geralt.GetMonsterTypeName(monsterType);
                     break;
                 case 4:
-                    player.GameCharacter.AddPsyche(1, "Прокачка", false);
-                    player.Status.AddInGamePersonalLogs($"Вы улучшили Психику до {player.GameCharacter.GetPsyche()}\n");
+                    monsterType = Geralt.MonsterType.Драконы;
+                    if (oil.DragonsOilTier >= 3) { player.Status.AddInGamePersonalLogs("Масло против Драконов уже максимального уровня!\n"); return; }
+                    oil.DragonsOilTier++;
+                    currentTier = oil.DragonsOilTier;
+                    typeName = Geralt.GetMonsterTypeName(monsterType);
                     break;
+                default:
+                    return;
             }
+            var tierName = Geralt.OilClass.GetTierName(currentTier);
+            player.Status.AddInGamePersonalLogs($"{tierName} против {typeName}!\n");
             player.Status.LvlUpPoints--;
             return;
         }
@@ -1021,6 +1034,10 @@ public sealed class GameReaction : IServiceSingleton
         }
 
         player.Status.LvlUpPoints--;
+
+        // Итачи — next attack throws a crow after level-up
+        if (player.GameCharacter.Name == "Итачи")
+            player.Passives.ItachiCrows.CrowReadyToThrow = true;
 
         // Giant Beans — track base intelligence on INT upgrade
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Гигантские бобы") && skillNumber == 1)

@@ -152,6 +152,8 @@ public class WebGameService
         text = Regex.Replace(text, @"__(.+?)__", "<u>$1</u>");
         text = Regex.Replace(text, @"\*(.+?)\*", "<em>$1</em>");
         text = Regex.Replace(text, @"~~(.+?)~~", "<del>$1</del>");
+        // Custom color tags: {color:#hex}text{/color} → <span style="color:#hex">text</span>
+        text = Regex.Replace(text, @"\{color:(#[0-9A-Fa-f]{3,8})\}(.+?)\{/color\}", "<span style=\"color:$1\">$2</span>");
         text = text.Replace("\n", "<br/>");
 
         return text.Trim();
@@ -165,6 +167,13 @@ public class WebGameService
         GamePlayerBridgeClass viewingPlayer, GameUpdateMess gameUpdateMess)
     {
         if (viewingPlayer == null || gameUpdateMess == null) return;
+
+        // Pre-compute harm range data for the viewing player
+        var showHarmRange = game.RoundNo > 1
+            && !viewingPlayer.GameCharacter.Passive.Any(x => x.PassiveName == "Минька");
+        var myRange = viewingPlayer.GameCharacter.GetSpeedQualityResistInt();
+        var myPlace = viewingPlayer.Status.GetPlaceAtLeaderBoard();
+
         foreach (var playerDto in dto.Players)
         {
             var otherPlayer = game.PlayersList.Find(p => p.GetPlayerId() == playerDto.PlayerId);
@@ -175,6 +184,14 @@ public class WebGameService
 
                 var rawBefore = gameUpdateMess.CustomLeaderBoardBeforeNumber(viewingPlayer, otherPlayer, game, playerDto.Status.Place);
                 playerDto.CustomLeaderboardPrefix = ConvertDiscordToWeb(rawBefore);
+
+                // Harm range indicator
+                if (showHarmRange && otherPlayer.GetPlayerId() != viewingPlayer.GetPlayerId())
+                {
+                    var effectiveRange = myRange - otherPlayer.GameCharacter.GetSpeedQualityKiteBonus();
+                    var placeDiff = Math.Abs(myPlace - otherPlayer.Status.GetPlaceAtLeaderBoard());
+                    playerDto.IsInMyHarmRange = placeDiff <= effectiveRange;
+                }
             }
         }
     }

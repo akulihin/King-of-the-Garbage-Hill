@@ -227,39 +227,15 @@ public class DoomsdayMachine : IServiceSingleton
         //FightCharacter writes cans happens only "for one fight" not for the whole round!
         DeepCopyGameCharacterToFightCharacter(game);
 
-        // Геральт — Медитация: if blocking/skipping, check for attackers and counter-attack
+        // Геральт — Медитация: skip works as block
         foreach (var player in game.PlayersList.Where(x =>
             x.GameCharacter.Passive.Any(y => y.PassiveName == "Медитация") &&
             x.GameCharacter.Name == "Геральт" &&
-            (x.Status.IsBlock || x.Status.IsSkip)).ToList())
+            x.Status.IsSkip).ToList())
         {
-            var geraltMedContracts = player.Passives.GeraltContracts;
-            geraltMedContracts.IsMeditating = true;
-
-            // Find all players whose WhoToAttackThisTurn contains Geralt
-            var attackers = game.PlayersList.Where(x =>
-                x.GetPlayerId() != player.GetPlayerId() &&
-                x.Status.WhoToAttackThisTurn.Contains(player.GetPlayerId())).ToList();
-
-            if (attackers.Count > 0)
-            {
-                geraltMedContracts.WasAttackedDuringMeditation = true;
-                // Remove Geralt from each attacker's targets
-                foreach (var attacker in attackers)
-                {
-                    attacker.Status.WhoToAttackThisTurn.RemoveAll(x => x == player.GetPlayerId());
-                    // Add attacker to Geralt's targets
-                    player.Status.WhoToAttackThisTurn.Add(attacker.GetPlayerId());
-                }
-                player.Status.IsBlock = false;
-                player.Status.IsSkip = false;
-                game.Phrases.GeraltMeditationInterrupted.SendLog(player, false);
-            }
-            // If no attackers: leave IsBlock/IsSkip, oil activates in HandleEndOfRound
+            player.Status.IsSkip = false;
+            player.Status.IsBlock = true;
         }
-
-
-
 
 
 
@@ -305,30 +281,32 @@ public class DoomsdayMachine : IServiceSingleton
             }
         }
 
-        // Геральт — Ведьмачий Заказ: duplicate targets for multi-fight
+        // Геральт — Ведьмачьи заказы: inject extra fights based on contract count
         foreach (var player in game.PlayersList.Where(x =>
-            x.GameCharacter.Passive.Any(y => y.PassiveName == "Ведьмачий Заказ") &&
+            x.GameCharacter.Passive.Any(y => y.PassiveName == "Ведьмачьи заказы") &&
             x.GameCharacter.Name == "Геральт" &&
+            !x.Status.IsBlock && !x.Status.IsSkip &&
             x.Status.WhoToAttackThisTurn.Count > 0).ToList())
         {
-            var geraltMfContracts = player.Passives.GeraltContracts;
-            var targets = player.Status.WhoToAttackThisTurn.Distinct().ToList();
-            foreach (var targetId in targets)
-            {
-                if (geraltMfContracts.ContractMap.TryGetValue(targetId, out var contracts) && contracts.Count >= 2)
-                {
-                    for (var i = 1; i < contracts.Count; i++)
-                        player.Status.WhoToAttackThisTurn.Add(targetId);
-                }
-            }
+            var geraltContracts = player.Passives.GeraltContracts;
+            var targetId = player.Status.WhoToAttackThisTurn[0];
+            var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
+            if (target == null) continue;
 
-            // Build fight queue per target (one entry per contract type for oil matching)
-            geraltMfContracts.CurrentRoundFightQueue.Clear();
-            foreach (var targetId in player.Status.WhoToAttackThisTurn.Distinct())
-            {
-                if (geraltMfContracts.ContractMap.TryGetValue(targetId, out var contractTypes))
-                    geraltMfContracts.CurrentRoundFightQueue[targetId] = new Queue<string>(contractTypes);
-            }
+            var monsterType = target.Passives.GeraltMonsterType;
+            if (monsterType == null) continue;
+
+            var count = geraltContracts.GetCount(monsterType.Value);
+            // Inject N-1 extra fights (original already in list)
+            for (int i = 1; i < count; i++)
+                player.Status.WhoToAttackThisTurn.Add(targetId);
+
+            // Store count for phrase handling, reset contracts of this type
+            geraltContracts.ContractsFoughtThisRound = count;
+            geraltContracts.SetCount(monsterType.Value, 0);
+            // Track procs per enemy
+            geraltContracts.ContractProcsOnEnemy.TryAdd(targetId, 0);
+            geraltContracts.ContractProcsOnEnemy[targetId] += count;
         }
 
         foreach (var player in game.PlayersList)

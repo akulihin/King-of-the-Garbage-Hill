@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using King_of_the_Garbage_Hill.API.DTOs;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 
 namespace King_of_the_Garbage_Hill.API.Services;
@@ -652,25 +653,33 @@ public static class GameStateMapper
                         anySet = true;
                         break;
 
-                    case "Ведьмачий Заказ":
+                    case "Ведьмачьи заказы":
                         if (player.GameCharacter.Name == "Геральт")
                         {
                             var geraltContracts = player.Passives.GeraltContracts;
+                            var geraltOil = player.Passives.GeraltOil;
+                            var geraltMed = player.Passives.GeraltMeditation;
                             pas.Geralt = new GeraltStateDto
                             {
-                                Contracts = geraltContracts.ContractMap.Select(kvp =>
-                                {
-                                    var targetPlayer = game.PlayersList.Find(x => x.GetPlayerId() == kvp.Key);
-                                    return new GeraltContractEntryDto
+                                DrownersContracts = geraltContracts.Drowners,
+                                WerewolvesContracts = geraltContracts.Werewolves,
+                                VampiresContracts = geraltContracts.Vampires,
+                                DragonsContracts = geraltContracts.Dragons,
+                                DrownersOilTier = geraltOil.DrownersOilTier,
+                                WerewolvesOilTier = geraltOil.WerewolvesOilTier,
+                                VampiresOilTier = geraltOil.VampiresOilTier,
+                                DragonsOilTier = geraltOil.DragonsOilTier,
+                                IsOilApplied = geraltOil.IsOilApplied,
+                                RevealedCount = geraltMed.RevealedEnemies.Count,
+                                LambertUsed = geraltMed.LambertUsed,
+                                LambertActive = geraltMed.LambertActive,
+                                EnemyMonsterTypes = geraltContracts.EnemyTypes
+                                    .Select(kvp =>
                                     {
-                                        TargetName = targetPlayer?.DiscordUsername ?? "???",
-                                        MonsterTypes = kvp.Value.ToList(),
-                                    };
-                                }).ToList(),
-                                OilInventory = geraltContracts.OilInventory.ToList(),
-                                OilsActivated = geraltContracts.OilsActivated,
-                                IsMeditating = geraltContracts.IsMeditating,
-                                TotalContracts = geraltContracts.ContractMap.Values.Sum(x => x.Count),
+                                        var tp = game.PlayersList.Find(x => x.GetPlayerId() == kvp.Key);
+                                        return new { Name = tp?.DiscordUsername ?? "???", Type = kvp.Value.ToString() };
+                                    })
+                                    .ToDictionary(x => x.Name, x => x.Type),
                             };
                             anySet = true;
                         }
@@ -734,14 +743,17 @@ public static class GameStateMapper
                 anySet = true;
             }
 
-            // Show Geralt contract widget to affected player
-            if (player.Passives.GeraltContractsOnMe.Count > 0)
+            // Show Geralt monster type widget to affected player
+            if (player.Passives.GeraltMonsterType != null)
             {
-                var geraltOwner = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.GeraltContractOwnerId);
-                pas.GeraltContractOnMe = new GeraltContractOnMeDto
+                var geraltPlayer = game.PlayersList.Find(x => x.GameCharacter.Name == "Геральт");
+                var mType = player.Passives.GeraltMonsterType.Value;
+                pas.GeraltMonsterOnMe = new GeraltMonsterOnMeDto
                 {
-                    ContractTypes = player.Passives.GeraltContractsOnMe.ToList(),
-                    GeraltName = geraltOwner?.DiscordUsername ?? "",
+                    MonsterType = mType.ToString(),
+                    MonsterColor = Geralt.GetMonsterColor(mType),
+                    MonsterEmoji = Geralt.GetMonsterEmoji(mType),
+                    ContractsOnType = geraltPlayer?.Passives.GeraltContracts.GetCount(mType) ?? 0,
                 };
                 anySet = true;
             }

@@ -247,11 +247,11 @@ public class PassivesClass
 
     // Геральт — owner-only
     public Geralt.ContractsClass GeraltContracts { get; set; } = new();
-    public Geralt.DetectiveClass GeraltDetective { get; set; } = new();
+    public Geralt.OilClass GeraltOil { get; set; } = new();
+    public Geralt.MeditationClass GeraltMeditation { get; set; } = new();
 
-    // Геральт — per-player: any player can have contracts on them
-    public List<string> GeraltContractsOnMe { get; set; } = new();
-    public Guid GeraltContractOwnerId { get; set; } = Guid.Empty;
+    // Геральт — per-player: any player gets assigned a monster type
+    public Geralt.MonsterType? GeraltMonsterType { get; set; } = null;
 
     // Монстр без имени — per-player: any player can be a Johan pawn
     public bool IsJohanPawn { get; set; } = false;

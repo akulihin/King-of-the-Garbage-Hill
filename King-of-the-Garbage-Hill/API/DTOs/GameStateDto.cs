@@ -127,6 +127,9 @@ public class PlayerDto
     /// <summary>Custom leaderboard annotations after the player name, visible to the requesting player
     /// (e.g. weed counts, hunt targets, win streaks from passives). Web-friendly HTML.</summary>
     public string CustomLeaderboardText { get; set; }
+
+    /// <summary>Whether this opponent is within the viewing player's harm (Вред) range.</summary>
+    public bool IsInMyHarmRange { get; set; }
 }
 
 public class CharacterDto
@@ -547,8 +550,8 @@ public class PassiveAbilityStatesDto
     public TheBoysStateDto TheBoys { get; set; }
     public SalldorumStateDto Salldorum { get; set; }
     public GeraltStateDto Geralt { get; set; }
-    /// <summary>Shown on any player who has Geralt contracts on them.</summary>
-    public GeraltContractOnMeDto GeraltContractOnMe { get; set; }
+    /// <summary>Shown on any player who has Geralt monster type assigned.</summary>
+    public GeraltMonsterOnMeDto GeraltMonsterOnMe { get; set; }
 }
 
 public class BulkStateDto
@@ -887,23 +890,34 @@ public class AuthResponse
 
 public class GeraltStateDto
 {
-    public List<GeraltContractEntryDto> Contracts { get; set; } = new();
-    public List<string> OilInventory { get; set; } = new();
-    public bool OilsActivated { get; set; }
-    public bool IsMeditating { get; set; }
-    public int TotalContracts { get; set; }
+    // Contracts
+    public int DrownersContracts { get; set; }
+    public int WerewolvesContracts { get; set; }
+    public int VampiresContracts { get; set; }
+    public int DragonsContracts { get; set; }
+
+    // Oil tiers (0-3)
+    public int DrownersOilTier { get; set; }
+    public int WerewolvesOilTier { get; set; }
+    public int VampiresOilTier { get; set; }
+    public int DragonsOilTier { get; set; }
+    public bool IsOilApplied { get; set; }
+
+    // Meditation
+    public int RevealedCount { get; set; }
+    public bool LambertUsed { get; set; }
+    public bool LambertActive { get; set; }
+
+    // Enemy type assignments (enemyName → type)
+    public Dictionary<string, string> EnemyMonsterTypes { get; set; } = new();
 }
 
-public class GeraltContractEntryDto
+public class GeraltMonsterOnMeDto
 {
-    public string TargetName { get; set; }
-    public List<string> MonsterTypes { get; set; } = new();
-}
-
-public class GeraltContractOnMeDto
-{
-    public List<string> ContractTypes { get; set; } = new();
-    public string GeraltName { get; set; }
+    public string MonsterType { get; set; }
+    public string MonsterColor { get; set; }
+    public string MonsterEmoji { get; set; }
+    public int ContractsOnType { get; set; }
 }
 
 // ── Quest & Loot Box DTOs ────────────────────────────────────────────

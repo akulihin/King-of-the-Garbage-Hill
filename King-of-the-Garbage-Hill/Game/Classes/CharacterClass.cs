@@ -1116,8 +1116,8 @@ public class CharacterClass
             return;
         }
 
-        //Геральт Мораль — blocks ALL moral (positive and negative)
-        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Геральт Мораль"))
+        //Геральт — blocks ALL moral (Ведьмак не подвержен эмоциям)
+        if (Status.GameCharacter.Name == "Геральт")
             return;
 
         //BlockMoralGain (Toxic Mate cancer)

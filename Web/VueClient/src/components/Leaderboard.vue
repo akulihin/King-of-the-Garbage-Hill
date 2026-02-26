@@ -261,6 +261,26 @@ watch(() => props.fightLog, (newLog) => {
     dropClearTimers.push(t)
   }
 }, { deep: true })
+
+// ── Tooltip system (matches PlayerCard pattern) ──────────────────────
+const tipText = ref('')
+const tipVisible = ref(false)
+const tipPos = ref({ x: 0, y: 0 })
+let tipTimer: ReturnType<typeof setTimeout> | null = null
+
+function showTip(e: MouseEvent, text: string) {
+  if (tipTimer) clearTimeout(tipTimer)
+  tipText.value = text
+  tipPos.value = { x: e.clientX, y: e.clientY }
+  tipTimer = setTimeout(() => { tipVisible.value = true }, 120)
+}
+function moveTip(e: MouseEvent) {
+  tipPos.value = { x: e.clientX, y: e.clientY }
+}
+function hideTip() {
+  if (tipTimer) clearTimeout(tipTimer)
+  tipVisible.value = false
+}
 </script>
 
 <template>
@@ -277,6 +297,7 @@ watch(() => props.fightLog, (newLog) => {
           'can-click': canAttack && player.playerId !== myPlayerId && !isProtected(player),
           'is-protected': isProtected(player),
           'dropped': isDropped(player),
+          'in-harm-range': player.isInMyHarmRange,
         }"
         @click="handleAttack(player)"
       >
@@ -286,7 +307,13 @@ watch(() => props.fightLog, (newLog) => {
             v-if="player.customLeaderboardPrefix"
             class="lb-prefix"
             v-html="player.customLeaderboardPrefix"
-          />{{ player.status.place }}
+          />{{ player.status.place }}<span
+            v-if="player.isInMyHarmRange"
+            class="harm-range-dot"
+            @mouseenter="showTip($event, 'In harm range')"
+            @mousemove="moveTip"
+            @mouseleave="hideTip"
+          />
         </div>
 
         <!-- Avatar -->
@@ -460,6 +487,13 @@ watch(() => props.fightLog, (newLog) => {
         </div>
       </div>
     </Teleport>
+
+    <!-- Tooltip — Teleported to body (reuses pc-tooltip from PlayerCard) -->
+    <Teleport to="body">
+      <div v-if="tipVisible" class="pc-tooltip" :style="{ left: tipPos.x + 'px', top: tipPos.y + 'px' }">
+        {{ tipText }}
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -501,6 +535,21 @@ watch(() => props.fightLog, (newLog) => {
   border-color: var(--accent-gold-dim);
   background: rgba(233, 219, 61, 0.04);
   cursor: default;
+}
+
+.lb-row.in-harm-range {
+  border-left: 2px solid var(--accent-red-dim);
+}
+
+.harm-range-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-red);
+  margin-left: 2px;
+  vertical-align: middle;
+  box-shadow: 0 0 4px rgba(239, 128, 128, 0.5);
 }
 
 .lb-row.is-bot { opacity: 0.7; }

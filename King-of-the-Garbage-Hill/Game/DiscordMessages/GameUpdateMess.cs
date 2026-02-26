@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Helpers;
@@ -235,9 +236,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (player2.GameCharacter.Name == "Salldorum" && player2.Passives.SalldorumShen.ActiveThisTurn)
             customString += "🛡️";
 
-        // Геральт contract icon on players with contracts
-        if (player2.Passives.GeraltContractsOnMe.Count > 0)
-            customString += "⚔️";
+        // Геральт — monster type icon
+        //if (player2.Passives.GeraltMonsterType != null)
+        //    customString += Geralt.GetMonsterEmoji(player2.Passives.GeraltMonsterType.Value);
 
         return customString + " ";
     }
@@ -734,20 +735,23 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     //customString += $"\nDoomsday: {step1.PointsWon} | {r2} | {r3}~";
                     break;
 
-                case "Ведьмачий Заказ":
+                case "Ведьмачьи заказы":
                     if (me.GameCharacter.Name == "Геральт")
                     {
                         var geraltLbContracts = me.Passives.GeraltContracts;
-                        if (other.GetPlayerId() != me.GetPlayerId() &&
-                            geraltLbContracts.ContractMap.ContainsKey(other.GetPlayerId()) &&
-                            geraltLbContracts.ContractMap[other.GetPlayerId()].Count > 0)
+                        if (other.GetPlayerId() != me.GetPlayerId() && other.Passives.GeraltMonsterType != null)
                         {
-                            customString += $" ⚔️[{string.Join(",", geraltLbContracts.ContractMap[other.GetPlayerId()])}]";
+                            var mType = other.Passives.GeraltMonsterType.Value;
+                            var typeName = Geralt.GetMonsterTypeName(mType);
+                            var color = Geralt.GetMonsterColor(mType);
+                            var count = geraltLbContracts.GetCount(mType);
+                            customString += $" {{color:{color}}}{typeName} x{count}{{/color}}";
                         }
                         if (other.GetPlayerId() == me.GetPlayerId())
                         {
-                            var totalContracts = geraltLbContracts.ContractMap.Values.Sum(x => x.Count);
-                            customString += $" ⚔️Контракты: {totalContracts}";
+                            var totalContracts = geraltLbContracts.Drowners + geraltLbContracts.Werewolves
+                                + geraltLbContracts.Vampires + geraltLbContracts.Dragons;
+                            //customString += $" ⚔️Контракты: {totalContracts}";
                         }
                     }
                     break;
@@ -1353,7 +1357,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             var playerToAttack = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == i + 1);
             if (playerToAttack == null) continue;
             if (playerToAttack.DiscordId != player.DiscordId && !playerToAttack.Passives.IsDead)
-                attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, $"{i + 1}", emote: _playerChoiceAttackList[i]);
+                attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, playerToAttack.GetPlayerId().ToString(), emote: _playerChoiceAttackList[i]);
         }
 
         if (attackMenu.Options.Count == 0) attackMenu.AddOption("ТЫ ВСЕХ УБИЛ", "kratos-death");
@@ -1409,7 +1413,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             var playerToAttack = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == i + 1);
             if (playerToAttack == null) continue;
             if (playerToAttack.DiscordId != player.DiscordId)
-                attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, $"{i + 1}",
+                attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, playerToAttack.GetPlayerId().ToString(),
                     emote: _playerChoiceAttackList[i]);
         }
 

@@ -1201,12 +1201,13 @@ public class BotsBehavior : IServiceSingleton
                         break;
 
                     case "Геральт":
-                        // Prioritize enemies with contracts
+                        // Prioritize enemies with most stacked contracts of their type
                         var geraltBotContracts = bot.Passives.GeraltContracts;
-                        if (geraltBotContracts.ContractMap.ContainsKey(target.Player.GetPlayerId()))
+                        var targetMonster = target.Player.Passives.GeraltMonsterType;
+                        if (targetMonster != null)
                         {
-                            var contractCount = geraltBotContracts.ContractMap[target.Player.GetPlayerId()].Count;
-                            target.AttackPreference += 10 + contractCount * 5;
+                            var contractCount = geraltBotContracts.GetCount(targetMonster.Value);
+                            target.AttackPreference += contractCount * 5;
                         }
                         break;
                 }
@@ -1818,9 +1819,11 @@ public class BotsBehavior : IServiceSingleton
                     break;
 
                 case "Геральт":
-                    // Meditate when oil needs activation (has oil in inventory and needs reactivation or no active oil)
-                    var geraltBotCon = bot.Passives.GeraltContracts;
-                    if (geraltBotCon.OilInventory.Count > 0 && !geraltBotCon.OilsActivated)
+                    // Meditate periodically (every 2-3 rounds) to apply oil and gain senses
+                    var geraltBotOil = bot.Passives.GeraltOil;
+                    if (!geraltBotOil.IsOilApplied && game.RoundNo > 1)
+                        isBlock = yesBlock;
+                    else if (game.RoundNo % 3 == 0)
                         isBlock = yesBlock;
                     break;
             }
@@ -1993,9 +1996,8 @@ public class BotsBehavior : IServiceSingleton
             // Rick Sanchez — prioritize INT for portal gun invention (30+ INT needed)
             if (player.GameCharacter.Name == "Рик Санчез") skillNumber = 1;
 
-            // Itachi — prioritize Intelligence, then Psyche
-            if (player.GameCharacter.Name == "Итачи" && intelligence < 10) skillNumber = 1;
-            if (player.GameCharacter.Name == "Итачи" && intelligence >= 10 && psyche < 10) skillNumber = 4;
+            // Itachi — always speed
+            if (player.GameCharacter.Name == "Итачи") skillNumber = 3;
 
             // Продавец — with 10x multiplier: prioritize INT for skill, then PSY, STR, SPD
             if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Закуп"))
@@ -2021,11 +2023,19 @@ public class BotsBehavior : IServiceSingleton
             // Napoleon — PSY-focused build
             if (player.GameCharacter.Name == "Napoleon Wonnafcuk" && psyche < 10) skillNumber = 4;
 
-            // Геральт — prefer Speed (for Плотва), then Strength
+            // Геральт — upgrade oil for least upgraded type that has enemies
             if (player.GameCharacter.Name == "Геральт")
             {
-                if (speed < 10) skillNumber = 3;
-                else if (strength < 10) skillNumber = 2;
+                var geraltBotOilLvl = player.Passives.GeraltOil;
+                var oilTiers = new[]
+                {
+                    (type: 1, tier: geraltBotOilLvl.DrownersOilTier),
+                    (type: 2, tier: geraltBotOilLvl.WerewolvesOilTier),
+                    (type: 3, tier: geraltBotOilLvl.VampiresOilTier),
+                    (type: 4, tier: geraltBotOilLvl.DragonsOilTier),
+                };
+                var best = oilTiers.Where(x => x.tier < 3).OrderBy(x => x.tier).FirstOrDefault();
+                if (best != default) skillNumber = best.type;
                 else skillNumber = 1;
             }
 

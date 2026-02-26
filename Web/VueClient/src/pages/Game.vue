@@ -223,8 +223,8 @@ function toggleMute() {
     volume.value = 0
     setMasterVolume(0)
   } else {
-    volume.value = 0.8
-    setMasterVolume(0.8)
+    volume.value = 0.25
+    setMasterVolume(0.25)
   }
 }
 
@@ -425,10 +425,18 @@ const scoreEntries = computed(() => [
 // Animation: reveal entries one by one
 const prevLogVisibleCount = ref(999)
 const currentLogVisibleCount = ref(999)
+const prevPanelSwiping = ref(false)
+const prevPanelExiting = ref(false)
+const currentPanelSwiping = ref(false)
+const currentPanelExiting = ref(false)
+const exitingLogEntries = ref<PrevLogEntry[]>([])
 let prevLogTimer: ReturnType<typeof setInterval> | null = null
 let prevLogSnapshot = ''
 let currentLogTimer: ReturnType<typeof setInterval> | null = null
 let currentLogSnapshot = ''
+let lastAnimatedRound = -1
+let lastMergeRound = -1
+let currentLogShownCount = 0
 
 function clearPrevLogTimer() {
   if (prevLogTimer !== null) { clearInterval(prevLogTimer); prevLogTimer = null }
@@ -443,19 +451,50 @@ watch(() => store.myPlayer?.status.previousRoundLogs, (newVal: string | undefine
   prevLogSnapshot = val
   fightReplayEnded.value = false
   clearPrevLogTimer()
-  if (!val) { prevLogVisibleCount.value = 999; return }
-  const count = parsePrevLogs(val).length
-  if (count === 0) { prevLogVisibleCount.value = 999; return }
-  prevLogVisibleCount.value = 0
-  // Defer animation start to next frame so Vue finishes its DOM patch first
-  setTimeout(() => {
-    let i = 0
-    prevLogTimer = setInterval(() => {
-      i++
-      prevLogVisibleCount.value = i
-      if (i >= count) clearPrevLogTimer()
-    }, 250)
-  }, 50)
+
+  const roundNo = store.gameState?.roundNo ?? 0
+  const isNewRound = roundNo !== lastAnimatedRound
+  lastAnimatedRound = roundNo
+
+  if (isNewRound) {
+    // Round transition: animate left→right
+
+    // 1. Right panel: fade out old content in place (no slide)
+    prevPanelExiting.value = true
+    prevLogVisibleCount.value = 0
+    prevPanelSwiping.value = false
+
+    // 2. Left panel: capture current items for exit-right animation
+    const currentItems = currentLogEntries.value
+    if (currentItems.length > 0) {
+      exitingLogEntries.value = [...currentItems]
+      currentPanelExiting.value = true
+
+      // 3. After exit animation: show right panel content all at once
+      setTimeout(() => {
+        currentPanelExiting.value = false
+        exitingLogEntries.value = []
+        prevPanelExiting.value = false
+
+        if (val) {
+          prevPanelSwiping.value = true
+          setTimeout(() => { prevPanelSwiping.value = false }, 500)
+          prevLogVisibleCount.value = 999
+        }
+      }, 400)
+    } else {
+      // No left panel items to exit — show right panel immediately
+      prevPanelExiting.value = false
+      if (val) {
+        prevPanelSwiping.value = true
+        setTimeout(() => { prevPanelSwiping.value = false }, 500)
+        prevLogVisibleCount.value = 999
+      }
+    }
+  } else {
+    // Mid-round update: just show right panel content, no animation
+    prevLogVisibleCount.value = 999
+  }
 }, { immediate: true })
 
 watch(() => mergeEvents(), (newVal: string | undefined) => {
@@ -463,19 +502,50 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
   if (val === currentLogSnapshot) return
   currentLogSnapshot = val
   clearCurrentLogTimer()
-  if (!val) { currentLogVisibleCount.value = 999; return }
-  const count = parsePrevLogs(val).length
-  if (count === 0) { currentLogVisibleCount.value = 999; return }
-  currentLogVisibleCount.value = 0
-  // Defer animation start to next frame so Vue finishes its DOM patch first
-  setTimeout(() => {
-    let i = 0
-    currentLogTimer = setInterval(() => {
-      i++
-      currentLogVisibleCount.value = i
-      if (i >= count) clearCurrentLogTimer()
-    }, 250)
-  }, 50)
+
+  // Detect round transition independently (don't rely on other watcher's timing)
+  const roundNo = store.gameState?.roundNo ?? 0
+  const isRoundTransition = roundNo !== lastMergeRound
+  lastMergeRound = roundNo
+
+  const count = currentLogEntries.value.length
+  if (!val || count === 0) {
+    currentLogVisibleCount.value = 999
+    currentLogShownCount = 0
+    return
+  }
+
+  if (isRoundTransition) {
+    // New round: full animation — hide all, wait for exit→enter, then stagger from top
+    const enterDelay = 580
+    currentLogShownCount = 0
+    currentPanelSwiping.value = false
+    setTimeout(() => { currentPanelSwiping.value = true }, enterDelay)
+    setTimeout(() => { currentPanelSwiping.value = false }, enterDelay + 500)
+    currentLogVisibleCount.value = 0
+    setTimeout(() => {
+      let i = 0
+      currentLogTimer = setInterval(() => {
+        i++
+        currentLogVisibleCount.value = i
+        currentLogShownCount = i
+        if (i >= count) clearCurrentLogTimer()
+      }, 250)
+    }, enterDelay)
+  } else {
+    // Mid-round: keep existing items visible, only animate new ones
+    const from = currentLogShownCount
+    currentLogVisibleCount.value = from
+    if (count > from) {
+      let i = from
+      currentLogTimer = setInterval(() => {
+        i++
+        currentLogVisibleCount.value = i
+        currentLogShownCount = i
+        if (i >= count) clearCurrentLogTimer()
+      }, 250)
+    }
+  }
 }, { immediate: true })
 </script>
 
@@ -689,7 +759,20 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
           
           <div class="log-panel card events-panel">
 
-            <div v-if="currentLogEntries.length" class="prev-logs">
+            <!-- Exiting items: old logs sliding right toward prev panel -->
+            <div v-if="currentPanelExiting && exitingLogEntries.length" class="prev-logs slide-exit-right">
+              <div
+                v-for="(entry, idx) in exitingLogEntries"
+                :key="'exit-'+idx"
+                class="prev-log-item prev-log-visible"
+                :class="['prev-log-' + entry.type]"
+              >
+                <span class="prev-log-text" v-html="entry.html"></span>
+              </div>
+            </div>
+
+            <!-- Normal current items -->
+            <div v-else-if="currentLogEntries.length" class="prev-logs" :class="{ 'slide-enter': currentPanelSwiping }">
               <div
                 v-for="(entry, idx) in currentLogEntries"
                 :key="idx"
@@ -712,7 +795,7 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 
           <div class="log-panel card events-panel prev-logs-panel">
 
-            <div v-if="prevLogEntries.length" class="prev-logs">
+            <div v-if="prevLogEntries.length" class="prev-logs" :class="{ 'slide-enter': prevPanelSwiping }">
               <div
                 v-for="(entry, idx) in prevLogEntries"
                 :key="idx"
@@ -720,6 +803,7 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
                 :class="[
                   'prev-log-' + entry.type,
                   { 'prev-log-visible': idx < prevLogVisibleCount },
+                  { 'prev-log-fade-exit': prevPanelExiting },
                   { 'prev-log-combo': entry.type === 'gold' && entry.comboCount > 0 }
                 ]"
               >
@@ -1253,6 +1337,8 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
   min-height: 80px;
   max-height: 150px;
   padding: 5px 8px;
+  background: rgba(58, 56, 62, 1);
+  overflow: hidden;
 }
 
 .events-panel :deep(.card-header),
@@ -1296,7 +1382,7 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 }
 
 /* ── Animated Previous Round Logs ──────────────────────────────────── */
-.prev-logs-panel { max-height: 220px; }
+.prev-logs-panel { max-height: 220px; background: rgba(32, 30, 36, 1); overflow: hidden; }
 
 .prev-logs {
   display: flex;
@@ -1316,13 +1402,53 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
   line-height: 1.4;
   border-left: 3px solid transparent;
   opacity: 0;
-  transform: translateY(8px) scale(0.97);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: translateX(-25px) scale(0.97);
+  transition: opacity 0.35s ease, transform 0.35s ease;
 }
 
 .prev-log-item.prev-log-visible {
   opacity: 1;
-  transform: translateY(0) scale(1);
+  transform: translateX(0) scale(1);
+}
+
+/* Right panel items slide from further left (content "arriving" from left panel) */
+.prev-logs-panel .prev-log-item:not(.prev-log-visible) {
+  transform: translateX(-60px) scale(0.95);
+}
+
+/* Right panel exit: fade out in place without sliding left */
+.prev-log-item.prev-log-fade-exit {
+  transform: translateX(0) !important;
+}
+
+/* Container-level slide animations */
+@keyframes slide-from-left {
+  from { transform: translateX(-15px); opacity: 0.7; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slide-from-left-far {
+  from { transform: translateX(-60px); opacity: 0.2; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Exit animation: left panel items slide right toward the prev panel */
+@keyframes slide-to-right {
+  0% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(60px); opacity: 0; }
+}
+
+.events-panel:not(.prev-logs-panel) .prev-logs.slide-enter {
+  animation: slide-from-left 0.35s ease-out;
+}
+
+.prev-logs-panel .prev-logs.slide-enter {
+  animation: slide-from-left-far 0.5s ease-out;
+}
+
+.slide-exit-right {
+  animation: slide-to-right 0.35s ease-in forwards;
+  pointer-events: none;
 }
 
 .prev-log-text {
