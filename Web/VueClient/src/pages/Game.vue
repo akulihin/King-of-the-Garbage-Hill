@@ -11,7 +11,6 @@ import FightAnimation from 'src/components/FightAnimation.vue'
 import MediaMessages from 'src/components/MediaMessages.vue'
 import RoundTimer from 'src/components/RoundTimer.vue'
 import Blackjack21 from 'src/components/Blackjack21.vue'
-import LootBox from 'src/components/LootBox.vue'
 import AchievementPopup from 'src/components/AchievementPopup.vue'
 import {
   playAttackSelection,
@@ -29,6 +28,7 @@ import {
   playPortalGunUse,
   playKiraArrest,
   playSaitamaGameWinTheme,
+  playLeCrispGameWinTheme,
   playPickleRickOnUse,
   playPickleRickOnWin,
   GiantBeansSoundPool,
@@ -149,6 +149,10 @@ watch(() => store.gameState?.isFinished, (finished, prevFinished) => {
     // Saitama game win theme
     const hasSaitama = store.gameState.players.some(p => p.character.name === 'Сайтама')
     if (hasSaitama) playSaitamaGameWinTheme()
+
+    // LeCrisp game win theme (plays for all players)
+    const hasLeCrisp = store.gameState.players.some(p => p.character.name === 'LeCrisp')
+    if (hasLeCrisp) playLeCrispGameWinTheme()
 
     // Rick portal gun charged theme on Rick game win (plays for everyone)
     const rickWinner = store.gameState.players.find(p => p.character.name === 'Рик')
@@ -848,16 +852,9 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
           </button>
         </div>
 
-        <!-- Loot Box popup for top 2 players -->
-        <LootBox
-          v-if="store.lootBoxResult && store.gameState.isFinished"
-          :result="store.lootBoxResult"
-          @dismiss="store.dismissLootBox()"
-        />
-
         <!-- Achievement unlock popup -->
         <AchievementPopup
-          v-if="store.newlyUnlockedAchievements.length > 0 && store.gameState.isFinished && !store.lootBoxResult"
+          v-if="store.newlyUnlockedAchievements.length > 0 && store.gameState.isFinished"
           :achievements="store.newlyUnlockedAchievements"
           @dismiss="store.dismissAchievements()"
         />

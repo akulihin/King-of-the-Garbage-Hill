@@ -33,8 +33,6 @@ export type GameState = {
   teams: Team[]
   /** Structured fight log for the current round (for fight animation) */
   fightLog: FightEntry[]
-  /** Loot box result (populated on game finish for top 2 players) */
-  lootBoxResult?: LootBoxResult
   /** Achievements newly unlocked this game (populated on game finish) */
   newlyUnlockedAchievements?: AchievementEntry[]
 }
@@ -565,6 +563,7 @@ export type QuestState = {
   allCompletedToday: boolean
   streakDays: number
   zbsPoints: number
+  pendingLootBoxes: number
 }
 
 export type QuestProgress = {
@@ -710,6 +709,7 @@ class SignalRService {
   onGameJoined: ((data: { gameId: number }) => void) | null = null
   onBlackjackState: ((state: BlackjackTableState) => void) | null = null
   onQuestState: ((state: QuestState) => void) | null = null
+  onLootBoxOpened: ((result: LootBoxResult) => void) | null = null
   onAchievementBoard: ((board: AchievementBoard) => void) | null = null
 
   get isConnected() {
@@ -769,6 +769,10 @@ class SignalRService {
 
     this.connection.on('QuestState', (state: QuestState) => {
       this.onQuestState?.(state)
+    })
+
+    this.connection.on('LootBoxOpened', (result: LootBoxResult) => {
+      this.onLootBoxOpened?.(result)
     })
 
     this.connection.on('AchievementBoard', (board: AchievementBoard) => {
@@ -978,6 +982,10 @@ class SignalRService {
 
   async requestQuests(): Promise<void> {
     await this.connection?.invoke('RequestQuests')
+  }
+
+  async openLootBox(): Promise<void> {
+    await this.connection?.invoke('OpenLootBox')
   }
 
   async requestAchievements(): Promise<void> {

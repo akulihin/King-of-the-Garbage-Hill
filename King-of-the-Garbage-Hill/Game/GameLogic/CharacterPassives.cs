@@ -288,6 +288,7 @@ public class CharacterPassives : IServiceSingleton
                             { "mylorik", Geralt.MonsterType.Утопцы },
                             { "Осьминожка", Geralt.MonsterType.Утопцы },
                             { "Краборак", Geralt.MonsterType.Утопцы },
+                            { "Братишка", Geralt.MonsterType.Утопцы },
                         };
 
                         var assigned = new List<Guid>();
@@ -627,23 +628,8 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Геральт — Шевелись, Плотва: speed bonus when defending at lower position
+                // Геральт — Шевелись, Плотва: removed from defense (now attack-only, see HandleAttackBeforeFight)
                 case "Шевелись, Плотва":
-                    if (target.GameCharacter.Name == "Геральт")
-                    {
-                        var geraltDefPos = target.Status.GetPlaceAtLeaderBoard();
-                        var attackerDefPos = me.Status.GetPlaceAtLeaderBoard();
-                        if (geraltDefPos > attackerDefPos)
-                        {
-                            var plotvaDefSpeed = geraltDefPos - attackerDefPos;
-                            target.FightCharacter.AddSpeedForOneFight(plotvaDefSpeed);
-                            if (!target.Passives.GeraltContracts.PlotvaPhrasedThisRound)
-                            {
-                                target.Passives.GeraltContracts.PlotvaPhrasedThisRound = true;
-                                game.Phrases.GeraltPlotva.SendLog(target, false);
-                            }
-                        }
-                    }
                     break;
 
                 // Геральт — Медитация (defense): Lambert skill zero
@@ -887,7 +873,7 @@ public class CharacterPassives : IServiceSingleton
                             var defCount = geraltDefContracts.GetCount(attackerType.Value);
                             if (defCount > 0)
                             {
-                                target.GameCharacter.AddExtraSkill(10 * defCount, "Ведьмачьи заказы");
+                                target.GameCharacter.AddExtraSkill(20 * defCount, "Ведьмачьи заказы");
                                 geraltDefContracts.ContractProcsOnEnemy.TryAdd(me.GetPlayerId(), 0);
                                 geraltDefContracts.ContractProcsOnEnemy[me.GetPlayerId()] += defCount;
                                 geraltDefContracts.SetCount(attackerType.Value, 0);
@@ -1490,20 +1476,40 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Геральт — Шевелись, Плотва: speed bonus when attacking from lower position
+                // Геральт — Шевелись, Плотва: attack-only, contracts-only, bonus speed + extra contracts
                 case "Шевелись, Плотва":
                     if (me.GameCharacter.Name == "Геральт")
                     {
-                        var geraltAtkPos = me.Status.GetPlaceAtLeaderBoard();
-                        var targetAtkPos = target.Status.GetPlaceAtLeaderBoard();
-                        if (geraltAtkPos > targetAtkPos)
+                        var geraltContracts = me.Passives.GeraltContracts;
+                        // Only procs when target had contracts consumed
+                        if (geraltContracts.ContractProcsOnEnemy.ContainsKey(target.GetPlayerId()))
                         {
-                            var plotvaAtkSpeed = geraltAtkPos - targetAtkPos;
-                            me.FightCharacter.AddSpeedForOneFight(plotvaAtkSpeed);
-                            if (!me.Passives.GeraltContracts.PlotvaPhrasedThisRound)
+                            var geraltAtkPos = me.Status.GetPlaceAtLeaderBoard();
+                            var targetAtkPos = target.Status.GetPlaceAtLeaderBoard();
+                            if (geraltAtkPos > targetAtkPos + 1)
                             {
-                                me.Passives.GeraltContracts.PlotvaPhrasedThisRound = true;
-                                game.Phrases.GeraltPlotva.SendLog(me, false);
+                                var plotvaAtkSpeed = geraltAtkPos - targetAtkPos;
+                                me.FightCharacter.AddSpeedForOneFight(plotvaAtkSpeed);
+                                if (!geraltContracts.PlotvaPhrasedThisRound)
+                                {
+                                    geraltContracts.PlotvaPhrasedThisRound = true;
+                                    game.Phrases.GeraltPlotva.SendLog(me, false);
+                                }
+
+                                // Extra contracts: for each player between Geralt and target on leaderboard
+                                foreach (var p in game.PlayersList)
+                                {
+                                    if (p.GetPlayerId() == me.GetPlayerId()) continue;
+                                    var pPlace = p.Status.GetPlaceAtLeaderBoard();
+                                    if (pPlace > targetAtkPos && pPlace < geraltAtkPos && p.Passives.GeraltMonsterType != null)
+                                    {
+                                        var extraContracts = _rand.Random(0, 2);
+                                        if (extraContracts > 0)
+                                        {
+                                            geraltContracts.AddCount(p.Passives.GeraltMonsterType.Value, extraContracts);
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -2173,7 +2179,7 @@ public class CharacterPassives : IServiceSingleton
                         // Contract fight: give +10 skill per contract fight
                         if (fightCount > 0)
                         {
-                            me.GameCharacter.AddExtraSkill(10, "Ведьмачьи заказы");
+                            me.GameCharacter.AddExtraSkill(20, "Ведьмачьи заказы");
                         }
                         else if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                         {
@@ -4182,7 +4188,7 @@ public class CharacterPassives : IServiceSingleton
                         }
 
                         // No moral phrase
-                        game.Phrases.GeraltNoMoral.SendLog(player, false);
+                        game.Phrases.GeraltNoMoral.SendLog(player, true);
                     }
                     break;
 

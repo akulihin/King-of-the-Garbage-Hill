@@ -282,14 +282,32 @@ public class DoomsdayMachine : IServiceSingleton
         }
 
         // Геральт — Ведьмачьи заказы: inject extra fights based on contract count
+        // Works both when Geralt attacks AND when Geralt is attacked (defending/blocking)
         foreach (var player in game.PlayersList.Where(x =>
             x.GameCharacter.Passive.Any(y => y.PassiveName == "Ведьмачьи заказы") &&
-            x.GameCharacter.Name == "Геральт" &&
-            !x.Status.IsBlock && !x.Status.IsSkip &&
-            x.Status.WhoToAttackThisTurn.Count > 0).ToList())
+            x.GameCharacter.Name == "Геральт").ToList())
         {
             var geraltContracts = player.Passives.GeraltContracts;
-            var targetId = player.Status.WhoToAttackThisTurn[0];
+
+            Guid targetId;
+            bool isDefending = false;
+
+            if (!player.Status.IsBlock && !player.Status.IsSkip && player.Status.WhoToAttackThisTurn.Count > 0)
+            {
+                // Geralt is attacking — use his chosen target
+                targetId = player.Status.WhoToAttackThisTurn[0];
+            }
+            else
+            {
+                // Geralt is blocking/skipping — find who is attacking him
+                var attacker = game.PlayersList.FirstOrDefault(x =>
+                    x.GetPlayerId() != player.GetPlayerId() &&
+                    x.Status.WhoToAttackThisTurn.Contains(player.GetPlayerId()));
+                if (attacker == null) continue;
+                targetId = attacker.GetPlayerId();
+                isDefending = true;
+            }
+
             var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
             if (target == null) continue;
 
@@ -297,9 +315,20 @@ public class DoomsdayMachine : IServiceSingleton
             if (monsterType == null) continue;
 
             var count = geraltContracts.GetCount(monsterType.Value);
-            // Inject N-1 extra fights (original already in list)
-            for (int i = 1; i < count; i++)
-                player.Status.WhoToAttackThisTurn.Add(targetId);
+            if (isDefending && count == 0) continue; // No contracts for this type — stay blocking
+
+            if (isDefending)
+            {
+                // Defending: inject all count fights as forced counter-attacks
+                for (int i = 0; i < count; i++)
+                    player.Status.WhoToAttackThisTurn.Add(targetId);
+            }
+            else
+            {
+                // Attacking: add N-1 extra fights (original already in list)
+                for (int i = 1; i < count; i++)
+                    player.Status.WhoToAttackThisTurn.Add(targetId);
+            }
 
             // Store count for phrase handling, reset contracts of this type
             geraltContracts.ContractsFoughtThisRound = count;

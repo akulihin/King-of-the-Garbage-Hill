@@ -642,9 +642,11 @@ public class CheckIfReady : IServiceSingleton
             // Quest progress tracking
             QuestService.TrackGameEnd(account, player, game);
 
-            // Loot box for top 2 (alive players only)
+            // Loot box for top 2 (alive players only) — deferred to lobby
             if (player.Status.GetPlaceAtLeaderBoard() <= 2 && !player.Passives.IsDead)
-                QuestService.GenerateLootBox(account, game.GameId);
+            {
+                account.PendingLootBoxes++;
+            }
 
             // Achievement tracking
             // Set final state before evaluation
@@ -653,9 +655,6 @@ public class CheckIfReady : IServiceSingleton
             tracker.FinishedWithMaxPsyche = player.GameCharacter.GetPsyche() >= 10;
             AchievementService.TrackGameEnd(account, player, game);
             player.Passives.AchievementDataRef = account.Achievements;
-
-            // Store quest data ref for web mapper to read loot box result
-            player.Passives.QuestDataRef = account.Quests;
 
             // Pity system: increment counters for tiers not played this game
             foreach (var tier in new[] { 1, 2, 3, 4, 5, 6 })

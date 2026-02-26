@@ -31,6 +31,7 @@ public class DiscordAccountClass
     public Dictionary<int, int> TierPity { get; set; } = new();
     public Dictionary<string, int> CharacterMastery { get; set; } = new();
     public List<string> ReplayHashes { get; set; } = new();
+    public int PendingLootBoxes { get; set; }
 
     /*
     0 == Normal

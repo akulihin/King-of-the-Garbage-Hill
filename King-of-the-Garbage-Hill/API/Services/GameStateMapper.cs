@@ -154,19 +154,9 @@ public static class GameStateMapper
             dto.FullChronicle = BuildFullChronicle(game);
         }
 
-        // Populate loot box result for finished games (requesting player only)
+        // Populate newly unlocked achievements for finished games (requesting player only)
         if (game.IsFinished && requestingPlayer != null)
         {
-            var questData = requestingPlayer.Passives?.QuestDataRef;
-            if (questData?.LastLootBox != null && questData.LastLootBoxGameId == game.GameId)
-            {
-                dto.LootBoxResult = new LootBoxResultDto
-                {
-                    Rarity = questData.LastLootBox.Rarity,
-                    ZbsAmount = questData.LastLootBox.ZbsAmount,
-                };
-            }
-
             // Populate newly unlocked achievements
             var achData = requestingPlayer.Passives?.AchievementDataRef;
             if (achData?.NewlyUnlocked != null && achData.NewlyUnlocked.Count > 0)

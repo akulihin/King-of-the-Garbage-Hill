@@ -1479,6 +1479,8 @@ public class CharactersUniquePhrase
         GeraltLambert.PassiveLogRus.Add("Это была не Белая Чайка. Это был эль.");
         GeraltLambert.PassiveLogRus.Add("Эскель ржёт. Ламберт делает вид, что ни при чём.");
         GeraltLambert.PassiveLogRus.Add("Ламберт, сука, я тебя найду.");
+        GeraltLambert.PassiveLogRus.Add("Что за?  *ик*  Кажись нечаянно заварил зелье по рецепту того  *ик*  \"высшего алхимика\"...");
+        GeraltLambert.PassiveLogRus.Add("Да что с этим учебником зельяварения!? Вместо зелья удачи... пенная медовуха... Мда... тоже мне, Принц Полукровка, блять.");
 
         GeraltNoMoral = new PhraseClass("Медитация");
         GeraltNoMoral.PassiveLogRus.Add("Мораль сей сказки... никакая.");

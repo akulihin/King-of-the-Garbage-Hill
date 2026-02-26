@@ -197,11 +197,6 @@ export const useGameStore = defineStore('game', () => {
           signalrService.blackjackJoin(state.gameId)
         }
 
-        // Detect loot box from finished game state
-        if (state.isFinished && state.lootBoxResult) {
-          lootBoxResult.value = state.lootBoxResult
-        }
-
         // Detect newly unlocked achievements from finished game state
         if (state.isFinished && state.newlyUnlockedAchievements?.length) {
           newlyUnlockedAchievements.value = state.newlyUnlockedAchievements
@@ -214,6 +209,10 @@ export const useGameStore = defineStore('game', () => {
 
       signalrService.onQuestState = (state) => {
         questState.value = state
+      }
+
+      signalrService.onLootBoxOpened = (result) => {
+        lootBoxResult.value = result
       }
 
       signalrService.onAchievementBoard = (board) => {
@@ -487,8 +486,14 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.requestQuests()
   }
 
+  async function openLootBox() {
+    await signalrService.openLootBox()
+  }
+
   function dismissLootBox() {
     lootBoxResult.value = null
+    // Refresh quests to update ZBS + pending count
+    signalrService.requestQuests()
   }
 
   async function requestAchievements() {
@@ -585,6 +590,7 @@ export const useGameStore = defineStore('game', () => {
     createWebGame,
     joinWebGame,
     requestQuests,
+    openLootBox,
     dismissLootBox,
     requestAchievements,
     clearNewAchievements,

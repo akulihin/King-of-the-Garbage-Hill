@@ -50,9 +50,6 @@ public class GameStateDto
     /// <summary>Structured fight log for the current round (for web fight animation).</summary>
     public List<FightEntryDto> FightLog { get; set; } = new();
 
-    /// <summary>Loot box result for this game (populated on game finish for top 2 players).</summary>
-    public LootBoxResultDto LootBoxResult { get; set; }
-
     /// <summary>Achievements newly unlocked this game (populated on game finish).</summary>
     public List<AchievementEntryDto> NewlyUnlockedAchievements { get; set; } = new();
 }
@@ -928,6 +925,7 @@ public class QuestStateDto
     public bool AllCompletedToday { get; set; }
     public int StreakDays { get; set; }
     public int ZbsPoints { get; set; }
+    public int PendingLootBoxes { get; set; }
 }
 
 public class QuestProgressDto

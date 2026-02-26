@@ -644,10 +644,13 @@ export function getWinSpecialCharacters(fights: readonly { outcome: string; winn
   return chars
 }
 
-/** Play win specials for ALL winners in the fight log (called once when results arrive) */
-export function playWinSpecialsForAll(fights: readonly { outcome: string; winnerName: string | null; attackerName: string; attackerCharName: string; defenderName: string; defenderCharName: string }[]): void {
+/** Play win specials for winners in the fight log.
+ *  If myCharacterName is provided, only play for that character (owner-only sounds). */
+export function playWinSpecialsForAll(fights: readonly { outcome: string; winnerName: string | null; attackerName: string; attackerCharName: string; defenderName: string; defenderCharName: string }[], myCharacterName?: string): void {
   const chars = getWinSpecialCharacters(fights)
   for (const c of chars) {
+    // If myCharacterName is provided, only play the sound for the player's own character
+    if (myCharacterName && c.toLowerCase().replace(/\s+/g, '') !== myCharacterName.toLowerCase().replace(/\s+/g, '')) continue
     playWinSpecial(c)
   }
 }
@@ -726,6 +729,11 @@ export function playKiraArrest(): void {
 /** Saitama: game win theme (plays for all players) */
 export function playSaitamaGameWinTheme(): void {
   void playClip('character_passives/saitama/saitama_game_win_theme.mp3', { group: 'characterPassives' })
+}
+
+/** LeCrisp: game win theme (plays for all players when LeCrisp is in the game) */
+export function playLeCrispGameWinTheme(): void {
+  void playClip('character_passives/lecrisp/lecrisp_game_win_theme.mp3', { group: 'characterPassives' })
 }
 
 /** Check if a character has the "Late Game" passive (for turn 10+ sound variant) */

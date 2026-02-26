@@ -229,6 +229,16 @@ public class GameNotificationService
                 _lastSnapshot.TryGetValue(gameId, out var last);
                 last ??= new GameSnapshot();
 
+                // Final broadcast for finished games is handled by HandleLastRound
+                // via _global.OnGameFinished callback. Skip timer broadcasts to avoid
+                // sending an intermediate state where IsFinished=true but lootbox/achievement
+                // data hasn't been populated yet (race condition with HandleLastRound).
+                if (game.IsFinished)
+                {
+                    _lastSnapshot.TryRemove(gameId, out _);
+                    continue;
+                }
+
                 var roundChanged = currentRound != last.RoundNo;
                 // Push every 0.5s for smooth timer, or immediately on round/ready changes
                 var timeChanged = Math.Abs(currentTime - last.TimeSeconds) > 0.5;
@@ -249,13 +259,6 @@ public class GameNotificationService
                     {
                         await SendGameEvent(gameId, "RoundChanged", new { round = currentRound });
                     }
-                }
-
-                // Final broadcast for finished games is handled by HandleLastRound
-                // via _global.OnGameFinished callback, so skip it here to avoid duplicates.
-                if (game.IsFinished)
-                {
-                    _lastSnapshot.TryRemove(gameId, out _);
                 }
             }
             catch (Exception ex)

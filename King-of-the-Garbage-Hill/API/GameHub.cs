@@ -499,6 +499,7 @@ public class GameHub : Hub
             ZbsPoints = account.ZbsPoints,
             StreakDays = account.Quests.StreakDays,
             AllCompletedToday = account.Quests.ActiveDay?.AllCompleted ?? false,
+            PendingLootBoxes = account.PendingLootBoxes,
             Quests = account.Quests.ActiveDay?.Quests.Select(q => new DTOs.QuestProgressDto
             {
                 Id = q.QuestId,
@@ -511,6 +512,36 @@ public class GameHub : Hub
         };
 
         await Clients.Caller.SendAsync("QuestState", questState);
+    }
+
+    // ── Loot Boxes ──────────────────────────────────────────────────
+
+    public async Task OpenLootBox()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        if (account == null)
+        {
+            await Clients.Caller.SendAsync("Error", "Account not found.");
+            return;
+        }
+
+        if (account.PendingLootBoxes <= 0)
+        {
+            await Clients.Caller.SendAsync("Error", "No loot boxes available.");
+            return;
+        }
+
+        account.PendingLootBoxes--;
+        var lootResult = Game.Classes.QuestService.GenerateLootBox(account, 0);
+
+        await Clients.Caller.SendAsync("LootBoxOpened", new DTOs.LootBoxResultDto
+        {
+            Rarity = lootResult.Rarity,
+            ZbsAmount = lootResult.ZbsAmount,
+        });
     }
 
     // ── Achievements ──────────────────────────────────────────────────

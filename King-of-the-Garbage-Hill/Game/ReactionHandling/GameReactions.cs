@@ -807,6 +807,19 @@ public sealed class GameReaction : IServiceSingleton
         if (player.GameCharacter.Name == "Геральт")
         {
             var oil = player.Passives.GeraltOil;
+
+            // First level-up: all tiers are 0 → give tier 1 to ALL types at once
+            if (oil.DrownersOilTier == 0 && oil.WerewolvesOilTier == 0 && oil.VampiresOilTier == 0 && oil.DragonsOilTier == 0)
+            {
+                oil.DrownersOilTier = 1;
+                oil.WerewolvesOilTier = 1;
+                oil.VampiresOilTier = 1;
+                oil.DragonsOilTier = 1;
+                player.Status.AddInGamePersonalLogs("Масло от любой заразы!\n");
+                player.Status.LvlUpPoints--;
+                return;
+            }
+
             Geralt.MonsterType monsterType;
             string typeName;
             int currentTier;

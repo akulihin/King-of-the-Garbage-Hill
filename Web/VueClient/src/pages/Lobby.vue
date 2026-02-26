@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useGameStore } from 'src/store/game'
 import { signalrService, type ReplayListEntry } from 'src/services/signalr'
 import AchievementBoard from 'src/components/AchievementBoard.vue'
+import LootBox from 'src/components/LootBox.vue'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 
@@ -18,6 +19,19 @@ const quests = computed(() => store.questState?.quests ?? [])
 const streakDays = computed(() => store.questState?.streakDays ?? 0)
 const allDone = computed(() => store.questState?.allCompletedToday ?? false)
 const zbsPoints = computed(() => store.questState?.zbsPoints ?? 0)
+const pendingLootBoxes = computed(() => store.questState?.pendingLootBoxes ?? 0)
+const isOpeningLootBox = ref(false)
+
+async function openLootBox() {
+  if (isOpeningLootBox.value || pendingLootBoxes.value <= 0) return
+  isOpeningLootBox.value = true
+  await store.openLootBox()
+  isOpeningLootBox.value = false
+}
+
+function dismissLootBox() {
+  store.dismissLootBox()
+}
 
 let pollInterval: ReturnType<typeof setInterval> | null = null
 
@@ -132,6 +146,27 @@ function viewReplay(hash: string) {
         7-day streak! +500 ZBS bonus!
       </div>
     </div>
+
+    <!-- Loot Boxes -->
+    <div v-if="store.isAuthenticated && pendingLootBoxes > 0" class="section lootbox-section">
+      <button
+        class="btn lootbox-btn"
+        :class="{ pulse: pendingLootBoxes > 0 }"
+        :disabled="isOpeningLootBox"
+        @click="openLootBox"
+      >
+        <span class="lootbox-icon">&#x1F4E6;</span>
+        Open Loot Box
+        <span class="lootbox-count">{{ pendingLootBoxes }}</span>
+      </button>
+    </div>
+
+    <!-- Loot Box Result Overlay -->
+    <LootBox
+      v-if="store.lootBoxResult"
+      :result="store.lootBoxResult"
+      @dismiss="dismissLootBox()"
+    />
 
     <!-- Achievements Button -->
     <div v-if="store.isAuthenticated" class="section achievements-section">
@@ -612,6 +647,62 @@ function viewReplay(hash: string) {
   color: var(--accent-gold);
   border: 1px solid var(--accent-gold);
   font-size: 14px;
+}
+
+/* Loot Box */
+.lootbox-section {
+  text-align: center;
+}
+
+.lootbox-btn {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 10px 28px;
+  border: 2px solid var(--accent-gold);
+  color: var(--accent-gold);
+  background: rgba(233, 219, 61, 0.08);
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.lootbox-btn:hover {
+  background: rgba(233, 219, 61, 0.15);
+  transform: scale(1.02);
+}
+
+.lootbox-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.lootbox-btn.pulse {
+  animation: lootboxPulse 2s ease-in-out infinite;
+}
+
+@keyframes lootboxPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(233, 219, 61, 0.3); }
+  50% { box-shadow: 0 0 12px 4px rgba(233, 219, 61, 0.2); }
+}
+
+.lootbox-icon {
+  font-size: 18px;
+}
+
+.lootbox-count {
+  background: var(--accent-gold);
+  color: var(--bg-base, #1a1a2e);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
 }
 
 /* Achievements */

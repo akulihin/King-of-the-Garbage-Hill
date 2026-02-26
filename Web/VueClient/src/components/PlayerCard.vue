@@ -410,6 +410,15 @@ function handleMoralToSkill() {
       <!-- Geralt oil upgrade (replaces stat +buttons but shows read-only stats) -->
       <template v-else-if="isGeralt && hasLvlUpPoints && geralt">
       <div class="geralt-lvlup">
+        <!-- First level-up: all tiers are 0 → single universal oil button -->
+        <template v-if="geralt.drownersOilTier === 0 && geralt.werewolvesOilTier === 0 && geralt.vampiresOilTier === 0 && geralt.dragonsOilTier === 0">
+          <button class="geralt-lvlup-btn geralt-lvlup-universal" data-sfx-skip-default="true" @click="handleLevelUp(1)" style="--oil-color: #F59E0B;">
+            <span class="geralt-lvlup-name">🧪 Масло от любой заразы</span>
+            <span class="geralt-lvlup-desc">Масло 1 ур. против всех типов</span>
+          </button>
+        </template>
+        <!-- Subsequent level-ups: per-type upgrade buttons -->
+        <template v-else>
         <button class="geralt-lvlup-btn" :class="{ 'geralt-lvlup-maxed': geralt.drownersOilTier >= 3 }" :disabled="geralt.drownersOilTier >= 3" data-sfx-skip-default="true" @click="handleLevelUp(1)" style="--oil-color: #3B82F6;">
           <span class="geralt-lvlup-name">💀 Утопцы</span>
           <span v-if="geralt.drownersOilTier >= 3" class="geralt-lvlup-desc">Макс. уровень</span>
@@ -430,6 +439,7 @@ function handleMoralToSkill() {
           <span v-if="geralt.dragonsOilTier >= 3" class="geralt-lvlup-desc">Макс. уровень</span>
           <span v-else class="geralt-lvlup-desc">{{ geraltOilLabel(geralt.dragonsOilTier) }} &rarr; {{ geraltOilLabel(geralt.dragonsOilTier + 1) }}</span>
         </button>
+        </template>
       </div>
       <!-- Read-only stats during Geralt lvl-up -->
       <div class="stat-block">
@@ -1326,7 +1336,7 @@ function handleMoralToSkill() {
       <div class="pw-header">
         <span class="pw-title geralt-title">ДОСКА ЗАКАЗОВ</span>
         <span class="pw-badge" v-if="passiveStates.geralt.isOilApplied" style="color: #2ecc71">МАСЛО</span>
-        <span class="pw-badge" v-if="passiveStates.geralt.lambertActive" style="color: #e74c3c">ЛАМБЕРТ</span>
+
       </div>
       <div class="geralt-body">
         <div class="geralt-row" style="border-left-color: #3B82F6; background: #3B82F612;">
@@ -1350,8 +1360,7 @@ function handleMoralToSkill() {
           <span class="geralt-oil-tier">{{ geraltOilLabel(passiveStates.geralt.dragonsOilTier) }}</span>
         </div>
         <div class="geralt-status-row">
-          <span v-if="passiveStates.geralt.revealedCount > 0">Чутьё: {{ passiveStates.geralt.revealedCount }}/5</span>
-          <span v-if="passiveStates.geralt.lambertUsed" style="color: #888">Ламберт: использован</span>
+          <span v-if="passiveStates.geralt.revealedCount > 0">Чутьё: {{ passiveStates.geralt.revealedCount }}/4</span>
         </div>
       </div>
     </div>
