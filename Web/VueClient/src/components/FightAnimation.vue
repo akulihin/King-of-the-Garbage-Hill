@@ -79,6 +79,10 @@ const skippedToEnd = ref(false)
 const lastAnimatedRound = ref<string>('')
 let timer: ReturnType<typeof setTimeout> | null = null
 
+// ── Fight result splash + screen shake ──────────────────────────────
+const fightSplash = ref<'win' | 'loss' | null>(null)
+const fightShake = ref(false)
+
 // ── My username and character (for filtering) ──────────────────────────
 const myPlayer = computed(() => props.players.find((pl: Player) => pl.playerId === props.myPlayerId) ?? null)
 const myUsername = computed(() => myPlayer.value?.discordUsername ?? '')
@@ -428,6 +432,19 @@ watch(showFinalResult, (show: boolean) => {
   if (weWon && ourPreFightJustice > 0) {
     emit('justice-reset')
   }
+
+  // Fight result splash
+  if (weWon) {
+    fightSplash.value = 'win'
+  } else if (weLost) {
+    fightSplash.value = 'loss'
+  }
+  // Screen shake on big weighing differences
+  if (Math.abs(f.totalWeighingDelta ?? 0) > 15) {
+    fightShake.value = true
+    setTimeout(() => { fightShake.value = false }, 500)
+  }
+  setTimeout(() => { fightSplash.value = null }, 1500)
 
   // Resist flash when we lost
   if (weLost) {
@@ -1143,7 +1160,7 @@ function getDisplayCharName(orig: string, u: string): string {
       </div>
 
       <!-- Fight card -->
-      <div v-if="fight" ref="fightCardRef" class="fa-card">
+      <div v-if="fight" ref="fightCardRef" class="fa-card" :class="{ 'fa-shake': fightShake }">
         <!-- Block/Skip -->
         <div v-if="isSpecialOutcome" class="fa-special">
           <div class="fa-bar-container">
@@ -1400,6 +1417,12 @@ function getDisplayCharName(orig: string, u: string): string {
             </div>
           </template>
 
+          <!-- ═══ Winner/Loser splash ═══ -->
+          <Transition name="splash">
+            <div v-if="fightSplash === 'win'" class="fa-splash fa-splash-win">✓</div>
+            <div v-else-if="fightSplash === 'loss'" class="fa-splash fa-splash-loss">✗</div>
+          </Transition>
+
           <!-- ═══ Final result details (outcome shown in phase tracker above) ═══ -->
           <div v-if="showFinalResult" class="fa-result">
             <div v-if="isMyFight" class="fa-result-details">
@@ -1495,7 +1518,7 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-speed-btn.active { background: var(--kh-c-secondary-purple-500); color: var(--text-primary); border-color: var(--accent-purple); }
 
 /* ── Card ── */
-.fa-card { background: var(--bg-inset); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 4px 6px; display: flex; flex-direction: column; gap: 3px; }
+.fa-card { background: var(--bg-inset); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 4px 6px; display: flex; flex-direction: column; gap: 3px; position: relative; overflow: hidden; }
 
 /* ── Portraits ── */
 /* ── Compact identity + scale row ── */
@@ -1920,4 +1943,57 @@ function getDisplayCharName(orig: string, u: string): string {
 }
 .fa-story-popup-body :deep(strong) { color: var(--accent-gold); font-weight: 800; }
 .fa-story-popup-body :deep(em) { color: var(--accent-blue); }
+
+/* ── Winner/Loser splash ──────────────────────────────────────────── */
+.fa-splash {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 48px;
+  font-weight: 900;
+  z-index: 10;
+  pointer-events: none;
+  text-shadow: 0 0 20px currentColor;
+}
+.fa-splash-win {
+  color: var(--accent-green);
+  animation: splash-burst 1.2s ease-out forwards;
+}
+.fa-splash-loss {
+  color: var(--accent-red);
+  animation: splash-burst 1.2s ease-out forwards;
+}
+
+@keyframes splash-burst {
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+  20% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+  50% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+  100% { transform: translate(-50%, -50%) scale(1.1); opacity: 0; }
+}
+
+.splash-enter-active { transition: opacity 0.2s; }
+.splash-leave-active { transition: opacity 0.5s; }
+.splash-enter-from, .splash-leave-to { opacity: 0; }
+
+/* ── Screen shake on big stat differences ─────────────────────────── */
+.fa-card.fa-shake {
+  animation: fight-shake 0.5s ease-in-out;
+}
+
+@keyframes fight-shake {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-3px); }
+  20% { transform: translateX(3px); }
+  30% { transform: translateX(-2px); }
+  40% { transform: translateX(2px); }
+  50% { transform: translateX(-1px); }
+  60% { transform: translateX(1px); }
+}
+
+/* ── Winning stat emphasis ─────────────────────────────────────────── */
+.fa-id-left.winner .fa-id-char, .fa-id-right.winner .fa-id-char {
+  color: var(--accent-green);
+  text-shadow: 0 0 4px rgba(63, 167, 61, 0.3);
+}
 </style>

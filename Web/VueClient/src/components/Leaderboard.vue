@@ -185,6 +185,18 @@ function isProtected(player: Player): boolean {
   return false
 }
 
+/** Map a 0-based leaderboard index to a hill tier class (hill-1 … hill-6) */
+function hillTierClass(index: number, total: number): string {
+  if (total <= 1) return 'hill-1'
+  const tier = Math.round((index / (total - 1)) * 5) + 1
+  return `hill-${tier}`
+}
+
+/** Whether this index is the last (ДНО) position */
+function isLastPlace(index: number, total: number): boolean {
+  return total > 1 && index === total - 1
+}
+
 function handleAttack(player: Player) {
   if (!props.canAttack) return
   if (player.playerId === props.myPlayerId) return
@@ -223,6 +235,26 @@ watch(() => props.players, (newPlayers) => {
     scoreFlashTimers.push(t)
   }
 }, { deep: true })
+
+// ── "On fire" streak tracking ───────────────────────────────────────
+const streakCount = ref<Record<string, number>>({})
+
+watch(() => props.players, (newPlayers) => {
+  if (!newPlayers || !newPlayers.length) return
+  for (const p of newPlayers) {
+    const prev = prevScores.value[p.playerId]
+    if (prev !== undefined && p.status.score > prev && p.status.score >= 0) {
+      streakCount.value[p.playerId] = (streakCount.value[p.playerId] ?? 0) + 1
+    } else if (prev !== undefined && p.status.score <= prev) {
+      streakCount.value[p.playerId] = 0
+    }
+  }
+  streakCount.value = { ...streakCount.value }
+}, { deep: true })
+
+function isOnFire(playerId: string): boolean {
+  return (streakCount.value[playerId] ?? 0) >= 3
+}
 
 // ── Drop flash animation ────────────────────────────────────────────
 const droppedPlayers = ref<Set<string>>(new Set())
@@ -285,9 +317,9 @@ function hideTip() {
 
 <template>
   <div class="leaderboard card">
-    <div class="lb-table">
+    <TransitionGroup name="hill" tag="div" class="lb-table">
       <div
-        v-for="player in sorted"
+        v-for="(player, index) in sorted"
         :key="player.playerId"
         class="lb-row"
         :class="{
@@ -298,22 +330,28 @@ function hideTip() {
           'is-protected': isProtected(player),
           'dropped': isDropped(player),
           'in-harm-range': player.isInMyHarmRange,
+          'on-fire': isOnFire(player.playerId),
+          [hillTierClass(index, sorted.length)]: true,
         }"
         @click="handleAttack(player)"
       >
-        <!-- Place (with optional prefix from passives like octopus tentacles) -->
+        <!-- Place (with crown for 1st, ДНО for last) -->
         <div class="lb-place">
+          <span v-if="index === 0" class="rank-crown">♛</span>
           <span
             v-if="player.customLeaderboardPrefix"
             class="lb-prefix"
             v-html="player.customLeaderboardPrefix"
-          />{{ player.status.place }}<span
+          />
+          <span class="place-number">{{ player.status.place }}</span>
+          <span
             v-if="player.isInMyHarmRange"
             class="harm-range-dot"
             @mouseenter="showTip($event, 'In harm range')"
             @mousemove="moveTip"
             @mouseleave="hideTip"
           />
+          <span v-if="isLastPlace(index, sorted.length)" class="dno-label">ДНО</span>
         </div>
 
         <!-- Avatar -->
@@ -446,7 +484,7 @@ function hideTip() {
           <span class="predict-locked-text">{{ getPrediction(player.playerId) }}</span>
         </div>
       </div>
-    </div>
+    </TransitionGroup>
 
     <!-- Predict dropdown — Teleported to body for z-index priority -->
     <Teleport to="body">
@@ -503,42 +541,141 @@ function hideTip() {
 .lb-table {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
+
+/* ── Hill tier CSS custom properties ────────────────────────────────── */
+.lb-row.hill-1 { --hill-tint: rgba(240,200,80, 0.1); --hill-border: rgba(240,200,80, 0.6); --hill-place: #f0c850; --hill-glow: 0 0 12px rgba(240,200,80, 0.15); }
+.lb-row.hill-2 { --hill-tint: rgba(192,192,210, 0.08); --hill-border: rgba(192,192,210, 0.4); --hill-place: #c0c0d0; --hill-glow: 0 0 8px rgba(192,192,210, 0.08); }
+.lb-row.hill-3 { --hill-tint: rgba(205,160,100, 0.07); --hill-border: rgba(205,160,100, 0.35); --hill-place: #cda064; --hill-glow: none; }
+.lb-row.hill-4 { --hill-tint: rgba(80,95,130, 0.06);  --hill-border: rgba(80,95,130, 0.25);  --hill-place: #6a7a9a; --hill-glow: none; }
+.lb-row.hill-5 { --hill-tint: rgba(50,65,75, 0.08);   --hill-border: rgba(50,65,75, 0.3);   --hill-place: #506570; --hill-glow: none; }
+.lb-row.hill-6 { --hill-tint: rgba(160,45,45, 0.06);  --hill-border: rgba(160,45,45, 0.35);  --hill-place: #a03030; --hill-glow: inset 0 0 12px rgba(160,45,45, 0.08); }
 
 .lb-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
+  padding: 7px 10px;
   border-radius: var(--radius);
-  background: var(--bg-secondary);
-  transition: all 0.15s;
+  background: linear-gradient(90deg, var(--hill-tint, var(--bg-secondary)), var(--bg-secondary) 80%);
+  transition: all 0.2s var(--ease-in-out);
   border: 1px solid transparent;
+  border-left: 3px solid var(--hill-border, transparent);
+  box-shadow: var(--hill-glow, none);
+  position: relative;
+  overflow: hidden;
 }
 
-.lb-row:hover { background: var(--bg-card-hover); }
+/* 1D. Row hover shimmer */
+.lb-row::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0.06), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  z-index: 0;
+}
+.lb-row:hover::before {
+  opacity: 1;
+}
+
+.lb-row:hover {
+  background: linear-gradient(90deg, var(--hill-tint, var(--bg-card-hover)), var(--bg-card-hover) 80%);
+  transform: translateX(2px);
+}
 
 .lb-row.can-click { cursor: crosshair; }
 
 .lb-row.can-click:hover {
-  background: rgba(239, 128, 128, 0.06);
-  border-color: var(--accent-red-dim);
+  background: linear-gradient(90deg, rgba(239,128,128, 0.1), rgba(239,128,128, 0.03) 80%);
+  border-color: rgba(239,128,128, 0.3);
+  border-left-color: var(--accent-red);
+  box-shadow: 0 0 12px rgba(239,128,128, 0.1), inset 0 0 8px rgba(239,128,128, 0.05);
+  transform: translateX(3px);
 }
 
+/* ── "You" row highlight — gold glow layered on top of hill tier ──── */
 .lb-row.is-me {
-  border-color: var(--accent-gold-dim);
-  background: rgba(233, 219, 61, 0.04);
+  border-top-color: rgba(240,200,80, 0.2);
+  border-right-color: rgba(240,200,80, 0.2);
+  border-bottom-color: rgba(240,200,80, 0.2);
+  box-shadow: 0 0 12px rgba(240,200,80, 0.12), inset 0 0 12px rgba(240,200,80, 0.04), inset 0 1px 0 rgba(240,200,80, 0.08);
+}
+
+/* 1B. Gold shimmer sweep on "my" row */
+.lb-row.is-me::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(240,200,80,0.06) 40%, rgba(240,200,80,0.1) 50%, rgba(240,200,80,0.06) 60%, transparent 100%);
+  background-size: 200% 100%;
+  animation: me-shimmer 4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+@keyframes me-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .lb-row.is-me.can-click:hover {
-  border-color: var(--accent-gold-dim);
-  background: rgba(233, 219, 61, 0.04);
+  border-top-color: rgba(240,200,80, 0.2);
+  border-right-color: rgba(240,200,80, 0.2);
+  border-bottom-color: rgba(240,200,80, 0.2);
+  background: linear-gradient(90deg, var(--hill-tint, var(--bg-secondary)), var(--bg-secondary) 80%);
   cursor: default;
+  transform: none;
+}
+
+/* ── 1st place shimmer ─────────────────────────────────────────────── */
+.lb-row.hill-1 {
+  animation: first-place-shimmer 3s ease-in-out infinite;
+}
+@keyframes first-place-shimmer {
+  0%, 100% { box-shadow: 0 0 10px rgba(240,200,80, 0.12); }
+  50% { box-shadow: 0 0 18px rgba(240,200,80, 0.22), 0 0 4px rgba(240,200,80, 0.1); }
+}
+
+/* 1C. Gold gradient sweep across 1st place row */
+.lb-row.hill-1::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(240,200,80,0.04) 45%, rgba(240,200,80,0.08) 50%, rgba(240,200,80,0.04) 55%, transparent 100%);
+  background-size: 300% 100%;
+  animation: first-sweep 4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+@keyframes first-sweep {
+  0% { background-position: 300% 0; }
+  100% { background-position: -300% 0; }
+}
+
+/* ── Last place distress ──────────────────────────────────────────── */
+.lb-row.hill-6 {
+  animation: last-place-pulse 2.5s ease-in-out infinite;
+}
+@keyframes last-place-pulse {
+  0%, 100% { border-left-color: rgba(160,45,45, 0.35); }
+  50% { border-left-color: rgba(200,60,60, 0.55); box-shadow: inset 0 0 16px rgba(160,45,45, 0.12); }
+}
+
+/* ── "On fire" streak (3+ consecutive score gains) ────────────────── */
+.lb-row.on-fire {
+  animation: fire-border 1.5s ease-in-out infinite;
+}
+
+@keyframes fire-border {
+  0%, 100% { box-shadow: inset 0 0 8px rgba(255, 120, 30, 0.15); }
+  50% { box-shadow: inset 0 0 16px rgba(255, 120, 30, 0.3), 0 0 10px rgba(255, 120, 30, 0.12); }
 }
 
 .lb-row.in-harm-range {
-  border-left: 2px solid var(--accent-red-dim);
+  border-left: 3px solid var(--accent-red-dim);
 }
 
 .harm-range-dot {
@@ -571,13 +708,21 @@ function hideTip() {
   pointer-events: none;
 }
 
+/* ── Place column — vertical flex with crown / number / ДНО ──────── */
 .lb-place {
-  width: 22px;
-  text-align: center;
+  width: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   font-size: 14px;
   font-weight: 800;
-  color: var(--text-muted);
+  color: var(--hill-place, var(--text-muted));
   font-family: var(--font-mono);
+  line-height: 1.1;
+}
+
+.place-number {
+  color: inherit;
 }
 
 .lb-prefix {
@@ -585,9 +730,34 @@ function hideTip() {
   margin-right: 1px;
 }
 
-.lb-row:nth-child(1) .lb-place { color: var(--accent-gold); text-shadow: var(--glow-gold); }
-.lb-row:nth-child(2) .lb-place { color: #b0b0b8; }
-.lb-row:nth-child(3) .lb-place { color: #c08040; }
+/* ── Rank crown (1st place) ─────────────────────────────────────────── */
+.rank-crown {
+  font-size: 14px;
+  line-height: 1;
+  color: #f0c850;
+  text-shadow: 0 0 8px rgba(240,200,80, 0.7), 0 0 16px rgba(240,200,80, 0.35);
+  animation: crown-glow 2s ease-in-out infinite, crown-float 3s ease-in-out infinite;
+}
+
+@keyframes crown-glow {
+  0%, 100% { text-shadow: 0 0 8px rgba(240,200,80, 0.7), 0 0 16px rgba(240,200,80, 0.35); }
+  50% { text-shadow: 0 0 12px rgba(240,200,80, 0.9), 0 0 24px rgba(240,200,80, 0.5); }
+}
+
+@keyframes crown-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1.5px); }
+}
+
+/* ── ДНО label (last place) ─────────────────────────────────────────── */
+.dno-label {
+  font-size: 7px;
+  font-weight: 800;
+  color: #a03030;
+  letter-spacing: 0.8px;
+  line-height: 1;
+  text-shadow: 0 0 6px rgba(160,45,45, 0.4);
+}
 
 .lb-avatar {
   width: 34px;
@@ -601,7 +771,15 @@ function hideTip() {
   height: 34px;
   border-radius: var(--radius);
   object-fit: cover;
-  border: 1px solid var(--border-subtle);
+  border: 1.5px solid var(--border-subtle);
+  transition: border-color 0.3s;
+}
+
+.lb-row.hill-1 .avatar-img {
+  border-color: rgba(240,200,80, 0.4);
+}
+.lb-row.hill-6 .avatar-img {
+  filter: saturate(0.65);
 }
 
 .avatar-placeholder {
@@ -748,12 +926,14 @@ function hideTip() {
 }
 
 @keyframes score-flash-up {
-  0% { color: var(--accent-green); transform: scale(1.3); }
-  100% { color: var(--accent-gold); transform: scale(1); }
+  0% { color: var(--accent-green); transform: scale(1.4); text-shadow: 0 0 12px rgba(63, 167, 61, 0.5); }
+  50% { text-shadow: 0 0 8px rgba(63, 167, 61, 0.3); }
+  100% { color: var(--accent-gold); transform: scale(1); text-shadow: 0 0 6px rgba(240, 200, 80, 0.15); }
 }
 @keyframes score-flash-down {
-  0% { color: var(--accent-red); transform: scale(1.3); }
-  100% { color: var(--accent-gold); transform: scale(1); }
+  0% { color: var(--accent-red); transform: scale(1.4); text-shadow: 0 0 12px rgba(239, 128, 128, 0.5); }
+  50% { text-shadow: 0 0 8px rgba(239, 128, 128, 0.3); }
+  100% { color: var(--accent-gold); transform: scale(1); text-shadow: 0 0 6px rgba(240, 200, 80, 0.15); }
 }
 
 .lb-score-area {
@@ -780,12 +960,14 @@ function hideTip() {
 }
 
 .score-value {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
-  min-width: 22px;
+  min-width: 24px;
   text-align: right;
   color: var(--accent-gold);
   font-family: var(--font-mono);
+  text-shadow: 0 0 6px rgba(240, 200, 80, 0.15);
+  transition: color 0.3s, text-shadow 0.3s, transform 0.3s;
 }
 
 /* Predict inline button */
@@ -828,6 +1010,27 @@ function hideTip() {
   color: var(--accent-purple);
   font-size: 11px;
   opacity: 0.7;
+}
+
+/* ── TransitionGroup FLIP animation for position swaps ──────────────── */
+.hill-move {
+  transition: transform 0.65s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.hill-enter-active {
+  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.hill-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  position: absolute;
+  width: 100%;
+}
+.hill-enter-from {
+  opacity: 0;
+  transform: translateX(-20px) scale(0.96);
+}
+.hill-leave-to {
+  opacity: 0;
+  transform: translateX(20px) scale(0.96);
 }
 </style>
 

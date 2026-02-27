@@ -153,6 +153,12 @@ function handleLogout() {
   --bg-card-hover: var(--kh-c-neutrals-sat-500);    /* hovered card */
   --bg-inset: var(--kh-c-neutrals-sat-750);         /* inset/recessed areas */
 
+  /* Glass surfaces */
+  --glass-bg: var(--kh-c-glass-bg);
+  --glass-bg-heavy: var(--kh-c-glass-bg-heavy);
+  --glass-border: var(--kh-c-glass-border);
+  --glass-highlight: var(--kh-c-glass-highlight);
+
   /* Text — hierarchy */
   --text-primary: var(--kh-c-text-primary-500);     /* headings, important */
   --text-secondary: var(--kh-c-text-primary-600);   /* body text */
@@ -179,11 +185,18 @@ function handleLogout() {
   --radius-lg: 10px;
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 4px 16px rgba(0, 0, 0, 0.4);
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-  --glow-gold: 0 0 8px rgba(233, 219, 61, 0.25);
-  --glow-green: 0 0 8px rgba(63, 167, 61, 0.3);
-  --glow-red: 0 0 8px rgba(239, 128, 128, 0.3);
-  --glow-purple: 0 0 8px rgba(180, 150, 255, 0.3);
+  --glow-gold: 0 0 12px rgba(240, 200, 80, 0.25), 0 0 4px rgba(240, 200, 80, 0.15);
+  --glow-green: 0 0 10px rgba(63, 167, 61, 0.3);
+  --glow-red: 0 0 10px rgba(239, 128, 128, 0.3);
+  --glow-purple: 0 0 10px rgba(180, 150, 255, 0.3);
+  --glow-blue: 0 0 10px rgba(110, 170, 240, 0.3);
+
+  /* Easing */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ── Layout ───────────────────────────────────────────────────────── */
@@ -218,8 +231,13 @@ function handleLogout() {
   justify-content: space-between;
   padding: 0 1rem;
   height: 44px;
-  background: var(--kh-c-neutrals-sat-700);
-  border-bottom: 1px solid var(--border-subtle);
+  background: var(--glass-bg-heavy);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: 0 1px 12px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 50;
 }
 
 .top-bar-left {
@@ -236,6 +254,7 @@ function handleLogout() {
   color: var(--accent-gold);
   text-decoration: none;
   letter-spacing: 1px;
+  text-shadow: 0 0 10px rgba(240, 200, 80, 0.3);
 }
 
 .top-nav {
@@ -383,10 +402,13 @@ function handleLogout() {
 
 /* ── Cards ────────────────────────────────────────────────────────── */
 .card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   padding: 1rem;
+  box-shadow: var(--shadow-glow), inset 0 1px 0 var(--glass-highlight);
 }
 
 .card-header {
@@ -396,6 +418,9 @@ function handleLogout() {
   color: var(--accent-gold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid transparent;
+  border-image: linear-gradient(90deg, var(--accent-gold-dim), transparent 80%) 1;
 }
 
 /* ── Error Toast ──────────────────────────────────────────────────── */
@@ -434,12 +459,13 @@ function handleLogout() {
   display: inline-block;
   font-size: 9px;
   font-weight: 800;
-  padding: 1px 4px;
-  border-radius: 3px;
+  padding: 2px 5px;
+  border-radius: 4px;
   letter-spacing: 0.5px;
   line-height: 1.3;
   vertical-align: middle;
   text-transform: uppercase;
+  transition: transform 0.2s var(--ease-spring);
 }
 .gi-int { background: rgba(110, 170, 240, 0.12); color: var(--kh-c-secondary-info-200); }
 .gi-str { background: rgba(239, 128, 128, 0.12); color: var(--kh-c-secondary-danger-200); }

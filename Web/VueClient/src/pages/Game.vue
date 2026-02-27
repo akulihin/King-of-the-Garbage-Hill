@@ -239,6 +239,18 @@ function finishGame() {
   router.push('/')
 }
 
+// ── Round start overlay ─────────────────────────────────────────────
+const showRoundOverlay = ref(false)
+const overlayRoundNo = ref(0)
+
+watch(() => store.gameState?.roundNo, (newRound, oldRound) => {
+  if (newRound && oldRound && newRound !== oldRound && newRound > 1) {
+    overlayRoundNo.value = newRound
+    showRoundOverlay.value = true
+    setTimeout(() => { showRoundOverlay.value = false }, 1200)
+  }
+})
+
 /** Map Discord custom emoji names to local /art/emojis/ images (mirrors C# EmojiMap). */
 const discordEmojiMap: Record<string, string> = {
   weed: '/art/emojis/weed.png',
@@ -555,6 +567,13 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 
 <template>
   <div class="game-page">
+    <!-- Round announce badge (non-blocking) -->
+    <Transition name="round-announce">
+      <div v-if="showRoundOverlay" class="round-announce" :key="overlayRoundNo">
+        <span class="round-announce-text">Round {{ overlayRoundNo }}</span>
+      </div>
+    </Transition>
+
     <!-- Loading state -->
     <div v-if="!store.gameState" class="loading">
       <p>Connecting to game...</p>
@@ -1094,7 +1113,7 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 .game-layout {
   display: grid;
   grid-template-columns: 250px 1fr 250px;
-  gap: 6px;
+  gap: 10px;
   align-items: start;
 }
 
@@ -1121,30 +1140,33 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 }
 
 .round-badge {
-  background: var(--kh-c-secondary-info-500);
-  color: var(--text-primary);
-  padding: 3px 12px;
+  background: rgba(80, 150, 230, 0.15);
+  color: var(--accent-blue);
+  padding: 4px 14px;
   border-radius: var(--radius);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.3px;
-  border: 1px solid var(--accent-blue);
+  border: 1px solid rgba(80, 150, 230, 0.3);
+  box-shadow: 0 0 8px rgba(80, 150, 230, 0.1);
+  backdrop-filter: blur(8px);
 }
 
 .mode-badge {
-  background: var(--kh-c-secondary-purple-500);
-  color: var(--text-primary);
-  padding: 3px 12px;
+  background: rgba(180, 150, 255, 0.12);
+  color: var(--accent-purple);
+  padding: 4px 14px;
   border-radius: var(--radius);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  border: 1px solid var(--accent-purple);
+  border: 1px solid rgba(180, 150, 255, 0.25);
+  box-shadow: 0 0 8px rgba(180, 150, 255, 0.08);
 }
 
 .status-chip {
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: var(--radius);
   font-size: 10px;
   font-weight: 700;
@@ -1155,18 +1177,68 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 .status-chip.ready {
   background: rgba(63, 167, 61, 0.1);
   color: var(--accent-green);
-  border: 1px solid rgba(63, 167, 61, 0.2);
+  border: 1px solid rgba(63, 167, 61, 0.25);
+  box-shadow: 0 0 6px rgba(63, 167, 61, 0.15);
 }
 .status-chip.waiting {
-  background: rgba(230, 148, 74, 0.1);
-  color: var(--accent-orange);
-  border: 1px solid rgba(230, 148, 74, 0.2);
-  animation: turn-pulse 2s ease-in-out infinite;
+  background: rgba(240, 200, 80, 0.08);
+  color: var(--accent-gold);
+  border: 1px solid rgba(240, 200, 80, 0.3);
+  animation: turn-pulse 1.8s ease-in-out infinite;
 }
 
 @keyframes turn-pulse {
-  0%, 100% { box-shadow: none; }
-  50% { box-shadow: 0 0 8px rgba(230, 148, 74, 0.4); }
+  0%, 100% { box-shadow: 0 0 4px rgba(240, 200, 80, 0.1); border-color: rgba(240, 200, 80, 0.3); }
+  50% { box-shadow: 0 0 16px rgba(240, 200, 80, 0.4), 0 0 32px rgba(240, 200, 80, 0.1); border-color: rgba(240, 200, 80, 0.6); }
+}
+
+/* ── Round announce badge (non-blocking) ────────────────────────────── */
+.round-announce {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  pointer-events: none;
+  padding: 8px 28px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(20, 18, 28, 0.85), rgba(30, 28, 38, 0.9));
+  border: 1.5px solid rgba(240, 200, 80, 0.4);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.5),
+    0 0 16px rgba(240, 200, 80, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.round-announce-text {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--accent-gold);
+  text-shadow:
+    0 0 12px rgba(240, 200, 80, 0.6),
+    0 0 30px rgba(240, 200, 80, 0.2);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+.round-announce-enter-active {
+  animation: round-announce-in 0.5s var(--ease-spring);
+}
+.round-announce-leave-active {
+  animation: round-announce-out 0.5s ease forwards;
+}
+
+@keyframes round-announce-in {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-20px) scale(0.8); }
+  60% { opacity: 1; transform: translateX(-50%) translateY(2px) scale(1.04); }
+  100% { transform: translateX(-50%) translateY(0) scale(1); }
+}
+@keyframes round-announce-out {
+  0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(0.9); }
 }
 
 .header-right {
@@ -1333,8 +1405,12 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 .events-panel {
   min-height: 80px;
   max-height: 150px;
-  padding: 5px 8px;
-  background: rgba(58, 56, 62, 1);
+  padding: 6px 10px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
   overflow: hidden;
 }
 
@@ -1379,7 +1455,15 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 }
 
 /* ── Animated Previous Round Logs ──────────────────────────────────── */
-.prev-logs-panel { max-height: 220px; background: rgba(32, 30, 36, 1); overflow: hidden; }
+.prev-logs-panel {
+  max-height: 220px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
 
 .prev-logs {
   display: flex;
@@ -1393,19 +1477,51 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 5px 10px;
+  border-radius: 5px;
   font-size: 11px;
   line-height: 1.4;
   border-left: 3px solid transparent;
   opacity: 0;
   transform: translateX(-25px) scale(0.97);
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  transition: opacity 0.35s ease, transform 0.35s var(--ease-spring);
 }
 
 .prev-log-item.prev-log-visible {
   opacity: 1;
   transform: translateX(0) scale(1);
+  animation: log-fresh-reveal 1.5s ease-out;
+}
+
+/* 4E. Fresh-reveal inner glow — type-colored, fades out */
+@keyframes log-fresh-reveal {
+  0% { box-shadow: inset 0 0 8px rgba(180, 150, 255, 0.2); }
+  100% { box-shadow: inset 0 0 0 transparent; }
+}
+.prev-log-gold.prev-log-visible { animation-name: log-fresh-gold; }
+@keyframes log-fresh-gold {
+  0% { box-shadow: inset 0 0 8px rgba(233, 219, 61, 0.2); }
+  100% { box-shadow: inset 0 0 0 transparent; }
+}
+.prev-log-green.prev-log-visible { animation-name: log-fresh-green; }
+@keyframes log-fresh-green {
+  0% { box-shadow: inset 0 0 8px rgba(63, 167, 61, 0.2); }
+  100% { box-shadow: inset 0 0 0 transparent; }
+}
+.prev-log-red.prev-log-visible { animation-name: log-fresh-red; }
+@keyframes log-fresh-red {
+  0% { box-shadow: inset 0 0 8px rgba(239, 128, 128, 0.2); }
+  100% { box-shadow: inset 0 0 0 transparent; }
+}
+.prev-log-blue.prev-log-visible { animation-name: log-fresh-blue; }
+@keyframes log-fresh-blue {
+  0% { box-shadow: inset 0 0 8px rgba(100, 160, 255, 0.2); }
+  100% { box-shadow: inset 0 0 0 transparent; }
+}
+.prev-log-orange.prev-log-visible { animation-name: log-fresh-orange; }
+@keyframes log-fresh-orange {
+  0% { box-shadow: inset 0 0 8px rgba(230, 148, 74, 0.2); }
+  100% { box-shadow: inset 0 0 0 transparent; }
 }
 
 /* Right panel items slide from further left (content "arriving" from left panel) */

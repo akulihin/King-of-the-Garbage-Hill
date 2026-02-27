@@ -59,7 +59,13 @@
   --kh-c-text-primary-700: rgba(148, 156, 164, 1);
   --kh-c-text-primary-800: rgba(71, 83, 88, 1);
 
-  /* Highlight / gold */
-  --kh-c-text-highlight-primary: rgba(233, 219, 61, 1);
-  --kh-c-text-highlight-dim: rgba(200, 185, 50, 1);
+  /* Highlight / gold — warmer, richer tone */
+  --kh-c-text-highlight-primary: #f0c850;
+  --kh-c-text-highlight-dim: #c8a030;
+
+  /* Glass / frosted surface system */
+  --kh-c-glass-bg: rgba(30, 28, 36, 0.72);
+  --kh-c-glass-bg-heavy: rgba(30, 28, 36, 0.85);
+  --kh-c-glass-border: rgba(255, 255, 255, 0.06);
+  --kh-c-glass-highlight: rgba(255, 255, 255, 0.03);
 }

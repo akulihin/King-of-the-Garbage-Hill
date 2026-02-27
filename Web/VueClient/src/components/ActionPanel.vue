@@ -24,7 +24,7 @@ const dopaSecondAttack = computed(() => me.value?.passiveAbilityStates?.dopa?.ne
 </script>
 
 <template>
-  <div class="action-bar">
+  <div class="action-bar" :class="{ 'can-act': canAct }">
     <!-- Core actions -->
     <div class="action-group">
       <button
@@ -119,55 +119,111 @@ const dopaSecondAttack = computed(() => me.value?.passiveAbilityStates?.dopa?.ne
 .action-bar {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
+  gap: 5px;
+  padding: 6px 10px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   flex-wrap: wrap;
   margin-bottom: 4px;
+  box-shadow: var(--shadow-glow), inset 0 1px 0 var(--glass-highlight);
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+/* 3A. Gold border pulse when it's your turn */
+.action-bar.can-act {
+  animation: can-act-pulse 2.5s ease-in-out infinite;
+}
+@keyframes can-act-pulse {
+  0%, 100% { border-color: rgba(240, 200, 80, 0.15); box-shadow: var(--shadow-glow), inset 0 1px 0 var(--glass-highlight); }
+  50% { border-color: rgba(240, 200, 80, 0.4); box-shadow: var(--shadow-glow), inset 0 1px 0 var(--glass-highlight), 0 0 14px rgba(240, 200, 80, 0.12); }
 }
 
 .action-group {
   display: flex;
   align-items: center;
-  gap: 3px;
-  padding-left: 6px;
-  border-left: 1px solid var(--border-subtle);
+  gap: 4px;
+  padding-left: 8px;
+  border-left: 1px solid var(--glass-border);
   flex-wrap: wrap;
 }
 
 .act-btn {
-  height: 28px;
-  padding: 0 8px;
+  height: 34px;
+  padding: 0 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 4px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
   background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s var(--ease-in-out);
   white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Colored left-border accents by button type */
+.act-btn.shield { border-left: 3px solid var(--accent-blue); }
+.act-btn.auto { border-left: 3px solid var(--accent-green); }
+.act-btn.undo { border-left: 3px solid var(--accent-orange); }
+.act-btn.skip { border-left: 3px solid var(--text-dim); }
+
+/* 3C. Color-tinted ripples on click */
+.act-btn:active:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.15), transparent 70%);
+  animation: btn-ripple 0.4s ease-out;
+  pointer-events: none;
+}
+.act-btn.shield:active:not(:disabled)::after {
+  background: radial-gradient(circle at center, rgba(110, 170, 240, 0.2), transparent 70%);
+}
+.act-btn.auto:active:not(:disabled)::after {
+  background: radial-gradient(circle at center, rgba(63, 167, 61, 0.2), transparent 70%);
+}
+.act-btn.undo:active::after {
+  background: radial-gradient(circle at center, rgba(230, 148, 74, 0.2), transparent 70%);
+}
+
+@keyframes btn-ripple {
+  0% { transform: scale(0); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
 }
 
 .act-btn:hover:not(:disabled) {
-  background: var(--bg-card-hover);
+  background: linear-gradient(180deg, var(--bg-card-hover), var(--bg-secondary));
   border-color: var(--accent-blue);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 6px rgba(110, 170, 240, 0.1);
+}
+
+.act-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
 }
 
 .act-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+  filter: grayscale(0.5);
+  border-left-color: var(--border-subtle);
+  transform: scale(0.98);
+  transition: all 0.4s var(--ease-in-out);
 }
 
-.act-btn.shield:hover:not(:disabled) { border-color: var(--accent-blue); }
-.act-btn.auto:hover:not(:disabled) { border-color: var(--accent-green); }
-.act-btn.undo:hover { border-color: var(--accent-orange); }
+/* 3B. Per-type hover glow shadows */
+.act-btn.shield:hover:not(:disabled) { border-color: var(--accent-blue); box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 10px rgba(110, 170, 240, 0.15); }
+.act-btn.auto:hover:not(:disabled) { border-color: var(--accent-green); box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 10px rgba(63, 167, 61, 0.15); }
+.act-btn.undo:hover { border-color: var(--accent-orange); box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 10px rgba(230, 148, 74, 0.15); }
 .act-btn.skip:hover:not(:disabled) { border-color: var(--text-muted); }
 
 .act-btn.predict-confirm {

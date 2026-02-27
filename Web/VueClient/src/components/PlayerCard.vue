@@ -61,6 +61,17 @@ const portalGun = computed<PortalGun | null>(() => {
 })
 
 const isBug = computed(() => props.player?.isBug ?? false)
+
+// Position-based avatar glow tier (1=top, 6=bottom)
+const placeTier = computed(() => {
+  const place = props.player?.status?.place ?? 3
+  if (place <= 1) return 'place-1'
+  if (place <= 2) return 'place-2'
+  if (place <= 3) return 'place-3'
+  if (place <= 5) return 'place-mid'
+  return 'place-last'
+})
+
 const exploitState = computed<ExploitState | null>(() => {
   if (!props.isMe) return null
   return props.player?.exploitState ?? null
@@ -254,6 +265,41 @@ watch(() => props.scoreAnimReady, (ready: boolean) => {
 
 onUnmounted(() => { clearComboTimer() })
 
+// ── Stat change pulse animation ──────────────────────────────────────
+const prevStatValues = ref<{ int: number; str: number; spd: number; psy: number } | null>(null)
+const pulsingStats = ref<Set<string>>(new Set())
+
+watch(
+  () => [
+    props.player?.character.intelligence,
+    props.player?.character.strength,
+    props.player?.character.speed,
+    props.player?.character.psyche,
+  ],
+  (newVals) => {
+    if (!newVals || !newVals[0]) return
+    const [newInt, newStr, newSpd, newPsy] = newVals as number[]
+    const prev = prevStatValues.value
+    if (prev) {
+      const changed: string[] = []
+      if (newInt !== prev.int) changed.push('intelligence')
+      if (newStr !== prev.str) changed.push('strength')
+      if (newSpd !== prev.spd) changed.push('speed')
+      if (newPsy !== prev.psy) changed.push('psyche')
+      if (changed.length > 0) {
+        for (const s of changed) pulsingStats.value.add(s)
+        pulsingStats.value = new Set(pulsingStats.value)
+        setTimeout(() => {
+          for (const s of changed) pulsingStats.value.delete(s)
+          pulsingStats.value = new Set(pulsingStats.value)
+        }, 1500)
+      }
+    }
+    prevStatValues.value = { int: newInt, str: newStr, spd: newSpd, psy: newPsy }
+  },
+  { deep: true },
+)
+
 /** Geralt oil tier label */
 function geraltOilLabel(tier: number): string {
   if (tier === 0) return '—'
@@ -334,7 +380,7 @@ function handleMoralToSkill() {
     :style="passiveStates?.privilege && passiveStates.privilege.markedCount > 0 ? { borderColor: 'rgba(205, 127, 50, 0.5)', boxShadow: '0 0 12px rgba(205, 127, 50, 0.2)' } : {}"
   >
     <!-- Large avatar -->
-    <div class="pc-avatar-wrap">
+    <div class="pc-avatar-wrap" :class="placeTier">
       <img
         v-if="player.character.avatarCurrent"
         :src="player.character.avatarCurrent"
@@ -475,21 +521,21 @@ function handleMoralToSkill() {
         </div>
       </div>
       <!-- Still show stats (read-only) with resist flash -->
-      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('intelligence') }">
+      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('intelligence'), 'stat-pulse': pulsingStats.has('intelligence') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-int">INT</span>
           <div class="stat-bar-bg"><div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" /></div>
           <span class="stat-val stat-intelligence">{{ player.character.intelligence }}</span>
         </div>
       </div>
-      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('strength') }">
+      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('strength'), 'stat-pulse': pulsingStats.has('strength') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-str">STR</span>
           <div class="stat-bar-bg"><div class="stat-bar strength" :style="{ width: `${player.character.strength * 10}%` }" /></div>
           <span class="stat-val stat-strength">{{ player.character.strength }}</span>
         </div>
       </div>
-      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('speed') }">
+      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('speed'), 'stat-pulse': pulsingStats.has('speed') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-spd">SPD</span>
           <div class="stat-bar-bg"><div class="stat-bar speed" :style="{ width: `${player.character.speed * 10}%` }" /></div>
@@ -500,7 +546,7 @@ function handleMoralToSkill() {
 
       <template v-else>
       <!-- Intelligence -->
-      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('intelligence'), 'lvl-up-available': hasLvlUpPoints }">
+      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('intelligence'), 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('intelligence') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-int">INT</span>
           <div class="stat-bar-bg">
@@ -515,7 +561,7 @@ function handleMoralToSkill() {
         </div>
       </div>
       <!-- Strength -->
-      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('strength'), 'lvl-up-available': hasLvlUpPoints }">
+      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('strength'), 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('strength') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-str">STR</span>
           <div class="stat-bar-bg">
@@ -530,7 +576,7 @@ function handleMoralToSkill() {
         </div>
       </div>
       <!-- Speed -->
-      <div class="stat-block" :class="{ 'lvl-up-available': hasLvlUpPoints }">
+      <div class="stat-block" :class="{ 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('speed') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-spd">SPD</span>
           <div class="stat-bar-bg">
@@ -549,7 +595,7 @@ function handleMoralToSkill() {
 
     <!-- Psyche (separated — different stat type, hidden during kotiki lvl-up) -->
     <div v-if="!(isKotiki && hasLvlUpPoints)" class="pc-psyche-box">
-      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('psyche'), 'lvl-up-available': hasLvlUpPoints }">
+      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('psyche'), 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('psyche') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-psy">PSY</span>
           <div class="stat-bar-bg">
@@ -1421,34 +1467,149 @@ function handleMoralToSkill() {
 
 <style scoped>
 .player-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  box-shadow: var(--shadow-glow), inset 0 1px 0 var(--glass-highlight);
+  transition: border-color 0.3s, box-shadow 0.3s;
 }
 
 .player-card.is-me {
-  border-color: var(--accent-gold-dim);
-  box-shadow: var(--glow-gold);
+  border-color: rgba(240, 200, 80, 0.2);
+  box-shadow: var(--glow-gold), var(--shadow-glow), inset 0 1px 0 var(--glass-highlight);
 }
 
 /* Avatar */
 .pc-avatar-wrap {
   width: 100%;
   aspect-ratio: 1;
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--bg-inset);
-  border: 1px solid var(--border-subtle);
+  border: 2px solid var(--border-subtle);
+  transition: border-color 0.8s ease, box-shadow 0.8s ease, filter 0.8s ease;
+  position: relative;
+}
+
+/* ── LoL-style rank frames ─────────────────────────────────────────── */
+
+/* 1st place — Challenger: animated iridescent border */
+.pc-avatar-wrap.place-1 {
+  border-width: 3px;
+  border-color: rgba(240, 200, 80, 0.7);
+  box-shadow:
+    0 0 16px rgba(240, 200, 80, 0.35),
+    0 0 40px rgba(240, 200, 80, 0.12),
+    inset 0 0 12px rgba(240, 200, 80, 0.08);
+  animation: frame-challenger 3s ease-in-out infinite;
+}
+.pc-avatar-wrap.place-1::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from 0deg,
+    rgba(240,200,80,0.3),
+    rgba(255,160,60,0.2),
+    rgba(240,200,80,0.3),
+    rgba(255,220,120,0.2),
+    rgba(240,200,80,0.3)
+  );
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  padding: 3px;
+  animation: frame-rotate 4s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+@keyframes frame-challenger {
+  0%, 100% { box-shadow: 0 0 16px rgba(240,200,80,0.35), 0 0 40px rgba(240,200,80,0.12), inset 0 0 12px rgba(240,200,80,0.08); }
+  50% { box-shadow: 0 0 22px rgba(240,200,80,0.5), 0 0 50px rgba(240,200,80,0.18), inset 0 0 16px rgba(240,200,80,0.12); }
+}
+@keyframes frame-rotate {
+  from { filter: hue-rotate(0deg); }
+  to { filter: hue-rotate(360deg); }
+}
+
+/* 2nd place — Diamond: ice blue shimmer */
+.pc-avatar-wrap.place-2 {
+  border-width: 3px;
+  border-color: rgba(140, 200, 255, 0.5);
+  box-shadow:
+    0 0 14px rgba(140, 200, 255, 0.2),
+    0 0 30px rgba(140, 200, 255, 0.08),
+    inset 0 0 8px rgba(140, 200, 255, 0.06);
+  animation: frame-diamond 2.5s ease-in-out infinite;
+}
+.pc-avatar-wrap.place-2::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(140,200,255,0.25), transparent 40%, transparent 60%, rgba(185,230,255,0.2));
+  pointer-events: none;
+  z-index: 1;
+  animation: frame-diamond-shine 3s ease-in-out infinite;
+}
+@keyframes frame-diamond {
+  0%, 100% { box-shadow: 0 0 14px rgba(140,200,255,0.2), 0 0 30px rgba(140,200,255,0.08), inset 0 0 8px rgba(140,200,255,0.06); }
+  50% { box-shadow: 0 0 18px rgba(140,200,255,0.3), 0 0 36px rgba(140,200,255,0.12), inset 0 0 10px rgba(140,200,255,0.08); }
+}
+@keyframes frame-diamond-shine {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* 3rd place — Gold: warm metallic glow */
+.pc-avatar-wrap.place-3 {
+  border-width: 2.5px;
+  border-color: rgba(205, 160, 80, 0.5);
+  box-shadow:
+    0 0 10px rgba(205, 160, 80, 0.18),
+    0 0 24px rgba(205, 160, 80, 0.06);
+}
+.pc-avatar-wrap.place-3::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(205,160,80,0.15), transparent 50%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 4th-5th place — Silver: subtle metallic */
+.pc-avatar-wrap.place-mid {
+  border-color: rgba(160, 165, 180, 0.3);
+  box-shadow: 0 0 6px rgba(160, 165, 180, 0.08);
+}
+
+/* 6th place — Iron: desaturated, dull */
+.pc-avatar-wrap.place-last {
+  border-color: rgba(120, 80, 80, 0.4);
+  box-shadow: inset 0 0 16px rgba(100, 40, 40, 0.12);
+  filter: saturate(0.65);
 }
 
 .pc-avatar-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  animation: avatar-breathe 4s ease-in-out infinite;
+}
+
+@keyframes avatar-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.015); }
 }
 
 .pc-avatar-fallback {
@@ -1472,6 +1633,7 @@ function handleMoralToSkill() {
   font-size: 16px;
   color: var(--accent-gold);
   letter-spacing: 0.3px;
+  text-shadow: 0 0 10px rgba(240, 200, 80, 0.25);
 }
 
 .pc-username {
@@ -1550,31 +1712,50 @@ function handleMoralToSkill() {
 
 .stat-bar-bg {
   flex: 1;
-  height: 5px;
+  height: 10px;
   background: var(--bg-inset);
-  border-radius: 3px;
+  border-radius: 5px;
   overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .stat-bar {
   height: 100%;
-  border-radius: 3px;
-  transition: width 0.5s ease;
+  border-radius: 5px;
+  transition: width 0.6s var(--ease-spring);
+  position: relative;
 }
 
-.stat-bar.intelligence { background: linear-gradient(90deg, var(--kh-c-secondary-info-400), var(--kh-c-secondary-info-200)); }
-.stat-bar.strength { background: linear-gradient(90deg, var(--kh-c-secondary-danger-400), var(--kh-c-secondary-danger-200)); }
-.stat-bar.speed { background: linear-gradient(90deg, var(--kh-c-secondary-warning-400), var(--kh-c-secondary-warning-200)); }
-.stat-bar.psyche { background: linear-gradient(90deg, var(--kh-c-secondary-purple-400), var(--kh-c-secondary-purple-200)); }
+/* Inner shine on stat bars */
+.stat-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 5px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.stat-bar.intelligence { background: linear-gradient(90deg, var(--kh-c-secondary-info-400), var(--kh-c-secondary-info-200)); box-shadow: 0 0 6px rgba(110, 170, 240, 0.2); }
+.stat-bar.strength { background: linear-gradient(90deg, var(--kh-c-secondary-danger-400), var(--kh-c-secondary-danger-200)); box-shadow: 0 0 6px rgba(239, 128, 128, 0.2); }
+.stat-bar.speed { background: linear-gradient(90deg, var(--kh-c-secondary-warning-400), var(--kh-c-secondary-warning-200)); box-shadow: 0 0 6px rgba(233, 219, 61, 0.15); }
+.stat-bar.psyche { background: linear-gradient(90deg, var(--kh-c-secondary-purple-400), var(--kh-c-secondary-purple-200)); box-shadow: 0 0 6px rgba(180, 150, 255, 0.2); }
 
 .stat-val {
-  width: 20px;
+  width: 22px;
   text-align: right;
   font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 12px;
+  font-weight: 800;
+  font-size: 13px;
   color: var(--text-primary);
+  transition: color 0.3s, text-shadow 0.3s;
 }
+
+/* 2A. Per-stat-color text glows */
+.stat-val.stat-intelligence { color: var(--kh-c-secondary-info-200); text-shadow: 0 0 6px rgba(110, 170, 240, 0.35); }
+.stat-val.stat-strength { color: var(--kh-c-secondary-danger-200); text-shadow: 0 0 6px rgba(239, 128, 128, 0.35); }
+.stat-val.stat-speed { color: var(--kh-c-secondary-warning-200); text-shadow: 0 0 6px rgba(233, 219, 61, 0.3); }
+.stat-val.stat-psyche { color: var(--kh-c-secondary-purple-200); text-shadow: 0 0 6px rgba(180, 150, 255, 0.35); }
 
 .stat-block {
   display: flex;
@@ -1588,9 +1769,19 @@ function handleMoralToSkill() {
   animation: resist-hit-flash 1.5s ease-out;
 }
 
+.stat-block.stat-pulse {
+  animation: stat-change-pulse 1.5s ease-out;
+}
+
 @keyframes resist-hit-flash {
   0% { background: rgba(239, 128, 128, 0.3); box-shadow: inset 0 0 12px rgba(239, 128, 128, 0.4); }
   30% { background: rgba(239, 128, 128, 0.15); box-shadow: inset 0 0 6px rgba(239, 128, 128, 0.2); }
+  100% { background: transparent; box-shadow: none; }
+}
+
+@keyframes stat-change-pulse {
+  0% { background: rgba(110, 170, 240, 0.25); box-shadow: inset 0 0 10px rgba(110, 170, 240, 0.3); }
+  40% { background: rgba(110, 170, 240, 0.1); box-shadow: inset 0 0 4px rgba(110, 170, 240, 0.15); }
   100% { background: transparent; box-shadow: none; }
 }
 
@@ -1644,13 +1835,13 @@ function handleMoralToSkill() {
 }
 
 .lvl-btn {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: 1.5px solid var(--accent-green);
-  background: rgba(63, 167, 61, 0.08);
+  background: rgba(63, 167, 61, 0.1);
   color: var(--accent-green);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 900;
   cursor: pointer;
   display: flex;
@@ -1658,13 +1849,39 @@ function handleMoralToSkill() {
   justify-content: center;
   padding: 0;
   line-height: 1;
-  transition: all 0.15s;
+  transition: all 0.2s var(--ease-spring);
   flex-shrink: 0;
+  box-shadow: 0 0 6px rgba(63, 167, 61, 0.15);
+  position: relative;
 }
+
+/* 2B. Pulsing ring around lvl-up button */
+.lvl-btn::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(63, 167, 61, 0.4);
+  animation: lvl-pulse-ring 1.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes lvl-pulse-ring {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.15); opacity: 0; }
+}
+
 .lvl-btn:hover {
   background: var(--accent-green);
   color: var(--bg-primary);
-  box-shadow: var(--glow-green);
+  box-shadow: 0 0 14px rgba(63, 167, 61, 0.4);
+  transform: scale(1.15);
+}
+.lvl-btn:hover::before {
+  animation: none;
+  opacity: 0;
+}
+.lvl-btn:active {
+  box-shadow: 0 0 20px rgba(63, 167, 61, 0.6);
 }
 
 /* Justice highlight row */
@@ -1673,16 +1890,17 @@ function handleMoralToSkill() {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 6px 8px;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(180, 150, 255, 0.04));
+  padding: 7px 10px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(180, 150, 255, 0.04));
   border: 1.5px solid rgba(139, 92, 246, 0.25);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   position: relative;
   transition: border-color 0.3s, box-shadow 0.3s;
+  backdrop-filter: blur(4px);
 }
 .pc-justice-row:hover {
-  border-color: rgba(139, 92, 246, 0.4);
-  box-shadow: 0 0 8px rgba(139, 92, 246, 0.15);
+  border-color: rgba(139, 92, 246, 0.45);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.2);
 }
 .justice-icon {
   font-size: 16px;
@@ -1714,16 +1932,18 @@ function handleMoralToSkill() {
   flex: 1 1 auto;
   min-width: 44px;
   text-align: center;
-  padding: 5px 3px;
-  background: var(--bg-inset);
-  border: 1px solid var(--border-subtle);
+  padding: 5px 4px;
+  background: rgba(28, 26, 33, 0.6);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   cursor: default;
-  transition: border-color 0.15s;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 
 .meta-box:hover {
   border-color: var(--border-color);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.04);
+  transform: translateY(-1px);
 }
 
 .meta-label {
@@ -1801,20 +2021,26 @@ function handleMoralToSkill() {
   padding: 5px 4px;
   border: 1px solid rgba(230, 148, 74, 0.3);
   border-radius: var(--radius);
-  background: rgba(230, 148, 74, 0.06);
+  background: linear-gradient(180deg, rgba(230, 148, 74, 0.08), rgba(230, 148, 74, 0.03));
   color: var(--accent-orange);
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s var(--ease-in-out);
   text-align: center;
   min-width: 0;
   white-space: nowrap;
 }
 .moral-btn:hover:not(:disabled) {
-  background: var(--accent-orange);
+  background: linear-gradient(180deg, var(--accent-orange), rgba(230, 148, 74, 0.85));
   color: var(--bg-primary);
   border-color: var(--accent-orange);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(230, 148, 74, 0.25);
+}
+.moral-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+  box-shadow: 0 1px 4px rgba(230, 148, 74, 0.15);
 }
 .moral-btn-disabled {
   opacity: 0.45;
@@ -1845,10 +2071,17 @@ function handleMoralToSkill() {
 }
 
 .pc-score {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 900;
   color: var(--accent-gold);
   font-family: var(--font-mono);
+  text-shadow: 0 0 12px rgba(240, 200, 80, 0.3);
+  transition: text-shadow 0.3s;
+}
+
+/* 2E. Brighter glow when score delta is visible */
+.pc-score-row:has(.pc-score-delta) .pc-score {
+  text-shadow: 0 0 16px rgba(240, 200, 80, 0.5), 0 0 30px rgba(240, 200, 80, 0.2);
 }
 
 .pc-score-label {
@@ -1877,9 +2110,10 @@ function handleMoralToSkill() {
   color: var(--accent-red);
 }
 @keyframes score-delta-pop {
-  0% { transform: scale(0.6); opacity: 0.3; }
-  50% { transform: scale(1.3); }
-  100% { transform: scale(1); opacity: 1; }
+  0% { transform: scale(0.5) translateY(4px); opacity: 0; }
+  40% { transform: scale(1.35) translateY(-2px); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
 }
 
 .pc-place {
@@ -2038,10 +2272,15 @@ function handleMoralToSkill() {
 
 /* PSY separated box */
 .pc-psyche-box {
-  border: 1px solid rgba(232, 121, 249, 0.12);
-  border-radius: var(--radius);
-  padding: 4px 6px;
-  background: rgba(232, 121, 249, 0.03);
+  border: 1px solid rgba(232, 121, 249, 0.15);
+  border-radius: var(--radius-lg);
+  padding: 5px 8px;
+  background: rgba(232, 121, 249, 0.04);
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.pc-psyche-box:hover {
+  border-color: rgba(232, 121, 249, 0.25);
+  box-shadow: 0 0 8px rgba(232, 121, 249, 0.08);
 }
 
 /* Portal Gun special ability box */
