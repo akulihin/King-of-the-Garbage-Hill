@@ -242,12 +242,30 @@ function finishGame() {
 // ── Round start overlay ─────────────────────────────────────────────
 const showRoundOverlay = ref(false)
 const overlayRoundNo = ref(0)
+const showLogin = ref(false) // for connection overlay check
 
 watch(() => store.gameState?.roundNo, (newRound, oldRound) => {
   if (newRound && oldRound && newRound !== oldRound && newRound > 1) {
     overlayRoundNo.value = newRound
     showRoundOverlay.value = true
-    setTimeout(() => { showRoundOverlay.value = false }, 1200)
+    setTimeout(() => { showRoundOverlay.value = false }, 2500)
+  }
+})
+
+// ── Game Over cinematic sequence ──────────────────────────────────
+const showGameOverOverlay = ref(false)
+const gameOverPodium = computed(() => {
+  if (!store.gameState?.isFinished) return []
+  return [...store.gameState.players]
+    .filter(p => !p.isDead)
+    .sort((a, b) => a.status.place - b.status.place)
+    .slice(0, 6)
+})
+
+watch(() => store.gameState?.isFinished, (finished, prev) => {
+  if (finished && !prev) {
+    showGameOverOverlay.value = true
+    setTimeout(() => { showGameOverOverlay.value = false }, 5000)
   }
 })
 
@@ -563,20 +581,101 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
     }
   }
 }, { immediate: true })
+
+const charTint = computed(() => {
+  const name = store.myPlayer?.character.name
+  if (!name) return ''
+  const tints: Record<string, string> = {
+    'Акула': 'rgba(100, 180, 240, 0.03)',
+    'Дракон': 'rgba(240, 160, 50, 0.03)',
+    'Кратос': 'rgba(200, 50, 50, 0.03)',
+    'Сайтама': 'rgba(240, 220, 50, 0.03)',
+    'Рик': 'rgba(100, 220, 180, 0.03)',
+    'Глеб': 'rgba(180, 100, 220, 0.03)',
+    'Стая Гоблинов': 'rgba(100, 180, 80, 0.03)',
+    'Котики': 'rgba(240, 180, 140, 0.03)',
+    'Кира': 'rgba(200, 50, 50, 0.04)',
+  }
+  return tints[name] || ''
+})
 </script>
 
 <template>
-  <div class="game-page">
-    <!-- Round announce badge (non-blocking) -->
+  <div class="game-page" :style="charTint ? { background: charTint } : {}">
+    <!-- Round announce cinematic overlay -->
     <Transition name="round-announce">
       <div v-if="showRoundOverlay" class="round-announce" :key="overlayRoundNo">
-        <span class="round-announce-text">Round {{ overlayRoundNo }}</span>
+        <div class="round-announce-bg"></div>
+        <div class="round-announce-content">
+          <span class="round-announce-label">Round</span>
+          <span class="round-announce-number">{{ overlayRoundNo }}</span>
+          <span v-if="me" class="round-announce-status">
+            {{ me.status.place <= 3 ? 'Top ' + me.status.place : 'Place ' + me.status.place }} — Score: {{ me.status.score >= 0 ? me.status.score : '?' }}
+          </span>
+        </div>
       </div>
     </Transition>
 
-    <!-- Loading state -->
+    <!-- Game Over cinematic sequence -->
+    <Transition name="gameover">
+      <div v-if="showGameOverOverlay" class="gameover-overlay">
+        <div class="gameover-bg"></div>
+        <div class="gameover-content">
+          <div class="gameover-title">GAME OVER</div>
+          <div class="gameover-podium">
+            <div v-for="(p, idx) in gameOverPodium" :key="p.playerId"
+              class="gameover-entry"
+              :class="[`gameover-place-${idx + 1}`]"
+              :style="{ animationDelay: `${(gameOverPodium.length - 1 - idx) * 0.3 + 0.5}s` }"
+            >
+              <span class="gameover-place-num">{{ idx + 1 }}</span>
+              <img :src="p.character.avatarCurrent || p.character.avatar" class="gameover-avatar" :alt="p.character.name">
+              <span class="gameover-name">{{ p.discordUsername }}</span>
+              <span class="gameover-score">{{ p.status.score >= 0 ? p.status.score : '?' }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="gameover-confetti">
+          <span v-for="n in 30" :key="n" class="confetti-piece" :style="{ '--ci': n, '--cx': Math.random(), '--cdelay': Math.random() * 2 + 's' }"></span>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Connection lost overlay -->
+    <Transition name="fade">
+      <div v-if="!store.isConnected && !showLogin" class="connection-lost-overlay">
+        <div class="connection-lost-card">
+          <div class="connection-lost-spinner"></div>
+          <span class="connection-lost-text">Reconnecting...</span>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Loading state (skeleton) -->
     <div v-if="!store.gameState" class="loading">
-      <p>Connecting to game...</p>
+      <div class="skeleton-layout">
+        <div class="skeleton-card skeleton-left">
+          <div class="skeleton-avatar skeleton-pulse"></div>
+          <div class="skeleton-line skeleton-pulse" style="width:60%"></div>
+          <div class="skeleton-line skeleton-pulse" style="width:80%"></div>
+          <div class="skeleton-line skeleton-pulse" style="width:70%"></div>
+          <div class="skeleton-line skeleton-pulse" style="width:50%"></div>
+        </div>
+        <div class="skeleton-card skeleton-center">
+          <div class="skeleton-line skeleton-pulse" style="width:40%"></div>
+          <div class="skeleton-row skeleton-pulse" style="height:48px"></div>
+          <div class="skeleton-row skeleton-pulse" style="height:48px"></div>
+          <div class="skeleton-row skeleton-pulse" style="height:48px"></div>
+          <div class="skeleton-row skeleton-pulse" style="height:48px"></div>
+          <div class="skeleton-row skeleton-pulse" style="height:48px"></div>
+          <div class="skeleton-row skeleton-pulse" style="height:48px"></div>
+        </div>
+        <div class="skeleton-card skeleton-right">
+          <div class="skeleton-line skeleton-pulse" style="width:50%"></div>
+          <div class="skeleton-line skeleton-pulse" style="width:70%"></div>
+          <div class="skeleton-line skeleton-pulse" style="width:60%"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Draft Pick Phase Overlay -->
@@ -853,6 +952,7 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
             :character-names="store.gameState.allCharacterNames || []"
             :character-catalog="store.gameState.allCharacters || []"
             :is-admin="store.isAdmin"
+            :is-finished="store.gameState.isFinished"
             :round-no="store.gameState.roundNo"
             :confirmed-predict="store.myPlayer?.status.confirmedPredict"
             :fight-log="store.gameState.fightLog || []"
@@ -1192,53 +1292,329 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
   50% { box-shadow: 0 0 16px rgba(240, 200, 80, 0.4), 0 0 32px rgba(240, 200, 80, 0.1); border-color: rgba(240, 200, 80, 0.6); }
 }
 
-/* ── Round announce badge (non-blocking) ────────────────────────────── */
+/* ── Round announce cinematic overlay ────────────────────────────── */
 .round-announce {
   position: fixed;
-  top: 18px;
-  left: 50%;
-  transform: translateX(-50%);
+  inset: 0;
   z-index: 200;
   pointer-events: none;
-  padding: 8px 28px;
-  border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, rgba(20, 18, 28, 0.85), rgba(30, 28, 38, 0.9));
-  border: 1.5px solid rgba(240, 200, 80, 0.4);
-  box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.5),
-    0 0 16px rgba(240, 200, 80, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.round-announce-text {
-  font-size: 22px;
+.round-announce-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.2) 40%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0.5) 100%);
+}
+
+.round-announce-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.round-announce-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(240, 200, 80, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 8px;
+  font-family: var(--font-mono);
+  animation: announce-label-in 0.4s ease-out both;
+}
+
+.round-announce-number {
+  font-size: 72px;
   font-weight: 900;
   color: var(--accent-gold);
   text-shadow:
-    0 0 12px rgba(240, 200, 80, 0.6),
-    0 0 30px rgba(240, 200, 80, 0.2);
-  letter-spacing: 4px;
-  text-transform: uppercase;
+    0 0 30px rgba(240, 200, 80, 0.8),
+    0 0 60px rgba(240, 200, 80, 0.3),
+    0 4px 20px rgba(0, 0, 0, 0.5);
+  letter-spacing: 8px;
   font-family: var(--font-mono);
+  line-height: 1;
+  animation: announce-number-in 0.5s var(--ease-spring) both;
+}
+
+.round-announce-status {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(225, 232, 245, 0.6);
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+  animation: announce-status-in 0.5s ease-out 0.3s both;
+}
+
+@keyframes announce-label-in {
+  0% { opacity: 0; transform: translateY(10px); letter-spacing: 2px; }
+  100% { opacity: 1; transform: translateY(0); letter-spacing: 8px; }
+}
+@keyframes announce-number-in {
+  0% { opacity: 0; transform: scale(0.3); }
+  60% { transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes announce-status-in {
+  0% { opacity: 0; transform: translateY(-8px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 .round-announce-enter-active {
-  animation: round-announce-in 0.5s var(--ease-spring);
+  animation: round-overlay-in 0.3s ease-out;
 }
 .round-announce-leave-active {
-  animation: round-announce-out 0.5s ease forwards;
+  animation: round-overlay-out 0.8s ease forwards;
 }
 
-@keyframes round-announce-in {
-  0% { opacity: 0; transform: translateX(-50%) translateY(-20px) scale(0.8); }
-  60% { opacity: 1; transform: translateX(-50%) translateY(2px) scale(1.04); }
-  100% { transform: translateX(-50%) translateY(0) scale(1); }
+@keyframes round-overlay-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
 }
-@keyframes round-announce-out {
-  0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(0.9); }
+@keyframes round-overlay-out {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ── Game Over cinematic ──────────────────────────────────────────── */
+.gameover-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.gameover-bg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.8) 100%);
+}
+
+.gameover-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.gameover-title {
+  font-size: 48px;
+  font-weight: 900;
+  color: var(--accent-gold);
+  text-shadow:
+    0 0 40px rgba(240, 200, 80, 0.8),
+    0 0 80px rgba(240, 200, 80, 0.4),
+    0 4px 30px rgba(0, 0, 0, 0.6);
+  letter-spacing: 12px;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  animation: gameover-title-in 0.8s var(--ease-spring) both;
+}
+
+@keyframes gameover-title-in {
+  0% { opacity: 0; transform: scale(0.5) translateY(20px); }
+  60% { transform: scale(1.08) translateY(-5px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.gameover-podium {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 320px;
+}
+
+.gameover-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  animation: gameover-entry-in 0.5s var(--ease-spring) both;
+}
+
+@keyframes gameover-entry-in {
+  0% { opacity: 0; transform: translateX(-30px) scale(0.95); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+.gameover-place-1 {
+  border-color: rgba(240, 200, 80, 0.5);
+  box-shadow: 0 0 20px rgba(240, 200, 80, 0.15);
+  transform: scale(1.05);
+}
+.gameover-place-1 .gameover-place-num { color: var(--accent-gold); }
+.gameover-place-2 .gameover-place-num { color: #c0c0d0; }
+.gameover-place-3 .gameover-place-num { color: #cda064; }
+
+.gameover-place-num {
+  font-size: 20px;
+  font-weight: 900;
+  font-family: var(--font-mono);
+  min-width: 28px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.gameover-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--glass-border);
+}
+
+.gameover-place-1 .gameover-avatar {
+  width: 44px;
+  height: 44px;
+  border-color: rgba(240, 200, 80, 0.5);
+  box-shadow: 0 0 12px rgba(240, 200, 80, 0.3);
+}
+
+.gameover-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.gameover-score {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--accent-gold);
+}
+
+/* Confetti */
+.gameover-confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.confetti-piece {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  top: -10px;
+  left: calc(var(--cx) * 100%);
+  background: hsl(calc(var(--ci) * 47 + 10), 80%, 65%);
+  border-radius: 2px;
+  animation: confetti-fall 3s ease-in var(--cdelay) both;
+}
+
+@keyframes confetti-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+.gameover-enter-active { animation: round-overlay-in 0.5s ease-out; }
+.gameover-leave-active { animation: round-overlay-out 1s ease forwards; }
+
+/* ── Connection lost overlay ──────────────────────────────────────── */
+.connection-lost-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.connection-lost-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px 48px;
+  background: var(--glass-bg-heavy);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.connection-lost-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-subtle);
+  border-top-color: var(--accent-gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.connection-lost-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+/* ── Skeleton loading ──────────────────────────────────────────────── */
+.skeleton-layout {
+  display: grid;
+  grid-template-columns: 250px 1fr 250px;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+}
+
+.skeleton-avatar {
+  width: 100%;
+  height: 180px;
+  border-radius: var(--radius);
+}
+
+.skeleton-line {
+  height: 14px;
+  border-radius: 4px;
+}
+
+.skeleton-row {
+  width: 100%;
+  border-radius: var(--radius);
+}
+
+.skeleton-pulse {
+  background: linear-gradient(90deg, var(--bg-surface) 25%, var(--bg-card-hover) 50%, var(--bg-surface) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (max-width: 1200px) {
+  .skeleton-layout { grid-template-columns: 1fr; }
 }
 
 .header-right {

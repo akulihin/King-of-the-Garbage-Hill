@@ -1,11 +1,50 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useGameStore } from 'src/store/game'
 
 const store = useGameStore()
+
+const showShieldAnim = ref(false)
+
+function onBlock() {
+  store.block()
+  showShieldAnim.value = true
+  setTimeout(() => { showShieldAnim.value = false }, 600)
+}
+
+/** Click ripple — spawns an expanding tinted circle from cursor position */
+function createRipple(e: MouseEvent, color: string) {
+  const btn = e.currentTarget as HTMLElement
+  const rect = btn.getBoundingClientRect()
+  const ripple = document.createElement('span')
+  ripple.className = 'btn-ripple'
+  ripple.style.left = (e.clientX - rect.left) + 'px'
+  ripple.style.top = (e.clientY - rect.top) + 'px'
+  ripple.style.setProperty('--ripple-color', color)
+  btn.appendChild(ripple)
+  setTimeout(() => ripple.remove(), 600)
+}
 const canAct = computed(() => store.isMyTurn)
 const me = computed(() => store.myPlayer)
 const game = computed(() => store.gameState)
+
+/** Magnetic hover effect — button subtly follows cursor */
+function onBtnMousemove(e: MouseEvent) {
+  const btn = e.currentTarget as HTMLElement
+  const rect = btn.getBoundingClientRect()
+  const cx = rect.left + rect.width / 2
+  const cy = rect.top + rect.height / 2
+  const dx = (e.clientX - cx) * 0.12
+  const dy = (e.clientY - cy) * 0.12
+  const maxD = 3
+  const clampX = Math.max(-maxD, Math.min(maxD, dx))
+  const clampY = Math.max(-maxD, Math.min(maxD, dy))
+  btn.style.transform = `translate(${clampX}px, ${clampY}px)`
+}
+function onBtnMouseleave(e: MouseEvent) {
+  const btn = e.currentTarget as HTMLElement
+  btn.style.transform = ''
+}
 
 const isReady = computed(() => me.value?.status.isReady && !me.value?.status.isSkip)
 const hasPredictions = computed(() => (me.value?.predictions?.length ?? 0) > 0)
@@ -25,6 +64,11 @@ const dopaSecondAttack = computed(() => me.value?.passiveAbilityStates?.dopa?.ne
 
 <template>
   <div class="action-bar" :class="{ 'can-act': canAct }">
+    <!-- Shield flash overlay -->
+    <Transition name="shield-flash">
+      <div v-if="showShieldAnim" class="shield-flash-overlay">&#x1f6e1;&#xfe0f;</div>
+    </Transition>
+
     <!-- Core actions -->
     <div class="action-group">
       <button
@@ -32,7 +76,9 @@ const dopaSecondAttack = computed(() => me.value?.passiveAbilityStates?.dopa?.ne
         data-sfx-skip-default="true"
         :disabled="!canAct"
         title="Block"
-        @click="store.block()"
+        @click="onBlock(); createRipple($event, '#64b4f0')"
+        @mousemove="onBtnMousemove"
+        @mouseleave="onBtnMouseleave"
       >
         <span class="gi gi-lg gi-def">DEF</span> Block
       </button>
@@ -40,7 +86,9 @@ const dopaSecondAttack = computed(() => me.value?.passiveAbilityStates?.dopa?.ne
         class="act-btn auto"
         :disabled="!canAct"
         title="Auto Move"
-        @click="store.autoMove()"
+        @click="store.autoMove(); createRipple($event, '#48cab4')"
+        @mousemove="onBtnMousemove"
+        @mouseleave="onBtnMouseleave"
       >
         <span class="gi gi-lg gi-auto">AUTO</span> Move
       </button>
@@ -48,7 +96,9 @@ const dopaSecondAttack = computed(() => me.value?.passiveAbilityStates?.dopa?.ne
         v-if="isReady"
         class="act-btn undo"
         title="Change Mind"
-        @click="store.changeMind()"
+        @click="store.changeMind(); createRipple($event, '#e6944a')"
+        @mousemove="onBtnMousemove"
+        @mouseleave="onBtnMouseleave"
       >
         <span class="gi gi-lg gi-undo">UNDO</span> Change
       </button>
@@ -56,7 +106,9 @@ const dopaSecondAttack = computed(() => me.value?.passiveAbilityStates?.dopa?.ne
         v-if="!me?.status.confirmedSkip"
         class="act-btn skip"
         title="Confirm Skip"
-        @click="store.confirmSkip()"
+        @click="store.confirmSkip(); createRipple($event, '#888888')"
+        @mousemove="onBtnMousemove"
+        @mouseleave="onBtnMouseleave"
       >
         <span class="gi gi-lg gi-skip">SKIP</span>
       </button>
@@ -134,7 +186,19 @@ const dopaSecondAttack = computed(() => me.value?.passiveAbilityStates?.dopa?.ne
 
 /* 3A. Gold border pulse when it's your turn */
 .action-bar.can-act {
-  animation: can-act-pulse 2.5s ease-in-out infinite;
+  border: 1px solid rgba(240, 200, 80, 0.4);
+  animation: can-act-pulse 1.8s ease-in-out infinite;
+  position: relative;
+}
+/* Subtle vignette glow around the action bar */
+.action-bar.can-act::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at center, transparent 60%, rgba(240, 200, 80, 0.06) 100%);
+  pointer-events: none;
+  z-index: 0;
 }
 @keyframes can-act-pulse {
   0%, 100% { border-color: rgba(240, 200, 80, 0.15); box-shadow: var(--shadow-glow), inset 0 1px 0 var(--glass-highlight); }
@@ -164,7 +228,7 @@ const dopaSecondAttack = computed(() => me.value?.passiveAbilityStates?.dopa?.ne
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s var(--ease-in-out);
+  transition: all 0.2s var(--ease-in-out), transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
   white-space: nowrap;
   position: relative;
   overflow: hidden;
@@ -297,6 +361,42 @@ const dopaSecondAttack = computed(() => me.value?.passiveAbilityStates?.dopa?.ne
 @keyframes dopa-pulse {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
+}
+
+/* Shield flash overlay on block click */
+.shield-flash-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  pointer-events: none;
+  z-index: 10;
+  animation: shield-form 0.6s ease-out forwards;
+}
+@keyframes shield-form {
+  0% { transform: scale(0.3); opacity: 0; }
+  30% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+.shield-flash-enter-active { animation: shield-form 0.6s ease-out; }
+.shield-flash-leave-active { transition: opacity 0.2s; }
+.shield-flash-leave-to { opacity: 0; }
+
+/* Click ripple effect — uses :deep because .btn-ripple spans are injected via JS */
+.act-btn :deep(.btn-ripple) {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ripple-color, rgba(255,255,255,0.3));
+  transform: translate(-50%, -50%) scale(0);
+  animation: ripple-expand 0.6s ease-out;
+  pointer-events: none;
+}
+@keyframes ripple-expand {
+  to { transform: translate(-50%, -50%) scale(40); opacity: 0; }
 }
 
 </style>

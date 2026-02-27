@@ -79,9 +79,13 @@ const skippedToEnd = ref(false)
 const lastAnimatedRound = ref<string>('')
 let timer: ReturnType<typeof setTimeout> | null = null
 
-// ── Fight result splash + screen shake ──────────────────────────────
-const fightSplash = ref<'win' | 'loss' | null>(null)
+// ── Fight result glow + screen shake ──────────────────────────────
+const fightResult = ref<'win' | 'loss' | null>(null)
 const fightShake = ref(false)
+
+// ── Needle state (declared early for use in computed/watchers below) ──
+const r3NeedlePos = ref(0)
+const r3NeedleSettled = ref(false)
 
 // ── My username and character (for filtering) ──────────────────────────
 const myPlayer = computed(() => props.players.find((pl: Player) => pl.playerId === props.myPlayerId) ?? null)
@@ -413,7 +417,10 @@ const showR3Roll = computed(() => {
 
 const showFinalResult = computed(() => {
   if (skippedToEnd.value || !isMyFight.value) return true
-  return currentStep.value >= totalSteps.value - 1
+  if (currentStep.value < totalSteps.value - 1) return false
+  // Wait for needle to settle before revealing final result
+  if (fight.value?.usedRandomRoll && !r3NeedleSettled.value) return false
+  return true
 })
 
 const isPortalSwap = computed(() => fight.value?.portalGunSwap ?? false)
@@ -433,18 +440,18 @@ watch(showFinalResult, (show: boolean) => {
     emit('justice-reset')
   }
 
-  // Fight result splash
+  // Fight result glow
   if (weWon) {
-    fightSplash.value = 'win'
+    fightResult.value = 'win'
   } else if (weLost) {
-    fightSplash.value = 'loss'
+    fightResult.value = 'loss'
   }
   // Screen shake on big weighing differences
   if (Math.abs(f.totalWeighingDelta ?? 0) > 15) {
     fightShake.value = true
     setTimeout(() => { fightShake.value = false }, 500)
   }
-  setTimeout(() => { fightSplash.value = null }, 1500)
+  setTimeout(() => { fightResult.value = null }, 2000)
 
   // Resist flash when we lost
   if (weLost) {
@@ -479,31 +486,40 @@ function betweenFightDelay(): number {
   return 1500 / speed.value
 }
 
+function proceedToNextFight() {
+  const delay = betweenFightDelay()
+  setTimeout(() => {
+    if (!isPlaying.value) return
+    if (currentFightIdx.value < myFights.value.length - 1) {
+      playDoomsDayScroll()
+      roundResults.value = []
+      currentFightIdx.value++
+      currentStep.value = 0
+      scheduleNext()
+    } else {
+      isPlaying.value = false
+      emit('replay-ended')
+      if (!userSwitchedTab.value && activeTab.value === 'fights') {
+        setTimeout(() => { activeTab.value = 'all' }, 800)
+      }
+    }
+  }, delay)
+}
+
 function advanceStep() {
   if (!isPlaying.value || !fight.value) return
   if (currentStep.value < totalSteps.value - 1) {
     currentStep.value++
     scheduleNext()
   } else {
-    const delay = betweenFightDelay()
-    setTimeout(() => {
-      if (!isPlaying.value) return
-      if (currentFightIdx.value < myFights.value.length - 1) {
-        // Play scroll sound between fights and reset round results
-        playDoomsDayScroll()
-        roundResults.value = []
-        currentFightIdx.value++
-        currentStep.value = 0
-        scheduleNext()
-      } else {
-        isPlaying.value = false
-        emit('replay-ended')
-        // Auto-transition to 'all' tab after replay finishes (unless user already switched)
-        if (!userSwitchedTab.value && activeTab.value === 'fights') {
-          setTimeout(() => { activeTab.value = 'all' }, 800)
-        }
-      }
-    }, delay)
+    // If needle is still animating, wait for it to settle before proceeding
+    if (fight.value.usedRandomRoll && !r3NeedleSettled.value) {
+      const unwatch = watch(r3NeedleSettled, (settled) => {
+        if (settled) { unwatch(); proceedToNextFight() }
+      })
+    } else {
+      proceedToNextFight()
+    }
   }
 }
 
@@ -600,25 +616,35 @@ watch(currentStep, (step: number) => {
       return
     }
 
-    // Step factorCount+4: R3 roll result
-    if (step === factorCount + 4) {
-      const s = sign.value
-      const attackerWon = f.randomNumber <= f.randomForPoint
-      const weWonR3 = s > 0 ? attackerWon : !attackerWon
-      const r3result: 'w' | 'l' = weWonR3 ? 'w' : 'l'
-      roundResults.value = [...roundResults.value, r3result]
-      playDoomsDayWinLose(roundResults.value, false, false)
-      return
-    }
+    // Step factorCount+4: R3 roll bar appears — sound deferred to needle settle
   }
 
-  // Final result step
-  if (step === totalSteps.value - 1 && step > factorCount + 2) {
+  // Final result sound (only for fights WITHOUT random roll)
+  if (!hasR3 && step === totalSteps.value - 1 && step > factorCount + 2) {
     const isLastFight = currentFightIdx.value === myFights.value.length - 1
     const allSame = roundResults.value.length > 0 && roundResults.value.every(r => r === roundResults.value[0])
     const isAbsolute = isLastFight && allSame
     playDoomsDayWinLose(roundResults.value, true, isAbsolute, leftWon.value)
   }
+})
+
+// R3 result sound + final result sound: synced with needle settling
+watch(r3NeedleSettled, (settled: boolean) => {
+  if (!settled || !fight.value || !isMyFight.value || skippedToEnd.value) return
+  const f = fight.value
+  const s = sign.value
+  const attackerWon = f.randomNumber <= f.randomForPoint
+  const weWonR3 = s > 0 ? attackerWon : !attackerWon
+  const r3result: 'w' | 'l' = weWonR3 ? 'w' : 'l'
+  roundResults.value = [...roundResults.value, r3result]
+  playDoomsDayWinLose(roundResults.value, false, false)
+  // Final result sound after a short beat
+  setTimeout(() => {
+    const isLastFight = currentFightIdx.value === myFights.value.length - 1
+    const allSame = roundResults.value.length > 0 && roundResults.value.every(r => r === roundResults.value[0])
+    const isAbsolute = isLastFight && allSame
+    playDoomsDayWinLose(roundResults.value, true, isAbsolute, leftWon.value)
+  }, 300)
 })
 
 // No-fights sound: fights exist but none are mine (play only once per round)
@@ -694,6 +720,12 @@ const ourSkillMultiplier = computed(() => {
 const slamPhase = ref<'idle' | 'rush' | 'impact' | 'resolved'>('idle')
 let slamTimers: ReturnType<typeof setTimeout>[] = []
 
+const justiceWinner = computed(() => {
+  if (ourJustice.value > enemyJustice.value) return 'left'
+  if (enemyJustice.value > ourJustice.value) return 'right'
+  return 'tie'
+})
+
 function clearSlamTimers() {
   slamTimers.forEach(t => clearTimeout(t))
   slamTimers = []
@@ -705,7 +737,9 @@ watch(showR2, (visible: boolean) => {
   // Numbers fly in from sides (CSS animation, 0-400ms)
   slamPhase.value = 'rush'
   // Impact shake at 400ms
-  slamTimers.push(setTimeout(() => { slamPhase.value = 'impact' }, 400))
+  slamTimers.push(setTimeout(() => {
+    slamPhase.value = 'impact'
+  }, 400))
   // Resolved: winner scales up, loser shrinks at 900ms
   slamTimers.push(setTimeout(() => { slamPhase.value = 'resolved' }, 900))
 })
@@ -868,9 +902,7 @@ const r3RollPct = computed(() => {
 })
 
 
-/** Animated needle position for the roll bar — JS-driven bounce animation */
-const r3NeedlePos = ref(0)
-const r3NeedleSettled = ref(false)
+/** Animated needle bounce animation */
 let needleAnimFrame: ReturnType<typeof requestAnimationFrame> | null = null
 
 function animateNeedleBounce(target: number) {
@@ -880,26 +912,22 @@ function animateNeedleBounce(target: number) {
   const threshold = r3OurChance.value
   const weWin = target < threshold
   const distance = Math.abs(target - threshold)
-  // +1 pushes past threshold into the "wrong" zone
   const wrongDir = weWin ? 1 : -1
 
-  // Waypoints: more bounces across threshold when needle lands close to it
+  // Waypoints: bounces near threshold for tension
   const wps: number[] = [0]
 
   if (distance < 5) {
-    // Very close: 3 threshold crossings — maximum tension
-    const amp = 5 + Math.random() * 4
+    const amp = 5 + Math.random() * 3
     wps.push(threshold + wrongDir * amp)
-    wps.push(threshold - wrongDir * amp * 0.6)
-    wps.push(threshold + wrongDir * amp * 0.25)
+    wps.push(threshold - wrongDir * amp * 0.5)
+    wps.push(threshold + wrongDir * amp * 0.2)
   } else if (distance < 15) {
-    // Close: 2 threshold crossings
-    const amp = Math.min(distance + 4, 14)
-    wps.push(threshold + wrongDir * amp * 0.7)
-    wps.push(threshold - wrongDir * amp * 0.35)
+    const amp = Math.min(distance + 3, 12)
+    wps.push(threshold + wrongDir * amp * 0.6)
+    wps.push(threshold - wrongDir * amp * 0.25)
   } else {
-    // Far: single overshoot past target, no threshold crossing
-    const overshoot = 3 + Math.random() * 3
+    const overshoot = 2 + Math.random() * 2
     wps.push(target + (weWin ? -1 : 1) * overshoot)
   }
   wps.push(target)
@@ -908,35 +936,55 @@ function animateNeedleBounce(target: number) {
     wps[i] = Math.max(0.5, Math.min(99.5, wps[i]))
   }
 
-  // Shorter overall; more bounces get slightly more time
-  const duration = distance < 5 ? 2200 : distance < 15 ? 1800 : 1200
+  const duration = distance < 5 ? 2400 : distance < 15 ? 2000 : 1400
+
+  // Catmull-Rom spline for smooth continuous motion through waypoints
+  // Pad with phantom control points for start/end tangents
+  const pts = [wps[0], ...wps, wps[wps.length - 1]]
+
+  function catmullRom(p0: number, p1: number, p2: number, p3: number, t: number): number {
+    return 0.5 * (
+      (2 * p1) +
+      (-p0 + p2) * t +
+      (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t +
+      (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t
+    )
+  }
 
   const segments = wps.length - 1
-  // Initial sweep takes more share when fewer bounces follow
-  const sweepShare = segments <= 2 ? 0.6 : segments === 3 ? 0.38 : 0.32
-  const bounceCount = segments - 1
-  const breaks: number[] = [0, sweepShare]
-  for (let i = 1; i < segments; i++) {
-    breaks.push(sweepShare + i * ((1 - sweepShare) / bounceCount))
+  // Ease-out time distribution: first segment gets more time (big sweep), later ones decelerate
+  const weights: number[] = []
+  for (let i = 0; i < segments; i++) {
+    weights.push(i === 0 ? 2.0 : 1.0 / (i + 1))
+  }
+  const totalWeight = weights.reduce((a, b) => a + b, 0)
+  const breaks: number[] = [0]
+  let acc = 0
+  for (let i = 0; i < segments; i++) {
+    acc += weights[i] / totalWeight
+    breaks.push(acc)
   }
 
   const startTime = performance.now()
-  function smoothstep(x: number): number { return x * x * (3 - 2 * x) }
 
   function tick(now: number) {
-    const t = Math.min((now - startTime) / duration, 1)
+    const raw = Math.min((now - startTime) / duration, 1)
+    // Ease-out curve for overall deceleration
+    const t = 1 - (1 - raw) * (1 - raw)
 
     let segIdx = segments - 1
     for (let i = 0; i < segments; i++) {
       if (t < breaks[i + 1]) { segIdx = i; break }
     }
     const segSpan = breaks[segIdx + 1] - breaks[segIdx]
-    const localT = segSpan > 0 ? smoothstep((t - breaks[segIdx]) / segSpan) : 1
-    const pos = wps[segIdx] + (wps[segIdx + 1] - wps[segIdx]) * localT
+    const localT = segSpan > 0 ? (t - breaks[segIdx]) / segSpan : 1
+
+    // pts is offset by 1 due to phantom point at start
+    const pos = catmullRom(pts[segIdx], pts[segIdx + 1], pts[segIdx + 2], pts[segIdx + 3], localT)
 
     r3NeedlePos.value = Math.max(0, Math.min(100, pos))
 
-    if (t < 1) {
+    if (raw < 1) {
       needleAnimFrame = requestAnimationFrame(tick)
     } else {
       r3NeedlePos.value = target
@@ -1088,17 +1136,6 @@ function getDisplayCharName(orig: string, u: string): string {
       <div class="fa-story-content" v-html="gameStory"></div>
     </div>
 
-    <!-- Story popup overlay -->
-    <div v-if="showStoryPopup && gameStory" class="fa-story-overlay" @click.self="dismissStoryPopup">
-      <div class="fa-story-popup">
-        <div class="fa-story-popup-header">
-          <span class="fa-story-popup-title">История этой битвы</span>
-          <button class="fa-story-popup-close" @click="dismissStoryPopup">&times;</button>
-        </div>
-        <div class="fa-story-popup-body" v-html="gameStory"></div>
-      </div>
-    </div>
-
     <!-- All Fights (compact results list) -->
     <div v-else-if="activeTab === 'all'" class="fa-all-fights">
       <div v-if="!fights.length" class="fa-empty">Бои еще не начались</div>
@@ -1107,13 +1144,13 @@ function getDisplayCharName(orig: string, u: string): string {
           class="fa-all-row" :class="{ 'my-attack': isMyAttack(f), 'clickable': isFightMine(f) }"
           @click="jumpToFightReplay(f)">
           <!-- Left name (loser / defender for block-skip) -->
-          <span class="fa-all-name fa-all-name-left" :class="{ 'name-perfect': allFightLeft(f).isWinner && perfectRoundPlayers.has(allFightLeft(f).name) }" :title="allFightLeft(f).name">
+          <span class="fa-all-name fa-all-name-left" :class="{ 'name-winner': allFightLeft(f).isWinner }" :title="allFightLeft(f).name">
             <span v-if="allFightLeft(f).isWinner && perfectRoundPlayers.has(allFightLeft(f).name)" class="perfect-icon">✦</span>{{ allFightLeft(f).name }}
           </span>
           <!-- Center block: avatar | label | avatar -->
           <div class="fa-all-mid">
             <img :src="getDisplayAvatar(allFightLeft(f).avatar, allFightLeft(f).name)"
-              class="fa-all-ava" :class="{ 'ava-perfect': allFightLeft(f).isWinner && perfectRoundPlayers.has(allFightLeft(f).name) }"
+              class="fa-all-ava" :class="{ 'ava-winner': allFightLeft(f).isWinner, 'ava-perfect': allFightLeft(f).isWinner && perfectRoundPlayers.has(allFightLeft(f).name) }"
               @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
             <span class="fa-all-center" :class="{
               'center-neutral': f.outcome === 'block' || f.outcome === 'skip',
@@ -1121,11 +1158,11 @@ function getDisplayCharName(orig: string, u: string): string {
               'center-arrow': f.outcome !== 'block' && f.outcome !== 'skip' && f.drops === 0
             }">{{ allFightCenterLabel(f) }}</span>
             <img :src="getDisplayAvatar(allFightRight(f).avatar, allFightRight(f).name)"
-              class="fa-all-ava" :class="{ 'ava-perfect': allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).name) }"
+              class="fa-all-ava" :class="{ 'ava-winner': allFightRight(f).isWinner, 'ava-perfect': allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).name) }"
               @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
           </div>
           <!-- Right name (winner / attacker for block-skip) -->
-          <span class="fa-all-name fa-all-name-right" :class="{ 'name-perfect': allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).name) }" :title="allFightRight(f).name">
+          <span class="fa-all-name fa-all-name-right" :class="{ 'name-winner': allFightRight(f).isWinner }" :title="allFightRight(f).name">
             {{ allFightRight(f).name }}<span v-if="allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).name)" class="perfect-icon">✦</span>
           </span>
           <!-- Portal badge -->
@@ -1160,7 +1197,7 @@ function getDisplayCharName(orig: string, u: string): string {
       </div>
 
       <!-- Fight card -->
-      <div v-if="fight" ref="fightCardRef" class="fa-card" :class="{ 'fa-shake': fightShake }">
+      <div v-if="fight" ref="fightCardRef" class="fa-card" :class="{ 'fa-shake': fightShake, 'fa-result-win': fightResult === 'win', 'fa-result-loss': fightResult === 'loss' }">
         <!-- Block/Skip -->
         <div v-if="isSpecialOutcome" class="fa-special">
           <div class="fa-bar-container">
@@ -1192,7 +1229,7 @@ function getDisplayCharName(orig: string, u: string): string {
         <template v-else>
           <!-- Compact scale row: avatar+name | bar | avatar+name -->
           <div class="fa-bar-container">
-            <div class="fa-id-left" :class="{ winner: leftWon }">
+            <div class="fa-id-left" :class="{ winner: leftWon, 'entrance-active': currentStep === 0 && !skippedToEnd }">
               <img :src="getDisplayAvatar(leftAvatar, leftName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
               <div class="fa-id-info">
                 <span class="fa-id-name">{{ leftName }}</span>
@@ -1242,7 +1279,7 @@ function getDisplayCharName(orig: string, u: string): string {
               <div class="fa-bar-fill" :style="{ width: barPosition + '%' }" :class="{ 'bar-attacker': animatedWeighingValue > 0, 'bar-defender': animatedWeighingValue < 0, 'bar-even': animatedWeighingValue === 0 }">
               </div>
             </div>
-            <div class="fa-id-right" :class="{ winner: !leftWon && (fight.outcome === 'win' || fight.outcome === 'loss') }">
+            <div class="fa-id-right" :class="{ winner: !leftWon && (fight.outcome === 'win' || fight.outcome === 'loss'), 'entrance-active': currentStep === 0 && !skippedToEnd }">
               <div class="fa-id-info" style="text-align:right">
                 <span class="fa-id-name">{{ rightName }}</span>
                 <span class="fa-id-char">{{ getDisplayCharName(rightCharName, rightName) }}</span>
@@ -1256,7 +1293,7 @@ function getDisplayCharName(orig: string, u: string): string {
             <!-- Weighing bar: visible from the start, animates as factors appear -->
             <div class="fa-bar-container fa-bar-compact">
               <div class="fa-bar-track">
-                <div class="fa-bar-fill" :style="{ width: barPosition + '%' }" :class="{ 'bar-attacker': animatedWeighingValue > 0, 'bar-defender': animatedWeighingValue < 0, 'bar-even': animatedWeighingValue === 0 }">
+                <div class="fa-bar-fill" :style="{ width: barPosition + '%' }" :class="{ 'bar-attacker': animatedWeighingValue > 0, 'bar-defender': animatedWeighingValue < 0, 'bar-even': animatedWeighingValue === 0, 'bar-particles-gold': barPosition > 50, 'bar-particles-red': barPosition < 50 }">
                 </div>
               </div>
             </div>
@@ -1320,6 +1357,9 @@ function getDisplayCharName(orig: string, u: string): string {
                   winner: slamPhase === 'resolved' && ourJustice > enemyJustice,
                   loser: slamPhase === 'resolved' && ourJustice < enemyJustice,
                   tied: slamPhase === 'resolved' && ourJustice === enemyJustice,
+                  'justice-winner': slamPhase === 'resolved' && justiceWinner === 'left',
+                  'justice-loser': slamPhase === 'resolved' && justiceWinner === 'right',
+                  'justice-tied-pulse': slamPhase === 'resolved' && justiceWinner === 'tie',
                 }">{{ ourJustice }}</div>
                 <div class="fj-slam-vs" :class="{ visible: slamPhase === 'impact' || slamPhase === 'resolved' }">
                   <span v-if="slamPhase === 'impact'" class="fj-slam-spark">⚖</span>
@@ -1329,7 +1369,16 @@ function getDisplayCharName(orig: string, u: string): string {
                   winner: slamPhase === 'resolved' && enemyJustice > ourJustice,
                   loser: slamPhase === 'resolved' && enemyJustice < ourJustice,
                   tied: slamPhase === 'resolved' && ourJustice === enemyJustice,
+                  'justice-winner': slamPhase === 'resolved' && justiceWinner === 'right',
+                  'justice-loser': slamPhase === 'resolved' && justiceWinner === 'left',
+                  'justice-tied-pulse': slamPhase === 'resolved' && justiceWinner === 'tie',
                 }">{{ enemyJustice }}</div>
+                <div v-if="slamPhase === 'impact' || slamPhase === 'resolved'" class="impact-cracks">
+                  <div class="crack crack-1"></div>
+                  <div class="crack crack-2"></div>
+                  <div class="crack crack-3"></div>
+                  <div class="crack crack-4"></div>
+                </div>
               </template>
             </div>
 
@@ -1417,10 +1466,10 @@ function getDisplayCharName(orig: string, u: string): string {
             </div>
           </template>
 
-          <!-- ═══ Winner/Loser splash ═══ -->
-          <Transition name="splash">
-            <div v-if="fightSplash === 'win'" class="fa-splash fa-splash-win">✓</div>
-            <div v-else-if="fightSplash === 'loss'" class="fa-splash fa-splash-loss">✗</div>
+          <!-- ═══ Result badge (corner icon) ═══ -->
+          <Transition name="result-badge">
+            <span v-if="fightResult === 'win'" class="fa-result-badge fa-result-badge-win">✓</span>
+            <span v-else-if="fightResult === 'loss'" class="fa-result-badge fa-result-badge-loss">✗</span>
           </Transition>
 
           <!-- ═══ Final result details (outcome shown in phase tracker above) ═══ -->
@@ -1490,6 +1539,19 @@ function getDisplayCharName(orig: string, u: string): string {
 
     </template>
     </template>
+
+    <!-- Story popup overlay (teleported to body so it's not clipped by parent) -->
+    <Teleport to="body">
+      <div v-if="showStoryPopup && gameStory" class="fa-story-overlay" @click.self="dismissStoryPopup">
+        <div class="fa-story-popup">
+          <div class="fa-story-popup-header">
+            <span class="fa-story-popup-title">История этой битвы</span>
+            <button class="fa-story-popup-close" @click="dismissStoryPopup">&times;</button>
+          </div>
+          <div class="fa-story-popup-body" v-html="gameStory"></div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -1613,6 +1675,59 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-bar-fill.bar-defender { background: linear-gradient(90deg, var(--accent-red-dim), var(--accent-red)); }
 .fa-bar-fill.bar-even { background: linear-gradient(90deg, rgba(230, 148, 74, 0.6), var(--accent-orange)); }
 .fa-bar-value { font-size: 9px; font-weight: 800; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.5); font-family: var(--font-mono); }
+
+/* ── Weighing bar particles (leading edge sparkles/embers) ─────── */
+/* Particles render inside the bar fill area, animating upward via */
+/* background-position shift to create floating dot effect.        */
+.fa-bar-fill.bar-particles-gold,
+.fa-bar-fill.bar-particles-red {
+  position: relative;
+}
+.fa-bar-fill.bar-particles-gold::after,
+.fa-bar-fill.bar-particles-red::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: -2px;
+  width: 8px;
+  height: calc(100% + 4px);
+  pointer-events: none;
+  z-index: 2;
+}
+.fa-bar-fill.bar-particles-gold::after {
+  background-image:
+    radial-gradient(1.5px 1.5px at 2px 2px, rgba(240, 200, 80, 0.9) 50%, transparent 50%),
+    radial-gradient(1px 1px at 5px 7px, rgba(240, 200, 80, 0.7) 50%, transparent 50%),
+    radial-gradient(1.5px 1.5px at 1px 12px, rgba(255, 220, 100, 0.85) 50%, transparent 50%),
+    radial-gradient(1px 1px at 6px 17px, rgba(240, 200, 80, 0.6) 50%, transparent 50%),
+    radial-gradient(1px 1px at 3px 22px, rgba(255, 230, 120, 0.75) 50%, transparent 50%);
+  background-size: 8px 24px;
+  animation: bar-sparkle-up 1.2s linear infinite;
+}
+.fa-bar-fill.bar-particles-red::after {
+  background-image:
+    radial-gradient(1.5px 1.5px at 2px 3px, rgba(239, 128, 128, 0.9) 50%, transparent 50%),
+    radial-gradient(1px 1px at 5px 8px, rgba(239, 128, 128, 0.7) 50%, transparent 50%),
+    radial-gradient(1.5px 1.5px at 1px 13px, rgba(255, 100, 90, 0.85) 50%, transparent 50%),
+    radial-gradient(1px 1px at 6px 18px, rgba(239, 128, 128, 0.6) 50%, transparent 50%),
+    radial-gradient(1px 1px at 3px 23px, rgba(255, 110, 100, 0.75) 50%, transparent 50%);
+  background-size: 8px 24px;
+  animation: bar-sparkle-up 1.5s linear infinite;
+}
+
+@keyframes bar-sparkle-up {
+  0% {
+    background-position: 0 0;
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    background-position: 0 -24px;
+    opacity: 0.4;
+  }
+}
 
 /* ── Phase tracker (3 pips) ── */
 .phase-tracker { display: flex; align-items: center; justify-content: center; gap: 0; padding: 2px 0 1px; }
@@ -1875,9 +1990,10 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-all-center.center-arrow { color: var(--text-dim); opacity: 0.5; }
 .fa-all-center.center-neutral { color: var(--accent-orange); background: rgba(230, 148, 74, 0.1); border: 1px solid rgba(230, 148, 74, 0.2); }
 .fa-all-center.center-drop { color: var(--accent-red); background: rgba(239, 128, 128, 0.1); border: 1px solid rgba(239, 128, 128, 0.2); }
-.fa-all-ava.ava-perfect { border-color: var(--accent-gold); box-shadow: 0 0 6px rgba(233, 219, 61, 0.4); }
-.perfect-icon { color: var(--accent-gold); font-size: 9px; margin-left: 2px; text-shadow: 0 0 4px rgba(233, 219, 61, 0.5); }
-.fa-all-name.name-perfect { color: var(--accent-gold); }
+.fa-all-name.name-winner { color: var(--accent-green); }
+.fa-all-ava.ava-winner { border-color: var(--accent-green); }
+.fa-all-ava.ava-perfect { box-shadow: 0 0 6px rgba(72, 202, 180, 0.4); }
+.perfect-icon { color: var(--accent-green); font-size: 9px; margin-left: 2px; text-shadow: 0 0 4px rgba(72, 202, 180, 0.5); }
 
 /* ── Летопись ── */
 .fa-letopis { flex: 1; overflow-y: auto; padding: 4px; background: var(--bg-inset); border-radius: var(--radius); border: 1px solid var(--border-subtle); }
@@ -1894,7 +2010,274 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-story-content :deep(strong) { color: var(--accent-gold); font-weight: 800; }
 .fa-story-content :deep(em) { color: var(--accent-blue); }
 
-/* ── Story popup overlay ── */
+/* Story popup styles moved to unscoped block below (Teleported to body) */
+
+/* ── Fight result border glow ─────────────────────────────────────── */
+.fa-card.fa-result-win {
+  border-color: rgba(63, 167, 61, 0.5);
+  box-shadow: 0 0 12px rgba(63, 167, 61, 0.25), 0 0 24px rgba(63, 167, 61, 0.1), inset 0 0 8px rgba(63, 167, 61, 0.05);
+  transition: border-color 0.4s, box-shadow 0.4s;
+}
+.fa-card.fa-result-loss {
+  border-color: rgba(239, 128, 128, 0.5);
+  box-shadow: 0 0 12px rgba(239, 128, 128, 0.25), 0 0 24px rgba(239, 128, 128, 0.1), inset 0 0 8px rgba(239, 128, 128, 0.05);
+  transition: border-color 0.4s, box-shadow 0.4s;
+}
+
+/* ── Result badge (corner icon) ──────────────────────────────────── */
+.fa-result-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  font-size: 18px;
+  font-weight: 900;
+  z-index: 10;
+  pointer-events: none;
+  line-height: 1;
+}
+.fa-result-badge-win {
+  color: var(--accent-green);
+  text-shadow: 0 0 8px rgba(63, 167, 61, 0.6);
+}
+.fa-result-badge-loss {
+  color: var(--accent-red);
+  text-shadow: 0 0 8px rgba(239, 128, 128, 0.6);
+}
+
+.result-badge-enter-active { transition: opacity 0.3s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.result-badge-leave-active { transition: opacity 0.4s; }
+.result-badge-enter-from { opacity: 0; transform: scale(0.5); }
+.result-badge-leave-to { opacity: 0; }
+
+/* ── Screen shake on big stat differences ─────────────────────────── */
+.fa-card.fa-shake {
+  animation: fight-shake 0.5s ease-in-out;
+}
+
+@keyframes fight-shake {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-3px); }
+  20% { transform: translateX(3px); }
+  30% { transform: translateX(-2px); }
+  40% { transform: translateX(2px); }
+  50% { transform: translateX(-1px); }
+  60% { transform: translateX(1px); }
+}
+
+/* ── Winning stat emphasis ─────────────────────────────────────────── */
+.fa-id-left.winner .fa-id-char, .fa-id-right.winner .fa-id-char {
+  color: var(--accent-green);
+  text-shadow: 0 0 4px rgba(63, 167, 61, 0.3);
+}
+
+/* ── Phase 5a: Avatar clash intro ─────────────────────────────────── */
+.fa-id-left .fa-ava-sm {
+  animation: avatar-clash-left 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.fa-id-right .fa-ava-sm {
+  animation: avatar-clash-right 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes avatar-clash-left {
+  0% { transform: translateX(-20px) scale(0.8); opacity: 0.5; }
+  50% { transform: translateX(3px) scale(1.05); opacity: 1; }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+@keyframes avatar-clash-right {
+  0% { transform: translateX(20px) scale(0.8); opacity: 0.5; }
+  50% { transform: translateX(-3px) scale(1.05); opacity: 1; }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+
+/* ── Enhanced entrance animation (triggered on intro step) ────────── */
+.fa-id-left.entrance-active .fa-ava-sm {
+  animation: entrance-left 400ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  position: relative;
+}
+.fa-id-right.entrance-active .fa-ava-sm {
+  animation: entrance-right 400ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  position: relative;
+}
+
+@keyframes entrance-left {
+  0% { transform: translateX(-40px) scale(0.6); opacity: 0; }
+  60% { transform: translateX(6px) scale(1.08); opacity: 1; }
+  80% { transform: translateX(-2px) scale(0.98); }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+@keyframes entrance-right {
+  0% { transform: translateX(40px) scale(0.6); opacity: 0; }
+  60% { transform: translateX(-6px) scale(1.08); opacity: 1; }
+  80% { transform: translateX(2px) scale(0.98); }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+
+/* Impact particle flash on entrance */
+.fa-id-left.entrance-active .fa-ava-sm::after,
+.fa-id-right.entrance-active .fa-ava-sm::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(240, 200, 80, 0.6) 0%, rgba(240, 200, 80, 0) 70%);
+  opacity: 0;
+  animation: entrance-impact-flash 500ms ease-out 300ms forwards;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@keyframes entrance-impact-flash {
+  0% { opacity: 0; transform: scale(0.4); }
+  30% { opacity: 0.9; transform: scale(1.2); }
+  100% { opacity: 0; transform: scale(1.8); }
+}
+
+
+/* ── Phase 5b: Factor reveal bounce ───────────────────────────────── */
+.fa-factor.visible {
+  animation: factor-slide-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes factor-slide-in {
+  0% { opacity: 0; transform: translateX(-15px); }
+  60% { opacity: 1; transform: translateX(3px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+/* Tier-2 factors get a glow burst */
+.fa-factor.tier-2.visible::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  animation: factor-glow-burst 0.8s ease-out 0.2s;
+  pointer-events: none;
+}
+.fa-factor.tier-2.good.visible::before {
+  background: radial-gradient(ellipse at 10% 50%, rgba(91, 168, 91, 0.2), transparent 70%);
+}
+.fa-factor.tier-2.bad.visible::before {
+  background: radial-gradient(ellipse at 10% 50%, rgba(224, 85, 69, 0.2), transparent 70%);
+}
+
+@keyframes factor-glow-burst {
+  0% { opacity: 0; }
+  30% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+
+/* ── Phase 5d: Justice slam zoom ──────────────────────────────────── */
+.fj-slam-wrap.fj-slam-impact .fa-card {
+  animation: justice-zoom 0.3s ease-out;
+}
+
+@keyframes justice-zoom {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+/* Winner justice number ring */
+.fj-slam-num.winner::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-gold);
+  opacity: 0;
+  animation: justice-ring 0.6s ease-out 0.4s forwards;
+  pointer-events: none;
+}
+
+@keyframes justice-ring {
+  0% { transform: scale(0.5); opacity: 0.8; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* ── Phase 5e: Roll bar needle trail ──────────────────────────────── */
+.fa-roll-needle::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: -1px;
+  width: 5px;
+  border-radius: 3px;
+  opacity: 0.3;
+  filter: blur(2px);
+  pointer-events: none;
+  transition: none;
+}
+.fa-roll-needle.needle-win::before { background: var(--accent-green); }
+.fa-roll-needle.needle-lose::before { background: var(--accent-red); }
+
+/* Sound-visual beat (Phase 9a) — brief border flash on fight card */
+.fa-card.fight-beat {
+  animation: fight-beat-flash 0.15s ease-out;
+}
+@keyframes fight-beat-flash {
+  0% { border-color: rgba(240, 200, 80, 0.6); }
+  100% { border-color: var(--border-subtle); }
+}
+
+/* ── Impact cracks radiating from center ───────────────────────────── */
+.impact-cracks {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 5;
+}
+.crack {
+  position: absolute;
+  width: 2px;
+  height: 0;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.6), transparent);
+  transform-origin: top center;
+  animation: crack-grow 0.3s ease-out forwards;
+}
+.crack-1 { transform: rotate(-30deg); }
+.crack-2 { transform: rotate(25deg); }
+.crack-3 { transform: rotate(-60deg); }
+.crack-4 { transform: rotate(50deg); }
+@keyframes crack-grow {
+  0% { height: 0; opacity: 1; }
+  60% { height: 30px; opacity: 0.8; }
+  100% { height: 40px; opacity: 0; }
+}
+
+/* ── Justice collision physics: winner/loser/tie ───────────────────── */
+.justice-winner {
+  transform: scale(1.3) !important;
+  text-shadow: 0 0 20px rgba(240, 200, 80, 0.8);
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1.2);
+}
+.justice-loser {
+  transform: scale(0.7) !important;
+  opacity: 0.5;
+  transition: all 0.3s ease-out;
+}
+.justice-tied-pulse {
+  animation: justice-tie-pulse 0.4s ease-in-out 1;
+}
+@keyframes justice-tie-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+/* Loser recoil: push away from center */
+.fj-slam-left.justice-loser {
+  transform: scale(0.7) translateX(-8px) !important;
+}
+.fj-slam-right.justice-loser {
+  transform: scale(0.7) translateX(8px) !important;
+}
+</style>
+
+<!-- Unscoped styles for Teleported story popup -->
+<style>
 .fa-story-overlay {
   position: fixed; inset: 0; z-index: 200;
   background: rgba(0, 0, 0, 0.6);
@@ -1941,59 +2324,6 @@ function getDisplayCharName(orig: string, u: string): string {
   color: var(--text-secondary);
   white-space: pre-line;
 }
-.fa-story-popup-body :deep(strong) { color: var(--accent-gold); font-weight: 800; }
-.fa-story-popup-body :deep(em) { color: var(--accent-blue); }
-
-/* ── Winner/Loser splash ──────────────────────────────────────────── */
-.fa-splash {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 48px;
-  font-weight: 900;
-  z-index: 10;
-  pointer-events: none;
-  text-shadow: 0 0 20px currentColor;
-}
-.fa-splash-win {
-  color: var(--accent-green);
-  animation: splash-burst 1.2s ease-out forwards;
-}
-.fa-splash-loss {
-  color: var(--accent-red);
-  animation: splash-burst 1.2s ease-out forwards;
-}
-
-@keyframes splash-burst {
-  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
-  20% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
-  50% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
-  100% { transform: translate(-50%, -50%) scale(1.1); opacity: 0; }
-}
-
-.splash-enter-active { transition: opacity 0.2s; }
-.splash-leave-active { transition: opacity 0.5s; }
-.splash-enter-from, .splash-leave-to { opacity: 0; }
-
-/* ── Screen shake on big stat differences ─────────────────────────── */
-.fa-card.fa-shake {
-  animation: fight-shake 0.5s ease-in-out;
-}
-
-@keyframes fight-shake {
-  0%, 100% { transform: translateX(0); }
-  10% { transform: translateX(-3px); }
-  20% { transform: translateX(3px); }
-  30% { transform: translateX(-2px); }
-  40% { transform: translateX(2px); }
-  50% { transform: translateX(-1px); }
-  60% { transform: translateX(1px); }
-}
-
-/* ── Winning stat emphasis ─────────────────────────────────────────── */
-.fa-id-left.winner .fa-id-char, .fa-id-right.winner .fa-id-char {
-  color: var(--accent-green);
-  text-shadow: 0 0 4px rgba(63, 167, 61, 0.3);
-}
+.fa-story-popup-body strong { color: var(--accent-gold); font-weight: 800; }
+.fa-story-popup-body em { color: var(--accent-blue); }
 </style>

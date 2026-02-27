@@ -121,7 +121,7 @@ function viewReplay(hash: string) {
           v-for="quest in quests"
           :key="quest.id"
           class="quest-card card"
-          :class="{ completed: quest.isCompleted }"
+          :class="{ completed: quest.isCompleted, 'quest-complete': quest.current >= quest.target }"
         >
           <div class="quest-info">
             <span class="quest-desc">{{ quest.description }}</span>
@@ -207,7 +207,9 @@ function viewReplay(hash: string) {
           v-for="game in store.lobbyState.games"
           :key="game.gameId"
           class="game-card card"
+          :class="{ 'almost-full': game.playerCount >= 5 }"
         >
+          <span class="round-pip">R{{ game.roundNo }}</span>
           <div class="game-card-header">
             <span class="game-id">Game #{{ game.gameId }}</span>
             <span class="game-mode" :class="game.gameMode.toLowerCase()">
@@ -766,5 +768,49 @@ function viewReplay(hash: string) {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--accent-gold);
+}
+
+/* Game Card Pulse Animation */
+.game-card {
+  position: relative;
+  transition: all 0.3s;
+  animation: game-card-idle 3s ease-in-out infinite;
+}
+@keyframes game-card-idle {
+  0%, 100% { box-shadow: var(--shadow); }
+  50% { box-shadow: var(--shadow), 0 0 8px rgba(100, 180, 240, 0.1); }
+}
+
+.game-card.almost-full {
+  border-color: rgba(72, 202, 180, 0.3);
+  animation: game-card-hot 2s ease-in-out infinite;
+}
+@keyframes game-card-hot {
+  0%, 100% { box-shadow: var(--shadow); border-color: rgba(72, 202, 180, 0.3); }
+  50% { box-shadow: var(--shadow), 0 0 12px rgba(72, 202, 180, 0.2); border-color: rgba(72, 202, 180, 0.5); }
+}
+
+/* Round Pip Badge */
+.round-pip {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--accent-blue);
+  background: rgba(100, 180, 240, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+}
+
+/* Quest Completion Celebration */
+.quest-complete {
+  animation: quest-celebrate 0.6s var(--ease-spring);
+}
+@keyframes quest-celebrate {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.08); box-shadow: 0 0 20px rgba(240, 200, 80, 0.4); }
+  100% { transform: scale(1); }
 }
 </style>

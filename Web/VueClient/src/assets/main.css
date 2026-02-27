@@ -18,9 +18,9 @@ body {
   color: var(--kh-c-text-primary-600);
   background: var(--kh-c-neutrals-sat-800);
   background:
-    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(60, 40, 100, 0.12) 0%, transparent 70%),
-    radial-gradient(ellipse 60% 50% at 80% 100%, rgba(40, 60, 100, 0.08) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 40% at 10% 80%, rgba(100, 50, 50, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(30, 100, 120, 0.10) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 80% 100%, rgba(240, 100, 85, 0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 10% 80%, rgba(40, 160, 140, 0.05) 0%, transparent 50%),
     var(--kh-c-neutrals-sat-800);
   background-attachment: fixed;
   line-height: 1.6;
@@ -39,7 +39,7 @@ body {
 
 /* ── Selection ───────────────────────────────────────────────────── */
 ::selection {
-  background: rgba(240, 200, 80, 0.25);
+  background: rgba(72, 202, 180, 0.25);
   color: var(--kh-c-text-primary-500);
 }
 
@@ -80,7 +80,7 @@ button:active:not(:disabled), .btn:active:not(:disabled) {
   transform: scale(0.97);
 }
 
-/* 4A. CSS-only noise texture overlay */
+/* 4A. CSS-only noise texture overlay — cool blue tint */
 body::before {
   content: '';
   position: fixed;
@@ -89,7 +89,7 @@ body::before {
   pointer-events: none;
   opacity: 0.015;
   background: repeating-conic-gradient(
-    rgba(255,255,255,0.08) 0% 25%,
+    rgba(150, 200, 220, 0.08) 0% 25%,
     transparent 0% 50%
   ) 0 0 / 2px 2px;
 }
@@ -97,8 +97,49 @@ body::before {
 /* 4B. Enhanced card depth */
 .card {
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.2),
-    0 4px 8px rgba(0, 0, 0, 0.12),
-    0 8px 24px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    0 4px 8px rgba(0, 0, 0, 0.15),
+    0 8px 24px rgba(0, 0, 0, 0.10),
+    inset 0 1px 0 rgba(100, 200, 220, 0.03);
+}
+
+/* ── Global number transitions ─────────────────────────────────── */
+.value-transition {
+  transition: color 0.3s, text-shadow 0.3s;
+}
+
+/* ── Global interactive element haptics ────────────────────────── */
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+/* ── Page transition ──────────────────────────────────────────── */
+.page-enter-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.page-leave-active {
+  transition: opacity 0.15s ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.page-leave-to {
+  opacity: 0;
+}
+
+/* ── Smooth numeric value animation utility ───────────────────── */
+@keyframes value-bump {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.value-bump {
+  animation: value-bump 0.3s var(--ease-spring);
 }

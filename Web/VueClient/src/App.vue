@@ -12,8 +12,24 @@ const loginSuccess = ref(false)
 const loggedInUsername = ref('')
 let removeGlobalButtonSound: (() => void) | null = null
 
+const currentTheme = ref(localStorage.getItem('kotgh_theme') || '')
+
+function setTheme(theme: string) {
+  currentTheme.value = theme
+  if (theme) {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('kotgh_theme', theme)
+  } else {
+    document.documentElement.removeAttribute('data-theme')
+    localStorage.removeItem('kotgh_theme')
+  }
+}
+
 onMounted(async () => {
   removeGlobalButtonSound = installGlobalButtonSound()
+  if (currentTheme.value) {
+    document.documentElement.setAttribute('data-theme', currentTheme.value)
+  }
   // Check for saved web account first
   const savedWebId = localStorage.getItem('kotgh_web_id')
   const savedWebUsername = localStorage.getItem('kotgh_web_username')
@@ -123,6 +139,12 @@ function handleLogout() {
             {{ store.isWebAccount ? store.webUsername : store.discordId }}
           </span>
           <button class="top-btn" @click="handleLogout">Logout</button>
+          <select class="theme-select" :value="currentTheme" @change="setTheme(($event.target as HTMLSelectElement).value)">
+            <option value="">Default</option>
+            <option value="blood">Blood</option>
+            <option value="neon">Neon</option>
+            <option value="forest">Forest</option>
+          </select>
         </div>
       </header>
 
@@ -165,12 +187,15 @@ function handleLogout() {
   --text-muted: var(--kh-c-text-primary-700);       /* labels, inactive */
   --text-dim: var(--kh-c-text-primary-800);         /* disabled, faint */
 
-  /* Accents */
+  /* Accents — sunken treasure */
   --accent-gold: var(--kh-c-text-highlight-primary);
   --accent-gold-dim: var(--kh-c-text-highlight-dim);
+  --accent-teal: var(--kh-c-secondary-success-200);
+  --accent-teal-dim: var(--kh-c-secondary-success-500);
   --accent-blue: var(--kh-c-secondary-info-300);
   --accent-green: var(--kh-c-secondary-success-200);
   --accent-green-dim: var(--kh-c-secondary-success-500);
+  --accent-coral: var(--kh-c-secondary-danger-200);
   --accent-red: var(--kh-c-secondary-danger-200);
   --accent-red-dim: var(--kh-c-secondary-danger-500);
   --accent-purple: var(--kh-c-secondary-purple-200);
@@ -188,10 +213,12 @@ function handleLogout() {
   --shadow-glow: 0 4px 16px rgba(0, 0, 0, 0.4);
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
   --glow-gold: 0 0 12px rgba(240, 200, 80, 0.25), 0 0 4px rgba(240, 200, 80, 0.15);
-  --glow-green: 0 0 10px rgba(63, 167, 61, 0.3);
-  --glow-red: 0 0 10px rgba(239, 128, 128, 0.3);
-  --glow-purple: 0 0 10px rgba(180, 150, 255, 0.3);
-  --glow-blue: 0 0 10px rgba(110, 170, 240, 0.3);
+  --glow-teal: 0 0 10px rgba(72, 202, 180, 0.3);
+  --glow-green: 0 0 10px rgba(72, 202, 180, 0.3);
+  --glow-coral: 0 0 10px rgba(255, 127, 110, 0.3);
+  --glow-red: 0 0 10px rgba(255, 127, 110, 0.3);
+  --glow-purple: 0 0 10px rgba(160, 130, 220, 0.3);
+  --glow-blue: 0 0 10px rgba(100, 180, 240, 0.3);
 
   /* Easing */
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -217,11 +244,100 @@ function handleLogout() {
   min-height: 100vh;
   min-height: 100svh;
   padding-bottom: 20vh;
+  position: relative;
+  overflow: hidden;
+  /* Aurora background — layered drifting radial gradients */
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 30%, rgba(72, 202, 180, 0.15) 0%, transparent 70%),
+    radial-gradient(ellipse 70% 50% at 75% 65%, rgba(255, 127, 110, 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 70% at 50% 20%, rgba(240, 200, 80, 0.08) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 60% at 85% 25%, rgba(160, 130, 220, 0.08) 0%, transparent 60%),
+    var(--bg-primary);
+}
+
+/* Animated aurora overlay using a pseudo-like approach with background animation */
+.logins::before {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  background:
+    radial-gradient(ellipse 40% 35% at 30% 40%, rgba(72, 202, 180, 0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 35% 40% at 70% 60%, rgba(255, 127, 110, 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 45% 30% at 55% 30%, rgba(240, 200, 80, 0.06) 0%, transparent 65%),
+    radial-gradient(ellipse 30% 45% at 20% 70%, rgba(160, 130, 220, 0.07) 0%, transparent 60%);
+  animation: auroraDrift 20s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Floating particles — small dots drifting upward */
+.logins::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background-image:
+    radial-gradient(1.5px 1.5px at 10% 80%, rgba(72, 202, 180, 0.5) 50%, transparent 100%),
+    radial-gradient(1px 1px at 25% 60%, rgba(240, 200, 80, 0.4) 50%, transparent 100%),
+    radial-gradient(2px 2px at 40% 90%, rgba(160, 130, 220, 0.35) 50%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 55% 70%, rgba(72, 202, 180, 0.4) 50%, transparent 100%),
+    radial-gradient(1px 1px at 70% 85%, rgba(255, 127, 110, 0.35) 50%, transparent 100%),
+    radial-gradient(2px 2px at 85% 65%, rgba(240, 200, 80, 0.3) 50%, transparent 100%),
+    radial-gradient(1px 1px at 15% 40%, rgba(160, 130, 220, 0.4) 50%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 60% 50%, rgba(72, 202, 180, 0.3) 50%, transparent 100%),
+    radial-gradient(1px 1px at 90% 45%, rgba(240, 200, 80, 0.35) 50%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 35% 35%, rgba(255, 127, 110, 0.3) 50%, transparent 100%),
+    radial-gradient(1px 1px at 50% 25%, rgba(160, 130, 220, 0.35) 50%, transparent 100%),
+    radial-gradient(2px 2px at 75% 30%, rgba(72, 202, 180, 0.25) 50%, transparent 100%);
+  background-size:
+    100% 100%, 100% 100%, 100% 100%,
+    100% 100%, 100% 100%, 100% 100%,
+    100% 100%, 100% 100%, 100% 100%,
+    100% 100%, 100% 100%, 100% 100%;
+  animation: particlesFloat 16s linear infinite;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .logins > div {
   display: flex;
   justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+/* Aurora drift — slow organic movement */
+@keyframes auroraDrift {
+  0% {
+    transform: translate(0%, 0%) rotate(0deg) scale(1);
+  }
+  33% {
+    transform: translate(5%, -3%) rotate(2deg) scale(1.05);
+  }
+  66% {
+    transform: translate(-3%, 5%) rotate(-1deg) scale(0.97);
+  }
+  100% {
+    transform: translate(2%, -2%) rotate(1deg) scale(1.02);
+  }
+}
+
+/* Particles float upward and reset */
+@keyframes particlesFloat {
+  0% {
+    transform: translateY(0%);
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100%);
+    opacity: 0.4;
+  }
 }
 
 /* ── Top bar ──────────────────────────────────────────────────────── */
@@ -327,6 +443,17 @@ function handleLogout() {
   background: var(--kh-c-neutrals-pale-500);
   color: var(--text-secondary);
   border-color: var(--kh-c-neutrals-pale-240);
+}
+
+.theme-select {
+  padding: 2px 6px;
+  background: var(--bg-inset);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  font-size: 0.7rem;
+  cursor: pointer;
+  outline: none;
 }
 
 /* ── Main content ─────────────────────────────────────────────────── */

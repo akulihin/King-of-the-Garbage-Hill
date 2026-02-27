@@ -505,10 +505,13 @@ export function doomsDayWinLosePath(
       return 'dooms_day/win_lose/f_any_lose.mp3'
     }
     if (len >= 3) {
-      // Check full sequence — must verify R3 was actually won before using victory sounds
-      const seq = roundResults.join('')
-      if (seq === 'lww') return 'dooms_day/win_lose/f_lww.mp3'
-      if (seq === 'wlw') return 'dooms_day/win_lose/f_wlw.mp3'
+      // Use actual fight outcome — passives can override round results
+      if (weWon === true) {
+        const seq = roundResults.join('')
+        if (seq === 'lww') return 'dooms_day/win_lose/f_lww.mp3'
+        if (seq === 'wlw') return 'dooms_day/win_lose/f_wlw.mp3'
+        return 'dooms_day/win_lose/f_ww.mp3'
+      }
       return 'dooms_day/win_lose/f_any_lose.mp3'
     }
     // len === 1 final (no R2/R3) — use the round 1 file

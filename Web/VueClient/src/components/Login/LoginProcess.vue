@@ -1,6 +1,8 @@
 <template>
   <div>
+    <div class="loginGlow"></div>
     <div class="loginBox">
+      <div class="crownIcon">&#128081;</div>
       <div class="version">kotgh-{{ version }}</div>
       <div class="info">
         King of the Garbage Hill — a turn-based tactical game.
@@ -85,17 +87,73 @@ function handleWebLogin() {
 <style scoped>
 * { display: flex; }
 
+/* Glow effect behind the login box */
+.loginGlow {
+  position: absolute;
+  width: 30vw;
+  min-width: 320px;
+  height: 100%;
+  border-radius: 16px;
+  background: radial-gradient(ellipse 100% 80% at 50% 50%,
+    rgba(72, 202, 180, 0.12) 0%,
+    rgba(240, 200, 80, 0.06) 40%,
+    transparent 70%);
+  filter: blur(40px);
+  pointer-events: none;
+  z-index: 0;
+  animation: glowPulse 6s ease-in-out infinite alternate;
+}
+
+@keyframes glowPulse {
+  0% { opacity: 0.6; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1.08); }
+}
+
 .loginBox {
   flex-direction: column;
   width: 30vw;
   min-width: 320px;
-  background-color: var(--kh-c-neutrals-sat-700);
-  border: 1px solid var(--kh-c-neutrals-pale-375);
+  /* Glassmorphism */
+  background: rgba(30, 34, 42, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
   justify-content: center;
   padding: 2rem 1.75rem;
   gap: 1.25rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  position: relative;
+  z-index: 1;
+  /* Fade-in entrance animation */
+  animation: loginFadeIn 0.7s cubic-bezier(0.0, 0, 0.2, 1) both;
+}
+
+@keyframes loginFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Crown icon */
+.crownIcon {
+  justify-content: center;
+  font-size: 2.25rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(240, 200, 80, 0.4));
+  animation: crownBob 3s ease-in-out infinite;
+}
+
+@keyframes crownBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
 .info {
@@ -228,6 +286,10 @@ function handleWebLogin() {
     padding: 2.375rem 1.75rem;
     gap: 1.5rem;
     border-radius: 0;
+  }
+
+  .loginGlow {
+    width: 100vw;
   }
 }
 </style>

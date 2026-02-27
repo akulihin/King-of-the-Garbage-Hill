@@ -9,6 +9,12 @@ const store = useGameStore()
 const router = useRouter()
 const gameIdNum = computed(() => Number(props.gameId))
 
+const commentary = computed(() => {
+  if (!store.gameState) return 'Connecting...'
+  if (store.gameState.isFinished) return 'Game Over!'
+  return `Round ${store.gameState.roundNo} / 10 — ${store.gameState.players.length} players`
+})
+
 onMounted(async () => {
   if (store.isConnected) {
     await store.joinGame(gameIdNum.value)
@@ -37,8 +43,15 @@ onUnmounted(() => {
       Connecting...
     </div>
     <div v-else>
-      <Leaderboard :players="store.gameState.players" />
-      <div v-if="store.gameState.globalLogs" class="card" style="margin-top: 16px;">
+      <div class="spectate-commentary">
+        <span class="commentary-text">{{ commentary }}</span>
+      </div>
+
+      <div class="spectate-board card">
+        <Leaderboard :players="store.gameState.players" />
+      </div>
+
+      <div v-if="store.gameState.globalLogs" class="spectate-log-card card">
         <div class="card-header">
           Game Log
         </div>
@@ -72,6 +85,33 @@ onUnmounted(() => {
   padding: 60px;
   color: var(--text-muted);
   font-size: 13px;
+}
+
+/* Auto-Commentary Bar */
+.spectate-commentary {
+  padding: 8px 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  text-align: center;
+}
+.commentary-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-gold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* Glassmorphism Board Wrapper */
+.spectate-board {
+  margin-bottom: 16px;
+}
+
+/* Glassmorphism Log Card */
+.spectate-log-card {
+  margin-top: 0;
 }
 
 .spectate-log {

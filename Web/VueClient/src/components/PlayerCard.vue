@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue'
 import type { Player, PortalGun, ExploitState, TsukuyomiState, PassiveAbilityStates } from 'src/services/signalr'
+import ScoreOdometer from 'src/components/ScoreOdometer.vue'
 import { useGameStore } from 'src/store/game'
 import {
   playComboHype,
@@ -98,6 +99,29 @@ const masteryTier = computed(() => {
   if (lvl >= 5) return 'silver'
   if (lvl >= 1) return 'bronze'
   return 'none'
+})
+
+// Character rarity tier (1 = rarest, 6 = most common)
+const charTier = computed(() => props.player?.character.tier ?? 0)
+const rarityLabel = computed(() => {
+  switch (charTier.value) {
+    case 1: return 'Legendary'
+    case 2: return 'Epic'
+    case 3: return 'Rare'
+    case 4: return 'Uncommon'
+    case 5: return 'Common'
+    case 6: return 'Common'
+    default: return ''
+  }
+})
+const rarityClass = computed(() => {
+  switch (charTier.value) {
+    case 1: return 'rarity-legendary'
+    case 2: return 'rarity-epic'
+    case 3: return 'rarity-rare'
+    case 4: return 'rarity-uncommon'
+    default: return 'rarity-common'
+  }
 })
 
 const isGoblin = computed(() => props.player?.character.name === 'Стая Гоблинов')
@@ -263,11 +287,36 @@ watch(() => props.scoreAnimReady, (ready: boolean) => {
   }
 })
 
-onUnmounted(() => { clearComboTimer() })
+// Trigger confetti on big score gains (delta > 8)
+watch(animatedScoreDelta, (val: number) => {
+  if (val > 8) {
+    showConfetti.value = true
+    if (confettiTimer) clearTimeout(confettiTimer)
+    confettiTimer = setTimeout(() => { showConfetti.value = false }, 1500)
+  }
+})
 
-// ── Stat change pulse animation ──────────────────────────────────────
+onUnmounted(() => { clearComboTimer(); if (confettiTimer) clearTimeout(confettiTimer) })
+
+// ── Stat change pulse animation + floating numbers ──────────────────
 const prevStatValues = ref<{ int: number; str: number; spd: number; psy: number } | null>(null)
 const pulsingStats = ref<Set<string>>(new Set())
+
+// Ghost stat bars (show previous value on change)
+const ghostStats = ref<{ int: number; str: number; spd: number; psy: number } | null>(null)
+const showGhost = ref<Set<string>>(new Set())
+
+// Confetti burst on big score gains
+const showConfetti = ref(false)
+let confettiTimer: ReturnType<typeof setTimeout> | null = null
+
+interface FloatingNumber {
+  id: number
+  stat: string
+  delta: number
+}
+let floatIdCounter = 0
+const floatingNumbers = ref<FloatingNumber[]>([])
 
 watch(
   () => [
@@ -282,10 +331,11 @@ watch(
     const prev = prevStatValues.value
     if (prev) {
       const changed: string[] = []
-      if (newInt !== prev.int) changed.push('intelligence')
-      if (newStr !== prev.str) changed.push('strength')
-      if (newSpd !== prev.spd) changed.push('speed')
-      if (newPsy !== prev.psy) changed.push('psyche')
+      const deltas: Record<string, number> = {}
+      if (newInt !== prev.int) { changed.push('intelligence'); deltas.intelligence = newInt - prev.int }
+      if (newStr !== prev.str) { changed.push('strength'); deltas.strength = newStr - prev.str }
+      if (newSpd !== prev.spd) { changed.push('speed'); deltas.speed = newSpd - prev.spd }
+      if (newPsy !== prev.psy) { changed.push('psyche'); deltas.psyche = newPsy - prev.psy }
       if (changed.length > 0) {
         for (const s of changed) pulsingStats.value.add(s)
         pulsingStats.value = new Set(pulsingStats.value)
@@ -293,6 +343,24 @@ watch(
           for (const s of changed) pulsingStats.value.delete(s)
           pulsingStats.value = new Set(pulsingStats.value)
         }, 1500)
+
+        // Ghost stat bars — show old values fading out
+        ghostStats.value = { ...prev }
+        for (const s of changed) showGhost.value.add(s)
+        showGhost.value = new Set(showGhost.value)
+        setTimeout(() => {
+          for (const s of changed) showGhost.value.delete(s)
+          showGhost.value = new Set(showGhost.value)
+        }, 1500)
+
+        // Spawn floating numbers
+        for (const s of changed) {
+          const id = ++floatIdCounter
+          floatingNumbers.value.push({ id, stat: s, delta: deltas[s] })
+          setTimeout(() => {
+            floatingNumbers.value = floatingNumbers.value.filter(f => f.id !== id)
+          }, 1200)
+        }
       }
     }
     prevStatValues.value = { int: newInt, str: newStr, spd: newSpd, psy: newPsy }
@@ -376,11 +444,11 @@ function handleMoralToSkill() {
 </script>
 
 <template>
-  <div class="player-card" :class="{ 'is-me': isMe, 'is-bug': isBug, 'is-dragon': passiveStates?.dragon, 'is-awakened': passiveStates?.dragon?.isAwakened }"
+  <div class="player-card" :class="{ 'is-me': isMe, 'is-bug': isBug, 'is-dragon': passiveStates?.dragon, 'is-awakened': passiveStates?.dragon?.isAwakened, 'is-last-place': isMe && (player?.status?.place ?? 0) >= 6 }"
     :style="passiveStates?.privilege && passiveStates.privilege.markedCount > 0 ? { borderColor: 'rgba(205, 127, 50, 0.5)', boxShadow: '0 0 12px rgba(205, 127, 50, 0.2)' } : {}"
   >
     <!-- Large avatar -->
-    <div class="pc-avatar-wrap" :class="placeTier">
+    <div class="pc-avatar-wrap" :class="[placeTier]">
       <img
         v-if="player.character.avatarCurrent"
         :src="player.character.avatarCurrent"
@@ -394,7 +462,10 @@ function handleMoralToSkill() {
 
     <!-- Name & character -->
     <div class="pc-identity">
-      <div class="pc-name">{{ player.character.name }}</div>
+      <div class="pc-name">
+        {{ player.character.name }}
+        <span v-if="isMe && charTier > 0" class="rarity-badge" :class="rarityClass">{{ rarityLabel }}</span>
+      </div>
       <div v-if="isMe && masteryLevel > 0" class="mastery-badge" :class="'mastery-' + masteryTier">
         <span class="mastery-level">{{ masteryLevel }}</span>
         <span class="mastery-label">{{ masteryTier }}</span>
@@ -550,6 +621,7 @@ function handleMoralToSkill() {
         <div class="stat-row">
           <span class="gi gi-lg gi-int">INT</span>
           <div class="stat-bar-bg">
+            <div v-if="showGhost.has('intelligence')" class="stat-bar-ghost intelligence" :style="{ width: `${(ghostStats?.int ?? 0) * 10}%` }" :key="'ghost-int-' + (ghostStats?.int ?? 0)" />
             <div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" />
           </div>
           <span class="stat-val stat-intelligence">{{ player.character.intelligence }}</span>
@@ -565,6 +637,7 @@ function handleMoralToSkill() {
         <div class="stat-row">
           <span class="gi gi-lg gi-str">STR</span>
           <div class="stat-bar-bg">
+            <div v-if="showGhost.has('strength')" class="stat-bar-ghost strength" :style="{ width: `${(ghostStats?.str ?? 0) * 10}%` }" :key="'ghost-str-' + (ghostStats?.str ?? 0)" />
             <div class="stat-bar strength" :style="{ width: `${player.character.strength * 10}%` }" />
           </div>
           <span class="stat-val stat-strength">{{ player.character.strength }}</span>
@@ -580,6 +653,7 @@ function handleMoralToSkill() {
         <div class="stat-row">
           <span class="gi gi-lg gi-spd">SPD</span>
           <div class="stat-bar-bg">
+            <div v-if="showGhost.has('speed')" class="stat-bar-ghost speed" :style="{ width: `${(ghostStats?.spd ?? 0) * 10}%` }" :key="'ghost-spd-' + (ghostStats?.spd ?? 0)" />
             <div class="stat-bar speed" :style="{ width: `${player.character.speed * 10}%` }" />
           </div>
           <span class="stat-val stat-speed">{{ player.character.speed }}</span>
@@ -591,6 +665,21 @@ function handleMoralToSkill() {
         </div>
       </div>
       </template>
+
+      <!-- Floating stat change numbers -->
+      <TransitionGroup name="float-num" tag="div" class="floating-numbers-container">
+        <span
+          v-for="fn in floatingNumbers.filter(f => f.stat !== 'psyche')"
+          :key="fn.id"
+          class="floating-number"
+          :class="[
+            fn.delta > 0 ? 'float-positive' : 'float-negative',
+            `float-${fn.stat}`,
+          ]"
+        >
+          {{ fn.delta > 0 ? '+' : '' }}{{ fn.delta }}
+        </span>
+      </TransitionGroup>
     </div>
 
     <!-- Psyche (separated — different stat type, hidden during kotiki lvl-up) -->
@@ -599,6 +688,7 @@ function handleMoralToSkill() {
         <div class="stat-row">
           <span class="gi gi-lg gi-psy">PSY</span>
           <div class="stat-bar-bg">
+            <div v-if="showGhost.has('psyche')" class="stat-bar-ghost psyche" :style="{ width: `${(ghostStats?.psy ?? 0) * 10}%` }" :key="'ghost-psy-' + (ghostStats?.psy ?? 0)" />
             <div class="stat-bar psyche" :style="{ width: `${player.character.psyche * 10}%` }" />
           </div>
           <span class="stat-val stat-psyche">{{ player.character.psyche }}</span>
@@ -609,6 +699,17 @@ function handleMoralToSkill() {
           <span v-if="player.character.psycheBonusText" class="resist-bonus">{{ player.character.psycheBonusText }}</span>
         </div>
       </div>
+      <!-- Psyche floating number -->
+      <TransitionGroup name="float-num" tag="div" class="floating-numbers-container">
+        <span
+          v-for="fn in floatingNumbers.filter(f => f.stat === 'psyche')"
+          :key="fn.id"
+          class="floating-number"
+          :class="[fn.delta > 0 ? 'float-positive' : 'float-negative', 'float-psyche']"
+        >
+          {{ fn.delta > 0 ? '+' : '' }}{{ fn.delta }}
+        </span>
+      </TransitionGroup>
     </div>
 
     <!-- Justice: highlighted, own row -->
@@ -617,7 +718,7 @@ function handleMoralToSkill() {
       @mousemove="moveTip" @mouseleave="hideTip">
       <span class="justice-icon">⚖</span>
       <span class="justice-label">Justice</span>
-      <span class="justice-value">{{ player.character.justice }}</span>
+      <ScoreOdometer :value="player.character.justice" size="sm" class="justice-value" />
       <span v-if="justiceReset" class="justice-reset-label">RESET</span>
     </div>
 
@@ -1423,12 +1524,19 @@ function handleMoralToSkill() {
     </div>
 
     <!-- Score + animated delta -->
-    <div class="pc-score-row">
-      <span class="pc-score">{{ player.status.score }}</span>
+    <div class="pc-score-row" :class="{ 'confetti-burst': showConfetti }">
+      <ScoreOdometer :value="player.status.score" size="lg" :flash-color="animatedScoreDelta > 0 ? '#5ba85b' : animatedScoreDelta < 0 ? '#e05545' : null" class="pc-score" />
       <span class="pc-score-label">pts</span>
       <span v-if="animatedScoreDelta !== 0" class="pc-score-delta" :class="{ 'delta-big': comboHits.length >= 4, 'delta-huge': comboHits.length >= 6, 'delta-negative': animatedScoreDelta < 0 }" :key="animatedScoreDelta">
         {{ animatedScoreDelta > 0 ? '+' : '' }}{{ animatedScoreDelta }}
       </span>
+      <span v-if="hitActiveIdx >= 0 && comboHits[hitActiveIdx]?.comboNum > 1" class="combo-multiplier" :key="hitActiveIdx">
+        x{{ comboHits[hitActiveIdx].comboNum }}
+      </span>
+      <!-- Confetti particles for big score gains -->
+      <div v-if="showConfetti" class="confetti-container">
+        <span v-for="n in 12" :key="n" class="confetti-particle" />
+      </div>
     </div>
 
     <!-- Score combo hits (each + source animated individually) -->
@@ -1483,6 +1591,19 @@ function handleMoralToSkill() {
 .player-card.is-me {
   border-color: rgba(240, 200, 80, 0.2);
   box-shadow: var(--glow-gold), var(--shadow-glow), inset 0 1px 0 var(--glass-highlight);
+}
+
+/* Phase 9b: Last-place heartbeat — double-beat pulse on card border */
+.player-card.is-last-place {
+  animation: heartbeat 1.5s ease-in-out infinite;
+}
+
+@keyframes heartbeat {
+  0%, 100% { border-color: rgba(240, 200, 80, 0.2); }
+  14% { border-color: rgba(224, 85, 69, 0.4); }
+  28% { border-color: rgba(240, 200, 80, 0.2); }
+  42% { border-color: rgba(224, 85, 69, 0.5); }
+  56% { border-color: rgba(240, 200, 80, 0.2); }
 }
 
 /* Avatar */
@@ -1605,6 +1726,18 @@ function handleMoralToSkill() {
   height: 100%;
   object-fit: cover;
   animation: avatar-breathe 4s ease-in-out infinite;
+  transition: filter 0.5s ease;
+}
+
+/* Avatar reactivity by position */
+.place-1 .pc-avatar-img,
+.place-2 .pc-avatar-img {
+  filter: contrast(1.05) brightness(1.05);
+  animation-duration: 5s;
+}
+.place-last .pc-avatar-img {
+  filter: saturate(0.7) brightness(0.9);
+  animation-duration: 2.5s; 
 }
 
 @keyframes avatar-breathe {
@@ -1634,6 +1767,49 @@ function handleMoralToSkill() {
   color: var(--accent-gold);
   letter-spacing: 0.3px;
   text-shadow: 0 0 10px rgba(240, 200, 80, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Character rarity badge ── */
+.rarity-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid;
+  line-height: 1.4;
+  text-shadow: none;
+}
+.rarity-legendary {
+  color: #f0c850;
+  border-color: rgba(240, 200, 80, 0.4);
+  background: rgba(240, 200, 80, 0.1);
+  box-shadow: 0 0 8px rgba(240, 200, 80, 0.15);
+}
+.rarity-epic {
+  color: #c084fc;
+  border-color: rgba(192, 132, 252, 0.4);
+  background: rgba(192, 132, 252, 0.1);
+  box-shadow: 0 0 8px rgba(192, 132, 252, 0.15);
+}
+.rarity-rare {
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.4);
+  background: rgba(96, 165, 250, 0.1);
+}
+.rarity-uncommon {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.3);
+  background: rgba(74, 222, 128, 0.08);
+}
+.rarity-common {
+  color: var(--text-muted);
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .pc-username {
@@ -1717,6 +1893,7 @@ function handleMoralToSkill() {
   border-radius: 5px;
   overflow: hidden;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+  position: relative;
 }
 
 .stat-bar {
@@ -2068,6 +2245,7 @@ function handleMoralToSkill() {
   gap: 4px;
   padding-top: 4px;
   border-top: 1px solid var(--border-subtle);
+  position: relative;
 }
 
 .pc-score {
@@ -2075,13 +2253,13 @@ function handleMoralToSkill() {
   font-weight: 900;
   color: var(--accent-gold);
   font-family: var(--font-mono);
-  text-shadow: 0 0 12px rgba(240, 200, 80, 0.3);
-  transition: text-shadow 0.3s;
+  filter: drop-shadow(0 0 12px rgba(240, 200, 80, 0.3));
+  transition: filter 0.3s;
 }
 
 /* 2E. Brighter glow when score delta is visible */
 .pc-score-row:has(.pc-score-delta) .pc-score {
-  text-shadow: 0 0 16px rgba(240, 200, 80, 0.5), 0 0 30px rgba(240, 200, 80, 0.2);
+  filter: drop-shadow(0 0 16px rgba(240, 200, 80, 0.5)) drop-shadow(0 0 30px rgba(240, 200, 80, 0.2));
 }
 
 .pc-score-label {
@@ -3088,6 +3266,124 @@ function handleMoralToSkill() {
 .geralt-oil-tier { color: rgba(180, 180, 180, 0.6); font-size: 10px; min-width: 50px; text-align: right; }
 .geralt-status-row { display: flex; gap: 8px; font-size: 10px; color: rgba(180, 180, 180, 0.5); margin-top: 2px; }
 .geralt-monster-on-me-widget { border-left: 3px solid transparent; border-radius: 3px; }
+
+/* ── Floating damage numbers ── */
+.floating-numbers-container {
+  position: relative;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.floating-number {
+  position: absolute;
+  right: 8px;
+  top: -4px;
+  font-size: 16px;
+  font-weight: 900;
+  font-family: var(--font-mono);
+  pointer-events: none;
+  z-index: 10;
+  animation: float-up-stat 1.2s ease-out forwards;
+  white-space: nowrap;
+}
+
+.float-positive { color: var(--accent-green); }
+.float-negative { color: var(--accent-red); }
+.float-intelligence { text-shadow: 0 0 6px rgba(91, 155, 213, 0.5); }
+.float-strength { text-shadow: 0 0 6px rgba(224, 85, 69, 0.5); }
+.float-speed { text-shadow: 0 0 6px rgba(220, 195, 50, 0.5); }
+.float-psyche { text-shadow: 0 0 6px rgba(176, 122, 216, 0.5); }
+
+@keyframes float-up-stat {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  70% { opacity: 0.8; transform: translateY(-30px) scale(1.1); }
+  100% { opacity: 0; transform: translateY(-45px) scale(0.9); }
+}
+
+.float-num-enter-active { animation: float-up-stat 1.2s ease-out forwards; }
+.float-num-leave-active { display: none; }
+
+
+/* ── Ghost stat bars (before/after) ── */
+.stat-bar-ghost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: inherit;
+  opacity: 0.4;
+  animation: ghost-fade 1.5s ease-out forwards;
+  z-index: 0;
+}
+.stat-bar-ghost.intelligence { background: var(--kh-c-secondary-info-200); }
+.stat-bar-ghost.strength { background: var(--kh-c-secondary-danger-200); }
+.stat-bar-ghost.speed { background: var(--kh-c-secondary-success-200); }
+.stat-bar-ghost.psyche { background: var(--kh-c-secondary-purple-200); }
+@keyframes ghost-fade {
+  0% { opacity: 0.4; }
+  100% { opacity: 0; }
+}
+
+/* ── Score combo multiplier ── */
+.combo-multiplier {
+  position: absolute;
+  right: -10px;
+  top: -5px;
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--accent-gold);
+  text-shadow: 0 0 12px rgba(240, 200, 80, 0.6);
+  animation: combo-pop-scale 0.3s var(--ease-spring);
+  pointer-events: none;
+}
+@keyframes combo-pop-scale {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ── Confetti burst on big score gains ── */
+.confetti-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 5;
+}
+.confetti-particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  top: 50%;
+  left: 50%;
+  animation: confetti-fly 1.5s ease-out forwards;
+}
+.confetti-particle:nth-child(1)  { background: #f0c850; --confetti-x: -40px; --confetti-y: -50px; --confetti-r: 120deg; animation-delay: 0ms; }
+.confetti-particle:nth-child(2)  { background: #ff7f6e; --confetti-x: 35px;  --confetti-y: -55px; --confetti-r: -90deg; animation-delay: 30ms; }
+.confetti-particle:nth-child(3)  { background: #64b4f0; --confetti-x: -50px; --confetti-y: -20px; --confetti-r: 200deg; animation-delay: 60ms; }
+.confetti-particle:nth-child(4)  { background: #a082dc; --confetti-x: 55px;  --confetti-y: -30px; --confetti-r: -150deg; animation-delay: 90ms; }
+.confetti-particle:nth-child(5)  { background: #48cab4; --confetti-x: -30px; --confetti-y: -60px; --confetti-r: 80deg; animation-delay: 50ms; }
+.confetti-particle:nth-child(6)  { background: #f0d250; --confetti-x: 45px;  --confetti-y: -45px; --confetti-r: -200deg; animation-delay: 70ms; }
+.confetti-particle:nth-child(7)  { background: #ff7f6e; --confetti-x: -55px; --confetti-y: -35px; --confetti-r: 160deg; animation-delay: 40ms; }
+.confetti-particle:nth-child(8)  { background: #64b4f0; --confetti-x: 25px;  --confetti-y: -65px; --confetti-r: -60deg; animation-delay: 100ms; }
+.confetti-particle:nth-child(9)  { background: #a082dc; --confetti-x: -45px; --confetti-y: -45px; --confetti-r: 240deg; animation-delay: 20ms; }
+.confetti-particle:nth-child(10) { background: #48cab4; --confetti-x: 50px;  --confetti-y: -25px; --confetti-r: -120deg; animation-delay: 80ms; }
+.confetti-particle:nth-child(11) { background: #f0c850; --confetti-x: -20px; --confetti-y: -55px; --confetti-r: 300deg; animation-delay: 110ms; }
+.confetti-particle:nth-child(12) { background: #ff7f6e; --confetti-x: 40px;  --confetti-y: -60px; --confetti-r: -280deg; animation-delay: 60ms; }
+@keyframes confetti-fly {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(var(--confetti-x), var(--confetti-y)) rotate(var(--confetti-r)) scale(0.3);
+    opacity: 0;
+  }
+}
 </style>
 
 <!-- Tooltip needs to be unscoped to work with Teleport to body -->

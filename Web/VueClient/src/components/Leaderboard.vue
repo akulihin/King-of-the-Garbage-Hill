@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { Player, Prediction, CharacterInfo, FightEntry, DeathNote } from 'src/services/signalr'
+import ScoreOdometer from 'src/components/ScoreOdometer.vue'
 
 const props = defineProps<{
   players: Player[]
@@ -10,6 +11,7 @@ const props = defineProps<{
   characterNames: string[]
   characterCatalog: CharacterInfo[]
   isAdmin?: boolean
+  isFinished?: boolean
   roundNo?: number
   confirmedPredict?: boolean
   fightLog?: FightEntry[]
@@ -35,13 +37,6 @@ const sorted = computed(() =>
     .filter((p: Player) => !p.isDead)
     .sort((a, b) => a.status.place - b.status.place),
 )
-
-const maxScore = computed(() => {
-  const scores = props.players
-    .filter((p: Player) => p.status.score >= 0) // exclude hidden scores
-    .map((p: Player) => p.status.score)
-  return Math.max(...scores, 1)
-})
 
 // After round 8 + confirmed, predictions are locked. Kira doesn't predict.
 const canPredict = computed(() => {
@@ -114,19 +109,6 @@ function getDisplayScore(player: Player): string {
   return String(player.status.score)
 }
 
-/** Get numeric score for bar width (hidden → 0) */
-function getScoreForBar(player: Player): number {
-  return player.status.score < 0 ? 0 : player.status.score
-}
-
-/** Get display tier */
-function getDisplayTier(player: Player): number {
-  if (!isMasked(player)) return player.character.tier
-  const pred = getPredictedCharInfo(player.playerId)
-  if (pred) return pred.tier
-  return 0
-}
-
 /** Initialize stat guesses for a player from predicted character's base stats */
 function initGuessesFromPrediction(playerId: string) {
   const pred = getPredictedCharInfo(playerId)
@@ -197,16 +179,16 @@ function isLastPlace(index: number, total: number): boolean {
   return total > 1 && index === total - 1
 }
 
+const attackStampId = ref<string | null>(null)
+
 function handleAttack(player: Player) {
   if (!props.canAttack) return
   if (player.playerId === props.myPlayerId) return
   if (isProtected(player)) return
   emit('attack', player.status.place)
-}
-
-function tierStars(tier: number): string {
-  if (tier <= 0) return ''
-  return '★'.repeat(Math.min(tier, 6))
+  // Attack stamp animation
+  attackStampId.value = player.playerId
+  setTimeout(() => { attackStampId.value = null }, 400)
 }
 
 // ── Score change flash animation ─────────────────────────────────────
@@ -331,6 +313,7 @@ function hideTip() {
           'dropped': isDropped(player),
           'in-harm-range': player.isInMyHarmRange,
           'on-fire': isOnFire(player.playerId),
+          'attack-stamp': attackStampId === player.playerId,
           [hillTierClass(index, sorted.length)]: true,
         }"
         @click="handleAttack(player)"
@@ -384,7 +367,6 @@ function hideTip() {
           </div>
           <div class="lb-character" :class="{ 'masked-name': isMasked(player) && !getPrediction(player.playerId) }">
             {{ getDisplayCharName(player) }}
-            <span v-if="getDisplayTier(player) > 0" class="tier-stars">{{ tierStars(getDisplayTier(player)) }}</span>
           </div>
         </div>
 
@@ -444,15 +426,29 @@ function hideTip() {
           </template>
         </div>
 
-        <!-- Score bar -->
-        <div class="lb-score-area">
-          <span class="score-value" :class="{ 'score-hidden': player.status.score < 0, 'score-up': scoreFlash[player.playerId] === 'up', 'score-down': scoreFlash[player.playerId] === 'down' }">
-            {{ getDisplayScore(player) }}
-          </span>
+        <!-- Score bar (admin/replay only) -->
+        <div v-if="isAdmin || isFinished" class="lb-score-area">
+          <ScoreOdometer
+            v-if="player.status.score >= 0"
+            :value="player.status.score"
+            size="sm"
+            :flash-color="scoreFlash[player.playerId] === 'up' ? '#5ba85b' : scoreFlash[player.playerId] === 'down' ? '#e05545' : null"
+            class="score-value"
+          />
+          <span v-else class="score-value score-hidden">?</span>
           <span v-if="isDropped(player)" class="drop-badge">
             -{{ getDropCount(player.discordUsername) }}
           </span>
         </div>
+
+        <!-- Drop overlay animation -->
+        <Transition name="drop-overlay">
+          <div v-if="isDropped(player)" class="drop-overlay">
+            <div class="drop-arrow">▼</div>
+            <div class="drop-count">-{{ getDropCount(player.discordUsername) }}</div>
+            <div class="drop-streak" />
+          </div>
+        </Transition>
 
         <!-- Predict button (o  pponents only, if allowed) -->
         <div
@@ -630,16 +626,28 @@ function hideTip() {
   transform: none;
 }
 
-/* ── 1st place shimmer ─────────────────────────────────────────────── */
+/* ── Podium effect — top 3 elevated ──────────────────────────────────── */
+.lb-row.hill-2 {
+  transform: translateY(-1px);
+  z-index: 2;
+}
+.lb-row.hill-3 {
+  z-index: 1;
+}
+
+/* ── 1st place "Throne" — 3D lift + shimmer ──────────────────────────── */
 .lb-row.hill-1 {
   animation: first-place-shimmer 3s ease-in-out infinite;
+  transform: perspective(800px) translateZ(4px) translateY(-2px) scale(1.02);
+  padding: 9px 12px;
+  z-index: 3;
 }
 @keyframes first-place-shimmer {
   0%, 100% { box-shadow: 0 0 10px rgba(240,200,80, 0.12); }
-  50% { box-shadow: 0 0 18px rgba(240,200,80, 0.22), 0 0 4px rgba(240,200,80, 0.1); }
+  50% { box-shadow: 0 0 22px rgba(240,200,80, 0.28), 0 0 6px rgba(240,200,80, 0.12); }
 }
 
-/* 1C. Gold gradient sweep across 1st place row */
+/* Gold gradient sweep across 1st place row */
 .lb-row.hill-1::after {
   content: '';
   position: absolute;
@@ -655,23 +663,78 @@ function hideTip() {
   100% { background-position: -300% 0; }
 }
 
-/* ── Last place distress ──────────────────────────────────────────── */
+/* Coronation flash — when new player takes #1 */
+.lb-row.hill-1.coronation {
+  animation: coronation-burst 0.6s ease-out;
+}
+@keyframes coronation-burst {
+  0% { transform: perspective(800px) translateZ(4px) translateY(-2px) scale(1.02); box-shadow: 0 0 10px rgba(240,200,80, 0.12); }
+  30% { transform: perspective(800px) translateZ(8px) translateY(-2px) scale(1.05); box-shadow: 0 0 30px rgba(240,200,80, 0.5), 0 0 60px rgba(240,200,80, 0.2); }
+  100% { transform: perspective(800px) translateZ(4px) translateY(-2px) scale(1.02); box-shadow: 0 0 10px rgba(240,200,80, 0.12); }
+}
+
+/* ── Last place "ДНО" danger zone ─────────────────────────────────── */
 .lb-row.hill-6 {
-  animation: last-place-pulse 2.5s ease-in-out infinite;
+  animation: last-place-pulse 2.5s ease-in-out infinite, sinkBob 3s ease-in-out infinite;
+  filter: brightness(0.88);
+  box-shadow: inset 0 0 20px rgba(200, 40, 40, 0.12);
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      transparent, transparent 8px,
+      rgba(160, 45, 45, 0.04) 8px, rgba(160, 45, 45, 0.04) 16px
+    );
 }
 @keyframes last-place-pulse {
   0%, 100% { border-left-color: rgba(160,45,45, 0.35); }
-  50% { border-left-color: rgba(200,60,60, 0.55); box-shadow: inset 0 0 16px rgba(160,45,45, 0.12); }
+  50% { border-left-color: rgba(200,60,60, 0.55); box-shadow: inset 0 0 20px rgba(160,45,45, 0.15); }
+}
+@keyframes sinkBob {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(2px); }
 }
 
 /* ── "On fire" streak (3+ consecutive score gains) ────────────────── */
 .lb-row.on-fire {
   animation: fire-border 1.5s ease-in-out infinite;
+  position: relative;
 }
 
 @keyframes fire-border {
   0%, 100% { box-shadow: inset 0 0 8px rgba(255, 120, 30, 0.15); }
   50% { box-shadow: inset 0 0 16px rgba(255, 120, 30, 0.3), 0 0 10px rgba(255, 120, 30, 0.12); }
+}
+
+/* Ember particles on fire rows */
+.lb-row.on-fire .lb-place::before,
+.lb-row.on-fire .lb-place::after,
+.lb-row.on-fire .lb-score-area::before {
+  content: '';
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255, 140, 40, 0.8);
+  pointer-events: none;
+  z-index: 5;
+}
+.lb-row.on-fire .lb-place::before {
+  left: 6px;
+  animation: ember-float 1.8s ease-out infinite;
+}
+.lb-row.on-fire .lb-place::after {
+  left: 18px;
+  animation: ember-float 2.2s ease-out infinite 0.4s;
+}
+.lb-row.on-fire .lb-score-area::before {
+  right: 8px;
+  animation: ember-float 2.5s ease-out infinite 0.8s;
+}
+
+@keyframes ember-float {
+  0% { opacity: 0.8; transform: translateY(0) scale(1); }
+  50% { opacity: 0.5; }
+  100% { opacity: 0; transform: translateY(-18px) scale(0.3); }
 }
 
 .lb-row.in-harm-range {
@@ -736,7 +799,13 @@ function hideTip() {
   line-height: 1;
   color: #f0c850;
   text-shadow: 0 0 8px rgba(240,200,80, 0.7), 0 0 16px rgba(240,200,80, 0.35);
-  animation: crown-glow 2s ease-in-out infinite, crown-float 3s ease-in-out infinite;
+  animation: crownDrop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both, crown-glow 2s ease-in-out infinite 0.6s, crown-float 3s ease-in-out infinite 0.6s;
+}
+
+@keyframes crownDrop {
+  0% { transform: translateY(-20px); opacity: 0; }
+  70% { transform: translateY(2px); opacity: 1; }
+  100% { transform: translateY(0); opacity: 1; }
 }
 
 @keyframes crown-glow {
@@ -757,6 +826,11 @@ function hideTip() {
   letter-spacing: 0.8px;
   line-height: 1;
   text-shadow: 0 0 6px rgba(160,45,45, 0.4);
+  animation: dno-pulse 1.8s ease-in-out infinite;
+}
+@keyframes dno-pulse {
+  0%, 100% { color: #a03030; text-shadow: 0 0 6px rgba(160,45,45, 0.4); }
+  50% { color: #d04040; text-shadow: 0 0 10px rgba(200,50,50, 0.7), 0 0 18px rgba(200,50,50, 0.3); }
 }
 
 .lb-avatar {
@@ -875,7 +949,6 @@ function hideTip() {
 
 .lb-character { font-size: 10px; color: var(--text-muted); }
 .lb-character.masked-name { color: var(--text-dim); font-style: italic; }
-.tier-stars { color: var(--accent-gold-dim); font-size: 8px; }
 
 .masked-avatar { opacity: 0.5; filter: grayscale(0.4); }
 
@@ -944,21 +1017,6 @@ function hideTip() {
   position: relative;
 }
 
-.score-bar-bg {
-  flex: 1;
-  height: 4px;
-  background: var(--bg-inset);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.score-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--accent-green-dim), var(--accent-gold-dim));
-  border-radius: 2px;
-  transition: width 0.5s ease;
-}
-
 .score-value {
   font-size: 14px;
   font-weight: 800;
@@ -1012,12 +1070,18 @@ function hideTip() {
   opacity: 0.7;
 }
 
-/* ── TransitionGroup FLIP animation for position swaps ──────────────── */
+/* ── TransitionGroup FLIP animation for position swaps — spring ─────── */
 .hill-move {
-  transition: transform 0.65s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: hill-move-pulse 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes hill-move-pulse {
+  0% { scale: 1; }
+  50% { scale: 1.02; }
+  100% { scale: 1; }
 }
 .hill-enter-active {
-  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .hill-leave-active {
   transition: opacity 0.25s ease, transform 0.25s ease;
@@ -1031,6 +1095,19 @@ function hideTip() {
 .hill-leave-to {
   opacity: 0;
   transform: translateX(20px) scale(0.96);
+}
+
+/* ── Attack stamp micro-interaction ──────────────────────────────── */
+.lb-row.attack-stamp {
+  animation: attack-stamp-anim 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-color: rgba(224, 85, 69, 0.5) !important;
+}
+
+@keyframes attack-stamp-anim {
+  0% { transform: scale(1) rotate(0deg); }
+  30% { transform: scale(1.06) rotate(2deg); }
+  60% { transform: scale(0.98) rotate(-1deg); }
+  100% { transform: scale(1) rotate(0deg); }
 }
 </style>
 
@@ -1117,16 +1194,21 @@ function hideTip() {
   font-size: 12px;
 }
 
-/* ── Drop flash animation ── */
+/* ── Drop animation ── */
 .lb-row.dropped {
-  animation: drop-flash 1s ease-in-out;
+  animation: drop-shake 0.6s ease-out;
+}
+@keyframes drop-shake {
+  0% { transform: translateY(0); }
+  15% { transform: translateY(-3px); }
+  30% { transform: translateY(6px); }
+  45% { transform: translateY(-2px); }
+  60% { transform: translateY(3px); }
+  75% { transform: translateY(-1px); }
+  100% { transform: translateY(0); }
 }
 
-@keyframes drop-flash {
-  0%, 100% { background: inherit; }
-  15%, 40% { background: rgba(239, 128, 128, 0.15); }
-}
-
+/* Badge on the score area */
 .drop-badge {
   position: absolute;
   right: -4px;
@@ -1142,10 +1224,89 @@ function hideTip() {
   z-index: 2;
   border: 1px solid var(--accent-red, #ef8080);
 }
-
 @keyframes drop-badge-pop {
   0% { transform: scale(0); opacity: 0; }
   50% { transform: scale(1.3); }
   100% { transform: scale(1); opacity: 1; }
 }
+
+/* ── Drop overlay (full-row sweep) ── */
+.drop-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+/* Red streak sweeps top-to-bottom */
+.drop-streak {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  right: 0;
+  height: 100%;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(239, 128, 128, 0.25) 40%,
+    rgba(200, 60, 60, 0.35) 50%,
+    rgba(239, 128, 128, 0.25) 60%,
+    transparent 100%
+  );
+  animation: drop-sweep 0.7s ease-in-out forwards;
+}
+@keyframes drop-sweep {
+  0% { top: -100%; }
+  100% { top: 100%; }
+}
+
+/* Downward arrow */
+.drop-arrow {
+  position: absolute;
+  left: 50%;
+  top: -16px;
+  transform: translateX(-50%);
+  font-size: 16px;
+  color: var(--accent-red);
+  text-shadow: 0 0 8px rgba(239, 128, 128, 0.8);
+  animation: drop-arrow-fall 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  z-index: 6;
+}
+@keyframes drop-arrow-fall {
+  0% { top: -16px; opacity: 0; transform: translateX(-50%) scale(0.5); }
+  30% { opacity: 1; transform: translateX(-50%) scale(1.2); }
+  50% { top: calc(50% - 8px); transform: translateX(-50%) scale(1); }
+  100% { top: calc(50% - 8px); opacity: 0; transform: translateX(-50%) scale(0.8) translateY(8px); }
+}
+
+/* Big drop count number */
+.drop-count {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%) scale(0);
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--accent-red);
+  text-shadow: 0 0 12px rgba(239, 128, 128, 0.6), 0 2px 4px rgba(0, 0, 0, 0.4);
+  animation: drop-count-pop 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  z-index: 6;
+  font-family: var(--font-mono);
+}
+@keyframes drop-count-pop {
+  0% { transform: translateY(-50%) scale(0); opacity: 0; }
+  25% { transform: translateY(-50%) scale(1.3); opacity: 1; }
+  40% { transform: translateY(-50%) scale(0.95); }
+  55% { transform: translateY(-50%) scale(1.05); }
+  70% { transform: translateY(-50%) scale(1); opacity: 1; }
+  100% { transform: translateY(-50%) scale(1); opacity: 0; }
+}
+
+/* Transition for overlay enter/leave */
+.drop-overlay-enter-active { transition: opacity 0.1s; }
+.drop-overlay-leave-active { transition: opacity 0.5s 3s; }
+.drop-overlay-enter-from { opacity: 0; }
+.drop-overlay-leave-to { opacity: 0; }
 </style>

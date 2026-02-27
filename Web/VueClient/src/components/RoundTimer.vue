@@ -40,6 +40,13 @@ const isCritical = computed(() => store.roundTimeLeft < 15)
       <div class="timer-fill" :style="{ width: `${progress}%` }" />
     </div>
     <span class="timer-text">{{ timeLeft }}</span>
+    <!-- Screen vignette for urgency -->
+    <Teleport to="body">
+      <Transition name="vignette-fade">
+        <div v-if="isCritical" class="timer-vignette timer-vignette-critical" />
+        <div v-else-if="isUrgent" class="timer-vignette timer-vignette-urgent" />
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -147,4 +154,34 @@ const isCritical = computed(() => store.roundTimeLeft < 15)
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.1); }
 }
+
+/* ── Screen vignette for time pressure ────────────────────────── */
+.timer-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 90;
+  transition: opacity 0.5s ease;
+}
+
+.timer-vignette-urgent {
+  box-shadow: inset 0 0 80px rgba(239, 128, 128, 0.06),
+              inset 0 0 200px rgba(239, 128, 128, 0.03);
+}
+
+.timer-vignette-critical {
+  box-shadow: inset 0 0 60px rgba(239, 128, 128, 0.12),
+              inset 0 0 150px rgba(239, 128, 128, 0.06);
+  animation: vignette-pulse 1s ease-in-out infinite;
+}
+
+@keyframes vignette-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.vignette-fade-enter-active { transition: opacity 0.5s ease; }
+.vignette-fade-leave-active { transition: opacity 0.3s ease; }
+.vignette-fade-enter-from,
+.vignette-fade-leave-to { opacity: 0; }
 </style>

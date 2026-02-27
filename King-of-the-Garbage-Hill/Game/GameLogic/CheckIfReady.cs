@@ -649,6 +649,9 @@ public class CheckIfReady : IServiceSingleton
             }
 
             // Achievement tracking
+            // Clear previous newly-unlocked list so only this game's achievements show
+            account.Achievements ??= new AchievementData();
+            account.Achievements.NewlyUnlocked.Clear();
             // Set final state before evaluation
             var tracker = player.Passives.AchievementTracker;
             tracker.FinishedWithZeroPsyche = player.GameCharacter.GetPsyche() <= 0;

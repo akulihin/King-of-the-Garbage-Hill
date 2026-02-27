@@ -73,6 +73,7 @@ export const useGameStore = defineStore('game', () => {
   const lootBoxResult = ref<LootBoxResult | null>(null)
   const achievementBoard = ref<AchievementBoard | null>(null)
   const newlyUnlockedAchievements = ref<AchievementEntry[]>([])
+  const achievementsDismissedForGame = ref<string>('')
 
   // ── Derived State ─────────────────────────────────────────────────
 
@@ -197,8 +198,8 @@ export const useGameStore = defineStore('game', () => {
           signalrService.blackjackJoin(state.gameId)
         }
 
-        // Detect newly unlocked achievements from finished game state
-        if (state.isFinished && state.newlyUnlockedAchievements?.length) {
+        // Detect newly unlocked achievements from finished game state (only once per game)
+        if (state.isFinished && state.newlyUnlockedAchievements?.length && achievementsDismissedForGame.value !== String(state.gameId)) {
           newlyUnlockedAchievements.value = state.newlyUnlockedAchievements
         }
       }
@@ -507,6 +508,10 @@ export const useGameStore = defineStore('game', () => {
 
   function dismissAchievements() {
     newlyUnlockedAchievements.value = []
+    if (gameState.value) {
+      achievementsDismissedForGame.value = String(gameState.value.gameId)
+    }
+    signalrService.clearNewAchievements()
   }
 
   /** Restore a previously created web account from localStorage */
