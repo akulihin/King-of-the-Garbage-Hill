@@ -417,10 +417,7 @@ const showR3Roll = computed(() => {
 
 const showFinalResult = computed(() => {
   if (skippedToEnd.value || !isMyFight.value) return true
-  if (currentStep.value < totalSteps.value - 1) return false
-  // Wait for needle to settle before revealing final result
-  if (fight.value?.usedRandomRoll && !r3NeedleSettled.value) return false
-  return true
+  return currentStep.value >= totalSteps.value - 1
 })
 
 const isPortalSwap = computed(() => fight.value?.portalGunSwap ?? false)
@@ -512,14 +509,7 @@ function advanceStep() {
     currentStep.value++
     scheduleNext()
   } else {
-    // If needle is still animating, wait for it to settle before proceeding
-    if (fight.value.usedRandomRoll && !r3NeedleSettled.value) {
-      const unwatch = watch(r3NeedleSettled, (settled) => {
-        if (settled) { unwatch(); proceedToNextFight() }
-      })
-    } else {
-      proceedToNextFight()
-    }
+    proceedToNextFight()
   }
 }
 
@@ -616,35 +606,25 @@ watch(currentStep, (step: number) => {
       return
     }
 
-    // Step factorCount+4: R3 roll bar appears — sound deferred to needle settle
+    // Step factorCount+4: R3 roll bar + result sound on fixed step timing
+    if (step === factorCount + 4) {
+      const s = sign.value
+      const attackerWon = f.randomNumber <= f.randomForPoint
+      const weWonR3 = s > 0 ? attackerWon : !attackerWon
+      const r3result: 'w' | 'l' = weWonR3 ? 'w' : 'l'
+      roundResults.value = [...roundResults.value, r3result]
+      playDoomsDayWinLose(roundResults.value, false, false)
+      return
+    }
   }
 
-  // Final result sound (only for fights WITHOUT random roll)
-  if (!hasR3 && step === totalSteps.value - 1 && step > factorCount + 2) {
+  // Final result sound for ALL fights
+  if (step === totalSteps.value - 1 && step > factorCount + 2) {
     const isLastFight = currentFightIdx.value === myFights.value.length - 1
     const allSame = roundResults.value.length > 0 && roundResults.value.every(r => r === roundResults.value[0])
     const isAbsolute = isLastFight && allSame
     playDoomsDayWinLose(roundResults.value, true, isAbsolute, leftWon.value)
   }
-})
-
-// R3 result sound + final result sound: synced with needle settling
-watch(r3NeedleSettled, (settled: boolean) => {
-  if (!settled || !fight.value || !isMyFight.value || skippedToEnd.value) return
-  const f = fight.value
-  const s = sign.value
-  const attackerWon = f.randomNumber <= f.randomForPoint
-  const weWonR3 = s > 0 ? attackerWon : !attackerWon
-  const r3result: 'w' | 'l' = weWonR3 ? 'w' : 'l'
-  roundResults.value = [...roundResults.value, r3result]
-  playDoomsDayWinLose(roundResults.value, false, false)
-  // Final result sound after a short beat
-  setTimeout(() => {
-    const isLastFight = currentFightIdx.value === myFights.value.length - 1
-    const allSame = roundResults.value.length > 0 && roundResults.value.every(r => r === roundResults.value[0])
-    const isAbsolute = isLastFight && allSame
-    playDoomsDayWinLose(roundResults.value, true, isAbsolute, leftWon.value)
-  }, 300)
 })
 
 // No-fights sound: fights exist but none are mine (play only once per round)
@@ -804,6 +784,7 @@ function formatLetopis(text: string): string {
     .replace(/__(.*?)__/g, '<u>$1</u>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/~~(.*?)~~/g, '<del>$1</del>')
+    .replace(/\|>Stat<\|/g, '')
     .replace(/\|>Phrase<\|/g, '')
     .replace(/\n/g, '<br>')
 }
@@ -936,7 +917,8 @@ function animateNeedleBounce(target: number) {
     wps[i] = Math.max(0.5, Math.min(99.5, wps[i]))
   }
 
-  const duration = distance < 5 ? 2400 : distance < 15 ? 2000 : 1400
+  const baseDuration = distance < 5 ? 700 : distance < 15 ? 650 : 500
+  const duration = baseDuration / speed.value
 
   // Catmull-Rom spline for smooth continuous motion through waypoints
   // Pad with phantom control points for start/end tangents
@@ -1992,8 +1974,8 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-all-center.center-drop { color: var(--accent-red); background: rgba(239, 128, 128, 0.1); border: 1px solid rgba(239, 128, 128, 0.2); }
 .fa-all-name.name-winner { color: var(--accent-green); }
 .fa-all-ava.ava-winner { border-color: var(--accent-green); }
-.fa-all-ava.ava-perfect { box-shadow: 0 0 6px rgba(72, 202, 180, 0.4); }
-.perfect-icon { color: var(--accent-green); font-size: 9px; margin-left: 2px; text-shadow: 0 0 4px rgba(72, 202, 180, 0.5); }
+.fa-all-ava.ava-perfect { box-shadow: 0 0 6px rgba(63, 167, 61, 0.4); }
+.perfect-icon { color: var(--accent-green); font-size: 9px; margin-left: 2px; text-shadow: 0 0 4px rgba(63, 167, 61, 0.5); }
 
 /* ── Летопись ── */
 .fa-letopis { flex: 1; overflow-y: auto; padding: 4px; background: var(--bg-inset); border-radius: var(--radius); border: 1px solid var(--border-subtle); }

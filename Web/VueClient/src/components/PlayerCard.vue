@@ -130,6 +130,44 @@ const isKotiki = computed(() => props.player?.character.name === 'Котики')
 const goblin = computed(() => passiveStates.value?.goblinSwarm ?? null)
 const geralt = computed(() => passiveStates.value?.geralt ?? null)
 
+// Geralt demand progressive color helpers
+function geraltSegColor(displeasure: number): string {
+  if (displeasure <= 3) return '#C8A050'
+  if (displeasure <= 6) return '#D4882A'
+  if (displeasure <= 8) return '#D05030'
+  return '#E02020'
+}
+
+function geraltSegStyle(i: number): Record<string, string> {
+  const d = geralt.value?.displeasure ?? 0
+  if (i > d) return { background: 'rgba(200, 160, 80, 0.15)' }
+  return { background: geraltSegColor(d) }
+}
+
+const geraltDemandContainerClass = computed(() => {
+  const d = geralt.value?.displeasure ?? 0
+  if (d >= 10) return 'geralt-demand-critical'
+  if (d >= 7) return 'geralt-demand-hot'
+  if (d >= 4) return 'geralt-demand-warm'
+  return ''
+})
+
+const geraltHeaderStyle = computed(() => {
+  const d = geralt.value?.displeasure ?? 0
+  if (d >= 9) return { color: '#E02020' }
+  if (d >= 7) return { color: '#D05030' }
+  if (d >= 4) return { color: '#D4882A' }
+  return {}
+})
+
+const geraltDispleasureTextStyle = computed(() => {
+  const d = geralt.value?.displeasure ?? 0
+  if (d >= 9) return { color: '#E02020' }
+  if (d >= 7) return { color: 'rgba(208, 80, 48, 0.7)' }
+  if (d >= 4) return { color: 'rgba(212, 136, 42, 0.7)' }
+  return {}
+})
+
 // Goblin population bar segment percentages
 const warriorPct = computed(() => {
   const g = goblin.value
@@ -527,12 +565,29 @@ function handleMoralToSkill() {
       <!-- Geralt oil upgrade (replaces stat +buttons but shows read-only stats) -->
       <template v-else-if="isGeralt && hasLvlUpPoints && geralt">
       <div class="geralt-lvlup">
-        <!-- First level-up: all tiers are 0 → single universal oil button -->
+        <!-- First level-up: all tiers are 0 → show all 4 types ghosted with universal overlay -->
         <template v-if="geralt.drownersOilTier === 0 && geralt.werewolvesOilTier === 0 && geralt.vampiresOilTier === 0 && geralt.dragonsOilTier === 0">
-          <button class="geralt-lvlup-btn geralt-lvlup-universal" data-sfx-skip-default="true" @click="handleLevelUp(1)" style="--oil-color: #F59E0B;">
-            <span class="geralt-lvlup-name">🧪 Масло от любой заразы</span>
-            <span class="geralt-lvlup-desc">Масло 1 ур. против всех типов</span>
-          </button>
+          <div class="geralt-lvlup-overlay-wrap">
+            <button disabled class="geralt-lvlup-btn geralt-lvlup-ghost" style="--oil-color: #3B82F6;">
+              <span class="geralt-lvlup-name">💀 Утопцы</span>
+              <span class="geralt-lvlup-desc">&mdash; &rarr; Масло</span>
+            </button>
+            <button disabled class="geralt-lvlup-btn geralt-lvlup-ghost" style="--oil-color: #22C55E;">
+              <span class="geralt-lvlup-name">🐺 Волколаки</span>
+              <span class="geralt-lvlup-desc">&mdash; &rarr; Масло</span>
+            </button>
+            <button disabled class="geralt-lvlup-btn geralt-lvlup-ghost" style="--oil-color: #A855F7;">
+              <span class="geralt-lvlup-name">🦇 Вампиры</span>
+              <span class="geralt-lvlup-desc">&mdash; &rarr; Масло</span>
+            </button>
+            <button disabled class="geralt-lvlup-btn geralt-lvlup-ghost" style="--oil-color: #EF4444;">
+              <span class="geralt-lvlup-name">🐉 Драконы</span>
+              <span class="geralt-lvlup-desc">&mdash; &rarr; Масло</span>
+            </button>
+            <button class="geralt-lvlup-overlay" data-sfx-skip-default="true" @click="handleLevelUp(1)">
+              🧪 Масло от любой заразы
+            </button>
+          </div>
         </template>
         <!-- Subsequent level-ups: per-type upgrade buttons -->
         <template v-else>
@@ -692,7 +747,7 @@ function handleMoralToSkill() {
             <div class="stat-bar psyche" :style="{ width: `${player.character.psyche * 10}%` }" />
           </div>
           <span class="stat-val stat-psyche">{{ player.character.psyche }}</span>
-          <button v-if="hasLvlUpPoints" class="lvl-btn" data-sfx-skip-default="true" title="+1 Psyche" @click="handleLevelUp(4)">+</button>
+          <button v-if="hasLvlUpPoints && !isGeralt" class="lvl-btn" data-sfx-skip-default="true" title="+1 Psyche" @click="handleLevelUp(4)">+</button>
         </div>
         <div v-if="isMe" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.psycheResist }}</span>
@@ -782,6 +837,37 @@ function handleMoralToSkill() {
       >
         Shinigami Eyes (25)
       </button>
+    </div>
+
+    <!-- Geralt contract demand (replaces moral area for Geralt) -->
+    <div v-if="isMe && isGeralt && geralt" class="pc-geralt-demand" :class="geraltDemandContainerClass">
+      <div class="geralt-demand-header" :style="geraltHeaderStyle">Потребовать больше монет за заказ</div>
+      <div class="geralt-demand-btns">
+        <button
+          class="geralt-demand-btn"
+          :disabled="!geralt.canDemandPrevious || geralt.demandedThisPhase"
+          @click="store.demandContractReward('previous')"
+        >
+          {{ geralt.demandedThisPhase ? 'Уже потребовал' : geralt.canDemandPrevious ? 'За прошлый (+1 очко)' : 'Нет заказов' }}
+        </button>
+        <button
+          v-if="geralt.canDemandNext"
+          class="geralt-demand-btn geralt-demand-next"
+          @click="store.demandContractReward('next')"
+        >
+          За следующий
+        </button>
+      </div>
+      <div class="geralt-displeasure">
+        <div class="geralt-displeasure-bar">
+          <div
+            v-for="i in 11" :key="i"
+            class="geralt-displeasure-seg"
+            :style="geraltSegStyle(i)"
+          />
+        </div>
+        <span class="geralt-displeasure-text" :style="geraltDispleasureTextStyle">{{ geralt.displeasure }}/11</span>
+      </div>
     </div>
 
     <!-- Portal Gun (Rick special ability) -->
@@ -1482,7 +1568,6 @@ function handleMoralToSkill() {
     <div v-if="passiveStates?.geralt" class="pc-passive-widget geralt-widget">
       <div class="pw-header">
         <span class="pw-title geralt-title">ДОСКА ЗАКАЗОВ</span>
-        <span class="pw-badge" v-if="passiveStates.geralt.isOilApplied" style="color: #2ecc71">МАСЛО</span>
 
       </div>
       <div class="geralt-body">
@@ -3030,6 +3115,37 @@ function handleMoralToSkill() {
 .geralt-lvlup-maxed .geralt-lvlup-name {
   opacity: 0.5;
 }
+.geralt-lvlup-overlay-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.geralt-lvlup-ghost {
+  opacity: 0.3;
+  pointer-events: none;
+}
+.geralt-lvlup-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(245, 158, 11, 0.15);
+  backdrop-filter: blur(2px);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  border-radius: 6px;
+  color: #F59E0B;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+  text-shadow: 0 0 6px rgba(245, 158, 11, 0.5);
+}
+.geralt-lvlup-overlay:hover {
+  background: rgba(245, 158, 11, 0.25);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+}
 
 /* 21. Котики */
 .kotiki-widget {
@@ -3163,11 +3279,11 @@ function handleMoralToSkill() {
 
 /* 29. Суппорт (Carry) */
 .support-widget {
-  background: linear-gradient(135deg, rgba(100, 200, 220, 0.08), rgba(100, 200, 220, 0.02));
-  border-color: rgba(100, 200, 220, 0.25);
+  background: linear-gradient(135deg, rgba(110, 170, 240, 0.08), rgba(110, 170, 240, 0.02));
+  border-color: rgba(110, 170, 240, 0.25);
 }
-.support-title { color: #64c8dc; text-shadow: 0 0 4px rgba(100, 200, 220, 0.4); }
-.support-carry { color: #64c8dc; }
+.support-title { color: #6eaaf0; text-shadow: 0 0 4px rgba(110, 170, 240, 0.4); }
+.support-carry { color: #6eaaf0; }
 
 /* 30. Toxic Mate (Cancer) */
 .toxic-widget {
@@ -3266,6 +3382,94 @@ function handleMoralToSkill() {
 .geralt-oil-tier { color: rgba(180, 180, 180, 0.6); font-size: 10px; min-width: 50px; text-align: right; }
 .geralt-status-row { display: flex; gap: 8px; font-size: 10px; color: rgba(180, 180, 180, 0.5); margin-top: 2px; }
 .geralt-monster-on-me-widget { border-left: 3px solid transparent; border-radius: 3px; }
+
+/* ── Geralt demand mechanic ── */
+.pc-geralt-demand {
+  padding: 6px 10px;
+  background: rgba(200, 160, 80, 0.06);
+  border: 1px solid rgba(200, 160, 80, 0.2);
+  border-radius: 6px;
+  margin-top: 4px;
+  transition: background 0.4s, border-color 0.4s;
+}
+.pc-geralt-demand.geralt-demand-warm {
+  background: rgba(212, 136, 42, 0.08);
+  border-color: rgba(212, 136, 42, 0.3);
+}
+.pc-geralt-demand.geralt-demand-hot {
+  background: rgba(208, 80, 48, 0.08);
+  border-color: rgba(208, 80, 48, 0.35);
+}
+.pc-geralt-demand.geralt-demand-critical {
+  background: rgba(224, 32, 32, 0.1);
+  border-color: rgba(224, 32, 32, 0.5);
+  animation: geralt-pulse 1.5s ease-in-out infinite;
+}
+@keyframes geralt-pulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(224, 32, 32, 0.2); }
+  50% { box-shadow: 0 0 12px rgba(224, 32, 32, 0.5); }
+}
+.geralt-demand-header {
+  font-size: 11px;
+  color: #C8A050;
+  font-weight: 600;
+  margin-bottom: 5px;
+  text-align: center;
+  transition: color 0.4s;
+}
+.geralt-demand-btns {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.geralt-demand-btn {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid rgba(200, 160, 80, 0.4);
+  border-radius: 4px;
+  background: rgba(200, 160, 80, 0.12);
+  color: #C8A050;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.geralt-demand-btn:hover:not(:disabled) {
+  background: rgba(200, 160, 80, 0.25);
+  border-color: #C8A050;
+}
+.geralt-demand-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.geralt-demand-next {
+  flex: 0 0 auto;
+  min-width: 90px;
+}
+.geralt-displeasure {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.geralt-displeasure-bar {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+}
+.geralt-displeasure-seg {
+  flex: 1;
+  height: 6px;
+  border-radius: 2px;
+  background: rgba(200, 160, 80, 0.15);
+  transition: background 0.3s;
+}
+.geralt-displeasure-text {
+  font-size: 10px;
+  color: rgba(200, 160, 80, 0.6);
+  min-width: 28px;
+  text-align: right;
+  transition: color 0.4s;
+}
 
 /* ── Floating damage numbers ── */
 .floating-numbers-container {

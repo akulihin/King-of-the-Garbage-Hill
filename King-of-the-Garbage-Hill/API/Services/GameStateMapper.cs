@@ -671,6 +671,11 @@ public static class GameStateMapper
                                     })
                                     .ToDictionary(x => x.Name, x => x.Type),
                             };
+                            var demandState = player.Passives.GeraltContractDemand;
+                            pas.Geralt.Displeasure = demandState.Displeasure;
+                            pas.Geralt.DemandedThisPhase = demandState.DemandedThisPhase;
+                            pas.Geralt.CanDemandPrevious = !demandState.DemandedThisPhase && !player.Passives.IsDead && demandState.PrevContractsFought > 0;
+                            pas.Geralt.CanDemandNext = game.RoundNo == 10 && !demandState.DemandedForNext && !player.Passives.IsDead && demandState.Displeasure < 5;
                             anySet = true;
                         }
                         break;

@@ -95,6 +95,49 @@ public class Geralt
         public decimal LambertSkillLost { get; set; } = 0;
     }
 
+    public class ContractDemandClass
+    {
+        public int Displeasure { get; set; } = 0;          // 0-11, 11 = death
+        public int TotalDemandsMade { get; set; } = 0;
+        public int TotalSuccessfulDemands { get; set; } = 0;
+
+        // Current round accumulators (written during fights)
+        public int CurrentContractWins { get; set; } = 0;
+        public int CurrentContractLosses { get; set; } = 0;
+        public int CurrentEnemyTotalStats { get; set; } = 0;
+        public int CurrentEnemyPosition { get; set; } = 0;
+        public int CurrentGeraltPosition { get; set; } = 0;
+
+        // Previous round snapshot (copied at HandleEndOfRound, read by demand button)
+        public int PrevContractWins { get; set; } = 0;
+        public int PrevContractLosses { get; set; } = 0;
+        public int PrevContractsFought { get; set; } = 0;
+        public int PrevEnemyTotalStats { get; set; } = 0;
+        public int PrevEnemyPosition { get; set; } = 0;
+        public int PrevGeraltPosition { get; set; } = 0;
+
+        // Phase locks
+        public bool DemandedThisPhase { get; set; } = false;
+        public bool DemandedForNext { get; set; } = false;
+
+        public const int Threshold = 4;
+
+        public int CalculateDemandScore()
+        {
+            if (PrevContractWins == 0) return -999;
+            var score = PrevContractWins * 3
+                      - PrevContractLosses * 2
+                      + Math.Max(0, 4 - PrevEnemyPosition);
+            if (PrevEnemyTotalStats >= 30) score += 2;
+            if (PrevEnemyTotalStats >= 35) score += 1;
+            if (PrevGeraltPosition >= 4) score += 1;
+            if (PrevGeraltPosition >= 5) score += 1;
+            if (PrevContractsFought >= 3) score += 1;
+            score -= TotalDemandsMade;
+            return score;
+        }
+    }
+
     // Monster subtype name pools (for contract flavor text)
     public static readonly string[] DrownersNames = { "Утопец", "Кикимора", "Водяной", "Туманник", "Водяная баба", "Сирена", "Эхидна" };
     public static readonly string[] WerewolvesNames = { "Волколак", "Оборотень", "Берсерк", "Лешен", "Чёрт", "Бес" };

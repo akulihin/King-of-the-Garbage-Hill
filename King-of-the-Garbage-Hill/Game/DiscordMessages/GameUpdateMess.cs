@@ -813,7 +813,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var orderedList = new List<string>
         {
             "Вы улучшили", "|>PhraseBeforeFight<|", "Обмен Морали", "Вы использовали Авто Ход", "Вы напали на", "Вы поставили блок",  
-            "дополнительного вреда", "TOO GOOD", "TOO STONK", "|>Phrase<|", "|>SeparationLine<|", "Поражение:", "Получено вреда:", "Победа:", "Читы",
+            "дополнительного вреда", "TOO GOOD", "TOO STONK", "|>Stat<|", "|>Phrase<|", "|>SeparationLine<|", "Поражение:", "Получено вреда:", "Победа:", "Читы",
             "Справедливость", "Класс:", "Мишень", "__**бонусных**__ очков", "Евреи...", "**обычных** очков", "**очков**"
         };
 
@@ -907,6 +907,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 case "|>SeparationLine<|":
                 {
                     separationLine = true;
+                    break;
+                }
+                case "|>Stat<|" when text.Contains(keyword):
+                {
+                    var jewSplit = text.Split('\n');
+                    var temp = jewSplit.Where(line => !line.Contains(keyword)).Aggregate("", (current, line) => current + line.Replace(keyword, "") + "\n");
+                    text = jewSplit.Where(line => line.Contains(keyword)).Aggregate(temp, (current, line) => current + line.Replace(keyword, "") + "\n");
+
                     break;
                 }
                 case "|>Phrase<|" when text.Contains(keyword):

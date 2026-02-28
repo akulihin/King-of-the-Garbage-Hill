@@ -262,7 +262,7 @@ public class GameStoryService
 
         sb.AppendLine("</game-commentary>");
 
-        return sb.ToString().Replace("|>Phrase<|", "").Replace("*", "").Replace("_", "");
+        return sb.ToString().Replace("|>Stat<|", "").Replace("|>Phrase<|", "").Replace("*", "").Replace("_", "");
     }
 
     /// <summary>

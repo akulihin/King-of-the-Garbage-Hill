@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
@@ -132,9 +133,30 @@ public class BotsBehavior : IServiceSingleton
                 return;
             }
 
-            //Геральт не получает мораль вообще
+            //Геральт не получает мораль — use demand mechanic instead
             if (bot.GameCharacter.Name == "Геральт")
             {
+                var botDemand = bot.Passives.GeraltContractDemand;
+                // "За следующий" on round 10
+                if (game.RoundNo == 10 && !botDemand.DemandedForNext && botDemand.Displeasure < 5)
+                {
+                    botDemand.DemandedForNext = true;
+                    botDemand.TotalDemandsMade++;
+                    botDemand.TotalSuccessfulDemands++;
+                    bot.Status.AddBonusPoints(1, "Чеканная монета (аванс)");
+                }
+                // "За прошлый" — only if algorithm predicts success
+                if (!botDemand.DemandedThisPhase && botDemand.PrevContractsFought > 0 && botDemand.Displeasure < 7)
+                {
+                    var score = botDemand.CalculateDemandScore();
+                    if (score >= Geralt.ContractDemandClass.Threshold)
+                    {
+                        botDemand.DemandedThisPhase = true;
+                        botDemand.TotalDemandsMade++;
+                        botDemand.TotalSuccessfulDemands++;
+                        bot.Status.AddBonusPoints(1, "Чеканная монета");
+                    }
+                }
                 return;
             }
 

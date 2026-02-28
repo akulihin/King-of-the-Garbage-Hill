@@ -291,6 +291,10 @@ export type GeraltState = {
   lambertUsed: boolean
   lambertActive: boolean
   enemyMonsterTypes: Record<string, string>
+  displeasure: number
+  canDemandPrevious: boolean
+  canDemandNext: boolean
+  demandedThisPhase: boolean
 }
 
 export type GeraltMonsterOnMe = {
@@ -439,6 +443,12 @@ export type CharacterInfo = {
   strength: number
   speed: number
   psyche: number
+}
+
+export type CharacterListEntry = {
+  name: string
+  avatar: string
+  tier: number
 }
 
 export type DraftOptionDto = {
@@ -702,7 +712,7 @@ class SignalRService {
   onActionResult: ((result: ActionResult) => void) | null = null
   onGameEvent: ((event: GameEvent) => void) | null = null
   onError: ((error: string) => void) | null = null
-  onAuthenticated: ((data: { success: boolean; discordId: string }) => void) | null = null
+  onAuthenticated: ((data: { success: boolean; discordId: string; playerType: number; lastPlayedCharacter: string }) => void) | null = null
   onConnectionChanged: ((connected: boolean) => void) | null = null
   onWebAccountCreated: ((data: { discordId: string; username: string }) => void) | null = null
   onGameCreated: ((data: { gameId: number }) => void) | null = null
@@ -711,6 +721,7 @@ class SignalRService {
   onQuestState: ((state: QuestState) => void) | null = null
   onLootBoxOpened: ((result: LootBoxResult) => void) | null = null
   onAchievementBoard: ((board: AchievementBoard) => void) | null = null
+  onCharacterList: ((list: CharacterListEntry[]) => void) | null = null
 
   get isConnected() {
     return this._isConnected
@@ -747,7 +758,7 @@ class SignalRService {
       this.onError?.(error)
     })
 
-    this.connection.on('Authenticated', (data: { success: boolean; discordId: string }) => {
+    this.connection.on('Authenticated', (data: { success: boolean; discordId: string; playerType: number; lastPlayedCharacter: string }) => {
       this.onAuthenticated?.(data)
     })
 
@@ -777,6 +788,10 @@ class SignalRService {
 
     this.connection.on('AchievementBoard', (board: AchievementBoard) => {
       this.onAchievementBoard?.(board)
+    })
+
+    this.connection.on('CharacterList', (list: CharacterListEntry[]) => {
+      this.onCharacterList?.(list)
     })
 
     this.connection.onreconnecting(() => {
@@ -880,6 +895,10 @@ class SignalRService {
     await this.connection?.invoke('MoralToSkill', gameId)
   }
 
+  async demandContractReward(gameId: number, demandType: string): Promise<void> {
+    await this.connection?.invoke('DemandContractReward', gameId, demandType)
+  }
+
   async predict(gameId: number, targetPlayerId: string, characterName: string): Promise<void> {
     await this.connection?.invoke('Predict', gameId, targetPlayerId, characterName)
   }
@@ -978,6 +997,14 @@ class SignalRService {
 
   async joinWebGame(gameId: number): Promise<void> {
     await this.connection?.invoke('JoinWebGame', gameId)
+  }
+
+  async getCharacterList(): Promise<void> {
+    await this.connection?.invoke('GetCharacterList')
+  }
+
+  async createTestGame(characterName: string): Promise<void> {
+    await this.connection?.invoke('CreateTestGame', characterName)
   }
 
   async requestQuests(): Promise<void> {

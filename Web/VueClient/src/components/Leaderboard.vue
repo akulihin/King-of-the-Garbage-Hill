@@ -183,8 +183,6 @@ const attackStampId = ref<string | null>(null)
 
 function handleAttack(player: Player) {
   if (!props.canAttack) return
-  if (player.playerId === props.myPlayerId) return
-  if (isProtected(player)) return
   emit('attack', player.status.place)
   // Attack stamp animation
   attackStampId.value = player.playerId
@@ -308,7 +306,7 @@ function hideTip() {
           'is-me': player.playerId === myPlayerId,
           'is-bot': player.isBot,
           'is-ready': player.status.isReady,
-          'can-click': canAttack && player.playerId !== myPlayerId && !isProtected(player),
+          'can-click': canAttack,
           'is-protected': isProtected(player),
           'dropped': isDropped(player),
           'in-harm-range': player.isInMyHarmRange,
@@ -621,9 +619,6 @@ function hideTip() {
   border-top-color: rgba(240,200,80, 0.2);
   border-right-color: rgba(240,200,80, 0.2);
   border-bottom-color: rgba(240,200,80, 0.2);
-  background: linear-gradient(90deg, var(--hill-tint, var(--bg-secondary)), var(--bg-secondary) 80%);
-  cursor: default;
-  transform: none;
 }
 
 /* ── Podium effect — top 3 elevated ──────────────────────────────────── */
@@ -756,7 +751,6 @@ function hideTip() {
 
 .lb-row.is-protected {
   opacity: 0.5;
-  pointer-events: none;
   position: relative;
 }
 .lb-row.is-protected::after {

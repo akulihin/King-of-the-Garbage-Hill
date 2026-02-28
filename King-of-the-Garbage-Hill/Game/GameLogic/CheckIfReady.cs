@@ -11,6 +11,7 @@ using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
+using King_of_the_Garbage_Hill.API.Services;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
@@ -704,6 +705,10 @@ public class CheckIfReady : IServiceSingleton
             }
         }
 
+        // Capture the final round into replay (normally done at start of CalculateAllFights,
+        // but HandleLastRound skips that path, so the last round's fights would be missing)
+        ReplayService.CaptureRound(game, _gameUpdateMess);
+
         // Save replay before removing the game
         try { _global.OnReplaySave?.Invoke(game); }
         catch (Exception ex) { _logs.Critical($"Replay save failed: {ex.Message}"); }
@@ -1281,7 +1286,6 @@ public class CheckIfReady : IServiceSingleton
                     try
                     {
                         var extraText = "";
-                        if (game.RoundNo <= 10) extraText = $"Раунд #{game.RoundNo}";
 
                         if (game.RoundNo == 8 && game.GameMode != "Aram")
                         {

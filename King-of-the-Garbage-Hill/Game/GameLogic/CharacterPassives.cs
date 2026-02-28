@@ -2187,6 +2187,21 @@ public class CharacterPassives : IServiceSingleton
                             geraltAtkContracts.NonContractWinsThisRound++;
                         }
 
+                        // Demand tracking
+                        if (fightCount > 0)
+                        {
+                            var demand = me.Passives.GeraltContractDemand;
+                            if (me.Status.IsWonThisCalculation == target.GetPlayerId())
+                                demand.CurrentContractWins++;
+                            else if (me.Status.IsLostThisCalculation != Guid.Empty)
+                                demand.CurrentContractLosses++;
+                            demand.CurrentEnemyTotalStats = target.FightCharacter.GetIntelligence()
+                                + target.FightCharacter.GetStrength() + target.FightCharacter.GetSpeed()
+                                + target.FightCharacter.GetPsyche();
+                            demand.CurrentEnemyPosition = target.Status.GetPlaceAtLeaderBoard();
+                            demand.CurrentGeraltPosition = me.Status.GetPlaceAtLeaderBoard();
+                        }
+
                         // Nest phrase: if enemy has been proc'd more than once total
                         var targetEnemyId = target.GetPlayerId();
                         if (geraltAtkContracts.ContractProcsOnEnemy.TryGetValue(targetEnemyId, out var procs) && procs > 1)
@@ -4211,6 +4226,22 @@ public class CharacterPassives : IServiceSingleton
                             game.Phrases.GeraltLoot.SendLog(player, false);
                         else if (geraltEorContracts.NonContractWinsThisRound > 1)
                             game.Phrases.GeraltLootMulti.SendLog(player, false);
+
+                        // Copy current demand accumulators → previous (for demand buttons during ready phase)
+                        var demand = player.Passives.GeraltContractDemand;
+                        demand.PrevContractWins = demand.CurrentContractWins;
+                        demand.PrevContractLosses = demand.CurrentContractLosses;
+                        demand.PrevContractsFought = geraltEorContracts.ContractsFoughtThisRound;
+                        demand.PrevEnemyTotalStats = demand.CurrentEnemyTotalStats;
+                        demand.PrevEnemyPosition = demand.CurrentEnemyPosition;
+                        demand.PrevGeraltPosition = demand.CurrentGeraltPosition;
+                        // Reset current accumulators
+                        demand.CurrentContractWins = 0;
+                        demand.CurrentContractLosses = 0;
+                        demand.CurrentEnemyTotalStats = 0;
+                        demand.CurrentEnemyPosition = 0;
+                        demand.CurrentGeraltPosition = 0;
+                        demand.DemandedThisPhase = false;
 
                         // Reset round counters
                         geraltEorContracts.ContractsFoughtThisRound = 0;

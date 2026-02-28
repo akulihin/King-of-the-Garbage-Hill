@@ -22,7 +22,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 3.9.4 Replays?!";
+        GameVersion = "Версия: 3.9.5 Replays?!";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();

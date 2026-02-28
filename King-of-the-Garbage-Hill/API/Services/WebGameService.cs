@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.API.DTOs;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
@@ -398,6 +399,9 @@ public class WebGameService
         {
             player.Status.IsAutoMove = wasAutoMove;
             var specificError = player.WebMessages.LastOrDefault() ?? "Attack rejected";
+            // Remove so it doesn't also arrive via directMessages in the next state broadcast
+            if (player.WebMessages.Count > 0)
+                player.WebMessages.RemoveAt(player.WebMessages.Count - 1);
             return (false, specificError);
         }
 
@@ -551,6 +555,68 @@ public class WebGameService
         if (player.GameCharacter.GetMoral() < 1) return (false, "Not enough moral");
 
         await _gameReaction.HandleMoralForSkill(player);
+        return (true, null);
+    }
+
+    public (bool success, string error) DemandContractReward(ulong gameId, ulong discordId, string demandType)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId);
+        if (game == null) return (false, "Game not found");
+        if (player == null) return (false, "Player not in this game");
+        if (player.GameCharacter.Name != "Геральт") return (false, "Not Geralt");
+        if (player.Passives.IsDead) return (false, "Dead");
+
+        var demand = player.Passives.GeraltContractDemand;
+
+        if (demandType == "previous")
+        {
+            if (demand.DemandedThisPhase) return (false, "Already demanded this phase");
+            if (demand.PrevContractsFought <= 0) return (false, "No contracts fought");
+
+            demand.DemandedThisPhase = true;
+            demand.TotalDemandsMade++;
+
+            var score = demand.CalculateDemandScore();
+            if (score >= Geralt.ContractDemandClass.Threshold)
+            {
+                demand.TotalSuccessfulDemands++;
+                player.Status.AddBonusPoints(1, "Чеканная монета");
+                player.Status.AddInGamePersonalLogs($"Чеканная монета: Успех! +1 очко (оценка: {score})\n");
+            }
+            else
+            {
+                var displeasureDelta = score < 0 || demand.PrevContractWins == 0 ? 2 : 1;
+                demand.Displeasure += displeasureDelta;
+                player.Status.AddInGamePersonalLogs($"Чеканная монета: Провал! Недовольство +{displeasureDelta} (оценка: {score})\n");
+            }
+        }
+        else if (demandType == "next")
+        {
+            if (game.RoundNo != 10) return (false, "Only on round 10");
+            if (demand.Displeasure >= 5) return (false, "Too much displeasure");
+            if (demand.DemandedForNext) return (false, "Already demanded for next");
+
+            demand.DemandedForNext = true;
+            demand.TotalDemandsMade++;
+            demand.TotalSuccessfulDemands++;
+            player.Status.AddBonusPoints(1, "Чеканная монета (аванс)");
+            player.Status.AddInGamePersonalLogs("Чеканная монета: Аванс за следующий заказ! +1 очко\n");
+        }
+        else
+        {
+            return (false, "Invalid demand type");
+        }
+
+        // Death by pitchforks
+        if (demand.Displeasure >= 11)
+        {
+            player.Passives.IsDead = true;
+            player.Passives.DeathSource = "Pitchforks";
+            player.Status.AddBonusPoints(-500, "Вилы разъяренной толпы");
+            game.AddGlobalLogs($"Жители деревни подняли {player.DiscordUsername} на вилы за жадность! Ведьмак мёртв.");
+            player.Status.AddInGamePersonalLogs("Чеканная монета: Толпа с вилами! Вы мертвы. -500 очков.\n");
+        }
+
         return (true, null);
     }
 
@@ -856,6 +922,82 @@ public class WebGameService
         game.AddGlobalLogs($"Salldorum переписал историю раунда {roundNumber}!");
 
         return (true, null);
+    }
+
+    // ── Test Game (Admin) ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns the list of rollable characters for the admin character picker.
+    /// </summary>
+    public List<object> GetCharacterList()
+    {
+        return _charactersPull.GetRollableCharacters()
+            .Select(c => (object)new { name = c.Name, avatar = c.Avatar, tier = c.Tier })
+            .ToList();
+    }
+
+    /// <summary>
+    /// Creates a test game with the admin playing a specific character.
+    /// </summary>
+    public async Task<(ulong gameId, string error)> CreateTestGame(ulong creatorId, string creatorUsername, string characterName)
+    {
+        // Validate character exists
+        var allCharacters = _charactersPull.GetRollableCharacters();
+        var selectedChar = allCharacters.Find(c => c.Name == characterName);
+        if (selectedChar == null)
+            return (0, "Character not found");
+
+        // Create a normal game first
+        var (gameId, error) = await CreateGame(creatorId, creatorUsername);
+        if (error != null)
+            return (0, error);
+
+        var game = FindGame(gameId);
+        if (game == null)
+            return (0, "Game creation failed");
+
+        var player = game.PlayersList.Find(p => p.DiscordId == creatorId);
+        if (player == null)
+            return (0, "Player not found in game");
+
+        // Replace the player's character with the selected one (follows DraftSelect pattern)
+        var newBridge = new GamePlayerBridgeClass(
+            selectedChar,
+            new InGameStatus(),
+            player.DiscordId,
+            player.GameId,
+            player.DiscordUsername,
+            player.PlayerType
+        );
+        newBridge.IsWebPlayer = player.IsWebPlayer;
+        newBridge.PreferWeb = player.PreferWeb;
+        newBridge.TeamId = player.TeamId;
+        newBridge.Predict = player.Predict;
+        newBridge.DiscordStatus = player.DiscordStatus;
+        newBridge.Status.IsDraftPickConfirmed = true;
+
+        var idx = game.PlayersList.IndexOf(player);
+        if (idx >= 0)
+            game.PlayersList[idx] = newBridge;
+
+        // Update account's last played character and mastery
+        var account = _userAccounts.GetAccount(creatorId);
+        if (account != null)
+        {
+            newBridge.CharacterMasteryPoints = account.CharacterMastery.GetValueOrDefault(selectedChar.Name, 0);
+            account.CharacterPlayedLastTime = selectedChar.Name;
+        }
+
+        // Auto-confirm draft pick if in draft phase
+        if (game.IsDraftPickPhase)
+        {
+            // Remove old draft options for this player
+            var oldPlayerId = player.GetPlayerId();
+            game.DraftOptions.Remove(oldPlayerId);
+        }
+
+        Console.WriteLine($"[WebAPI] Test game {gameId} created by {creatorUsername} ({creatorId}) with character {characterName}");
+        return (gameId, null);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────

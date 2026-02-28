@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from 'src/store/game'
-import { signalrService, type ReplayListEntry } from 'src/services/signalr'
+import { signalrService, type ReplayListEntry, type CharacterListEntry } from 'src/services/signalr'
 import AchievementBoard from 'src/components/AchievementBoard.vue'
 import LootBox from 'src/components/LootBox.vue'
 
@@ -13,7 +13,15 @@ const router = useRouter()
 
 const isCreatingGame = ref(false)
 const showAchievements = ref(false)
+const showCharacterPicker = ref(false)
+const characterSearch = ref('')
 const recentReplays = ref<ReplayListEntry[]>([])
+
+const filteredCharacters = computed(() => {
+  const q = characterSearch.value.toLowerCase()
+  if (!q) return store.characterList
+  return store.characterList.filter((c: CharacterListEntry) => c.name.toLowerCase().includes(q))
+})
 
 const quests = computed(() => store.questState?.quests ?? [])
 const streakDays = computed(() => store.questState?.streakDays ?? 0)
@@ -73,6 +81,20 @@ onUnmounted(() => {
 async function createGame() {
   isCreatingGame.value = true
   await store.createWebGame()
+}
+
+async function openTestGamePicker() {
+  if (store.characterList.length === 0) {
+    await store.fetchCharacterList()
+  }
+  characterSearch.value = ''
+  showCharacterPicker.value = true
+}
+
+async function selectTestCharacter(name: string) {
+  showCharacterPicker.value = false
+  isCreatingGame.value = true
+  await store.createTestGame(name)
 }
 
 async function handleJoinGame(gameId: number) {
@@ -185,14 +207,32 @@ function viewReplay(hash: string) {
           Active Games
           <span v-if="store.lobbyState" class="badge">{{ store.lobbyState.activeGames }}</span>
         </h2>
-        <button
-          v-if="store.isAuthenticated"
-          class="btn btn-primary btn-sm"
-          :disabled="isCreatingGame"
-          @click="createGame"
-        >
-          {{ isCreatingGame ? 'Creating...' : '+ New Game' }}
-        </button>
+        <div class="header-actions">
+          <button
+            v-if="store.isAuthenticated"
+            class="btn btn-primary btn-sm"
+            :disabled="isCreatingGame"
+            @click="createGame"
+          >
+            {{ isCreatingGame ? 'Creating...' : '+ New Game' }}
+          </button>
+          <button
+            v-if="store.isLobbyAdmin && store.lastPlayedCharacter"
+            class="btn btn-sm btn-last-play"
+            :disabled="isCreatingGame"
+            @click="selectTestCharacter(store.lastPlayedCharacter)"
+          >
+            Last Play {{ store.lastPlayedCharacter }}
+          </button>
+          <button
+            v-if="store.isLobbyAdmin"
+            class="btn btn-sm btn-test-game"
+            :disabled="isCreatingGame"
+            @click="openTestGamePicker"
+          >
+            Test New Game
+          </button>
+        </div>
       </div>
 
       <div v-if="!store.lobbyState || store.lobbyState.games.length === 0" class="empty-state">
@@ -300,6 +340,34 @@ function viewReplay(hash: string) {
             <button class="btn btn-primary" @click.stop="viewReplay(replay.replayHash)">
               Watch Replay
             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Character Picker Modal (Admin Test Game) -->
+    <div v-if="showCharacterPicker" class="modal-overlay" @click.self="showCharacterPicker = false">
+      <div class="modal-content character-picker-modal">
+        <div class="modal-header">
+          <h2>Select Character</h2>
+          <button class="btn btn-ghost btn-sm" @click="showCharacterPicker = false">X</button>
+        </div>
+        <input
+          v-model="characterSearch"
+          class="character-search"
+          type="text"
+          placeholder="Search characters..."
+        />
+        <div class="character-grid">
+          <div
+            v-for="char in filteredCharacters"
+            :key="char.name"
+            class="character-option card"
+            @click="selectTestCharacter(char.name)"
+          >
+            <img :src="char.avatar" :alt="char.name" class="character-avatar" />
+            <span class="character-name">{{ char.name }}</span>
+            <span class="character-tier">T{{ char.tier }}</span>
           </div>
         </div>
       </div>
@@ -782,12 +850,12 @@ function viewReplay(hash: string) {
 }
 
 .game-card.almost-full {
-  border-color: rgba(72, 202, 180, 0.3);
+  border-color: rgba(63, 167, 61, 0.3);
   animation: game-card-hot 2s ease-in-out infinite;
 }
 @keyframes game-card-hot {
-  0%, 100% { box-shadow: var(--shadow); border-color: rgba(72, 202, 180, 0.3); }
-  50% { box-shadow: var(--shadow), 0 0 12px rgba(72, 202, 180, 0.2); border-color: rgba(72, 202, 180, 0.5); }
+  0%, 100% { box-shadow: var(--shadow); border-color: rgba(63, 167, 61, 0.3); }
+  50% { box-shadow: var(--shadow), 0 0 12px rgba(63, 167, 61, 0.2); border-color: rgba(63, 167, 61, 0.5); }
 }
 
 /* Round Pip Badge */
@@ -802,6 +870,130 @@ function viewReplay(hash: string) {
   padding: 2px 6px;
   border-radius: 4px;
   font-family: var(--font-mono);
+}
+
+/* Header Actions */
+.header-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Last Play Button */
+.btn-last-play {
+  background: rgba(233, 219, 61, 0.1);
+  color: var(--accent-gold);
+  border: 1px solid var(--accent-gold);
+}
+.btn-last-play:hover {
+  background: rgba(233, 219, 61, 0.22);
+}
+
+/* Test Game Button */
+.btn-test-game {
+  background: rgba(180, 100, 255, 0.12);
+  color: var(--accent-purple, #b464ff);
+  border: 1px solid var(--accent-purple, #b464ff);
+}
+.btn-test-game:hover {
+  background: rgba(180, 100, 255, 0.25);
+}
+
+/* Character Picker Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.character-picker-modal {
+  background: var(--bg-card, #1e1e3a);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 16px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.modal-header h2 {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--accent-gold);
+  margin: 0;
+}
+
+.character-search {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--bg-elevated, #16162e);
+  color: var(--text-primary);
+  font-size: 13px;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+.character-search::placeholder {
+  color: var(--text-muted);
+}
+
+.character-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  overflow-y: auto;
+  max-height: 50vh;
+  padding-right: 4px;
+}
+
+.character-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.character-option:hover {
+  border-color: var(--accent-purple, #b464ff);
+  background: rgba(180, 100, 255, 0.08);
+}
+
+.character-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.character-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.character-tier {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--accent-gold);
 }
 
 /* Quest Completion Celebration */

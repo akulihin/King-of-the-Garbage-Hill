@@ -66,8 +66,11 @@ public class GameHub : Hub
         Context.Items["discordId"] = discordId;
         _notificationService.RegisterConnection(discordId, Context.ConnectionId);
 
-        // Return the ID as a string so JS doesn't lose precision
-        await Clients.Caller.SendAsync("Authenticated", new { success = true, discordId = discordIdStr });
+        // Return the ID as a string so JS doesn't lose precision, include playerType for admin checks
+        var account = _userAccounts.GetAccount(discordId);
+        var playerType = account?.PlayerType ?? 0;
+        var lastPlayedCharacter = account?.CharacterPlayedLastTime ?? "";
+        await Clients.Caller.SendAsync("Authenticated", new { success = true, discordId = discordIdStr, playerType, lastPlayedCharacter });
         Console.WriteLine($"[WebAPI] Connection {Context.ConnectionId} authenticated as Discord user {discordId}");
     }
 
@@ -301,6 +304,17 @@ public class GameHub : Hub
         if (success) await PushStateToPlayer(gameId, discordId);
     }
 
+    public async Task DemandContractReward(ulong gameId, string demandType)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _gameService.DemandContractReward(gameId, discordId, demandType);
+        await Clients.Caller.SendAsync("ActionResult", new { action = "demandContractReward", success, error });
+
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
     public async Task Predict(ulong gameId, Guid targetPlayerId, string characterName)
     {
         var discordId = GetDiscordId();
@@ -439,6 +453,48 @@ public class GameHub : Hub
         await Clients.Caller.SendAsync("ActionResult", new { action = "rewriteHistory", success, error });
 
         if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
+    // ── Admin: Test Game ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns the list of rollable characters (for admin character picker).
+    /// </summary>
+    public async Task GetCharacterList()
+    {
+        var characters = _gameService.GetCharacterList();
+        await Clients.Caller.SendAsync("CharacterList", characters);
+    }
+
+    /// <summary>
+    /// Create a test game with a specific character (admin only, PlayerType == 2).
+    /// </summary>
+    public async Task CreateTestGame(string characterName)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        if (account == null || account.PlayerType != 2)
+        {
+            await Clients.Caller.SendAsync("Error", "Admin access required.");
+            return;
+        }
+
+        var username = account.DiscordUserName ?? "Admin";
+        var (gameId, error) = await _gameService.CreateTestGame(discordId, username, characterName);
+        if (error != null)
+        {
+            await Clients.Caller.SendAsync("Error", error);
+            return;
+        }
+
+        // Auto-join the SignalR room
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"game-{gameId}");
+        Context.Items["gameId"] = gameId;
+        _notificationService.RegisterGameConnection(gameId, Context.ConnectionId);
+
+        await Clients.Caller.SendAsync("GameCreated", new { gameId });
     }
 
     // ── Leave / Finish ────────────────────────────────────────────────

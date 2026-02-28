@@ -1,73 +1,73 @@
-/* ── KOTGH Color Palette — Sunken Treasure (Navy-Black + Teal/Coral) ── */
+/* ── KOTGH Color Palette ───────────────────────────── */
 :root {
-  /* Neutrals – pale (cool blue-grey for borders, surfaces) */
-  --kh-c-neutrals-pale-200: rgba(85, 95, 110, 1);
-  --kh-c-neutrals-pale-240: rgba(72, 82, 98, 1);
-  --kh-c-neutrals-pale-260: rgba(62, 72, 88, 1);
-  --kh-c-neutrals-pale-300: rgba(50, 60, 76, 1);
-  --kh-c-neutrals-pale-350: rgba(44, 54, 70, 1);
-  --kh-c-neutrals-pale-375: rgba(40, 50, 65, 1);
-  --kh-c-neutrals-pale-500: rgba(30, 38, 52, 1);
-  --kh-c-neutrals-pale-575: rgba(22, 30, 44, 1);
-  --kh-c-neutrals-655: rgba(10, 15, 25, 1);
+  /* Neutrals – pale (purple-tinted greys for borders, surfaces) */
+  --kh-c-neutrals-pale-200: rgba(100, 98, 106, 1);
+  --kh-c-neutrals-pale-240: rgba(89, 88, 92, 1);
+  --kh-c-neutrals-pale-260: rgba(77, 75, 82, 1);
+  --kh-c-neutrals-pale-300: rgba(66, 62, 71, 1);
+  --kh-c-neutrals-pale-350: rgba(61, 57, 66, 1);
+  --kh-c-neutrals-pale-375: rgba(58, 54, 64, 1);
+  --kh-c-neutrals-pale-500: rgba(44, 41, 51, 1);
+  --kh-c-neutrals-pale-575: rgba(36, 33, 43, 1);
+  --kh-c-neutrals-655: rgba(21, 20, 28, 1);
 
-  /* Neutrals – saturated (core backgrounds — deep navy-black) */
-  --kh-c-neutrals-sat-400: rgba(55, 65, 82, 1);
-  --kh-c-neutrals-sat-500: rgba(42, 52, 68, 1);
-  --kh-c-neutrals-sat-600: rgba(30, 38, 54, 1);
-  --kh-c-neutrals-sat-650: rgba(22, 30, 46, 1);
-  --kh-c-neutrals-sat-700: rgba(18, 24, 38, 1);
-  --kh-c-neutrals-sat-750: rgba(14, 20, 34, 1);
-  --kh-c-neutrals-sat-800: rgba(12, 18, 30, 1);
+  /* Neutrals – saturated (core backgrounds) */
+  --kh-c-neutrals-sat-400: rgba(77, 76, 82, 1);
+  --kh-c-neutrals-sat-500: rgba(65, 63, 70, 1);
+  --kh-c-neutrals-sat-600: rgba(45, 43, 49, 1);
+  --kh-c-neutrals-sat-650: rgba(38, 36, 43, 1);
+  --kh-c-neutrals-sat-700: rgba(33, 31, 38, 1);
+  --kh-c-neutrals-sat-750: rgba(28, 26, 33, 1);
+  --kh-c-neutrals-sat-800: rgba(23, 22, 28, 1);
 
-  /* Greens / success — teal-shifted */
-  --kh-c-secondary-success-200: rgba(72, 202, 180, 1);
-  --kh-c-secondary-success-300: rgba(55, 185, 160, 1);
-  --kh-c-secondary-success-400: rgba(40, 160, 140, 1);
-  --kh-c-secondary-success-500: rgba(30, 130, 115, 1);
-  --kh-c-secondary-success-600: rgba(20, 100, 90, 1);
+  /* Greens / success */
+  --kh-c-secondary-success-200: rgba(63, 167, 61, 1);
+  --kh-c-secondary-success-300: rgba(46, 150, 51, 1);
+  --kh-c-secondary-success-400: rgba(33, 128, 38, 1);
+  --kh-c-secondary-success-500: rgba(48, 108, 51, 1);
+  --kh-c-secondary-success-600: rgba(31, 95, 37, 1);
 
-  /* Yellows / warning — warm gold (treasure) */
-  --kh-c-secondary-warning-200: rgba(240, 210, 80, 1);
-  --kh-c-secondary-warning-300: rgba(225, 195, 60, 1);
-  --kh-c-secondary-warning-400: rgba(195, 170, 50, 1);
-  --kh-c-secondary-warning-500: rgba(165, 145, 40, 1);
-  --kh-c-secondary-warning-600: rgba(125, 110, 30, 1);
+  /* Yellows / warning */
+  --kh-c-secondary-warning-200: rgba(233, 219, 61, 1);
+  --kh-c-secondary-warning-300: rgba(220, 195, 50, 1);
+  --kh-c-secondary-warning-400: rgba(190, 170, 45, 1);
+  --kh-c-secondary-warning-500: rgba(160, 145, 40, 1);
+  --kh-c-secondary-warning-600: rgba(120, 110, 30, 1);
 
-  /* Reds / danger — coral */
-  --kh-c-secondary-danger-200: rgba(255, 127, 110, 1);
-  --kh-c-secondary-danger-300: rgba(240, 100, 85, 1);
-  --kh-c-secondary-danger-400: rgba(210, 75, 65, 1);
-  --kh-c-secondary-danger-500: rgba(175, 55, 50, 1);
-  --kh-c-secondary-danger-600: rgba(135, 38, 35, 1);
+  /* Reds / danger */
+  --kh-c-secondary-danger-200: rgba(239, 128, 128, 1);
+  --kh-c-secondary-danger-300: rgba(220, 90, 90, 1);
+  --kh-c-secondary-danger-400: rgba(190, 60, 60, 1);
+  --kh-c-secondary-danger-500: rgba(160, 45, 45, 1);
+  --kh-c-secondary-danger-600: rgba(120, 30, 30, 1);
 
-  /* Blues / info — ocean blue */
-  --kh-c-secondary-info-200: rgba(100, 180, 240, 1);
-  --kh-c-secondary-info-300: rgba(80, 165, 230, 1);
-  --kh-c-secondary-info-400: rgba(60, 140, 210, 1);
-  --kh-c-secondary-info-500: rgba(45, 115, 180, 1);
+  /* Blues / info */
+  --kh-c-secondary-info-200: rgba(110, 170, 240, 1);
+  --kh-c-secondary-info-300: rgba(80, 150, 230, 1);
+  --kh-c-secondary-info-400: rgba(60, 130, 210, 1);
+  --kh-c-secondary-info-500: rgba(50, 100, 170, 1);
 
-  /* Purples / ability — deep sea violet */
-  --kh-c-secondary-purple-200: rgba(160, 130, 220, 1);
-  --kh-c-secondary-purple-300: rgba(140, 110, 210, 1);
-  --kh-c-secondary-purple-400: rgba(115, 90, 190, 1);
-  --kh-c-secondary-purple-500: rgba(90, 70, 160, 1);
+  /* Purples / ability */
+  --kh-c-secondary-purple-200: rgba(180, 150, 255, 1);
+  --kh-c-secondary-purple-300: rgba(155, 120, 240, 1);
+  --kh-c-secondary-purple-400: rgba(130, 100, 210, 1);
+  --kh-c-secondary-purple-500: rgba(100, 75, 170, 1);
 
-  /* Text — cool white with slight blue tint */
-  --kh-c-text-primary-500: rgba(225, 232, 245, 1);
-  --kh-c-text-primary-600: rgba(200, 210, 228, 1);
-  --kh-c-text-primary-700: rgba(120, 135, 160, 1);
-  --kh-c-text-primary-800: rgba(65, 78, 100, 1);
+  /* Text */
+  --kh-c-text-primary-500: rgba(243, 243, 234, 1);
+  --kh-c-text-primary-600: rgba(236, 239, 242, 1);
+  --kh-c-text-primary-700: rgba(148, 156, 164, 1);
+  --kh-c-text-primary-800: rgba(71, 83, 88, 1);
 
-  /* Highlight — treasure gold */
+  /* Highlight / gold */
   --kh-c-text-highlight-primary: #f0c850;
-  --kh-c-text-highlight-dim: #c4a035;
+  --kh-c-text-highlight-dim: #c8a030;
 
-  /* Glass / frosted surface system — deep blue tinted */
-  --kh-c-glass-bg: rgba(14, 22, 38, 0.78);
-  --kh-c-glass-bg-heavy: rgba(12, 18, 32, 0.90);
-  --kh-c-glass-border: rgba(100, 200, 220, 0.08);
-  --kh-c-glass-highlight: rgba(100, 200, 220, 0.04);
+  /* Glass / frosted surface system */
+  --kh-c-glass-bg: rgba(30, 28, 36, 0.78);
+  --kh-c-glass-bg-heavy: rgba(26, 24, 32, 0.90);
+  --kh-c-glass-border: rgba(255, 255, 255, 0.06);
+  --kh-c-glass-highlight: rgba(255, 255, 255, 0.03);
 }
 
 /* ── Blood Theme ── */

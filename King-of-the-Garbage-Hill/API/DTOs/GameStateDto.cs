@@ -907,6 +907,12 @@ public class GeraltStateDto
 
     // Enemy type assignments (enemyName → type)
     public Dictionary<string, string> EnemyMonsterTypes { get; set; } = new();
+
+    // Contract demand
+    public int Displeasure { get; set; }
+    public bool CanDemandPrevious { get; set; }
+    public bool CanDemandNext { get; set; }
+    public bool DemandedThisPhase { get; set; }
 }
 
 public class GeraltMonsterOnMeDto

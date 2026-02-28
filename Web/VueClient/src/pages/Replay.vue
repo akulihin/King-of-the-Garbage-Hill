@@ -60,6 +60,7 @@ function formatLogs(text: string): string {
     .replace(/__(.*?)__/g, '<u>$1</u>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/~~(.*?)~~/g, '<del>$1</del>')
+    .replace(/\|>Stat<\|/g, '')
     .replace(/\|>Phrase<\|/g, '')
     .replace(/\n/g, '<br>')
 }
@@ -97,6 +98,7 @@ interface PrevLogEntry {
 
 function cleanDiscord(text: string): string {
   return convertDiscordEmoji(text)
+    .replace(/\|>Stat<\|/g, '')
     .replace(/\|>Phrase<\|/g, '')
 }
 

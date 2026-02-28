@@ -628,7 +628,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>Phrase<|{skillName}";
+            skillName = $"|>Stat<|{skillName}";
         }
         if (howMuchToAdd > 0 && isLog)
             Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd*10}% *Скилла*\n");
@@ -991,7 +991,7 @@ public class CharacterClass
         var skillText = "Cкилла";
         if (skillName != "Обмен Морали" && skillName != "Класс")
         {
-            skillName = $"|>Phrase<|{skillName}";
+            skillName = $"|>Stat<|{skillName}";
         }
 
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
@@ -1088,7 +1088,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>Phrase<|{skillName}";
+            skillName = $"|>Stat<|{skillName}";
         }
         if (isLog)
         {
@@ -1106,7 +1106,7 @@ public class CharacterClass
     {
         if (skillName != "Обмен Морали" && skillName != "Победа" && skillName != "Поражение")
         {
-            skillName = $"|>Phrase<|{skillName}";
+            skillName = $"|>Stat<|{skillName}";
         }
 
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
@@ -1173,7 +1173,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>Phrase<|{skillName}";
+            skillName = $"|>Stat<|{skillName}";
         }
         if (howMuchToAdd > 0 && isLog)
             Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Интеллект\n");
@@ -1213,7 +1213,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>Phrase<|{skillName}";
+            skillName = $"|>Stat<|{skillName}";
         }
         if (isLog)
         {
@@ -1261,7 +1261,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>Phrase<|{skillName}";
+            skillName = $"|>Stat<|{skillName}";
         }
         if (howMuchToAdd > 0 && isLog)
             Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Психика\n");
@@ -1308,7 +1308,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>Phrase<|{skillName}";
+            skillName = $"|>Stat<|{skillName}";
         }
         if (isLog)
         {
@@ -1368,7 +1368,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>Phrase<|{skillName}";
+            skillName = $"|>Stat<|{skillName}";
         }
         if (howMuchToAdd > 0 && isLog)
             Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Скорость\n");
@@ -1401,7 +1401,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>Phrase<|{skillName}";
+            skillName = $"|>Stat<|{skillName}";
         }
         if (isLog)
         {
@@ -1456,7 +1456,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>Phrase<|{skillName}";
+            skillName = $"|>Stat<|{skillName}";
         }
         if (howMuchToAdd > 0 && isLog)
             Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Сила\n");
@@ -1489,7 +1489,7 @@ public class CharacterClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>Phrase<|{skillName}";
+            skillName = $"|>Stat<|{skillName}";
         }
         if (isLog)
         {
@@ -1696,7 +1696,7 @@ public class JusticeClass
     {
         if (skillName != "Прокачка" && skillName != "Читы")
         {
-            skillName = $"|>Phrase<|{skillName}";
+            skillName = $"|>Stat<|{skillName}";
         }
         if (isLog)
             Status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} Справедливости\n");

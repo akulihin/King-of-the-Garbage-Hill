@@ -299,11 +299,17 @@ public class DoomsdayMachine : IServiceSingleton
             }
             else
             {
-                // Geralt is blocking/skipping — find who is attacking him
-                var attacker = game.PlayersList.FirstOrDefault(x =>
+                // Geralt is blocking/skipping — find attacker with most contracts
+                var attackers = game.PlayersList.Where(x =>
                     x.GetPlayerId() != player.GetPlayerId() &&
-                    x.Status.WhoToAttackThisTurn.Contains(player.GetPlayerId()));
-                if (attacker == null) continue;
+                    x.Status.WhoToAttackThisTurn.Contains(player.GetPlayerId())).ToList();
+                if (attackers.Count == 0) continue;
+                // Pick attacker whose monster type has the most contracts
+                var attacker = attackers
+                    .OrderByDescending(x => x.Passives.GeraltMonsterType != null
+                        ? geraltContracts.GetCount(x.Passives.GeraltMonsterType.Value)
+                        : 0)
+                    .First();
                 targetId = attacker.GetPlayerId();
                 isDefending = true;
             }

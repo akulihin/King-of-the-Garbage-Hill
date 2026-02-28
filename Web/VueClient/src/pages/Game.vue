@@ -312,9 +312,37 @@ function formatLogs(text: string): string {
     .replace(/__(.*?)__/g, '<u>$1</u>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/~~(.*?)~~/g, '<del>$1</del>')
+    .replace(/\|>Stat<\|/g, '')
     .replace(/\|>Phrase<\|/g, '')
     .replace(/\n/g, '<br>')
 }
+
+// ── VFX Message Popup ─────────────────────────────────────────────────
+const vfxMessages = ref<{ id: number; text: string }[]>([])
+let vfxId = 0
+
+function pushVfxMessage(text: string) {
+  const id = ++vfxId
+  vfxMessages.value.push({ id, text })
+  setTimeout(() => {
+    vfxMessages.value = vfxMessages.value.filter(m => m.id !== id)
+  }, 4000)
+}
+
+let lastSeenDirectMessageCount = 0
+watch(() => store.myPlayer?.status.directMessages, (msgs) => {
+  if (!msgs?.length) { lastSeenDirectMessageCount = 0; return }
+  if (msgs.length > lastSeenDirectMessageCount) {
+    for (let i = lastSeenDirectMessageCount; i < msgs.length; i++) {
+      pushVfxMessage(msgs[i])
+    }
+  }
+  lastSeenDirectMessageCount = msgs.length
+}, { deep: true })
+
+watch(() => store.errorMessage, (err) => {
+  if (err) pushVfxMessage(err)
+})
 
 /** Filter out fight-result lines (containing ⟶ or →) from log text */
 function filterFightLines(text: string): string {
@@ -370,10 +398,12 @@ interface PrevLogEntry {
   html: string
   type: PrevLogColor
   comboCount: number
+  isPhrase: boolean
 }
 
 function cleanDiscord(text: string): string {
   return convertDiscordEmoji(text)
+    .replace(/\|>Stat<\|/g, '')
     .replace(/\|>Phrase<\|/g, '')
 }
 
@@ -407,12 +437,15 @@ function parsePrevLogs(raw: string): PrevLogEntry[] {
   const lines = raw.split('\n').filter((l: string) => l.trim() && !hiddenPatterns.some(fn => fn(l)) && l.length > 2)
 
   return lines.map((line: string) => {
+    const isPhrase = line.includes('|>Phrase<|') && !line.includes('|>Stat<|')
     const clean = cleanDiscord(line)
     let type: PrevLogColor = 'muted'
     let comboCount = 0
 
-    if (/[Сс]килла/i.test(clean) || /Справедливость/i.test(clean) || /Cкилла/i.test(clean) || /Морали/i.test(clean)) {
-      type = 'green'  
+    if (isPhrase) {
+      type = 'purple'
+    } else if (/[Сс]килла/i.test(clean) || /Справедливость/i.test(clean) || /Cкилла/i.test(clean) || /Морали/i.test(clean)) {
+      type = 'green'
     } else if (/очков/i.test(clean) && !clean.includes('отнял в общей сумме')) {
       type = 'gold'
       const parenMatch = clean.match(/\(([^)]+)\)/)
@@ -439,7 +472,7 @@ muted	(Grey)
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/~~(.*?)~~/g, '<del>$1</del>')
 
-    return { raw: clean, html, type, comboCount }
+    return { raw: clean, html, type, comboCount, isPhrase }
   })
 }
 
@@ -887,7 +920,7 @@ const charTint = computed(() => {
                 v-for="(entry, idx) in exitingLogEntries"
                 :key="'exit-'+idx"
                 class="prev-log-item prev-log-visible"
-                :class="['prev-log-' + entry.type]"
+                :class="['prev-log-' + entry.type, { 'prev-log-phrase': entry.isPhrase }]"
               >
                 <span class="prev-log-text" v-html="entry.html"></span>
               </div>
@@ -902,7 +935,8 @@ const charTint = computed(() => {
                 :class="[
                   'prev-log-' + entry.type,
                   { 'prev-log-visible': idx < currentLogVisibleCount },
-                  { 'prev-log-combo': entry.type === 'gold' && entry.comboCount > 0 }
+                  { 'prev-log-combo': entry.type === 'gold' && entry.comboCount > 0 },
+                  { 'prev-log-phrase': entry.isPhrase }
                 ]"
               >
                 <span class="prev-log-text" v-html="entry.html"></span>
@@ -926,7 +960,8 @@ const charTint = computed(() => {
                   'prev-log-' + entry.type,
                   { 'prev-log-visible': idx < prevLogVisibleCount },
                   { 'prev-log-fade-exit': prevPanelExiting },
-                  { 'prev-log-combo': entry.type === 'gold' && entry.comboCount > 0 }
+                  { 'prev-log-combo': entry.type === 'gold' && entry.comboCount > 0 },
+                  { 'prev-log-phrase': entry.isPhrase }
                 ]"
               >
                 <span class="prev-log-text" v-html="entry.html"></span>
@@ -979,18 +1014,18 @@ const charTint = computed(() => {
         />
 
 
-        <!-- Direct Messages (ephemeral alerts) -->
-        <div
-          v-if="store.myPlayer?.status.directMessages?.length"
-          class="direct-messages"
-        >
-          <div
-            v-for="(msg, idx) in store.myPlayer.status.directMessages"
-            :key="idx"
-            class="dm-item"
-            v-html="formatLogs(msg)"
-          />
-        </div>
+        <!-- VFX Message Popup (direct messages + action errors) -->
+        <Teleport to="body">
+          <TransitionGroup name="vfx-msg" tag="div" class="vfx-messages">
+            <div
+              v-for="msg in vfxMessages"
+              :key="msg.id"
+              class="vfx-msg"
+              @click="vfxMessages = vfxMessages.filter(m => m.id !== msg.id)"
+              v-html="formatLogs(msg.text)"
+            />
+          </TransitionGroup>
+        </Teleport>
 
         <!-- Character Phrase Media Messages (text, audio, images) -->
         <MediaMessages
@@ -1344,7 +1379,7 @@ const charTint = computed(() => {
 .round-announce-status {
   font-size: 12px;
   font-weight: 600;
-  color: rgba(225, 232, 245, 0.6);
+  color: rgba(236, 239, 242, 0.6);
   font-family: var(--font-mono);
   letter-spacing: 1px;
   animation: announce-status-in 0.5s ease-out 0.3s both;
@@ -1726,33 +1761,7 @@ const charTint = computed(() => {
 }
 .finish-confirm-yes:hover { background: var(--accent-red); }
 
-/* ── Direct Messages ──────────────────────────────────────────────── */
-.direct-messages {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-top: 4px;
-}
-
-.dm-item {
-  padding: 4px 10px;
-  background: var(--bg-surface);
-  border-left: 2px solid var(--accent-orange);
-  border-radius: 0 var(--radius) var(--radius) 0;
-  font-size: 12px;
-  color: var(--text-primary);
-  line-height: 1.5;
-}
-
-.dm-item :deep(strong) { color: var(--accent-gold); }
-.dm-item :deep(em) { color: var(--accent-blue); }
-.dm-item :deep(.lb-emoji) {
-  width: 20px;
-  height: 20px;
-  vertical-align: middle;
-  display: inline;
-  margin: 0 2px;
-}
+/* ── VFX Message Popup ────────────────────────────────────────────── */
 
 /* ── Leaderboard + Action bar block ─────────────────────────────── */
 .lb-action-block {
@@ -2011,4 +2020,64 @@ const charTint = computed(() => {
   60% { transform: scale(1.15); }
   100% { transform: scale(1); opacity: 1; }
 }
+
+.prev-log-phrase {
+  padding-left: 16px;
+  font-style: italic;
+  opacity: 0.85;
+  border-left-style: dotted;
+  font-size: 10.5px;
+}
+</style>
+
+<!-- VFX popup styles — unscoped because Teleported to body -->
+<style>
+.vfx-messages {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.vfx-msg {
+  pointer-events: auto;
+  cursor: pointer;
+  padding: 10px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--accent-orange);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--text-primary);
+  box-shadow: 0 0 16px rgba(255, 160, 50, 0.3), 0 4px 12px rgba(0,0,0,0.4);
+  animation: vfxPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-width: 400px;
+  text-align: center;
+}
+
+.vfx-msg strong { color: var(--accent-gold); }
+.vfx-msg em { color: var(--accent-blue); }
+.vfx-msg u { color: var(--accent-green); }
+.vfx-msg .lb-emoji {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  display: inline;
+  margin: 0 2px;
+}
+
+@keyframes vfxPop {
+  from { transform: scale(0.7) translateY(-20px); opacity: 0; }
+  60% { transform: scale(1.05) translateY(2px); }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.vfx-msg-enter-active { animation: vfxPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.vfx-msg-leave-active { transition: all 0.3s ease; }
+.vfx-msg-leave-to { opacity: 0; transform: translateY(-10px) scale(0.9); }
 </style>

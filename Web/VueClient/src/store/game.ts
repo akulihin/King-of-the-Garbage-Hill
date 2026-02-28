@@ -12,6 +12,7 @@ import {
   type LootBoxResult,
   type AchievementBoard,
   type AchievementEntry,
+  type CharacterListEntry,
 } from 'src/services/signalr'
 import {
   playBlockSound,
@@ -74,6 +75,9 @@ export const useGameStore = defineStore('game', () => {
   const achievementBoard = ref<AchievementBoard | null>(null)
   const newlyUnlockedAchievements = ref<AchievementEntry[]>([])
   const achievementsDismissedForGame = ref<string>('')
+  const accountPlayerType = ref(0)
+  const lastPlayedCharacter = ref('')
+  const characterList = ref<CharacterListEntry[]>([])
 
   // ── Derived State ─────────────────────────────────────────────────
 
@@ -106,6 +110,8 @@ export const useGameStore = defineStore('game', () => {
   const isInGame = computed(() => gameState.value !== null && !gameState.value.isFinished)
 
   const isAdmin = computed(() => (gameState.value?.myPlayerType ?? 0) === 2)
+
+  const isLobbyAdmin = computed(() => accountPlayerType.value === 2)
 
   const isKira = computed(() => myPlayer.value?.isKira ?? false)
 
@@ -256,6 +262,8 @@ export const useGameStore = defineStore('game', () => {
           isAuthenticated.value = true
           // Keep as string to preserve precision on large snowflake IDs
           discordId.value = String(data.discordId)
+          accountPlayerType.value = data.playerType ?? 0
+          lastPlayedCharacter.value = data.lastPlayedCharacter ?? ''
         }
       }
 
@@ -275,6 +283,10 @@ export const useGameStore = defineStore('game', () => {
 
       signalrService.onGameJoined = (_data) => {
         // Navigation handled by the caller
+      }
+
+      signalrService.onCharacterList = (list) => {
+        characterList.value = list
       }
 
       signalrService.onConnectionChanged = (connected) => {
@@ -389,6 +401,11 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.moralToSkill(gameState.value.gameId)
   }
 
+  async function demandContractReward(demandType: 'previous' | 'next') {
+    if (!gameState.value) return
+    await signalrService.demandContractReward(gameState.value.gameId, demandType)
+  }
+
   async function predict(targetPlayerId: string, characterName: string) {
     if (!gameState.value) return
     await signalrService.predict(gameState.value.gameId, targetPlayerId, characterName)
@@ -483,6 +500,14 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.joinWebGame(gameId)
   }
 
+  async function fetchCharacterList() {
+    await signalrService.getCharacterList()
+  }
+
+  async function createTestGame(characterName: string) {
+    await signalrService.createTestGame(characterName)
+  }
+
   async function requestQuests() {
     await signalrService.requestQuests()
   }
@@ -553,6 +578,10 @@ export const useGameStore = defineStore('game', () => {
     roundTimeLeft,
     isInGame,
     isAdmin,
+    isLobbyAdmin,
+    accountPlayerType,
+    lastPlayedCharacter,
+    characterList,
     isKira,
     myPortalGun,
     isBug,
@@ -575,6 +604,7 @@ export const useGameStore = defineStore('game', () => {
     levelUp,
     moralToPoints,
     moralToSkill,
+    demandContractReward,
     predict,
     draftSelect,
     aramReroll,
@@ -594,6 +624,8 @@ export const useGameStore = defineStore('game', () => {
     registerWebAccount,
     createWebGame,
     joinWebGame,
+    fetchCharacterList,
+    createTestGame,
     requestQuests,
     openLootBox,
     dismissLootBox,

@@ -187,7 +187,7 @@ function handleLogout() {
   --text-muted: var(--kh-c-text-primary-700);       /* labels, inactive */
   --text-dim: var(--kh-c-text-primary-800);         /* disabled, faint */
 
-  /* Accents — sunken treasure */
+  /* Accents */
   --accent-gold: var(--kh-c-text-highlight-primary);
   --accent-gold-dim: var(--kh-c-text-highlight-dim);
   --accent-teal: var(--kh-c-secondary-success-200);
@@ -213,12 +213,12 @@ function handleLogout() {
   --shadow-glow: 0 4px 16px rgba(0, 0, 0, 0.4);
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
   --glow-gold: 0 0 12px rgba(240, 200, 80, 0.25), 0 0 4px rgba(240, 200, 80, 0.15);
-  --glow-teal: 0 0 10px rgba(72, 202, 180, 0.3);
-  --glow-green: 0 0 10px rgba(72, 202, 180, 0.3);
-  --glow-coral: 0 0 10px rgba(255, 127, 110, 0.3);
-  --glow-red: 0 0 10px rgba(255, 127, 110, 0.3);
-  --glow-purple: 0 0 10px rgba(160, 130, 220, 0.3);
-  --glow-blue: 0 0 10px rgba(100, 180, 240, 0.3);
+  --glow-teal: 0 0 10px rgba(63, 167, 61, 0.3);
+  --glow-green: 0 0 10px rgba(63, 167, 61, 0.3);
+  --glow-coral: 0 0 10px rgba(239, 128, 128, 0.3);
+  --glow-red: 0 0 10px rgba(239, 128, 128, 0.3);
+  --glow-purple: 0 0 10px rgba(180, 150, 255, 0.3);
+  --glow-blue: 0 0 10px rgba(110, 170, 240, 0.3);
 
   /* Easing */
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
