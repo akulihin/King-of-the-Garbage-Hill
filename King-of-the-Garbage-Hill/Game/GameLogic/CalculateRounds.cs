@@ -235,7 +235,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     }
 
                     r.IsTooGoodMe = true;
-                    randomForPoint = 75;
+                    randomForPoint = 80;
 
                     break;
                 case <= -13:
@@ -246,7 +246,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     }
 
                     r.IsTooGoodEnemy = true;
-                    randomForPoint = 25;
+                    randomForPoint = 20;
                     break;
             }
 
@@ -265,11 +265,11 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             wmBefore = weighingMachine;
 
             //1.2 = 200 * 2 / 500 * 1.5
-            var mySkill             = me.GetSkill(skillMultiplierMe) / 600 * nemesisMultiplier;
-            var mySkillWithoutContr = me.GetSkill(skillMultiplierMe) / 600;
+            var mySkill             = me.GetSkill(skillMultiplierMe) / 650 * nemesisMultiplier;
+            var mySkillWithoutContr = me.GetSkill(skillMultiplierMe) / 650;
         
             //0.1 = 50 * 1 / 500
-            var targetSkill = target.GetSkill(skillMultiplierTarget) / 600;
+            var targetSkill = target.GetSkill(skillMultiplierTarget) / 650;
             // 10 * (1 + (1.2-0.1)) - 10
             //var wtf = scaleMe * (1 + (myWtf - targetWtf)) - scaleMe;
             //29.64 * 1.846 - 24.9 * 1.19 - 29.64 + 24.9

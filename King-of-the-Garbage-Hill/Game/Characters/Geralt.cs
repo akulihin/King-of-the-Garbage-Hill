@@ -22,6 +22,7 @@ public class Geralt
         public int ContractsFoughtThisRound { get; set; } = 0;
         public int NonContractWinsThisRound { get; set; } = 0;
         public bool PlotvaPhrasedThisRound { get; set; } = false;
+        public bool PlotvaContractsGrantedThisRound { get; set; } = false;
         public Dictionary<Guid, int> ContractProcsOnEnemy { get; set; } = new();
 
         public int GetCount(MonsterType type) => type switch

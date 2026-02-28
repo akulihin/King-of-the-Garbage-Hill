@@ -628,8 +628,76 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Геральт — Шевелись, Плотва: removed from defense (now attack-only, see HandleAttackBeforeFight)
+                // Геральт — Масло (defense): oil effects when defending
+                case "Масло":
+                    if (target.GameCharacter.Name == "Геральт")
+                    {
+                        var geraltOil = target.Passives.GeraltOil;
+                        if (geraltOil.IsOilApplied)
+                        {
+                            var attackerMonsterType = me.Passives.GeraltMonsterType;
+                            if (attackerMonsterType != null)
+                            {
+                                var oilTier = geraltOil.GetTier(attackerMonsterType.Value);
+                                if (oilTier >= 1)
+                                {
+                                    var attackerJustice = me.FightCharacter.Justice.GetRealJusticeNow();
+                                    if (attackerJustice > 0)
+                                        me.FightCharacter.Justice.SetJusticeForOneFight(
+                                            Math.Max(0, attackerJustice - 1), "Масло");
+                                }
+                                if (oilTier >= 2)
+                                {
+                                    target.FightCharacter.SetStrengthForOneFight(
+                                        target.FightCharacter.GetStrength() + 2, "Масло");
+                                }
+                                if (oilTier >= 3)
+                                {
+                                    target.FightCharacter.SetSkillForOneFight(
+                                        target.FightCharacter.GetSkill() * 3, "Масло");
+                                }
+                            }
+                        }
+                    }
+                    break;
+
+                // Геральт — Шевелись, Плотва (defense): bonus speed + extra contracts when defending
                 case "Шевелись, Плотва":
+                    if (target.GameCharacter.Name == "Геральт")
+                    {
+                        var geraltContracts = target.Passives.GeraltContracts;
+                        if (geraltContracts.ContractProcsOnEnemy.ContainsKey(me.GetPlayerId()))
+                        {
+                            var geraltDefPos = target.Status.GetPlaceAtLeaderBoard();
+                            var attackerDefPos = me.Status.GetPlaceAtLeaderBoard();
+                            if (geraltDefPos > attackerDefPos + 1)
+                            {
+                                var plotvaDefSpeed = geraltDefPos - attackerDefPos;
+                                target.FightCharacter.AddSpeedForOneFight(plotvaDefSpeed);
+                                if (!geraltContracts.PlotvaPhrasedThisRound)
+                                {
+                                    geraltContracts.PlotvaPhrasedThisRound = true;
+                                    game.Phrases.GeraltPlotva.SendLog(target, false);
+                                }
+
+                                if (!geraltContracts.PlotvaContractsGrantedThisRound)
+                                {
+                                    geraltContracts.PlotvaContractsGrantedThisRound = true;
+                                    foreach (var p in game.PlayersList)
+                                    {
+                                        if (p.GetPlayerId() == target.GetPlayerId()) continue;
+                                        var pPlace = p.Status.GetPlaceAtLeaderBoard();
+                                        if (pPlace > attackerDefPos && pPlace < geraltDefPos && p.Passives.GeraltMonsterType != null)
+                                        {
+                                            var extraContracts = _rand.Random(0, 2);
+                                            if (extraContracts > 0)
+                                                geraltContracts.AddCount(p.Passives.GeraltMonsterType.Value, extraContracts);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     break;
 
                 // Геральт — Медитация (defense): Lambert skill zero
@@ -985,7 +1053,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         tolya.TargetList.Add(new Tolya.TolyaCountSubClass(target.GetPlayerId(), game.RoundNo));
                         tolya.IsReadyToUse = false;
-                        tolya.Cooldown = _rand.Random(2, 3);
+                        tolya.Cooldown = _rand.Random(4, 5);
                     }
 
                     break;
@@ -1105,7 +1173,7 @@ public class CharacterPassives : IServiceSingleton
                     if (yongGlebTea.IsReadyToUse && me.Status.WhoToAttackThisTurn.Count != 0)
                     {
                         yongGlebTea.IsReadyToUse = false;
-                        yongGlebTea.Cooldown = 2;
+                        yongGlebTea.Cooldown = 3;
 
                         target.Passives.GlebTeaTriggeredWhen = new WhenToTriggerClass(game.RoundNo + 1);
                         me.Status.AddRegularPoints(1, "Спокойствие");
@@ -1461,8 +1529,7 @@ public class CharacterPassives : IServiceSingleton
                                         me.FightCharacter.GetSkill() * 3, "Масло");
                                 }
                             }
-                            // Oil consumed by first attack
-                            geraltOil.IsOilApplied = false;
+                            // Oil persists for entire round (reset in HandleEndOfRound)
                         }
 
                         // Contextual attack phrases
@@ -1496,17 +1563,21 @@ public class CharacterPassives : IServiceSingleton
                                     game.Phrases.GeraltPlotva.SendLog(me, false);
                                 }
 
-                                // Extra contracts: for each player between Geralt and target on leaderboard
-                                foreach (var p in game.PlayersList)
+                                // Extra contracts: once per round, for each player between Geralt and target
+                                if (!geraltContracts.PlotvaContractsGrantedThisRound)
                                 {
-                                    if (p.GetPlayerId() == me.GetPlayerId()) continue;
-                                    var pPlace = p.Status.GetPlaceAtLeaderBoard();
-                                    if (pPlace > targetAtkPos && pPlace < geraltAtkPos && p.Passives.GeraltMonsterType != null)
+                                    geraltContracts.PlotvaContractsGrantedThisRound = true;
+                                    foreach (var p in game.PlayersList)
                                     {
-                                        var extraContracts = _rand.Random(0, 2);
-                                        if (extraContracts > 0)
+                                        if (p.GetPlayerId() == me.GetPlayerId()) continue;
+                                        var pPlace = p.Status.GetPlaceAtLeaderBoard();
+                                        if (pPlace > targetAtkPos && pPlace < geraltAtkPos && p.Passives.GeraltMonsterType != null)
                                         {
-                                            geraltContracts.AddCount(p.Passives.GeraltMonsterType.Value, extraContracts);
+                                            var extraContracts = _rand.Random(0, 2);
+                                            if (extraContracts > 0)
+                                            {
+                                                geraltContracts.AddCount(p.Passives.GeraltMonsterType.Value, extraContracts);
+                                            }
                                         }
                                     }
                                 }
@@ -2868,7 +2939,8 @@ public class CharacterPassives : IServiceSingleton
                         if (tsukuyomiTarget != Guid.Empty)
                         {
                             player.Passives.ItachiTsukuyomi.TsukuyomiTargetThisRound = tsukuyomiTarget;
-                            player.Passives.ItachiTsukuyomi.ChargeCounter = -1; // recharges over 2 rounds
+                            player.Passives.ItachiTsukuyomi.TsukuyomiActiveTarget = tsukuyomiTarget;
+                            player.Passives.ItachiTsukuyomi.ChargeCounter = -2; // recharges over 2 rounds
                             game.Phrases.ItachiTsukuyomiActivate.SendLog(player, false);
                         }
                     }
@@ -3920,7 +3992,6 @@ public class CharacterPassives : IServiceSingleton
                             if (stolenPoints > 0)
                             {
                                 player.Status.AddBonusPoints(stolenPoints, "Глаза Итачи");
-                                tsukuyomiVictim.Status.SetScoresToGiveAtEndOfRound(0, "Цукуеми");
                                 tsukuyomi.TotalStolenPoints += stolenPoints;
                                 if (!tsukuyomi.StolenFromPlayers.ContainsKey(tsukuyomi.TsukuyomiActiveTarget))
                                     tsukuyomi.StolenFromPlayers[tsukuyomi.TsukuyomiActiveTarget] = 0;
@@ -3929,7 +4000,8 @@ public class CharacterPassives : IServiceSingleton
                             }
                         }
                         tsukuyomi.TsukuyomiActiveTarget = Guid.Empty;
-                        game.Phrases.ItachiTsukuyomiEnd.SendLog(player, false);
+                        if (tsukuyomi.TsukuyomiTargetThisRound == Guid.Empty)
+                            game.Phrases.ItachiTsukuyomiEnd.SendLog(player, false);
                     }
 
                     // Charge counter (cap at 2)
@@ -4247,6 +4319,10 @@ public class CharacterPassives : IServiceSingleton
                         geraltEorContracts.ContractsFoughtThisRound = 0;
                         geraltEorContracts.NonContractWinsThisRound = 0;
                         geraltEorContracts.PlotvaPhrasedThisRound = false;
+                        geraltEorContracts.PlotvaContractsGrantedThisRound = false;
+
+                        // Reset oil (Медитация re-applies if blocking, runs after this)
+                        player.Passives.GeraltOil.IsOilApplied = false;
 
                         // Lambert reset
                         if (player.Passives.GeraltMeditation.LambertActive)

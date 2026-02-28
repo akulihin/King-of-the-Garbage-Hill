@@ -83,9 +83,10 @@ let timer: ReturnType<typeof setTimeout> | null = null
 const fightResult = ref<'win' | 'loss' | null>(null)
 const fightShake = ref(false)
 
-// ── Needle state (declared early for use in computed/watchers below) ──
+// ── Needle & slam state (declared early for use in computed/watchers below) ──
 const r3NeedlePos = ref(0)
 const r3NeedleSettled = ref(false)
+const slamPhase = ref<'idle' | 'rush' | 'impact' | 'resolved'>('idle')
 
 // ── My username and character (for filtering) ──────────────────────────
 const myPlayer = computed(() => props.players.find((pl: Player) => pl.playerId === props.myPlayerId) ?? null)
@@ -579,9 +580,25 @@ watch(currentStep, (step: number) => {
   // Step factorCount+1: R1 result
   if (step === factorCount + 1) {
     const r1pts = f.round1PointsWon * sign.value
-    const r1result: 'w' | 'l' = r1pts > 0 ? 'w' : 'l'
-    roundResults.value = [r1result]
-    playDoomsDayWinLose([r1result], false, false)
+    if (r1pts === 0) {
+      // R1 draw: play draw sound, letter = opposite of next non-draw result
+      playDoomsDayDraw()
+      const r2pts = f.pointsFromJustice * sign.value
+      let nextResult: 'w' | 'l'
+      if (r2pts !== 0) {
+        nextResult = r2pts > 0 ? 'w' : 'l'
+      } else if (hasR3) {
+        const atkWon = f.randomNumber <= f.randomForPoint
+        nextResult = (sign.value > 0 ? atkWon : !atkWon) ? 'w' : 'l'
+      } else {
+        nextResult = 'w'
+      }
+      roundResults.value = [nextResult === 'w' ? 'l' : 'w']
+    } else {
+      const r1result: 'w' | 'l' = r1pts > 0 ? 'w' : 'l'
+      roundResults.value = [r1result]
+      playDoomsDayWinLose([r1result], false, false)
+    }
     return
   }
 
@@ -589,12 +606,14 @@ watch(currentStep, (step: number) => {
   if (step === factorCount + 2) {
     const r2pts = f.pointsFromJustice * sign.value
     if (r2pts === 0) {
-      // Draw in round 2
+      // R2 draw: letter = opposite of previous (R1) result
       playDoomsDayDraw()
+      const prev = roundResults.value[roundResults.value.length - 1]
+      roundResults.value = [...roundResults.value, prev === 'w' ? 'l' : 'w']
     } else {
       const r2result: 'w' | 'l' = r2pts > 0 ? 'w' : 'l'
       roundResults.value = [...roundResults.value, r2result]
-      playDoomsDayWinLose(roundResults.value, !hasR3, false, leftWon.value)
+      playDoomsDayWinLose(roundResults.value, false, false)
     }
     return
   }
@@ -606,7 +625,7 @@ watch(currentStep, (step: number) => {
       return
     }
 
-    // Step factorCount+4: R3 roll bar + result sound on fixed step timing
+    // Step factorCount+4: R3 roll bar + result sound
     if (step === factorCount + 4) {
       const s = sign.value
       const attackerWon = f.randomNumber <= f.randomForPoint
@@ -618,13 +637,7 @@ watch(currentStep, (step: number) => {
     }
   }
 
-  // Final result sound for ALL fights
-  if (step === totalSteps.value - 1 && step > factorCount + 2) {
-    const isLastFight = currentFightIdx.value === myFights.value.length - 1
-    const allSame = roundResults.value.length > 0 && roundResults.value.every(r => r === roundResults.value[0])
-    const isAbsolute = isLastFight && allSame
-    playDoomsDayWinLose(roundResults.value, true, isAbsolute, leftWon.value)
-  }
+  // Final sound deferred to showFinalResult watcher (228ms delay)
 })
 
 // No-fights sound: fights exist but none are mine (play only once per round)
@@ -697,7 +710,6 @@ const ourSkillMultiplier = computed(() => {
 })
 
 // Justice: Number Slam animation
-const slamPhase = ref<'idle' | 'rush' | 'impact' | 'resolved'>('idle')
 let slamTimers: ReturnType<typeof setTimeout>[] = []
 
 const justiceWinner = computed(() => {
@@ -736,6 +748,17 @@ const phase2Revealed = computed(() => {
 const phase3Revealed = computed(() => {
   if (!isMyFight.value || skippedToEnd.value) return showR3Roll.value
   return r3NeedleSettled.value
+})
+
+// ── Final result sound trigger ───────────────────────────────────────
+watch(showFinalResult, (show) => {
+  if (!show || skippedToEnd.value) return
+  if (!fight.value || !isMyFight.value || isSpecialOutcome.value) return
+  if (currentStep.value <= round1Factors.value.length + 2) return
+  const isLastFight = currentFightIdx.value === myFights.value.length - 1
+  const allSame = roundResults.value.length > 0 && roundResults.value.every(r => r === roundResults.value[0])
+  const isAbsolute = isLastFight && allSame
+  playDoomsDayWinLose(roundResults.value, true, isAbsolute, leftWon.value)
 })
 
 function phaseClass(result: number, revealed: boolean): string {

@@ -489,50 +489,26 @@ export function doomsDayWinLosePath(
   const len = roundResults.length
   if (len === 0) return 'dooms_day/win_lose/1_w.mp3' // fallback
 
-  if (isFinal) {
-    // Final outcome
-    const allWin = roundResults.every(r => r === 'w')
-    const allLose = roundResults.every(r => r === 'l')
+  const seq = roundResults.join('')
 
-    if (isAbsolute && allWin) return 'dooms_day/win_lose/f_ww_absolute.mp3'
-    if (isAbsolute && allLose) return 'dooms_day/win_lose/f_ll_absolute.mp3'
-
-    // Non-absolute finals
-    if (len === 2) {
-      if (allWin) return 'dooms_day/win_lose/f_ww.mp3'
-      // Mixed rounds: use actual outcome to pick victory vs defeat sound
-      if (weWon === true) return 'dooms_day/win_lose/f_ww.mp3'
-      return 'dooms_day/win_lose/f_any_lose.mp3'
-    }
-    if (len >= 3) {
-      // Use actual fight outcome — passives can override round results
-      if (weWon === true) {
-        const seq = roundResults.join('')
-        if (seq === 'lww') return 'dooms_day/win_lose/f_lww.mp3'
-        if (seq === 'wlw') return 'dooms_day/win_lose/f_wlw.mp3'
-        return 'dooms_day/win_lose/f_ww.mp3'
-      }
-      return 'dooms_day/win_lose/f_any_lose.mp3'
-    }
-    // len === 1 final (no R2/R3) — use the round 1 file
-    return `dooms_day/win_lose/1_${roundResults[0]}.mp3`
+  // Non-final: per-round sounds (1_w, 2_ww, 3_wlw, etc.)
+  if (!isFinal) {
+    return `dooms_day/win_lose/${len}_${seq}.mp3`
   }
 
-  // Non-final: per-round sounds
-  if (len === 1) {
-    return `dooms_day/win_lose/1_${roundResults[0]}.mp3`
-  }
-  if (len === 2) {
-    const seq = roundResults.join('')
-    return `dooms_day/win_lose/2_${seq}.mp3`
-  }
-  if (len >= 3) {
-    // Round 3 result: first char is round number, then full sequence
-    const seq = roundResults.join('')
-    return `dooms_day/win_lose/3_${seq}.mp3`
+  // Final: absolute variants for last fight with uniform results
+  if (isAbsolute) {
+    if (roundResults.every(r => r === 'w')) return 'dooms_day/win_lose/f_ww_absolute.mp3'
+    if (roundResults.every(r => r === 'l')) return 'dooms_day/win_lose/f_ll_absolute.mp3'
   }
 
-  return 'dooms_day/win_lose/1_w.mp3'
+  // Final: defeat
+  if (!weWon) return 'dooms_day/win_lose/f_any_lose.mp3'
+
+  // Final: victory — use sequence-specific file if available (f_ww, f_wlw, f_lww)
+  const knownWinSeqs = ['ww', 'wlw', 'lww']
+  if (knownWinSeqs.includes(seq)) return `dooms_day/win_lose/f_${seq}.mp3`
+  return 'dooms_day/win_lose/f_ww.mp3' // generic victory fallback
 }
 
 export function playDoomsDayFight(pool: FightSoundPool, isLastFactor: boolean): void {

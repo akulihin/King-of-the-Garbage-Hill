@@ -287,6 +287,7 @@ function startComboAnimation() {
   animatedScoreDelta.value = 0
   setTimeout(() => {
     let i = 0
+    let pluckSeq = 0
     const allHits = comboHits.value
     comboTimer = setInterval(() => {
       if (i >= allHits.length) { clearComboTimer(); setTimeout(() => { hitActiveIdx.value = -1 }, 600); return }
@@ -295,7 +296,8 @@ function startComboAnimation() {
       if (hit.pointsDelta > 0) {
         playPointsIncreaseSound(hit.pointsDelta)
         if (hit.comboNum === 1) {
-          playComboPluck(hit.totalInEntry)
+          pluckSeq++
+          playComboPluck(Math.min(7, pluckSeq))
           playComboHype(hit.totalInEntry)
         }
       }
