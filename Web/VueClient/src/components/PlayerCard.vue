@@ -861,12 +861,12 @@ function handleMoralToSkill() {
       <div class="geralt-displeasure">
         <div class="geralt-displeasure-bar">
           <div
-            v-for="i in 11" :key="i"
+            v-for="i in 10" :key="i"
             class="geralt-displeasure-seg"
             :style="geraltSegStyle(i)"
           />
         </div>
-        <span class="geralt-displeasure-text" :style="geraltDispleasureTextStyle">{{ geralt.displeasure }}/11</span>
+        <span class="geralt-displeasure-text" :style="geraltDispleasureTextStyle">{{ geralt.displeasure }}/10</span>
       </div>
     </div>
 

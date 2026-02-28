@@ -505,6 +505,10 @@ public sealed class GameReaction : IServiceSingleton
 
         var selected = options[optionIndex];
 
+        // Prevent duplicate characters in the game
+        if (game.PlayersList.Any(p => p != player && p.GameCharacter.Name == selected.Name))
+            return;
+
         // Replace the player's character with the selected one
         var newBridge = new GamePlayerBridgeClass(
             selected,

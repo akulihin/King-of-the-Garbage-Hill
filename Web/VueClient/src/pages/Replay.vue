@@ -174,6 +174,9 @@ function mergeEvents(): string {
 const currentLogEntriesAll = computed(() => parsePrevLogs(mergeEvents() || ''))
 const prevLogEntriesAll = computed(() => parsePrevLogs(myPlayer.value?.status.previousRoundLogs || ''))
 
+const currentLogEntries = computed(() => currentLogEntriesAll.value.filter((e: PrevLogEntry) => e.type !== 'gold'))
+const prevLogEntries = computed(() => prevLogEntriesAll.value.filter((e: PrevLogEntry) => e.type !== 'gold'))
+
 const scoreEntries = computed(() => [
   ...currentLogEntriesAll.value.filter((e: PrevLogEntry) => e.type === 'gold'),
   ...prevLogEntriesAll.value.filter((e: PrevLogEntry) => e.type === 'gold'),
@@ -363,11 +366,29 @@ onUnmounted(() => {
         <!-- Logs -->
         <div class="logs-row-top">
           <div class="log-panel card events-panel">
-            <div v-if="personalLogs" class="log-content" v-html="formatLogs(personalLogs)"></div>
+            <div v-if="currentLogEntries.length" class="prev-logs">
+              <div v-for="(entry, idx) in currentLogEntries" :key="idx"
+                class="prev-log-item prev-log-visible"
+                :class="'prev-log-' + entry.type">
+                <span class="prev-log-text" v-html="entry.html"></span>
+                <span v-if="entry.type === 'gold' && entry.comboCount > 0" class="prev-log-combo-badge">
+                  x{{ entry.comboCount + 1 }} combo
+                </span>
+              </div>
+            </div>
             <div v-else class="log-empty">No personal logs this round.</div>
           </div>
           <div class="log-panel card events-panel prev-logs-panel">
-            <div v-if="previousRoundLogs" class="log-content" v-html="formatLogs(previousRoundLogs)"></div>
+            <div v-if="prevLogEntries.length" class="prev-logs">
+              <div v-for="(entry, idx) in prevLogEntries" :key="idx"
+                class="prev-log-item prev-log-visible"
+                :class="'prev-log-' + entry.type">
+                <span class="prev-log-text" v-html="entry.html"></span>
+                <span v-if="entry.type === 'gold' && entry.comboCount > 0" class="prev-log-combo-badge">
+                  x{{ entry.comboCount + 1 }} combo
+                </span>
+              </div>
+            </div>
             <div v-else class="log-empty">No previous round logs.</div>
           </div>
         </div>
@@ -588,6 +609,90 @@ onUnmounted(() => {
   font-size: 12px;
   text-align: center;
   padding: 12px;
+}
+
+/* ── Parsed Log Entries (matching Game.vue styling) ──────────────── */
+.prev-logs {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+
+.prev-log-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 1.4;
+  border-left: 3px solid transparent;
+}
+
+.prev-log-item.prev-log-visible {
+  opacity: 1;
+}
+
+.prev-log-text {
+  flex: 1;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.prev-log-text :deep(strong) { color: var(--accent-gold); }
+.prev-log-text :deep(em) { color: var(--accent-blue); }
+.prev-log-text :deep(u) { color: var(--accent-green); }
+.prev-log-text :deep(.lb-emoji) {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  display: inline;
+  margin: 0 2px;
+}
+
+/* Log colors */
+.prev-log-purple {
+  background: rgba(139, 92, 246, 0.06);
+  border-left-color: rgba(139, 92, 246, 0.5);
+}
+.prev-log-gold {
+  background: rgba(233, 219, 61, 0.06);
+  border-left-color: rgba(233, 219, 61, 0.5);
+}
+.prev-log-green {
+  background: rgba(63, 167, 61, 0.06);
+  border-left-color: rgba(63, 167, 61, 0.5);
+}
+.prev-log-red {
+  background: rgba(239, 128, 128, 0.06);
+  border-left-color: rgba(239, 128, 128, 0.5);
+}
+.prev-log-blue {
+  background: rgba(100, 160, 255, 0.06);
+  border-left-color: rgba(100, 160, 255, 0.5);
+}
+.prev-log-orange {
+  background: rgba(230, 148, 74, 0.06);
+  border-left-color: rgba(230, 148, 74, 0.5);
+}
+.prev-log-muted {
+  background: var(--bg-inset);
+  border-left-color: var(--border-subtle);
+}
+
+/* Combo badge */
+.prev-log-combo-badge {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--accent-gold);
+  background: rgba(233, 219, 61, 0.12);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(233, 219, 61, 0.25);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .lb-action-block {

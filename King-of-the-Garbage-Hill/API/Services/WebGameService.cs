@@ -326,6 +326,10 @@ public class WebGameService
         var selected = options.Find(c => c.Name == characterName);
         if (selected == null) return Task.FromResult((false, "Character not in your draft options"));
 
+        // Prevent duplicate characters in the game
+        if (game.PlayersList.Any(p => p != player && p.GameCharacter.Name == characterName))
+            return Task.FromResult((false, "Character already taken by another player"));
+
         // Side characters (not first option) cost 5 ZBS points
         var selectedIndex = options.IndexOf(selected);
         if (selectedIndex > 0)
@@ -585,7 +589,7 @@ public class WebGameService
             }
             else
             {
-                var displeasureDelta = score < 0 || demand.PrevContractWins == 0 ? 2 : 1;
+                var displeasureDelta = score < 0 || demand.PrevContractWins == 0 ? 3 : 2;
                 demand.Displeasure += displeasureDelta;
                 player.Status.AddInGamePersonalLogs($"Чеканная монета: Провал! Недовольство +{displeasureDelta} (оценка: {score})\n");
             }
