@@ -1855,6 +1855,7 @@ const charTint = computed(() => {
   flex-direction: column;
   gap: 3px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 4px 2px;
 }
 
@@ -1945,8 +1946,11 @@ const charTint = computed(() => {
 }
 
 .slide-exit-right {
-  animation: slide-to-right 0.35s ease-in forwards;
+  animation: slide-to-right 0.35s cubic-bezier(0.4, 0, 0.6, 1) forwards;
   pointer-events: none;
+}
+.slide-exit-right .prev-log-item {
+  transition: none;
 }
 
 .prev-log-text {

@@ -94,6 +94,7 @@ interface PrevLogEntry {
   html: string
   type: PrevLogColor
   comboCount: number
+  isPhrase: boolean
 }
 
 function cleanDiscord(text: string): string {
@@ -129,11 +130,14 @@ function parsePrevLogs(raw: string): PrevLogEntry[] {
   const lines = raw.split('\n').filter((l: string) => l.trim() && !hiddenPatterns.some(fn => fn(l)) && l.length > 2)
 
   return lines.map((line: string) => {
+    const isPhrase = line.includes('|>Phrase<|') && !line.includes('|>Stat<|')
     const clean = cleanDiscord(line)
     let type: PrevLogColor = 'muted'
     let comboCount = 0
 
-    if (/[Сс]килла/i.test(clean) || /Справедливость/i.test(clean) || /Cкилла/i.test(clean) || /Морали/i.test(clean)) {
+    if (isPhrase) {
+      type = 'purple'
+    } else if (/[Сс]килла/i.test(clean) || /Справедливость/i.test(clean) || /Cкилла/i.test(clean) || /Морали/i.test(clean)) {
       type = 'green'
     } else if (/очков/i.test(clean) && !clean.includes('отнял в общей сумме')) {
       type = 'gold'
@@ -153,7 +157,7 @@ function parsePrevLogs(raw: string): PrevLogEntry[] {
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/~~(.*?)~~/g, '<del>$1</del>')
 
-    return { raw: clean, html, type, comboCount }
+    return { raw: clean, html, type, comboCount, isPhrase }
   })
 }
 
@@ -369,7 +373,7 @@ onUnmounted(() => {
             <div v-if="currentLogEntries.length" class="prev-logs">
               <div v-for="(entry, idx) in currentLogEntries" :key="idx"
                 class="prev-log-item prev-log-visible"
-                :class="'prev-log-' + entry.type">
+                :class="['prev-log-' + entry.type, { 'prev-log-phrase': entry.isPhrase }]">
                 <span class="prev-log-text" v-html="entry.html"></span>
                 <span v-if="entry.type === 'gold' && entry.comboCount > 0" class="prev-log-combo-badge">
                   x{{ entry.comboCount + 1 }} combo
@@ -382,7 +386,7 @@ onUnmounted(() => {
             <div v-if="prevLogEntries.length" class="prev-logs">
               <div v-for="(entry, idx) in prevLogEntries" :key="idx"
                 class="prev-log-item prev-log-visible"
-                :class="'prev-log-' + entry.type">
+                :class="['prev-log-' + entry.type, { 'prev-log-phrase': entry.isPhrase }]">
                 <span class="prev-log-text" v-html="entry.html"></span>
                 <span v-if="entry.type === 'gold' && entry.comboCount > 0" class="prev-log-combo-badge">
                   x{{ entry.comboCount + 1 }} combo
@@ -680,6 +684,15 @@ onUnmounted(() => {
 .prev-log-muted {
   background: var(--bg-inset);
   border-left-color: var(--border-subtle);
+}
+
+/* Phrase styling */
+.prev-log-phrase {
+  padding-left: 16px;
+  font-style: italic;
+  opacity: 0.85;
+  border-left-style: dotted;
+  font-size: 10.5px;
 }
 
 /* Combo badge */
