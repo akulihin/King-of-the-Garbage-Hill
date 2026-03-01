@@ -3,17 +3,58 @@ import { ref, computed } from 'vue'
 import type {
   ReplayData,
   ReplayRound,
+  ReplayRoundPlayer,
   GameState,
   Player,
 } from 'src/services/signalr'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 
+/**
+ * Builds a player with stats from the previous round (pre-fight) but
+ * score/status from the current round. Round 1 returns current as-is.
+ */
+export function buildShiftedPlayer(current: Player, prev: Player | undefined, roundNo: number): Player {
+  if (roundNo <= 1 || !prev) return current
+  return {
+    // Identity & leaderboard from current round
+    playerId: current.playerId,
+    discordUsername: current.discordUsername,
+    isBot: current.isBot,
+    isWebPlayer: current.isWebPlayer,
+    teamId: current.teamId,
+    customLeaderboardPrefix: current.customLeaderboardPrefix,
+    customLeaderboardText: current.customLeaderboardText,
+    characterMasteryPoints: current.characterMasteryPoints,
+    isInMyHarmRange: current.isInMyHarmRange,
+    // Score/status from current round
+    status: current.status,
+    // Stats & character from previous round (pre-fight state)
+    character: prev.character,
+    isDead: prev.isDead,
+    deathSource: prev.deathSource,
+    isKira: prev.isKira,
+    isBug: prev.isBug,
+    deathNote: prev.deathNote,
+    portalGun: prev.portalGun,
+    exploitState: prev.exploitState,
+    tsukuyomiState: prev.tsukuyomiState,
+    passiveAbilityStates: prev.passiveAbilityStates,
+    isExploitable: prev.isExploitable,
+    isExploitFixed: prev.isExploitFixed,
+    darksciChoiceNeeded: prev.darksciChoiceNeeded,
+    youngGlebAvailable: prev.youngGlebAvailable,
+    dopaChoiceNeeded: prev.dopaChoiceNeeded,
+    predictions: prev.predictions,
+  }
+}
+
 export const useReplayStore = defineStore('replay', () => {
   // ── State ─────────────────────────────────────────────────────────
   const replayData = ref<ReplayData | null>(null)
   const currentRound = ref(1) // 1-based
   const currentPlayerIndex = ref(0) // index into playerSummaries
+  const currentFightIndex = ref(0) // 0-based fight within current round
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
@@ -45,6 +86,12 @@ export const useReplayStore = defineStore('replay', () => {
     const myRoundPlayer = round.players.find(rp => rp.playerId === playerId)
     if (!myRoundPlayer) return null
 
+    // Look up previous round for stat shifting (show pre-fight stats)
+    const prevRound = data.rounds.find((r: ReplayRound) => r.roundNo === round.roundNo - 1)
+    const prevPlayerMap = new Map<string, ReplayRoundPlayer>(
+      (prevRound?.players ?? []).map((rp: ReplayRoundPlayer) => [rp.playerId, rp] as [string, ReplayRoundPlayer])
+    )
+
     // Build custom leaderboard lookup from the selected player's perspective
     const lbView = new Map(
       (myRoundPlayer.customLeaderboardView ?? []).map(e => [e.playerId, e])
@@ -53,15 +100,17 @@ export const useReplayStore = defineStore('replay', () => {
     // Build players array: full data for selected player, other players from their own perspective
     const players: Player[] = round.players.map(rp => {
       const lbEntry = lbView.get(rp.playerId)
+      const prevRp = prevPlayerMap.get(rp.playerId)
       if (rp.playerId === playerId) {
         // Apply own custom leaderboard view to self too
-        return lbEntry
+        const base = lbEntry
           ? { ...myRoundPlayer.playerState, customLeaderboardPrefix: lbEntry.customLeaderboardPrefix, customLeaderboardText: lbEntry.customLeaderboardText }
           : myRoundPlayer.playerState
+        return buildShiftedPlayer(base, prevRp?.playerState, round.roundNo)
       }
       // For other players, use their own playerState but strip private data,
       // then overlay custom leaderboard from the selected player's perspective
-      return {
+      const otherBase = {
         ...rp.playerState,
         predictions: undefined,
         deathNote: undefined,
@@ -72,6 +121,16 @@ export const useReplayStore = defineStore('replay', () => {
         customLeaderboardPrefix: lbEntry?.customLeaderboardPrefix ?? rp.playerState.customLeaderboardPrefix,
         customLeaderboardText: lbEntry?.customLeaderboardText ?? rp.playerState.customLeaderboardText,
       } as Player
+      const prevOtherBase = prevRp ? {
+        ...prevRp.playerState,
+        predictions: undefined,
+        deathNote: undefined,
+        portalGun: undefined,
+        exploitState: undefined,
+        tsukuyomiState: undefined,
+        passiveAbilityStates: undefined,
+      } as Player : undefined
+      return buildShiftedPlayer(otherBase, prevOtherBase, round.roundNo)
     })
 
     return {
@@ -130,11 +189,17 @@ export const useReplayStore = defineStore('replay', () => {
     if (!replayData.value) return
     const maxRound = Math.max(...replayData.value.rounds.map(r => r.roundNo), 1)
     currentRound.value = Math.max(1, Math.min(n, maxRound))
+    currentFightIndex.value = 0
   }
 
   function setPlayer(idx: number) {
     if (!replayData.value) return
     currentPlayerIndex.value = Math.max(0, Math.min(idx, replayData.value.playerSummaries.length - 1))
+    currentFightIndex.value = 0
+  }
+
+  function setFight(idx: number) {
+    currentFightIndex.value = Math.max(0, idx)
   }
 
   function setPlayerById(id: string) {
@@ -147,6 +212,7 @@ export const useReplayStore = defineStore('replay', () => {
     replayData.value = null
     currentRound.value = 1
     currentPlayerIndex.value = 0
+    currentFightIndex.value = 0
     isLoading.value = false
     error.value = null
   }
@@ -155,6 +221,7 @@ export const useReplayStore = defineStore('replay', () => {
     replayData,
     currentRound,
     currentPlayerIndex,
+    currentFightIndex,
     isLoading,
     error,
     totalRounds,
@@ -165,6 +232,7 @@ export const useReplayStore = defineStore('replay', () => {
     setRound,
     setPlayer,
     setPlayerById,
+    setFight,
     $reset,
   }
 })

@@ -36,6 +36,62 @@ type LevelUpStatIndex = 1 | 2 | 3 | 4
 const hasLvlUpPoints = computed(() => props.isMe && (props.player?.status.lvlUpPoints ?? 0) > 0)
 const lvlUpPoints = computed(() => props.player?.status.lvlUpPoints ?? 0)
 
+/** Level-up flavor quips per character */
+const levelUpQuotes: Record<string, string[]> = {
+  'Глеб': ['*зевает* ...ну ладно, прокачаюсь...', '*бормочет сквозь сон*', '...пять минуточек...'],
+  'mylorik': ['ЭТО СПАРТА!!!', 'ДААА! ЕЩЕ СИЛЬНЕЕ!', 'КАМОН, БОЛЬШЕ МОЩИ!'],
+  'Продавец': ['Сделка века, налетай...', 'Скидка только для тебя!', 'Хех, выгодное вложение...'],
+  'Рик': ['Wubba lubba dub dub!', 'Science, b*tch!', '*отрыжка* ...умнее стал...'],
+  'Сайтама': ['Ок.', '...серьезно?', 'Скучно.'],
+  'Кратос': ['BOY!', 'Мы должны стать сильнее.', 'Боги заплатят.'],
+  'Тигр': ['Тигр на вершине!', 'Слабаки, все слабаки!', 'Я ЛУЧШИЙ!'],
+  'Кира': ['Всё по кейкаку...', 'Я — бог нового мира.', 'Записываю...'],
+  'Акула': ['*плавник торчит из воды*', 'Кусь!', '*жуёт добычу*'],
+  'LeCrisp': ['Ez clap', 'GG EZ', 'Diff, diff...'],
+  'Дракон': ['*рычание*', 'Огонь сильнее!', 'Пламя растёт...'],
+  'Котики': ['Мяу~', '*мурчит*', 'Котик стал сильнее!'],
+  'HardKitty': ['...', '*тишина*', '...никто не ответил...'],
+  'Стая Гоблинов': ['ВААААГХ!', 'Больше гоблинов!', 'МЯЯЯСО!'],
+  'Weedwick': ['*пыхтит*', '420...', '*кашляет*'],
+  'DeepList': ['РАНДОМ РЕШАЕТ!', '*глитч*', 'Х А О С'],
+  'Братишка': ['За братишку!', 'Вместе сильнее!', 'Эй, бро!'],
+  'Дезморалист': ['Всё бесполезно...', 'Сдавайся...', 'Нет смысла...'],
+  'Баг': ['> sudo levelup', '0x1337', 'exploit.exe'],
+  'Допа': ['Тактика решает.', 'По плану.', 'Рассчитано.'],
+  'Geralt': ['Хм...', 'Ветер воет...', 'Чеканной монетой...'],
+}
+
+const levelUpQuip = computed(() => {
+  const name = props.player?.character.name
+  if (!name || !hasLvlUpPoints.value) return ''
+  const quotes = levelUpQuotes[name]
+  if (!quotes) return ''
+  // Deterministic pick based on round number
+  const roundNo = store.gameState?.roundNo ?? 1
+  return quotes[(roundNo - 1) % quotes.length]
+})
+
+/** Character accent color for level-up tint */
+const levelUpTintColors: Record<string, string> = {
+  'Глеб': 'rgba(155,89,182,0.05)',
+  'mylorik': 'rgba(231,76,60,0.05)',
+  'Продавец': 'rgba(243,156,18,0.05)',
+  'Рик': 'rgba(46,204,113,0.05)',
+  'Сайтама': 'rgba(241,196,15,0.05)',
+  'Кратос': 'rgba(192,57,43,0.05)',
+  'Тигр': 'rgba(230,126,34,0.05)',
+  'Кира': 'rgba(142,68,173,0.05)',
+  'Акула': 'rgba(52,152,219,0.05)',
+  'DeepList': 'rgba(231,76,60,0.05)',
+  'Баг': 'rgba(0,255,65,0.05)',
+}
+
+const levelUpTint = computed(() => {
+  const name = props.player?.character.name
+  if (!name || !hasLvlUpPoints.value) return ''
+  return levelUpTintColors[name] || ''
+})
+
 const moral = computed(() => {
   if (!props.player) return 0
   return Number.parseFloat(props.player.character.moralDisplay) || 0
@@ -45,6 +101,12 @@ const hasMoral = computed(() => props.isMe && moral.value >= 1)
 
 const roundNo = computed(() => store.gameState?.roundNo ?? 0)
 const isLastRound = computed(() => roundNo.value === 10)
+const roundMultiplier = computed(() => {
+  const r = roundNo.value
+  if (r <= 4) return 1
+  if (r <= 9) return 2
+  return 4
+})
 
 const hasBulkaet = computed(() => {
   if (!props.player) return false
@@ -166,6 +228,21 @@ const geraltDispleasureTextStyle = computed(() => {
   if (d >= 7) return { color: 'rgba(208, 80, 48, 0.7)' }
   if (d >= 4) return { color: 'rgba(212, 136, 42, 0.7)' }
   return {}
+})
+
+const invoiceTotalClass = computed(() => {
+  const t = geralt.value?.invoiceTotal ?? 0
+  if (t >= 8) return 'inv-tier-great'
+  if (t >= 5) return 'inv-tier-good'
+  if (t >= 2) return 'inv-tier-mid'
+  return 'inv-tier-bad'
+})
+
+const demandPreviousBtnText = computed(() => {
+  const coins = geralt.value?.invoicePredictedCoins ?? 0
+  if (coins >= 2) return `Потребовать (+${coins} очка)`
+  if (coins === 1) return 'Потребовать (+1 очко)'
+  return 'Потребовать'
 })
 
 // Goblin population bar segment percentages
@@ -295,9 +372,9 @@ function startComboAnimation() {
       const hit = allHits[i]
       if (hit.pointsDelta > 0) {
         playPointsIncreaseSound(hit.pointsDelta)
+        pluckSeq++
+        playComboPluck(Math.min(7, pluckSeq))
         if (hit.comboNum === 1) {
-          pluckSeq++
-          playComboPluck(Math.min(7, pluckSeq))
           playComboHype(hit.totalInEntry)
         }
       }
@@ -515,8 +592,9 @@ function handleMoralToSkill() {
 
     <!-- Stats with bars + resist/quality -->
     <div class="pc-stats">
-      <div v-if="hasLvlUpPoints" class="lvl-up-badge">
+      <div v-if="hasLvlUpPoints" class="lvl-up-badge" :style="levelUpTint ? { background: levelUpTint } : {}">
         +{{ lvlUpPoints }} очков
+        <span v-if="levelUpQuip" class="lvl-up-quip">{{ levelUpQuip }}</span>
       </div>
 
       <!-- Goblin level-up upgrades (replaces stat +buttons but shows read-only stats) -->
@@ -844,13 +922,29 @@ function handleMoralToSkill() {
     <!-- Geralt contract demand (replaces moral area for Geralt) -->
     <div v-if="isMe && isGeralt && geralt" class="pc-geralt-demand" :class="geraltDemandContainerClass">
       <div class="geralt-demand-header" :style="geraltHeaderStyle">Потребовать больше монет за заказ</div>
+      <!-- Invoice breakdown (admin only) -->
+      <div v-if="store.isAdmin && geralt.invoiceItems && geralt.invoiceItems.length > 0 && !geralt.demandedThisPhase" class="geralt-invoice">
+        <div v-for="(item, idx) in geralt.invoiceItems" :key="idx" class="geralt-invoice-line">
+          <span class="geralt-invoice-label">{{ item.label }}</span>
+          <span class="geralt-invoice-pts" :class="item.points >= 0 ? 'pts-pos' : 'pts-neg'">{{ item.points >= 0 ? '+' : '' }}{{ item.points }}</span>
+        </div>
+        <div class="geralt-invoice-total" :class="invoiceTotalClass">
+          <span>Итого:</span>
+          <span class="geralt-invoice-total-val">{{ geralt.invoiceTotal }}</span>
+        </div>
+        <div class="geralt-invoice-prediction">
+          <span v-if="(geralt.invoicePredictedCoins ?? 0) > 0" class="geralt-inv-coins">+{{ geralt.invoicePredictedCoins }} {{ geralt.invoicePredictedCoins === 1 ? 'очко' : 'очка' }}</span>
+          <span v-if="(geralt.invoicePredictedDispleasure ?? 0) > 0" class="geralt-inv-displ">+{{ geralt.invoicePredictedDispleasure }} недовольство</span>
+          <span v-if="(geralt.invoicePredictedCoins ?? 0) === 0 && (geralt.invoicePredictedDispleasure ?? 0) === 0" class="geralt-inv-nothing">Ничего</span>
+        </div>
+      </div>
       <div class="geralt-demand-btns">
         <button
           class="geralt-demand-btn"
           :disabled="!geralt.canDemandPrevious || geralt.demandedThisPhase"
           @click="store.demandContractReward('previous')"
         >
-          {{ geralt.demandedThisPhase ? 'Уже потребовал' : geralt.canDemandPrevious ? 'За прошлый (+1 очко)' : 'Нет заказов' }}
+          {{ geralt.demandedThisPhase ? 'Уже потребовал' : geralt.canDemandPrevious ? demandPreviousBtnText : 'Нет заказов' }}
         </button>
         <button
           v-if="geralt.canDemandNext"
@@ -1614,6 +1708,7 @@ function handleMoralToSkill() {
     <div class="pc-score-row" :class="{ 'confetti-burst': showConfetti }">
       <ScoreOdometer :value="player.status.score" size="lg" :flash-color="animatedScoreDelta > 0 ? '#5ba85b' : animatedScoreDelta < 0 ? '#e05545' : null" class="pc-score" />
       <span class="pc-score-label">pts</span>
+      <span v-if="roundMultiplier > 1" class="pc-round-multiplier">x{{ roundMultiplier }}</span>
       <span v-if="animatedScoreDelta !== 0" class="pc-score-delta" :class="{ 'delta-big': comboHits.length >= 4, 'delta-huge': comboHits.length >= 6, 'delta-negative': animatedScoreDelta < 0 }" :key="animatedScoreDelta">
         {{ animatedScoreDelta > 0 ? '+' : '' }}{{ animatedScoreDelta }}
       </span>
@@ -2098,6 +2193,23 @@ function handleMoralToSkill() {
   50% { transform: scale(1.05); }
 }
 
+.lvl-up-quip {
+  display: block;
+  font-size: 9px;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--text-muted);
+  opacity: 0.7;
+  margin-top: 1px;
+  letter-spacing: 0;
+  animation: quip-fade-in 0.5s ease-out;
+}
+
+@keyframes quip-fade-in {
+  0% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 0.7; transform: translateY(0); }
+}
+
 .lvl-btn {
   width: 22px;
   height: 22px;
@@ -2353,6 +2465,17 @@ function handleMoralToSkill() {
   font-size: 11px;
   color: var(--text-muted);
   font-weight: 600;
+}
+
+.pc-round-multiplier {
+  font-size: 11px;
+  font-weight: 700;
+  color: #d4a017;
+  background: rgba(212, 160, 23, 0.15);
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-left: 4px;
+  font-family: var(--font-mono);
 }
 
 .pc-score-delta {
@@ -3472,6 +3595,52 @@ function handleMoralToSkill() {
   text-align: right;
   transition: color 0.4s;
 }
+.geralt-invoice {
+  margin-bottom: 6px;
+  padding: 4px 6px;
+  background: rgba(200, 160, 80, 0.04);
+  border-radius: 4px;
+  font-size: 10px;
+}
+.geralt-invoice-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 1px 0;
+}
+.geralt-invoice-label {
+  color: rgba(200, 200, 200, 0.7);
+}
+.geralt-invoice-pts {
+  font-weight: 600;
+  min-width: 24px;
+  text-align: right;
+}
+.geralt-invoice-pts.pts-pos { color: #4ADE80; }
+.geralt-invoice-pts.pts-neg { color: #F87171; }
+.geralt-invoice-total {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0 2px;
+  margin-top: 2px;
+  border-top: 1px solid rgba(200, 160, 80, 0.15);
+  font-weight: 700;
+  font-size: 11px;
+}
+.geralt-invoice-total.inv-tier-great { color: #4ADE80; }
+.geralt-invoice-total.inv-tier-good { color: #C8A050; }
+.geralt-invoice-total.inv-tier-mid { color: #FACC15; }
+.geralt-invoice-total.inv-tier-bad { color: #F87171; }
+.geralt-invoice-prediction {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding-top: 2px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.geralt-inv-coins { color: #4ADE80; }
+.geralt-inv-displ { color: #F87171; }
+.geralt-inv-nothing { color: rgba(200, 200, 200, 0.4); }
 
 /* ── Floating damage numbers ── */
 .floating-numbers-container {

@@ -160,6 +160,7 @@ function closePredict() {
   predictSearch.value = ''
 }
 
+
 function isProtected(player: Player): boolean {
   if ((props.roundNo ?? 0) === 10 && player.character.passives.some(
     (p: { name: string }) => p.name === 'Стримснайпят и банят и банят и банят'
@@ -539,7 +540,7 @@ function hideTip() {
 }
 
 /* ── Hill tier CSS custom properties ────────────────────────────────── */
-.lb-row.hill-1 { --hill-tint: rgba(240,200,80, 0.1); --hill-border: rgba(240,200,80, 0.6); --hill-place: #f0c850; --hill-glow: 0 0 12px rgba(240,200,80, 0.15); }
+.lb-row.hill-1 { --hill-tint: rgba(240,200,80, 0.06); --hill-border: rgba(240,200,80, 0.35); --hill-place: #f0c850; --hill-glow: 0 0 12px rgba(240,200,80, 0.08); }
 .lb-row.hill-2 { --hill-tint: rgba(192,192,210, 0.08); --hill-border: rgba(192,192,210, 0.4); --hill-place: #c0c0d0; --hill-glow: 0 0 8px rgba(192,192,210, 0.08); }
 .lb-row.hill-3 { --hill-tint: rgba(205,160,100, 0.07); --hill-border: rgba(205,160,100, 0.35); --hill-place: #cda064; --hill-glow: none; }
 .lb-row.hill-4 { --hill-tint: rgba(80,95,130, 0.06);  --hill-border: rgba(80,95,130, 0.25);  --hill-place: #6a7a9a; --hill-glow: none; }
@@ -630,6 +631,38 @@ function hideTip() {
   z-index: 1;
 }
 
+/* ── Terrain flavor — hill elevation gradient for #2-3 ─────────────── */
+.lb-row.hill-2:not(.is-protected)::after,
+.lb-row.hill-3:not(.is-protected)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%);
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 0;
+}
+
+/* ── Terrain flavor — garbage texture for last place ───────────────── */
+.lb-row.hill-6:not(.is-protected)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, rgba(160,45,45,0.15) 50%, transparent 50%),
+    radial-gradient(1px 1px at 30% 60%, rgba(160,45,45,0.12) 50%, transparent 50%),
+    radial-gradient(1px 1px at 50% 40%, rgba(160,45,45,0.10) 50%, transparent 50%),
+    radial-gradient(1px 1px at 70% 80%, rgba(160,45,45,0.13) 50%, transparent 50%),
+    radial-gradient(1px 1px at 90% 30%, rgba(160,45,45,0.11) 50%, transparent 50%),
+    radial-gradient(1px 1px at 20% 90%, rgba(160,45,45,0.14) 50%, transparent 50%),
+    radial-gradient(1px 1px at 60% 10%, rgba(160,45,45,0.10) 50%, transparent 50%),
+    radial-gradient(1px 1px at 80% 50%, rgba(160,45,45,0.12) 50%, transparent 50%);
+  opacity: 0.5;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 0;
+}
+
 /* ── 1st place "Throne" — 3D lift + shimmer ──────────────────────────── */
 .lb-row.hill-1 {
   animation: first-place-shimmer 3s ease-in-out infinite;
@@ -638,8 +671,8 @@ function hideTip() {
   z-index: 3;
 }
 @keyframes first-place-shimmer {
-  0%, 100% { box-shadow: 0 0 10px rgba(240,200,80, 0.12); }
-  50% { box-shadow: 0 0 22px rgba(240,200,80, 0.28), 0 0 6px rgba(240,200,80, 0.12); }
+  0%, 100% { box-shadow: 0 0 10px rgba(240,200,80, 0.07); }
+  50% { box-shadow: 0 0 18px rgba(240,200,80, 0.16), 0 0 6px rgba(240,200,80, 0.07); }
 }
 
 /* Gold gradient sweep across 1st place row */
@@ -647,7 +680,7 @@ function hideTip() {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(240,200,80,0.04) 45%, rgba(240,200,80,0.08) 50%, rgba(240,200,80,0.04) 55%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(240,200,80,0.02) 45%, rgba(240,200,80,0.05) 50%, rgba(240,200,80,0.02) 55%, transparent 100%);
   background-size: 300% 100%;
   animation: first-sweep 4s ease-in-out infinite;
   pointer-events: none;
@@ -664,7 +697,7 @@ function hideTip() {
 }
 @keyframes coronation-burst {
   0% { transform: perspective(800px) translateZ(4px) translateY(-2px) scale(1.02); box-shadow: 0 0 10px rgba(240,200,80, 0.12); }
-  30% { transform: perspective(800px) translateZ(8px) translateY(-2px) scale(1.05); box-shadow: 0 0 30px rgba(240,200,80, 0.5), 0 0 60px rgba(240,200,80, 0.2); }
+  30% { transform: perspective(800px) translateZ(8px) translateY(-2px) scale(1.05); box-shadow: 0 0 30px rgba(240,200,80, 0.3), 0 0 60px rgba(240,200,80, 0.12); }
   100% { transform: perspective(800px) translateZ(4px) translateY(-2px) scale(1.02); box-shadow: 0 0 10px rgba(240,200,80, 0.12); }
 }
 
@@ -1102,6 +1135,67 @@ function hideTip() {
   30% { transform: scale(1.06) rotate(2deg); }
   60% { transform: scale(0.98) rotate(-1deg); }
   100% { transform: scale(1) rotate(0deg); }
+}
+
+/* ── Mobile responsive — larger touch targets ──────────────────── */
+@media (max-width: 768px) {
+  .lb-row {
+    padding: 12px 10px;
+    gap: 6px;
+    min-height: 48px;
+  }
+
+  .lb-row.can-click {
+    /* 44px minimum touch target */
+    min-height: 48px;
+  }
+
+  .avatar-img {
+    width: 38px;
+    height: 38px;
+  }
+  .lb-avatar {
+    width: 38px;
+    height: 38px;
+  }
+
+  .player-name {
+    font-size: 13px;
+  }
+  .lb-character {
+    font-size: 11px;
+  }
+
+  /* Hide mini stats on small screens to save space */
+  .lb-stats {
+    display: none;
+  }
+
+  .predict-btn {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .lb-place {
+    width: 22px;
+    font-size: 12px;
+  }
+  .rank-crown {
+    font-size: 12px;
+  }
+  .lb-score-area {
+    min-width: 50px;
+  }
+  .score-value {
+    font-size: 12px;
+  }
 }
 </style>
 

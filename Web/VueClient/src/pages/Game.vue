@@ -12,6 +12,7 @@ import MediaMessages from 'src/components/MediaMessages.vue'
 import RoundTimer from 'src/components/RoundTimer.vue'
 import Blackjack21 from 'src/components/Blackjack21.vue'
 import AchievementPopup from 'src/components/AchievementPopup.vue'
+import EventToast from 'src/components/EventToast.vue'
 import {
   playAttackSelection,
   playAnyMoveTurn10PlusLayer,
@@ -1040,6 +1041,13 @@ const charTint = computed(() => {
         <SkillsPanel v-if="store.myPlayer" :player="store.myPlayer" />
       </div>
     </div>
+
+    <!-- Event Toasts (character-themed notifications) -->
+    <EventToast
+      v-if="store.gameState"
+      :global-logs="store.gameState.globalLogs || ''"
+      :players="store.gameState.players"
+    />
   </div>
 </template>
 
@@ -2084,4 +2092,87 @@ const charTint = computed(() => {
 .vfx-msg-enter-active { animation: vfxPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .vfx-msg-leave-active { transition: all 0.3s ease; }
 .vfx-msg-leave-to { opacity: 0; transform: translateY(-10px) scale(0.9); }
+
+/* ══════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Tablet: stack to single column */
+@media (max-width: 1200px) {
+  .game-header {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .header-right {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+}
+
+/* Mobile: full responsive */
+@media (max-width: 768px) {
+  .game-layout {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .game-left { order: 1; }
+  .game-center { order: 0; }
+  .game-right { order: 2; }
+
+  .game-header {
+    flex-wrap: wrap;
+    padding: 4px 0;
+  }
+  .header-center { flex-wrap: wrap; gap: 4px; }
+  .header-right {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .round-badge, .mode-badge, .status-chip {
+    font-size: 9px;
+    padding: 3px 8px;
+  }
+
+  /* Fight panel: more compact */
+  .fight-panel { padding: 6px; }
+
+  /* Log panels: stack vertically on mobile */
+  .logs-row-top {
+    flex-direction: column !important;
+  }
+  .events-panel {
+    min-height: auto !important;
+  }
+
+  /* VFX messages: full width on mobile */
+  .vfx-messages {
+    right: 8px !important;
+    left: 8px !important;
+    max-width: none !important;
+  }
+  .vfx-msg {
+    font-size: 11px !important;
+    padding: 8px 12px !important;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .game-header {
+    gap: 2px;
+  }
+  .vol-control {
+    order: 10;
+  }
+  .round-announce-number {
+    font-size: 48px;
+  }
+  .round-announce-label {
+    font-size: 11px;
+    letter-spacing: 4px;
+  }
+}
 </style>

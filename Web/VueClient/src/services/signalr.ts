@@ -277,6 +277,11 @@ export type SalldorumState = {
   positionHistory: number[]
 }
 
+export type InvoiceLineItem = {
+  label: string
+  points: number
+}
+
 export type GeraltState = {
   drownersContracts: number
   werewolvesContracts: number
@@ -295,6 +300,10 @@ export type GeraltState = {
   canDemandPrevious: boolean
   canDemandNext: boolean
   demandedThisPhase: boolean
+  invoiceItems?: InvoiceLineItem[]
+  invoiceTotal?: number
+  invoicePredictedCoins?: number
+  invoicePredictedDispleasure?: number
 }
 
 export type GeraltMonsterOnMe = {
@@ -432,6 +441,8 @@ export type ActiveGame = {
   isFinished: boolean
   botCount: number
   canJoin: boolean
+  /** Character avatars for preview (optional, may not be sent by older backends) */
+  characterAvatars?: { name: string; avatar: string; tier: number }[]
 }
 
 export type CharacterInfo = {

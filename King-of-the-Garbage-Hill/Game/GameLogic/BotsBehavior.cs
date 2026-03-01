@@ -138,23 +138,23 @@ public class BotsBehavior : IServiceSingleton
             {
                 var botDemand = bot.Passives.GeraltContractDemand;
                 // "За следующий" on round 10
-                if (game.RoundNo == 10 && !botDemand.DemandedForNext && botDemand.Displeasure < 5)
+                if (game.RoundNo == 10 && !botDemand.DemandedForNext && botDemand.Displeasure < 3)
                 {
                     botDemand.DemandedForNext = true;
                     botDemand.TotalDemandsMade++;
                     botDemand.TotalSuccessfulDemands++;
                     bot.Status.AddBonusPoints(1, "Чеканная монета (аванс)");
                 }
-                // "За прошлый" — only if algorithm predicts success
-                if (!botDemand.DemandedThisPhase && botDemand.PrevContractsFought > 0 && botDemand.Displeasure < 7)
+                // "За прошлый" — only if invoice predicts coins with no displeasure
+                if (!botDemand.DemandedThisPhase && botDemand.PrevContractsFought > 0)
                 {
-                    var score = botDemand.CalculateDemandScore();
-                    if (score >= Geralt.ContractDemandClass.Threshold)
+                    var invoice = botDemand.CalculateInvoice();
+                    if (invoice.PredictedCoins >= 1 && invoice.PredictedDispleasure == 0)
                     {
                         botDemand.DemandedThisPhase = true;
                         botDemand.TotalDemandsMade++;
                         botDemand.TotalSuccessfulDemands++;
-                        bot.Status.AddBonusPoints(1, "Чеканная монета");
+                        bot.Status.AddBonusPoints(invoice.PredictedCoins, "Чеканная монета");
                     }
                 }
                 return;

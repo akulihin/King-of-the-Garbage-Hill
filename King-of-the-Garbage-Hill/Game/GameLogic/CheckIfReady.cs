@@ -954,6 +954,16 @@ public class CheckIfReady : IServiceSingleton
                         // Run deferred initialization (same as normal game creation)
                         var draftPlayersList = _characterPassives.HandleEventsBeforeFirstRound(game.PlayersList);
                         game.PlayersList = draftPlayersList;
+
+                        // Rebuild NanobotsList — draft pick/test game create new bridge objects
+                        // that aren't in the original NanobotsList
+                        game.NanobotsList.Clear();
+                        game.NanobotsList.Add(new BotsBehavior.NanobotClass(draftPlayersList));
+
+                        // Rebuild ExploitPlayersList with fresh references
+                        game.ExploitPlayersList = draftPlayersList
+                            .Where(p => p.GameCharacter.Passive.All(x => x.PassiveName != "Exploit")).ToList();
+
                         for (var j = 0; j < draftPlayersList.Count; j++)
                             draftPlayersList[j].Status.SetPlaceAtLeaderBoard(j + 1);
 

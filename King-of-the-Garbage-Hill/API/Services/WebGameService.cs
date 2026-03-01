@@ -577,27 +577,30 @@ public class WebGameService
             if (demand.DemandedThisPhase) return (false, "Already demanded this phase");
             if (demand.PrevContractsFought <= 0) return (false, "No contracts fought");
 
+            var invoice = demand.CalculateInvoice();
             demand.DemandedThisPhase = true;
             demand.TotalDemandsMade++;
 
-            var score = demand.CalculateDemandScore();
-            if (score >= Geralt.ContractDemandClass.Threshold)
+            if (invoice.PredictedCoins > 0)
             {
                 demand.TotalSuccessfulDemands++;
-                player.Status.AddBonusPoints(1, "Чеканная монета");
-                player.Status.AddInGamePersonalLogs($"Чеканная монета: Успех! +1 очко (оценка: {score})\n");
+                player.Status.AddBonusPoints(invoice.PredictedCoins, "Чеканная монета");
+                player.Status.AddInGamePersonalLogs($"Чеканная монета: +{invoice.PredictedCoins} очк. (счёт: {invoice.Total})\n");
             }
-            else
+            if (invoice.PredictedDispleasure > 0)
             {
-                var displeasureDelta = score < 0 || demand.PrevContractWins == 0 ? 3 : 2;
-                demand.Displeasure += displeasureDelta;
-                player.Status.AddInGamePersonalLogs($"Чеканная монета: Провал! Недовольство +{displeasureDelta} (оценка: {score})\n");
+                demand.Displeasure += invoice.PredictedDispleasure;
+                player.Status.AddInGamePersonalLogs($"Чеканная монета: Недовольство +{invoice.PredictedDispleasure} (счёт: {invoice.Total})\n");
+            }
+            if (invoice.PredictedCoins == 0 && invoice.PredictedDispleasure == 0)
+            {
+                player.Status.AddInGamePersonalLogs($"Чеканная монета: Ничего не получено (счёт: {invoice.Total})\n");
             }
         }
         else if (demandType == "next")
         {
             if (game.RoundNo != 10) return (false, "Only on round 10");
-            if (demand.Displeasure >= 5) return (false, "Too much displeasure");
+            if (demand.Displeasure >= 3) return (false, "Too much displeasure");
             if (demand.DemandedForNext) return (false, "Already demanded for next");
 
             demand.DemandedForNext = true;
@@ -963,6 +966,22 @@ public class WebGameService
         var player = game.PlayersList.Find(p => p.DiscordId == creatorId);
         if (player == null)
             return (0, "Player not found in game");
+
+        // If the selected character is already assigned to a bot, give the bot the creator's original character
+        var conflictingBot = game.PlayersList.Find(p => p != player && p.GameCharacter.Name == characterName);
+        if (conflictingBot != null)
+        {
+            var originalChar = player.GameCharacter;
+            var botNewBridge = new GamePlayerBridgeClass(
+                originalChar, new InGameStatus(),
+                conflictingBot.DiscordId, conflictingBot.GameId,
+                conflictingBot.DiscordUsername, conflictingBot.PlayerType);
+            botNewBridge.TeamId = conflictingBot.TeamId;
+            botNewBridge.DiscordStatus = conflictingBot.DiscordStatus;
+            botNewBridge.Status.IsDraftPickConfirmed = true;
+            var botIdx = game.PlayersList.IndexOf(conflictingBot);
+            if (botIdx >= 0) game.PlayersList[botIdx] = botNewBridge;
+        }
 
         // Replace the player's character with the selected one (follows DraftSelect pattern)
         var newBridge = new GamePlayerBridgeClass(

@@ -20,7 +20,9 @@ const props = withDefaults(defineProps<{
   myPlayerId?: string
   predictions?: Prediction[]
   isAdmin?: boolean
+  showDetailedFactors?: boolean
   characterCatalog?: CharacterInfo[]
+  initialFightIndex?: number
 }>(), {
   letopis: '',
   gameStory: null,
@@ -28,14 +30,20 @@ const props = withDefaults(defineProps<{
   myPlayerId: '',
   predictions: () => [],
   isAdmin: false,
+  showDetailedFactors: false,
   characterCatalog: () => [],
+  initialFightIndex: undefined,
 })
+
+const showDetails = computed(() => props.showDetailedFactors || props.isAdmin)
 
 const emit = defineEmits<{
   (e: 'resist-flash', stats: string[]): void
   (e: 'justice-reset'): void
   (e: 'justice-up'): void
   (e: 'replay-ended'): void
+  (e: 'update:fightIndex', idx: number): void
+  (e: 'update:currentFight', fight: FightEntry | null): void
 }>()
 
 /** Active tab: 'fights' = replay, 'all' = compact results list, 'letopis' = full text log, 'story' = AI story */
@@ -125,6 +133,8 @@ const fight = computed<FightEntry | null>(() => {
   return myFights.value[currentFightIdx.value]
 })
 
+watch(fight, (f) => { emit('update:currentFight', f) }, { immediate: true })
+
 const isSpecialOutcome = computed(() => {
   if (!fight.value) return false
   return fight.value.outcome === 'block' || fight.value.outcome === 'skip'
@@ -210,8 +220,8 @@ const round1Factors = computed<Factor[]>(() => {
       detail,
       value: v,
       highlight: hl(v),
-      showValue: props.isAdmin,
-      tier: props.isAdmin ? undefined : vTier,
+      showValue: showDetails.value,
+      tier: showDetails.value ? undefined : vTier,
     })
   }
 
@@ -239,8 +249,8 @@ const round1Factors = computed<Factor[]>(() => {
       detail,
       value: v,
       highlight: hl(v),
-      showValue: props.isAdmin,
-      tier: props.isAdmin ? undefined : nTier,
+      showValue: showDetails.value,
+      tier: showDetails.value ? undefined : nTier,
     })
   }
 
@@ -252,11 +262,11 @@ const round1Factors = computed<Factor[]>(() => {
     const scaleHint = factorHint(v, { good: ['Slight edge', 'Stronger', 'Dominant'], bad: ['Slight gap', 'Weaker', 'Overpowered'], even: 'Even' })
     list.push({
       label: 'INT + STR + SPD',
-      detail: props.isAdmin
+      detail: showDetails.value
         ? `${scaleHint.text} <span class="admin-extra">(${ourScale.toFixed(1)} vs ${theirScale.toFixed(1)})</span>`
         : scaleHint.text,
       value: v,
-      showValue: props.isAdmin,
+      showValue: showDetails.value,
       highlight: hl(v),
       tier: scaleHint.tier,
     })
@@ -273,7 +283,7 @@ const round1Factors = computed<Factor[]>(() => {
       detail: psyHint.text,
       value: v,
       highlight: hl(v),
-      showValue: props.isAdmin,
+      showValue: showDetails.value,
       tier: psyHint.tier,
     })
   }
@@ -286,7 +296,7 @@ const round1Factors = computed<Factor[]>(() => {
       label: 'Skill',
       detail: skillHint.text,
       value: v,
-      showValue: props.isAdmin,
+      showValue: showDetails.value,
       highlight: hl(v),
       tier: skillHint.tier,
     })
@@ -301,7 +311,7 @@ const round1Factors = computed<Factor[]>(() => {
       detail: justiceHint.text,
       value: v,
       highlight: hl(v),
-      showValue: props.isAdmin,
+      showValue: showDetails.value,
       tier: justiceHint.tier,
     })
   }
@@ -328,7 +338,7 @@ const normalizeBar = false
 const targetWeighingValue = computed(() => {
   if (!fight.value || isSpecialOutcome.value) return 0
   const factors = round1Factors.value
-  const useRaw = !normalizeBar || props.isAdmin
+  const useRaw = !normalizeBar || showDetails.value
   const addFactor = (v: number) => useRaw ? v : clampFactor(v)
 
   if (skippedToEnd.value || !isMyFight.value) {
@@ -374,7 +384,10 @@ watch(targetWeighingValue, (target: number) => {
 
 // Per-fight random nudge (0–15%) that pushes the bar further in the winning direction (only when normalized)
 const barRandomNudge = ref(Math.random() * 15)
-watch(currentFightIdx, () => { barRandomNudge.value = Math.random() * 15 })
+watch(currentFightIdx, () => {
+  barRandomNudge.value = Math.random() * 15
+  emit('update:fightIndex', currentFightIdx.value)
+})
 
 const barPosition = computed(() => {
   const val = animatedWeighingValue.value
@@ -531,6 +544,18 @@ function restart() {
   clearTimer(); currentFightIdx.value = 0; currentStep.value = 0
   skippedToEnd.value = false; isPlaying.value = true; scheduleNext()
 }
+function restartCurrentFight() {
+  clearTimer()
+  currentStep.value = 0
+  fightResult.value = null
+  fightShake.value = false
+  r3NeedlePos.value = 0
+  r3NeedleSettled.value = false
+  slamPhase.value = 'idle'
+  skippedToEnd.value = false
+  isPlaying.value = true
+  scheduleNext()
+}
 
 watch(() => props.fights, () => {
   if (!props.fights.length) return
@@ -548,6 +573,24 @@ watch(() => props.fights, () => {
     restart()
   }
 }, { deep: true })
+
+// ── One-time initial fight index (for replay deep links) ────────────
+{
+  let consumed = false
+  watch([() => props.initialFightIndex, myFights], ([idx, fights]) => {
+    if (consumed || idx == null || !fights.length) return
+    consumed = true
+    // Wait for the fights watcher's restart() to finish, then jump
+    nextTick(() => {
+      const clamped = Math.min(idx, fights.length - 1)
+      clearTimer()
+      isPlaying.value = false
+      skippedToEnd.value = true
+      currentFightIdx.value = clamped
+      nextTick(() => { currentStep.value = totalSteps.value - 1 })
+    })
+  }, { immediate: true })
+}
 
 onUnmounted(() => {
   clearTimer()
@@ -1094,7 +1137,7 @@ function findPlayer(u: string): Player | null {
   return props.players.find((p: Player) => p.discordUsername === u) || null
 }
 function isPlayerMasked(u: string): boolean {
-  if (props.isAdmin) return false
+  if (showDetails.value) return false
   const p = findPlayer(u)
   if (!p) return false
   if (p.playerId === props.myPlayerId) return false
@@ -1185,7 +1228,8 @@ function getDisplayCharName(orig: string, u: string): string {
       <!-- Controls + fight thumbnails -->
       <div class="fa-controls">
         <button class="fa-btn" data-sfx-utility="true" @click="togglePlay">{{ isPlaying ? '⏸' : '▶' }}</button>
-        <button class="fa-btn" data-sfx-utility="true" @click="restart" title="Restart">⏮</button>
+        <button class="fa-btn" data-sfx-utility="true" @click="restart" title="Restart all">⏮</button>
+        <button class="fa-btn" data-sfx-utility="true" @click="restartCurrentFight" title="Restart current fight">🔄</button>
         <button class="fa-btn" data-sfx-utility="true" @click="skipToEnd" title="Skip to end">⏭</button>
         <div class="fa-speed">
           <button v-for="s in [1, 2, 4]" :key="s" class="fa-speed-btn" :class="{ active: speed === s }" data-sfx-utility="true" @click="setSpeed(s)">{{ s }}x</button>

@@ -144,6 +144,8 @@ function handleLogout() {
             <option value="blood">Blood</option>
             <option value="neon">Neon</option>
             <option value="forest">Forest</option>
+            <option value="dark-light">Dark Light</option>
+            <option value="siri">Siri</option>
           </select>
         </div>
       </header>
@@ -621,4 +623,61 @@ function handleLogout() {
 .gi-ok { color: var(--kh-c-secondary-success-200); font-weight: 800; }
 .gi-fail { color: var(--kh-c-secondary-danger-200); font-weight: 800; }
 .gi-tie { color: var(--text-muted); }
+
+/* ══════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE — Global layout
+   ══════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .main-content {
+    padding: 0.5rem;
+  }
+  .top-bar {
+    height: 40px;
+    padding: 0 0.5rem;
+  }
+  .top-nav a {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  .logo-text {
+    font-size: 0.875rem;
+  }
+  .user-info {
+    display: none;
+  }
+  .theme-select {
+    display: none;
+  }
+  .card {
+    padding: 0.625rem;
+    border-radius: var(--radius);
+  }
+  .btn {
+    min-height: 36px;
+    font-size: 0.75rem;
+  }
+  .btn-lg {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content {
+    padding: 0.375rem;
+  }
+  .top-bar {
+    height: 36px;
+  }
+  .top-nav {
+    margin-left: 0.5rem;
+    gap: 0;
+  }
+  .top-nav a {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.7rem;
+  }
+  .top-bar-right {
+    gap: 0.5rem;
+  }
+}
 </style>

@@ -885,6 +885,12 @@ public class AuthResponse
     public string Error { get; set; }
 }
 
+public class InvoiceLineItemDto
+{
+    public string Label { get; set; }
+    public int Points { get; set; }
+}
+
 public class GeraltStateDto
 {
     // Contracts
@@ -913,6 +919,12 @@ public class GeraltStateDto
     public bool CanDemandPrevious { get; set; }
     public bool CanDemandNext { get; set; }
     public bool DemandedThisPhase { get; set; }
+
+    // Invoice (populated when CanDemandPrevious)
+    public List<InvoiceLineItemDto> InvoiceItems { get; set; }
+    public int? InvoiceTotal { get; set; }
+    public int? InvoicePredictedCoins { get; set; }
+    public int? InvoicePredictedDispleasure { get; set; }
 }
 
 public class GeraltMonsterOnMeDto

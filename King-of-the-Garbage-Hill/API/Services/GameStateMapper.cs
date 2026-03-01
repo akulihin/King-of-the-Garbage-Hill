@@ -675,7 +675,21 @@ public static class GameStateMapper
                             pas.Geralt.Displeasure = demandState.Displeasure;
                             pas.Geralt.DemandedThisPhase = demandState.DemandedThisPhase;
                             pas.Geralt.CanDemandPrevious = !demandState.DemandedThisPhase && !player.Passives.IsDead && demandState.PrevContractsFought > 0;
-                            pas.Geralt.CanDemandNext = game.RoundNo == 10 && !demandState.DemandedForNext && !player.Passives.IsDead && demandState.Displeasure < 5;
+                            pas.Geralt.CanDemandNext = game.RoundNo == 10 && !demandState.DemandedForNext && !player.Passives.IsDead && demandState.Displeasure < 3;
+                            if (pas.Geralt.CanDemandPrevious)
+                            {
+                                var invoice = demandState.CalculateInvoice();
+                                pas.Geralt.InvoicePredictedCoins = invoice.PredictedCoins;
+                                pas.Geralt.InvoicePredictedDispleasure = invoice.PredictedDispleasure;
+                                // Only admins see the full breakdown
+                                if (isAdmin)
+                                {
+                                    pas.Geralt.InvoiceItems = invoice.LineItems
+                                        .Select(li => new InvoiceLineItemDto { Label = li.Label, Points = li.Points })
+                                        .ToList();
+                                    pas.Geralt.InvoiceTotal = invoice.Total;
+                                }
+                            }
                             anySet = true;
                         }
                         break;

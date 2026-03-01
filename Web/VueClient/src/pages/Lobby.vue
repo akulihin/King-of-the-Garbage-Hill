@@ -278,6 +278,20 @@ function viewReplay(hash: string) {
             </div>
           </div>
 
+          <!-- Character avatar preview fan -->
+          <div v-if="game.characterAvatars?.length" class="game-card-avatars">
+            <div
+              v-for="(char, ci) in game.characterAvatars.slice(0, 6)"
+              :key="ci"
+              class="avatar-fan-item"
+              :style="{ '--fan-i': ci, '--fan-total': Math.min(game.characterAvatars.length, 6) }"
+              :title="char.name"
+            >
+              <img :src="char.avatar" :alt="char.name" class="avatar-fan-img" />
+              <span v-if="char.tier" class="avatar-fan-tier">T{{ char.tier }}</span>
+            </div>
+          </div>
+
           <div class="game-card-actions">
             <button
               v-if="game.canJoin && store.isAuthenticated"
@@ -542,6 +556,47 @@ function viewReplay(hash: string) {
 
 .stat-value.finished {
   color: var(--accent-green);
+}
+
+/* Character avatar fan */
+.game-card-avatars {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 2px;
+  position: relative;
+  height: 36px;
+}
+
+.avatar-fan-item {
+  position: relative;
+  margin-left: -8px;
+  transition: transform 0.2s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
+  z-index: calc(10 - var(--fan-i, 0));
+}
+.avatar-fan-item:first-child { margin-left: 0; }
+.avatar-fan-item:hover { transform: translateY(-3px) scale(1.15); z-index: 20; }
+
+.avatar-fan-img {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--bg-card, #2d2b31);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+.avatar-fan-tier {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  font-size: 7px;
+  font-weight: 800;
+  color: var(--accent-gold);
+  background: var(--bg-primary);
+  padding: 0 3px;
+  border-radius: 3px;
+  line-height: 12px;
+  border: 1px solid var(--border-subtle);
 }
 
 .game-card-actions {
@@ -1004,5 +1059,23 @@ function viewReplay(hash: string) {
   0% { transform: scale(1); }
   30% { transform: scale(1.08); box-shadow: 0 0 20px rgba(240, 200, 80, 0.4); }
   100% { transform: scale(1); }
+}
+
+/* ── Mobile responsive ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .games-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .game-card-actions .btn {
+    min-height: 44px;
+    flex: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .games-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

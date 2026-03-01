@@ -399,4 +399,17 @@ const dopaSecondAttack = computed(() => me.value?.passiveAbilityStates?.dopa?.ne
   to { transform: translate(-50%, -50%) scale(40); opacity: 0; }
 }
 
+/* ── Mobile responsive — 44px touch targets ───────────────────── */
+@media (max-width: 768px) {
+  .act-btn {
+    height: 44px;
+    min-width: 44px;
+    padding: 0 14px;
+    font-size: 12px;
+  }
+  .action-group {
+    gap: 6px;
+    padding-left: 6px;
+  }
+}
 </style>

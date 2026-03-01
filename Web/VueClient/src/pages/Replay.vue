@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import type { FightEntry, Player, ReplayRound } from 'src/services/signalr'
+import { buildShiftedPlayer } from 'src/store/replay'
 import { useRouter, useRoute } from 'vue-router'
 import { useGameStore } from 'src/store/game'
 import { useReplayStore } from 'src/store/replay'
@@ -85,6 +87,33 @@ const previousRoundLogs = computed(() => {
 })
 
 const isViewingKira = computed(() => myPlayer.value?.isKira ?? false)
+
+// ── Current fight tracking (for enemy PlayerCard on right side) ──
+const currentFight = ref<FightEntry | null>(null)
+
+function onCurrentFightUpdate(fight: FightEntry | null) {
+  currentFight.value = fight
+}
+
+const enemyPlayer = computed<Player | null>(() => {
+  const f = currentFight.value
+  if (!f || !myPlayer.value) return null
+  const round = replayStore.currentRoundData
+  const data = replayStore.replayData
+  if (!round || !data) return null
+  const myName = myPlayer.value.discordUsername
+  const enemyName = f.attackerName === myName ? f.defenderName
+    : f.defenderName === myName ? f.attackerName
+    : null
+  if (!enemyName) return null
+  // Get full unstripped player data from replay round
+  const enemyRp = round.players.find(rp => rp.playerState.discordUsername === enemyName)
+  if (!enemyRp) return null
+  // Apply stat shifting (show pre-fight stats)
+  const prevRound = data.rounds.find((r: ReplayRound) => r.roundNo === round.roundNo - 1)
+  const prevRp = prevRound?.players.find(rp => rp.playerId === enemyRp.playerId)
+  return buildShiftedPlayer(enemyRp.playerState, prevRp?.playerState, round.roundNo)
+})
 
 // ── Score combo parsing (replicated from Game.vue) ───────────────
 
@@ -203,6 +232,9 @@ function shareUrl() {
   const url = new URL(window.location.origin + `/replay/${hash}`)
   url.searchParams.set('round', String(replayStore.currentRound))
   url.searchParams.set('player', String(replayStore.currentPlayerIndex))
+  if (replayStore.currentFightIndex > 0) {
+    url.searchParams.set('fight', String(replayStore.currentFightIndex))
+  }
   navigator.clipboard.writeText(url.toString())
   copied.value = true
   setTimeout(() => { copied.value = false }, 2000)
@@ -224,11 +256,11 @@ watch(() => replayStore.computedGameState, (gs) => {
   }
 }, { immediate: true })
 
-// Update URL query params when round/player changes
-watch([() => replayStore.currentRound, () => replayStore.currentPlayerIndex], ([round, player]) => {
-  router.replace({
-    query: { round: String(round), player: String(player) },
-  })
+// Update URL query params when round/player/fight changes
+watch([() => replayStore.currentRound, () => replayStore.currentPlayerIndex, () => replayStore.currentFightIndex], ([round, player, fight]) => {
+  const query: Record<string, string> = { round: String(round), player: String(player) }
+  if (fight > 0) query.fight = String(fight)
+  router.replace({ query })
 })
 
 // ── Lifecycle ───────────────────────────────────────────────────────
@@ -238,8 +270,10 @@ onMounted(async () => {
   // Apply URL params
   const roundParam = route.query.round
   const playerParam = route.query.player
+  const fightParam = route.query.fight
   if (roundParam) replayStore.setRound(Number(roundParam))
   if (playerParam) replayStore.setPlayer(Number(playerParam))
+  if (fightParam) replayStore.setFight(Number(fightParam))
 })
 
 onUnmounted(() => {
@@ -343,8 +377,12 @@ onUnmounted(() => {
             :players="store.gameState.players"
             :my-player-id="myPlayer?.playerId"
             :predictions="myPlayer?.predictions"
-            :is-admin="true"
+            :is-admin="false"
+            :show-detailed-factors="true"
             :character-catalog="store.gameState.allCharacters || []"
+            :initial-fight-index="replayStore.currentFightIndex"
+            @update:fight-index="replayStore.setFight"
+            @update:current-fight="onCurrentFightUpdate"
           />
         </div>
 
@@ -423,9 +461,18 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Right: Skills / Passives -->
+      <!-- Right: Enemy PlayerCard or Skills fallback -->
       <div class="game-right">
-        <SkillsPanel v-if="myPlayer" :player="myPlayer" />
+        <PlayerCard
+          v-if="enemyPlayer"
+          :player="enemyPlayer"
+          :is-me="true"
+          :resist-flash="[]"
+          :justice-reset="false"
+          :score-entries="[]"
+          :score-anim-ready="false"
+        />
+        <SkillsPanel v-else-if="myPlayer" :player="myPlayer" />
       </div>
     </div>
   </div>
@@ -447,7 +494,7 @@ onUnmounted(() => {
 
 .game-layout {
   display: grid;
-  grid-template-columns: 280px 1fr 260px;
+  grid-template-columns: 280px 1fr 280px;
   gap: 10px;
   align-items: start;
 }

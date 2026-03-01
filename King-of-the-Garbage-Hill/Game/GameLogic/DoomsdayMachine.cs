@@ -282,36 +282,62 @@ public class DoomsdayMachine : IServiceSingleton
         }
 
         // Геральт — Ведьмачьи заказы: inject extra fights based on contract count
-        // Only when Geralt is attacking (block/skip = just block, contracts stay)
-        foreach (var player in game.PlayersList.Where(x =>
-            x.GameCharacter.Passive.Any(y => y.PassiveName == "Ведьмачьи заказы") &&
-            x.GameCharacter.Name == "Геральт").ToList())
+        // Works both when Geralt attacks AND when someone attacks Geralt
+        var geraltPlayer = game.PlayersList.Find(x =>
+            x.GameCharacter.Name == "Геральт" &&
+            x.GameCharacter.Passive.Any(y => y.PassiveName == "Ведьмачьи заказы"));
+
+        if (geraltPlayer != null)
         {
-            // Blocking/skipping — do nothing, keep contracts
-            if (player.Status.IsBlock || player.Status.IsSkip || player.Status.WhoToAttackThisTurn.Count == 0)
-                continue;
+            var geraltContracts = geraltPlayer.Passives.GeraltContracts;
+            var geraltId = geraltPlayer.GetPlayerId();
 
-            var geraltContracts = player.Passives.GeraltContracts;
-            var targetId = player.Status.WhoToAttackThisTurn[0];
+            // Attack side: Geralt attacks someone — inject extra fights for Geralt
+            if (!geraltPlayer.Status.IsBlock && !geraltPlayer.Status.IsSkip && geraltPlayer.Status.WhoToAttackThisTurn.Count > 0)
+            {
+                var targetId = geraltPlayer.Status.WhoToAttackThisTurn[0];
+                var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
+                if (target != null)
+                {
+                    var monsterType = target.Passives.GeraltMonsterType;
+                    if (monsterType != null)
+                    {
+                        var count = geraltContracts.GetCount(monsterType.Value);
+                        for (int i = 1; i < count; i++)
+                            geraltPlayer.Status.WhoToAttackThisTurn.Add(targetId);
 
-            var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
-            if (target == null) continue;
+                        geraltContracts.ContractsFoughtThisRound += count;
+                        geraltContracts.SetCount(monsterType.Value, 0);
+                        geraltContracts.ContractProcsOnEnemy.TryAdd(targetId, 0);
+                        geraltContracts.ContractProcsOnEnemy[targetId] += count;
+                    }
+                }
+            }
 
-            var monsterType = target.Passives.GeraltMonsterType;
-            if (monsterType == null) continue;
+            // Defense side: someone attacks Geralt — inject extra fights for the attacker
+            // Skip if Geralt is blocking/skipping — contracts stay
+            if (!geraltPlayer.Status.IsBlock && !geraltPlayer.Status.IsSkip)
+            foreach (var attacker in game.PlayersList)
+            {
+                if (attacker.GetPlayerId() == geraltId) continue;
+                if (attacker.Status.IsBlock || attacker.Status.IsSkip) continue;
+                if (!attacker.Status.WhoToAttackThisTurn.Contains(geraltId)) continue;
 
-            var count = geraltContracts.GetCount(monsterType.Value);
+                var monsterType = attacker.Passives.GeraltMonsterType;
+                if (monsterType == null) continue;
 
-            // Attacking: add N-1 extra fights (original already in list)
-            for (int i = 1; i < count; i++)
-                player.Status.WhoToAttackThisTurn.Add(targetId);
+                var count = geraltContracts.GetCount(monsterType.Value);
+                if (count <= 0) continue;
 
-            // Store count for phrase handling, reset contracts of this type
-            geraltContracts.ContractsFoughtThisRound = count;
-            geraltContracts.SetCount(monsterType.Value, 0);
-            // Track procs per enemy
-            geraltContracts.ContractProcsOnEnemy.TryAdd(targetId, 0);
-            geraltContracts.ContractProcsOnEnemy[targetId] += count;
+                // Add N-1 extra fights (original already in list)
+                for (int i = 1; i < count; i++)
+                    attacker.Status.WhoToAttackThisTurn.Add(geraltId);
+
+                geraltContracts.ContractsFoughtThisRound += count;
+                geraltContracts.SetCount(monsterType.Value, 0);
+                geraltContracts.ContractProcsOnEnemy.TryAdd(attacker.GetPlayerId(), 0);
+                geraltContracts.ContractProcsOnEnemy[attacker.GetPlayerId()] += count;
+            }
         }
 
         foreach (var player in game.PlayersList)
