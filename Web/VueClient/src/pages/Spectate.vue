@@ -5,7 +5,6 @@ import { useGameStore } from 'src/store/game'
 import Leaderboard from 'src/components/Leaderboard.vue'
 import FightAnimation from 'src/components/FightAnimation.vue'
 import BattleLog from 'src/components/BattleLog.vue'
-import EventToast from 'src/components/EventToast.vue'
 
 const props = defineProps<{ gameId: string }>()
 const store = useGameStore()
@@ -98,12 +97,6 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Event Toasts for spectators too -->
-    <EventToast
-      v-if="store.gameState"
-      :global-logs="store.gameState.globalLogs || ''"
-      :players="store.gameState.players"
-    />
   </div>
 </template>
 

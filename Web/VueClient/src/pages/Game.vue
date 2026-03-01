@@ -12,7 +12,6 @@ import MediaMessages from 'src/components/MediaMessages.vue'
 import RoundTimer from 'src/components/RoundTimer.vue'
 import Blackjack21 from 'src/components/Blackjack21.vue'
 import AchievementPopup from 'src/components/AchievementPopup.vue'
-import EventToast from 'src/components/EventToast.vue'
 import {
   playAttackSelection,
   playAnyMoveTurn10PlusLayer,
@@ -1042,12 +1041,6 @@ const charTint = computed(() => {
       </div>
     </div>
 
-    <!-- Event Toasts (character-themed notifications) -->
-    <EventToast
-      v-if="store.gameState"
-      :global-logs="store.gameState.globalLogs || ''"
-      :players="store.gameState.players"
-    />
   </div>
 </template>
 
