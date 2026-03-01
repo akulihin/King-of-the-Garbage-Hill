@@ -151,29 +151,40 @@
 
 /* ── Siri Theme (purple-grey with yellow highlights) ── */
 [data-theme="siri"] {
-  --kh-c-neutrals-pale-200: rgba(100, 98, 106, 1);
-  --kh-c-neutrals-pale-240: rgba(89, 88, 92, 1);
-  --kh-c-neutrals-pale-260: rgba(77, 75, 82, 1);
-  --kh-c-neutrals-pale-300: rgba(66, 62, 71, 1);
-  --kh-c-neutrals-pale-350: rgba(61, 57, 66, 1);
-  --kh-c-neutrals-pale-375: rgba(58, 54, 64, 1);
-  --kh-c-neutrals-pale-500: rgba(44, 41, 51, 1);
-  --kh-c-neutrals-pale-575: rgba(36, 33, 43, 1);
-  --kh-c-neutrals-sat-400: rgba(77, 76, 82, 1);
-  --kh-c-neutrals-sat-500: rgba(65, 63, 70, 1);
-  --kh-c-neutrals-sat-600: rgba(45, 43, 49, 1);
-  --kh-c-neutrals-sat-650: rgba(38, 36, 43, 1);
-  --kh-c-neutrals-sat-700: rgba(33, 31, 38, 1);
-  --kh-c-neutrals-sat-750: rgba(28, 26, 33, 1);
-  --kh-c-neutrals-sat-800: rgba(23, 22, 28, 1);
-  --kh-c-text-primary-700: rgba(148, 156, 164, 1);
-  --kh-c-text-primary-800: rgba(71, 83, 88, 1);
+  /* Pale neutrals — borders/surfaces: LIGHTENED for visibility */
+  --kh-c-neutrals-pale-200: rgba(120, 116, 130, 1);
+  --kh-c-neutrals-pale-240: rgba(108, 104, 118, 1);
+  --kh-c-neutrals-pale-260: rgba(98, 94, 108, 1);
+  --kh-c-neutrals-pale-300: rgba(88, 84, 98, 1);
+  --kh-c-neutrals-pale-350: rgba(78, 74, 88, 1);
+  --kh-c-neutrals-pale-375: rgba(72, 68, 82, 1);
+  --kh-c-neutrals-pale-500: rgba(60, 58, 72, 1);
+  --kh-c-neutrals-pale-575: rgba(50, 48, 60, 1);
+
+  /* Saturated neutrals — core backgrounds: WIDER SPREAD */
+  --kh-c-neutrals-sat-400: rgba(85, 83, 98, 1);
+  --kh-c-neutrals-sat-500: rgba(72, 70, 85, 1);
+  --kh-c-neutrals-sat-600: rgba(60, 58, 72, 1);
+  --kh-c-neutrals-sat-650: rgba(52, 50, 63, 1);
+  --kh-c-neutrals-sat-700: rgba(44, 42, 54, 1);
+  --kh-c-neutrals-sat-750: rgba(36, 34, 44, 1);
+  --kh-c-neutrals-sat-800: rgba(30, 29, 37, 1);
+
+  /* Text — brighter muted/dim for better readability */
+  --kh-c-text-primary-700: rgba(175, 180, 190, 1);
+  --kh-c-text-primary-800: rgba(115, 122, 130, 1);
+
+  /* Success accent — keep */
   --kh-c-secondary-success-200: rgba(63, 167, 61, 1);
   --kh-c-secondary-success-300: rgba(46, 150, 51, 1);
+
+  /* Highlights — keep yellow */
   --kh-c-text-highlight-primary: rgba(233, 219, 61, 1);
   --kh-c-text-highlight-dim: #c8a030;
-  --kh-c-glass-bg: rgba(30, 28, 36, 0.78);
-  --kh-c-glass-bg-heavy: rgba(26, 24, 32, 0.90);
-  --kh-c-glass-border: rgba(255, 255, 255, 0.06);
-  --kh-c-glass-highlight: rgba(255, 255, 255, 0.03);
+
+  /* Glass — near-opaque so panels are clearly distinct */
+  --kh-c-glass-bg: rgba(44, 42, 54, 0.95);
+  --kh-c-glass-bg-heavy: rgba(36, 34, 44, 0.97);
+  --kh-c-glass-border: rgba(255, 255, 255, 0.13);
+  --kh-c-glass-highlight: rgba(255, 255, 255, 0.06);
 }

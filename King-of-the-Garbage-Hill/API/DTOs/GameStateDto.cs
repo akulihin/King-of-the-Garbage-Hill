@@ -433,11 +433,27 @@ public class FightEntryDto
     /// <summary>How much skill is added from counter.</summary>
     public decimal NemesisMultiplierSkillDifference { get; set; }
 
+    /// <summary>ForOneFight stat modifications applied to the attacker this fight.</summary>
+    public List<ForOneFightModDto> AttackerForOneFightMods { get; set; } = new();
+    /// <summary>ForOneFight stat modifications applied to the defender this fight.</summary>
+    public List<ForOneFightModDto> DefenderForOneFightMods { get; set; } = new();
+
     /// <summary>When true, this fight entry is hidden from non-admin players (e.g. Saitama solo kills).</summary>
     public bool HiddenFromNonAdmin { get; set; }
 
     /// <summary>Whether a Portal Gun swap occurred in this fight (Rick swaps leaderboard position with the loser).</summary>
     public bool PortalGunSwap { get; set; }
+}
+
+// ── ForOneFight Mod DTOs ─────────────────────────────────────────────
+
+public class ForOneFightModDto
+{
+    public string Source { get; set; }
+    public string Stat { get; set; }
+    public decimal OriginalValue { get; set; }
+    public decimal NewValue { get; set; }
+    public bool IsOnEnemy { get; set; }
 }
 
 // ── Portal Gun DTOs ──────────────────────────────────────────────────

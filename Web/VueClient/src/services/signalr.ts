@@ -573,8 +573,21 @@ export type FightEntry = {
   skillDifferenceRandomModifier: number
   nemesisMultiplierSkillDifference: number
 
+  /** ForOneFight stat modifications applied to the attacker. */
+  attackerForOneFightMods: ForOneFightMod[]
+  /** ForOneFight stat modifications applied to the defender. */
+  defenderForOneFightMods: ForOneFightMod[]
+
   /** Whether a Portal Gun swap occurred in this fight. */
   portalGunSwap: boolean
+}
+
+export type ForOneFightMod = {
+  source: string
+  stat: string
+  originalValue: number
+  newValue: number
+  isOnEnemy: boolean
 }
 
 // ── Quest & Loot Box Types ──────────────────────────────────────────

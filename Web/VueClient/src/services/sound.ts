@@ -281,12 +281,9 @@ function sanitizeAttackCharacterName(characterName: string): string {
   return characterName.trim()
 }
 
-function weightedRandomButtonSound(): string {
-  // everything_1 has 10x weight vs everything_2 and everything_3
-  const roll = Math.random() * 12 // 10 + 1 + 1
-  if (roll < 10) return 'buttons/everything_1.mp3'
-  if (roll < 11) return 'buttons/everything_2.mp3'
-  return 'buttons/everything_3.mp3'
+function randomButtonSound(): string {
+  const idx = Math.floor(Math.random() * 3) + 1
+  return `buttons/everything_${idx}.mp3`
 }
 
 function randomJusticeUpVariant(): string {
@@ -297,7 +294,7 @@ function randomJusticeUpVariant(): string {
 // ── Exported sound functions ─────────────────────────────────────────
 
 export function playDefaultButtonSound(): void {
-  void playClip(weightedRandomButtonSound(), { group: 'buttons' })
+  void playClip(randomButtonSound(), { group: 'buttons' })
 }
 
 export function playMainMenuButtonSound(): void {

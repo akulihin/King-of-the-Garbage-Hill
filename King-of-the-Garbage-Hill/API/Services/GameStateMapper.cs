@@ -781,8 +781,8 @@ public static class GameStateMapper
             return new CharacterDto
             {
                 Name = "???",
-                Avatar = "/art/avatars/guess.png",
-                AvatarCurrent = "/art/avatars/guess.png",
+                Avatar = "/art/avatars/unknown_no_question.png",
+                AvatarCurrent = "/art/avatars/unknown_no_question.png",
                 Description = "",
                 Tier = 0,
                 Intelligence = -1, // sentinel: hidden

@@ -384,8 +384,29 @@ public class DoomsdayMachine : IServiceSingleton
                 player.Status.IsFighting = playerIamAttacking.GetPlayerId();
 
 
+                // Clear ForOneFight mod tracking for both players
+                player.Status.ForOneFightMods.Clear();
+                playerIamAttacking.Status.ForOneFightMods.Clear();
+
                 _characterPassives.HandleDefenseBeforeFight(playerIamAttacking, player, game);
+
+                // Snapshot: mods from defense passives belong to defender
+                var defenderPassiveMods = playerIamAttacking.Status.ForOneFightMods
+                    .Select(m => new ForOneFightModDto { Source = m.Source, Stat = m.Stat, OriginalValue = Math.Round(m.OriginalValue, 1), NewValue = Math.Round(m.NewValue, 1) })
+                    .Concat(player.Status.ForOneFightMods
+                        .Select(m => new ForOneFightModDto { Source = m.Source, Stat = m.Stat, OriginalValue = Math.Round(m.OriginalValue, 1), NewValue = Math.Round(m.NewValue, 1), IsOnEnemy = true }))
+                    .ToList();
+                player.Status.ForOneFightMods.Clear();
+                playerIamAttacking.Status.ForOneFightMods.Clear();
+
                 _characterPassives.HandleAttackBeforeFight(player, playerIamAttacking, game);
+
+                // Snapshot: mods from attack passives belong to attacker
+                var attackerPassiveMods = player.Status.ForOneFightMods
+                    .Select(m => new ForOneFightModDto { Source = m.Source, Stat = m.Stat, OriginalValue = Math.Round(m.OriginalValue, 1), NewValue = Math.Round(m.NewValue, 1) })
+                    .Concat(playerIamAttacking.Status.ForOneFightMods
+                        .Select(m => new ForOneFightModDto { Source = m.Source, Stat = m.Stat, OriginalValue = Math.Round(m.OriginalValue, 1), NewValue = Math.Round(m.NewValue, 1), IsOnEnemy = true }))
+                    .ToList();
 
 
 
@@ -898,6 +919,8 @@ public class DoomsdayMachine : IServiceSingleton
                         SkillGainedFromClassDefender = Math.Round(skillGainedFromClassDefender, 1),
                         SkillDifferenceRandomModifier = Math.Round(step1.SkillDifferenceRandomModifier, 2),
                         NemesisMultiplierSkillDifference = Math.Round(step1.NemesisMultiplierSkillDifference, 2),
+                        AttackerForOneFightMods = attackerPassiveMods,
+                        DefenderForOneFightMods = defenderPassiveMods,
                     });
                 }
 

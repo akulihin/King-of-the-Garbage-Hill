@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
-import type { FightEntry, Player, Prediction, CharacterInfo } from 'src/services/signalr'
+import type { FightEntry, ForOneFightMod, Player, Prediction, CharacterInfo } from 'src/services/signalr'
 import {
   FightSoundPool,
   playDoomsDayFight,
@@ -752,6 +752,32 @@ const ourSkillMultiplier = computed(() => {
   return isFlipped.value ? fight.value.skillMultiplierTarget : fight.value.skillMultiplierMe
 })
 
+// ForOneFight mod badges — only show mods from our own passives
+const ourForOneFightMods = computed(() => {
+  if (!fight.value) return []
+  return isFlipped.value
+    ? (fight.value.defenderForOneFightMods ?? [])
+    : (fight.value.attackerForOneFightMods ?? [])
+})
+
+function fofBadgeText(mod: ForOneFightMod): string {
+  const delta = mod.newValue - mod.originalValue
+  const statAbbrev: Record<string, string> = {
+    Strength: 'Str', Speed: 'Spd', Intelligence: 'Int',
+    Psyche: 'Psy', Skill: 'Skill', Justice: 'Justice'
+  }
+  const stat = statAbbrev[mod.stat] ?? mod.stat
+  const sign = delta >= 0 ? '+' : ''
+  const prefix = mod.isOnEnemy ? `${mod.source} (ВРАГ)` : mod.source
+  if (mod.newValue === 0 && mod.originalValue !== 0) return `${prefix}: ${stat} = 0`
+  return `${prefix}: ${sign}${delta} ${stat}`
+}
+
+function isFofBuff(mod: ForOneFightMod): boolean {
+  const delta = mod.newValue - mod.originalValue
+  return mod.isOnEnemy ? delta < 0 : delta >= 0
+}
+
 // Justice: Number Slam animation
 let slamTimers: ReturnType<typeof setTimeout>[] = []
 
@@ -1153,7 +1179,7 @@ function getDisplayAvatar(orig: string, u: string): string {
   if (!isPlayerMasked(u)) return orig
   const predName = getPredictionForPlayer(u)
   if (predName && charCatalogMap.value[predName]) return charCatalogMap.value[predName].avatar
-  return '/art/avatars/guess.png'
+  return '/art/avatars/unknown.png'
 }
 function getDisplayCharName(orig: string, u: string): string {
   if (!isPlayerMasked(u)) return orig
@@ -1199,7 +1225,7 @@ function getDisplayCharName(orig: string, u: string): string {
           <div class="fa-all-mid">
             <img :src="getDisplayAvatar(allFightLeft(f).avatar, allFightLeft(f).name)"
               class="fa-all-ava" :class="{ 'ava-winner': allFightLeft(f).isWinner, 'ava-perfect': allFightLeft(f).isWinner && perfectRoundPlayers.has(allFightLeft(f).name) }"
-              @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
+              @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/unknown.png'">
             <span class="fa-all-center" :class="{
               'center-neutral': f.outcome === 'block' || f.outcome === 'skip',
               'center-drop': f.drops > 0 && f.outcome !== 'block' && f.outcome !== 'skip',
@@ -1207,7 +1233,7 @@ function getDisplayCharName(orig: string, u: string): string {
             }">{{ allFightCenterLabel(f) }}</span>
             <img :src="getDisplayAvatar(allFightRight(f).avatar, allFightRight(f).name)"
               class="fa-all-ava" :class="{ 'ava-winner': allFightRight(f).isWinner, 'ava-perfect': allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).name) }"
-              @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
+              @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/unknown.png'">
           </div>
           <!-- Right name (winner / attacker for block-skip) -->
           <span class="fa-all-name fa-all-name-right" :class="{ 'name-winner': allFightRight(f).isWinner }" :title="allFightRight(f).name">
@@ -1251,7 +1277,7 @@ function getDisplayCharName(orig: string, u: string): string {
         <div v-if="isSpecialOutcome" class="fa-special">
           <div class="fa-bar-container">
             <div class="fa-id-left">
-              <img :src="getDisplayAvatar(leftAvatar, leftName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
+              <img :src="getDisplayAvatar(leftAvatar, leftName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/unknown.png'">
               <div class="fa-id-info">
                 <span class="fa-id-name">{{ leftName }}</span>
               </div>
@@ -1269,7 +1295,7 @@ function getDisplayCharName(orig: string, u: string): string {
               <div class="fa-id-info" style="text-align:right">
                 <span class="fa-id-name">{{ rightName }}</span>
               </div>
-              <img :src="getDisplayAvatar(rightAvatar, rightName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
+              <img :src="getDisplayAvatar(rightAvatar, rightName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/unknown.png'">
             </div>
           </div>
         </div>
@@ -1279,7 +1305,7 @@ function getDisplayCharName(orig: string, u: string): string {
           <!-- Compact scale row: avatar+name | bar | avatar+name -->
           <div class="fa-bar-container">
             <div class="fa-id-left" :class="{ winner: leftWon, 'entrance-active': currentStep === 0 && !skippedToEnd }">
-              <img :src="getDisplayAvatar(leftAvatar, leftName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
+              <img :src="getDisplayAvatar(leftAvatar, leftName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/unknown.png'">
               <div class="fa-id-info">
                 <span class="fa-id-name">{{ leftName }}</span>
                 <span class="fa-id-char">{{ getDisplayCharName(leftCharName, leftName) }}</span>
@@ -1333,7 +1359,7 @@ function getDisplayCharName(orig: string, u: string): string {
                 <span class="fa-id-name">{{ rightName }}</span>
                 <span class="fa-id-char">{{ getDisplayCharName(rightCharName, rightName) }}</span>
               </div>
-              <img :src="getDisplayAvatar(rightAvatar, rightName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/guess.png'">
+              <img :src="getDisplayAvatar(rightAvatar, rightName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/unknown.png'">
             </div>
           </div>
 
@@ -1354,11 +1380,15 @@ function getDisplayCharName(orig: string, u: string): string {
                 <span class="fa-factor-value" v-if="fac.value !== 0 && fac.showValue !== false">{{ fmtVal(fac.value) }}</span>
               </div>
 
-              <!-- TooGood / TooStronk / Skill Multiplier badges -->
-              <div v-if="(fight.isTooGoodMe || fight.isTooGoodEnemy) || (fight.isTooStronkMe || fight.isTooStronkEnemy) || ourSkillMultiplier > 1" class="fa-badge-row" :class="{ visible: showR1Result }">
+              <!-- TooGood / TooStronk / Skill Multiplier / ForOneFight badges -->
+              <div v-if="(fight.isTooGoodMe || fight.isTooGoodEnemy) || (fight.isTooStronkMe || fight.isTooStronkEnemy) || ourSkillMultiplier > 1 || ourForOneFightMods.length > 0" class="fa-badge-row" :class="{ visible: showR1Result }">
                 <span v-if="fight.isTooGoodMe || fight.isTooGoodEnemy" class="fa-badge badge-toogood">TOO GOOD: {{ (fight.isTooGoodMe ? !isFlipped : isFlipped) ? 'МЫ' : 'ВРАГ' }}</span>
                 <span v-if="fight.isTooStronkMe || fight.isTooStronkEnemy" class="fa-badge badge-toostronk">TOO STRONK: {{ (fight.isTooStronkMe ? !isFlipped : isFlipped) ? 'МЫ' : 'ВРАГ' }}</span>
                 <span v-if="ourSkillMultiplier > 1" class="fa-badge badge-skill">SKILL MULTIPLIER x{{ ourSkillMultiplier }}</span>
+                <span v-for="(mod, i) in ourForOneFightMods" :key="'fof-'+i"
+                  class="fa-badge" :class="isFofBuff(mod) ? 'badge-fof-buff' : 'badge-fof-debuff'">
+                  {{ fofBadgeText(mod) }}
+                </span>
               </div>
             </div>
 
@@ -1887,6 +1917,8 @@ function getDisplayCharName(orig: string, u: string): string {
 .badge-toogood { background: rgba(63, 167, 61, 0.1); color: var(--accent-green); border: 1px solid rgba(63, 167, 61, 0.3); }
 .badge-toostronk { background: rgba(180, 150, 255, 0.1); color: var(--accent-purple); border: 1px solid rgba(180, 150, 255, 0.3); }
 .badge-skill { background: rgba(233, 219, 61, 0.1); color: var(--accent-gold); border: 1px solid rgba(233, 219, 61, 0.3); }
+.badge-fof-buff { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+.badge-fof-debuff { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
 
 /* ── R3 details ── */
 .fa-r3-details { display: flex; flex-direction: column; gap: 2px; }

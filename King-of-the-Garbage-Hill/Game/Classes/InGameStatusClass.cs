@@ -98,6 +98,8 @@ public class InGameStatus
     public bool IsPsycheForOneFight { get; set; } = false;
     public bool IsJusticeForOneFight { get; set; } = false;
 
+    public List<ForOneFightMod> ForOneFightMods { get; set; } = new();
+
     public int AramRerolledPassivesTimes { get; set; } = 0;
     public int AramRerolledStatsTimes { get; set; } = 0;
 
@@ -382,4 +384,12 @@ public class InGameStatus
             Place = place;
         }
     }
+}
+
+public class ForOneFightMod
+{
+    public string Source { get; set; }
+    public string Stat { get; set; }
+    public decimal OriginalValue { get; set; }
+    public decimal NewValue { get; set; }
 }

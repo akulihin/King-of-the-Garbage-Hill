@@ -564,7 +564,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         var attackerSpeedDef = me.FightCharacter.GetSpeed();
                         var ignoredDef = (int)Math.Ceiling(attackerSpeedDef * 0.20 * crowCountDef);
-                        me.FightCharacter.AddSpeedForOneFight(-Math.Min(ignoredDef, attackerSpeedDef));
+                        me.FightCharacter.AddSpeedForOneFight(-Math.Min(ignoredDef, attackerSpeedDef), "Вороны");
                     }
                     break;
 
@@ -1279,7 +1279,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         var targetSpeedAtk = target.FightCharacter.GetSpeed();
                         var ignoredAtk = (int)Math.Ceiling(targetSpeedAtk * 0.20 * crowCount);
-                        target.FightCharacter.AddSpeedForOneFight(-Math.Min(ignoredAtk, targetSpeedAtk));
+                        target.FightCharacter.AddSpeedForOneFight(-Math.Min(ignoredAtk, targetSpeedAtk), "Вороны");
                     }
                     break;
 
@@ -1504,7 +1504,7 @@ public class CharacterPassives : IServiceSingleton
                                 geraltContracts.PlotvaPhrasedThisRound = true;
 
                                 var plotvaAtkSpeed = geraltAtkPos - targetAtkPos;
-                                me.FightCharacter.AddSpeedForOneFight(plotvaAtkSpeed);
+                                me.FightCharacter.AddSpeedForOneFight(plotvaAtkSpeed, "Шевелись, Плотва");
                                 game.Phrases.GeraltPlotva.SendLog(me, false);
 
                                 // Extra contracts: for each player between Geralt and target
@@ -5315,7 +5315,7 @@ public class CharacterPassives : IServiceSingleton
                 var currentPos = player.Status.GetPlaceAtLeaderBoard();
                 if (currentPos == capsule.BuriedAtPosition && (game.RoundNo - capsule.BuriedOnRound) >= 3)
                 {
-                    player.FightCharacter.AddSpeedForOneFight(5);
+                    player.FightCharacter.AddSpeedForOneFight(5, "Временная капсула");
                     player.Status.AddBonusPoints(2, "Временная капсула");
                     capsule.PickedUpThisTurn = true;
                     game.Phrases.SalldorumTimeCapsulePickup.SendLog(player, false);

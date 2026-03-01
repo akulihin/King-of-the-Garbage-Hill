@@ -907,6 +907,7 @@ public class CharacterClass
     {
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
+        Status.ForOneFightMods.Add(new ForOneFightMod { Source = skillName, Stat = "Skill", OriginalValue = GetSkill(), NewValue = howMuchToSet });
         Status.IsSkillForOneFight = true;
         SkillForOneFight = howMuchToSet;
     }
@@ -1241,6 +1242,7 @@ public class CharacterClass
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
+        Status.ForOneFightMods.Add(new ForOneFightMod { Source = skillName, Stat = "Intelligence", OriginalValue = GetIntelligence(), NewValue = howMuchToSet });
         Status.IsIntelligenceForOneFight = true;
         IntelligenceForOneFight = howMuchToSet;
     }
@@ -1347,6 +1349,7 @@ public class CharacterClass
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
+        Status.ForOneFightMods.Add(new ForOneFightMod { Source = skillName, Stat = "Psyche", OriginalValue = GetPsyche(), NewValue = howMuchToSet });
         Status.IsPsycheForOneFight = true;
         PsycheForOneFight = howMuchToSet;
     }
@@ -1423,12 +1426,14 @@ public class CharacterClass
             Speed = 10;
     }
 
-    public void AddSpeedForOneFight(int howMuchToAdd)
+    public void AddSpeedForOneFight(int howMuchToAdd, string source = "")
     {
         //Add delta to current speed for one fight only
         var current = GetSpeed();
+        var newVal = Math.Max(0, current + howMuchToAdd);
+        Status.ForOneFightMods.Add(new ForOneFightMod { Source = source, Stat = "Speed", OriginalValue = current, NewValue = newVal });
         Status.IsSpeedForOneFight = true;
-        SpeedForOneFight = Math.Max(0, current + howMuchToAdd);
+        SpeedForOneFight = newVal;
     }
 
     public void SetSpeedForOneFight(int howMuchToSet, string skillName)
@@ -1436,6 +1441,7 @@ public class CharacterClass
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
+        Status.ForOneFightMods.Add(new ForOneFightMod { Source = skillName, Stat = "Speed", OriginalValue = GetSpeed(), NewValue = howMuchToSet });
         Status.IsSpeedForOneFight = true;
         SpeedForOneFight = howMuchToSet;
     }
@@ -1516,6 +1522,7 @@ public class CharacterClass
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
+        Status.ForOneFightMods.Add(new ForOneFightMod { Source = skillName, Stat = "Strength", OriginalValue = GetStrength(), NewValue = howMuchToSet });
         Status.IsStrengthForOneFight = true;
         StrengthForOneFight = howMuchToSet;
     }
@@ -1708,6 +1715,7 @@ public class JusticeClass
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
+        Status.ForOneFightMods.Add(new ForOneFightMod { Source = skillName, Stat = "Justice", OriginalValue = GetRealJusticeNow(), NewValue = howMuchToSet });
         Status.IsJusticeForOneFight = true;
         JusticeForOneFight = howMuchToSet;
     }

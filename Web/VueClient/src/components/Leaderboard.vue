@@ -75,12 +75,12 @@ function isMasked(player: Player): boolean {
   return player.character.name === '???'
 }
 
-/** Get display avatar for a player (predicted char avatar or guess.png) */
+/** Get display avatar for a player (predicted char avatar or unknown.png) */
 function getDisplayAvatar(player: Player): string {
   if (!isMasked(player)) return player.character.avatarCurrent || player.character.avatar
   const pred = getPredictedCharInfo(player.playerId)
   if (pred) return pred.avatar
-  return '/art/avatars/guess.png'
+  return '/art/avatars/unknown.png'
 }
 
 /** Get display character name */
