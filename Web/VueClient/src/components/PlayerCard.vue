@@ -473,10 +473,11 @@ watch(
         // Spawn floating numbers
         for (const s of changed) {
           const id = ++floatIdCounter
-          floatingNumbers.value.push({ id, stat: s, delta: deltas[s] })
+          const d = deltas[s]
+          floatingNumbers.value.push({ id, stat: s, delta: d })
           setTimeout(() => {
             floatingNumbers.value = floatingNumbers.value.filter(f => f.id !== id)
-          }, 1200)
+          }, Math.abs(d) >= 3 ? 1500 : 1200)
         }
       }
     }
@@ -810,9 +811,10 @@ function handleMoralToSkill() {
           :class="[
             fn.delta > 0 ? 'float-positive' : 'float-negative',
             `float-${fn.stat}`,
+            Math.abs(fn.delta) >= 3 ? 'float-big' : '',
           ]"
         >
-          {{ fn.delta > 0 ? '+' : '' }}{{ fn.delta }}
+          {{ fn.delta > 0 ? '+' : '' }}{{ fn.delta }} <span class="float-stat-label">{{ { intelligence: 'INT', strength: 'STR', speed: 'SPD', psyche: 'PSY' }[fn.stat] }}</span>
         </span>
       </TransitionGroup>
     </div>
@@ -840,9 +842,9 @@ function handleMoralToSkill() {
           v-for="fn in floatingNumbers.filter(f => f.stat === 'psyche')"
           :key="fn.id"
           class="floating-number"
-          :class="[fn.delta > 0 ? 'float-positive' : 'float-negative', 'float-psyche']"
+          :class="[fn.delta > 0 ? 'float-positive' : 'float-negative', 'float-psyche', Math.abs(fn.delta) >= 3 ? 'float-big' : '']"
         >
-          {{ fn.delta > 0 ? '+' : '' }}{{ fn.delta }}
+          {{ fn.delta > 0 ? '+' : '' }}{{ fn.delta }} <span class="float-stat-label">PSY</span>
         </span>
       </TransitionGroup>
     </div>
@@ -3671,10 +3673,28 @@ function handleMoralToSkill() {
 .float-psyche { text-shadow: 0 0 6px rgba(176, 122, 216, 0.5); }
 
 @keyframes float-up-stat {
-  0% { opacity: 1; transform: translateY(0) scale(1); }
+  0% { opacity: 1; transform: translateY(0) scale(0.5); }
+  15% { opacity: 1; transform: translateY(-4px) scale(1.2); }
+  30% { opacity: 1; transform: translateY(-10px) scale(1); }
   70% { opacity: 0.8; transform: translateY(-30px) scale(1.1); }
   100% { opacity: 0; transform: translateY(-45px) scale(0.9); }
 }
+
+.float-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.7;
+  letter-spacing: 0.5px;
+}
+
+.float-big {
+  font-size: 20px;
+  animation-duration: 1.5s !important;
+}
+.float-big.float-intelligence { text-shadow: 0 0 10px rgba(91, 155, 213, 0.7); }
+.float-big.float-strength { text-shadow: 0 0 10px rgba(224, 85, 69, 0.7); }
+.float-big.float-speed { text-shadow: 0 0 10px rgba(220, 195, 50, 0.7); }
+.float-big.float-psyche { text-shadow: 0 0 10px rgba(176, 122, 216, 0.7); }
 
 .float-num-enter-active { animation: float-up-stat 1.2s ease-out forwards; }
 .float-num-leave-active { display: none; }

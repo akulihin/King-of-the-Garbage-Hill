@@ -75,6 +75,7 @@ public class InGameStatus
     public decimal MoralGainedThisFight { get; set; }
     public Guid IsFighting { get; set; }
     private decimal ScoresToGiveAtEndOfRound { get; set; }
+    private decimal BonusPointsEarnedThisRound { get; set; }
     public int LvlUpPoints { get; set; }
     private string InGamePersonalLogs { get; set; }
     public string InGamePersonalLogsAll { get; set; }
@@ -216,6 +217,7 @@ public class InGameStatus
         else if (bonusPoints < 0) AddInGamePersonalLogs($"{skillName}: {bonusPoints} __**бонусных**__ очков\n");
 
         Score += bonusPoints;
+        BonusPointsEarnedThisRound += bonusPoints;
 
         if (Score < 0 && GameCharacter.Passive.All(x => x.PassiveName != "Никому не нужен"))
             Score = 0;
@@ -224,6 +226,11 @@ public class InGameStatus
     public decimal GetScoresToGiveAtEndOfRound()
     {
         return ScoresToGiveAtEndOfRound;
+    }
+
+    public decimal GetBonusPointsEarnedThisRound()
+    {
+        return BonusPointsEarnedThisRound;
     }
 
     public void CombineRoundScoreAndGameScore(GameClass game)
@@ -247,6 +254,7 @@ public class InGameStatus
 
         AddScore(GetScoresToGiveAtEndOfRound(), roundNumber);
         SetScoresToGiveAtEndOfRound(0, "", false);
+        BonusPointsEarnedThisRound = 0;
         ScoreSource = "";
     }
 

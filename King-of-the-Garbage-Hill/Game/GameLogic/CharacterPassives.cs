@@ -3939,7 +3939,8 @@ public class CharacterPassives : IServiceSingleton
                         var tsukuyomiVictim = game.PlayersList.Find(x => x.GetPlayerId() == tsukuyomi.TsukuyomiActiveTarget);
                         if (tsukuyomiVictim != null)
                         {
-                            var stolenPoints = tsukuyomiVictim.Status.GetScoresToGiveAtEndOfRound();
+                            var stolenPoints = tsukuyomiVictim.Status.GetScoresToGiveAtEndOfRound()
+                                             + tsukuyomiVictim.Status.GetBonusPointsEarnedThisRound();
                             if (stolenPoints > 0)
                             {
                                 player.Status.AddBonusPoints(stolenPoints, "Глаза Итачи");
