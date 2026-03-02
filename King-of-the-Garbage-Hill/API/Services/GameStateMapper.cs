@@ -672,6 +672,8 @@ public static class GameStateMapper
                                     .ToDictionary(x => x.Name, x => x.Type),
                             };
                             var demandState = player.Passives.GeraltContractDemand;
+                            pas.Geralt.QuestCompletedThisRound = demandState.QuestCompletedThisRound;
+                            pas.Geralt.RareLootFoundThisRound = geraltContracts.RareLootFoundThisRound;
                             pas.Geralt.Displeasure = demandState.Displeasure;
                             pas.Geralt.DemandedThisPhase = demandState.DemandedThisPhase;
                             pas.Geralt.CanDemandPrevious = !demandState.DemandedThisPhase && !player.Passives.IsDead && demandState.PrevContractsFought > 0;
@@ -781,8 +783,8 @@ public static class GameStateMapper
             return new CharacterDto
             {
                 Name = "???",
-                Avatar = "/art/avatars/unknown_no_question.png",
-                AvatarCurrent = "/art/avatars/unknown_no_question.png",
+                Avatar = "https://r2.ozvmusic.com/kotgh/art/avatars/unknown_fixvalues.png",
+                AvatarCurrent = "https://r2.ozvmusic.com/kotgh/art/avatars/unknown_fixvalues.png",
                 Description = "",
                 Tier = 0,
                 Intelligence = -1, // sentinel: hidden
@@ -1004,6 +1006,7 @@ public static class GameStateMapper
             TotalPointsWon = f.TotalPointsWon > 0 ? 1 : (f.TotalPointsWon < 0 ? -1 : 0),
             // Zero out all numeric details
             AttackerClass = "", DefenderClass = "",
+            AttackerOriginalClass = "", DefenderOriginalClass = "",
             VersatilityIntel = 0, VersatilityStr = 0, VersatilitySpeed = 0,
             ScaleMe = 0, ScaleTarget = 0,
             NemesisMultiplier = 0,

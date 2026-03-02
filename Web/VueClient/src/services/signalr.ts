@@ -304,6 +304,8 @@ export type GeraltState = {
   invoiceTotal?: number
   invoicePredictedCoins?: number
   invoicePredictedDispleasure?: number
+  questCompletedThisRound: boolean
+  rareLootFoundThisRound: boolean
 }
 
 export type GeraltMonsterOnMe = {
@@ -501,6 +503,8 @@ export type FightEntry = {
   // Class info for Nemesis/Versatility display
   attackerClass: string
   defenderClass: string
+  attackerOriginalClass: string
+  defenderOriginalClass: string
   versatilityIntel: number  // +1 attacker better, -1 defender, 0 equal
   versatilityStr: number
   versatilitySpeed: number

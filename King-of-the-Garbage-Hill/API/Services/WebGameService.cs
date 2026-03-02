@@ -584,6 +584,7 @@ public class WebGameService
             if (invoice.PredictedCoins > 0)
             {
                 demand.TotalSuccessfulDemands++;
+                demand.QuestCompletedThisRound = true;
                 player.Status.AddBonusPoints(invoice.PredictedCoins, "Чеканная монета");
                 player.Status.AddInGamePersonalLogs($"Чеканная монета: +{invoice.PredictedCoins} очк. (счёт: {invoice.Total})\n");
             }

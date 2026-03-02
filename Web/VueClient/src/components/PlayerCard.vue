@@ -7,6 +7,8 @@ import {
   playComboHype,
   playComboPluck,
   playPointsIncreaseSound,
+  playComboStack,
+  playPointsSummary,
 } from 'src/services/sound'
 
 interface ScoreEntry {
@@ -367,16 +369,27 @@ function startComboAnimation() {
     let pluckSeq = 0
     const allHits = comboHits.value
     comboTimer = setInterval(() => {
-      if (i >= allHits.length) { clearComboTimer(); setTimeout(() => { hitActiveIdx.value = -1 }, 600); return }
+      if (i >= allHits.length) {
+        clearComboTimer()
+        // Points summary (Req 16)
+        const totalEarned = allHits.reduce((sum, h) => sum + h.pointsDelta, 0)
+        playPointsSummary(totalEarned)
+        setTimeout(() => { hitActiveIdx.value = -1 }, 600)
+        return
+      }
       hitActiveIdx.value = i
       const hit = allHits[i]
       if (hit.pointsDelta > 0) {
-        playPointsIncreaseSound(hit.pointsDelta)
+        playPointsIncreaseSound(hit.pointsDelta, hit.label)
         pluckSeq++
         playComboPluck(Math.min(7, pluckSeq))
         if (hit.comboNum === 1) {
           playComboHype(hit.totalInEntry)
         }
+      }
+      // Combo stack sounds for large combos (Req 14)
+      if (allHits.length > 7) {
+        playComboStack(i + 1)
       }
       animatedScoreDelta.value += hit.pointsDelta
       i++

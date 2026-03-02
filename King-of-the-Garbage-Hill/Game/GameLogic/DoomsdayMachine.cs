@@ -388,6 +388,10 @@ public class DoomsdayMachine : IServiceSingleton
                 player.Status.ForOneFightMods.Clear();
                 playerIamAttacking.Status.ForOneFightMods.Clear();
 
+                // Snapshot original class before ForOneFight overrides
+                var attackerOriginalClass = player.FightCharacter.GetSkillClass();
+                var defenderOriginalClass = playerIamAttacking.FightCharacter.GetSkillClass();
+
                 _characterPassives.HandleDefenseBeforeFight(playerIamAttacking, player, game);
 
                 // Snapshot: mods from defense passives belong to defender
@@ -861,6 +865,8 @@ public class DoomsdayMachine : IServiceSingleton
                         WinnerName = attackerWon ? player.DiscordUsername : playerIamAttacking.DiscordUsername,
                         AttackerClass = step1.AttackerClass,
                         DefenderClass = step1.DefenderClass,
+                        AttackerOriginalClass = attackerOriginalClass != step1.AttackerClass ? attackerOriginalClass : "",
+                        DefenderOriginalClass = defenderOriginalClass != step1.DefenderClass ? defenderOriginalClass : "",
                         VersatilityIntel = step1.VersatilityIntel,
                         VersatilityStr = step1.VersatilityStr,
                         VersatilitySpeed = step1.VersatilitySpeed,

@@ -13,6 +13,9 @@
     "points": 0.8,
     "doomsDay": 0.7,
     "doomsDayWinLose": 0.85,
-    "doomsDayScrolls": 0.65
+    "doomsDayScrolls": 0.65,
+    "doomsDayLayers": 0.7,
+    "comboStack": 0.8,
+    "pointsSumm": 0.75
   }
 }

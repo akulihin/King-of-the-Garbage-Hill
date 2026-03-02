@@ -32,6 +32,23 @@ import {
   playPickleRickOnUse,
   playPickleRickOnWin,
   GiantBeansSoundPool,
+  playGeraltGameWinTheme,
+  playKiraGameWinTheme,
+  playMonsterGameWinTheme,
+  playRickGameWinTheme,
+  playKiraGameStartTheme,
+  pauseKiraGameStartTheme,
+  resumeKiraGameStartTheme,
+  stopKiraGameStartTheme,
+  playGeraltGameStartTheme,
+  pauseGeraltGameStartTheme,
+  resumeGeraltGameStartTheme,
+  stopGeraltGameStartTheme,
+  playGeraltQuestCompleted,
+  playGeraltLevelUpAvailable,
+  playGeraltOilLevelUp,
+  playGeraltOilAttack,
+  playGeraltRareLoot,
 } from 'src/services/sound'
 
 const props = defineProps<{ gameId: string }>()
@@ -72,6 +89,10 @@ function onAttack(place: number) {
   if (roundNo >= 10) {
     playAnyMoveTurn10PlusLayer(charName ? isLateGameCharacter(charName) : false)
   }
+  // Geralt: oil attack layer
+  if (charName === 'Геральт' && store.myPlayer?.passiveAbilityStates?.geralt?.isOilApplied) {
+    playGeraltOilAttack()
+  }
   void store.attack(place)
 }
 
@@ -93,6 +114,8 @@ onUnmounted(() => {
   setSoundContext('menu')
   stopRickGameStartTheme()
   stopPortalGunCharged()
+  stopKiraGameStartTheme()
+  stopGeraltGameStartTheme()
   clearPrevLogTimer()
   if (store.isConnected && gameIdNum.value) {
     store.leaveGame(gameIdNum.value)
@@ -159,6 +182,23 @@ watch(() => store.gameState?.isFinished, (finished, prevFinished) => {
     if (rickWinner && rickWinner.status.place === 1) {
       playPortalGunCharged()
     }
+
+    // Character win themes — only when that character actually won (place 1)
+    const geraltWon = store.gameState.players.some(p => p.character.name === 'Геральт' && p.status.place === 1)
+    if (geraltWon) playGeraltGameWinTheme()
+
+    const kiraWon = store.gameState.players.some(p => p.character.name === 'Кира' && p.status.place === 1)
+    if (kiraWon) playKiraGameWinTheme()
+
+    const monsterWon = store.gameState.players.some(p => p.character.name === 'Монстр без имени' && p.status.place === 1)
+    if (monsterWon) playMonsterGameWinTheme()
+
+    const rickWon = store.gameState.players.some(p => p.character.name === 'Рик' && p.status.place === 1)
+    if (rickWon) playRickGameWinTheme()
+
+    // Stop game start themes on finish
+    stopKiraGameStartTheme()
+    stopGeraltGameStartTheme()
   }
 })
 
@@ -204,6 +244,98 @@ watch(() => store.myGiantBeans, (beans, prevBeans) => {
   prevBeanStacks.value = beans.beanStacks
   prevIngredientsActive.value = beans.ingredientsActive
 }, { deep: true })
+
+// Kira: game start theme (Req 2) — pausable loop on round 1
+const kiraThemePlaying = ref(false)
+watch(() => store.myPlayer?.character.name, (name) => {
+  if (name === 'Кира' && !kiraThemePlaying.value && (store.gameState?.roundNo ?? 0) <= 1) {
+    kiraThemePlaying.value = true
+    playKiraGameStartTheme()
+  }
+})
+// Pause Kira theme when fights arrive (replay starts)
+watch(() => store.myPlayer?.status.previousRoundLogs, (logs) => {
+  if (logs && logs.length > 0 && kiraThemePlaying.value) {
+    pauseKiraGameStartTheme()
+  }
+})
+// Resume Kira theme on replay ended
+watch(fightReplayEnded, (ended) => {
+  if (ended && kiraThemePlaying.value) {
+    resumeKiraGameStartTheme()
+  }
+})
+// Resume Kira theme on arrest
+watch(() => store.myPlayer?.deathNote?.isArrested, (arrested, prev) => {
+  if (arrested && !prev && kiraThemePlaying.value) {
+    resumeKiraGameStartTheme()
+  }
+})
+// Stop Kira theme after round 1 or on finish
+watch(() => store.gameState?.roundNo, (roundNo) => {
+  if (roundNo && roundNo > 1 && kiraThemePlaying.value) {
+    kiraThemePlaying.value = false
+    stopKiraGameStartTheme()
+  }
+})
+
+// Geralt: game start theme (Req 3) — pausable loop on round 1
+const geraltThemePlaying = ref(false)
+watch(() => store.myPlayer?.character.name, (name) => {
+  if (name === 'Геральт' && !geraltThemePlaying.value && (store.gameState?.roundNo ?? 0) <= 1) {
+    geraltThemePlaying.value = true
+    playGeraltGameStartTheme()
+  }
+})
+// Pause Geralt theme when fights arrive (replay starts)
+watch(() => store.myPlayer?.status.previousRoundLogs, (logs) => {
+  if (logs && logs.length > 0 && geraltThemePlaying.value) {
+    pauseGeraltGameStartTheme()
+  }
+})
+// Resume Geralt theme on replay ended
+watch(fightReplayEnded, (ended) => {
+  if (ended && geraltThemePlaying.value) {
+    resumeGeraltGameStartTheme()
+  }
+})
+// Stop Geralt theme after round 1 or on finish
+watch(() => store.gameState?.roundNo, (roundNo) => {
+  if (roundNo && roundNo > 1 && geraltThemePlaying.value) {
+    geraltThemePlaying.value = false
+    stopGeraltGameStartTheme()
+  }
+})
+
+// Geralt: quest completed (Req 4)
+watch(() => store.myPlayer?.passiveAbilityStates?.geralt?.questCompletedThisRound, (val, prev) => {
+  if (val && !prev) playGeraltQuestCompleted()
+})
+
+// Geralt: level-up available (Req 5)
+watch(() => store.myPlayer?.status.lvlUpPoints, (val, prev) => {
+  if (store.myPlayer?.character.name === 'Геральт' && val && val > 0 && (prev === 0 || prev === undefined)) {
+    playGeraltLevelUpAvailable()
+  }
+})
+// Geralt: oil tier increase
+const prevOilTiers = ref<number[]>([0, 0, 0, 0])
+watch(() => store.myPlayer?.passiveAbilityStates?.geralt, (geralt) => {
+  if (!geralt || store.myPlayer?.character.name !== 'Геральт') return
+  const tiers = [geralt.drownersOilTier, geralt.werewolvesOilTier, geralt.vampiresOilTier, geralt.dragonsOilTier]
+  for (let i = 0; i < 4; i++) {
+    if (tiers[i] > prevOilTiers.value[i]) {
+      playGeraltOilLevelUp()
+      break
+    }
+  }
+  prevOilTiers.value = tiers
+}, { deep: true })
+
+// Geralt: rare loot (Req 8)
+watch(() => store.myPlayer?.passiveAbilityStates?.geralt?.rareLootFoundThisRound, (val, prev) => {
+  if (val && !prev) playGeraltRareLoot()
+})
 
 function goToLobby() {
   router.push('/')

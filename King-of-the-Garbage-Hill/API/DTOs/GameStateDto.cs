@@ -337,6 +337,9 @@ public class FightEntryDto
     // Class info for Nemesis/Versatility display
     public string AttackerClass { get; set; }
     public string DefenderClass { get; set; }
+    // Original class before ForOneFight stat overrides (empty if unchanged)
+    public string AttackerOriginalClass { get; set; }
+    public string DefenderOriginalClass { get; set; }
 
     // Versatility stat breakdown (+1 attacker better, -1 defender better, 0 equal)
     public int VersatilityIntel { get; set; }
@@ -941,6 +944,8 @@ public class GeraltStateDto
     public int? InvoiceTotal { get; set; }
     public int? InvoicePredictedCoins { get; set; }
     public int? InvoicePredictedDispleasure { get; set; }
+    public bool QuestCompletedThisRound { get; set; }
+    public bool RareLootFoundThisRound { get; set; }
 }
 
 public class GeraltMonsterOnMeDto

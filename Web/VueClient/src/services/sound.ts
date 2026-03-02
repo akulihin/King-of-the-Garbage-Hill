@@ -5,7 +5,7 @@ const FIGHT_TAB_ATTR = 'data-sfx-fight-tab'
 const PREDICT_CLICK_ATTR = 'data-sfx-predict'
 
 type StatKey = 'intelligence' | 'strength' | 'speed' | 'psyche'
-type PlaybackChannel = 'lvl-up-extra' | 'rick-theme' | 'portal-gun'
+type PlaybackChannel = 'lvl-up-extra' | 'rick-theme' | 'portal-gun' | 'kira-theme' | 'geralt-theme'
 
 // ── Volume config types ──────────────────────────────────────────────
 
@@ -16,6 +16,7 @@ type VolumeGroup =
   | 'points' | 'doomsDay' | 'doomsDayWinLose'
   | 'doomsDayScrolls' | 'winSpecial' | 'characterPassives'
   | 'specialAttack' | 'specialAbility' | 'winTheme' | 'characterTheme'
+  | 'doomsDayLayers' | 'comboStack' | 'pointsSumm'
 
 interface VolumeConfig {
   masterVolume: number
@@ -31,6 +32,7 @@ const DEFAULT_VOLUME_CONFIG: VolumeConfig = {
     points: 0.8, doomsDay: 0.9, doomsDayWinLose: 0.85,
     doomsDayScrolls: 0.7, winSpecial: 0.8, characterPassives: 0.85,
     specialAttack: 0.9, specialAbility: 0.85, winTheme: 0.8, characterTheme: 0.8,
+    doomsDayLayers: 0.7, comboStack: 0.8, pointsSumm: 0.75,
   },
 }
 
@@ -128,6 +130,7 @@ const ALL_VOLUME_GROUPS: VolumeGroup[] = [
   'combo', 'comboHype', 'justice', 'points', 'doomsDay', 'doomsDayWinLose', 'doomsDayScrolls',
   'winSpecial', 'characterPassives',
   'specialAttack', 'specialAbility', 'winTheme', 'characterTheme',
+  'doomsDayLayers', 'comboStack', 'pointsSumm',
 ]
 
 /** Apply group volume levels from cached config (or defaults) to gain nodes */
@@ -398,8 +401,9 @@ export function playJusticeUpSound(): void {
   void playClip(randomJusticeUpVariant(), { group: 'justice' })
 }
 
-export function playPointsIncreaseSound(pointsDelta: number): void {
+export function playPointsIncreaseSound(pointsDelta: number, source?: string): void {
   if (pointsDelta <= 0) return
+  if (source && (source.includes('Мораль') || source.includes('мораль'))) return
   if (pointsDelta >= 10) {
     void playClip('ui_ux/points/points_up_10_plus.mp3', { group: 'points' })
     return
@@ -717,4 +721,344 @@ const LATE_GAME_CHARACTERS = new Set(['Сайтама'])
 
 export function isLateGameCharacter(characterName: string): boolean {
   return LATE_GAME_CHARACTERS.has(characterName)
+}
+
+// ── Pausable playback (for Kira theme) ────────────────────────────────
+
+interface PausablePlayback {
+  buffer: AudioBuffer
+  startTime: number
+  offsetTime: number
+  group: VolumeGroup
+  isPaused: boolean
+  source: AudioBufferSourceNode | null
+}
+
+const pausablePlaybacks = new Map<PlaybackChannel, PausablePlayback>()
+
+async function playClipPausable(relativePath: string, channel: PlaybackChannel, group: VolumeGroup): Promise<void> {
+  if (getMasterVolume() === 0) return
+  if (checkKillSwitch(relativePath)) return
+  try {
+    const ctx = ensureAudioContext()
+    const buffer = await getOrFetchAudioBuffer(toSoundUrl(relativePath))
+    if (!buffer) return
+
+    // Stop any existing on this channel
+    stopPausableChannel(channel)
+    stopChannel(channel)
+
+    const source = ctx.createBufferSource()
+    source.buffer = buffer
+    source.loop = true
+    source.connect(groupGains.get(group) ?? masterGain!)
+    source.start(0)
+
+    pausablePlaybacks.set(channel, {
+      buffer,
+      startTime: ctx.currentTime,
+      offsetTime: 0,
+      group,
+      isPaused: false,
+      source,
+    })
+  } catch { /* ignore */ }
+}
+
+export function pauseChannel(channel: PlaybackChannel): void {
+  const pb = pausablePlaybacks.get(channel)
+  if (!pb || pb.isPaused || !pb.source) return
+  const ctx = audioCtx
+  if (!ctx) return
+  const elapsed = ctx.currentTime - pb.startTime + pb.offsetTime
+  pb.offsetTime = elapsed % pb.buffer.duration
+  try { pb.source.stop() } catch { /* already stopped */ }
+  pb.source = null
+  pb.isPaused = true
+}
+
+export function resumeChannel(channel: PlaybackChannel): void {
+  const pb = pausablePlaybacks.get(channel)
+  if (!pb || !pb.isPaused) return
+  const ctx = ensureAudioContext()
+  const source = ctx.createBufferSource()
+  source.buffer = pb.buffer
+  source.loop = true
+  source.connect(groupGains.get(pb.group) ?? masterGain!)
+  source.start(0, pb.offsetTime)
+  pb.source = source
+  pb.startTime = ctx.currentTime
+  pb.isPaused = false
+}
+
+export function stopPausableChannel(channel: PlaybackChannel): void {
+  const pb = pausablePlaybacks.get(channel)
+  if (!pb) return
+  try { pb.source?.stop() } catch { /* already stopped */ }
+  pausablePlaybacks.delete(channel)
+}
+
+// ── Character Win Themes (Req 1) ───────────────────────────────────────
+
+export function playGeraltGameWinTheme(): void {
+  void playClip('character_passives/geralt/geralt_game_win_theme.mp3', { group: 'winTheme' })
+  duckFightGroups(8000)
+}
+
+export function playKiraGameWinTheme(): void {
+  void playClip('character_passives/kira/kira_game_win_theme.mp3', { group: 'winTheme' })
+  duckFightGroups(8000)
+}
+
+export function playMonsterGameWinTheme(): void {
+  void playClip('character_passives/monster/monster_game_win_theme.mp3', { group: 'winTheme' })
+  duckFightGroups(8000)
+}
+
+export function playRickGameWinTheme(): void {
+  void playClip('character_passives/rick/rick_game_win_theme.mp3', { group: 'winTheme' })
+  duckFightGroups(8000)
+}
+
+// ── Kira Game Start Theme (Req 2) ──────────────────────────────────────
+
+export function playKiraGameStartTheme(): void {
+  void playClipPausable('character_passives/kira/kira_game_start_theme.mp3', 'kira-theme', 'characterTheme')
+}
+
+export function pauseKiraGameStartTheme(): void {
+  pauseChannel('kira-theme')
+}
+
+export function resumeKiraGameStartTheme(): void {
+  resumeChannel('kira-theme')
+}
+
+export function stopKiraGameStartTheme(): void {
+  stopPausableChannel('kira-theme')
+}
+
+// ── Geralt Game Start Theme (Req 3) ────────────────────────────────────
+
+export function playGeraltGameStartTheme(): void {
+  void playClipPausable('character_passives/geralt/geralt_game_start_theme.mp3', 'geralt-theme', 'characterTheme')
+}
+
+export function pauseGeraltGameStartTheme(): void {
+  pauseChannel('geralt-theme')
+}
+
+export function resumeGeraltGameStartTheme(): void {
+  resumeChannel('geralt-theme')
+}
+
+export function stopGeraltGameStartTheme(): void {
+  stopPausableChannel('geralt-theme')
+}
+
+// ── Geralt Event Sounds (Reqs 4-8) ────────────────────────────────────
+
+export function playGeraltQuestCompleted(): void {
+  void playClip('character_passives/geralt/quest/geralt_quest_completed.mp3', { group: 'characterPassives' })
+}
+
+export function playGeraltLevelUpAvailable(): void {
+  void playClip('character_passives/geralt/oil/geralt_level_up.mp3', { group: 'characterPassives' })
+}
+
+export function playGeraltOilLevelUp(): void {
+  void playClip('character_passives/geralt/oil/geralt_oil_level_up.mp3', { group: 'characterPassives' })
+}
+
+export function playGeraltMeditation(): void {
+  void playClip('character_passives/geralt/meditation/geralt_meditation.mp3', { group: 'characterPassives' })
+}
+
+export function playGeraltOilAttack(): void {
+  void playClip('character_passives/geralt/oil/geralt_oil_attack.mp3', { group: 'specialAttack' })
+}
+
+export function playGeraltRareLoot(): void {
+  void playClip('character_passives/geralt/quest/geralt_rare_loot.mp3', { group: 'characterPassives' })
+}
+
+// ── Geralt Special Fight Sounds (Req 9) ────────────────────────────────
+
+const GERALT_FIGHT_DEFAULT = [
+  'z0011.ogg', 'z0012.ogg', 'z0013.ogg', 'z0014.ogg',
+  'z0019.ogg', 'z0020.ogg', 'z0021.ogg', 'z0049.ogg',
+]
+const GERALT_FIGHT_DROWNED = [
+  'z0001.ogg', 'z0002.ogg', 'z0003.ogg', 'z0004.ogg', 'z0005.ogg', 'z0006.ogg',
+  'z0121.ogg', 'z0122.ogg', 'z0123.ogg', 'z0124.ogg',
+]
+const GERALT_FIGHT_DEFAULT_PATHS = GERALT_FIGHT_DEFAULT.map(f => `dooms_day/round_1/fight/special/geralt/contracts/default/${f}`)
+const GERALT_FIGHT_DROWNED_PATHS = GERALT_FIGHT_DROWNED.map(f => `dooms_day/round_1/fight/special/geralt/contracts/drowned/${f}`)
+const GERALT_FIGHT_FIN = [
+  'dooms_day/round_1/fight_fin/special/geralt/geralt_round_1_special.mp3',
+  'dooms_day/round_1/fight_fin/special/geralt/z0064.ogg',
+  'dooms_day/round_1/fight_fin/special/geralt/z0065.ogg',
+  'dooms_day/round_1/fight_fin/special/geralt/z0066.ogg',
+]
+
+export class GeraltFightSoundPool {
+  private remainingDefault: string[] = []
+  private remainingDrowned: string[] = []
+  private remainingFin: string[] = []
+
+  constructor() { this.reset() }
+
+  reset(): void {
+    this.remainingDefault = [...GERALT_FIGHT_DEFAULT_PATHS]
+    this.remainingDrowned = [...GERALT_FIGHT_DROWNED_PATHS]
+    this.remainingFin = [...GERALT_FIGHT_FIN]
+  }
+
+  /** 25% chance to return a Geralt special fight sound, null otherwise.
+   *  isDrowned: true when fighting an Утопцы-type enemy — picks from drowned pool. */
+  tryNext(isDrowned: boolean): string | null {
+    if (Math.random() >= 0.25) return null
+    const pool = isDrowned ? this.remainingDrowned : this.remainingDefault
+    if (pool.length === 0) {
+      const refill = isDrowned ? GERALT_FIGHT_DROWNED_PATHS : GERALT_FIGHT_DEFAULT_PATHS
+      pool.push(...refill)
+    }
+    const idx = Math.floor(Math.random() * pool.length)
+    return pool.splice(idx, 1)[0]
+  }
+
+  /** 25% chance to return a Geralt special fight_fin sound, null otherwise */
+  tryNextFin(): string | null {
+    if (Math.random() >= 0.25) return null
+    if (this.remainingFin.length === 0) this.remainingFin = [...GERALT_FIGHT_FIN]
+    const idx = Math.floor(Math.random() * this.remainingFin.length)
+    return this.remainingFin.splice(idx, 1)[0]
+  }
+}
+
+/** Play an arbitrary path in doomsDay group */
+export function playDoomsDayCustom(relativePath: string): void {
+  void playClip(relativePath, { group: 'doomsDay' })
+}
+
+// ── Round 3 Special Sounds (Req 10) ────────────────────────────────────
+
+export function playR3SpecialLowChance(): void {
+  void playClip('dooms_day/round_3/round_3_win_or_lose__less_5_percent.mp3', { group: 'doomsDay' })
+}
+
+export function playR3SpecialSuperLowChance(): void {
+  void playClip('dooms_day/round_3/round_3_win_less_1_percent.mp3', { group: 'doomsDay' })
+}
+
+// ── Folk Percussion Win Layers (Req 11) ────────────────────────────────
+
+export class FolkPercussionPool {
+  shouldSkipPercussion = false
+  currentVariation = 1
+  private remaining: number[] = []
+
+  constructor() { this.rollForFight() }
+
+  /** Roll once per fight: skip chance + variation */
+  rollForFight(): void {
+    this.shouldSkipPercussion = Math.random() < 0.05
+    this.currentVariation = Math.floor(Math.random() * 5) + 1
+    this.remaining = Array.from({ length: 12 }, (_, i) => i + 1)
+  }
+
+  playLayer(): void {
+    if (this.shouldSkipPercussion) return
+    if (this.remaining.length === 0) {
+      this.remaining = Array.from({ length: 12 }, (_, i) => i + 1)
+    }
+    const idx = Math.floor(Math.random() * this.remaining.length)
+    const num = this.remaining.splice(idx, 1)[0]
+    void playClip(
+      `dooms_day/win_lose/layers/win/percussion/folk/variation_${this.currentVariation}/folk_percussion_${num}.mp3`,
+      { group: 'doomsDayLayers' },
+    )
+  }
+}
+
+// ── Meme Lose Sounds (Req 12) ──────────────────────────────────────────
+
+const MEME_ELIGIBLE_TAGS = new Set(['1_l', '2_ll', '2_wl'])
+
+export function tryPlayMemeLoseSound(
+  roundResults: readonly ('w' | 'l')[],
+  isFinal: boolean,
+): void {
+  if (isFinal) return
+  const tag = `${roundResults.length}_${roundResults.join('')}`
+  if (!MEME_ELIGIBLE_TAGS.has(tag)) return
+  if (Math.random() >= 0.05) return
+  const num = Math.floor(Math.random() * 10) + 1
+  void playClip(`dooms_day/win_lose/layers/lose/meme_sounds/${num}.mp3`, { group: 'doomsDayLayers' })
+}
+
+// ── Geralt Vocal Win Layers (Req 13) ───────────────────────────────────
+
+const GERALT_VOCAL_TAGS: Record<string, string> = {
+  '1_w': '1_w',
+  '2_ww': '2_ww',
+}
+
+export function playGeraltVocalWinLayer(
+  roundResults: readonly ('w' | 'l')[],
+  isFinal: boolean,
+  isGeralt: boolean,
+): void {
+  if (!isGeralt) return
+  const tag = `${roundResults.length}_${roundResults.join('')}`
+
+  let folder: string
+  if (!isFinal) {
+    const mapped = GERALT_VOCAL_TAGS[tag]
+    if (!mapped) return
+    folder = mapped
+  } else {
+    // Any final win
+    if (!roundResults.includes('w')) return
+    folder = 'f_for_any_win'
+  }
+
+  const num = Math.floor(Math.random() * 7) + 1
+  void playClip(
+    `dooms_day/win_lose/layers/win/special/geralt/vocal/${folder}/${num}.mp3`,
+    { group: 'doomsDayLayers' },
+  )
+}
+
+// ── Combo Stack Sounds (Req 14) ────────────────────────────────────────
+
+export function playComboStack(index: number): void {
+  const clamped = Math.max(1, Math.min(21, index))
+  void playClip(`ui_ux/combo/combo_stack/stack_${clamped}.mp3`, { group: 'comboStack' })
+}
+
+// ── Points Summary (Req 16) ────────────────────────────────────────────
+
+export function playPointsSummary(totalEarned: number): void {
+  if (totalEarned < 20) return
+
+  if (totalEarned >= 60) {
+    // Cascade ALL thresholds with 1.71s delay between each
+    const thresholds = [20, 30, 40, 50, 60]
+    thresholds.forEach((t, i) => {
+      setTimeout(() => {
+        void playClip(`ui_ux/points/points_summ/${t}_plus.mp3`, { group: 'pointsSumm' })
+      }, i * 1710)
+    })
+    return
+  }
+
+  // Single threshold
+  let tier = 0
+  if (totalEarned >= 50) tier = 50
+  else if (totalEarned >= 40) tier = 40
+  else if (totalEarned >= 30) tier = 30
+  else tier = 20
+
+  void playClip(`ui_ux/points/points_summ/${tier}_plus.mp3`, { group: 'pointsSumm' })
 }

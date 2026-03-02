@@ -250,6 +250,8 @@ public class ReplayService : IServiceSingleton
             WinnerName = f.WinnerName,
             AttackerClass = f.AttackerClass,
             DefenderClass = f.DefenderClass,
+            AttackerOriginalClass = f.AttackerOriginalClass,
+            DefenderOriginalClass = f.DefenderOriginalClass,
             VersatilityIntel = f.VersatilityIntel,
             VersatilityStr = f.VersatilityStr,
             VersatilitySpeed = f.VersatilitySpeed,

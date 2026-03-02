@@ -22,6 +22,7 @@ import {
   playLevelUpStatSound,
   playMoralForPointsSound,
   playMoralForSkillSound,
+  playGeraltMeditation,
 } from 'src/services/sound'
 
 type StatKey = 'intelligence' | 'strength' | 'speed' | 'psyche'
@@ -339,6 +340,7 @@ export const useGameStore = defineStore('game', () => {
   async function block() {
     if (!gameState.value) return
     playBlockSound()
+    if (myPlayer.value?.character.name === 'Геральт') playGeraltMeditation()
     if (gameState.value.roundNo >= 10) {
       const charName = myPlayer.value?.character.name
       playAnyMoveTurn10PlusLayer(charName ? isLateGameCharacter(charName) : false)
@@ -362,6 +364,7 @@ export const useGameStore = defineStore('game', () => {
 
   async function confirmSkip() {
     if (!gameState.value) return
+    if (myPlayer.value?.character.name === 'Геральт') playGeraltMeditation()
     if (gameState.value.roundNo >= 10) {
       const charName = myPlayer.value?.character.name
       playAnyMoveTurn10PlusLayer(charName ? isLateGameCharacter(charName) : false)

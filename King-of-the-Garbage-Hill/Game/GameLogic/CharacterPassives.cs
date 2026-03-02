@@ -2200,6 +2200,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             // Won vs non-contract enemy — loot
                             geraltAtkContracts.NonContractWinsThisRound++;
+                            geraltAtkContracts.RareLootFoundThisRound = true;
                         }
 
                         // Demand tracking
@@ -4277,6 +4278,8 @@ public class CharacterPassives : IServiceSingleton
                         geraltEorContracts.PlotvaPhrasedThisRound = false;
                         geraltEorContracts.PlotvaContractsGrantedThisRound = false;
                         geraltEorContracts.EnemiesFoughtThisRound.Clear();
+                        geraltEorContracts.RareLootFoundThisRound = false;
+                        demand.QuestCompletedThisRound = false;
 
                         // Reset oil (Медитация re-applies if blocking, runs after this)
                         player.Passives.GeraltOil.IsOilApplied = false;

@@ -235,7 +235,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     }
 
                     r.IsTooGoodMe = true;
-                    randomForPoint = 80;
+                    randomForPoint = 70;
 
                     break;
                 case <= -13:
@@ -246,7 +246,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     }
 
                     r.IsTooGoodEnemy = true;
-                    randomForPoint = 20;
+                    randomForPoint = 30;
                     break;
             }
 

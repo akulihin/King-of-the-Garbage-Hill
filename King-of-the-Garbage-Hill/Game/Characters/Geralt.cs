@@ -25,6 +25,7 @@ public class Geralt
         public bool PlotvaContractsGrantedThisRound { get; set; } = false;
         public Dictionary<Guid, int> ContractProcsOnEnemy { get; set; } = new();
         public HashSet<Guid> EnemiesFoughtThisRound { get; set; } = new();
+        public bool RareLootFoundThisRound { get; set; } = false;
 
         public int GetCount(MonsterType type) => type switch
         {
@@ -144,6 +145,8 @@ public class Geralt
         // Phase locks
         public bool DemandedThisPhase { get; set; } = false;
         public bool DemandedForNext { get; set; } = false;
+
+        public bool QuestCompletedThisRound { get; set; } = false;
 
         public InvoiceResult CalculateInvoice()
         {

@@ -10,6 +10,13 @@ import {
   playDoomsDayScroll,
   playDoomsDayNoFights,
   playWinSpecialsForAll,
+  GeraltFightSoundPool,
+  FolkPercussionPool,
+  playDoomsDayCustom,
+  playR3SpecialLowChance,
+  playR3SpecialSuperLowChance,
+  tryPlayMemeLoseSound,
+  playGeraltVocalWinLayer,
 } from 'src/services/sound'
 
 const props = withDefaults(defineProps<{
@@ -504,6 +511,7 @@ function proceedToNextFight() {
     if (currentFightIdx.value < myFights.value.length - 1) {
       playDoomsDayScroll()
       roundResults.value = []
+      folkPercussionPool.rollForFight()
       currentFightIdx.value++
       currentStep.value = 0
       scheduleNext()
@@ -569,6 +577,8 @@ watch(() => props.fights, () => {
     userSwitchedTab.value = false
     activeTab.value = 'fights'
     fightSoundPool.reset()
+    geraltFightPool.reset()
+    folkPercussionPool.rollForFight()
     roundResults.value = []
     restart()
   }
@@ -602,6 +612,8 @@ onUnmounted(() => {
 // ── Dooms Day sound system ───────────────────────────────────────────
 
 const fightSoundPool = new FightSoundPool()
+const geraltFightPool = new GeraltFightSoundPool()
+const folkPercussionPool = new FolkPercussionPool()
 const roundResults = ref<('w' | 'l')[]>([])
 
 // Watch currentStep to trigger dooms_day sounds during MY fight animation
@@ -616,6 +628,14 @@ watch(currentStep, (step: number) => {
   // Steps 1..factorCount: R1 factor sounds
   if (step >= 1 && step <= factorCount) {
     const isLastFactor = step === factorCount
+    // Geralt: 25% chance for special fight sounds (drowned pool only vs Утопцы enemies)
+    if (myCharacterName.value === 'Геральт') {
+      const opponentName = rightName.value
+      const monsterTypes = myPlayer.value?.passiveAbilityStates?.geralt?.enemyMonsterTypes
+      const isDrowned = monsterTypes?.[opponentName] === 'Утопцы'
+      const geraltPath = isLastFactor ? geraltFightPool.tryNextFin() : geraltFightPool.tryNext(isDrowned)
+      if (geraltPath) { playDoomsDayCustom(geraltPath); return }
+    }
     playDoomsDayFight(fightSoundPool, isLastFactor)
     return
   }
@@ -641,6 +661,13 @@ watch(currentStep, (step: number) => {
       const r1result: 'w' | 'l' = r1pts > 0 ? 'w' : 'l'
       roundResults.value = [r1result]
       playDoomsDayWinLose([r1result], false, false)
+      // Layers: percussion on win, meme on lose
+      if (r1result === 'w') {
+        folkPercussionPool.playLayer()
+        playGeraltVocalWinLayer(roundResults.value, false, myCharacterName.value === 'Геральт')
+      } else {
+        tryPlayMemeLoseSound(roundResults.value, false)
+      }
     }
     return
   }
@@ -657,6 +684,13 @@ watch(currentStep, (step: number) => {
       const r2result: 'w' | 'l' = r2pts > 0 ? 'w' : 'l'
       roundResults.value = [...roundResults.value, r2result]
       playDoomsDayWinLose(roundResults.value, false, false)
+      // Layers: percussion on win, meme on lose
+      if (r2result === 'w') {
+        folkPercussionPool.playLayer()
+        playGeraltVocalWinLayer(roundResults.value, false, myCharacterName.value === 'Геральт')
+      } else {
+        tryPlayMemeLoseSound(roundResults.value, false)
+      }
     }
     return
   }
@@ -665,6 +699,10 @@ watch(currentStep, (step: number) => {
     // Step factorCount+3: R3 modifiers
     if (step === factorCount + 3) {
       playDoomsDayRndRoll()
+      // R3 special sounds for extreme odds
+      const chance = r3OurChance.value
+      if (chance < 1 || chance > 99) playR3SpecialSuperLowChance()
+      else if (chance <= 5 || chance >= 95) playR3SpecialLowChance()
       return
     }
 
@@ -778,6 +816,40 @@ function isFofBuff(mod: ForOneFightMod): boolean {
   return mod.isOnEnemy ? delta < 0 : delta >= 0
 }
 
+// ForOneFight mods that the ENEMY's passives applied to US
+const enemyModsOnUs = computed(() => {
+  if (!fight.value) return []
+  // Opposite perspective's array, filtered for isOnEnemy=true
+  // (from enemy's POV, "enemy" = us, so these are mods on our stats)
+  const oppositeArray = isFlipped.value
+    ? (fight.value.attackerForOneFightMods ?? [])
+    : (fight.value.defenderForOneFightMods ?? [])
+  return oppositeArray.filter(m => m.isOnEnemy)
+})
+
+function enemyFofBadgeText(mod: ForOneFightMod): string {
+  const delta = mod.newValue - mod.originalValue
+  const statAbbrev: Record<string, string> = {
+    Strength: 'Str', Speed: 'Spd', Intelligence: 'Int',
+    Psyche: 'Psy', Skill: 'Skill', Justice: 'Justice'
+  }
+  const stat = statAbbrev[mod.stat] ?? mod.stat
+  const sign = delta >= 0 ? '+' : ''
+  if (mod.newValue === 0 && mod.originalValue !== 0) return `${stat} = 0`
+  return `${sign}${delta} ${stat}`
+}
+
+// Class change badge (when ForOneFight mods change our class)
+const classChangeBadge = computed(() => {
+  if (!fight.value) return ''
+  const f = fight.value
+  const origClass = isFlipped.value ? f.defenderOriginalClass : f.attackerOriginalClass
+  const newClass = isFlipped.value ? f.defenderClass : f.attackerClass
+  if (!origClass || origClass === newClass) return ''
+  const classLabel: Record<string, string> = { 'Интеллект': 'Smart', 'Сила': 'Strong', 'Скорость': 'Fast' }
+  return `${classLabel[origClass] ?? origClass} → ${classLabel[newClass] ?? newClass}`
+})
+
 // Justice: Number Slam animation
 let slamTimers: ReturnType<typeof setTimeout>[] = []
 
@@ -828,6 +900,11 @@ watch(showFinalResult, (show) => {
   const allSame = roundResults.value.length > 0 && roundResults.value.every(r => r === roundResults.value[0])
   const isAbsolute = isLastFight && allSame
   playDoomsDayWinLose(roundResults.value, true, isAbsolute, leftWon.value)
+  // Final layers: percussion on win, Geralt vocal on win
+  if (leftWon.value) {
+    folkPercussionPool.playLayer()
+    playGeraltVocalWinLayer(roundResults.value, true, myCharacterName.value === 'Геральт')
+  }
 })
 
 function phaseClass(result: number, revealed: boolean): string {
@@ -1179,7 +1256,7 @@ function getDisplayAvatar(orig: string, u: string): string {
   if (!isPlayerMasked(u)) return orig
   const predName = getPredictionForPlayer(u)
   if (predName && charCatalogMap.value[predName]) return charCatalogMap.value[predName].avatar
-  return '/art/avatars/unknown.png'
+  return 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown_fixvalues.png'
 }
 function getDisplayCharName(orig: string, u: string): string {
   if (!isPlayerMasked(u)) return orig
@@ -1225,7 +1302,7 @@ function getDisplayCharName(orig: string, u: string): string {
           <div class="fa-all-mid">
             <img :src="getDisplayAvatar(allFightLeft(f).avatar, allFightLeft(f).name)"
               class="fa-all-ava" :class="{ 'ava-winner': allFightLeft(f).isWinner, 'ava-perfect': allFightLeft(f).isWinner && perfectRoundPlayers.has(allFightLeft(f).name) }"
-              @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/unknown.png'">
+              @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
             <span class="fa-all-center" :class="{
               'center-neutral': f.outcome === 'block' || f.outcome === 'skip',
               'center-drop': f.drops > 0 && f.outcome !== 'block' && f.outcome !== 'skip',
@@ -1233,7 +1310,7 @@ function getDisplayCharName(orig: string, u: string): string {
             }">{{ allFightCenterLabel(f) }}</span>
             <img :src="getDisplayAvatar(allFightRight(f).avatar, allFightRight(f).name)"
               class="fa-all-ava" :class="{ 'ava-winner': allFightRight(f).isWinner, 'ava-perfect': allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).name) }"
-              @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/unknown.png'">
+              @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
           </div>
           <!-- Right name (winner / attacker for block-skip) -->
           <span class="fa-all-name fa-all-name-right" :class="{ 'name-winner': allFightRight(f).isWinner }" :title="allFightRight(f).name">
@@ -1277,7 +1354,7 @@ function getDisplayCharName(orig: string, u: string): string {
         <div v-if="isSpecialOutcome" class="fa-special">
           <div class="fa-bar-container">
             <div class="fa-id-left">
-              <img :src="getDisplayAvatar(leftAvatar, leftName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/unknown.png'">
+              <img :src="getDisplayAvatar(leftAvatar, leftName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
               <div class="fa-id-info">
                 <span class="fa-id-name">{{ leftName }}</span>
               </div>
@@ -1295,7 +1372,7 @@ function getDisplayCharName(orig: string, u: string): string {
               <div class="fa-id-info" style="text-align:right">
                 <span class="fa-id-name">{{ rightName }}</span>
               </div>
-              <img :src="getDisplayAvatar(rightAvatar, rightName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/unknown.png'">
+              <img :src="getDisplayAvatar(rightAvatar, rightName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
             </div>
           </div>
         </div>
@@ -1305,7 +1382,7 @@ function getDisplayCharName(orig: string, u: string): string {
           <!-- Compact scale row: avatar+name | bar | avatar+name -->
           <div class="fa-bar-container">
             <div class="fa-id-left" :class="{ winner: leftWon, 'entrance-active': currentStep === 0 && !skippedToEnd }">
-              <img :src="getDisplayAvatar(leftAvatar, leftName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/unknown.png'">
+              <img :src="getDisplayAvatar(leftAvatar, leftName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
               <div class="fa-id-info">
                 <span class="fa-id-name">{{ leftName }}</span>
                 <span class="fa-id-char">{{ getDisplayCharName(leftCharName, leftName) }}</span>
@@ -1359,7 +1436,7 @@ function getDisplayCharName(orig: string, u: string): string {
                 <span class="fa-id-name">{{ rightName }}</span>
                 <span class="fa-id-char">{{ getDisplayCharName(rightCharName, rightName) }}</span>
               </div>
-              <img :src="getDisplayAvatar(rightAvatar, rightName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = '/art/avatars/unknown.png'">
+              <img :src="getDisplayAvatar(rightAvatar, rightName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
             </div>
           </div>
 
@@ -1381,7 +1458,7 @@ function getDisplayCharName(orig: string, u: string): string {
               </div>
 
               <!-- TooGood / TooStronk / Skill Multiplier / ForOneFight badges -->
-              <div v-if="(fight.isTooGoodMe || fight.isTooGoodEnemy) || (fight.isTooStronkMe || fight.isTooStronkEnemy) || ourSkillMultiplier > 1 || ourForOneFightMods.length > 0" class="fa-badge-row" :class="{ visible: showR1Result }">
+              <div v-if="(fight.isTooGoodMe || fight.isTooGoodEnemy) || (fight.isTooStronkMe || fight.isTooStronkEnemy) || ourSkillMultiplier > 1 || ourForOneFightMods.length > 0 || enemyModsOnUs.length > 0 || classChangeBadge" class="fa-badge-row" :class="{ visible: showR1Result }">
                 <span v-if="fight.isTooGoodMe || fight.isTooGoodEnemy" class="fa-badge badge-toogood">TOO GOOD: {{ (fight.isTooGoodMe ? !isFlipped : isFlipped) ? 'МЫ' : 'ВРАГ' }}</span>
                 <span v-if="fight.isTooStronkMe || fight.isTooStronkEnemy" class="fa-badge badge-toostronk">TOO STRONK: {{ (fight.isTooStronkMe ? !isFlipped : isFlipped) ? 'МЫ' : 'ВРАГ' }}</span>
                 <span v-if="ourSkillMultiplier > 1" class="fa-badge badge-skill">SKILL MULTIPLIER x{{ ourSkillMultiplier }}</span>
@@ -1389,6 +1466,11 @@ function getDisplayCharName(orig: string, u: string): string {
                   class="fa-badge" :class="isFofBuff(mod) ? 'badge-fof-buff' : 'badge-fof-debuff'">
                   {{ fofBadgeText(mod) }}
                 </span>
+                <span v-for="(mod, i) in enemyModsOnUs" :key="'fof-enemy-'+i"
+                  class="fa-badge badge-fof-enemy">
+                  {{ enemyFofBadgeText(mod) }}
+                </span>
+                <span v-if="classChangeBadge" class="fa-badge badge-class-change">{{ classChangeBadge }}</span>
               </div>
             </div>
 
@@ -1919,6 +2001,8 @@ function getDisplayCharName(orig: string, u: string): string {
 .badge-skill { background: rgba(233, 219, 61, 0.1); color: var(--accent-gold); border: 1px solid rgba(233, 219, 61, 0.3); }
 .badge-fof-buff { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
 .badge-fof-debuff { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+.badge-fof-enemy { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+.badge-class-change { background: rgba(236, 72, 153, 0.1); color: #ec4899; border: 1px solid rgba(236, 72, 153, 0.3); }
 
 /* ── R3 details ── */
 .fa-r3-details { display: flex; flex-direction: column; gap: 2px; }
