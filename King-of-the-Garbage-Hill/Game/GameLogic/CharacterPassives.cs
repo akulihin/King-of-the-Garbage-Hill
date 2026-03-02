@@ -961,6 +961,17 @@ public class CharacterPassives : IServiceSingleton
                         game.AddGlobalLogs(commLogSnippet);
                         game.KiraHiddenLogSnippets.Add(commLogSnippet);
                         game.Phrases.YongGlebCommunication.SendLog(me, false);
+
+                        // Auto-set prediction for all players who don't already have one for this target
+                        foreach (var p in game.PlayersList)
+                        {
+                            if (p.GetPlayerId() == target.GetPlayerId()) continue;
+                            var existingPred = p.Predict.Find(pr => pr.PlayerId == target.GetPlayerId());
+                            if (existingPred == null)
+                                p.Predict.Add(new PredictClass(target.GameCharacter.Name, target.GetPlayerId()));
+                        }
+                        if (!game.PinkWardRevealedPlayerIds.Contains(target.GetPlayerId()))
+                            game.PinkWardRevealedPlayerIds.Add(target.GetPlayerId());
                     }
                     break;
 
@@ -3400,6 +3411,17 @@ public class CharacterPassives : IServiceSingleton
                                     var tolyaLogSnippet = $"Толя запизделся и спалил, что {randomPlayer.DiscordUsername} - {randomPlayer.GameCharacter.Name}";
                                     game.AddGlobalLogs(tolyaLogSnippet);
                                     game.KiraHiddenLogSnippets.Add(tolyaLogSnippet);
+
+                                    // Auto-set prediction for all players who don't already have one for this target
+                                    foreach (var p in game.PlayersList)
+                                    {
+                                        if (p.GetPlayerId() == randomPlayer.GetPlayerId()) continue;
+                                        var existingPred = p.Predict.Find(pr => pr.PlayerId == randomPlayer.GetPlayerId());
+                                        if (existingPred == null)
+                                            p.Predict.Add(new PredictClass(randomPlayer.GameCharacter.Name, randomPlayer.GetPlayerId()));
+                                    }
+                                    if (!game.PinkWardRevealedPlayerIds.Contains(randomPlayer.GetPlayerId()))
+                                        game.PinkWardRevealedPlayerIds.Add(randomPlayer.GetPlayerId());
                                 }
                             }
                         }
@@ -4904,6 +4926,13 @@ public class CharacterPassives : IServiceSingleton
                                 var check = player.Passives.DeepListSupermindKnown;
 
                                 check.KnownPlayers.Add(randPlayer.GetPlayerId());
+
+                                // Auto-set prediction for the discovered character
+                                var existingPred = player.Predict.Find(p => p.PlayerId == randPlayer.GetPlayerId());
+                                if (existingPred != null)
+                                    existingPred.CharacterName = randPlayer.GameCharacter.Name;
+                                else
+                                    player.Predict.Add(new PredictClass(randPlayer.GameCharacter.Name, randPlayer.GetPlayerId()));
 
                                 game.Phrases.DeepListSuperMindPhrase.SendLog(player, randPlayer, true);
                             }

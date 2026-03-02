@@ -148,6 +148,9 @@ public static class GameStateMapper
             });
         }
 
+        // Map Pink Ward revealed player IDs
+        dto.PinkWardRevealedPlayerIds = new List<Guid>(game.PinkWardRevealedPlayerIds);
+
         // Build full chronicle for Летопись tab when game is finished
         if (game.IsFinished)
         {
@@ -199,17 +202,35 @@ public static class GameStateMapper
             IsDead = player.Passives.IsDead,
             DeathSource = player.Passives.DeathSource,
             IsKira = isMe && hasDeathNote,
-            Character = MapCharacter(player.GameCharacter, isMe, isAdmin),
-            Status = MapStatus(player, isMe, isAdmin),
+            Character = MapCharacter(player.GameCharacter, isMe, isAdmin, game?.IsFinished ?? false),
+            Status = MapStatus(player, isMe, isAdmin, game?.IsFinished ?? false),
         };
 
-        // Predictions are private — only visible to the owning player
-        if (isMe)
+        // Predictions — visible to the owning player, and to everyone at game end
+        var isFinished = game?.IsFinished ?? false;
+        if (isMe || isFinished)
         {
             dto.Predictions = player.Predict
-                .Select(p => new PredictDto { PlayerId = p.PlayerId, CharacterName = p.CharacterName })
+                .Select(p =>
+                {
+                    var predDto = new PredictDto { PlayerId = p.PlayerId, CharacterName = p.CharacterName };
+                    // At game end, populate actual character info for prediction results
+                    if (isFinished)
+                    {
+                        var target = allPlayers.Find(x => x.GetPlayerId() == p.PlayerId);
+                        if (target != null)
+                        {
+                            predDto.ActualCharacterName = target.GameCharacter.Name;
+                            predDto.IsCorrect = string.Equals(p.CharacterName, target.GameCharacter.Name, StringComparison.OrdinalIgnoreCase);
+                            if (predDto.IsCorrect != true)
+                                predDto.ActualAvatar = GetLocalAvatarUrl(target.GameCharacter.Avatar);
+                        }
+                    }
+                    return predDto;
+                })
                 .ToList();
-            dto.CharacterMasteryPoints = player.CharacterMasteryPoints;
+            if (isMe)
+                dto.CharacterMasteryPoints = player.CharacterMasteryPoints;
         }
 
         // Death Note state — only visible to the Kira player
@@ -775,10 +796,10 @@ public static class GameStateMapper
         return dto;
     }
 
-    private static CharacterDto MapCharacter(CharacterClass character, bool isMe, bool isAdmin)
+    private static CharacterDto MapCharacter(CharacterClass character, bool isMe, bool isAdmin, bool isFinished = false)
     {
-        // Non-admin viewing an opponent → mask character identity and stats
-        if (!isMe && !isAdmin)
+        // Non-admin viewing an opponent → mask character identity and stats (unless game is finished)
+        if (!isMe && !isAdmin && !isFinished)
         {
             return new CharacterDto
             {
@@ -851,11 +872,11 @@ public static class GameStateMapper
         return dto;
     }
 
-    private static PlayerStatusDto MapStatus(GamePlayerBridgeClass player, bool isMe, bool isAdmin)
+    private static PlayerStatusDto MapStatus(GamePlayerBridgeClass player, bool isMe, bool isAdmin, bool isFinished = false)
     {
         var status = player.Status;
-        // Non-admin viewing an opponent: hide score (they only see place on leaderboard)
-        var canSeeScore = isMe || isAdmin;
+        // Non-admin viewing an opponent: hide score (they only see place on leaderboard, unless game is finished)
+        var canSeeScore = isMe || isAdmin || isFinished;
 
         // Extract previous round logs from InGamePersonalLogsAll (split by "|||")
         var previousRoundLogs = "";

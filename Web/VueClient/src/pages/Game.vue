@@ -5,7 +5,7 @@ import { useGameStore } from 'src/store/game'
 import Leaderboard from 'src/components/Leaderboard.vue'
 import DeathNote from 'src/components/DeathNote.vue'
 import PlayerCard from 'src/components/PlayerCard.vue'
-import ActionPanel from 'src/components/ActionPanel.vue'
+// ActionPanel removed — action buttons now live inside Leaderboard
 import SkillsPanel from 'src/components/SkillsPanel.vue'
 import FightAnimation from 'src/components/FightAnimation.vue'
 import MediaMessages from 'src/components/MediaMessages.vue'
@@ -362,6 +362,57 @@ function toggleMute() {
     volume.value = 0.25
     setMasterVolume(0.25)
   }
+}
+
+// ── Customizable center column layout ────────────────────────────
+type PanelId = 'leaderboard' | 'fight' | 'logs'
+
+const allPermutations: PanelId[][] = [
+  ['leaderboard', 'fight', 'logs'],
+  ['leaderboard', 'logs', 'fight'],
+  ['fight', 'leaderboard', 'logs'],
+  ['fight', 'logs', 'leaderboard'],
+  ['logs', 'leaderboard', 'fight'],
+  ['logs', 'fight', 'leaderboard'],
+]
+
+function loadLayoutOrder(): PanelId[] {
+  try {
+    const raw = localStorage.getItem('kotgh_layout_order')
+    if (!raw) return allPermutations[0]
+    const arr = JSON.parse(raw) as string[]
+    if (
+      Array.isArray(arr) && arr.length === 3 &&
+      arr.includes('leaderboard') && arr.includes('fight') && arr.includes('logs')
+    ) return arr as PanelId[]
+  } catch { /* ignore */ }
+  return allPermutations[0]
+}
+
+const layoutOrder = ref<PanelId[]>(loadLayoutOrder())
+
+function cycleLayoutOrder() {
+  const key = JSON.stringify(layoutOrder.value)
+  const idx = allPermutations.findIndex(p => JSON.stringify(p) === key)
+  const next = allPermutations[(idx + 1) % allPermutations.length]
+  layoutOrder.value = next
+  localStorage.setItem('kotgh_layout_order', JSON.stringify(next))
+}
+
+const panelOrder = computed(() => {
+  const o: Record<PanelId, number> = { leaderboard: 0, fight: 0, logs: 0 }
+  layoutOrder.value.forEach((id, i) => { o[id] = i })
+  return o
+})
+
+const layoutLabels: Record<PanelId, string> = { leaderboard: 'LB', fight: 'Fight', logs: 'Logs' }
+const layoutOrderLabel = computed(() => layoutOrder.value.map(id => layoutLabels[id]).join(' | '))
+
+const fightPanelFixed = ref(localStorage.getItem('kotgh_fight_panel_fixed') === 'true')
+
+function toggleFightPanelSize() {
+  fightPanelFixed.value = !fightPanelFixed.value
+  localStorage.setItem('kotgh_fight_panel_fixed', String(fightPanelFixed.value))
 }
 
 const showFinishConfirm = ref(false)
@@ -939,21 +990,16 @@ const charTint = computed(() => {
           :score-entries="scoreEntries"
           :score-anim-ready="fightReplayEnded"
         />
+        <!-- ActionPanel removed — actions now in Leaderboard sub-row -->
       </div>
 
       <!-- Center: Header + Leaderboard + Actions + Logs -->
       <div class="game-center">
         <!-- Game header bar -->
         <div class="game-header">
-          <button class="btn btn-ghost btn-sm" @click="goToLobby">
-            ← Lobby
-          </button>
           <div class="header-center">
             <span class="round-badge">
               Round {{ store.gameState.roundNo }} / 10
-            </span>
-            <span class="mode-badge">
-              {{ store.gameState.gameMode }}
             </span>
             <span v-if="store.gameState.isFinished" class="finished-badge">
               Finished
@@ -987,6 +1033,19 @@ const charTint = computed(() => {
               @click="togglePreferWeb()">
               {{ preferWeb ? '🌐 Web ✓' : '🌐 Web' }}
             </button>
+            <!-- Layout order cycle -->
+            <button class="btn btn-ghost btn-sm layout-btn"
+              title="Cycle center column order"
+              @click="cycleLayoutOrder()">
+              {{ layoutOrderLabel }}
+            </button>
+            <!-- Fight panel size toggle -->
+            <button class="btn btn-ghost btn-sm layout-btn"
+              :class="{ active: fightPanelFixed }"
+              title="Toggle fight panel between fixed 500px and dynamic sizing"
+              @click="toggleFightPanelSize()">
+              {{ fightPanelFixed ? 'Fixed' : 'Dynamic' }}
+            </button>
             <RoundTimer v-if="!store.gameState.isFinished" />
             <!-- Finish game -->
             <button v-if="me && !store.gameState.isFinished"
@@ -1002,115 +1061,8 @@ const charTint = computed(() => {
           </div>
         </div>
 
-        <!-- Fight Panel (moved above leaderboard for prominence) -->
-        <div class="log-panel card fight-panel">
-          <!-- Kira: Death Note replaces fight animation -->
-          <DeathNote
-            v-if="store.isKira && store.myPlayer?.deathNote && !store.gameState.isFinished"
-            :death-note="store.myPlayer.deathNote"
-            :players="store.gameState.players"
-            :my-player-id="store.myPlayer.playerId"
-            :character-names="store.gameState.allCharacterNames || []"
-            :character-catalog="store.gameState.allCharacters || []"
-            :is-finished="store.gameState.isFinished"
-            :moral="store.myPlayer.character.moralDisplay"
-            @write="store.deathNoteWrite($event.targetPlayerId, $event.characterName)"
-            @shinigami-eyes="store.shinigamiEyes()"
-          />
-          <!-- Normal players: fight animation -->
-          <FightAnimation
-            v-else
-            :fights="store.gameState.fightLog || []"
-            :letopis="letopis"
-            :game-story="store.gameStory"
-            :players="store.gameState.players"
-            :my-player-id="store.myPlayer?.playerId"
-            :predictions="store.myPlayer?.predictions"
-            :is-admin="store.isAdmin"
-            :character-catalog="store.gameState.allCharacters || []"
-            @resist-flash="onResistFlash"
-            @justice-reset="onJusticeReset"
-            @justice-up="onJusticeUp"
-            @replay-ended="onReplayEnded"
-          />
-        </div>
-
-        <!-- Blackjack mini-game for players killed by Death Note -->
-        <Blackjack21
-          v-if="store.myPlayer?.isDead && store.myPlayer?.deathSource === 'Kira' && store.blackjackState"
-          :game-id="store.gameState.gameId"
-        />
-
-        <!-- Logs: events side-by-side -->
-        <div class="logs-row-top">
-          
-          <div class="log-panel card events-panel">
-
-            <!-- Exiting items: old logs sliding right toward prev panel -->
-            <div v-if="currentPanelExiting && exitingLogEntries.length" class="prev-logs slide-exit-right">
-              <div
-                v-for="(entry, idx) in exitingLogEntries"
-                :key="'exit-'+idx"
-                class="prev-log-item prev-log-visible"
-                :class="['prev-log-' + entry.type, { 'prev-log-phrase': entry.isPhrase }]"
-              >
-                <span class="prev-log-text" v-html="entry.html"></span>
-              </div>
-            </div>
-
-            <!-- Normal current items -->
-            <div v-else-if="currentLogEntries.length" class="prev-logs" :class="{ 'slide-enter': currentPanelSwiping }">
-              <div
-                v-for="(entry, idx) in currentLogEntries"
-                :key="idx"
-                class="prev-log-item"
-                :class="[
-                  'prev-log-' + entry.type,
-                  { 'prev-log-visible': idx < currentLogVisibleCount },
-                  { 'prev-log-combo': entry.type === 'gold' && entry.comboCount > 0 },
-                  { 'prev-log-phrase': entry.isPhrase }
-                ]"
-              >
-                <span class="prev-log-text" v-html="entry.html"></span>
-                <span v-if="entry.type === 'gold' && entry.comboCount > 0" class="prev-log-combo-badge">
-                  x{{ entry.comboCount + 1 }} combo
-                </span>
-              </div>
-            </div>
-
-            <div v-else class="log-empty">Еще ничего не произошло. Наверное...</div>
-          </div>
-
-          <div class="log-panel card events-panel prev-logs-panel">
-
-            <div v-if="prevLogEntries.length" class="prev-logs" :class="{ 'slide-enter': prevPanelSwiping }">
-              <div
-                v-for="(entry, idx) in prevLogEntries"
-                :key="idx"
-                class="prev-log-item"
-                :class="[
-                  'prev-log-' + entry.type,
-                  { 'prev-log-visible': idx < prevLogVisibleCount },
-                  { 'prev-log-fade-exit': prevPanelExiting },
-                  { 'prev-log-combo': entry.type === 'gold' && entry.comboCount > 0 },
-                  { 'prev-log-phrase': entry.isPhrase }
-                ]"
-              >
-                <span class="prev-log-text" v-html="entry.html"></span>
-                <span v-if="entry.type === 'gold' && entry.comboCount > 0" class="prev-log-combo-badge">
-                  x{{ entry.comboCount + 1 }} combo
-                </span>
-              </div>
-            </div>
-
-            <div v-else class="log-empty">В прошлом раунде ничего не произошло.</div>
-          </div>
-          
-        </div>
-
-        <!-- Leaderboard + Action bar integrated -->
-        <div class="lb-action-block">
-          <ActionPanel v-if="store.myPlayer && !store.gameState.isFinished" />
+        <!-- Leaderboard -->
+        <div class="center-section" :style="{ order: panelOrder.leaderboard }">
           <Leaderboard
             :players="store.gameState.players"
             :my-player-id="store.myPlayer?.playerId"
@@ -1126,13 +1078,141 @@ const charTint = computed(() => {
             :is-kira="store.isKira"
             :death-note="store.myPlayer?.deathNote"
             :is-bug="store.isBug"
+            :pink-ward-revealed-player-ids="store.gameState.pinkWardRevealedPlayerIds"
+            :show-actions="!!store.myPlayer"
+            :can-act="store.isMyTurn"
+            :is-ready="!!store.myPlayer?.status.isReady && !store.myPlayer?.status.isSkip"
+            :confirmed-skip="store.myPlayer?.status.confirmedSkip"
+            :darksci-choice-needed="store.myPlayer?.darksciChoiceNeeded"
+            :young-gleb-available="store.myPlayer?.youngGlebAvailable"
+            :dopa-choice-needed="store.myPlayer?.dopaChoiceNeeded"
+            :dopa-second-attack="store.myPlayer?.passiveAbilityStates?.dopa?.needSecondAttack"
             @attack="onAttack"
             @predict="store.predict($event.playerId, $event.characterName)"
+            @block="store.block()"
+            @auto-move="store.autoMove()"
+            @change-mind="store.changeMind()"
+            @confirm-skip="store.confirmSkip()"
+            @confirm-predict="store.confirmPredict()"
+            @darksci-choice="store.darksciChoice($event)"
+            @young-gleb="store.youngGleb()"
+            @dopa-choice="store.dopaChoice($event)"
           />
         </div>
 
+        <!-- Fight Panel + Blackjack -->
+        <div class="center-section" :style="{ order: panelOrder.fight }">
+          <div class="log-panel card fight-panel" :class="{ 'fight-panel-fixed': fightPanelFixed }">
+            <!-- Kira: Death Note replaces fight animation -->
+            <DeathNote
+              v-if="store.isKira && store.myPlayer?.deathNote && !store.gameState.isFinished"
+              :death-note="store.myPlayer.deathNote"
+              :players="store.gameState.players"
+              :my-player-id="store.myPlayer.playerId"
+              :character-names="store.gameState.allCharacterNames || []"
+              :character-catalog="store.gameState.allCharacters || []"
+              :is-finished="store.gameState.isFinished"
+              :moral="store.myPlayer.character.moralDisplay"
+              @write="store.deathNoteWrite($event.targetPlayerId, $event.characterName)"
+              @shinigami-eyes="store.shinigamiEyes()"
+            />
+            <!-- Normal players: fight animation -->
+            <FightAnimation
+              v-else
+              :fights="store.gameState.fightLog || []"
+              :letopis="letopis"
+              :game-story="store.gameStory"
+              :players="store.gameState.players"
+              :my-player-id="store.myPlayer?.playerId"
+              :predictions="store.myPlayer?.predictions"
+              :is-admin="store.isAdmin"
+              :character-catalog="store.gameState.allCharacters || []"
+              @resist-flash="onResistFlash"
+              @justice-reset="onJusticeReset"
+              @justice-up="onJusticeUp"
+              @replay-ended="onReplayEnded"
+            />
+          </div>
+
+          <!-- Blackjack mini-game for players killed by Death Note -->
+          <Blackjack21
+            v-if="store.myPlayer?.isDead && store.myPlayer?.deathSource === 'Kira' && store.blackjackState"
+            :game-id="store.gameState.gameId"
+          />
+        </div>
+
+        <!-- Logs: events side-by-side -->
+        <div class="center-section" :style="{ order: panelOrder.logs }">
+          <div class="logs-row-top">
+
+            <div class="log-panel card events-panel">
+
+              <!-- Exiting items: old logs sliding right toward prev panel -->
+              <div v-if="currentPanelExiting && exitingLogEntries.length" class="prev-logs slide-exit-right">
+                <div
+                  v-for="(entry, idx) in exitingLogEntries"
+                  :key="'exit-'+idx"
+                  class="prev-log-item prev-log-visible"
+                  :class="['prev-log-' + entry.type, { 'prev-log-phrase': entry.isPhrase }]"
+                >
+                  <span class="prev-log-text" v-html="entry.html"></span>
+                </div>
+              </div>
+
+              <!-- Normal current items -->
+              <div v-else-if="currentLogEntries.length" class="prev-logs" :class="{ 'slide-enter': currentPanelSwiping }">
+                <div
+                  v-for="(entry, idx) in currentLogEntries"
+                  :key="idx"
+                  class="prev-log-item"
+                  :class="[
+                    'prev-log-' + entry.type,
+                    { 'prev-log-visible': idx < currentLogVisibleCount },
+                    { 'prev-log-combo': entry.type === 'gold' && entry.comboCount > 0 },
+                    { 'prev-log-phrase': entry.isPhrase }
+                  ]"
+                >
+                  <span class="prev-log-text" v-html="entry.html"></span>
+                  <span v-if="entry.type === 'gold' && entry.comboCount > 0" class="prev-log-combo-badge">
+                    x{{ entry.comboCount + 1 }} combo
+                  </span>
+                </div>
+              </div>
+
+              <div v-else class="log-empty">Еще ничего не произошло. Наверное...</div>
+            </div>
+
+            <div class="log-panel card events-panel prev-logs-panel">
+
+              <div v-if="prevLogEntries.length" class="prev-logs" :class="{ 'slide-enter': prevPanelSwiping }">
+                <div
+                  v-for="(entry, idx) in prevLogEntries"
+                  :key="idx"
+                  class="prev-log-item"
+                  :class="[
+                    'prev-log-' + entry.type,
+                    { 'prev-log-visible': idx < prevLogVisibleCount },
+                    { 'prev-log-fade-exit': prevPanelExiting },
+                    { 'prev-log-combo': entry.type === 'gold' && entry.comboCount > 0 },
+                    { 'prev-log-phrase': entry.isPhrase }
+                  ]"
+                >
+                  <span class="prev-log-text" v-html="entry.html"></span>
+                  <span v-if="entry.type === 'gold' && entry.comboCount > 0" class="prev-log-combo-badge">
+                    x{{ entry.comboCount + 1 }} combo
+                  </span>
+                </div>
+              </div>
+
+              <div v-else class="log-empty">В прошлом раунде ничего не произошло.</div>
+            </div>
+
+          </div>
+        </div>
+
+
         <!-- "Back to Lobby" after game ends -->
-        <div v-if="store.gameState.isFinished" class="finished-actions">
+        <div v-if="store.gameState.isFinished" class="finished-actions" style="order: 999">
           <button class="btn btn-primary btn-lg" @click="goToLobby">
             Back to Lobby
           </button>
@@ -1383,6 +1463,26 @@ const charTint = computed(() => {
   grid-template-columns: 250px 1fr 250px;
   gap: 10px;
   align-items: start;
+}
+
+.game-center {
+  display: flex;
+  flex-direction: column;
+}
+
+.fight-panel-fixed {
+  height: 500px;
+  min-height: 500px;
+  max-height: 500px;
+}
+
+.layout-btn {
+  font-size: 10px;
+  white-space: nowrap;
+}
+.layout-btn.active {
+  background: rgba(80, 150, 230, 0.15);
+  color: var(--accent-blue);
 }
 
 @media (max-width: 1200px) {
@@ -1895,12 +1995,6 @@ const charTint = computed(() => {
 .finish-confirm-yes:hover { background: var(--accent-red); }
 
 /* ── VFX Message Popup ────────────────────────────────────────────── */
-
-/* ── Leaderboard + Action bar block ─────────────────────────────── */
-.lb-action-block {
-  display: flex;
-  flex-direction: column;
-}
 
 /* ── Logs ────────────────────────────────────────────────────────── */
 .logs-row-top {

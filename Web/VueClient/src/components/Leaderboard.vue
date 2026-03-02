@@ -18,11 +18,30 @@ const props = defineProps<{
   isKira?: boolean
   deathNote?: DeathNote
   isBug?: boolean
+  pinkWardRevealedPlayerIds?: string[]
+  // Action bar props
+  showActions?: boolean
+  canAct?: boolean
+  isReady?: boolean
+  confirmedSkip?: boolean
+  darksciChoiceNeeded?: boolean
+  youngGlebAvailable?: boolean
+  dopaChoiceNeeded?: boolean
+  dopaSecondAttack?: boolean
 }>()
 
 const emit = defineEmits<{
   attack: [place: number]
   predict: [payload: { playerId: string; characterName: string }]
+  // Action bar emits
+  block: []
+  autoMove: []
+  changeMind: []
+  confirmSkip: []
+  confirmPredict: []
+  darksciChoice: [isStable: boolean]
+  youngGleb: []
+  dopaChoice: [tactic: string]
 }>()
 
 // Which player's predict dropdown is open
@@ -38,11 +57,10 @@ const sorted = computed(() =>
     .sort((a, b) => a.status.place - b.status.place),
 )
 
-// After round 8 + confirmed, predictions are locked. Kira doesn't predict.
+// Kira doesn't predict. Otherwise always allow until game end.
 const canPredict = computed(() => {
   if (props.isKira) return false
   if (!props.characterNames || props.characterNames.length === 0) return false
-  if (props.confirmedPredict && (props.roundNo ?? 0) > 8) return false
   return true
 })
 
@@ -160,6 +178,16 @@ function closePredict() {
   predictSearch.value = ''
 }
 
+// Pink Ward animation tracking — mirrors server list directly so it clears when round changes
+function isPinkWardRevealed(playerId: string): boolean {
+  return !!props.pinkWardRevealedPlayerIds?.includes(playerId)
+}
+
+/** Get prediction result for a player at game end */
+function getPredictionResult(playerId: string): Prediction | null {
+  if (!props.predictions || !props.isFinished) return null
+  return props.predictions.find((pr: Prediction) => pr.playerId === playerId) ?? null
+}
 
 function isProtected(player: Player): boolean {
   if ((props.roundNo ?? 0) === 10 && player.character.passives.some(
@@ -189,6 +217,31 @@ function handleAttack(player: Player) {
   attackStampId.value = player.playerId
   setTimeout(() => { attackStampId.value = null }, 400)
 }
+
+// ── Character-specific attack cursors ────────────────────────────────
+const myCharacterName = computed(() => {
+  if (!props.myPlayerId) return ''
+  const me = props.players.find(p => p.playerId === props.myPlayerId)
+  return me?.character?.name ?? ''
+})
+
+const characterCursors: Record<string, string> = {
+  // Default sword
+  __default: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpolygon points='2,30 16.5,12 20.5,16' fill='%23ef8080'/%3E%3Cline x1='14' y1='10' x2='23' y2='19' stroke='%23ef8080' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='18.5' y1='14.5' x2='27' y2='6' stroke='%23ef8080' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") 2 30`,
+  // Spartan spear
+  'Загадочный Спартанец в маске': `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpolygon points='2,30 6,22 10,26' fill='%23ef8080'/%3E%3Cline x1='8' y1='24' x2='29' y2='3' stroke='%23ef8080' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") 2 30`,
+  // Sniper crosshair
+  'LeCrisp': `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%23ef8080' stroke-width='1.5'/%3E%3Ccircle cx='16' cy='16' r='5' fill='none' stroke='%23ef8080' stroke-width='1'/%3E%3Cline x1='16' y1='2' x2='16' y2='10' stroke='%23ef8080' stroke-width='1.5'/%3E%3Cline x1='16' y1='22' x2='16' y2='30' stroke='%23ef8080' stroke-width='1.5'/%3E%3Cline x1='2' y1='16' x2='10' y2='16' stroke='%23ef8080' stroke-width='1.5'/%3E%3Cline x1='22' y1='16' x2='30' y2='16' stroke='%23ef8080' stroke-width='1.5'/%3E%3Ccircle cx='16' cy='16' r='1.5' fill='%23ef8080'/%3E%3C/svg%3E") 16 16`,
+  // Octopus
+  'Осьминожка': `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cellipse cx='16' cy='11' rx='9' ry='7' fill='%23ef8080'/%3E%3Ccircle cx='12' cy='10' r='1.5' fill='%231a1a2e'/%3E%3Ccircle cx='20' cy='10' r='1.5' fill='%231a1a2e'/%3E%3Cpath d='M7,16 Q5,24 3,28 M10,17 Q8,26 10,30 M13,18 Q14,26 13,30 M19,18 Q18,26 19,30 M22,17 Q24,26 22,30 M25,16 Q27,24 29,28' fill='none' stroke='%23ef8080' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") 16 11`,
+}
+
+const attackCursorStyle = computed(() => {
+  if (!props.canAttack) return {}
+  const name = myCharacterName.value
+  const cursor = characterCursors[name] || characterCursors.__default
+  return { '--attack-cursor': `${cursor}, crosshair` } as Record<string, string>
+})
 
 // ── Score change flash animation ─────────────────────────────────────
 const prevScores = ref<Record<string, number>>({})
@@ -294,6 +347,24 @@ function hideTip() {
   if (tipTimer) clearTimeout(tipTimer)
   tipVisible.value = false
 }
+
+/** Magnetic hover effect — button subtly follows cursor */
+function onBtnMousemove(e: MouseEvent) {
+  const btn = e.currentTarget as HTMLElement
+  const rect = btn.getBoundingClientRect()
+  const cx = rect.left + rect.width / 2
+  const cy = rect.top + rect.height / 2
+  const dx = (e.clientX - cx) * 0.12
+  const dy = (e.clientY - cy) * 0.12
+  const maxD = 3
+  const clampX = Math.max(-maxD, Math.min(maxD, dx))
+  const clampY = Math.max(-maxD, Math.min(maxD, dy))
+  btn.style.transform = `translate(${clampX}px, ${clampY}px)`
+}
+function onBtnMouseleave(e: MouseEvent) {
+  const btn = e.currentTarget as HTMLElement
+  btn.style.transform = ''
+}
 </script>
 
 <template>
@@ -305,6 +376,7 @@ function hideTip() {
         class="lb-row"
         :class="{
           'is-me': player.playerId === myPlayerId,
+          'has-actions': player.playerId === myPlayerId && showActions && !isFinished,
           'is-bot': player.isBot,
           'is-ready': player.status.isReady,
           'can-click': canAttack,
@@ -315,8 +387,12 @@ function hideTip() {
           'attack-stamp': attackStampId === player.playerId,
           [hillTierClass(index, sorted.length)]: true,
         }"
+        :style="attackCursorStyle"
         @click="handleAttack(player)"
       >
+        <!-- Pink Ward shimmer overlay -->
+        <div v-if="isPinkWardRevealed(player.playerId) && player.playerId !== myPlayerId" class="pink-ward-shimmer" />
+
         <!-- Place (with crown for 1st, ДНО for last) -->
         <div class="lb-place">
           <span v-if="index === 0" class="rank-crown">♛</span>
@@ -449,9 +525,23 @@ function hideTip() {
           </div>
         </Transition>
 
-        <!-- Predict button (o  pponents only, if allowed) -->
+        <!-- Game-end prediction result -->
         <div
-          v-if="player.playerId !== myPlayerId && canPredict"
+          v-if="isFinished && player.playerId !== myPlayerId && getPredictionResult(player.playerId)"
+          class="lb-predict-result"
+          :class="{
+            'predict-correct': getPredictionResult(player.playerId)?.isCorrect,
+            'predict-wrong': getPredictionResult(player.playerId)?.isCorrect === false,
+          }"
+        >
+          <span v-if="getPredictionResult(player.playerId)?.isCorrect" class="predict-result-icon" title="Correct!">&#10003;</span>
+          <span v-else class="predict-result-icon predict-result-x" title="Wrong">&#10007;</span>
+          <span class="predict-result-text">{{ getPrediction(player.playerId) }}</span>
+        </div>
+
+        <!-- Predict button (opponents only, if allowed, not at game end) -->
+        <div
+          v-else-if="player.playerId !== myPlayerId && canPredict && !isFinished"
           class="lb-predict"
           @click.stop
         >
@@ -471,12 +561,56 @@ function hideTip() {
           </button>
         </div>
 
-        <!-- Show locked prediction (after confirmation) -->
+        <!-- Attack sword icon -->
+        <span v-if="canAttack && player.playerId !== myPlayerId" class="attack-sword">⚔</span>
+
+        <!-- Inline action buttons (only for "me" row) -->
         <div
-          v-else-if="player.playerId !== myPlayerId && getPrediction(player.playerId)"
-          class="lb-predict-locked"
+          v-if="player.playerId === myPlayerId && showActions && !isFinished"
+          class="lb-actions"
+          :class="{ 'can-act': canAct }"
+          @click.stop
         >
-          <span class="predict-locked-text">{{ getPrediction(player.playerId) }}</span>
+          <div class="lb-act-group">
+            <button class="lb-act-btn shield" :disabled="!canAct" title="Block" @click="emit('block')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">
+              <span class="gi gi-lg gi-def">DEF</span> Block
+            </button>
+            <button class="lb-act-btn auto" :disabled="!canAct" title="Auto Move" @click="emit('autoMove')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">
+              <span class="gi gi-lg gi-auto">AUTO</span> Move
+            </button>
+            <button v-if="isReady" class="lb-act-btn undo" title="Change Mind" @click="emit('changeMind')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">
+              <span class="gi gi-lg gi-undo">UNDO</span> Change
+            </button>
+            <button v-if="!confirmedSkip" class="lb-act-btn skip" title="Confirm Skip" @click="emit('confirmSkip')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">
+              <span class="gi gi-lg gi-skip">SKIP</span>
+            </button>
+          </div>
+
+          <div v-if="darksciChoiceNeeded" class="lb-act-group">
+            <button class="lb-act-btn darksci-stable" title="Стабильный: +20 Skill, +2 Moral" @click="emit('darksciChoice', true)" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">
+              Мне не везёт...
+            </button>
+            <button class="lb-act-btn darksci-unstable" title="Нестабильный: удача решит" @click="emit('darksciChoice', false)" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">
+              Мне повезёт!
+            </button>
+          </div>
+
+          <div v-if="youngGlebAvailable" class="lb-act-group">
+            <button class="lb-act-btn young-gleb" title="Трансформироваться в Молодого Глеба" @click="emit('youngGleb')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">
+              Вспомнить Молодость
+            </button>
+          </div>
+
+          <div v-if="dopaChoiceNeeded" class="lb-act-group">
+            <button class="lb-act-btn dopa-stomp" title="Стомп: +9 Силы и 99 Скилла" @click="emit('dopaChoice', 'Стомп')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">Стомп</button>
+            <button class="lb-act-btn dopa-farm" title="Фарм: Взгляд в будущее x2" @click="emit('dopaChoice', 'Фарм')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">Фарм</button>
+            <button class="lb-act-btn dopa-domination" title="Доминация: +20 Skill/win, target -1 bonus" @click="emit('dopaChoice', 'Доминация')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">Доминация</button>
+            <button class="lb-act-btn dopa-roam" title="Роум: Steal from non-adjacent" @click="emit('dopaChoice', 'Роум')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">Роум</button>
+          </div>
+
+          <div v-if="dopaSecondAttack" class="lb-act-group">
+            <span class="dopa-second-hint">Выберите вторую цель (скрытая атака)</span>
+          </div>
         </div>
       </div>
     </TransitionGroup>
@@ -582,14 +716,14 @@ function hideTip() {
   transform: translateX(2px);
 }
 
-.lb-row.can-click { cursor: crosshair; }
+.lb-row.can-click { cursor: var(--attack-cursor, crosshair); }
 
 .lb-row.can-click:hover {
-  background: linear-gradient(90deg, rgba(239,128,128, 0.1), rgba(239,128,128, 0.03) 80%);
-  border-color: rgba(239,128,128, 0.3);
+  background: linear-gradient(90deg, rgba(239,128,128, 0.12), rgba(239,128,128, 0.03) 80%);
+  border-color: rgba(239,128,128, 0.35);
   border-left-color: var(--accent-red);
-  box-shadow: 0 0 12px rgba(239,128,128, 0.1), inset 0 0 8px rgba(239,128,128, 0.05);
-  transform: translateX(3px);
+  box-shadow: 0 0 16px rgba(239,128,128, 0.15), inset 0 0 8px rgba(239,128,128, 0.05);
+  transform: translateX(3px) translateY(-1px);
 }
 
 /* ── "You" row highlight — gold glow layered on top of hill tier ──── */
@@ -1097,6 +1231,269 @@ function hideTip() {
   opacity: 0.7;
 }
 
+/* Game-end prediction results */
+.lb-predict-result {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius);
+  font-size: 11px;
+}
+
+.predict-result-icon {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.lb-predict-result.predict-correct {
+  background: rgba(91, 168, 91, 0.12);
+  border: 1px solid rgba(91, 168, 91, 0.4);
+  color: #5ba85b;
+}
+
+.lb-predict-result.predict-correct .predict-result-icon {
+  color: #5ba85b;
+}
+
+.lb-predict-result.predict-wrong {
+  background: rgba(224, 85, 69, 0.1);
+  border: 1px solid rgba(224, 85, 69, 0.35);
+  color: var(--accent-red);
+}
+
+.lb-predict-result.predict-wrong .predict-result-text {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.predict-result-x {
+  color: var(--accent-red);
+}
+
+/* Pink Ward reveal — looping shimmer wave sweeps left-to-right */
+.pink-ward-shimmer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  overflow: hidden;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 0, 200, 0.03) 10%,
+    rgba(255, 0, 200, 0.18) 30%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 0, 200, 0.18) 70%,
+    rgba(255, 0, 200, 0.03) 90%,
+    transparent 100%
+  );
+  background-size: 60% 100%;
+  background-repeat: no-repeat;
+  animation: pinkWardSweep 2.5s ease-in-out infinite;
+}
+
+@keyframes pinkWardSweep {
+  0%   { background-position: -60% 0; opacity: 0; }
+  10%  { opacity: 1; }
+  80%  { opacity: 1; }
+  90%  { opacity: 0; }
+  100% { background-position: 160% 0; opacity: 0; }
+}
+
+/* ── Inline action buttons inside "my" row ─────────────────────────── */
+.lb-row.has-actions {
+  flex-wrap: wrap;
+}
+
+.lb-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-basis: 100%;
+  padding-top: 5px;
+  margin-top: 5px;
+  border-top: 1px solid rgba(240,200,80, 0.1);
+  flex-wrap: wrap;
+}
+
+.lb-act-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding-left: 6px;
+  border-left: 1px solid var(--glass-border);
+  flex-wrap: wrap;
+}
+.lb-act-group:first-child {
+  padding-left: 0;
+  border-left: none;
+}
+
+.lb-act-btn {
+  height: 28px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s var(--ease-in-out), border-color 0.2s var(--ease-in-out), box-shadow 0.2s var(--ease-in-out), opacity 0.2s var(--ease-in-out);
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.lb-act-btn.shield { border-left: 3px solid var(--accent-blue); }
+.lb-act-btn.auto { border-left: 3px solid var(--accent-green); }
+.lb-act-btn.undo { border-left: 3px solid var(--accent-orange); }
+.lb-act-btn.skip { border-left: 3px solid var(--text-dim); }
+
+.lb-act-btn:active:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.15), transparent 70%);
+  animation: lb-btn-ripple 0.4s ease-out;
+  pointer-events: none;
+}
+.lb-act-btn.shield:active:not(:disabled)::after {
+  background: radial-gradient(circle at center, rgba(110, 170, 240, 0.2), transparent 70%);
+}
+.lb-act-btn.auto:active:not(:disabled)::after {
+  background: radial-gradient(circle at center, rgba(63, 167, 61, 0.2), transparent 70%);
+}
+.lb-act-btn.undo:active::after {
+  background: radial-gradient(circle at center, rgba(230, 148, 74, 0.2), transparent 70%);
+}
+
+@keyframes lb-btn-ripple {
+  0% { transform: scale(0); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+.lb-act-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--bg-card-hover), var(--bg-secondary));
+  border-color: var(--accent-blue);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3), 0 0 4px rgba(110, 170, 240, 0.1);
+}
+
+.lb-act-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
+.lb-act-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+  border-left-color: var(--border-subtle);
+}
+
+.lb-act-btn.shield:hover:not(:disabled) { border-color: var(--accent-blue); box-shadow: 0 3px 8px rgba(0,0,0,0.3), 0 0 8px rgba(110, 170, 240, 0.15); }
+.lb-act-btn.auto:hover:not(:disabled) { border-color: var(--accent-green); box-shadow: 0 3px 8px rgba(0,0,0,0.3), 0 0 8px rgba(63, 167, 61, 0.15); }
+.lb-act-btn.undo:hover { border-color: var(--accent-orange); box-shadow: 0 3px 8px rgba(0,0,0,0.3), 0 0 8px rgba(230, 148, 74, 0.15); }
+.lb-act-btn.skip:hover:not(:disabled) { border-color: var(--text-muted); }
+
+.lb-act-btn.predict-confirm {
+  background: rgba(180, 150, 255, 0.06);
+  border-color: rgba(180, 150, 255, 0.3);
+  color: var(--accent-purple);
+}
+.lb-act-btn.predict-confirm:hover:not(:disabled) { background: rgba(180, 150, 255, 0.12); }
+.lb-act-btn.predict-confirm.confirmed {
+  background: rgba(63, 167, 61, 0.06);
+  border-color: rgba(63, 167, 61, 0.2);
+  color: var(--accent-green);
+  opacity: 0.7;
+}
+
+.lb-act-btn.darksci-stable {
+  background: rgba(60, 120, 255, 0.08);
+  border-color: rgba(60, 120, 255, 0.3);
+  color: #6eaaff;
+}
+.lb-act-btn.darksci-stable:hover { background: rgba(60, 120, 255, 0.15); }
+
+.lb-act-btn.darksci-unstable {
+  background: rgba(255, 60, 60, 0.08);
+  border-color: rgba(255, 60, 60, 0.3);
+  color: #ff6e6e;
+}
+.lb-act-btn.darksci-unstable:hover { background: rgba(255, 60, 60, 0.15); }
+
+.lb-act-btn.young-gleb {
+  background: rgba(255, 180, 40, 0.08);
+  border-color: rgba(255, 180, 40, 0.3);
+  color: #ffb428;
+}
+.lb-act-btn.young-gleb:hover { background: rgba(255, 180, 40, 0.15); }
+
+.lb-act-btn.dopa-stomp {
+  background: rgba(255, 60, 60, 0.08);
+  border-color: rgba(255, 60, 60, 0.3);
+  color: #ff6e6e;
+}
+.lb-act-btn.dopa-stomp:hover { background: rgba(255, 60, 60, 0.15); }
+
+.lb-act-btn.dopa-farm {
+  background: rgba(60, 180, 60, 0.08);
+  border-color: rgba(60, 180, 60, 0.3);
+  color: #6ecc6e;
+}
+.lb-act-btn.dopa-farm:hover { background: rgba(60, 180, 60, 0.15); }
+
+.lb-act-btn.dopa-domination {
+  background: rgba(180, 60, 255, 0.08);
+  border-color: rgba(180, 60, 255, 0.3);
+  color: #b46eff;
+}
+.lb-act-btn.dopa-domination:hover { background: rgba(180, 60, 255, 0.15); }
+
+.lb-act-btn.dopa-roam {
+  background: rgba(74, 144, 217, 0.08);
+  border-color: rgba(74, 144, 217, 0.3);
+  color: #4a90d9;
+}
+.lb-act-btn.dopa-roam:hover { background: rgba(74, 144, 217, 0.15); }
+
+.lb-action-row .dopa-second-hint {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4a90d9;
+  animation: dopa-pulse 1.5s ease-in-out infinite;
+}
+@keyframes dopa-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ── Mobile responsive — inline actions ──────────────────────── */
+@media (max-width: 768px) {
+  .lb-actions {
+    padding-top: 4px;
+    margin-top: 4px;
+  }
+  .lb-act-btn {
+    height: 36px;
+    min-width: 36px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+  .lb-act-group {
+    gap: 4px;
+    padding-left: 4px;
+  }
+}
+
 /* ── TransitionGroup FLIP animation for position swaps — spring ─────── */
 .hill-move {
   transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -1135,6 +1532,30 @@ function hideTip() {
   30% { transform: scale(1.06) rotate(2deg); }
   60% { transform: scale(0.98) rotate(-1deg); }
   100% { transform: scale(1) rotate(0deg); }
+}
+
+/* ── Attack sword affordance icon ──────────────────────────────── */
+.attack-sword {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--accent-red);
+  opacity: 0.35;
+  z-index: 1;
+  transition: opacity 0.2s, transform 0.2s, filter 0.2s;
+  animation: sword-idle 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes sword-idle {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.55; }
+}
+
+.lb-row.can-click:hover .attack-sword {
+  opacity: 1;
+  transform: scale(1.25);
+  filter: drop-shadow(0 0 6px rgba(239,128,128, 0.5));
+  animation: none;
 }
 
 /* ── Mobile responsive — larger touch targets ──────────────────── */

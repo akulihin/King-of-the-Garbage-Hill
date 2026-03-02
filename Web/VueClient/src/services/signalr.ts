@@ -29,6 +29,8 @@ export type GameState = {
   allCharacterNames: string[]
   /** Full character catalog with base stats for prediction lookup */
   allCharacters: CharacterInfo[]
+  /** Player IDs revealed by Коммуникация or Толя (for Pink Ward animation). */
+  pinkWardRevealedPlayerIds?: string[]
   players: Player[]
   teams: Team[]
   /** Structured fight log for the current round (for fight animation) */
@@ -421,6 +423,12 @@ export type PlayerStatus = {
 export type Prediction = {
   playerId: string
   characterName: string
+  /** Actual character name (populated only at game end). */
+  actualCharacterName?: string
+  /** Whether prediction matches actual (populated only at game end). */
+  isCorrect?: boolean
+  /** Actual character avatar URL (populated only when wrong at game end). */
+  actualAvatar?: string
 }
 
 export type Team = {

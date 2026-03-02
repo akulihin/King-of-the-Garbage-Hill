@@ -38,6 +38,9 @@ public class GameStateDto
     /// <summary>Full character catalog with base stats (for prediction avatar/stat lookup).</summary>
     public List<CharacterInfoDto> AllCharacters { get; set; } = new();
 
+    /// <summary>Player IDs revealed by Коммуникация or Толя (for Pink Ward animation on frontend).</summary>
+    public List<Guid> PinkWardRevealedPlayerIds { get; set; } = new();
+
     public List<PlayerDto> Players { get; set; } = new();
     public List<TeamDto> Teams { get; set; } = new();
 
@@ -217,6 +220,15 @@ public class PredictDto
 {
     public Guid PlayerId { get; set; }
     public string CharacterName { get; set; }
+
+    /// <summary>Actual character name (populated only at game end).</summary>
+    public string ActualCharacterName { get; set; }
+
+    /// <summary>Whether the prediction matches the actual character (populated only at game end).</summary>
+    public bool? IsCorrect { get; set; }
+
+    /// <summary>Actual character avatar URL (populated only at game end when prediction was wrong).</summary>
+    public string ActualAvatar { get; set; }
 }
 
 public class TeamDto

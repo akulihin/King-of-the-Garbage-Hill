@@ -42,25 +42,25 @@ const lvlUpPoints = computed(() => props.player?.status.lvlUpPoints ?? 0)
 const levelUpQuotes: Record<string, string[]> = {
   'Глеб': ['*зевает* ...ну ладно, прокачаюсь...', '*бормочет сквозь сон*', '...пять минуточек...'],
   'mylorik': ['ЭТО СПАРТА!!!', 'ДААА! ЕЩЕ СИЛЬНЕЕ!', 'КАМОН, БОЛЬШЕ МОЩИ!'],
-  'Продавец': ['Сделка века, налетай...', 'Скидка только для тебя!', 'Хех, выгодное вложение...'],
+  'Продавец': ['Хех, выгодное вложение...'],
   'Рик': ['Wubba lubba dub dub!', 'Science, b*tch!', '*отрыжка* ...умнее стал...'],
   'Сайтама': ['Ок.', '...серьезно?', 'Скучно.'],
-  'Кратос': ['BOY!', 'Мы должны стать сильнее.', 'Боги заплатят.'],
+  'Кратос': ['BOI!', 'Мы должны стать сильнее.', 'Боги заплатят.'],
   'Тигр': ['Тигр на вершине!', 'Слабаки, все слабаки!', 'Я ЛУЧШИЙ!'],
-  'Кира': ['Всё по кейкаку...', 'Я — бог нового мира.', 'Записываю...'],
-  'Акула': ['*плавник торчит из воды*', 'Кусь!', '*жуёт добычу*'],
-  'LeCrisp': ['Ez clap', 'GG EZ', 'Diff, diff...'],
-  'Дракон': ['*рычание*', 'Огонь сильнее!', 'Пламя растёт...'],
+  'Кира': ['Я - бог нового мира.'],
+  'LeCrisp': ['GG EZ'],
+  'Дракон': ['ROAR', 'Огонь сильнее!', 'Пламя растёт...'],
   'Котики': ['Мяу~', '*мурчит*', 'Котик стал сильнее!'],
   'HardKitty': ['...', '*тишина*', '...никто не ответил...'],
   'Стая Гоблинов': ['ВААААГХ!', 'Больше гоблинов!', 'МЯЯЯСО!'],
-  'Weedwick': ['*пыхтит*', '420...', '*кашляет*'],
-  'DeepList': ['РАНДОМ РЕШАЕТ!', '*глитч*', 'Х А О С'],
-  'Братишка': ['За братишку!', 'Вместе сильнее!', 'Эй, бро!'],
+  'Weedwick': ['420...', 'АУФ'],
+  'DeepList': ['гек?'],
+  'Братишка': ['Буль!'],
   'Дезморалист': ['Всё бесполезно...', 'Сдавайся...', 'Нет смысла...'],
   'Баг': ['> sudo levelup', '0x1337', 'exploit.exe'],
   'Допа': ['Тактика решает.', 'По плану.', 'Рассчитано.'],
-  'Geralt': ['Хм...', 'Ветер воет...', 'Чеканной монетой...'],
+  'Geralt': ['Ветер воет...', 'Место Силы...'],
+  'Молодой Глеб': ['Опять нерфят...', 'Сколько можно?!', 'Риоты совсем...', 'Да как так?!'],
 }
 
 const levelUpQuip = computed(() => {
@@ -83,9 +83,10 @@ const levelUpTintColors: Record<string, string> = {
   'Кратос': 'rgba(192,57,43,0.05)',
   'Тигр': 'rgba(230,126,34,0.05)',
   'Кира': 'rgba(142,68,173,0.05)',
-  'Акула': 'rgba(52,152,219,0.05)',
+  'Братишка': 'rgba(52,152,219,0.05)',
   'DeepList': 'rgba(231,76,60,0.05)',
   'Баг': 'rgba(0,255,65,0.05)',
+  'Молодой Глеб': 'rgba(239,80,80,0.05)',
 }
 
 const levelUpTint = computed(() => {
@@ -191,6 +192,7 @@ const rarityClass = computed(() => {
 const isGoblin = computed(() => props.player?.character.name === 'Стая Гоблинов')
 const isGeralt = computed(() => props.player?.character.name === 'Геральт')
 const isKotiki = computed(() => props.player?.character.name === 'Котики')
+const isIrelia = computed(() => props.player?.character.passives.some((p: { name: string }) => p.name === 'Main Ирелия') ?? false)
 const goblin = computed(() => passiveStates.value?.goblinSwarm ?? null)
 const geralt = computed(() => passiveStates.value?.geralt ?? null)
 
@@ -606,8 +608,8 @@ function handleMoralToSkill() {
 
     <!-- Stats with bars + resist/quality -->
     <div class="pc-stats">
-      <div v-if="hasLvlUpPoints" class="lvl-up-badge" :style="levelUpTint ? { background: levelUpTint } : {}">
-        +{{ lvlUpPoints }} очков
+      <div v-if="hasLvlUpPoints" class="lvl-up-badge" :class="{ 'nerf-badge': isIrelia }" :style="levelUpTint ? { background: levelUpTint } : {}">
+        {{ isIrelia ? `Нерф! Выбери -${lvlUpPoints} стат` : `+${lvlUpPoints} очков` }}
         <span v-if="levelUpQuip" class="lvl-up-quip">{{ levelUpQuip }}</span>
       </div>
 
@@ -774,7 +776,7 @@ function handleMoralToSkill() {
             <div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" />
           </div>
           <span class="stat-val stat-intelligence">{{ player.character.intelligence }}</span>
-          <button v-if="hasLvlUpPoints" class="lvl-btn" data-sfx-skip-default="true" title="+1 Intelligence" @click="handleLevelUp(1)">+</button>
+          <button v-if="hasLvlUpPoints" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Intelligence' : '+1 Intelligence'" @click="handleLevelUp(1)">{{ isIrelia ? '−' : '+' }}</button>
         </div>
         <div v-if="isMe" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.intelligenceResist }}</span>
@@ -790,7 +792,7 @@ function handleMoralToSkill() {
             <div class="stat-bar strength" :style="{ width: `${player.character.strength * 10}%` }" />
           </div>
           <span class="stat-val stat-strength">{{ player.character.strength }}</span>
-          <button v-if="hasLvlUpPoints" class="lvl-btn" data-sfx-skip-default="true" title="+1 Strength" @click="handleLevelUp(2)">+</button>
+          <button v-if="hasLvlUpPoints" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Strength' : '+1 Strength'" @click="handleLevelUp(2)">{{ isIrelia ? '−' : '+' }}</button>
         </div>
         <div v-if="isMe" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.strengthResist }}</span>
@@ -806,7 +808,7 @@ function handleMoralToSkill() {
             <div class="stat-bar speed" :style="{ width: `${player.character.speed * 10}%` }" />
           </div>
           <span class="stat-val stat-speed">{{ player.character.speed }}</span>
-          <button v-if="hasLvlUpPoints" class="lvl-btn" data-sfx-skip-default="true" title="+1 Speed" @click="handleLevelUp(3)">+</button>
+          <button v-if="hasLvlUpPoints" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Speed' : '+1 Speed'" @click="handleLevelUp(3)">{{ isIrelia ? '−' : '+' }}</button>
         </div>
         <div v-if="isMe" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.speedResist }}</span>
@@ -842,7 +844,7 @@ function handleMoralToSkill() {
             <div class="stat-bar psyche" :style="{ width: `${player.character.psyche * 10}%` }" />
           </div>
           <span class="stat-val stat-psyche">{{ player.character.psyche }}</span>
-          <button v-if="hasLvlUpPoints && !isGeralt" class="lvl-btn" data-sfx-skip-default="true" title="+1 Psyche" @click="handleLevelUp(4)">+</button>
+          <button v-if="hasLvlUpPoints && !isGeralt" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Psyche' : '+1 Psyche'" @click="handleLevelUp(4)">{{ isIrelia ? '−' : '+' }}</button>
         </div>
         <div v-if="isMe" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.psycheResist }}</span>
@@ -2273,6 +2275,35 @@ function handleMoralToSkill() {
 }
 .lvl-btn:active {
   box-shadow: 0 0 20px rgba(63, 167, 61, 0.6);
+}
+
+/* Irelia nerf variant — red instead of green */
+.lvl-btn.nerf-btn {
+  border-color: var(--accent-red);
+  background: rgba(239, 80, 80, 0.1);
+  color: var(--accent-red);
+  box-shadow: 0 0 6px rgba(239, 80, 80, 0.15);
+}
+.lvl-btn.nerf-btn::before {
+  border-color: rgba(239, 80, 80, 0.4);
+  animation: nerf-pulse-ring 1.5s ease-in-out infinite;
+}
+@keyframes nerf-pulse-ring {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.15); opacity: 0; }
+}
+.lvl-btn.nerf-btn:hover {
+  background: var(--accent-red);
+  color: var(--bg-primary);
+  box-shadow: 0 0 14px rgba(239, 80, 80, 0.4);
+}
+.lvl-btn.nerf-btn:active {
+  box-shadow: 0 0 20px rgba(239, 80, 80, 0.6);
+}
+
+.nerf-badge {
+  color: var(--accent-red) !important;
+  border-color: rgba(239, 80, 80, 0.2) !important;
 }
 
 /* Justice highlight row */

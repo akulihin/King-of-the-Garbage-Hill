@@ -243,7 +243,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         return customString + " ";
     }
 
-    public string CustomLeaderBoardAfterPlayer(GamePlayerBridgeClass me, GamePlayerBridgeClass other, GameClass game)
+    public string CustomLeaderBoardAfterPlayer(GamePlayerBridgeClass me, GamePlayerBridgeClass other, GameClass game, bool isWeb = false)
     {
         var customString = "";
         //|| me.DiscordId == 238337696316129280 || me.DiscordId == 181514288278536193
@@ -258,6 +258,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             switch (passive.PassiveName)
             {
                 case "AdminPlayerType":
+                    if (isWeb) break; // web unmasks characters natively for admins
                     if (other.GetPlayerId() == me.GetPlayerId()) break;
 
                     customString += $" = {other.Status.GetScore()} ({other.GameCharacter.Name})";
@@ -502,6 +503,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     break;
 
                 case "Сверхразум":
+                    if (isWeb) break; // web shows auto-predictions natively
                     //сверхразум
                     var currentList = me.Passives.DeepListSupermindKnown;
                     if (currentList != null)
@@ -758,14 +760,16 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             }
 
 
-        //predict
-                    if (game.RoundNo >= 11 && !game.IsKratosEvent)
-            customString += $" (as **{other.GameCharacter.Name}**) = {other.Status.GetScore()} Score";
+        //predict — web handles these natively (character unmask + prediction UI)
+        if (!isWeb)
+        {
+            if (game.RoundNo >= 11 && !game.IsKratosEvent)
+                customString += $" (as **{other.GameCharacter.Name}**) = {other.Status.GetScore()} Score";
 
-
-        var predicted = me.Predict.Find(x => x.PlayerId == other.GetPlayerId());
-        if (predicted != null)
-            customString += $"<:e_:562879579694301184>|<:e_:562879579694301184>{predicted.CharacterName} ?";
+            var predicted = me.Predict.Find(x => x.PlayerId == other.GetPlayerId());
+            if (predicted != null)
+                customString += $"<:e_:562879579694301184>|<:e_:562879579694301184>{predicted.CharacterName} ?";
+        }
         //end predict
 
         return customString;

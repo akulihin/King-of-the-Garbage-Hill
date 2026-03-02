@@ -22,7 +22,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 4.0.1 Sound?!";
+        GameVersion = "Версия: 4.0.2 Sound?!";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -79,6 +79,9 @@ public class GameClass
 
     /// <summary>Text snippets that should be stripped from GlobalLogs for Kira's "Genius" passive (character-revealing info).</summary>
     public List<string> KiraHiddenLogSnippets { get; set; } = new();
+
+    /// <summary>Player IDs revealed by Коммуникация or Толя (for Pink Ward animation on frontend).</summary>
+    public List<Guid> PinkWardRevealedPlayerIds { get; set; } = new();
 
 
 

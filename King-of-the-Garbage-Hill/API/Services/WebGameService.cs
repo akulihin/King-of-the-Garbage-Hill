@@ -180,7 +180,7 @@ public class WebGameService
             var otherPlayer = game.PlayersList.Find(p => p.GetPlayerId() == playerDto.PlayerId);
             if (otherPlayer != null)
             {
-                var rawAfter = gameUpdateMess.CustomLeaderBoardAfterPlayer(viewingPlayer, otherPlayer, game);
+                var rawAfter = gameUpdateMess.CustomLeaderBoardAfterPlayer(viewingPlayer, otherPlayer, game, isWeb: true);
                 playerDto.CustomLeaderboardText = ConvertDiscordToWeb(rawAfter);
 
                 var rawBefore = gameUpdateMess.CustomLeaderBoardBeforeNumber(viewingPlayer, otherPlayer, game, playerDto.Status.Place);
@@ -393,6 +393,8 @@ public class WebGameService
         if (game == null) return (false, "Game not found");
         if (player == null) return (false, "Player not in this game");
         if (!CanAct(player)) return (false, "Cannot act right now");
+        if (player.Status.LvlUpPoints > 0 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
+            return (false, "Риоты не прощают, нерфа не избежать");
 
         // Use the existing HandleAttack with botChoice parameter
         // We temporarily flag the player so the method reads botChoice instead of button data
@@ -419,6 +421,8 @@ public class WebGameService
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
         if (!CanAct(player)) return Task.FromResult((false, "Cannot act right now"));
+        if (player.Status.LvlUpPoints > 0 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
+            return Task.FromResult((false, "Риоты не прощают, нерфа не избежать"));
 
         // Check Sparta passive (cannot block)
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Спарта"))
@@ -466,6 +470,8 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (player.Status.LvlUpPoints > 0 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
+            return Task.FromResult((false, "Риоты не прощают, нерфа не избежать"));
 
         player.Status.AutoMoveTimes++;
         var text = "Вы использовали Авто Ход\n";
@@ -508,6 +514,8 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (player.Status.LvlUpPoints > 0 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
+            return Task.FromResult((false, "Риоты не прощают, нерфа не избежать"));
 
         player.Status.ConfirmedSkip = true;
         return Task.FromResult((true, (string)null));
