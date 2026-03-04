@@ -23,11 +23,13 @@ const props = withDefaults(defineProps<{
   isMe: boolean
   resistFlash?: string[]
   justiceReset?: boolean
+  justiceUp?: boolean
   scoreEntries?: ScoreEntry[]
   scoreAnimReady?: boolean
 }>(), {
   resistFlash: () => [],
   justiceReset: false,
+  justiceUp: false,
   scoreEntries: () => [],
   scoreAnimReady: false,
 })
@@ -865,7 +867,7 @@ function handleMoralToSkill() {
     </div>
 
     <!-- Justice: highlighted, own row -->
-    <div class="pc-justice-row" :class="{ 'justice-reset-flash': justiceReset }"
+    <div class="pc-justice-row" :class="{ 'justice-reset-flash': justiceReset, 'justice-up-sparkle': justiceUp }"
       @mouseenter="showTip($event, 'Justice allows you to win Round 2 and influences Round 1. You gain it when you\'re defeated and it is fully reset on victory')"
       @mousemove="moveTip" @mouseleave="hideTip">
       <span class="justice-icon">⚖</span>
@@ -2383,6 +2385,38 @@ function handleMoralToSkill() {
 }
 
 .stat-class { font-size: 12px; color: var(--accent-gold); }
+
+/* Justice up sparkle animation */
+.pc-justice-row.justice-up-sparkle {
+  position: relative;
+}
+.pc-justice-row.justice-up-sparkle::after {
+  content: '';
+  position: absolute;
+  inset: -4px 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle 2px, #fbbf24 100%, transparent 100%),
+    radial-gradient(circle 1.5px, #f59e0b 100%, transparent 100%),
+    radial-gradient(circle 2px, #fcd34d 100%, transparent 100%),
+    radial-gradient(circle 1.5px, #fbbf24 100%, transparent 100%),
+    radial-gradient(circle 2px, #f59e0b 100%, transparent 100%),
+    radial-gradient(circle 1.5px, #fcd34d 100%, transparent 100%),
+    radial-gradient(circle 2px, #fbbf24 100%, transparent 100%),
+    radial-gradient(circle 1.5px, #f59e0b 100%, transparent 100%);
+  background-position:
+    8% 80%, 20% 60%, 35% 90%, 48% 50%,
+    62% 85%, 75% 55%, 85% 75%, 95% 65%;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+  animation: justice-sparkle-up 2s ease-out forwards;
+}
+
+@keyframes justice-sparkle-up {
+  0%   { opacity: 0.9; transform: translateY(0); }
+  50%  { opacity: 0.7; }
+  100% { opacity: 0; transform: translateY(-30px); }
+}
 
 /* Justice reset animation */
 .pc-justice-row.justice-reset-flash {

@@ -4,7 +4,6 @@ import type { FightEntry, ForOneFightMod, Player, Prediction, CharacterInfo } fr
 import {
   FightSoundPool,
   playDoomsDayFight,
-  playDoomsDayWinLose,
   playDoomsDayDraw,
   playDoomsDayRndRoll,
   playDoomsDayScroll,
@@ -13,10 +12,11 @@ import {
   GeraltFightSoundPool,
   FolkPercussionPool,
   playDoomsDayCustom,
-  playR3SpecialLowChance,
-  playR3SpecialSuperLowChance,
-  tryPlayMemeLoseSound,
-  playGeraltVocalWinLayer,
+  doomsDayWinLosePath,
+  getMemeLoseSoundPath,
+  getGeraltVocalWinLayerPath,
+  playClipsBatched,
+  type SyncClip,
 } from 'src/services/sound'
 
 const props = withDefaults(defineProps<{
@@ -660,14 +660,18 @@ watch(currentStep, (step: number) => {
     } else {
       const r1result: 'w' | 'l' = r1pts > 0 ? 'w' : 'l'
       roundResults.value = [r1result]
-      playDoomsDayWinLose([r1result], false, false)
-      // Layers: percussion on win, meme on lose
+      const isGeralt = myCharacterName.value === 'Геральт'
+      const clips: SyncClip[] = [{ path: doomsDayWinLosePath([r1result], false, false), group: 'doomsDayWinLose' }]
       if (r1result === 'w') {
-        folkPercussionPool.playLayer()
-        playGeraltVocalWinLayer(roundResults.value, false, myCharacterName.value === 'Геральт')
+        const percPath = folkPercussionPool.getLayerPath()
+        if (percPath) clips.push({ path: percPath, group: 'doomsDayLayers' })
+        const vocalPath = getGeraltVocalWinLayerPath(roundResults.value, false, isGeralt)
+        if (vocalPath) clips.push({ path: vocalPath, group: 'doomsDayLayers', gainMultiplier: 0.5 })
       } else {
-        tryPlayMemeLoseSound(roundResults.value, false)
+        const memePath = getMemeLoseSoundPath(roundResults.value, false)
+        if (memePath) clips.push({ path: memePath, group: 'doomsDayLayers' })
       }
+      void playClipsBatched(clips)
     }
     return
   }
@@ -683,14 +687,18 @@ watch(currentStep, (step: number) => {
     } else {
       const r2result: 'w' | 'l' = r2pts > 0 ? 'w' : 'l'
       roundResults.value = [...roundResults.value, r2result]
-      playDoomsDayWinLose(roundResults.value, false, false)
-      // Layers: percussion on win, meme on lose
+      const isGeralt = myCharacterName.value === 'Геральт'
+      const clips: SyncClip[] = [{ path: doomsDayWinLosePath(roundResults.value, false, false), group: 'doomsDayWinLose' }]
       if (r2result === 'w') {
-        folkPercussionPool.playLayer()
-        playGeraltVocalWinLayer(roundResults.value, false, myCharacterName.value === 'Геральт')
+        const percPath = folkPercussionPool.getLayerPath()
+        if (percPath) clips.push({ path: percPath, group: 'doomsDayLayers' })
+        const vocalPath = getGeraltVocalWinLayerPath(roundResults.value, false, isGeralt)
+        if (vocalPath) clips.push({ path: vocalPath, group: 'doomsDayLayers', gainMultiplier: 0.5 })
       } else {
-        tryPlayMemeLoseSound(roundResults.value, false)
+        const memePath = getMemeLoseSoundPath(roundResults.value, false)
+        if (memePath) clips.push({ path: memePath, group: 'doomsDayLayers' })
       }
+      void playClipsBatched(clips)
     }
     return
   }
@@ -699,10 +707,6 @@ watch(currentStep, (step: number) => {
     // Step factorCount+3: R3 modifiers
     if (step === factorCount + 3) {
       playDoomsDayRndRoll()
-      // R3 special sounds for extreme odds
-      const chance = r3OurChance.value
-      if (chance < 1 || chance > 99) playR3SpecialSuperLowChance()
-      else if (chance <= 5 || chance >= 95) playR3SpecialLowChance()
       return
     }
 
@@ -713,7 +717,18 @@ watch(currentStep, (step: number) => {
       const weWonR3 = s > 0 ? attackerWon : !attackerWon
       const r3result: 'w' | 'l' = weWonR3 ? 'w' : 'l'
       roundResults.value = [...roundResults.value, r3result]
-      playDoomsDayWinLose(roundResults.value, false, false)
+
+      // R3 special sounds based on needle distance from threshold
+      const thresholdPct = f.randomForPoint / f.maxRandomNumber * 100
+      const needlePct = f.randomNumber / f.maxRandomNumber * 100
+      const distance = Math.abs(needlePct - thresholdPct)
+      const clips: SyncClip[] = [{ path: doomsDayWinLosePath(roundResults.value, false, false), group: 'doomsDayWinLose' }]
+      if (weWonR3 && distance < 1) {
+        clips.push({ path: 'dooms_day/round_3/round_3_win_less_1_percent.mp3', group: 'doomsDay' })
+      } else if (distance < 5) {
+        clips.push({ path: 'dooms_day/round_3/round_3_win_or_lose__less_5_percent.mp3', group: 'doomsDay' })
+      }
+      void playClipsBatched(clips)
       return
     }
   }
@@ -899,12 +914,15 @@ watch(showFinalResult, (show) => {
   const isLastFight = currentFightIdx.value === myFights.value.length - 1
   const allSame = roundResults.value.length > 0 && roundResults.value.every(r => r === roundResults.value[0])
   const isAbsolute = isLastFight && allSame
-  playDoomsDayWinLose(roundResults.value, true, isAbsolute, leftWon.value)
-  // Final layers: percussion on win, Geralt vocal on win
+  const isGeralt = myCharacterName.value === 'Геральт'
+  const clips: SyncClip[] = [{ path: doomsDayWinLosePath(roundResults.value, true, isAbsolute, leftWon.value), group: 'doomsDayWinLose' }]
   if (leftWon.value) {
-    folkPercussionPool.playLayer()
-    playGeraltVocalWinLayer(roundResults.value, true, myCharacterName.value === 'Геральт')
+    const percPath = folkPercussionPool.getLayerPath()
+    if (percPath) clips.push({ path: percPath, group: 'doomsDayLayers' })
+    const vocalPath = getGeraltVocalWinLayerPath(roundResults.value, true, isGeralt)
+    if (vocalPath) clips.push({ path: vocalPath, group: 'doomsDayLayers', gainMultiplier: 0.5 })
   }
+  void playClipsBatched(clips)
 })
 
 function phaseClass(result: number, revealed: boolean): string {

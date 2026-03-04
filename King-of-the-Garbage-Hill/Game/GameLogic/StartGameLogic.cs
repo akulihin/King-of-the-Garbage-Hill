@@ -152,7 +152,8 @@ public class StartGameLogic : IServiceSingleton
             {
                 var range = GetRangeFromTier(character.Tier);
                 if (character.Tier == 4 && account.IsBot()) range *= 3;
-                if (character.Tier < 4 && account.IsBot()) continue;
+                if (character.Tier < 4 && account.IsBot() && character.Name != "Кира") continue;
+                if (character.Name == "Кира" && account.IsBot()) range = GetRangeFromTier(1) / 2;
                 if (character.Passive.Any(x => x.PassiveName == "Top Laner")) range = (int)(range * topLaner);
                 var pityBonus = account.TierPity.GetValueOrDefault(character.Tier, 0);
                 range = (int)(range * (1.0 + pityBonus * 0.03));

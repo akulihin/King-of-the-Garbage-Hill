@@ -41,7 +41,11 @@ public class BotsBehavior : IServiceSingleton
             await _gameReaction.HandleAttack(player, null, -10);
             return;
         }
-        
+
+        // Dead bots (killed by Kira, Kratos, etc.) should not act
+        if (player.Passives.IsDead)
+            return;
+
         //if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых") && game.RoundNo > 10)
         //{
         //    return;
@@ -616,6 +620,10 @@ public class BotsBehavior : IServiceSingleton
                         }
 
                         if (target.Player.GameCharacter.Name == "Weedwick")
+                            target.AttackPreference = 0;
+                        break;
+                    case "Кира":
+                        if (target.GetPlayerId() == bot.Passives.KiraL.LPlayerId)
                             target.AttackPreference = 0;
                         break;
                     case "Тигр":
@@ -1579,6 +1587,14 @@ public class BotsBehavior : IServiceSingleton
                 case "AWDKA":
                     isBlock = noBlock;
                     break;
+                case "Сайтама":
+                    if (game.RoundNo == 10)
+                    {
+                        var firstPlace = allTargets.Find(x => x.Player.Status.GetPlaceAtLeaderBoard() == 1);
+                        if (firstPlace != null && mandatoryAttack == -1)
+                            mandatoryAttack = 1;
+                    }
+                    break;
                 case "Darksci":
                     minimumRandomNumberForBlock += 1;
                     if (game.RoundNo > 1 && botJustice == 0) minimumRandomNumberForBlock += 1;
@@ -1849,6 +1865,15 @@ public class BotsBehavior : IServiceSingleton
                         isBlock = yesBlock;
                     break;
             }
+
+            // Монстр без имени: bots in 1st place force block on round 10
+            if (game.RoundNo == 10 && bot.Status.GetPlaceAtLeaderBoard() == 1
+                && game.PlayersList.Any(p => p.GameCharacter.Name == "Монстр без имени")
+                && isBlock != noBlock)
+            {
+                isBlock = yesBlock;
+            }
+
             //end custom behaviour After calculation Tens
 
 

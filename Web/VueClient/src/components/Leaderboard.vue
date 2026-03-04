@@ -57,10 +57,11 @@ const sorted = computed(() =>
     .sort((a, b) => a.status.place - b.status.place),
 )
 
-// Kira doesn't predict. Otherwise always allow until game end.
+// Kira doesn't predict. Hide after confirmed (round 8+) or when no character names.
 const canPredict = computed(() => {
   if (props.isKira) return false
   if (!props.characterNames || props.characterNames.length === 0) return false
+  if ((props.roundNo ?? 0) >= 8 && props.confirmedPredict) return false
   return true
 })
 
@@ -606,6 +607,18 @@ function onBtnMouseleave(e: MouseEvent) {
             <button class="lb-act-btn dopa-farm" title="Фарм: Взгляд в будущее x2" @click="emit('dopaChoice', 'Фарм')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">Фарм</button>
             <button class="lb-act-btn dopa-domination" title="Доминация: +20 Skill/win, target -1 bonus" @click="emit('dopaChoice', 'Доминация')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">Доминация</button>
             <button class="lb-act-btn dopa-roam" title="Роум: Steal from non-adjacent" @click="emit('dopaChoice', 'Роум')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">Роум</button>
+          </div>
+
+          <div v-if="(roundNo ?? 0) >= 8 && !isKira && !confirmedPredict" class="lb-act-group">
+            <button
+              class="lb-act-btn predict-confirm"
+              title="Confirm Predictions"
+              @click="emit('confirmPredict')"
+              @mousemove="onBtnMousemove"
+              @mouseleave="onBtnMouseleave"
+            >
+              Confirm Prediction
+            </button>
           </div>
 
           <div v-if="dopaSecondAttack" class="lb-act-group">

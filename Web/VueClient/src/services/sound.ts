@@ -234,6 +234,7 @@ interface PlayClipOptions {
   channel?: PlaybackChannel
   group?: VolumeGroup
   loop?: boolean
+  gainMultiplier?: number
 }
 
 async function playClip(relativePath: string, options?: PlayClipOptions): Promise<boolean> {
@@ -247,7 +248,14 @@ async function playClip(relativePath: string, options?: PlayClipOptions): Promis
     const source = ctx.createBufferSource()
     source.buffer = buffer
     if (options?.loop) source.loop = true
-    source.connect(options?.group ? (groupGains.get(options.group) ?? masterGain!) : masterGain!)
+    let dest: AudioNode = options?.group ? (groupGains.get(options.group) ?? masterGain!) : masterGain!
+    if (options?.gainMultiplier != null && options.gainMultiplier !== 1) {
+      const extra = ctx.createGain()
+      extra.gain.value = options.gainMultiplier
+      extra.connect(dest)
+      dest = extra
+    }
+    source.connect(dest)
 
     if (options?.channel) {
       try { channelSources.get(options.channel)?.stop() } catch { /* already stopped */ }
@@ -259,6 +267,47 @@ async function playClip(relativePath: string, options?: PlayClipOptions): Promis
   } catch {
     return false
   }
+}
+
+// ── Batched playback ─────────────────────────────────────────────────
+
+export interface SyncClip {
+  path: string
+  group: VolumeGroup
+  gainMultiplier?: number
+}
+
+/**
+ * Fetch all buffers in parallel, then start all sources at the same AudioContext frame.
+ * This ensures layered sounds (win_lose + percussion + vocal) are perfectly synchronized.
+ */
+export async function playClipsBatched(clips: SyncClip[]): Promise<void> {
+  if (clips.length === 0) return
+  if (getMasterVolume() === 0) return
+  try {
+    const ctx = ensureAudioContext()
+    const buffers = await Promise.all(
+      clips.map(c => getOrFetchAudioBuffer(toSoundUrl(c.path))),
+    )
+    const now = ctx.currentTime
+    for (let i = 0; i < clips.length; i++) {
+      const buf = buffers[i]
+      if (!buf) continue
+      if (checkKillSwitch(clips[i].path)) continue
+      const source = ctx.createBufferSource()
+      source.buffer = buf
+      let dest: AudioNode = groupGains.get(clips[i].group) ?? masterGain!
+      const mult = clips[i].gainMultiplier
+      if (mult != null && mult !== 1) {
+        const extra = ctx.createGain()
+        extra.gain.value = mult
+        extra.connect(dest)
+        dest = extra
+      }
+      source.connect(dest)
+      source.start(now)
+    }
+  } catch { /* ignore */ }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -285,7 +334,8 @@ function sanitizeAttackCharacterName(characterName: string): string {
 }
 
 function randomButtonSound(): string {
-  const idx = Math.floor(Math.random() * 3) + 1
+  const roll = Math.random()
+  const idx = roll < 0.84 ? 1 : roll < 0.92 ? 2 : 3
   return `buttons/everything_${idx}.mp3`
 }
 
@@ -317,7 +367,7 @@ export function installGlobalButtonSound(): () => void {
     if (button.disabled) return
     if (button.getAttribute(DEFAULT_BUTTON_SKIP_ATTR) === 'true') return
 
-    // Fight tabs (Бои раунда, Все бои, Летопись) → everything_1.mp3
+    // Fight tabs (Бои раунда, Все бои, Летопись) → random everything_1/2/3.mp3
     if (button.getAttribute(FIGHT_TAB_ATTR) === 'true') {
       playFightTabSound()
       return
@@ -546,9 +596,9 @@ export function playDoomsDayNoFights(): void {
 
 // ── New sound functions (sound pack 3) ──────────────────────────────
 
-/** Fight tabs (Бои раунда, Все бои, Летопись) — uses everything_1 instead of utility */
+/** Fight tabs (Бои раунда, Все бои, Летопись) */
 export function playFightTabSound(): void {
-  void playClip('buttons/everything_1.mp3', { group: 'buttons' })
+  void playClip(randomButtonSound(), { group: 'buttons' })
 }
 
 /** Prediction list open/select */
@@ -587,7 +637,7 @@ function duckFightGroups(durationMs: number): void {
   winThemeActive = true
   for (const g of FIGHT_GROUPS_TO_DUCK) {
     const node = groupGains.get(g)
-    if (node) node.gain.value = DUCK_GAIN
+    if (node) node.gain.value = g === 'doomsDayWinLose' ? 0 : DUCK_GAIN
   }
   if (winThemeRestoreTimer) clearTimeout(winThemeRestoreTimer)
   winThemeRestoreTimer = setTimeout(() => {
@@ -709,11 +759,6 @@ export function playKiraArrest(): void {
 /** Saitama: game win theme (plays for all players) */
 export function playSaitamaGameWinTheme(): void {
   void playClip('character_passives/saitama/saitama_game_win_theme.mp3', { group: 'characterPassives' })
-}
-
-/** LeCrisp: game win theme (plays for all players when LeCrisp is in the game) */
-export function playLeCrispGameWinTheme(): void {
-  void playClip('character_passives/lecrisp/lecrisp_game_win_theme.mp3', { group: 'characterPassives' })
 }
 
 /** Check if a character has the "Late Game" passive (for turn 10+ sound variant) */
@@ -967,17 +1012,20 @@ export class FolkPercussionPool {
     this.remaining = Array.from({ length: 12 }, (_, i) => i + 1)
   }
 
-  playLayer(): void {
-    if (this.shouldSkipPercussion) return
+  /** Returns the path for the next percussion layer (consuming from pool), or null if skipped */
+  getLayerPath(): string | null {
+    if (this.shouldSkipPercussion) return null
     if (this.remaining.length === 0) {
       this.remaining = Array.from({ length: 12 }, (_, i) => i + 1)
     }
     const idx = Math.floor(Math.random() * this.remaining.length)
     const num = this.remaining.splice(idx, 1)[0]
-    void playClip(
-      `dooms_day/win_lose/layers/win/percussion/folk/variation_${this.currentVariation}/folk_percussion_${num}.mp3`,
-      { group: 'doomsDayLayers' },
-    )
+    return `dooms_day/win_lose/layers/win/percussion/folk/variation_${this.currentVariation}/folk_percussion_${num}.mp3`
+  }
+
+  playLayer(): void {
+    const path = this.getLayerPath()
+    if (path) void playClip(path, { group: 'doomsDayLayers' })
   }
 }
 
@@ -985,16 +1033,25 @@ export class FolkPercussionPool {
 
 const MEME_ELIGIBLE_TAGS = new Set(['1_l', '2_ll', '2_wl'])
 
+/** Returns the meme lose sound path if eligible (5% chance), or null */
+export function getMemeLoseSoundPath(
+  roundResults: readonly ('w' | 'l')[],
+  isFinal: boolean,
+): string | null {
+  if (isFinal) return null
+  const tag = `${roundResults.length}_${roundResults.join('')}`
+  if (!MEME_ELIGIBLE_TAGS.has(tag)) return null
+  if (Math.random() >= 0.05) return null
+  const num = Math.floor(Math.random() * 10) + 1
+  return `dooms_day/win_lose/layers/lose/meme_sounds/${num}.mp3`
+}
+
 export function tryPlayMemeLoseSound(
   roundResults: readonly ('w' | 'l')[],
   isFinal: boolean,
 ): void {
-  if (isFinal) return
-  const tag = `${roundResults.length}_${roundResults.join('')}`
-  if (!MEME_ELIGIBLE_TAGS.has(tag)) return
-  if (Math.random() >= 0.05) return
-  const num = Math.floor(Math.random() * 10) + 1
-  void playClip(`dooms_day/win_lose/layers/lose/meme_sounds/${num}.mp3`, { group: 'doomsDayLayers' })
+  const path = getMemeLoseSoundPath(roundResults, isFinal)
+  if (path) void playClip(path, { group: 'doomsDayLayers' })
 }
 
 // ── Geralt Vocal Win Layers (Req 13) ───────────────────────────────────
@@ -1004,30 +1061,36 @@ const GERALT_VOCAL_TAGS: Record<string, string> = {
   '2_ww': '2_ww',
 }
 
-export function playGeraltVocalWinLayer(
+/** Returns the Geralt vocal win layer path, or null if not applicable */
+export function getGeraltVocalWinLayerPath(
   roundResults: readonly ('w' | 'l')[],
   isFinal: boolean,
   isGeralt: boolean,
-): void {
-  if (!isGeralt) return
+): string | null {
+  if (!isGeralt) return null
   const tag = `${roundResults.length}_${roundResults.join('')}`
 
   let folder: string
   if (!isFinal) {
     const mapped = GERALT_VOCAL_TAGS[tag]
-    if (!mapped) return
+    if (!mapped) return null
     folder = mapped
   } else {
-    // Any final win
-    if (!roundResults.includes('w')) return
+    if (!roundResults.includes('w')) return null
     folder = 'f_for_any_win'
   }
 
   const num = Math.floor(Math.random() * 7) + 1
-  void playClip(
-    `dooms_day/win_lose/layers/win/special/geralt/vocal/${folder}/${num}.mp3`,
-    { group: 'doomsDayLayers' },
-  )
+  return `dooms_day/win_lose/layers/win/special/geralt/vocal/${folder}/${num}.mp3`
+}
+
+export function playGeraltVocalWinLayer(
+  roundResults: readonly ('w' | 'l')[],
+  isFinal: boolean,
+  isGeralt: boolean,
+): void {
+  const path = getGeraltVocalWinLayerPath(roundResults, isFinal, isGeralt)
+  if (path) void playClip(path, { group: 'doomsDayLayers' })
 }
 
 // ── Combo Stack Sounds (Req 14) ────────────────────────────────────────

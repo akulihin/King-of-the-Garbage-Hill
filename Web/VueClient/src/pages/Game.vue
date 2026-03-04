@@ -28,7 +28,6 @@ import {
   playPortalGunUse,
   playKiraArrest,
   playSaitamaGameWinTheme,
-  playLeCrispGameWinTheme,
   playPickleRickOnUse,
   playPickleRickOnWin,
   GiantBeansSoundPool,
@@ -72,8 +71,11 @@ function onJusticeReset() {
   setTimeout(() => { justiceResetFlash.value = false }, 2000)
 }
 
+const justiceUpFlash = ref(false)
 function onJusticeUp() {
   playJusticeUpSound()
+  justiceUpFlash.value = true
+  setTimeout(() => { justiceUpFlash.value = false }, 2000)
 }
 
 /** Fight replay ended — trigger score combo animation */
@@ -170,12 +172,8 @@ watch(() => store.myPlayer?.deathNote?.isArrested, (arrested, prevArrested) => {
 watch(() => store.gameState?.isFinished, (finished, prevFinished) => {
   if (finished && !prevFinished && store.gameState) {
     // Saitama game win theme
-    const hasSaitama = store.gameState.players.some(p => p.character.name === 'Сайтама')
-    if (hasSaitama) playSaitamaGameWinTheme()
-
-    // LeCrisp game win theme (plays for all players)
-    const hasLeCrisp = store.gameState.players.some(p => p.character.name === 'LeCrisp')
-    if (hasLeCrisp) playLeCrispGameWinTheme()
+    const saitamaWon = store.gameState.players.some(p => p.character.name === 'Сайтама' && p.status.place === 1)
+    if (saitamaWon) playSaitamaGameWinTheme()
 
     // Rick portal gun charged theme on Rick game win (plays for everyone)
     const rickWinner = store.gameState.players.find(p => p.character.name === 'Рик')
@@ -245,35 +243,49 @@ watch(() => store.myGiantBeans, (beans, prevBeans) => {
   prevIngredientsActive.value = beans.ingredientsActive
 }, { deep: true })
 
-// Kira: game start theme (Req 2) — pausable loop on round 1
+// Kira: game start theme — plays entire game, pauses during fight animation
 const kiraThemePlaying = ref(false)
+const kiraResumeAfterReplay = ref(false)
+
+// Start Kira theme when character joins (no round restriction)
 watch(() => store.myPlayer?.character.name, (name) => {
-  if (name === 'Кира' && !kiraThemePlaying.value && (store.gameState?.roundNo ?? 0) <= 1) {
+  if (name === 'Кира' && !kiraThemePlaying.value) {
     kiraThemePlaying.value = true
     playKiraGameStartTheme()
   }
 })
-// Pause Kira theme when fights arrive (replay starts)
+
+// Pause when fight animation starts
 watch(() => store.myPlayer?.status.previousRoundLogs, (logs) => {
   if (logs && logs.length > 0 && kiraThemePlaying.value) {
     pauseKiraGameStartTheme()
   }
 })
-// Resume Kira theme on replay ended
+
+// Resume when Kira writes in death note (or defer if fight still playing)
+watch(() => store.myPlayer?.deathNote?.currentRoundTarget, (target, prev) => {
+  if (!kiraThemePlaying.value) return
+  const isEmpty = (t: string | undefined) =>
+    !t || t === '00000000-0000-0000-0000-000000000000'
+  if (!isEmpty(target) && isEmpty(prev)) {
+    if (fightReplayEnded.value) {
+      resumeKiraGameStartTheme()
+    } else {
+      kiraResumeAfterReplay.value = true
+    }
+  }
+})
+
+// Deferred resume: only if name was written during fight animation
 watch(fightReplayEnded, (ended) => {
-  if (ended && kiraThemePlaying.value) {
+  if (ended && kiraThemePlaying.value && kiraResumeAfterReplay.value) {
+    kiraResumeAfterReplay.value = false
     resumeKiraGameStartTheme()
   }
 })
-// Resume Kira theme on arrest
-watch(() => store.myPlayer?.deathNote?.isArrested, (arrested, prev) => {
-  if (arrested && !prev && kiraThemePlaying.value) {
-    resumeKiraGameStartTheme()
-  }
-})
-// Stop Kira theme after round 1 or on finish
-watch(() => store.gameState?.roundNo, (roundNo) => {
-  if (roundNo && roundNo > 1 && kiraThemePlaying.value) {
+// Stop Kira theme on game finish
+watch(() => store.gameState?.isFinished, (finished) => {
+  if (finished && kiraThemePlaying.value) {
     kiraThemePlaying.value = false
     stopKiraGameStartTheme()
   }
@@ -987,6 +999,7 @@ const charTint = computed(() => {
           :is-me="true"
           :resist-flash="resistFlashStats"
           :justice-reset="justiceResetFlash"
+          :justice-up="justiceUpFlash"
           :score-entries="scoreEntries"
           :score-anim-ready="fightReplayEnded"
         />
@@ -1103,7 +1116,7 @@ const charTint = computed(() => {
         <!-- Fight Panel + Blackjack -->
         <div class="center-section" :style="{ order: panelOrder.fight }">
           <div class="log-panel card fight-panel" :class="{ 'fight-panel-fixed': fightPanelFixed }">
-            <!-- Kira: Death Note replaces fight animation -->
+            <!-- Kira: Death Note above fight animation -->
             <DeathNote
               v-if="store.isKira && store.myPlayer?.deathNote && !store.gameState.isFinished"
               :death-note="store.myPlayer.deathNote"
@@ -1116,9 +1129,8 @@ const charTint = computed(() => {
               @write="store.deathNoteWrite($event.targetPlayerId, $event.characterName)"
               @shinigami-eyes="store.shinigamiEyes()"
             />
-            <!-- Normal players: fight animation -->
+            <!-- Fight animation (all players including Kira) -->
             <FightAnimation
-              v-else
               :fights="store.gameState.fightLog || []"
               :letopis="letopis"
               :game-story="store.gameStory"
