@@ -126,6 +126,7 @@ function handleLogout() {
 
           <nav class="top-nav">
             <RouterLink to="/games">Games</RouterLink>
+            <RouterLink to="/battleship">海 Бой</RouterLink>
             <RouterLink to="/home">Home</RouterLink>
           </nav>
         </div>
@@ -475,7 +476,7 @@ function handleLogout() {
   font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s var(--ease-spring);
   display: inline-flex;
   align-items: center;
   justify-content: center;

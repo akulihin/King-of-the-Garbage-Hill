@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { Player, Prediction, CharacterInfo, FightEntry, DeathNote } from 'src/services/signalr'
+import { useTip } from 'src/composables/useTip'
 import ScoreOdometer from 'src/components/ScoreOdometer.vue'
 
 const props = defineProps<{
@@ -330,24 +331,7 @@ watch(() => props.fightLog, (newLog) => {
 }, { deep: true })
 
 // ── Tooltip system (matches PlayerCard pattern) ──────────────────────
-const tipText = ref('')
-const tipVisible = ref(false)
-const tipPos = ref({ x: 0, y: 0 })
-let tipTimer: ReturnType<typeof setTimeout> | null = null
-
-function showTip(e: MouseEvent, text: string) {
-  if (tipTimer) clearTimeout(tipTimer)
-  tipText.value = text
-  tipPos.value = { x: e.clientX, y: e.clientY }
-  tipTimer = setTimeout(() => { tipVisible.value = true }, 120)
-}
-function moveTip(e: MouseEvent) {
-  tipPos.value = { x: e.clientX, y: e.clientY }
-}
-function hideTip() {
-  if (tipTimer) clearTimeout(tipTimer)
-  tipVisible.value = false
-}
+const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 
 /** Magnetic hover effect — button subtly follows cursor */
 function onBtnMousemove(e: MouseEvent) {

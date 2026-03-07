@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.API.Services;
@@ -22,8 +23,9 @@ public class GameHub : Hub
     private readonly UserAccounts _userAccounts;
     private readonly BlackjackService _blackjackService;
     private readonly GameStoryService _storyService;
+    private readonly BattleshipService _battleshipService;
 
-    public GameHub(WebGameService gameService, GameNotificationService notificationService, Global global, UserAccounts userAccounts, BlackjackService blackjackService, GameStoryService storyService)
+    public GameHub(WebGameService gameService, GameNotificationService notificationService, Global global, UserAccounts userAccounts, BlackjackService blackjackService, GameStoryService storyService, BattleshipService battleshipService)
     {
         _gameService = gameService;
         _notificationService = notificationService;
@@ -31,6 +33,7 @@ public class GameHub : Hub
         _userAccounts = userAccounts;
         _blackjackService = blackjackService;
         _storyService = storyService;
+        _battleshipService = battleshipService;
     }
 
     public override async Task OnConnectedAsync()
@@ -805,6 +808,402 @@ public class GameHub : Hub
 
         // Also broadcast as a game event so spectators see it
         await _notificationService.SendGameEvent(gameId, "BlackjackMessage", new { author, message });
+    }
+
+    // ── Battleship (Sea Battle Mini-Game) ──────────────────────────────
+
+    public async Task RequestBattleshipLobby()
+    {
+        var state = _battleshipService.GetLobbyState();
+        await Clients.Caller.SendAsync("BattleshipLobby", state);
+    }
+
+    public async Task CreateBattleshipGame()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        var username = account?.DiscordUserName ?? "Player";
+
+        var (gameId, error) = _battleshipService.CreateGame(discordId.ToString(), username);
+        if (error != null)
+        {
+            await Clients.Caller.SendAsync("Error", error);
+            return;
+        }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"bs-{gameId}");
+        await Clients.Caller.SendAsync("BattleshipGameCreated", new { gameId });
+
+        // Push state to creator
+        await PushBattleshipStateToPlayer(gameId, discordId.ToString());
+    }
+
+    public async Task JoinBattleshipWebGame(string gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        var username = account?.DiscordUserName ?? "Player";
+
+        var (success, error) = _battleshipService.JoinGame(gameId, discordId.ToString(), username);
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("Error", error);
+            return;
+        }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"bs-{gameId}");
+        await Clients.Caller.SendAsync("BattleshipGameJoined", new { gameId });
+        await PushBattleshipStateToAll(gameId);
+    }
+
+    public async Task LeaveBattleshipWebGame(string gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.LeaveGame(gameId, discordId.ToString());
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("Error", error);
+            return;
+        }
+
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"bs-{gameId}");
+        await PushBattleshipStateToAll(gameId);
+    }
+
+    public async Task JoinBattleshipGame(string gameId)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"bs-{gameId}");
+
+        var discordId = GetDiscordId();
+        var did = discordId == 0 ? null : discordId.ToString();
+        var state = did != null
+            ? _battleshipService.GetGameState(gameId, did)
+            : _battleshipService.GetSpectatorState(gameId);
+
+        if (state != null)
+            await Clients.Caller.SendAsync("BattleshipState", state);
+    }
+
+    public async Task LeaveBattleshipGame(string gameId)
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"bs-{gameId}");
+    }
+
+    public async Task BattleshipConfirmReady(string gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.ConfirmReady(gameId, discordId.ToString());
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipConfirmReady", success = false, error });
+            return;
+        }
+
+        await PushBattleshipStateToAll(gameId);
+    }
+
+    public async Task BattleshipSelectArmy(string gameId, string faction)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.SelectArmy(gameId, discordId.ToString(), faction);
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipSelectArmy", success = false, error });
+            return;
+        }
+
+        await PushBattleshipStateToAll(gameId);
+    }
+
+    public async Task BattleshipSelectFleet(string gameId, List<FleetSelectionDto> selections)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var fleetSelections = selections?.Select(s => new Battleship.Models.FleetSelection
+        {
+            DefinitionId = s.DefinitionId,
+            ShipName = s.ShipName,
+            Cost = s.Cost,
+            Upgrades = s.Upgrades ?? new(),
+        }).ToList() ?? new();
+
+        var (success, error) = _battleshipService.SelectFleet(gameId, discordId.ToString(), fleetSelections);
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipSelectFleet", success = false, error });
+            return;
+        }
+
+        await PushBattleshipStateToAll(gameId);
+    }
+
+    public async Task BattleshipPlaceShip(string gameId, string shipId, int row, int col, string orientation)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.PlaceShip(gameId, discordId.ToString(), shipId, row, col, orientation);
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipPlaceShip", success = false, error });
+            return;
+        }
+
+        await PushBattleshipStateToPlayer(gameId, discordId.ToString());
+    }
+
+    public async Task BattleshipRemoveShip(string gameId, string shipId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.RemoveShip(gameId, discordId.ToString(), shipId);
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipRemoveShip", success = false, error });
+            return;
+        }
+
+        await PushBattleshipStateToPlayer(gameId, discordId.ToString());
+    }
+
+    public async Task BattleshipConfirmPlacement(string gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.ConfirmPlacement(gameId, discordId.ToString());
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipConfirmPlacement", success = false, error });
+            return;
+        }
+
+        await PushBattleshipStateToAll(gameId);
+    }
+
+    public async Task BattleshipShoot(string gameId, int row, int col)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (result, error) = _battleshipService.Shoot(gameId, discordId.ToString(), row, col);
+        if (error != null)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipShoot", success = false, error });
+            return;
+        }
+
+        // Send shot result event
+        await Clients.Group($"bs-{gameId}").SendAsync("BattleshipEvent", new
+        {
+            eventType = "ShotResult",
+            data = new
+            {
+                result.Hit,
+                result.Miss,
+                result.Scratched,
+                result.Destroyed,
+                result.ShipSunk,
+                result.Burned,
+                result.Row,
+                result.Col,
+                result.TurnContinues,
+                result.Message,
+                result.AffectedShipName,
+            }
+        });
+
+        await PushBattleshipStateToAll(gameId);
+    }
+
+    public async Task BattleshipShootOwnBoard(string gameId, int row, int col)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (result, error) = _battleshipService.ShootOwnBoard(gameId, discordId.ToString(), row, col);
+        if (error != null)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipShootOwnBoard", success = false, error });
+            return;
+        }
+
+        await Clients.Group($"bs-{gameId}").SendAsync("BattleshipEvent", new
+        {
+            eventType = "ShotResult",
+            data = new
+            {
+                result.Hit,
+                result.Miss,
+                result.Scratched,
+                result.Destroyed,
+                result.ShipSunk,
+                result.Burned,
+                result.Row,
+                result.Col,
+                result.TurnContinues,
+                result.Message,
+                result.AffectedShipName,
+            }
+        });
+
+        await PushBattleshipStateToAll(gameId);
+    }
+
+    public async Task BattleshipSelectWeapon(string gameId, string weaponType, string shotType)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        _battleshipService.SelectWeapon(gameId, discordId.ToString(), weaponType, shotType);
+        await PushBattleshipStateToPlayer(gameId, discordId.ToString());
+    }
+
+    public async Task BattleshipDeploySummon(string gameId, string summonType, int col)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.DeploySummon(gameId, discordId.ToString(), summonType, col);
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipDeploySummon", success = false, error });
+            return;
+        }
+
+        await PushBattleshipStateToAll(gameId);
+    }
+
+    public async Task BattleshipDeployPendingSummon(string gameId, string pendingId, int col)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.DeployPendingSummon(gameId, discordId.ToString(), pendingId, col);
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipDeployPendingSummon", success = false, error });
+            return;
+        }
+
+        await PushBattleshipStateToAll(gameId);
+    }
+
+    public async Task BattleshipManualMove(string gameId, string shipId, string direction, int distance = 1)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.ManualMoveShip(gameId, discordId.ToString(), shipId, direction, distance);
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipManualMove", success = false, error });
+            return;
+        }
+
+        await PushBattleshipStateToAll(gameId);
+    }
+
+    public async Task BattleshipSetCursedBoatDirection(string gameId, string summonId, string direction)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.SetCursedBoatDirection(gameId, discordId.ToString(), summonId, direction);
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipSetCursedBoatDirection", success = false, error });
+            return;
+        }
+
+        await PushBattleshipStateToAll(gameId);
+    }
+
+    public async Task BattleshipForfeit(string gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.Forfeit(gameId, discordId.ToString());
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipForfeit", success = false, error });
+            return;
+        }
+
+        await PushBattleshipStateToAll(gameId);
+    }
+
+    public async Task RequestBattleshipState(string gameId)
+    {
+        var discordId = GetDiscordId();
+        var did = discordId == 0 ? null : discordId.ToString();
+        var state = did != null
+            ? _battleshipService.GetGameState(gameId, did)
+            : _battleshipService.GetSpectatorState(gameId);
+
+        if (state != null)
+            await Clients.Caller.SendAsync("BattleshipState", state);
+    }
+
+    public async Task RequestShipCatalog()
+    {
+        var catalog = _battleshipService.GetShipCatalog();
+        await Clients.Caller.SendAsync("ShipCatalog", catalog);
+    }
+
+    private async Task PushBattleshipStateToAll(string gameId)
+    {
+        // Send personalized state to each player, collecting their connection IDs
+        var playerIds = _battleshipService.GetPlayerIds(gameId);
+        var playerConnectionIds = new List<string>();
+        foreach (var pid in playerIds)
+        {
+            if (!ulong.TryParse(pid, out var discordId)) continue;
+            var personalState = _battleshipService.GetGameState(gameId, pid);
+            if (personalState == null) continue;
+
+            var connections = _notificationService.GetConnections(discordId);
+            if (connections.Count > 0)
+            {
+                var connList = connections.ToList();
+                playerConnectionIds.AddRange(connList);
+                await Clients.Clients(connList).SendAsync("BattleshipState", personalState);
+            }
+        }
+
+        // Send spectator state to the group, excluding player connections
+        var spectatorState = _battleshipService.GetSpectatorState(gameId);
+        if (spectatorState != null)
+        {
+            if (playerConnectionIds.Count > 0)
+                await Clients.GroupExcept($"bs-{gameId}", playerConnectionIds).SendAsync("BattleshipState", spectatorState);
+            else
+                await Clients.Group($"bs-{gameId}").SendAsync("BattleshipState", spectatorState);
+        }
+    }
+
+    private async Task PushBattleshipStateToPlayer(string gameId, string discordId)
+    {
+        if (!ulong.TryParse(discordId, out var did)) return;
+        var state = _battleshipService.GetGameState(gameId, discordId);
+        if (state == null) return;
+
+        var connections = _notificationService.GetConnections(did);
+        if (connections.Count > 0)
+            await Clients.Clients(connections.ToList()).SendAsync("BattleshipState", state);
     }
 
     // ── Private helpers ───────────────────────────────────────────────

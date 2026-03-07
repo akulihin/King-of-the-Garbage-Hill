@@ -535,7 +535,30 @@ function advanceStep() {
   }
 }
 
-function scheduleNext() { clearTimer(); timer = setTimeout(advanceStep, stepDelay()) }
+function scheduleNext() {
+  clearTimer()
+  let delay = stepDelay()
+
+  // 3_lww has ~100ms of silence at start (rendered for transition).
+  // Fire R3 result step 100ms earlier when 3_lww will play; add 100ms back
+  // on the next step so that f_xxx stays at the same absolute time.
+  if (fight.value?.usedRandomRoll && isMyFight.value && !skippedToEnd.value) {
+    const r3ResultStep = round1Factors.value.length + 4
+    if (currentStep.value === r3ResultStep - 1 || currentStep.value === r3ResultStep) {
+      const f = fight.value
+      const s = sign.value
+      const attackerWon = f.randomNumber <= f.randomForPoint
+      const weWonR3 = s > 0 ? attackerWon : !attackerWon
+      const r3result: 'w' | 'l' = weWonR3 ? 'w' : 'l'
+      const seq = [...roundResults.value, r3result].join('')
+      if (seq === 'lww') {
+        delay += currentStep.value === r3ResultStep - 1 ? -100 : 100
+      }
+    }
+  }
+
+  timer = setTimeout(advanceStep, delay)
+}
 function togglePlay() {
   isPlaying.value = !isPlaying.value
   if (isPlaying.value) { skippedToEnd.value = false; scheduleNext() }

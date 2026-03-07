@@ -22,7 +22,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 4.0.3 Sound?!";
+        GameVersion = "Версия: 4.0.5 海";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();

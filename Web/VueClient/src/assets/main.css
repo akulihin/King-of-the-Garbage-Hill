@@ -143,3 +143,26 @@ button:active:not(:disabled) {
 .value-bump {
   animation: value-bump 0.3s var(--ease-spring);
 }
+
+/* ── Global tooltip (used by useTip composable) ────────── */
+.pc-tooltip {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  transform: translate(12px, -100%);
+  max-width: 240px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  animation: pc-tip-in 0.1s ease-out;
+}
+@keyframes pc-tip-in {
+  from { opacity: 0; transform: translate(12px, -100%) scale(0.95); }
+  to { opacity: 1; transform: translate(12px, -100%) scale(1); }
+}

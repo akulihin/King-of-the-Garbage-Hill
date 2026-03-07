@@ -656,6 +656,196 @@ export type ActionResult = {
   error?: string
 }
 
+// ── Battleship Types ──────────────────────────────────────────────
+
+export type BattleshipLobbyState = {
+  games: BattleshipLobbyGame[]
+}
+
+export type BattleshipLobbyGame = {
+  gameId: string
+  phase: string
+  player1Name: string
+  player2Name: string
+  player1IsBot: boolean
+  player2IsBot: boolean
+  turnNumber: number
+  createdAt: string
+}
+
+export type BattleshipGameState = {
+  gameId: string
+  phase: string
+  turnNumber: number
+  shotCount: number
+  isFinished: boolean
+  winnerId: string | null
+  currentTurnPlayerId: string | null
+  isMyTurn: boolean
+  myPlayerId: string | null
+  gameLog: string[]
+  player1: BattleshipPlayerState | null
+  player2: BattleshipPlayerState | null
+  shipCatalog: BattleshipShipCatalogEntry[] | null
+}
+
+export type BattleshipPlayerState = {
+  discordId: string
+  username: string
+  isBot: boolean
+  isMe: boolean
+  faction: string
+  coinsRemaining: number
+  isReady: boolean
+  summonSlotsUsed: number
+  maxSummonSlots: number
+  selectedShotType: string
+  revealedCellCount: number
+  stunShotExpiry: number
+  hasPenalty: boolean
+  maneuveringDoubleUsed: boolean
+  hasShotThisTurn: boolean
+  summonCooldownRemaining: number
+  fleet: BattleshipShip[] | null
+  board: BattleshipBoard | null
+  summons: BattleshipSummon[]
+  pendingSummons: BattleshipPendingSummon[]
+  selectedShips: BattleshipFleetSelection[] | null
+}
+
+export type BattleshipPendingSummon = {
+  id: string
+  type: string
+  allowedColumns: number[]
+  isBoarding: boolean
+  sourceShipName: string
+}
+
+export type BattleshipBoard = {
+  cells: BattleshipCell[]
+}
+
+export type BattleshipCell = {
+  row: number
+  col: number
+  isRevealed: boolean
+  isHit: boolean
+  isMiss: boolean
+  isBurning: boolean
+  hasShip: boolean
+  shipId: string | null
+  hasSummon: boolean
+  summonOwnerId: string | null
+  summonType: string | null
+  isScratched: boolean
+  isDestroyed?: boolean
+  isFrozen?: boolean
+  isDevastated?: boolean
+  isCaptured?: boolean
+  isFirePermanent?: boolean
+}
+
+export type BattleshipShip = {
+  id: string
+  definitionId: string
+  name: string
+  deckCount: number
+  row: number
+  col: number
+  orientation: string
+  isDestroyed: boolean
+  isPlaced: boolean
+  isSummon: boolean
+  range: string
+  cost: number
+  abilities: string[]
+  upgrades: string[]
+  speed: number
+  space: number
+  decks: BattleshipDeck[]
+  weapons: BattleshipWeapon[]
+}
+
+export type BattleshipDeck = {
+  index: number
+  maxHp: number
+  currentHp: number
+  isDestroyed: boolean
+  module: string | null
+  moduleDestroyed: boolean
+}
+
+export type BattleshipWeapon = {
+  type: string
+  ammo: number
+  damage: number
+  hasAmmo: boolean
+  aimSpeed: number
+}
+
+export type BattleshipSummon = {
+  id: string
+  type: string
+  row: number
+  col: number
+  speed: number
+  isAlive: boolean
+  waitingForTurnBack: boolean
+  waitingForDirectionChoice: boolean
+}
+
+export type BattleshipFleetSelection = {
+  definitionId: string
+  shipName: string
+  cost: number
+  upgrades: string[]
+}
+
+export type BattleshipShipCatalogEntry = {
+  id: string
+  name: string
+  nameRu: string
+  deckCount: number
+  range: string
+  cost: number
+  defaultArmor: number
+  deckHpOverrides: number[] | null
+  space: number
+  speed: number
+  isFree: boolean
+  abilities: string[]
+  description: string
+  region: string | null
+  availableUpgrades: BattleshipUpgrade[]
+}
+
+export type BattleshipUpgrade = {
+  id: string
+  name: string
+  nameRu: string
+  cost: number
+  description: string
+}
+
+export type BattleshipShotResult = {
+  hit: boolean
+  miss: boolean
+  scratched: boolean
+  destroyed: boolean
+  shipSunk: boolean
+  burned: boolean
+  row: number
+  col: number
+  turnContinues: boolean
+  message: string
+  affectedShipName: string | null
+}
+
+export type BattleshipEvent = {
+  eventType: string
+  data?: unknown
+}
+
 // ── Replay Types ────────────────────────────────────────────────────
 
 export type ReplayData = {
@@ -758,6 +948,12 @@ class SignalRService {
   onLootBoxOpened: ((result: LootBoxResult) => void) | null = null
   onAchievementBoard: ((board: AchievementBoard) => void) | null = null
   onCharacterList: ((list: CharacterListEntry[]) => void) | null = null
+  onBattleshipLobby: ((state: BattleshipLobbyState) => void) | null = null
+  onBattleshipState: ((state: BattleshipGameState) => void) | null = null
+  onBattleshipGameCreated: ((data: { gameId: string }) => void) | null = null
+  onBattleshipGameJoined: ((data: { gameId: string }) => void) | null = null
+  onBattleshipEvent: ((event: BattleshipEvent) => void) | null = null
+  onShipCatalog: ((catalog: BattleshipShipCatalogEntry[]) => void) | null = null
 
   get isConnected() {
     return this._isConnected
@@ -828,6 +1024,30 @@ class SignalRService {
 
     this.connection.on('CharacterList', (list: CharacterListEntry[]) => {
       this.onCharacterList?.(list)
+    })
+
+    this.connection.on('BattleshipLobby', (state: BattleshipLobbyState) => {
+      this.onBattleshipLobby?.(state)
+    })
+
+    this.connection.on('BattleshipState', (state: BattleshipGameState) => {
+      this.onBattleshipState?.(state)
+    })
+
+    this.connection.on('BattleshipGameCreated', (data: { gameId: string }) => {
+      this.onBattleshipGameCreated?.(data)
+    })
+
+    this.connection.on('BattleshipGameJoined', (data: { gameId: string }) => {
+      this.onBattleshipGameJoined?.(data)
+    })
+
+    this.connection.on('BattleshipEvent', (event: BattleshipEvent) => {
+      this.onBattleshipEvent?.(event)
+    })
+
+    this.connection.on('ShipCatalog', (catalog: BattleshipShipCatalogEntry[]) => {
+      this.onShipCatalog?.(catalog)
     })
 
     this.connection.onreconnecting(() => {
@@ -1057,6 +1277,96 @@ class SignalRService {
 
   async clearNewAchievements(): Promise<void> {
     await this.connection?.invoke('ClearNewAchievements')
+  }
+
+  // ── Battleship (Sea Battle) ───────────────────────────────────────
+
+  async requestBattleshipLobby(): Promise<void> {
+    await this.connection?.invoke('RequestBattleshipLobby')
+  }
+
+  async createBattleshipGame(): Promise<void> {
+    await this.connection?.invoke('CreateBattleshipGame')
+  }
+
+  async joinBattleshipWebGame(gameId: string): Promise<void> {
+    await this.connection?.invoke('JoinBattleshipWebGame', gameId)
+  }
+
+  async leaveBattleshipWebGame(gameId: string): Promise<void> {
+    await this.connection?.invoke('LeaveBattleshipWebGame', gameId)
+  }
+
+  async joinBattleshipGame(gameId: string): Promise<void> {
+    await this.connection?.invoke('JoinBattleshipGame', gameId)
+  }
+
+  async leaveBattleshipGame(gameId: string): Promise<void> {
+    await this.connection?.invoke('LeaveBattleshipGame', gameId)
+  }
+
+  async battleshipConfirmReady(gameId: string): Promise<void> {
+    await this.connection?.invoke('BattleshipConfirmReady', gameId)
+  }
+
+  async battleshipSelectArmy(gameId: string, faction: string): Promise<void> {
+    await this.connection?.invoke('BattleshipSelectArmy', gameId, faction)
+  }
+
+  async battleshipSelectFleet(gameId: string, selections: BattleshipFleetSelection[]): Promise<void> {
+    await this.connection?.invoke('BattleshipSelectFleet', gameId, selections)
+  }
+
+  async battleshipPlaceShip(gameId: string, shipId: string, row: number, col: number, orientation: string): Promise<void> {
+    await this.connection?.invoke('BattleshipPlaceShip', gameId, shipId, row, col, orientation)
+  }
+
+  async battleshipRemoveShip(gameId: string, shipId: string): Promise<void> {
+    await this.connection?.invoke('BattleshipRemoveShip', gameId, shipId)
+  }
+
+  async battleshipConfirmPlacement(gameId: string): Promise<void> {
+    await this.connection?.invoke('BattleshipConfirmPlacement', gameId)
+  }
+
+  async battleshipShoot(gameId: string, row: number, col: number): Promise<void> {
+    await this.connection?.invoke('BattleshipShoot', gameId, row, col)
+  }
+
+  async battleshipShootOwnBoard(gameId: string, row: number, col: number): Promise<void> {
+    await this.connection?.invoke('BattleshipShootOwnBoard', gameId, row, col)
+  }
+
+  async battleshipSelectWeapon(gameId: string, weaponType: string, shotType: string): Promise<void> {
+    await this.connection?.invoke('BattleshipSelectWeapon', gameId, weaponType, shotType)
+  }
+
+  async battleshipDeploySummon(gameId: string, summonType: string, col: number): Promise<void> {
+    await this.connection?.invoke('BattleshipDeploySummon', gameId, summonType, col)
+  }
+
+  async battleshipDeployPendingSummon(gameId: string, pendingId: string, col: number): Promise<void> {
+    await this.connection?.invoke('BattleshipDeployPendingSummon', gameId, pendingId, col)
+  }
+
+  async battleshipManualMove(gameId: string, shipId: string, direction: string, distance: number = 1): Promise<void> {
+    await this.connection?.invoke('BattleshipManualMove', gameId, shipId, direction, distance)
+  }
+
+  async battleshipSetCursedBoatDirection(gameId: string, summonId: string, direction: string): Promise<void> {
+    await this.connection?.invoke('BattleshipSetCursedBoatDirection', gameId, summonId, direction)
+  }
+
+  async battleshipForfeit(gameId: string): Promise<void> {
+    await this.connection?.invoke('BattleshipForfeit', gameId)
+  }
+
+  async requestBattleshipState(gameId: string): Promise<void> {
+    await this.connection?.invoke('RequestBattleshipState', gameId)
+  }
+
+  async requestShipCatalog(): Promise<void> {
+    await this.connection?.invoke('RequestShipCatalog')
   }
 }
 

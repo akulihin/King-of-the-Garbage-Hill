@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue'
 import type { Player, PortalGun, ExploitState, TsukuyomiState, PassiveAbilityStates } from 'src/services/signalr'
+import { useTip } from 'src/composables/useTip'
 import ScoreOdometer from 'src/components/ScoreOdometer.vue'
 import { useGameStore } from 'src/store/game'
 import {
@@ -546,24 +547,7 @@ function skillTargetTooltip(target: string): string {
 }
 
 // ── Tooltip system ──────────────────────────────────────────────────
-const tipText = ref('')
-const tipVisible = ref(false)
-const tipPos = ref({ x: 0, y: 0 })
-let tipTimer: ReturnType<typeof setTimeout> | null = null
-
-function showTip(e: MouseEvent, text: string) {
-  if (tipTimer) clearTimeout(tipTimer)
-  tipText.value = text
-  tipPos.value = { x: e.clientX, y: e.clientY }
-  tipTimer = setTimeout(() => { tipVisible.value = true }, 120)
-}
-function moveTip(e: MouseEvent) {
-  tipPos.value = { x: e.clientX, y: e.clientY }
-}
-function hideTip() {
-  if (tipTimer) clearTimeout(tipTimer)
-  tipVisible.value = false
-}
+const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 
 function handleLevelUp(statIndex: LevelUpStatIndex) {
   void store.levelUp(statIndex)
@@ -3859,30 +3843,8 @@ function handleMoralToSkill() {
 }
 </style>
 
-<!-- Tooltip needs to be unscoped to work with Teleport to body -->
+<!-- Unscoped styles for widgets that use Teleport to body -->
 <style>
-.pc-tooltip {
-  position: fixed;
-  z-index: 9999;
-  pointer-events: none;
-  transform: translate(12px, -100%);
-  max-width: 240px;
-  padding: 6px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.4;
-  color: var(--text-primary);
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 5px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-  animation: pc-tip-in 0.1s ease-out;
-}
-@keyframes pc-tip-in {
-  from { opacity: 0; transform: translate(12px, -100%) scale(0.95); }
-  to { opacity: 1; transform: translate(12px, -100%) scale(1); }
-}
-
 /* ── TheBoys Widget ── */
 .theboys-widget {
   border-color: #444;

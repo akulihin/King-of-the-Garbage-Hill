@@ -7,6 +7,9 @@ export type AppRouteNames =
   | 'spectate'
   | 'replay'
   | 'home'
+  | 'battleship'
+  | 'battleshipGame'
+  | 'battleshipSpectate'
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -40,6 +43,23 @@ export const routes: RouteRecordRaw[] = [
     name: 'home',
     path: '/home',
     component: () => import('./pages/Home.vue'),
+  },
+  {
+    name: 'battleship',
+    path: '/battleship',
+    component: () => import('./pages/BattleshipLobby.vue'),
+  },
+  {
+    name: 'battleshipGame',
+    path: '/battleship/:gameId',
+    component: () => import('./pages/BattleshipGame.vue'),
+    props: true,
+  },
+  {
+    name: 'battleshipSpectate',
+    path: '/battleship/spectate/:gameId',
+    component: () => import('./pages/BattleshipSpectate.vue'),
+    props: true,
   },
 ]
 

@@ -1125,3 +1125,67 @@ export function playPointsSummary(totalEarned: number): void {
 
   void playClip(`ui_ux/points/points_summ/${tier}_plus.mp3`, { group: 'pointsSumm' })
 }
+
+// ── Battleship Sounds ─────────────────────────────────────────────────
+
+/** Reuse existing fight sounds for battleship shot impacts */
+export function playBattleshipShot(): void {
+  const idx = Math.floor(Math.random() * 14) + 1
+  void playClip(`dooms_day/round_1/fight/fght_${idx}.mp3`, { group: 'attack' })
+}
+
+export function playBattleshipHit(): void {
+  void playClip('dooms_day/round_1/fight_fin/Fght Fin 1.mp3', { group: 'attack' })
+}
+
+export function playBattleshipMiss(): void {
+  void playClip('buttons/everything_1.mp3', { group: 'buttons' })
+}
+
+export function playBattleshipShipSunk(): void {
+  void playClip('dooms_day/round_1/fight_fin/Fght Fin 3.mp3', { group: 'attack', gainMultiplier: 1.3 })
+}
+
+export function playBattleshipWin(): void {
+  void playClip('dooms_day/win_lose/f_ww.mp3', { group: 'doomsDayWinLose' })
+}
+
+export function playBattleshipLose(): void {
+  void playClip('dooms_day/win_lose/f_any_lose.mp3', { group: 'doomsDayWinLose' })
+}
+
+export function playBattleshipDeploy(): void {
+  void playClip('buttons/attack/attack_click.mp3', { group: 'buttons' })
+}
+
+export function playBattleshipBurn(): void {
+  void playClip('dooms_day/round_1/fight/fght_dv/Fght DV.mp3', { group: 'attack' })
+}
+
+export function playBattleshipDodge(): void {
+  void playClip('buttons/everything_1.mp3', { group: 'buttons', gainMultiplier: 0.6 })
+}
+
+export function playBattleshipFreeze(): void {
+  void playClip('dooms_day/round_1/fight/fght_dv/Fght DV.mp3', { group: 'attack', gainMultiplier: 0.8 })
+}
+
+export function playBattleshipExplode(): void {
+  void playClip('dooms_day/round_1/fight_fin/Fght Fin 3.mp3', { group: 'attack', gainMultiplier: 1.5 })
+}
+
+export function playBattleshipStun(): void {
+  void playClip('dooms_day/round_1/fight_fin/Fght Fin 1.mp3', { group: 'attack', gainMultiplier: 0.7 })
+}
+
+export function playBattleshipPhaseChange(): void {
+  void playClip('buttons/attack/attack_click.mp3', { group: 'buttons', gainMultiplier: 1.2 })
+}
+
+export function playBattleshipWeaponSelect(): void {
+  void playClip('buttons/everything_1.mp3', { group: 'buttons', gainMultiplier: 0.3 })
+}
+
+export function playBattleshipTurnStart(): void {
+  void playClip('buttons/attack/attack_click.mp3', { group: 'buttons', gainMultiplier: 0.5 })
+}

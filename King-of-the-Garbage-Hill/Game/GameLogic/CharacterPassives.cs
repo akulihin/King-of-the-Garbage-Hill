@@ -4414,7 +4414,7 @@ public class CharacterPassives : IServiceSingleton
                         break;
 
                     case "L":
-                        if (game.RoundNo == 11)
+                        if (game.RoundNo >= 9)
                         {
                             var kiraLNext = player.Passives.KiraL;
                             if (kiraLNext.LPlayerId != Guid.Empty && !kiraLNext.IsArrested)
