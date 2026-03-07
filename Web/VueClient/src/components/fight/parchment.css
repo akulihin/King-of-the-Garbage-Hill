@@ -1,0 +1,36 @@
+/* ── Parchment Theme: Card Game / Tabletop Aesthetic ── */
+
+:root {
+  /* Dark parchment palette */
+  --parch-bg: #1a1611;
+  --parch-surface: #231e17;
+  --parch-raised: #2c261d;
+  --parch-border: #3d3528;
+  --parch-border-light: #4e453a;
+
+  /* Metals */
+  --parch-gold: #c9a84c;
+  --parch-gold-dim: #9e8338;
+  --parch-gold-bright: #e8d06e;
+  --parch-brass: #b08d57;
+  --parch-brass-shine: #d4b980;
+  --parch-copper: #b87333;
+
+  /* Wax seal colors */
+  --seal-red: #8b2020;
+  --seal-red-light: #b33030;
+  --seal-green: #2a6e2a;
+  --seal-green-light: #3a8e3a;
+  --seal-orange: #8b5e20;
+
+  /* Ink colors */
+  --ink-dark: #1a1510;
+  --ink-light: #c4b8a0;
+  --ink-red: #c44;
+  --ink-green: #4a4;
+
+  /* Metallic gradients */
+  --grad-gold: linear-gradient(135deg, #9e8338, #c9a84c, #e8d06e, #c9a84c, #9e8338);
+  --grad-brass: linear-gradient(135deg, #8b6d3a, #b08d57, #d4b980, #b08d57, #8b6d3a);
+  --grad-gold-border: linear-gradient(90deg, #9e8338 0%, #e8d06e 50%, #9e8338 100%);
+}
