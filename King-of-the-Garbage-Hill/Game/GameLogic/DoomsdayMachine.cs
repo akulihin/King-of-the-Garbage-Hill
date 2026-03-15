@@ -154,7 +154,8 @@ public class DoomsdayMachine : IServiceSingleton
                                 foreach (var targetId in player.Status.WhoToAttackThisTurn.Where(t => t != player.GetPlayerId()))
                                 {
                                     var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
-                                    target.Passives.PointFunneledTo = player.GetPlayerId();
+                                    if (target != null)
+                                        target.Passives.PointFunneledTo = player.GetPlayerId();
                                 }
                             }
                             break;
@@ -1083,6 +1084,28 @@ public class DoomsdayMachine : IServiceSingleton
                         lastFight.PortalGunSwap = true;
                 }
 
+                // ── Achievement tracking: fight wins/losses (before ResetFight clears flags) ──
+                foreach (var fightParticipant in new[] { player, playerIamAttacking })
+                {
+                    var t = fightParticipant.Passives.AchievementTracker;
+                    if (fightParticipant.Status.IsWonThisCalculation != Guid.Empty)
+                    {
+                        t.TotalFightsWon++;
+                        t.ConsecutiveWins++;
+                        if (t.ConsecutiveWins > t.MaxConsecutiveWins)
+                            t.MaxConsecutiveWins = t.ConsecutiveWins;
+                        var defeatedId = fightParticipant.Status.IsWonThisCalculation;
+                        var defeated = game.PlayersList.Find(x => x.GetPlayerId() == defeatedId);
+                        if (defeated != null)
+                            t.DefeatedPlayerNames.Add(defeated.DiscordUsername);
+                    }
+                    if (fightParticipant.Status.IsLostThisCalculation != Guid.Empty)
+                    {
+                        t.TotalFightsLost++;
+                        t.ConsecutiveWins = 0;
+                    }
+                }
+
                 ResetFight(game, player, playerIamAttacking);
             }
         }
@@ -1101,28 +1124,10 @@ public class DoomsdayMachine : IServiceSingleton
 
 
 
-        // ── Achievement tracking: per-round stats ──
+        // ── Achievement tracking: per-round stats (fight wins/losses tracked in fight loop above) ──
         foreach (var player in game.PlayersList)
         {
             var t = player.Passives.AchievementTracker;
-            // Track fight wins/losses this round
-            if (player.Status.IsWonThisCalculation != Guid.Empty)
-            {
-                t.TotalFightsWon++;
-                t.ConsecutiveWins++;
-                if (t.ConsecutiveWins > t.MaxConsecutiveWins)
-                    t.MaxConsecutiveWins = t.ConsecutiveWins;
-                // Track unique defeated players
-                var defeatedId = player.Status.IsWonThisCalculation;
-                var defeated = game.PlayersList.Find(x => x.GetPlayerId() == defeatedId);
-                if (defeated != null)
-                    t.DefeatedPlayerNames.Add(defeated.DiscordUsername);
-            }
-            if (player.Status.IsLostThisCalculation != Guid.Empty)
-            {
-                t.TotalFightsLost++;
-                t.ConsecutiveWins = 0;
-            }
             // Track blocks and attacks
             if (player.Status.IsBlock)
             {

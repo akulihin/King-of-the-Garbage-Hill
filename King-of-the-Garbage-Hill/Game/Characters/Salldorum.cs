@@ -18,6 +18,7 @@ public class Salldorum
         public int BuriedOnRound { get; set; } = -1;
         public bool FirstBlockUsed { get; set; } = false;
         public bool PickedUpThisTurn { get; set; } = false;
+        public bool SpeedBonusPending { get; set; } = false;
     }
 
     public class ChroniclerClass

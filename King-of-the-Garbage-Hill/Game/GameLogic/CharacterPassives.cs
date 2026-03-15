@@ -86,17 +86,13 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Им это не понравится":
+                    var excludedNames = new HashSet<string> { "Злой Школьник", "Глеб", "mylorik", "Загадочный Спартанец в маске" };
+                    var candidates = playersList
+                        .Where(p => p.GetPlayerId() != player.GetPlayerId() && !excludedNames.Contains(p.GameCharacter.Name))
+                        .ToList();
+
                     Guid enemy1;
                     Guid enemy2;
-
-                    do
-                    {
-                        var randIndex = _rand.Random(0, playersList.Count - 1);
-                        enemy1 = playersList[randIndex].GetPlayerId();
-                        if (playersList[randIndex].GameCharacter.Name is "Злой Школьник" or "Глеб" or "mylorik"
-                            or "Загадочный Спартанец в маске")
-                            enemy1 = player.GetPlayerId();
-                    } while (enemy1 == player.GetPlayerId());
 
                     // Most wanted: force Rick as enemy1
                     var rickMw1 = playersList.Find(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Most wanted"));
@@ -110,17 +106,30 @@ public class CharacterPassives : IServiceSingleton
                         };
                         rickMw1.Status.AddInGamePersonalLogs($"|>Phrase<|Most wanted: {mwPhrases[_rand.Random(0, mwPhrases.Length - 1)]}\n");
                     }
-
-                    do
+                    else if (candidates.Count > 0)
                     {
-                        var randIndex = _rand.Random(0, playersList.Count - 1);
-                        enemy2 = playersList[randIndex].GetPlayerId();
-                        if (playersList[randIndex].GameCharacter.Name is "Злой Школьник" or "Глеб" or "mylorik"
-                            or "Загадочный Спартанец в маске")
-                            enemy2 = player.GetPlayerId();
-                        if (enemy2 == enemy1)
-                            enemy2 = player.GetPlayerId();
-                    } while (enemy2 == player.GetPlayerId());
+                        enemy1 = candidates[_rand.Random(0, candidates.Count - 1)].GetPlayerId();
+                    }
+                    else
+                    {
+                        // Fallback: pick any non-self player
+                        var fallback = playersList.Where(p => p.GetPlayerId() != player.GetPlayerId()).ToList();
+                        enemy1 = fallback[_rand.Random(0, fallback.Count - 1)].GetPlayerId();
+                    }
+
+                    var candidates2 = candidates.Where(p => p.GetPlayerId() != enemy1).ToList();
+                    if (candidates2.Count > 0)
+                    {
+                        enemy2 = candidates2[_rand.Random(0, candidates2.Count - 1)].GetPlayerId();
+                    }
+                    else
+                    {
+                        // Fallback: pick any non-self, non-enemy1 player
+                        var fallback2 = playersList.Where(p => p.GetPlayerId() != player.GetPlayerId() && p.GetPlayerId() != enemy1).ToList();
+                        enemy2 = fallback2.Count > 0
+                            ? fallback2[_rand.Random(0, fallback2.Count - 1)].GetPlayerId()
+                            : enemy1; // extreme edge case: only 2 players
+                    }
 
                     player.Passives.SpartanMark.FriendList.Add(enemy1);
                     player.Passives.SpartanMark.FriendList.Add(enemy2);
@@ -343,6 +352,14 @@ public class CharacterPassives : IServiceSingleton
     //handle during fight
     public void HandleDefenseBeforeFight(GamePlayerBridgeClass target, GamePlayerBridgeClass me, GameClass game)
     {
+        // Salldorum — Временная капсула: apply pending speed bonus (after DeepCopy)
+        var capsuleDef = target.Passives.SalldorumTimeCapsule;
+        if (capsuleDef.SpeedBonusPending)
+        {
+            target.FightCharacter.AddSpeedForOneFight(5, "Временная капсула");
+            capsuleDef.SpeedBonusPending = false;
+        }
+
         foreach (var passive in target.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
@@ -901,6 +918,14 @@ public class CharacterPassives : IServiceSingleton
 
     public void HandleAttackBeforeFight(GamePlayerBridgeClass me, GamePlayerBridgeClass target, GameClass game)
     {
+        // Salldorum — Временная капсула: apply pending speed bonus (after DeepCopy)
+        var capsuleAtk = me.Passives.SalldorumTimeCapsule;
+        if (capsuleAtk.SpeedBonusPending)
+        {
+            me.FightCharacter.AddSpeedForOneFight(5, "Временная капсула");
+            capsuleAtk.SpeedBonusPending = false;
+        }
+
         // Seller forced loss: marked player loses next attack
         if (me.Passives.SellerForcedLossNextAttack)
             me.Status.IsAbleToWin = false;
@@ -2962,7 +2987,7 @@ public class CharacterPassives : IServiceSingleton
                     if (attack && player.Status.IsWonThisCalculation == Guid.Empty && player.Status.IsLostThisCalculation == Guid.Empty)
                     {
                         player.Status.AddRegularPoints(1, "Aggress");
-                        player.GameCharacter.Justice.SetRealJusticeNow(0, "Aggress");
+                        player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(1);
                         game.Phrases.ToxicMateAggressPoint.SendLog(player, false);
                     }
                     break;
@@ -3394,7 +3419,7 @@ public class CharacterPassives : IServiceSingleton
                             var tolyaTalked = player.Passives.TolyaTalked;
                             if (tolyaTalked.PlayerHeTalkedAbout.Count < 2)
                             {
-                                var randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
+                                var randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Count - 1)];
 
                                 //Most wanted — force Rick as target
                                 var rickMw = game.PlayersList.Find(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Most wanted"));
@@ -3403,19 +3428,19 @@ public class CharacterPassives : IServiceSingleton
                                 //end Most wanted
 
                                 while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.GetPlayerId()))
-                                    randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
+                                    randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Count - 1)];
 
 
                                 if (randomPlayer.GetPlayerId() == player.GetPlayerId())
                                     do
                                     {
-                                        randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
+                                        randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Count - 1)];
                                     } while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.GetPlayerId()));
 
                                 if (randomPlayer.GetPlayerId() == player.GetPlayerId())
                                     do
                                     {
-                                        randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Capacity - 1)];
+                                        randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Count - 1)];
                                     } while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.GetPlayerId()));
 
 
@@ -4552,7 +4577,7 @@ public class CharacterPassives : IServiceSingleton
                         break;
 
                     case "L":
-                        if (game.RoundNo >= 9)
+                        if (game.RoundNo >= 8)
                         {
                             var kiraLNext = player.Passives.KiraL;
                             if (kiraLNext.LPlayerId != Guid.Empty && !kiraLNext.IsArrested)
@@ -5366,8 +5391,13 @@ public class CharacterPassives : IServiceSingleton
                             // Тэнма's message disappears after ~10 seconds
                             _ = Task.Run(async () =>
                             {
-                                await Task.Delay(10_000);
-                                game.HiddenGlobalLogSnippets.Add(tenmaMsg);
+                                try
+                                {
+                                    await Task.Delay(10_000);
+                                    if (!game.IsFinished)
+                                        game.HiddenGlobalLogSnippets.Add(tenmaMsg);
+                                }
+                                catch { /* game may have ended */ }
                             });
                         }
                         break;
@@ -5553,7 +5583,8 @@ public class CharacterPassives : IServiceSingleton
                 var currentPos = player.Status.GetPlaceAtLeaderBoard();
                 if (currentPos == capsule.BuriedAtPosition && (game.RoundNo - capsule.BuriedOnRound) >= 3)
                 {
-                    player.FightCharacter.AddSpeedForOneFight(5, "Временная капсула");
+                    // Speed bonus applied in HandleAttackBeforeFight/HandleDefenseBeforeFight (after DeepCopy)
+                    capsule.SpeedBonusPending = true;
                     player.Status.AddBonusPoints(2, "Временная капсула");
                     capsule.PickedUpThisTurn = true;
                     game.Phrases.SalldorumTimeCapsulePickup.SendLog(player, false);
@@ -5786,12 +5817,13 @@ public class CharacterPassives : IServiceSingleton
 
                     if (tolya.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1))
                     {
-                        var targetTolya = game.PlayersList.Find(x =>
-                                x.GetPlayerId() == tolya.TargetList.Find(y => y.RoundNumber == game.RoundNo - 1)!
-                                    .Target)
-                            .DiscordUsername;
-                        player.Status.AddInGamePersonalLogs(
-                            $"Подсчет: __Ставлю на то, что {targetTolya} получит пизды!__\n");
+                        var targetEntry = tolya.TargetList.Find(y => y.RoundNumber == game.RoundNo - 1);
+                        var targetPlayer = targetEntry != null
+                            ? game.PlayersList.Find(x => x.GetPlayerId() == targetEntry.Target)
+                            : null;
+                        if (targetPlayer != null)
+                            player.Status.AddInGamePersonalLogs(
+                                $"Подсчет: __Ставлю на то, что {targetPlayer.DiscordUsername} получит пизды!__\n");
                     }
                     break;
 
