@@ -20,29 +20,11 @@ const props = defineProps<{
   deathNote?: DeathNote
   isBug?: boolean
   pinkWardRevealedPlayerIds?: string[]
-  // Action bar props
-  showActions?: boolean
-  canAct?: boolean
-  isReady?: boolean
-  confirmedSkip?: boolean
-  darksciChoiceNeeded?: boolean
-  youngGlebAvailable?: boolean
-  dopaChoiceNeeded?: boolean
-  dopaSecondAttack?: boolean
 }>()
 
 const emit = defineEmits<{
   attack: [place: number]
   predict: [payload: { playerId: string; characterName: string }]
-  // Action bar emits
-  block: []
-  autoMove: []
-  changeMind: []
-  confirmSkip: []
-  confirmPredict: []
-  darksciChoice: [isStable: boolean]
-  youngGleb: []
-  dopaChoice: [tactic: string]
 }>()
 
 // Which player's predict dropdown is open
@@ -333,23 +315,6 @@ watch(() => props.fightLog, (newLog) => {
 // ── Tooltip system (matches PlayerCard pattern) ──────────────────────
 const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 
-/** Magnetic hover effect — button subtly follows cursor */
-function onBtnMousemove(e: MouseEvent) {
-  const btn = e.currentTarget as HTMLElement
-  const rect = btn.getBoundingClientRect()
-  const cx = rect.left + rect.width / 2
-  const cy = rect.top + rect.height / 2
-  const dx = (e.clientX - cx) * 0.12
-  const dy = (e.clientY - cy) * 0.12
-  const maxD = 3
-  const clampX = Math.max(-maxD, Math.min(maxD, dx))
-  const clampY = Math.max(-maxD, Math.min(maxD, dy))
-  btn.style.transform = `translate(${clampX}px, ${clampY}px)`
-}
-function onBtnMouseleave(e: MouseEvent) {
-  const btn = e.currentTarget as HTMLElement
-  btn.style.transform = ''
-}
 </script>
 
 <template>
@@ -361,7 +326,6 @@ function onBtnMouseleave(e: MouseEvent) {
         class="lb-row"
         :class="{
           'is-me': player.playerId === myPlayerId,
-          'has-actions': player.playerId === myPlayerId && showActions && !isFinished,
           'is-bot': player.isBot,
           'is-ready': player.status.isReady,
           'can-click': canAttack,
@@ -549,66 +513,6 @@ function onBtnMouseleave(e: MouseEvent) {
         <!-- Attack sword icon -->
         <span v-if="canAttack && player.playerId !== myPlayerId" class="attack-sword">⚔</span>
 
-        <!-- Inline action buttons (only for "me" row) -->
-        <div
-          v-if="player.playerId === myPlayerId && showActions && !isFinished"
-          class="lb-actions"
-          :class="{ 'can-act': canAct }"
-          @click.stop
-        >
-          <div class="lb-act-group">
-            <button class="lb-act-btn shield" :disabled="!canAct" title="Block" @click="emit('block')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">
-              <span class="gi gi-lg gi-def">DEF</span> Block
-            </button>
-            <button class="lb-act-btn auto" :disabled="!canAct" title="Auto Move" @click="emit('autoMove')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">
-              <span class="gi gi-lg gi-auto">AUTO</span> Move
-            </button>
-            <button v-if="isReady" class="lb-act-btn undo" title="Change Mind" @click="emit('changeMind')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">
-              <span class="gi gi-lg gi-undo">UNDO</span> Change
-            </button>
-            <button v-if="!confirmedSkip" class="lb-act-btn skip" title="Confirm Skip" @click="emit('confirmSkip')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">
-              <span class="gi gi-lg gi-skip">SKIP</span>
-            </button>
-          </div>
-
-          <div v-if="darksciChoiceNeeded" class="lb-act-group">
-            <button class="lb-act-btn darksci-stable" title="Стабильный: +20 Skill, +2 Moral" @click="emit('darksciChoice', true)" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">
-              Мне не везёт...
-            </button>
-            <button class="lb-act-btn darksci-unstable" title="Нестабильный: удача решит" @click="emit('darksciChoice', false)" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">
-              Мне повезёт!
-            </button>
-          </div>
-
-          <div v-if="youngGlebAvailable" class="lb-act-group">
-            <button class="lb-act-btn young-gleb" title="Трансформироваться в Молодого Глеба" @click="emit('youngGleb')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">
-              Вспомнить Молодость
-            </button>
-          </div>
-
-          <div v-if="dopaChoiceNeeded" class="lb-act-group">
-            <button class="lb-act-btn dopa-stomp" title="Стомп: +9 Силы и 99 Скилла" @click="emit('dopaChoice', 'Стомп')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">Стомп</button>
-            <button class="lb-act-btn dopa-farm" title="Фарм: Взгляд в будущее x2" @click="emit('dopaChoice', 'Фарм')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">Фарм</button>
-            <button class="lb-act-btn dopa-domination" title="Доминация: +20 Skill/win, target -1 bonus" @click="emit('dopaChoice', 'Доминация')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">Доминация</button>
-            <button class="lb-act-btn dopa-roam" title="Роум: Steal from non-adjacent" @click="emit('dopaChoice', 'Роум')" @mousemove="onBtnMousemove" @mouseleave="onBtnMouseleave">Роум</button>
-          </div>
-
-          <div v-if="(roundNo ?? 0) >= 8 && !isKira && !confirmedPredict" class="lb-act-group">
-            <button
-              class="lb-act-btn predict-confirm"
-              title="Confirm Predictions"
-              @click="emit('confirmPredict')"
-              @mousemove="onBtnMousemove"
-              @mouseleave="onBtnMouseleave"
-            >
-              Confirm Prediction
-            </button>
-          </div>
-
-          <div v-if="dopaSecondAttack" class="lb-act-group">
-            <span class="dopa-second-hint">Выберите вторую цель (скрытая атака)</span>
-          </div>
-        </div>
       </div>
     </TransitionGroup>
 
@@ -1298,197 +1202,6 @@ function onBtnMouseleave(e: MouseEvent) {
   80%  { opacity: 1; }
   90%  { opacity: 0; }
   100% { background-position: 160% 0; opacity: 0; }
-}
-
-/* ── Inline action buttons inside "my" row ─────────────────────────── */
-.lb-row.has-actions {
-  flex-wrap: wrap;
-}
-
-.lb-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-basis: 100%;
-  padding-top: 5px;
-  margin-top: 5px;
-  border-top: 1px solid rgba(240,200,80, 0.1);
-  flex-wrap: wrap;
-}
-
-.lb-act-group {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding-left: 6px;
-  border-left: 1px solid var(--glass-border);
-  flex-wrap: wrap;
-}
-.lb-act-group:first-child {
-  padding-left: 0;
-  border-left: none;
-}
-
-.lb-act-btn {
-  height: 28px;
-  padding: 0 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.2s var(--ease-in-out), border-color 0.2s var(--ease-in-out), box-shadow 0.2s var(--ease-in-out), opacity 0.2s var(--ease-in-out);
-  white-space: nowrap;
-  position: relative;
-  overflow: hidden;
-}
-
-.lb-act-btn.shield { border-left: 3px solid var(--accent-blue); }
-.lb-act-btn.auto { border-left: 3px solid var(--accent-green); }
-.lb-act-btn.undo { border-left: 3px solid var(--accent-orange); }
-.lb-act-btn.skip { border-left: 3px solid var(--text-dim); }
-
-.lb-act-btn:active:not(:disabled)::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at center, rgba(255,255,255,0.15), transparent 70%);
-  animation: lb-btn-ripple 0.4s ease-out;
-  pointer-events: none;
-}
-.lb-act-btn.shield:active:not(:disabled)::after {
-  background: radial-gradient(circle at center, rgba(110, 170, 240, 0.2), transparent 70%);
-}
-.lb-act-btn.auto:active:not(:disabled)::after {
-  background: radial-gradient(circle at center, rgba(63, 167, 61, 0.2), transparent 70%);
-}
-.lb-act-btn.undo:active::after {
-  background: radial-gradient(circle at center, rgba(230, 148, 74, 0.2), transparent 70%);
-}
-
-@keyframes lb-btn-ripple {
-  0% { transform: scale(0); opacity: 1; }
-  100% { transform: scale(2.5); opacity: 0; }
-}
-
-.lb-act-btn:hover:not(:disabled) {
-  background: linear-gradient(180deg, var(--bg-card-hover), var(--bg-secondary));
-  border-color: var(--accent-blue);
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3), 0 0 4px rgba(110, 170, 240, 0.1);
-}
-
-.lb-act-btn:active:not(:disabled) {
-  transform: translateY(0) scale(0.97);
-}
-
-.lb-act-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-  filter: grayscale(0.5);
-  border-left-color: var(--border-subtle);
-}
-
-.lb-act-btn.shield:hover:not(:disabled) { border-color: var(--accent-blue); box-shadow: 0 3px 8px rgba(0,0,0,0.3), 0 0 8px rgba(110, 170, 240, 0.15); }
-.lb-act-btn.auto:hover:not(:disabled) { border-color: var(--accent-green); box-shadow: 0 3px 8px rgba(0,0,0,0.3), 0 0 8px rgba(63, 167, 61, 0.15); }
-.lb-act-btn.undo:hover { border-color: var(--accent-orange); box-shadow: 0 3px 8px rgba(0,0,0,0.3), 0 0 8px rgba(230, 148, 74, 0.15); }
-.lb-act-btn.skip:hover:not(:disabled) { border-color: var(--text-muted); }
-
-.lb-act-btn.predict-confirm {
-  background: rgba(180, 150, 255, 0.06);
-  border-color: rgba(180, 150, 255, 0.3);
-  color: var(--accent-purple);
-}
-.lb-act-btn.predict-confirm:hover:not(:disabled) { background: rgba(180, 150, 255, 0.12); }
-.lb-act-btn.predict-confirm.confirmed {
-  background: rgba(63, 167, 61, 0.06);
-  border-color: rgba(63, 167, 61, 0.2);
-  color: var(--accent-green);
-  opacity: 0.7;
-}
-
-.lb-act-btn.darksci-stable {
-  background: rgba(60, 120, 255, 0.08);
-  border-color: rgba(60, 120, 255, 0.3);
-  color: #6eaaff;
-}
-.lb-act-btn.darksci-stable:hover { background: rgba(60, 120, 255, 0.15); }
-
-.lb-act-btn.darksci-unstable {
-  background: rgba(255, 60, 60, 0.08);
-  border-color: rgba(255, 60, 60, 0.3);
-  color: #ff6e6e;
-}
-.lb-act-btn.darksci-unstable:hover { background: rgba(255, 60, 60, 0.15); }
-
-.lb-act-btn.young-gleb {
-  background: rgba(255, 180, 40, 0.08);
-  border-color: rgba(255, 180, 40, 0.3);
-  color: #ffb428;
-}
-.lb-act-btn.young-gleb:hover { background: rgba(255, 180, 40, 0.15); }
-
-.lb-act-btn.dopa-stomp {
-  background: rgba(255, 60, 60, 0.08);
-  border-color: rgba(255, 60, 60, 0.3);
-  color: #ff6e6e;
-}
-.lb-act-btn.dopa-stomp:hover { background: rgba(255, 60, 60, 0.15); }
-
-.lb-act-btn.dopa-farm {
-  background: rgba(60, 180, 60, 0.08);
-  border-color: rgba(60, 180, 60, 0.3);
-  color: #6ecc6e;
-}
-.lb-act-btn.dopa-farm:hover { background: rgba(60, 180, 60, 0.15); }
-
-.lb-act-btn.dopa-domination {
-  background: rgba(180, 60, 255, 0.08);
-  border-color: rgba(180, 60, 255, 0.3);
-  color: #b46eff;
-}
-.lb-act-btn.dopa-domination:hover { background: rgba(180, 60, 255, 0.15); }
-
-.lb-act-btn.dopa-roam {
-  background: rgba(74, 144, 217, 0.08);
-  border-color: rgba(74, 144, 217, 0.3);
-  color: #4a90d9;
-}
-.lb-act-btn.dopa-roam:hover { background: rgba(74, 144, 217, 0.15); }
-
-.lb-action-row .dopa-second-hint {
-  font-size: 11px;
-  font-weight: 700;
-  color: #4a90d9;
-  animation: dopa-pulse 1.5s ease-in-out infinite;
-}
-@keyframes dopa-pulse {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
-}
-
-/* ── Mobile responsive — inline actions ──────────────────────── */
-@media (max-width: 768px) {
-  .lb-actions {
-    padding-top: 4px;
-    margin-top: 4px;
-  }
-  .lb-act-btn {
-    height: 36px;
-    min-width: 36px;
-    padding: 0 10px;
-    font-size: 11px;
-  }
-  .lb-act-group {
-    gap: 4px;
-    padding-left: 4px;
-  }
 }
 
 /* ── TransitionGroup FLIP animation for position swaps — spring ─────── */

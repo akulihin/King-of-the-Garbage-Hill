@@ -236,6 +236,11 @@ public class CharactersUniquePhrase
     public PhraseClass KotikiCatDeploy;
     public PhraseClass KotikiCatReturn;
     public PhraseClass KotikiLevelUp;
+    public PhraseClass KotikiStormFightJump;
+    public PhraseClass KotikiStormBite;
+    public PhraseClass KotikiStormBiteBonus;
+    public PhraseClass KotikiStormVaseDrop;
+    public PhraseClass KotikiStormVaseCatch;
 
     // TheBoys
     public PhraseClass TheBoysOrderNew;
@@ -455,6 +460,11 @@ public class CharactersUniquePhrase
         KotikiCatDeploy = new PhraseClass("Кошачья засада");
         KotikiCatReturn = new PhraseClass("Кошачья засада");
         KotikiLevelUp = new PhraseClass("lvl-мяк");
+        KotikiStormFightJump = new PhraseClass("Рандомное поведение");
+        KotikiStormBite = new PhraseClass("Рандомное поведение");
+        KotikiStormBiteBonus = new PhraseClass("Рандомное поведение");
+        KotikiStormVaseDrop = new PhraseClass("Рандомное поведение");
+        KotikiStormVaseCatch = new PhraseClass("Рандомное поведение");
 
         // TheBoys
         TheBoysOrderNew = new PhraseClass("Заказ Француза");
@@ -1336,6 +1346,20 @@ public class CharactersUniquePhrase
 
         KotikiLevelUp.PassiveLogRus.Add("Мяу~ +1 Справедливость");
         KotikiLevelUp.PassiveLogRus.Add("*мур* Справедливость!");
+
+        KotikiStormFightJump.PassiveLogRus.Add("Штормяк запрыгнул в бой!");
+        KotikiStormFightJump.PassiveLogRus.Add("Штормяк ворвался в драку!");
+        KotikiStormFightJump.PassiveLogRus.Add("МЯЯЯУ! *прыгает в бой*");
+
+        KotikiStormBite.PassiveLogRus.Add("Штормяк кусь за жопу!");
+        KotikiStormBite.PassiveLogRus.Add("Штормяк подкрался и... КУСЬ!");
+        KotikiStormBite.PassiveLogRus.Add("*кусь* Штормяк наносит удар по филейной части!");
+
+        KotikiStormBiteBonus.PassiveLogRus.Add("Штормяк доволен — жертва осталась на месте!");
+
+        KotikiStormVaseDrop.PassiveLogRus.Add("Чей-то кот скинул вазу с полки! Разбилась...");
+
+        KotikiStormVaseCatch.PassiveLogRus.Add("Чей-то котяра скинул вазу с полки... Поймал! Не зря набирался Скилла!");
         //end Котики
 
         // TheBoys

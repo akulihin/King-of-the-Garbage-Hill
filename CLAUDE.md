@@ -16,6 +16,9 @@ KOTGH_PORT=3535 dotnet run    # Override port (default: 80)
 ```
 Single-project solution. Lamar DI, Discord.Net 3.18, Newtonsoft.Json (transitive). No test project.
 
+### Git
+Do NOT use "git commit" and "git push"; post "commit" message into a separate file and user will handle actual commit.
+
 ### Frontend (Vue 3 / Vite / pnpm)
 ```bash
 cd Web/VueClient

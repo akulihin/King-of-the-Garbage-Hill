@@ -141,13 +141,12 @@ public class BotsBehavior : IServiceSingleton
             if (bot.GameCharacter.Name == "Геральт")
             {
                 var botDemand = bot.Passives.GeraltContractDemand;
-                // "За следующий" on round 10
-                if (game.RoundNo == 10 && !botDemand.DemandedForNext && botDemand.Displeasure < 3)
+                // "За следующий" — take advance when displeasure is safely low
+                if (!botDemand.DemandedForNext && !botDemand.AdvancePending && botDemand.Displeasure < 3)
                 {
                     botDemand.DemandedForNext = true;
                     botDemand.TotalDemandsMade++;
-                    botDemand.TotalSuccessfulDemands++;
-                    bot.Status.AddBonusPoints(1, "Чеканная монета (аванс)");
+                    botDemand.AdvancePending = true;
                 }
                 // "За прошлый" — only if invoice predicts coins with no displeasure
                 if (!botDemand.DemandedThisPhase && botDemand.PrevContractsFought > 0)
@@ -158,7 +157,12 @@ public class BotsBehavior : IServiceSingleton
                         botDemand.DemandedThisPhase = true;
                         botDemand.TotalDemandsMade++;
                         botDemand.TotalSuccessfulDemands++;
-                        bot.Status.AddBonusPoints(invoice.PredictedCoins, "Чеканная монета");
+                        bot.Status.AddRegularPoints(invoice.PredictedCoins, "Чеканная монета");
+
+                        if (invoice.AdditionalCoins > 0)
+                            bot.Status.AddRegularPoints(invoice.AdditionalCoins, "Выжил чудом");
+                        if (invoice.AdditionalDispleasure > 0)
+                            botDemand.Displeasure += invoice.AdditionalDispleasure;
                     }
                 }
                 return;

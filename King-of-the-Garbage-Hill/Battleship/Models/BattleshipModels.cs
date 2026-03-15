@@ -100,6 +100,7 @@ public class Cell
     public Summon SummonRef { get; set; }
     public bool WasShipHit { get; set; } // Snapshot: a ship was present when this cell was hit (persists after ship moves)
     public bool WasScratched { get; set; } // Snapshot: hit damaged but didn't destroy a deck (persists after ship moves)
+    public bool SummonTrail { get; set; } // Enemy summon passed through this cell
 }
 
 public class Ship

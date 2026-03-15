@@ -16,42 +16,32 @@ public static class BattleshipBotAI
     // ── Fleet Selection ──────────────────────────────────────────────
 
     /// <summary>
-    /// Strategically selects a fleet with upgrades, region synergy, and budget optimization.
-    /// Picks from predefined build archetypes for variety.
+    /// Randomly selects ships within same constraints as player (budget, regions, template).
+    /// Uses BuildFleetFromSelections to fill defaults.
     /// </summary>
     public static List<FleetSelection> SelectFleet()
     {
-        var fleet = FleetValidator.GetDefaultFleet();
         var budget = FleetValidator.MaxBudget;
         var regions = new HashSet<Region>();
+        var purchases = new List<FleetSelection>();
 
-        // Pick a random archetype to give variety
-        var archetype = Rng.Next(6);
-        var priorityShips = archetype switch
+        // Track purchased slots per deck-count
+        var slotsUsed = new Dictionary<int, int> { { 1, 0 }, { 2, 0 }, { 3, 0 }, { 4, 0 } };
+
+        // Shuffle non-free candidates
+        var candidates = ShipCatalog.AllShips
+            .Where(s => !s.IsFree)
+            .OrderBy(_ => Rng.Next())
+            .ToList();
+
+        foreach (var def in candidates)
         {
-            // Rush: cheap ships, lots of coins left (first-turn advantage)
-            0 => new[] { "pirates", "maneuvering_double", "cursed_pirate" },
-            // Burn: incendiary barge + Greek Fire
-            1 => new[] { "incendiary_barge", "pirates", "cursed_pirate" },
-            // Nimble: evasive ships
-            2 => new[] { "nimble_single", "maneuvering_double", "pirates" },
-            // Heavy: tough ships
-            3 => new[] { "toros", "pirates", "cursed_pirate" },
-            // All-in pirate: south focus
-            4 => new[] { "cursed_pirate", "pirates", "maneuvering_double" },
-            // Mixed: balanced
-            _ => new[] { "maneuvering_double", "cursed_pirate", "incendiary_barge" },
-        };
-
-        // Try to add priority ships first
-        foreach (var shipId in priorityShips)
-        {
-            var def = ShipCatalog.GetById(shipId);
-            if (def == null || def.Cost > budget) continue;
-
+            if (def.Cost > budget) continue;
             if (!CanAddRegion(def, regions)) continue;
+            var maxSlots = FleetValidator.Template.GetValueOrDefault(def.DeckCount, 0);
+            if (slotsUsed[def.DeckCount] >= maxSlots) continue;
 
-            fleet.Add(new FleetSelection
+            purchases.Add(new FleetSelection
             {
                 DefinitionId = def.Id,
                 ShipName = def.Name,
@@ -59,39 +49,16 @@ public static class BattleshipBotAI
             });
             budget -= def.Cost;
             AddRegions(def, regions);
+            slotsUsed[def.DeckCount]++;
             if (budget <= 0) break;
         }
 
-        // Try to fill remaining budget with affordable ships
-        if (budget > 0)
-        {
-            var remaining = ShipCatalog.AllShips
-                .Where(s => !s.IsFree && s.Cost <= budget)
-                .Where(s => !fleet.Any(f => f.DefinitionId == s.Id))
-                .OrderByDescending(s => s.Cost)
-                .ToList();
-
-            foreach (var def in remaining)
-            {
-                if (def.Cost > budget) continue;
-                if (!CanAddRegion(def, regions)) continue;
-
-                fleet.Add(new FleetSelection
-                {
-                    DefinitionId = def.Id,
-                    ShipName = def.Name,
-                    Cost = def.Cost
-                });
-                budget -= def.Cost;
-                AddRegions(def, regions);
-                if (budget <= 0) break;
-            }
-        }
-
         // Apply upgrades with remaining budget
-        ApplyUpgrades(fleet, ref budget, archetype);
+        var archetype = Rng.Next(6);
+        ApplyUpgrades(purchases, ref budget, archetype);
 
-        return fleet;
+        // Build full fleet (fills defaults for empty slots)
+        return FleetValidator.BuildFleetFromSelections(purchases);
     }
 
     private static bool CanAddRegion(ShipDefinition def, HashSet<Region> regions)
@@ -111,8 +78,13 @@ public static class BattleshipBotAI
 
     private static void ApplyUpgrades(List<FleetSelection> fleet, ref int budget, int archetype)
     {
-        // Tetranavis boiler upgrade (Greek Fire or Brander)
+        // Tetranavis boiler upgrade (Greek Fire or Brander) — add entry if not present
         var tetra = fleet.FirstOrDefault(f => f.DefinitionId == "tetranavis");
+        if (tetra == null && budget >= 4)
+        {
+            tetra = new FleetSelection { DefinitionId = "tetranavis", ShipName = "Tetranavis", Cost = 0 };
+            fleet.Add(tetra);
+        }
         if (tetra != null && budget >= 4)
         {
             tetra.Upgrades ??= new List<string>();
@@ -124,8 +96,13 @@ public static class BattleshipBotAI
             budget -= 4;
         }
 
-        // Triple upgrades
+        // Triple upgrades — add entry if not present
         var triple = fleet.FirstOrDefault(f => f.DefinitionId == "triple");
+        if (triple == null && budget >= 2)
+        {
+            triple = new FleetSelection { DefinitionId = "triple", ShipName = "Triple", Cost = 0 };
+            fleet.Add(triple);
+        }
         if (triple != null && budget >= 2)
         {
             triple.Upgrades ??= new List<string>();
@@ -384,6 +361,11 @@ public static class BattleshipBotAI
                 return capturedCells[Rng.Next(capturedCells.Count)];
         }
 
+        // Compute own summon positions to exclude from targeting (#4)
+        var ownSummonCells = new HashSet<(int, int)>();
+        foreach (var s in bot.Summons.Where(s => s.IsAlive))
+            ownSummonCells.Add((s.Row, s.Col));
+
         // Determine blocked rows (Far weapon on rows 8-9 can't hit enemy rows 8-9)
         var blockedRows = new HashSet<int>();
         if (bot.SelectedWeapon?.ShipId != null)
@@ -407,11 +389,13 @@ public static class BattleshipBotAI
         if (shotType == ShotType.Incendiary)
         {
             var incendiaryTargets = FindIncendiaryTargets(opponent.Board);
+            incendiaryTargets.RemoveAll(c => ownSummonCells.Contains((c.row, c.col)));
             if (incendiaryTargets.Count > 0)
                 return incendiaryTargets[Rng.Next(incendiaryTargets.Count)];
         }
 
-        // Filter by blocked rows
+        // Exclude own summons and blocked rows
+        targetCells.RemoveAll(c => ownSummonCells.Contains((c.row, c.col)));
         if (blockedRows.Count > 0)
             targetCells.RemoveAll(c => blockedRows.Contains(c.row));
 
@@ -425,7 +409,7 @@ public static class BattleshipBotAI
         }
 
         // Hunt mode: probability density map
-        return ChooseHuntTarget(opponent.Board, blockedRows);
+        return ChooseHuntTarget(opponent.Board, blockedRows, ownSummonCells);
     }
 
     /// <summary>
@@ -556,7 +540,7 @@ public static class BattleshipBotAI
     /// Hunt mode: calculates probability density for each cell based on remaining ship sizes.
     /// Uses checkerboard parity for efficiency and avoids impossible placements.
     /// </summary>
-    private static (int row, int col) ChooseHuntTarget(Board board, HashSet<int> blockedRows)
+    private static (int row, int col) ChooseHuntTarget(Board board, HashSet<int> blockedRows, HashSet<(int, int)> excludeCells = null)
     {
         var density = new int[10, 10];
 
@@ -624,7 +608,7 @@ public static class BattleshipBotAI
         for (var c = 0; c < 10; c++)
         {
             var cell = board.Grid[r, c];
-            if (cell.IsHit || cell.IsMiss || blockedRows.Contains(r))
+            if (cell.IsHit || cell.IsMiss || blockedRows.Contains(r) || (excludeCells != null && excludeCells.Contains((r, c))))
                 density[r, c] = 0;
         }
 
@@ -642,7 +626,7 @@ public static class BattleshipBotAI
             for (var c = 0; c < 10; c++)
             {
                 var cell = board.Grid[r, c];
-                if (!cell.IsHit && !cell.IsMiss && !blockedRows.Contains(r))
+                if (!cell.IsHit && !cell.IsMiss && !blockedRows.Contains(r) && !(excludeCells != null && excludeCells.Contains((r, c))))
                     fallback.Add((r, c));
             }
             return fallback.Count > 0 ? fallback[Rng.Next(fallback.Count)] : (Rng.Next(10), Rng.Next(10));

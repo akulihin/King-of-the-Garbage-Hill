@@ -698,7 +698,8 @@ public static class GameStateMapper
                             pas.Geralt.Displeasure = demandState.Displeasure;
                             pas.Geralt.DemandedThisPhase = demandState.DemandedThisPhase;
                             pas.Geralt.CanDemandPrevious = !demandState.DemandedThisPhase && !player.Passives.IsDead && demandState.PrevContractsFought > 0;
-                            pas.Geralt.CanDemandNext = game.RoundNo == 10 && !demandState.DemandedForNext && !player.Passives.IsDead && demandState.Displeasure < 3;
+                            pas.Geralt.CanDemandNext = !demandState.DemandedForNext && !player.Passives.IsDead && demandState.Displeasure < 5 && !demandState.AdvancePending;
+                            pas.Geralt.AdvancePending = demandState.AdvancePending;
                             if (pas.Geralt.CanDemandPrevious)
                             {
                                 var invoice = demandState.CalculateInvoice();
@@ -919,6 +920,22 @@ public static class GameStateMapper
             AramRerolledPassivesTimes = isMe ? status.AramRerolledPassivesTimes : 0,
             AramRerolledStatsTimes = isMe ? status.AramRerolledStatsTimes : 0,
         };
+
+        // Structured score breakdown (owner/admin/finished only)
+        if (isMe || isAdmin || isFinished)
+        {
+            dto.ScoreBreakdown = new ScoreBreakdownDto
+            {
+                RoundMultiplier = status.ActualRoundMultiplier,
+                ExpectedRoundMultiplier = status.ExpectedRoundMultiplier,
+                Entries = status.PreviousRoundScoreEntries.Select(e => new ScoreEntryDto
+                {
+                    Source = e.Source,
+                    Points = e.Points,
+                    IsBonus = e.IsBonus,
+                }).ToList(),
+            };
+        }
 
         foreach (var entry in status.PlaceAtLeaderBoardHistory)
         {

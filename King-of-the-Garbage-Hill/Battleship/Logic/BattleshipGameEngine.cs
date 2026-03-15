@@ -117,8 +117,7 @@ public static class BattleshipGameEngine
             };
         }
 
-        // Allow re-targeting scratched cells (armor survived, deck still has HP)
-        // and Incendiary can target already-hit cells to burn the ship via damaged deck
+        // Allow re-targeting scratched cells and incendiary retargets
         if (cell.IsHit || cell.IsMiss)
         {
             if (cell.WasScratched && cell.ShipRef != null && !cell.ShipRef.IsDestroyed)
@@ -129,7 +128,15 @@ public static class BattleshipGameEngine
             {
                 return ProcessShipHit(game, shooter, opponent, cell, row, col);
             }
-            return new ShotResult { Miss = true, Message = "Эта клетка уже была атакована.", TurnContinues = false };
+            // Allow re-shooting revealed/hit cells — treat as miss if no ship
+            if (cell.ShipRef != null && !cell.ShipRef.IsDestroyed)
+            {
+                return ProcessShipHit(game, shooter, opponent, cell, row, col);
+            }
+            // Already empty — miss
+            cell.IsMiss = true;
+            game.GameLog.Add($"{shooter.Username} промахнулся ({(char)('A' + col)}{row + 1})");
+            return new ShotResult { Miss = true, Row = row, Col = col, TurnContinues = false, Message = "Мимо!" };
         }
 
         // Reveal cell and track revealed count
@@ -519,10 +526,12 @@ public static class BattleshipGameEngine
             if (dodgeResult != null) return dodgeResult;
         }
 
-        // Check nimble/ballista_immune — reveal cell even on immune
+        // Check nimble/ballista_immune — reveal cell even on immune (#12: undo premature hit flags)
         if (ship.Abilities.Contains("ballista_immune") && shooter.SelectedShotType == ShotType.Ballista)
         {
-            cell.IsRevealed = true; // #34: reveal on ballista miss
+            cell.IsHit = false;
+            cell.WasShipHit = false;
+            cell.IsRevealed = true;
             var nimbleMsg = Random.Shared.Next(2) == 0
                 ? "Юркая единичка! Опять увернулась!"
                 : "Ну и юркая же она! Камней бы ей на голову!";
@@ -574,7 +583,7 @@ public static class BattleshipGameEngine
         // Any damage = full barge destruction (GDD: "При получении любого урона — взрывается")
         if (ship.Abilities.Contains("explode_on_hit") && !ship.IsDestroyed)
         {
-            ExplodeShip(game, opponent, ship);
+            ExplodeShip(game, opponent, ship, shooter);
             foreach (var d in ship.Decks) d.CurrentHp = 0;
             RevealShip(opponent.Board, ship, shooter);
             HandleShipDeath(game, opponent, ship);
@@ -765,14 +774,16 @@ public static class BattleshipGameEngine
         // Explode on death (Incendiary Barge still explodes on full death too)
         if (ship.Abilities.Contains("explode_on_hit"))
         {
-            ExplodeShip(game, owner, ship);
+            var deathAttacker = game.GetOpponent(owner.DiscordId);
+            ExplodeShip(game, owner, ship, deathAttacker);
         }
     }
 
     /// <summary>
     /// Incendiary Barge explosion — burns surrounding area within Space radius.
+    /// BurnResist ships are revealed but not damaged. Attacker gets full reveal of blast area.
     /// </summary>
-    private static void ExplodeShip(BattleshipGame game, BattleshipPlayer owner, Ship ship)
+    private static void ExplodeShip(BattleshipGame game, BattleshipPlayer owner, Ship ship, BattleshipPlayer attacker = null)
     {
         var radius = ship.ExplosionRadius > 0 ? ship.ExplosionRadius : ship.Space;
         var occupied = ship.GetOccupiedCells();
@@ -792,10 +803,16 @@ public static class BattleshipGameEngine
                             cell.IsBurning = true;
                             // Kill the ship — explosion burn is instant death
                             foreach (var d in cell.ShipRef.Decks) d.CurrentHp = 0;
-                            RevealShip(owner.Board, cell.ShipRef, null);
+                            RevealShip(owner.Board, cell.ShipRef, attacker);
                             HandleShipDeath(game, owner, cell.ShipRef);
                             game.GameLog.Add($"{cell.ShipRef.Name} сгорел от взрыва {ship.Name}!");
                         }
+                    }
+                    else
+                    {
+                        // BurnResist: reveal without damage
+                        RevealShip(owner.Board, cell.ShipRef, attacker);
+                        game.GameLog.Add($"{cell.ShipRef.Name} устоял (огнеупорность)!");
                     }
                 }
                 // Also kill summons in explosion area
@@ -827,6 +844,12 @@ public static class BattleshipGameEngine
                     cell.SummonRef = null;
                     game.GameLog.Add($"Призванное существо сгорело от взрыва {ship.Name}!");
                 }
+            }
+
+            // Reveal entire explosion radius for attacker (#13)
+            if (attacker != null)
+            {
+                RevealArea(owner.Board, r, c, radius, owner);
             }
         }
     }
@@ -1128,7 +1151,7 @@ public static class BattleshipGameEngine
                             break;
                         }
 
-                        HandleSummonCollision(game, summon, targetCell.ShipRef, opponent);
+                        HandleSummonCollision(game, summon, targetCell.ShipRef, opponent, newRow, newCol);
                         // CursedBoat, Brander, and boarding ships that devastated 1-2 deckers continue
                         if (summon.Type == SummonType.CursedBoat)
                         {
@@ -1217,6 +1240,10 @@ public static class BattleshipGameEngine
                     summon.Row = newRow;
                     summon.Col = newCol;
 
+                    // Mark summon trail on opponent's board (#5)
+                    var trailCell = opponent.Board.GetCell(newRow, newCol);
+                    if (trailCell != null) trailCell.SummonTrail = true;
+
                     // Set SummonRef on opponent's board at new position
                     var newCell = opponent.Board.GetCell(newRow, newCol);
                     if (newCell != null) newCell.SummonRef = summon;
@@ -1252,9 +1279,10 @@ public static class BattleshipGameEngine
         };
     }
 
-    private static void HandleSummonCollision(BattleshipGame game, Summon summon, Ship targetShip, BattleshipPlayer targetOwner)
+    private static void HandleSummonCollision(BattleshipGame game, Summon summon, Ship targetShip, BattleshipPlayer targetOwner, int collisionRow, int collisionCol)
     {
         var attacker = game.GetOpponent(targetOwner.DiscordId);
+        var coord = $"({(char)('A' + collisionCol)}{collisionRow + 1})";
         switch (summon.Type)
         {
             case SummonType.Ram:
@@ -1267,7 +1295,7 @@ public static class BattleshipGameEngine
                         foreach (var d in targetShip.Decks) d.CurrentHp = 0;
                         RevealShip(targetOwner.Board, targetShip, attacker);
                         HandleShipDeath(game, targetOwner, targetShip);
-                        game.GameLog.Add($"Абордажный корабль опустошил {targetShip.Name}!");
+                        game.GameLog.Add($"Абордажный корабль опустошил {targetShip.Name}! {coord}");
                         summon.IsAlive = true; // continue moving (don't die)
                     }
                     else
@@ -1277,7 +1305,9 @@ public static class BattleshipGameEngine
                         {
                             aliveDeckB.CurrentHp -= 4;
                             if (aliveDeckB.CurrentHp < 0) aliveDeckB.CurrentHp = 0;
-                            game.GameLog.Add($"Абордажный корабль протаранил {targetShip.Name}! (-4 HP)");
+                            game.GameLog.Add($"Абордажный корабль протаранил {targetShip.Name}! (-4 HP) {coord}");
+                            // Mark cell on target owner's board (#8)
+                            MarkRamDamageOnBoard(targetOwner, collisionRow, collisionCol, aliveDeckB);
                             if (targetShip.IsDestroyed)
                             {
                                 RevealShip(targetOwner.Board, targetShip, attacker);
@@ -1295,8 +1325,19 @@ public static class BattleshipGameEngine
                 {
                     aliveDeck.CurrentHp -= 4;
                     if (aliveDeck.CurrentHp < 0) aliveDeck.CurrentHp = 0;
-                    game.GameLog.Add($"Таран врезался в {targetShip.Name}! (-4 HP)");
-                    if (targetShip.IsDestroyed)
+                    game.GameLog.Add($"Таран врезался в {targetShip.Name}! (-4 HP) {coord}");
+                    // Mark cell on target owner's board (#8)
+                    MarkRamDamageOnBoard(targetOwner, collisionRow, collisionCol, aliveDeck);
+                    // Ram triggers barge explosion (#9)
+                    if (targetShip.Abilities.Contains("explode_on_hit") && !targetShip.IsDestroyed)
+                    {
+                        ExplodeShip(game, targetOwner, targetShip, attacker);
+                        foreach (var d in targetShip.Decks) d.CurrentHp = 0;
+                        RevealShip(targetOwner.Board, targetShip, attacker);
+                        HandleShipDeath(game, targetOwner, targetShip);
+                        game.GameLog.Add($"{targetShip.Name} взорвался от тарана! {coord}");
+                    }
+                    else if (targetShip.IsDestroyed)
                     {
                         RevealShip(targetOwner.Board, targetShip, attacker);
                         HandleShipDeath(game, targetOwner, targetShip);
@@ -1309,31 +1350,28 @@ public static class BattleshipGameEngine
                 {
                     if (targetShip.Statuses.Contains(ShipStatusType.Capture))
                     {
-                        // Recapture — remove enemy Capture status (restores ownership)
                         targetShip.Statuses.Remove(ShipStatusType.Capture);
-                        game.GameLog.Add($"Пиратский корабль отбил {targetShip.Name} обратно!");
+                        game.GameLog.Add($"Пиратский корабль отбил {targetShip.Name} обратно! {coord}");
                     }
                     else
                     {
-                        // Capture ship — reveal Space-radius around it (GDD: capture reveals like destroy)
                         targetShip.Statuses.Add(ShipStatusType.Capture);
                         RevealShip(targetOwner.Board, targetShip, attacker);
-                        game.GameLog.Add($"Пиратский корабль захватил {targetShip.Name}!");
+                        game.GameLog.Add($"Пиратский корабль захватил {targetShip.Name}! {coord}");
                     }
                 }
                 else
                 {
-                    game.GameLog.Add($"Пиратский корабль разбился о {targetShip.Name}!");
+                    game.GameLog.Add($"Пиратский корабль разбился о {targetShip.Name}! {coord}");
                 }
                 break;
 
             case SummonType.CursedBoat:
-                // CursedBoat doesn't die on collision, applies Devastated
                 targetShip.Statuses.Add(ShipStatusType.Devastated);
                 foreach (var d in targetShip.Decks) d.CurrentHp = 0;
                 RevealShip(targetOwner.Board, targetShip, attacker);
                 HandleShipDeath(game, targetOwner, targetShip);
-                game.GameLog.Add($"Проклятый корабль опустошил {targetShip.Name}!");
+                game.GameLog.Add($"Проклятый корабль опустошил {targetShip.Name}! {coord}");
                 break;
 
             case SummonType.Scout:
@@ -1361,6 +1399,24 @@ public static class BattleshipGameEngine
                 summon.IsAlive = true; // don't die on collision
                 game.GameLog.Add($"Брандер проплывает мимо {targetShip.Name}.");
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Mark ram damage on the target owner's board cells (#8).
+    /// </summary>
+    private static void MarkRamDamageOnBoard(BattleshipPlayer targetOwner, int row, int col, Deck hitDeck)
+    {
+        var cell = targetOwner.Board.GetCell(row, col);
+        if (cell == null) return;
+        if (hitDeck.IsDestroyed)
+        {
+            cell.IsHit = true;
+            cell.WasShipHit = true;
+        }
+        else
+        {
+            cell.WasScratched = true;
         }
     }
 
@@ -1742,22 +1798,24 @@ public static class BattleshipGameEngine
     }
 
     /// <summary>
-    /// Generate Mast warnings when opponent deploys summon.
+    /// Generate Mast warnings when opponent deploys summon. Includes spawn coordinates.
     /// </summary>
-    public static string GenerateMastWarning(BattleshipPlayer player, SummonType summonType)
+    public static string GenerateMastWarning(BattleshipPlayer player, SummonType summonType, int col = -1)
     {
         var hasMast = player.Board.PlacedShips.Any(s =>
             !s.IsDestroyed && s.Decks.Any(d => d.Module == "mast" && !d.ModuleDestroyed));
 
         if (!hasMast) return null;
 
+        var coord = col >= 0 ? $" ({(char)('A' + col)}1)" : "";
+
         return summonType switch
         {
-            SummonType.Ram => "[Мачта] Это таран!",
-            SummonType.PirateBoat => "[Мачта] На нас надвигаются пираты!",
-            SummonType.Scout => "[Мачта] Вражеский разведчик на горизонте!",
-            SummonType.Brander => "[Мачта] Брандер приближается!",
-            SummonType.CursedBoat => "[Мачта] Проклятый корабль на горизонте!",
+            SummonType.Ram => $"[Мачта] Это таран!{coord}",
+            SummonType.PirateBoat => $"[Мачта] На нас надвигаются пираты!{coord}",
+            SummonType.Scout => $"[Мачта] Вражеский разведчик на горизонте!{coord}",
+            SummonType.Brander => $"[Мачта] Брандер приближается!{coord}",
+            SummonType.CursedBoat => $"[Мачта] Проклятый корабль на горизонте!{coord}",
             _ => null
         };
     }

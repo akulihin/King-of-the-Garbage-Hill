@@ -210,10 +210,6 @@ const prevLogEntriesAll = computed(() => parsePrevLogs(myPlayer.value?.status.pr
 const currentLogEntries = computed(() => currentLogEntriesAll.value.filter((e: PrevLogEntry) => e.type !== 'gold'))
 const prevLogEntries = computed(() => prevLogEntriesAll.value.filter((e: PrevLogEntry) => e.type !== 'gold'))
 
-const scoreEntries = computed(() => [
-  ...currentLogEntriesAll.value.filter((e: PrevLogEntry) => e.type === 'gold'),
-  ...prevLogEntriesAll.value.filter((e: PrevLogEntry) => e.type === 'gold'),
-])
 
 // ── Round / Player navigation ──────────────────────────────────────
 
@@ -306,7 +302,7 @@ onUnmounted(() => {
           :is-me="true"
           :resist-flash="[]"
           :justice-reset="false"
-          :score-entries="scoreEntries"
+          :score-breakdown="null"
           :score-anim-ready="true"
         />
       </div>
@@ -469,7 +465,7 @@ onUnmounted(() => {
           :is-me="true"
           :resist-flash="[]"
           :justice-reset="false"
-          :score-entries="[]"
+          :score-breakdown="null"
           :score-anim-ready="false"
         />
         <SkillsPanel v-else-if="myPlayer" :player="myPlayer" />

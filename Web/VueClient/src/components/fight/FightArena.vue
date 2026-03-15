@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue'
+import { computed } from 'vue'
 import type { FightEntry, ForOneFightMod } from 'src/services/signalr'
-import WaxSeal from './WaxSeal.vue'
 import './parchment.css'
 
 const props = defineProps<{
@@ -62,6 +61,8 @@ const props = defineProps<{
   fightResult: 'win' | 'loss' | null
   fightShake: boolean
   isPortalSwap: boolean
+  // Clash phase for KO impact animation
+  clashPhase: 'idle' | 'hit' | 'recoil' | 'settled'
   // Display helpers
   getDisplayAvatar: (orig: string, u: string) => string
   getDisplayCharName: (orig: string, u: string) => string
@@ -73,6 +74,14 @@ const props = defineProps<{
 
 const isSpecialOutcome = computed(() =>
   props.fight.outcome === 'block' || props.fight.outcome === 'skip'
+)
+
+const leftFactors = computed(() =>
+  props.round1Factors.filter(f => f.highlight === 'good' || (f.highlight === 'neutral' && f.value >= 0))
+)
+
+const rightFactors = computed(() =>
+  props.round1Factors.filter(f => f.highlight === 'bad' || (f.highlight === 'neutral' && f.value < 0))
 )
 
 // Class color for character card border
@@ -106,34 +115,28 @@ function r3ModClass(v: number): string {
   return v > 0 ? 'pct-good' : v < 0 ? 'pct-bad' : ''
 }
 
-// Dynamic drop distance: card falls to wheel or justice level
-const arenaRef = ref<HTMLElement | null>(null)
-const dropDistance = ref(200)
+function phaseIcon(result: number, revealed: boolean): string {
+  if (!revealed) return '?'
+  if (result > 0) return '\u2713'
+  if (result < 0) return '\u2717'
+  return '\u2014'
+}
 
-watch(() => props.showFinalResult, async (show) => {
-  if (!show || props.fight.drops === 0) return
-  await nextTick()
-  const arena = arenaRef.value
-  if (!arena) return
+function phaseIconClass(result: number, revealed: boolean): string {
+  if (!revealed) return 'phase-icon-pending'
+  if (result > 0) return 'phase-icon-win'
+  if (result < 0) return 'phase-icon-lose'
+  return 'phase-icon-draw'
+}
 
-  const loserSide = props.leftWon ? '.char-card-right' : '.char-card-left'
-  const card = arena.querySelector(loserSide) as HTMLElement | null
-  if (!card) return
-
-  const r3Section = arena.querySelector('.fa-r3-details') as HTMLElement | null
-  const justice = arena.querySelector('.justice-slam') as HTMLElement | null
-  const target = r3Section || justice
-
-  const cardRect = card.getBoundingClientRect()
-  if (target) {
-    const targetRect = target.getBoundingClientRect()
-    // Align card bottom with target bottom
-    dropDistance.value = Math.max(50, targetRect.bottom - cardRect.bottom)
-  } else {
-    const arenaRect = arena.getBoundingClientRect()
-    dropDistance.value = Math.max(50, arenaRect.bottom - cardRect.top)
+function classAbbrev(charClass: string): string {
+  switch (charClass) {
+    case 'Интеллект': return 'INT'
+    case 'Сила': return 'STR'
+    case 'Скорость': return 'SPD'
+    default: return '?'
   }
-})
+}
 
 function outcomeLabel(f: FightEntry): string {
   switch (f.outcome) {
@@ -147,35 +150,85 @@ function outcomeClass(f: FightEntry): string {
   if (f.outcome === 'block' || f.outcome === 'skip') return 'outcome-neutral'
   return f.outcome === 'win' ? 'outcome-attacker' : 'outcome-defender'
 }
+
+/** Enchantment badges that benefit or affect US (shown on our card) */
+const ourEnchantBadges = computed(() => {
+  const badges: { text: string; isGood: boolean; arrow: string }[] = []
+  const f = props.fight
+
+  // TOO GOOD — check if it benefits us
+  if (f.isTooGoodMe || f.isTooGoodEnemy) {
+    const ours = f.isTooGoodMe ? !props.isFlipped : props.isFlipped
+    badges.push({ text: 'TOO GOOD', isGood: ours, arrow: ours ? '\u2B06' : '\u2B07' })
+  }
+  // TOO STRONK
+  if (f.isTooStronkMe || f.isTooStronkEnemy) {
+    const ours = f.isTooStronkMe ? !props.isFlipped : props.isFlipped
+    badges.push({ text: 'TOO STRONK', isGood: ours, arrow: ours ? '\u2B06' : '\u2B07' })
+  }
+  // Skill multiplier (always ours)
+  if (props.ourSkillMultiplier > 1) {
+    badges.push({ text: `SKILL x${props.ourSkillMultiplier}`, isGood: true, arrow: '\u2B06' })
+  }
+  // ForOneFight mods (on us)
+  for (const mod of props.ourForOneFightMods) {
+    badges.push({ text: props.fofBadgeText(mod), isGood: props.isFofBuff(mod), arrow: props.isFofBuff(mod) ? '\u2B06' : '\u2B07' })
+  }
+  // Enemy mods affecting us (debuffs)
+  for (const mod of props.enemyModsOnUs) {
+    badges.push({ text: props.enemyFofBadgeText(mod), isGood: false, arrow: '\u2B07' })
+  }
+  // Class change
+  if (props.classChangeBadge) {
+    badges.push({ text: props.classChangeBadge, isGood: true, arrow: '' })
+  }
+
+  return badges
+})
+
+/** Positive badges → our card (left, bottom-right) */
+const ourBuffBadges = computed(() => ourEnchantBadges.value.filter(b => b.isGood))
+/** Negative badges → enemy card (right, bottom-left) */
+const enemyDebuffBadges = computed(() => ourEnchantBadges.value.filter(b => !b.isGood))
+const hasOurBadges = computed(() => ourBuffBadges.value.length > 0)
+const hasEnemyBadges = computed(() => enemyDebuffBadges.value.length > 0)
 </script>
 
 <template>
-  <div ref="arenaRef" class="arena" :class="{
+  <div class="arena" :class="{
     'arena-shake': props.fightShake,
     'arena-result-win': props.fightResult === 'win',
     'arena-result-loss': props.fightResult === 'loss',
-  }" :style="{ '--drop-distance': dropDistance + 'px' }">
+  }">
     <!-- ═══ BLOCK/SKIP ═══ -->
     <div v-if="isSpecialOutcome" class="arena-special">
       <div class="arena-grid">
         <!-- Left character card -->
-        <div class="char-card char-card-left" :class="classColor(leftClass)">
+        <div class="char-card char-card-left" :class="classColor(leftClass)"
+          :style="{ '--char-bg': `url(${props.getDisplayAvatar(props.leftAvatar, props.leftName)})` }">
+          <div class="char-class-corner corner-right" :class="classColor(leftClass)">
+            {{ classAbbrev(leftClass) }}
+          </div>
           <img :src="props.getDisplayAvatar(props.leftAvatar, props.leftName)" class="char-avatar"
             @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
           <div class="char-info">
+            <span class="char-name">{{ props.getDisplayCharName(props.leftCharName, props.leftName) }}</span>
             <span class="char-player-name">{{ props.leftName }}</span>
           </div>
         </div>
 
         <!-- Center: outcome -->
         <div class="arena-center">
-          <div class="phase-tracker-center">
-            <div class="phase-role-pip" :class="props.attackedRight ? 'role-atk' : 'role-def'">
+          <div class="phase-tracker-vertical">
+            <!-- Role medallion -->
+            <div class="medallion role-badge" :class="props.attackedRight ? 'role-atk' : 'role-def'">
+              <span class="role-icon">{{ props.attackedRight ? '\u2694' : '\uD83D\uDEE1' }}</span>
               <span class="phase-role-text">{{ props.attackedRight ? 'ATK' : 'DEF' }}</span>
             </div>
-            <div class="phase-connector revealed"></div>
-            <div class="phase-outcome-pip" :class="outcomeClass(props.fight)">
-              <span class="phase-outcome-text">{{ outcomeLabel(props.fight) }}</span>
+            <div class="medallion-connector revealed"></div>
+            <!-- Outcome medallion -->
+            <div class="medallion outcome-medallion" :class="outcomeClass(props.fight)">
+              <span class="outcome-text">{{ outcomeLabel(props.fight) }}</span>
             </div>
           </div>
           <!-- Shield overlay for block -->
@@ -183,10 +236,15 @@ function outcomeClass(f: FightEntry): string {
         </div>
 
         <!-- Right character card -->
-        <div class="char-card char-card-right" :class="classColor(rightClass)">
+        <div class="char-card char-card-right" :class="classColor(rightClass)"
+          :style="{ '--char-bg': `url(${props.getDisplayAvatar(props.rightAvatar, props.rightName)})` }">
+          <div class="char-class-corner corner-left" :class="classColor(rightClass)">
+            {{ classAbbrev(rightClass) }}
+          </div>
           <img :src="props.getDisplayAvatar(props.rightAvatar, props.rightName)" class="char-avatar"
             @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
           <div class="char-info">
+            <span class="char-name">{{ props.getDisplayCharName(props.rightCharName, props.rightName) }}</span>
             <span class="char-player-name">{{ props.rightName }}</span>
           </div>
         </div>
@@ -195,7 +253,12 @@ function outcomeClass(f: FightEntry): string {
 
     <!-- ═══ NORMAL FIGHT ═══ -->
     <template v-else>
-      <div class="arena-grid">
+      <div class="arena-grid" :class="{
+        clashed: props.isMyFight && props.showFinalResult && !isSpecialOutcome,
+        'skip-clash': props.skippedToEnd,
+        'clash-hit': props.clashPhase === 'hit',
+        'clash-recoil': props.clashPhase === 'recoil' || props.clashPhase === 'settled',
+      }">
         <!-- Left character card -->
         <div class="char-card char-card-left" :class="[
           classColor(leftClass),
@@ -204,10 +267,12 @@ function outcomeClass(f: FightEntry): string {
             loser: props.showFinalResult && !props.leftWon,
             dropped: props.showFinalResult && !props.leftWon && props.fight.drops > 0,
             'entrance-active': props.currentStep === 0 && !props.skippedToEnd,
+            'recoil-loser': (props.clashPhase === 'recoil' || props.clashPhase === 'settled') && props.showFinalResult && !props.leftWon,
+            'recoil-winner': (props.clashPhase === 'recoil' || props.clashPhase === 'settled') && props.showFinalResult && props.leftWon,
           }
-        ]">
-          <div class="char-class-badge" :class="classColor(leftClass)">
-            {{ leftClass === 'Интеллект' ? 'INT' : leftClass === 'Сила' ? 'STR' : leftClass === 'Скорость' ? 'SPD' : '?' }}
+        ]" :style="{ '--char-bg': `url(${props.getDisplayAvatar(props.leftAvatar, props.leftName)})` }">
+          <div class="char-class-corner corner-right" :class="classColor(leftClass)">
+            {{ classAbbrev(leftClass) }}
           </div>
           <img :src="props.getDisplayAvatar(props.leftAvatar, props.leftName)" class="char-avatar"
             @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
@@ -215,133 +280,121 @@ function outcomeClass(f: FightEntry): string {
             <span class="char-name">{{ props.getDisplayCharName(props.leftCharName, props.leftName) }}</span>
             <span class="char-player-name">{{ props.leftName }}</span>
           </div>
-          <!-- Our results -->
-          <div v-if="props.showFinalResult && props.isMyFight" class="card-results">
-            <span v-if="!props.isFlipped && props.fight.skillGainedFromTarget > 0" class="card-result-item detail-skill">+{{ props.fight.skillGainedFromTarget }} Skill</span>
-            <span v-if="!props.isFlipped && props.fight.skillGainedFromClassAttacker > 0" class="card-result-item detail-skill">+{{ props.fight.skillGainedFromClassAttacker }} Skill</span>
-            <span v-if="props.isFlipped && props.fight.skillGainedFromClassDefender > 0" class="card-result-item detail-skill">+{{ props.fight.skillGainedFromClassDefender }} Skill</span>
-            <span v-if="props.ourMoralChange !== 0" class="card-result-item detail-moral">{{ props.ourMoralChange > 0 ? '+' : '' }}{{ props.ourMoralChange }} Moral</span>
-            <span v-if="!props.leftWon && props.fight.justiceChange > 0" class="card-result-item detail-justice">+{{ props.fight.justiceChange }} Justice</span>
-            <template v-if="!props.leftWon && props.fight.qualityDamageApplied">
-              <span v-if="props.fight.resistIntelDamage > 0" class="card-result-item detail-resist">INT -{{ props.fight.resistIntelDamage }}</span>
-              <span v-if="props.fight.resistStrDamage > 0" class="card-result-item detail-resist">STR -{{ props.fight.resistStrDamage }}</span>
-              <span v-if="props.fight.resistPsycheDamage > 0" class="card-result-item detail-resist">PSY -{{ props.fight.resistPsycheDamage }}</span>
-            </template>
-            <span v-if="!props.leftWon && props.fight.intellectualDamage" class="card-result-item detail-dmg-us">INT Damage!</span>
-            <span v-if="!props.leftWon && props.fight.emotionalDamage" class="card-result-item detail-dmg-us">PSY Damage!</span>
-            <span v-if="!props.leftWon && props.fight.drops > 0" class="card-result-item detail-drop">DROP x{{ props.fight.drops }}!</span>
+          <!-- Factor tags (good / neutral-positive) -->
+          <div class="factor-tags factor-tags-left" v-if="isMyFight">
+            <div
+              v-for="(factor, idx) in leftFactors"
+              :key="'lf-' + idx"
+              class="factor-tag factor-good"
+              :class="{
+                visible: showR1Factor(props.round1Factors.indexOf(factor)),
+                'skip-anim': skippedToEnd
+              }"
+              :title="factor.detail"
+            >
+              <span class="factor-tag-label">{{ factor.label }}</span>
+              <span class="factor-tag-arrows">{{ '\u25B2'.repeat(Math.max(1, factor.tier || 1)) }}</span>
+            </div>
+          </div>
+          <!-- Positive enchant badges (bottom-right of our card) -->
+          <div class="enchant-overlay enchant-overlay-right" v-if="isMyFight && hasOurBadges" :class="{ visible: props.showR1Result }">
+            <div
+              v-for="(badge, bIdx) in ourBuffBadges"
+              :key="'eb-' + bIdx"
+              class="enchant-pill enchant-buff"
+            >
+              <span v-if="badge.arrow" class="enchant-arrow">{{ badge.arrow }}</span>
+              {{ badge.text }}
+            </div>
           </div>
         </div>
 
         <!-- Center zone -->
         <div class="arena-center">
-          <!-- Phase tracker -->
-          <div v-if="props.isMyFight" class="phase-tracker-center">
-            <div class="phase-role-pip" :class="props.attackedRight ? 'role-atk' : 'role-def'">
+          <!-- Phase tracker (vertical medallion stack) -->
+          <div v-if="props.isMyFight" class="phase-tracker-vertical">
+            <!-- Role medallion -->
+            <div class="medallion role-badge" :class="props.attackedRight ? 'role-atk' : 'role-def'">
+              <span class="role-icon">{{ props.attackedRight ? '\u2694' : '\uD83D\uDEE1' }}</span>
               <span class="phase-role-text">{{ props.attackedRight ? 'ATK' : 'DEF' }}</span>
             </div>
-            <div class="phase-connector revealed"></div>
-            <div class="phase-pip" :class="props.phaseClass(props.phase1Result, props.showR1Result)">
-              <span v-if="!props.showR1Result" class="phase-icon phase-icon-pending">?</span>
-              <span v-else-if="props.phase1Result > 0" class="phase-icon phase-icon-win">&#x2713;</span>
-              <span v-else-if="props.phase1Result < 0" class="phase-icon phase-icon-lose">&#x2717;</span>
-              <span v-else class="phase-icon phase-icon-draw">&mdash;</span>
+            <div class="medallion-connector revealed"></div>
+
+            <!-- Phase 1 medallion -->
+            <div class="medallion phase-medallion" :class="props.phaseClass(props.phase1Result, props.showR1Result)">
+              <span class="medallion-label">R1</span>
+              <span class="medallion-icon phase-icon" :class="phaseIconClass(props.phase1Result, props.showR1Result)">{{ phaseIcon(props.phase1Result, props.showR1Result) }}</span>
             </div>
-            <div class="phase-connector" :class="{ revealed: props.showR2 }"></div>
-            <div class="phase-pip" :class="props.phaseClass(props.phase2Result, props.phase2Revealed)">
-              <span v-if="!props.phase2Revealed" class="phase-icon phase-icon-pending">?</span>
-              <span v-else-if="props.phase2Result > 0" class="phase-icon phase-icon-win">&#x2713;</span>
-              <span v-else-if="props.phase2Result < 0" class="phase-icon phase-icon-lose">&#x2717;</span>
-              <span v-else class="phase-icon phase-icon-draw">&mdash;</span>
+            <!-- Tug-of-war integrated into phase tracker -->
+            <div class="tug-of-war-vertical">
+              <div class="tug-track-v">
+                <div class="tug-fill-v" :style="{ height: props.barPosition + '%' }" :class="{
+                  'tug-good': props.animatedWeighingValue > 0,
+                  'tug-bad': props.animatedWeighingValue < 0,
+                  'tug-even': props.animatedWeighingValue === 0,
+                }">
+                  <div class="tug-particles-v"></div>
+                </div>
+              </div>
             </div>
-            <div class="phase-connector" :class="{ revealed: props.fight.usedRandomRoll && props.showR3, broken: !props.fight.usedRandomRoll }"></div>
-            <div class="phase-pip" :class="[props.phaseClass(props.phase3Result, props.fight.usedRandomRoll ? props.phase3Revealed : false), { 'phase-skipped': !props.fight.usedRandomRoll }]">
+            <div class="medallion-connector" :class="{ revealed: props.showR2 }"></div>
+
+            <!-- Phase 2 medallion -->
+            <div class="medallion phase-medallion" :class="props.phaseClass(props.phase2Result, props.phase2Revealed)">
+              <span class="medallion-label">R2</span>
+              <span class="medallion-icon phase-icon" :class="phaseIconClass(props.phase2Result, props.phase2Revealed)">{{ phaseIcon(props.phase2Result, props.phase2Revealed) }}</span>
+            </div>
+            <!-- Compact justice display (R2) -->
+            <div class="justice-display" v-if="showR2" :class="'slam-' + slamPhase">
+              <div class="justice-value-side" :class="{ 'j-winner': justiceWinner === 'left', 'j-loser': justiceWinner === 'right' }">
+                <span class="justice-icon">⚖</span>
+                <span class="justice-num">{{ ourJustice }}</span>
+              </div>
+              <span class="justice-vs">vs</span>
+              <div class="justice-value-side" :class="{ 'j-winner': justiceWinner === 'right', 'j-loser': justiceWinner === 'left' }">
+                <span class="justice-num">{{ enemyJustice }}</span>
+                <span class="justice-icon">⚖</span>
+              </div>
+            </div>
+            <div class="medallion-connector" :class="{ revealed: props.fight.usedRandomRoll && props.showR3, broken: !props.fight.usedRandomRoll }"></div>
+
+            <!-- Phase 3 medallion -->
+            <div class="medallion phase-medallion" :class="[props.phaseClass(props.phase3Result, props.fight.usedRandomRoll ? props.phase3Revealed : false), { 'phase-skipped': !props.fight.usedRandomRoll }]">
+              <span class="medallion-label">R3</span>
               <template v-if="!props.fight.usedRandomRoll">
-                <span class="phase-icon phase-icon-skip">&mdash;</span>
+                <span class="medallion-icon phase-icon phase-icon-skip">&mdash;</span>
               </template>
               <template v-else>
-                <span v-if="!props.phase3Revealed" class="phase-icon phase-icon-pending">?</span>
-                <span v-else-if="props.phase3Result > 0" class="phase-icon phase-icon-win">&#x2713;</span>
-                <span v-else class="phase-icon phase-icon-lose">&#x2717;</span>
+                <span class="medallion-icon phase-icon" :class="phaseIconClass(props.phase3Result, props.phase3Revealed)">{{ phaseIcon(props.phase3Result, props.phase3Revealed) }}</span>
               </template>
             </div>
-            <div class="phase-connector phase-connector-outcome" :class="{ revealed: props.showFinalResult }"></div>
-            <div v-if="props.showFinalResult" class="phase-outcome-pip" :class="props.leftWon ? 'phase-ours' : 'phase-theirs'">
-              <span class="phase-outcome-text">{{ props.leftWon ? 'Victory' : 'Defeat' }}</span>
-            </div>
-            <div v-else class="phase-outcome-pip phase-outcome-pending">
-              <span class="phase-outcome-text">?</span>
-            </div>
-          </div>
-
-          <!-- Tug-of-war bar (fixed at top, never shifts) -->
-          <div class="tug-of-war">
-            <div class="tug-track">
-              <div class="tug-fill" :style="{ width: props.barPosition + '%' }" :class="{
-                'tug-good': props.animatedWeighingValue > 0,
-                'tug-bad': props.animatedWeighingValue < 0,
-                'tug-even': props.animatedWeighingValue === 0,
-              }">
-                <div class="tug-particles"></div>
+            <!-- R3 modifier chips -->
+            <div class="r3-modifier-chips" v-if="showR3">
+              <div v-if="fight.tooGoodRandomChange" class="r3-chip" :class="r3ModClass(fight.tooGoodRandomChange)">
+                TG {{ fmtPct(fight.tooGoodRandomChange) }}
+              </div>
+              <div v-if="fight.tooStronkRandomChange" class="r3-chip" :class="r3ModClass(fight.tooStronkRandomChange)">
+                TS {{ fmtPct(fight.tooStronkRandomChange) }}
+              </div>
+              <div v-if="r3JusticePct" class="r3-chip" :class="r3ModClass(r3JusticePct)">
+                ⚖ {{ fmtPct(r3JusticePct) }}
+              </div>
+              <div v-if="r3NemesisPct" class="r3-chip" :class="r3ModClass(r3NemesisPct)">
+                ◆ {{ fmtPct(r3NemesisPct) }}
               </div>
             </div>
-          </div>
+            <div class="medallion-connector" :class="{ revealed: props.showFinalResult }"></div>
 
-          <!-- R1 Factor cards (horizontal) -->
-          <div v-if="props.isMyFight" class="modifier-zone">
-            <div class="mod-cards-grid">
-              <div
-                v-for="(factor, idx) in props.round1Factors"
-                :key="'r1-' + idx"
-                class="mod-card"
-                :class="[
-                  factor.highlight,
-                  { visible: showR1Factor(idx) },
-                  factor.tier != null ? 'tier-' + factor.tier : '',
-                ]"
-                :style="{
-                  '--tilt': Math.sin(idx * 2.7 + 0.5) * 2.5 + 'deg',
-                  '--nudge': Math.cos(idx * 3.1 + 0.8) * 2 + 'px',
-                }"
-              >
-                <div class="mod-card-header">
-                  <span class="mod-card-label">{{ factor.label }}</span>
-                  <span
-                    v-if="factor.value !== 0 && props.showDetails"
-                    class="mod-card-value"
-                  >{{ (factor.value > 0 ? '+' : '') + factor.value.toFixed(1) }}</span>
-                </div>
-                <div class="mod-card-detail" v-html="factor.detail"></div>
-              </div>
+            <!-- Outcome medallion -->
+            <div v-if="props.showFinalResult" class="medallion outcome-medallion" :class="props.leftWon ? 'outcome-win' : 'outcome-loss'">
+              <span class="outcome-star">{{ props.leftWon ? '\u2605' : '\u2716' }}</span>
+              <span class="outcome-text">{{ props.leftWon ? 'VICTORY' : 'DEFEAT' }}</span>
             </div>
-
-            <!-- Enchantment badges -->
-            <div v-if="(props.fight.isTooGoodMe || props.fight.isTooGoodEnemy) || (props.fight.isTooStronkMe || props.fight.isTooStronkEnemy) || props.ourSkillMultiplier > 1 || props.ourForOneFightMods.length > 0 || props.enemyModsOnUs.length > 0 || props.classChangeBadge" class="enchantment-row" :class="{ visible: props.showR1Result }">
-              <span v-if="props.fight.isTooGoodMe || props.fight.isTooGoodEnemy" class="enchant-badge" :class="(props.fight.isTooGoodMe ? !props.isFlipped : props.isFlipped) ? 'badge-buff-ours' : 'badge-buff-theirs'">
-                <span class="badge-arrow">{{ (props.fight.isTooGoodMe ? !props.isFlipped : props.isFlipped) ? '&#x2B06;' : '&#x2B07;' }}</span>
-                TOO GOOD
-              </span>
-              <span v-if="props.fight.isTooStronkMe || props.fight.isTooStronkEnemy" class="enchant-badge" :class="(props.fight.isTooStronkMe ? !props.isFlipped : props.isFlipped) ? 'badge-buff-ours' : 'badge-buff-theirs'">
-                <span class="badge-arrow">{{ (props.fight.isTooStronkMe ? !props.isFlipped : props.isFlipped) ? '&#x2B06;' : '&#x2B07;' }}</span>
-                TOO STRONK
-              </span>
-              <span v-if="props.ourSkillMultiplier > 1" class="enchant-badge badge-buff-ours">
-                <span class="badge-arrow">&#x2B06;</span>
-                SKILL x{{ props.ourSkillMultiplier }}
-              </span>
-              <span v-for="(mod, i) in props.ourForOneFightMods" :key="'fof-'+i"
-                class="enchant-badge" :class="props.isFofBuff(mod) ? 'badge-buff-ours' : 'badge-buff-theirs'">
-                <span class="badge-arrow">{{ props.isFofBuff(mod) ? '&#x2B06;' : '&#x2B07;' }}</span>
-                {{ props.fofBadgeText(mod) }}
-              </span>
-              <span v-for="(mod, i) in props.enemyModsOnUs" :key="'fof-enemy-'+i"
-                class="enchant-badge badge-buff-theirs">
-                <span class="badge-arrow">&#x2B07;</span>
-                {{ props.enemyFofBadgeText(mod) }}
-              </span>
-              <span v-if="props.classChangeBadge" class="enchant-badge badge-class-change">{{ props.classChangeBadge }}</span>
+            <div v-else class="medallion outcome-medallion phase-outcome-pending">
+              <span class="outcome-star">?</span>
             </div>
           </div>
+
         </div>
 
         <!-- Right character card -->
@@ -352,10 +405,12 @@ function outcomeClass(f: FightEntry): string {
             loser: props.showFinalResult && props.leftWon,
             dropped: props.showFinalResult && props.leftWon && props.fight.drops > 0,
             'entrance-active': props.currentStep === 0 && !props.skippedToEnd,
+            'recoil-loser': (props.clashPhase === 'recoil' || props.clashPhase === 'settled') && props.showFinalResult && props.leftWon,
+            'recoil-winner': (props.clashPhase === 'recoil' || props.clashPhase === 'settled') && props.showFinalResult && !props.leftWon,
           }
-        ]">
-          <div class="char-class-badge" :class="classColor(rightClass)">
-            {{ rightClass === 'Интеллект' ? 'INT' : rightClass === 'Сила' ? 'STR' : rightClass === 'Скорость' ? 'SPD' : '?' }}
+        ]" :style="{ '--char-bg': `url(${props.getDisplayAvatar(props.rightAvatar, props.rightName)})` }">
+          <div class="char-class-corner corner-left" :class="classColor(rightClass)">
+            {{ classAbbrev(rightClass) }}
           </div>
           <img :src="props.getDisplayAvatar(props.rightAvatar, props.rightName)" class="char-avatar"
             @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
@@ -363,106 +418,57 @@ function outcomeClass(f: FightEntry): string {
             <span class="char-name">{{ props.getDisplayCharName(props.rightCharName, props.rightName) }}</span>
             <span class="char-player-name">{{ props.rightName }}</span>
           </div>
-          <!-- Enemy results -->
-          <div v-if="props.showFinalResult && props.isMyFight" class="card-results">
-            <span v-if="props.leftWon && props.fight.intellectualDamage" class="card-result-item detail-dmg-enemy">INT Damage!</span>
-            <span v-if="props.leftWon && props.fight.emotionalDamage" class="card-result-item detail-dmg-enemy">PSY Damage!</span>
-            <span v-if="props.leftWon && props.fight.drops > 0" class="card-result-item detail-drop-enemy">DROP x{{ props.fight.drops }}!</span>
+          <!-- Factor tags (bad / neutral-negative) -->
+          <div class="factor-tags factor-tags-right" v-if="isMyFight">
+            <div
+              v-for="(factor, idx) in rightFactors"
+              :key="'rf-' + idx"
+              class="factor-tag factor-bad"
+              :class="{
+                visible: showR1Factor(props.round1Factors.indexOf(factor)),
+                'skip-anim': skippedToEnd
+              }"
+              :title="factor.detail"
+            >
+              <span class="factor-tag-label">{{ factor.label }}</span>
+              <span class="factor-tag-arrows">{{ '\u25BC'.repeat(Math.max(1, factor.tier || 1)) }}</span>
+            </div>
+          </div>
+          <!-- Negative enchant badges (bottom-left of enemy card) -->
+          <div class="enchant-overlay enchant-overlay-left" v-if="isMyFight && hasEnemyBadges" :class="{ visible: props.showR1Result }">
+            <div
+              v-for="(badge, bIdx) in enemyDebuffBadges"
+              :key="'ebd-' + bIdx"
+              class="enchant-pill enchant-debuff"
+            >
+              <span v-if="badge.arrow" class="enchant-arrow">{{ badge.arrow }}</span>
+              {{ badge.text }}
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Justice Slam (Phase 2) -->
-      <div v-if="props.isMyFight && props.showR2" class="justice-slam" :class="{ 'slam-impact': props.slamPhase === 'impact' }">
-        <div class="justice-card justice-left" :class="{
-          'j-rush': props.slamPhase === 'rush',
-          'j-winner': props.slamPhase === 'resolved' && props.justiceWinner === 'left',
-          'j-loser': props.slamPhase === 'resolved' && props.justiceWinner === 'right',
-          'j-tied': props.slamPhase === 'resolved' && props.justiceWinner === 'tie',
-        }">
-          <span class="justice-label">Justice</span>
-          <span class="justice-value">{{ props.ourJustice }}</span>
-          <WaxSeal v-if="props.slamPhase === 'resolved' && props.justiceWinner === 'left'" type="victory" :size="20" class="justice-seal" />
+        <!-- KO Impact VFX -->
+        <div v-if="props.isMyFight && (props.clashPhase === 'hit' || props.clashPhase === 'recoil')" class="clash-sparks">
+          <div v-for="i in 8" :key="'spark-' + i" class="clash-spark"
+            :style="{
+              '--dx': (Math.cos((i - 1) * Math.PI / 4) * (40 + (i % 3) * 20)) + 'px',
+              '--dy': (Math.sin((i - 1) * Math.PI / 4) * (30 + (i % 2) * 25) - 10) + 'px',
+              '--delay': ((i % 3) * 0.03) + 's',
+            }"
+          ></div>
         </div>
-        <div class="justice-vs" :class="{ visible: props.slamPhase === 'impact' || props.slamPhase === 'resolved' }">
-          <span v-if="props.slamPhase === 'impact'" class="justice-spark">&#x2696;</span>
-          <span v-else>vs</span>
-        </div>
-        <div class="justice-card justice-right" :class="{
-          'j-rush': props.slamPhase === 'rush',
-          'j-winner': props.slamPhase === 'resolved' && props.justiceWinner === 'right',
-          'j-loser': props.slamPhase === 'resolved' && props.justiceWinner === 'left',
-          'j-tied': props.slamPhase === 'resolved' && props.justiceWinner === 'tie',
-        }">
-          <span class="justice-label">Justice</span>
-          <span class="justice-value">{{ props.enemyJustice }}</span>
-          <WaxSeal v-if="props.slamPhase === 'resolved' && props.justiceWinner === 'right'" type="victory" :size="20" class="justice-seal" />
-        </div>
-        <!-- Impact particles -->
-        <div v-if="props.slamPhase === 'impact' || props.slamPhase === 'resolved'" class="slam-particles">
-          <span v-for="i in 6" :key="i" class="slam-dust" :style="{
-            '--dx': (i % 2 === 0 ? 1 : -1) * (6 + i * 3) + 'px',
-            '--delay': (i * 25) + 'ms',
-          }"></span>
+
+        <!-- Speed lines -->
+        <div v-if="props.isMyFight && props.clashPhase === 'hit'" class="clash-speed-lines">
+          <div v-for="i in 5" :key="'line-' + i" class="clash-speed-line"
+            :style="{ '--rot': ((i - 1) * 36 - 72) + 'deg' }"
+          ></div>
         </div>
       </div>
 
       <!-- R3 Random Roll (Needle) -->
       <template v-if="props.isMyFight && props.fight.usedRandomRoll">
         <div v-if="props.showR3" class="fa-r3-details">
-          <!-- R3 modifier cards (horizontal grid, same style as R1) -->
-          <div class="mod-cards-grid">
-            <div v-if="props.fight.tooGoodRandomChange !== 0"
-              class="mod-card visible"
-              :class="props.fight.tooGoodRandomChange * props.sign > 0 ? 'good' : 'bad'">
-              <div class="mod-card-header">
-                <span class="mod-card-label">TooGood</span>
-              </div>
-              <div class="mod-card-detail" :class="r3ModClass(props.fight.tooGoodRandomChange * props.sign)">
-                {{ fmtPct(props.fight.tooGoodRandomChange * props.sign) }}
-              </div>
-            </div>
-            <div v-if="props.fight.tooStronkRandomChange !== 0"
-              class="mod-card visible"
-              :class="props.fight.tooStronkRandomChange * props.sign > 0 ? 'good' : 'bad'">
-              <div class="mod-card-header">
-                <span class="mod-card-label">TooStronk</span>
-              </div>
-              <div class="mod-card-detail" :class="r3ModClass(props.fight.tooStronkRandomChange * props.sign)">
-                {{ fmtPct(props.fight.tooStronkRandomChange * props.sign) }}
-              </div>
-            </div>
-            <div v-if="props.fight.justiceRandomChange !== 0"
-              class="mod-card visible"
-              :class="props.r3JusticePct > 0 ? 'good' : props.r3JusticePct < 0 ? 'bad' : 'neutral'">
-              <div class="mod-card-header">
-                <span class="mod-card-label">Justice</span>
-              </div>
-              <div class="mod-card-detail" :class="r3ModClass(props.r3JusticePct)">
-                {{ fmtPct(props.r3JusticePct) }}
-              </div>
-            </div>
-            <div v-if="props.fight.nemesisRandomChange !== 0"
-              class="mod-card visible"
-              :class="props.r3NemesisPct > 0 ? 'good' : props.r3NemesisPct < 0 ? 'bad' : 'neutral'">
-              <div class="mod-card-header">
-                <span class="mod-card-label">Nemesis</span>
-              </div>
-              <div class="mod-card-detail" :class="r3ModClass(props.r3NemesisPct)">
-                {{ fmtPct(props.r3NemesisPct) }}
-              </div>
-            </div>
-            <div v-if="props.fight.skillDifferenceRandomModifier !== 0"
-              class="mod-card visible"
-              :class="props.fight.skillDifferenceRandomModifier * props.sign > 0 ? 'good' : 'bad'">
-              <div class="mod-card-header">
-                <span class="mod-card-label">Skill Diff</span>
-              </div>
-              <div class="mod-card-detail" :class="r3ModClass(props.fight.skillDifferenceRandomModifier * props.sign)">
-                {{ fmtPct(props.fight.skillDifferenceRandomModifier * props.sign) }}
-              </div>
-            </div>
-          </div>
           <!-- Roll bar with needle -->
           <div class="fa-roll-bar-wrap" :class="{ 'roll-overflow': props.r3Overflow }">
             <div class="fa-roll-bar-track" :class="{ 'track-overflow': props.r3Overflow }">
@@ -503,6 +509,15 @@ function outcomeClass(f: FightEntry): string {
         <div class="portal-swap-text">PORTAL!</div>
         <div class="portal-ring portal-ring-right"></div>
       </div>
+
+      <!-- Storm cat overlay -->
+      <div v-if="props.fight.stormAppeared && props.showR1Result" class="storm-overlay">
+        <div class="storm-cat">🐱</div>
+        <div class="storm-label">
+          Штормяк {{ props.fight.stormWeighingDelta > 0 ? '+' : '' }}{{ props.fight.stormWeighingDelta }}
+          <span v-if="props.fight.stormFlipped" class="storm-flipped">ПЕРЕВЕРНУЛ!</span>
+        </div>
+      </div>
     </template>
   </div>
 </template>
@@ -510,19 +525,20 @@ function outcomeClass(f: FightEntry): string {
 <style scoped>
 /* ── Arena Container ── */
 .arena {
+  --accent-gold: #b8860b;
+  --accent-gold-light: #d4a839;
+  --accent-gold-dim: rgba(184, 134, 11, 0.3);
+
   background: var(--bg-inset);
-  border: 1px solid var(--parch-border, var(--border-subtle));
-  border-radius: var(--radius);
+  border: 2px solid var(--accent-gold);
+  border-radius: 10px;
   padding: 6px 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   position: relative;
   overflow: clip;
-}
-/* Allow dropped card to escape arena bounds */
-.arena:has(.dropped) {
-  overflow: visible;
+  flex: 1;
 }
 /* Subtle parchment texture overlay */
 .arena::before {
@@ -536,6 +552,18 @@ function outcomeClass(f: FightEntry): string {
   z-index: 0;
 }
 .arena > * { position: relative; z-index: 1; }
+/* Corner accent glow */
+.arena::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  box-shadow:
+    inset 3px 3px 0 -1px rgba(184,134,11,0.3),
+    inset -3px -3px 0 -1px rgba(184,134,11,0.3);
+  pointer-events: none;
+  z-index: 10;
+}
 
 .arena-result-win {
   border-color: rgba(63, 167, 61, 0.5);
@@ -552,36 +580,242 @@ function outcomeClass(f: FightEntry): string {
   animation: arena-shake 0.5s ease-in-out;
 }
 @keyframes arena-shake {
-  0%, 100% { transform: translateX(0); }
-  10% { transform: translateX(-3px); }
-  20% { transform: translateX(3px); }
-  30% { transform: translateX(-2px); }
-  40% { transform: translateX(2px); }
-  50% { transform: translateX(-1px); }
-  60% { transform: translateX(1px); }
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-4px, 2px); }
+  20% { transform: translate(4px, -2px); }
+  30% { transform: translate(-3px, -1px); }
+  40% { transform: translate(3px, 1px); }
+  50% { transform: translate(-2px, 2px); }
+  60% { transform: translate(2px, -1px); }
+  70% { transform: translate(-1px, 1px); }
 }
 
 /* ── Arena Grid (3-column: card | center | card) ── */
 .arena-grid {
   display: grid;
-  grid-template-columns: var(--card-width, 90px) 1fr var(--card-width, 90px);
-  gap: 8px;
-  align-items: start;
+  grid-template-columns: 1fr 140px 1fr;
+  gap: 0;
+  align-items: stretch;
+  flex: 1;
+  position: relative;
 }
 
-/* ── Character Cards ── */
+/* ── Clash Animation (KO Impact) ── */
+.arena-grid {
+  --clash-offset: 70px;
+}
+
+/* Phase 1: Slam — cards translate inward (doubled class for specificity over removed media queries) */
+.arena-grid.clashed .char-card.char-card-left {
+  transform: translateX(var(--clash-offset));
+  transition: transform 0.4s ease-in;
+  z-index: 5;
+}
+.arena-grid.clashed .char-card.char-card-right {
+  transform: translateX(calc(-1 * var(--clash-offset)));
+  transition: transform 0.4s ease-in;
+  z-index: 5;
+}
+.arena-grid.clashed .arena-center {
+  z-index: 1;
+}
+
+/* Phase 2: Hit-stop — freeze in place, impact flash triggers */
+
+/* Impact flash overlay */
+.arena-grid.clash-hit::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 140px;
+  height: 100%;
+  background: radial-gradient(ellipse at center, rgba(255, 240, 200, 0.8) 0%, rgba(255, 215, 0, 0.4) 40%, transparent 70%);
+  z-index: 25;
+  pointer-events: none;
+  animation: impact-flash 0.15s ease-out forwards;
+}
+@keyframes impact-flash {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Phase 3: Recoil — loser flies back with overshoot, winner holds position */
+/* No static transform needed — the keyframe animation controls transform throughout */
+.arena-grid.clashed .char-card-left.recoil-loser {
+  animation: recoil-left 0.4s ease-out forwards, loser-red-flash 0.3s ease-out;
+}
+.arena-grid.clashed .char-card-right.recoil-loser {
+  animation: recoil-right 0.4s ease-out forwards, loser-red-flash 0.3s ease-out;
+}
+
+@keyframes recoil-left {
+  0% { transform: translateX(var(--clash-offset)); }
+  40% { transform: translateX(-15px); }
+  70% { transform: translateX(6px); }
+  90% { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+@keyframes recoil-right {
+  0% { transform: translateX(calc(-1 * var(--clash-offset))); }
+  40% { transform: translateX(15px); }
+  70% { transform: translateX(-6px); }
+  90% { transform: translateX(2px); }
+  100% { transform: translateX(0); }
+}
+/* Winner stays at clashed position — holds ground */
+
+/* Loser red flash overlay */
+@keyframes loser-red-flash {
+  0% { box-shadow: inset 0 0 40px rgba(239, 68, 68, 0.4); }
+  100% { box-shadow: inset 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Skip clash: instant position, no animation (5 classes beats slam's 4) */
+.arena-grid.clashed.skip-clash .char-card.char-card-left,
+.arena-grid.clashed.skip-clash .char-card.char-card-right {
+  transition: none;
+  transform: none;
+  animation: none;
+}
+.arena-grid.clashed.skip-clash::before {
+  animation: none;
+  display: none;
+}
+
+/* Hover to reveal phase tracker (:hover pseudo-class adds specificity, beats slam + recoil) */
+.arena-grid.clashed:hover .char-card.char-card-left,
+.arena-grid.clashed:hover .char-card.char-card-right {
+  transform: translateX(0);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: none;
+}
+.arena-grid.clashed:hover::before {
+  animation: none;
+  display: none;
+}
+
+/* Note: prefers-reduced-motion intentionally not used here —
+   this game's visual feedback is core to the experience */
+
+/* ── KO Spark Particles ── */
+.clash-sparks {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.clash-spark {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: radial-gradient(circle, #fff 0%, #ffd700 60%, transparent 100%);
+  border-radius: 1px;
+  animation: spark-fly 0.4s var(--delay, 0s) ease-out forwards;
+}
+
+@keyframes spark-fly {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(0);
+    opacity: 0;
+  }
+}
+
+/* ── KO Speed Lines ── */
+.clash-speed-lines {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 15;
+  pointer-events: none;
+}
+
+.clash-speed-line {
+  position: absolute;
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.5) 0%, transparent 100%);
+  transform-origin: left center;
+  transform: rotate(var(--rot));
+  animation: speed-line-flash 0.3s ease-out forwards;
+}
+
+@keyframes speed-line-flash {
+  0% {
+    opacity: 0;
+    width: 0;
+  }
+  30% {
+    opacity: 0.6;
+    width: 60px;
+  }
+  100% {
+    opacity: 0;
+    width: 80px;
+  }
+}
+
+/* ── Character Cards (art-filled halves) ── */
 .char-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0;
   padding: 0;
-  border-radius: 8px;
-  background: var(--bg-surface);
-  border: 1.5px solid var(--border-subtle);
   position: relative;
-  transition: all 0.4s ease;
   overflow: hidden;
+  min-height: 300px;
+  transition: border-color 0.4s ease, box-shadow 0.4s ease, filter 0.4s ease;
+}
+/* Art background via CSS variable */
+.char-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--char-bg);
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  z-index: 0;
+}
+/* Vignette overlay */
+.char-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.45) 100%),
+    linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, transparent 40%);
+  pointer-events: none;
+  z-index: 1;
+}
+/* Ensure children sit above the background and vignette */
+.char-card > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Left/right border styling */
+.char-card-left {
+  border-left: 2px solid #b8860b;
+  border-top: 2px solid #b8860b;
+  border-bottom: 2px solid #b8860b;
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+}
+.char-card-right {
+  border-right: 2px solid #b8860b;
+  border-top: 2px solid #b8860b;
+  border-bottom: 2px solid #b8860b;
+  border-left: none;
+  border-radius: 0 8px 8px 0;
 }
 
 .char-card.class-int { border-color: rgba(110, 170, 240, 0.4); }
@@ -589,57 +823,62 @@ function outcomeClass(f: FightEntry): string {
 .char-card.class-spd { border-color: rgba(200, 185, 50, 0.4); }
 
 .char-card.winner {
-  border-color: rgba(63, 167, 61, 0.6);
-  box-shadow: 0 0 12px rgba(63, 167, 61, 0.2);
-  transform: translateY(-4px);
+  border-color: #22c55e;
+  box-shadow: inset 0 0 30px rgba(34, 197, 94, 0.15), 0 0 12px rgba(34, 197, 94, 0.3);
 }
 .char-card.loser {
-  filter: brightness(0.7) saturate(0.7);
-  transform: rotate(2deg);
-  opacity: 0.8;
+  filter: brightness(0.7) saturate(0.6);
+}
+.char-card.loser::before {
+  filter: brightness(0.7) saturate(0.5);
 }
 .char-card.dropped {
-  animation: avatar-drop 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
-  z-index: 20;
+  animation: half-fade-out 0.9s cubic-bezier(0.55, 0, 1, 0.45) forwards;
 }
-@keyframes avatar-drop {
-  0% { transform: rotate(2deg) translateY(0); opacity: 0.8; filter: brightness(0.7) saturate(0.7); }
-  12% { transform: rotate(-1deg) translateY(-10px); opacity: 0.8; }
-  40% { transform: rotate(4deg) translateY(var(--drop-distance, 200px)); opacity: 0.7; filter: brightness(0.5) saturate(0.3); }
-  55% { transform: rotate(-2deg) translateY(calc(var(--drop-distance, 200px) * 0.92)); opacity: 0.6; }
-  70% { transform: rotate(2deg) translateY(calc(var(--drop-distance, 200px) * 0.98)); opacity: 0.5; }
-  85% { transform: rotate(-1deg) translateY(calc(var(--drop-distance, 200px) * 0.95)); opacity: 0.4; }
-  100% { transform: rotate(1deg) translateY(calc(var(--drop-distance, 200px) * 0.96)); opacity: 0.3; filter: brightness(0.4) saturate(0.2); }
+@keyframes half-fade-out {
+  0% { opacity: 1; filter: none; }
+  100% { opacity: 0.3; filter: brightness(0.4) saturate(0); }
 }
 
-.char-class-badge {
+/* ── Character Class Corner Badge ── */
+.char-class-corner {
   position: absolute;
-  top: -1px;
-  right: -1px;
-  font-size: 7px;
+  z-index: 5;
+  font-size: 9px;
   font-weight: 900;
-  padding: 1px 5px;
-  border-radius: 0 7px 0 5px;
+  padding: 2px 6px;
   letter-spacing: 0.5px;
-  background: var(--bg-inset);
-  border-bottom: 1px solid var(--border-subtle);
-  border-left: 1px solid var(--border-subtle);
+  text-transform: uppercase;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
 }
-.char-class-badge.class-int { color: var(--kh-c-secondary-info-200); }
-.char-class-badge.class-str { color: var(--kh-c-secondary-danger-200); }
-.char-class-badge.class-spd { color: var(--kh-c-text-highlight-dim); }
+
+.corner-right {
+  top: 0;
+  right: 0;
+  border-radius: 0 0 0 6px;
+  border-left: 1px solid rgba(184, 134, 11, 0.4);
+  border-bottom: 1px solid rgba(184, 134, 11, 0.4);
+}
+
+.corner-left {
+  top: 0;
+  left: 0;
+  border-radius: 0 0 6px 0;
+  border-right: 1px solid rgba(184, 134, 11, 0.4);
+  border-bottom: 1px solid rgba(184, 134, 11, 0.4);
+}
+
+.char-class-corner.class-int { color: var(--kh-c-secondary-info-200); }
+.char-class-corner.class-str { color: var(--kh-c-secondary-danger-200); }
+.char-class-corner.class-spd { color: var(--kh-c-text-highlight-dim); }
 
 .char-avatar {
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: 0;
-  object-fit: cover;
-  border: none;
-  display: block;
-}
-
-.char-card.winner .char-avatar {
-  box-shadow: inset 0 0 12px rgba(63, 167, 61, 0.4);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .char-info {
@@ -686,48 +925,27 @@ function outcomeClass(f: FightEntry): string {
   color: #5fe35f;
 }
 
-/* Character card entrance */
-.char-card-left.entrance-active {
-  animation: entrance-left 400ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-.char-card-right.entrance-active {
-  animation: entrance-right 400ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+/* Character card entrance (fade + scale for full-width halves) */
+.char-card.entrance-active {
+  animation: half-entrance 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
-@keyframes entrance-left {
-  0% { transform: translateX(-40px) scale(0.6); opacity: 0; }
-  60% { transform: translateX(6px) scale(1.05); opacity: 1; }
-  80% { transform: translateX(-2px) scale(0.98); }
-  100% { transform: translateX(0) scale(1); opacity: 1; }
-}
-@keyframes entrance-right {
-  0% { transform: translateX(40px) scale(0.6); opacity: 0; }
-  60% { transform: translateX(-6px) scale(1.05); opacity: 1; }
-  80% { transform: translateX(2px) scale(0.98); }
-  100% { transform: translateX(0) scale(1); opacity: 1; }
-}
-
-/* Entrance impact flash */
-.char-card.entrance-active .char-avatar::after {
-  content: '';
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(240, 200, 80, 0.6) 0%, transparent 70%);
-  opacity: 0;
-  animation: entrance-impact-flash 500ms ease-out 300ms forwards;
-  pointer-events: none;
-}
-@keyframes entrance-impact-flash {
-  0% { opacity: 0; transform: scale(0.4); }
-  30% { opacity: 0.9; transform: scale(1.2); }
-  100% { opacity: 0; transform: scale(1.8); }
+@keyframes half-entrance {
+  0% { opacity: 0; transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
 }
 
 /* ── Arena Center ── */
 .arena-center {
+  background: linear-gradient(180deg, rgba(30,25,15,0.95), rgba(20,18,12,0.9));
+  border-left: 1px solid rgba(184, 134, 11, 0.3);
+  border-right: 1px solid rgba(184, 134, 11, 0.3);
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  z-index: 2;
   gap: 6px;
   min-width: 0;
   align-self: stretch;
@@ -738,44 +956,126 @@ function outcomeClass(f: FightEntry): string {
 }
 
 
-/* ── Phase Tracker ── */
-.phase-tracker-center {
+/* ── Phase Tracker (Vertical Medallion Stack) ── */
+.phase-tracker-vertical {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0;
-  padding: 2px 0;
-  flex-wrap: nowrap;
+  padding: 12px 0;
+  z-index: 5;
 }
-.phase-role-pip { padding: 2px 5px; border-radius: 4px; border: 1.5px solid var(--border-subtle); background: var(--bg-inset); flex-shrink: 0; }
+
+.medallion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 2px solid #b8860b;
+  background: linear-gradient(145deg, rgba(45,35,20,0.95), rgba(30,25,15,0.95));
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+/* Role badge medallion */
+.role-badge {
+  width: 48px;
+  height: 48px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
 .phase-role-text { font-size: 8px; font-weight: 900; letter-spacing: 0.5px; }
-.phase-role-pip.role-atk { border-color: rgba(239, 128, 128, 0.4); background: rgba(239, 128, 128, 0.08); }
-.phase-role-pip.role-atk .phase-role-text { color: var(--accent-red); }
-.phase-role-pip.role-def { border-color: rgba(100, 160, 255, 0.4); background: rgba(100, 160, 255, 0.08); }
-.phase-role-pip.role-def .phase-role-text { color: var(--accent-blue); }
+.role-atk {
+  color: #ef4444;
+  border-color: #dc2626;
+  background: linear-gradient(145deg, rgba(60,20,20,0.95), rgba(40,15,15,0.95));
+}
+.role-atk .phase-role-text { color: #ef4444; }
+.role-def {
+  color: #60a5fa;
+  border-color: #3b82f6;
+  background: linear-gradient(145deg, rgba(20,30,60,0.95), rgba(15,20,40,0.95));
+}
+.role-def .phase-role-text { color: #60a5fa; }
+.role-icon {
+  font-size: 14px;
+  margin-top: 2px;
+}
 
-.phase-pip { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px 6px; border-radius: 6px; border: 1.5px solid var(--border-subtle); background: var(--bg-inset); transition: all 0.4s ease; min-width: 28px; }
-.phase-pip.phase-ours { border-color: rgba(63, 167, 61, 0.5); background: rgba(63, 167, 61, 0.08); animation: phase-pop 0.4s ease; }
-.phase-pip.phase-theirs { border-color: rgba(239, 128, 128, 0.4); background: rgba(239, 128, 128, 0.06); animation: phase-pop 0.4s ease; }
-.phase-pip.phase-draw { border-color: rgba(230, 148, 74, 0.4); background: rgba(230, 148, 74, 0.06); animation: phase-pop 0.4s ease; }
-.phase-pip.phase-skipped { opacity: 0.3; border-style: dashed; }
+/* Phase medallion labels and icons */
+.phase-medallion .medallion-label {
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.5);
+}
+.phase-medallion .medallion-icon {
+  font-size: 20px;
+  font-weight: 900;
+}
 
-.phase-connector { width: 12px; height: 2px; background: var(--border-subtle); transition: background 0.4s; flex-shrink: 0; }
-.phase-connector.revealed { background: var(--text-muted); }
-.phase-connector.broken { background: none; border-top: 2px dashed var(--border-subtle); height: 0; }
-.phase-connector-outcome { width: 10px; }
+/* Vertical connectors */
+.medallion-connector {
+  width: 2px;
+  height: 16px;
+  background: rgba(184,134,11,0.3);
+  transition: background 0.4s ease;
+  flex-shrink: 0;
+}
+.medallion-connector.revealed {
+  background: #b8860b;
+}
+.medallion-connector.broken {
+  background: none;
+  border-left: 2px dashed rgba(184,134,11,0.3);
+  width: 0;
+}
 
-.phase-outcome-pip { padding: 2px 6px; border-radius: 4px; border: 1.5px solid var(--border-subtle); background: var(--bg-inset); transition: all 0.4s ease; animation: phase-pop 0.4s ease; }
+/* Outcome medallion */
+.outcome-medallion {
+  width: 72px;
+  height: 72px;
+  border-width: 3px;
+}
+.outcome-medallion .outcome-text {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.outcome-medallion .outcome-star {
+  font-size: 18px;
+  margin-top: 2px;
+}
+
+/* Phase result colors on medallions */
+.medallion.phase-ours { border-color: #22c55e; box-shadow: inset 0 0 12px rgba(34,197,94,0.3), 0 0 8px rgba(34,197,94,0.2); animation: phase-pop 0.4s ease; }
+.medallion.phase-theirs { border-color: #ef4444; box-shadow: inset 0 0 12px rgba(239,68,68,0.3), 0 0 8px rgba(239,68,68,0.2); animation: phase-pop 0.4s ease; }
+.medallion.phase-draw { border-color: #f59e0b; box-shadow: inset 0 0 8px rgba(245,158,11,0.2); animation: phase-pop 0.4s ease; }
+.medallion.phase-skipped { opacity: 0.3; border-style: dashed; }
+
+/* Outcome result states */
+.outcome-win { border-color: #22c55e; color: #22c55e; box-shadow: 0 0 16px rgba(34,197,94,0.4), inset 0 0 12px rgba(34,197,94,0.2); animation: phase-pop 0.4s ease; }
+.outcome-loss { border-color: #ef4444; color: #ef4444; box-shadow: 0 0 12px rgba(239,68,68,0.3), inset 0 0 8px rgba(239,68,68,0.2); animation: phase-pop 0.4s ease; }
 .phase-outcome-pending { opacity: 0.3; }
-.phase-outcome-pip.phase-ours, .phase-outcome-pip.outcome-attacker { border-color: rgba(63, 167, 61, 0.5); background: rgba(63, 167, 61, 0.1); }
-.phase-outcome-pip.phase-theirs, .phase-outcome-pip.outcome-defender { border-color: rgba(239, 128, 128, 0.4); background: rgba(239, 128, 128, 0.08); }
-.phase-outcome-pip.outcome-neutral { border-color: rgba(230, 148, 74, 0.4); background: rgba(230, 148, 74, 0.08); }
-.phase-outcome-text { font-size: 7px; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; }
-.phase-outcome-pip.phase-ours .phase-outcome-text { color: var(--accent-green); }
-.phase-outcome-pip.phase-theirs .phase-outcome-text { color: var(--accent-red); }
-.phase-outcome-pip.outcome-neutral .phase-outcome-text { color: var(--accent-orange); }
-.phase-outcome-pending .phase-outcome-text { color: var(--text-dim); }
+.phase-outcome-pending .outcome-star { color: var(--text-dim); }
 
+/* Block/skip outcome classes on medallions */
+.medallion.outcome-attacker { border-color: rgba(63, 167, 61, 0.5); box-shadow: inset 0 0 12px rgba(63, 167, 61, 0.2); }
+.medallion.outcome-defender { border-color: rgba(239, 128, 128, 0.4); box-shadow: inset 0 0 12px rgba(239, 128, 128, 0.2); }
+.medallion.outcome-neutral { border-color: rgba(230, 148, 74, 0.4); box-shadow: inset 0 0 8px rgba(230, 148, 74, 0.2); }
+.outcome-neutral .outcome-text { color: var(--accent-orange); }
+.outcome-attacker .outcome-text { color: var(--accent-green); }
+.outcome-defender .outcome-text { color: var(--accent-red); }
+
+/* Phase icons */
 .phase-icon { font-size: 12px; font-weight: 900; line-height: 1; transition: all 0.3s; }
 .phase-icon-pending { color: var(--text-dim); opacity: 0.4; }
 .phase-icon-win { color: var(--accent-green); animation: phase-icon-in 0.4s ease; }
@@ -822,7 +1122,7 @@ function outcomeClass(f: FightEntry): string {
   right: 10px;
   font-size: 18px;
   font-weight: 900;
-  z-index: 10;
+  z-index: 11;
   pointer-events: none;
   line-height: 1;
 }
@@ -862,32 +1162,6 @@ function outcomeClass(f: FightEntry): string {
 .detail-item :deep(.gi-str) { background: rgba(239, 128, 128, 0.12); color: var(--kh-c-secondary-danger-200); }
 .detail-item :deep(.gi-psy) { background: rgba(232, 121, 249, 0.12); color: #e879f9; }
 .detail-item :deep(.gi-def) { background: rgba(230, 148, 74, 0.12); color: var(--accent-orange); }
-
-/* ── Card Results (under avatars) ── */
-.card-results {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 4px 4px 3px;
-  width: 100%;
-  animation: result-slide-up 0.3s ease;
-}
-.card-result-item {
-  font-size: 9px;
-  font-weight: 700;
-  text-align: center;
-  padding: 1px 3px;
-  border-radius: 3px;
-  line-height: 1.3;
-}
-.card-result-item.detail-skill { color: var(--accent-green); }
-.card-result-item.detail-moral { color: var(--accent-purple); }
-.card-result-item.detail-justice { color: var(--accent-blue); }
-.card-result-item.detail-resist { color: var(--accent-orange); font-size: 8px; }
-.card-result-item.detail-dmg-us { color: var(--accent-red); font-weight: 800; animation: dmg-pulse 0.6s ease-in-out 2; }
-.card-result-item.detail-dmg-enemy { color: var(--text-muted); font-weight: 600; }
-.card-result-item.detail-drop { color: white; background: var(--accent-red-dim); font-weight: 800; animation: dmg-pulse 0.6s ease-in-out 2; }
-.card-result-item.detail-drop-enemy { color: var(--text-muted); font-weight: 600; }
 
 .enemy-drop-banner {
   display: flex;
@@ -931,33 +1205,78 @@ function outcomeClass(f: FightEntry): string {
   100% { opacity: 1; transform: scale(1); }
 }
 
-/* ── Tug-of-War Bar ── */
-.tug-of-war {
-  padding: 2px 0;
+/* ── Storm Cat Overlay ── */
+.storm-overlay {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 20;
+  animation: storm-bounce 0.5s ease-out;
+  background: radial-gradient(ellipse at center, rgba(255,165,0,0.12) 0%, transparent 70%);
 }
-.tug-track {
-  height: 6px;
-  border-radius: 3px;
+.storm-cat {
+  font-size: 48px;
+  filter: drop-shadow(0 0 12px rgba(255,165,0,0.6));
+  animation: storm-wiggle 0.6s ease-in-out infinite alternate;
+}
+.storm-label {
+  font-size: 13px; font-weight: 700; color: #ffa500;
+  text-shadow: 0 0 8px rgba(255,165,0,0.5);
+  margin-top: 2px;
+}
+.storm-flipped {
+  color: #ff4444; font-weight: 900; margin-left: 4px;
+  animation: storm-flash 0.4s ease-in-out infinite alternate;
+}
+@keyframes storm-bounce {
+  0% { opacity: 0; transform: translateY(-30px) scale(0.5); }
+  60% { transform: translateY(5px) scale(1.05); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes storm-wiggle {
+  0% { transform: rotate(-8deg); }
+  100% { transform: rotate(8deg); }
+}
+@keyframes storm-flash {
+  0% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+/* ── Tug-of-War Bar (vertical, inside phase tracker) ── */
+.tug-of-war-vertical {
+  width: 8px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.tug-track-v {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
   background: var(--bg-inset);
-  border: 1px solid var(--parch-border, var(--border-subtle));
+  border: 1px solid rgba(184, 134, 11, 0.3);
   overflow: hidden;
   position: relative;
+  display: flex;
+  flex-direction: column-reverse; /* fill from bottom to top */
 }
-.tug-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s;
+
+.tug-fill-v {
+  width: 100%;
+  border-radius: 3px;
+  transition: height 0.4s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s;
   position: relative;
 }
-.tug-good { background: linear-gradient(90deg, rgba(63, 167, 61, 0.6), rgba(63, 167, 61, 0.9)); }
-.tug-bad { background: linear-gradient(90deg, rgba(239, 128, 128, 0.6), rgba(239, 128, 128, 0.9)); }
-.tug-even { background: linear-gradient(90deg, rgba(230, 148, 74, 0.5), rgba(230, 148, 74, 0.8)); }
-.tug-particles {
+
+.tug-fill-v.tug-good { background: linear-gradient(0deg, rgba(63, 167, 61, 0.6), rgba(63, 167, 61, 0.9)); }
+.tug-fill-v.tug-bad { background: linear-gradient(0deg, rgba(239, 128, 128, 0.6), rgba(239, 128, 128, 0.9)); }
+.tug-fill-v.tug-even { background: linear-gradient(0deg, rgba(230, 148, 74, 0.5), rgba(230, 148, 74, 0.8)); }
+
+.tug-particles-v {
   position: absolute;
-  right: 0;
-  top: -2px;
-  bottom: -2px;
-  width: 8px;
+  top: 0;
+  left: -2px;
+  right: -2px;
+  height: 6px;
   background: radial-gradient(circle at center, rgba(255, 255, 255, 0.4) 0%, transparent 70%);
   animation: tug-glow 0.6s ease-in-out infinite alternate;
 }
@@ -966,490 +1285,70 @@ function outcomeClass(f: FightEntry): string {
   100% { opacity: 0.8; }
 }
 
-/* ── Modifier Cards (3-column grid) ── */
-.modifier-zone {
+/* ── Enchantment Pill Badges (overlaid on char-cards) ── */
+.enchant-overlay {
+  position: absolute;
+  bottom: 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-.mod-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
-}
-.mod-card {
-  background: var(--parch-surface, var(--bg-surface));
-  border: 1.5px solid var(--parch-border, var(--border-subtle));
-  border-radius: 5px;
-  padding: 5px 7px;
-  font-size: 10px;
-  opacity: 0;
-  transform: translateY(10px) scale(0.85);
-  transition: opacity 0.3s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.4s, border-color 0.3s;
-  position: relative;
-  overflow: hidden;
-}
-.mod-card.visible {
-  opacity: 1;
-  transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(1);
-}
-
-/* ── Base highlight colors ── */
-.mod-card.good { border-color: rgba(63, 167, 61, 0.5); background: rgba(63, 167, 61, 0.08); }
-.mod-card.bad { border-color: rgba(239, 128, 128, 0.5); background: rgba(239, 128, 128, 0.08); }
-.mod-card.neutral { border-color: rgba(230, 148, 74, 0.5); background: rgba(230, 148, 74, 0.08); }
-
-/* ── GOOD tier effects ── */
-/* Tier 0 (▲): subtle glow + gentle lift */
-.mod-card.good.tier-0.visible {
-  animation: card-forge-0 0.35s ease-out 0.1s both;
-}
-@keyframes card-forge-0 {
-  0% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(1); }
-  40% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(1.03) translateY(-1px); }
-  100% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(1.01); }
-}
-.mod-card.good.tier-0.visible::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 5px;
-  background: linear-gradient(
-    105deg,
-    transparent 40%,
-    rgba(255, 255, 255, 0.15) 48%,
-    rgba(255, 255, 255, 0.05) 52%,
-    transparent 58%
-  );
-  opacity: 0;
-  animation: shine-sweep 0.7s ease-out 0.3s forwards;
-  pointer-events: none;
-}
-
-/* Tier 1 (▲▲): Forge stamp — bounce slam + shine sweep */
-.mod-card.good.tier-1.visible {
-  border-color: rgba(63, 167, 61, 0.6);
-  animation: card-forge-1 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
-}
-@keyframes card-forge-1 {
-  0% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(1) translateY(0); }
-  35% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(1.06) translateY(-3px); }
-  55% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(0.98) translateY(1px); }
-  100% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(1.02) translateY(0); }
-}
-/* Shine sweep for tier 1 */
-.mod-card.good.tier-1.visible::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 5px;
-  background: linear-gradient(
-    105deg,
-    transparent 35%,
-    rgba(255, 255, 255, 0.25) 45%,
-    rgba(255, 255, 255, 0.08) 50%,
-    transparent 55%
-  );
-  opacity: 0;
-  animation: shine-sweep 0.6s ease-out 0.35s forwards;
-  pointer-events: none;
-}
-
-/* Tier 2: Heavy forge — slam + shine + spark particles + embossed border */
-.mod-card.good.tier-2.visible {
-  border-color: rgba(63, 167, 61, 0.7);
-  box-shadow: 0 0 8px rgba(63, 167, 61, 0.25), 0 2px 6px rgba(0, 0, 0, 0.12);
-  animation: card-forge-2 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
-}
-@keyframes card-forge-2 {
-  0% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(1) translateY(0); }
-  25% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(1.08) translateY(-4px); }
-  45% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(0.96) translateY(2px); box-shadow: 0 0 12px rgba(63, 167, 61, 0.4); }
-  65% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(1.04) translateY(-1px); }
-  100% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(1.03) translateY(0); box-shadow: 0 0 8px rgba(63, 167, 61, 0.25), 0 2px 6px rgba(0, 0, 0, 0.12); }
-}
-/* Shine sweep for tier 2 */
-.mod-card.good.tier-2.visible::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 5px;
-  background: linear-gradient(
-    105deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.35) 42%,
-    rgba(255, 255, 255, 0.12) 50%,
-    transparent 55%
-  );
-  opacity: 0;
-  animation: shine-sweep 0.5s ease-out 0.3s forwards;
-  pointer-events: none;
-}
-/* Spark particles for tier 2 */
-.mod-card.good.tier-2.visible::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 5px;
-  height: 5px;
-  background: rgba(63, 167, 61, 0.7);
-  border-radius: 50%;
-  opacity: 0;
-  animation: forge-sparks 0.5s ease-out 0.25s forwards;
-  box-shadow:
-    -6px -12px 0 rgba(63, 167, 61, 0.6),
-    4px -14px 0 rgba(201, 168, 76, 0.5),
-    10px -8px 0 rgba(63, 167, 61, 0.5),
-    -10px -6px 0 rgba(201, 168, 76, 0.4),
-    0px -16px 0 rgba(63, 167, 61, 0.4);
-  pointer-events: none;
-}
-@keyframes forge-sparks {
-  0% { opacity: 0.9; transform: translate(-50%, -50%) scale(0.5); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.2) translateY(-6px); }
-}
-@keyframes shine-sweep {
-  0% { opacity: 0; transform: translateX(-100%); }
-  40% { opacity: 1; }
-  100% { opacity: 0; transform: translateX(100%); }
-}
-
-/* ── BAD tier effects ── */
-/* Shared shatter animations */
-@keyframes card-crack-in {
-  0% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(1); filter: brightness(1); }
-  30% { transform: translateX(calc(var(--nudge, 0px) + 1px)) rotate(calc(var(--tilt, 0deg) + 0.5deg)) scale(1.01); }
-  100% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(0.96); filter: brightness(0.7) saturate(0.7); }
-}
-@keyframes card-shatter {
-  0% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(1); filter: brightness(1); }
-  15% { transform: translateX(calc(var(--nudge, 0px) + 3px)) rotate(calc(var(--tilt, 0deg) + 2deg)) scale(1.03); }
-  30% { transform: translateX(calc(var(--nudge, 0px) - 3px)) rotate(calc(var(--tilt, 0deg) - 2deg)) scale(1.02); }
-  45% { transform: translateX(calc(var(--nudge, 0px) + 2px)) rotate(calc(var(--tilt, 0deg) + 1deg)) scale(0.98); filter: brightness(0.6); }
-  60% { transform: translateX(calc(var(--nudge, 0px) - 1px)) rotate(calc(var(--tilt, 0deg) - 0.5deg)) scale(0.92); }
-  100% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(0.85); filter: brightness(0.55) saturate(0.4); }
-}
-@keyframes card-explode {
-  0% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(1); filter: brightness(1); }
-  10% { transform: translateX(calc(var(--nudge, 0px) + 4px)) rotate(calc(var(--tilt, 0deg) + 3deg)) scale(1.06); filter: brightness(1.3); }
-  20% { transform: translateX(calc(var(--nudge, 0px) - 4px)) rotate(calc(var(--tilt, 0deg) - 3deg)) scale(1.04); }
-  30% { transform: translateX(calc(var(--nudge, 0px) + 3px)) rotate(calc(var(--tilt, 0deg) + 2deg)) scale(1.02); filter: brightness(0.5); }
-  45% { transform: translateX(calc(var(--nudge, 0px) - 2px)) rotate(calc(var(--tilt, 0deg) - 1deg)) scale(0.9); }
-  60% { transform: translateX(calc(var(--nudge, 0px) + 1px)) rotate(calc(var(--tilt, 0deg) + 0.5deg)) scale(0.82); filter: brightness(0.4) saturate(0.2); }
-  100% { transform: translateX(var(--nudge, 0px)) rotate(var(--tilt, 0deg)) scale(0.75); filter: brightness(0.4) saturate(0.15); }
-}
-@keyframes shard-burst {
-  0% { opacity: 0.8; transform: translate(-50%, -50%) scale(0.5); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.5); }
-}
-@keyframes shard-explode {
-  0% { opacity: 1; transform: translate(-50%, -50%) scale(0.6); }
-  40% { opacity: 0.9; }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(4); }
-}
-
-/* Tier 0 (▼): single slash crack + slight shake */
-.mod-card.bad.tier-0.visible {
-  animation: card-crack-in 0.4s ease-out 0.15s both;
-}
-.mod-card.bad.tier-0.visible::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 5px;
-  background:
-    linear-gradient(35deg, transparent 42%, rgba(239, 128, 128, 0.25) 42%, rgba(239, 128, 128, 0.25) 44%, transparent 44%);
-  pointer-events: none;
-  opacity: 0;
-  animation: crack-appear 0.3s ease-out 0.35s forwards;
-}
-.mod-card.bad.tier-0.visible::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 4px;
-  height: 4px;
-  background: rgba(239, 128, 128, 0.5);
-  border-radius: 2px;
-  opacity: 0;
-  animation: shard-burst 0.4s ease-out 0.3s forwards;
-  box-shadow:
-    6px -7px 0 rgba(239, 128, 128, 0.3),
-    -7px 5px 0 rgba(239, 128, 128, 0.25);
-  pointer-events: none;
-}
-
-/* Tier 1 (▼▼): X cross + shatter */
-.mod-card.bad.tier-1.visible {
-  animation: card-shatter 0.6s ease-out 0.15s both;
-}
-.mod-card.bad.tier-1.visible::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 5px;
-  background:
-    linear-gradient(45deg, transparent 40%, rgba(239, 128, 128, 0.4) 40%, rgba(239, 128, 128, 0.4) 43%, transparent 43%),
-    linear-gradient(-45deg, transparent 40%, rgba(239, 128, 128, 0.4) 40%, rgba(239, 128, 128, 0.4) 43%, transparent 43%);
-  pointer-events: none;
-  opacity: 0;
-  animation: crack-appear 0.2s ease-out 0.4s forwards;
-}
-.mod-card.bad.tier-1.visible::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 6px;
-  height: 6px;
-  background: rgba(239, 128, 128, 0.6);
-  border-radius: 2px;
-  opacity: 0;
-  animation: shard-burst 0.5s ease-out 0.3s forwards;
-  box-shadow:
-    8px -10px 0 rgba(239, 128, 128, 0.5),
-    -10px -6px 0 rgba(239, 128, 128, 0.4),
-    12px 4px 0 rgba(239, 128, 128, 0.3),
-    -6px 8px 0 rgba(239, 128, 128, 0.4),
-    4px 12px 0 rgba(239, 128, 128, 0.3);
-  pointer-events: none;
-}
-
-/* Tier 2 (▼▼▼): multiple cracks + blow-up explosion */
-.mod-card.bad.tier-2.visible {
-  animation: card-explode 0.7s ease-out 0.15s both;
-}
-.mod-card.bad.tier-2.visible::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 5px;
-  background:
-    linear-gradient(30deg, transparent 38%, rgba(239, 128, 128, 0.45) 38%, rgba(239, 128, 128, 0.45) 41%, transparent 41%),
-    linear-gradient(-40deg, transparent 36%, rgba(239, 128, 128, 0.4) 36%, rgba(239, 128, 128, 0.4) 39%, transparent 39%),
-    linear-gradient(70deg, transparent 44%, rgba(239, 128, 128, 0.35) 44%, rgba(239, 128, 128, 0.35) 47%, transparent 47%),
-    linear-gradient(-15deg, transparent 50%, rgba(239, 128, 128, 0.3) 50%, rgba(239, 128, 128, 0.3) 52%, transparent 52%);
-  pointer-events: none;
-  opacity: 0;
-  animation: crack-appear 0.15s ease-out 0.3s forwards;
-}
-.mod-card.bad.tier-2.visible::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 8px;
-  height: 8px;
-  background: rgba(239, 128, 128, 0.8);
-  border-radius: 2px;
-  opacity: 0;
-  animation: shard-explode 0.6s ease-out 0.25s forwards;
-  box-shadow:
-    10px -12px 0 rgba(239, 128, 128, 0.7),
-    -12px -8px 0 rgba(239, 128, 128, 0.6),
-    14px 5px 0 rgba(239, 128, 128, 0.5),
-    -8px 10px 0 rgba(239, 128, 128, 0.6),
-    5px 14px 0 rgba(239, 128, 128, 0.5),
-    -14px 2px 0 rgba(239, 128, 128, 0.4),
-    3px -16px 0 rgba(239, 128, 128, 0.35),
-    16px -3px 0 rgba(239, 128, 128, 0.3);
-  pointer-events: none;
-}
-
-@keyframes crack-appear {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
-}
-
-.mod-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 4px;
-}
-.mod-card-label {
-  font-weight: 700;
-  font-size: 10px;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.mod-card-value {
-  font-weight: 900;
-  font-size: 10px;
-  flex-shrink: 0;
-}
-.mod-card.good .mod-card-value { color: var(--accent-green); }
-.mod-card.bad .mod-card-value { color: var(--accent-red); }
-.mod-card.neutral .mod-card-value { color: var(--accent-orange); }
-
-.mod-card-detail {
-  font-size: 9px;
-  color: var(--text-muted);
-  line-height: 1.3;
-  margin-top: 2px;
-  font-style: italic;
-}
-.mod-card-detail :deep(b),
-.mod-card-detail :deep(strong) {
-  font-weight: 800;
-  font-style: normal;
-  color: var(--text-primary);
-}
-.mod-card.good .mod-card-detail { color: rgba(63, 167, 61, 0.7); }
-.mod-card.bad .mod-card-detail { color: rgba(239, 128, 128, 0.7); }
-
-/* Nemesis verbs and stat detail badges */
-.mod-card-detail :deep(.dom-good) { color: var(--accent-green); font-weight: 800; font-style: normal; }
-.mod-card-detail :deep(.dom-bad) { color: var(--accent-red); font-weight: 800; font-style: normal; }
-.mod-card-detail :deep(.gi-ok) { color: var(--accent-green); font-weight: 800; }
-.mod-card-detail :deep(.gi-fail) { color: var(--accent-red); font-weight: 800; }
-.mod-card-detail :deep(.gi-tie) { color: var(--text-dim); }
-.mod-card-detail :deep(.gi) { display: inline-block; font-size: 8px; font-weight: 800; padding: 1px 3px; border-radius: 2px; letter-spacing: 0.3px; vertical-align: middle; }
-.mod-card-detail :deep(.gi-int) { background: rgba(110, 170, 240, 0.15); color: var(--kh-c-secondary-info-200); }
-.mod-card-detail :deep(.gi-str) { background: rgba(239, 128, 128, 0.15); color: var(--kh-c-secondary-danger-200); }
-.mod-card-detail :deep(.gi-spd) { background: rgba(200, 185, 50, 0.15); color: var(--kh-c-text-highlight-dim); }
-.mod-card-detail :deep(.admin-extra) { font-size: 8px; color: var(--text-dim); font-style: normal; }
-
-/* ── Enchantment Badges ── */
-.enchantment-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  justify-content: center;
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 0.3s, transform 0.3s;
-}
-.enchantment-row.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-.badge-arrow {
-  font-size: 9px;
-  line-height: 1;
-  margin-right: 2px;
-}
-/* Green = benefits us, Red = hurts us */
-.badge-buff-ours {
-  background: rgba(63, 167, 61, 0.12);
-  color: var(--accent-green);
-  border: 1px solid rgba(63, 167, 61, 0.4);
-  border-left: 3px solid var(--accent-green);
-}
-.badge-buff-theirs {
-  background: rgba(239, 128, 128, 0.12);
-  color: var(--accent-red);
-  border: 1px solid rgba(239, 128, 128, 0.4);
-  border-left: 3px solid var(--accent-red);
-}
-.badge-class-change { background: rgba(100, 160, 255, 0.1); color: var(--accent-blue); border: 1px solid rgba(100, 160, 255, 0.3); }
-
-/* ── Justice Slam (Phase 2) ── */
-.justice-slam {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 6px 0;
-  position: relative;
-}
-.justice-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   gap: 2px;
-  padding: 6px 12px;
-  border-radius: 6px;
-  background: var(--parch-surface, var(--bg-surface));
-  border: 1.5px solid var(--parch-border, var(--border-subtle));
-  position: relative;
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s, box-shadow 0.3s;
-}
-.justice-left.j-rush {
-  animation: justice-rush-left 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.justice-right.j-rush {
-  animation: justice-rush-right 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-@keyframes justice-rush-left {
-  0% { transform: translateX(-60px) scale(0.7); opacity: 0; }
-  100% { transform: translateX(0) scale(1); opacity: 1; }
-}
-@keyframes justice-rush-right {
-  0% { transform: translateX(60px) scale(0.7); opacity: 0; }
-  100% { transform: translateX(0) scale(1); opacity: 1; }
+  z-index: 6;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
-.justice-card.j-winner {
-  border-color: rgba(63, 167, 61, 0.6);
-  box-shadow: 0 0 10px rgba(63, 167, 61, 0.3);
-  transform: scale(1.1);
-}
-.justice-card.j-loser {
-  opacity: 0.5;
-  transform: scale(0.9);
-  filter: grayscale(0.4);
-}
-.justice-card.j-loser::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 6px;
-  background:
-    linear-gradient(45deg, transparent 45%, rgba(239, 128, 128, 0.3) 45%, rgba(239, 128, 128, 0.3) 55%, transparent 55%),
-    linear-gradient(-45deg, transparent 45%, rgba(239, 128, 128, 0.2) 45%, rgba(239, 128, 128, 0.2) 55%, transparent 55%);
-  pointer-events: none;
-}
-.justice-card.j-tied {
-  border-color: rgba(230, 148, 74, 0.5);
-  box-shadow: 0 0 6px rgba(230, 148, 74, 0.2);
+.enchant-overlay.visible {
+  opacity: 1;
 }
 
-.justice-label {
+.enchant-overlay-right {
+  right: 6px;
+  align-items: flex-end;
+}
+
+.enchant-overlay-left {
+  left: 6px;
+  align-items: flex-start;
+}
+
+.enchant-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 12px;
   font-size: 8px;
-  font-weight: 700;
-  color: var(--text-muted);
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
 }
-.justice-value {
-  font-size: 18px;
-  font-weight: 900;
-  color: rgba(180, 150, 255, 0.95);
+
+.enchant-buff {
+  background: rgba(63, 167, 61, 0.2);
+  color: #4ade80;
+  border: 1px solid rgba(63, 167, 61, 0.4);
+}
+
+.enchant-debuff {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.enchant-arrow {
+  font-size: 8px;
   line-height: 1;
 }
-.justice-card.j-winner .justice-value { color: rgba(180, 150, 255, 0.95); text-shadow: 0 0 10px rgba(63, 167, 61, 0.5); }
-.justice-card.j-loser .justice-value { color: rgba(180, 150, 255, 0.95); text-shadow: 0 0 10px rgba(239, 128, 128, 0.5); }
-.justice-card.j-tied .justice-value { color: rgba(180, 150, 255, 0.95); text-shadow: 0 0 10px rgba(240, 180, 60, 0.5); }
 
-.justice-seal {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-}
-
-.justice-vs {
-  font-size: 11px;
-  font-weight: 900;
-  color: var(--text-dim);
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-.justice-vs.visible { opacity: 1; }
-.justice-spark {
+/* ── Justice Icon (compact display) ── */
+.justice-icon {
   font-size: 16px;
-  animation: spark-flash 0.3s ease-out;
-}
-@keyframes spark-flash {
-  0% { transform: scale(2); opacity: 0; }
-  50% { opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
+  opacity: 0.8;
 }
 
+/* Slam impact shake (applied via dynamic class on justice-display) */
 .slam-impact {
   animation: slam-shake 0.3s ease-in-out;
 }
@@ -1462,34 +1361,13 @@ function outcomeClass(f: FightEntry): string {
   75% { transform: translateX(-1px); }
 }
 
-.slam-particles {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-.slam-dust {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--parch-gold, #c9a84c);
-  opacity: 0;
-  animation: dust-rise 0.5s ease-out var(--delay, 0ms) forwards;
-}
-@keyframes dust-rise {
-  0% { transform: translate(0, 0) scale(1); opacity: 0.8; }
-  100% { transform: translate(var(--dx, 10px), -14px) scale(0.3); opacity: 0; }
-}
-
 /* ── R3 details ── */
 .fa-r3-details { display: flex; flex-direction: column; gap: 4px; }
 .pct-good { color: var(--accent-green); font-weight: 700; }
 .pct-bad { color: var(--accent-red); font-weight: 700; }
 
 /* ── Roll bar (needle) ── */
-.fa-roll-bar-wrap { margin-top: 3px; padding-top: 3px; }
+.fa-roll-bar-wrap { margin-top: 3px; padding-top: 3px; padding-bottom: 14px; }
 .fa-roll-bar-track { position: relative; height: 22px; background: rgba(239, 128, 128, 0.12); border-radius: 6px; overflow: visible; border: 1px solid var(--border-subtle); }
 .fa-roll-zone-win { position: absolute; left: 0; top: 0; height: 100%; background: rgba(63, 167, 61, 0.15); border-radius: 6px 0 0 6px; transition: width 0.6s ease; }
 .fa-roll-threshold { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--accent-gold); z-index: 2; transform: translateX(-1px); }
@@ -1508,24 +1386,189 @@ function outcomeClass(f: FightEntry): string {
 .fa-roll-bar-wrap.roll-overflow { position: relative; }
 .fa-roll-bar-wrap.roll-overflow::after { content: ''; position: absolute; right: -8px; top: 3px; bottom: 0; width: 16px; background: linear-gradient(90deg, rgba(63, 167, 61, 0.3), transparent); border-radius: 0 6px 6px 0; pointer-events: none; }
 
+/* ── Factor Tags (overlaid on char-cards) ── */
+.factor-tags {
+  position: absolute;
+  bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  z-index: 5;
+  max-width: 85%;
+}
+
+.factor-tags-left {
+  left: 6px;
+}
+
+.factor-tags-right {
+  right: 6px;
+  align-items: flex-end;
+}
+
+.factor-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(184, 134, 11, 0.4);
+  opacity: 0;
+  transform: translateX(-20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.factor-tags-right .factor-tag {
+  transform: translateX(20px);
+}
+
+.factor-tag.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.factor-tag.skip-anim {
+  opacity: 1;
+  transform: translateX(0);
+  transition: none;
+}
+
+.factor-tag-label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.factor-tag-arrows {
+  font-size: 10px;
+  letter-spacing: -1px;
+}
+
+.factor-good .factor-tag-arrows {
+  color: #4ade80;
+}
+
+.factor-bad .factor-tag-arrows {
+  color: #f87171;
+}
+
+.factor-tag:hover {
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 10;
+}
+
+/* ── Compact Justice Display (inside phase tracker) ── */
+.justice-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 4px 0;
+}
+
+.justice-value-side {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 800;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  transition: all 0.3s ease;
+}
+
+.justice-display .justice-vs {
+  font-size: 10px;
+  font-weight: 900;
+  color: rgba(255,255,255,0.4);
+}
+
+.j-winner {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.3);
+}
+
+.j-loser {
+  opacity: 0.5;
+  filter: saturate(0.5);
+}
+
+/* ── R3 Modifier Chips (inside phase tracker) ── */
+.r3-modifier-chips {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.r3-chip {
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(184, 134, 11, 0.3);
+  white-space: nowrap;
+}
+
+.r3-chip.pct-good {
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.r3-chip.pct-bad {
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
 /* ── Responsive ── */
+@media (max-width: 600px) {
+  .arena-grid {
+    grid-template-columns: 1fr 120px 1fr;
+  }
+  .arena-grid { --clash-offset: 60px; }
+  .char-card { min-height: 260px; }
+  .medallion { width: 52px; height: 52px; }
+  .outcome-medallion { width: 64px; height: 64px; }
+  .factor-tag { font-size: 10px; padding: 3px 8px; }
+  .justice-display { gap: 3px; }
+  .justice-value-side { font-size: 12px; padding: 2px 6px; }
+  .r3-chip { font-size: 9px; padding: 2px 6px; }
+  .enchant-pill { font-size: 7px; padding: 2px 6px; }
+}
 @media (max-width: 400px) {
   .arena-grid {
-    --card-width: 70px;
+    grid-template-columns: 1fr 100px 1fr;
   }
-  .char-avatar {
-    width: 40px;
-    height: 40px;
-  }
+  .arena-grid { --clash-offset: 50px; }
+  .char-card { min-height: 220px; }
   .char-name, .char-player-name {
     max-width: 60px;
     font-size: 8px;
   }
-  .phase-connector { width: 8px; }
-  .phase-pip { padding: 2px 4px; min-width: 22px; }
+  .medallion { width: 44px; height: 44px; }
+  .role-badge { width: 36px; height: 36px; }
+  .outcome-medallion { width: 56px; height: 56px; }
+  .medallion-connector { height: 10px; }
+  .phase-medallion .medallion-icon { font-size: 16px; }
+  .phase-medallion .medallion-label { font-size: 7px; }
+  .outcome-medallion .outcome-text { font-size: 7px; }
+  .outcome-medallion .outcome-star { font-size: 14px; }
   .phase-icon { font-size: 10px; }
-  .mod-cards-grid { grid-template-columns: repeat(2, 1fr); }
-  .mod-card { font-size: 9px; padding: 3px 5px; }
-  .mod-card-label { font-size: 9px; }
+  .factor-tag { font-size: 9px; padding: 3px 7px; }
+  .justice-display { gap: 2px; }
+  .justice-value-side { font-size: 11px; padding: 2px 5px; }
+  .justice-display .justice-vs { font-size: 8px; }
+  .r3-chip { font-size: 9px; padding: 2px 5px; }
+  .enchant-pill { font-size: 7px; padding: 1px 5px; }
 }
 </style>

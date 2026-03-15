@@ -89,6 +89,16 @@ const hasEnemySummonOnMyBoard = computed(() => {
   return store.myBoard?.cells.some(c => c.hasSummon && c.summonOwnerId && c.summonOwnerId !== myId) ?? false
 })
 
+// Penalty zone: rows 0-2 highlighted when enemy summons present (#3)
+const penaltyZoneRows = computed<number[]>(() => {
+  if (!hasEnemySummonOnMyBoard.value) return []
+  const myId = store.gameState?.myPlayerId
+  const hasInPenaltyZone = store.myBoard?.cells.some(c =>
+    c.hasSummon && c.summonOwnerId && c.summonOwnerId !== myId && c.row <= 2
+  ) ?? false
+  return hasInPenaltyZone ? [0, 1, 2] : []
+})
+
 const canDeploySummon = computed(() => {
   if (!myPlayer.value || !enemyPlayer.value) return false
   const p = myPlayer.value
@@ -318,12 +328,6 @@ async function handleEnemyCellClick(row: number, col: number) {
   if (myPlayer.value?.pendingSummons?.some(p => p.isBoarding)) return
   if (store.shotDelayActive) return
   if (farBlockedRows.value.has(row)) return
-  const cell = store.enemyBoard?.cells.find(c => c.row === row && c.col === col)
-  if (cell && (cell.isHit || cell.isMiss || cell.isRevealed)) {
-    const incendiaryRetarget = store.selectedShotType === 'Incendiary' && cell.isHit && cell.hasShip
-    const scratchedRetarget = cell.isScratched && cell.hasShip
-    if (!incendiaryRetarget && !scratchedRetarget) return
-  }
   await store.shoot(row, col)
 }
 
@@ -415,7 +419,17 @@ const myLastShot = computed(() => {
 })
 
 const enemySummonTrails = computed(() => store.getSummonTrailCells('enemy'))
-const mySummonTrails = computed(() => store.getSummonTrailCells('my'))
+const mySummonTrails = computed(() => {
+  const trails = store.getSummonTrailCells('my')
+  // Also include server-side summon trails on own board (#5)
+  for (const cell of store.myBoard?.cells ?? []) {
+    if (cell.summonTrail) {
+      const key = `${cell.row},${cell.col}`
+      if (!trails.has(key)) trails.set(key, 'Ram') // generic trail marker
+    }
+  }
+  return trails
+})
 
 const killStreakLabel = computed(() => {
   const k = store.killStreakDisplay
@@ -492,6 +506,15 @@ const myBoardRangeOverlays = computed(() => {
     for (const c of store.myBoard?.cells ?? []) {
       if (c.hasSummon && c.summonOwnerId && c.summonOwnerId !== myId) {
         addCell(map, c.row, c.col, 'ownboard-target')
+      }
+    }
+  }
+
+  // Penalty zone: rows 0-2 when enemy summons present (#3)
+  if (penaltyZoneRows.value.length > 0) {
+    for (const row of penaltyZoneRows.value) {
+      for (let col = 0; col < 10; col++) {
+        addCell(map, row, col, 'penalty-zone')
       }
     }
   }
@@ -822,6 +845,9 @@ watch(phase, (val) => {
             </span>
             <span v-if="hasOverlayType(myBoardRangeOverlays, 'ownboard-target')" class="legend-item legend-target" @mouseenter="showTip($event, 'Вражеский призыв — кликните для уничтожения')" @mousemove="moveTip" @mouseleave="hideTip">
               <span v-html="renderIcon('hit', 12)"></span> Вражеский призыв
+            </span>
+            <span v-if="hasOverlayType(myBoardRangeOverlays, 'penalty-zone')" class="legend-item legend-penalty" @mouseenter="showTip($event, 'Штраф за убийство суммона в этой зоне')" @mousemove="moveTip" @mouseleave="hideTip">
+              <span v-html="renderIcon('penalty', 12)"></span> Штрафная зона
             </span>
           </div>
           <div v-if="mySummonTrails.size > 0" class="range-legend">

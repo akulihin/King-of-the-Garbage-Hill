@@ -208,12 +208,27 @@ public class PlayerStatusDto
     public int AramRerolledPassivesTimes { get; set; }
     public int AramRerolledStatsTimes { get; set; }
     public List<PlaceHistoryDto> PlaceHistory { get; set; } = new();
+    public ScoreBreakdownDto ScoreBreakdown { get; set; }
 }
 
 public class PlaceHistoryDto
 {
     public int Round { get; set; }
     public int Place { get; set; }
+}
+
+public class ScoreEntryDto
+{
+    public string Source { get; set; }
+    public decimal Points { get; set; }
+    public bool IsBonus { get; set; }
+}
+
+public class ScoreBreakdownDto
+{
+    public int RoundMultiplier { get; set; }
+    public int ExpectedRoundMultiplier { get; set; }
+    public List<ScoreEntryDto> Entries { get; set; } = new();
 }
 
 public class PredictDto
@@ -458,6 +473,13 @@ public class FightEntryDto
 
     /// <summary>Whether a Portal Gun swap occurred in this fight (Rick swaps leaderboard position with the loser).</summary>
     public bool PortalGunSwap { get; set; }
+
+    /// <summary>Whether Storm (Котики) appeared in this fight via "Рандомное поведение".</summary>
+    public bool StormAppeared { get; set; }
+    /// <summary>How much Storm shifted the weighing machine (+5 or -5).</summary>
+    public decimal StormWeighingDelta { get; set; }
+    /// <summary>Whether Storm's intervention flipped the fight outcome.</summary>
+    public bool StormFlipped { get; set; }
 }
 
 // ── ForOneFight Mod DTOs ─────────────────────────────────────────────
@@ -950,6 +972,7 @@ public class GeraltStateDto
     public bool CanDemandPrevious { get; set; }
     public bool CanDemandNext { get; set; }
     public bool DemandedThisPhase { get; set; }
+    public bool AdvancePending { get; set; }
 
     // Invoice (populated when CanDemandPrevious)
     public List<InvoiceLineItemDto> InvoiceItems { get; set; }

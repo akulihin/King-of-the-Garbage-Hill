@@ -190,16 +190,19 @@ public class BattleshipService
             if (player == null)
                 return (false, "Вы не в этой игре.");
 
-            // Validate fleet
+            // Validate fleet purchases
             var (valid, error) = FleetValidator.ValidateFleet(selections);
             if (!valid) return (false, error);
 
+            // Build full 10-ship fleet from purchases (fills defaults)
+            var fullFleet = FleetValidator.BuildFleetFromSelections(selections);
+
             // Store selection and build ships
-            player.SelectedShips = selections;
-            player.CoinsRemaining = FleetValidator.MaxBudget - FleetValidator.CalculateTotalCost(selections);
+            player.SelectedShips = fullFleet;
+            player.CoinsRemaining = FleetValidator.MaxBudget - FleetValidator.CalculateTotalCost(fullFleet);
             player.Fleet.Clear();
 
-            foreach (var sel in selections)
+            foreach (var sel in fullFleet)
             {
                 var def = ShipCatalog.GetById(sel.DefinitionId);
                 if (def != null)
@@ -375,6 +378,13 @@ public class BattleshipService
                 result = BattleshipGameEngine.ProcessBuckshotShot(game, shooter, row, col);
             else
                 result = BattleshipGameEngine.ProcessShot(game, shooter, row, col);
+
+            // Auto-reset WhiteStone/Buckshot to Ballista after firing
+            if (shooter.SelectedShotType is ShotType.WhiteStone or ShotType.Buckshot)
+            {
+                shooter.SelectedShotType = ShotType.Ballista;
+                shooter.SelectedWeapon = null;
+            }
 
             shooter.HasShotThisTurn = true;
             game.LastActivity = DateTime.UtcNow;
@@ -654,7 +664,7 @@ public class BattleshipService
                 // Mast warning
                 if (opponent != null)
                 {
-                    var warning = BattleshipGameEngine.GenerateMastWarning(opponent, summonType);
+                    var warning = BattleshipGameEngine.GenerateMastWarning(opponent, summonType, col);
                     if (warning != null) game.GameLog.Add(warning);
                 }
 
@@ -702,7 +712,7 @@ public class BattleshipService
             var opponentCell = opponent?.Board.GetCell(summon.Row, summon.Col);
             if (opponentCell != null) opponentCell.SummonRef = summon;
 
-            game.GameLog.Add($"{player.Username} развернул {summonType}!");
+            game.GameLog.Add($"{player.Username} развернул {summonType}! ({(char)('A' + col)}1)");
 
             // Mast warning for opponent
             if (opponent != null)
@@ -772,12 +782,12 @@ public class BattleshipService
             var opponentCell = opponent?.Board.GetCell(summon.Row, summon.Col);
             if (opponentCell != null) opponentCell.SummonRef = summon;
 
-            game.GameLog.Add($"{player.Username} выпустил {pending.SourceShipName ?? pending.Type.ToString()}!");
+            game.GameLog.Add($"{player.Username} выпустил {pending.SourceShipName ?? pending.Type.ToString()}! ({(char)('A' + col)}1)");
 
             // Mast warning
             if (opponent != null)
             {
-                var warning = BattleshipGameEngine.GenerateMastWarning(opponent, pending.Type);
+                var warning = BattleshipGameEngine.GenerateMastWarning(opponent, pending.Type, col);
                 if (warning != null) game.GameLog.Add(warning);
             }
 
@@ -1351,6 +1361,7 @@ public class BattleshipService
                 SummonOwnerId = cell.SummonRef is { IsAlive: true } ? cell.SummonRef.OwnerId : null,
                 SummonType = cell.SummonRef is { IsAlive: true } ? cell.SummonRef.Type.ToString() : null,
                 IsScratched = IsCellScratched(cell),
+                SummonTrail = cell.SummonTrail,
             });
         }
         return new BoardDto { Cells = cells };
@@ -1377,6 +1388,7 @@ public class BattleshipService
                 SummonOwnerId = cell.SummonRef is { IsAlive: true } ? cell.SummonRef.OwnerId : null,
                 SummonType = cell.SummonRef is { IsAlive: true } ? cell.SummonRef.Type.ToString() : null,
                 IsScratched = cell.WasScratched, // Snapshot: scratched state persists after ship moves
+                SummonTrail = cell.SummonTrail,
             });
         }
         return new BoardDto { Cells = cells };
@@ -1477,6 +1489,7 @@ public class CellDto
     public string SummonOwnerId { get; set; }
     public string SummonType { get; set; }
     public bool IsScratched { get; set; }
+    public bool SummonTrail { get; set; }
 }
 
 public class ShipDto

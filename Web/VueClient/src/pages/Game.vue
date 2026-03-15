@@ -5,7 +5,7 @@ import { useGameStore } from 'src/store/game'
 import Leaderboard from 'src/components/Leaderboard.vue'
 import DeathNote from 'src/components/DeathNote.vue'
 import PlayerCard from 'src/components/PlayerCard.vue'
-// ActionPanel removed — action buttons now live inside Leaderboard
+// ActionPanel removed — action buttons now live under PlayerCard in game-left
 import SkillsPanel from 'src/components/SkillsPanel.vue'
 import FightAnimation from 'src/components/FightAnimation.vue'
 import MediaMessages from 'src/components/MediaMessages.vue'
@@ -55,6 +55,13 @@ const store = useGameStore()
 const router = useRouter()
 
 const gameIdNum = computed(() => Number(props.gameId))
+
+const roundMultiplier = computed(() => {
+  const r = store.gameState?.roundNo ?? 0
+  if (r <= 4) return 1
+  if (r <= 9) return 2
+  return 4
+})
 
 /** Stats currently flashing in PlayerCard due to resist damage */
 const resistFlashStats = ref<string[]>([])
@@ -355,6 +362,48 @@ function goToLobby() {
 
 // ── Header status (moved from ActionPanel) ──────────────────────────
 const me = computed(() => store.myPlayer)
+
+// ── Avatar / identity (rendered in game-right) ────────────────────
+const placeTier = computed(() => {
+  const place = me.value?.status?.place ?? 3
+  if (place <= 1) return 'place-1'
+  if (place <= 2) return 'place-2'
+  if (place <= 3) return 'place-3'
+  if (place <= 5) return 'place-mid'
+  return 'place-last'
+})
+const charTier = computed(() => me.value?.character.tier ?? 0)
+const rarityLabel = computed(() => {
+  switch (charTier.value) {
+    case 1: return 'Legendary'
+    case 2: return 'Epic'
+    case 3: return 'Rare'
+    case 4: return 'Uncommon'
+    case 5: case 6: return 'Common'
+    default: return ''
+  }
+})
+const rarityClass = computed(() => {
+  switch (charTier.value) {
+    case 1: return 'rarity-legendary'
+    case 2: return 'rarity-epic'
+    case 3: return 'rarity-rare'
+    case 4: return 'rarity-uncommon'
+    default: return 'rarity-common'
+  }
+})
+const masteryPoints = computed(() => me.value?.characterMasteryPoints ?? 0)
+const masteryLevel = computed(() => Math.floor(Math.sqrt(masteryPoints.value / 5)))
+const masteryTier = computed(() => {
+  const lvl = masteryLevel.value
+  if (lvl >= 20) return 'diamond'
+  if (lvl >= 15) return 'platinum'
+  if (lvl >= 10) return 'gold'
+  if (lvl >= 5) return 'silver'
+  if (lvl >= 1) return 'bronze'
+  return 'none'
+})
+
 const preferWeb = computed(() => store.gameState?.preferWeb ?? false)
 function togglePreferWeb() { store.setPreferWeb(!preferWeb.value) }
 
@@ -425,6 +474,20 @@ const fightPanelFixed = ref(localStorage.getItem('kotgh_fight_panel_fixed') === 
 function toggleFightPanelSize() {
   fightPanelFixed.value = !fightPanelFixed.value
   localStorage.setItem('kotgh_fight_panel_fixed', String(fightPanelFixed.value))
+}
+
+const fightStyleOptions = ['BigArt', 'Cards', 'Classic'] as const
+type FightStyle = typeof fightStyleOptions[number]
+const fightStyle = ref<FightStyle>(
+  (fightStyleOptions as readonly string[]).includes(localStorage.getItem('kotgh_fight_style') ?? '')
+    ? localStorage.getItem('kotgh_fight_style') as FightStyle
+    : 'BigArt'
+)
+
+function cycleFightStyle() {
+  const idx = fightStyleOptions.indexOf(fightStyle.value)
+  fightStyle.value = fightStyleOptions[(idx + 1) % fightStyleOptions.length]
+  localStorage.setItem('kotgh_fight_style', fightStyle.value)
 }
 
 const showFinishConfirm = ref(false)
@@ -678,11 +741,41 @@ const currentLogEntriesAll = computed(() => parsePrevLogs(mergeEvents() || ''))
 const prevLogEntries = computed(() => prevLogEntriesAll.value.filter((e: PrevLogEntry) => e.type !== 'gold'))
 const currentLogEntries = computed(() => currentLogEntriesAll.value.filter((e: PrevLogEntry) => e.type !== 'gold'))
 
-// All score entries (from both current + previous logs) for the PlayerCard combo display
-const scoreEntries = computed(() => [
-  ...currentLogEntriesAll.value.filter((e: PrevLogEntry) => e.type === 'gold'),
-  ...prevLogEntriesAll.value.filter((e: PrevLogEntry) => e.type === 'gold'),
-])
+
+/** Extract fight bonuses for myPlayer from fightLog (aggregated per type) */
+const myFightBonuses = computed(() => {
+  if (!fightReplayEnded.value) return []
+  const log = store.gameState?.fightLog || []
+  const myName = store.myPlayer?.discordUsername
+  if (!myName || !log.length) return []
+
+  let totalSkill = 0
+  let totalJustice = 0
+  let totalMoral = 0
+
+  for (const f of log) {
+    const isAttacker = f.attackerName === myName
+    const isDefender = f.defenderName === myName
+    if (!isAttacker && !isDefender) continue
+
+    if (isAttacker) {
+      totalSkill += (f.skillGainedFromTarget || 0) + (f.skillGainedFromClassAttacker || 0)
+      totalMoral += (f.attackerMoralChange || 0)
+    }
+    if (isDefender) {
+      totalSkill += (f.skillGainedFromClassDefender || 0)
+      totalJustice += (f.justiceChange || 0)
+      totalMoral += (f.defenderMoralChange || 0)
+    }
+  }
+
+  const bonuses: { label: string; value: string; cssClass: string }[] = []
+  if (totalSkill > 0) bonuses.push({ label: 'Skill', value: `+${totalSkill}`, cssClass: 'bonus-skill' })
+  if (totalJustice > 0) bonuses.push({ label: 'Justice', value: `+${totalJustice}`, cssClass: 'bonus-justice' })
+  if (totalMoral !== 0) bonuses.push({ label: 'Moral', value: `${totalMoral > 0 ? '+' : ''}${totalMoral}`, cssClass: totalMoral > 0 ? 'bonus-moral-up' : 'bonus-moral-down' })
+
+  return bonuses
+})
 
 // Animation: reveal entries one by one
 const prevLogVisibleCount = ref(999)
@@ -1000,10 +1093,63 @@ const charTint = computed(() => {
           :resist-flash="resistFlashStats"
           :justice-reset="justiceResetFlash"
           :justice-up="justiceUpFlash"
-          :score-entries="scoreEntries"
+          :score-breakdown="store.myPlayer?.status.scoreBreakdown ?? null"
           :score-anim-ready="fightReplayEnded"
+          :fight-bonuses="myFightBonuses"
         />
-        <!-- ActionPanel removed — actions now in Leaderboard sub-row -->
+        <!-- Action buttons -->
+        <div
+          v-if="store.myPlayer && !store.gameState.isFinished"
+          class="game-actions"
+          :class="{ 'can-act': store.isMyTurn }"
+        >
+          <div class="act-group">
+            <button class="act-btn shield" :disabled="!store.isMyTurn" title="Block" @click="store.block()">
+              <span class="gi gi-lg gi-def">DEF</span> Block
+            </button>
+            <button class="act-btn auto" :disabled="!store.isMyTurn" title="Auto Move" @click="store.autoMove()">
+              <span class="gi gi-lg gi-auto">AUTO</span> Move
+            </button>
+            <button v-if="me?.status.isReady && !me?.status.isSkip" class="act-btn undo" title="Change Mind" @click="store.changeMind()">
+              <span class="gi gi-lg gi-undo">UNDO</span> Change
+            </button>
+            <button v-if="!me?.status.confirmedSkip" class="act-btn skip" title="Confirm Skip" @click="store.confirmSkip()">
+              <span class="gi gi-lg gi-skip">SKIP</span>
+            </button>
+          </div>
+
+          <div v-if="me?.darksciChoiceNeeded" class="act-group">
+            <button class="act-btn darksci-stable" title="Стабильный: +20 Skill, +2 Moral" @click="store.darksciChoice(true)">
+              Мне не везёт...
+            </button>
+            <button class="act-btn darksci-unstable" title="Нестабильный: удача решит" @click="store.darksciChoice(false)">
+              Мне повезёт!
+            </button>
+          </div>
+
+          <div v-if="me?.youngGlebAvailable" class="act-group">
+            <button class="act-btn young-gleb" title="Трансформироваться в Молодого Глеба" @click="store.youngGleb()">
+              Вспомнить Молодость
+            </button>
+          </div>
+
+          <div v-if="me?.dopaChoiceNeeded" class="act-group">
+            <button class="act-btn dopa-stomp" title="Стомп: +9 Силы и 99 Скилла" @click="store.dopaChoice('Стомп')">Стомп</button>
+            <button class="act-btn dopa-farm" title="Фарм: Взгляд в будущее x2" @click="store.dopaChoice('Фарм')">Фарм</button>
+            <button class="act-btn dopa-domination" title="Доминация: +20 Skill/win, target -1 bonus" @click="store.dopaChoice('Доминация')">Доминация</button>
+            <button class="act-btn dopa-roam" title="Роум: Steal from non-adjacent" @click="store.dopaChoice('Роум')">Роум</button>
+          </div>
+
+          <div v-if="(store.gameState.roundNo ?? 0) >= 8 && !store.isKira && !me?.status.confirmedPredict" class="act-group">
+            <button class="act-btn predict-confirm" title="Confirm Predictions" @click="store.confirmPredict()">
+              Confirm Prediction
+            </button>
+          </div>
+
+          <div v-if="me?.passiveAbilityStates?.dopa?.needSecondAttack" class="act-group">
+            <span class="dopa-second-hint">Выберите вторую цель (скрытая атака)</span>
+          </div>
+        </div>
       </div>
 
       <!-- Center: Header + Leaderboard + Actions + Logs -->
@@ -1013,6 +1159,9 @@ const charTint = computed(() => {
           <div class="header-center">
             <span class="round-badge">
               Round {{ store.gameState.roundNo }} / 10
+            </span>
+            <span class="multiplier-badge" :class="{ 'mult-active': roundMultiplier > 1 }">
+              Points multiplier: x{{ roundMultiplier }}
             </span>
             <span v-if="store.gameState.isFinished" class="finished-badge">
               Finished
@@ -1055,9 +1204,15 @@ const charTint = computed(() => {
             <!-- Fight panel size toggle -->
             <button class="btn btn-ghost btn-sm layout-btn"
               :class="{ active: fightPanelFixed }"
-              title="Toggle fight panel between fixed 500px and dynamic sizing"
+              title="Toggle fight panel between fixed 500px and full-height"
               @click="toggleFightPanelSize()">
               {{ fightPanelFixed ? 'Fixed' : 'Dynamic' }}
+            </button>
+            <!-- Fight animation style toggle -->
+            <button class="btn btn-ghost btn-sm layout-btn"
+              title="Toggle fight animation style"
+              @click="cycleFightStyle()">
+              {{ fightStyle }}
             </button>
             <RoundTimer v-if="!store.gameState.isFinished" />
             <!-- Finish game -->
@@ -1092,29 +1247,13 @@ const charTint = computed(() => {
             :death-note="store.myPlayer?.deathNote"
             :is-bug="store.isBug"
             :pink-ward-revealed-player-ids="store.gameState.pinkWardRevealedPlayerIds"
-            :show-actions="!!store.myPlayer"
-            :can-act="store.isMyTurn"
-            :is-ready="!!store.myPlayer?.status.isReady && !store.myPlayer?.status.isSkip"
-            :confirmed-skip="store.myPlayer?.status.confirmedSkip"
-            :darksci-choice-needed="store.myPlayer?.darksciChoiceNeeded"
-            :young-gleb-available="store.myPlayer?.youngGlebAvailable"
-            :dopa-choice-needed="store.myPlayer?.dopaChoiceNeeded"
-            :dopa-second-attack="store.myPlayer?.passiveAbilityStates?.dopa?.needSecondAttack"
             @attack="onAttack"
             @predict="store.predict($event.playerId, $event.characterName)"
-            @block="store.block()"
-            @auto-move="store.autoMove()"
-            @change-mind="store.changeMind()"
-            @confirm-skip="store.confirmSkip()"
-            @confirm-predict="store.confirmPredict()"
-            @darksci-choice="store.darksciChoice($event)"
-            @young-gleb="store.youngGleb()"
-            @dopa-choice="store.dopaChoice($event)"
           />
         </div>
 
         <!-- Fight Panel + Blackjack -->
-        <div class="center-section" :style="{ order: panelOrder.fight }">
+        <div class="center-section fight-section" :style="{ order: panelOrder.fight }">
           <div class="log-panel card fight-panel" :class="{ 'fight-panel-fixed': fightPanelFixed }">
             <!-- Kira: Death Note above fight animation -->
             <DeathNote
@@ -1139,6 +1278,7 @@ const charTint = computed(() => {
               :predictions="store.myPlayer?.predictions"
               :is-admin="store.isAdmin"
               :character-catalog="store.gameState.allCharacters || []"
+              :fight-style="fightStyle"
               @resist-flash="onResistFlash"
               @justice-reset="onJusticeReset"
               @justice-up="onJusticeUp"
@@ -1259,8 +1399,32 @@ const charTint = computed(() => {
 
       </div>
 
-      <!-- Right: Skills / Passives -->
+      <!-- Right: Avatar + Identity + Skills / Passives -->
       <div class="game-right">
+        <div v-if="me" class="gr-avatar-section">
+          <div class="gr-avatar-wrap" :class="[placeTier]">
+            <img
+              v-if="me.character.avatarCurrent"
+              :src="me.character.avatarCurrent"
+              :alt="me.character.name"
+              class="gr-avatar-img"
+            >
+            <div v-else class="gr-avatar-fallback">
+              {{ me.character.name.charAt(0) }}
+            </div>
+          </div>
+          <div class="gr-identity">
+            <div class="gr-name">
+              {{ me.character.name }}
+              <span v-if="charTier > 0" class="rarity-badge" :class="rarityClass">{{ rarityLabel }}</span>
+            </div>
+            <div v-if="masteryLevel > 0" class="mastery-badge" :class="'mastery-' + masteryTier">
+              <span class="mastery-level">{{ masteryLevel }}</span>
+              <span class="mastery-label">{{ masteryTier }}</span>
+            </div>
+            <div class="gr-username">{{ me.discordUsername }}</div>
+          </div>
+        </div>
         <SkillsPanel v-if="store.myPlayer" :player="store.myPlayer" />
       </div>
     </div>
@@ -1273,6 +1437,8 @@ const charTint = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  height: calc(100vh - 44px - 2rem); /* viewport minus top-bar (44px) minus main-content padding (1rem * 2) */
+  min-height: 0;
 }
 
 .loading {
@@ -1475,14 +1641,19 @@ const charTint = computed(() => {
   grid-template-columns: 250px 1fr 250px;
   gap: 10px;
   align-items: start;
+  flex: 1;
+  min-height: 0;
 }
 
 .game-center {
   display: flex;
   flex-direction: column;
+  align-self: stretch;
+  min-height: 0;
 }
 
 .fight-panel-fixed {
+  flex: 0 0 500px;
   height: 500px;
   min-height: 500px;
   max-height: 500px;
@@ -1502,6 +1673,159 @@ const charTint = computed(() => {
     grid-template-columns: 1fr;
   }
   .game-right { order: -1; }
+}
+
+/* ── Action buttons (under PlayerCard in game-left) ────────────── */
+.game-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0;
+}
+
+.act-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.act-btn {
+  height: 28px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s var(--ease-in-out), border-color 0.2s var(--ease-in-out), box-shadow 0.2s var(--ease-in-out), opacity 0.2s var(--ease-in-out);
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.act-btn.shield { border-left: 3px solid var(--accent-blue); }
+.act-btn.auto { border-left: 3px solid var(--accent-green); }
+.act-btn.undo { border-left: 3px solid var(--accent-orange); }
+.act-btn.skip { border-left: 3px solid var(--text-dim); }
+
+.act-btn:active:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.15), transparent 70%);
+  animation: act-btn-ripple 0.4s ease-out;
+  pointer-events: none;
+}
+.act-btn.shield:active:not(:disabled)::after {
+  background: radial-gradient(circle at center, rgba(110, 170, 240, 0.2), transparent 70%);
+}
+.act-btn.auto:active:not(:disabled)::after {
+  background: radial-gradient(circle at center, rgba(63, 167, 61, 0.2), transparent 70%);
+}
+.act-btn.undo:active::after {
+  background: radial-gradient(circle at center, rgba(230, 148, 74, 0.2), transparent 70%);
+}
+
+@keyframes act-btn-ripple {
+  0% { transform: scale(0); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+.act-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--bg-card-hover), var(--bg-secondary));
+  border-color: var(--accent-blue);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3), 0 0 4px rgba(110, 170, 240, 0.1);
+}
+
+.act-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
+.act-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+  border-left-color: var(--border-subtle);
+}
+
+.act-btn.shield:hover:not(:disabled) { border-color: var(--accent-blue); box-shadow: 0 3px 8px rgba(0,0,0,0.3), 0 0 8px rgba(110, 170, 240, 0.15); }
+.act-btn.auto:hover:not(:disabled) { border-color: var(--accent-green); box-shadow: 0 3px 8px rgba(0,0,0,0.3), 0 0 8px rgba(63, 167, 61, 0.15); }
+.act-btn.undo:hover { border-color: var(--accent-orange); box-shadow: 0 3px 8px rgba(0,0,0,0.3), 0 0 8px rgba(230, 148, 74, 0.15); }
+.act-btn.skip:hover:not(:disabled) { border-color: var(--text-muted); }
+
+.act-btn.predict-confirm {
+  background: rgba(180, 150, 255, 0.06);
+  border-color: rgba(180, 150, 255, 0.3);
+  color: var(--accent-purple);
+}
+.act-btn.predict-confirm:hover:not(:disabled) { background: rgba(180, 150, 255, 0.12); }
+
+.act-btn.darksci-stable {
+  background: rgba(60, 120, 255, 0.08);
+  border-color: rgba(60, 120, 255, 0.3);
+  color: #6eaaff;
+}
+.act-btn.darksci-stable:hover { background: rgba(60, 120, 255, 0.15); }
+
+.act-btn.darksci-unstable {
+  background: rgba(255, 60, 60, 0.08);
+  border-color: rgba(255, 60, 60, 0.3);
+  color: #ff6e6e;
+}
+.act-btn.darksci-unstable:hover { background: rgba(255, 60, 60, 0.15); }
+
+.act-btn.young-gleb {
+  background: rgba(255, 180, 40, 0.08);
+  border-color: rgba(255, 180, 40, 0.3);
+  color: #ffb428;
+}
+.act-btn.young-gleb:hover { background: rgba(255, 180, 40, 0.15); }
+
+.act-btn.dopa-stomp {
+  background: rgba(255, 60, 60, 0.08);
+  border-color: rgba(255, 60, 60, 0.3);
+  color: #ff6e6e;
+}
+.act-btn.dopa-stomp:hover { background: rgba(255, 60, 60, 0.15); }
+
+.act-btn.dopa-farm {
+  background: rgba(60, 180, 60, 0.08);
+  border-color: rgba(60, 180, 60, 0.3);
+  color: #6ecc6e;
+}
+.act-btn.dopa-farm:hover { background: rgba(60, 180, 60, 0.15); }
+
+.act-btn.dopa-domination {
+  background: rgba(180, 60, 255, 0.08);
+  border-color: rgba(180, 60, 255, 0.3);
+  color: #b46eff;
+}
+.act-btn.dopa-domination:hover { background: rgba(180, 60, 255, 0.15); }
+
+.act-btn.dopa-roam {
+  background: rgba(74, 144, 217, 0.08);
+  border-color: rgba(74, 144, 217, 0.3);
+  color: #4a90d9;
+}
+.act-btn.dopa-roam:hover { background: rgba(74, 144, 217, 0.15); }
+
+.dopa-second-hint {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4a90d9;
+  animation: dopa-pulse 1.5s ease-in-out infinite;
+}
+@keyframes dopa-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
 }
 
 /* ── Header ─────────────────────────────────────────────────────── */
@@ -1530,6 +1854,24 @@ const charTint = computed(() => {
   border: 1px solid rgba(80, 150, 230, 0.3);
   box-shadow: 0 0 8px rgba(80, 150, 230, 0.1);
   backdrop-filter: blur(8px);
+}
+
+.multiplier-badge {
+  padding: 4px 12px;
+  border-radius: var(--radius);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.3s ease;
+}
+.multiplier-badge.mult-active {
+  background: rgba(212, 160, 23, 0.12);
+  color: var(--accent-gold);
+  border-color: rgba(212, 160, 23, 0.3);
+  box-shadow: 0 0 8px rgba(212, 160, 23, 0.1);
 }
 
 .mode-badge {
@@ -2047,9 +2389,174 @@ const charTint = computed(() => {
 .fight-panel {
   padding: 5px 8px;
   min-height: 200px;
-  max-height: 500px;
+  flex: 1;
   overflow-y: auto;
   margin-bottom: 5px;
+  display: flex;
+  flex-direction: column;
+}
+
+.fight-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ── Avatar section in game-right ──────────────────────────────── */
+.gr-avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 10px;
+}
+.gr-avatar-wrap {
+  width: 220px;
+  height: 220px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-inset);
+  border: 2px solid var(--border-subtle);
+  transition: border-color 0.8s ease, box-shadow 0.8s ease, filter 0.8s ease;
+  position: relative;
+}
+.gr-avatar-wrap.place-1 {
+  border-width: 3px;
+  border-color: rgba(240, 200, 80, 0.7);
+  box-shadow: 0 0 16px rgba(240, 200, 80, 0.35), 0 0 40px rgba(240, 200, 80, 0.12), inset 0 0 12px rgba(240, 200, 80, 0.08);
+  animation: gr-frame-pulse 3s ease-in-out infinite;
+}
+.gr-avatar-wrap.place-1::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  background: conic-gradient(from 0deg, rgba(240,200,80,0.3), rgba(255,160,60,0.2), rgba(240,200,80,0.3), rgba(255,220,120,0.2), rgba(240,200,80,0.3));
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  padding: 3px;
+  animation: gr-frame-rotate 4s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+@keyframes gr-frame-pulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(240,200,80,0.35), 0 0 40px rgba(240,200,80,0.12), inset 0 0 12px rgba(240,200,80,0.08); }
+  50% { box-shadow: 0 0 22px rgba(240,200,80,0.5), 0 0 50px rgba(240,200,80,0.18), inset 0 0 16px rgba(240,200,80,0.12); }
+}
+@keyframes gr-frame-rotate {
+  from { filter: hue-rotate(0deg); }
+  to { filter: hue-rotate(360deg); }
+}
+.gr-avatar-wrap.place-2 {
+  border-width: 3px;
+  border-color: rgba(140, 200, 255, 0.5);
+  box-shadow: 0 0 14px rgba(140, 200, 255, 0.2), 0 0 30px rgba(140, 200, 255, 0.08), inset 0 0 8px rgba(140, 200, 255, 0.06);
+  animation: gr-frame-diamond 2.5s ease-in-out infinite;
+}
+@keyframes gr-frame-diamond {
+  0%, 100% { box-shadow: 0 0 14px rgba(140,200,255,0.2), 0 0 30px rgba(140,200,255,0.08), inset 0 0 8px rgba(140,200,255,0.06); }
+  50% { box-shadow: 0 0 18px rgba(140,200,255,0.3), 0 0 36px rgba(140,200,255,0.12), inset 0 0 10px rgba(140,200,255,0.08); }
+}
+.gr-avatar-wrap.place-3 {
+  border-width: 2.5px;
+  border-color: rgba(205, 160, 80, 0.5);
+  box-shadow: 0 0 10px rgba(205, 160, 80, 0.18), 0 0 24px rgba(205, 160, 80, 0.06);
+}
+.gr-avatar-wrap.place-mid {
+  border-color: rgba(160, 165, 180, 0.3);
+  box-shadow: 0 0 6px rgba(160, 165, 180, 0.08);
+}
+.gr-avatar-wrap.place-last {
+  border-color: rgba(120, 80, 80, 0.4);
+  box-shadow: inset 0 0 16px rgba(100, 40, 40, 0.12);
+  filter: saturate(0.65);
+}
+.gr-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: gr-avatar-breathe 4s ease-in-out infinite;
+  transition: filter 0.5s ease;
+}
+.place-1 .gr-avatar-img,
+.place-2 .gr-avatar-img {
+  filter: contrast(1.05) brightness(1.05);
+  animation-duration: 5s;
+}
+.place-last .gr-avatar-img {
+  filter: saturate(0.7) brightness(0.9);
+  animation-duration: 2.5s;
+}
+@keyframes gr-avatar-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.015); }
+}
+.gr-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 64px;
+  font-weight: 800;
+  color: var(--text-dim);
+}
+.gr-identity {
+  text-align: center;
+}
+.gr-name {
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--accent-gold);
+  letter-spacing: 0.3px;
+  text-shadow: 0 0 10px rgba(240, 200, 80, 0.25);
+}
+.gr-username {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+/* Rarity badges */
+.rarity-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid;
+  line-height: 1.4;
+  text-shadow: none;
+}
+.rarity-legendary { color: #f0c850; border-color: rgba(240,200,80,0.4); background: rgba(240,200,80,0.1); box-shadow: 0 0 8px rgba(240,200,80,0.15); }
+.rarity-epic { color: #c084fc; border-color: rgba(192,132,252,0.4); background: rgba(192,132,252,0.1); box-shadow: 0 0 8px rgba(192,132,252,0.15); }
+.rarity-rare { color: #60a5fa; border-color: rgba(96,165,250,0.4); background: rgba(96,165,250,0.1); }
+.rarity-uncommon { color: #4ade80; border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.08); }
+.rarity-common { color: var(--text-muted); border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); }
+/* Mastery badges */
+.mastery-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.mastery-level { font-size: 11px; font-weight: 800; }
+.mastery-bronze { background: linear-gradient(135deg, rgba(184,115,51,0.25), rgba(205,127,50,0.15)); color: #cd7f32; border: 1px solid rgba(205,127,50,0.35); text-shadow: 0 0 4px rgba(205,127,50,0.3); }
+.mastery-silver { background: linear-gradient(135deg, rgba(192,192,192,0.25), rgba(169,169,169,0.15)); color: #c0c0c0; border: 1px solid rgba(192,192,192,0.35); text-shadow: 0 0 4px rgba(192,192,192,0.3); }
+.mastery-gold { background: linear-gradient(135deg, rgba(255,215,0,0.25), rgba(255,193,37,0.15)); color: #ffd700; border: 1px solid rgba(255,215,0,0.4); text-shadow: 0 0 6px rgba(255,215,0,0.4); box-shadow: 0 0 8px rgba(255,215,0,0.1); }
+.mastery-platinum { background: linear-gradient(135deg, rgba(180,220,255,0.25), rgba(200,230,255,0.15)); color: #b4dcff; border: 1px solid rgba(180,220,255,0.4); text-shadow: 0 0 8px rgba(180,220,255,0.5); box-shadow: 0 0 12px rgba(180,220,255,0.12); }
+.mastery-diamond { background: linear-gradient(135deg, rgba(185,242,255,0.3), rgba(255,255,255,0.15)); color: #e0f7ff; border: 1px solid rgba(185,242,255,0.5); text-shadow: 0 0 10px rgba(185,242,255,0.6); box-shadow: 0 0 16px rgba(185,242,255,0.15); animation: gr-mastery-shimmer 2s ease-in-out infinite; }
+@keyframes gr-mastery-shimmer {
+  0%, 100% { opacity: 1; box-shadow: 0 0 16px rgba(185,242,255,0.15); }
+  50% { opacity: 0.85; box-shadow: 0 0 24px rgba(185,242,255,0.3); }
 }
 
 .log-content {
@@ -2342,6 +2849,9 @@ const charTint = computed(() => {
 
 /* Mobile: full responsive */
 @media (max-width: 768px) {
+  .game-page {
+    height: calc(100vh - 40px - 1rem); /* top-bar 40px, padding 0.5rem*2 */
+  }
   .game-layout {
     grid-template-columns: 1fr;
     gap: 6px;
@@ -2392,6 +2902,9 @@ const charTint = computed(() => {
 
 /* Small mobile */
 @media (max-width: 480px) {
+  .game-page {
+    height: calc(100vh - 36px - 0.75rem); /* top-bar 36px, padding 0.375rem*2 */
+  }
   .game-header {
     gap: 2px;
   }

@@ -302,6 +302,7 @@ export type GeraltState = {
   canDemandPrevious: boolean
   canDemandNext: boolean
   demandedThisPhase: boolean
+  advancePending: boolean
   invoiceItems?: InvoiceLineItem[]
   invoiceTotal?: number
   invoicePredictedCoins?: number
@@ -396,6 +397,18 @@ export type Passive = {
   visible: boolean
 }
 
+export type ScoreBreakdownEntry = {
+  source: string
+  points: number
+  isBonus: boolean
+}
+
+export type ScoreBreakdown = {
+  roundMultiplier: number
+  expectedRoundMultiplier: number
+  entries: ScoreBreakdownEntry[]
+}
+
 export type PlayerStatus = {
   score: number
   place: number
@@ -418,6 +431,7 @@ export type PlayerStatus = {
   aramRerolledPassivesTimes: number
   aramRerolledStatsTimes: number
   placeHistory: { round: number; place: number }[]
+  scoreBreakdown: ScoreBreakdown | null
 }
 
 export type Prediction = {
@@ -592,6 +606,12 @@ export type FightEntry = {
 
   /** Whether a Portal Gun swap occurred in this fight. */
   portalGunSwap: boolean
+  /** Whether Storm (Котики) appeared in this fight via "Рандомное поведение". */
+  stormAppeared: boolean
+  /** How much Storm shifted the weighing machine (+5 or -5). */
+  stormWeighingDelta: number
+  /** Whether Storm's intervention flipped the fight outcome. */
+  stormFlipped: boolean
 }
 
 export type ForOneFightMod = {
@@ -738,6 +758,7 @@ export type BattleshipCell = {
   summonOwnerId: string | null
   summonType: string | null
   isScratched: boolean
+  summonTrail?: boolean
   isDestroyed?: boolean
   isFrozen?: boolean
   isDevastated?: boolean

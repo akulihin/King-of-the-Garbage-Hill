@@ -7,7 +7,9 @@ using King_of_the_Garbage_Hill.API.DTOs;
 using King_of_the_Garbage_Hill.API.Services;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
@@ -17,13 +19,15 @@ public class DoomsdayMachine : IServiceSingleton
     private readonly LoginFromConsole _logs;
     private readonly CalculateRounds _calculateRounds;
     private readonly GameUpdateMess _gameUpdateMess;
+    private readonly SecureRandom _rand;
 
-    public DoomsdayMachine(CharacterPassives characterPassives, LoginFromConsole logs, CalculateRounds calculateRounds, GameUpdateMess gameUpdateMess)
+    public DoomsdayMachine(CharacterPassives characterPassives, LoginFromConsole logs, CalculateRounds calculateRounds, GameUpdateMess gameUpdateMess, SecureRandom rand)
     {
         _characterPassives = characterPassives;
         _logs = logs;
         _calculateRounds = calculateRounds;
         _gameUpdateMess = gameUpdateMess;
+        _rand = rand;
     }
 
     public async Task InitializeAsync()
@@ -340,6 +344,44 @@ public class DoomsdayMachine : IServiceSingleton
             }
         }
 
+        // Котики — Рандомное поведение Trick 1: pre-scan fight pairs and pick one for Storm
+        Kotiki.RandomBehaviorClass stormRb = null;
+        GamePlayerBridgeClass stormCarrier = null;
+        {
+            var kotikiOwnerDm = game.PlayersList.Find(x => x.GameCharacter.Name == "Котики");
+            if (kotikiOwnerDm != null)
+            {
+                stormRb = kotikiOwnerDm.Passives.KotikiRandomBehavior;
+                // Find who carries the "Рандомное поведение" passive
+                stormCarrier = game.PlayersList.Find(x =>
+                    x.GameCharacter.Passive.Any(p => p.PassiveName == "Рандомное поведение"));
+
+                if (stormRb.SelectedTrickThisRound == 1)
+                {
+                    // Collect all fight pairs from non-blocked/non-skipped players
+                    var fightPairs = new List<(Guid attackerId, Guid defenderId)>();
+                    foreach (var pl in game.PlayersList)
+                    {
+                        if ((pl.Status.IsBlock || pl.Status.IsSkip) && pl.Status.WhoToAttackThisTurn.Count == 0)
+                            continue;
+                        foreach (var targetId in pl.Status.WhoToAttackThisTurn.Where(t => t != pl.GetPlayerId()))
+                            fightPairs.Add((pl.GetPlayerId(), targetId));
+                    }
+
+                    if (fightPairs.Count > 0)
+                    {
+                        var chosenPair = fightPairs[_rand.Random(0, fightPairs.Count - 1)];
+                        stormRb.FightTargetAttackerId = chosenPair.attackerId;
+                        stormRb.FightTargetDefenderId = chosenPair.defenderId;
+                    }
+                    else
+                    {
+                        stormRb.SelectedTrickThisRound = 0; // no fights — cancel trick
+                    }
+                }
+            }
+        }
+
         foreach (var player in game.PlayersList)
         {
 
@@ -591,7 +633,37 @@ public class DoomsdayMachine : IServiceSingleton
                 playerIamAttacking.Status.AddFightingData($"IsAbleToWin: {playerIamAttacking.Status.IsAbleToWin}");
                 playerIamAttacking.Status.AddFightingData($"IsAbleToWinEnemy: {player.Status.IsAbleToWin}");
 
-                
+                // Котики — Storm trick 1: apply +5 weighing machine nudge
+                var stormAppeared = false;
+                decimal stormWeighingDelta = 0;
+                var stormFlipped = false;
+                if (stormRb != null && stormRb.SelectedTrickThisRound == 1 && !stormRb.FightProcessed &&
+                    stormRb.FightTargetAttackerId == player.GetPlayerId() &&
+                    stormRb.FightTargetDefenderId == playerIamAttacking.GetPlayerId())
+                {
+                    stormAppeared = true;
+                    stormRb.FightProcessed = true;
+                    var oldSign = Math.Sign(pointsWined);
+                    if (pointsWined < 0)
+                    {
+                        pointsWined += 5;
+                        stormWeighingDelta = 5;
+                    }
+                    else if (pointsWined > 0)
+                    {
+                        pointsWined -= 5;
+                        stormWeighingDelta = -5;
+                    }
+                    var newSign = Math.Sign(pointsWined);
+                    stormFlipped = oldSign != 0 && newSign != 0 && oldSign != newSign;
+
+                    if (stormCarrier != null)
+                    {
+                        game.Phrases.KotikiStormFightJump.SendLog(stormCarrier, false);
+                        game.AddGlobalLogs($"Штормяк запрыгнул в бой {player.DiscordUsername} vs {playerIamAttacking.DiscordUsername}!");
+                    }
+                }
+
                 //round 2 (Justice)
                 var justiceMe = player.GameCharacter.Justice.GetRealJusticeNow();
                 var justiceTarget = playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow();
@@ -691,7 +763,13 @@ public class DoomsdayMachine : IServiceSingleton
 
                     //add regular points
                     if (!teamMate)
-                        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Никому не нужен" || x.PassiveName == "INT"))
+                    {
+                        if (stormFlipped && stormCarrier != null)
+                        {
+                            // Storm redirects the +1 regular point to Storm's carrier
+                            stormCarrier.Status.AddRegularPoints(point, "Штормяк: Запрыгнул в бой!");
+                        }
+                        else if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Никому не нужен" || x.PassiveName == "INT"))
                         {
                             player.Status.AddWinPoints(game, player, point * -1, "Победа");
                         }
@@ -699,6 +777,7 @@ public class DoomsdayMachine : IServiceSingleton
                         {
                             player.Status.AddWinPoints(game, player, point, "Победа");
                         }
+                    }
 
 
                     if (!teamMate)
@@ -785,7 +864,12 @@ public class DoomsdayMachine : IServiceSingleton
                     game.AddGlobalLogs($" ⟶ {playerIamAttacking.DiscordUsername}");
 
                     if (!teamMate)
-                        playerIamAttacking.Status.AddWinPoints(game, playerIamAttacking, 1, "Победа");
+                    {
+                        if (stormFlipped && stormCarrier != null)
+                            stormCarrier.Status.AddRegularPoints(1, "Штормяк: Запрыгнул в бой!");
+                        else
+                            playerIamAttacking.Status.AddWinPoints(game, playerIamAttacking, 1, "Победа");
+                    }
 
 
 
@@ -927,6 +1011,9 @@ public class DoomsdayMachine : IServiceSingleton
                         NemesisMultiplierSkillDifference = Math.Round(step1.NemesisMultiplierSkillDifference, 2),
                         AttackerForOneFightMods = attackerPassiveMods,
                         DefenderForOneFightMods = defenderPassiveMods,
+                        StormAppeared = stormAppeared,
+                        StormWeighingDelta = stormWeighingDelta,
+                        StormFlipped = stormFlipped,
                     });
                 }
 
@@ -1134,6 +1221,22 @@ public class DoomsdayMachine : IServiceSingleton
         await _characterPassives.HandleNextRound(game);
 
 
+        // Save Storm bite lock positions BEFORE score sort
+        var stormBiteLocks = new Dictionary<Guid, int>();
+        {
+            var kotikiOwnerBite = game.PlayersList.Find(x => x.GameCharacter.Name == "Котики");
+            if (kotikiOwnerBite != null)
+            {
+                var rbBiteDm = kotikiOwnerBite.Passives.KotikiRandomBehavior;
+                if (rbBiteDm.BiteLockActiveUntilRound >= game.RoundNo && rbBiteDm.BiteTargetId != Guid.Empty)
+                {
+                    var bitePlayer = game.PlayersList.Find(x => x.GetPlayerId() == rbBiteDm.BiteTargetId);
+                    if (bitePlayer != null)
+                        stormBiteLocks[bitePlayer.GetPlayerId()] = game.PlayersList.IndexOf(bitePlayer);
+                }
+            }
+        }
+
         // Save ziggurat positions BEFORE score sort so they can be restored after
         var zigguratPositionLocks = new Dictionary<Guid, int>();
         foreach (var pl in game.PlayersList)
@@ -1242,6 +1345,55 @@ public class DoomsdayMachine : IServiceSingleton
                 // Re-assign places
                 for (var i = 0; i < game.PlayersList.Count; i++)
                     game.PlayersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
+            }
+        }
+
+        // Restore Storm bite-locked positions
+        foreach (var kvp in stormBiteLocks)
+        {
+            var biteLockedPlayer = game.PlayersList.Find(x => x.GetPlayerId() == kvp.Key);
+            if (biteLockedPlayer == null) continue;
+            var currentBiteIdx = game.PlayersList.IndexOf(biteLockedPlayer);
+            var savedBiteIdx = kvp.Value;
+            if (currentBiteIdx != savedBiteIdx && savedBiteIdx < game.PlayersList.Count)
+            {
+                // Check Ziggurat immunity on the player in target position
+                if (game.PlayersList[savedBiteIdx].Passives.GoblinZiggurat.IsInZiggurat) continue;
+
+                game.PlayersList[currentBiteIdx] = game.PlayersList[savedBiteIdx];
+                game.PlayersList[savedBiteIdx] = biteLockedPlayer;
+                for (var i = 0; i < game.PlayersList.Count; i++)
+                    game.PlayersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
+            }
+        }
+
+        // Storm bite swap: on first round of bite, swap target with player above
+        {
+            var kotikiOwnerBiteSwap = game.PlayersList.Find(x => x.GameCharacter.Name == "Котики");
+            if (kotikiOwnerBiteSwap != null)
+            {
+                var rbBiteSwap = kotikiOwnerBiteSwap.Passives.KotikiRandomBehavior;
+                if (rbBiteSwap.SelectedTrickThisRound == 2 && rbBiteSwap.BiteTargetId != Guid.Empty)
+                {
+                    var biteTarget = game.PlayersList.Find(x => x.GetPlayerId() == rbBiteSwap.BiteTargetId);
+                    if (biteTarget != null)
+                    {
+                        var biteIdx = game.PlayersList.IndexOf(biteTarget);
+                        if (biteIdx > 0) // can swap with player above
+                        {
+                            var aboveIdx = biteIdx - 1;
+                            // Check Ziggurat immunity on above player
+                            if (!game.PlayersList[aboveIdx].Passives.GoblinZiggurat.IsInZiggurat)
+                            {
+                                game.PlayersList[biteIdx] = game.PlayersList[aboveIdx];
+                                game.PlayersList[aboveIdx] = biteTarget;
+                                for (var i = 0; i < game.PlayersList.Count; i++)
+                                    game.PlayersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
+                            }
+                        }
+                        rbBiteSwap.BiteLockPosition = biteTarget.Status.GetPlaceAtLeaderBoard();
+                    }
+                }
             }
         }
 

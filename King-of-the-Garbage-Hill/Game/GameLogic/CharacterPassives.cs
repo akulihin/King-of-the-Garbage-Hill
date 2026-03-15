@@ -878,20 +878,20 @@ public class CharacterPassives : IServiceSingleton
                             geraltDefContracts.EnemiesFoughtThisRound.Add(me.GetPlayerId());
 
                             var geraltDefDemand = target.Passives.GeraltContractDemand;
-                            if (target.Status.IsWonThisCalculation == me.GetPlayerId())
+                            if (!geraltDefDemand.CurrentPerTarget.TryGetValue(me.GetPlayerId(), out var defData))
                             {
-                                geraltDefDemand.CurrentContractWins++;
-                                if (me.Status.GetPlaceAtLeaderBoard() <= 2)
-                                    geraltDefDemand.CurrentTooGoodWins++;
-                                var enemyStats = me.FightCharacter.GetIntelligence()
-                                    + me.FightCharacter.GetStrength() + me.FightCharacter.GetSpeed()
-                                    + me.FightCharacter.GetPsyche();
-                                if (enemyStats >= 28)
-                                    geraltDefDemand.CurrentTooStronkWins++;
+                                defData = new Geralt.PerTargetFightData { TargetName = me.DiscordUsername };
+                                geraltDefDemand.CurrentPerTarget[me.GetPlayerId()] = defData;
                             }
+                            if (target.Status.IsWonThisCalculation == me.GetPlayerId())
+                                defData.DefenseWins++;
                             else if (target.Status.IsLostThisCalculation != Guid.Empty)
-                                geraltDefDemand.CurrentContractLosses++;
-                            geraltDefDemand.CurrentGeraltPosition = target.Status.GetPlaceAtLeaderBoard();
+                                defData.DefenseLosses++;
+                            if (target.Status.FightEnemyWasTooGood)
+                                defData.WasTooGood = true;
+                            if (target.Status.FightEnemyWasTooStronk)
+                                defData.WasTooStronk = true;
+                            defData.TargetPosition = me.Status.GetPlaceAtLeaderBoard();
                         }
                     }
                     break;
@@ -2220,20 +2220,20 @@ public class CharacterPassives : IServiceSingleton
                             geraltAtkContracts.EnemiesFoughtThisRound.Add(target.GetPlayerId());
 
                             var demand = me.Passives.GeraltContractDemand;
-                            if (me.Status.IsWonThisCalculation == target.GetPlayerId())
+                            if (!demand.CurrentPerTarget.TryGetValue(target.GetPlayerId(), out var atkData))
                             {
-                                demand.CurrentContractWins++;
-                                if (target.Status.GetPlaceAtLeaderBoard() <= 2)
-                                    demand.CurrentTooGoodWins++;
-                                var enemyStats = target.FightCharacter.GetIntelligence()
-                                    + target.FightCharacter.GetStrength() + target.FightCharacter.GetSpeed()
-                                    + target.FightCharacter.GetPsyche();
-                                if (enemyStats >= 28)
-                                    demand.CurrentTooStronkWins++;
+                                atkData = new Geralt.PerTargetFightData { TargetName = target.DiscordUsername };
+                                demand.CurrentPerTarget[target.GetPlayerId()] = atkData;
                             }
+                            if (me.Status.IsWonThisCalculation == target.GetPlayerId())
+                                atkData.AttackWins++;
                             else if (me.Status.IsLostThisCalculation != Guid.Empty)
-                                demand.CurrentContractLosses++;
-                            demand.CurrentGeraltPosition = me.Status.GetPlaceAtLeaderBoard();
+                                atkData.AttackLosses++;
+                            if (me.Status.FightEnemyWasTooGood)
+                                atkData.WasTooGood = true;
+                            if (me.Status.FightEnemyWasTooStronk)
+                                atkData.WasTooStronk = true;
+                            atkData.TargetPosition = target.Status.GetPlaceAtLeaderBoard();
                         }
 
                         // Nest phrase: if enemy has been proc'd more than once total
@@ -3087,6 +3087,15 @@ public class CharacterPassives : IServiceSingleton
                                 fightEnemy.Passives.KotikiCatType = "";
                                 fightEnemy.Passives.KotikiCatOwnerId = Guid.Empty;
 
+                                // Return "Рандомное поведение" from enemy to Котики when Storm returns
+                                if (catType == "Штормяк")
+                                {
+                                    fightEnemy.GameCharacter.Passive.RemoveAll(x => x.PassiveName == "Рандомное поведение");
+                                    if (!player.GameCharacter.Passive.Any(x => x.PassiveName == "Рандомное поведение"))
+                                        player.GameCharacter.Passive.Add(new Passive("Рандомное поведение",
+                                            "Штормяк время от времени выкидывает фокусы.", false));
+                                }
+
                                 // Restore passive to Котики
                                 if (!player.GameCharacter.Passive.Any(x => x.PassiveName == catType))
                                 {
@@ -3129,7 +3138,19 @@ public class CharacterPassives : IServiceSingleton
                                     if (deployType == "Минька")
                                         ambush.MinkaOnPlayer = fightEnemyId;
                                     else
+                                    {
                                         ambush.StormOnPlayer = fightEnemyId;
+
+                                        // Transfer "Рандомное поведение" to the enemy carrying Storm
+                                        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Рандомное поведение"))
+                                        {
+                                            fightEnemy.GameCharacter.Passive.Add(new Passive(
+                                                "Рандомное поведение",
+                                                "Штормяк время от времени выкидывает фокусы.",
+                                                false));
+                                            player.GameCharacter.Passive.RemoveAll(x => x.PassiveName == "Рандомное поведение");
+                                        }
+                                    }
 
                                     // Remove deployed cat's passive from Котики until it returns
                                     player.GameCharacter.Passive.RemoveAll(x => x.PassiveName == deployType);
@@ -4144,6 +4165,21 @@ public class CharacterPassives : IServiceSingleton
                         ambushEor.StormCooldown--;
                     break;
 
+                // Котики — Рандомное поведение: per-round cleanup
+                case "Рандомное поведение":
+                {
+                    var rbOwnerEor = player.Passives.KotikiCatOwnerId != Guid.Empty
+                        ? game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.KotikiCatOwnerId)
+                        : player;
+                    if (rbOwnerEor == null) rbOwnerEor = player;
+                    var rbEor = rbOwnerEor.Passives.KotikiRandomBehavior;
+                    rbEor.SelectedTrickThisRound = 0;
+                    rbEor.FightTargetAttackerId = Guid.Empty;
+                    rbEor.FightTargetDefenderId = Guid.Empty;
+                    rbEor.FightProcessed = false;
+                    break;
+                }
+
                 // Монстр без имени — Пейзаж конца света: round 10 apocalypse
                 case "Пейзаж конца света":
                     if (game.RoundNo == 10)
@@ -4274,25 +4310,74 @@ public class CharacterPassives : IServiceSingleton
                         else if (geraltEorContracts.NonContractWinsThisRound > 1)
                             game.Phrases.GeraltLootMulti.SendLog(player, false);
 
-                        // Copy current demand accumulators → previous (for demand buttons during ready phase)
+                        // Snapshot current demand data → previous (for demand buttons during ready phase)
                         var demand = player.Passives.GeraltContractDemand;
-                        demand.PrevContractWins = demand.CurrentContractWins;
-                        demand.PrevContractLosses = demand.CurrentContractLosses;
+
+                        // Deep-copy CurrentPerTarget → PrevPerTarget
+                        demand.PrevPerTarget = demand.CurrentPerTarget.ToDictionary(
+                            kvp => kvp.Key,
+                            kvp => new Geralt.PerTargetFightData
+                            {
+                                AttackWins = kvp.Value.AttackWins,
+                                AttackLosses = kvp.Value.AttackLosses,
+                                DefenseWins = kvp.Value.DefenseWins,
+                                DefenseLosses = kvp.Value.DefenseLosses,
+                                WasTooGood = kvp.Value.WasTooGood,
+                                WasTooStronk = kvp.Value.WasTooStronk,
+                                TargetPosition = kvp.Value.TargetPosition,
+                                TargetName = kvp.Value.TargetName
+                            });
+
                         demand.PrevContractsFought = geraltEorContracts.ContractsFoughtThisRound;
-                        demand.PrevTooGoodWins = demand.CurrentTooGoodWins;
-                        demand.PrevTooStronkWins = demand.CurrentTooStronkWins;
-                        demand.PrevGeraltPosition = demand.CurrentGeraltPosition;
+                        demand.PrevGeraltPosition = player.Status.GetPlaceAtLeaderBoard();
                         demand.PrevLambertWasActive = player.Passives.GeraltMeditation.LambertActive;
                         demand.PrevWasBlocking = player.Status.IsBlock;
                         demand.PrevAllContractsFought = geraltEorContracts.EnemyTypes.Count > 0
                             && geraltEorContracts.EnemiesFoughtThisRound.IsSupersetOf(geraltEorContracts.EnemyTypes.Keys);
+
+                        // Advance resolution
+                        if (demand.AdvancePending)
+                        {
+                            player.Status.AddRegularPoints(2, "Чеканная монета (аванс)");
+
+                            var advanceInvoice = demand.CalculateInvoice();
+                            var advTotal = advanceInvoice.Total;
+
+                            int advDispleasure;
+                            if (advTotal <= 0) advDispleasure = 5;
+                            else if (advTotal < 3) advDispleasure = 3;
+                            else if (advTotal < 4) advDispleasure = 2;
+                            else if (advTotal < 5) advDispleasure = 1;
+                            else if (advTotal >= 6) advDispleasure = demand.Displeasure > 0 ? -1 : 0;
+                            else advDispleasure = 0;
+
+                            demand.Displeasure += advDispleasure;
+                            if (demand.Displeasure < 0) demand.Displeasure = 0;
+                            demand.TotalSuccessfulDemands++;
+                            demand.AdvancePending = false;
+
+                            if (advDispleasure > 0)
+                                player.Status.AddInGamePersonalLogs($"Аванс: Недовольство +{advDispleasure} (счёт: {advTotal})\n");
+                            else if (advDispleasure < 0)
+                                player.Status.AddInGamePersonalLogs($"Аванс: Недовольство {advDispleasure} (счёт: {advTotal})\n");
+                            else
+                                player.Status.AddInGamePersonalLogs($"Аванс: Нейтрально (счёт: {advTotal})\n");
+
+                            // Death by pitchforks
+                            if (demand.Displeasure >= 11)
+                            {
+                                player.Passives.IsDead = true;
+                                player.Passives.DeathSource = "Pitchforks";
+                                player.Status.AddBonusPoints(-500, "Вилы разъяренной толпы");
+                                game.AddGlobalLogs($"Жители деревни подняли {player.DiscordUsername} на вилы за жадность! Ведьмак мёртв.");
+                                player.Status.AddInGamePersonalLogs("Чеканная монета: Толпа с вилами! Вы мертвы. -500 очков.\n");
+                            }
+                        }
+
                         // Reset current accumulators
-                        demand.CurrentContractWins = 0;
-                        demand.CurrentContractLosses = 0;
-                        demand.CurrentTooGoodWins = 0;
-                        demand.CurrentTooStronkWins = 0;
-                        demand.CurrentGeraltPosition = 0;
+                        demand.CurrentPerTarget = new Dictionary<Guid, Geralt.PerTargetFightData>();
                         demand.DemandedThisPhase = false;
+                        demand.DemandedForNext = false;
 
                         // Reset round counters
                         geraltEorContracts.ContractsFoughtThisRound = 0;
@@ -4353,6 +4438,59 @@ public class CharacterPassives : IServiceSingleton
             while (posHistory.Count < game.RoundNo)
                 posHistory.Add(0);
             posHistory[game.RoundNo - 1] = currentPos;
+        }
+
+        // Котики — Рандомное поведение: Trick 3 vase chain (game-wide event)
+        {
+            // Find the original Котики player who has RandomBehavior state
+            var kotikiOwner = game.PlayersList.Find(x => x.GameCharacter.Name == "Котики");
+            if (kotikiOwner != null)
+            {
+                var rbVase = kotikiOwner.Passives.KotikiRandomBehavior;
+                if (rbVase.VasePendingTargets.Count > 0)
+                {
+                    var nextRoundPending = new List<Guid>();
+                    foreach (var targetId in rbVase.VasePendingTargets.Distinct().ToList())
+                    {
+                        if (rbVase.VaseImmunePlayerIds.Contains(targetId)) continue;
+                        var vaseTarget = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
+                        if (vaseTarget == null || vaseTarget.Passives.IsDead) continue;
+
+                        var skill = vaseTarget.FightCharacter.GetSkill();
+                        bool caught;
+                        if (skill <= 20)
+                            caught = false;
+                        else
+                            caught = _rand.Random(1, 100) <= Math.Min((int)(skill / 3), 100);
+
+                        if (caught)
+                        {
+                            vaseTarget.Status.AddBonusPoints(1, "Скинул вазу");
+                            rbVase.VaseImmunePlayerIds.Add(targetId);
+                            game.Phrases.KotikiStormVaseCatch.SendLog(vaseTarget, false);
+                        }
+                        else
+                        {
+                            vaseTarget.Status.AddBonusPoints(-1, "Скинул вазу");
+                            game.Phrases.KotikiStormVaseDrop.SendLog(vaseTarget, false);
+
+                            // Add neighbors (position ±1) to next round pending
+                            var pos = vaseTarget.Status.GetPlaceAtLeaderBoard();
+                            foreach (var neighbor in game.PlayersList)
+                            {
+                                var neighborPos = neighbor.Status.GetPlaceAtLeaderBoard();
+                                if ((neighborPos == pos - 1 || neighborPos == pos + 1) &&
+                                    neighbor.GetPlayerId() != targetId)
+                                {
+                                    nextRoundPending.Add(neighbor.GetPlayerId());
+                                }
+                            }
+                        }
+                    }
+
+                    rbVase.VasePendingTargets = nextRoundPending;
+                }
+            }
         }
     }
 
@@ -5298,8 +5436,76 @@ public class CharacterPassives : IServiceSingleton
                             geraltNrContracts.AddCount(randomType, 1);
                             var names = Geralt.GetNames(randomType);
                             var randomName = names[_rand.Random(0, names.Length - 1)];
-                            
+
                             game.Phrases.GeraltContractSpawn.SendLog(player, false, suffix: $"\n{randomName} ({Geralt.GetMonsterEmoji(randomType)})");
+                        }
+                        break;
+
+                    // Котики — Рандомное поведение: Storm picks a random trick each round
+                    case "Рандомное поведение":
+                        if (game.RoundNo >= 2)
+                        {
+                            // Find the original Котики player who owns this Storm
+                            var rbOwner = player.Passives.KotikiCatOwnerId != Guid.Empty
+                                ? game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.KotikiCatOwnerId)
+                                : player;
+                            if (rbOwner == null) rbOwner = player;
+                            var rb = rbOwner.Passives.KotikiRandomBehavior;
+
+                            // Build weighted pool: fight(3), bite(1), vase(3 if !VaseUsed)
+                            var trickPool = new List<int>();
+                            for (var i = 0; i < 3; i++) trickPool.Add(1); // fight x3
+                            trickPool.Add(2); // bite x1
+                            if (!rb.VaseUsed)
+                                for (var i = 0; i < 3; i++) trickPool.Add(3); // vase x3
+
+                            var selectedTrick = trickPool[_rand.Random(0, trickPool.Count - 1)];
+                            rb.SelectedTrickThisRound = selectedTrick;
+                            rb.FightProcessed = false;
+
+                            switch (selectedTrick)
+                            {
+                                case 2: // Кусь за жопу
+                                {
+                                    // Target pool: all players except 1st place; CAN include Storm's owner
+                                    var biteCandidates = game.PlayersList
+                                        .Where(x => x.Status.GetPlaceAtLeaderBoard() != 1 && !x.Passives.IsDead)
+                                        .ToList();
+                                    if (biteCandidates.Count > 0)
+                                    {
+                                        var biteTarget = biteCandidates[_rand.Random(0, biteCandidates.Count - 1)];
+                                        rb.BiteTargetId = biteTarget.GetPlayerId();
+                                        rb.BiteLockActiveUntilRound = game.RoundNo + 1;
+                                        rb.BiteBonusPending = true;
+                                        game.Phrases.KotikiStormBite.SendLog(biteTarget, false);
+                                        biteTarget.Status.AddInGamePersonalLogs("Штормяк кусь за жопу! Вы прикованы к позиции!\n");
+                                    }
+                                    else
+                                    {
+                                        rb.SelectedTrickThisRound = 0; // no valid target
+                                    }
+                                    break;
+                                }
+                                case 3: // Скинул вазу
+                                {
+                                    rb.VaseUsed = true;
+                                    // Select a target (exclude passive holder)
+                                    var vaseCandidates = game.PlayersList
+                                        .Where(x => x.GetPlayerId() != player.GetPlayerId() && !x.Passives.IsDead)
+                                        .ToList();
+                                    if (vaseCandidates.Count > 0)
+                                    {
+                                        var vaseTarget = vaseCandidates[_rand.Random(0, vaseCandidates.Count - 1)];
+                                        rb.VasePendingTargets.Add(vaseTarget.GetPlayerId());
+                                    }
+                                    else
+                                    {
+                                        rb.SelectedTrickThisRound = 0;
+                                    }
+                                    break;
+                                }
+                                // case 1 (fight): fight pair chosen later in DoomsdayMachine
+                            }
                         }
                         break;
                 }
@@ -5737,6 +5943,33 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 // (Geralt senses moved to HandleEndOfRound Медитация)
+
+                // Котики — Рандомное поведение: bite bonus check
+                case "Рандомное поведение":
+                {
+                    var rbBiteOwner = player.Passives.KotikiCatOwnerId != Guid.Empty
+                        ? game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.KotikiCatOwnerId)
+                        : player;
+                    if (rbBiteOwner == null) rbBiteOwner = player;
+                    var rbBite = rbBiteOwner.Passives.KotikiRandomBehavior;
+
+                    if (rbBite.BiteBonusPending && rbBite.BiteLockActiveUntilRound < game.RoundNo)
+                    {
+                        var biteTarget = game.PlayersList.Find(x => x.GetPlayerId() == rbBite.BiteTargetId);
+                        if (biteTarget != null && rbBite.BiteLockPosition > 0 &&
+                            biteTarget.Status.GetPlaceAtLeaderBoard() == rbBite.BiteLockPosition)
+                        {
+                            // Storm carrier gets +10 bonus points
+                            player.Status.AddBonusPoints(10, "Кусь за жопу");
+                            game.Phrases.KotikiStormBiteBonus.SendLog(player, false);
+                        }
+
+                        rbBite.BiteBonusPending = false;
+                        rbBite.BiteTargetId = Guid.Empty;
+                        rbBite.BiteLockPosition = -1;
+                    }
+                    break;
+                }
             }
     }
     //end after all fight

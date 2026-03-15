@@ -229,6 +229,7 @@ public class PassivesClass
     // Котики
     public Kotiki.StormClass KotikiStorm { get; set; } = new();
     public Kotiki.AmbushClass KotikiAmbush { get; set; } = new();
+    public Kotiki.RandomBehaviorClass KotikiRandomBehavior { get; set; } = new();
 
     // Per-player: any player can carry a Котики cat
     public string KotikiCatType { get; set; } = "";           // "Минька" or "Штормяк" (empty = no cat)

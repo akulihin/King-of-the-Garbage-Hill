@@ -50,10 +50,7 @@ const cellClass = computed(() => {
   else classes.push('cell-empty')
 
   if (props.clickable) {
-    const alreadyShot = props.isEnemy && props.cell && (props.cell.isHit || props.cell.isMiss || props.cell.isRevealed)
-    const incendiaryRetarget = alreadyShot && props.shotType === 'Incendiary' && props.cell?.isHit && props.cell?.hasShip
-    const scratchedRetarget = props.cell?.isScratched
-    if (!alreadyShot || incendiaryRetarget || scratchedRetarget) classes.push('cell-clickable')
+    classes.push('cell-clickable')
   }
   if (props.blocked) classes.push('cell-blocked')
   if (props.spaceHighlight && props.isPlacement) classes.push('cell-space')
@@ -584,6 +581,10 @@ const cellTooltip = computed(() => {
 .range-brander::after {
   background: rgba(230, 126, 34, 0.15);
   border: 1px dashed rgba(230, 126, 34, 0.5);
+}
+.range-penalty-zone::after {
+  background: rgba(192, 57, 43, 0.12);
+  border: 1px solid rgba(192, 57, 43, 0.35);
 }
 .range-ownboard-target::after {
   background: rgba(192, 57, 43, 0.15);

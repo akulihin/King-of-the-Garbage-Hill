@@ -2,6 +2,8 @@
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import type { FightEntry, ForOneFightMod, Player, Prediction, CharacterInfo } from 'src/services/signalr'
 import FightArena from './fight/FightArena.vue'
+import FightArenaCards from './fight/FightArenaCards.vue'
+import FightArenaClassic from './fight/FightArenaClassic.vue'
 import {
   FightSoundPool,
   playDoomsDayFight,
@@ -31,6 +33,7 @@ const props = withDefaults(defineProps<{
   showDetailedFactors?: boolean
   characterCatalog?: CharacterInfo[]
   initialFightIndex?: number
+  fightStyle?: 'BigArt' | 'Cards' | 'Classic'
 }>(), {
   letopis: '',
   gameStory: null,
@@ -41,6 +44,7 @@ const props = withDefaults(defineProps<{
   showDetailedFactors: false,
   characterCatalog: () => [],
   initialFightIndex: undefined,
+  fightStyle: 'BigArt',
 })
 
 const showDetails = computed(() => props.showDetailedFactors || props.isAdmin)
@@ -98,6 +102,7 @@ let timer: ReturnType<typeof setTimeout> | null = null
 // ── Fight result glow + screen shake ──────────────────────────────
 const fightResult = ref<'win' | 'loss' | null>(null)
 const fightShake = ref(false)
+const clashPhase = ref<'idle' | 'hit' | 'recoil' | 'settled'>('idle')
 
 // ── Slam & needle state (declared early for use in computed/watchers below) ──
 const slamPhase = ref<'idle' | 'rush' | 'impact' | 'resolved'>('idle')
@@ -460,8 +465,14 @@ watch(showFinalResult, (show: boolean) => {
   } else if (weLost) {
     fightResult.value = 'loss'
   }
-  // Screen shake on big weighing differences
-  if (Math.abs(f.totalWeighingDelta ?? 0) > 15) {
+  // Screen shake at hit-stop moment (synced with clashPhase)
+  if (f.outcome !== 'block' && f.outcome !== 'skip') {
+    setTimeout(() => {
+      fightShake.value = true
+      setTimeout(() => { fightShake.value = false }, 500)
+    }, 400) // 400ms = after slam, at hit-stop
+  } else if (Math.abs(f.totalWeighingDelta ?? 0) > 15) {
+    // Keep shake for block/skip with big delta
     fightShake.value = true
     setTimeout(() => { fightShake.value = false }, 500)
   }
@@ -482,6 +493,23 @@ watch(showFinalResult, (show: boolean) => {
     if (f.justiceChange > 0 && ourPreFightJustice < 5) {
       emit('justice-up')
     }
+  }
+
+  // KO impact clash phases
+  if (f.outcome !== 'block' && f.outcome !== 'skip') {
+    clashPhase.value = 'idle'
+    // After slam completes (0.4s) -> hit-stop
+    setTimeout(() => {
+      clashPhase.value = 'hit'
+      // Brief freeze (0.15s) then recoil — starts while sparks still fly
+      setTimeout(() => {
+        clashPhase.value = 'recoil'
+        // After recoil settles (0.6s) -> settled
+        setTimeout(() => {
+          clashPhase.value = 'settled'
+        }, 600)
+      }, 150)
+    }, 400)
   }
 })
 
@@ -510,6 +538,7 @@ function proceedToNextFight() {
       folkPercussionPool.rollForFight()
       currentFightIdx.value++
       currentStep.value = 0
+      clashPhase.value = 'idle'
       scheduleNext()
     } else {
       isPlaying.value = false
@@ -546,7 +575,7 @@ function skipToEnd() {
 function setSpeed(s: number) { speed.value = s }
 function restart() {
   clearTimer(); currentFightIdx.value = 0; currentStep.value = 0
-  skippedToEnd.value = false; isPlaying.value = true; scheduleNext()
+  skippedToEnd.value = false; isPlaying.value = true; clashPhase.value = 'idle'; scheduleNext()
 }
 function restartCurrentFight() {
   clearTimer()
@@ -556,6 +585,7 @@ function restartCurrentFight() {
   r3NeedlePos.value = 0
   r3NeedleSettled.value = false
   slamPhase.value = 'idle'
+  clashPhase.value = 'idle'
   skippedToEnd.value = false
   isPlaying.value = true
   scheduleNext()
@@ -1311,8 +1341,125 @@ function getDisplayCharName(orig: string, u: string): string {
         </div>
       </div>
 
-      <!-- Fight Arena (Card Clash) -->
-      <FightArena v-if="fight" ref="fightCardRef"
+      <!-- Fight Arena — BigArt (new style with full-art cards, clash animation) -->
+      <FightArena v-if="fight && fightStyle === 'BigArt'" ref="fightCardRef"
+        :fight="fight"
+        :is-my-fight="isMyFight"
+        :is-flipped="isFlipped"
+        :left-name="leftName"
+        :left-char-name="leftCharName"
+        :left-avatar="leftAvatar"
+        :right-name="rightName"
+        :right-char-name="rightCharName"
+        :right-avatar="rightAvatar"
+        :left-won="leftWon"
+        :attacked-right="attackedRight"
+        :sign="sign"
+        :current-step="currentStep"
+        :skipped-to-end="skippedToEnd"
+        :show-r1-result="showR1Result"
+        :show-r2="showR2"
+        :show-r3="showR3"
+        :show-final-result="showFinalResult"
+        :show-details="showDetails"
+        :phase1-result="phase1Result"
+        :phase2-result="phase2Result"
+        :phase3-result="phase3Result"
+        :phase2-revealed="phase2Revealed"
+        :phase3-revealed="phase3Revealed"
+        :bar-position="barPosition"
+        :animated-weighing-value="animatedWeighingValue"
+        :our-justice="ourJustice"
+        :enemy-justice="enemyJustice"
+        :slam-phase="slamPhase"
+        :justice-winner="justiceWinner"
+        :r3-our-chance="r3OurChance"
+        :r3-display-chance="r3DisplayChance"
+        :r3-roll-pct="r3RollPct"
+        :r3-we-won="r3WeWon"
+        :r3-overflow="r3Overflow"
+        :r3-underflow="r3Underflow"
+        :r3-justice-pct="r3JusticePct"
+        :r3-nemesis-pct="r3NemesisPct"
+        :r3-needle-pos="r3NeedlePos"
+        :r3-needle-settled="r3NeedleSettled"
+        :round1-factors="round1Factors"
+        :our-skill-multiplier="ourSkillMultiplier"
+        :our-for-one-fight-mods="ourForOneFightMods"
+        :enemy-mods-on-us="enemyModsOnUs"
+        :class-change-badge="classChangeBadge"
+        :our-moral-change="ourMoralChange"
+        :fight-result="fightResult"
+        :fight-shake="fightShake"
+        :is-portal-swap="isPortalSwap"
+        :clash-phase="clashPhase"
+        :get-display-avatar="getDisplayAvatar"
+        :get-display-char-name="getDisplayCharName"
+        :fof-badge-text="fofBadgeText"
+        :is-fof-buff="isFofBuff"
+        :enemy-fof-badge-text="enemyFofBadgeText"
+        :phase-class="phaseClass"
+      />
+      <!-- Fight Arena — Cards (mod-card grid, justice slam, wax seal) -->
+      <FightArenaCards v-if="fight && fightStyle === 'Cards'" ref="fightCardRef"
+        :fight="fight"
+        :is-my-fight="isMyFight"
+        :is-flipped="isFlipped"
+        :left-name="leftName"
+        :left-char-name="leftCharName"
+        :left-avatar="leftAvatar"
+        :right-name="rightName"
+        :right-char-name="rightCharName"
+        :right-avatar="rightAvatar"
+        :left-won="leftWon"
+        :attacked-right="attackedRight"
+        :sign="sign"
+        :current-step="currentStep"
+        :skipped-to-end="skippedToEnd"
+        :show-r1-result="showR1Result"
+        :show-r2="showR2"
+        :show-r3="showR3"
+        :show-final-result="showFinalResult"
+        :show-details="showDetails"
+        :phase1-result="phase1Result"
+        :phase2-result="phase2Result"
+        :phase3-result="phase3Result"
+        :phase2-revealed="phase2Revealed"
+        :phase3-revealed="phase3Revealed"
+        :bar-position="barPosition"
+        :animated-weighing-value="animatedWeighingValue"
+        :our-justice="ourJustice"
+        :enemy-justice="enemyJustice"
+        :slam-phase="slamPhase"
+        :justice-winner="justiceWinner"
+        :r3-our-chance="r3OurChance"
+        :r3-display-chance="r3DisplayChance"
+        :r3-roll-pct="r3RollPct"
+        :r3-we-won="r3WeWon"
+        :r3-overflow="r3Overflow"
+        :r3-underflow="r3Underflow"
+        :r3-justice-pct="r3JusticePct"
+        :r3-nemesis-pct="r3NemesisPct"
+        :r3-needle-pos="r3NeedlePos"
+        :r3-needle-settled="r3NeedleSettled"
+        :round1-factors="round1Factors"
+        :our-skill-multiplier="ourSkillMultiplier"
+        :our-for-one-fight-mods="ourForOneFightMods"
+        :enemy-mods-on-us="enemyModsOnUs"
+        :class-change-badge="classChangeBadge"
+        :our-moral-change="ourMoralChange"
+        :fight-result="fightResult"
+        :fight-shake="fightShake"
+        :is-portal-swap="isPortalSwap"
+        :get-display-avatar="getDisplayAvatar"
+        :get-display-char-name="getDisplayCharName"
+        :fof-badge-text="fofBadgeText"
+        :is-fof-buff="isFofBuff"
+        :enemy-fof-badge-text="enemyFofBadgeText"
+        :phase-class="phaseClass"
+      />
+      <!-- Fight Arena — Classic (inline factor rows, compact card, old-school layout) -->
+      <FightArenaClassic v-if="fight && fightStyle === 'Classic'" ref="fightCardRef"
         :fight="fight"
         :is-my-fight="isMyFight"
         :is-flipped="isFlipped"
@@ -1389,7 +1536,7 @@ function getDisplayCharName(orig: string, u: string): string {
 </template>
 
 <style scoped>
-.fight-animation { display: flex; flex-direction: column; gap: 3px; padding: 3px; }
+.fight-animation { display: flex; flex-direction: column; gap: 3px; padding: 3px; flex: 1; min-height: 0; }
 .fa-empty { color: var(--text-muted); font-style: italic; padding: 12px; text-align: center; font-size: 13px; }
 
 /* ── Controls ── */

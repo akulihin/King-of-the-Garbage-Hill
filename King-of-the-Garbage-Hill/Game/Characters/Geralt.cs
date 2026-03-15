@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace King_of_the_Garbage_Hill.Game.Characters;
 
@@ -116,6 +117,22 @@ public class Geralt
         public int Total { get; set; }
         public int PredictedCoins { get; set; }
         public int PredictedDispleasure { get; set; }
+        public int AdditionalCoins { get; set; }
+        public int AdditionalDispleasure { get; set; }
+    }
+
+    public class PerTargetFightData
+    {
+        public int AttackWins { get; set; }
+        public int AttackLosses { get; set; }
+        public int DefenseWins { get; set; }
+        public int DefenseLosses { get; set; }
+        public int TotalWins => AttackWins + DefenseWins;
+        public int TotalLosses => AttackLosses + DefenseLosses;
+        public bool WasTooGood { get; set; }
+        public bool WasTooStronk { get; set; }
+        public int TargetPosition { get; set; }
+        public string TargetName { get; set; } = "";
     }
 
     public class ContractDemandClass
@@ -124,19 +141,13 @@ public class Geralt
         public int TotalDemandsMade { get; set; } = 0;
         public int TotalSuccessfulDemands { get; set; } = 0;
 
-        // Current round accumulators (written during fights)
-        public int CurrentContractWins { get; set; } = 0;
-        public int CurrentContractLosses { get; set; } = 0;
-        public int CurrentTooGoodWins { get; set; } = 0;    // wins vs position 1-2
-        public int CurrentTooStronkWins { get; set; } = 0;  // wins vs stats ≥ 28
-        public int CurrentGeraltPosition { get; set; } = 0;
-
+        // Per-target fight tracking (written during fights)
+        public Dictionary<Guid, PerTargetFightData> CurrentPerTarget { get; set; } = new();
         // Previous round snapshot (copied at HandleEndOfRound, read by demand button)
-        public int PrevContractWins { get; set; } = 0;
-        public int PrevContractLosses { get; set; } = 0;
+        public Dictionary<Guid, PerTargetFightData> PrevPerTarget { get; set; } = new();
+
+        // Previous round aggregate fields (kept)
         public int PrevContractsFought { get; set; } = 0;
-        public int PrevTooGoodWins { get; set; } = 0;
-        public int PrevTooStronkWins { get; set; } = 0;
         public int PrevGeraltPosition { get; set; } = 0;
         public bool PrevLambertWasActive { get; set; } = false;
         public bool PrevWasBlocking { get; set; } = false;
@@ -146,39 +157,73 @@ public class Geralt
         public bool DemandedThisPhase { get; set; } = false;
         public bool DemandedForNext { get; set; } = false;
 
+        // Advance tracking
+        public bool AdvancePending { get; set; } = false;
+
         public bool QuestCompletedThisRound { get; set; } = false;
 
         public InvoiceResult CalculateInvoice()
         {
             var items = new List<InvoiceLineItem>();
 
-            // Contract wins
-            if (PrevContractWins > 0)
-                items.Add(new InvoiceLineItem($"Убито монстров: {PrevContractWins}", PrevContractWins * 3));
+            // Sum totals from PrevPerTarget
+            var totalWins = PrevPerTarget.Values.Sum(t => t.TotalWins);
+            var totalLosses = PrevPerTarget.Values.Sum(t => t.TotalLosses);
 
-            // Contract losses
-            if (PrevContractLosses > 0)
-                items.Add(new InvoiceLineItem($"Проиграно монстрам: {PrevContractLosses}", -PrevContractLosses * 2));
+            // Contract wins: +3 per win
+            if (totalWins > 0)
+                items.Add(new InvoiceLineItem($"Убито монстров: {totalWins}", totalWins * 3));
+
+            // Contract losses: -2 per loss
+            if (totalLosses > 0)
+                items.Add(new InvoiceLineItem($"Проиграно монстрам: {totalLosses}", -totalLosses * 2));
 
             // Flawless — won all, lost none, fought ≥ 2
-            if (PrevContractWins >= 2 && PrevContractLosses == 0)
+            if (totalWins >= 2 && totalLosses == 0)
                 items.Add(new InvoiceLineItem("Чистая работа", 3));
 
-            // Barely survived — losses > wins, but at least 1 win
-            if (PrevContractLosses > PrevContractWins && PrevContractWins > 0)
-                items.Add(new InvoiceLineItem("Выжил чудом", 1));
-
             // Total failure — no wins at all
-            if (PrevContractWins == 0 && PrevContractLosses > 0)
+            if (totalWins == 0 && totalLosses > 0)
                 items.Add(new InvoiceLineItem("Полный провал", -3));
 
-            // Won against top-ranking enemy (position 1-2)
-            if (PrevTooGoodWins > 0)
-                items.Add(new InvoiceLineItem($"Убил сильнейших: {PrevTooGoodWins}", PrevTooGoodWins * 2));
+            // TooGood per-target: +1 × target's TotalWins
+            var anyTooGood = false;
+            foreach (var kvp in PrevPerTarget)
+            {
+                var t = kvp.Value;
+                if (t.WasTooGood && t.TotalWins > 0)
+                {
+                    items.Add(new InvoiceLineItem($"Убил сильнейших: {t.TargetName}", t.TotalWins));
+                    anyTooGood = true;
+                }
+            }
 
-            // Won against high-stats enemy (stats ≥ 28)
-            if (PrevTooStronkWins > 0)
-                items.Add(new InvoiceLineItem($"Сильный монстр: {PrevTooStronkWins}", PrevTooStronkWins * 2));
+            // TooStronk per-target: +1 × target's TotalWins
+            foreach (var kvp in PrevPerTarget)
+            {
+                var t = kvp.Value;
+                if (t.WasTooStronk && t.TotalWins > 0)
+                    items.Add(new InvoiceLineItem($"Сильный монстр: {t.TargetName}", t.TotalWins));
+            }
+
+            // No worthy targets penalty
+            if (!anyTooGood && PrevPerTarget.Count > 0)
+                items.Add(new InvoiceLineItem("Нет достойных целей", -3));
+
+            // Attack-only position bonuses per target
+            foreach (var kvp in PrevPerTarget)
+            {
+                var t = kvp.Value;
+                if (t.TargetPosition == 1 && t.AttackWins > 0)
+                    items.Add(new InvoiceLineItem($"Охота на лидера: {t.TargetName}", 2 * t.AttackWins));
+                else if (t.TargetPosition == 2 && t.AttackWins > 0)
+                    items.Add(new InvoiceLineItem($"Охота на сильного: {t.TargetName}", t.AttackWins));
+
+                if (t.TargetPosition == 5 && t.AttackLosses > 0)
+                    items.Add(new InvoiceLineItem($"Проигрыш слабому: {t.TargetName}", -t.AttackLosses));
+                else if (t.TargetPosition == 6 && t.AttackLosses > 0)
+                    items.Add(new InvoiceLineItem($"Проигрыш аутсайдеру: {t.TargetName}", -2 * t.AttackLosses));
+            }
 
             // Lots of contract fights
             if (PrevContractsFought >= 5)
@@ -192,7 +237,7 @@ public class Geralt
             else if (PrevGeraltPosition >= 3 && PrevGeraltPosition <= 4)
                 items.Add(new InvoiceLineItem($"Геральт на {PrevGeraltPosition}-м месте", 1));
 
-            // All contract enemies fought — every assigned enemy attacked or was attacked
+            // All contract enemies fought
             if (PrevAllContractsFought)
                 items.Add(new InvoiceLineItem("Все контракты выполнены", 6));
 
@@ -214,24 +259,33 @@ public class Geralt
             if (TotalDemandsMade > 0)
                 items.Add(new InvoiceLineItem($"Прошлые требования: {TotalDemandsMade}", -TotalDemandsMade));
 
-            var total = 0;
-            foreach (var item in items)
-                total += item.Points;
+            var total = items.Sum(i => i.Points);
 
             // Determine tier
             int coins, displeasure;
-            if (total >= 8) { coins = 2; displeasure = 0; }
-            else if (total >= 5) { coins = 1; displeasure = 0; }
-            else if (total >= 2) { coins = 1; displeasure = 1; }
+            if (total >= 12) { coins = 2; displeasure = 0; }
+            else if (total >= 8) { coins = 1; displeasure = 0; }
+            else if (total >= 4) { coins = 1; displeasure = 1; }
+            else if (total >= 2) { coins = 1; displeasure = 2; }
             else if (total >= 0) { coins = 0; displeasure = 2; }
             else { coins = 0; displeasure = 3; }
+
+            // Barely survived → additional effects (not in invoice total)
+            int additionalCoins = 0, additionalDispleasure = 0;
+            if (totalLosses > totalWins && totalWins > 0)
+            {
+                additionalCoins = 1;
+                additionalDispleasure = 3;
+            }
 
             return new InvoiceResult
             {
                 LineItems = items,
                 Total = total,
                 PredictedCoins = coins,
-                PredictedDispleasure = displeasure
+                PredictedDispleasure = displeasure,
+                AdditionalCoins = additionalCoins,
+                AdditionalDispleasure = additionalDispleasure
             };
         }
     }

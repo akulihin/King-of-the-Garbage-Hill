@@ -73,6 +73,10 @@ public class InGameStatus
     public Guid IsTargetSkipped { get; set; }
     public Guid IsTargetBlocked { get; set; }
     public decimal MoralGainedThisFight { get; set; }
+    public List<ScoreEntry> ScoreEntries { get; set; } = new();
+    public List<ScoreEntry> PreviousRoundScoreEntries { get; set; } = new();
+    public int ActualRoundMultiplier { get; set; } = 1;
+    public int ExpectedRoundMultiplier { get; set; } = 1;
     public Guid IsFighting { get; set; }
     private decimal ScoresToGiveAtEndOfRound { get; set; }
     private decimal BonusPointsEarnedThisRound { get; set; }
@@ -189,6 +193,7 @@ public class InGameStatus
     public void AddRegularPoints(int regularPoints, string reason, bool isLog = true)
     {
         ScoresToGiveAtEndOfRound += regularPoints;
+        ScoreEntries.Add(new ScoreEntry { Source = reason, Points = regularPoints, IsBonus = false });
         if (!isLog) return;
 
         if (regularPoints >= 0)
@@ -208,6 +213,7 @@ public class InGameStatus
     public void HardKittyMinus(int scoreToAdd, string skillName)
     {
         Score += scoreToAdd;
+        ScoreEntries.Add(new ScoreEntry { Source = skillName, Points = scoreToAdd, IsBonus = true });
         AddInGamePersonalLogs($"{skillName}: {scoreToAdd} очков\n");
     }
 
@@ -220,6 +226,7 @@ public class InGameStatus
 
         Score += bonusPoints;
         BonusPointsEarnedThisRound += bonusPoints;
+        ScoreEntries.Add(new ScoreEntry { Source = skillName, Points = bonusPoints, IsBonus = true });
 
         if (Score < 0 && GameCharacter.Passive.All(x => x.PassiveName != "Никому не нужен"))
             Score = 0;
@@ -239,6 +246,14 @@ public class InGameStatus
     {
         var roundNumber = game.RoundNo;
 
+        // Expected multiplier (before any passive overrides)
+        ExpectedRoundMultiplier = game.RoundNo switch
+        {
+            <= 4 => 1,
+            <= 9 => 2,
+            _ => 4
+        };
+
         //Подсчет
         foreach (var player in game.PlayersList)
         {
@@ -253,6 +268,16 @@ public class InGameStatus
             }
         }
         //end Подсчет
+
+        // Actual multiplier (after passive overrides) + snapshot
+        ActualRoundMultiplier = roundNumber switch
+        {
+            <= 4 => 1,
+            <= 9 => 2,
+            _ => 4
+        };
+        PreviousRoundScoreEntries = new List<ScoreEntry>(ScoreEntries);
+        ScoreEntries.Clear();
 
         AddScore(GetScoresToGiveAtEndOfRound(), roundNumber);
         SetScoresToGiveAtEndOfRound(0, "", false);
@@ -392,4 +417,11 @@ public class ForOneFightMod
     public string Stat { get; set; }
     public decimal OriginalValue { get; set; }
     public decimal NewValue { get; set; }
+}
+
+public class ScoreEntry
+{
+    public string Source { get; set; }
+    public decimal Points { get; set; }
+    public bool IsBonus { get; set; }
 }

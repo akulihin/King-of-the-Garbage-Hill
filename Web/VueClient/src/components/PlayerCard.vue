@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue'
-import type { Player, PortalGun, ExploitState, TsukuyomiState, PassiveAbilityStates } from 'src/services/signalr'
+import type { Player, PortalGun, ExploitState, TsukuyomiState, PassiveAbilityStates, ScoreBreakdown } from 'src/services/signalr'
 import { useTip } from 'src/composables/useTip'
 import ScoreOdometer from 'src/components/ScoreOdometer.vue'
 import { useGameStore } from 'src/store/game'
@@ -12,27 +12,22 @@ import {
   playPointsSummary,
 } from 'src/services/sound'
 
-interface ScoreEntry {
-  raw: string
-  html: string
-  type: string
-  comboCount: number
-}
-
 const props = withDefaults(defineProps<{
   player: Player
   isMe: boolean
   resistFlash?: string[]
   justiceReset?: boolean
   justiceUp?: boolean
-  scoreEntries?: ScoreEntry[]
+  scoreBreakdown?: ScoreBreakdown | null
   scoreAnimReady?: boolean
+  fightBonuses?: { label: string; value: string; cssClass: string }[]
 }>(), {
   resistFlash: () => [],
   justiceReset: false,
   justiceUp: false,
-  scoreEntries: () => [],
+  scoreBreakdown: null,
   scoreAnimReady: false,
+  fightBonuses: () => [],
 })
 
 const store = useGameStore()
@@ -107,12 +102,14 @@ const hasMoral = computed(() => props.isMe && moral.value >= 1)
 
 const roundNo = computed(() => store.gameState?.roundNo ?? 0)
 const isLastRound = computed(() => roundNo.value === 10)
-const roundMultiplier = computed(() => {
-  const r = roundNo.value
-  if (r <= 4) return 1
-  if (r <= 9) return 2
-  return 4
+const roundMultiplier = computed(() => props.scoreBreakdown?.roundMultiplier ?? 1)
+
+const isMultiplierModified = computed(() => {
+  if (!props.scoreBreakdown) return false
+  return props.scoreBreakdown.roundMultiplier !== props.scoreBreakdown.expectedRoundMultiplier
 })
+
+const expectedMultiplier = computed(() => props.scoreBreakdown?.expectedRoundMultiplier ?? 1)
 
 const hasBulkaet = computed(() => {
   if (!props.player) return false
@@ -239,17 +236,14 @@ const geraltDispleasureTextStyle = computed(() => {
 
 const invoiceTotalClass = computed(() => {
   const t = geralt.value?.invoiceTotal ?? 0
-  if (t >= 8) return 'inv-tier-great'
-  if (t >= 5) return 'inv-tier-good'
-  if (t >= 2) return 'inv-tier-mid'
+  if (t >= 12) return 'inv-tier-great'
+  if (t >= 8) return 'inv-tier-good'
+  if (t >= 4) return 'inv-tier-mid'
   return 'inv-tier-bad'
 })
 
 const demandPreviousBtnText = computed(() => {
-  const coins = geralt.value?.invoicePredictedCoins ?? 0
-  if (coins >= 2) return `Потребовать (+${coins} очка)`
-  if (coins === 1) return 'Потребовать (+1 очко)'
-  return 'Потребовать'
+  return 'За прошлый (+1)'
 })
 
 // Goblin population bar segment percentages
@@ -302,44 +296,74 @@ const moralToSkillRate = computed(() => {
 
 // ── Score combo animation ──────────────────────────────────────────
 
-/** A single "hit" — one combo source within a score entry */
-interface ComboHit {
-  label: string        // e.g. "Победа", "Заводить друзей"
-  pointsDelta: number  // points this hit adds
-  hitIndex: number     // global sequential index across all entries
-  comboNum: number     // 1-based combo counter within the entry (1 = first, 2+ = combo)
-  totalInEntry: number // how many hits in this entry
+/** A single source entry (one row in the combo feed) */
+interface SourceEntry {
+  name: string
+  basePts: number       // pre-multiplied point value to display
+  pointsEarned: number  // actual points earned (basePts × multiplier for regular)
 }
 
-/** Expand all score entries into individual hits */
-const comboHits = computed<ComboHit[]>(() => {
-  const hits: ComboHit[] = []
-  let globalIdx = 0
-  for (const entryR of props.scoreEntries) {
-    // Remove Discord markdown formatting
-    const entry = entryR.raw.replaceAll("**", "").replaceAll("__", "").replaceAll("~~", "")
-    // Parse total points: "+8 обычных очков ..." or "Блок: -1 бонусных очков"
-    const ptsMatch = entry.match(/([+-]?\d+)\s*(?:обычных|бонусных)?\s*очков/i)
-    const totalPts = ptsMatch ? parseInt(ptsMatch[1]) : 0
-    // Parse combo sources from parentheses: "(Победа+Заводить друзей+Победа)"
-    const parenMatch = entry.match(/\(([^)]+)\)/)
-    let sources: string[]
-    if (parenMatch) {
-      sources = parenMatch[1].split('+').map((s: string) => s.trim()).filter((s: string) => s)
+/** A group of score sources (regular or bonus) */
+interface ScoreGroup {
+  type: 'regular' | 'bonus'
+  multiplier: number
+  entries: SourceEntry[]
+  totalPoints: number
+}
+
+/** A flattened animation hit for staggered reveal */
+interface AnimHit {
+  name: string
+  basePts: number
+  pointsEarned: number
+  comboIndex: number    // running index within the group (0-based)
+  groupType: 'regular' | 'bonus'
+  groupMultiplier: number
+}
+
+/** Build Regular and Bonus groups directly from structured ScoreBreakdown data */
+const scoreGroups = computed<ScoreGroup[]>(() => {
+  if (!props.scoreBreakdown) return []
+
+  const mult = roundMultiplier.value
+  const regularEntries: SourceEntry[] = []
+  const bonusEntries: SourceEntry[] = []
+  let bonusTotal = 0
+
+  for (const entry of props.scoreBreakdown.entries) {
+    if (entry.isBonus) {
+      bonusEntries.push({ name: entry.source || 'Бонус', basePts: entry.points, pointsEarned: entry.points })
+      bonusTotal += entry.points
     } else {
-      // Use text before the number as label, e.g. "Блок:" → "Блок"
-      const prefixMatch = entry.match(/^([^0-9+-]+)/)
-      const prefix = prefixMatch ? prefixMatch[1].replace(/[:\s]+$/, '').trim() : ''
-      sources = [prefix || 'Очки']
+      regularEntries.push({ name: entry.source || 'Очки', basePts: entry.points, pointsEarned: Math.round(entry.points * mult) })
     }
-    const perHit = sources.length > 0 ? Math.round(totalPts / sources.length) : totalPts
-    for (let i = 0; i < sources.length; i++) {
+  }
+
+  const regularTotal = Math.round(regularEntries.reduce((sum, e) => sum + e.basePts, 0) * mult)
+
+  const groups: ScoreGroup[] = []
+  if (regularEntries.length > 0) {
+    groups.push({ type: 'regular', multiplier: mult, entries: regularEntries, totalPoints: regularTotal })
+  }
+  if (bonusEntries.length > 0) {
+    groups.push({ type: 'bonus', multiplier: 1, entries: bonusEntries, totalPoints: bonusTotal })
+  }
+  return groups
+})
+
+/** Flat list of all animation hits across groups (each source = separate hit) */
+const allAnimHits = computed<AnimHit[]>(() => {
+  const hits: AnimHit[] = []
+  for (const group of scoreGroups.value) {
+    let comboIdx = 0
+    for (const entry of group.entries) {
       hits.push({
-        label: sources[i],
-        pointsDelta: perHit,
-        hitIndex: globalIdx++,
-        comboNum: i + 1,
-        totalInEntry: sources.length,
+        name: entry.name,
+        basePts: entry.basePts,
+        pointsEarned: entry.pointsEarned,
+        comboIndex: comboIdx++,
+        groupType: group.type,
+        groupMultiplier: group.multiplier,
       })
     }
   }
@@ -361,8 +385,8 @@ function startComboAnimation() {
   if (comboAnimStarted) return
   comboAnimStarted = true
   clearComboTimer()
-  const entries = props.scoreEntries
-  if (!entries.length) {
+  const entryCount = props.scoreBreakdown?.entries.length ?? 0
+  if (!entryCount) {
     hitVisibleCount.value = 0; hitActiveIdx.value = -1; animatedScoreDelta.value = 0
     return
   }
@@ -372,40 +396,43 @@ function startComboAnimation() {
   setTimeout(() => {
     let i = 0
     let pluckSeq = 0
-    const allHits = comboHits.value
+    let lastGroupType: string | null = null
+    const hits = allAnimHits.value
     comboTimer = setInterval(() => {
-      if (i >= allHits.length) {
+      if (i >= hits.length) {
         clearComboTimer()
-        // Points summary (Req 16)
-        const totalEarned = allHits.reduce((sum, h) => sum + h.pointsDelta, 0)
+        const totalEarned = hits.reduce((sum: number, h: AnimHit) => sum + h.pointsEarned, 0)
         playPointsSummary(totalEarned)
         setTimeout(() => { hitActiveIdx.value = -1 }, 600)
         return
       }
       hitActiveIdx.value = i
-      const hit = allHits[i]
-      if (hit.pointsDelta > 0) {
-        playPointsIncreaseSound(hit.pointsDelta, hit.label)
+      const hit = hits[i]
+      if (hit.pointsEarned > 0) {
+        playPointsIncreaseSound(hit.pointsEarned, hit.name)
         pluckSeq++
         playComboPluck(Math.min(7, pluckSeq))
-        if (hit.comboNum === 1) {
-          playComboHype(hit.totalInEntry)
+        // Play hype sound when first hit of a new group type appears
+        if (hit.groupType !== lastGroupType) {
+          const groupHits = hits.filter((h: AnimHit) => h.groupType === hit.groupType)
+          playComboHype(groupHits.length)
         }
       }
-      // Combo stack sounds for large combos (Req 14)
-      if (allHits.length > 7) {
+      lastGroupType = hit.groupType
+      // Combo stack sounds for large combos
+      if (hits.length > 7) {
         playComboStack(i + 1)
       }
-      animatedScoreDelta.value += hit.pointsDelta
+      animatedScoreDelta.value += hit.pointsEarned
       i++
       hitVisibleCount.value = i
     }, 350)
   }, 100)
 }
 
-// Reset when score entries change (new round)
-watch(() => props.scoreEntries, (entries: ScoreEntry[]) => {
-  const snap = entries.map((e: ScoreEntry) => e.raw).join('|')
+// Reset when score breakdown changes (new round)
+watch(() => props.scoreBreakdown, (breakdown) => {
+  const snap = breakdown ? JSON.stringify(breakdown) : ''
   if (snap === lastScoreSnapshot) return
   lastScoreSnapshot = snap
   comboAnimStarted = false
@@ -417,7 +444,7 @@ watch(() => props.scoreEntries, (entries: ScoreEntry[]) => {
 
 // Start combo when fight replay ends
 watch(() => props.scoreAnimReady, (ready: boolean) => {
-  if (ready && props.scoreEntries.length > 0 && hitVisibleCount.value === 0) {
+  if (ready && (props.scoreBreakdown?.entries.length ?? 0) > 0 && hitVisibleCount.value === 0) {
     startComboAnimation()
   }
 })
@@ -566,31 +593,9 @@ function handleMoralToSkill() {
   <div class="player-card" :class="{ 'is-me': isMe, 'is-bug': isBug, 'is-dragon': passiveStates?.dragon, 'is-awakened': passiveStates?.dragon?.isAwakened, 'is-last-place': isMe && (player?.status?.place ?? 0) >= 6 }"
     :style="passiveStates?.privilege && passiveStates.privilege.markedCount > 0 ? { borderColor: 'rgba(205, 127, 50, 0.5)', boxShadow: '0 0 12px rgba(205, 127, 50, 0.2)' } : {}"
   >
-    <!-- Large avatar -->
-    <div class="pc-avatar-wrap" :class="[placeTier]">
-      <img
-        v-if="player.character.avatarCurrent"
-        :src="player.character.avatarCurrent"
-        :alt="player.character.name"
-        class="pc-avatar-img"
-      >
-      <div v-else class="pc-avatar-fallback">
-        {{ player.character.name.charAt(0) }}
-      </div>
-    </div>
-
-    <!-- Name & character -->
-    <div class="pc-identity">
-      <div class="pc-name">
-        {{ player.character.name }}
-        <span v-if="isMe && charTier > 0" class="rarity-badge" :class="rarityClass">{{ rarityLabel }}</span>
-      </div>
-      <div v-if="isMe && masteryLevel > 0" class="mastery-badge" :class="'mastery-' + masteryTier">
-        <span class="mastery-level">{{ masteryLevel }}</span>
-        <span class="mastery-label">{{ masteryTier }}</span>
-      </div>
-      <div class="pc-username">{{ player.discordUsername }}</div>
-    </div>
+    <!-- Top grid: if not isMe, show avatar on right; if isMe, avatar lives in game-right -->
+    <div class="pc-top-grid" :class="{ 'pc-top-no-avatar': isMe }">
+    <div class="pc-top-left">
 
     <!-- Stats with bars + resist/quality -->
     <div class="pc-stats">
@@ -889,6 +894,31 @@ function handleMoralToSkill() {
       </div>
     </div>
 
+    </div><!-- /pc-top-left -->
+
+    <!-- Right: avatar and identity (only for non-me, e.g. Replay enemy) -->
+    <div v-if="!isMe" class="pc-top-right">
+      <div class="pc-avatar-wrap" :class="[placeTier]">
+        <img
+          v-if="player.character.avatarCurrent"
+          :src="player.character.avatarCurrent"
+          :alt="player.character.name"
+          class="pc-avatar-img"
+        >
+        <div v-else class="pc-avatar-fallback">
+          {{ player.character.name.charAt(0) }}
+        </div>
+      </div>
+      <div class="pc-identity">
+        <div class="pc-name">
+          {{ player.character.name }}
+        </div>
+        <div class="pc-username">{{ player.discordUsername }}</div>
+      </div>
+    </div><!-- /pc-top-right -->
+
+    </div><!-- /pc-top-grid -->
+
     <!-- Moral exchange -->
     <div v-if="hasMoral" class="pc-moral-actions">
       <div v-if="isLastRound" class="moral-last-round">Последний шанс!</div>
@@ -950,11 +980,11 @@ function handleMoralToSkill() {
           {{ geralt.demandedThisPhase ? 'Уже потребовал' : geralt.canDemandPrevious ? demandPreviousBtnText : 'Нет заказов' }}
         </button>
         <button
-          v-if="geralt.canDemandNext"
           class="geralt-demand-btn geralt-demand-next"
+          :disabled="!geralt.canDemandNext"
           @click="store.demandContractReward('next')"
         >
-          За следующий
+          {{ geralt.advancePending ? 'Аванс в обработке' : 'За следующий (+2)' }}
         </button>
       </div>
       <div class="geralt-displeasure">
@@ -1710,13 +1740,12 @@ function handleMoralToSkill() {
     <!-- Score + animated delta -->
     <div class="pc-score-row" :class="{ 'confetti-burst': showConfetti }">
       <ScoreOdometer :value="player.status.score" size="lg" :flash-color="animatedScoreDelta > 0 ? '#5ba85b' : animatedScoreDelta < 0 ? '#e05545' : null" class="pc-score" />
-      <span class="pc-score-label">pts</span>
-      <span v-if="roundMultiplier > 1" class="pc-round-multiplier">x{{ roundMultiplier }}</span>
-      <span v-if="animatedScoreDelta !== 0" class="pc-score-delta" :class="{ 'delta-big': comboHits.length >= 4, 'delta-huge': comboHits.length >= 6, 'delta-negative': animatedScoreDelta < 0 }" :key="animatedScoreDelta">
+      <span class="pc-score-label" :class="{ 'pc-score-label-geralt': isGeralt }">{{ isGeralt ? 'чеканные\nмонеты' : 'pts' }}</span>
+      <span v-if="animatedScoreDelta !== 0" class="pc-score-delta" :class="{ 'delta-big': allAnimHits.length >= 4, 'delta-huge': allAnimHits.length >= 6, 'delta-negative': animatedScoreDelta < 0 }" :key="animatedScoreDelta">
         {{ animatedScoreDelta > 0 ? '+' : '' }}{{ animatedScoreDelta }}
       </span>
-      <span v-if="hitActiveIdx >= 0 && comboHits[hitActiveIdx]?.comboNum > 1" class="combo-multiplier" :key="hitActiveIdx">
-        x{{ comboHits[hitActiveIdx].comboNum }}
+      <span v-if="hitActiveIdx >= 0 && allAnimHits[hitActiveIdx]?.comboIndex > 0" class="combo-multiplier" :key="hitActiveIdx">
+        COMBO {{ allAnimHits[hitActiveIdx].comboIndex + 1 }}
       </span>
       <!-- Confetti particles for big score gains -->
       <div v-if="showConfetti" class="confetti-container">
@@ -1724,28 +1753,71 @@ function handleMoralToSkill() {
       </div>
     </div>
 
-    <!-- Score combo hits (each + source animated individually) -->
-    <div v-if="isMe && comboHits.length > 0" class="pc-combo-feed">
-      <div
-        v-for="(hit, idx) in comboHits"
-        :key="idx"
-        class="combo-entry"
-        :class="{
-          'combo-visible': idx < hitVisibleCount,
-          'combo-active': idx === hitActiveIdx,
-          'combo-big': hit.comboNum >= 3 && hit.pointsDelta > 0,
-          'combo-huge': hit.comboNum >= 5 && hit.pointsDelta > 0,
-          'combo-negative': hit.pointsDelta < 0,
-        }"
-      >
-        <span class="combo-hit-pts" :class="{ 'combo-hit-negative': hit.pointsDelta < 0 }">{{ hit.pointsDelta > 0 ? '+' : '' }}{{ hit.pointsDelta }}</span>
-        <span class="combo-hit-label">{{ hit.label }}</span>
-        <span v-if="hit.comboNum >= 2" class="combo-badge" :class="{ 'combo-badge-big': hit.comboNum >= 3, 'combo-badge-huge': hit.comboNum >= 5 }">
-          x{{ hit.comboNum }}
-        </span>
-      </div>
-      <div v-if="comboHits.length >= 3 && hitVisibleCount >= comboHits.length" class="combo-total" :class="{ 'combo-total-big': comboHits.length >= 5, 'combo-total-huge': comboHits.length >= 8 }">
-        {{ comboHits.length }} Combo!
+    <!-- Score combo feed: each source as separate row, Regular / Bonus sections -->
+    <div v-if="isMe && allAnimHits.length > 0" class="pc-combo-feed">
+      <template v-for="(group, gIdx) in scoreGroups" :key="gIdx">
+        <div
+          class="combo-section"
+          :class="[
+            group.type === 'regular' ? 'combo-section-regular' : 'combo-section-bonus',
+            { 'combo-visible': hitVisibleCount > allAnimHits.findIndex(h => h.groupType === group.type) }
+          ]"
+        >
+          <!-- Section header -->
+          <div class="combo-section-header">
+            <span class="combo-section-label">{{ group.type === 'regular' ? 'Regular' : 'Bonus' }}</span>
+            <span v-if="group.type === 'regular' && (group.multiplier > 1 || isMultiplierModified)" class="combo-mult-badge" :class="{ 'combo-mult-modified': isMultiplierModified }">
+              <span v-if="isMultiplierModified" class="combo-mult-expected">x{{ expectedMultiplier }}</span>
+              x{{ group.multiplier }} point multiplier
+            </span>
+          </div>
+
+          <!-- Source rows (each source = separate row) -->
+          <div
+            v-for="(hit, hIdx) in allAnimHits.filter(h => h.groupType === group.type)"
+            :key="hIdx"
+            class="combo-entry"
+            :class="[
+              group.type === 'regular' ? 'combo-type-regular' : 'combo-type-bonus',
+              {
+                'combo-visible': (() => {
+                  const globalIdx = allAnimHits.indexOf(hit)
+                  return globalIdx >= 0 && globalIdx < hitVisibleCount
+                })(),
+                'combo-active': allAnimHits.indexOf(hit) === hitActiveIdx,
+                'combo-negative': hit.pointsEarned < 0,
+              }
+            ]"
+          >
+            <span class="combo-hit-pts" :class="{ 'combo-hit-negative': hit.basePts < 0 }">
+              {{ hit.basePts > 0 ? '+' : '' }}{{ hit.basePts }}
+            </span>
+            <span class="combo-hit-label">{{ hit.name }}</span>
+            <span v-if="hit.comboIndex > 0" class="combo-badge">COMBO {{ hit.comboIndex + 1 }}</span>
+          </div>
+
+          <!-- Section total -->
+          <div
+            v-if="(() => {
+              const groupHits = allAnimHits.filter(h => h.groupType === group.type)
+              const lastGlobalIdx = allAnimHits.indexOf(groupHits[groupHits.length - 1])
+              return lastGlobalIdx >= 0 && lastGlobalIdx < hitVisibleCount
+            })()"
+            class="combo-section-total"
+            :class="group.type === 'regular' ? 'combo-total-regular' : 'combo-total-bonus'"
+          >
+            Total: {{ group.totalPoints > 0 ? '+' : '' }}{{ group.totalPoints }} pts
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Fight bonuses (Skill, Justice, Moral gains from fights) -->
+    <div v-if="isMe && fightBonuses.length > 0" class="pc-fight-bonuses">
+      <div class="fight-bonus-header">Fight Gains</div>
+      <div v-for="(bonus, bIdx) in fightBonuses" :key="bIdx" class="fight-bonus-entry" :class="bonus.cssClass">
+        <span class="fight-bonus-value">{{ bonus.value }}</span>
+        <span class="fight-bonus-label">{{ bonus.label }}</span>
       </div>
     </div>
 
@@ -1791,10 +1863,35 @@ function handleMoralToSkill() {
   56% { border-color: rgba(240, 200, 80, 0.2); }
 }
 
+/* ── Top grid: stats left, avatar right ── */
+.pc-top-grid {
+  display: grid;
+  grid-template-columns: 1fr 140px;
+  gap: 10px;
+  align-items: start;
+}
+.pc-top-grid.pc-top-no-avatar {
+  grid-template-columns: 1fr;
+}
+
+.pc-top-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0; /* prevent overflow */
+}
+
+.pc-top-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
 /* Avatar */
 .pc-avatar-wrap {
-  width: 100%;
-  aspect-ratio: 1;
+  width: 140px;
+  height: 140px;
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--bg-inset);
@@ -1944,17 +2041,20 @@ function handleMoralToSkill() {
 /* Identity */
 .pc-identity {
   text-align: center;
+  max-width: 140px;
 }
 
 .pc-name {
   font-weight: 800;
-  font-size: 16px;
+  font-size: 13px;
   color: var(--accent-gold);
   letter-spacing: 0.3px;
   text-shadow: 0 0 10px rgba(240, 200, 80, 0.25);
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 /* ── Character rarity badge ── */
@@ -1998,7 +2098,7 @@ function handleMoralToSkill() {
 }
 
 .pc-username {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
   font-family: var(--font-mono);
 }
@@ -2531,6 +2631,12 @@ function handleMoralToSkill() {
   font-weight: 600;
 }
 
+.pc-score-label-geralt {
+  white-space: pre-line;
+  font-size: 9px;
+  line-height: 1.2;
+}
+
 .pc-round-multiplier {
   font-size: 11px;
   font-weight: 700;
@@ -2576,80 +2682,131 @@ function handleMoralToSkill() {
   font-family: var(--font-mono);
 }
 
-/* ── Score combo feed ── */
+/* ── Score combo feed (grouped sections) ── */
 .pc-combo-feed {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   padding: 2px 0;
+}
+
+.combo-section {
+  border-radius: 4px;
+  padding: 3px 4px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.3s, transform 0.3s;
+}
+.combo-section.combo-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.combo-section-regular {
+  background: rgba(212, 160, 23, 0.04);
+  border: 1px solid rgba(212, 160, 23, 0.12);
+}
+.combo-section-bonus {
+  background: rgba(96, 165, 250, 0.04);
+  border: 1px solid rgba(96, 165, 250, 0.12);
+}
+
+.combo-section-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 4px 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 2px;
+}
+.combo-section-label {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.combo-section-regular .combo-section-label {
+  color: var(--accent-gold);
+}
+.combo-section-bonus .combo-section-label {
+  color: #60a5fa;
+}
+.combo-mult-badge {
+  font-size: 8px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(212, 160, 23, 0.18);
+  color: var(--accent-gold);
+  letter-spacing: 0.3px;
+  text-transform: lowercase;
+}
+
+.combo-mult-modified {
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.combo-mult-expected {
+  text-decoration: line-through;
+  opacity: 0.6;
+  margin-right: 2px;
 }
 
 .combo-entry {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 4px;
   font-size: 10px;
   font-weight: 700;
-  color: var(--accent-gold);
-  padding: 2px 6px;
+  padding: 1px 6px;
   border-radius: 3px;
-  background: rgba(233, 219, 61, 0.04);
-  border: 1px solid rgba(233, 219, 61, 0.1);
   opacity: 0;
   transform: translateY(6px) scale(0.9);
   transition: opacity 0.3s, transform 0.3s;
 }
-
 .combo-entry.combo-visible {
   opacity: 1;
   transform: translateY(0) scale(1);
 }
-
 .combo-entry.combo-active {
   animation: combo-pop 0.4s ease;
-  background: rgba(233, 219, 61, 0.1);
-  border-color: rgba(233, 219, 61, 0.3);
 }
 
-.combo-entry.combo-big.combo-active {
-  animation: combo-pop-big 0.5s ease;
-  background: rgba(230, 148, 74, 0.12);
-  border-color: rgba(230, 148, 74, 0.4);
-  color: var(--accent-orange);
+.combo-type-regular {
+  color: var(--accent-gold);
+}
+.combo-type-regular.combo-active {
+  background: rgba(212, 160, 23, 0.1);
+}
+.combo-type-bonus {
+  color: #60a5fa;
+}
+.combo-type-bonus.combo-active {
+  background: rgba(96, 165, 250, 0.1);
 }
 
-.combo-entry.combo-huge.combo-active {
-  animation: combo-pop-huge 0.6s ease;
-  background: rgba(239, 128, 128, 0.12);
-  border-color: rgba(239, 128, 128, 0.4);
+.combo-entry.combo-negative {
   color: var(--accent-red);
-  font-size: 11px;
+}
+.combo-entry.combo-negative.combo-active {
+  background: rgba(239, 128, 128, 0.1);
 }
 
 .combo-hit-pts {
   font-weight: 900;
   font-family: var(--font-mono);
-  color: var(--accent-green);
   font-size: 11px;
-  min-width: 24px;
+  min-width: 22px;
 }
-.combo-entry.combo-big .combo-hit-pts { color: var(--accent-orange); }
-.combo-entry.combo-huge .combo-hit-pts { color: var(--accent-red); }
+.combo-type-regular .combo-hit-pts { color: var(--accent-green); }
+.combo-type-bonus .combo-hit-pts { color: #60a5fa; }
 .combo-hit-negative { color: var(--accent-red) !important; }
-
-.combo-entry.combo-negative {
-  background: rgba(239, 128, 128, 0.04);
-  border-color: rgba(239, 128, 128, 0.15);
-}
-.combo-entry.combo-negative.combo-active {
-  background: rgba(239, 128, 128, 0.1);
-  border-color: rgba(239, 128, 128, 0.3);
-}
 
 .combo-hit-label {
   flex: 1;
-  text-align: center;
+  text-align: left;
   font-size: 10px;
   color: var(--text-secondary);
 }
@@ -2661,38 +2818,30 @@ function handleMoralToSkill() {
   border-radius: 3px;
   background: rgba(233, 219, 61, 0.15);
   color: var(--accent-gold);
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
+  margin-left: auto;
+  font-family: var(--font-mono);
 }
-.combo-badge-big {
-  background: rgba(230, 148, 74, 0.2);
-  color: var(--accent-orange);
-}
-.combo-badge-huge {
-  background: rgba(239, 128, 128, 0.2);
-  color: var(--accent-red);
-  font-size: 10px;
+.combo-type-bonus .combo-badge {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
 }
 
-.combo-total {
-  text-align: center;
+.combo-section-total {
+  text-align: right;
   font-size: 10px;
   font-weight: 900;
-  color: var(--accent-gold);
-  padding: 2px 0;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+  padding: 2px 6px 1px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 2px;
+  letter-spacing: 0.3px;
   animation: combo-total-in 0.5s ease;
 }
-.combo-total-big {
-  color: var(--accent-orange);
-  font-size: 11px;
-  text-shadow: 0 0 8px rgba(230, 148, 74, 0.3);
+.combo-total-regular {
+  color: var(--accent-gold);
 }
-.combo-total-huge {
-  color: var(--accent-red);
-  font-size: 12px;
-  text-shadow: 0 0 12px rgba(239, 128, 128, 0.4);
-  animation: combo-total-in 0.5s ease, combo-glow 1s ease-in-out 0.5s 2;
+.combo-total-bonus {
+  color: #60a5fa;
 }
 
 @keyframes combo-pop {
@@ -2700,27 +2849,55 @@ function handleMoralToSkill() {
   50% { transform: translateY(-2px) scale(1.05); }
   100% { transform: translateY(0) scale(1); opacity: 1; }
 }
-@keyframes combo-pop-big {
-  0% { transform: translateY(8px) scale(0.7); opacity: 0; }
-  40% { transform: translateY(-4px) scale(1.12); }
-  70% { transform: translateY(1px) scale(0.98); }
-  100% { transform: translateY(0) scale(1); opacity: 1; }
-}
-@keyframes combo-pop-huge {
-  0% { transform: translateY(10px) scale(0.6); opacity: 0; }
-  30% { transform: translateY(-6px) scale(1.2); }
-  60% { transform: translateY(2px) scale(0.95); }
-  100% { transform: translateY(0) scale(1); opacity: 1; }
-}
 @keyframes combo-total-in {
   0% { opacity: 0; transform: scale(0.5); }
   60% { transform: scale(1.15); }
   100% { opacity: 1; transform: scale(1); }
 }
-@keyframes combo-glow {
-  0%, 100% { text-shadow: 0 0 12px rgba(239, 128, 128, 0.4); }
-  50% { text-shadow: 0 0 20px rgba(239, 128, 128, 0.8), 0 0 40px rgba(239, 128, 128, 0.3); }
+
+/* ── Fight Bonuses Section ── */
+.pc-fight-bonuses {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border-subtle);
 }
+
+.fight-bonus-header {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.fight-bonus-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fight-bonus-value {
+  min-width: 28px;
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.fight-bonus-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Color coding */
+.bonus-skill { color: var(--accent-green); }
+.bonus-justice { color: var(--accent-blue); }
+.bonus-moral-up { color: var(--accent-purple); }
+.bonus-moral-down { color: var(--accent-red); }
 
 /* PSY separated box */
 .pc-psyche-box {
@@ -3786,13 +3963,15 @@ function handleMoralToSkill() {
 .combo-multiplier {
   position: absolute;
   right: -10px;
-  top: -5px;
-  font-size: 20px;
+  top: -8px;
+  font-size: 12px;
   font-weight: 900;
   color: var(--accent-gold);
   text-shadow: 0 0 12px rgba(240, 200, 80, 0.6);
   animation: combo-pop-scale 0.3s var(--ease-spring);
   pointer-events: none;
+  letter-spacing: 0.5px;
+  font-family: var(--font-mono);
 }
 @keyframes combo-pop-scale {
   0% { transform: scale(0.5); opacity: 0; }

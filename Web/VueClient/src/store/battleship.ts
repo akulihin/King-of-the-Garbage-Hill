@@ -191,6 +191,12 @@ export const useBattleshipStore = defineStore('battleship', () => {
 
       gameState.value = state
 
+      // Sync selectedShotType from server (auto-reset after WhiteStone/Buckshot)
+      const me = state.player1?.isMe ? state.player1 : state.player2
+      if (me?.selectedShotType) {
+        selectedShotType.value = me.selectedShotType
+      }
+
       // Phase transition detection
       if (oldPhase && state.phase !== oldPhase) {
         previousPhase.value = oldPhase

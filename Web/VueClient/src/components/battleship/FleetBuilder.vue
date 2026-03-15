@@ -9,25 +9,58 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 
 const store = useBattleshipStore()
 
-const selectedShips = ref<BattleshipFleetSelection[]>([
-  { definitionId: 'single', shipName: 'Single', cost: 0, upgrades: [] },
-  { definitionId: 'double', shipName: 'Double', cost: 0, upgrades: [] },
-  { definitionId: 'triple', shipName: 'Triple', cost: 0, upgrades: [] },
-  { definitionId: 'tetranavis', shipName: 'Tetranavis', cost: 0, upgrades: [] },
-])
+// Template: deckCount → slot count
+const TEMPLATE: Record<number, number> = { 1: 4, 2: 3, 3: 2, 4: 1 }
+const DEFAULT_IDS: Record<number, string> = { 1: 'single', 2: 'double', 3: 'triple', 4: 'tetranavis' }
+const DECK_LABELS: Record<number, string> = { 1: '1-палубные', 2: '2-палубные', 3: '3-палубные', 4: '4-палубные' }
+
+interface FleetSlot {
+  definitionId: string
+  shipName: string
+  cost: number
+  upgrades: string[]
+  isDefault: boolean
+}
+
+// Initialize all 10 slots with defaults
+function createDefaultSlots(): FleetSlot[] {
+  const slots: FleetSlot[] = []
+  for (const dc of [1, 2, 3, 4]) {
+    const defId = DEFAULT_IDS[dc]
+    for (let i = 0; i < TEMPLATE[dc]; i++) {
+      slots.push({ definitionId: defId, shipName: defId.charAt(0).toUpperCase() + defId.slice(1), cost: 0, upgrades: [], isDefault: true })
+    }
+  }
+  return slots
+}
+
+const slots = ref<FleetSlot[]>(createDefaultSlots())
 
 // Boiler weapon choice: 'GreekFire' or 'Brander'
 const boilerWeaponChoice = ref<'GreekFire' | 'Brander'>('GreekFire')
 
 const catalog = computed(() => store.shipCatalog)
 
+// Slots grouped by deck count
+function slotsForDeck(dc: number): { slot: FleetSlot; globalIndex: number }[] {
+  const result: { slot: FleetSlot; globalIndex: number }[] = []
+  let idx = 0
+  for (const d of [1, 2, 3, 4]) {
+    for (let i = 0; i < TEMPLATE[d]; i++) {
+      if (d === dc) result.push({ slot: slots.value[idx], globalIndex: idx })
+      idx++
+    }
+  }
+  return result
+}
+
 const totalCost = computed(() => {
   let cost = 0
-  for (const sel of selectedShips.value) {
-    const def = catalog.value.find(s => s.id === sel.definitionId)
+  for (const slot of slots.value) {
+    const def = catalog.value.find(s => s.id === slot.definitionId)
     if (def) {
       cost += def.cost
-      for (const uid of sel.upgrades) {
+      for (const uid of slot.upgrades) {
         const upg = def.availableUpgrades.find(u => u.id === uid)
         if (upg) cost += upg.cost
       }
@@ -37,12 +70,13 @@ const totalCost = computed(() => {
 })
 
 const coinsLeft = computed(() => 40 - totalCost.value)
+
 const buyableShips = computed(() => catalog.value.filter(s => !s.isFree))
 
 const usedRegions = computed(() => {
   const regions = new Set<string>()
-  for (const sel of selectedShips.value) {
-    const def = catalog.value.find(s => s.id === sel.definitionId)
+  for (const slot of slots.value) {
+    const def = catalog.value.find(s => s.id === slot.definitionId)
     if (def?.region) regions.add(def.region)
   }
   return regions
@@ -51,30 +85,52 @@ const usedRegions = computed(() => {
 const regionCount = computed(() => usedRegions.value.size)
 const overRegionLimit = computed(() => regionCount.value > 3)
 
+// How many default slots remain for a given deck count
+function defaultSlotsLeft(dc: number): number {
+  return slotsForDeck(dc).filter(s => s.slot.isDefault).length
+}
+
+// Get the def of a ship from catalog
+function getShipDef(id: string) {
+  return catalog.value.find(s => s.id === id)
+}
+
+// Add purchased ship → replaces first default slot of matching deck count
 function addShip(def: BattleshipShipCatalogEntry) {
   if (def.cost > coinsLeft.value) return
-  selectedShips.value.push({
-    definitionId: def.id,
-    shipName: def.name,
-    cost: def.cost,
-    upgrades: [],
-  })
+  const deckSlots = slotsForDeck(def.deckCount)
+  const defaultSlot = deckSlots.find(s => s.slot.isDefault)
+  if (!defaultSlot) return // no empty slot
+  const s = slots.value[defaultSlot.globalIndex]
+  s.definitionId = def.id
+  s.shipName = def.nameRu || def.name
+  s.cost = def.cost
+  s.upgrades = []
+  s.isDefault = false
 }
 
-function removeShip(index: number) {
-  const ship = selectedShips.value[index]
-  if (ship && catalog.value.find(s => s.id === ship.definitionId)?.isFree) return
-  selectedShips.value.splice(index, 1)
+// Remove purchased ship → restore to default
+function removeShip(globalIndex: number) {
+  const slot = slots.value[globalIndex]
+  if (slot.isDefault) return
+  const def = getShipDef(slot.definitionId)
+  const dc = def?.deckCount ?? 1
+  const defaultId = DEFAULT_IDS[dc]
+  slot.definitionId = defaultId
+  slot.shipName = defaultId.charAt(0).toUpperCase() + defaultId.slice(1)
+  slot.cost = 0
+  slot.upgrades = []
+  slot.isDefault = true
 }
 
-function toggleUpgrade(shipIndex: number, upgradeId: string) {
-  const sel = selectedShips.value[shipIndex]
-  if (!sel) return
-  const idx = sel.upgrades.indexOf(upgradeId)
+function toggleUpgrade(globalIndex: number, upgradeId: string) {
+  const slot = slots.value[globalIndex]
+  if (!slot) return
+  const idx = slot.upgrades.indexOf(upgradeId)
   if (idx >= 0) {
-    sel.upgrades.splice(idx, 1)
+    slot.upgrades.splice(idx, 1)
   } else {
-    sel.upgrades.push(upgradeId)
+    slot.upgrades.push(upgradeId)
   }
 }
 
@@ -84,27 +140,34 @@ function isBoilerUpgrade(upgradeId: string): boolean {
   return BOILER_UPGRADE_IDS.includes(upgradeId)
 }
 
-function hasBoilerUpgrade(shipIndex: number): boolean {
-  const sel = selectedShips.value[shipIndex]
-  if (!sel) return false
-  return sel.upgrades.some(u => isBoilerUpgrade(u))
+function hasBoilerUpgrade(globalIndex: number): boolean {
+  const slot = slots.value[globalIndex]
+  if (!slot) return false
+  return slot.upgrades.some(u => isBoilerUpgrade(u))
 }
 
-function setBoilerChoice(shipIndex: number, choice: 'GreekFire' | 'Brander') {
-  const sel = selectedShips.value[shipIndex]
-  if (!sel) return
+function setBoilerChoice(globalIndex: number, choice: 'GreekFire' | 'Brander') {
+  const slot = slots.value[globalIndex]
+  if (!slot) return
   boilerWeaponChoice.value = choice
-  // Remove both boiler upgrade IDs, then add the chosen one
-  sel.upgrades = sel.upgrades.filter(u => !isBoilerUpgrade(u))
-  sel.upgrades.push(choice === 'GreekFire' ? 'tetra_boiler_fire' : 'tetra_boiler_brander')
+  slot.upgrades = slot.upgrades.filter(u => !isBoilerUpgrade(u))
+  slot.upgrades.push(choice === 'GreekFire' ? 'tetra_boiler_fire' : 'tetra_boiler_brander')
 }
 
 async function confirmFleet() {
-  await store.selectFleet(selectedShips.value)
-}
-
-function getShipDef(id: string) {
-  return catalog.value.find(s => s.id === id)
+  // Send only non-default ships + free ships with upgrades
+  const selections: BattleshipFleetSelection[] = []
+  for (const slot of slots.value) {
+    if (!slot.isDefault || slot.upgrades.length > 0) {
+      selections.push({
+        definitionId: slot.definitionId,
+        shipName: slot.shipName,
+        cost: slot.cost,
+        upgrades: [...slot.upgrades],
+      })
+    }
+  }
+  await store.selectFleet(selections)
 }
 
 function abilityLabel(a: string): string {
@@ -133,6 +196,11 @@ function getRegionColor(region: string): string {
     case 'east': case 'восток': return '#fb923c'
     default: return 'var(--text-muted)'
   }
+}
+
+// Ships in catalog available for a given deck count (has free slot + affordable)
+function catalogForDeck(dc: number) {
+  return buyableShips.value.filter(s => s.deckCount === dc)
 }
 </script>
 
@@ -165,27 +233,32 @@ function getRegionColor(region: string): string {
       <div v-if="overRegionLimit" class="region-warning">Макс. 3 региона! Уберите корабль из лишнего региона.</div>
     </div>
 
-    <!-- Selected Fleet Section -->
-    <div class="section">
-      <div class="section-title bs-font-body">Ваш флот</div>
-      <div class="selected-ships">
-        <div v-for="(sel, idx) in selectedShips" :key="idx" class="card-wood ship-entry">
+    <!-- Fleet Slots by Deck Count -->
+    <div v-for="dc in [1, 2, 3, 4]" :key="dc" class="section">
+      <div class="section-title bs-font-body">{{ DECK_LABELS[dc] }} ({{ TEMPLATE[dc] }} шт.)</div>
+
+      <div class="slot-group">
+        <div v-for="{ slot, globalIndex } in slotsForDeck(dc)" :key="globalIndex" class="card-wood ship-entry" :class="{ 'slot-default': slot.isDefault }">
           <div class="ship-entry-header">
-            <span class="ship-name bs-font-body">{{ sel.shipName }}</span>
-            <span class="ship-cost bs-font-data">{{ getShipDef(sel.definitionId)?.cost ?? 0 }}c</span>
+            <span class="slot-badge bs-font-data" :class="slot.isDefault ? 'badge-default' : 'badge-purchased'">
+              {{ slot.isDefault ? 'стд' : 'куп' }}
+            </span>
+            <span class="ship-name bs-font-body">{{ slot.isDefault ? (getShipDef(slot.definitionId)?.nameRu || slot.shipName) : slot.shipName }}</span>
+            <span v-if="!slot.isDefault" class="ship-cost bs-font-data">{{ getShipDef(slot.definitionId)?.cost ?? 0 }}c</span>
             <button
-              v-if="!getShipDef(sel.definitionId)?.isFree"
+              v-if="!slot.isDefault"
               class="remove-btn"
-              @click="removeShip(idx)"
+              @mouseenter="showTip($event, 'Убрать и вернуть стандартный корабль')"
+              @mousemove="moveTip" @mouseleave="hideTip"
+              @click="removeShip(globalIndex)"
             >
               X
             </button>
           </div>
 
-          <!-- Upgrades -->
-          <div v-if="getShipDef(sel.definitionId)?.availableUpgrades?.length" class="upgrades">
-            <template v-for="upg in getShipDef(sel.definitionId)!.availableUpgrades" :key="upg.id">
-              <!-- Skip boiler sub-upgrades from general toggle list -->
+          <!-- Upgrades for this slot's ship -->
+          <div v-if="getShipDef(slot.definitionId)?.availableUpgrades?.length" class="upgrades">
+            <template v-for="upg in getShipDef(slot.definitionId)!.availableUpgrades" :key="upg.id">
               <template v-if="isBoilerUpgrade(upg.id)"><!-- handled below --></template>
               <button
                 v-else-if="upg.name === 'Diskomety' || upg.name === 'Дискометы'"
@@ -198,77 +271,52 @@ function getRegionColor(region: string): string {
               <button
                 v-else
                 class="upgrade-btn"
-                :class="sel.upgrades.includes(upg.id) ? 'upgrade-active' : 'upgrade-inactive'"
+                :class="slot.upgrades.includes(upg.id) ? 'upgrade-active' : 'upgrade-inactive'"
                 @mouseenter="showTip($event, upg.description || upg.name)"
                 @mousemove="moveTip" @mouseleave="hideTip"
-                @click="toggleUpgrade(idx, upg.id)"
+                @click="toggleUpgrade(globalIndex, upg.id)"
               >
                 {{ upg.nameRu || upg.name }} ({{ upg.cost }}c)
               </button>
             </template>
 
-            <!-- Boiler weapon choice (radio) — only show if ship has boiler upgrades available -->
-            <div v-if="getShipDef(sel.definitionId)!.availableUpgrades.some(u => isBoilerUpgrade(u.id))" class="boiler-choice">
-              <span class="boiler-label bs-font-data">Котельная ({{ getShipDef(sel.definitionId)!.availableUpgrades.find(u => isBoilerUpgrade(u.id))?.cost ?? 0 }}c):</span>
-              <button
-                class="upgrade-btn"
-                :class="{ 'upgrade-inactive': hasBoilerUpgrade(idx) }"
-                @click="sel.upgrades = sel.upgrades.filter(u => !isBoilerUpgrade(u))"
-                :disabled="!hasBoilerUpgrade(idx)"
-              >
-                Нет
-              </button>
-              <button
-                class="upgrade-btn"
-                :class="hasBoilerUpgrade(idx) && boilerWeaponChoice === 'GreekFire' ? 'upgrade-active' : 'upgrade-inactive'"
-                @click="setBoilerChoice(idx, 'GreekFire')"
-              >
-                Греческий огонь
-              </button>
-              <button
-                class="upgrade-btn"
-                :class="hasBoilerUpgrade(idx) && boilerWeaponChoice === 'Brander' ? 'upgrade-active' : 'upgrade-inactive'"
-                @click="setBoilerChoice(idx, 'Brander')"
-              >
-                Брандер
-              </button>
+            <!-- Boiler weapon choice -->
+            <div v-if="getShipDef(slot.definitionId)!.availableUpgrades.some(u => isBoilerUpgrade(u.id))" class="boiler-choice">
+              <span class="boiler-label bs-font-data">Котельная ({{ getShipDef(slot.definitionId)!.availableUpgrades.find(u => isBoilerUpgrade(u.id))?.cost ?? 0 }}c):</span>
+              <button class="upgrade-btn" :class="{ 'upgrade-inactive': hasBoilerUpgrade(globalIndex) }" @click="slot.upgrades = slot.upgrades.filter(u => !isBoilerUpgrade(u))" :disabled="!hasBoilerUpgrade(globalIndex)">Нет</button>
+              <button class="upgrade-btn" :class="hasBoilerUpgrade(globalIndex) && boilerWeaponChoice === 'GreekFire' ? 'upgrade-active' : 'upgrade-inactive'" @click="setBoilerChoice(globalIndex, 'GreekFire')">Греческий огонь</button>
+              <button class="upgrade-btn" :class="hasBoilerUpgrade(globalIndex) && boilerWeaponChoice === 'Brander' ? 'upgrade-active' : 'upgrade-inactive'" @click="setBoilerChoice(globalIndex, 'Brander')">Брандер</button>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Ship Catalog Section -->
-    <div class="section">
-      <div class="section-title bs-font-body">Доступные корабли</div>
-      <div class="ship-catalog">
-        <div v-for="def in buyableShips" :key="def.id" class="card-parchment catalog-card">
-          <div class="catalog-header">
-            <div class="catalog-name-row">
-              <span class="catalog-ship-name bs-font-body">{{ def.nameRu || def.name }}</span>
-              <span
-                v-if="def.region"
-                class="region-badge"
-                :style="{ color: getRegionColor(def.region) }"
-              >
-                {{ def.region }}
-              </span>
+      <!-- Catalog for this deck count -->
+      <div v-if="catalogForDeck(dc).length" class="deck-catalog">
+        <div class="catalog-label bs-font-data">Доступные замены:</div>
+        <div class="ship-catalog">
+          <div v-for="def in catalogForDeck(dc)" :key="def.id" class="card-parchment catalog-card">
+            <div class="catalog-header">
+              <div class="catalog-name-row">
+                <span class="catalog-ship-name bs-font-body">{{ def.nameRu || def.name }}</span>
+                <span v-if="def.region" class="region-badge" :style="{ color: getRegionColor(def.region) }">{{ def.region }}</span>
+              </div>
+              <span class="ship-stats bs-font-data">HP {{ def.deckHpOverrides ? def.deckHpOverrides.join('/') : def.defaultArmor }} | Скор. {{ def.speed }} | Зона {{ def.space }} | {{ def.range }} | {{ def.cost }}м</span>
             </div>
-            <span class="ship-stats bs-font-data">{{ def.deckCount }}П | HP {{ def.deckHpOverrides ? def.deckHpOverrides.join('/') : def.defaultArmor }} | Скор. {{ def.speed }} | Зона {{ def.space }} | {{ def.range }} | {{ def.cost }}м</span>
+            <div v-if="def.description" class="ship-desc bs-font-body">{{ def.description }}</div>
+            <div v-if="def.abilities.length" class="ship-abilities">
+              <span v-for="a in def.abilities" :key="a" class="ability-tag" @mouseenter="showTip($event, abilityLabel(a))" @mousemove="moveTip" @mouseleave="hideTip">{{ a }}</span>
+            </div>
+            <button
+              class="catalog-add-btn"
+              :disabled="def.cost > coinsLeft || defaultSlotsLeft(dc) === 0"
+              @mouseenter="showTip($event, def.cost > coinsLeft ? `Нужно ещё ${def.cost - coinsLeft} монет` : defaultSlotsLeft(dc) === 0 ? 'Нет свободных слотов — уберите купленный корабль' : `Заменить стандартный ${DECK_LABELS[dc]} корабль`)"
+              @mousemove="moveTip" @mouseleave="hideTip"
+              @click="addShip(def)"
+            >
+              Заменить
+            </button>
           </div>
-          <div v-if="def.description" class="ship-desc bs-font-body">{{ def.description }}</div>
-          <div v-if="def.abilities.length" class="ship-abilities">
-            <span v-for="a in def.abilities" :key="a" class="ability-tag" @mouseenter="showTip($event, abilityLabel(a))" @mousemove="moveTip" @mouseleave="hideTip">{{ a }}</span>
-          </div>
-          <button
-            class="catalog-add-btn"
-            :disabled="def.cost > coinsLeft"
-            @mouseenter="showTip($event, def.cost > coinsLeft ? `Нужно ещё ${def.cost - coinsLeft} монет` : 'Добавить в флот')"
-            @mousemove="moveTip" @mouseleave="hideTip"
-            @click="addShip(def)"
-          >
-            Добавить
-          </button>
         </div>
       </div>
     </div>
@@ -355,28 +403,56 @@ function getRegionColor(region: string): string {
 }
 
 /* ── Sections ──────────────────────────────────────────── */
-.section-title {
-  color: var(--bs-parchment);
-  font-size: 0.9rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-/* ── Selected ships ────────────────────────────────────── */
-.selected-ships {
+.section {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
+.section-title {
+  color: var(--bs-parchment);
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Slot group ───────────────────────────────────────── */
+.slot-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
 .ship-entry {
   padding: 0.5rem 0.75rem;
+}
+.slot-default {
+  opacity: 0.7;
+  border-left: 3px solid var(--bs-wood-mid);
+}
+.ship-entry:not(.slot-default) {
+  border-left: 3px solid var(--bs-gold);
 }
 .ship-entry-header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+.slot-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+.badge-default {
+  background: var(--bs-wood-mid);
+  color: var(--bs-parchment-dim);
+}
+.badge-purchased {
+  background: var(--bs-gold);
+  color: var(--bs-wood-dark);
 }
 .ship-name {
   font-weight: 700;
@@ -468,7 +544,16 @@ function getRegionColor(region: string): string {
   white-space: nowrap;
 }
 
-/* ── Ship Catalog ──────────────────────────────────────── */
+/* ── Deck catalog ─────────────────────────────────────── */
+.deck-catalog {
+  margin-top: 0.25rem;
+}
+.catalog-label {
+  font-size: 0.75rem;
+  color: var(--bs-parchment-dim);
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
 .ship-catalog {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

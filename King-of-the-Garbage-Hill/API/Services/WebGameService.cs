@@ -593,8 +593,11 @@ public class WebGameService
             {
                 demand.TotalSuccessfulDemands++;
                 demand.QuestCompletedThisRound = true;
-                player.Status.AddBonusPoints(invoice.PredictedCoins, "Чеканная монета");
+                player.Status.AddRegularPoints(invoice.PredictedCoins, "Чеканная монета");
                 player.Status.AddInGamePersonalLogs($"Чеканная монета: +{invoice.PredictedCoins} очк. (счёт: {invoice.Total})\n");
+
+                if (invoice.Total >= 12)
+                    player.Status.AddInGamePersonalLogs("Благодарность: Еще одна монета за ваш подвиг! Всем селом скинулись.\n");
             }
             if (invoice.PredictedDispleasure > 0)
             {
@@ -605,18 +608,29 @@ public class WebGameService
             {
                 player.Status.AddInGamePersonalLogs($"Чеканная монета: Ничего не получено (счёт: {invoice.Total})\n");
             }
+
+            // "Barely survived" additional effects
+            if (invoice.AdditionalCoins > 0)
+            {
+                player.Status.AddRegularPoints(invoice.AdditionalCoins, "Выжил чудом");
+                player.Status.AddInGamePersonalLogs($"Выжил чудом: +{invoice.AdditionalCoins} очко\n");
+            }
+            if (invoice.AdditionalDispleasure > 0)
+            {
+                demand.Displeasure += invoice.AdditionalDispleasure;
+                player.Status.AddInGamePersonalLogs($"Выжил чудом: Недовольство +{invoice.AdditionalDispleasure}\n");
+            }
         }
         else if (demandType == "next")
         {
-            if (game.RoundNo != 10) return (false, "Only on round 10");
-            if (demand.Displeasure >= 3) return (false, "Too much displeasure");
+            if (demand.Displeasure >= 5) return (false, "Too much displeasure");
             if (demand.DemandedForNext) return (false, "Already demanded for next");
+            if (demand.AdvancePending) return (false, "Advance already pending");
 
             demand.DemandedForNext = true;
             demand.TotalDemandsMade++;
-            demand.TotalSuccessfulDemands++;
-            player.Status.AddBonusPoints(1, "Чеканная монета (аванс)");
-            player.Status.AddInGamePersonalLogs("Чеканная монета: Аванс за следующий заказ! +1 очко\n");
+            demand.AdvancePending = true;
+            player.Status.AddInGamePersonalLogs("Чеканная монета: Аванс за следующий заказ! +2 очка (в следующем раунде)\n");
         }
         else
         {
