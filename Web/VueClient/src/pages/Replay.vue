@@ -88,12 +88,106 @@ const previousRoundLogs = computed(() => {
 
 const isViewingKira = computed(() => myPlayer.value?.isKira ?? false)
 
+// ── Avatar / identity (left = selected character, right = fighting character) ──
+const placeTier = computed(() => {
+  const place = myPlayer.value?.status?.place ?? 3
+  if (place <= 1) return 'place-1'
+  if (place <= 2) return 'place-2'
+  if (place <= 3) return 'place-3'
+  if (place <= 5) return 'place-mid'
+  return 'place-last'
+})
+const charTier = computed(() => myPlayer.value?.character.tier ?? 0)
+const rarityLabel = computed(() => {
+  switch (charTier.value) {
+    case 1: return 'Legendary'
+    case 2: return 'Epic'
+    case 3: return 'Rare'
+    case 4: return 'Uncommon'
+    case 5: case 6: return 'Common'
+    default: return ''
+  }
+})
+const rarityClass = computed(() => {
+  switch (charTier.value) {
+    case 1: return 'rarity-legendary'
+    case 2: return 'rarity-epic'
+    case 3: return 'rarity-rare'
+    case 4: return 'rarity-uncommon'
+    default: return 'rarity-common'
+  }
+})
+const masteryPoints = computed(() => myPlayer.value?.characterMasteryPoints ?? 0)
+const masteryLevel = computed(() => Math.floor(Math.sqrt(masteryPoints.value / 5)))
+const masteryTier = computed(() => {
+  const lvl = masteryLevel.value
+  if (lvl >= 20) return 'diamond'
+  if (lvl >= 15) return 'platinum'
+  if (lvl >= 10) return 'gold'
+  if (lvl >= 5) return 'silver'
+  if (lvl >= 1) return 'bronze'
+  return 'none'
+})
+
+const enemyPlaceTier = computed(() => {
+  const place = enemyPlayer.value?.status?.place ?? 3
+  if (place <= 1) return 'place-1'
+  if (place <= 2) return 'place-2'
+  if (place <= 3) return 'place-3'
+  if (place <= 5) return 'place-mid'
+  return 'place-last'
+})
+
 // ── Current fight tracking (for enemy PlayerCard on right side) ──
 const currentFight = ref<FightEntry | null>(null)
 
 function onCurrentFightUpdate(fight: FightEntry | null) {
   currentFight.value = fight
 }
+
+// ── Fight replay ended tracking (for point feed + fight bonuses) ──
+const fightReplayEnded = ref(false)
+function onReplayEnded() {
+  fightReplayEnded.value = true
+}
+
+watch([() => replayStore.currentRound, () => replayStore.currentPlayerIndex], () => {
+  fightReplayEnded.value = false
+})
+
+const myFightBonuses = computed(() => {
+  if (!fightReplayEnded.value) return []
+  const log = store.gameState?.fightLog || []
+  const myName = myPlayer.value?.discordUsername
+  if (!myName || !log.length) return []
+
+  let totalSkill = 0
+  let totalJustice = 0
+  let totalMoral = 0
+
+  for (const f of log) {
+    const isAttacker = f.attackerName === myName
+    const isDefender = f.defenderName === myName
+    if (!isAttacker && !isDefender) continue
+
+    if (isAttacker) {
+      totalSkill += (f.skillGainedFromTarget || 0) + (f.skillGainedFromClassAttacker || 0)
+      totalMoral += (f.attackerMoralChange || 0)
+    }
+    if (isDefender) {
+      totalSkill += (f.skillGainedFromClassDefender || 0)
+      totalJustice += (f.justiceChange || 0)
+      totalMoral += (f.defenderMoralChange || 0)
+    }
+  }
+
+  const bonuses: { label: string; value: string; cssClass: string }[] = []
+  if (totalSkill > 0) bonuses.push({ label: 'Skill', value: `+${totalSkill}`, cssClass: 'bonus-skill' })
+  if (totalJustice > 0) bonuses.push({ label: 'Justice', value: `+${totalJustice}`, cssClass: 'bonus-justice' })
+  if (totalMoral !== 0) bonuses.push({ label: 'Moral', value: `${totalMoral > 0 ? '+' : ''}${totalMoral}`, cssClass: totalMoral > 0 ? 'bonus-moral-up' : 'bonus-moral-down' })
+
+  return bonuses
+})
 
 const enemyPlayer = computed<Player | null>(() => {
   const f = currentFight.value
@@ -294,16 +388,41 @@ onUnmounted(() => {
 
     <!-- Replay loaded -->
     <div v-else-if="store.gameState && replayStore.replayData" class="game-layout">
-      <!-- Left: Player info -->
+      <!-- Left: Selected character avatar + Player info -->
       <div class="game-left">
+        <div v-if="myPlayer" class="gr-avatar-section">
+          <div class="gr-avatar-wrap" :class="[placeTier]">
+            <img
+              v-if="myPlayer.character.avatarCurrent"
+              :src="myPlayer.character.avatarCurrent"
+              :alt="myPlayer.character.name"
+              class="gr-avatar-img"
+            >
+            <div v-else class="gr-avatar-fallback">
+              {{ myPlayer.character.name.charAt(0) }}
+            </div>
+          </div>
+          <div class="gr-identity">
+            <div class="gr-name">
+              {{ myPlayer.character.name }}
+              <span v-if="charTier > 0" class="rarity-badge" :class="rarityClass">{{ rarityLabel }}</span>
+            </div>
+            <div v-if="masteryLevel > 0" class="mastery-badge" :class="'mastery-' + masteryTier">
+              <span class="mastery-level">{{ masteryLevel }}</span>
+              <span class="mastery-label">{{ masteryTier }}</span>
+            </div>
+            <div class="gr-username">{{ myPlayer.discordUsername }}</div>
+          </div>
+        </div>
         <PlayerCard
           v-if="myPlayer"
           :player="myPlayer"
           :is-me="true"
           :resist-flash="[]"
           :justice-reset="false"
-          :score-breakdown="null"
-          :score-anim-ready="true"
+          :score-breakdown="myPlayer?.status.scoreBreakdown ?? null"
+          :score-anim-ready="fightReplayEnded"
+          :fight-bonuses="myFightBonuses"
         />
       </div>
 
@@ -377,8 +496,10 @@ onUnmounted(() => {
             :show-detailed-factors="true"
             :character-catalog="store.gameState.allCharacters || []"
             :initial-fight-index="replayStore.currentFightIndex"
+            fight-style="Classic"
             @update:fight-index="replayStore.setFight"
             @update:current-fight="onCurrentFightUpdate"
+            @replay-ended="onReplayEnded"
           />
         </div>
 
@@ -457,8 +578,25 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Right: Enemy PlayerCard or Skills fallback -->
+      <!-- Right: Fighting character avatar + Enemy PlayerCard or Skills fallback -->
       <div class="game-right">
+        <div v-if="enemyPlayer" class="gr-avatar-section">
+          <div class="gr-avatar-wrap" :class="[enemyPlaceTier]">
+            <img
+              v-if="enemyPlayer.character.avatarCurrent"
+              :src="enemyPlayer.character.avatarCurrent"
+              :alt="enemyPlayer.character.name"
+              class="gr-avatar-img"
+            >
+            <div v-else class="gr-avatar-fallback">
+              {{ enemyPlayer.character.name.charAt(0) }}
+            </div>
+          </div>
+          <div class="gr-identity">
+            <div class="gr-name">{{ enemyPlayer.character.name }}</div>
+            <div class="gr-username">{{ enemyPlayer.discordUsername }}</div>
+          </div>
+        </div>
         <PlayerCard
           v-if="enemyPlayer"
           :player="enemyPlayer"
@@ -789,6 +927,155 @@ onUnmounted(() => {
   display: inline;
   margin: 0 2px;
 }
+
+/* ── Avatar section in game-left / game-right ─────────────────── */
+.gr-avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 10px;
+}
+.gr-avatar-wrap {
+  width: 220px;
+  height: 220px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-inset);
+  border: 2px solid var(--border-subtle);
+  transition: border-color 0.8s ease, box-shadow 0.8s ease, filter 0.8s ease;
+  position: relative;
+}
+.gr-avatar-wrap.place-1 {
+  border-width: 3px;
+  border-color: rgba(240, 200, 80, 0.7);
+  box-shadow: 0 0 16px rgba(240, 200, 80, 0.35), 0 0 40px rgba(240, 200, 80, 0.12), inset 0 0 12px rgba(240, 200, 80, 0.08);
+  animation: gr-frame-pulse 3s ease-in-out infinite;
+}
+.gr-avatar-wrap.place-1::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  background: conic-gradient(from 0deg, rgba(240,200,80,0.3), rgba(255,160,60,0.2), rgba(240,200,80,0.3), rgba(255,220,120,0.2), rgba(240,200,80,0.3));
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  padding: 3px;
+  animation: gr-frame-rotate 4s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+@keyframes gr-frame-pulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(240,200,80,0.35), 0 0 40px rgba(240,200,80,0.12), inset 0 0 12px rgba(240,200,80,0.08); }
+  50% { box-shadow: 0 0 22px rgba(240,200,80,0.5), 0 0 50px rgba(240,200,80,0.18), inset 0 0 16px rgba(240,200,80,0.12); }
+}
+@keyframes gr-frame-rotate {
+  from { filter: hue-rotate(0deg); }
+  to { filter: hue-rotate(360deg); }
+}
+.gr-avatar-wrap.place-2 {
+  border-width: 3px;
+  border-color: rgba(140, 200, 255, 0.5);
+  box-shadow: 0 0 14px rgba(140, 200, 255, 0.2), 0 0 30px rgba(140, 200, 255, 0.08), inset 0 0 8px rgba(140, 200, 255, 0.06);
+  animation: gr-frame-diamond 2.5s ease-in-out infinite;
+}
+@keyframes gr-frame-diamond {
+  0%, 100% { box-shadow: 0 0 14px rgba(140,200,255,0.2), 0 0 30px rgba(140,200,255,0.08), inset 0 0 8px rgba(140,200,255,0.06); }
+  50% { box-shadow: 0 0 18px rgba(140,200,255,0.3), 0 0 36px rgba(140,200,255,0.12), inset 0 0 10px rgba(140,200,255,0.08); }
+}
+.gr-avatar-wrap.place-3 {
+  border-width: 2.5px;
+  border-color: rgba(205, 160, 80, 0.5);
+  box-shadow: 0 0 10px rgba(205, 160, 80, 0.18), 0 0 24px rgba(205, 160, 80, 0.06);
+}
+.gr-avatar-wrap.place-mid {
+  border-color: rgba(160, 165, 180, 0.3);
+  box-shadow: 0 0 6px rgba(160, 165, 180, 0.08);
+}
+.gr-avatar-wrap.place-last {
+  border-color: rgba(120, 80, 80, 0.4);
+  box-shadow: inset 0 0 16px rgba(100, 40, 40, 0.12);
+  filter: saturate(0.65);
+}
+.gr-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: gr-avatar-breathe 4s ease-in-out infinite;
+  transition: filter 0.5s ease;
+}
+.place-1 .gr-avatar-img,
+.place-2 .gr-avatar-img {
+  filter: contrast(1.05) brightness(1.05);
+  animation-duration: 5s;
+}
+.place-last .gr-avatar-img {
+  filter: saturate(0.7) brightness(0.9);
+  animation-duration: 2.5s;
+}
+@keyframes gr-avatar-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.015); }
+}
+.gr-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 64px;
+  font-weight: 800;
+  color: var(--text-dim);
+}
+.gr-identity {
+  text-align: center;
+}
+.gr-name {
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--accent-gold);
+  letter-spacing: 0.3px;
+  text-shadow: 0 0 10px rgba(240, 200, 80, 0.25);
+}
+.gr-username {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.rarity-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid;
+  line-height: 1.4;
+  text-shadow: none;
+}
+.rarity-legendary { color: #f0c850; border-color: rgba(240,200,80,0.4); background: rgba(240,200,80,0.1); box-shadow: 0 0 8px rgba(240,200,80,0.15); }
+.rarity-epic { color: #c084fc; border-color: rgba(192,132,252,0.4); background: rgba(192,132,252,0.1); box-shadow: 0 0 8px rgba(192,132,252,0.15); }
+.rarity-rare { color: #60a5fa; border-color: rgba(96,165,250,0.4); background: rgba(96,165,250,0.1); }
+.rarity-uncommon { color: #4ade80; border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.08); }
+.rarity-common { color: var(--text-muted); border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); }
+.mastery-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.mastery-level { font-size: 11px; font-weight: 800; }
+.mastery-bronze { background: linear-gradient(135deg, rgba(184,115,51,0.25), rgba(205,127,50,0.15)); color: #cd7f32; border: 1px solid rgba(205,127,50,0.35); text-shadow: 0 0 4px rgba(205,127,50,0.3); }
+.mastery-silver { background: linear-gradient(135deg, rgba(192,192,192,0.25), rgba(169,169,169,0.15)); color: #c0c0c0; border: 1px solid rgba(192,192,192,0.35); text-shadow: 0 0 4px rgba(192,192,192,0.3); }
+.mastery-gold { background: linear-gradient(135deg, rgba(255,215,0,0.25), rgba(255,193,37,0.15)); color: #ffd700; border: 1px solid rgba(255,215,0,0.4); text-shadow: 0 0 6px rgba(255,215,0,0.4); box-shadow: 0 0 8px rgba(255,215,0,0.1); }
+.mastery-platinum { background: linear-gradient(135deg, rgba(180,220,255,0.25), rgba(200,230,255,0.15)); color: #b4dcff; border: 1px solid rgba(180,220,255,0.4); text-shadow: 0 0 8px rgba(180,220,255,0.5); box-shadow: 0 0 12px rgba(180,220,255,0.12); }
 
 /* Responsive */
 @media (max-width: 1024px) {
