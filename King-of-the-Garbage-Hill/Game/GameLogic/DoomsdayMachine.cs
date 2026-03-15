@@ -209,7 +209,9 @@ public class DoomsdayMachine : IServiceSingleton
         //Handle Moral
         foreach (var p in game.PlayersList)
         {
-            p.Status.AddBonusPoints(p.GameCharacter.GetBonusPointsFromMoral(), "Мораль");
+            var moralPoints = p.GameCharacter.GetBonusPointsFromMoral();
+            if (moralPoints != 0)
+                p.Status.AddBonusPoints(moralPoints, "Мораль");
             p.GameCharacter.SetBonusPointsFromMoral(0);
         }
         //end Moral
