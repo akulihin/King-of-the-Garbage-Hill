@@ -774,11 +774,19 @@ public class DoomsdayMachine : IServiceSingleton
                         }
                         else if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Никому не нужен" || x.PassiveName == "INT"))
                         {
-                            player.Status.AddWinPoints(game, player, point * -1, "Победа");
+                            var winSourceNeg = "Победа";
+                            if (player.GameCharacter.Name == "Геральт")
+                                winSourceNeg = player.Passives.GeraltContracts.EnemyTypes.ContainsKey(playerIamAttacking.GetPlayerId())
+                                    ? "Контракт" : "Лут";
+                            player.Status.AddWinPoints(game, player, point * -1, winSourceNeg);
                         }
                         else
                         {
-                            player.Status.AddWinPoints(game, player, point, "Победа");
+                            var winSource = "Победа";
+                            if (player.GameCharacter.Name == "Геральт")
+                                winSource = player.Passives.GeraltContracts.EnemyTypes.ContainsKey(playerIamAttacking.GetPlayerId())
+                                    ? "Контракт" : "Лут";
+                            player.Status.AddWinPoints(game, player, point, winSource);
                         }
                     }
 
@@ -871,7 +879,13 @@ public class DoomsdayMachine : IServiceSingleton
                         if (stormFlipped && stormCarrier != null)
                             stormCarrier.Status.AddRegularPoints(1, "Штормяк: Запрыгнул в бой!");
                         else
-                            playerIamAttacking.Status.AddWinPoints(game, playerIamAttacking, 1, "Победа");
+                        {
+                            var defWinSource = "Победа";
+                            if (playerIamAttacking.GameCharacter.Name == "Геральт")
+                                defWinSource = playerIamAttacking.Passives.GeraltContracts.EnemyTypes.ContainsKey(player.GetPlayerId())
+                                    ? "Контракт" : "Лут";
+                            playerIamAttacking.Status.AddWinPoints(game, playerIamAttacking, 1, defWinSource);
+                        }
                     }
 
 

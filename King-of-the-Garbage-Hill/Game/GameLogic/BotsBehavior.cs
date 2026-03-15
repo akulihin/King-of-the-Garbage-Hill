@@ -237,9 +237,30 @@ public class BotsBehavior : IServiceSingleton
             }
         }
 
+        // Сайтама: hoard moral early, cash out rounds 9-10
+        if (bot.GameCharacter.Name == "Сайтама")
+        {
+            if (game.RoundNo < 9)
+            {
+                await HandleBotMoralForSkill(bot, game);
+                return;
+            }
+            await HandleBotMoralForPoints(bot, game);
+            return;
+        }
+
+        // Toxic Mate: starts at -1000 moral, nothing to convert
+        if (bot.GameCharacter.Name == "Toxic Mate")
+            return;
+
+        // Dopa: tactic-dependent moral strategy
         if (bot.GameCharacter.Name == "Dopa")
         {
-            await HandleBotMoralForPoints(bot, game);
+            var dopaTactic = bot.Passives.DopaMetaChoice.ChosenTactic;
+            if (dopaTactic is "Стомп" or "Доминация")
+                await HandleBotMoralForSkill(bot, game);
+            else
+                await HandleBotMoralForPoints(bot, game);
             return;
         }
 
@@ -247,6 +268,33 @@ public class BotsBehavior : IServiceSingleton
         {
             // Goblins prefer points for mine income and ziggurat building
             await HandleBotMoralForPoints(bot, game);
+            return;
+        }
+
+        // Кира: hoard moral for Shinigami Eyes (costs 25)
+        if (bot.GameCharacter.Name == "Кира")
+        {
+            var kiraEyes = bot.Passives.KiraShinigamiEyes;
+            var unrevealedCount = game.PlayersList.Count(x =>
+                x.GetPlayerId() != bot.GetPlayerId() && !x.Passives.IsDead &&
+                !kiraEyes.RevealedPlayers.Contains(x.GetPlayerId()));
+            if (unrevealedCount > 0 && bot.GameCharacter.GetMoral() < 25)
+                return; // Save moral for Eyes
+            await HandleBotMoralForSkill(bot, game);
+            return;
+        }
+
+        // Рик Санчез: skill for fights (portal gun is INT-driven via level-up)
+        if (bot.GameCharacter.Name == "Рик Санчез")
+        {
+            await HandleBotMoralForSkill(bot, game);
+            return;
+        }
+
+        // Таинственный Суппорт: skill to win fights
+        if (bot.GameCharacter.Name == "Таинственный Суппорт")
+        {
+            await HandleBotMoralForSkill(bot, game);
             return;
         }
 
@@ -361,15 +409,39 @@ public class BotsBehavior : IServiceSingleton
         var dn = bot.Passives.KiraDeathNote;
         var eyes = bot.Passives.KiraShinigamiEyes;
 
-        // Use Shinigami Eyes if moral >= 25 and not already active (25% chance)
-        if (bot.GameCharacter.GetMoral() >= 25 && !eyes.EyesActiveForNextAttack && _rand.Luck(1, 4))
+        // Shinigami Eyes: prioritize unrevealed leaders
+        if (bot.GameCharacter.GetMoral() >= 25 && !eyes.EyesActiveForNextAttack)
         {
-            bot.GameCharacter.AddMoral(-25, "Глаза бога смерти");
-            eyes.EyesActiveForNextAttack = true;
-            bot.Status.AddInGamePersonalLogs("Глаза бога смерти: Активированы!\n");
+            var unrevealed = game.PlayersList
+                .Where(x => x.GetPlayerId() != bot.GetPlayerId()
+                            && !x.Passives.IsDead
+                            && !eyes.RevealedPlayers.Contains(x.GetPlayerId()))
+                .OrderBy(x => x.Status.GetPlaceAtLeaderBoard())
+                .ToList();
+
+            if (unrevealed.Count > 0)
+            {
+                var shouldUseEyes = false;
+                // Always use on unrevealed leaders (place 1-2)
+                if (unrevealed.Any(x => x.Status.GetPlaceAtLeaderBoard() <= 2))
+                    shouldUseEyes = true;
+                // Late game: use more aggressively
+                else if (game.RoundNo >= 7)
+                    shouldUseEyes = true;
+                // Random 25% otherwise
+                else if (_rand.Luck(1, 4))
+                    shouldUseEyes = true;
+
+                if (shouldUseEyes)
+                {
+                    bot.GameCharacter.AddMoral(-25, "Глаза бога смерти");
+                    eyes.EyesActiveForNextAttack = true;
+                    bot.Status.AddInGamePersonalLogs("Глаза бога смерти: Активированы!\n");
+                }
+            }
         }
 
-        // Write Death Note if not already written this round
+        // Write Death Note
         if (dn.CurrentRoundTarget == Guid.Empty)
         {
             var candidates = game.PlayersList
@@ -380,22 +452,47 @@ public class BotsBehavior : IServiceSingleton
 
             if (candidates.Count > 0)
             {
-                var target = candidates[_rand.Random(0, candidates.Count - 1)];
-                dn.CurrentRoundTarget = target.GetPlayerId();
+                // Priority 1: write KNOWN names (revealed via Eyes) — guaranteed kills
+                var knownTargets = candidates
+                    .Where(x => eyes.RevealedPlayers.Contains(x.GetPlayerId()))
+                    .OrderBy(x => x.Status.GetPlaceAtLeaderBoard())
+                    .ToList();
 
-                // Bot has low intelligence about characters — pick from revealed or guess randomly
-                var revealed = eyes.RevealedPlayers.Find(rp => rp == target.GetPlayerId());
-                if (revealed != Guid.Empty && revealed != default)
+                if (knownTargets.Count > 0)
                 {
-                    // Know the name from Shinigami Eyes — find it
-                    var revealedPlayer = game.PlayersList.Find(x => x.GetPlayerId() == revealed);
-                    dn.CurrentRoundName = revealedPlayer?.GameCharacter.Name ?? "???";
+                    var target = knownTargets.First();
+                    dn.CurrentRoundTarget = target.GetPlayerId();
+                    dn.CurrentRoundName = target.GameCharacter.Name;
                 }
                 else
                 {
-                    // Guess randomly from known character names
-                    var allNames = game.PlayersList.Select(x => x.GameCharacter.Name).Distinct().ToList();
-                    dn.CurrentRoundName = allNames[_rand.Random(0, allNames.Count - 1)];
+                    // Priority 2: target leaders, guess name
+                    var target = candidates
+                        .OrderBy(x => x.Status.GetPlaceAtLeaderBoard())
+                        .First();
+                    dn.CurrentRoundTarget = target.GetPlayerId();
+
+                    // Eliminate names known to belong to other (revealed) players
+                    var knownNames = eyes.RevealedPlayers
+                        .Select(rp => game.PlayersList.Find(p => p.GetPlayerId() == rp))
+                        .Where(p => p != null)
+                        .Select(p => p!.GameCharacter.Name)
+                        .ToHashSet();
+
+                    // Eliminate names already tried and failed on this target
+                    var failedNames = dn.Entries
+                        .Where(e => e.TargetPlayerId == target.GetPlayerId() && !e.WasCorrect)
+                        .Select(e => e.WrittenName)
+                        .ToHashSet();
+
+                    var availableNames = game.PlayersList
+                        .Select(x => x.GameCharacter.Name).Distinct()
+                        .Where(n => !knownNames.Contains(n) && !failedNames.Contains(n))
+                        .ToList();
+
+                    dn.CurrentRoundName = availableNames.Count > 0
+                        ? availableNames[_rand.Random(0, availableNames.Count - 1)]
+                        : game.PlayersList[_rand.Random(0, game.PlayersList.Count - 1)].GameCharacter.Name;
                 }
             }
         }
@@ -629,6 +726,9 @@ public class BotsBehavior : IServiceSingleton
                     case "Кира":
                         if (target.GetPlayerId() == bot.Passives.KiraL.LPlayerId)
                             target.AttackPreference = 0;
+                        // Prefer high-ranked non-L targets
+                        else if (target.PlaceAtLeaderBoard() <= 2)
+                            target.AttackPreference += 3;
                         break;
                     case "Тигр":
 
@@ -1104,26 +1204,172 @@ public class BotsBehavior : IServiceSingleton
 
 
                         break;
+                    case "Сайтама":
+                        var saitamaUn = bot.Passives.SaitamaUnnoticed;
+                        if (game.RoundNo < 10)
+                        {
+                            // Prefer non-serious targets (Неприметность deferred points)
+                            if (!saitamaUn.SeriousTargets.Contains(target.GetPlayerId()))
+                                target.AttackPreference += 5;
+                            else
+                                target.AttackPreference -= 5;
+                            // Prefer low-ranked targets (guaranteed deferred proc)
+                            if (target.PlaceAtLeaderBoard() >= 4)
+                                target.AttackPreference += 3;
+                        }
+                        if (game.RoundNo == 10 && target.PlaceAtLeaderBoard() == 1)
+                            mandatoryAttack = 1;
+                        break;
+                    case "Toxic Mate":
+                        var toxicCancer = bot.Passives.ToxicMateCancer;
+                        if (!toxicCancer.IsActive && !toxicCancer.FirstLossTriggered)
+                        {
+                            // Phase 1: no losses yet — attack STRONGEST to LOSE (INT = +1 point per loss)
+                            var targetPowerTm = target.Player.GameCharacter.GetStrength() + target.Player.GameCharacter.GetSpeed();
+                            var botPowerTm = bot.GameCharacter.GetStrength() + bot.GameCharacter.GetSpeed();
+                            if (targetPowerTm > botPowerTm)
+                                target.AttackPreference += 8;
+                        }
+                        else if (!toxicCancer.IsActive && toxicCancer.FirstLossTriggered)
+                        {
+                            // Phase 2: need ONE win to start cancer — attack weakest
+                            if (target.Player.GameCharacter.GetStrength() < bot.GameCharacter.GetStrength())
+                                target.AttackPreference += 10;
+                            else
+                                target.AttackPreference -= 5;
+                        }
+                        else if (toxicCancer.IsActive)
+                        {
+                            // Cancer active — attack leaders to LOSE (more INT points from top players)
+                            if (target.PlaceAtLeaderBoard() <= 2)
+                                target.AttackPreference += 8;
+                            // Don't attack cancer holder (let them spread it naturally)
+                            if (target.GetPlayerId() == toxicCancer.CurrentHolder)
+                                target.AttackPreference -= 5;
+                        }
+                        break;
+                    case "Dopa":
+                        var dopaTacticAtk = bot.Passives.DopaMetaChoice.ChosenTactic;
+                        var dopaVisionAtk = bot.Passives.DopaVision;
+                        // Vision synergy: prefer targets being attacked by others
+                        var attackersOnDopaTarget = allTargets
+                            .Count(x => x.Player.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()));
+
+                        switch (dopaTacticAtk)
+                        {
+                            case "Стомп":
+                                // Brawler: leverage +9 STR advantage, attack weak targets
+                                if (target.Player.GameCharacter.GetStrength() < bot.GameCharacter.GetStrength())
+                                    target.AttackPreference += 7;
+                                if (target.PlaceAtLeaderBoard() is 3 or 4)
+                                    target.AttackPreference += 3;
+                                if (attackersOnDopaTarget > 0 && dopaVisionAtk.Cooldown == 0)
+                                    target.AttackPreference += 4;
+                                break;
+                            case "Фарм":
+                                // Passive income: maximize Vision procs (+4 pts each)
+                                if (attackersOnDopaTarget > 0 && dopaVisionAtk.Cooldown == 0)
+                                    target.AttackPreference += 10;
+                                // Vision triggers on block too
+                                if (target.Player.Status.WhoToAttackThisTurn.Count == 0 && dopaVisionAtk.Cooldown == 0)
+                                    target.AttackPreference += 6;
+                                // Safe fights preferred
+                                if (target.Player.GameCharacter.GetStrength() < bot.GameCharacter.GetStrength())
+                                    target.AttackPreference += 3;
+                                break;
+                            case "Доминация":
+                                // Bully: win = +20 Skill + steal from enemy
+                                if (target.Player.GameCharacter.GetStrength() < bot.GameCharacter.GetStrength())
+                                    target.AttackPreference += 8;
+                                if (target.PlaceAtLeaderBoard() <= 2)
+                                    target.AttackPreference += 5;
+                                if (target.Player.GameCharacter.GetPsyche() <= 3)
+                                    target.AttackPreference += 3;
+                                if (attackersOnDopaTarget > 0 && dopaVisionAtk.Cooldown == 0)
+                                    target.AttackPreference += 4;
+                                break;
+                            case "Роум":
+                                // Roamer: win vs non-adjacent = steal bonus + moral
+                                var dopaPlace = bot.Status.GetPlaceAtLeaderBoard();
+                                var dopaTargetDist = Math.Abs(dopaPlace - target.PlaceAtLeaderBoard());
+                                if (dopaTargetDist > 1)
+                                {
+                                    target.AttackPreference += 8;
+                                    target.AttackPreference += dopaTargetDist * 2;
+                                }
+                                else
+                                    target.AttackPreference -= 3;
+                                if (target.Player.GameCharacter.GetMoral() > 5)
+                                    target.AttackPreference += 3;
+                                if (attackersOnDopaTarget > 0 && dopaVisionAtk.Cooldown == 0)
+                                    target.AttackPreference += 4;
+                                break;
+                            default:
+                                // Tactic not yet chosen — generic preference
+                                if (target.PlaceAtLeaderBoard() <= 2)
+                                    target.AttackPreference += 3;
+                                break;
+                        }
+                        break;
                     case "Рик Санчез":
-                        // Giant Beans — prioritize ingredient targets
                         var rickBeans = bot.Passives.RickGiantBeans;
-                        if (rickBeans.IngredientsActive && rickBeans.IngredientTargets.Contains(target.GetPlayerId()))
-                            target.AttackPreference += 10;
-
-                        // Portal Gun — target #1 player when charged
                         var rickGun = bot.Passives.RickPortalGun;
+                        // Portal Gun charged — mandatory attack on #1
                         if (rickGun.Invented && rickGun.Charges > 0 && target.PlaceAtLeaderBoard() == 1)
+                        {
                             mandatoryAttack = target.PlaceAtLeaderBoard();
-
+                            break;
+                        }
+                        // Ingredient targets: high priority (even losing stacks beans)
+                        if (rickBeans.IngredientsActive && rickBeans.IngredientTargets.Contains(target.GetPlayerId()))
+                        {
+                            target.AttackPreference += 12;
+                            // Early game: prefer ingredients bot will LOSE to (bean stacking)
+                            if (game.RoundNo <= 6 && rickBeans.BeanStacks < 5)
+                            {
+                                var targetPowerRick = target.Player.GameCharacter.GetStrength() + target.Player.GameCharacter.GetSpeed();
+                                var botPowerRick = bot.GameCharacter.GetStrength() + bot.GameCharacter.GetSpeed();
+                                if (targetPowerRick > botPowerRick)
+                                    target.AttackPreference += 5;
+                            }
+                        }
+                        // Gun invented but no charges — avoid wasteful fights
+                        if (rickGun.Invented && rickGun.Charges == 0)
+                            target.AttackPreference -= 2;
                         break;
                     case "Итачи":
-                        // Prefer enemies with most crows (easier kills via Amaterasu)
                         var itachiCrows = bot.Passives.ItachiCrows;
+                        var itachiTsukuyomi = bot.Passives.ItachiTsukuyomi;
+                        // Concentrate crow stacking: strongly prefer targets with existing crows
                         if (itachiCrows.CrowCounts.TryGetValue(target.GetPlayerId(), out var crows) && crows > 0)
-                            target.AttackPreference += crows * 3;
-                        // Prefer enemies with low speed (Amaterasu auto-win)
+                        {
+                            target.AttackPreference += crows * 5;
+                            if (crows >= 3)
+                                target.AttackPreference += 10;
+                        }
+                        else if (itachiCrows.CrowCounts.Count(x => x.Value > 0) < 2)
+                        {
+                            // Haven't started stacking — pick fast enemies first
+                            if (target.Player.GameCharacter.GetSpeed() >= bot.GameCharacter.GetSpeed())
+                                target.AttackPreference += 4;
+                        }
+                        else
+                        {
+                            // Already stacking on targets — avoid splitting
+                            target.AttackPreference -= 3;
+                        }
+                        // Amaterasu: strongly prefer adjacent leaderboard + faster
+                        var itachiPos = bot.Status.GetPlaceAtLeaderBoard();
+                        var itachiTargetPos = target.PlaceAtLeaderBoard();
+                        if (Math.Abs(itachiPos - itachiTargetPos) == 1 &&
+                            target.Player.GameCharacter.GetSpeed() < bot.GameCharacter.GetSpeed())
+                            target.AttackPreference += 8;
+                        // Tsukuyomi charged: prefer leaders
+                        if (itachiTsukuyomi.ChargeCounter >= 2 && target.PlaceAtLeaderBoard() <= 2)
+                            target.AttackPreference += 7;
+                        // General speed advantage
                         if (target.Player.GameCharacter.GetSpeed() < bot.GameCharacter.GetSpeed())
-                            target.AttackPreference += 5;
+                            target.AttackPreference += 3;
                         break;
                     case "Вампур":
                         if (target.Player.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
@@ -1169,80 +1415,242 @@ public class BotsBehavior : IServiceSingleton
                         break;
                     case "Napoleon Wonnafcuk":
                         var napBotAlliance = bot.Passives.NapoleonAlliance;
-                        if (napBotAlliance.AllyId != Guid.Empty)
+                        if (napBotAlliance.AllyId == Guid.Empty)
                         {
+                            // No ally yet — pick mid-ranked player as ally (first attack forms alliance)
+                            if (target.PlaceAtLeaderBoard() is 3 or 4)
+                                target.AttackPreference += 8;
+                            else if (target.PlaceAtLeaderBoard() is 2 or 5)
+                                target.AttackPreference += 4;
+                            if (target.PlaceAtLeaderBoard() is 1 or 6)
+                                target.AttackPreference -= 5;
+                        }
+                        else
+                        {
+                            // Never attack ally
                             if (target.GetPlayerId() == napBotAlliance.AllyId)
-                                target.AttackPreference -= 20;
+                            {
+                                target.AttackPreference = 0;
+                                break;
+                            }
+                            // Joint attack synergy: prefer same target as ally
                             var napBotAlly = game.PlayersList.Find(x => x.GetPlayerId() == napBotAlliance.AllyId);
                             if (napBotAlly != null && napBotAlly.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()))
-                                target.AttackPreference += 10;
+                                target.AttackPreference += 15;
+                            // Завоеватель: prefer targets BETWEEN Napoleon and ally on leaderboard
+                            if (napBotAlly != null)
+                            {
+                                var napPlace = bot.Status.GetPlaceAtLeaderBoard();
+                                var allyPlace = napBotAlly.Status.GetPlaceAtLeaderBoard();
+                                var minP = Math.Min(napPlace, allyPlace);
+                                var maxP = Math.Max(napPlace, allyPlace);
+                                if (target.PlaceAtLeaderBoard() > minP && target.PlaceAtLeaderBoard() < maxP)
+                                    target.AttackPreference += 5;
+                            }
+                            // Treaty targets: lower priority (they can't win against us anyway)
+                            if (bot.Passives.NapoleonPeaceTreaty.TreatyEnemies.Contains(target.GetPlayerId()))
+                                target.AttackPreference -= 3;
                         }
                         break;
                     case "Таинственный Суппорт":
                         var supportMark = bot.Passives.SupportPremade;
-                        if (supportMark.MarkedPlayerId != Guid.Empty)
+                        if (supportMark.MarkedPlayerId == Guid.Empty)
                         {
-                            if (target.GetPlayerId() == supportMark.MarkedPlayerId)
+                            // No carry yet — mark strongest player (highest total stats)
+                            var candidatePower = target.Player.GameCharacter.GetStrength() +
+                                                target.Player.GameCharacter.GetIntelligence() +
+                                                target.Player.GameCharacter.GetSpeed();
+                            target.AttackPreference += candidatePower;
+                            if (target.PlaceAtLeaderBoard() <= 2)
+                                target.AttackPreference += 10;
+                        }
+                        else
+                        {
+                            // Stakes rounds (3, 6, 9): prefer non-Carry for +1 point
+                            if (game.RoundNo % 3 == 0 && target.GetPlayerId() != supportMark.MarkedPlayerId)
+                            {
+                                target.AttackPreference += 12;
+                                if (target.Player.GameCharacter.GetStrength() < bot.GameCharacter.GetStrength())
+                                    target.AttackPreference += 5;
+                            }
+                            // Non-stakes: buff Carry
+                            else if (target.GetPlayerId() == supportMark.MarkedPlayerId)
                                 target.AttackPreference += 15;
+                            // Late game: if Carry falling, shift to self-scoring
+                            if (game.RoundNo >= 8)
+                            {
+                                var carry = game.PlayersList.Find(x => x.GetPlayerId() == supportMark.MarkedPlayerId);
+                                if (carry != null && carry.Status.GetPlaceAtLeaderBoard() > 3 &&
+                                    target.GetPlayerId() != supportMark.MarkedPlayerId)
+                                    target.AttackPreference += 5;
+                            }
                         }
                         break;
 
                     case "Стая Гоблинов":
-                        // Prefer attacking mine positions (1, 2, 6) for resource gain
+                        var gobPop = bot.Passives.GoblinPopulation;
+                        // Mine positions (1, 2, 6): scale with worker count
                         if (target.PlaceAtLeaderBoard() is 1 or 2 or 6)
-                            target.AttackPreference += 5;
-                        // Avoid attacking much stronger targets (goblins are fragile)
-                        if (target.Player.GameCharacter.GetStrength() > bot.GameCharacter.GetStrength() + 3)
-                            target.AttackPreference -= 3;
+                            target.AttackPreference += 3 + gobPop.WorkerUpgradeLevel;
+                        // Early game: prefer winnable fights (army growth)
+                        if (game.RoundNo <= 4)
+                        {
+                            if (target.Player.GameCharacter.GetStrength() < bot.GameCharacter.GetStrength())
+                                target.AttackPreference += 7;
+                            else if (target.Player.GameCharacter.GetStrength() > bot.GameCharacter.GetStrength() + 2)
+                                target.AttackPreference -= 5;
+                        }
+                        // Mid-late: mine + winnable
+                        if (game.RoundNo >= 5 && target.PlaceAtLeaderBoard() is 1 or 2 or 6 &&
+                            target.Player.GameCharacter.GetStrength() <= bot.GameCharacter.GetStrength() + 1)
+                            target.AttackPreference += 8;
+                        // Avoid much stronger (loss = army death)
+                        var gobStrDiff = target.Player.GameCharacter.GetStrength() - bot.GameCharacter.GetStrength();
+                        if (gobStrDiff > 3)
+                            target.AttackPreference -= gobStrDiff;
                         break;
 
                     case "Котики":
-                        // Prefer attacking enemies with cats on them (cat return bonus)
+                        // Cat on target: highest priority (collect cat back for bonus)
                         if (target.Player.Passives.KotikiCatOwnerId == bot.GetPlayerId())
                             target.AttackPreference += 20;
-                        // Slightly prefer weaker enemies (better chance of winning for Штормяк)
+                        // Штормяк: prefer high-stat enemies for taunt steal value
+                        var kotikiMaxStat = Math.Max(
+                            Math.Max(target.Player.GameCharacter.GetIntelligence(), target.Player.GameCharacter.GetStrength()),
+                            Math.Max(target.Player.GameCharacter.GetSpeed(), target.Player.GameCharacter.GetPsyche()));
+                        target.AttackPreference += kotikiMaxStat / 2;
+                        // Prefer weaker for win chance
                         if (target.Player.GameCharacter.GetStrength() < bot.GameCharacter.GetStrength())
-                            target.AttackPreference += 3;
+                            target.AttackPreference += 4;
+                        // Reduce preference for already-taunted
+                        if (bot.Passives.KotikiStorm.TauntedPlayers.Contains(target.GetPlayerId()))
+                            target.AttackPreference -= 3;
                         break;
 
                     case "Монстр без имени":
-                        // Prefer enemies with high Justice (to steal via Близнец block)
                         var monsterTargetJustice = target.Player.GameCharacter.Justice.GetSeenJusticeNow();
-                        if (monsterTargetJustice > 0) target.AttackPreference += monsterTargetJustice * 2;
+                        // Prefer high-Justice targets (steal via Близнец block)
+                        if (monsterTargetJustice > 0)
+                            target.AttackPreference += monsterTargetJustice * 2;
+                        // Round 10: prefer attacking (apocalypse strategy)
+                        if (game.RoundNo == 10)
+                        {
+                            target.AttackPreference += 10;
+                            if (target.PlaceAtLeaderBoard() <= 2)
+                                target.AttackPreference += 5;
+                        }
+                        // When attacking: prefer 0-Justice (Близнец stat match is less risky)
+                        if (monsterTargetJustice == 0)
+                            target.AttackPreference += 3;
                         break;
 
                     case "TheBoys":
-                        // Prefer attacking order target (Francie's current order)
                         var botFrancie = bot.Passives.TheBoysFrancie;
+                        var botButcher = bot.Passives.TheBoysButcher;
+                        // ORDER COMPLETION is priority
                         if (botFrancie.OrderTarget == target.Player.GetPlayerId())
-                            target.AttackPreference += 15;
-                        // If kompromat flag active, prefer targets without kompromat
+                        {
+                            target.AttackPreference += 20;
+                            // Urgent: only 1 round left
+                            if (botFrancie.OrderRoundsLeft == 1)
+                                mandatoryAttack = target.PlaceAtLeaderBoard();
+                        }
+                        // Kompromat gathering: prefer untouched targets
                         if (bot.Passives.TheBoysMM.NextAttackGathersKompromat &&
                             !bot.Passives.TheBoysMM.KompromatTargets.Contains(target.Player.GetPlayerId()))
                             target.AttackPreference += 10;
-                        // Prefer higher-ranked enemies
+                        // Chemical weapon: prefer beatable targets (win = +ChemWeaponLevel bonus)
+                        if (botFrancie.ChemWeaponLevel > 0 &&
+                            target.Player.GameCharacter.GetStrength() < bot.GameCharacter.GetStrength())
+                            target.AttackPreference += botFrancie.ChemWeaponLevel * 2;
+                        // Poker multiplier: prefer skill targets
+                        if (botButcher.PokerCount > 0 && bot.GameCharacter.HasSkillTargetOn(target.Player.GameCharacter))
+                            target.AttackPreference += 3;
+                        // Prefer leaders
                         if (target.Player.Status.GetPlaceAtLeaderBoard() <= 3)
                             target.AttackPreference += 3;
                         break;
 
+                    case "Продавец Сомнительных Тактик":
+                        var sellerVAtk = bot.Passives.SellerVparitGovna;
+                        if (sellerVAtk.Cooldown <= 0)
+                        {
+                            // CD ready: prefer UNMARKED targets (spread marks)
+                            if (!sellerVAtk.MarkedPlayers.Contains(target.GetPlayerId()))
+                                target.AttackPreference += 10;
+                            else
+                                target.AttackPreference -= 5;
+                        }
+                        else
+                        {
+                            // CD active: prefer beatable targets
+                            if (target.Player.GameCharacter.GetSkill() < bot.GameCharacter.GetSkill())
+                                target.AttackPreference += 3;
+                        }
+                        // Round 10: target marked players (steal 50% via Выгодная сделка)
+                        if (game.RoundNo == 10 && sellerVAtk.MarkedPlayers.Contains(target.GetPlayerId()))
+                        {
+                            target.AttackPreference += (int)(target.Player.Status.GetScore() / 2);
+                            if (target.PlaceAtLeaderBoard() == 1)
+                                target.AttackPreference += 15;
+                        }
+                        break;
+
                     case "Salldorum":
-                        // Prefer attacking enemies below for Очко synergy
+                        var salChronicler = bot.Passives.SalldorumChronicler;
+                        // Великий летописец: prefer player who won most 3 rounds ago (x3 skill)
+                        if (game.RoundNo > 3 && salChronicler.HistoryRewritten)
+                        {
+                            var targetWins3ago = target.Player.Status.WhoToLostEveryRound
+                                .Count(x => x.RoundNo == game.RoundNo - 3);
+                            if (targetWins3ago > 0)
+                                target.AttackPreference += targetWins3ago * 5 + 3;
+                        }
+                        // Prefer lower-ranked (easier wins + Очко synergy)
                         if (target.Player.Status.GetPlaceAtLeaderBoard() > bot.Status.GetPlaceAtLeaderBoard())
-                            target.AttackPreference += 5;
-                        // Prefer weaker enemies (low strength/justice)
+                            target.AttackPreference += 4;
+                        // Prefer 0 Justice
                         if (target.Player.GameCharacter.Justice.GetRealJusticeNow() == 0)
                             target.AttackPreference += 3;
                         break;
 
                     case "Геральт":
-                        // Prioritize enemies with most stacked contracts of their type
                         var geraltBotContracts = bot.Passives.GeraltContracts;
+                        var geraltBotOilAtk = bot.Passives.GeraltOil;
                         var targetMonster = target.Player.Passives.GeraltMonsterType;
                         if (targetMonster != null)
                         {
                             var contractCount = geraltBotContracts.GetCount(targetMonster.Value);
-                            target.AttackPreference += contractCount * 5;
+                            var oilTier = geraltBotOilAtk.GetTier(targetMonster.Value);
+                            // Base contract bonus
+                            target.AttackPreference += contractCount * 4;
+                            // Oil synergy when applied
+                            if (geraltBotOilAtk.IsOilApplied)
+                            {
+                                target.AttackPreference += oilTier * 3;
+                                if (oilTier >= 3) target.AttackPreference += 10;
+                            }
+                            // High contracts: consuming gives extra fights + skill
+                            if (contractCount >= 3) target.AttackPreference += 8;
                         }
+                        else
+                        {
+                            // No monster type (5th enemy) — lower priority
+                            target.AttackPreference -= 5;
+                        }
+                        // Plotva speed bonus: prefer targets where rank > target+1
+                        var geraltPos = bot.Status.GetPlaceAtLeaderBoard();
+                        var geraltTargetPos = target.PlaceAtLeaderBoard();
+                        if (geraltPos > geraltTargetPos + 1)
+                        {
+                            target.AttackPreference += 4;
+                            var enemiesBetween = allTargets.Count(x =>
+                                x.PlaceAtLeaderBoard() > geraltTargetPos && x.PlaceAtLeaderBoard() < geraltPos);
+                            target.AttackPreference += enemiesBetween * 2;
+                        }
+                        // Prefer leaders (invoice rewards attacking top positions)
+                        if (geraltTargetPos <= 2)
+                            target.AttackPreference += 3;
                         break;
                 }
                 //end custom bot behavior
@@ -1594,9 +2002,28 @@ public class BotsBehavior : IServiceSingleton
                 case "Сайтама":
                     if (game.RoundNo == 10)
                     {
+                        // Round 10: MUST attack #1 — never block
+                        isBlock = noBlock;
                         var firstPlace = allTargets.Find(x => x.Player.Status.GetPlaceAtLeaderBoard() == 1);
                         if (firstPlace != null && mandatoryAttack == -1)
                             mandatoryAttack = 1;
+                    }
+                    else if (game.RoundNo <= 3)
+                    {
+                        // Early: block often (stay unnoticed, accumulate deferred bonus)
+                        minimumRandomNumberForBlock = 2;
+                        maximumRandomNumberForBlock = 4;
+                    }
+                    else if (game.RoundNo <= 6)
+                    {
+                        // Mid-game: occasionally block
+                        minimumRandomNumberForBlock = 2;
+                        maximumRandomNumberForBlock = 5;
+                    }
+                    else
+                    {
+                        // Rounds 7-9: attack to accumulate deferred points before round 10 payoff
+                        isBlock = noBlock;
                     }
                     break;
                 case "Darksci":
@@ -1704,6 +2131,11 @@ public class BotsBehavior : IServiceSingleton
                     isBlock = noBlock;
                     break;
 
+                case "Dopa":
+                    // Макро needs 2 attacks per round — never block
+                    isBlock = noBlock;
+                    break;
+
                 case "DeepList":
                     var deepList = bot.Passives.DeepListMadnessTriggeredWhen;
                     if (deepList.WhenToTrigger.Contains(game.RoundNo))
@@ -1807,52 +2239,166 @@ public class BotsBehavior : IServiceSingleton
                     //end block chances
                     break;
 
+                case "Napoleon Wonnafcuk":
+                    var napAllianceBlock = bot.Passives.NapoleonAlliance;
+                    if (napAllianceBlock.AllyId == Guid.Empty)
+                    {
+                        // No ally yet: must attack to form alliance
+                        isBlock = noBlock;
+                    }
+                    else
+                    {
+                        // Block for treaty registration when multiple attackers
+                        var attackersOnNap = allTargets.Count(x =>
+                            x.Player.Status.WhoToAttackThisTurn.Contains(bot.GetPlayerId()));
+                        if (attackersOnNap >= 2)
+                        {
+                            minimumRandomNumberForBlock = 3;
+                            maximumRandomNumberForBlock = 4;
+                        }
+                        else if (game.RoundNo % 3 == 0)
+                        {
+                            minimumRandomNumberForBlock = 2;
+                            maximumRandomNumberForBlock = 4;
+                        }
+                    }
+                    break;
+
+                case "Таинственный Суппорт":
+                    var supportMarkBlock = bot.Passives.SupportPremade;
+                    if (supportMarkBlock.MarkedPlayerId == Guid.Empty)
+                    {
+                        isBlock = noBlock; // Must attack to mark carry
+                    }
+                    else if (game.RoundNo % 3 == 0)
+                    {
+                        isBlock = noBlock; // Stakes round: must attack non-Carry
+                    }
+                    else if (game.RoundNo % 2 == 0)
+                    {
+                        // Block for Justice (Protect passive)
+                        minimumRandomNumberForBlock = 2;
+                        maximumRandomNumberForBlock = 3;
+                    }
+                    break;
+
+                case "Продавец Сомнительных Тактик":
+                    var sellerVBlock = bot.Passives.SellerVparitGovna;
+                    if (sellerVBlock.Cooldown <= 0)
+                        isBlock = noBlock; // Must attack to apply mark
+                    else
+                    {
+                        minimumRandomNumberForBlock = 2;
+                        maximumRandomNumberForBlock = 5;
+                    }
+                    break;
+
                 case "Стая Гоблинов":
-                    // Build ziggurat when conditions are met
                     var gobBotPop = bot.Passives.GoblinPopulation;
                     var gobBotZig = bot.Passives.GoblinZiggurat;
                     var gobBotPlace = bot.Status.GetPlaceAtLeaderBoard();
-                    if (gobBotPop.Warriors >= 1 && gobBotPop.Hobs >= 1 && gobBotPop.Workers >= 1 &&
-                        bot.Status.GetScore() >= 3 && !gobBotZig.BuiltPositions.Contains(gobBotPlace))
+                    var gobCanBuild = gobBotPop.Warriors >= 1 && gobBotPop.Hobs >= 1 && gobBotPop.Workers >= 1
+                                     && bot.Status.GetScore() >= 3
+                                     && !gobBotZig.BuiltPositions.Contains(gobBotPlace);
+                    // Build ziggurat on mine position (best value)
+                    if (gobCanBuild && gobBotPlace is 1 or 2 or 6)
+                        isBlock = yesBlock;
+                    // Late game: build anywhere if haven't built yet
+                    else if (gobCanBuild && game.RoundNo >= 7 && gobBotZig.BuiltPositions.Count == 0)
+                        isBlock = yesBlock;
+                    // Low population: consider defensive blocking
+                    else if (gobBotPop.TotalGoblins < 10)
                     {
-                        isBlock = yesBlock; // Force block to build ziggurat
+                        minimumRandomNumberForBlock = 2;
+                        maximumRandomNumberForBlock = 4;
                     }
                     break;
 
                 case "Котики":
-                    // Alternate between blocking (Штормяк taunt) and attacking
-                    var kotikiStorm = bot.Passives.KotikiStorm;
-                    var untaunted = game.PlayersList.Count(p =>
+                    var kotikiStormBlock = bot.Passives.KotikiStorm;
+                    var untauntedBlock = game.PlayersList.Count(p =>
                         p.GetPlayerId() != bot.GetPlayerId() &&
-                        !kotikiStorm.TauntedPlayers.Contains(p.GetPlayerId()));
-                    // Block every other round if there are untaunted enemies; attack otherwise
-                    if (untaunted > 0 && game.RoundNo % 2 == 0)
+                        !p.Passives.IsDead &&
+                        !kotikiStormBlock.TauntedPlayers.Contains(p.GetPlayerId()));
+                    // Block every 3rd round for taunt (when untaunted enemies exist)
+                    if (untauntedBlock > 0 && game.RoundNo >= 2 && game.RoundNo % 3 == 0)
                         isBlock = yesBlock;
+                    // Also block when cats deployed on enemies (can't collect this turn)
+                    else if (bot.Passives.KotikiAmbush.MinkaOnPlayer != Guid.Empty ||
+                             bot.Passives.KotikiAmbush.StormOnPlayer != Guid.Empty)
+                    {
+                        minimumRandomNumberForBlock = 2;
+                        maximumRandomNumberForBlock = 4;
+                    }
+                    // Late game: attack to collect cats and score
+                    if (game.RoundNo >= 8)
+                        isBlock = noBlock;
                     break;
 
                 case "Монстр без имени":
-                    // Default: block (trigger Близнец justice steal)
-                    minimumRandomNumberForBlock = 3;
-                    maximumRandomNumberForBlock = 4;
+                    if (game.RoundNo == 10)
+                    {
+                        // Round 10: don't block — apocalypse strategy (bait enemies into fighting)
+                        isBlock = noBlock;
+                    }
+                    else if (game.RoundNo <= 2)
+                    {
+                        // Early: always block (accumulate Justice via Близнец)
+                        isBlock = yesBlock;
+                    }
+                    else
+                    {
+                        // Mid/late: heavily prefer blocking
+                        minimumRandomNumberForBlock = 3;
+                        maximumRandomNumberForBlock = 4;
+                        // If no enemies have Justice, attacking is more valuable
+                        if (allTargets.All(x => x.Player.GameCharacter.Justice.GetSeenJusticeNow() == 0))
+                        {
+                            minimumRandomNumberForBlock = 2;
+                            maximumRandomNumberForBlock = 5;
+                        }
+                    }
                     break;
 
                 case "TheBoys":
-                    // TheBoys always attacks — never blocks
+                    // TheBoys never blocks — orders have deadlines
+                    isBlock = noBlock;
                     break;
 
                 case "Salldorum":
-                    // Block once early to bury cola, then attack
                     var salCapsule = bot.Passives.SalldorumTimeCapsule;
+                    var salShenBlock = bot.Passives.SalldorumShen;
+                    // Block once early for capsule burial
                     if (!salCapsule.FirstBlockUsed && game.RoundNo <= 3)
                         isBlock = yesBlock;
-                    // Activate Shen mid-game if charges available
-                    if (bot.Passives.SalldorumShen.Charges > 0 && game.RoundNo >= 3 && !bot.Passives.SalldorumShen.ActiveThisTurn)
+                    // Shen: save charges, use strategically
+                    if (salShenBlock.Charges > 0 && !salShenBlock.ActiveThisTurn)
                     {
-                        bot.Passives.SalldorumShen.Charges--;
-                        bot.Passives.SalldorumShen.ActiveThisTurn = true;
-                        bot.Passives.SalldorumShen.TargetPosition = Math.Min(2, bot.Status.GetPlaceAtLeaderBoard());
+                        var salBotPlace = bot.Status.GetPlaceAtLeaderBoard();
+                        // Use when falling behind
+                        if (salBotPlace >= 4 && game.RoundNo >= 5)
+                        {
+                            salShenBlock.Charges--;
+                            salShenBlock.ActiveThisTurn = true;
+                            salShenBlock.TargetPosition = Math.Min(2, salBotPlace);
+                        }
+                        // Use to secure top on final rounds
+                        else if (game.RoundNo >= 9 && salBotPlace > 2)
+                        {
+                            salShenBlock.Charges--;
+                            salShenBlock.ActiveThisTurn = true;
+                            salShenBlock.TargetPosition = 1;
+                        }
+                        // Use to reach capsule position for pickup
+                        else if (salCapsule.Buried && salBotPlace != salCapsule.BuriedAtPosition
+                                 && game.RoundNo - salCapsule.BuriedOnRound >= 2)
+                        {
+                            salShenBlock.Charges--;
+                            salShenBlock.ActiveThisTurn = true;
+                            salShenBlock.TargetPosition = salCapsule.BuriedAtPosition;
+                        }
                     }
-                    // Use rewrite history around round 5-7
+                    // Rewrite history mid-game
                     if (!bot.Passives.SalldorumChronicler.HistoryRewritten && game.RoundNo >= 5 && game.RoundNo < 8)
                     {
                         bot.Passives.SalldorumChronicler.HistoryRewritten = true;
@@ -1861,12 +2407,22 @@ public class BotsBehavior : IServiceSingleton
                     break;
 
                 case "Геральт":
-                    // Meditate periodically (every 2-3 rounds) to apply oil and gain senses
                     var geraltBotOil = bot.Passives.GeraltOil;
-                    if (!geraltBotOil.IsOilApplied && game.RoundNo > 1)
+                    var geraltMedBlock = bot.Passives.GeraltMeditation;
+                    // Oil not applied — must meditate
+                    if (!geraltBotOil.IsOilApplied)
                         isBlock = yesBlock;
-                    else if (game.RoundNo % 3 == 0)
-                        isBlock = yesBlock;
+                    // Still unrevealed enemies early — meditate for senses
+                    else if (geraltMedBlock.RevealedEnemies.Count < 3 && game.RoundNo <= 6)
+                    {
+                        minimumRandomNumberForBlock = 2;
+                        maximumRandomNumberForBlock = 4;
+                    }
+                    else
+                        isBlock = noBlock;
+                    // Late game: never block (need to fight for contracts)
+                    if (game.RoundNo >= 8)
+                        isBlock = noBlock;
                     break;
             }
 
@@ -1938,7 +2494,7 @@ public class BotsBehavior : IServiceSingleton
                 await _gameReaction.HandleAttack(bot, null, -10);
             }
 
-            // Dopa Макро — bot needs second attack
+            // Dopa Макро — bot needs second attack (smart Vision-aware targeting)
             if (isAttacked && !bot.Status.IsReady
                 && bot.GameCharacter.Passive.Any(x => x.PassiveName == "Макро"))
             {
@@ -1946,8 +2502,24 @@ public class BotsBehavior : IServiceSingleton
                     !bot.Status.WhoToAttackThisTurn.Contains(x.Player.GetPlayerId())).ToList();
                 if (secondTargets.Any())
                 {
-                    var pick = secondTargets[_rand.Random(0, secondTargets.Count - 1)];
-                    await AttackPlayer(bot, pick.Player.Status.GetPlaceAtLeaderBoard());
+                    // Try to trigger Vision: find target that is fighting our first target
+                    var firstTargetId = bot.Status.WhoToAttackThisTurn.FirstOrDefault();
+                    var visionTarget = secondTargets.Find(x =>
+                        x.Player.Status.WhoToAttackThisTurn.Contains(firstTargetId));
+
+                    if (visionTarget != null && bot.Passives.DopaVision.Cooldown == 0)
+                    {
+                        await AttackPlayer(bot, visionTarget.Player.Status.GetPlaceAtLeaderBoard());
+                    }
+                    else
+                    {
+                        // Fallback: prefer target being attacked by most others (busy = more Vision potential)
+                        var bestTarget = secondTargets
+                            .OrderByDescending(x => allTargets.Count(a =>
+                                a.Player.Status.WhoToAttackThisTurn.Contains(x.GetPlayerId())))
+                            .First();
+                        await AttackPlayer(bot, bestTarget.Player.Status.GetPlaceAtLeaderBoard());
+                    }
                 }
                 else if (allTargets.Any())
                 {
@@ -2044,11 +2616,23 @@ public class BotsBehavior : IServiceSingleton
             if (player.GameCharacter.Name == "Загадочный Спартанец в маске" && psyche < 10 && game.RoundNo <= 3) skillNumber = 4;
             if (player.GameCharacter.Name == "Загадочный Спартанец в маске" && speed < 10 && game.RoundNo > 3) skillNumber = 3;
 
+            // Сайтама — STR for round 10 fight, then PSY
+            if (player.GameCharacter.Name == "Сайтама" && strength < 10) skillNumber = 2;
+            else if (player.GameCharacter.Name == "Сайтама" && psyche < 10) skillNumber = 4;
+
             // Rick Sanchez — prioritize INT for portal gun invention (30+ INT needed)
             if (player.GameCharacter.Name == "Рик Санчез") skillNumber = 1;
 
-            // Itachi — always speed
-            if (player.GameCharacter.Name == "Итачи") skillNumber = 3;
+            // Itachi — speed primary, then INT, then PSY
+            if (player.GameCharacter.Name == "Итачи")
+            {
+                if (speed < 10) skillNumber = 3;
+                else if (intelligence < 10) skillNumber = 1;
+                else skillNumber = 4;
+            }
+
+            // Таинственный Суппорт — STR to win fights
+            if (player.GameCharacter.Name == "Таинственный Суппорт" && strength < 10) skillNumber = 2;
 
             // Продавец — with 10x multiplier: prioritize INT for skill, then PSY, STR, SPD
             if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Закуп"))
@@ -2074,19 +2658,25 @@ public class BotsBehavior : IServiceSingleton
             // Napoleon — PSY-focused build
             if (player.GameCharacter.Name == "Napoleon Wonnafcuk" && psyche < 10) skillNumber = 4;
 
-            // Геральт — upgrade oil for least upgraded type that has enemies
+            // Геральт — upgrade oil for type with most contracts AND lowest tier
             if (player.GameCharacter.Name == "Геральт")
             {
                 var geraltBotOilLvl = player.Passives.GeraltOil;
-                var oilTiers = new[]
+                var geraltBotContractsLvl = player.Passives.GeraltContracts;
+                var oilOptions = new[]
                 {
-                    (type: 1, tier: geraltBotOilLvl.DrownersOilTier),
-                    (type: 2, tier: geraltBotOilLvl.WerewolvesOilTier),
-                    (type: 3, tier: geraltBotOilLvl.VampiresOilTier),
-                    (type: 4, tier: geraltBotOilLvl.DragonsOilTier),
+                    (type: 1, tier: geraltBotOilLvl.DrownersOilTier, contracts: geraltBotContractsLvl.Drowners),
+                    (type: 2, tier: geraltBotOilLvl.WerewolvesOilTier, contracts: geraltBotContractsLvl.Werewolves),
+                    (type: 3, tier: geraltBotOilLvl.VampiresOilTier, contracts: geraltBotContractsLvl.Vampires),
+                    (type: 4, tier: geraltBotOilLvl.DragonsOilTier, contracts: geraltBotContractsLvl.Dragons),
                 };
-                var best = oilTiers.Where(x => x.tier < 3).OrderBy(x => x.tier).FirstOrDefault();
-                if (best != default) skillNumber = best.type;
+                // Prefer type with most contracts that isn't maxed
+                var bestOil = oilOptions
+                    .Where(x => x.tier < 3)
+                    .OrderByDescending(x => x.contracts)
+                    .ThenBy(x => x.tier)
+                    .FirstOrDefault();
+                if (bestOil != default) skillNumber = bestOil.type;
                 else skillNumber = 1;
             }
 

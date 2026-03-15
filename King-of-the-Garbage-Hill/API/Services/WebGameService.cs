@@ -593,11 +593,19 @@ public class WebGameService
             {
                 demand.TotalSuccessfulDemands++;
                 demand.QuestCompletedThisRound = true;
-                player.Status.AddRegularPoints(invoice.PredictedCoins, "Чеканная монета");
-                player.Status.AddInGamePersonalLogs($"Чеканная монета: +{invoice.PredictedCoins} очк. (счёт: {invoice.Total})\n");
 
-                if (invoice.Total >= 12)
+                if (invoice.PredictedCoins >= 2)
+                {
+                    player.Status.AddRegularPoints(invoice.PredictedCoins - 1, "Чеканная монета");
+                    player.Status.AddRegularPoints(1, "Благодарность");
+                    player.Status.AddInGamePersonalLogs($"Чеканная монета: +{invoice.PredictedCoins - 1} очк. (счёт: {invoice.Total})\n");
                     player.Status.AddInGamePersonalLogs("Благодарность: Еще одна монета за ваш подвиг! Всем селом скинулись.\n");
+                }
+                else
+                {
+                    player.Status.AddRegularPoints(invoice.PredictedCoins, "Чеканная монета");
+                    player.Status.AddInGamePersonalLogs($"Чеканная монета: +{invoice.PredictedCoins} очк. (счёт: {invoice.Total})\n");
+                }
             }
             if (invoice.PredictedDispleasure > 0)
             {
