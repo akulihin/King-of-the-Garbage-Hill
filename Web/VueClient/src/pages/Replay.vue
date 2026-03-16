@@ -173,11 +173,12 @@ const myFightBonuses = computed(() => {
     if (isAttacker) {
       totalSkill += (f.skillGainedFromTarget || 0) + (f.skillGainedFromClassAttacker || 0)
       totalMoral += (f.attackerMoralChange || 0)
+      if (f.outcome === 'loss') totalJustice += (f.justiceChange || 0)
     }
     if (isDefender) {
       totalSkill += (f.skillGainedFromClassDefender || 0)
-      totalJustice += (f.justiceChange || 0)
       totalMoral += (f.defenderMoralChange || 0)
+      if (f.outcome === 'win') totalJustice += (f.justiceChange || 0)
     }
   }
 
@@ -496,7 +497,7 @@ onUnmounted(() => {
             :show-detailed-factors="true"
             :character-catalog="store.gameState.allCharacters || []"
             :initial-fight-index="replayStore.currentFightIndex"
-            fight-style="Classic"
+            fight-style="v1"
             @update:fight-index="replayStore.setFight"
             @update:current-fight="onCurrentFightUpdate"
             @replay-ended="onReplayEnded"
@@ -769,7 +770,8 @@ onUnmounted(() => {
 }
 
 .fight-panel {
-  min-height: 80px;
+  min-height: 0;
+  overflow-y: visible;
 }
 
 .logs-row-top {

@@ -33,7 +33,7 @@ const props = withDefaults(defineProps<{
   showDetailedFactors?: boolean
   characterCatalog?: CharacterInfo[]
   initialFightIndex?: number
-  fightStyle?: 'BigArt' | 'Cards' | 'Classic'
+  fightStyle?: 'v3' | 'v2' | 'v1'
 }>(), {
   letopis: '',
   gameStory: null,
@@ -44,7 +44,7 @@ const props = withDefaults(defineProps<{
   showDetailedFactors: false,
   characterCatalog: () => [],
   initialFightIndex: undefined,
-  fightStyle: 'BigArt',
+  fightStyle: 'v3',
 })
 
 const showDetails = computed(() => props.showDetailedFactors || props.isAdmin)
@@ -1341,8 +1341,8 @@ function getDisplayCharName(orig: string, u: string): string {
         </div>
       </div>
 
-      <!-- Fight Arena — BigArt (new style with full-art cards, clash animation) -->
-      <FightArena v-if="fight && fightStyle === 'BigArt'" ref="fightCardRef"
+      <!-- Fight Arena — v3 (full-art cards, clash animation) -->
+      <FightArena v-if="fight && fightStyle === 'v3'" ref="fightCardRef"
         :fight="fight"
         :is-my-fight="isMyFight"
         :is-flipped="isFlipped"
@@ -1400,8 +1400,8 @@ function getDisplayCharName(orig: string, u: string): string {
         :enemy-fof-badge-text="enemyFofBadgeText"
         :phase-class="phaseClass"
       />
-      <!-- Fight Arena — Cards (mod-card grid, justice slam, wax seal) -->
-      <FightArenaCards v-if="fight && fightStyle === 'Cards'" ref="fightCardRef"
+      <!-- Fight Arena — v2 (mod-card grid, justice slam, wax seal) -->
+      <FightArenaCards v-if="fight && fightStyle === 'v2'" ref="fightCardRef"
         :fight="fight"
         :is-my-fight="isMyFight"
         :is-flipped="isFlipped"
@@ -1458,8 +1458,8 @@ function getDisplayCharName(orig: string, u: string): string {
         :enemy-fof-badge-text="enemyFofBadgeText"
         :phase-class="phaseClass"
       />
-      <!-- Fight Arena — Classic (inline factor rows, compact card, old-school layout) -->
-      <FightArenaClassic v-if="fight && fightStyle === 'Classic'" ref="fightCardRef"
+      <!-- Fight Arena — v1 (inline factor rows, compact card) -->
+      <FightArenaClassic v-if="fight && fightStyle === 'v1'" ref="fightCardRef"
         :fight="fight"
         :is-my-fight="isMyFight"
         :is-flipped="isFlipped"

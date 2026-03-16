@@ -527,10 +527,6 @@ function outcomeClass(f: FightEntry): string {
   flex-direction: column;
   gap: 6px;
   position: relative;
-  overflow: clip;
-}
-/* Allow dropped card to escape arena bounds */
-.arena:has(.dropped) {
   overflow: visible;
 }
 /* Subtle parchment texture overlay */

@@ -476,13 +476,19 @@ function toggleFightPanelSize() {
   localStorage.setItem('kotgh_fight_panel_fixed', String(fightPanelFixed.value))
 }
 
-const fightStyleOptions = ['BigArt', 'Cards', 'Classic'] as const
+const fightStyleOptions = ['v3', 'v2', 'v1'] as const
 type FightStyle = typeof fightStyleOptions[number]
+const STYLE_MIGRATION: Record<string, string> = { Classic: 'v1', Cards: 'v2', BigArt: 'v3' }
+const rawStyle = localStorage.getItem('kotgh_fight_style') ?? ''
+const migratedStyle = STYLE_MIGRATION[rawStyle] ?? rawStyle
 const fightStyle = ref<FightStyle>(
-  (fightStyleOptions as readonly string[]).includes(localStorage.getItem('kotgh_fight_style') ?? '')
-    ? localStorage.getItem('kotgh_fight_style') as FightStyle
-    : 'BigArt'
+  (fightStyleOptions as readonly string[]).includes(migratedStyle)
+    ? migratedStyle as FightStyle
+    : 'v3'
 )
+if (migratedStyle !== rawStyle) {
+  localStorage.setItem('kotgh_fight_style', fightStyle.value)
+}
 
 function cycleFightStyle() {
   const idx = fightStyleOptions.indexOf(fightStyle.value)
@@ -761,11 +767,12 @@ const myFightBonuses = computed(() => {
     if (isAttacker) {
       totalSkill += (f.skillGainedFromTarget || 0) + (f.skillGainedFromClassAttacker || 0)
       totalMoral += (f.attackerMoralChange || 0)
+      if (f.outcome === 'loss') totalJustice += (f.justiceChange || 0)
     }
     if (isDefender) {
       totalSkill += (f.skillGainedFromClassDefender || 0)
-      totalJustice += (f.justiceChange || 0)
       totalMoral += (f.defenderMoralChange || 0)
+      if (f.outcome === 'win') totalJustice += (f.justiceChange || 0)
     }
   }
 
@@ -1204,7 +1211,7 @@ const charTint = computed(() => {
             <!-- Fight panel size toggle -->
             <button class="btn btn-ghost btn-sm layout-btn"
               :class="{ active: fightPanelFixed }"
-              title="Toggle fight panel between fixed 500px and full-height"
+              title="Toggle fight panel sizing mode"
               @click="toggleFightPanelSize()">
               {{ fightPanelFixed ? 'Fixed' : 'Dynamic' }}
             </button>
@@ -1253,8 +1260,8 @@ const charTint = computed(() => {
         </div>
 
         <!-- Fight Panel + Blackjack -->
-        <div class="center-section fight-section" :style="{ order: panelOrder.fight }">
-          <div class="log-panel card fight-panel" :class="{ 'fight-panel-fixed': fightPanelFixed }">
+        <div class="center-section fight-section" :class="{ 'fight-section-fixed': fightPanelFixed || fightStyle !== 'v3' }" :style="{ order: panelOrder.fight }">
+          <div class="log-panel card fight-panel" :class="{ 'fight-panel-fixed': fightPanelFixed }" :data-style="fightStyle">
             <!-- Kira: Death Note above fight animation -->
             <DeathNote
               v-if="store.isKira && store.myPlayer?.deathNote && !store.gameState.isFinished"
@@ -1652,11 +1659,21 @@ const charTint = computed(() => {
   min-height: 0;
 }
 
-.fight-panel-fixed {
-  flex: 0 0 500px;
-  height: 500px;
-  min-height: 500px;
-  max-height: 500px;
+/* v1/v2: always fit content (no wasted space, no cutoff) */
+.fight-panel[data-style="v1"],
+.fight-panel[data-style="v2"] {
+  flex: 0 0 auto;
+  min-height: auto;
+  max-height: none;
+  overflow-y: visible;
+}
+
+/* v3 Fixed: fit-to-content instead of filling remaining space */
+.fight-panel-fixed[data-style="v3"] {
+  flex: 0 0 auto;
+  min-height: auto;
+  max-height: none;
+  overflow-y: visible;
 }
 
 .layout-btn {
@@ -2386,6 +2403,7 @@ const charTint = computed(() => {
   margin-bottom: 4px;
 }
 
+/* v3 Dynamic: fill available space */
 .fight-panel {
   padding: 5px 8px;
   min-height: 200px;
@@ -2401,6 +2419,9 @@ const charTint = computed(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+.fight-section-fixed {
+  flex: 0 0 auto;
 }
 
 /* ── Avatar section in game-right ──────────────────────────────── */

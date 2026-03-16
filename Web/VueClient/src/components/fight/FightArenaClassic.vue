@@ -471,13 +471,13 @@ const justiceUseBlocks = false
 .fa-factor-detail :deep(.dom-bad) { color: var(--accent-red); font-weight: 900; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px; }
 
 /* ── Compact identity + scale row ── */
-.fa-id-left, .fa-id-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.fa-id-left, .fa-id-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .fa-id-left.winner .fa-id-name, .fa-id-right.winner .fa-id-name { color: var(--accent-green); font-weight: 800; }
 .fa-id-left.winner .fa-ava-sm, .fa-id-right.winner .fa-ava-sm { border-color: var(--accent-green); box-shadow: var(--glow-green); }
-.fa-ava-sm { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-subtle); flex-shrink: 0; }
+.fa-ava-sm { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-subtle); flex-shrink: 0; }
 .fa-id-info { display: flex; flex-direction: column; line-height: 1.2; }
-.fa-id-name { font-size: 10px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; }
-.fa-id-char { font-size: 8px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; }
+.fa-id-name { font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
+.fa-id-char { font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
 
 /* ── Bar ── */
 .fa-bar-container { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
