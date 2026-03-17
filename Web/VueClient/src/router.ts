@@ -17,6 +17,10 @@ export const routes: RouteRecordRaw[] = [
     redirect: '/games',
   },
   {
+    path: '/game',
+    redirect: '/games',
+  },
+  {
     name: 'lobby',
     path: '/games',
     component: () => import('./pages/Lobby.vue'),

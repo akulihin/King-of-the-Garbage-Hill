@@ -121,12 +121,12 @@ function handleLogout() {
       <!-- Top bar -->
       <header class="top-bar">
         <div class="top-bar-left">
-          <span class="logo-icon">👑</span>
+          <img class="logo-icon" src="https://r2.ozvmusic.com/kotgh/art/avatars/game_v2.png" alt="KOTGH" />
           <RouterLink to="/" class="logo-text">KOTGH</RouterLink>
 
           <nav class="top-nav">
-            <RouterLink to="/games">Games</RouterLink>
-            <RouterLink to="/battleship">海 Бой</RouterLink>
+            <RouterLink to="/games">Lobby</RouterLink>
+            <RouterLink to="/battleship">Морской Бой - minigame</RouterLink>
             <RouterLink to="/home">Home</RouterLink>
           </nav>
         </div>
@@ -365,7 +365,7 @@ function handleLogout() {
   gap: 0.75rem;
 }
 
-.logo-icon { font-size: 1.125rem; }
+.logo-icon { height: 1.25rem; width: auto; vertical-align: middle; }
 
 .logo-text {
   font-size: 1rem;

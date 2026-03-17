@@ -54,7 +54,7 @@ public class BattleshipService
         foreach (var g in _games.Values)
         {
             if (!g.IsFinished && (g.Player1?.DiscordId == discordId || g.Player2?.DiscordId == discordId))
-                return (null, "У вас уже есть активная игра в Морской бой.");
+                return (null, "У вас уже есть активная игра в Морской Бой - minigame.");
         }
 
         var game = new BattleshipGame();

@@ -117,7 +117,10 @@ function viewReplay(hash: string) {
 <template>
   <div class="lobby">
     <div class="lobby-header">
-      <h1>Game Lobby</h1>
+      <div class="lobby-title-row">
+        <img class="lobby-logo" src="https://r2.ozvmusic.com/kotgh/art/avatars/game_v2_big.png" alt="" />
+        <h1>King of the Garbage Hill</h1>
+      </div>
       <p class="subtitle">
         Create a new game, join an existing one, or spectate ongoing games.
       </p>
@@ -427,6 +430,18 @@ function viewReplay(hash: string) {
 .lobby-header {
   text-align: center;
   margin-bottom: 32px;
+}
+
+.lobby-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.lobby-logo {
+  height: 48px;
+  width: auto;
 }
 
 .lobby-header h1 {
