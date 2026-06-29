@@ -11,6 +11,11 @@ public class DiscordAccountClass
     public List<PerformanceStatisticsClass> PerformanceStatistics = new();
     public List<string> SeenCharacters = new();
 
+    public bool WidgetAuthorized = false;
+    public string WidgetStatTextLeft = "L";
+    public string WidgetStatTextRight = "R";
+    public int WidgetFavoriteNumber = 228;
+
     public string DiscordUserName { get; set; }
     public ulong DiscordId { get; set; }
     public string MyPrefix { get; set; }
@@ -67,6 +72,7 @@ public class DiscordAccountClass
         public string CharacterName;
         public ulong Plays;
         public ulong Wins;
+        public DateTime LastPlayedAt = DateTime.MinValue;
 
         public CharacterStatisticsClass(string characterName, ulong wins)
         {

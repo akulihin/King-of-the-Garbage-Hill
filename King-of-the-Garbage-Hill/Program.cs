@@ -92,6 +92,7 @@ public class ProgramKingOfTheGarbageHill
             builder.Services.AddSingleton(_services.GetRequiredService<HttpClient>());
             builder.Services.AddSingleton(_services.GetRequiredService<Game.GameLogic.StartGameLogic>());
             builder.Services.AddSingleton(_services.GetRequiredService<LocalPersistentData.UsersAccounts.UserAccounts>());
+            builder.Services.AddSingleton(_services.GetRequiredService<Game.Services.DiscordWidgetService>());
 
             // Register web-specific services
             builder.Services.AddSingleton<WebGameService>();

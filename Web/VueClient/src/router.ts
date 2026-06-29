@@ -10,6 +10,7 @@ export type AppRouteNames =
   | 'battleship'
   | 'battleshipGame'
   | 'battleshipSpectate'
+  | 'widget'
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -47,6 +48,11 @@ export const routes: RouteRecordRaw[] = [
     name: 'home',
     path: '/home',
     component: () => import('./pages/Home.vue'),
+  },
+  {
+    name: 'widget',
+    path: '/widget',
+    component: () => import('./pages/Widget.vue'),
   },
   {
     name: 'battleship',

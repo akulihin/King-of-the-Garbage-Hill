@@ -7,18 +7,23 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-
+using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
+using King_of_the_Garbage_Hill.Game.Services;
 namespace King_of_the_Garbage_Hill.GeneralCommands
 {
     public class ServerManagement : ModuleBaseCustom
     {
         private readonly HelperFunctions _helperFunctions;
         private readonly Global _global;
+        private readonly DiscordWidgetService _widgetService;
+        private readonly UserAccounts _accounts;
 
-        public ServerManagement(HelperFunctions helperFunctions, Global global)
+        public ServerManagement(HelperFunctions helperFunctions, Global global, DiscordWidgetService widgetService, UserAccounts accounts)
         {
             _helperFunctions = helperFunctions;
             _global = global;
+            _widgetService = widgetService;
+            _accounts = accounts;
         }
 
 
@@ -115,6 +120,51 @@ namespace King_of_the_Garbage_Hill.GeneralCommands
             }
         }
 
+
+        [Command("widget_s")]
+        public async Task SetupAsync()
+        {
+            var authorizeButton = new ButtonBuilder()
+            {
+                Style = ButtonStyle.Link,
+                Label = "Authorize",
+                Url = $"https://discord.com/oauth2/authorize?client_id=901706293977432124&response_type=token&scope=openid+sdk.social_layer_presence"
+            };
+            var row = new ActionRowBuilder().AddComponents(authorizeButton);
+            var components = new ComponentBuilder().AddRow(row).Build();
+            await SendMessageAsync($"please click the button below to authorize.", components: components);
+        }
+
+        [Command("widget")]
+        public async Task SyncUserDiscordWidget(string stat_text_left = null, string stat_text_right = null, int? favorite_number = null, ulong? discord_id = null)
+        {
+            var account = _accounts.GetAccount(Context.User);
+            if (discord_id.HasValue)
+            {
+                account = _accounts.GetAccount(discord_id.Value);
+            }
+
+            if (account == null)
+            {
+                await SendMessageAsync("No account found.");
+                return;
+            }
+
+            if (stat_text_left != null) account.WidgetStatTextLeft = stat_text_left;
+            if (stat_text_right != null) account.WidgetStatTextRight = stat_text_right;
+            if (favorite_number.HasValue) account.WidgetFavoriteNumber = favorite_number.Value;
+
+            if (!account.WidgetAuthorized)
+            {
+                await SendMessageAsync("Widget not authorized yet — run `*widget_s` first and click the authorize button.");
+                return;
+            }
+
+            var success = await _widgetService.SyncAsync(account.DiscordId);
+            await SendMessageAsync(success
+                ? "Discord widget updated."
+                : "Failed to update Discord widget (see server logs).");
+        }
 
     }
 }

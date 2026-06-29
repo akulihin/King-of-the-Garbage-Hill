@@ -10,6 +10,7 @@ using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
+using King_of_the_Garbage_Hill.Game.Services;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.API.Services;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
@@ -28,6 +29,7 @@ public class CheckIfReady : IServiceSingleton
     private readonly LoginFromConsole _logs;
     private readonly DoomsdayMachine _round;
     private readonly GameUpdateMess _upd;
+    private readonly DiscordWidgetService _widgetService;
 
 
     private int _finishedGames;
@@ -36,7 +38,8 @@ public class CheckIfReady : IServiceSingleton
 
     public CheckIfReady(Global global, GameUpdateMess upd, DoomsdayMachine round,
         GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, LoginFromConsole logs, UserAccounts accounts,
-        HelperFunctions help, GameReaction gameReaction, CharacterPassives characterPassives)
+        HelperFunctions help, GameReaction gameReaction, CharacterPassives characterPassives,
+        DiscordWidgetService widgetService)
     {
         _global = global;
         _upd = upd;
@@ -48,6 +51,7 @@ public class CheckIfReady : IServiceSingleton
         _help = help;
         _gameReaction = gameReaction;
         _characterPassives = characterPassives;
+        _widgetService = widgetService;
         CheckTimer();
     }
 
@@ -673,15 +677,21 @@ public class CheckIfReady : IServiceSingleton
 
             if (characterStatistics == null)
             {
-                account.CharacterStatistics.Add(
-                    new DiscordAccountClass.CharacterStatisticsClass(player.GameCharacter.Name,
-                        player.Status.GetPlaceAtLeaderBoard() == 1 ? 1 : (ulong)0));
+                var newStat = new DiscordAccountClass.CharacterStatisticsClass(player.GameCharacter.Name,
+                    player.Status.GetPlaceAtLeaderBoard() == 1 ? 1 : (ulong)0);
+                newStat.LastPlayedAt = DateTime.UtcNow;
+                account.CharacterStatistics.Add(newStat);
             }
             else
             {
                 characterStatistics.Plays++;
                 characterStatistics.Wins += player.Status.GetPlaceAtLeaderBoard() == 1 ? 1 : (ulong)0;
+                characterStatistics.LastPlayedAt = DateTime.UtcNow;
             }
+
+            // Fire-and-forget: update Discord widget for authorized users.
+            // Service silently no-ops if WidgetAuthorized is false (e.g. bots, unauthorized users).
+            _ = _widgetService.SyncAsync(account.DiscordId);
 
             var performanceStatistics =
                 account.PerformanceStatistics.Find(x =>
