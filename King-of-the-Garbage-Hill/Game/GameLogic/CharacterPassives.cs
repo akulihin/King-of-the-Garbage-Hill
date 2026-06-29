@@ -8,6 +8,7 @@ using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
+using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
@@ -20,10 +21,11 @@ public class CharacterPassives : IServiceSingleton
     private readonly SecureRandom _rand;
     private readonly CharactersPull _charactersPull;
     private readonly ClaudeHaikuService _haikuService;
+    private readonly GameReaction _gameReaction;
 
     public CharacterPassives(SecureRandom rand, HelperFunctions help,
         LoginFromConsole log, GameUpdateMess gameUpdateMess, CharactersPull charactersPull,
-        ClaudeHaikuService haikuService)
+        ClaudeHaikuService haikuService, GameReaction gameReaction)
     {
         _rand = rand;
         _help = help;
@@ -31,11 +33,30 @@ public class CharacterPassives : IServiceSingleton
         _gameUpdateMess = gameUpdateMess;
         _charactersPull = charactersPull;
         _haikuService = haikuService;
+        _gameReaction = gameReaction;
     }
 
     public Task InitializeAsync()
     {
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// When Saitama's win is deferred by "Неприметность", decide who actually pocketed the point.
+    /// Normally it's <paramref name="naturalRecipientId"/> (the attacker who got the free win, or the
+    /// co-attacker who got the kill). But if a Jew (Еврей) also attacked <paramref name="fightTargetId"/>,
+    /// the Jew steals that point (see <see cref="HandleJews"/>), so Saitama reclaims it from the Jew.
+    /// Edge case (several Jews on one target): the first such Jew is used to avoid inflating the docked total.
+    /// </summary>
+    private static Guid ResolveDeferredRecipient(GameClass game, GamePlayerBridgeClass saitama, Guid fightTargetId,
+        Guid naturalRecipientId)
+    {
+        var jew = game.PlayersList.FirstOrDefault(p =>
+            p.GetPlayerId() != saitama.GetPlayerId() &&
+            p.GetPlayerId() != naturalRecipientId &&
+            p.GameCharacter.Passive.Any(x => x.PassiveName == "Еврей") &&
+            p.Status.WhoToAttackThisTurn.Contains(fightTargetId));
+        return jew?.GetPlayerId() ?? naturalRecipientId;
     }
 
 
@@ -548,10 +569,12 @@ public class CharacterPassives : IServiceSingleton
                         target.Status.IsAbleToWin = false;
                         game.Phrases.SaitamaHoldsBack.SendLog(target, false);
                         
-                        // Defer the win point (remove 1 from pending score)
+                        // Defer the win point (remove 1 from pending score) and bank the round-multiplied
+                        // value, attributed to the attacker who pockets the free win (or a Jew who steals it).
                         target.Status.AddRegularPoints(-1, "Неприметность");
-                        saitamaAtkUnnoticedAfter.DeferredPoints += 1;
-                        
+                        var defRecipient = ResolveDeferredRecipient(game, target, target.GetPlayerId(), me.GetPlayerId());
+                        saitamaAtkUnnoticedAfter.AddDeferred(defRecipient, game.RoundNo);
+
                         // Defer moral too (underdog moral only applies when we had worse place)
                         var moralGain = target.Status.GetPlaceAtLeaderBoard() - me.Status.GetPlaceAtLeaderBoard();
                         if (moralGain > 0 && game.RoundNo > 1)
@@ -1962,7 +1985,8 @@ public class CharacterPassives : IServiceSingleton
 
                         if (!othersAttackedTarget)
                         {
-                            me.Status.AddBonusPoints(1, "На мели");
+                            // Lone-kill reward is a REGULAR point so it scales with the round multiplier (×1/×2/×4)
+                            me.Status.AddRegularPoints(1, "На мели", true);
                             if (game.RoundNo >= 10 && target.GameCharacter.Passive.Any(x => x.PassiveName == "Дракон"))
                                 me.Status.AddInGamePersonalLogs("На мели (монстр): Уровень Опасности: Дракон\n");
                             else
@@ -1983,16 +2007,18 @@ public class CharacterPassives : IServiceSingleton
                     {
                         var saitamaAtkUnnoticedAfter = me.Passives.SaitamaUnnoticed;
 
-                        // Check if another player also attacked this same target
-                        var anotherAttacker = game.PlayersList.Any(p =>
+                        // Check if another player also attacked this same target (they get the kill instead)
+                        var coAttacker = game.PlayersList.FirstOrDefault(p =>
                             p.GetPlayerId() != me.GetPlayerId() &&
                             p.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()));
 
-                        if (anotherAttacker)
+                        if (coAttacker != null)
                         {
-                            // Defer the win point (remove 1 from pending score)
+                            // Defer the win point (remove 1 from pending score) and bank the round-multiplied
+                            // value, attributed to the co-attacker who got the kill (or a Jew who steals it).
                             me.Status.AddRegularPoints(-1, "Неприметность");
-                            saitamaAtkUnnoticedAfter.DeferredPoints += 1;
+                            var atkRecipient = ResolveDeferredRecipient(game, me, target.GetPlayerId(), coAttacker.GetPlayerId());
+                            saitamaAtkUnnoticedAfter.AddDeferred(atkRecipient, game.RoundNo);
 
                             // Defer moral too (underdog moral only applies when we had worse place)
                             var moralGain = me.Status.GetPlaceAtLeaderBoard() - target.Status.GetPlaceAtLeaderBoard();
@@ -2917,20 +2943,29 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Глаза Итачи: activate Tsukuyomi if charged (attack only, win or loss)
+                // Глаза Итачи: re-attack interrupt, then activate Tsukuyomi if charged (attack only, win or loss)
                 case "Глаза Итачи":
-                    if (attack && player.Passives.ItachiTsukuyomi.ChargeCounter >= 2)
+                    var itachiTsuk = player.Passives.ItachiTsukuyomi;
+                    var itachiFoughtTarget = player.Status.IsWonThisCalculation != Guid.Empty
+                        ? player.Status.IsWonThisCalculation
+                        : player.Status.IsLostThisCalculation;
+
+                    // Re-attack interrupt: attacking a target already under Tsukuyomi cancels it (no steal this turn)
+                    if (attack && itachiFoughtTarget != Guid.Empty
+                        && itachiTsuk.TsukuyomiActiveTarget == itachiFoughtTarget)
                     {
-                        var tsukuyomiTarget = player.Status.IsWonThisCalculation != Guid.Empty
-                            ? player.Status.IsWonThisCalculation
-                            : player.Status.IsLostThisCalculation;
-                        if (tsukuyomiTarget != Guid.Empty)
-                        {
-                            player.Passives.ItachiTsukuyomi.TsukuyomiTargetThisRound = tsukuyomiTarget;
-                            player.Passives.ItachiTsukuyomi.TsukuyomiActiveTarget = tsukuyomiTarget;
-                            player.Passives.ItachiTsukuyomi.ChargeCounter = -2; // recharges over 2 rounds
-                            game.Phrases.ItachiTsukuyomiActivate.SendLog(player, false);
-                        }
+                        itachiTsuk.TsukuyomiActiveTarget = Guid.Empty;
+                        itachiTsuk.TsukuyomiTargetThisRound = Guid.Empty;
+                        game.Phrases.ItachiTsukuyomiEnd.SendLog(player, false);
+                        break;
+                    }
+
+                    if (attack && itachiTsuk.ChargeCounter >= 2 && itachiFoughtTarget != Guid.Empty)
+                    {
+                        itachiTsuk.TsukuyomiTargetThisRound = itachiFoughtTarget;
+                        itachiTsuk.TsukuyomiActiveTarget = itachiFoughtTarget;
+                        itachiTsuk.ChargeCounter = -2; // recharges over 2 rounds
+                        game.Phrases.ItachiTsukuyomiActivate.SendLog(player, false);
                     }
                     break;
 
@@ -4008,7 +4043,11 @@ public class CharacterPassives : IServiceSingleton
                         var tsukuyomiVictim = game.PlayersList.Find(x => x.GetPlayerId() == tsukuyomi.TsukuyomiActiveTarget);
                         if (tsukuyomiVictim != null)
                         {
-                            var stolenPoints = tsukuyomiVictim.Status.GetScoresToGiveAtEndOfRound()
+                            // Stolen regular points scale by the round multiplier (×1/×2/×4) of the
+                            // round they were stolen on (HandleEndOfRound runs before RoundNo++).
+                            // Bonus points are flat everywhere, so they stay unscaled.
+                            var roundMultiplier = game.RoundNo switch { <= 4 => 1, <= 9 => 2, _ => 4 };
+                            var stolenPoints = tsukuyomiVictim.Status.GetScoresToGiveAtEndOfRound() * roundMultiplier
                                              + tsukuyomiVictim.Status.GetBonusPointsEarnedThisRound();
                             if (stolenPoints > 0)
                             {
@@ -4630,19 +4669,40 @@ public class CharacterPassives : IServiceSingleton
 
                             if (saitamaBeatTop1.Count > 0)
                             {
-                                // ONE PUUUUUUNCH! Restore all deferred points and moral!
-                                var deferred = saitamaWorthy.DeferredPoints;
-                                if (deferred > 0)
+                                // ONE PUUUUUUNCH! Reclaim all deferred points (zero-sum) and convert restored moral to score.
+                                var totalDeferred = saitamaWorthy.GetTotalDeferred();
+                                // Record the restored amount for the "one_punch" achievement (≥20 → unlock).
+                                player.Passives.AchievementTracker.SaitamaDeferredPoints = totalDeferred;
+                                if (totalDeferred > 0)
                                 {
-                                    player.Status.AddBonusPoints(4*deferred, "🐙🐙🐙Ищет достойного противника🐙🐙🐙");
-                                    saitamaWorthy.DeferredPoints = 0;
+                                    // Give Saitama the banked (already round-multiplied) total...
+                                    player.Status.AddBonusPoints(totalDeferred, "🐙🐙🐙Ищет достойного противника🐙🐙🐙");
+
+                                    // ...and take it back from each player who pocketed it (or the Jew who stole it).
+                                    foreach (var entry in saitamaWorthy.Ledger)
+                                    {
+                                        var recipient = game.PlayersList.Find(x => x.GetPlayerId() == entry.RecipientId);
+                                        recipient?.Status.AddBonusPoints(-entry.Points, "Ищет достойного противника");
+                                    }
+                                    saitamaWorthy.Ledger.Clear();
                                 }
 
                                 var deferredMoral = saitamaWorthy.DeferredMoral;
                                 if (deferredMoral > 0)
                                 {
+                                    // Restore the foregone moral, then exchange it for score via the game's tiered
+                                    // conversion (HandleMoralForScore: ≥20→+10, ≥13→+5, ≥8→+2, ≥5→+1, one tier per call).
                                     player.GameCharacter.AddMoral(deferredMoral, "Ищет достойного противника");
                                     saitamaWorthy.DeferredMoral = 0;
+
+                                    while (player.GameCharacter.GetMoral() >= 5)
+                                        await _gameReaction.HandleMoralForScore(player);
+
+                                    // The per-round moral flush (DoomsdayMachine ~213) won't run after round 10, so flush here.
+                                    var moralPoints = player.GameCharacter.GetBonusPointsFromMoral();
+                                    if (moralPoints != 0)
+                                        player.Status.AddBonusPoints(moralPoints, "Мораль");
+                                    player.GameCharacter.SetBonusPointsFromMoral(0);
                                 }
 
                                 game.AddGlobalLogs($"{player.DiscordUsername} наконец показал свою ИСТИННУЮ СИЛУ! ONE PUUUUUUNCH!!!");

@@ -122,7 +122,7 @@ public class InGameStatus
     {
 
         var previous = InGamePersonalLogs.Split("\n");
-        if (previous.Length > 1 && !str.Contains("Предположение") && !str.Contains("Безумие") && !str.Contains("Дракон") && !str.Contains("Претендент русского сервера"))
+        if (previous.Length > 1 && !str.Contains("Предположение") && !str.Contains("Безумие") && !str.Contains("Дракон") && !str.Contains("Претендент русского сервера") && !str.Contains("Глаза Итачи"))
         {
             var currentSkills = str.Split(": ");
             if (currentSkills.Length > 1)

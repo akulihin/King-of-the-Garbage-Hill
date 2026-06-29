@@ -447,7 +447,7 @@ public static class GameStateMapper
                         anySet = true;
                         break;
                     case "Неприметность":
-                        pas.Saitama = new SaitamaStateDto { DeferredPoints = player.Passives.SaitamaUnnoticed.DeferredPoints, DeferredMoral = player.Passives.SaitamaUnnoticed.DeferredMoral };
+                        pas.Saitama = new SaitamaStateDto { DeferredPoints = player.Passives.SaitamaUnnoticed.GetTotalDeferred(), DeferredMoral = player.Passives.SaitamaUnnoticed.DeferredMoral };
                         anySet = true;
                         break;
                     case "Глаза бога смерти":

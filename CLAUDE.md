@@ -121,3 +121,6 @@ Each `GamePlayerBridgeClass` holds two `CharacterClass` instances:
 - **Block/skip bypass:** If forcing fights on blocking players, check `WhoToAttackThisTurn.Count` in DoomsdayMachine's block/skip `continue`
 - **Don't double-log:** `AddStrength`/`AddPsyche`/`AddExtraSkill`/`AddMoral`/`AddBonusPoints` auto-log to personal logs (default `isLog: true`). Don't also call `AddInGamePersonalLogs`. Pass `isLog: false` to suppress.
 - **Personal vs Global logs:** `AddInGamePersonalLogs`/`SendLog` → personal (player only). `AddGlobalLogs` (on `GameClass`) → global (all players). Stat methods auto-log personal only.
+- **Moral exchange (`Game/ReactionHandling/GameReactions.cs`):** the player's level-up choice (`GameReactions.cs:364-367`) spends Moral via one of two tiered functions, **one tier per call**:
+  - `HandleMoralForScore(player)` → **bonus points** (≥20→+10, ≥13→+5, ≥8→+2, ≥5→+1; below 5 nothing). Feeds `BonusPointsFromMoral`, which `DoomsdayMachine.cs:~213` flushes into score at the next round's start — so after round 10 you must flush it yourself (`AddBonusPoints(GetBonusPointsFromMoral())` then `SetBonusPointsFromMoral(0)`).
+  - `HandleMoralForSkill(player)` → **Skill** (≥20→+100, ≥13→+50, ≥8→+30, ≥5→+18, ≥3→+10, ≥2→+6, ≥1→+2; Еврей also has a 7→+40 tier).
