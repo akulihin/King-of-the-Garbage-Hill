@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 import type { Player } from 'src/services/signalr'
+import { playTheBoysReveal, playTheBoysUnlock } from 'src/services/sound'
 
-defineProps<{
+const props = defineProps<{
   player: Player
 }>()
 
 const expandedSet = ref<Set<number>>(new Set())
+const skillCardRefs = ref<(HTMLElement | null)[]>([])
+
+const isTheBoys = computed(() => props.player.character.name === 'TheBoys')
+const theBoys = computed(() => props.player.passiveAbilityStates?.theBoys ?? null)
 
 function toggleSkill(idx: number) {
   if (expandedSet.value.has(idx)) {
@@ -14,13 +19,108 @@ function toggleSkill(idx: number) {
   } else {
     expandedSet.value.add(idx)
   }
-  // Trigger reactivity
   expandedSet.value = new Set(expandedSet.value)
 }
 
 function isExpanded(idx: number): boolean {
   return expandedSet.value.has(idx)
 }
+
+// A TheBoys invisible passive is a not-yet-unlocked ultimate → render as a padlock card, name masked.
+function isLockedUltimate(passive: { visible: boolean }): boolean {
+  return isTheBoys.value && !passive.visible
+}
+
+function passiveIndexByName(name: string): number {
+  return props.player.character.passives.findIndex((p) => p.name === name)
+}
+
+// ── Cinematic VFX state ───────────────────────────────────────────────
+const projectileEl = ref<HTMLElement | null>(null)
+const flyActive = ref(false)
+const ring = ref<{ x: number; y: number; w: number; h: number } | null>(null)
+const unlockOverlay = ref<{ name: string } | null>(null)
+
+function showRing(rect: DOMRect, ttl = 2200) {
+  ring.value = { x: rect.left - 6, y: rect.top - 6, w: rect.width + 12, h: rect.height + 12 }
+  window.setTimeout(() => {
+    ring.value = null
+  }, ttl)
+}
+
+// Reveal: fly a projectile from the left (stat area) to the skill card on the right, then circle the new text.
+async function triggerRevealVfx(idx: number) {
+  await nextTick()
+  const el = skillCardRefs.value[idx]
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  const toX = rect.left + 14
+  const toY = rect.top + rect.height / 2
+  const fromX = Math.max(rect.left - 340, 24)
+  const fromY = toY + (Math.random() * 60 - 30)
+
+  flyActive.value = true
+  await nextTick()
+  const p = projectileEl.value
+  if (!p) {
+    showRing(rect)
+    playTheBoysReveal()
+    return
+  }
+  const anim = p.animate(
+    [
+      { transform: `translate(${fromX}px, ${fromY}px) scale(0.5)`, opacity: 0 },
+      { transform: `translate(${(fromX + toX) / 2}px, ${fromY - 90}px) scale(1.15)`, opacity: 1, offset: 0.55 },
+      { transform: `translate(${toX}px, ${toY}px) scale(0.8)`, opacity: 1 },
+    ],
+    { duration: 760, easing: 'cubic-bezier(0.35, 0, 0.2, 1)' },
+  )
+  playTheBoysReveal()
+  anim.onfinish = () => {
+    flyActive.value = false
+    showRing(rect)
+  }
+}
+
+// Unlock: full-screen announce overlay + a strong ring drawing attention to the freshly-unlocked card.
+async function triggerUnlockVfx(name: string, idx: number) {
+  unlockOverlay.value = { name }
+  playTheBoysUnlock()
+  window.setTimeout(() => {
+    unlockOverlay.value = null
+  }, 3200)
+  if (idx >= 0) {
+    expandedSet.value.add(idx)
+    expandedSet.value = new Set(expandedSet.value)
+    await nextTick()
+    const el = skillCardRefs.value[idx]
+    if (el) showRing(el.getBoundingClientRect(), 3200)
+  }
+}
+
+watch(
+  () => theBoys.value?.revealSerial,
+  (nv, ov) => {
+    // ov == null means this is the initial data load — skip so we only animate genuine in-session upgrades.
+    if (nv == null || ov == null || nv === ov) return
+    const member = theBoys.value?.lastRevealedMember
+    if (!member) return
+    const idx = passiveIndexByName(member)
+    if (idx < 0) return
+    expandedSet.value.add(idx)
+    expandedSet.value = new Set(expandedSet.value)
+    void triggerRevealVfx(idx)
+  },
+)
+
+watch(
+  () => theBoys.value?.unlockSerial,
+  (nv, ov) => {
+    if (nv == null || ov == null || nv === ov) return
+    const name = theBoys.value?.lastUnlockedUltimate ?? ''
+    void triggerUnlockVfx(name, passiveIndexByName(name))
+  },
+)
 </script>
 
 <template>
@@ -28,22 +128,25 @@ function isExpanded(idx: number): boolean {
     <div
       v-for="(passive, idx) in player.character.passives"
       :key="idx"
+      :ref="(el) => { skillCardRefs[idx] = el as HTMLElement | null }"
       class="skill-card"
-      :class="{ hidden: !passive.visible, expanded: isExpanded(idx) }"
-      @click="toggleSkill(idx)"
+      :class="{ hidden: !passive.visible, expanded: isExpanded(idx), 'tb-locked': isLockedUltimate(passive) }"
+      @click="isLockedUltimate(passive) ? null : toggleSkill(idx)"
     >
       <div class="skill-header">
         <div class="skill-header-left">
-          <span class="skill-dot" :class="passive.visible ? 'dot-active' : 'dot-inactive'" />
-          <span class="skill-name">{{ passive.name }}</span>
+          <span v-if="isLockedUltimate(passive)" class="skill-lock">🔒</span>
+          <span v-else class="skill-dot" :class="passive.visible ? 'dot-active' : 'dot-inactive'" />
+          <span class="skill-name">{{ isLockedUltimate(passive) ? 'Скрытая способность' : passive.name }}</span>
         </div>
         <div class="skill-header-right">
-          <span v-if="!passive.visible" class="hidden-badge">Hidden</span>
-          <span class="skill-chevron" :class="{ 'chevron-open': isExpanded(idx) }">▾</span>
+          <span v-if="isLockedUltimate(passive)" class="hidden-badge tb-locked-badge">Заблокировано</span>
+          <span v-else-if="!passive.visible" class="hidden-badge">Hidden</span>
+          <span v-if="!isLockedUltimate(passive)" class="skill-chevron" :class="{ 'chevron-open': isExpanded(idx) }">▾</span>
         </div>
       </div>
       <Transition name="expand">
-        <div v-if="isExpanded(idx)" class="skill-desc">
+        <div v-if="isExpanded(idx) && !isLockedUltimate(passive)" class="skill-desc">
           {{ passive.description }}
         </div>
       </Transition>
@@ -53,6 +156,26 @@ function isExpanded(idx: number): boolean {
       No passives available.
     </div>
   </div>
+
+  <!-- Cinematic VFX (teleported to body so they overlay the whole screen) -->
+  <Teleport to="body">
+    <div v-if="flyActive" ref="projectileEl" class="tb-projectile" />
+    <div
+      v-if="ring"
+      class="tb-ring"
+      :style="{ left: `${ring.x}px`, top: `${ring.y}px`, width: `${ring.w}px`, height: `${ring.h}px` }"
+    />
+    <Transition name="tb-unlock">
+      <div v-if="unlockOverlay" class="tb-unlock-overlay">
+        <div class="tb-unlock-card">
+          <div class="tb-unlock-label">СПОСОБНОСТЬ ОТКРЫТА</div>
+          <div class="tb-unlock-lock">🔓</div>
+          <div class="tb-unlock-name">{{ unlockOverlay.name }}</div>
+          <div class="tb-unlock-sub">The Boys</div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -99,6 +222,38 @@ function isExpanded(idx: number): boolean {
 
 .skill-card.hidden:hover {
   opacity: 0.6;
+}
+
+/* TheBoys locked ultimate — padlock card, name masked */
+.skill-card.tb-locked {
+  opacity: 0.7;
+  cursor: default;
+  border-style: dashed;
+  border-left: 3px solid #7a1f1f;
+  border-color: rgba(220, 40, 40, 0.35);
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(120, 20, 20, 0.06),
+    rgba(120, 20, 20, 0.06) 8px,
+    rgba(0, 0, 0, 0) 8px,
+    rgba(0, 0, 0, 0) 16px
+  );
+}
+.skill-card.tb-locked:hover {
+  transform: none;
+}
+.skill-lock {
+  font-size: 12px;
+  filter: drop-shadow(0 0 4px rgba(255, 80, 80, 0.4));
+}
+.tb-locked .skill-name {
+  color: var(--text-dim);
+  font-style: italic;
+  letter-spacing: 1px;
+}
+.tb-locked-badge {
+  background: #7a1f1f;
+  color: #ffd7d7;
 }
 
 .skill-header {
@@ -179,6 +334,7 @@ function isExpanded(idx: number): boolean {
   color: var(--text-secondary);
   padding-top: 6px;
   padding-left: 12px;
+  white-space: pre-line;
 }
 
 /* Expand transition */
@@ -199,7 +355,7 @@ function isExpanded(idx: number): boolean {
 .expand-enter-to,
 .expand-leave-from {
   opacity: 1;
-  max-height: 200px;
+  max-height: 400px;
 }
 
 .no-skills {
@@ -209,4 +365,102 @@ function isExpanded(idx: number): boolean {
   padding: 20px;
   font-size: 11px;
 }
+</style>
+
+<style>
+/* Global (un-scoped) — teleported VFX live on <body> */
+.tb-projectile {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, #ff5252 45%, rgba(255, 30, 30, 0) 75%);
+  box-shadow: 0 0 18px 6px rgba(255, 60, 60, 0.7), 0 0 40px 12px rgba(255, 40, 40, 0.3);
+  pointer-events: none;
+  z-index: 3000;
+}
+
+.tb-ring {
+  position: fixed;
+  border: 3px solid #ff5252;
+  border-radius: 10px;
+  box-shadow: 0 0 18px rgba(255, 60, 60, 0.7), inset 0 0 18px rgba(255, 60, 60, 0.35);
+  pointer-events: none;
+  z-index: 2999;
+  animation: tb-ring-draw 0.5s cubic-bezier(0.2, 0.9, 0.2, 1), tb-ring-pulse 1.1s ease-in-out 0.5s infinite;
+}
+@keyframes tb-ring-draw {
+  0% { transform: scale(1.35); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes tb-ring-pulse {
+  0%, 100% { box-shadow: 0 0 14px rgba(255, 60, 60, 0.5), inset 0 0 14px rgba(255, 60, 60, 0.25); }
+  50% { box-shadow: 0 0 26px rgba(255, 80, 80, 0.9), inset 0 0 26px rgba(255, 80, 80, 0.45); }
+}
+
+.tb-unlock-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 70% 50%, rgba(60, 0, 0, 0.55), rgba(0, 0, 0, 0.78));
+  pointer-events: none;
+}
+.tb-unlock-card {
+  text-align: center;
+  padding: 28px 44px;
+  border: 2px solid rgba(255, 70, 70, 0.7);
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(40, 0, 0, 0.92), rgba(15, 0, 0, 0.92));
+  box-shadow: 0 0 60px rgba(255, 40, 40, 0.5), inset 0 0 30px rgba(255, 40, 40, 0.15);
+  animation: tb-unlock-pop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.tb-unlock-label {
+  font-size: 12px;
+  letter-spacing: 4px;
+  color: #ff9a9a;
+  font-weight: 800;
+  animation: tb-unlock-reveal 0.4s ease 0.35s both;
+}
+.tb-unlock-lock {
+  font-size: 46px;
+  margin: 6px 0;
+  animation: tb-unlock-bounce 0.6s ease 0.15s both;
+}
+.tb-unlock-name {
+  font-size: 30px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 18px rgba(255, 60, 60, 0.9);
+  animation: tb-unlock-reveal 0.4s ease 0.5s both;
+}
+.tb-unlock-sub {
+  margin-top: 6px;
+  font-size: 13px;
+  letter-spacing: 6px;
+  color: #ff5252;
+  font-weight: 700;
+  animation: tb-unlock-reveal 0.4s ease 0.65s both;
+}
+@keyframes tb-unlock-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes tb-unlock-bounce {
+  0% { transform: scale(0.2) rotate(-25deg); opacity: 0; }
+  60% { transform: scale(1.3) rotate(8deg); }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes tb-unlock-reveal {
+  0% { transform: translateY(10px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.tb-unlock-enter-active { transition: opacity 0.3s ease; }
+.tb-unlock-leave-active { transition: opacity 0.5s ease; }
+.tb-unlock-enter-from,
+.tb-unlock-leave-to { opacity: 0; }
 </style>

@@ -656,6 +656,11 @@ public sealed class GameReaction : IServiceSingleton
 
             status.WhoToAttackThisTurn.Add(whoToAttack.GetPlayerId());
 
+            // Pickle Rick: firing the Portal Gun (i.e. choosing a target while pickled) counts as
+            // automatically confirming the pickle skip, so the turn resolves without waiting.
+            if (player.Passives.RickPickle.PickleTurnsRemaining > 0 && !status.ConfirmedSkip)
+                status.ConfirmedSkip = true;
+
 
             //Клинки хаоса
             if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Клинки хаоса") && game.RoundNo <= 10)
@@ -745,6 +750,27 @@ public sealed class GameReaction : IServiceSingleton
     }
 
 
+    // TheBoys: раскрыть текст прокачки члена команды (добавить строчку в описание) + сигнал для анимации
+    private static void TheBoysRevealUpgrade(GamePlayerBridgeClass player, string memberName, string upgradeLine)
+    {
+        var passive = player.GameCharacter.Passive.Find(x => x.PassiveName == memberName);
+        if (passive != null && !passive.PassiveDescription.Contains(upgradeLine))
+            passive.PassiveDescription += upgradeLine;
+        player.Passives.TheBoysLastRevealedMember = memberName;
+        player.Passives.TheBoysRevealSerial++;
+    }
+
+    // TheBoys: открыть скрытую ультимативную пассивку (Visible=true) + сигнал для анимации анлока
+    private static void TheBoysUnlockUltimate(GamePlayerBridgeClass player, string ultimateName)
+    {
+        var passive = player.GameCharacter.Passive.Find(x => x.PassiveName == ultimateName);
+        if (passive != null)
+            passive.Visible = true;
+        player.Passives.TheBoysLastUnlockedUltimate = ultimateName;
+        player.Passives.TheBoysUnlockSerial++;
+        player.Status.AddInGamePersonalLogs($"🔓 Открыта ультимативная способность: {ultimateName}!\n");
+    }
+
     private async Task GetLvlUp(GamePlayerBridgeClass player, int skillNumber)
     {
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
@@ -767,10 +793,10 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.AddInGamePersonalLogs("Правильное питание: Максимальный уровень!\n");
                     }
                     break;
-                case 2: // Контрактная армия - Warrior rate: 6→5→4→3→2
+                case 2: // Контрактная армия - Warrior rate: 5(base)→4→3→2→2 (floored, never every-goblin)
                     if (pop.WarriorUpgradeLevel < 4)
                     {
-                        pop.WarriorRate = 6 - 1 - pop.WarriorUpgradeLevel; // 5, 4, 3, 2
+                        pop.WarriorRate = Math.Max(2, 4 - pop.WarriorUpgradeLevel); // 4, 3, 2, 2
                         pop.WarriorUpgradeLevel++;
                         player.Status.AddInGamePersonalLogs($"Контрактная армия! Воины: каждый {pop.WarriorRate}й\n");
                     }
@@ -877,32 +903,87 @@ public sealed class GameReaction : IServiceSingleton
         }
         //end Котики
 
-        // TheBoys — Пацаны: +2 to chosen stat + upgrade team member
+        // TheBoys — Пацаны: +2 to chosen stat + upgrade team member (base+прокачка+ультимейт на x4)
         if (player.GameCharacter.Name == "TheBoys")
         {
+            var francie = player.Passives.TheBoysFrancie;
+            var butcher = player.Passives.TheBoysButcher;
+            var kimiko = player.Passives.TheBoysKimiko;
+            var mm = player.Passives.TheBoysMM;
+
             switch (skillNumber)
             {
-                case 1: // Intelligence → Франция хим.оружие
+                case 1: // Intelligence → Француз (Хим.оружие)
+                    if (francie.ChemWeaponLevel >= 4) { player.Status.AddInGamePersonalLogs("Francie: уже максимум (x4)!\n"); return; }
                     player.GameCharacter.AddIntelligence(2, "Пацаны");
-                    player.Passives.TheBoysFrancie.ChemWeaponLevel++;
-                    player.Status.AddInGamePersonalLogs($"Француз: Хим.оружие уровень {player.Passives.TheBoysFrancie.ChemWeaponLevel}\n");
+                    francie.ChemWeaponLevel++;
+                    player.Status.AddInGamePersonalLogs($"Francie x{francie.ChemWeaponLevel}: Хим.оружие\n");
+                    if (francie.ChemWeaponLevel == 1)
+                        TheBoysRevealUpgrade(player, TheBoys.FrancieName, TheBoys.FrancieUpgradeLine);
+                    if (francie.ChemWeaponLevel == 4)
+                    {
+                        francie.VirusArmed = true;
+                        TheBoysUnlockUltimate(player, TheBoys.VirusUltimate);
+                    }
                     break;
-                case 2: // Strength → Бучер кочерга
+                case 2: // Strength → Бучер (Кочерга)
+                    if (butcher.PokerCount >= 4) { player.Status.AddInGamePersonalLogs("Butcher: уже максимум (x4)!\n"); return; }
                     player.GameCharacter.AddStrength(2, "Пацаны");
-                    player.Passives.TheBoysButcher.PokerCount++;
-                    player.Status.AddInGamePersonalLogs($"Бучер: Кочерга #{player.Passives.TheBoysButcher.PokerCount}\n");
+                    butcher.PokerCount++;
+                    player.Status.AddInGamePersonalLogs($"Butcher x{butcher.PokerCount}: Кочерга #{butcher.PokerCount}\n");
+                    if (butcher.PokerCount == 1)
+                        TheBoysRevealUpgrade(player, TheBoys.ButcherName, TheBoys.ButcherUpgradeLine);
+                    if (butcher.PokerCount == 4)
+                    {
+                        butcher.SuperDickActive = true;
+                        TheBoysUnlockUltimate(player, TheBoys.SuperDickUltimate);
+                    }
                     break;
-                case 3: // Speed → Кимико регенерация
+                case 3: // Speed → Кимико (Регенерация)
+                    if (kimiko.RegenLevel >= 4) { player.Status.AddInGamePersonalLogs("Kimiko: уже максимум (x4)!\n"); return; }
                     player.GameCharacter.AddSpeed(2, "Пацаны");
-                    player.Passives.TheBoysKimiko.RegenLevel++;
-                    player.Passives.TheBoysKimiko.DisabledNextRound = false;
-                    player.Passives.TheBoysKimiko.IsDisabled = false;
-                    player.Status.AddInGamePersonalLogs($"Kimiko: Регенерация уровень {player.Passives.TheBoysKimiko.RegenLevel}\n");
+                    kimiko.RegenLevel++;
+                    kimiko.DisabledNextRound = false;
+                    kimiko.IsDisabled = false;
+                    player.Status.AddInGamePersonalLogs($"Kimiko x{kimiko.RegenLevel}: Регенерация\n");
+                    if (kimiko.RegenLevel == 1)
+                        TheBoysRevealUpgrade(player, TheBoys.KimikoName, TheBoys.KimikoUpgradeLine);
+                    if (kimiko.RegenLevel == 4)
+                    {
+                        kimiko.LivingWeapon = true;
+                        TheBoysUnlockUltimate(player, TheBoys.LivingWeaponUltimate);
+                    }
                     break;
-                case 4: // Psyche → М.М. компромат
+                case 4: // Psyche → М.М. (Компромат)
+                    if (mm.UpgradeLevel >= 4) { player.Status.AddInGamePersonalLogs("M.M.: уже максимум (x4)!\n"); return; }
                     player.GameCharacter.AddPsyche(2, "Пацаны");
-                    player.Passives.TheBoysMM.NextAttackGathersKompromat = true;
-                    player.Status.AddInGamePersonalLogs("М.М.: Следующая атака соберёт компромат!\n");
+                    mm.UpgradeLevel++;
+                    mm.NextAttackGathersKompromat = true;
+                    player.Status.AddInGamePersonalLogs($"M.M. x{mm.UpgradeLevel}: следующая атака соберёт компромат!\n");
+                    if (mm.UpgradeLevel == 1)
+                        TheBoysRevealUpgrade(player, TheBoys.MMName, TheBoys.MMUpgradeLine);
+                    if (mm.UpgradeLevel == 4)
+                    {
+                        TheBoysUnlockUltimate(player, TheBoys.ShacklesUltimate);
+                        // Оковы Правосудия: заблокировать и похитить мораль у всех, на кого собран компромат
+                        decimal stolenMoral = 0;
+                        foreach (var targetId in mm.KompromatTargets)
+                        {
+                            var kompromatTarget = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
+                            if (kompromatTarget == null) continue;
+                            var theirMoral = kompromatTarget.GameCharacter.GetMoral();
+                            if (theirMoral > 0)
+                            {
+                                stolenMoral += theirMoral;
+                                kompromatTarget.GameCharacter.AddMoral(-theirMoral, "Оковы Правосудия");
+                            }
+                            kompromatTarget.GameCharacter.BlockMoralGain = true;
+                            kompromatTarget.Passives.TheBoysMoralBlockedByMM = true;
+                        }
+                        if (stolenMoral > 0)
+                            player.GameCharacter.AddMoral(stolenMoral, "Оковы Правосудия");
+                        mm.IsCalm = true;
+                    }
                     break;
             }
             player.Status.LvlUpPoints--;

@@ -253,6 +253,8 @@ public class CharactersUniquePhrase
     public PhraseClass TheBoysKimikoRecovered;
     public PhraseClass TheBoysKompromatGathered;
     public PhraseClass TheBoysKompromatReward;
+    public PhraseClass TheBoysVirusApply;
+    public PhraseClass TheBoysButcherHunt;
 
     // Salldorum
     public PhraseClass SalldorumShen;
@@ -467,16 +469,18 @@ public class CharactersUniquePhrase
         KotikiStormVaseCatch = new PhraseClass("Рандомное поведение");
 
         // TheBoys
-        TheBoysOrderNew = new PhraseClass("Заказ Француза");
-        TheBoysOrderComplete = new PhraseClass("Заказ Француза");
-        TheBoysOrderFailed = new PhraseClass("Заказ Француза");
-        TheBoysChemWeapon = new PhraseClass("Хим.оружие");
-        TheBoysPoker = new PhraseClass("Кочерга Бучера");
-        TheBoysKimikoRegen = new PhraseClass("Регенерация Кимико");
-        TheBoysKimikoDisabled = new PhraseClass("Регенерация Кимико");
-        TheBoysKimikoRecovered = new PhraseClass("Регенерация Кимико");
-        TheBoysKompromatGathered = new PhraseClass("Компромат М.М.");
-        TheBoysKompromatReward = new PhraseClass("Компромат М.М.");
+        TheBoysOrderNew = new PhraseClass("Francie");
+        TheBoysOrderComplete = new PhraseClass("Francie");
+        TheBoysOrderFailed = new PhraseClass("Francie");
+        TheBoysChemWeapon = new PhraseClass("Francie");
+        TheBoysPoker = new PhraseClass("Butcher");
+        TheBoysKimikoRegen = new PhraseClass("Kimiko");
+        TheBoysKimikoDisabled = new PhraseClass("Kimiko");
+        TheBoysKimikoRecovered = new PhraseClass("Kimiko");
+        TheBoysKompromatGathered = new PhraseClass("M.M.");
+        TheBoysKompromatReward = new PhraseClass("M.M.");
+        TheBoysVirusApply = new PhraseClass("Смертельный вирус");
+        TheBoysButcherHunt = new PhraseClass("Butcher");
 
         // Монстр без имени
         MonsterDeath = new PhraseClass("Монстр");
@@ -1410,6 +1414,13 @@ public class CharactersUniquePhrase
 
         TheBoysKompromatReward.PassiveLogRus.Add("М.М.: Все данные сходятся. Очки умножены.");
         TheBoysKompromatReward.PassiveLogRus.Add("М.М.: Компромат работает. Результат налицо.");
+
+        TheBoysVirusApply.PassiveLogRus.Add("Francie: Вирус против Суперов... А что если он не сработает не цели?");
+        TheBoysVirusApply.PassiveLogRus.Add("Butcher: Тогда нам всем пиздец. Ну что, поехали?");
+
+        TheBoysButcherHunt.PassiveLogRus.Add("Бучер: Нашёл супа. Vought за это не заплатит, но мне похуй.");
+        TheBoysButcherHunt.PassiveLogRus.Add("Бучер: *ищет кочергу* Иди сюда, ублюдок.");
+        TheBoysButcherHunt.PassiveLogRus.Add("Бучер: Ещё один суп на очереди.");
         //end TheBoys
 
         // Монстр без имени

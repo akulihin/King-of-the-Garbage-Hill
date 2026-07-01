@@ -94,6 +94,11 @@ public class GamePlayerBridgeClass
         {
             return;
         }
+        // TheBoys — Оковы Правосудия: M.M. спокоен, иммунен к любой потере психики
+        if (Passives.TheBoysMM.IsCalm)
+        {
+            return;
+        }
         game.AddGlobalLogs($"\n{DiscordUsername} психанул");
         playerCharacter.AddPsyche(howMuchToRemove, skillName);
     }

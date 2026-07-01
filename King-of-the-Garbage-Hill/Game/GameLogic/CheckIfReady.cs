@@ -306,9 +306,9 @@ public class CheckIfReady : IServiceSingleton
             }
         // predict
 
-        // TheBoys — Компромат М.М.: multiply prediction bonus by kompromat count
+        // TheBoys — M.M. (Компромат): multiply prediction bonus by kompromat count
         foreach (var boysPlayer in game.PlayersList.Where(x =>
-                     x.GameCharacter.Passive.Any(p => p.PassiveName == "Компромат М.М.")))
+                     x.GameCharacter.Passive.Any(p => p.PassiveName == "M.M.")))
         {
             var kompromatCount = boysPlayer.Passives.TheBoysMM.KompromatTargets.Count;
             if (kompromatCount > 1)
@@ -337,6 +337,28 @@ public class CheckIfReady : IServiceSingleton
             }
         }
         // end TheBoys kompromat
+
+        // TheBoys — Смертельный вирус: источник (Француз) крадёт по 2 бонусных очка с каждого заражённого
+        var virusStolen = new Dictionary<Guid, decimal>();
+        foreach (var infected in game.PlayersList.Where(x =>
+                     x.Passives.TheBoysVirus && x.Passives.TheBoysVirusSource != Guid.Empty))
+        {
+            var src = infected.Passives.TheBoysVirusSource;
+            if (infected.GetPlayerId() == src) continue;
+            infected.Status.AddBonusPoints(-2, "Смертельный вирус");
+            infected.Status.AddInGamePersonalLogs("☣️ Смертельный вирус Француза: -2 бонусных очка\n");
+            virusStolen.TryGetValue(src, out var cur);
+            virusStolen[src] = cur + 2;
+        }
+        foreach (var (srcId, amount) in virusStolen)
+        {
+            var franciePlayer = game.PlayersList.Find(x => x.GetPlayerId() == srcId);
+            if (franciePlayer == null || amount <= 0) continue;
+            franciePlayer.Status.AddBonusPoints(amount, "Смертельный вирус");
+            franciePlayer.Status.AddInGamePersonalLogs(
+                $"☣️ Смертельный вирус: украдено {amount} бонусных очков с заражённых\n");
+        }
+        // end virus
 
         // Tsukuyomi end-game deduction: deduct stolen points from victims
         foreach (var itachiPlayer in game.PlayersList.Where(x =>
@@ -1064,7 +1086,8 @@ public class CheckIfReady : IServiceSingleton
                 //If did do anything - Block
                 foreach (var t in players.Where(t =>
                              !t.IsBot() && !t.Status.IsAutoMove && t.Status.WhoToAttackThisTurn.Count == 0 &&
-                             t.Status.IsBlock == false && t.Status.IsSkip == false))
+                             t.Status.IsBlock == false && t.Status.IsSkip == false &&
+                             t.Passives.RickPickle.PickleTurnsRemaining == 0))
                 {
                     _logs.Warning($"\nWARN: {t.DiscordUsername} didn't do anything - Auto Move!\n");
                     t.Status.IsAutoMove = true;

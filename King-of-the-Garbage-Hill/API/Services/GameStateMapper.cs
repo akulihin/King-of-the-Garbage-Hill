@@ -628,12 +628,18 @@ public static class GameStateMapper
                             OrderRoundsLeft = tbFrancie.OrderRoundsLeft,
                             OrdersCompleted = tbFrancie.OrdersCompleted,
                             OrdersFailed = tbFrancie.OrdersFailed,
+                            VirusArmed = tbFrancie.VirusArmed,
+                            VirusUsed = tbFrancie.VirusUsed,
                             PokerCount = tbButcher.PokerCount,
+                            SuperDickActive = tbButcher.SuperDickActive,
                             RegenLevel = tbKimiko.RegenLevel,
                             KimikoDisabled = tbKimiko.IsDisabled,
                             TotalJusticeBlocked = tbKimiko.TotalJusticeBlocked,
+                            LivingWeapon = tbKimiko.LivingWeapon,
+                            MMUpgradeLevel = tbMM.UpgradeLevel,
                             KompromatCount = tbMM.KompromatTargets.Count,
                             NextAttackGathersKompromat = tbMM.NextAttackGathersKompromat,
+                            IsCalm = tbMM.IsCalm,
                             KompromatEntries = tbMM.KompromatTargets.Select(targetId =>
                             {
                                 var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
@@ -643,6 +649,18 @@ public static class GameStateMapper
                                     Hint = tbMM.KompromatHints.GetValueOrDefault(targetId, ""),
                                 };
                             }).ToList(),
+                            LastRevealedMember = player.Passives.TheBoysLastRevealedMember,
+                            RevealSerial = player.Passives.TheBoysRevealSerial,
+                            LastUnlockedUltimate = player.Passives.TheBoysLastUnlockedUltimate,
+                            UnlockSerial = player.Passives.TheBoysUnlockSerial,
+                            SupMarks = game.PlayersList
+                                .Where(x => x.GetPlayerId() != player.GetPlayerId() && x.Passives.TheBoysSupMark)
+                                .Select(x => new TheBoysMarkDto { Name = x.DiscordUsername, IsSuperhero = x.Passives.TheBoysSupIsSuperhero })
+                                .ToList(),
+                            VirusNames = game.PlayersList
+                                .Where(x => x.Passives.TheBoysVirus && x.Passives.TheBoysVirusSource == player.GetPlayerId())
+                                .Select(x => x.DiscordUsername)
+                                .ToList(),
                         };
                         anySet = true;
                         break;
@@ -731,6 +749,24 @@ public static class GameStateMapper
                     Debt = player.Passives.SellerTacticBonusEarned,
                     SellerName = seller?.DiscordUsername ?? "",
                 };
+                anySet = true;
+            }
+
+            // TheBoys — per-player marks shown on the affected player's own card
+            if (player.Passives.TheBoysSupMark)
+            {
+                pas.TheBoysSupOnMe = new TheBoysSupOnMeDto { IsSuperhero = player.Passives.TheBoysSupIsSuperhero };
+                anySet = true;
+            }
+            if (player.Passives.TheBoysVirus)
+            {
+                var virusSource = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.TheBoysVirusSource);
+                pas.TheBoysVirusOnMe = new TheBoysVirusOnMeDto { SourceName = virusSource?.DiscordUsername ?? "" };
+                anySet = true;
+            }
+            if (player.Passives.TheBoysMoralBlockedByMM)
+            {
+                pas.TheBoysMoralBlocked = true;
                 anySet = true;
             }
 

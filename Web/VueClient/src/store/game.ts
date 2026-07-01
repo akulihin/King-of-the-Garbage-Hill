@@ -126,6 +126,15 @@ export const useGameStore = defineStore('game', () => {
 
   const myGiantBeans = computed(() => myPlayer.value?.passiveAbilityStates?.giantBeans ?? null)
 
+  // Pickle Rick may still fire a charged Portal Gun during his (otherwise "ready") pickle turn.
+  const canFireGunDuringPickle = computed(() => {
+    return (
+      (myPickleRick.value?.pickleTurnsRemaining ?? 0) > 0 &&
+      (myPortalGun.value?.invented ?? false) &&
+      (myPortalGun.value?.charges ?? 0) > 0
+    )
+  })
+
   // ── Actions ───────────────────────────────────────────────────────
 
   async function connect() {
@@ -591,6 +600,7 @@ export const useGameStore = defineStore('game', () => {
     myExploitState,
     myPickleRick,
     myGiantBeans,
+    canFireGunDuringPickle,
     // Actions
     connect,
     authenticate,

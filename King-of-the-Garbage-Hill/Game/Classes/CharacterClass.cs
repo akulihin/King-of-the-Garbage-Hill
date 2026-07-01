@@ -198,6 +198,18 @@ public class CharacterClass
         if (game.RoundNo == 1) return;
         if(Status.GameCharacter.Passive.Any(x => x.PassiveName == "Boole Family")) return;
 
+        //Kimiko — пока активна, Пацанам не наносится Вред (СуперМудень отключает; Живое Оружие держит защиту всегда)
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Kimiko"))
+        {
+            var kimikoGuard = target.Passives.TheBoysKimiko;
+            if (!target.Passives.TheBoysButcher.SuperDickActive && (kimikoGuard.LivingWeapon || !kimikoGuard.IsDisabled))
+            {
+                Status.AddInGamePersonalLogs("Kimiko: Вред не причинён — Пацаны под защитой.\n");
+                return;
+            }
+        }
+        //end Kimiko
+
         //Испанец
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Испанец"))
         {

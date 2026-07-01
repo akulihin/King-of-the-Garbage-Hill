@@ -836,13 +836,37 @@ public class DoomsdayMachine : IServiceSingleton
 
                     if (placeDiff <= range && !isHarmless)
                     {
-                        // TheBoys Butcher — multiply harm by poker count
+                        // TheBoys Butcher — кочерга умножает Вред (СуперМудень удваивает)
                         var harmRepeat = 1;
-                        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Кочерга Бучера"))
-                            harmRepeat = 1 + player.Passives.TheBoysButcher.PokerCount;
+                        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Butcher"))
+                        {
+                            var pk = player.Passives.TheBoysButcher.PokerCount;
+                            harmRepeat = 1 + (player.Passives.TheBoysButcher.SuperDickActive ? pk * 2 : pk);
+                        }
 
                         for (var h = 0; h < harmRepeat; h++)
                             playerIamAttacking.GameCharacter.LowerQualityResist(playerIamAttacking, game, player);
+
+                        // СуперМудень: за каждое пробитие Резиста — ещё один Вред (с предохранителем от вечного цикла)
+                        if (player.Passives.TheBoysButcher.SuperDickActive)
+                        {
+                            var safety = 0;
+                            var baselineDrops = dropsBefore;
+                            var prevDrops = playerIamAttacking.GameCharacter.GetStrengthQualityDropTimes();
+                            while (prevDrops > baselineDrops && safety < 50)
+                            {
+                                baselineDrops = prevDrops;
+                                playerIamAttacking.GameCharacter.LowerQualityResist(playerIamAttacking, game, player);
+                                prevDrops = playerIamAttacking.GameCharacter.GetStrengthQualityDropTimes();
+                                safety++;
+                            }
+                            if (safety > 0)
+                            {
+                                game.AddGlobalLogs($"**{playerIamAttacking.DiscordUsername}**: Что это?! Что он со мной сделал?!");
+                                game.AddGlobalLogs("**Butcher**: Отправил на больничную койку.");
+                            }
+                        }
+
                         qualityDamageApplied = true;
                     }
 
@@ -1274,6 +1298,13 @@ public class DoomsdayMachine : IServiceSingleton
         //Тигр топ, а ты холоп
         foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Тигр топ, а ты холоп")).ToList())
         {
+            // Banned on the last round ("Стримснайпят и банят...") — the ban neutralises Tigr ("не может
+            // действовать"), so his "Тигр топ" swap must not still vault him to first place. Mirrors the
+            // round-10 ban carve-out used by the Монстр forced-attack in CheckIfReady.
+            if (game.RoundNo == 10 &&
+                player.GameCharacter.Passive.Any(y => y.PassiveName == "Стримснайпят и банят и банят и банят"))
+                continue;
+
             var tigr = player.Passives.TigrTop;
 
             if (tigr is { TimeCount: > 0 })

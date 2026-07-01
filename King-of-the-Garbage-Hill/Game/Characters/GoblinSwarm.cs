@@ -11,7 +11,7 @@ public class GoblinSwarm
 
         // Rates (every Nth goblin is this type) - modified by level-up upgrades
         public int HobRate { get; set; } = 15;      // default every 15th
-        public int WarriorRate { get; set; } = 6;    // default every 6th
+        public int WarriorRate { get; set; } = 5;    // default every 5th
         public int WorkerRate { get; set; } = 10;    // default every 10th
 
         // Upgrade levels (0-3 for progression tracking)
@@ -21,6 +21,9 @@ public class GoblinSwarm
 
         // Ziggurats built (each costs 1 worker from the count)
         public int ZigguratWorkerDeductions { get; set; } = 0;
+
+        // How much of the +10%/Warrior Skill bonus is currently applied (delta-tracking, see CharacterPassives)
+        public int AppliedWarriorSkillBonus { get; set; } = 0;
 
         // Computed type counts
         public int Warriors => TotalGoblins / WarriorRate;

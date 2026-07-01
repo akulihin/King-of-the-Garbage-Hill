@@ -235,11 +235,24 @@ public class PassivesClass
     public string KotikiCatType { get; set; } = "";           // "Минька" or "Штормяк" (empty = no cat)
     public Guid KotikiCatOwnerId { get; set; } = Guid.Empty;  // Which Котики player owns this cat
 
-    // TheBoys
+    // TheBoys — owner-only (on the TheBoys player)
     public TheBoys.FrancieClass TheBoysFrancie { get; set; } = new();
     public TheBoys.ButcherClass TheBoysButcher { get; set; } = new();
     public TheBoys.KimikoClass TheBoysKimiko { get; set; } = new();
     public TheBoys.MMClass TheBoysMM { get; set; } = new();
+
+    // TheBoys — per-player marks (on ANY player)
+    public bool TheBoysSupMark { get; set; } = false;          // Бучер: помечен как "суп" в этом ходу
+    public bool TheBoysSupIsSuperhero { get; set; } = false;   // это супергерой (Сайтама/Кратос/Спартанец/Кира) — метка всегда
+    public bool TheBoysVirus { get; set; } = false;            // Francie: заражён смертельным вирусом
+    public Guid TheBoysVirusSource { get; set; } = Guid.Empty; // кто из Пацанов создал вирус (для кражи очков в конце)
+    public bool TheBoysMoralBlockedByMM { get; set; } = false; // Оковы Правосудия: мораль заблокирована, кнопка недоступна
+
+    // TheBoys — UI signals (owner-only): фронт следит за сменой серийников для анимаций
+    public string TheBoysLastRevealedMember { get; set; } = ""; // имя члена, чью прокачку только что раскрыли
+    public int TheBoysRevealSerial { get; set; } = 0;           // ++ при раскрытии текста прокачки
+    public string TheBoysLastUnlockedUltimate { get; set; } = ""; // имя раскрытой ультимативной пассивки
+    public int TheBoysUnlockSerial { get; set; } = 0;           // ++ при анлоке ультимейта
 
     // Salldorum
     public Salldorum.ShenClass SalldorumShen { get; set; } = new();

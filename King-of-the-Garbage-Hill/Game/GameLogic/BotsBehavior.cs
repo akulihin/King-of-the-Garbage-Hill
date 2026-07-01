@@ -1566,6 +1566,12 @@ public class BotsBehavior : IServiceSingleton
                         // Poker multiplier: prefer skill targets
                         if (botButcher.PokerCount > 0 && bot.GameCharacter.HasSkillTargetOn(target.Player.GameCharacter))
                             target.AttackPreference += 3;
+                        // Butcher: prefer hunting marked "sups" (+Skill, очко за дроп)
+                        if (target.Player.Passives.TheBoysSupMark)
+                            target.AttackPreference += 8;
+                        // Смертельный вирус: prefer a target to plant/spread the virus
+                        if (botFrancie.VirusArmed)
+                            target.AttackPreference += 6;
                         // Prefer leaders
                         if (target.Player.Status.GetPlaceAtLeaderBoard() <= 3)
                             target.AttackPreference += 3;

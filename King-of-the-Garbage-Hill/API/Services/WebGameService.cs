@@ -392,7 +392,11 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return (false, "Game not found");
         if (player == null) return (false, "Player not in this game");
-        if (!CanAct(player)) return (false, "Cannot act right now");
+        // Pickle Rick is "ready" (IsReady=true) during the pickle turn, so CanAct is false — but he
+        // is still allowed to fire a charged Portal Gun, which auto-confirms his pickle skip.
+        var picklePortalReady = player.Passives.RickPickle.PickleTurnsRemaining > 0
+            && player.Passives.RickPortalGun.Invented && player.Passives.RickPortalGun.Charges > 0;
+        if (!CanAct(player) && !picklePortalReady) return (false, "Cannot act right now");
         if (player.Status.LvlUpPoints > 0 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
             return (false, "Риоты не прощают, нерфа не избежать");
 

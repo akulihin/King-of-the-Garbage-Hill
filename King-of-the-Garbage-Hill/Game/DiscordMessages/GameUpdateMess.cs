@@ -670,13 +670,16 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         var tbButcher = me.Passives.TheBoysButcher;
                         var tbKimiko = me.Passives.TheBoysKimiko;
                         var tbMM = me.Passives.TheBoysMM;
-                        customString += $" 🔪{tbButcher.PokerCount} 🧪{tbFrancie.ChemWeaponLevel} 💚{tbKimiko.RegenLevel} 📋{tbMM.KompromatTargets.Count}";
+                        customString += $" 🔪{tbButcher.PokerCount} 🧪{tbFrancie.ChemWeaponLevel} 💚{tbKimiko.RegenLevel} 🧠{tbMM.UpgradeLevel}(📋{tbMM.KompromatTargets.Count})";
+                        if (tbButcher.SuperDickActive) customString += " | 💀СуперМудень";
                         if (tbFrancie.OrderTarget != Guid.Empty)
                         {
                             var orderName = game.PlayersList.Find(x => x.GetPlayerId() == tbFrancie.OrderTarget)?.DiscordUsername ?? "?";
                             customString += $" | 🎯{orderName}({tbFrancie.OrderRoundsLeft})";
                         }
-                        if (tbKimiko.IsDisabled) customString += " | ❌Kimiko";
+                        if (tbKimiko.LivingWeapon) customString += " | ⚔️ЖивоеОружие";
+                        else if (tbKimiko.IsDisabled) customString += " | ❌Kimiko";
+                        if (tbMM.IsCalm) customString += " | 🧘Спокоен";
                     }
                     break;
 
@@ -1524,6 +1527,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         //    return new ButtonBuilder($"Буууууууль", "moral", ButtonStyle.Secondary, isDisabled: true);
         if (player.GameCharacter.Name == "DeepList")
             return new ButtonBuilder("Интересует только скилл", "moral", ButtonStyle.Secondary, isDisabled: true);
+        if (player.Passives.TheBoysMoralBlockedByMM)
+            return new ButtonBuilder("Компромат М.М.: мораль заблокирована", "moral", ButtonStyle.Secondary, isDisabled: true);
 
         if (player.GameCharacter.GetMoral() >= 20)
             return new ButtonBuilder($"на 10 бонусных очков{extraText}", "moral", ButtonStyle.Secondary,
@@ -1558,6 +1563,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
             return new ButtonBuilder("Ничего не понимает, но булькает!", "skill", ButtonStyle.Secondary, isDisabled: true, emote: Emote.Parse("<a:bratishka:900962522276958298>"));
+        if (player.Passives.TheBoysMoralBlockedByMM)
+            return new ButtonBuilder("Компромат М.М.: мораль заблокирована", "skill", ButtonStyle.Secondary, isDisabled: true, emote: Emote.Parse("<a:bratishka:900962522276958298>"));
 
         if (player.GameCharacter.GetMoral() >= 20)
             return new ButtonBuilder($"Обменять 20 Морали на 100 Cкилла{extraText}", "skill", ButtonStyle.Secondary,

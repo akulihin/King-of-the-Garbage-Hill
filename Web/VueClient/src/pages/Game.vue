@@ -136,7 +136,7 @@ onUnmounted(() => {
 // Rick: game start theme — play when Rick joins, stop on first action
 const rickThemePlaying = ref(false)
 watch(() => store.myPlayer?.character.name, (name) => {
-  if (name === 'Рик' && !rickThemePlaying.value && (store.gameState?.roundNo ?? 0) <= 1) {
+  if (name === 'Рик Санчез' && !rickThemePlaying.value && (store.gameState?.roundNo ?? 0) <= 1) {
     rickThemePlaying.value = true
     playRickGameStartTheme()
   }
@@ -148,21 +148,20 @@ watch(() => store.myPlayer?.status.isReady, (ready) => {
   }
 })
 
-// Rick: portal gun — loop charged theme while charges > 0
+// Rick: portal gun — play the charge jingle once per gained charge; "use" sound when a charge is spent
 const prevPortalCharges = ref<number | null>(null)
 watch(() => store.myPortalGun, (pg) => {
   if (!pg || !pg.invented) {
-    if (prevPortalCharges.value !== null && prevPortalCharges.value > 0) {
-      stopPortalGunCharged()
-    }
     prevPortalCharges.value = null
     return
   }
   const prev = prevPortalCharges.value
-  if (pg.charges > 0 && (prev === null || prev === 0)) {
+  if (prev === null) {
+    // First observation while invented (e.g. page reload) — announce only if already charged
+    if (pg.charges > 0) playPortalGunCharged()
+  } else if (pg.charges > prev) {
     playPortalGunCharged()
-  } else if (pg.charges === 0 && prev !== null && prev > 0) {
-    stopPortalGunCharged()
+  } else if (pg.charges < prev) {
     playPortalGunUse()
   }
   prevPortalCharges.value = pg.charges
@@ -182,12 +181,6 @@ watch(() => store.gameState?.isFinished, (finished, prevFinished) => {
     const saitamaWon = store.gameState.players.some(p => p.character.name === 'Сайтама' && p.status.place === 1)
     if (saitamaWon) playSaitamaGameWinTheme()
 
-    // Rick portal gun charged theme on Rick game win (plays for everyone)
-    const rickWinner = store.gameState.players.find(p => p.character.name === 'Рик')
-    if (rickWinner && rickWinner.status.place === 1) {
-      playPortalGunCharged()
-    }
-
     // Character win themes — only when that character actually won (place 1)
     const geraltWon = store.gameState.players.some(p => p.character.name === 'Геральт' && p.status.place === 1)
     if (geraltWon) playGeraltGameWinTheme()
@@ -198,7 +191,7 @@ watch(() => store.gameState?.isFinished, (finished, prevFinished) => {
     const monsterWon = store.gameState.players.some(p => p.character.name === 'Монстр без имени' && p.status.place === 1)
     if (monsterWon) playMonsterGameWinTheme()
 
-    const rickWon = store.gameState.players.some(p => p.character.name === 'Рик' && p.status.place === 1)
+    const rickWon = store.gameState.players.some(p => p.character.name === 'Рик Санчез' && p.status.place === 1)
     if (rickWon) playRickGameWinTheme()
 
     // Stop game start themes on finish
@@ -1241,7 +1234,7 @@ const charTint = computed(() => {
           <Leaderboard
             :players="store.gameState.players"
             :my-player-id="store.myPlayer?.playerId"
-            :can-attack="!store.gameState.isFinished && store.isMyTurn"
+            :can-attack="!store.gameState.isFinished && (store.isMyTurn || store.canFireGunDuringPickle)"
             :predictions="store.myPlayer?.predictions"
             :character-names="store.gameState.allCharacterNames || []"
             :character-catalog="store.gameState.allCharacters || []"

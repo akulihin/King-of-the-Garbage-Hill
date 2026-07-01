@@ -268,14 +268,19 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Гоблины":
                     var gobPop = player.Passives.GoblinPopulation;
-                    player.GameCharacter.SetStrength(gobPop.Warriors, "Гоблины");
+                    player.GameCharacter.SetStrength(gobPop.Hobs, "Гоблины");
                     player.GameCharacter.SetIntelligence(gobPop.Hobs, "Гоблины");
                     player.GameCharacter.SetPsyche(5 + gobPop.Hobs, "Гоблины");
+                    // Воины дают +10% Скилла каждый (delta, чтобы не накапливалось между раундами)
+                    var gobWarriorSkillDelta = gobPop.Warriors - gobPop.AppliedWarriorSkillBonus;
+                    if (gobWarriorSkillDelta != 0)
+                        player.GameCharacter.AddIntelligenceQualitySkillBonus(gobWarriorSkillDelta, "Гоблины", true);
+                    gobPop.AppliedWarriorSkillBonus = gobPop.Warriors;
                     player.Status.AddInGamePersonalLogs($"Стая Гоблинов: {gobPop.TotalGoblins} гоблинов (⚔️{gobPop.Warriors} 🧙{gobPop.Hobs} ⛏️{gobPop.Workers})\n");
                     break;
 
-                // TheBoys — Заказ Француза: shuffle opponents and assign first order
-                case "Заказ Француза":
+                // TheBoys — Francie: shuffle opponents and assign first order (окно 3 хода)
+                case "Francie":
                     var francie = player.Passives.TheBoysFrancie;
                     var opponents = playersList
                         .Where(x => x.GetPlayerId() != player.GetPlayerId())
@@ -288,9 +293,9 @@ public class CharacterPassives : IServiceSingleton
                         francie.OrderTarget = francie.RemainingTargets[0];
                         francie.RemainingTargets.RemoveAt(0);
                         francie.OrderHistory.Add(francie.OrderTarget);
-                        francie.OrderRoundsLeft = 2;
+                        francie.OrderRoundsLeft = 3;
                         var targetName = playersList.Find(x => x.GetPlayerId() == francie.OrderTarget)?.DiscordUsername ?? "???";
-                        player.Status.AddInGamePersonalLogs($"Заказ Француза: Цель — {targetName}. 2 хода на выполнение.\n");
+                        player.Status.AddInGamePersonalLogs($"Заказ Француза: Цель — {targetName}. 3 хода на выполнение.\n");
                     }
                     break;
 
@@ -568,18 +573,19 @@ public class CharacterPassives : IServiceSingleton
                     {
                         target.Status.IsAbleToWin = false;
                         game.Phrases.SaitamaHoldsBack.SendLog(target, false);
-                        
-                        // Defer the win point (remove 1 from pending score) and bank the round-multiplied
-                        // value, attributed to the attacker who pockets the free win (or a Jew who steals it).
-                        target.Status.AddRegularPoints(-1, "Неприметность");
+
+                        // Bank the round-multiplied win point to reclaim on round 10, attributed to the
+                        // attacker who pockets the free win (or a Jew who steals it). Saitama already loses
+                        // this defensive fight (IsAbleToWin=false → he scores 0, the attacker gets +1), so we
+                        // must NOT also dock him a regular point — that was double-penalising him.
                         var defRecipient = ResolveDeferredRecipient(game, target, target.GetPlayerId(), me.GetPlayerId());
                         saitamaAtkUnnoticedAfter.AddDeferred(defRecipient, game.RoundNo);
 
-                        // Defer moral too (underdog moral only applies when we had worse place)
+                        // Bank the foregone underdog moral too (only applies when Saitama had the worse place).
+                        // Deferred-only as well — no upfront moral loss; it is restored/converted on round 10.
                         var moralGain = target.Status.GetPlaceAtLeaderBoard() - me.Status.GetPlaceAtLeaderBoard();
                         if (moralGain > 0 && game.RoundNo > 1)
                         {
-                            target.GameCharacter.AddMoral(-moralGain, "Неприметность", isFightMoral: true);
                             saitamaAtkUnnoticedAfter.DeferredMoral += moralGain;
                         }
                     }
@@ -649,10 +655,12 @@ public class CharacterPassives : IServiceSingleton
                     // Stats already include warrior/hob bonuses via Set calls
                     break;
 
-                // TheBoys — Регенерация Кимико: reduce attacker's justice when defending
-                case "Регенерация Кимико":
+                // TheBoys — Kimiko: поглощение справедливости атакующего при обороне (Регенерация)
+                case "Kimiko":
                     var kimikoDefBefore = target.Passives.TheBoysKimiko;
-                    if (!kimikoDefBefore.IsDisabled && kimikoDefBefore.RegenLevel > 0)
+                    if (target.Passives.TheBoysButcher.SuperDickActive) break; // СуперМудень отключает Кимико
+                    // Живое Оружие крадёт ВСЮ справедливость после боя (по настоящему значению) — здесь игнор не применяем
+                    if (!kimikoDefBefore.LivingWeapon && !kimikoDefBefore.IsDisabled && kimikoDefBefore.RegenLevel > 0)
                     {
                         var currentJustice = me.FightCharacter.Justice.GetRealJusticeNow();
                         var reduction = Math.Min(currentJustice, kimikoDefBefore.RegenLevel);
@@ -720,6 +728,30 @@ public class CharacterPassives : IServiceSingleton
                     if (target.GameCharacter.Name == "Геральт" && target.Status.IsBlock)
                     {
                         game.Phrases.GeraltBlock.SendLog(target, false);
+                    }
+                    break;
+
+                // TheBoys — Kimiko: +10 Скилла за победу в обороне, +20 за успешный блок; Живое Оружие крадёт справедливость
+                case "Kimiko":
+                    if (target.Passives.TheBoysButcher.SuperDickActive) break; // СуперМудень отключает Кимико
+                    var kimikoAfter = target.Passives.TheBoysKimiko;
+                    if (target.Status.IsBlock)
+                        target.GameCharacter.AddExtraSkill(20, "Kimiko (блок)");
+                    else if (target.Status.IsWonThisCalculation != Guid.Empty)
+                        target.GameCharacter.AddExtraSkill(10, "Kimiko");
+
+                    // Живое Оружие: украсть настоящую справедливость атакующего (независимо от исхода)
+                    if (kimikoAfter.LivingWeapon)
+                    {
+                        var stolenJustice = me.FightCharacter.Justice.GetRealJusticeNow();
+                        if (stolenJustice > 0)
+                        {
+                            me.FightCharacter.Justice.SetRealJusticeNow(0, "Живое Оружие");
+                            target.FightCharacter.Justice.AddRealJusticeNow(stolenJustice);
+                            kimikoAfter.TotalJusticeBlocked += stolenJustice;
+                            target.Status.AddInGamePersonalLogs(
+                                $"Живое Оружие: Kimiko забрала {stolenJustice} Справедливости у {me.DiscordUsername}\n");
+                        }
                     }
                     break;
             }
@@ -887,9 +919,11 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // TheBoys — Регенерация Кимико: disable on defense loss
-                case "Регенерация Кимико":
-                    if (target.Status.IsLostThisCalculation != Guid.Empty)
+                // TheBoys — Kimiko: выведение из строя при поражении в обороне (Живое Оружие даёт иммунитет)
+                case "Kimiko":
+                    if (!target.Passives.TheBoysKimiko.LivingWeapon
+                        && !target.Passives.TheBoysButcher.SuperDickActive
+                        && target.Status.IsLostThisCalculation != Guid.Empty)
                     {
                         target.Passives.TheBoysKimiko.DisabledNextRound = true;
                         game.Phrases.TheBoysKimikoDisabled.SendLog(target, false);
@@ -1492,12 +1526,14 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // TheBoys — Кочерга Бучера: multiply skill during attack
-                case "Кочерга Бучера":
-                    var pokerCount = me.Passives.TheBoysButcher.PokerCount;
+                // TheBoys — Butcher: кочерга умножает Скилл в бою (СуперМудень удваивает)
+                case "Butcher":
+                    var butcherAtk = me.Passives.TheBoysButcher;
+                    var pokerCount = butcherAtk.PokerCount;
                     if (pokerCount > 0)
                     {
-                        me.FightCharacter.SetSkillFightMultiplier(1 + pokerCount);
+                        var pokerMult = butcherAtk.SuperDickActive ? pokerCount * 2 : pokerCount;
+                        me.FightCharacter.SetSkillFightMultiplier(1 + pokerMult);
                         game.Phrases.TheBoysPoker.SendLog(me, false);
                     }
                     break;
@@ -2305,8 +2341,38 @@ public class CharacterPassives : IServiceSingleton
     }
 
 
+    // TheBoys — Смертельный вирус: распространение при бою между носителем и не-носителем (не блок/скип)
+    private void TheBoysSpreadVirus(GamePlayerBridgeClass player, GameClass game)
+    {
+        var oppId = player.Status.IsWonThisCalculation != Guid.Empty
+            ? player.Status.IsWonThisCalculation
+            : player.Status.IsLostThisCalculation;
+        if (oppId == Guid.Empty) return; // блок/скип — боя не было
+
+        var opp = game.PlayersList.Find(x => x.GetPlayerId() == oppId);
+        if (opp == null) return;
+
+        // Источник (Француз) вирусом не заражается.
+        if (player.Passives.TheBoysVirus && !opp.Passives.TheBoysVirus
+            && opp.GetPlayerId() != player.Passives.TheBoysVirusSource)
+        {
+            opp.Passives.TheBoysVirus = true;
+            opp.Passives.TheBoysVirusSource = player.Passives.TheBoysVirusSource;
+            game.AddGlobalLogs($"☣️ Вирус распространился на **{opp.DiscordUsername}**!");
+        }
+        else if (opp.Passives.TheBoysVirus && !player.Passives.TheBoysVirus
+            && player.GetPlayerId() != opp.Passives.TheBoysVirusSource)
+        {
+            player.Passives.TheBoysVirus = true;
+            player.Passives.TheBoysVirusSource = opp.Passives.TheBoysVirusSource;
+            game.AddGlobalLogs($"☣️ Вирус распространился на **{player.DiscordUsername}**!");
+        }
+    }
+
     public async Task HandleCharacterAfterFight(GamePlayerBridgeClass player, GameClass game, bool attack, bool defense)
     {
+        TheBoysSpreadVirus(player, game);
+
         foreach (var p in game.PlayersList)
         foreach (var passive in p.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
@@ -3226,52 +3292,92 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // TheBoys — Заказ Француза: check if order target was defeated
-                case "Заказ Француза":
+                // TheBoys — Francie: завершение заказа + Хим.оружие + Смертельный вирус
+                case "Francie":
+                    if (player.Passives.TheBoysButcher.SuperDickActive) break; // СуперМудень отключает Француза
+                    var francieAfter = player.Passives.TheBoysFrancie;
+
                     if (attack && player.Status.IsWonThisCalculation != Guid.Empty)
                     {
-                        var francieAfter = player.Passives.TheBoysFrancie;
+                        // Заказ выполнен?
                         if (francieAfter.OrderTarget == player.Status.IsWonThisCalculation
                             && francieAfter.OrderRoundsLeft > 0)
                         {
                             francieAfter.OrdersCompleted++;
+                            player.Passives.AchievementTracker.TheBoysOrdersCompleted++;
                             francieAfter.OrderTarget = Guid.Empty;
                             francieAfter.OrderRoundsLeft = 0;
                             player.Status.AddBonusPoints(1, "Заказ Француза");
                             game.Phrases.TheBoysOrderComplete.SendLog(player, false);
                         }
-                    }
-                    break;
 
-                // TheBoys — Хим.оружие: bonus points on win if fight was fair
-                case "Хим.оружие":
-                    if (attack && player.Status.IsWonThisCalculation != Guid.Empty)
-                    {
-                        var chemLevel = player.Passives.TheBoysFrancie.ChemWeaponLevel;
+                        // Хим.оружие: бонусные очки за честную победу
+                        var chemLevel = francieAfter.ChemWeaponLevel;
                         if (chemLevel > 0)
                         {
-                            var chemEnemy = game.PlayersList.Find(x =>
-                                x.GetPlayerId() == player.Status.IsWonThisCalculation);
-                            if (chemEnemy != null)
+                            var chemEnemy = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation);
+                            if (chemEnemy != null && !chemEnemy.Status.FightEnemyWasTooGood && !chemEnemy.Status.FightEnemyWasTooStronk)
                             {
-                                // Check if TheBoys was NOT tooGood/tooStronk (fair win)
-                                var wasTooGood = chemEnemy.Status.FightEnemyWasTooGood;
-                                var wasTooStronk = chemEnemy.Status.FightEnemyWasTooStronk;
-                                if (!wasTooGood && !wasTooStronk)
-                                {
-                                    player.Status.AddBonusPoints(chemLevel, "Хим.оружие");
-                                    game.Phrases.TheBoysChemWeapon.SendLog(player, false);
-                                }
+                                player.Status.AddBonusPoints(chemLevel, "Хим.оружие");
+                                game.Phrases.TheBoysChemWeapon.SendLog(player, false);
+                            }
+                        }
+                    }
+
+                    // Смертельный вирус: следующая атака (реальный бой) вешает вирус на цель
+                    if (attack && francieAfter.VirusArmed)
+                    {
+                        var virusTargetId = player.Status.IsWonThisCalculation != Guid.Empty
+                            ? player.Status.IsWonThisCalculation
+                            : player.Status.IsLostThisCalculation;
+                        if (virusTargetId != Guid.Empty)
+                        {
+                            var virusTarget = game.PlayersList.Find(x => x.GetPlayerId() == virusTargetId);
+                            if (virusTarget != null)
+                            {
+                                virusTarget.Passives.TheBoysVirus = true;
+                                virusTarget.Passives.TheBoysVirusSource = player.GetPlayerId();
+                                francieAfter.VirusArmed = false;
+                                francieAfter.VirusUsed = true;
+                                game.AddGlobalLogs($"☣️ Француз заразил **{virusTarget.DiscordUsername}** Смертельным вирусом!");
+                                game.Phrases.TheBoysVirusApply.SendLog(player, false);
                             }
                         }
                     }
                     break;
 
-                // TheBoys — Компромат М.М.: gather kompromat on attack target
-                case "Компромат М.М.":
-                    if (attack && player.Passives.TheBoysMM.NextAttackGathersKompromat)
+                // TheBoys — Butcher: охота на супов (+Скилл за нападение на супа, очко если Скинул)
+                case "Butcher":
+                    if (attack)
                     {
-                        var mmData = player.Passives.TheBoysMM;
+                        var fightTargetId = player.Status.IsWonThisCalculation != Guid.Empty
+                            ? player.Status.IsWonThisCalculation
+                            : player.Status.IsLostThisCalculation;
+                        if (fightTargetId != Guid.Empty)
+                        {
+                            var supTarget = game.PlayersList.Find(x => x.GetPlayerId() == fightTargetId);
+                            if (supTarget != null && supTarget.Passives.TheBoysSupMark)
+                            {
+                                var superDick = player.Passives.TheBoysButcher.SuperDickActive;
+                                player.GameCharacter.AddExtraSkill(superDick ? 20 : 10, "Butcher");
+                                if (player.Status.IsWonThisCalculation == fightTargetId)
+                                    player.Status.AddBonusPoints(superDick ? 2 : 1, "Butcher");
+                                game.Phrases.TheBoysButcherHunt.SendLog(player, false);
+                            }
+                        }
+                    }
+                    break;
+
+                // TheBoys — M.M.: сбор компромата + учёт исхода боёв раунда (для базовой психики)
+                case "M.M.":
+                    var mmData = player.Passives.TheBoysMM;
+                    if (player.Status.IsWonThisCalculation != Guid.Empty) mmData.WonThisRound++;
+                    if (player.Status.IsLostThisCalculation != Guid.Empty) mmData.LostThisRound++;
+
+                    if (player.Passives.TheBoysButcher.SuperDickActive) break; // СуперМудень отключает М.М.
+
+                    if (attack && mmData.NextAttackGathersKompromat)
+                    {
                         // Fight must have happened (won or lost, but not block/skip)
                         if (player.Status.IsWonThisCalculation != Guid.Empty ||
                             player.Status.IsLostThisCalculation != Guid.Empty)
@@ -3305,8 +3411,48 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in player.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                // TheBoys — M.M.: базовая психика команды (+1 если не проиграли ни разу; -1 и психует если проиграли все бои)
+                case "M.M.":
+                {
+                    var mmBase = player.Passives.TheBoysMM;
+                    if (!mmBase.IsCalm && !player.Passives.TheBoysButcher.SuperDickActive)
+                    {
+                        if (mmBase.LostThisRound == 0)
+                        {
+                            player.GameCharacter.AddPsyche(1, "M.M.");
+                            foreach (var mate in game.PlayersList)
+                                if (mate.GetPlayerId() != player.GetPlayerId() && player.IsTeamMember(game, mate.GetPlayerId()))
+                                    mate.GameCharacter.AddPsyche(1, "M.M.");
+                        }
+                        else if (mmBase.WonThisRound == 0)
+                        {
+                            player.MinusPsycheLog(player.GameCharacter, game, -1, "M.M.");
+                        }
+                    }
+
+                    // Прокачка Компромат: на 8м ходу — если весь компромат верно предсказан, +5 Морали за каждый
+                    if (game.RoundNo == 8 && mmBase.KompromatTargets.Count > 0
+                        && !player.Passives.TheBoysButcher.SuperDickActive)
+                    {
+                        var allWorked = mmBase.KompromatTargets.All(tid =>
+                        {
+                            var tp = game.PlayersList.Find(x => x.GetPlayerId() == tid);
+                            return tp != null && player.Predict.Any(pr => pr.PlayerId == tid && pr.CharacterName == tp.GameCharacter.Name);
+                        });
+                        if (allWorked)
+                        {
+                            player.GameCharacter.AddMoral(mmBase.KompromatTargets.Count * 5, "Компромат М.М.");
+                            player.Status.AddInGamePersonalLogs("Компромат М.М.: весь компромат сработал! М.М. успокаивается.\n");
+                        }
+                    }
+
+                    mmBase.WonThisRound = 0;
+                    mmBase.LostThisRound = 0;
+                    break;
+                }
+
                 case "Возвращение из мертвых":
-                    //didn't fail but didn't succseed   
+                    //didn't fail but didn't succseed
                     if (game.IsKratosEvent && game.RoundNo >= 16 && game.PlayersList.Count(x => !x.Passives.IsDead) < 5)
                     {
                         game.IsKratosEvent = false;
@@ -5282,6 +5428,11 @@ public class CharacterPassives : IServiceSingleton
                         {
                             player.Status.WhoToAttackThisTurn = new List<Guid>();
                             player.Status.IsReady = true;
+                            // Show the Skip button and hold readiness so the human controls the
+                            // pickle turn instead of the bot (auto-move is also disabled for pickle
+                            // Rick in CheckIfReady). We deliberately do NOT set IsSkip — pickle must
+                            // stay attackable-but-invulnerable so WasAttackedAsPickle/penalty still work.
+                            player.Status.ConfirmedSkip = false;
                         }
                         if (pickleNext.PenaltyTurnsRemaining > 0)
                         {
@@ -5467,12 +5618,13 @@ public class CharacterPassives : IServiceSingleton
                             p.Passives.MonsterNoEscape = false;
                         break;
 
-                    // TheBoys — Заказ Француза: manage orders on odd rounds (3, 5, 7, 9)
-                    case "Заказ Француза":
+                    // TheBoys — Francie: заказы, окно 3 хода (новый заказ на раундах 4, 7)
+                    case "Francie":
+                        if (player.Passives.TheBoysButcher.SuperDickActive) break; // СуперМудень отключает Француза
                         var francieNR = player.Passives.TheBoysFrancie;
-                        if (game.RoundNo is 3 or 5 or 7 or 9)
+                        if (game.RoundNo is 4 or 7 or 10)
                         {
-                            // Fail current order if still active
+                            // Провалить текущий заказ, если ещё активен
                             if (francieNR.OrderTarget != Guid.Empty && francieNR.OrderRoundsLeft > 0)
                             {
                                 francieNR.OrdersFailed++;
@@ -5481,15 +5633,15 @@ public class CharacterPassives : IServiceSingleton
                                 francieNR.OrderTarget = Guid.Empty;
                                 francieNR.OrderRoundsLeft = 0;
                             }
-                            // Assign new order
-                            if (francieNR.RemainingTargets.Count > 0)
+                            // Новый заказ (кроме 10-го раунда — игра заканчивается)
+                            if (game.RoundNo < 10 && francieNR.RemainingTargets.Count > 0)
                             {
                                 francieNR.OrderTarget = francieNR.RemainingTargets[0];
                                 francieNR.RemainingTargets.RemoveAt(0);
                                 francieNR.OrderHistory.Add(francieNR.OrderTarget);
-                                francieNR.OrderRoundsLeft = 2;
+                                francieNR.OrderRoundsLeft = 3;
                                 var orderTargetName = game.PlayersList.Find(x => x.GetPlayerId() == francieNR.OrderTarget)?.DiscordUsername ?? "???";
-                                player.Status.AddInGamePersonalLogs($"Заказ Француза: Новая цель — {orderTargetName}. 2 хода.\n");
+                                player.Status.AddInGamePersonalLogs($"Заказ Француза: Новая цель — {orderTargetName}. 3 хода.\n");
                                 game.Phrases.TheBoysOrderNew.SendLog(player, false);
                             }
                         }
@@ -5499,9 +5651,15 @@ public class CharacterPassives : IServiceSingleton
                         }
                         break;
 
-                    // TheBoys — Регенерация Кимико: recovery/disable state management
-                    case "Регенерация Кимико":
+                    // TheBoys — Kimiko: recovery/disable state (Живое Оружие — иммунитет)
+                    case "Kimiko":
                         var kimikoNR = player.Passives.TheBoysKimiko;
+                        if (kimikoNR.LivingWeapon)
+                        {
+                            kimikoNR.IsDisabled = false;
+                            kimikoNR.DisabledNextRound = false;
+                            break;
+                        }
                         if (kimikoNR.DisabledNextRound)
                         {
                             kimikoNR.IsDisabled = true;
@@ -5701,6 +5859,44 @@ public class CharacterPassives : IServiceSingleton
                     if (player.Status.GetPlaceAtLeaderBoard() != 1)
                         player.GameCharacter.Justice.AddRealJusticeNow();
                     break;
+
+                // TheBoys — Butcher: назначить метки супов на этот ход (2 ротационные + супергерои всегда)
+                case "Butcher":
+                {
+                    // Сброс старых меток на всех игроках
+                    foreach (var pl in game.PlayersList)
+                    {
+                        pl.Passives.TheBoysSupMark = false;
+                        pl.Passives.TheBoysSupIsSuperhero = false;
+                    }
+
+                    var butcherOrderTarget = player.Passives.TheBoysFrancie.OrderTarget;
+                    var enemies = game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()).ToList();
+
+                    // 1) супергерои помечаются всегда (бесплатная метка)
+                    foreach (var enemy in enemies)
+                    {
+                        if (TheBoys.Superheroes.Contains(enemy.GameCharacter.Name))
+                        {
+                            enemy.Passives.TheBoysSupMark = true;
+                            enemy.Passives.TheBoysSupIsSuperhero = true;
+                        }
+                    }
+
+                    // 2) ещё 2 случайные метки: приоритет — под текущую классовую Мишень, исключая Француз-цель и уже помеченных
+                    var candidates = enemies
+                        .Where(x => !x.Passives.TheBoysSupMark && x.GetPlayerId() != butcherOrderTarget)
+                        .ToList();
+                    var byTarget = candidates
+                        .Where(x => player.GameCharacter.HasSkillTargetOn(x.GameCharacter))
+                        .OrderBy(_ => Guid.NewGuid());
+                    var rest = candidates
+                        .Where(x => !player.GameCharacter.HasSkillTargetOn(x.GameCharacter))
+                        .OrderBy(_ => Guid.NewGuid());
+                    foreach (var enemy in byTarget.Concat(rest).Take(2))
+                        enemy.Passives.TheBoysSupMark = true;
+                    break;
+                }
 
                 case "Челюсти":
                     if (game.RoundNo > 1)
@@ -5923,9 +6119,14 @@ public class CharacterPassives : IServiceSingleton
                     var autoGrowth = gobEndPop.GrowthThisRound;
                     gobEndPop.TotalGoblins += autoGrowth;
                     // Update persistent stat bonuses based on new population
-                    player.GameCharacter.SetStrength(gobEndPop.Warriors, "Гоблины");
+                    player.GameCharacter.SetStrength(gobEndPop.Hobs, "Гоблины");
                     player.GameCharacter.SetIntelligence(gobEndPop.Hobs, "Гоблины");
                     player.GameCharacter.SetPsyche(5 + gobEndPop.Hobs, "Гоблины");
+                    // Воины дают +10% Скилла каждый (delta от нового населения)
+                    var gobEndWarriorSkillDelta = gobEndPop.Warriors - gobEndPop.AppliedWarriorSkillBonus;
+                    if (gobEndWarriorSkillDelta != 0)
+                        player.GameCharacter.AddIntelligenceQualitySkillBonus(gobEndWarriorSkillDelta, "Гоблины", true);
+                    gobEndPop.AppliedWarriorSkillBonus = gobEndPop.Warriors;
                     player.Status.AddInGamePersonalLogs($"Гоблины: +{autoGrowth} прирост. Всего: {gobEndPop.TotalGoblins} (⚔️{gobEndPop.Warriors} 🧙{gobEndPop.Hobs} ⛏️{gobEndPop.Workers})\n");
                     break;
 

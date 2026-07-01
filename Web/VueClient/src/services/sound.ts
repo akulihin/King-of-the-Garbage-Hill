@@ -435,6 +435,16 @@ export function playLevelUpStatSound(stat: StatKey, isMax: boolean): void {
   void playClip(path, { channel: 'lvl-up-extra', group: 'levelUp' })
 }
 
+// TheBoys — cinematic upgrade-reveal cue (subtle whoosh reusing the default lvl-up clip)
+export function playTheBoysReveal(): void {
+  void playClip('buttons/lvl_up/lvl_up_default.mp3', { channel: 'tb-reveal', group: 'levelUp' })
+}
+
+// TheBoys — ultimate-unlock fanfare (reuse the strongest "maxed" lvl-up cue)
+export function playTheBoysUnlock(): void {
+  void playClip('buttons/lvl_up/lvl_up_str_max.mp3', { channel: 'tb-unlock', group: 'levelUp' })
+}
+
 export function playMoralForPointsSound(): void {
   void playClip('buttons/moral_exchange/moral_for_points.mp3', { group: 'moralExchange' })
 }
@@ -698,10 +708,10 @@ export function stopRickGameStartTheme(): void {
   stopChannel('rick-theme')
 }
 
-/** Rick: portal gun charged theme (loops while charge available) */
+/** Rick: portal gun charged theme (one-shot, played once per gained charge) */
 export function playPortalGunCharged(): void {
   void playClip('character_passives/rick/portal_gun/portal_gun_charged.mp3', {
-    group: 'characterPassives', channel: 'portal-gun', loop: true,
+    group: 'characterPassives', channel: 'portal-gun',
   })
 }
 

@@ -59,6 +59,7 @@ const levelUpQuotes: Record<string, string[]> = {
   'Допа': ['Тактика решает.', 'По плану.', 'Рассчитано.'],
   'Geralt': ['Ветер воет...', 'Место Силы...'],
   'Молодой Глеб': ['Опять нерфят...', 'Сколько можно?!', 'Риоты совсем...', 'Да как так?!'],
+  'TheBoys': ['Diabolical.', 'Работаем, пацаны.', 'Oi! Кого качаем?', 'Voilà!'],
 }
 
 const levelUpQuip = computed(() => {
@@ -85,6 +86,7 @@ const levelUpTintColors: Record<string, string> = {
   'DeepList': 'rgba(231,76,60,0.05)',
   'Баг': 'rgba(0,255,65,0.05)',
   'Молодой Глеб': 'rgba(239,80,80,0.05)',
+  'TheBoys': 'rgba(220,40,40,0.06)',
 }
 
 const levelUpTint = computed(() => {
@@ -192,9 +194,22 @@ const rarityClass = computed(() => {
 const isGoblin = computed(() => props.player?.character.name === 'Стая Гоблинов')
 const isGeralt = computed(() => props.player?.character.name === 'Геральт')
 const isKotiki = computed(() => props.player?.character.name === 'Котики')
+const isTheBoys = computed(() => props.player?.character.name === 'TheBoys')
 const isIrelia = computed(() => props.player?.character.passives.some((p: { name: string }) => p.name === 'Main Ирелия') ?? false)
 const goblin = computed(() => passiveStates.value?.goblinSwarm ?? null)
 const geralt = computed(() => passiveStates.value?.geralt ?? null)
+const theBoys = computed(() => passiveStates.value?.theBoys ?? null)
+
+// TheBoys member level-up buttons (goblin-style label). Each member maxes at 4 → unlocks an ultimate.
+const theBoysMembers = computed(() => {
+  const tb = theBoys.value
+  return [
+    { idx: 1 as const, name: 'Francie', icon: '🧪', level: tb?.chemWeaponLevel ?? 0 },
+    { idx: 2 as const, name: 'Butcher', icon: '🔪', level: tb?.pokerCount ?? 0 },
+    { idx: 3 as const, name: 'Kimiko', icon: '💚', level: tb?.regenLevel ?? 0 },
+    { idx: 4 as const, name: 'M.M.', icon: '📋', level: tb?.mmUpgradeLevel ?? 0 },
+  ]
+})
 
 // Geralt demand progressive color helpers
 function geraltSegColor(displeasure: number): string {
@@ -649,6 +664,53 @@ function handleMoralToSkill() {
       </div>
       </template>
 
+      <!-- TheBoys member upgrades (goblin-style label): Francie / Butcher / Kimiko / M.M. xN -->
+      <template v-else-if="isTheBoys && hasLvlUpPoints && theBoys">
+      <div class="goblin-lvlup theboys-lvlup">
+        <button
+          v-for="m in theBoysMembers"
+          :key="m.idx"
+          class="goblin-lvlup-btn theboys-lvlup-btn"
+          :class="{ 'goblin-lvlup-disabled': m.level >= 4, 'theboys-lvlup-maxed': m.level >= 4 }"
+          :disabled="m.level >= 4"
+          data-sfx-skip-default="true"
+          @click="handleLevelUp(m.idx)"
+        >
+          <span class="goblin-lvlup-name">{{ m.icon }} {{ m.name }} <span class="theboys-lvlup-x">x{{ m.level }}</span></span>
+          <span class="goblin-lvlup-desc">{{ m.level >= 4 ? '★ Максимум — ультимейт открыт' : 'Прокачать (+2 стата)' }}</span>
+        </button>
+      </div>
+      <!-- Read-only stats during TheBoys lvl-up -->
+      <div class="stat-block">
+        <div class="stat-row">
+          <span class="gi gi-lg gi-int">INT</span>
+          <div class="stat-bar-bg"><div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" /></div>
+          <span class="stat-val stat-intelligence">{{ player.character.intelligence }}</span>
+        </div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-row">
+          <span class="gi gi-lg gi-str">STR</span>
+          <div class="stat-bar-bg"><div class="stat-bar strength" :style="{ width: `${player.character.strength * 10}%` }" /></div>
+          <span class="stat-val stat-strength">{{ player.character.strength }}</span>
+        </div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-row">
+          <span class="gi gi-lg gi-spd">SPD</span>
+          <div class="stat-bar-bg"><div class="stat-bar speed" :style="{ width: `${player.character.speed * 10}%` }" /></div>
+          <span class="stat-val stat-speed">{{ player.character.speed }}</span>
+        </div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-row">
+          <span class="gi gi-lg gi-psy">PSY</span>
+          <div class="stat-bar-bg"><div class="stat-bar psyche" :style="{ width: `${player.character.psyche * 10}%` }" /></div>
+          <span class="stat-val stat-psyche">{{ player.character.psyche }}</span>
+        </div>
+      </div>
+      </template>
+
       <!-- Geralt oil upgrade (replaces stat +buttons but shows read-only stats) -->
       <template v-else-if="isGeralt && hasLvlUpPoints && geralt">
       <div class="geralt-lvlup">
@@ -1000,7 +1062,7 @@ function handleMoralToSkill() {
     </div>
 
     <!-- Portal Gun (Rick special ability) -->
-    <div v-if="portalGun" class="pc-special-ability">
+    <div v-if="portalGun" class="pc-special-ability" :class="{ 'sa-charged': portalGun.invented && portalGun.charges > 0 }">
       <div class="sa-header">Портальная пушка</div>
       <div v-if="!portalGun.invented" class="sa-status sa-not-invented">
         Не изобретена (INT 30)
@@ -1650,13 +1712,14 @@ function handleMoralToSkill() {
           </div>
         </div>
         <!-- M.M. -->
-        <div class="theboys-member">
+        <div class="theboys-member" :class="{ 'theboys-calm-member': passiveStates.theBoys.isCalm }">
           <div class="theboys-member-header">
             <span class="theboys-icon">📋</span>
             <span class="theboys-name">М.М.</span>
-            <span class="theboys-val">{{ passiveStates.theBoys.kompromatCount }}</span>
+            <span class="theboys-val">Lv{{ passiveStates.theBoys.mmUpgradeLevel }} <span class="theboys-kompromat-count">📁{{ passiveStates.theBoys.kompromatCount }}</span></span>
           </div>
-          <div v-if="passiveStates.theBoys.nextAttackGathersKompromat" class="theboys-mm-active">📡 ACTIVE</div>
+          <div v-if="passiveStates.theBoys.isCalm" class="theboys-mm-active theboys-calm">🧘 СПОКОЕН</div>
+          <div v-else-if="passiveStates.theBoys.nextAttackGathersKompromat" class="theboys-mm-active">📡 ACTIVE</div>
           <div v-if="passiveStates.theBoys.kompromatEntries?.length" class="theboys-kompromat-list">
             <div v-for="entry in passiveStates.theBoys.kompromatEntries" :key="entry.targetName" class="theboys-kompromat-entry">
               <span class="theboys-kompromat-name">{{ entry.targetName }}</span>
@@ -1665,6 +1728,40 @@ function handleMoralToSkill() {
           </div>
         </div>
       </div>
+      <!-- Ultimate / status indicators -->
+      <div v-if="passiveStates.theBoys.superDickActive || passiveStates.theBoys.livingWeapon || passiveStates.theBoys.virusArmed" class="theboys-ultimates">
+        <span v-if="passiveStates.theBoys.superDickActive" class="theboys-ult-badge theboys-ult-superdick">💀 СуперМудень</span>
+        <span v-if="passiveStates.theBoys.livingWeapon" class="theboys-ult-badge theboys-ult-livingweapon">⚔️ Живое Оружие</span>
+        <span v-if="passiveStates.theBoys.virusArmed" class="theboys-ult-badge theboys-ult-virus">☣️ Вирус готов</span>
+      </div>
+      <!-- Sup marks & infected (owner view) -->
+      <div v-if="passiveStates.theBoys.supMarks?.length" class="theboys-marks-row">
+        <span class="theboys-marks-label">🎯</span>
+        <span
+          v-for="s in passiveStates.theBoys.supMarks"
+          :key="s.name"
+          class="theboys-mark-chip"
+          :class="{ 'theboys-mark-hero': s.isSuperhero }"
+        >{{ s.name }}</span>
+      </div>
+      <div v-if="passiveStates.theBoys.virusNames?.length" class="theboys-marks-row">
+        <span class="theboys-marks-label">☣️</span>
+        <span v-for="v in passiveStates.theBoys.virusNames" :key="v" class="theboys-mark-chip theboys-mark-virus">{{ v }}</span>
+      </div>
+    </div>
+
+    <!-- TheBoys marks shown on ANY affected player's own card -->
+    <div v-if="passiveStates?.theBoysSupOnMe" class="pc-passive-widget theboys-onme theboys-onme-sup">
+      <span class="theboys-onme-icon">🎯</span>
+      <span class="theboys-onme-text">{{ passiveStates.theBoysSupOnMe.isSuperhero ? 'Супергерой — цель Бучера' : 'Помечен как «суп»' }}</span>
+    </div>
+    <div v-if="passiveStates?.theBoysVirusOnMe" class="pc-passive-widget theboys-onme theboys-onme-virus">
+      <span class="theboys-onme-icon">☣️</span>
+      <span class="theboys-onme-text">Заражён Смертельным вирусом</span>
+    </div>
+    <div v-if="passiveStates?.theBoysMoralBlocked" class="pc-passive-widget theboys-onme theboys-onme-moral">
+      <span class="theboys-onme-icon">🔒</span>
+      <span class="theboys-onme-text">Оковы Правосудия: Мораль заблокирована</span>
     </div>
 
     <!-- 33. Salldorum -->
@@ -2931,6 +3028,21 @@ function handleMoralToSkill() {
   color: var(--accent-green); text-shadow: 0 0 8px rgba(0, 200, 100, 0.3);
 }
 .sa-charge-label { font-size: 10px; color: var(--text-muted); }
+/* Charged: pulse a green glow so it's obvious the gun is loaded */
+.sa-charged {
+  border-color: rgba(0, 200, 100, 0.7);
+  animation: portal-gun-glow 1.4s ease-in-out infinite;
+}
+@keyframes portal-gun-glow {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(0, 200, 100, 0.25);
+    border-color: rgba(0, 200, 100, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(0, 200, 100, 0.75);
+    border-color: rgba(0, 200, 100, 0.9);
+  }
+}
 
 /* ── Matrix theme for Баг ── */
 .player-card.is-bug {
@@ -4128,4 +4240,74 @@ function handleMoralToSkill() {
   color: #888;
   font-style: italic;
 }
+
+/* TheBoys — member level-up label (goblin-style) */
+.theboys-lvlup-btn {
+  border-color: rgba(220, 40, 40, 0.35) !important;
+}
+.theboys-lvlup-btn:hover:not(:disabled) {
+  border-color: rgba(255, 60, 60, 0.7) !important;
+  box-shadow: 0 0 12px rgba(220, 40, 40, 0.3);
+}
+.theboys-lvlup-x {
+  color: #ff5252;
+  font-weight: 900;
+}
+.theboys-lvlup-maxed .theboys-lvlup-x {
+  color: #ffd54f;
+  text-shadow: 0 0 8px rgba(255, 213, 79, 0.6);
+}
+
+/* TheBoys — widget extras */
+.theboys-kompromat-count { color: #ffb347; font-size: 0.85em; }
+.theboys-calm { color: #9ccc65 !important; animation: none !important; }
+.theboys-calm-member { box-shadow: inset 0 0 8px rgba(156, 204, 101, 0.25); }
+.theboys-ultimates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.theboys-ult-badge {
+  font-size: 0.68em;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+}
+.theboys-ult-superdick { background: rgba(150, 0, 0, 0.3); color: #ff5252; border: 1px solid rgba(255, 60, 60, 0.5); animation: theboys-pulse 1.2s ease-in-out infinite; }
+.theboys-ult-livingweapon { background: rgba(120, 40, 160, 0.28); color: #ce93d8; border: 1px solid rgba(206, 147, 216, 0.5); }
+.theboys-ult-virus { background: rgba(60, 140, 40, 0.28); color: #aed581; border: 1px solid rgba(174, 213, 129, 0.5); }
+.theboys-marks-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  font-size: 0.7em;
+}
+.theboys-marks-label { opacity: 0.9; }
+.theboys-mark-chip {
+  background: rgba(255, 80, 80, 0.18);
+  color: #ffab91;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.theboys-mark-hero { background: rgba(255, 180, 0, 0.22); color: #ffd54f; box-shadow: 0 0 6px rgba(255, 180, 0, 0.4); }
+.theboys-mark-virus { background: rgba(120, 200, 90, 0.2); color: #c5e1a5; }
+
+/* TheBoys — "on me" mark widgets (any affected player) */
+.theboys-onme {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72em;
+  font-weight: 700;
+  margin-top: 4px;
+}
+.theboys-onme-sup { border-color: rgba(255, 80, 80, 0.5) !important; color: #ffab91; background: rgba(255, 80, 80, 0.08); }
+.theboys-onme-virus { border-color: rgba(120, 200, 90, 0.5) !important; color: #c5e1a5; background: rgba(120, 200, 90, 0.08); animation: theboys-pulse 1.4s ease-in-out infinite; }
+.theboys-onme-moral { border-color: rgba(180, 180, 180, 0.5) !important; color: #cfcfcf; background: rgba(120, 120, 120, 0.1); }
+.theboys-onme-icon { font-size: 1.1em; }
 </style>

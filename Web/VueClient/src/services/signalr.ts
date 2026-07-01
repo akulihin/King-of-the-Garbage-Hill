@@ -164,6 +164,9 @@ export type PassiveAbilityStates = {
   toxicMateCancerOnMe?: ToxicMateCancerOnMe
   yongGleb?: YongGlebState
   theBoys?: TheBoysState
+  theBoysSupOnMe?: TheBoysSupOnMe
+  theBoysVirusOnMe?: TheBoysVirusOnMe
+  theBoysMoralBlocked?: boolean
   salldorum?: SalldorumState
   geralt?: GeraltState
   geraltMonsterOnMe?: GeraltMonsterOnMe
@@ -259,14 +262,29 @@ export type TheBoysState = {
   orderRoundsLeft: number
   ordersCompleted: number
   ordersFailed: number
+  virusArmed: boolean
+  virusUsed: boolean
   pokerCount: number
+  superDickActive: boolean
   regenLevel: number
   kimikoDisabled: boolean
   totalJusticeBlocked: number
+  livingWeapon: boolean
+  mmUpgradeLevel: number
   kompromatCount: number
   nextAttackGathersKompromat: boolean
+  isCalm: boolean
   kompromatEntries: { targetName: string; hint: string }[]
+  lastRevealedMember: string
+  revealSerial: number
+  lastUnlockedUltimate: string
+  unlockSerial: number
+  supMarks: { name: string; isSuperhero: boolean }[]
+  virusNames: string[]
 }
+
+export type TheBoysSupOnMe = { isSuperhero: boolean }
+export type TheBoysVirusOnMe = { sourceName: string }
 
 export type SalldorumState = {
   shenCharges: number

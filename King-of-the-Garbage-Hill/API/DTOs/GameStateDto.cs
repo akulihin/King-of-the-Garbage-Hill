@@ -598,6 +598,12 @@ public class PassiveAbilityStatesDto
     public ToxicMateCancerOnMeDto ToxicMateCancerOnMe { get; set; }
     public YongGlebStateDto YongGleb { get; set; }
     public TheBoysStateDto TheBoys { get; set; }
+    /// <summary>Shown on any player marked as a "sup" by Butcher.</summary>
+    public TheBoysSupOnMeDto TheBoysSupOnMe { get; set; }
+    /// <summary>Shown on any player infected by Francie's Смертельный вирус.</summary>
+    public TheBoysVirusOnMeDto TheBoysVirusOnMe { get; set; }
+    /// <summary>Set on any player whose Moral is blocked by M.M.'s Оковы Правосудия.</summary>
+    public bool TheBoysMoralBlocked { get; set; }
     public SalldorumStateDto Salldorum { get; set; }
     public GeraltStateDto Geralt { get; set; }
     /// <summary>Shown on any player who has Geralt monster type assigned.</summary>
@@ -895,22 +901,52 @@ public class TheBoysStateDto
     public int OrderRoundsLeft { get; set; }
     public int OrdersCompleted { get; set; }
     public int OrdersFailed { get; set; }
+    public bool VirusArmed { get; set; }
+    public bool VirusUsed { get; set; }
     // Butcher
     public int PokerCount { get; set; }
+    public bool SuperDickActive { get; set; }
     // Kimiko
     public int RegenLevel { get; set; }
     public bool KimikoDisabled { get; set; }
     public int TotalJusticeBlocked { get; set; }
+    public bool LivingWeapon { get; set; }
     // M.M.
+    public int MMUpgradeLevel { get; set; }
     public int KompromatCount { get; set; }
     public bool NextAttackGathersKompromat { get; set; }
+    public bool IsCalm { get; set; }
     public List<TheBoysKompromatEntryDto> KompromatEntries { get; set; }
+    // UI signals (front follows serial changes to fire cinematic reveal/unlock animations)
+    public string LastRevealedMember { get; set; }
+    public int RevealSerial { get; set; }
+    public string LastUnlockedUltimate { get; set; }
+    public int UnlockSerial { get; set; }
+    // Enemies the Boys player currently sees marked/infected (owner view)
+    public List<TheBoysMarkDto> SupMarks { get; set; }
+    public List<string> VirusNames { get; set; }
 }
 
 public class TheBoysKompromatEntryDto
 {
     public string TargetName { get; set; }
     public string Hint { get; set; }
+}
+
+public class TheBoysMarkDto
+{
+    public string Name { get; set; }
+    public bool IsSuperhero { get; set; }
+}
+
+public class TheBoysSupOnMeDto
+{
+    public bool IsSuperhero { get; set; }
+}
+
+public class TheBoysVirusOnMeDto
+{
+    public string SourceName { get; set; }
 }
 
 // ── Salldorum DTOs ──────────────────────────────────────────────────
