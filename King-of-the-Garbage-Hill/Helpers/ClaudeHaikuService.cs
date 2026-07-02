@@ -19,6 +19,9 @@ public class ClaudeHaikuService : IServiceSingleton
     private const string ApiUrl = "https://api.anthropic.com/v1/messages";
     private const string Model = "claude-haiku-4-5-20251001";
 
+    /// <summary>Set true in headless simulation (--sim) so mass bot games never spend API credits.</summary>
+    public static bool Disabled { get; set; }
+
     public ClaudeHaikuService(HttpClient httpClient, Config config)
     {
         _httpClient = httpClient;
@@ -33,7 +36,7 @@ public class ClaudeHaikuService : IServiceSingleton
     /// </summary>
     public async Task<string> GenerateWitcherHintAsync(string characterName, string description, string monsterType)
     {
-        if (string.IsNullOrWhiteSpace(_apiKey))
+        if (Disabled || string.IsNullOrWhiteSpace(_apiKey))
             return null;
 
         var prompt = $"Ты - Геральт из ёбанной Ривии. Ты медитируешь и чувствуешь след монстра.\n" +

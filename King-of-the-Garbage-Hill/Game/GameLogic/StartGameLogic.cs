@@ -53,7 +53,7 @@ public class StartGameLogic : IServiceSingleton
 
 
     public List<GamePlayerBridgeClass> HandleCharacterRoll(List<IUser> players, ulong gameId, int team = 0,
-        string mode = "normal")
+        string mode = "normal", List<string> forcedCharacters = null)
     {
         var allCharacters2 = _charactersPull.GetRollableCharacters();
         var allCharacters = _charactersPull.GetRollableCharacters();
@@ -99,6 +99,7 @@ public class StartGameLogic : IServiceSingleton
 
 
         double topLaner = 1;
+        var forcedIndex = 0;
         foreach (var account in players.Select(player =>
                      player != null ? _accounts.GetAccount(player.Id) : _helperFunctions.GetFreeBot(playersList)))
         {
@@ -126,6 +127,29 @@ public class StartGameLogic : IServiceSingleton
                      select character)
                 account.CharacterChance.Add(new DiscordAccountClass.CharacterChances(character.Name));
             //end
+
+            //forced line-up (simulation harness): assign directly, in list order, bypassing the roll.
+            //CharacterToGiveNextTime cannot be used for bot slots (part #1 reserves only for non-null IUsers).
+            if (forcedCharacters != null && forcedIndex < forcedCharacters.Count)
+            {
+                var forcedName = forcedCharacters[forcedIndex];
+                forcedIndex++;
+                var forcedCharacter = unfilteredCharacters.Find(x => x.Name == forcedName)
+                                      ?? throw new ArgumentException($"Forced character not found: {forcedName}");
+                allCharacters.RemoveAll(x => x.Name == forcedName);
+                playersList.Add(new GamePlayerBridgeClass(
+                    forcedCharacter,
+                    new InGameStatus(),
+                    account.DiscordId,
+                    gameId,
+                    account.DiscordUserName,
+                    account.PlayerType));
+                playersList.Last().CharacterMasteryPoints =
+                    account.CharacterMastery.GetValueOrDefault(forcedName, 0);
+                account.CharacterPlayedLastTime = forcedName;
+                continue;
+            }
+            //end forced line-up
 
             //handle custom selected character part #2
             if (account.CharacterToGiveNextTime != null)

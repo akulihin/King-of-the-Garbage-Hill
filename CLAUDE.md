@@ -58,7 +58,7 @@ pnpm lint         # eslint --fix
 ```
 
 - **`pnpm type-check` is broken in this environment — use `pnpm build` to verify frontend changes.**
-- No test project; verification = `dotnet build` + `pnpm build` + the audit script + targeted play-testing. (Planned: a headless bot-simulation harness, first task of the bug-fixing phase.)
+- No test project; verification = `dotnet build` + `pnpm build` + the audit script + `bash tools/simulate.sh` + targeted play-testing. The simulate script is the behavioral safety net: headless mass bot games (no Discord/web), ~15s for the default 106 games. Exit 0 = clean; 1 = game exceptions and/or frozen games (the report JSON in `King-of-the-Garbage-Hill/DataBase/Simulations/` names each with line-up + stack — treat as findings, triage via `/fix-finding`); 2 = harness failure. `--characters "6 names" --games 20` replays a fixed matchup (e.g. the character you just changed); details in `docs/ARCHITECTURE.md` §10.
 - Deploy: `deploy_to_prod` (build → tar → scp to EC2 → systemd `kotgh`).
 
 ### Git

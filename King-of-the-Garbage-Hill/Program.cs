@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
@@ -11,6 +12,8 @@ using King_of_the_Garbage_Hill.API;
 using King_of_the_Garbage_Hill.API.Services;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
+using King_of_the_Garbage_Hill.Game.Simulation;
+using King_of_the_Garbage_Hill.Helpers;
 using Lamar;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,10 +30,10 @@ public class ProgramKingOfTheGarbageHill
     public static Task Main(string[] args)
     {
         Console.OutputEncoding = Encoding.UTF8;
-        return new ProgramKingOfTheGarbageHill().MainAsync();
+        return new ProgramKingOfTheGarbageHill().MainAsync(args);
     }
 
-    public async Task MainAsync()
+    public async Task MainAsync(string[] args)
     {
         _client = new DiscordShardedClient(_shardIds, new DiscordSocketConfig
         {
@@ -52,6 +55,15 @@ public class ProgramKingOfTheGarbageHill
         });
 
         await _services.InitializeServicesAsync();
+
+        // Headless simulation harness: same container (the CheckIfReady timer is already
+        // running), but no Discord login and no Kestrel. See docs/ARCHITECTURE.md §10.
+        if (args.Contains("--sim"))
+        {
+            ClaudeHaikuService.Disabled = true;
+            var exitCode = await _services.GetRequiredService<SimulationRunner>().RunAsync(args);
+            Environment.Exit(exitCode);
+        }
 
         _ = Task.Run(() => StartWebApi());
 

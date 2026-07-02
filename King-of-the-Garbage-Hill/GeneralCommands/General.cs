@@ -8,6 +8,7 @@ using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameLogic;
+using King_of_the_Garbage_Hill.Game.Simulation;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -22,12 +23,14 @@ public class General : ModuleBaseCustom
     private readonly HelperFunctions _helperFunctions;
     private readonly GameUpdateMess _upd;
     private readonly StartGameLogic _startGameLogic;
+    private readonly BotGameFactory _botGameFactory;
 
 
 
     public General(UserAccounts accounts,
         HelperFunctions helperFunctions, CommandsInMemory commandsInMemory,
-        Global global, GameUpdateMess upd,  CharacterPassives characterPassives, StartGameLogic startGameLogic)
+        Global global, GameUpdateMess upd,  CharacterPassives characterPassives, StartGameLogic startGameLogic,
+        BotGameFactory botGameFactory)
     {
         _accounts = accounts;
         _helperFunctions = helperFunctions;
@@ -36,6 +39,7 @@ public class General : ModuleBaseCustom
         _upd = upd;
         _characterPassives = characterPassives;
         _startGameLogic = startGameLogic;
+        _botGameFactory = botGameFactory;
     }
 
 
@@ -91,68 +95,7 @@ public class General : ModuleBaseCustom
 
         for (var jj = 0; jj < times; jj++)
         {
-            var players = new List<IUser>
-            {
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-            };
-
-
-            //Заменить игрока на бота
-            foreach (var player in players.Where(p => p != null)) _helperFunctions.SubstituteUserWithBot(player.Id);
-
-            //получаем gameId
-            var gameId = _global.GetNewtGamePlayingAndId();
-
-            //ролл персонажей для игры
-            var playersList = _startGameLogic.HandleCharacterRoll(players, gameId, mode:"bot");
-
-
-            //тасуем игроков
-            playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
-            playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-            playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
-
-            //выдаем место в таблице
-            for (var i = 0; i < playersList.Count; i++) playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
-
-
-            //создаем игру
-            var game = new GameClass(playersList, gameId, Context.User.Id, 300, mode) { IsCheckIfReady = false };
-            
-            //отправить меню игры
-            foreach (var player in playersList) await _upd.WaitMess(player, game);
-
-            game.TestFightNumber = times;
-
-            //это нужно для ботов
-            game.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
-
-            //start the timer
-            game.TimePassed.Start();
-            _global.GamesList.Add(game);
-
-
-            //handle predict
-            if (mode == "Bot")
-            {
-                foreach (var player in game.PlayersList)
-                {
-                    foreach (var enemy in game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()))
-                    {
-                        player.Predict.Add(new PredictClass(enemy.GameCharacter.Name, enemy.GetPlayerId()));
-                    }
-                }
-            }
-
-            //handle round #0
-            await _characterPassives.HandleNextRound(game);
-
-            game.IsCheckIfReady = true;
+            await _botGameFactory.CreateBotGameAsync(Context.User.Id, mode, times);
         }
     }
 

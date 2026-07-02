@@ -28,7 +28,11 @@ resolve() {
     GameReactions.cs) echo "$B/Game/ReactionHandling/$1";;
     CharacterClass.cs|InGameStatusClass.cs|GamePlayerBridgeClass.cs|PassivesClass.cs|GameClass.cs)
       echo "$B/Game/Classes/$1";;
-    SecureRandom.cs) echo "$B/Helpers/$1";;
+    SecureRandom.cs|ClaudeHaikuService.cs|HelperFunctions.cs) echo "$B/Helpers/$1";;
+    SimulationRunner.cs|BotGameFactory.cs|SimReport.cs) echo "$B/Game/Simulation/$1";;
+    Program.cs|Global.cs|Config.cs) echo "$B/$1";;
+    General.cs|AdminPanel.cs) echo "$B/GeneralCommands/$1";;
+    UserAccounts.cs|UsersDataStorage.cs) echo "$B/LocalPersistentData/UsersAccounts/$1";;
     GameStateMapper.cs|WebGameService.cs) echo "$B/API/Services/$1";;
     GameStateDto.cs) echo "$B/API/DTOs/$1";;
     GameUpdateMess.cs) echo "$B/Game/DiscordMessages/$1";;

@@ -24,7 +24,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
         public decimal JusticeWeighingDelta;     // justiceMe - justiceTarget (in step1 weighing)
 
         // Random modifiers (for Round 3 display)
-        public decimal TooGoodRandomChange;      // 75 or 25 (the set value), 0 if not triggered
+        public decimal TooGoodRandomChange;      // randomForPoint delta: +20 / −20 (sets 70 or 30), 0 if not triggered
         public decimal TooStronkRandomChange;    // the tooStronkAdd delta, 0 if not triggered
 
         // Versatility stat breakdown (+1 me better, -1 enemy better, 0 equal)

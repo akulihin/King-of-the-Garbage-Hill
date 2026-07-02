@@ -37,7 +37,7 @@ flowchart TD
 | Action | Effect |
 |---|---|
 | **Attack X** | Fight X this round. You are the attacker; X defends (X keeps their own chosen action). |
-| **Block** (Блок) | Fights against you don't happen; each blocked attacker loses 1 bonus point ("Блок"), you gain next-round Justice (`DoomsdayMachine.cs:489-491`). |
+| **Block** (Блок) | Fights against you don't happen; each blocked attacker loses 1 bonus point ("Блок"), you gain +1 next-round Justice — same `AddJusticeForNextRoundFromFight` as a fight loss (`DoomsdayMachine.cs:489-491`). |
 | **Skip** (Пропуск) | Fights against you don't happen, attacker pays nothing. Mostly forced by passives (sleep, tilt, ban…). Voluntary skip isn't in the normal UI. |
 
 Attackers with `IsArmorBreak` ignore blocks; `IsSkipBreak` ignores skips (granted by specific passives). Several characters can't block/skip or force others to fight (see CHARACTERS.md).
@@ -46,12 +46,12 @@ Attackers with `IsArmorBreak` ignore blocks; `IsSkipBreak` ignores skips (grante
 
 Four visible stats, integer **0–10** (clamps in `CharacterClass.cs:1398-1401` etc.). Exception: Рик's "Гигантские бобы" lets Intelligence exceed 10 (`:1206`).
 
-| Stat | Fight role | Quality resist (see §7) |
-|---|---|---|
-| **Интеллект** (Int) | scale + versatility; defines Умный class | pool 1/2/3 → breaking it costs −10% Skill |
-| **Сила** (Str) | scale + versatility; defines Сильный class | pool 1/2/3 → breaking it causes **Drop** |
-| **Скорость** (Speed) | scale + versatility; defines Быстрый class | pool 1/2/**5** → works as **kite range** vs Harm |
-| **Психика** (Psyche) | scale + own weighing term; ≥10 grants +20% Мораль bonus (`:1085-1088`) | pool 1/2/3 → breaking it costs −20% Мораль |
+| Stat | Fight role | Quality resist (see §7) | Stat-10 bonus (permanent flag) |
+|---|---|---|---|
+| **Интеллект** (Int) | scale + versatility; defines Умный class | pool 1/2/3 → breaking it costs −10% Skill | +10% Skill (`:469`) |
+| **Сила** (Str) | scale + versatility; defines Сильный class | pool 1/2/3 → breaking it causes **Drop** | your Harm hits Str pools for −2 (`:482`) |
+| **Скорость** (Speed) | scale + versatility; defines Быстрый class | pool 1/2/**5** = your **Harm reach** as attacker (§4/§7); never consumed by incoming Harm | +1 **kite** — shrinks incoming Harm reach (`:495`) |
+| **Психика** (Psyche) | scale + own weighing term | pool 1/2/3 → breaking it costs −20% Мораль | +20% Мораль (`:508`, `:1085-1088`) |
 
 ### Class (Класс)
 Your class = your **highest** of Int/Str/Speed, computed live (`GetSkillClassType`, `CharacterClass.cs:756-765`; ties resolve Int > Str > Speed; all three 0 ⇒ **Буль**/None). Class is never stored in `characters.json`.
@@ -83,7 +83,7 @@ flowchart TD
 **Step 1 — weighing machine** (`CalculateRounds.cs:56-410`), accumulator starts at 0, `randomForPoint` starts at 50:
 1. **Nemesis**: ±2 weighing; attacker with nemesis also gets `nemesisMultiplier = 1.5` on his skill term; each side with nemesis gets +1 fight skill multiplier.
 2. **Scale**: `Int+Str+Speed+Psyche + Skill(mult)/60` per side; add the difference (`:130-132`).
-3. **Versatility**: compare Int, Str, Speed head-to-head; majority winner +5 (`:150-184`).
+3. **Versatility**: compare Int, Str, Speed head-to-head; majority winner +5 (`:150-184`). Terminology note: historical player-facing texts call *this* bonus «Контр» and call the nemesis RPS «Анти-класс» — the meaning of "контр" flipped between those texts and the code/docs naming.
 4. **Psyche diff**: 1–3 → ±1, 4–5 → ±2, ≥6 → ±4 (`:200-220`).
 5. **TooGOOD**: |weighing| ≥ 13 ⇒ `randomForPoint` = 70 (or 30 against you) (`:228-251`).
 6. **Skill difference**: `scaleMe×(1+mySkill/650×nemesisMult) − scaleTarget×(1+targetSkill/650) − scaleMe + scaleTarget` added to weighing (`:264-282`).
@@ -101,7 +101,7 @@ flowchart TD
 - Winner: +1 **regular point** (`AddWinPoints`; Еврей passives may steal it; "Никому не нужен"/"INT" holders get **−1** instead when they attack-and-win, `:775-781`), sets `IsWonThisRound` (Justice reset at end of round).
 - **Мораль transfer**: `moral = attackerPlace − defenderPlace`; flows only when the *lower-placed* side wins, and only from round 2 (`:798-815, 920-936`). Winner +moral, loser −moral (Минька deals no moral loss).
 - Loser: `AddJusticeForNextRoundFromFight()` (+1 next-round Justice).
-- **Вред (Harm)**: winner-attacker applies `LowerQualityResist` to the loser if the leaderboard distance ≤ attacker's Speed-resist range minus defender's kite bonus (`:824-871`). TheBoys' Butcher multiplies Harm by poker count; СуперМудень loops extra Harm per broken resist, safety-capped at 50 (`:839-868`).
+- **Вред (Harm)**: winner-attacker applies `LowerQualityResist` to the loser if the leaderboard distance ≤ attacker's Speed-resist range minus defender's kite bonus (`:824-871`). TheBoys' Butcher deals 1+poker Harms per win, 1+2×poker under СуперМудень (`:839-848`). With СуперМудень active, the loop then grants **one more Harm each time the previous Harm fully broke the Strength pool** — underflow → reset → `HandleDrop`, i.e. a *drop*, not a mere −1 to the pool (`CharacterClass.cs:299-323`); Int/Psyche breaks don't count, and a place-6 victim registers no drops (`CharacterClass.cs:179-193`), so the loop only continues while new Str-drops keep landing; safety cap 50 (`:850-868`).
 - Defender wins: symmetric, but no Harm is dealt (Harm is attacker-only) and the "Никому не нужен"/"INT" negative-win rule is **not** applied on the defense branch (`:901-913`).
 
 ## 5. Resources
@@ -138,7 +138,7 @@ Leaderboard = players sorted by Score desc; ties keep list order (first-come); a
 
 ## 7. Quality, Вред (Harm), Скинуть (Drop)
 
-Each character carries per-stat **resist pools** sized by the stat: 0–3→1, 4–7→2, ≥8→3 (Speed: ≥8→**5**) (`SetXResist`, `CharacterClass.cs:459-509`); pools re-arm on stat changes proportionally (`UpdateXResist`). A stat of 10 grants the pool's bonus flag permanently (+10% skill / +1 drop pierce / +1 kite / +20% moral).
+Each character carries per-stat **resist pools** sized by the stat: 0–3→1, 4–7→2, ≥8→3 (Speed: ≥8→**5**) (`SetXResist`, `CharacterClass.cs:459-509`); pools re-arm on stat changes proportionally (`UpdateXResist`). The Speed pool is offense, not defense: it is never consumed by Harm — it sets your attacker-side **Harm reach** (§4), while incoming reach is shrunk by the **kite** bonus (Speed-10 flag +1, plus passive-granted range, `GetSpeedQualityKiteBonus`, `:390-402`). A stat of 10 grants the pool's bonus flag permanently (+10% skill / +1 drop pierce / +1 kite / +20% moral).
 
 One **Вред** = `LowerQualityResist(victim)` (`CharacterClass.cs:195-325`): −1 to Int, Psyche and Str pools (attacker with 10 Str pierces Str for −2). Round 1 is Harm-free. When a pool underflows:
 - Int pool → re-arm + **−10% Skill** permanently (`IntelligenceQualitySkillBonus--`);

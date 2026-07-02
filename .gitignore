@@ -15,6 +15,7 @@ Log.json
 account*.json
 discordAccount*.json
 GameLogs.json
+**/DataBase/Simulations/
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)

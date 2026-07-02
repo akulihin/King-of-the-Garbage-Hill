@@ -45,6 +45,12 @@ public sealed class Global : IServiceSingleton
     /// </summary>
     public Action<GameClass> OnReplaySave { get; set; }
 
+    /// <summary>
+    /// Callback registered by SimulationRunner (headless --sim mode) to capture per-game
+    /// exceptions from the CheckIfReady loop: (gameId, roundNo, exception). Unset in production.
+    /// </summary>
+    public Action<ulong, int, Exception> SimErrorSink { get; set; }
+
     public Task InitializeAsync()
     {
         return Task.CompletedTask;

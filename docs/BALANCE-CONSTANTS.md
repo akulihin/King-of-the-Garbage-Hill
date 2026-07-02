@@ -30,7 +30,7 @@
 | Regular-point round multiplier | r1-4 ×1, r5-9 ×2, r10 ×4 | InGameStatusClass.cs:288-300 |
 | Level-up rounds | 3, 5, 7, 9 (+1 point each) | DM:1375-1379 |
 | Turn length | 300 s default; ARAM round 2+ = 300 s | GameClass.cs:13, DM:1260-1263 |
-| Block cost to attacker | −1 bonus point | DM:489 |
+| Block: attacker cost / defender gain | −1 bonus point / +1 next-round justice | DM:489-491 |
 | Prediction bonus | +1 bonus (+2 Великий летописец); ×компромат for M.M. | CIR:294-338 |
 | Predictions editable until | round 8 (round 9 auto-confirm) | CIR:1333-1343 |
 | Moral→Skill tiers | 1→2, 2→6, 3→10, 5→18, 8→30, 13→50, 20→100; Еврей 7→40 | GR:45-100 |

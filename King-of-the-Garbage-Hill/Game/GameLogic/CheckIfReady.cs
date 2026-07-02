@@ -1356,10 +1356,18 @@ public class CheckIfReady : IServiceSingleton
             {
                 _logs.Critical(exception.Message);
                 _logs.Critical(exception.StackTrace);
-                await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340)
-                    .SendMessageAsync($"Game #{games[i].GameId}, Round #{games[i].RoundNo}\n{exception.Message}");
-                await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340)
-                    .SendMessageAsync(exception.StackTrace);
+                _global.SimErrorSink?.Invoke(games[i].GameId, games[i].RoundNo, exception);
+                try
+                {
+                    await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340)
+                        .SendMessageAsync($"Game #{games[i].GameId}, Round #{games[i].RoundNo}\n{exception.Message}");
+                    await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340)
+                        .SendMessageAsync(exception.StackTrace);
+                }
+                catch
+                {
+                    // Discord unavailable (headless sim / bot offline) — already logged + sinked
+                }
             }
 
         }
