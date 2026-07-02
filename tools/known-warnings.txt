@@ -1,0 +1,18 @@
+# Known-and-accepted audit warnings. Format: KIND|value|finding-id
+# KINDs: GHOST (case label with no JSON passive), BAD-NAME (Name comparison
+# matching no character), NAME-KEYED (passive implemented via character-Name
+# checks, so it has no code references of its own).
+# Removing a line = declaring it fixed: audit-passives.sh will then FAIL if
+# the warning still occurs. Add new lines only with a finding ID from
+# docs/AUDIT-FINDINGS.md.
+GHOST|Ниндзя|m6
+GHOST|Сало|m6
+GHOST|Парень с сюрпризом|m6
+BAD-NAME|Салдорум|C1
+BAD-NAME|Вампур_|m1
+BAD-NAME|Бог ЛоЛа|m6
+BAD-NAME|Saitama|m22
+NAME-KEYED|Булинг|D4
+NAME-KEYED|Го играть|D4
+NAME-KEYED|lvl-мяк|D4
+NAME-KEYED|2kxaoc|D4

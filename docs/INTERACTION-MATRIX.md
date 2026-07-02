@@ -1,0 +1,93 @@
+# Interaction Matrix — cross-character rules
+
+> Hand-maintained; verified 2026-07-01. **When adding/changing a character, add or update its row in every applicable table** — the M10–M12 bugs happened precisely at holes in these matrices. ⚠ = known hole (see AUDIT-FINDINGS). `CP` = CharacterPassives.cs, `CIR` = CheckIfReady.cs, `DM` = DoomsdayMachine.cs.
+
+## 1. Forced-fight sources × untargetable / no-fight states
+
+Forced-fight sources: **Монстр** no-escape (`CIR:1266-1289`), **Шэн** below-position pull (`CIR:1184-1199`), **Штормяк** taunt (`CIR:1217-1251`), **Aggress** self auto-attack (`CIR:1171-1182`), **Геральт** contract multi-fight injection (`DM:293-348`).
+
+| State ↓ / Source → | Монстр | Шэн | Штормяк | Aggress (self) | Геральт inject |
+|---|---|---|---|---|---|
+| Dead player | ✓ excluded | ✓ excluded | ✓ excluded | ✓ targets exclude dead | n/a (dead don't fight) |
+| Тигр round-10 ban | ✓ carve-out `CIR:1270` | ⚠ **M11 — not checked** | ⚠ **M11 — not checked** | n/a | targeting already blocked (`GR:702-707`) |
+| Огурчик Рик (pickle) | ✓ unaffected (no IsBlock/IsSkip) | pulls him, but pickle can't lose | can taunt him; he can't lose | n/a | injection works; pickle still can't lose |
+| Block | overridden (stripped) | fight happens anyway (forced list bypasses block-skip `DM:393-407`) | taunt bypasses own block (`DM:471-474`) | Aggress can't block at all | blocked Геральт = no injection (`DM:303,326`) |
+| Skip (sleep/tilt/ban) | overridden (stripped) | fight happens anyway | fight happens anyway | Aggress can't skip | skipping Геральт = no injection |
+| Ziggurat lock | position only — fights unaffected | position only | position only | n/a | n/a |
+| Premade Carry | n/a | n/a | n/a | n/a | n/a — but Premade's own anti-skip un-bans a banned Carry ⚠ **M10** (`CP:5779-5792`) |
+
+## 2. Kill sources × immunities
+
+Kill sources: Кира's Тетрадь (`CP:4082-4160`), Кира's L-arrest (self-kill, `CP:4764-4805`), Кратос event kills (`CP:1694-1714, 2502-2518`), Монстр Пейзаж pawn deaths (`CP:4394-4427`), Геральт pitchfork displeasure (self, `CP:4577-4584`).
+
+| Immunity ↓ / Source → | Тетрадь | Кратос kill | Пейзаж pawns | Notes |
+|---|---|---|---|---|
+| Стая Гоблинов ("нельзя убить") | ✓ `CP:4103` | ✓ `CP:1699` (+arrest `CP:4780`) | ⚠ **M12 — missing** | design: GameDesign.txt:509 |
+| Глаз Шусуи (Итачи) | revives next round | revives next round | revives next round | one-time, any source (`CP:5459-5468`) |
+| Боги мне не указ (Кратос) | ✓ revives +228 Skill | n/a | ✗ not covered (source ≠ "Kira") | source-check is `== "Kira"` only (`CP:5471-5480`) |
+| Dead state effects | — | — | — | auto-block/ready, 0 ZBS, no mastery, excluded from forced pools (`CIR:1032-1037, 622-665`) |
+
+## 3. Position movers × position locks
+
+Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKitty forced last → place assignment → **Ziggurat restore** → Storm-bite restore/swap → Quality Drop (`DM:1295-1499`). Mid-turn movers: AWDKA forced last ⚠ M3 (`CIR:1112-1127`), HardKitty forced last (`CIR:1141-1151`), Шэн post-sort swap (`CP:6211-6236`).
+
+| Lock ↓ / Mover → | Тигр-топ | Portal Gun | Quality Drop | Storm bite | Шэн |
+|---|---|---|---|---|---|
+| Ziggurat (`IsInZiggurat`) | ✓ blocked `DM:1313` | ✓ blocked `DM:1338` | ✓ can't drop onto/out `DM:1458-1469` | ✓ blocked `DM:1413,1438` | ✓ blocked `CP:6222` |
+| HardKitty at place 6 | n/a | n/a | ✓ can't drop onto `DM:1465` | n/a | n/a |
+| Тигр ban (round 10) | ✓ swap suppressed `DM:1304-1306` | n/a | n/a | n/a | ⚠ can still pull him (M11) |
+
+## 4. Steal / copy / redirect chains
+
+| Mechanic | Direction | Interacts with | Verified behavior |
+|---|---|---|---|
+| Еврей (`HandleJews`, `CP:6688-6766`) | steals fight win point | Октопус ink | ink debits the Jew instead of the attacker (`CP:6785-6802`); Napoleon & fellow Евреи immune victims |
+| PointFunnel (Баг) | copies regular points | Еврей | funnel copies only `AddWinPoints` — Jew's stolen points not funneled |
+| Цукуеми (Итачи) | copies round earnings, deducts at end | Октопус ink | ⚠ D11 — same point can be repaid twice |
+| Октопус ink | fake-win now, restore at r11 | DeepList first-fight | suppressed until DeepList's scripted loss happens (`CP:6772-6779`) |
+| Kimiko Живое Оружие | **drains** attacker Justice | — | real transfer (`CP:744-755`) |
+| Близнец (Монстр) | **drains** attacker Justice on block + bonus | — | real transfer (`CP:905-920`) |
+| Вампуризм | **copies** victim Justice (⚠ D6) | Падальщик | +1 extra from the ignored point (`CP:1881-1885`) |
+| Premade | **copies** Carry fight-moral (⚠ D9) | — | `CP:2448-2451` |
+| Кошачья засада (cats) | physically moves passives to enemy | Минька/Штормяк vs owner | transferred cat won't buff/taunt against Котики (`CP:3104-3107`, `CIR:1229`) |
+| Ziggurat learn | copies a `Standalone` passive | everything | see §6 |
+| Rick Most wanted | redirects random marks to Rick | Спартанец marks, L, Сверхразум, Комментатор, hunts, tea odds | `CP:118-128, 233-236, 3874-3877, 5269-5275, 3605-3609, 1118-1124, 5130-5132`; hunters follow portal swaps `CP:2108-2123` |
+| Portal Gun swap | swaps positions + remaining attackers mid-round | Тetradь targets etc. | attacker lists rewritten `CP:2099-2106` |
+
+## 5. Moral / psyche / Harm interceptors (checked inside `AddMoral` / `MinusPsycheLog` / `LowerQualityResist`)
+
+| Interceptor | Effect | Anchor |
+|---|---|---|
+| Булькает (Братишка) | zeroes all moral; blocks all skill gains | CC:1125-1130, 963, 1010 |
+| Геральт (by Name) | gains no moral at all | CC:1132-1134 |
+| BlockMoralGain (cancer, Оковы) | blocks positive moral | CC:1137-1141 |
+| Привет со дна | ignores losses; any gain becomes +4 (`isMoralPoints` exempt) | CC:1143-1153 |
+| Спокойствие | ignores moral losses; immune to MinusPsycheLog | CC:1156-1160, GamePlayerBridgeClass.cs:93 |
+| M.M. IsCalm (Оковы) | immune to MinusPsycheLog | GamePlayerBridgeClass.cs:97-100 |
+| Безумие | psyche bypasses the 0-floor (can go negative) | CC:1295, 1344 |
+| Boole Family | immune to Harm entirely | CC:199 |
+| Kimiko active | TheBoys immune to Harm | CC:202-210 |
+| Испанец | Harm → +1 Moral instead | CC:213-221 |
+| Много выебывается | Harm from higher-skill enemy while #1 → self-Drop | CC:223-229 |
+| Минька (winner) | deals no Harm and no fight-moral loss | DM:750, 805-806 |
+
+## 6. Ziggurat-copyable inventory (`Standalone: true`)
+
+Copy rule: random Standalone passive from the **last attacked** enemy, no duplicates (`CP:6169-6181`). Full behavior inventory in AUDIT-FINDINGS D10; headline rows:
+
+| Copied passive | On a Goblin |
+|---|---|
+| Изанаги | works — 2 free defensive auto-wins |
+| Еврей | works — second Jew in game (⚠ D2) |
+| Одиночество / Импакт / Панцирь / Неуязвимость / Привет со дна / marks & bites | work as written |
+| Произошел троллинг | works **and** inherits the AWDKA forced-last quirk (⚠ M3) |
+| Сомнительная тактика | works — massive self-nerf (must lose first fights) |
+| Булькает | ⚠ self-brick: kills own moral & skill incl. Ziggurat income (D10) |
+| Лысина / Первая кровь / Похищение души | dead copies (game-start-only hooks) |
+| Ведьмачьи заказы | dead copy (all hooks gated `Name == "Геральт"`) |
+
+## 7. Same-target stacking notes
+
+- Two attackers on one defender resolve **sequentially in leaderboard order** — the first fight's ForOneFight effects are reset before the second (`DM:388-411`, ResetFight per fight).
+- Со-attack interactions verified: Еврей steal (needs the Jew to also attack the target), Сайтама deferral (needs a co-attacker), Наполеон joint-attack auto-win (needs the ally to attack the same target).
+- Round-10 settlement order (who claws back first): Пейзаж deaths & Saitama banking happen in round-10 `HandleEndOfRound`; Чернильная завеса restore and Ищет достойного (One Punch) at round-11 `HandleNextRound`; Запах мусора at round-11 after-sorting; then `HandleLastRound`: predictions → M.M. ×компромат → TheBoys virus → Цукуеми deduction → sort → AWDKA → Premade → Sakura (GAME-DESIGN §8E).

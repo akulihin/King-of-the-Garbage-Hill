@@ -1,126 +1,87 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code in this repository.
 
-## Project Overview
-King of the Garbage Hill — turn-based 6-player tactical game with 20+ characters. Hybrid **Discord bot + ASP.NET Core web server** (single process), **Vue 3 + TypeScript** web client via SignalR. Mixed Russian/English comments throughout.
+## Project
 
-## Build & Run
+King of the Garbage Hill — turn-based 6-player tactical game, 36 characters. Hybrid **Discord bot + ASP.NET Core web server** (single process, .NET 10, Lamar DI, Discord.Net 3.20), **Vue 3 + TypeScript** client via SignalR. Mixed Russian/English; **Russian passive/character names are load-bearing string identifiers** — never paraphrase or "fix" them.
 
-### Backend (C# / .NET 10)
+## The docs are the source of truth — read them first, not the codebase
+
+The codebase is ~19k lines of game logic; do **not** try to load it into context. `docs/` contains a code-verified model of the whole game (every claim carries a `file:line` anchor — read the anchored code, not whole files):
+
+| You are… | Read |
+|---|---|
+| Understanding rules/systems (fight math, score, justice, moral, round pipeline) | `docs/GAME-DESIGN.md` |
+| Touching code structure, hooks, state model, web plumbing | `docs/ARCHITECTURE.md` (§3 hook order, §7 the 14-file per-character pattern) |
+| Changing/creating a character, widget or skill | `docs/CHARACTERS.md` (per-passive actual behavior) + `docs/ARCHITECTURE.md` §7 + `docs/INTERACTION-MATRIX.md` (add your row to every applicable table) |
+| Balancing numbers | `docs/BALANCE-CONSTANTS.md` (every tunable with anchor) |
+| Checking name/passive wiring | run `bash tools/audit-passives.sh` (regenerates `docs/PASSIVE-MAP.md`; new ORPHAN/GHOST/BAD-NAME = you broke a string) |
+| Fixing any bug — by finding ID **or** free-form report | invoke the **`/fix-finding`** skill — it triages against `docs/AUDIT-FINDINGS.md` (known issues C1/M1-M12/m1-m22/D1-D11) and the designer verdicts in `docs/DESIGNER-REVIEW.md`, catalogues new bugs itself, and enforces the whole contract |
+| Adding a character / brand-new passive / widget | invoke the **`/new-character`** skill |
+| Changing how an existing passive works (rework per intent notes) | invoke the **`/rework-passive`** skill |
+| Changing a tunable number (buff/nerf) | invoke the **`/balance`** skill |
+| The user edited docs/ by hand and wants the game to match | invoke the **`/sync-docs`** skill (docs as spec: diff docs/, implement via the anchors, repair ripples) |
+| Checking that doc anchors still match the code | `bash tools/verify-docs.sh [--changed]` (hard-fails on dead anchors; DRIFT list is advisory) |
+
+`Game/GameDesign.txt` is the designer's raw intent notes (incl. unbuilt characters); root-level `*_update` files are recent change intents; past commit messages live in `docs/commit-messages/`.
+
+## Documentation maintenance contract (mandatory)
+
+Every change-set that touches gameplay MUST update the docs in the same change:
+
+1. Character/passive change → update its entry in `docs/CHARACTERS.md` (+ `docs/INTERACTION-MATRIX.md` rows if it forces fights, kills, moves positions, steals/copies, or intercepts moral/psyche/Harm).
+2. Any tunable number change → update the row in `docs/BALANCE-CONSTANTS.md`.
+3. Any name/passive/string change → `bash tools/audit-passives.sh` and commit the regenerated `docs/PASSIVE-MAP.md`; new warnings must be fixed or added to `tools/known-warnings.txt` with a finding ID.
+4. System-level change (fight math, pipeline, plumbing) → update `docs/GAME-DESIGN.md` / `docs/ARCHITECTURE.md`.
+5. Fixed a finding → mark it in `docs/AUDIT-FINDINGS.md` (don't delete; note the fix) and remove its line from `tools/known-warnings.txt`.
+6. New bug discovered → add a finding with the next free ID.
+
+Docs drift is a bug. The audit files exist so changes can be made *and verified* without re-reading the codebase.
+
+Two project hooks enforce this automatically (`.claude/settings.json`): after any edit to passive-bearing files the passive audit re-runs and reports NEW warnings; on stop, a reminder fires if game code changed without a docs update. Don't be surprised by their output — act on it.
+
+## Build & run
+
 ```bash
 cd King-of-the-Garbage-Hill/King-of-the-Garbage-Hill
 dotnet build
-dotnet run                    # Requires DataBase/config.json (Token, AnthropicApiKey)
-KOTGH_PORT=3535 dotnet run    # Override port (default: 80)
+dotnet run                    # needs DataBase/config.json (Token, AnthropicApiKey)
+KOTGH_PORT=3535 dotnet run    # override port (default 80)
 ```
-Single-project solution. Lamar DI, Discord.Net 3.18, Newtonsoft.Json (transitive). No test project.
 
-### Git
-Do NOT use "git commit" and "git push"; post "commit" message into a separate file and user will handle actual commit.
-
-### Frontend (Vue 3 / Vite / pnpm)
 ```bash
 cd Web/VueClient
-pnpm dev          # Vite dev server on :5173, proxies /api + /gamehub to production
-pnpm build        # Outputs to ../../King-of-the-Garbage-Hill/wwwroot
-pnpm type-check   # vue-tsc --noEmit
+pnpm dev          # Vite on :5173, proxies /api + /gamehub per .env
+pnpm build        # outputs to ../../King-of-the-Garbage-Hill/wwwroot
 pnpm lint         # eslint --fix
 ```
-Env: `.env` sets `VITE_API_HOST` + `VITE_SIGNALR_HUB` (dev → production server). `.env.production` → empty (same-origin). Vitest configured but no test files yet.
 
-### Deploy
-`deploy_to_prod` script: `pnpm build` → `dotnet build --no-incremental` → tar + scp to EC2 → systemd service `kotgh`.
+- **`pnpm type-check` is broken in this environment — use `pnpm build` to verify frontend changes.**
+- No test project; verification = `dotnet build` + `pnpm build` + the audit script + targeted play-testing. (Planned: a headless bot-simulation harness, first task of the bug-fixing phase.)
+- Deploy: `deploy_to_prod` (build → tar → scp to EC2 → systemd `kotgh`).
 
-## Architecture
+### Git
 
-### Backend (King-of-the-Garbage-Hill/)
-- **Program.cs** — Entry point: Discord bot thread + Kestrel in parallel
-- **Global.cs** — Singleton: active `GamesList` + `FinishedGamesList`, shared between Discord and web
-- **DI:** Lamar container, marker interfaces `IServiceSingleton` / `IServiceTransient`, auto-discovery via `AddSingletonAutomatically()`
+Do NOT `git commit` or `git push`. Write the commit message to `docs/commit-messages/<date>.md` (e.g. `2026-07-01.md`; add `-2`, `-3` for further change-sets the same day — one file per commit, content = the message itself). The user commits. The folder is gitignored.
 
-**Game Logic (`Game/`) — CORE CODE:**
-- `GameLogic/CharacterPassives.cs` — Central passive handler (~289KB, largest file)
-- `GameLogic/CalculateRounds.cs` — Round resolution (reads from FightCharacter)
-- `GameLogic/DoomsdayMachine.cs` — Fight execution, position swaps, end-of-round processing
-- `GameLogic/BotsBehavior.cs` — Bot AI | `GameLogic/CheckIfReady.cs` — Turn readiness | `GameLogic/StartGameLogic.cs` — Game init
-- `Characters/` — 36 character state files | `Classes/GameClass.cs` — Game state model
-- `Classes/CharacterClass.cs` — Stats/abilities (~53KB), defines `Passive`, `JusticeClass`, `AvatarEventClass`
-- `Classes/InGameStatusClass.cs` — Score tracking (`AddBonusPoints`/`GetScore`/`AddRegularPoints`), leaderboard, ForOneFight flags
-- `Classes/PassivesClass.cs` — Per-player passive state | `Classes/GamePlayerBridgeClass.cs` — Links accounts to players, holds `GameCharacter` + `FightCharacter` + `Passives` + `Status`, contains `MinusPsycheLog`
+## Correctness rules that must never be violated
 
-**Web API (`API/`):** `GameHub.cs` (SignalR at `/gamehub`), `Controllers/GameController.cs` (`/api/game`), `Services/WebGameService.cs`, `Services/GameNotificationService.cs` (broadcasts to `game-{gameId}` groups), `Services/GameStateMapper.cs` (state→DTOs), `Services/GameStoryService.cs`
+(These cause the classic bugs; full rationale in `docs/ARCHITECTURE.md` §2/§9.)
 
-**Discord:** `DiscordFramework/CommandHandling.cs` (router), `GeneralCommands/General.cs` (`*st` starts game)
+- Each player has `GameCharacter` (persistent) and `FightCharacter` (per-round snapshot; `CalculateRounds` reads **only** this). **ForOneFight overrides go on `FightCharacter`** (`me.FightCharacter.SetStrengthForOneFight(...)`) — on `GameCharacter` they do nothing. Exception: `Justice` is shared, either side works. Stat *reads* in before-fight hooks: use `FightCharacter`.
+- Persistent changes (`AddIntelligence`, `AddExtraSkill`, …) go on `GameCharacter`.
+- `Status` and `Justice` are the SAME instance on both copies; a new List/Dictionary field on `CharacterClass` needs a line in `DeepCopy()`.
+- Psyche loss goes through `player.MinusPsycheLog(player.GameCharacter, game, -N, "PassiveName")` (immunities + global log), never raw `AddPsyche(-N)` (documented exceptions: Дизмораль-style unique logs).
+- No `AddJustice` — use `AddJusticeForNextRoundFromSkill/FromFight` (buffered; any win zeroes justice first).
+- Score: `AddBonusPoints` = immediate, never multiplied, floors at 0; `AddRegularPoints`/`AddWinPoints` = buffered, ×1/×2/×4 by round at end of round. After the round-10 flush, `BonusPointsFromMoral` must be flushed manually (see Saitama's reclaim, `CP:4844-4851`).
+- Stat/moral/skill mutators auto-log personally — don't also `AddInGamePersonalLogs` (pass `isLog: false` to suppress). Personal logs = player-only; `game.AddGlobalLogs` = everyone.
+- `Passive` uses the 3-arg constructor `new Passive(name, description, visible)` (+ `Standalone` property). Transferred/copied passives (Ziggurat, cats, transforms) dispatch for their new holder — add immunity checks (see `docs/INTERACTION-MATRIX.md` §6).
+- Forcing fights on blocking/skipping players works via `WhoToAttackThisTurn` (the fight loop processes forced fights); respect the round-10 Тигр-ban carve-out pattern (`CheckIfReady.cs:1270`).
+- **Never edit `PassiveDescription`/`Description` texts in `characters.json`** — they are deliberately vague, written for players to interpret; that vagueness is game design. The precise mechanics belong in `docs/CHARACTERS.md` (which you DO keep exact). If a change genuinely needs new player-facing wording, ask — the designer writes it (or hands you exact text to paste verbatim).
+- Passive dispatch is stringly-typed (`case "PassiveName"`, `Name == "…"`). Renames silently orphan logic — run the audit script.
+- **Never edit a passive's logic without first reading ALL its `case` blocks across every hook plus its state class** — grep the exact passive name (and the character `Name`) first. Reading more context is always preferred over a blind edit; the docs tell you *where* to read, not what to skip.
 
-**Data:** No database — flat-file JSON via `UsersDataStorage.cs` (`File.ReadAllText`/`WriteAllText` + Newtonsoft). Accounts loaded into `ConcurrentDictionary` at startup. Files: `DataBase/UserAccounts/discordAccount-{id}.json`. Static assets: `DataBase/art/` → `/art/`, `DataBase/sound/` → `/sound/`. Character definitions: `DataBase/characters.json`.
+## Conventions
 
-### Frontend (Web/VueClient/)
-Vue 3 Composition API `<script setup>`, strict TypeScript, Pinia `useGameStore()`. Key files: `store/game.ts`, `services/signalr.ts`, `services/sound.ts`. Pages: `Game.vue` (25KB), `Lobby.vue`, `Spectate.vue`, `Home.vue`. Routes: `/games`→Lobby, `/game/:gameId`→Game, `/spectate/:gameId`→Spectate. Web auth via Discord ID (string to avoid JS precision loss); web-only accounts via `RegisterWebAccount`.
-
-## GameCharacter vs FightCharacter Architecture
-
-Each `GamePlayerBridgeClass` holds two `CharacterClass` instances:
-- **`GameCharacter`** — Persistent state. Lasting changes written here, take effect **next round** via DeepCopy.
-- **`FightCharacter`** — Snapshot deep-copied from GameCharacter at fight start (`DeepCopyGameCharacterToFightCharacter`). `CalculateRounds.cs` reads **exclusively** from FightCharacter.
-
-**DeepCopy:** `MemberwiseClone()` — value types independent. **`Status` is SHARED** (same instance). **`Justice` is SHARED**. `Passive` list is deep-copied.
-
-**ForOneFight:** Temp stat override (sentinel `-228` = not set). Methods: `SetIntelligenceForOneFight`, `SetStrengthForOneFight`, `SetSpeedForOneFight`, `SetPsycheForOneFight`, `SetSkillForOneFight` (decimal), `SetJusticeForOneFight`, `AddSpeedForOneFight` (delta). Each sets a flag on shared `Status`. `ResetFight()` clears both copies.
-
-### CRITICAL RULES
-- **ForOneFight overrides MUST be set on `FightCharacter`**, not `GameCharacter` — CalculateRounds reads FightCharacter, so GameCharacter overrides have **no effect**: `me.FightCharacter.SetStrengthForOneFight(0, "MyPassive")` (correct) vs `me.GameCharacter.SetStrengthForOneFight(0, "MyPassive")` (WRONG)
-- **Stat reads** in before-fight handlers: use `FightCharacter` to respect earlier ForOneFight overrides
-- **Exception:** `Justice` is shared, so either side works for `SetJusticeForOneFight`
-- **Persistent changes** (AddIntelligence, AddSkill, etc.): use `GameCharacter` — takes effect next round
-
-## Key Conventions
-- **Namespaces:** `King_of_the_Garbage_Hill.*` | **JSON:** `CamelCase` | **CORS:** localhost:5173, :3535, :80, kotgh.ozvmusic.com
-
-## New Character Implementation Guide (~14 files)
-
-1. **State Class** — `Game/Characters/{Name}.cs`: Inner classes for character-specific state (counters, cooldowns)
-2. **Character Data** — `DataBase/characters.json`: Name, stats, Avatar, Tier, Description, Passive array (`PassiveName`, `PassiveDescription`, `Visible`)
-3. **Per-Player State** — `Game/Classes/PassivesClass.cs`: Owner-only fields + per-player fields (debuffs/marks on ANY player)
-4. **Phrases** — `Game/MemoryStorage/CharactersPhrases.cs`: `PhraseClass` fields, `SendLog(player, bool delete, prefix, isRandomOrder, suffix)`
-5. **Passive Logic** — `Game/GameLogic/CharacterPassives.cs`: Add `case "PassiveName":` in handler methods (see hooks below)
-6. **Fight Resolution** — `Game/GameLogic/DoomsdayMachine.cs`: Only if changing core fight mechanics. Block/skip section (~279), win branch (~581)
-7. **Turn Injection** — `Game/GameLogic/CheckIfReady.cs`: Forced-attack logic, inject into `WhoToAttackThisTurn`
-8. **Level-Up Override** — `Game/ReactionHandling/GameReactions.cs`: Custom level-up; use `Justice.AddJusticeForNextRoundFromSkill(int)`
-9. **Bot Behavior** — `Game/GameLogic/BotsBehavior.cs`: `HandleBotMoralForPoints` + action-selection switch
-10. **Discord Display** — `Game/DiscordMessages/GameUpdateMess.cs`: `CustomLeaderBoardBeforeNumber`/`AfterPlayer`
-11. **DTOs** — `API/DTOs/GameStateDto.cs`: Create DTO, add to `PassiveAbilityStatesDto`. Per-player: follow `SellerMark` pattern
-12. **Mapper** — `API/Services/GameStateMapper.cs`: In `MapPlayer()`, owner state in passive switch, per-player after SellerMark
-13. **Frontend Types** — `Web/VueClient/src/services/signalr.ts`: TS interfaces on `PassiveAbilityStates`
-14. **Frontend Widget** — `Web/VueClient/src/components/PlayerCard.vue`: Passive abilities section
-
-### Passive Handler Hooks (execution order)
-| Handler | When | Uses |
-|---------|------|------|
-| `HandleEventsBeforeFirstRound` | Game start | Initial setup |
-| `HandleDefenseBeforeFight` / `HandleAttackBeforeFight` | Before fight | Buffs, ForOneFight overrides |
-| `HandleAttackAfterFight` / `HandleDefenseAfterFight` | After fight | Outplay, counter-attack |
-| `HandleDefenseAfterBlockOrFight` | After block or fight | Block-inclusive effects |
-| `HandleDefenseAfterBlockOrFightOrSkip` | After any interaction | Always-trigger effects |
-| `HandleCharacterAfterFight` | After fight (both sides) | Rewards, stat stealing |
-| `HandleEndOfRound` | End of round (flags still set) | Cleanup, cooldowns |
-| `HandleNextRound` | After `RoundNo++` | Per-round setup |
-| `HandleNextRoundAfterSorting` | After leaderboard sort | Position-dependent effects |
-| `HandleBotPredict` | After sorting | Bot AI predictions |
-| `HandleShark` | During fight (from DoomsdayMachine) | Shark tracking |
-
-### DoomsdayMachine End-of-Round Order
-`HandleEndOfRound` → reset flags → `RoundNo++` → `HandleNextRound` → score sort → Tigr/PortalGun/HardKitty position swaps → LvlUp (rounds 3,5,7,9) + `SetPlaceAtLeaderBoard` + `RollSkillTargetForNextRound` → Ziggurat restore → Quality Drop → Round 10 win check → `SortGameLogs` → `HandleNextRoundAfterSorting` → `HandleBotPredict` → `RollExploit`
-
-### Common Pitfalls
-- **`Passive` constructor:** `new Passive(name, description, visible)` — NOT object initializer. Has `Standalone` property.
-- **No `AddJustice`:** Use `AddJusticeForNextRoundFromSkill(int)` or `AddJusticeForNextRoundFromFight(int)` on `JusticeClass`
-- **Score:** `AddBonusPoints(decimal, string)` → total; `AddRegularPoints(int, string, bool)` → per-round bucket; `GetScore()` → total
-- **Psyche loss MUST use `MinusPsycheLog`:** `player.MinusPsycheLog(player.GameCharacter, game, -N, "PassiveName")` — checks "Спокойствие" immunity + writes global log. Never call `AddPsyche(-N)` directly (exceptions: passives with unique global logs like "Дизмораль", or non-rage buff reversals).
-- **Transferred passives:** Add immunity checks to prevent unintended behavior (infinite loops)
-- **Block/skip bypass:** If forcing fights on blocking players, check `WhoToAttackThisTurn.Count` in DoomsdayMachine's block/skip `continue`
-- **Don't double-log:** `AddStrength`/`AddPsyche`/`AddExtraSkill`/`AddMoral`/`AddBonusPoints` auto-log to personal logs (default `isLog: true`). Don't also call `AddInGamePersonalLogs`. Pass `isLog: false` to suppress.
-- **Personal vs Global logs:** `AddInGamePersonalLogs`/`SendLog` → personal (player only). `AddGlobalLogs` (on `GameClass`) → global (all players). Stat methods auto-log personal only.
-- **Moral exchange (`Game/ReactionHandling/GameReactions.cs`):** the player's level-up choice (`GameReactions.cs:364-367`) spends Moral via one of two tiered functions, **one tier per call**:
-  - `HandleMoralForScore(player)` → **bonus points** (≥20→+10, ≥13→+5, ≥8→+2, ≥5→+1; below 5 nothing). Feeds `BonusPointsFromMoral`, which `DoomsdayMachine.cs:~213` flushes into score at the next round's start — so after round 10 you must flush it yourself (`AddBonusPoints(GetBonusPointsFromMoral())` then `SetBonusPointsFromMoral(0)`).
-  - `HandleMoralForSkill(player)` → **Skill** (≥20→+100, ≥13→+50, ≥8→+30, ≥5→+18, ≥3→+10, ≥2→+6, ≥1→+2; Еврей also has a 7→+40 tier).
+Namespaces `King_of_the_Garbage_Hill.*` · JSON CamelCase · CORS: localhost:5173/:3535/:80, kotgh.ozvmusic.com · no database — flat JSON (`DataBase/UserAccounts/…`), accounts in a `ConcurrentDictionary` · static assets `DataBase/art|sound` → `/art`, `/sound` · web auth by Discord ID as string · `*st` starts a Discord game.

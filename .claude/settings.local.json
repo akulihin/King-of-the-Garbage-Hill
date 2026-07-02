@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vue-tsc:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm build:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(pnpm type-check:*)",
+      "Bash(find:*)",
+      "Bash(awk:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx vite build:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(dotnet build:*)",
+      "Bash(wc:*)",
+      "Bash(sed:*)",
+      "Bash(echo:*)",
+      "Bash(tail:*)",
+      "Bash(head:*)",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" pnpm build:*)",
+      "Bash(git checkout:*)",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=8192\" pnpm type-check:*)",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=8192\" npx vue-tsc:*)",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=8192\" *)",
+      "Bash(cat:*)",
+      "Bash(cd King-of-the-Garbage-Hill *)",
+      "Bash(cd *)"
+    ],
+    "defaultMode": "plan"
+  }
+}
