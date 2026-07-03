@@ -9,12 +9,12 @@ Forced-fight sources: **Монстр** no-escape (`CIR:1266-1289`), **Шэн** b
 | State ↓ / Source → | Монстр | Шэн | Штормяк | Aggress (self) | Геральт inject |
 |---|---|---|---|---|---|
 | Dead player | ✓ excluded | ✓ excluded | ✓ excluded | ✓ targets exclude dead | n/a (dead don't fight) |
-| Тигр round-10 ban | ✓ carve-out `CIR:1270` | ⚠ **M11 — not checked** | ⚠ **M11 — not checked** | n/a | targeting already blocked (`GR:702-707`) |
+| Тигр round-10 ban | ✓ carve-out `CIR:1293` | ✓ carve-out (M11 fixed, `CIR:1213`) | ✓ carve-out (M11 fixed, `CIR:1247`) | n/a | targeting already blocked (`GR:702-707`) |
 | Огурчик Рик (pickle) | ✓ unaffected (no IsBlock/IsSkip) | pulls him, but pickle can't lose | can taunt him; he can't lose | n/a | injection works; pickle still can't lose |
 | Block | overridden (stripped) | fight happens anyway (forced list bypasses block-skip `DM:393-407`) | taunt bypasses own block (`DM:471-474`) | Aggress can't block at all | blocked Геральт = no injection (`DM:303,326`) |
 | Skip (sleep/tilt/ban) | overridden (stripped) | fight happens anyway | fight happens anyway | Aggress can't skip | skipping Геральт = no injection |
 | Ziggurat lock | position only — fights unaffected | position only | position only | n/a | n/a |
-| Premade Carry | n/a | n/a | n/a | n/a | n/a — but Premade's own anti-skip un-bans a banned Carry ⚠ **M10** (`CP:5779-5792`) |
+| Premade Carry | n/a | n/a | n/a | n/a | anti-skip now exempts the round-10 Тигр ban (M10 fixed, `CP:5783-5798`) |
 
 ## 2. Kill sources × immunities
 
@@ -35,7 +35,7 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 |---|---|---|---|---|---|
 | Ziggurat (`IsInZiggurat`) | ✓ blocked `DM:1313` | ✓ blocked `DM:1338` | ✓ can't drop onto/out `DM:1458-1469` | ✓ blocked `DM:1413,1438` | ✓ blocked `CP:6222` |
 | HardKitty at place 6 | n/a | n/a | ✓ can't drop onto `DM:1465` | n/a | n/a |
-| Тигр ban (round 10) | ✓ swap suppressed `DM:1304-1306` | n/a | n/a | n/a | ⚠ can still pull him (M11) |
+| Тигр ban (round 10) | ✓ swap suppressed `DM:1304-1306` | n/a | n/a | n/a | ✓ pull now respects the ban (M11 fixed, `CIR:1213`) |
 
 ## 4. Steal / copy / redirect chains
 
@@ -43,7 +43,7 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 |---|---|---|---|
 | Еврей (`HandleJews`, `CP:6688-6766`) | steals fight win point | Октопус ink | ink debits the Jew instead of the attacker (`CP:6785-6802`); Napoleon & fellow Евреи immune victims |
 | PointFunnel (Баг) | copies regular points | Еврей | funnel copies only `AddWinPoints` — Jew's stolen points not funneled |
-| Цукуеми (Итачи) | copies round earnings, deducts at end | Октопус ink | ⚠ D11 — same point can be repaid twice |
+| Цукуеми (Итачи) | copies round earnings, deducts at end | Октопус ink | victim pays once: the round-11 ink restore **skips** its debit for a victim under Цукуеми (Итачи deducts instead); both Итачи and Octopus still get their point (D11 fixed, `CP:4867-4884`) |
 | Октопус ink | fake-win now, restore at r11 | DeepList first-fight | suppressed until DeepList's scripted loss happens (`CP:6772-6779`) |
 | Kimiko Живое Оружие | **drains** attacker Justice | — | real transfer (`CP:744-755`) |
 | Близнец (Монстр) | **drains** attacker Justice on block + bonus | — | real transfer (`CP:905-920`) |
@@ -73,12 +73,12 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 
 ## 6. Ziggurat-copyable inventory (`Standalone: true`)
 
-Copy rule: random Standalone passive from the **last attacked** enemy, no duplicates (`CP:6169-6181`). Full behavior inventory in AUDIT-FINDINGS D10; headline rows:
+Copy rule: random Standalone passive from the **last attacked** enemy, no duplicates, **«Еврей» excluded** (`CP:6169-6181`). Full behavior inventory in AUDIT-FINDINGS D10; headline rows:
 
 | Copied passive | On a Goblin |
 |---|---|
 | Изанаги | works — 2 free defensive auto-wins |
-| Еврей | works — second Jew in game (⚠ D2) |
+| Еврей | **excluded from copy** — Goblins can't become a second Jew (D2 fixed) |
 | Одиночество / Импакт / Панцирь / Неуязвимость / Привет со дна / marks & bites | work as written |
 | Произошел троллинг | works **and** inherits the AWDKA forced-last quirk (⚠ M3) |
 | Сомнительная тактика | works — massive self-nerf (must lose first fights) |

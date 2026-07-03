@@ -169,10 +169,12 @@ public class DoomsdayMachine : IServiceSingleton
 
 
     //пристрій судного дня
-    public async Task CalculateAllFights(GameClass game)    
+    public async Task CalculateAllFights(GameClass game)
     {
         var watch = new Stopwatch();
         watch.Start();
+
+        game.AnyFightThisRound = false; // set true below whenever a fight resolves (Tilted / M8)
 
         // Clear web messages from the PREVIOUS round at the START of new processing.
         // This ensures they persist long enough for the SignalR timer to broadcast them.
@@ -819,6 +821,7 @@ public class DoomsdayMachine : IServiceSingleton
 
                     player.Status.IsWonThisCalculation = playerIamAttacking.GetPlayerId();
                     playerIamAttacking.Status.IsLostThisCalculation = player.GetPlayerId();
+                    game.AnyFightThisRound = true; // a fight resolved this round (Tilted / M8)
                     playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.GetPlayerId(), game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy, isStatsBettterEnemy, player.GetPlayerId(), playerIamAttacking.Status.GetPlaceAtLeaderBoard(), player.Status.GetPlaceAtLeaderBoard()));
 
                     //Quality — snapshot resist values before damage
@@ -877,6 +880,15 @@ public class DoomsdayMachine : IServiceSingleton
                     // Detect if intel/psyche resist broke (went below 0 and was reset)
                     intellectualDamage = qualityDamageApplied && resistIntelAfter > resistIntelBefore;
                     emotionalDamage = qualityDamageApplied && resistPsycheAfter > resistPsycheBefore;
+
+                    // TheBoys Butcher — +1 bonus (×2 SuperDick) for DROPPING a marked sup while attacking
+                    // (finding M7: the point is for a Drop — "если удалось его Скинуть" — not any win).
+                    // The +10 Skill for hunting a sup stays in the CP "Butcher" case (win or loss).
+                    if (dropsAfter > dropsBefore
+                        && player.GameCharacter.Passive.Any(x => x.PassiveName == "Butcher")
+                        && playerIamAttacking.Passives.TheBoysSupMark)
+                        player.Status.AddBonusPoints(player.Passives.TheBoysButcher.SuperDickActive ? 2 : 1, "Butcher");
+
                     // Justice: loser (defender) gains +1 justice
                     if (!teamMate) fightJusticeChange = 1;
 
@@ -902,6 +914,10 @@ public class DoomsdayMachine : IServiceSingleton
                     {
                         if (stormFlipped && stormCarrier != null)
                             stormCarrier.Status.AddRegularPoints(1, "Штормяк: Запрыгнул в бой!");
+                        else if (playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "INT"))
+                            // Toxic Mate "INT": "Побеждая — теряет очки" applies on a defence win too (finding M4);
+                            // HardKitty's "Никому не нужен" stays attacker-only ("если напал и победил").
+                            playerIamAttacking.Status.AddWinPoints(game, playerIamAttacking, -1, "Победа");
                         else
                         {
                             var defWinSource = "Победа";
@@ -947,6 +963,7 @@ public class DoomsdayMachine : IServiceSingleton
 
                     playerIamAttacking.Status.IsWonThisCalculation = player.GetPlayerId();
                     player.Status.IsLostThisCalculation = playerIamAttacking.GetPlayerId();
+                    game.AnyFightThisRound = true; // a fight resolved this round (Tilted / M8)
                     player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.GetPlayerId(), game.RoundNo, isTooGoodEnemy, isStatsBettterEnemy, isTooGoodMe, isStatsBetterMe, player.GetPlayerId(), player.Status.GetPlaceAtLeaderBoard(), playerIamAttacking.Status.GetPlaceAtLeaderBoard()));
                 }
 
@@ -1484,19 +1501,8 @@ public class DoomsdayMachine : IServiceSingleton
         }
         //end //Quality Drop
 
-        // Round 10 ziggurat at place 1 win condition
-        if (game.RoundNo == 10)
-        {
-            var goblinAtTop = game.PlayersList.Find(x =>
-                x.GameCharacter.Name == "Стая Гоблинов" &&
-                x.Status.GetPlaceAtLeaderBoard() == 1 &&
-                x.Passives.GoblinZiggurat.BuiltPositions.Contains(1));
-            if (goblinAtTop != null)
-            {
-                game.AddGlobalLogs($"Гоблины построили Зиккурат на вершине! {goblinAtTop.DiscordUsername} побеждает!");
-            }
-        }
-        //end ziggurat win condition
+        // Round-10 "Ziggurat at place 1 ⇒ win" is enforced authoritatively in HandleLastRound (finding M1) —
+        // it can't fire here because the round-10 ziggurat isn't built until HandleNextRoundAfterSorting below.
 
         SortGameLogs(game);
         _characterPassives.HandleNextRoundAfterSorting(game);

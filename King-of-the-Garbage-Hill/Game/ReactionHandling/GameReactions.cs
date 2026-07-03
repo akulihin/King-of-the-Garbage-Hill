@@ -991,13 +991,13 @@ public sealed class GameReaction : IServiceSingleton
         }
         //end TheBoys
 
-        /*//Vampyr Позорный
+        //Vampyr Позорный — Вампур can't level up stats (m2): zero the choice so no stat is added
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Vampyr Позорный"))
         {
             await game.Phrases.VampyrTheLoh.SendLogSeparate(player, true, 0);
             skillNumber = 0;
         }
-        //end Vampyr Позорный*/
+        //end Vampyr Позорный
         var howMuchTooAdd = 1;
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
         {

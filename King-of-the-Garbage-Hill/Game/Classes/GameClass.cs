@@ -52,6 +52,11 @@ public class GameClass
     private string AllGameGlobalLogs { get; set; }
 
     public int SkipPlayersThisRound { get; set; }
+
+    /// <summary>True once at least one fight is resolved this round. Reset at the start of CalculateAllFights,
+    /// set when a winner is decided. Used by Toxic Mate's "Tilted" (+50 only on a zero-battle round, finding M8).</summary>
+    public bool AnyFightThisRound { get; set; }
+
     private string GlobalLogs { get; set; }
     public string GameMode { get; set; }
     public ulong CreatorId { get; set; }

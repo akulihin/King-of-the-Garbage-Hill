@@ -25,6 +25,13 @@ public class GoblinSwarm
         // How much of the +10%/Warrior Skill bonus is currently applied (delta-tracking, see CharacterPassives)
         public int AppliedWarriorSkillBonus { get; set; } = 0;
 
+        // D7: pure population base last applied to each stat, so external stat changes (e.g. Спартанец's
+        // −1 Сила) are preserved on top of the per-round recompute instead of being overwritten.
+        // −228 = not yet initialised (first recompute establishes the baseline with zero external delta).
+        public int LastAppliedStrBase { get; set; } = -228;
+        public int LastAppliedIntBase { get; set; } = -228;
+        public int LastAppliedPsycheBase { get; set; } = -228;
+
         // Computed type counts
         public int Warriors => TotalGoblins / WarriorRate;
         public int Hobs => TotalGoblins / HobRate;

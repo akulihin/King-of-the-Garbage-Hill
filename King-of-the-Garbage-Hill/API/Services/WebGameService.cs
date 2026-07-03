@@ -929,17 +929,26 @@ public class WebGameService
             .Where(x => x.RoundNo == roundNumber)
             .ToList();
 
-        decimal totalStolen = 0;
-        foreach (var loss in salloLosses)
-        {
-            var enemy = game.PlayersList.Find(x => x.GetPlayerId() == loss.EnemyId);
-            if (enemy == null) continue;
+        // m15: steal 1 × the rewritten round's multiplier (×1 for R≤4, ×2 for R5-9) — the value the
+        // point was actually banked at that round — instead of a flat 1.
+        var roundMultiplier = roundNumber switch { <= 4 => 1m, <= 9 => 2m, _ => 4m };
 
-            // Steal 1 point (could scale with round multiplier)
-            var pointsToSteal = 1m;
-            enemy.Status.AddBonusPoints(-pointsToSteal, "Великий летописец");
-            player.Status.AddBonusPoints(pointsToSteal, "Великий летописец");
-            totalStolen += pointsToSteal;
+        // m15: a Jew (Еврей) who co-attacked Salldorum that round pocketed the winner's point (HandleJews),
+        // so reclaim it from the Jew. Best-effort — detects a Jew among that round's winners; a Jew who
+        // attacked-and-lost but still stole can't be reconstructed here (would need steal-time tracking).
+        var roundWinners = salloLosses
+            .Select(l => game.PlayersList.Find(x => x.GetPlayerId() == l.EnemyId))
+            .Where(e => e != null)
+            .ToList();
+
+        decimal totalStolen = 0;
+        foreach (var enemy in roundWinners)
+        {
+            var holder = roundWinners.FirstOrDefault(w => w!.GetPlayerId() != enemy!.GetPlayerId()
+                && w.GameCharacter.Passive.Any(x => x.PassiveName == "Еврей")) ?? enemy;
+            holder!.Status.AddBonusPoints(-roundMultiplier, "Великий летописец");
+            player.Status.AddBonusPoints(roundMultiplier, "Великий летописец");
+            totalStolen += roundMultiplier;
         }
 
         // Grant psyche and justice

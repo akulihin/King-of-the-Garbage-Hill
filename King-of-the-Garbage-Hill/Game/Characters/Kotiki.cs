@@ -18,6 +18,7 @@ public class Kotiki
         public int MinkaCooldown { get; set; } = 0;             // Rounds until Minka can deploy again
         public int StormCooldown { get; set; } = 0;             // Rounds until Storm can deploy again
         public int MinkaRoundsOnEnemy { get; set; } = 0;        // Rounds Minka has been on enemy
+        public decimal StormScoreSnapshot { get; set; } = 0;    // Victim's score when Storm deployed (steal half the delta earned while the cat sat, not half of total)
     }
 
     public class RandomBehaviorClass

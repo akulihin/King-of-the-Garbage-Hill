@@ -17,6 +17,7 @@
 set -u
 cd "$(dirname "$0")/.." || exit 1
 B=King-of-the-Garbage-Hill
+V=Web/VueClient/src
 MODE="${1:---all}"
 
 resolve() {
@@ -25,22 +26,38 @@ resolve() {
     CharacterPassives.cs) echo "$B/Game/GameLogic/CharacterPassives.cs";;
     DoomsdayMachine.cs|CheckIfReady.cs|BotsBehavior.cs|StartGameLogic.cs|CalculateRounds.cs)
       echo "$B/Game/GameLogic/$1";;
-    GameReactions.cs) echo "$B/Game/ReactionHandling/$1";;
-    CharacterClass.cs|InGameStatusClass.cs|GamePlayerBridgeClass.cs|PassivesClass.cs|GameClass.cs)
+    GameReactions.cs|StoreReactions.cs|LoreReactions.cs|TutorialReactions.cs)
+      echo "$B/Game/ReactionHandling/$1";;
+    CharacterClass.cs|InGameStatusClass.cs|GamePlayerBridgeClass.cs|PassivesClass.cs|GameClass.cs|DiscordAccountClass.cs|InGameDiscordStatus.cs)
       echo "$B/Game/Classes/$1";;
     SecureRandom.cs|ClaudeHaikuService.cs|HelperFunctions.cs) echo "$B/Helpers/$1";;
     SimulationRunner.cs|BotGameFactory.cs|SimReport.cs) echo "$B/Game/Simulation/$1";;
     Program.cs|Global.cs|Config.cs) echo "$B/$1";;
-    General.cs|AdminPanel.cs) echo "$B/GeneralCommands/$1";;
+    General.cs|AdminPanel.cs|HelpModule.cs|Lore.cs|Store.cs|Tutorial.cs|DiceRoll.cs|ServerManagement.cs)
+      echo "$B/GeneralCommands/$1";;
     UserAccounts.cs|UsersDataStorage.cs) echo "$B/LocalPersistentData/UsersAccounts/$1";;
-    GameStateMapper.cs|WebGameService.cs) echo "$B/API/Services/$1";;
-    GameStateDto.cs) echo "$B/API/DTOs/$1";;
+    GameStateMapper.cs|WebGameService.cs|GameNotificationService.cs|GameStoryService.cs|BlackjackService.cs|BattleshipService.cs|ReplayService.cs)
+      echo "$B/API/Services/$1";;
+    GameStateDto.cs|ReplayDto.cs) echo "$B/API/DTOs/$1";;
+    GameHub.cs) echo "$B/API/$1";;
+    GameController.cs|WidgetController.cs) echo "$B/API/Controllers/$1";;
+    DiscordWidgetService.cs) echo "$B/Game/Services/$1";;
+    CommandHandling.cs|DiscordEventDispatcher.cs) echo "$B/DiscordFramework/$1";;
+    ModuleBaseCustom.cs) echo "$B/DiscordFramework/Extensions/$1";;
     GameUpdateMess.cs) echo "$B/Game/DiscordMessages/$1";;
     CharactersPhrases.cs|CharactersPull.cs) echo "$B/Game/MemoryStorage/$1";;
     characters.json) echo "$B/DataBase/$1";;
     GameDesign.txt) echo "$B/Game/$1";;
-    signalr.ts) echo "Web/VueClient/src/services/$1";;
-    PlayerCard.vue|SkillsPanel.vue) echo "Web/VueClient/src/components/$1";;
+    signalr.ts|sound.ts) echo "$V/services/$1";;
+    game.ts|replay.ts|battleship.ts) echo "$V/store/$1";;
+    router.ts|main.ts|App.vue) echo "$V/$1";;
+    vite.config.ts) echo "Web/VueClient/$1";;
+    useTip.ts|useVfx.ts) echo "$V/composables/$1";;
+    Game.vue|Lobby.vue|Spectate.vue|Replay.vue|Widget.vue|Home.vue|BattleshipLobby.vue|BattleshipGame.vue|BattleshipSpectate.vue)
+      echo "$V/pages/$1";;
+    LoginProcess.vue|LoginSuccess.vue) echo "$V/components/Login/$1";;
+    PlayerCard.vue|SkillsPanel.vue|Leaderboard.vue|FightAnimation.vue|DeathNote.vue|RoundTimer.vue|MediaMessages.vue|BattleLog.vue|ActionPanel.vue|AchievementBoard.vue|AchievementPopup.vue|LootBox.vue|ScoreOdometer.vue)
+      echo "$V/components/$1";;
     *.cs) f=$(find $B/Game/Characters -name "$1" 2>/dev/null | head -1); echo "$f";;
     *) echo "";;
   esac
@@ -57,7 +74,7 @@ DRIFTS=$(mktemp)
 trap 'rm -f "$DRIFTS"' EXIT
 export LC_ALL=C
 declare -A LINECOUNT   # file → wc -l cache (biggest win: avoid re-stat'ing the same file per anchor)
-for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDIT-FINDINGS.md docs/BALANCE-CONSTANTS.md docs/INTERACTION-MATRIX.md; do
+for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDIT-FINDINGS.md docs/BALANCE-CONSTANTS.md docs/INTERACTION-MATRIX.md docs/WEB-BACKEND.md docs/WEB-CLIENT.md docs/DISCORD-INTERFACE.md; do
   [ -f "$doc" ] || continue
   # Group all anchors per citing doc line so drift is judged against their COMBINED context
   while IFS='|' read -r docline anchors; do
@@ -94,6 +111,7 @@ for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDI
       case "$token" in
         *"|"*|*"("*|*")"*|*"⚠"*|*"→"*|*"…"*|*" "*) continue;;                # table/prose fragments
         *".cs"*|*".ts"*|*".json"*|*".vue"*|*".txt"*|*.md|*.sh|CP:*|CC:*|DM:*|CIR:*|GR:*) continue;;  # anchors/paths
+        :*) continue;;                                                                              # bare continuation anchors (`:N-M`)
       esac
       probe=$token
       case "$token" in *.*) probe=${token##*.};; esac   # Class.Member → match Member

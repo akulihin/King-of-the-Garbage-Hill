@@ -268,9 +268,7 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Гоблины":
                     var gobPop = player.Passives.GoblinPopulation;
-                    player.GameCharacter.SetStrength(gobPop.Hobs, "Гоблины");
-                    player.GameCharacter.SetIntelligence(gobPop.Hobs, "Гоблины");
-                    player.GameCharacter.SetPsyche(5 + gobPop.Hobs, "Гоблины");
+                    ApplyGoblinPopulationStats(player); // D7: sets the stat baseline (no external delta yet at game start)
                     // Воины дают +10% Скилла каждый (delta, чтобы не накапливалось между раундами)
                     var gobWarriorSkillDelta = gobPop.Warriors - gobPop.AppliedWarriorSkillBonus;
                     if (gobWarriorSkillDelta != 0)
@@ -3194,8 +3192,10 @@ public class CharacterPassives : IServiceSingleton
                                 {
                                     if (isVictory)
                                     {
-                                        var enemyScore = fightEnemy.Status.GetScore();
-                                        var stolenPoints = Math.Floor(enemyScore / 2);
+                                        // Eat half of what the victim earned WHILE the cat sat on them
+                                        // (score delta since deploy), not half of their entire score (finding M9).
+                                        var earnedWhileSat = fightEnemy.Status.GetScore() - ambush.StormScoreSnapshot;
+                                        var stolenPoints = Math.Floor(earnedWhileSat / 2);
                                         if (stolenPoints > 0)
                                         {
                                             fightEnemy.Status.AddBonusPoints(-stolenPoints, "Кошачья засада");
@@ -3204,6 +3204,7 @@ public class CharacterPassives : IServiceSingleton
                                         fightEnemy.MinusPsycheLog(fightEnemy.GameCharacter, game, -1, "Кошачья засада");
                                     }
                                     ambush.StormOnPlayer = Guid.Empty;
+                                    ambush.StormScoreSnapshot = 0;
                                     ambush.StormCooldown = 2;
                                 }
 
@@ -3266,6 +3267,9 @@ public class CharacterPassives : IServiceSingleton
                                     else
                                     {
                                         ambush.StormOnPlayer = fightEnemyId;
+                                        // Snapshot the victim's score now, so the return steal is half of what
+                                        // they earn WHILE the cat sits (finding M9) — not half of their whole score.
+                                        ambush.StormScoreSnapshot = fightEnemy.Status.GetScore();
 
                                         // Transfer "Рандомное поведение" to the enemy carrying Storm
                                         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Рандомное поведение"))
@@ -3318,7 +3322,11 @@ public class CharacterPassives : IServiceSingleton
                             var chemEnemy = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation);
                             if (chemEnemy != null && !chemEnemy.Status.FightEnemyWasTooGood && !chemEnemy.Status.FightEnemyWasTooStronk)
                             {
-                                player.Status.AddBonusPoints(chemLevel, "Хим.оружие");
+                                // m10: harder enemy pays more — +1 base, +1 if the enemy was TooGood for
+                                // TheBoys, +1 if TooStronk (flags on player = "my enemy was too good/stronk"); × прокачки.
+                                var chemDifficultyMult = 1 + (player.Status.FightEnemyWasTooGood ? 1 : 0)
+                                                           + (player.Status.FightEnemyWasTooStronk ? 1 : 0);
+                                player.Status.AddBonusPoints(chemLevel * chemDifficultyMult, "Хим.оружие");
                                 game.Phrases.TheBoysChemWeapon.SendLog(player, false);
                             }
                         }
@@ -3360,8 +3368,8 @@ public class CharacterPassives : IServiceSingleton
                             {
                                 var superDick = player.Passives.TheBoysButcher.SuperDickActive;
                                 player.GameCharacter.AddExtraSkill(superDick ? 20 : 10, "Butcher");
-                                if (player.Status.IsWonThisCalculation == fightTargetId)
-                                    player.Status.AddBonusPoints(superDick ? 2 : 1, "Butcher");
+                                // +1 bonus point moved to the Drop path in DoomsdayMachine (finding M7):
+                                // the point is for Dropping the sup ("Скинуть"), not for merely winning.
                                 game.Phrases.TheBoysButcherHunt.SendLog(player, false);
                             }
                         }
@@ -4317,18 +4325,12 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Toxic Mate — "Tilted": +1 per enemy skip, +50 if ALL enemies blocked/skipped
+                // Toxic Mate — "Tilted": +50 only when the whole round had ZERO battles (everyone
+                // skipped/blocked/no-showed → no fight was calculated). No per-skip bonus (finding M8).
+                // game.AnyFightThisRound is set the moment any fight resolves; IsWonThisCalculation is
+                // NOT usable here — ResetFight clears it before HandleEndOfRound runs.
                 case "Tilted":
-                    var tiltedEnemies = game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()).ToList();
-                    var skipCount = tiltedEnemies.Count(x => x.Status.IsSkip);
-                    if (skipCount > 0)
-                    {
-                        player.Status.AddBonusPoints(skipCount, "Tilted");
-                        game.Phrases.ToxicMateTiltedReact.SendLog(player, false);
-                    }
-
-                    var allPassive = tiltedEnemies.All(x => x.Status.IsBlock || x.Status.IsSkip);
-                    if (allPassive)
+                    if (!game.AnyFightThisRound)
                     {
                         player.Status.AddBonusPoints(50, "Tilted");
                         game.AddGlobalLogs("__**OPEN MID!** +20 **очков**__");
@@ -4865,7 +4867,22 @@ public class CharacterPassives : IServiceSingleton
                             foreach (var t in octopusInk.RealScoreList)
                             {
                                 var pl = game.PlayersList.Find(x => x.GetPlayerId() == t.PlayerId);
-                                pl?.Status.AddBonusPoints(t.RealScore, "🐙");
+                                if (pl == null) continue;
+                                // D11: don't charge a victim twice for the same fake point. If the victim's
+                                // earnings were also copied by an Itachi Цукуеми (which deducts them at game end),
+                                // skip Octopus's debit here — the victim pays once (to Итачи), while Octopus still
+                                // gets its own +N credit (a positive RealScore entry), so the point is duplicated
+                                // for both receivers per the D11 verdict.
+                                if (t.RealScore < 0 && t.PlayerId != player.GetPlayerId()
+                                    && game.PlayersList.Any(it =>
+                                        it.GameCharacter.Passive.Any(p => p.PassiveName == "Глаза Итачи")
+                                        && it.Passives.ItachiTsukuyomi.StolenFromPlayers.TryGetValue(t.PlayerId, out var amt)
+                                        && amt > 0))
+                                {
+                                    pl.Status.AddInGamePersonalLogs("🐙 Чернильная завеса: это очко уже забрал Итачи — списываем один раз.\n");
+                                    continue;
+                                }
+                                pl.Status.AddBonusPoints(t.RealScore, "🐙");
                             }
 
                             player.Status.AddBonusPoints(octopusInv.Count, "🐙");
@@ -5783,7 +5800,11 @@ public class CharacterPassives : IServiceSingleton
             var markedId = supporter.Passives.SupportPremade.MarkedPlayerId;
             if (markedId == Guid.Empty) continue;
             var marked = game.PlayersList.Find(x => x.GetPlayerId() == markedId);
-            if (marked != null && marked.Status.IsSkip && !marked.Status.ConfirmedSkip)
+            // "кроме банов": the anti-skip must NOT lift the round-10 Тигр ban (finding M10) —
+            // un-banning breaks the other systems (targeting, Тигр-топ) that assume he's banned.
+            var markedIsBanned = marked != null && game.RoundNo == 10 &&
+                marked.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят");
+            if (marked != null && marked.Status.IsSkip && !marked.Status.ConfirmedSkip && !markedIsBanned)
             {
                 marked.Status.IsSkip = false;
                 marked.Status.IsReady = false;
@@ -6118,10 +6139,8 @@ public class CharacterPassives : IServiceSingleton
                     var gobEndPop = player.Passives.GoblinPopulation;
                     var autoGrowth = gobEndPop.GrowthThisRound;
                     gobEndPop.TotalGoblins += autoGrowth;
-                    // Update persistent stat bonuses based on new population
-                    player.GameCharacter.SetStrength(gobEndPop.Hobs, "Гоблины");
-                    player.GameCharacter.SetIntelligence(gobEndPop.Hobs, "Гоблины");
-                    player.GameCharacter.SetPsyche(5 + gobEndPop.Hobs, "Гоблины");
+                    // Update persistent stat bonuses based on new population (D7: keeps external stat debuffs)
+                    ApplyGoblinPopulationStats(player);
                     // Воины дают +10% Скилла каждый (delta от нового населения)
                     var gobEndWarriorSkillDelta = gobEndPop.Warriors - gobEndPop.AppliedWarriorSkillBonus;
                     if (gobEndWarriorSkillDelta != 0)
@@ -6147,7 +6166,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             game.Phrases.GoblinZigguratNoMoney.SendLog(player, false);
                         }
-                        else if (player.Status.GetScore() < 3)
+                        else if (player.Status.GetScore() <= 3) // m11: needs strictly MORE than 3 points
                         {
                             game.Phrases.GoblinZigguratNoMoney.SendLog(player, false);
                         }
@@ -6169,7 +6188,8 @@ public class CharacterPassives : IServiceSingleton
                             var lastAttacked = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.GoblinLastAttackedPlayer);
                             var enemyPassives = lastAttacked?.GameCharacter.Passive ?? new List<Passive>();
                             var standalonePassives = enemyPassives
-                                .Where(p => p.Standalone && !gobZigEnd.LearnedPassives.Contains(p.PassiveName)
+                                .Where(p => p.Standalone && p.PassiveName != "Еврей" // D2: Goblins may not learn "Еврей" (would make a second Jew)
+                                    && !gobZigEnd.LearnedPassives.Contains(p.PassiveName)
                                     && player.GameCharacter.Passive.All(x => x.PassiveName != p.PassiveName))
                                 .ToList();
 
@@ -6872,4 +6892,25 @@ public class CharacterPassives : IServiceSingleton
         return generic[_rand.Random(0, generic.Count - 1)];
     }
     //end unique
+
+    // Стая Гоблинов: recompute Str/Int/Psyche from population size, but PRESERVE any external stat
+    // change (e.g. Спартанец's −1 Сила) on top of the population base rather than overwriting it (finding D7).
+    // The external delta = how far the stat currently sits from the base we last applied.
+    private static void ApplyGoblinPopulationStats(GamePlayerBridgeClass player)
+    {
+        var pop = player.Passives.GoblinPopulation;
+        var gc = player.GameCharacter;
+        var strBase = pop.Hobs;
+        var intBase = pop.Hobs;
+        var psyBase = 5 + pop.Hobs;
+        var extStr = pop.LastAppliedStrBase == -228 ? 0 : gc.GetStrength() - pop.LastAppliedStrBase;
+        var extInt = pop.LastAppliedIntBase == -228 ? 0 : gc.GetIntelligence() - pop.LastAppliedIntBase;
+        var extPsy = pop.LastAppliedPsycheBase == -228 ? 0 : gc.GetPsyche() - pop.LastAppliedPsycheBase;
+        gc.SetStrength(strBase + extStr, "Гоблины");
+        gc.SetIntelligence(intBase + extInt, "Гоблины");
+        gc.SetPsyche(psyBase + extPsy, "Гоблины");
+        pop.LastAppliedStrBase = strBase;
+        pop.LastAppliedIntBase = intBase;
+        pop.LastAppliedPsycheBase = psyBase;
+    }
 }

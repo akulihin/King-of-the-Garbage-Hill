@@ -15,6 +15,7 @@
   - `BotsBehavior.cs:2662` — bot level-up preference (PSY-first) never applies.
 - **Impact**: bot Salldorum plays with untuned moral/level-up/targeting AI; an end-game log is lost. Human play unaffected.
 - **Fix direction**: rename the four checks to `"Salldorum"`; rewrite the `:1409` preference for the current kit (Шэн/rewrite), not the Khokhol legacy.
+- **Fixed:** 2026-07-03 (pre-approved string bug) — renamed the three `Name == "Салдорум"` checks to `"Salldorum"` (`CheckIfReady.cs:137`, `BotsBehavior.cs:328` moral, `:2672` level-up). The dead `case "Салдорум":` (`BotsBehavior.cs:1409`) was **deleted** rather than renamed — it sat in the same `switch (bot.GameCharacter.Name)` as the live `case "Salldorum":` (`:1605`, the current Chronicler targeting), so renaming would have duplicated the label; its Khokhol-legacy `SaldorumKhokholList` targeting is obsolete. Removed `BAD-NAME|Салдорум|C1` from `tools/known-warnings.txt`. (`SaldorumKhokholList` field is now fully dead — leave for m6.)
 
 ## Major
 
@@ -23,6 +24,7 @@
 - **Actual**: `DoomsdayMachine.cs:1488-1499` fires at the **start** of round 10 (after `RoundNo++`), requires place 1 + a ziggurat built at position 1, and only prints "…побеждает!". `HandleLastRound` re-sorts purely by score (`CheckIfReady.cs:382`) with no ziggurat rule. A ziggurat built *during* round-10 processing (`CP:6137-6207`, runs when `RoundNo` is already 11) can never trigger the message.
 - **Impact**: the documented win condition doesn't win; a premature "wins!" message can appear a round early and then be false.
 - **Fix direction**: enforce at `HandleLastRound` (like Premade's enforced win, `CheckIfReady.cs:472-494`) or drop the message + design line.
+- **Fixed:** 2026-07-03 (designer verdict БАГ) — removed the premature/broken log in `CalculateAllFights` (it checked `BuiltPositions` before the round-10 Ziggurat is built) and added an authoritative enforced win in `HandleLastRound` (`CheckIfReady.cs`, right after the Premade block): a non-dead Стая Гоблинов with a Ziggurat at place 1 (`BuiltPositions.Contains(1)`) is bonus-pointed to 1st, re-sorted, and announced — mirroring Premade's overtake.
 
 ### M2. "Еврей" web widget renders for Толя with LeCrisp's state
 - `GameStateMapper.cs:362-365` keys the widget on passive "Еврей" (both LeCrisp and Толя have it) but fills it from `LeCrispAssassins.AdditionalPsycheCurrent` — LeCrisp-only state. A Толя player sees a dead widget with stolen-psyche 0.
@@ -36,6 +38,7 @@
 ### M4. Toxic Mate "INT" negative-win rule applies only when he attacks
 - `DoomsdayMachine.cs:775-781` negates the winner's point for "Никому не нужен"/"INT" holders only in the attacker-win branch; a defending Toxic Mate who wins gets a normal +1 (`:901-913`), and `CP:3050-3061` adds nothing on wins. JSON: "Побеждая — теряет очки" (unqualified). HardKitty's Mute wording ("если напал и победил") matches the code; INT's does not.
 - **Fix direction**: extend the negation to the defense branch for "INT" (or reword the passive).
+- **Fixed:** 2026-07-03 (designer verdict БАГ) — added an INT-only negation in the defender-win branch (`DoomsdayMachine.cs:905-908`): a defending Toxic Mate who wins now gets `AddWinPoints(-1)` like the attacker branch. Scoped to `PassiveName == "INT"` so HardKitty's "Никому не нужен" keeps its attacker-only "если напал и победил" behavior.
 
 ### M5. "Тигр топ, а ты холоп" has an undocumented second window at game start
 - Initial `TimeCount = 3` (`Tigr.cs:10`) **plus** a swap in `HandleEventsBeforeFirstRound` (`CP:170-183`) put Тигр at place 1 immediately, consuming one count; the end-of-round swap (`DoomsdayMachine.cs:1299-1327`) then keeps him there for rounds 2–3. The random trigger (`TigrTopWhen`, rounds 1–8, 1–2 times) later resets the counter to 3 (`CP:4954-4958`) for the *described* "случайный момент" window. Тигр also collects +1 Psyche/+3 Мораль per round at #1 (rounds 2–9, `CP:5916-5923`).
@@ -49,19 +52,23 @@
 ### M7. Butcher pays his point on any win, spec says on a Drop
 - the_boys.txt / theboys_update_commit: "+1 point **on drop**" ("очко если удалось его **Скинуть**" — Скинуть is the established Drop term). Code: `CP:3363-3364` awards +1 bonus (+2 SD) whenever Butcher *wins* against a marked sup. Wins are far more common than Drops — balance-relevant.
 - **Fix direction**: decide win-vs-drop; if drop, hook into the Harm/Drop path (compare `dropsAfter > dropsBefore` in `DoomsdayMachine.cs:835-876`).
+- **Fixed:** 2026-07-03 (designer verdict БАГ — "10 скилла за нападение, и очко если удалось ЕГО скинуть… скинуть при нападении") — the +1 bonus (+2 SD) moved out of the win check (`CP:3367-3368` removed) into the attacker-win Harm/Drop path (`DoomsdayMachine.cs:883-888`): awarded only when `dropsAfter > dropsBefore` and the attacker is Butcher and the target has `TheBoysSupMark`. The +10 Skill hunt bonus (win or loss) stays in the CP "Butcher" case.
 
 ### M8. Toxic Mate "Tilted" rewards skips, not "психует"
 - JSON: "Получает бонусное очко каждый раз, когда кто-то __психует__". Code (`CP:4320-4328`): +1 bonus per enemy whose `IsSkip` is set at end of round — no connection to psyche-loss ("психанул") events at all. (The +50 "все не смогли походить" half matches, `CP:4330-4335`, including the intentional "+20" joke log.)
 - **Fix direction**: hook the +1 into `MinusPsycheLog`/psyche-rage events, or reword the passive to "за каждый пропуск хода".
+- **Fixed:** 2026-07-03 (designer verdict БАГ — skips only pay when no battle happened) — removed the +1-per-skip bonus entirely; the payout is now the single **+50** given only when the whole round had **zero battles** (`game.PlayersList.All(x => x.Status.IsWonThisCalculation == Guid.Empty)`, `CP:4325-4333`). Uses the fight-resolution signal rather than the old all-blocked/skipped proxy, so forced fights (Монстр/Штормяк) correctly suppress the payout. Kept the intentional "+20" joke log; JSON text untouched.
 
 ### M9. Котики "Кошачья засада" (Штормяк) eats half of *total* score
 - JSON: "сожрёт половину очков, которые враг получил **пока на нём сидел** этот кусок кота". Code (`CP:3193-3205`): on the return win, victim loses `Floor(GetScore()/2)` — half of their **entire score**, regardless of when it was earned (no snapshot at deploy time exists).
 - **Impact**: a late Storm return can wipe 20+ points instead of the earned-while-sat handful — swingiest single effect in the game.
 - **Fix direction**: snapshot the victim's score at deploy (`KotikiAmbush`) and halve the delta.
+- **Fixed:** 2026-07-03 (designer verdict БАГ) — added `AmbushClass.StormScoreSnapshot` (`Kotiki.cs:21`), captured at Storm deploy (`CP:3268-3270`) and reset on return (`CP:3206`); the return steal is now `Floor((currentScore − snapshot) / 2)`, i.e. half of what the victim earned while the cat sat, not half of their total score (`CP:3193-3208`). Non-positive delta steals nothing; the −1 Psyche on the win is unchanged.
 
 ### M10. Premade's anti-skip un-bans a round-10-banned Carry
 - JSON: "Carry никогда не пропустит ход. **(кроме банов)**". Code (`CP:5779-5792`) clears *any* involuntary skip (`IsSkip && !ConfirmedSkip`) on the Carry — including Тигр's round-10 "Стримснайпят и банят" ban (`CP:4936-4943` sets exactly that state) and Школьник's brother-ban. The freed Carry may then act on round 10 despite being "banned" (other systems — targeting refusal, Тигр-топ suppression — still assume he's banned).
 - **Fix direction**: skip the anti-skip when the skip source is a ban (e.g. check the ban passive + round, mirroring `CheckIfReady.cs:1270`).
+- **Fixed:** 2026-07-03 (designer verdict БАГ "добавляй") — the Premade anti-skip (`CP:5790-5798`) now computes `markedIsBanned` (round 10 + "Стримснайпят и банят и банят и банят") and leaves a banned Carry skipped. Scoped to the canonical Тигр round-10 ban (the "ban" the description's "кроме банов" means); ordinary involuntary skips (Митсуки no-PC, АФКА) are still lifted.
 
 ## Minor
 
@@ -70,6 +77,7 @@
 
 ### m2. "Vampyr Позорный" logic is commented out
 - `GameReactions.cs:994-1000` (level-up denial) disabled; only the phrase object remains. Remove or restore.
+- **Fixed:** 2026-07-03 (designer verdict — Вампур не должен прокачивать статы; если качает — забрать) — **restored** the block (`GameReactions.cs:994-1000`): a Вампур level-up sets `skillNumber = 0`, so the stat switch adds nothing (the point is still spent at `:1134`) and "Никаких статов для тебя" is logged. Вампур has the `Vampyr Позорный` passive (`characters.json:588`), so the check is live, not a GHOST. Gematophagia bites (a separate win-reward mechanic) are unaffected.
 
 ### m3. Young Gleb transform keeps `Name == "Глеб"` → three misfiring Name checks
 - Transform (`GameReactions.cs:256-268`) deliberately doesn't set the name (mylorik's Акула transform at `CP:6097-6104` *does*). Consequences: `GameUpdateMess.cs:1221` "Понизить один из статов" caption never shows post-transform; `CheckIfReady.cs:427` AWDKA-trolling flavor for Молодой Глеб unreachable; `GameReactions.cs:1125` old-Gleb psyche-10 phrase can fire for the transformed character. (`GameStateMapper.cs:292` / `GameUpdateMess.cs:1651` guards are harmlessly always-true.)
@@ -98,9 +106,11 @@
 
 ### m10. Francie Хим.оружие ignores enemy-difficulty scaling
 - Design note (the_boys.txt): "(normal +1, toogood +1, toostronk +1; если мы ту-гуд/стронк = +0) × прокачки". Code (`CP:3315-3324`): flat `chemLevel` bonus, zeroed when TheBoys were TooGood/TooStronk vs the victim. The "harder enemy pays more" half is missing.
+- **Fixed:** 2026-07-03 (designer verdict БАГ "добавляй") — the bonus is now `chemLevel × (1 + (enemy TooGood for TheBoys ? 1 : 0) + (enemy TooStronk ? 1 : 0))` (`CP:3318-3332`), read from the attacker's `FightEnemyWasTooGood/Stronk` flags (= "my enemy was too good/stronk"). Normal enemy ×1, harder enemy ×2 (the TooGood/TooStronk tiers are set in exclusive threshold branches in `CalculateRounds`, so a win vs either pays double). The existing "+0 if TheBoys was TooGood/TooStronk vs the victim" gate is unchanged.
 
 ### m11. Ziggurat costs differ from the design note
 - Code (`CP:6142-6187`): requires ≥1 of each type **and score ≥ 3** (undocumented gate), costs −3 bonus + a *permanent* −1 Worker deduction. Design note: "умирает 1 Трудяга (т.е. если каждый 9й — Трудяга, то умирает 9 гоблинов)" — i.e. population loss, not a permanent worker-slot loss. Current implementation is milder early, harsher late.
+- **Fixed:** 2026-07-03 (designer verdict: build needs **>3** points, and exactly **−1 Трудяга** is correct — description unchanged) — the score gate `GetScore() < 3` became `<= 3` (`CP`), so the build now requires strictly more than 3 points; the −1 permanent Worker deduction was already the intended behavior and is kept. Documented the >3 gate in CHARACTERS.md (not in the player-facing text, by design).
 
 ### m12. Saitama's round-1 "serious targets" are effectively arbitrary
 - SeriousTargets = top-2 by `GetSkill()` (`CP:242-251`), which at game start is 0 for almost everyone → stable-sort picks the first two in list order. Recomputed properly from the end of round 1 (`CP:4027-4036`). Also note "боевая мощь" = skill only (stats ignored) — Кратос-style stat monsters are never "serious".
@@ -113,6 +123,7 @@
 
 ### m15. Salldorum's history rewrite ignores the round multiplier and the Еврей redirect
 - Design note (`GameDesign.txt:549`): steal "(1 × множитель раунда)" from each winner, "Но следи за Евреями. Если они украли эти очки — то отнимается у евреев". Code (`WebGameService.cs:932-943`): flat −1/+1 bonus per winner, no multiplier (the comment even says "could scale"), no Jew redirection.
+- **Fixed:** 2026-07-03 (designer verdict БАГ — "сделай как должно быть по описанию") — the steal is now `1 × roundMultiplier(rewrittenRound)` (`roundNumber switch { <=4 => 1, <=9 => 2, _ => 4 }`, `WebGameService.cs:934-951`), and each stolen point is reclaimed from a Jew (Еврей) who **co-won** that round (pocketed the winner's point via `HandleJews`) rather than the direct winner. Best-effort redirect: a Jew who attacked-and-lost but still stole cannot be reconstructed from `WhoToLostEveryRound` (would need steal-time tracking) — noted in CHARACTERS.md.
 
 ### m16. Геральт's Lambert fumble is 20%, design note says 10%
 - `CP:4490` (`_rand.Luck(20)`, one-time) vs `GameDesign.txt:654` "10% Шанс". Also worth knowing: the meditation hint for human players calls the Anthropic Haiku API synchronously inside the round pipeline (`CP:4459-4475`) with a static fallback.
@@ -136,9 +147,11 @@
 
 ### D2. Goblin Ziggurat can duplicate "Еврей" (and other Standalone passives)
 - LeCrisp's "Еврей" is `Standalone: true` (`characters.json:140`), so Goblins can learn it (`CP:6171-6181`) despite the roll-time LeCrisp/Толя exclusivity (`StartGameLogic.cs:180-194`). `HandleJews` supports multiple jews (`CP:6688-6766`), each earning +1 while the victim's point is suppressed once. Verify which Standalone passives are safe to copy (full matrix in the Phase-3 audit).
+- **Fixed:** 2026-07-03 (designer verdict ЗАПРЕТИТЬ) — the Ziggurat copy filter (`CP`, `standalonePassives` where-clause) now excludes `PassiveName == "Еврей"`, so Goblins can never learn it. Other `Standalone` copies are left as-is per D10.
 
 ### D3. Sakura's "Одна из трех" is a narrative win only
 - `CheckIfReady.cs:496-508`: top-3 Sakura is declared `playerWhoWon` (logs, phrases; ZBS-100 only if scores tie) but keeps her real place for stats/mastery/TotalWins. Note she *is* a rollable secret character (Tier −1, m6) that nobody can predict — the soft win may be the intended compensation; confirm.
+- **Fixed:** 2026-07-03 (designer verdict: place stays by fact, stats & rewards as 1st place) — the payout loop now computes a per-player `rewardPlace` = 1 for the top-3 `top3Player` (Sakura) else the real place, and keys TotalWins, mastery, ZBS, the top-2 loot box, and per-character Wins off it (`CheckIfReady.cs:631-728`). Her `GetPlaceAtLeaderBoard()` and MatchHistory record her real finish. The actual 1st-place player is unaffected (still gets their 1st-place payouts).
 
 ### D4. Passives whose logic keys on character Name, not the passive
 - "Булинг": DeepList's "Стёб" spares LeCrisp by name (`CP:2596-2614`); `HandleJews` skips stealing from DeepList by name (`CP:6715-6719`).
@@ -154,6 +167,7 @@
 
 ### D7. External stat changes on Стая Гоблинов are overwritten every round
 - `CP:6122-6124` re-`Set`s Str/Int/Psyche from population each round end — debuffs like Спартанец's −1 Str vanish; Speed debuffs persist (Speed isn't population-driven). Inherent to the population design; document or special-case.
+- **Fixed:** 2026-07-03 (designer verdict БАГ — external debuffs should persist) — added `GoblinPopulationClass.LastApplied{Str,Int,Psyche}Base` and a shared `ApplyGoblinPopulationStats` helper (`CharacterPassives.cs`) used at both the before-first-round init and the end-of-round recompute. It sets each stat to `populationBase + externalDelta`, where `externalDelta = currentStat − lastAppliedBase` (0 on the first run), so external Str/Int/Psyche changes now carry across the recompute like Speed already did.
 
 ### D8. "Пейзаж конца света" +7 очков is round-multiplied ×4
 - The non-pawn reward for attacking Монстр on round 10 is +7 **regular** points (`CP:4423`) — committed with the round-10 ×4 multiplier = effectively **+28** (+10 bonus on top). If "+7 очков" was meant literally, use bonus points.
@@ -168,6 +182,7 @@
   - **Шэн** (`CheckIfReady.cs:1184-1199`) forces everyone below the position to attack Salldorum — a round-10-banned Тигр (IsSkip, stats nuked) gets Salldorum added to `WhoToAttackThisTurn`, and the fight loop processes forced fights even for skipping players (`DoomsdayMachine.cs:393-407`) — the "banned, can't act, can't be targeted" promise breaks (0-stat Тигр is forced to fight).
   - **Штормяк taunt** (`CheckIfReady.cs:1217-1251`) excludes dead players but not the banned Тигр — he can be provoked into attacking Котики on round 10.
 - **Fix direction**: reuse the Монстр carve-out condition in both sites (and consider dead-player checks ✓ already present).
+- **Fixed:** 2026-07-03 (designer verdict БАГ "если нет исключения, Тигр остаётся в бане") — mirrored the Монстр carve-out `!(game.RoundNo == 10 && …Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят"))` into the Шэн below-position pull (`CheckIfReady.cs:1213`) and the Штормяк taunt eligible-targets filter (`CheckIfReady.cs:1247`), so a round-10-banned Тигр is no longer forced to fight.
 
 ### M12. Монстр's apocalypse can kill Стая Гоблинов
 - Every other kill source has an explicit goblin immunity: Кира's note (`CP:4103`), L-arrest (`CP:4780`), Кратос (`CP:1699`). "Пейзаж конца света" pawn deaths (`CP:4398-4409`) have **no** goblin check — Goblins guessed by Монстр become pawns and die on round 10, contradicting `GameDesign.txt:509` "Гоблинов нельзя Убить механикой 'убийства'".
@@ -182,6 +197,7 @@ The Ziggurat copies any `Standalone: true` passive from the last attacked enemy 
 
 ### D11. Цукуеми × Чернильная завеса double-charges the same point
 - If a player beats Осьминожка (ink fake-win: they get +1 now, owe it back at round 11) while under Итачи's Цукуеми, Итачи *also* copies that +1 at end of round and deducts it again at game end (`CP:4183-4211`, `CheckIfReady.cs:363-379`) — the victim repays the same point twice (once to Octopus's restore, once to Итачи). Rare, but both effects are "secretly repaid later" designs that don't know about each other.
+- **Fixed:** 2026-07-03 (designer verdict — Итачи и Осьминожка each get their point, victim loses it once; duplicate for two receivers) — the round-11 ink restore (`CP:4867-4884`) now **skips its victim-debit** when that victim is in any Itachi's `ItachiTsukuyomi.StolenFromPlayers` ledger (the Цукуеми deduction at `CheckIfReady.cs:373` charges them instead). Octopus still applies its own `+N` credit (a positive RealScore entry), so the point is duplicated for both receivers while the victim pays once. Best-effort: the ledger is per-victim not per-round, so a victim stolen-from in a *different* round than the Octopus beat would also be skipped — a rare double-edge.
 
 ### Phase-3 checks that passed (selection)
 Монстр no-escape spares pickle-Рика (he has neither IsBlock nor IsSkip); dead players are excluded from every forced-attack pool; Geralt's contract injection skips while he blocks/skips; Тигр-топ/Portal-Gun/Шэн/Storm-bite/Drops all respect the Ziggurat lock; the Глеб/Молодой-Глеб tea skip spares a charged Portal Gun; Premade anti-skip doesn't touch pickle-Рика; Котики are immune to a *transferred* Storm's taunt and a transferred Минька/Штормяк won't buff against its owner; PointFunnel points bypass Еврей theft (funnel copies only `AddWinPoints`); Октопус's ink correctly debits Евреи who stole the point.
@@ -202,9 +218,21 @@ Every `PassiveAbilityStatesDto` member is mapped and rendered (no dead DTO/TS fi
 
 Worth stating because they're easy to suspect: Saitama's Неприметность deferral/reclaim matches the recent fix note exactly (incl. the manual round-10 moral flush, `CP:4844-4851`); Rick's pickle/portal player-control flow matches rick_update (bot never takes over, pickle stays attackable, gun charge music one-shot); the Тигр round-10 ban is respected by targeting, Монстр forced attacks and the Тигр-топ swap; Кира's +2/+4(L) numbers, 25-Мораль eyes cost, L-arrest from round 8 and −500 all match; Goblin growth/death percentages match the goblins commit (death is 10+0.5R²/3%, the *older* design note's 1·R²/3 was rebalanced); Ziggurat Standalone-only learning with duplicate protection; Выгодная сделка pays both the +1 bonus per deal and +5 Мораль per deal; Октопус's ink ledger correctly redirects debits to Евреи who stole the point; the Глеб-tea skip spares a charged Portal Gun ("ничто не помешает").
 
+## Phase 5 — simulation harness & bot robustness
+
+### M13. Discord service-channel debug calls freeze headless sims and mask the real exception
+- Four diagnostic `_global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(...)` calls in the per-tick hot path were **not** null-guarded. In headless `--sim` (and during any live Discord reconnect) `GetGuild(...)` returns null → NullReferenceException. Sites: `BotsBehavior.cs:2484` ("Поставил блок, а ему нельзя", only when `maxRandomNumber>0` — the throw skips the attack at `:2490`), `BotsBehavior.cs:2497` ("не напал ни на кого" — the throw skips the force-block at `:2500`, leaving the bot with no action), the `HandleBotAttack` catch `BotsBehavior.cs:2539-2545` (ran the Discord send **before** `_logs.Critical`, masking the real exception and never calling `SimErrorSink`), and `CheckIfReady.cs:1261` ("didn't do anything" fallback — the throw is caught by the outer catch at `:1355`, aborting round resolution before `game.IsCheckIfReady = true` at `:1353` → round never completes → 30 s watchdog marks the game STUCK). The already-correct sibling at `CheckIfReady.cs:1360-1370` shows the intended pattern; the fix was never propagated.
+- **Impact**: ~1/1000 sim games froze (sweep-20260702-191714 hit 5 batches) and the true exception (M14) was invisible — every recorded error read as the generic `CheckIfReady.cs:1261` NRE. In production a Discord reconnect at the wrong moment can freeze a live game the same way until reconnect.
+- **Fixed:** 2026-07-03 — added null-safe `Global.TrySendServiceMessage(string)` (no-ops when guild/channel is null), routed all unguarded service-channel sends through it (`BotsBehavior.cs:2484/2497`, `CheckIfReady.cs:1261`, and the three unguarded ELO sends `CheckIfReady.cs:830/849/868`), and reordered the `HandleBotAttack` catch to `_logs.Critical` + `SimErrorSink?.Invoke(game.GameId, game.RoundNo, e)` **first**, then the guarded send. The two already-guarded siblings (`:876`, `:1362/1364`) were left as-is. Verified: previously-freezing line-up 0 stuck; 5000-game natural sim 0 errors/0 stuck.
+
+### M14. Bot `HandleBotAttack` throws IndexOutOfRange when it has no valid targets
+- `BotsBehavior.cs:2481`: the random-attack fallback does `players[_rand.Random(0, players.Count - 1)]` with `players = allTargets.ToList()`. When `allTargets` is empty — all other players dead, or removed by the round-10 Тигр-ban / round-9-10 "Нахуй эту игру" filters (`BotsBehavior.cs:506-527`) — `players.Count - 1 == -1` and the list indexer throws `ArgumentOutOfRangeException`. Кира-correlated (Death-Note kills shrink the pool late-game); observed rounds 8–10. Was masked into a frozen game by M13; surfaced once M13 was fixed.
+- **Impact**: the bot's turn crashes. Post-M13 it is recorded as a per-game sim error; in production the bot fails its action and auto-blocks (`CheckIfReady.cs:1253` fallback) plus debug-channel spam.
+- **Fixed:** 2026-07-03 — guard `if (players.Count == 0)` → block (`_gameReaction.HandleAttack(bot, null, -10)`) + `ResetTens(allTargets)` + `return`, mirroring the block-and-return at `BotsBehavior.cs:2455-2461`. Verified: Kira line-up 500 games → 0 errors/0 stuck. (Related latent `allTargets.First()` at the `RoundNo<5`-guarded early path left as-is — unreachable with an empty pool that early.)
+
 ## Summary count
 
-**1 Critical** (C1) · **12 Major** (M1–M12) · **22 Minor** (m1–m22) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest.
+**1 Critical** (C1) · **14 Major** (M1–M14) · **22 Minor** (m1–m22) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13/M14 fixed 2026-07-03.)
 
 ## Verification addendum (second pass, 2026-07-01)
 

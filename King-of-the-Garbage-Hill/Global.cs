@@ -51,6 +51,27 @@ public sealed class Global : IServiceSingleton
     /// </summary>
     public Action<ulong, int, Exception> SimErrorSink { get; set; }
 
+    /// <summary>
+    /// Null-safe fire-and-forget send to the service/debug channel. No-ops when Discord is
+    /// offline (headless --sim mode) or the guild/channel isn't cached (mid-reconnect) — in both
+    /// cases <c>GetGuild(...)</c> returns null and the old direct call threw a NullReferenceException.
+    /// Callers still record the real error via _logs.Critical / SimErrorSink; this only keeps the
+    /// diagnostic send itself from throwing. See docs/AUDIT-FINDINGS.md M13.
+    /// </summary>
+    public async Task TrySendServiceMessage(string text)
+    {
+        try
+        {
+            var channel = Client?.GetGuild(561282595799826432)?.GetTextChannel(935324189437624340);
+            if (channel != null)
+                await channel.SendMessageAsync(text);
+        }
+        catch
+        {
+            // Discord unavailable — the diagnostic send is best-effort; the caller already logged.
+        }
+    }
+
     public Task InitializeAsync()
     {
         return Task.CompletedTask;

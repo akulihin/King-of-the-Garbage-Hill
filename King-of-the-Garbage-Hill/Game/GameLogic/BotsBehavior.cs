@@ -325,7 +325,7 @@ public class BotsBehavior : IServiceSingleton
             return;
         }
 
-        if (bot.GameCharacter.Name == "Салдорум")
+        if (bot.GameCharacter.Name == "Salldorum")
         {
             await HandleBotMoralForSkill(bot, game);
             return;
@@ -1406,13 +1406,8 @@ public class BotsBehavior : IServiceSingleton
                         if (bot.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1 && x.EnemyId == target.GetPlayerId()))
                             target.AttackPreference = 0;
                         break;
-                    case "Салдорум":
-                        if (bot.Passives.SaldorumKhokholList.MarkedEnemies.Contains(target.GetPlayerId())
-                            || target.Player.GameCharacter.Name is "mylorik" or "Sirinoks")
-                            target.AttackPreference += 5;
-                        if (target.Player.GameCharacter.Name == "mylorik")
-                            target.AttackPreference += 3;
-                        break;
+                    // Dead Khokhol-legacy Salldorum targeting removed (C1) — the live current-kit
+                    // targeting is the "Salldorum" (Chronicler) case further down this switch.
                     case "Napoleon Wonnafcuk":
                         var napBotAlliance = bot.Passives.NapoleonAlliance;
                         if (napBotAlliance.AllyId == Guid.Empty)
@@ -2478,14 +2473,22 @@ public class BotsBehavior : IServiceSingleton
             if (!isAttacked && isBlock == noBlock)
             {
                 var players = allTargets.ToList();
+                if (players.Count == 0)
+                {
+                    // No valid targets left (everyone else dead / round-10 banned) — block instead of
+                    // indexing an empty list. This threw IndexOutOfRange, masked by the Discord NRE
+                    // into a frozen game. Mirrors the block-and-return above. See AUDIT-FINDINGS M14.
+                    await _gameReaction.HandleAttack(bot, null, -10);
+                    ResetTens(allTargets);
+                    return;
+                }
                 whoToAttack = players[_rand.Random(0, players.Count - 1)].Player.Status.GetPlaceAtLeaderBoard();
 
                 if (maxRandomNumber > 0)
-                    await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340)
-                        .SendMessageAsync(
-                            $"**{bot.GameCharacter.Name}** Поставил блок, а ему нельзя. {randomNumber}/{maxRandomNumber} <= {totalPreference}\n" +
-                            $"Round: {game.RoundNo}\n" +
-                            $"Randomly Attacking {allTargets.Find(x => x.Player.Status.GetPlaceAtLeaderBoard() == whoToAttack).Player.GameCharacter.Name}");
+                    await _global.TrySendServiceMessage(
+                        $"**{bot.GameCharacter.Name}** Поставил блок, а ему нельзя. {randomNumber}/{maxRandomNumber} <= {totalPreference}\n" +
+                        $"Round: {game.RoundNo}\n" +
+                        $"Randomly Attacking {allTargets.Find(x => x.Player.Status.GetPlaceAtLeaderBoard() == whoToAttack).Player.GameCharacter.Name}");
 
                 await AttackPlayer(bot, whoToAttack);
             }
@@ -2494,7 +2497,7 @@ public class BotsBehavior : IServiceSingleton
                 var passives = bot.GameCharacter.Passive.Aggregate("(", (current, passive) => current + $"{passive.PassiveName}, ");
                 passives = passives.Remove(passives.Length - 2);
                 passives += ")";
-                await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(
+                await _global.TrySendServiceMessage(
                     $"**{bot.GameCharacter.Name}** {passives} не напал ни на кого.\n" +
                     $"Round: {game.RoundNo}\n");
                 await _gameReaction.HandleAttack(bot, null, -10);
@@ -2538,10 +2541,12 @@ public class BotsBehavior : IServiceSingleton
         }
         catch (Exception e)
         {
-            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340)
-                .SendMessageAsync($"{e.Message}\n{e.StackTrace}");
+            // Log + report to the sim harness FIRST so a genuine exception is never masked by the
+            // diagnostic send (which no-ops when Discord is offline). See docs/AUDIT-FINDINGS.md M13.
             _logs.Critical(e.Message);
             _logs.Critical(e.StackTrace);
+            _global.SimErrorSink?.Invoke(game.GameId, game.RoundNo, e);
+            await _global.TrySendServiceMessage($"{e.Message}\n{e.StackTrace}");
         }
     }
 
@@ -2658,8 +2663,8 @@ public class BotsBehavior : IServiceSingleton
                 else skillNumber = 2;
             }
 
-            // Салдорум — PSY-focused build
-            if (player.GameCharacter.Name == "Салдорум" && psyche < 10) skillNumber = 4;
+            // Salldorum — PSY-focused build
+            if (player.GameCharacter.Name == "Salldorum" && psyche < 10) skillNumber = 4;
 
             // Napoleon — PSY-focused build
             if (player.GameCharacter.Name == "Napoleon Wonnafcuk" && psyche < 10) skillNumber = 4;

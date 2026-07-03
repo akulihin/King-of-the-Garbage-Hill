@@ -37,7 +37,7 @@
 | Protect | Таинственный Суппорт | 1 | 1 | ok |
 | Skill 228 | Загадочный Спартанец в маске, Weedwick | 0 | 1 | ok |
 | Stakes! | Таинственный Суппорт | 1 | 1 | ok |
-| Tilted | Toxic Mate | 1 | 1 | ok |
+| Tilted | Toxic Mate | 1 | 2 | ok |
 | Top Laner | Злой Школьник, Тигр, Загадочный Спартанец в маске | 0 | 1 | ok |
 | Vampyr | Вампур | 1 | 1 | ok |
 | Vampyr Позорный | Вампур | 0 | 1 | ok |
@@ -76,14 +76,14 @@
 | Глаза бога смерти | Кира | 1 | 4 | ok |
 | Го играть | Sirinoks | 0 | 0 | NAME-KEYED (D4) |
 | Гоблины | Стая Гоблинов | 6 | 3 | ok |
-| Гоблины тупые, но не идиоты | Стая Гоблинов | 3 | 1 | ok |
+| Гоблины тупые, но не идиоты | Стая Гоблинов | 3 | 2 | ok |
 | Гребанные ассассины | LeCrisp | 3 | 1 | ok |
 | Дерзкая школота | Злой Школьник | 3 | 2 | ok |
 | Дизмораль | Darksci | 1 | 3 | ok |
 | Доебаться | HardKitty | 3 | 2 | ok |
 | Доминация | Dopa | 1 | 3 | ok |
 | Дракон | Sirinoks | 1 | 4 | ok |
-| Еврей | LeCrisp, Толя | 1 | 4 | ok |
+| Еврей | LeCrisp, Толя | 1 | 5 | ok |
 | Живое Оружие | TheBoys | 0 | 2 | ok |
 | Заводить друзей | Sirinoks | 2 | 2 | ok |
 | Завоеватель | Napoleon Wonnafcuk | 1 | 1 | ok |
@@ -190,6 +190,5 @@
 - BAD-NAME (known, m22): `"Saitama"`
 - BAD-NAME (known, m6): `"Бог ЛоЛа"`
 - BAD-NAME (known, m1): `"Вампур_"`
-- BAD-NAME (known, C1): `"Салдорум"`
 
 _Limitation: `switch` case labels over a Name variable outside CharacterPassives.cs (e.g. BotsBehavior) are not scanned — the Cyrillic `case "Салдорум":` at BotsBehavior.cs:1409 is only caught via its sibling `==` checks._

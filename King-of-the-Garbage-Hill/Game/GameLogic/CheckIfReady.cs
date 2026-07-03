@@ -133,8 +133,8 @@ public class CheckIfReady : IServiceSingleton
                     break;
             }
 
-        // Салдорум end-game corruption count
-        foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Name == "Салдорум"))
+        // Salldorum end-game corruption count
+        foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Name == "Salldorum"))
         {
             if (player.Passives.SaldorumCorruptionCount > 0)
                 player.Status.AddInGamePersonalLogs(
@@ -493,6 +493,24 @@ public class CheckIfReady : IServiceSingleton
             }
         }
 
+        // Стая Гоблинов: a Ziggurat built at place 1 is the round-10 win — the Ziggurat won't let the
+        // Goblins fall from 1st place, so enforce the win here rather than sorting purely by score (finding M1).
+        var goblinZigWinner = game.PlayersList.FirstOrDefault(x =>
+            x.GameCharacter.Name == "Стая Гоблинов" &&
+            !x.Passives.IsDead &&
+            x.Passives.GoblinZiggurat.BuiltPositions.Contains(1));
+        if (goblinZigWinner != null && goblinZigWinner.Status.GetPlaceAtLeaderBoard() != 1)
+        {
+            var topScoreGob = game.PlayersList.First().Status.GetScore();
+            var diffGob = topScoreGob - goblinZigWinner.Status.GetScore() + 1;
+            if (diffGob > 0)
+                goblinZigWinner.Status.AddBonusPoints(diffGob, "Гоблины тупые, но не идиоты");
+            game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+            for (var k = 0; k < game.PlayersList.Count; k++)
+                game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);
+            game.AddGlobalLogs($"Гоблины построили Зиккурат на вершине! {goblinZigWinner.DiscordUsername} побеждает!");
+        }
+
         // Одна из трех: if player with this passive is in top 3, they win
         var top3Player = game.PlayersList.FirstOrDefault(x =>
             x.GameCharacter.Passive.Any(p => p.PassiveName == "Одна из трех") &&
@@ -610,12 +628,18 @@ public class CheckIfReady : IServiceSingleton
 
             account.TotalPlays++;
             if (account.TotalPlays > 10) account.IsNewPlayer = false;
-            account.TotalWins += player.Status.GetPlaceAtLeaderBoard() == 1 ? 1 : (ulong)0;
+
+            // D3: Sakura's "Одна из трех" top-3 win pays FIRST-PLACE stats & rewards while her real place stands
+            // (place/MatchHistory stay by fact; TotalWins/mastery/ZBS/lootbox/character-Wins count as 1st).
+            var sakuraSoftWin = top3Player != null && player.GetPlayerId() == top3Player.GetPlayerId();
+            var rewardPlace = sakuraSoftWin ? 1 : player.Status.GetPlaceAtLeaderBoard();
+
+            account.TotalWins += rewardPlace == 1 ? 1 : (ulong)0;
             account.MatchHistory.Add(new DiscordAccountClass.MatchHistoryClass(player.GameCharacter.Name,
                 player.Status.GetScore(), player.Status.GetPlaceAtLeaderBoard()));
 
             // Character mastery points
-            var masteryPointsToAdd = player.Status.GetPlaceAtLeaderBoard() switch
+            var masteryPointsToAdd = rewardPlace switch
             {
                 1 => 10, 2 => 7, 3 => 5, 4 => 3, 5 => 2, 6 => 1, _ => 0
             };
@@ -630,7 +654,7 @@ public class CheckIfReady : IServiceSingleton
             */
 
             var zbsPointsToGive = 0;
-            switch (player.Status.GetPlaceAtLeaderBoard())
+            switch (rewardPlace)
             {
                 case 1:
                     zbsPointsToGive = 100;
@@ -670,7 +694,7 @@ public class CheckIfReady : IServiceSingleton
             QuestService.TrackGameEnd(account, player, game);
 
             // Loot box for top 2 (alive players only) — deferred to lobby
-            if (player.Status.GetPlaceAtLeaderBoard() <= 2 && !player.Passives.IsDead)
+            if (rewardPlace <= 2 && !player.Passives.IsDead)
             {
                 account.PendingLootBoxes++;
             }
@@ -700,14 +724,14 @@ public class CheckIfReady : IServiceSingleton
             if (characterStatistics == null)
             {
                 var newStat = new DiscordAccountClass.CharacterStatisticsClass(player.GameCharacter.Name,
-                    player.Status.GetPlaceAtLeaderBoard() == 1 ? 1 : (ulong)0);
+                    rewardPlace == 1 ? 1 : (ulong)0);
                 newStat.LastPlayedAt = DateTime.UtcNow;
                 account.CharacterStatistics.Add(newStat);
             }
             else
             {
                 characterStatistics.Plays++;
-                characterStatistics.Wins += player.Status.GetPlaceAtLeaderBoard() == 1 ? 1 : (ulong)0;
+                characterStatistics.Wins += rewardPlace == 1 ? 1 : (ulong)0;
                 characterStatistics.LastPlayedAt = DateTime.UtcNow;
             }
 
@@ -827,7 +851,7 @@ public class CheckIfReady : IServiceSingleton
                 index++;
             }
 
-            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(text);
+            await _global.TrySendServiceMessage(text);
         }
 
         //elo winrate
@@ -846,7 +870,7 @@ public class CheckIfReady : IServiceSingleton
             }
 
             text += "**--------------------------------------------------------------------**";
-            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(text);
+            await _global.TrySendServiceMessage(text);
         }
         //elo winrate end
 
@@ -865,7 +889,7 @@ public class CheckIfReady : IServiceSingleton
             }
 
             text += "**--------------------------------------------------------------------**";
-            await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340).SendMessageAsync(text);
+            await _global.TrySendServiceMessage(text);
         }
         //elo elo+top winrate
 
@@ -1191,6 +1215,8 @@ public class CheckIfReady : IServiceSingleton
                     foreach (var victim in players.Where(p =>
                                  p.GetPlayerId() != sallo.GetPlayerId() &&
                                  !p.Passives.IsDead &&
+                                 // Round-10-banned Тигр stays banned — mirror Монстр's carve-out (finding M11)
+                                 !(game.RoundNo == 10 && p.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят")) &&
                                  p.Status.GetPlaceAtLeaderBoard() > shenPos))
                     {
                         if (!victim.Status.WhoToAttackThisTurn.Contains(sallo.GetPlayerId()))
@@ -1225,6 +1251,8 @@ public class CheckIfReady : IServiceSingleton
                         p.GetPlayerId() != taunter.GetPlayerId() &&
                         // Exclude dead players
                         !p.Passives.IsDead &&
+                        // Round-10-banned Тигр stays banned — mirror Монстр's carve-out (finding M11)
+                        !(game.RoundNo == 10 && p.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят")) &&
                         // Immunity: Котики immune to transferred Storm taunts
                         !(p.GameCharacter.Passive.Any(x => x.PassiveName == "Кошачья засада") && !isOriginalKotiki) &&
                         // Original Котики: once per enemy per game
@@ -1258,8 +1286,9 @@ public class CheckIfReady : IServiceSingleton
                     t.Status.IsReady = true;
                     var text =
                         $"\nCRIT: round #{game.RoundNo} | {t.DiscordUsername} ({t.GameCharacter.Name}) didn't do anything and auto move didn't as well.!\n";
-                    await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340)
-                        .SendMessageAsync(text);
+                    // Route through the null-safe helper: a throw here used to abort round resolution
+                    // (before game.IsCheckIfReady=true) and freeze the game in headless sim. See M13.
+                    await _global.TrySendServiceMessage(text);
                     _logs.Critical(text);
                 }
 

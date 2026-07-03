@@ -12,8 +12,12 @@
 #   bash tools/sweep.sh 20000          # 20 000 games, 1 000 per batch
 #   bash tools/sweep.sh 20000 500      # 20 000 games, 500 per batch
 #
-# Smoke mode only (natural tier-skewed bot roll — the bot-meta population; winrates for
-# characters outside it would be noise anyway).
+# Smoke roll (natural tier-skewed bot-meta population) PLUS coverage line-ups so every rollable
+# non-team character appears — each batch runs --coverage ${KOTGH_SWEEP_COVERAGE:-1} (set =0 for the
+# old smoke-only sweep). Bots skip Tier<4 except Кира, so smoke alone only covers ~22 of 36; coverage
+# fills in the rest. NOTE: coverage games are forced line-ups, not the natural meta — the merged
+# winrate table reads as bot-meta for Tier≥4 and as forced-matchup "does it run / rough signal" for
+# the Tier<4 characters. Raise KOTGH_SWEEP_COVERAGE for a larger low-tier sample.
 # Output: King-of-the-Garbage-Hill/DataBase/Simulations/sweep-<timestamp>/
 #         batch-*.json + merged.json + sweep.log (gitignored).
 # Exit: 0 = all batches clean; 1 = errors and/or stuck games somewhere (see merged.json);
@@ -64,6 +68,7 @@ for i in $(seq 1 "$BATCHES"); do
 
     printf '[sweep] batch %d/%d (%d games)… ' "$i" "$BATCHES" "$n"
     KOTGH_SIM_NO_BUILD=1 bash tools/simulate.sh --games "$n" --timeout-min 30 \
+        --coverage "${KOTGH_SWEEP_COVERAGE:-1}" \
         --report "$SWEEP_REL/batch-$(printf '%03d' "$i").json" >> "$SWEEP_ABS/sweep.log" 2>&1
     rc=$?
 
