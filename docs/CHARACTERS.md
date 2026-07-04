@@ -206,7 +206,7 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 
 ## Толя — Tier 6, Int 8 / Str 6 / Speed 2 / Psyche 2
 
-- **Еврей** — same as LeCrisp's (shared passive); ⚠ web widget shows LeCrisp state (finding M2).
+- **Еврей** — same as LeCrisp's (shared passive); the web PROFIT/Jew widget is LeCrisp-only, so Толя no longer shows a dead LeCrisp-state widget (M2 fixed).
 - **Раммус мейн** — attackers into his block auto-lose (armor-break so the fight still happens) (`CP:506-515`); end of round: +1 next-round Justice + Мораль = attackers² (`CP:3659-3696`); his block-win doesn't reset Justice (`DoomsdayMachine.cs:938-940`).
 - **Подсчет** — attack marks the target (initial cd 2–3; after use cd 4–5 — description's "2–3" counts from the **end** of the effect, so no bug; m8, ОК): next round each of the target's losses pays Толя +2 regular +2 next-round Justice (`CP:2380-2394`), and the target's round multiplier is forced to ×1 (`InGameStatusClass.cs:257-278`, also disables Rick's portal ×2).
 - **Великий Комментатор** — rounds 3–6, 20%/round (max 2): leaks a random player's character to the global log and auto-fills everyone's predictions (Монстр immune; Rick prioritized) (`CP:3595-3657`).

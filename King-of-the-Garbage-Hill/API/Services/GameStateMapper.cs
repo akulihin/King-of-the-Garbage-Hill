@@ -360,8 +360,14 @@ public static class GameStateMapper
                         anySet = true;
                         break;
                     case "Еврей":
-                        pas.Jew = new JewStateDto { StolenPsyche = player.Passives.LeCrispAssassins.AdditionalPsycheCurrent };
-                        anySet = true;
+                        // M2: the PROFIT widget is fed from LeCrisp-only assassin state; Толя shares
+                        // the "Еврей" passive but has no such state, so gate to LeCrisp (mirrors the
+                        // Геральт Name gate below) — otherwise Толя sees a dead "PROFIT: 0" widget.
+                        if (player.GameCharacter.Name == "LeCrisp")
+                        {
+                            pas.Jew = new JewStateDto { StolenPsyche = player.Passives.LeCrispAssassins.AdditionalPsycheCurrent };
+                            anySet = true;
+                        }
                         break;
                     case "Одиночество":
                         var hist = player.Passives.HardKittyLoneliness.AttackHistory;

@@ -29,6 +29,7 @@
 ### M2. "Еврей" web widget renders for Толя with LeCrisp's state
 - `GameStateMapper.cs:362-365` keys the widget on passive "Еврей" (both LeCrisp and Толя have it) but fills it from `LeCrispAssassins.AdditionalPsycheCurrent` — LeCrisp-only state. A Толя player sees a dead widget with stolen-psyche 0.
 - **Fix direction**: gate on `Name == "LeCrisp"` (pattern: the Геральт case at `:686`).
+- **Fixed:** 2026-07-03 — gated the mapper's Еврей case on `player.GameCharacter.Name == "LeCrisp"` (`GameStateMapper.cs:362`, mirroring the Геральт Name gate at `:686`), so the Jew/PROFIT widget is emitted only for LeCrisp; Толя (shares the passive but has no LeCrisp assassin state) no longer gets a dead PROFIT:0 widget. Frontend unchanged — the widget block (`PlayerCard.vue:1180`) renders only when its jew key is present, now undefined for Толя. (The value shown is LeCrisp's assassin-psyche gain, the intended PROFIT display.)
 
 ### M3. AWDKA is silently forced to last place for every fight calculation
 - `CheckIfReady.cs:1112-1127`: right before bots act (and before all fights), the "Произошел троллинг" holder is moved to the end of `PlayersList` and places re-assigned (comment `//end //AWDKA last`). Score order returns only at end of round.
