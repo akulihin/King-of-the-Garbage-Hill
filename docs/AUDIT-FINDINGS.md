@@ -143,6 +143,16 @@
 - `GameUpdateMess.cs:720`: Saitama's leaderboard view should mark the current #1 as "👑 King", but the check is `Name == "Saitama"` while the character is named "Сайтама" — never renders. Same bug family as C1/m1. *(Found by `tools/audit-passives.sh` on its first run.)*
 - **Fixed:** 2026-07-03 (pre-approved string bug) — `Name == "Saitama"` → `"Сайтама"` (`GameUpdateMess.cs:720`); removed `BAD-NAME|Saitama|m22` from `tools/known-warnings.txt` (audit re-run: no reappearance).
 
+### m23. Dopa's `dopa-attack-select` menu is dead UI — selections silently ignored
+- `GetDopaMenu` builds the second-action select with custom-id `dopa-attack-select` (`GameUpdateMess.cs:1391-1438`) and it is attached for the "Dopa" passive in the game-buttons builder (`GameUpdateMess.cs:1659-1661`), but the component dispatch switch (`GameReactions.cs:157` through `GameReactions.cs:417-421`) has **no case for it** — a click defers and nothing happens.
+- The working Макро second action flows through the regular attack/block handlers instead (`GameReactions.cs:730-737`, `GameReactions.cs:329-352`), so the menu is pure decoration that looks interactive. *(Found 2026-07-04 during the interface-docs audit; docs/DISCORD-INTERFACE.md §5.)*
+- **Fix direction**: delete `GetDopaMenu` + its attach (Макро already works via `attack-select` and `block`), or route the custom-id into `HandleAttack`.
+
+### m24. ARAM pick phase has no web UI (hub methods exist, screen doesn't)
+- The backend and contract fully support web ARAM picks: `AramReroll`/`AramConfirm` on the hub (`GameHub.cs:332-352`) and REST (`GameController.cs:159-177`), `isAramPickPhase` + reroll counters serialized (`GameStateMapper.cs:945-963`), store wrappers wired (`game.ts:439-447`) — but **no Vue component calls them**; Game.vue's phase branches cover only the Draft overlay.
+- During an ARAM game a web-preferring player sees only the waiting screen and must reroll/confirm from the Discord ARAM page (`GameUpdateMess.cs:1672-1696`). *(Found 2026-07-04 during the interface-docs audit; docs/WEB-CLIENT.md §13.)*
+- **Fix direction**: an ARAM overlay in Game.vue mirroring the draft overlay (buttons → the store's `aramReroll` slots 1-5 / `aramConfirm`), or suppress the web-link DM during ARAM picks.
+
 ### m21. `SecureRandom` is not secure (naming hazard)
 - `Helpers/SecureRandom.cs:25-45`: the crypto implementation is commented out; the service is a plain `System.Random` wrapper. Fine for a game, but the name misleads — and `PassivesClass` carries a private copy that *does* use `RandomNumberGenerator` (`PassivesClass.cs:281-300`), so trigger schedules are crypto-random while combat rolls aren't. Unify or rename.
 

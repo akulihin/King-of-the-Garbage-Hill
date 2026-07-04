@@ -14,7 +14,7 @@ if printf '%s' "$payload" | jq -e '.stop_hook_active == true' >/dev/null 2>&1; t
 fi
 
 changed=$(git status --porcelain 2>/dev/null | awk '{print $2}')
-game_changed=$(printf '%s\n' "$changed" | grep -E '^(King-of-the-Garbage-Hill/(Game|API)/|Web/VueClient/src/)' || true)
+game_changed=$(printf '%s\n' "$changed" | grep -E '^(King-of-the-Garbage-Hill/(Game|API|GeneralCommands|DiscordFramework|Helpers|LocalPersistentData)/|King-of-the-Garbage-Hill/(Program|Global|Config)\.cs|Web/VueClient/src/)' || true)
 # generated files and commit messages don't count as a docs update
 docs_changed=$(printf '%s\n' "$changed" | grep -E '^(docs/|CLAUDE\.md|tools/)' \
   | grep -vE '^docs/(commit-messages/|PASSIVE-MAP\.md)' || true)

@@ -16,8 +16,11 @@ The codebase is ~19k lines of game logic; do **not** try to load it into context
 | Touching code structure, hooks, state model, web plumbing | `docs/ARCHITECTURE.md` (§3 hook order, §7 the 14-file per-character pattern) |
 | Changing/creating a character, widget or skill | `docs/CHARACTERS.md` (per-passive actual behavior) + `docs/ARCHITECTURE.md` §7 + `docs/INTERACTION-MATRIX.md` (add your row to every applicable table) |
 | Balancing numbers | `docs/BALANCE-CONSTANTS.md` (every tunable with anchor) |
+| Touching the web API, SignalR hub, DTOs/state mapping, push, web auth, replays, mini-game services | `docs/WEB-BACKEND.md` (endpoint/hub/event catalogs, hidden-info rules, WebGameService bridge) |
+| Touching the Vue client (pages, stores, SignalR client, components, widget UI, sounds, themes) | `docs/WEB-CLIENT.md` (routes, stores, GameState TS contract, widget inventory) |
+| Touching Discord commands or the in-game Discord UI (buttons/selects, DM messages, lobby flow) | `docs/DISCORD-INTERFACE.md` (command + custom-id catalogs, dispatch/round flow, privacy) |
 | Checking name/passive wiring | run `bash tools/audit-passives.sh` (regenerates `docs/PASSIVE-MAP.md`; new ORPHAN/GHOST/BAD-NAME = you broke a string) |
-| Fixing any bug — by finding ID **or** free-form report | invoke the **`/fix-finding`** skill — it triages against `docs/AUDIT-FINDINGS.md` (known issues C1/M1-M12/m1-m22/D1-D11) and the designer verdicts in `docs/DESIGNER-REVIEW.md`, catalogues new bugs itself, and enforces the whole contract |
+| Fixing any bug — by finding ID **or** free-form report | invoke the **`/fix-finding`** skill — it triages against `docs/AUDIT-FINDINGS.md` (known issues C1/M1-M16/m1-m24/D1-D11) and the designer verdicts in `docs/DESIGNER-REVIEW.md`, catalogues new bugs itself, and enforces the whole contract |
 | Adding a character / brand-new passive / widget | invoke the **`/new-character`** skill |
 | Changing how an existing passive works (rework per intent notes) | invoke the **`/rework-passive`** skill |
 | Changing a tunable number (buff/nerf) | invoke the **`/balance`** skill |
@@ -34,8 +37,9 @@ Every change-set that touches gameplay MUST update the docs in the same change:
 2. Any tunable number change → update the row in `docs/BALANCE-CONSTANTS.md`.
 3. Any name/passive/string change → `bash tools/audit-passives.sh` and commit the regenerated `docs/PASSIVE-MAP.md`; new warnings must be fixed or added to `tools/known-warnings.txt` with a finding ID.
 4. System-level change (fight math, pipeline, plumbing) → update `docs/GAME-DESIGN.md` / `docs/ARCHITECTURE.md`.
-5. Fixed a finding → mark it in `docs/AUDIT-FINDINGS.md` (don't delete; note the fix) and remove its line from `tools/known-warnings.txt`.
-6. New bug discovered → add a finding with the next free ID.
+5. Interface change → update the matching interface doc: web API/hub/DTO/mapper/push → `docs/WEB-BACKEND.md`; Vue client → `docs/WEB-CLIENT.md`; Discord commands/in-game UI → `docs/DISCORD-INTERFACE.md`. (New docs must also be added to the scan list + `resolve()` map in `tools/verify-docs.sh`.)
+6. Fixed a finding → mark it in `docs/AUDIT-FINDINGS.md` (don't delete; note the fix) and remove its line from `tools/known-warnings.txt`.
+7. New bug discovered → add a finding with the next free ID.
 
 Docs drift is a bug. The audit files exist so changes can be made *and verified* without re-reading the codebase.
 

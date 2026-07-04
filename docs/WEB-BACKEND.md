@@ -1,6 +1,6 @@
 # King of the Garbage Hill — Web Backend (API, SignalR, push, auth)
 
-> Code-verified against the working tree of 2026-07-02 (v4.1.8). Companion docs: [ARCHITECTURE.md](ARCHITECTURE.md) (§1 process topology, §6 state→screen), [WEB-CLIENT.md](WEB-CLIENT.md) (the Vue SPA consuming this surface), [DISCORD-INTERFACE.md](DISCORD-INTERFACE.md) (the other frontend). This doc is the deep catalog of the ASP.NET Core surface: every endpoint, hub method, pushed event, and visibility rule.
+> Code-verified against the working tree of 2026-07-04 (v4.1.8). Companion docs: [ARCHITECTURE.md](ARCHITECTURE.md) (§1 process topology, §6 state→screen), [WEB-CLIENT.md](WEB-CLIENT.md) (the Vue SPA consuming this surface), [DISCORD-INTERFACE.md](DISCORD-INTERFACE.md) (the other frontend). This doc is the deep catalog of the ASP.NET Core surface: every endpoint, hub method, pushed event, and visibility rule.
 
 ## 1. Startup & topology
 
@@ -11,7 +11,7 @@ Process topology is in ARCHITECTURE.md §1; the web half in one paragraph: `Star
 - Middleware order (`Program.cs:152-196`): `UseDefaultFiles` → `UseStaticFiles` (wwwroot = built Vue SPA, `Program.cs:155-156`) → static `/art` from DataBase/art (`Program.cs:159-168`) → static `/sound` from DataBase/sound (`Program.cs:174-187`) → `UseRouting` → `UseCors` (`Program.cs:189-190`) → `MapControllers` (`Program.cs:192`) → `MapHub` at /gamehub (`Program.cs:193`) → SPA fallback `MapFallbackToFile` to `index.html` (`Program.cs:196`) — this fallback is what makes the client's history-mode routes work on refresh.
 - Port: `KOTGH_PORT` env var, default 80, binds 0.0.0.0 (`Program.cs:198-200`). The env var is read **only** here; Config holds only `Token` and `AnthropicApiKey` (`Config.cs:9-28`, loaded from DataBase/config.json at `Config.cs:16`).
 - In `--sim` mode neither Discord nor Kestrel starts (`Program.cs:61-66`); anything that needs a hub context (story push, notifications) simply never runs headless.
-- Global web-relevant surface: `GamesList` (`Global.cs:17`), `FinishedGamesList` (`Global.cs:35`), and three callbacks — `OnGameFinished` (`Global.cs:41`) and `OnReplaySave` (`Global.cs:46`) registered by GameNotificationService, `SimErrorSink` for the sim harness (`Global.cs:52`). Game IDs are sequential via `GetNewtGamePlayingAndId` (`Global.cs:71-75`, note the "Newt" typo — it's load-bearing API).
+- Global web-relevant surface: `GamesList` (`Global.cs:17`), `FinishedGamesList` (`Global.cs:35`), and three callbacks — `OnGameFinished` (`Global.cs:41`) and `OnReplaySave` (`Global.cs:46`) registered by GameNotificationService, `SimErrorSink` for the sim harness (`Global.cs:52`). Game IDs are sequential via `GetNewtGamePlayingAndId` (`Global.cs:92-96`, note the "Newt" typo — it's load-bearing API).
 
 ## 2. Identity & auth — the trust model (Доверие)
 
@@ -129,29 +129,29 @@ Visibility rules (the exact reason the web can't leak hidden info):
 
 | Data | Rule | Anchor |
 |---|---|---|
-| Opponent character | non-admin, unfinished → name "???", unknown-avatar, stats −1 sentinels, skill/moral "?", empty passives | `GameStateMapper.cs:836-861` |
-| Own/admin/finished character | real stats + resists and quality-bonus texts (own only) | `GameStateMapper.cs:863-893` |
-| Passive list | owner sees all; other viewers only `Visible` ones (reachable for admin/finished viewers) | `GameStateMapper.cs:896-907` |
-| Score | −1 unless isMe/admin/finished (`canSeeScore`); `Place` always visible | `GameStateMapper.cs:916` `GameStateMapper.cs:931-932` |
-| Personal logs, `ScoreSource`, `LvlUpPoints`, `MoveListPage`, `DirectMessages` (from `WebMessages`), `MediaMessages`, ARAM reroll counters | isMe-gated | `GameStateMapper.cs:939-957` |
-| `ScoreBreakdown` (multipliers + per-source entries) | isMe/admin/finished | `GameStateMapper.cs:961-974` |
+| Opponent character | non-admin, unfinished → name "???", unknown-avatar, stats −1 sentinels, skill/moral "?", empty passives | `GameStateMapper.cs:842-867` |
+| Own/admin/finished character | real stats + resists and quality-bonus texts (own only) | `GameStateMapper.cs:869-899` |
+| Passive list | owner sees all; other viewers only `Visible` ones (reachable for admin/finished viewers) | `GameStateMapper.cs:902-913` |
+| Score | −1 unless isMe/admin/finished (`canSeeScore`); `Place` always visible | `GameStateMapper.cs:922` `GameStateMapper.cs:937-938` |
+| Personal logs, `ScoreSource`, `LvlUpPoints`, `MoveListPage`, `DirectMessages` (from `WebMessages`), `MediaMessages`, ARAM reroll counters | isMe-gated | `GameStateMapper.cs:945-963` |
+| `ScoreBreakdown` (multipliers + per-source entries) | isMe/admin/finished | `GameStateMapper.cs:967-980` |
 | Predictions | owner always; **everyone at game end** with correctness + actual character/avatar | `GameStateMapper.cs:209-234` |
 | `DeathNote` / `PortalGun` / `ExploitState` / `TsukuyomiState`, Darksci/Gleb/Dopa choice flags | isMe-gated blocks on the player DTO | `GameStateMapper.cs:236-330` |
 | Баг viewer | sees `IsExploitable` / `IsExploitFixed` markers on every player | `GameStateMapper.cs:133-134` `GameStateMapper.cs:333-337` |
 | Widget states (`PassiveAbilityStates`) | entire per-passive switch runs only for isMe; keyed on `PassiveName` | `GameStateMapper.cs:340-347` |
-| Marks on me (`SellerMark`, TheBoys sup/virus/moral-block, cancer, cat, Johan pawn, Geralt monster type) | mapped after the switch **onto the affected player's own card** | `GameStateMapper.cs:742-830` |
-| Global logs | admin raw; others get `StripHiddenLogs` (removes `HiddenGlobalLogSnippets`; additionally strips Kira-related snippets for viewers with passive "Гений") | `GameStateMapper.cs:116-117` `GameStateMapper.cs:1112-1132` |
-| Fight log | hidden-from-non-admin entries filtered out; non-participants get `ScopeFightEntry` — outcome/participants/drops kept, every numeric zeroed, `TotalPointsWon` reduced to sign | `GameStateMapper.cs:127-131` `GameStateMapper.cs:1045-1108` |
-| Full chronicle (Летопись) | built only when finished; usernames replaced by character names | `GameStateMapper.cs:155-158` `GameStateMapper.cs:1139-1186` |
+| Marks on me (`SellerMark`, TheBoys sup/virus/moral-block, cancer, cat, Johan pawn, Geralt monster type) | mapped after the switch **onto the affected player's own card** | `GameStateMapper.cs:748-836` |
+| Global logs | admin raw; others get `StripHiddenLogs` (removes `HiddenGlobalLogSnippets`; additionally strips Kira-related snippets for viewers with passive "Гений") | `GameStateMapper.cs:116-117` `GameStateMapper.cs:1118-1138` |
+| Fight log | hidden-from-non-admin entries filtered out; non-participants get `ScopeFightEntry` — outcome/participants/drops kept, every numeric zeroed, `TotalPointsWon` reduced to sign | `GameStateMapper.cs:127-131` `GameStateMapper.cs:1051-1114` |
+| Full chronicle (Летопись) | built only when finished; usernames replaced by character names | `GameStateMapper.cs:155-158` `GameStateMapper.cs:1145-1192` |
 | Newly unlocked achievements | requesting player only, finished games | `GameStateMapper.cs:161-186` |
 
-Draft options are serialized only for the requesting player during the draft phase; first option cost 0, others 5 (`GameStateMapper.cs:94-114`). Avatars are rewritten to local /art/avatars when the file exists (`GetLocalAvatarUrl`, `GameStateMapper.cs:992-1013`). The character catalog for prediction dropdowns loads once from characters.json, excluding negative tiers and "Выдуманный персонаж" (`GameStateMapper.cs:49-68`).
+Draft options are serialized only for the requesting player during the draft phase; first option cost 0, others 5 (`GameStateMapper.cs:94-114`). Avatars are rewritten to local /art/avatars when the file exists (`GetLocalAvatarUrl`, `GameStateMapper.cs:998-1019`). The character catalog for prediction dropdowns loads once from characters.json, excluding negative tiers and "Выдуманный персонаж" (`GameStateMapper.cs:49-68`).
 
 After mapping, `PopulateCustomLeaderboard` adds the per-viewer leaderboard annotations: the same `CustomLeaderBoardAfterPlayer` / `CustomLeaderBoardBeforeNumber` strings the Discord leaderboard renders, converted from Discord markdown/emoji to HTML, plus the `IsInMyHarmRange` flag from speed-quality range vs place distance (`WebGameService.cs:167-198`; emoji map `WebGameService.cs:99-137`; `ConvertDiscordToWeb` `WebGameService.cs:140-161`). Both REST (`WebGameService.cs:86`) and SignalR (`GameNotificationService.cs:169` `GameNotificationService.cs:189`) run it.
 
 ## 8. `WebGameService` — the bridge into game logic
 
-Web actions operate on the **same objects and mostly the same handlers as Discord buttons** (`WebGameService.cs:18-24`). Pattern: `FindGameAndPlayer` (`WebGameService.cs:381-386`), validate, then mutate or delegate. `CanAct` = not ready and not skipping (`WebGameService.cs:1063-1066`).
+Web actions operate on the **same objects and mostly the same handlers as Discord buttons** (`WebGameService.cs:18-24`). Pattern: `FindGameAndPlayer` (`WebGameService.cs:381-386`), validate, then mutate or delegate. `CanAct` = not ready and not skipping (`WebGameService.cs:1072-1075`).
 
 | Web action | Path into game logic | Anchor |
 |---|---|---|
@@ -168,9 +168,9 @@ Web actions operate on the **same objects and mostly the same handlers as Discor
 | DeathNoteWrite / ShinigamiEyes | direct Kira state writes (once per round; eyes cost 25 moral) | `WebGameService.cs:719-764` |
 | DarksciChoice / DopaChoice / YoungGleb | Darksci direct; Dopa validates the tactic (Стомп, Фарм, Доминация, Роум) then `ApplyDopaChoice`; Gleb transform copies the "Молодой Глеб" character sheet in place | `WebGameService.cs:768-846` |
 | FinishGame | `EndGame` (bot substitution — same as the Discord Завершить Игру button) | `WebGameService.cs:853-862` |
-| ActivateShen / DeactivateShen / RewriteHistory | direct Salldorum state writes (rewrite steals 1 point per round-loser, +2 psyche, +2 buffered justice, cola time-travel pickup) | `WebGameService.cs:866-967` |
+| ActivateShen / DeactivateShen / RewriteHistory | direct Salldorum state writes (rewrite steals 1 point per round-loser, +2 psyche, +2 buffered justice, cola time-travel pickup) | `WebGameService.cs:866-976` |
 
-**Game creation** (`CreateGame`, `WebGameService.cs:206-273`): rolls a full 6-bot game via `HandleCharacterRoll` in bot mode (`WebGameService.cs:217`), replaces the first bot with the creator (web flags on, `WebGameService.cs:224-233`), creates the `GameClass` + one Nanobot (`WebGameService.cs:236-239`), then either enters the **draft phase** (`EnableDraftPick` const true, `WebGameService.cs:28`): natural roll + 2 paid alternatives via `RollDraftOptions`, bots auto-confirmed (`WebGameService.cs:241-256`) — or, with the const off, runs `HandleEventsBeforeFirstRound` / `HandleNextRound` / `HandleBotPredict` immediately (`WebGameService.cs:258-270`). Either way the CheckIfReady 100 ms timer drives the game from here (ARCHITECTURE.md §1). `JoinWebGame` replaces any live bot in an unfinished game (`WebGameService.cs:278-311`). `DraftSelect` validates ownership/duplicates, charges 5 `ZbsPoints` for non-first options, and swaps the player's bridge for a fresh one with the chosen character (`WebGameService.cs:315-372`). `CreateTestGame` = `CreateGame` + forced character, swapping characters with a conflicting bot if needed (`WebGameService.cs:984-1059`).
+**Game creation** (`CreateGame`, `WebGameService.cs:206-273`): rolls a full 6-bot game via `HandleCharacterRoll` in bot mode (`WebGameService.cs:217`), replaces the first bot with the creator (web flags on, `WebGameService.cs:224-233`), creates the `GameClass` + one Nanobot (`WebGameService.cs:236-239`), then either enters the **draft phase** (`EnableDraftPick` const true, `WebGameService.cs:28`): natural roll + 2 paid alternatives via `RollDraftOptions`, bots auto-confirmed (`WebGameService.cs:241-256`) — or, with the const off, runs `HandleEventsBeforeFirstRound` / `HandleNextRound` / `HandleBotPredict` immediately (`WebGameService.cs:258-270`). Either way the CheckIfReady 100 ms timer drives the game from here (ARCHITECTURE.md §1). `JoinWebGame` replaces any live bot in an unfinished game (`WebGameService.cs:278-311`). `DraftSelect` validates ownership/duplicates, charges 5 `ZbsPoints` for non-first options, and swaps the player's bridge for a fresh one with the chosen character (`WebGameService.cs:315-372`). `CreateTestGame` = `CreateGame` + forced character, swapping characters with a conflicting bot if needed (`WebGameService.cs:993-1068`).
 
 ## 9. Replays
 
