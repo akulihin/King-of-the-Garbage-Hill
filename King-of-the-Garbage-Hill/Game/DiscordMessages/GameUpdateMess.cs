@@ -1218,7 +1218,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         }
 
         var text2 = "__Подними один из статов на 1:__";
-        if (player.GameCharacter.Name == "Молодой Глеб") text2 = "**Понизить** один из статов на 1!";
+        // m3: a transformed Молодой Глеб keeps Name == "Глеб" but carries the "Main Ирелия" passive
+        // (the same marker the level-up nerf uses) — key the caption off it so it matches the effect.
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия")) text2 = "**Понизить** один из статов на 1!";
         embed.WithColor(Color.Blue);
         embed.WithFooter($"{GetTimeLeft(player)}");
         //embed.WithCurrentTimestamp();

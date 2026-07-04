@@ -431,6 +431,11 @@ public class CheckIfReady : IServiceSingleton
                         _ => ""
                     };
 
+                    // m3: a transformed Молодой Глеб keeps Name == "Глеб" (+ the "Main Ирелия" passive);
+                    // give it the young-form troll line instead of the sleeping-Gleb one.
+                    if (tolled!.GameCharacter.Name == "Глеб" && tolled.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
+                        trolledText = "Молодой Глеб Затроллился, но хотя бы не уснул";
+
                     var bonusTrolling = 0;
 
                     foreach (var predict in awdka.Predict)

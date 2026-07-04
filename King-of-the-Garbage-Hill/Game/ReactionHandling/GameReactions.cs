@@ -255,6 +255,9 @@ public sealed class GameReaction : IServiceSingleton
 
                     case "yong-gleb":
                         var character = _charactersPull.GetAllCharactersNoFilter().First(x => x.Name == "Молодой Глеб");
+                        // Name deliberately stays "Глеб" — prediction, bot AI, Geralt flavor and the roll/
+                        // predict lists all key on it. The young form is identified by the "Main Ирелия"
+                        // passive instead (see m3). Do NOT uncomment this without repointing those checks.
                         //player.GameCharacter.Name = character.Name;
                         player.GameCharacter.Passive = new List<Passive>();
                         player.GameCharacter.Passive = character.Passive;
@@ -1121,8 +1124,10 @@ public sealed class GameReaction : IServiceSingleton
                     player.Status.AddInGamePersonalLogs($"Вы улучшили Психику до {player.GameCharacter.GetPsyche()}\n");
                 }
 
-                // Gleb — psyche reaches 10
+                // Gleb — psyche reaches 10 (only the un-transformed sleeping Gleb; a transformed
+                // Молодой Глеб keeps Name == "Глеб" but carries the "Main Ирелия" passive — m3)
                 if (player.GameCharacter.Name == "Глеб"
+                    && !player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия")
                     && player.GameCharacter.GetPsyche() >= 10
                     && game != null)
                 {

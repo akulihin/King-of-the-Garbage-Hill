@@ -195,7 +195,7 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 - **Претендент русского сервера** — scheduled as many times as sleeps (rounds 3–10, never on a sleep round); extra round-10 pity roll when below place 2 (chance 1/(40−place×4)) (`CP:5185-5228`): stats →9, +99 Skill, Мишень gains ×3; that round's regular points ×3; everything restored next round (−99 Skill) (`CP:3516-3547`).
 - **Я щас приду** — 1-in-9 chance per defense to no-show (fight cancelled, attacker remembered) (`CP:458-483`); if the remembered attacker later fights him for real: +9 Мораль to them, once each (`CP:793-805`).
 - **Я за чаем** — readiness rolls 1/8 per round (1/7 on challenger rounds, 1/4 with Rick in game, guaranteed by round 9) (`CP:5121-5147`); spending it on an attack: +1 regular, the target force-skips next round (`CP:1196-1207`) — unless they hold a charged Portal Gun (`CP:5764-5775`).
-- **Yong Gleb** — round-1 button/web action replaces passives/stats/avatar with Молодой Глеб (+30 Skill consolation, sleep cleared); ⚠ keeps `Name == "Глеб"` (finding m3).
+- **Yong Gleb** — round-1 button/web action replaces passives/stats/avatar with Молодой Глеб (+30 Skill consolation, sleep cleared); **keeps `Name == "Глеб"` by design** (prediction, bot AI, Geralt flavor and the roll/predict lists all key on it). The young form is identified by its `Main Ирелия` passive — the level-up caption (`GameUpdateMess.cs:1221`), AWDKA-troll line (`CheckIfReady.cs:427`) and the sleeping-Gleb psyche-10 phrase (`GameReactions.cs:1125`) now key on that passive, not the Name (m3 fixed).
 
 ## LeCrisp — Tier 6, Int 5 / Str 4 / Speed 5 / Psyche 8
 
@@ -294,7 +294,7 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 - **Коммуникация** — round 6 attack: pink-wards the target for everyone (global log + auto-predictions; Монстр immune) (`CP:1034-1057`).
 - **Следит за игрой** — each round the meta marks **up to 3 targets**, chosen by a bot-style preference formula (justice gaps, places, last round's outcomes, Мишень/nemesis fit) (`CP:4721-4761`, `YongGlebMetaClass`); attacking any of them (or blocking while marked himself): +1 bonus (`CP:1023-1032, 392-401`).
 - **Спокойствие** — immune to Мораль loss (`CharacterClass.cs:1156-1160`) and psyche loss (`MinusPsycheLog` guard); tea action (cd 3): +1 regular, target force-skips next round (`CP:1209-1221, 6086-6095`).
-- ⚠ Never rolls naturally — Tier −2 is excluded from the roll pool by `CharactersPull.GetRollableCharacters` (Tier ≥ −1 filter, `CharactersPull.cs:43-50`); exists via Глеб's transform which keeps `Name == "Глеб"` (m3).
+- Never rolls naturally — Tier −2 is excluded from the roll pool by `CharactersPull.GetRollableCharacters` (Tier ≥ −1 filter, `CharactersPull.cs:43-50`); exists via Глеб's transform, which keeps `Name == "Глеб"` by design — the young form is detected by the `Main Ирелия` passive (m3 fixed).
 
 ## Sakura — Tier −1 (secret, rollable), Int 6 / Str 10 / Speed 6 / Psyche 10
 

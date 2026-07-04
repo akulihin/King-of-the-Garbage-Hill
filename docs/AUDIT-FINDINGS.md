@@ -83,9 +83,11 @@
 
 ### m3. Young Gleb transform keeps `Name == "Глеб"` → three misfiring Name checks
 - Transform (`GameReactions.cs:256-268`) deliberately doesn't set the name (mylorik's Акула transform at `CP:6097-6104` *does*). Consequences: `GameUpdateMess.cs:1221` "Понизить один из статов" caption never shows post-transform; `CheckIfReady.cs:427` AWDKA-trolling flavor for Молодой Глеб unreachable; `GameReactions.cs:1125` old-Gleb psyche-10 phrase can fire for the transformed character. (`GameStateMapper.cs:292` / `GameUpdateMess.cs:1651` guards are harmlessly always-true.)
+- **Fixed:** 2026-07-03 — kept the deliberate design (the transform leaves Name as Глеб so prediction, bot AI and Geralt logic keep matching) and repointed the three cosmetic sites to the young form's Main Ирелия passive — the unique marker the level-up nerf already uses (verified single occurrence in characters.json; Глеб lacks it). The level-up caption (`GameUpdateMess.cs:1221`) and the AWDKA-troll line (`CheckIfReady.cs:427`) now show the young-form text when that passive is present; the sleeping-Gleb psyche-10 phrase (`GameReactions.cs:1125`) is suppressed for it. Added a warning comment at the transform (`GameReactions.cs:258`) not to uncomment the rename. The level-up *mechanic* was never affected — the nerf keys on the Main Ирелия passive, not the Name — so this was cosmetic only. The two always-true guards (`GameStateMapper.cs:292`, `GameUpdateMess.cs:1651`) were left as-is per the finding.
 
 ### m4. `PassivesClass.GlebSkip` declared as `bool … = new()`
 - `PassivesClass.cs:91` — compiles to `false`; clearly unintended syntax.
+- **Fixed:** 2026-07-03 — changed the initializer to `= false` (`PassivesClass.cs:91`). It was a copy-paste of the surrounding reference-type `= new()` lines; for a bool `new()` already yields `false`, so no behavior change — GlebSkip is a plain flag (set at `CP:469`, tested/reset at `CP:2684/2687`). Pure clarity fix.
 
 ### m5. Exploit rotation runs in games without Баг
 - `GameClass.RollExploit` + `DoomsdayMachine.cs:73-76` rotate/count exploit state even when nobody can consume it. Harmless bookkeeping.
