@@ -5,10 +5,6 @@
 # Removing a line = declaring it fixed: audit-passives.sh will then FAIL if
 # the warning still occurs. Add new lines only with a finding ID from
 # docs/AUDIT-FINDINGS.md.
-GHOST|Ниндзя|m6
-GHOST|Сало|m6
-GHOST|Парень с сюрпризом|m6
-BAD-NAME|Бог ЛоЛа|m6
 NAME-KEYED|Булинг|D4
 NAME-KEYED|Го играть|D4
 NAME-KEYED|lvl-мяк|D4

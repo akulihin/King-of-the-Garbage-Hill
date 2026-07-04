@@ -191,7 +191,7 @@ For character **X** with passive "P" (details per character in CHARACTERS.md):
 | `Game/DiscordMessages/GameUpdateMess.cs` | ~1700 | Discord rendering |
 | `API/Services/GameStateMapper.cs` | ~1200 | web DTO mapping |
 
-Legacy/dead code exists and is catalogued in AUDIT-FINDINGS (LolGod.cs, Saldorum.cs vs Salldorum.cs, `GameDesign.txt` future characters).
+Legacy/dead code is catalogued in AUDIT-FINDINGS; the m6 batch (2026-07-04) deleted the known dead files (LolGod.cs, single-L Saldorum.cs and their orphaned passive cases/state/phrases, CraboRack.BokoBoole). `GameDesign.txt` still holds unbuilt future characters by design.
 
 ## 9. Conventions & pitfalls (verified)
 
@@ -203,7 +203,7 @@ Legacy/dead code exists and is catalogued in AUDIT-FINDINGS (LolGod.cs, Saldorum
 - Round-10 nuance: `BonusPointsFromMoral` staged after the round-10 flush must be flushed manually (see CLAUDE.md).
 - Transferred/copied passives (Goblin Ziggurat learns any `Standalone: true` passive; Котики cats carry Минька/Штормяк; mylorik's Акула transform) need their own immunity checks — the passive-name dispatch will happily run the case for the new holder.
 - The `-228` sentinel means "not set" for every ForOneFight field; don't use −228 as a real value (there is a joke passive "Skill 228" that caps skill at 228 — unrelated).
-- Randomness: the `SecureRandom` service is **not** cryptographic — it wraps plain `System.Random` (the crypto implementation is commented out, `Helpers/SecureRandom.cs:25-45`). Semantics: `Random(min,max)` is **inclusive** of max; `Luck(x)` ≈ x% ; `Luck(a,b)` ≈ a-in-b (internally rounded to a whole percent, rolled against 0–100). Ironically `PassivesClass` carries its own private copy that *does* use `RandomNumberGenerator` (`PassivesClass.cs:281-300`). A few places use `new Random()`/`Random.Shared` directly (trigger schedules, justice phrases, forced-target picks).
+- Randomness: unified (m21 fixed) — `SecureRandom` really is cryptographic now: the static core `SecureRandom.Next(min,max)` wraps `RandomNumberGenerator.GetInt32` (thread-safe, `Helpers/SecureRandom.cs:17-25`); the instance `Random(min,max)` and `Luck` delegate to it, and `PassivesClass` trigger schedules call the same static (its former private crypto copy is deleted). Semantics unchanged: `Random(min,max)` is **inclusive** of max; `Luck(x)` ≈ x% ; `Luck(a,b)` ≈ a-in-b (internally rounded to a whole percent, rolled against 0–100). A few places still use `new Random()`/`Random.Shared` directly (justice phrases `CharacterClass.cs:1657-1684`, Мишень initial roll `CharacterClass.cs:831`, forced-target picks in `CheckIfReady.cs`, Blackjack, the Sirinoks team bias `General.cs:380`) — exclusive-max semantics, deliberately left alone.
 
 ## 10. Simulation harness (headless bot games)
 

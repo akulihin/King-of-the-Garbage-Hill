@@ -177,7 +177,7 @@ Weighted roll by **Tier** (`StartGameLogic.cs:38-52`): range 150/100/90/80/70/60
 
 ## 12. Global systemics
 
-- **Exploit**: one non-Баг player is "exploitable" each round, rotating sequentially (`GameClass.RollExploit:136-170`). Losing while exploitable increments a global counter; the Баг character cashes it in (`CharacterPassives.cs:1652-1663`). Runs (harmlessly) even without Баг in game.
+- **Exploit**: one non-Баг player is "exploitable" each round, rotating sequentially (`RollExploit`, `GameClass.cs:141-180`). Losing while exploitable increments a global counter; the Баг character cashes it in (`CharacterPassives.cs:1613-1624`). The rotation is gated on a Баг player being in the game (`GameClass.cs:143-146`; m5 fixed — it used to run as harmless no-op bookkeeping in every game).
 - **Kratos event** (Возвращение из мертвых): after a round-10 death Kratos resurrects, everyone else is forced to block each extra round, defeated players fall off the board (die); ends when all five are dead or Kratos loses (`CheckIfReady.cs:1019-1029`, `DoomsdayMachine.cs:1249-1255`).
 - **Death** (unified: Kira heart attacks, Kratos kills, Монстр pawns): `Passives.IsDead` + `DeathSource`; dead players auto-block/auto-ready, get 0 ZBS and no mastery (`CheckIfReady.cs:1032-1037, 622-624, 665`).
 - **Bots** (`BotsBehavior.cs:37-64`): round >10 → block; spend moral by place-based thresholds (place 6 hoards to 20, …, place 2 spends at 3; several characters override); level-up; Кира writes notes; target choice via per-game `Nanobot` preference model (justice gaps, positions, Мишень match, previous outcomes).

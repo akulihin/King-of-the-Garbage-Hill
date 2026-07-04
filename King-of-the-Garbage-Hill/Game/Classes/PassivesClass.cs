@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using King_of_the_Garbage_Hill.Game.Characters;
+using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
@@ -28,7 +28,7 @@ public class PassivesClass
         //end Тигр топ, а ты холоп
 
         //Подсчет
-        TolyaCount = new Tolya.TolyaCountClass(Random(2, 3));
+        TolyaCount = new Tolya.TolyaCountClass(SecureRandom.Next(2, 3));
         //end Подсчет
 
         //Спокойствие
@@ -104,8 +104,6 @@ public class PassivesClass
     public LeCrisp.LeCrispAssassins LeCrispAssassins { get; set; } = new();
     public LeCrisp.LeCrispImpactClass LeCrispImpact { get; set; } = new();
 
-
-    public LolGod.Udyr LolGodUdyrList { get; set; } = new();
 
     public Mitsuki.GarbageClass MitsukiGarbageList { get; set; } = new();
     public WhenToTriggerClass MitsukiNoPcTriggeredWhen { get; set; } = new();
@@ -202,8 +200,6 @@ public class PassivesClass
     public bool DopaWonThisRound { get; set; } = false;
 
     // Салдорум
-    public Saldorum.KhokholListClass SaldorumKhokholList { get; set; } = new();
-    public bool SaldorumNinjaHidden { get; set; } = false;
     public int SaldorumCorruptionCount { get; set; } = 0;
 
     // Napoleon
@@ -278,27 +274,6 @@ public class PassivesClass
     public bool IsExploitFixed { get; set; } = false;
 
 
-    private int Random(int minValue, int maxValue)
-    {
-        maxValue += 1;
-        if (minValue == maxValue) return minValue;
-        if (minValue > maxValue)
-            throw new ArgumentOutOfRangeException($"{nameof(minValue)} must be lower than {nameof(maxValue)}");
-
-        var diff = (long)maxValue - minValue;
-        var upperBound = uint.MaxValue / diff * diff;
-
-        uint ui;
-        do
-        {
-            var randomBytes = RandomNumberGenerator.GetBytes(4);
-            ui = BitConverter.ToUInt32(randomBytes, 0);
-        } while (ui >= upperBound);
-
-        var result = (int)(minValue + ui % diff);
-        return result;
-    }
-
     private WhenToTriggerClass GetWhenToTrigger(int mandatoryTimes, int maxAdditionalTimes, int range,
         int lastRound = 10, int firstRound = 1)
     {
@@ -309,7 +284,7 @@ public class PassivesClass
         for (var i = 0; i < mandatoryTimes; i++)
             while (true)
             {
-                when = Random(firstRound, lastRound);
+                when = SecureRandom.Next(firstRound, lastRound);
                 if (toTriggerClass.WhenToTrigger.Any(x => x == when)) continue;
                 toTriggerClass.WhenToTrigger.Add(when);
                 break;
@@ -318,15 +293,15 @@ public class PassivesClass
 
         /*
         //additional times new
-        var target = _rand.Random(1, range);
+        var target = SecureRandom.Next(1, range);
         for (var i = 0; i < maxAdditionalTimes; i++)
         {
-            var rand = _rand.Random(1, range);
+            var rand = SecureRandom.Next(1, range);
             if (rand != target) continue;
 
             while (true)
             {
-                when = _rand.Random(firstRound, lastRound);
+                when = SecureRandom.Next(firstRound, lastRound);
                 if (toTriggerClass.WhenToTrigger.Any(x => x == when)) continue;
                 toTriggerClass.WhenToTrigger.Add(when);
                 break;
@@ -337,14 +312,14 @@ public class PassivesClass
 
 
         //additional times old
-        var target = Random(1, range);
+        var target = SecureRandom.Next(1, range);
 
         if (target > maxAdditionalTimes) return toTriggerClass;
 
         for (var i = 0; i < target; i++)
             while (true)
             {
-                when = Random(firstRound, lastRound);
+                when = SecureRandom.Next(firstRound, lastRound);
                 if (toTriggerClass.WhenToTrigger.Any(x => x == when)) continue;
                 toTriggerClass.WhenToTrigger.Add(when);
                 break;

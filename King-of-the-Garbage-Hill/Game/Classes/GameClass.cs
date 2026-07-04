@@ -140,6 +140,11 @@ public class GameClass
 
     public void RollExploit()
     {
+        // no Баг in this game — nobody can consume the exploit (m5)
+        if (ExploitPlayersList.Count == PlayersList.Count)
+        {
+            return;
+        }
         if (ExploitPlayersList.Count(x => x.Passives.IsExploitFixed) == ExploitPlayersList.Count)
         {
             return;

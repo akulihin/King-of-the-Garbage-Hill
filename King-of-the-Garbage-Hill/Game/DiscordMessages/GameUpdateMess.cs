@@ -631,13 +631,6 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     }
                     break;
 
-                case "Сало":
-                    if (other.GetPlayerId() == me.GetPlayerId()) break;
-                    if (me.Passives.SaldorumKhokholList.MarkedEnemies.Contains(other.GetPlayerId())
-                        || other.GameCharacter.Name is "mylorik" or "Sirinoks")
-                        customString += " \U0001F416";
-                    break;
-
                 case "Вступить в союз":
                     if (other.GetPlayerId() == me.GetPlayerId()) break;
                     if (me.Passives.NapoleonAlliance.AllyId == other.GetPlayerId())

@@ -637,7 +637,7 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Тоннели Гоблинов":
-                    // 33% chance to escape if goblin speed >= enemy speed + 2
+                    // 50% chance to escape if goblin speed >= enemy speed + 2
                     if (target.FightCharacter.GetSpeed() >= me.FightCharacter.GetSpeed() + 2)
                     {
                         if (_rand.Random(0, 99) < 50)
@@ -852,36 +852,6 @@ public class CharacterPassives : IServiceSingleton
                         game.Phrases.RickGiantBeansDrink.SendLog(target, false);
                         // Portal gun invention is handled by HandleEndOfRound (not here)
                         // to prevent the gun from auto-firing on the same fight it was invented
-                    }
-                    break;
-
-                case "Парень с сюрпризом":
-                    // Салдорум defending — lost to higher-ranked attacker → mark attacker as Хохол
-                    if (target.Status.IsLostThisCalculation != Guid.Empty
-                        && me.Status.GetPlaceAtLeaderBoard() < target.Status.GetPlaceAtLeaderBoard())
-                    {
-                        if (!target.Passives.SaldorumKhokholList.MarkedEnemies.Contains(me.GetPlayerId()))
-                            target.Passives.SaldorumKhokholList.MarkedEnemies.Add(me.GetPlayerId());
-                        target.GameCharacter.AddMoral(5, "Парень с сюрпризом");
-                        if (_rand.Random(0, 99) < 33)
-                            target.GameCharacter.AddMoral(5, "Парень с сюрпризом");
-                        game.Phrases.SaldorumSurprise.SendLog(target, me, delete: true);
-                    }
-                    break;
-
-                case "Сало":
-                    {
-                        // target = Салдорум (defender), me = attacker
-                        var isKhokhol = target.Passives.SaldorumKhokholList.MarkedEnemies.Contains(me.GetPlayerId())
-                                        || me.GameCharacter.Name is "mylorik" or "Sirinoks";
-                        if (isKhokhol && target.Status.IsWonThisCalculation != Guid.Empty)
-                        {
-                            target.GameCharacter.Justice.AddJusticeForNextRoundFromSkill();
-                            var moral = Math.Abs(me.Status.GetPlaceAtLeaderBoard() - target.Status.GetPlaceAtLeaderBoard());
-                            if (moral > 0 && target.Status.GetPlaceAtLeaderBoard() > me.Status.GetPlaceAtLeaderBoard())
-                                target.GameCharacter.AddMoral(moral, "Сало");
-                            game.Phrases.SaldorumSalo.SendLog(target, me, delete: true);
-                        }
                     }
                     break;
 
@@ -1416,15 +1386,6 @@ public class CharacterPassives : IServiceSingleton
                     me.Passives.DopaMacro.FightsProcessed++;
                     if (me.Passives.DopaMacro.FightsProcessed > 1)
                         me.Status.HideCurrentFight = true;
-                    break;
-
-                case "Ниндзя":
-                    me.Passives.SaldorumNinjaHidden = false;
-                    if (_rand.Random(0, 99) < 50)
-                    {
-                        me.Passives.SaldorumNinjaHidden = true;
-                        me.Status.HideCurrentFight = true;
-                    }
                     break;
 
                 // Napoleon — Вступить в союз: form alliance on first attack; check joint attacks
@@ -2156,49 +2117,6 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                case "Парень с сюрпризом":
-                    // Lost to higher-ranked enemy → mark as Хохол
-                    if (me.Status.IsLostThisCalculation != Guid.Empty
-                        && target.Status.GetPlaceAtLeaderBoard() < me.Status.GetPlaceAtLeaderBoard())
-                    {
-                        if (!me.Passives.SaldorumKhokholList.MarkedEnemies.Contains(target.GetPlayerId()))
-                            me.Passives.SaldorumKhokholList.MarkedEnemies.Add(target.GetPlayerId());
-                        me.GameCharacter.AddMoral(5, "Парень с сюрпризом");
-                        if (_rand.Random(0, 99) < 33)
-                            me.GameCharacter.AddMoral(5, "Парень с сюрпризом");
-                        game.Phrases.SaldorumSurprise.SendLog(me, target, delete: true);
-                    }
-                    break;
-
-                case "Сало":
-                    {
-                        var isKhokhol = me.Passives.SaldorumKhokholList.MarkedEnemies.Contains(target.GetPlayerId())
-                                        || target.GameCharacter.Name is "mylorik" or "Sirinoks";
-                        if (isKhokhol && me.Status.IsWonThisCalculation != Guid.Empty)
-                        {
-                            me.GameCharacter.Justice.AddJusticeForNextRoundFromSkill();
-                            // Doubled moral: add extra equal to standard fight moral
-                            var moral = Math.Abs(me.Status.GetPlaceAtLeaderBoard() - target.Status.GetPlaceAtLeaderBoard());
-                            if (moral > 0 && me.Status.GetPlaceAtLeaderBoard() > target.Status.GetPlaceAtLeaderBoard())
-                                me.GameCharacter.AddMoral(moral, "Сало");
-                            game.Phrases.SaldorumSalo.SendLog(me, target, delete: true);
-                        }
-                        // +1 Moral when attacking mylorik (regardless of win/loss)
-                        if (target.GameCharacter.Name == "mylorik")
-                            me.GameCharacter.AddMoral(1, "Сало");
-                    }
-                    break;
-
-                case "Ниндзя":
-                    // Stealth kill bonus
-                    if (me.Passives.SaldorumNinjaHidden && me.Status.IsWonThisCalculation != Guid.Empty)
-                    {
-                        me.GameCharacter.AddExtraSkill(5, "Ниндзя");
-                        game.Phrases.SaldorumNinja.SendLog(me, target, delete: true);
-                    }
-                    me.Passives.SaldorumNinjaHidden = false;
-                    break;
-
                 // Napoleon — Завоеватель: bonus point for winning vs enemy between Napoleon and Ally
                 case "Завоеватель":
                     if (me.Status.IsWonThisCalculation != Guid.Empty)
@@ -2801,18 +2719,6 @@ public class CharacterPassives : IServiceSingleton
                 case "Не повезло":
                     if (player.Status.IsLostThisCalculation != Guid.Empty)
                     {
-                        //LOL GOD, EXAMPLE:
-                        /*
-                        if (game.PlayersList.All(x => x.GameCharacter.Name != "Бог ЛоЛа") || _gameGlobal.LolGodUdyrList.Any(
-                                x =>
-                                    x.GameId == game.GameId && x.EnemyDiscordId == me.GetPlayerId()))
-                        {
-                            me.FightCharacter.AddPsyche(-1);
-                            me.MinusPsycheLog(game);
-                            game.Phrases.DarksciNotLucky.SendLog(me);
-                        }
-                        else
-                            game.Phrases.ThirdСommandment.SendLog(me);*/
                         player.MinusPsycheLog(player.GameCharacter, game, -1, "Не повезло");
                         game.Phrases.DarksciNotLucky.SendLog(player, false);
                     }

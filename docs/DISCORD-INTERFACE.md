@@ -52,38 +52,38 @@ ARAM/draft phase resolution happens inside the loop: ARAM waits for all 6 `IsAra
 
 ## 4. The in-game DM UI
 
-**The game runs entirely in DMs.** Per human player two messages are tracked on `InGameDiscordStatus` (`InGameDiscordStatus.cs:5-14`): the static **character sheet** and the interactive **main game message**. All senders skip bots, web players, and `PreferWeb` players (`GameUpdateMess.cs:131-137` and every send/update guard like `GameUpdateMess.cs:101-121`) — toggling PreferWeb from the web (WEB-BACKEND.md §4) silences the Discord copy; `UpdateMessage` then reroutes any extraText into `WebMessages` instead (`GameUpdateMess.cs:1771-1779`).
+**The game runs entirely in DMs.** Per human player two messages are tracked on `InGameDiscordStatus` (`InGameDiscordStatus.cs:5-14`): the static **character sheet** and the interactive **main game message**. All senders skip bots, web players, and `PreferWeb` players (`GameUpdateMess.cs:131-137` and every send/update guard like `GameUpdateMess.cs:101-121`) — toggling PreferWeb from the web (WEB-BACKEND.md §4) silences the Discord copy; `UpdateMessage` then reroutes any extraText into `WebMessages` instead (`GameUpdateMess.cs:1764-1772`).
 
 - **Character sheet** (`GetCharacterMessage`, `GameUpdateMess.cs:53-99`): name, four stats — Sakura renames them Сексуальность/Грубость/Скорость/Нытье (`GameUpdateMess.cs:65-71`) — plus one field per *visible* passive; sent/updated via `SendCharacterMessage`/`UpdateCharacterMessage` (`GameUpdateMess.cs:108-129`).
-- **Main message** is rebuilt by `UpdateMessage` switching on `MoveListPage` (`GameUpdateMess.cs:1771-1831`): 1 = FightPage + game buttons; 2 = RESERVED (empty; legacy logs page); 3 = LvlUpPage + level-up select (+ the decorative disabled `crutch` button "Riot style choice" for round-9 Дизмораль, `GameUpdateMess.cs:1806-1811`); 4 = debug (commented out); 5 = AramPickPage + reroll buttons; 6 = DraftPickPage + pick buttons (`GameUpdateMess.cs:1646-1708`).
-- **FightPage anatomy** (`GameUpdateMess.cs:1052-1180`): title "King of the Garbage Hill", footer = `GetTimeLeft` (`(N/300с) | Версия…`, plus `Ожидаем других игроков •` when ready; mylorik/DeepList get the `(x+х)*19` gag — `GameUpdateMess.cs:1838-1850`); description = global logs (admin-hidden snippets stripped for non-admins, `GameUpdateMess.cs:1079-1084`) + stat block (Интеллект/Сила/Скорость/Психика + Справедливость/Мораль/Скилл + Мишень + Класс + `Множитель очков`, `GameUpdateMess.cs:1108-1124`) + the leaderboard (`LeaderBoard`, `GameUpdateMess.cs:158-191` — own score only; per-viewer prefixes/suffixes via the same CustomLeaderBoard methods the web reuses); fields `События прошлого раунда:` and `События этого раунда:` from personal logs split by `|||`, chunked at 1024 chars (`GameUpdateMess.cs:1127-1171`); avatar thumbnail unless `IsMobile` (`GameUpdateMess.cs:1174-1175`).
+- **Main message** is rebuilt by `UpdateMessage` switching on `MoveListPage` (`GameUpdateMess.cs:1764-1824`): 1 = FightPage + game buttons; 2 = RESERVED (empty; legacy logs page); 3 = LvlUpPage + level-up select (+ the decorative disabled `crutch` button "Riot style choice" for round-9 Дизмораль, `GameUpdateMess.cs:1799-1804`); 4 = debug (commented out); 5 = AramPickPage + reroll buttons; 6 = DraftPickPage + pick buttons (`GameUpdateMess.cs:1639-1701`).
+- **FightPage anatomy** (`GameUpdateMess.cs:1045-1173`): title "King of the Garbage Hill", footer = `GetTimeLeft` (`(N/300с) | Версия…`, plus `Ожидаем других игроков •` when ready; mylorik/DeepList get the `(x+х)*19` gag — `GameUpdateMess.cs:1831-1843`); description = global logs (admin-hidden snippets stripped for non-admins, `GameUpdateMess.cs:1072-1077`) + stat block (Интеллект/Сила/Скорость/Психика + Справедливость/Мораль/Скилл + Мишень + Класс + `Множитель очков`, `GameUpdateMess.cs:1101-1117`) + the leaderboard (`LeaderBoard`, `GameUpdateMess.cs:158-191` — own score only; per-viewer prefixes/suffixes via the same CustomLeaderBoard methods the web reuses); fields `События прошлого раунда:` and `События этого раунда:` from personal logs split by `|||`, chunked at 1024 chars (`GameUpdateMess.cs:1120-1164`); avatar thumbnail unless `IsMobile` (`GameUpdateMess.cs:1167-1168`).
 
 ## 5. Buttons & selects catalog (main game message)
 
-Composed by `GetGameButtons` (`GameUpdateMess.cs:1551-1617`): row 0 — Блок, Авто Ход (Tier > 3, non-ARAM, `GameUpdateMess.cs:1557-1560`), Изменить свой выбор, Завершить Игру, Дебаг (two owner IDs only, `GameUpdateMess.cs:1564-1567`); row 1 — attack select; row 2 — moral/skill buttons (`GameUpdateMess.cs:1571-1575`); row 3 — predict select (non-ARAM, hidden for the AdminPlayerType passive, `GameUpdateMess.cs:1577-1583`); row 4 — character buttons + Mobile Device in round 1 (`GameUpdateMess.cs:1586-1614`).
+Composed by `GetGameButtons` (`GameUpdateMess.cs:1544-1610`): row 0 — Блок, Авто Ход (Tier > 3, non-ARAM, `GameUpdateMess.cs:1550-1553`), Изменить свой выбор, Завершить Игру, Дебаг (two owner IDs only, `GameUpdateMess.cs:1557-1560`); row 1 — attack select; row 2 — moral/skill buttons (`GameUpdateMess.cs:1564-1568`); row 3 — predict select (non-ARAM, hidden for the AdminPlayerType passive, `GameUpdateMess.cs:1570-1576`); row 4 — character buttons + Mobile Device in round 1 (`GameUpdateMess.cs:1579-1607`).
 
 | custom-id | Label (exact) | Built at | Handled at |
 |---|---|---|---|
-| `block` | `Блок` (Success; disabled when acted or round > 10 unless Kratos-revenant) | `GameUpdateMess.cs:1710-1725` | `GameReactions.cs:315-365` (Спарта → "Спартанцы не капитулируют!!" `GameReactions.cs:316-320`; Aggress → "I. WONT. STOP." `GameReactions.cs:322-326`; Dopa `Макро` two-action logic `GameReactions.cs:329-352`) |
-| `attack-select` | placeholder `Выбрать цель` → options `Напасть на {name}` | `GameUpdateMess.cs:1308-1383` | `GameReactions.cs:377-383` → `HandleAttack` (§6) |
-| `auto-move` | `Авто Ход` (locked first 29 s except owners) | `GameUpdateMess.cs:1761-1769` | `GameReactions.cs:166-184` |
-| `change-mind` | `Изменить свой выбор` (Dopa gets disabled `선택 변경`) | `GameUpdateMess.cs:1750-1759` | `GameReactions.cs:186-212` (un-readies, strikes the log line through) |
-| `end` | `Завершить Игру` (Danger) | `GameUpdateMess.cs:1727-1742` | `GameReactions.cs:297-300` → `EndGame` (§8) |
-| `confirm-prefict` [sic] | `Я подтверждаю свои предположения` | `GameUpdateMess.cs:1503-1505` | `GameReactions.cs:290-296` |
-| `confirm-skip` | `Я подтверждаю пропуск хода` | `GameUpdateMess.cs:1506-1508` | `GameReactions.cs:214-224` |
-| `moral` | `на N бонусных очков` ladder 20/13/8/5 морали → 10/5/2/1; DeepList disabled "Интересует только скилл"; М.М. компромат disables | `GameUpdateMess.cs:1471-1499` | `GameReactions.cs:366-368` → `HandleMoralForScore` |
-| `skill` | `Обменять N Морали на M Cкилла` ladder 20→100 … 1→2 (Еврей extra 7→40 `GameUpdateMess.cs:1528-1530`); Булькает disabled | `GameUpdateMess.cs:1501-1549` | `GameReactions.cs:369-371` → `HandleMoralForSkill` |
-| `predict-1` | placeholder `Сделать предположение`, options `{name} это...`; disabled from round 9; Булькает → `Бууууууль` | `GameUpdateMess.cs:1391-1427` | `GameReactions.cs:385-387` → `HandlePredic1` (builds `predict-2` with all character names, `GameReactions.cs:556-583`) |
+| `block` | `Блок` (Success; disabled when acted or round > 10 unless Kratos-revenant) | `GameUpdateMess.cs:1703-1718` | `GameReactions.cs:315-365` (Спарта → "Спартанцы не капитулируют!!" `GameReactions.cs:316-320`; Aggress → "I. WONT. STOP." `GameReactions.cs:322-326`; Dopa `Макро` two-action logic `GameReactions.cs:329-352`) |
+| `attack-select` | placeholder `Выбрать цель` → options `Напасть на {name}` | `GameUpdateMess.cs:1301-1376` | `GameReactions.cs:377-383` → `HandleAttack` (§6) |
+| `auto-move` | `Авто Ход` (locked first 29 s except owners) | `GameUpdateMess.cs:1754-1762` | `GameReactions.cs:166-184` |
+| `change-mind` | `Изменить свой выбор` (Dopa gets disabled `선택 변경`) | `GameUpdateMess.cs:1743-1752` | `GameReactions.cs:186-212` (un-readies, strikes the log line through) |
+| `end` | `Завершить Игру` (Danger) | `GameUpdateMess.cs:1720-1735` | `GameReactions.cs:297-300` → `EndGame` (§8) |
+| `confirm-prefict` [sic] | `Я подтверждаю свои предположения` | `GameUpdateMess.cs:1496-1498` | `GameReactions.cs:290-296` |
+| `confirm-skip` | `Я подтверждаю пропуск хода` | `GameUpdateMess.cs:1499-1501` | `GameReactions.cs:214-224` |
+| `moral` | `на N бонусных очков` ladder 20/13/8/5 морали → 10/5/2/1; DeepList disabled "Интересует только скилл"; М.М. компромат disables | `GameUpdateMess.cs:1464-1492` | `GameReactions.cs:366-368` → `HandleMoralForScore` |
+| `skill` | `Обменять N Морали на M Cкилла` ladder 20→100 … 1→2 (Еврей extra 7→40 `GameUpdateMess.cs:1521-1523`); Булькает disabled | `GameUpdateMess.cs:1494-1542` | `GameReactions.cs:369-371` → `HandleMoralForSkill` |
+| `predict-1` | placeholder `Сделать предположение`, options `{name} это...`; disabled from round 9; Булькает → `Бууууууль` | `GameUpdateMess.cs:1384-1420` | `GameReactions.cs:385-387` → `HandlePredic1` (builds `predict-2` with all character names, `GameReactions.cs:556-583`) |
 | `predict-2` | character list + `Предыдущие меню` | `GameReactions.cs:562-575` | `GameReactions.cs:389-391` → `HandlePredic2` (upserts `player.Predict`, `GameReactions.cs:585-616`) |
-| `lvl-up` | placeholder `Выбор прокачки` (Вампур_ garlic gag `GameUpdateMess.cs:1433-1434`; Ирелия `Выбор нерфа` `GameUpdateMess.cs:1436-1439`; round-9 Дизмораль psyche-only menu `GameUpdateMess.cs:1453-1463`), options Интеллект/Сила/Скорость/Психика = values 1-4 | `GameUpdateMess.cs:1430-1449` | `GameReactions.cs:373-376` → `HandleLvlUp` (`GameReactions.cs:619-628`) |
-| `mobile-device` | `Mobile Device` (round 1 only) | `GameUpdateMess.cs:1386-1389` `GameUpdateMess.cs:1611-1614` | `GameReactions.cs:159-164` (drops the thumbnail) |
-| `debug_info` | `Дебаг` | `GameUpdateMess.cs:1744-1747` | `GameReactions.cs:308-312` (toggles the dead page 4) |
-| `stable-Darksci` / `not-stable-Darksci` | `Мне никогда не везёт...` / `Мне сегодня повезёт!` (round 1, + hint DM) | `GameUpdateMess.cs:1589-1600` | `GameReactions.cs:226-254` |
-| `yong-gleb` | `Вспомнить Молодость` (round 1) | `GameUpdateMess.cs:1603-1607` | `GameReactions.cs:256-288` (in-place transform to Молодой Глеб) |
-| `aram_reroll_1..4` / `aram_reroll_5` / `aram_roll_confirm` | `Reroll #N` (max 4 passive rerolls) / `Reroll Stats` (max 1) / `Confirm` → disabled `Wait for other players` | `GameUpdateMess.cs:1619-1643` | `GameReactions.cs:393-416` |
-| `draft_pick_0` / `draft_pick_1` / `draft_pick_2` | `{Name} (FREE)` / `{Name} (cost 5 ZBS points)`; after pick `Ожидаем остальных` (`draft_pick_wait`, no handler) | `GameUpdateMess.cs:1683-1708` | `GameReactions.cs:417-421` → HandleDraftPick |
+| `lvl-up` | placeholder `Выбор прокачки` (Вампур_ garlic gag `GameUpdateMess.cs:1426-1427`; Ирелия `Выбор нерфа` `GameUpdateMess.cs:1429-1432`; round-9 Дизмораль psyche-only menu `GameUpdateMess.cs:1446-1456`), options Интеллект/Сила/Скорость/Психика = values 1-4 | `GameUpdateMess.cs:1423-1442` | `GameReactions.cs:373-376` → `HandleLvlUp` (`GameReactions.cs:619-628`) |
+| `mobile-device` | `Mobile Device` (round 1 only) | `GameUpdateMess.cs:1379-1382` `GameUpdateMess.cs:1604-1607` | `GameReactions.cs:159-164` (drops the thumbnail) |
+| `debug_info` | `Дебаг` | `GameUpdateMess.cs:1737-1740` | `GameReactions.cs:308-312` (toggles the dead page 4) |
+| `stable-Darksci` / `not-stable-Darksci` | `Мне никогда не везёт...` / `Мне сегодня повезёт!` (round 1, + hint DM) | `GameUpdateMess.cs:1582-1593` | `GameReactions.cs:226-254` |
+| `yong-gleb` | `Вспомнить Молодость` (round 1) | `GameUpdateMess.cs:1596-1600` | `GameReactions.cs:256-288` (in-place transform to Молодой Глеб) |
+| `aram_reroll_1..4` / `aram_reroll_5` / `aram_roll_confirm` | `Reroll #N` (max 4 passive rerolls) / `Reroll Stats` (max 1) / `Confirm` → disabled `Wait for other players` | `GameUpdateMess.cs:1612-1636` | `GameReactions.cs:393-416` |
+| `draft_pick_0` / `draft_pick_1` / `draft_pick_2` | `{Name} (FREE)` / `{Name} (cost 5 ZBS points)`; after pick `Ожидаем остальных` (`draft_pick_wait`, no handler) | `GameUpdateMess.cs:1676-1701` | `GameReactions.cs:417-421` → HandleDraftPick |
 
-Attack-menu placeholder states (`GameUpdateMess.cs:1306-1367`): `Что-то заставило тебя скипнуть...`, `Вы поставили блок!`, `Вы использовали Авто Ход!`, `gg wp` (round > 10), Kratos event `УБИТЬ!` / `ЭТО БОГ ВОЙНЫ! БЕГИ!`, `Вы напали на {name}`, `Подтвердите свои предложение перед атакой!`, Butcher-ban `Обжаловать бан...` (`GameUpdateMess.cs:1357-1362`); empty menu → option `ТЫ ВСЕХ УБИЛ` (`GameUpdateMess.cs:1380`).
+Attack-menu placeholder states (`GameUpdateMess.cs:1299-1360`): `Что-то заставило тебя скипнуть...`, `Вы поставили блок!`, `Вы использовали Авто Ход!`, `gg wp` (round > 10), Kratos event `УБИТЬ!` / `ЭТО БОГ ВОЙНЫ! БЕГИ!`, `Вы напали на {name}`, `Подтвердите свои предложение перед атакой!`, Butcher-ban `Обжаловать бан...` (`GameUpdateMess.cs:1350-1355`); empty menu → option `ТЫ ВСЕХ УБИЛ` (`GameUpdateMess.cs:1373`).
 
 ## 6. Dispatch & round resolution
 
@@ -102,13 +102,13 @@ Message edits are serialized per player through an embed queue with 200 ms spins
 ## 7. Privacy in Discord
 
 - Each player has a **separate DM**, so personal logs are private by construction; the FightPage merges global + personal fields (§4).
-- `SortLogs` masks other players' passive names in the viewer's logs — `Неизвестно` for Normal players, `❓ {name}` for Casual — except the deliberately public ones (Запах мусора, Чернильная завеса, Еврей, 2kxaoc) (`GameUpdateMess.cs:801-817`; applied to both log fields at `GameUpdateMess.cs:1133` `GameUpdateMess.cs:1156`).
-- Admin-only fight math is carried as `HiddenGlobalLogSnippets` and stripped for PlayerType ≠ 2 (`GameUpdateMess.cs:1079-1084`) — same list the web strips (WEB-BACKEND.md §7).
-- New players get a training wheel: `⟶` is expanded to `⟶ победил` in logs (`GameUpdateMess.cs:1043-1044`).
+- `SortLogs` masks other players' passive names in the viewer's logs — `Неизвестно` for Normal players, `❓ {name}` for Casual — except the deliberately public ones (Запах мусора, Чернильная завеса, Еврей, 2kxaoc) (`GameUpdateMess.cs:794-810`; applied to both log fields at `GameUpdateMess.cs:1126` `GameUpdateMess.cs:1149`).
+- Admin-only fight math is carried as `HiddenGlobalLogSnippets` and stripped for PlayerType ≠ 2 (`GameUpdateMess.cs:1072-1077`) — same list the web strips (WEB-BACKEND.md §7).
+- New players get a training wheel: `⟶` is expanded to `⟶ победил` in logs (`GameUpdateMess.cs:1036-1037`).
 
 ## 8. End of game
 
-- `Завершить Игру` mid-game: `EndGame` swaps the leaver for a bot and DMs the multiplayer nudge `Спасибо за игру!…` (`GameUpdateMess.cs:781-792`; seat swap `SubstituteUserWithBot`, `HelperFunctions.cs:337`).
+- `Завершить Игру` mid-game: `EndGame` swaps the leaver for a bot and DMs the multiplayer nudge `Спасибо за игру!…` (`GameUpdateMess.cs:774-785`; seat swap `SubstituteUserWithBot`, `HelperFunctions.cs:337`).
 - Natural end (`HandleLastRound`, `CheckIfReady.cs:266`): sole winner gets `__**Победа! Теперь вы Король этой Мусорной Горы. Пока-что...**__` + a gif (`CheckIfReady.cs:608-618`); then per player (`CheckIfReady.cs:625-723`): final `UpdateMessage`, account reset (`IsPlaying` false, GameId parked), match history, **mastery points 10/7/5/3/2/1 by place** (`CheckIfReady.cs:646-653`), **ZBS Points 100/50/40/30/20/10** with score-tie = 100, team override 100/50, dead = 0 (`CheckIfReady.cs:661-696`), quest tracking (`CheckIfReady.cs:699`), **loot box for alive top-2** (`CheckIfReady.cs:701-705`), achievement evaluation (`CheckIfReady.cs:707-716`), tier-pity counters (`CheckIfReady.cs:718-723`).
 - The finish path also triggers the web-side callbacks (final broadcast, replay save, AI story — WEB-BACKEND.md §6).
 
@@ -122,12 +122,12 @@ Message edits are serialized per player through an embed queue with 200 ms spins
 
 ## 10. Claude integration (Geralt's Медитация)
 
-When a **human** Geralt blocks/meditates, the passive resolves a not-yet-revealed enemy and asks `ClaudeHaikuService.GenerateWitcherHintAsync` for a one-line Russian witcher-style hint (`CP:4467`); on null (no API key, 5 s timeout, HTTP error, or the simulation kill-switch) it falls back to the static `WitcherSensesHints` dictionary (`CP:4485`, table at `Geralt.cs:336`); the result lands in personal logs as `Чутьё: {hint} ({username})` (`CP:4488`). Service internals in WEB-BACKEND.md §11.
+When a **human** Geralt blocks/meditates, the passive resolves a not-yet-revealed enemy and asks `ClaudeHaikuService.GenerateWitcherHintAsync` for a one-line Russian witcher-style hint (`CP:4373`); on null (no API key, 5 s timeout, HTTP error, or the simulation kill-switch) it falls back to the static `WitcherSensesHints` dictionary (`CP:4391`, table at `Geralt.cs:336`); the result lands in personal logs as `Чутьё: {hint} ({username})` (`CP:4394`). Service internals in WEB-BACKEND.md §11.
 
 ## 11. Known quirks
 
 - The slash/context-menu subsystem and the reaction pipeline are dead code (§1) — the handler names still say "Reaction" but take components.
-- `confirm-prefict` is a load-bearing typo (`GameUpdateMess.cs:1503-1505`); the `stats` case toggles the empty page 2 but no button builds it anymore (`GameReactions.cs:302-306`). (Dopa's dead `dopa-attack-select` menu was removed 2026-07-04 — finding **m23**; his Макро second action runs through the normal attack/block branches, `GameReactions.cs:329-352` `GameReactions.cs:730-737`.)
-- The `Дебаг` button (`GameUpdateMess.cs:1744-1747`) and early Авто Ход unlock are hardcoded to two owner Discord IDs (`GameUpdateMess.cs:1564` `GameUpdateMess.cs:1765-1766`).
+- `confirm-prefict` is a load-bearing typo (`GameUpdateMess.cs:1496-1498`); the `stats` case toggles the empty page 2 but no button builds it anymore (`GameReactions.cs:302-306`). (Dopa's dead `dopa-attack-select` menu was removed 2026-07-04 — finding **m23**; his Макро second action runs through the normal attack/block branches, `GameReactions.cs:329-352` `GameReactions.cs:730-737`.)
+- The `Дебаг` button (`GameUpdateMess.cs:1737-1740`) and early Авто Ход unlock are hardcoded to two owner Discord IDs (`GameUpdateMess.cs:1557` `GameUpdateMess.cs:1758-1759`).
 - Anything DM'd mid-round via `SendMsgAndDeleteItAfterRound` disappears at round end by design — don't use it for persistent info.
 - `PreferWeb`/web players silently skip every Discord render (§4); when debugging "the bot stopped updating me", check that flag first.
