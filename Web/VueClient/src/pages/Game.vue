@@ -1103,17 +1103,20 @@ const charTint = computed(() => {
           class="game-actions"
           :class="{ 'can-act': store.isMyTurn }"
         >
+          <div v-if="store.mustSpendLevelUp" class="lvlup-gate-hint">
+            ⚠ Остались очки прокачки — потрать их!
+          </div>
           <div class="act-group">
-            <button class="act-btn shield" :disabled="!store.isMyTurn" title="Block" @click="store.block()">
+            <button class="act-btn shield" :disabled="!store.isMyTurn || store.mustSpendLevelUp" title="Block" @click="store.block()">
               <span class="gi gi-lg gi-def">DEF</span> Block
             </button>
-            <button class="act-btn auto" :disabled="!store.isMyTurn" title="Auto Move" @click="store.autoMove()">
+            <button class="act-btn auto" :disabled="!store.isMyTurn || store.mustSpendLevelUp" title="Auto Move" @click="store.autoMove()">
               <span class="gi gi-lg gi-auto">AUTO</span> Move
             </button>
             <button v-if="me?.status.isReady && !me?.status.isSkip" class="act-btn undo" title="Change Mind" @click="store.changeMind()">
               <span class="gi gi-lg gi-undo">UNDO</span> Change
             </button>
-            <button v-if="!me?.status.confirmedSkip" class="act-btn skip" title="Confirm Skip" @click="store.confirmSkip()">
+            <button v-if="!me?.status.confirmedSkip" :disabled="store.mustSpendLevelUp" class="act-btn skip" title="Confirm Skip" @click="store.confirmSkip()">
               <span class="gi gi-lg gi-skip">SKIP</span>
             </button>
           </div>
@@ -1234,7 +1237,7 @@ const charTint = computed(() => {
           <Leaderboard
             :players="store.gameState.players"
             :my-player-id="store.myPlayer?.playerId"
-            :can-attack="!store.gameState.isFinished && (store.isMyTurn || store.canFireGunDuringPickle)"
+            :can-attack="!store.gameState.isFinished && (store.isMyTurn || store.canFireGunDuringPickle) && !store.mustSpendLevelUp"
             :predictions="store.myPlayer?.predictions"
             :character-names="store.gameState.allCharacterNames || []"
             :character-catalog="store.gameState.allCharacters || []"
@@ -1836,6 +1839,18 @@ const charTint = computed(() => {
 @keyframes dopa-pulse {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
+}
+.lvlup-gate-hint {
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+  border-radius: 6px;
+  color: #d98b1f;
+  background: rgba(217, 139, 31, 0.12);
+  border: 1px solid rgba(217, 139, 31, 0.35);
+  animation: dopa-pulse 1.5s ease-in-out infinite;
 }
 
 /* ── Header ─────────────────────────────────────────────────────── */

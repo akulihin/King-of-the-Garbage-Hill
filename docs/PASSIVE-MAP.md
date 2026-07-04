@@ -187,8 +187,6 @@
 
 ## BAD-NAME character comparisons (`.Name ==/!=/is "…"` string not in characters.json)
 
-- BAD-NAME (known, m22): `"Saitama"`
 - BAD-NAME (known, m6): `"Бог ЛоЛа"`
-- BAD-NAME (known, m1): `"Вампур_"`
 
 _Limitation: `switch` case labels over a Name variable outside CharacterPassives.cs (e.g. BotsBehavior) are not scanned — the Cyrillic `case "Салдорум":` at BotsBehavior.cs:1409 is only caught via its sibling `==` checks._

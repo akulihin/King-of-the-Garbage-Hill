@@ -2062,12 +2062,17 @@ public class BotsBehavior : IServiceSingleton
                         maximumRandomNumberForBlock = 4;
                     }
 
-                    var min = allTargets.Min(x => x.Player.GameCharacter.Justice.GetSeenJusticeNow());
-                    var check = allTargets.Find(x =>
-                        x.Player.GameCharacter.Justice.GetSeenJusticeNow() == min);
+                    // No valid targets (all opponents dead / round-10 Тигр-ban) — skip the Justice
+                    // block-nudge; the bot blocks via the isBlock==0 path. See AUDIT-FINDINGS M16/M14.
+                    if (allTargets.Count > 0)
+                    {
+                        var min = allTargets.Min(x => x.Player.GameCharacter.Justice.GetSeenJusticeNow());
+                        var check = allTargets.Find(x =>
+                            x.Player.GameCharacter.Justice.GetSeenJusticeNow() == min);
 
-                    if (check.Player.GameCharacter.Justice.GetSeenJusticeNow() >= botJustice)
-                        minimumRandomNumberForBlock += 1;
+                        if (check.Player.GameCharacter.Justice.GetSeenJusticeNow() >= botJustice)
+                            minimumRandomNumberForBlock += 1;
+                    }
 
                     break;
                 case "Осьминожка":

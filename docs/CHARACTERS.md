@@ -27,12 +27,12 @@ State: `Game/Characters/TheBoys.cs` (`FrancieClass`, `ButcherClass`, `KimikoClas
 
 State: `GoblinSwarm.cs` — population 20; rates: Warrior 1/5, Worker 1/10, Hob 1/15; `ZigguratClass` (built positions, learned passives, locks).
 
-- Population drives stats, re-applied at game start and every round end (`CP:269-280, 6116-6131`): Str = Hobs, Int = Hobs, Psyche = 5 + Hobs, +10% Skill per Warrior (delta-tracked). ⚠ any external Str/Int/Psyche changes on Goblins are overwritten each round (Speed debuffs persist) — inherent to the design.
+- Population drives stats, re-applied at game start and every round end (`CP:269-280, 6116-6131`): Str = Hobs, Int = Hobs, Psyche = 5 + Hobs, +10% Skill per Warrior (delta-tracked). External Str/Int/Psyche changes on Goblins now **persist** across the round recompute (like Speed already did) — via `ApplyGoblinPopulationStats` (D7 fixed; was previously overwritten each round).
 - **Тоннели Гоблинов** — defending with Speed ≥ attacker+2: 50% chance attacker can't win (`CP:641-652`; comment says 33%, code 50%).
 - **Гоблины** — growth: +1+Hobs auto per round (`CP:6118-6120`); attack win: +2×(1+Hobs), +1 if enemy TooGood, +2 if TooStronk (`CP:2260-2271`). Any loss: −(10 + 0.5·R²/3)% ±5% per TooGood/TooStronk, min 1 goblin left, min 1 dead (`CP:2272-2282, 890-903`). Str=Int=Hobs, Psyche=5+Hobs recomputed from population each round via `ApplyGoblinPopulationStats`; external stat changes (e.g. Спартанец's −1 Сила) now **persist on top** of that recompute rather than being overwritten — Speed already did (D7 fixed).
 - **Отличный рудник** — mines at leaderboard places 1, 2, 6. End of round on a mine: +Workers bonus points (in `HandleEndOfRound`, pre-sort position); attacking a player on a mine: +Workers bonus (`CP:1497-1510`).
 - **Гоблины тупые, но не идиоты** (Ziggurat) — Block arms a build; resolved after sorting (`CP:6137-6207`): needs ≥1 of each goblin type **and score >3** (cost gate, intentionally absent from the player text — m11); costs −3 bonus + 1 permanent Worker deduction (−1 Трудяга, confirmed intended — m11); builds at current place (once per place, max 6); learns a random `Standalone: true` passive from the last attacked enemy (no duplicates; **«Еврей» excluded** so Goblins can't become a second Jew — D2). Standing on any built position: position locked for the round (immune to Тигр-топ/Portal-Gun/Шэн/Drops/Storm — enforced in `DoomsdayMachine.cs:1286-1356`) +1 next-round Justice +5 Мораль per round. **Round-10 Ziggurat at place 1 = a real enforced win** in `HandleLastRound` (bonus-point overtake mirroring Premade; M1 fixed).
-- Kill-immune (Кира `CP:4780`, Кратос `CP:1699`). Custom level-ups (rates/festival, `GameReactions.cs:779-833`).
+- Kill-immune (Кира `CP:4780`, Кратос `CP:1699`) — **except** Монстр's "Пейзаж конца света", which **does** kill goblin pawns on round 10 (the one kill-source they aren't immune to; M12, intended). Custom level-ups (rates/festival, `GameReactions.cs:779-833`).
 
 ## Рик Санчез — Tier 5, Int 5 / Str 2 / Speed 5 / Psyche 4
 
@@ -56,9 +56,9 @@ State: `Saitama.cs` — deferral ledger (round-multiplied), deferred moral, 2 "s
 
 State: `Tigr.cs` (`TigrTopClass.TimeCount = 3`, three-zero series list).
 
-- **Лучше с двумя, чем с адекватными** — end of each round: +3 bonus per unique player whose Int **or** Psyche equals Тигр's (`CP:3471-3487`). ⚠ the loop doesn't exclude Тигр himself — he always counts himself at the end of round 1 (free +3).
+- **Лучше с двумя, чем с адекватными** — end of each round: +3 bonus per unique player whose Int **or** Psyche equals Тигр's (`CP:3471-3487`). The loop counts Тигр himself, so he always gets a free +3 at the end of round 1 — **intended** (Тигр is a member of his own clan; M6, ОК).
 - **3-0 обоссан** — per-enemy win series; 3 consecutive wins (loss resets, simultaneous win+loss at ≥2 keeps the series): +3 regular, +30 Skill, +3 Мораль; victim −1 Int −1 Psyche (MinusPsycheLog); once per enemy (`CP:3765-3833`).
-- **Тигр топ, а ты холоп** — while `TimeCount > 0`, end-of-round swap into place 1 (Ziggurat-protected, consumes 1 count; suppressed on round 10 if banned) (`DoomsdayMachine.cs:1299-1327`). Random re-arm: on a `TigrTopWhen` round (1–8, 1–2 times) the counter resets to 3 (`CP:4954-4958`). ⚠ additionally fires **at game start**: `HandleEventsBeforeFirstRound` (`CP:170-183`) swaps him to place 1 and consumes a count from the initial 3 — an undocumented first window (the "fired twice per game" the designer noticed). Being #1 on rounds 2–9 (however achieved): +1 Psyche +3 Мораль (`CP:5916-5923`).
+- **Тигр топ, а ты холоп** — while `TimeCount > 0`, end-of-round swap into place 1 (Ziggurat-protected, consumes 1 count; suppressed on round 10 if banned) (`DoomsdayMachine.cs:1299-1327`). Random re-arm: on a `TigrTopWhen` round (1–8, 1–2 times) the counter resets to 3 (`CP:4954-4958`). Additionally fires **at game start**: `HandleEventsBeforeFirstRound` (`CP:170-183`) swaps him to place 1 and consumes a count from the initial 3 — an opening window (rounds 1–3), confirmed **intended** in addition to the random window (M5, ОК). Being #1 on rounds 2–9 (however achieved): +1 Psyche +3 Мораль (`CP:5916-5923`).
 - **Стримснайпят и банят и банят и банят** — entering round 10: forced skip, stats set Psyche 0 / Int 0 / Str 10, "ЕБАННЫЕ БАНЫ" global (`CP:4936-4951`); can't be targeted (`GameReactions.cs:702-707`), Монстр's no-escape, Тигр-топ swap, Шэн pull and Штормяк taunt all respect the ban (`CheckIfReady.cs:1293/1213/1247`, `DoomsdayMachine.cs:1304-1306`; M11 fixed). AutoMoveTimes ≥ 9 winner is renamed "НейроБот" with a ban-specific allowance (`CheckIfReady.cs:514-516`).
 - **Top Laner** — roll-time rarity decay only (`StartGameLogic.cs:157,172-177`).
 
@@ -69,7 +69,7 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 - **Вороны** — any level-up arms a crow (`GameReactions.cs:1137-1138`); the next attack's fight (win or lose) places it (`CP:2992-3009`). Each crow on an enemy: −20% of their Speed (rounded up, floor 0) for fights in both directions (`CP:1369-1377, 607-615`).
 - **Изанаги** — 2 uses; defending a lost fight auto-converts to a win (`DoomsdayMachine.cs:705-714`).
 - **Аматерасу** — attacking an enemy **adjacent on the leaderboard** with less Speed than Итачи: they can't win (`CP:1380-1390`).
-- **Глаза Итачи** (Цукуеми) — charge +1/round to 2 (`CP:4213-4219`); attacking with full charge marks the target (this round + next) (`CP:3013-3035`); each end-of-round the victim's earnings (regular×multiplier + bonus earned) are **copied** to Итачи as bonus points and recorded (`CP:4183-4211`); the victim only *loses* them at game end (`CheckIfReady.cs:363-379`). If the stolen earnings include a fake Осьминожка point, the ink restore skips its own debit so the victim pays it once — to Итачи (D11). Re-attacking the marked target cancels the effect. ⚠ recharge after use is 4 rounds (counter set to −2), description says 2.
+- **Глаза Итачи** (Цукуеми) — charge +1/round to 2 (`CP:4213-4219`); attacking with full charge marks the target (this round + next) (`CP:3013-3035`); each end-of-round the victim's earnings (regular×multiplier + bonus earned) are **copied** to Итачи as bonus points and recorded (`CP:4183-4211`); the victim only *loses* them at game end (`CheckIfReady.cs:363-379`). If the stolen earnings include a fake Осьминожка point, the ink restore skips its own debit so the victim pays it once — to Итачи (D11). Re-attacking the marked target cancels the effect. Recharge after use is 4 rounds (counter set to −2); the description's "2" is no bug — confirmed intended (m9, ОК).
 - **Глаз Шусуи** — one-time self-resurrect at next round (`CP:5459-5468`).
 - Web: only Tsukuyomi state is surfaced (`PlayerDto.TsukuyomiState`); crows/Izanagi are not shown to the owner (finding).
 
@@ -125,7 +125,7 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 ## Геральт — Tier 5, Int 4 / Str 4 / Speed 5 / Psyche 10
 
 - **Ведьмачьи заказы** — 4 of 5 enemies get monster types at start (fixed: Sirinoks→Драконы, Weedwick→Волколаки, Вампур→Вампиры, mylorik/Boole-family→Утопцы; rest balanced random) (`CP:311-370`); +1 random contract per round from round 2 (`CP:5676-5689`). Fighting a typed enemy consumes **all** contracts of their type and injects that many extra fights, both when Геральт attacks and when he's attacked (not while he blocks/skips) (`DoomsdayMachine.cs:293-348`); each contract fight +20 Skill (`CP:2286-2296, 943-969`); wins as attacker vs non-contract targets count as "Лут". Win-source strings "Контракт"/"Лут" feed the demand/invoice UI (`GeraltContractDemand`).
-- **Медитация** — his skip becomes block (`DoomsdayMachine.cs:238-245`, `CheckIfReady.cs:1163-1168`); blocking applies oils, reveals one enemy's monster hint (AI-generated via Haiku for humans, static fallback; `CP:4431-4487`), 20% one-time Lambert fumble (⚠ design note said 10%): loses **all** Skill for the next round (`CP:4489-4496, 688-693, 1629-1634`). Геральт gains no Мораль at all (`CharacterClass.cs:1132-1134`).
+- **Медитация** — his skip becomes block (`DoomsdayMachine.cs:238-245`, `CheckIfReady.cs:1163-1168`); blocking applies oils, reveals one enemy's monster hint (AI-generated via Haiku for humans, static fallback; `CP:4431-4487`), **10%** one-time Lambert fumble (m16 fixed): loses **all** Skill for the next round (`CP:4489-4496, 688-693, 1629-1634`). Геральт gains no Мораль at all (`CharacterClass.cs:1132-1134`).
 - **Масло** — level-ups craft oils (first gives tier 1 vs all types) (`GameReactions.cs:837-893`); active after a meditation, attack-only, vs the target's type: T1 −1 enemy Justice, T2 +2 Str, T3 ×3 Skill (`CP:1542-1574`).
 - **Шевелись, Плотва** — first contract fight per round vs a higher-placed target: +Speed = place gap, +1 contract per typed player in between (`CP:1589-1626`).
 - **Чеканная монета** (hidden demand economy) — after each round the demand UI offers to bill the villagers based on an invoice of the round's contract fights (`GeraltContractDemand`, snapshot at `CP:4523-4546`); taking an advance pays +2 regular but adds Displeasure when the invoice was weak (`CP:4548-4574`); **Displeasure ≥ 11 = death by pitchforks, −500** (`CP:4577-4584`). Undocumented anywhere (finding m20).
@@ -157,7 +157,7 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 
 ## Таинственный Суппорт — Tier 5 (TeamModeOnly), Int 6 / Str 3 / Speed 3 / Psyche 8
 
-- **Premade** — first attack marks the Carry; Carry's wins/losses = ±1 regular for the Support, and the Carry's fight-moral is **copied** to the Support (⚠ "передается" suggests transfer; carry keeps theirs) (`CP:1460-1467, 2438-2453`). Carry can't (involuntarily) skip: forced skips are cleared (`CP:5783-5798`) **except the round-10 Тигр ban** ("кроме банов"; M10 fixed).
+- **Premade** — first attack marks the Carry; Carry's wins/losses = ±1 regular for the Support, and the Carry's fight-moral is **copied** to the Support ("передается" reads like a transfer, but it's a copy — the Carry keeps theirs; D9 confirmed intended) (`CP:1460-1467, 2438-2453`). Carry can't (involuntarily) skip: forced skips are cleared (`CP:5783-5798`) **except the round-10 Тигр ban** ("кроме банов"; M10 fixed).
 - **Buffing** — attacking the Carry instead raises their lowest stat +2, silently (`CP:1470-1491`).
 - **Stakes!** — every 3rd round (RoundNo % 3 == 0), attack-win vs a non-Carry: +1 regular (`CP:3038-3047`).
 - **Protect** — blocking: +1 next-round Justice (`CP:4311-4318`). End-game: both in top-2 with Carry above → Support gets carry−support+1 bonus and takes 1st (enforced, `CheckIfReady.cs:472-494`).
@@ -208,12 +208,12 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 
 - **Еврей** — same as LeCrisp's (shared passive); ⚠ web widget shows LeCrisp state (finding M2).
 - **Раммус мейн** — attackers into his block auto-lose (armor-break so the fight still happens) (`CP:506-515`); end of round: +1 next-round Justice + Мораль = attackers² (`CP:3659-3696`); his block-win doesn't reset Justice (`DoomsdayMachine.cs:938-940`).
-- **Подсчет** — attack marks the target (initial cd 2–3; after use cd 4–5 ⚠ description says 2–3, finding m8): next round each of the target's losses pays Толя +2 regular +2 next-round Justice (`CP:2380-2394`), and the target's round multiplier is forced to ×1 (`InGameStatusClass.cs:257-278`, also disables Rick's portal ×2).
+- **Подсчет** — attack marks the target (initial cd 2–3; after use cd 4–5 — description's "2–3" counts from the **end** of the effect, so no bug; m8, ОК): next round each of the target's losses pays Толя +2 regular +2 next-round Justice (`CP:2380-2394`), and the target's round multiplier is forced to ×1 (`InGameStatusClass.cs:257-278`, also disables Rick's portal ×2).
 - **Великий Комментатор** — rounds 3–6, 20%/round (max 2): leaks a random player's character to the global log and auto-fills everyone's predictions (Монстр immune; Rick prioritized) (`CP:3595-3657`).
 
 ## HardKitty — Tier 6, Int 3 / Str 5 / Speed 5 / Psyche 7
 
-- **Одиночество** — starts at −30 **score** (log claims "−30 Морали" ⚠ m13) (`CP:159-168`); every attack on him: +1 regular (per fight, no round cap) + letter bookkeeping 1/2/4 by round for the endgame "вы принесли ему N очков" reveal (`CP:517-553`).
+- **Одиночество** — starts at −30 **score** (the log's "−30 Морали" is an intentional text joke; m13, ОК) (`CP:159-168`); every attack on him: +1 regular (per fight, no round cap) + letter bookkeeping 1/2/4 by round for the endgame "вы принесли ему N очков" reveal (`CP:517-553`).
 - **Доебаться** — failed attacks (loss/blocked/skipped) stack letters on the target (`CP:2713-2729`); beating the target cashes stacks ×2 regular (≥7 stacks: +10 extra "love") (`CP:2731-2749`); enemies who beat HardKitty clear their own stacks (`CP:832-839, 3835-3850`).
 - **Никому не нужен** — forced to last place before bots act and at end-of-round sort (`CheckIfReady.cs:1141-1151`, `DoomsdayMachine.cs:1359-1369`); bonus points may take his score negative (`InGameStatusClass.cs:231-232`); nobody can be dropped onto him; letters broadcast on stat-up rounds 3/5/7/9 (`CP:5973-5988`).
 - **Mute** — first successful attack win vs him per unique enemy: +1 regular to them (`CP:817-830`); his own attack-wins score −1 (`DoomsdayMachine.cs:775-781`); defense wins still +1 (consistent with "напал и победил").
@@ -238,14 +238,14 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 - **Научите играть** — attacking records the target's best stat (`CP:1246-1274`); next round AWDKA's matching stat is set to it (volibir icon in the stat line), previous copy restored (`CP:5021-5119`).
 - **Я пытаюсь!** — second loss to a unique enemy: +2 level-up points +20 Skill (`CP:2774-2787, 5005-5019`); fully-stacked enemies take his skill at ×2 (`CP:1276-1280`).
 - **АФКА** — skip chance grows the longer he's without new Мораль: 1/(32−4×roundsSince), min 1/1 (`CP:4988-5003`).
-- **Произошел троллинг** — tracks the score of every enemy he's beaten (at beat time) (`CP:2753-2772`); at game end: bonus = (top-1's recorded score+1)/2 + 1 per correct prediction — only if he ever beat the final #1 (`CheckIfReady.cs:389-459`). ⚠ he is also silently shoved to last place before every calculation (finding M3).
+- **Произошел троллинг** — tracks the score of every enemy he's beaten (at beat time) (`CP:2753-2772`); at game end: bonus = (top-1's recorded score+1)/2 + 1 per correct prediction — only if he ever beat the final #1 (`CheckIfReady.cs:389-459`). He is also silently shoved to last place before every fight calculation — **intended** hidden mechanic (M3, ОК).
 
 ## Darksci — Tier 6, Int 6 / Str 7 / Speed 8 / Psyche 5
 
 - **Мне (не)везет** — game-start choice (web/button): stable = +20 Skill +2 Мораль immediately **and every round** (`CP:5991-6000`); unstable = doubles Повезло.
 - **Повезло** — after his attacks have touched all 5 enemies: stable +100% of current score (+2 Psyche +2 Мораль), unstable +200% (+4/+4), once (`CP:1952-1977`). ⚠ only his own attacks count toward "touching" (defensive fights don't, JSON says "состоявшегося боя").
 - **Не повезло** — −1 Psyche per loss (`CP:2803-2820`); psyche 0 ⇒ forced skip each round (split across `CP:6038-6058` and the level-up path).
-- **Дизмораль** — round 9: −5 Psyche, fired from inside `GetLvlUp` (⚠ dodgeable by hoarding the point, D1) (`GameReactions.cs:1226-1243`).
+- **Дизмораль** — round 9: −5 Psyche, fired from inside `GetLvlUp` (dodgeable by hoarding the round-9 point — **intended** tech; D1, ОК) (`GameReactions.cs:1226-1243`).
 
 ## Братишка — Tier 4, Int 0 / Str 0 / Speed 0 / Psyche 10 (file `Shark.cs`, class `Shark`)
 
@@ -265,12 +265,12 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 
 ## Вампур — Tier 5, Int 6 / Str 6 / Speed 6 / Psyche 6 (file `Vampyr.cs`)
 
-- **Вампуризм** — attack-win: gains the victim's current Justice (+ the ignored point from Падальщик) as next-round Justice — ⚠ copies, doesn't drain (D6) (`CP:1881-1885`); every even round: +Мораль per active bite (`CP:4020-4025`).
+- **Вампуризм** — attack-win: gains the victim's current Justice (+ the ignored point from Падальщик) as next-round Justice — **copies**, doesn't drain (intended; D6, ОК) (`CP:1881-1885`); every even round: +Мораль per active bite (`CP:4020-4025`).
 - **Падальщик** — attacking someone who lost last round: their Justice −1 for the fight (`CP:1283-1291`); such wins +3 Мораль (`CP:1875-1879`).
 - **Гематофагия** — first win vs each unique enemy: bite → +2 to a random stat he's below 10 in, applied at end of round (`CP:2897-2958, 3962-3987`). Hidden priority: while his Psyche ≤ 8 and he has fewer than two Psyche-bites, the bite is forced onto Psyche (`CP:2921-2936`).
 - **СОсиновый кол** — can't target anyone who beat him last round (attack UI refuses, `GameReactions.cs:710-715`); losses remove a bite: −2 that stat −1 regular (`CP:2960-2979, 3989-4016`).
 - **Vampyr Позорный** — Вампур **cannot level up stats**: each level-up zeroes the stat choice (`skillNumber = 0`) so no stat is added (the point is still spent), logging "Никаких статов для тебя" (`GameReactions.cs:994-1000`; m2 fixed — restored from commented-out).
-- ⚠ "Вампур_" garlic Easter egg dead (m1); "Vampyr" hidden passive = round-1 intro phrase (`CP:5413-5421`).
+- "Вампур" garlic level-up placeholder (m1 fixed — Name check was the typo "Вампур_"); "Vampyr" hidden passive = round-1 intro phrase (`CP:5413-5421`).
 
 ## Краборак — Tier 4, Int 2 / Str 3 / Speed 1 / Psyche 9 (file `CraboRack.cs`)
 
@@ -290,7 +290,7 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 
 ## Молодой Глеб — Tier −2 (transform-only), Int 8 / Str 8 / Speed 8 / Psyche 8
 
-- **Main Ирелия** — level-ups *subtract* 1 (`GameReactions.cs:1002-1005`).
+- **Main Ирелия** — level-ups *subtract* 1 (`GameReactions.cs:1002-1005`). Like every character, on web she cannot continue her turn until the pending (forced-nerf) point is spent — the general level-up gate `WebGameService.LevelUpGate` (M15) — but keeps her own refusal line "Риоты не прощают, нерфа не избежать" instead of the generic prompt.
 - **Коммуникация** — round 6 attack: pink-wards the target for everyone (global log + auto-predictions; Монстр immune) (`CP:1034-1057`).
 - **Следит за игрой** — each round the meta marks **up to 3 targets**, chosen by a bot-style preference formula (justice gaps, places, last round's outcomes, Мишень/nemesis fit) (`CP:4721-4761`, `YongGlebMetaClass`); attacking any of them (or blocking while marked himself): +1 bonus (`CP:1023-1032, 392-401`).
 - **Спокойствие** — immune to Мораль loss (`CharacterClass.cs:1156-1160`) and psyche loss (`MinusPsycheLog` guard); tea action (cd 3): +1 regular, target force-skips next round (`CP:1209-1221, 6086-6095`).

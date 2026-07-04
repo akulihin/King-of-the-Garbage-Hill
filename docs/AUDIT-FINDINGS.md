@@ -74,6 +74,7 @@
 
 ### m1. "Вампур_" typo kills a flavor Easter egg
 - `GameUpdateMess.cs:1480` checks `Name == "Вампур_"` (JSON: "Вампур") — the garlic level-up placeholder never shows.
+- **Fixed:** 2026-07-03 (pre-approved string bug) — `Name == "Вампур_"` → `"Вампур"` (`GameUpdateMess.cs:1480`); removed `BAD-NAME|Вампур_|m1` from `tools/known-warnings.txt` (audit re-run: no reappearance).
 
 ### m2. "Vampyr Позорный" logic is commented out
 - `GameReactions.cs:994-1000` (level-up denial) disabled; only the phrase object remains. Remove or restore.
@@ -127,6 +128,7 @@
 
 ### m16. Геральт's Lambert fumble is 20%, design note says 10%
 - `CP:4490` (`_rand.Luck(20)`, one-time) vs `GameDesign.txt:654` "10% Шанс". Also worth knowing: the meditation hint for human players calls the Anthropic Haiku API synchronously inside the round pipeline (`CP:4459-4475`) with a static fallback.
+- **Fixed:** 2026-07-03 (designer verdict 10%) — `_rand.Luck(20)` → `_rand.Luck(10)` (`CP:4492`); BALANCE-CONSTANTS row updated. (`Luck(p)` with no range = `p >= rand(0,100)` ≈ p%.)
 
 ### m17. Dopa "Взгляд в будущее" also procs on blocks
 - Proc condition (`CP:4257-4261`): either dual-target attacked the other **or either target blocked**. The description only promises the "attacked his next target" case. Lenient in Dopa's favor.
@@ -136,6 +138,7 @@
 
 ### m22. Latin "Saitama" vs JSON "Сайтама" — dead "👑 King" flair
 - `GameUpdateMess.cs:720`: Saitama's leaderboard view should mark the current #1 as "👑 King", but the check is `Name == "Saitama"` while the character is named "Сайтама" — never renders. Same bug family as C1/m1. *(Found by `tools/audit-passives.sh` on its first run.)*
+- **Fixed:** 2026-07-03 (pre-approved string bug) — `Name == "Saitama"` → `"Сайтама"` (`GameUpdateMess.cs:720`); removed `BAD-NAME|Saitama|m22` from `tools/known-warnings.txt` (audit re-run: no reappearance).
 
 ### m21. `SecureRandom` is not secure (naming hazard)
 - `Helpers/SecureRandom.cs:25-45`: the crypto implementation is commented out; the service is a plain `System.Random` wrapper. Fine for a game, but the name misleads — and `PassivesClass` carries a private copy that *does* use `RandomNumberGenerator` (`PassivesClass.cs:281-300`), so trigger schedules are crypto-random while combat rolls aren't. Unify or rename.
@@ -144,6 +147,7 @@
 
 ### D1. Darksci can dodge "Дизмораль" by hoarding the round-9 level-up
 - The −5 Psyche fires only inside `GetLvlUp` while `RoundNo == 9` (`GameReactions.cs:1226-1231`); saving the point until round 10 skips it (and the psyche-0 skip check). Bots always spend immediately. Intended tech or loophole?
+- **Resolved 2026-07-03 (designer chose consistency, reversing the earlier «ОК»)**: the hoard was only ever possible on the WebUI via the level-up banking bug (M15) — on Discord the forced level-up page and the round-end auto-move both spend the point in round 9. M15's general web gate closes it, so Darksci now eats the −5 on both platforms.
 
 ### D2. Goblin Ziggurat can duplicate "Еврей" (and other Standalone passives)
 - LeCrisp's "Еврей" is `Standalone: true` (`characters.json:140`), so Goblins can learn it (`CP:6171-6181`) despite the roll-time LeCrisp/Толя exclusivity (`StartGameLogic.cs:180-194`). `HandleJews` supports multiple jews (`CP:6688-6766`), each earning +1 while the victim's point is suppressed once. Verify which Standalone passives are safe to copy (full matrix in the Phase-3 audit).
@@ -228,11 +232,21 @@ Worth stating because they're easy to suspect: Saitama's Неприметнос�
 ### M14. Bot `HandleBotAttack` throws IndexOutOfRange when it has no valid targets
 - `BotsBehavior.cs:2481`: the random-attack fallback does `players[_rand.Random(0, players.Count - 1)]` with `players = allTargets.ToList()`. When `allTargets` is empty — all other players dead, or removed by the round-10 Тигр-ban / round-9-10 "Нахуй эту игру" filters (`BotsBehavior.cs:506-527`) — `players.Count - 1 == -1` and the list indexer throws `ArgumentOutOfRangeException`. Кира-correlated (Death-Note kills shrink the pool late-game); observed rounds 8–10. Was masked into a frozen game by M13; surfaced once M13 was fixed.
 - **Impact**: the bot's turn crashes. Post-M13 it is recorded as a per-game sim error; in production the bot fails its action and auto-blocks (`CheckIfReady.cs:1253` fallback) plus debug-channel spam.
-- **Fixed:** 2026-07-03 — guard `if (players.Count == 0)` → block (`_gameReaction.HandleAttack(bot, null, -10)`) + `ResetTens(allTargets)` + `return`, mirroring the block-and-return at `BotsBehavior.cs:2455-2461`. Verified: Kira line-up 500 games → 0 errors/0 stuck. (Related latent `allTargets.First()` at the `RoundNo<5`-guarded early path left as-is — unreachable with an empty pool that early.)
+- **Fixed:** 2026-07-03 — guard `if (players.Count == 0)` → block (`_gameReaction.HandleAttack(bot, null, -10)`) + `ResetTens(allTargets)` + `return`, mirroring the block-and-return at `BotsBehavior.cs:2455-2461`. Verified: Kira line-up 500 games → 0 errors/0 stuck. (Related latent `allTargets.First()` at the `RoundNo<5`-guarded early path left as-is — unreachable with an empty pool that early.) **See M16** — this guard sits at the `:2476` fallback, which runs *after* the per-character switch; the `case "Братишка"` `.Min()` at `:2065` was a sibling empty-pool site it did not cover (surfaced by sweep-20260703-143146).
+
+### M15. WebUI let players bank level-up points instead of spending before continuing
+- On Discord a granted level-up (rounds 3/5/7/9, `DoomsdayMachine.cs:1392-1396`) flips `Status.MoveListPage` to 3, so `GameUpdateMess.cs:1837` renders only the level-up menu — the fight controls are hidden until the points are spent (page reset at `GameReactions.cs:1221`). The web action handlers never inherited that gate: `Attack`/`Block`/`AutoMove`/`ConfirmSkip` (`WebGameService.cs:390/422/472/516`) set `IsReady` regardless of `LvlUpPoints`, and the only guard was character-specific (`Main Ирелия`, four copies at `:400/428/477/521`). A web player could act (attack/block/skip — none set `IsAutoMove`, so they escape the round-end auto-spend in `HandleBotBehavior`, `BotsBehavior.cs:56-57`) while carrying level-up points into a later round.
+- **Impact**: platform inconsistency and a real advantage — banking points to dump on demand, and dodging the round-9 Дизмораль −5 Psyche (see D1). Discord-impossible; WebUI-only.
+- **Fixed:** 2026-07-03 — generalized the `Main Ирелия` guard into `WebGameService.LevelUpGate` (blocks any `LvlUpPoints > 0` from the four turn-ending actions; Ирелия keeps "Риоты не прощают, нерфа не избежать", everyone else gets "Остались очки прокачки — потрать их!"). Mirrored client-side: `store/game.ts` adds a `mustSpendLevelUp` computed + early-returns in `attack/block/autoMove/confirmSkip`; `pages/Game.vue` disables Block/Auto/Skip, tightens the Leaderboard `:can-attack`, and shows the same prompt. No soft-lock: every character always has an enabled level-up button in `PlayerCard.vue` while points remain, and the round-end auto-move force-spends any leftover.
+
+### M16. Bot `HandleBotAttack` throws "Sequence contains no elements" in the Братишка per-character switch on an empty target pool
+- `BotsBehavior.cs:2065`: `case "Братишка"` runs `allTargets.Min(x => …Justice.GetSeenJusticeNow())` to nudge its block chance. When `allTargets` is empty this throws `InvalidOperationException: Sequence contains no elements`. Same empty-pool family as M14 (opponents dead + round-10 Тигр-ban `:510-516` + round-9/10 "Нахуй эту игру" filter `:518-527`), but M14's guard sits at the random-attack *fallback* (`:2476`), which runs **after** the per-character switch (`:1977+`) — so the `.Min()` throws first and never reaches it. Кира-correlated (Death-Note kills empty the pool late-game); all three `sweep-20260703-143146` failures were round 10 with the Братишка + Тигр + Кира trio (games 889, 1876, 1629).
+- **Impact**: the Братишка bot's turn crashes on round 10 when no legal target remains. Post-M13 it is recorded as a per-game sim error (3/100300 in the sweep); in production the bot fails its action and auto-blocks (`CheckIfReady.cs:1253` fallback).
+- **Fixed:** 2026-07-03 — wrapped the Justice-min block-nudge in `if (allTargets.Count > 0)`; with no targets the nudge is moot and the bot blocks via the existing `isBlock == 0` → block-and-return path (`:2450`), matching every other character in that state. No other switch case consumes `allTargets` non-empty-safely; the latent `:858` (`RoundNo<5`-guarded) and `:2535` (`.Any()`-guarded) sites are unaffected.
 
 ## Summary count
 
-**1 Critical** (C1) · **14 Major** (M1–M14) · **22 Minor** (m1–m22) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13/M14 fixed 2026-07-03.)
+**1 Critical** (C1) · **16 Major** (M1–M16) · **22 Minor** (m1–m22) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13/M14/M15/M16 fixed 2026-07-03.)
 
 ## Verification addendum (second pass, 2026-07-01)
 
@@ -247,3 +261,27 @@ A full re-verification was run over these docs: every file:line anchor (~230) wa
 6. Exact passive-name hygiene: "Стримснайпят и банят и банят и банят" and "Это привилегия - умереть от моей руки" appeared with typographic substitutions (…/—) in places; fixed to exact strings (they are load-bearing identifiers).
 
 **Confirmed unchanged** (spot-listed because they were the highest hallucination risks): all `Luck()` probability figures (Luck(a,b) ≈ a-in-b, `SecureRandom.cs:51-61`); m19 (Itachi crows/Izanagi truly absent from the web layer); M2 (Jew widget state source); the bot moral thresholds 20/13/8/5/3 and round>10 auto-block; the AdminPlayerType runtime injection (`GameUpdateMess.cs:253`); the ARCHITECTURE §3 handler line table (all rows). No finding was retracted; C1–M12 all stand.
+
+## Doc sweep — designer verdicts on ambiguous findings (2026-07-03)
+
+The designer reviewed every ambiguous finding in `docs/DESIGNER-REVIEW.md`. The **БАГ** ones were fixed (each carries a `**Fixed:**` note above). The following were confirmed **ОК / intended** — no code change; the ⚠ divergence marks in `docs/CHARACTERS.md` and `docs/INTERACTION-MATRIX.md` were converted to "intended".
+
+| Finding | Verdict (ОК) as confirmed by the designer |
+|---|---|
+| **M3** | AWDKA silently forced to last place before every fight calculation — intended hidden mechanic. |
+| **M5** | "Тигр топ" opening window at game start (rounds 1–3) — intended, in addition to the later random window. |
+| **M6** | "Лучше с двумя" counts Тигр himself — intended: Тигр is a member of his own clan. |
+| **M12** | Монстр's "Пейзаж конца света" **does** kill goblin pawns — intended (the one kill-source goblins aren't immune to). |
+| **m8** | Толя "Подсчет" cd 4–5 — no bug; the description counts from the **end of the effect**. |
+| **m9** | Итачи Цукуеми recharge 4 rounds — no bug; changed nothing. |
+| **m13** | HardKitty's opening −30 **score** logged as "−30 Морали" — intentional text joke. |
+| **m14** | Butcher sup marks only from round 2 — intended. |
+| **D1** | ~~Darksci can dodge Дизмораль by hoarding the round-9 level-up — intended tech.~~ **Reversed 2026-07-03**: web-only banking artifact; closed by M15 (web level-up gate). Darksci now eats the −5 on both platforms. |
+| **D4** | "Булинг" / "Го играть" / "lvl-мяк" / "2kxaoc" keyed on character Name — intended (name-specific jokes). |
+| **D5** | "2kxaoc" is a visible-only meme (exempt from enemy-passive masking) — intended. |
+| **D6** | Вампуризм **copies** the victim's Justice (doesn't drain) — intended. |
+| **D8** | "Пейзаж конца света" +7 **regular** (×4 = +28) — intended; changed nothing. |
+| **D9** | Premade **copies** the Carry's fight-moral (Carry keeps theirs) — intended. |
+| **D10** | Ziggurat copies any `Standalone` passive incl. Булькает / dead copies — left as-is (only «Еврей» excluded, D2). |
+
+(**D7** was *not* ОК — the designer reclassified it as БАГ in chat; fixed in the goblin batch. See D7's `**Fixed:**` note.)

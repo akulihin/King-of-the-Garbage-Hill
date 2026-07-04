@@ -159,6 +159,6 @@
 | TheBoys | M.M. | ±1 team Psyche; r8 kompromat +5 Moral each; predictions ×kompromat | CP:3415-3447, CIR:310-338 |
 | Salldorum | Шэн/капсула/летописец | +1 charge/lvl-up; capsule +2 bonus +5 Speed after 3 rounds; rewrite −1/+1 per winner (⚠ m15), +2 Psyche +2 J; ×3 skill vs 3-rounds-ago winner | GR:1168-1172, CP:5794-5814, WebGameService.cs:908-967, CP:2230-2258 |
 | Геральт | Заказы | +1 contract/round; +20 Skill per contract fight; oils T1 −1 J / T2 +2 Str / T3 ×3 Skill | CP:5676-5689, 2286-2296, 1542-1574 |
-| Геральт | Медитация | Lambert 20% once (skill 0 next round); демандна экономика: advance +2 regular, смерть при Displeasure ≥ 11 (−500) | CP:4489-4496, 4548-4585 |
+| Геральт | Медитация | Lambert 10% once (skill 0 next round; m16); демандна экономика: advance +2 regular, смерть при Displeasure ≥ 11 (−500) | CP:4489-4496, 4548-4585 |
 | Баг | Exploit | pot = losses of exploitable players; claim on patch | DM:73-76, CP:1652-1664 |
 | Sakura | — | top-3 = narrative win | CIR:496-508 |

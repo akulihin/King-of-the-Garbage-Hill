@@ -8,9 +8,7 @@
 GHOST|Ниндзя|m6
 GHOST|Сало|m6
 GHOST|Парень с сюрпризом|m6
-BAD-NAME|Вампур_|m1
 BAD-NAME|Бог ЛоЛа|m6
-BAD-NAME|Saitama|m22
 NAME-KEYED|Булинг|D4
 NAME-KEYED|Го играть|D4
 NAME-KEYED|lvl-мяк|D4

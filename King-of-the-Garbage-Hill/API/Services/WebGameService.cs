@@ -397,8 +397,8 @@ public class WebGameService
         var picklePortalReady = player.Passives.RickPickle.PickleTurnsRemaining > 0
             && player.Passives.RickPortalGun.Invented && player.Passives.RickPortalGun.Charges > 0;
         if (!CanAct(player) && !picklePortalReady) return (false, "Cannot act right now");
-        if (player.Status.LvlUpPoints > 0 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
-            return (false, "Риоты не прощают, нерфа не избежать");
+        var (lvlBlocked, lvlError) = LevelUpGate(player);
+        if (lvlBlocked) return (false, lvlError);
 
         // Use the existing HandleAttack with botChoice parameter
         // We temporarily flag the player so the method reads botChoice instead of button data
@@ -425,8 +425,8 @@ public class WebGameService
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
         if (!CanAct(player)) return Task.FromResult((false, "Cannot act right now"));
-        if (player.Status.LvlUpPoints > 0 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
-            return Task.FromResult((false, "Риоты не прощают, нерфа не избежать"));
+        var (lvlBlocked, lvlError) = LevelUpGate(player);
+        if (lvlBlocked) return Task.FromResult((false, lvlError));
 
         // Check Sparta passive (cannot block)
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Спарта"))
@@ -474,8 +474,8 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
-        if (player.Status.LvlUpPoints > 0 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
-            return Task.FromResult((false, "Риоты не прощают, нерфа не избежать"));
+        var (lvlBlocked, lvlError) = LevelUpGate(player);
+        if (lvlBlocked) return Task.FromResult((false, lvlError));
 
         player.Status.AutoMoveTimes++;
         var text = "Вы использовали Авто Ход\n";
@@ -518,8 +518,8 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
-        if (player.Status.LvlUpPoints > 0 && player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))
-            return Task.FromResult((false, "Риоты не прощают, нерфа не избежать"));
+        var (lvlBlocked, lvlError) = LevelUpGate(player);
+        if (lvlBlocked) return Task.FromResult((false, lvlError));
 
         player.Status.ConfirmedSkip = true;
         return Task.FromResult((true, (string)null));
@@ -1072,5 +1072,16 @@ public class WebGameService
     private static bool CanAct(GamePlayerBridgeClass player)
     {
         return !player.Status.IsReady && !player.Status.IsSkip;
+    }
+
+    // A pending level-up must be spent before a player can end their turn. Mirrors Discord,
+    // where a granted level-up flips the message to the level-up page (MoveListPage 3) and hides
+    // the fight controls until the points are spent (GameUpdateMess.cs; GameReactions.cs:1221).
+    // Applies to every character; Main Ирелия (a forced-nerf level-up) keeps her own flavored refusal. (M15)
+    private static (bool blocked, string error) LevelUpGate(GamePlayerBridgeClass player)
+    {
+        if (player.Status.LvlUpPoints <= 0) return (false, null);
+        var isIrelia = player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия");
+        return (true, isIrelia ? "Риоты не прощают, нерфа не избежать" : "Остались очки прокачки — потрать их!");
     }
 }

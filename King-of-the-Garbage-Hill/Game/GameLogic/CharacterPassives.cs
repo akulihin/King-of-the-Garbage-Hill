@@ -4488,8 +4488,8 @@ public class CharacterPassives : IServiceSingleton
                             player.Status.AddInGamePersonalLogs($"Чутьё: {hint} ({hintTarget.DiscordUsername})\n");
                         }
 
-                        // Lambert: 20% chance, one-time per game
-                        if (!geraltMedEor.LambertUsed && _rand.Luck(20))
+                        // Lambert: 10% chance, one-time per game (m16)
+                        if (!geraltMedEor.LambertUsed && _rand.Luck(10))
                         {
                             geraltMedEor.LambertActive = true;
                             geraltMedEor.LambertUsed = true;

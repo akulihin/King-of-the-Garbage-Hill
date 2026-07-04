@@ -103,6 +103,10 @@ export const useGameStore = defineStore('game', () => {
     return !myPlayer.value.status.isReady && !myPlayer.value.status.isSkip
   })
 
+  // A pending level-up must be spent before the player can continue — matches Discord, which
+  // hides the fight controls until the points are spent. Gates the four turn-ending actions. (M15)
+  const mustSpendLevelUp = computed(() => (myPlayer.value?.status.lvlUpPoints ?? 0) > 0)
+
   const roundTimeLeft = computed(() => {
     if (!gameState.value) return 0
     return Math.max(0, gameState.value.turnLengthInSecond - gameState.value.timePassedSeconds)
@@ -343,11 +347,13 @@ export const useGameStore = defineStore('game', () => {
 
   async function attack(targetPlace: number) {
     if (!gameState.value) return
+    if (mustSpendLevelUp.value) return
     await signalrService.attack(gameState.value.gameId, targetPlace)
   }
 
   async function block() {
     if (!gameState.value) return
+    if (mustSpendLevelUp.value) return
     playBlockSound()
     if (myPlayer.value?.character.name === 'Геральт') playGeraltMeditation()
     if (gameState.value.roundNo >= 10) {
@@ -359,6 +365,7 @@ export const useGameStore = defineStore('game', () => {
 
   async function autoMove() {
     if (!gameState.value) return
+    if (mustSpendLevelUp.value) return
     if (gameState.value.roundNo >= 10) {
       const charName = myPlayer.value?.character.name
       playAnyMoveTurn10PlusLayer(charName ? isLateGameCharacter(charName) : false)
@@ -373,6 +380,7 @@ export const useGameStore = defineStore('game', () => {
 
   async function confirmSkip() {
     if (!gameState.value) return
+    if (mustSpendLevelUp.value) return
     if (myPlayer.value?.character.name === 'Геральт') playGeraltMeditation()
     if (gameState.value.roundNo >= 10) {
       const charName = myPlayer.value?.character.name
@@ -587,6 +595,7 @@ export const useGameStore = defineStore('game', () => {
     myPlayer,
     opponents,
     isMyTurn,
+    mustSpendLevelUp,
     roundTimeLeft,
     isInGame,
     isAdmin,

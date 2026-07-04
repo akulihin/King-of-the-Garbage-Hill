@@ -716,8 +716,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             && other.Passives.SupportPremade.MarkedPlayerId == me.GetPlayerId())
             customString += " 🤝";
 
-        // Saitama sees top 1 player as "King"
-        if (me.GameCharacter.Name == "Saitama" && other.Status.GetPlaceAtLeaderBoard() == 1
+        // Saitama sees top 1 player as "King" (m22: character Name is Cyrillic "Сайтама")
+        if (me.GameCharacter.Name == "Сайтама" && other.Status.GetPlaceAtLeaderBoard() == 1
             && other.GetPlayerId() != me.GetPlayerId())
             customString += " 👑 King";
 
@@ -1477,7 +1477,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     public async Task<SelectMenuBuilder> GetLvlUpMenu(GamePlayerBridgeClass player, GameClass game)
     {
         var placeholderText = "Выбор прокачки";
-        if (player.GameCharacter.Name == "Вампур_")
+        if (player.GameCharacter.Name == "Вампур")
             placeholderText = _vampyrGarlic[_random.Random(0, _vampyrGarlic.Count - 1)];
 
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия"))

@@ -22,14 +22,14 @@ Kill sources: Кира's Тетрадь (`CP:4082-4160`), Кира's L-arrest (s
 
 | Immunity ↓ / Source → | Тетрадь | Кратос kill | Пейзаж pawns | Notes |
 |---|---|---|---|---|
-| Стая Гоблинов ("нельзя убить") | ✓ `CP:4103` | ✓ `CP:1699` (+arrest `CP:4780`) | ⚠ **M12 — missing** | design: GameDesign.txt:509 |
+| Стая Гоблинов ("нельзя убить") | ✓ `CP:4103` | ✓ `CP:1699` (+arrest `CP:4780`) | ✗ **die here — intended** (M12, ОК) | design: GameDesign.txt:509 |
 | Глаз Шусуи (Итачи) | revives next round | revives next round | revives next round | one-time, any source (`CP:5459-5468`) |
 | Боги мне не указ (Кратос) | ✓ revives +228 Skill | n/a | ✗ not covered (source ≠ "Kira") | source-check is `== "Kira"` only (`CP:5471-5480`) |
 | Dead state effects | — | — | — | auto-block/ready, 0 ZBS, no mastery, excluded from forced pools (`CIR:1032-1037, 622-665`) |
 
 ## 3. Position movers × position locks
 
-Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKitty forced last → place assignment → **Ziggurat restore** → Storm-bite restore/swap → Quality Drop (`DM:1295-1499`). Mid-turn movers: AWDKA forced last ⚠ M3 (`CIR:1112-1127`), HardKitty forced last (`CIR:1141-1151`), Шэн post-sort swap (`CP:6211-6236`).
+Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKitty forced last → place assignment → **Ziggurat restore** → Storm-bite restore/swap → Quality Drop (`DM:1295-1499`). Mid-turn movers: AWDKA forced last (intended — M3, ОК) (`CIR:1112-1127`), HardKitty forced last (`CIR:1141-1151`), Шэн post-sort swap (`CP:6211-6236`).
 
 | Lock ↓ / Mover → | Тигр-топ | Portal Gun | Quality Drop | Storm bite | Шэн |
 |---|---|---|---|---|---|
@@ -47,8 +47,8 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 | Октопус ink | fake-win now, restore at r11 | DeepList first-fight | suppressed until DeepList's scripted loss happens (`CP:6772-6779`) |
 | Kimiko Живое Оружие | **drains** attacker Justice | — | real transfer (`CP:744-755`) |
 | Близнец (Монстр) | **drains** attacker Justice on block + bonus | — | real transfer (`CP:905-920`) |
-| Вампуризм | **copies** victim Justice (⚠ D6) | Падальщик | +1 extra from the ignored point (`CP:1881-1885`) |
-| Premade | **copies** Carry fight-moral (⚠ D9) | — | `CP:2448-2451` |
+| Вампуризм | **copies** victim Justice (intended — D6) | Падальщик | +1 extra from the ignored point (`CP:1881-1885`) |
+| Premade | **copies** Carry fight-moral (intended — D9) | — | `CP:2448-2451` |
 | Кошачья засада (cats) | physically moves passives to enemy | Минька/Штормяк vs owner | transferred cat won't buff/taunt against Котики (`CP:3104-3107`, `CIR:1229`) |
 | Ziggurat learn | copies a `Standalone` passive | everything | see §6 |
 | Rick Most wanted | redirects random marks to Rick | Спартанец marks, L, Сверхразум, Комментатор, hunts, tea odds | `CP:118-128, 233-236, 3874-3877, 5269-5275, 3605-3609, 1118-1124, 5130-5132`; hunters follow portal swaps `CP:2108-2123` |
@@ -80,9 +80,9 @@ Copy rule: random Standalone passive from the **last attacked** enemy, no duplic
 | Изанаги | works — 2 free defensive auto-wins |
 | Еврей | **excluded from copy** — Goblins can't become a second Jew (D2 fixed) |
 | Одиночество / Импакт / Панцирь / Неуязвимость / Привет со дна / marks & bites | work as written |
-| Произошел троллинг | works **and** inherits the AWDKA forced-last quirk (⚠ M3) |
+| Произошел троллинг | works **and** inherits the AWDKA forced-last quirk (intended — M3, ОК) |
 | Сомнительная тактика | works — massive self-nerf (must lose first fights) |
-| Булькает | ⚠ self-brick: kills own moral & skill incl. Ziggurat income (D10) |
+| Булькает | self-brick: kills own moral & skill incl. Ziggurat income — **left as-is** (D10, intended; only «Еврей» is excluded — D2) |
 | Лысина / Первая кровь / Похищение души | dead copies (game-start-only hooks) |
 | Ведьмачьи заказы | dead copy (all hooks gated `Name == "Геральт"`) |
 
