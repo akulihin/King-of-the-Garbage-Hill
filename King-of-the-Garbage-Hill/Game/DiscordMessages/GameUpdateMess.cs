@@ -1388,55 +1388,6 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         return new ButtonBuilder("Mobile Device", "mobile-device", ButtonStyle.Primary, isDisabled: false);
     }
 
-    public SelectMenuBuilder GetDopaMenu(GamePlayerBridgeClass player, GameClass game)
-    {
-        var isDisabled = !(player.Status.IsBlock || player.Status.WhoToAttackThisTurn.Count != 0);
-
-        var placeHolder = "Второе Действие";
-
-        if (player.Status.IsSkip) placeHolder = "당신을 건너 뛰게 만든 무언가"; //сон
-
-        if (game.RoundNo > 10) placeHolder = "ㅈㅈ"; //gg
-
-        if (player.Status.IsReady)
-        {
-            var target = game.PlayersList.Find(x => player.Status.WhoToAttackThisTurn.Contains(x.GetPlayerId()));
-            if (target != null) placeHolder = $"Вы напали на {target.DiscordUsername}";
-        }
-
-        if (!player.Status.ConfirmedPredict)
-        {
-            isDisabled = true;
-            placeHolder = "Подтвердите свои предложение перед атакой!";
-        }
-
-        if (!player.Status.ConfirmedSkip)
-        {
-            isDisabled = true;
-            placeHolder = "당신을 건너 뛰게 만든 무언가"; //сон
-        }
-
-
-        var attackMenu = new SelectMenuBuilder()
-            .WithMinValues(1)
-            .WithMaxValues(1)
-            .WithCustomId("dopa-attack-select")
-            .WithDisabled(isDisabled)
-            .WithPlaceholder(placeHolder);
-
-
-        for (var i = 0; i < _playerChoiceAttackList.Count; i++)
-        {
-            var playerToAttack = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == i + 1);
-            if (playerToAttack == null) continue;
-            if (playerToAttack.DiscordId != player.DiscordId)
-                attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, playerToAttack.GetPlayerId().ToString(),
-                    emote: _playerChoiceAttackList[i]);
-        }
-
-        return attackMenu;
-    }
-
     public SelectMenuBuilder GetPredictMenu(GamePlayerBridgeClass player, GameClass game)
     {
         var predictMenu = new SelectMenuBuilder()
@@ -1654,10 +1605,6 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     {
                         components.WithButton(new ButtonBuilder("Вспомнить Молодость", "yong-gleb"), 4);
                     }
-                    break;
-
-                case "Dopa":
-                    components.WithSelectMenu(GetDopaMenu(player, game), 4);
                     break;
             }
 

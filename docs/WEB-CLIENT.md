@@ -128,7 +128,7 @@ Widgets render **only for the owning player**: `passiveStates` computed returns 
 
 ## 12. Battleship client
 
-Standalone minigame UI: pages BattleshipLobby.vue / BattleshipGame.vue / BattleshipSpectate.vue (routes §2), `useBattleshipStore` (store/battleship.ts) with its own callbacks, components under components/battleship/ (board grid, fleet builder, weapon/summon bars, VFX canvas via composables/useVfx.ts, tooltips via composables/useTip.ts). Its BattleLog.vue there shares a name with the main-game one — **only components/BattleLog.vue is line-anchorable** (duplicate basename; the battleship one must be referenced by path without line numbers).
+Standalone minigame UI: pages BattleshipLobby.vue / BattleshipGame.vue / BattleshipSpectate.vue (routes §2), `useBattleshipStore` (store/battleship.ts) with its own callbacks, components under components/battleship/ (board grid, fleet builder, weapon/summon bars, VFX canvas via composables/useVfx.ts, tooltips via composables/useTip.ts). Its BattleLog.vue there shares a name with the main-game one — **only components/BattleLog.vue is line-anchorable** (duplicate basename; the battleship one must be referenced by path without line numbers). Keyboard: Escape cancels summon deploy, Space toggles placement orientation, digits 1-9 select weapons (handleKeydown in BattleshipGame.vue). With Greek Fire selected the own board becomes clickable on any cell (`isGreekFireMode`) and fires via `BattleshipShootOwnBoard`. Cell type includes `isBurnResistMarked` → `.cell-burn-resist` dark-green style in CellComponent.vue (burn_resist ship survived fire/explosion); `.cell-burning` now only ever comes from Greek Fire cells.
 
 ## 13. Known gaps & dead surface
 

@@ -777,6 +777,7 @@ export type BattleshipCell = {
   summonType: string | null
   isScratched: boolean
   summonTrail?: boolean
+  isBurnResistMarked?: boolean
   isDestroyed?: boolean
   isFrozen?: boolean
   isDevastated?: boolean

@@ -379,8 +379,8 @@ public class BattleshipService
             else
                 result = BattleshipGameEngine.ProcessShot(game, shooter, row, col);
 
-            // Auto-reset WhiteStone/Buckshot to Ballista after firing
-            if (shooter.SelectedShotType is ShotType.WhiteStone or ShotType.Buckshot)
+            // Auto-reset WhiteStone/Buckshot/GreekFire to Ballista after firing (ТЗ #23)
+            if (shooter.SelectedShotType is ShotType.WhiteStone or ShotType.Buckshot or ShotType.GreekFire)
             {
                 shooter.SelectedShotType = ShotType.Ballista;
                 shooter.SelectedWeapon = null;
@@ -442,9 +442,23 @@ public class BattleshipService
             if (shooter == null)
                 return (null, "Вы не в этой игре.");
 
-            var result = BattleshipGameEngine.ProcessOwnBoardShot(game, shooter, row, col);
+            // Greek Fire may target the own board (ТЗ #23); consumes ammo and ends the turn
+            var isGreekFire = shooter.SelectedShotType == ShotType.GreekFire;
+            ShotResult result;
+            if (isGreekFire)
+            {
+                shooter.SelectedWeapon?.UseAmmo();
+                result = BattleshipGameEngine.ProcessOwnBoardGreekFireShot(game, shooter, row, col);
+                // Auto-reset to Ballista after firing (ТЗ #23)
+                shooter.SelectedShotType = ShotType.Ballista;
+                shooter.SelectedWeapon = null;
+            }
+            else
+            {
+                result = BattleshipGameEngine.ProcessOwnBoardShot(game, shooter, row, col);
+            }
 
-            if (result.Hit)
+            if (result.Hit || isGreekFire)
             {
                 shooter.HasShotThisTurn = true;
                 game.LastActivity = DateTime.UtcNow;
@@ -486,7 +500,7 @@ public class BattleshipService
             game.IsFinished = true;
             game.WinnerId = opponent.DiscordId;
             game.Phase = BsGamePhase.GameOver;
-            game.GameLog.Add($"{player.Username} сдался. Победитель: {opponent.Username}!");
+            game.AddLog($"{player.Username} сдался. Победитель: {opponent.Username}!");
             return (true, null);
         }
     }
@@ -499,7 +513,7 @@ public class BattleshipService
             game.IsFinished = true;
             game.WinnerId = winnerId;
             game.Phase = BsGamePhase.GameOver;
-            game.GameLog.Add($"Победитель: {game.GetPlayer(winnerId)?.Username ?? "???"}!");
+            game.AddLog($"Победитель: {game.GetPlayer(winnerId)?.Username ?? "???"}!");
         }
     }
 
@@ -659,13 +673,13 @@ public class BattleshipService
                 }
                 player.LastSummonDeployShotCount = game.ShotCount;
                 game.LastActivity = DateTime.UtcNow;
-                game.GameLog.Add($"{player.Username} перенаправил {summonType}!");
+                game.AddLog($"{player.Username} перенаправил {summonType}!");
 
-                // Mast warning
+                // Mast warning (personal — it's their mast)
                 if (opponent != null)
                 {
                     var warning = BattleshipGameEngine.GenerateMastWarning(opponent, summonType, col);
-                    if (warning != null) game.GameLog.Add(warning);
+                    if (warning != null) game.AddLogFor(opponent.DiscordId, warning);
                 }
 
                 return (true, null);
@@ -712,13 +726,13 @@ public class BattleshipService
             var opponentCell = opponent?.Board.GetCell(summon.Row, summon.Col);
             if (opponentCell != null) opponentCell.SummonRef = summon;
 
-            game.GameLog.Add($"{player.Username} развернул {summonType}! ({(char)('A' + col)}1)");
+            game.AddLog($"{player.Username} развернул {summonType}! ({(char)('A' + col)}1)");
 
-            // Mast warning for opponent
+            // Mast warning for opponent (ТЗ #3: include spawn cell; personal — it's their mast)
             if (opponent != null)
             {
-                var warning = BattleshipGameEngine.GenerateMastWarning(opponent, summonType);
-                if (warning != null) game.GameLog.Add(warning);
+                var warning = BattleshipGameEngine.GenerateMastWarning(opponent, summonType, col);
+                if (warning != null) game.AddLogFor(opponent.DiscordId, warning);
             }
 
             return (true, null);
@@ -782,13 +796,13 @@ public class BattleshipService
             var opponentCell = opponent?.Board.GetCell(summon.Row, summon.Col);
             if (opponentCell != null) opponentCell.SummonRef = summon;
 
-            game.GameLog.Add($"{player.Username} выпустил {pending.SourceShipName ?? pending.Type.ToString()}! ({(char)('A' + col)}1)");
+            game.AddLog($"{player.Username} выпустил {pending.SourceShipName ?? pending.Type.ToString()}! ({(char)('A' + col)}1)");
 
-            // Mast warning
+            // Mast warning (personal — it's their mast)
             if (opponent != null)
             {
                 var warning = BattleshipGameEngine.GenerateMastWarning(opponent, pending.Type, col);
-                if (warning != null) game.GameLog.Add(warning);
+                if (warning != null) game.AddLogFor(opponent.DiscordId, warning);
             }
 
             return (true, null);
@@ -840,7 +854,7 @@ public class BattleshipService
 
             player.ManeuveringDoubleUsed = true;
             game.LastActivity = DateTime.UtcNow;
-            game.GameLog.Add($"{ship.Name} маневрирует!");
+            game.AddLog($"{ship.Name} маневрирует!");
 
             // Mast warning: "Даёт по вёслам!"
             var opponent = game.GetOpponent(discordId);
@@ -849,7 +863,7 @@ public class BattleshipService
                 var hasMast = opponent.Board.PlacedShips.Any(s =>
                     !s.IsDestroyed && s.Decks.Any(d => d.Module == "mast" && !d.ModuleDestroyed));
                 if (hasMast)
-                    game.GameLog.Add("[Мачта] Даёт по вёслам!");
+                    game.AddLog("[Мачта] Даёт по вёслам!");
             }
 
             return (true, null);
@@ -875,7 +889,7 @@ public class BattleshipService
                 return (false, "Проклятый корабль не ожидает выбора направления.");
 
             game.LastActivity = DateTime.UtcNow;
-            game.GameLog.Add($"Проклятый корабль меняет курс!");
+            game.AddLog($"Проклятый корабль меняет курс!");
             return (true, null);
         }
     }
@@ -1014,7 +1028,7 @@ public class BattleshipService
                 // If both players have Desiccator, disable all its passives
                 BattleshipGameEngine.DisableDualDesiccators(game);
                 game.CurrentTurnPlayerId = BattleshipGameEngine.DetermineFirstTurn(game.Player1, game.Player2);
-                game.GameLog.Add($"Бой начинается! Первый ход: {game.GetPlayer(game.CurrentTurnPlayerId)?.Username}");
+                game.AddLog($"Бой начинается! Первый ход: {game.GetPlayer(game.CurrentTurnPlayerId)?.Username}");
 
                 // If bot goes first, process its turn
                 if (game.GetPlayer(game.CurrentTurnPlayerId)?.IsBot == true)
@@ -1238,7 +1252,10 @@ public class BattleshipService
             CurrentTurnPlayerId = game.CurrentTurnPlayerId,
             IsMyTurn = game.CurrentTurnPlayerId == requestingDiscordId,
             MyPlayerId = requestingDiscordId,
-            GameLog = game.GameLog.TakeLast(50).ToList(),
+            GameLog = game.GameLog
+                .Where(e => isSpectator || e.VisibleTo == null || e.VisibleTo == requestingDiscordId)
+                .Select(e => e.Text)
+                .TakeLast(50).ToList(),
             Player1 = MapPlayer(game.Player1, requestingDiscordId, isPlayer1 || isSpectator, isSpectator, game.ShotCount, game.Player2?.RevealedCellCount ?? 0),
             Player2 = MapPlayer(game.Player2, requestingDiscordId, isPlayer2 || isSpectator, isSpectator, game.ShotCount, game.Player1?.RevealedCellCount ?? 0),
             ShipCatalog = game.Phase == BsGamePhase.FleetBuilding ? GetShipCatalog() : null,
@@ -1362,6 +1379,7 @@ public class BattleshipService
                 SummonType = cell.SummonRef is { IsAlive: true } ? cell.SummonRef.Type.ToString() : null,
                 IsScratched = IsCellScratched(cell),
                 SummonTrail = cell.SummonTrail,
+                IsBurnResistMarked = cell.BurnResistMarked,
             });
         }
         return new BoardDto { Cells = cells };
@@ -1389,6 +1407,7 @@ public class BattleshipService
                 SummonType = cell.SummonRef is { IsAlive: true } ? cell.SummonRef.Type.ToString() : null,
                 IsScratched = cell.WasScratched, // Snapshot: scratched state persists after ship moves
                 SummonTrail = cell.SummonTrail,
+                IsBurnResistMarked = cell.BurnResistMarked,
             });
         }
         return new BoardDto { Cells = cells };
@@ -1490,6 +1509,7 @@ public class CellDto
     public string SummonType { get; set; }
     public bool IsScratched { get; set; }
     public bool SummonTrail { get; set; }
+    public bool IsBurnResistMarked { get; set; }
 }
 
 public class ShipDto

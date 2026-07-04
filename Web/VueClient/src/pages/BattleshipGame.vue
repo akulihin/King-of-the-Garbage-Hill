@@ -161,6 +161,7 @@ watch(() => store.shotDelayActive, (active) => {
 // ── AoE cursor previews ─────────────────────────────────────
 const isBuckshotMode = computed(() => store.selectedShotType === 'Buckshot')
 const isIncendiaryMode = computed(() => store.selectedShotType === 'Incendiary' || store.selectedShotType === 'GreekFire')
+const isGreekFireMode = computed(() => store.selectedShotType === 'GreekFire')
 const aoeHighlight = ref<{ row: number; col: number }[]>([])
 
 function updateAoeHighlight(row: number, col: number) {
@@ -263,6 +264,11 @@ function handleKeydown(e: KeyboardEvent) {
     e.preventDefault()
     return
   }
+  if (e.key === ' ' && phase.value === 'ShipPlacement') {
+    e.preventDefault()
+    store.toggleOrientation()
+    return
+  }
   if (phase.value !== 'Combat' && phase.value !== 'Boarding') return
   if (e.key === '1') { handleWeaponSelect('Ballista', 'Ballista'); return }
   const specials = availableWeapons.value.filter(w => w.type !== 'Ballista')
@@ -334,6 +340,11 @@ async function handleEnemyCellClick(row: number, col: number) {
 async function handleMyBoardCellClick(row: number, col: number) {
   if (!isMyTurn.value || (phase.value !== 'Combat' && phase.value !== 'Boarding')) return
   if (store.shotDelayActive) return
+  // Greek Fire may target any own cell (ТЗ #23)
+  if (isGreekFireMode.value) {
+    await store.shootOwnBoard(row, col)
+    return
+  }
   const myId = store.gameState?.myPlayerId
   const cell = store.myBoard?.cells.find(c => c.row === row && c.col === col)
   if (!cell || !cell.hasSummon || !cell.summonOwnerId || cell.summonOwnerId === myId) return
@@ -829,7 +840,7 @@ watch(phase, (val) => {
             :summon-trail-cells="mySummonTrails"
             :ship-name-map="myShipNameMap"
             :range-overlay-cells="myBoardRangeOverlays"
-            :clickable="hasEnemySummonOnMyBoard && isMyTurn && !store.shotDelayActive"
+            :clickable="(hasEnemySummonOnMyBoard || isGreekFireMode) && isMyTurn && !store.shotDelayActive"
             @cell-click="handleMyBoardCellClick"
             @tip-show="showTip" @tip-move="moveTip" @tip-hide="hideTip"
           />

@@ -37,6 +37,7 @@ const cellClass = computed(() => {
   else if (props.cell.isFirePermanent) classes.push('cell-fire-permanent')
   else if (props.cell.isBurning) classes.push('cell-burning')
   else if (props.cell.isFrozen) classes.push('cell-frozen')
+  else if (props.cell.isBurnResistMarked) classes.push('cell-burn-resist')
   else if (props.cell.isCaptured) classes.push('cell-captured')
   else if (props.cell.isScratched) classes.push('cell-scratched')
   else if (props.cell.isHit && props.cell.hasShip) classes.push('cell-hit')
@@ -139,6 +140,7 @@ const cellTooltip = computed(() => {
   if (props.cell.isDestroyed) base = `Уничтожено${ship}`
   else if (props.cell.isDevastated) base = `Опустошено`
   else if (props.cell.isBurning || props.cell.isFirePermanent) base = `Горит${ship}`
+  else if (props.cell.isBurnResistMarked) base = `Огнеупорный корабль — устоял против огня${ship}`
   else if (props.cell.isFrozen) base = `Заморожено`
   else if (props.cell.isCaptured) base = `Захвачено`
   else if (props.cell.isScratched) base = `Поцарапано — можно стрелять повторно`
@@ -272,6 +274,12 @@ const cellTooltip = computed(() => {
   background: linear-gradient(135deg, #0a2a4a, #1a3a5c, #0a2a4a);
   color: var(--bs-ice-blue, #74b9ff);
   box-shadow: inset 0 0 6px rgba(116, 185, 255, 0.3);
+}
+/* BurnResist ship survived fire/explosion — dark green (ТЗ #4) */
+.cell-burn-resist {
+  background: linear-gradient(135deg, #0e3d22, #14532d, #0e3d22);
+  color: #4ade80;
+  box-shadow: inset 0 0 6px rgba(34, 197, 94, 0.35);
 }
 .cell-devastated {
   background: #1a0a1e;

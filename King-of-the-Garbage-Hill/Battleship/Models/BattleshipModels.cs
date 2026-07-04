@@ -14,7 +14,7 @@ public class BattleshipGame
     public int TurnNumber { get; set; }
     public bool IsFinished { get; set; }
     public string WinnerId { get; set; }
-    public List<string> GameLog { get; set; } = new();
+    public List<LogEntry> GameLog { get; set; } = new();
     public int ShotCount { get; set; } // Global shot counter (both players)
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime LastActivity { get; set; } = DateTime.UtcNow;
@@ -41,6 +41,26 @@ public class BattleshipGame
         if (Player2 != null) list.Add(Player2);
         return list;
     }
+
+    public void AddLog(string text)
+    {
+        GameLog.Add(new LogEntry { Text = text });
+    }
+
+    public void AddLogFor(string discordId, string text)
+    {
+        GameLog.Add(new LogEntry { Text = text, VisibleTo = discordId });
+    }
+}
+
+/// <summary>
+/// Game log entry. VisibleTo = null → both players (and spectators) see it;
+/// otherwise only the player with that DiscordId (spectators see everything).
+/// </summary>
+public class LogEntry
+{
+    public string Text { get; set; }
+    public string VisibleTo { get; set; }
 }
 
 public class BattleshipPlayer
@@ -101,6 +121,7 @@ public class Cell
     public bool WasShipHit { get; set; } // Snapshot: a ship was present when this cell was hit (persists after ship moves)
     public bool WasScratched { get; set; } // Snapshot: hit damaged but didn't destroy a deck (persists after ship moves)
     public bool SummonTrail { get; set; } // Enemy summon passed through this cell
+    public bool BurnResistMarked { get; set; } // BurnResist ship survived fire/explosion here — shown dark-green to both players (ТЗ #4)
 }
 
 public class Ship
@@ -126,6 +147,7 @@ public class Ship
     public List<Region> Regions { get; set; } = new();
     public List<string> Abilities { get; set; } = new();
     public bool IsHome { get; set; } // "Домашний" unit — used for first-turn tiebreaker
+    public bool HasExploded { get; set; } // Idempotency guard: explode_on_hit fires once (death paths re-enter via HandleShipDeath)
 
     public List<(int row, int col)> GetOccupiedCells()
     {
