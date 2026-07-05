@@ -12,6 +12,8 @@
 #
 # Flags: --games N | --coverage K | --characters "6 comma-separated names"
 #        --report PATH | --timeout-min M
+#        --ai-difficulty N (1-3, default 1: 1 legacy bots, 2 smarter heuristics, 3 omniscient
+#        predictions from round 3; sim-only — Discord/web games always run 1)
 # Exit code: 0 clean; 1 game errors and/or stuck games (see report); 2 harness failure.
 # Report: DataBase/Simulations/sim-<timestamp>.json (relative to the project dir, gitignored).
 #

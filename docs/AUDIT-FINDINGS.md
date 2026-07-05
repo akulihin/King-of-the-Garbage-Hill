@@ -267,9 +267,14 @@ Worth stating because they're easy to suspect: Saitama's Неприметнос�
 - **Impact**: the Братишка bot's turn crashes on round 10 when no legal target remains. Post-M13 it is recorded as a per-game sim error (3/100300 in the sweep); in production the bot fails its action and auto-blocks (`CheckIfReady.cs:1253` fallback).
 - **Fixed:** 2026-07-03 — wrapped the Justice-min block-nudge in `if (allTargets.Count > 0)`; with no targets the nudge is moot and the bot blocks via the existing `isBlock == 0` → block-and-return path (`:2450`), matching every other character in that state. No other switch case consumes `allTargets` non-empty-safely; the latent `:858` (`RoundNo<5`-guarded) and `:2535` (`.Any()`-guarded) sites are unaffected.
 
+### m26. `HandleBotAttack` scoring flags are never reset inside the per-target loop
+- The boolean flags declared once per `HandleBotAttack` invocation (`isTargetTooGood`, `isLostLastRoundAndTargetIsBetter`, `isJusticeTheSame`, `isTargetFirst`, … `BotsBehavior.cs:567-575`) latch to `true` when set for any target and are **never cleared between iterations** of the `foreach (var target in allTargets)` loop. A handful of per-character compensations read these flags *after* the loop or on a later target and so can fire for a target that never actually received the penalty — e.g. mylorik's compensation (`BotsBehavior.cs:988`) and Глеб's (`:1149`) key off `isLostLastRoundAndTargetIsBetter`.
+- **Impact**: mild bot mis-weighting in mixed line-ups; not player-visible and not exception-producing. Flagged during the AI-difficulty change-set because L2-4 (fight-history horizon) deliberately **reuses** the existing latching flag/number so it stays balance-compatible with those compensations.
+- **Status:** observation, **not fixed** — the AI-difficulty change-set is L1-preserving by contract, so touching this shared scoring pass was out of scope. Fixing it (reset the flags at the top of each iteration) would change L1 bot behavior and should be a standalone change with its own sim comparison.
+
 ## Summary count
 
-**1 Critical** (C1) · **16 Major** (M1–M16) · **25 Minor** (m1–m25) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13/M14/M15/M16 fixed 2026-07-03; m5/m6/m7/m21/m23/m25 fixed 2026-07-04; m18 confirmed intended 2026-07-04. Still open: m12, m17, m19, m20, m24.)
+**1 Critical** (C1) · **16 Major** (M1–M16) · **26 Minor** (m1–m26) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13/M14/M15/M16 fixed 2026-07-03; m5/m6/m7/m21/m23/m25 fixed 2026-07-04; m18 confirmed intended 2026-07-04. Still open: m12, m17, m19, m20, m24, m26.)
 
 ## Verification addendum (second pass, 2026-07-01)
 

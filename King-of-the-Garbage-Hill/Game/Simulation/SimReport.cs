@@ -35,6 +35,9 @@ public class SimOptionsDto
     public int Coverage { get; set; }
     public List<string> Characters { get; set; }
     public double TimeoutMin { get; set; }
+
+    /// <summary>Bot AI difficulty for the run: 1 legacy (default), 2 smarter heuristics, 3 omniscient predictions.</summary>
+    public int AiDifficulty { get; set; } = 1;
 }
 
 public class SimErrorDto

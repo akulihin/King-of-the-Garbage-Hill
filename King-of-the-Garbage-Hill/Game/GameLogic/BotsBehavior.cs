@@ -34,6 +34,19 @@ public class BotsBehavior : IServiceSingleton
         return Task.CompletedTask;
     }
 
+    // ── AI difficulty (docs/BALANCE-CONSTANTS.md → "Bot AI difficulty") ──
+    private static bool Smart(GameClass game) => game.AiDifficulty >= 2;                        // L2+
+    private static bool Omni(GameClass game)  => game.AiDifficulty >= 3
+                                                 && game.RoundNo >= game.AiFullKnowledgeRound;  // L3 window
+    private const int SmartTargetTaretNumberEarly = 3;
+    private const int SmartKnownClassNemesisNumber = 2;
+    private const int SmartPredictAvoidNumber = 2;
+    private const int SmartMoralWaitPlace3 = 8;   // L1: 5
+    private const int SmartMoralWaitPlace4 = 13;  // L1: 8
+    private const int OmniPredictConfidence = 2;
+    private const int OmniReverseNemesisNumber = 3;
+    private const int OmniVersatilityNumber = 2;
+
     public async Task HandleBotBehavior(GamePlayerBridgeClass player, GameClass game)
     {
         if (game.RoundNo > 10)
@@ -207,11 +220,11 @@ public class BotsBehavior : IServiceSingleton
             //если бот на 5м месте то ждет 13
             if (bot.Status.GetPlaceAtLeaderBoard() == 5 && bot.GameCharacter.GetMoral() < 13 && !overwrite)
                 return;
-            //если бот на 4м месте то ждет 8
-            if (bot.Status.GetPlaceAtLeaderBoard() == 4 && bot.GameCharacter.GetMoral() < 8 && !overwrite)
+            //если бот на 4м месте то ждет 8 (L2-7: smart bots wait 13 — higher conversion tiers pay strictly more per moral)
+            if (bot.Status.GetPlaceAtLeaderBoard() == 4 && bot.GameCharacter.GetMoral() < (Smart(game) ? SmartMoralWaitPlace4 : 8) && !overwrite)
                 return;
-            //если бот на 3м месте то ждет 5
-            if (bot.Status.GetPlaceAtLeaderBoard() == 3 && bot.GameCharacter.GetMoral() < 5 && !overwrite)
+            //если бот на 3м месте то ждет 5 (L2-7: smart bots wait 8)
+            if (bot.Status.GetPlaceAtLeaderBoard() == 3 && bot.GameCharacter.GetMoral() < (Smart(game) ? SmartMoralWaitPlace3 : 5) && !overwrite)
                 return;
         }
         //end логика до 10го раунда
@@ -577,10 +590,16 @@ public class BotsBehavior : IServiceSingleton
             var justiceDifference = 0;
             //
 
+            // L2-1: early Мишень capture is worth ~3× a late one (reward decay 10,9,…,1 + Main+Extra double-dip)
+            if (Smart(game) && game.RoundNo <= 4) isTargetTaretNumber = SmartTargetTaretNumberEarly;
+
             //calculation Tens
             foreach (var target in allTargets)
             {
-                var targetJustice = target.Player.GameCharacter.Justice.GetSeenJusticeNow();
+                // L3-4: omniscient bots read the justice that actually enters the fight math
+                var targetJustice = Omni(game)
+                    ? target.Player.GameCharacter.Justice.GetRealJusticeNow()
+                    : target.Player.GameCharacter.Justice.GetSeenJusticeNow();
 
                 //if justice is the same
                 if (botJustice == targetJustice)
@@ -644,7 +663,15 @@ public class BotsBehavior : IServiceSingleton
                     target.AttackPreference -= isLostLastRoundAndTargetIsBetterNumber;
                     isLostLastRoundAndTargetIsBetter = true;
                 }
-           
+                // L2-4: stat-decided losses stay valid one more round (stats only move on level-ups)
+                else if (Smart(game) && bot.Status.WhoToLostEveryRound.Any(x =>
+                             x.RoundNo == game.RoundNo - 3 && x.EnemyId == target.GetPlayerId() &&
+                             x.IsStatsBetterEnemy))
+                {
+                    target.AttackPreference -= isLostLastRoundAndTargetIsBetterNumber;
+                    isLostLastRoundAndTargetIsBetter = true;
+                }
+
 
 
                 //won and too good
@@ -678,12 +705,50 @@ public class BotsBehavior : IServiceSingleton
                         isTargetNemesis = true;
                     }
 
+                // L2-2: use the legitimately-known class tells (KnownPlayerClass) for nemesis targeting
+                if (Smart(game))
+                {
+                    var knownTell = bot.Status.KnownPlayerClass.Find(x => x.EnemyId == target.GetPlayerId());
+                    if (knownTell != null)
+                    {
+                        var myType = bot.GameCharacter.GetSkillClassType();
+                        var counterKeyword = CharacterClass.ClassToKnownKeyword(CharacterClass.NemesisOf(myType));
+                        var countersMeKeyword = CharacterClass.ClassToKnownKeyword(
+                            CharacterClass.NemesisOf(CharacterClass.NemesisOf(myType))); // 3-cycle: nemesis-of-nemesis counters me
+                        if (counterKeyword != "" && knownTell.Text.Contains(counterKeyword) && target.AttackPreference >= 5)
+                            target.AttackPreference += SmartKnownClassNemesisNumber;
+                        else if (countersMeKeyword != "" && knownTell.Text.Contains(countersMeKeyword))
+                            target.AttackPreference -= SmartKnownClassNemesisNumber;
+                    }
+                }
+
+                // L3-2: omniscient bots avoid enemies who counter them (reverse nemesis is a true-read = cheat)
+                if (Omni(game) && target.Player.GameCharacter.HasNemesisOver(bot.GameCharacter))
+                    target.AttackPreference -= OmniReverseNemesisNumber;
+
+                // L3-3: true-stat versatility check (Step-1 ±5 term, CalculateRounds versatility, on real stats)
+                if (Omni(game))
+                {
+                    var statWins =
+                        (bot.GameCharacter.GetIntelligence() > target.Player.GameCharacter.GetIntelligence() ? 1 : 0) +
+                        (bot.GameCharacter.GetStrength() > target.Player.GameCharacter.GetStrength() ? 1 : 0) +
+                        (bot.GameCharacter.GetSpeed() > target.Player.GameCharacter.GetSpeed() ? 1 : 0);
+                    if (statWins >= 2 && target.AttackPreference >= 5)
+                        target.AttackPreference += OmniVersatilityNumber;
+                    else if (statWins == 0)
+                        target.AttackPreference -= OmniVersatilityNumber;
+                }
 
                 //justice diff
                 if (allTargets.All(x => x.Player.GameCharacter.Justice.GetSeenJusticeNow() < botJustice))
                 {
                     justiceDifference = botJustice - targetJustice;
                     target.AttackPreference += justiceDifference;
+                }
+                // L2-3: per-target justice gradient (L1 only rewards it when ALL targets are below the bot)
+                else if (Smart(game) && botJustice > targetJustice)
+                {
+                    target.AttackPreference += botJustice - targetJustice;
                 }
 
                 //custom bot behavior
@@ -1754,6 +1819,26 @@ public class BotsBehavior : IServiceSingleton
                     }
                 }
 
+                // L2-5: avoid attacking into predicted punish-passives (uses bot.Predict beyond the Братишка rule)
+                if (Smart(game))
+                {
+                    var predictWeight = Omni(game) ? OmniPredictConfidence : 1;   // L3-1: predictions are certain
+                    var predicted = bot.Predict.Find(x => x.PlayerId == target.GetPlayerId());
+                    if (predicted != null)
+                    {
+                        // Краборак «Панцирь»: first attack per enemy = auto-block, +3 моральки +33 скилла ему
+                        if (predicted.CharacterName == "Краборак"
+                            && !bot.Status.WhoToLostEveryRound.Any(x => x.EnemyId == target.GetPlayerId())
+                            && !target.Player.Status.WhoToLostEveryRound.Any(x => x.EnemyId == bot.GetPlayerId()))
+                            target.AttackPreference -= SmartPredictAvoidNumber * predictWeight;
+
+                        // Толя «Раммус»: мораль = attackers² — don't join a pile on Толя
+                        if (predicted.CharacterName == "Толя"
+                            && allTargets.Any(x => x.Player.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId())))
+                            target.AttackPreference -= SmartPredictAvoidNumber * predictWeight;
+                    }
+                }
+
             }
 
             
@@ -2438,6 +2523,25 @@ public class BotsBehavior : IServiceSingleton
                 && isBlock != noBlock)
             {
                 isBlock = yesBlock;
+            }
+
+            // L2-6: round-10 block economics — leader defends the crown, everyone else attacks (×4 round,
+            // justice is worthless now). Untouched-generic guard preserves every bespoke round-10 block rule.
+            if (Smart(game) && game.RoundNo == 10 && isBlock != noBlock && isBlock != yesBlock
+                && minimumRandomNumberForBlock == 1 && maximumRandomNumberForBlock == 4)
+            {
+                if (bot.Status.GetPlaceAtLeaderBoard() == 1) isBlock = yesBlock;   // defend the crown
+                else isBlock = noBlock;                                            // ×4 round: justice is worthless now, attack
+            }
+
+            // L2-8: at 0 justice you lose every tiebreak and get milked by Умный attackers; if no target
+            // scored ≥6 the heuristics found no good fight — raise the block-roll floor 1→2 (rounds 2-9).
+            if (Smart(game) && game.RoundNo is >= 2 and <= 9 && botJustice == 0
+                && isBlock != noBlock && isBlock != yesBlock
+                && minimumRandomNumberForBlock == 1 && maximumRandomNumberForBlock == 4
+                && allTargets.All(x => x.AttackPreference < 6))
+            {
+                minimumRandomNumberForBlock = 2;
             }
 
             //end custom behaviour After calculation Tens

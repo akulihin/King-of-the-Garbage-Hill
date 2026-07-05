@@ -44,7 +44,7 @@ public class BotGameFactory : IServiceSingleton
     /// (caller owns line-up validity: LeCrisp/Толя apart, ≤1 Tier-4, no TeamModeOnly).
     /// </summary>
     public async Task<GameClass> CreateBotGameAsync(ulong creatorId, string mode = "Bot",
-        uint testFightNumber = 0, List<string> forcedCharacters = null)
+        uint testFightNumber = 0, List<string> forcedCharacters = null, int aiDifficulty = 1)
     {
         var players = new List<IUser>
         {
@@ -79,6 +79,7 @@ public class BotGameFactory : IServiceSingleton
 
         //создаем игру
         var game = new GameClass(playersList, gameId, creatorId, 300, mode) { IsCheckIfReady = false };
+        game.AiDifficulty = Math.Clamp(aiDifficulty, 1, 3);
 
         //отправить меню игры
         foreach (var player in playersList) await _upd.WaitMess(player, game);

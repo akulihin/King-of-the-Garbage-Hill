@@ -6287,6 +6287,20 @@ public class CharacterPassives : IServiceSingleton
                 // Kira uses Death Note, not predictions
                 if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Тетрадь смерти")) continue;
 
+                // L3: strict bots (never AFK humans — IsBot() also matches disconnected players) know everyone
+                if (game.AiDifficulty >= 3 && game.RoundNo >= game.AiFullKnowledgeRound && player.PlayerType == 404)
+                {
+                    foreach (var enemy in game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()))
+                    {
+                        var existing = player.Predict.Find(x => x.PlayerId == enemy.GetPlayerId());
+                        if (existing != null) player.Predict.Remove(existing);
+                        // Never predict Монстр без имени: can't score (CIR:301) and gifts him +3 / pawn on round 9 (CP:5487-5515)
+                        if (enemy.GameCharacter.Passive.Any(p => p.PassiveName == "Выдуманный персонаж")) continue;
+                        player.Predict.Add(new PredictClass(enemy.GameCharacter.Name, enemy.GetPlayerId()));
+                    }
+                    continue; // heuristics redundant once omniscient
+                }
+
                 var splitLogs = player.Status.InGamePersonalLogsAll.Split("|||");
 
                 var lastRoundEvents = "";

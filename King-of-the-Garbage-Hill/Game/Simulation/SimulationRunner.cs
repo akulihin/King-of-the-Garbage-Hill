@@ -73,12 +73,19 @@ public class SimulationRunner : IServiceSingleton
         var coverage = GetIntArg(args, "--coverage", 0);
         var timeoutMin = GetIntArg(args, "--timeout-min", 10);
         var charactersArg = GetStringArg(args, "--characters");
+        var aiDifficulty = GetIntArg(args, "--ai-difficulty", 1);
         var reportPath = GetStringArg(args, "--report")
                          ?? Path.Combine("DataBase", "Simulations", $"sim-{DateTime.Now:yyyyMMdd-HHmmss}.json");
 
         if (games < 0 || coverage < 0 || timeoutMin <= 0)
         {
             Console.WriteLine("[SIM] Invalid arguments: --games/--coverage must be >= 0, --timeout-min > 0.");
+            return 2;
+        }
+
+        if (aiDifficulty is < 1 or > 3)
+        {
+            Console.WriteLine("[SIM] Invalid arguments: --ai-difficulty must be 1, 2 or 3.");
             return 2;
         }
 
@@ -129,7 +136,7 @@ public class SimulationRunner : IServiceSingleton
             : coverage > 0 ? "coverage"
             : "smoke";
 
-        Console.WriteLine($"[SIM] Mode: {mode}; games: {lineupPlan.Count}; report: {reportPath}");
+        Console.WriteLine($"[SIM] Mode: {mode}; games: {lineupPlan.Count}; report: {reportPath}; ai-difficulty: {aiDifficulty}");
 
         // ── Fresh bots (comparable runs + recovery after killed runs) ─
         var botAccounts = 0;
@@ -171,7 +178,7 @@ public class SimulationRunner : IServiceSingleton
         foreach (var lineup in lineupPlan)
         {
             var game = await _botGameFactory.CreateBotGameAsync(creatorId: 0, mode: "Bot",
-                forcedCharacters: lineup);
+                forcedCharacters: lineup, aiDifficulty: aiDifficulty);
             myGameIds.Add(game.GameId);
             lineups[game.GameId] = game.PlayersList.Select(x => x.GameCharacter.Name).ToList();
             gameVersion ??= game.GameVersion;
@@ -287,7 +294,8 @@ public class SimulationRunner : IServiceSingleton
             StartedAtUtc = startedAt,
             DurationSeconds = Math.Round((DateTime.UtcNow - startedAt).TotalSeconds, 1),
             Options = new SimOptionsDto
-                { Games = games, Coverage = coverage, Characters = matchup, TimeoutMin = timeoutMin },
+                { Games = games, Coverage = coverage, Characters = matchup, TimeoutMin = timeoutMin,
+                  AiDifficulty = aiDifficulty },
             GamesRequested = myGameIds.Count,
             GamesFinished = records.Count,
             GamesStuck = stuckGames.Count,

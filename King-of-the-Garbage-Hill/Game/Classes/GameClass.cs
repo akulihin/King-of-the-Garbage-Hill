@@ -63,6 +63,14 @@ public class GameClass
     public List<TeamPlay> Teams { get; set; }
     public uint TestFightNumber { get; set; }
 
+    /// <summary>Bot AI difficulty. 1 = legacy (default everywhere), 2 = smarter heuristics (same
+    /// skeleton), 3 = omniscient predictions from AiFullKnowledgeRound. Set only by the sim
+    /// harness (--ai-difficulty); Discord/web games always run 1.</summary>
+    public int AiDifficulty { get; set; } = 1;
+
+    /// <summary>Round from which AiDifficulty-3 bots know every enemy's character (tunable; may become 2 or 1).</summary>
+    public int AiFullKnowledgeRound { get; set; } = 3;
+
     public List<BotsBehavior.NanobotClass> NanobotsList { get; set; } = new();
 
     public bool IsAramPickPhase { get; set; }
