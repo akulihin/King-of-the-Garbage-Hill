@@ -35,13 +35,32 @@ known() { # known <KIND> <value> → exit 0 if listed
 known_id() { grep -v '^#' "$KNOWN" 2>/dev/null | awk -F'|' -v k="$1" -v v="$2" '$1==k && $2==v {print $3; exit}'; }
 
 fail=0
-NEW_WARN=$(mktemp); trap 'rm -f "$NEW_WARN"' EXIT
+NEW_WARN=$(mktemp); PATS=$(mktemp); TMP_OUT="$OUT.tmp.$$"
+trap 'rm -f "$NEW_WARN" "$PATS" "$TMP_OUT"' EXIT
 
 mapfile -t PASSIVES < <(jq -r '.[].Passive[].PassiveName' "$JSON" | sort -u)
 mapfile -t CHARS    < <(jq -r '.[].Name' "$JSON" | sort -u)
 
 CODE_CS=$(find $B/Game $B/API -name '*.cs')
 CODE_ALL="$CODE_CS $(find Web/VueClient/src -name '*.ts' -o -name '*.vue' 2>/dev/null | tr '\n' ' ')"
+
+# Pre-index everything in single passes (m25): the old per-passive greps took
+# ~90s on a /mnt/* checkout — longer than the 60s post-edit hook timeout, and a
+# killed run used to truncate the committed map mid-write.
+declare -A OWNERS CASE_COUNT REFS
+while IFS=$'\t' read -r p n; do
+  if [ -n "${OWNERS[$p]:-}" ]; then OWNERS[$p]="${OWNERS[$p]}, $n"; else OWNERS[$p]="$n"; fi
+done < <(jq -r '.[] | .Name as $n | .Passive[]?.PassiveName | . + "\t" + $n' "$JSON")
+
+while read -r cnt lbl; do CASE_COUNT[$lbl]=$cnt; done < <(
+  grep -oP 'case "\K[^"]+(?=":)' "$B/Game/GameLogic/CharacterPassives.cs" | sort | uniq -c | sed -E 's/^ *([0-9]+) /\1 /')
+
+printf '"%s"\n' "${PASSIVES[@]}" > "$PATS"
+while IFS=$'\t' read -r m cnt; do REFS[$m]=$cnt; done < <(
+  grep -HoF -f "$PATS" $CODE_ALL 2>/dev/null \
+  | grep -v "CharactersPhrases.cs" \
+  | sed 's/:"/\t"/' | sort -u | cut -f2 \
+  | sort | uniq -c | sed -E 's/^ *([0-9]+) (.*)$/\2\t\1/')
 
 {
 echo "# PASSIVE-MAP (generated — do not edit)"
@@ -57,9 +76,9 @@ echo "| Passive | Owner(s) | CP case | Other refs | Status |"
 echo "|---|---|---:|---:|---|"
 
 for p in "${PASSIVES[@]}"; do
-  owners=$(jq -r --arg p "$p" '[.[] | select(.Passive[]?.PassiveName == $p) | .Name] | join(", ")' "$JSON")
-  cases=$(grep -cF "case \"$p\":" $B/Game/GameLogic/CharacterPassives.cs || true)
-  refs=$(grep -lF "\"$p\"" $CODE_ALL 2>/dev/null | grep -v "CharactersPhrases.cs" | wc -l)
+  owners=${OWNERS[$p]:-}
+  cases=${CASE_COUNT[$p]:-0}
+  refs=${REFS["\"$p\""]:-0}
   status="ok"
   if known "NAME-KEYED" "$p"; then
     status="NAME-KEYED ($(known_id "NAME-KEYED" "$p"))"
@@ -116,7 +135,8 @@ done
 [ $bad_found -eq 0 ] && echo "- none"
 echo
 echo "_Limitation: \`switch\` case labels over a Name variable outside CharacterPassives.cs (e.g. BotsBehavior) are not scanned — the Cyrillic \`case \"Салдорум\":\` at BotsBehavior.cs:1409 is only caught via its sibling \`==\` checks._"
-} > "$OUT"
+} > "$TMP_OUT"
+mv -f "$TMP_OUT" "$OUT"   # atomic: a killed run can never leave a truncated map (m25)
 
 echo "Wrote $OUT"
 if [ -s "$NEW_WARN" ]; then

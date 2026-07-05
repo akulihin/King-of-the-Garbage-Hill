@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/tools/hook-post-edit.sh\"",
+            "timeout": 60,
+            "statusMessage": "Checking passive/name wiring…"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/tools/check-docs-drift.sh\"",
+            "timeout": 30,
+            "statusMessage": "Docs-drift check…"
+          }
+        ]
+      }
+    ]
+  }
+}
