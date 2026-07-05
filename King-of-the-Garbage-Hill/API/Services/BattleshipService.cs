@@ -609,11 +609,12 @@ public class BattleshipService
             if (player == null)
                 return (false, "Вы не в этой игре.");
 
-            if (player.SummonSlotsUsed >= player.MaxSummonSlots)
-                return (false, "Все слоты призыва заняты.");
-
             if (!Enum.TryParse<SummonType>(summonTypeStr, true, out var summonType))
                 return (false, "Неизвестный тип призыва.");
+
+            // ТЗ #10: Brander is outside the 4-slot limit (its own once-per-match cap is below)
+            if (summonType != SummonType.Brander && player.SummonSlotsUsed >= player.MaxSummonSlots)
+                return (false, "Все слоты призыва заняты.");
 
             // Brander requires the boiler upgrade on Tetranavis
             if (summonType == SummonType.Brander &&
@@ -671,6 +672,9 @@ public class BattleshipService
                     waitingSummon.Col = col;
                     waitingSummon.MoveDirection = waitingSummon.MoveDirection == Direction.Down ? Direction.Up : Direction.Down;
                 }
+                var reentryCell = opponent?.Board.GetCell(waitingSummon.Row, waitingSummon.Col);
+                if (reentryCell != null) reentryCell.SummonTrail = true; // ТЗ #2: re-entry starts a new trail
+
                 player.LastSummonDeployShotCount = game.ShotCount;
                 game.LastActivity = DateTime.UtcNow;
                 game.AddLog($"{player.Username} перенаправил {summonType}!");
@@ -684,6 +688,10 @@ public class BattleshipService
 
                 return (true, null);
             }
+
+            // ТЗ #10: Brander — максимум 1 за матч (redirect of a waiting one is handled above)
+            if (summonType == SummonType.Brander && player.BranderUsed)
+                return (false, "Брандер уже был использован в этом матче.");
 
             var summon = new Summon
             {
@@ -718,13 +726,20 @@ public class BattleshipService
             }
 
             player.Summons.Add(summon);
-            player.SummonSlotsUsed++;
+            if (summonType == SummonType.Brander)
+                player.BranderUsed = true; // ТЗ #10: вне лимита слотов, 1 раз за матч
+            else
+                player.SummonSlotsUsed++;
             player.LastSummonDeployShotCount = game.ShotCount;
             game.LastActivity = DateTime.UtcNow;
 
             // Set SummonRef on opponent's board so summon can be targeted by shots
             var opponentCell = opponent?.Board.GetCell(summon.Row, summon.Col);
-            if (opponentCell != null) opponentCell.SummonRef = summon;
+            if (opponentCell != null)
+            {
+                opponentCell.SummonRef = summon;
+                opponentCell.SummonTrail = true; // ТЗ #2: the spawn cell is part of the trail
+            }
 
             game.AddLog($"{player.Username} развернул {summonType}! ({(char)('A' + col)}1)");
 
@@ -794,7 +809,11 @@ public class BattleshipService
 
             // Set SummonRef on opponent's board
             var opponentCell = opponent?.Board.GetCell(summon.Row, summon.Col);
-            if (opponentCell != null) opponentCell.SummonRef = summon;
+            if (opponentCell != null)
+            {
+                opponentCell.SummonRef = summon;
+                opponentCell.SummonTrail = true; // ТЗ #2: the spawn cell is part of the trail
+            }
 
             game.AddLog($"{player.Username} выпустил {pending.SourceShipName ?? pending.Type.ToString()}! ({(char)('A' + col)}1)");
 
@@ -838,9 +857,9 @@ public class BattleshipService
             if (!ship.Decks.Any(d => d.IsDestroyed))
                 return (false, "Корабль не был повреждён. Маневр невозможен.");
 
-            // One-time use
-            if (player.ManeuveringDoubleUsed)
-                return (false, "Маневренное перемещение уже было использовано.");
+            // ТЗ #21: one-time use PER SHIP — a second Maneuvering Double can still move
+            if (ship.HasManeuvered)
+                return (false, "Этот корабль уже использовал манёвр.");
 
             if (distance < 1 || distance > 2)
                 return (false, "Можно переместиться на 1 или 2 клетки.");
@@ -852,19 +871,11 @@ public class BattleshipService
             if (!success)
                 return (false, "Невозможно переместить корабль в этом направлении.");
 
-            player.ManeuveringDoubleUsed = true;
+            ship.HasManeuvered = true;
             game.LastActivity = DateTime.UtcNow;
-            game.AddLog($"{ship.Name} маневрирует!");
-
-            // Mast warning: "Даёт по вёслам!"
-            var opponent = game.GetOpponent(discordId);
-            if (opponent != null)
-            {
-                var hasMast = opponent.Board.PlacedShips.Any(s =>
-                    !s.IsDestroyed && s.Decks.Any(d => d.Module == "mast" && !d.ModuleDestroyed));
-                if (hasMast)
-                    game.AddLog("[Мачта] Даёт по вёслам!");
-            }
+            // ТЗ #20: only the mover sees the move message; the opponent gets their mast warning
+            // at hit time (ProcessShipHit), not at move time
+            game.AddLogFor(discordId, $"{ship.Name} маневрирует!");
 
             return (true, null);
         }
@@ -1278,11 +1289,11 @@ public class BattleshipService
             IsReady = player.IsReady,
             SummonSlotsUsed = player.SummonSlotsUsed,
             MaxSummonSlots = player.MaxSummonSlots,
+            BranderUsed = player.BranderUsed,
             SelectedShotType = player.SelectedShotType.ToString(),
             RevealedCellCount = player.RevealedCellCount,
             StunShotExpiry = player.StunShotExpiry,
             HasPenalty = player.HasPenalty,
-            ManeuveringDoubleUsed = player.ManeuveringDoubleUsed,
             HasShotThisTurn = player.HasShotThisTurn,
             SummonCooldownRemaining = Math.Max(0, 2 - (gameShotCount - player.LastSummonDeployShotCount)),
             Fleet = isMe || isSpectator ? MapFleet(player.Fleet, opponentRevealedCount) : null,
@@ -1331,12 +1342,14 @@ public class BattleshipService
             IsDestroyed = s.IsDestroyed,
             IsPlaced = s.IsPlaced,
             IsSummon = s.IsSummon,
+            HasManeuvered = s.HasManeuvered,
             Range = s.Range.ToString(),
             Cost = s.Cost,
             Abilities = s.Abilities,
             Upgrades = s.Upgrades,
             Speed = s.Speed,
             Space = s.Space,
+            Regions = s.Regions.Select(r => r.ToString()).ToList(),
             Decks = s.Decks.Select(d => new DeckDto
             {
                 Index = d.Index,
@@ -1369,7 +1382,9 @@ public class BattleshipService
                 Row = r,
                 Col = c,
                 IsRevealed = true,
-                IsHit = cell.IsHit,
+                // ТЗ #19: killed decks derive from the live Ship object, so the mark follows a
+                // Maneuvering Double to its new cells after a manual move
+                IsHit = cell.IsHit || (showShips && IsDeckDestroyedAt(cell)),
                 IsMiss = cell.IsMiss,
                 IsBurning = cell.IsBurning,
                 HasShip = showShips && cell.ShipRef != null,
@@ -1380,6 +1395,7 @@ public class BattleshipService
                 IsScratched = IsCellScratched(cell),
                 SummonTrail = cell.SummonTrail,
                 IsBurnResistMarked = cell.BurnResistMarked,
+                IsDodgeMarked = cell.WasDodge,
             });
         }
         return new BoardDto { Cells = cells };
@@ -1397,7 +1413,9 @@ public class BattleshipService
                 Row = r,
                 Col = c,
                 IsRevealed = cell.IsRevealed,
-                IsHit = cell.IsHit,
+                // WasShipHit implies hit — keeps the snapshot visible after the ship moved away
+                // and its live IsHit flag was cleared (ТЗ #19/#22)
+                IsHit = cell.IsHit || cell.WasShipHit,
                 IsMiss = cell.IsMiss,
                 IsBurning = cell.IsBurning,
                 HasShip = cell.WasShipHit, // Snapshot: show ship where it was hit, not current position
@@ -1408,9 +1426,24 @@ public class BattleshipService
                 IsScratched = cell.WasScratched, // Snapshot: scratched state persists after ship moves
                 SummonTrail = cell.SummonTrail,
                 IsBurnResistMarked = cell.BurnResistMarked,
+                IsDodgeMarked = cell.WasDodge,
             });
         }
         return new BoardDto { Cells = cells };
+    }
+
+    /// <summary>The deck of the ship occupying this cell is destroyed (derived from the live Ship, ТЗ #19).</summary>
+    private static bool IsDeckDestroyedAt(Cell cell)
+    {
+        if (cell.ShipRef == null) return false;
+        var ship = cell.ShipRef;
+        var cells = ship.GetOccupiedCells();
+        for (var i = 0; i < cells.Count; i++)
+        {
+            if (cells[i].row == cell.Row && cells[i].col == cell.Col)
+                return i < ship.Decks.Count && ship.Decks[i].IsDestroyed;
+        }
+        return false;
     }
 
     /// <summary>Cell has a ship deck that was hit but not destroyed (scratched).</summary>
@@ -1475,11 +1508,11 @@ public class BattleshipPlayerDto
     public bool IsReady { get; set; }
     public int SummonSlotsUsed { get; set; }
     public int MaxSummonSlots { get; set; }
+    public bool BranderUsed { get; set; }
     public string SelectedShotType { get; set; }
     public int RevealedCellCount { get; set; }
     public int StunShotExpiry { get; set; }
     public bool HasPenalty { get; set; }
-    public bool ManeuveringDoubleUsed { get; set; }
     public bool HasShotThisTurn { get; set; }
     public int SummonCooldownRemaining { get; set; }
     public List<ShipDto> Fleet { get; set; }
@@ -1510,6 +1543,7 @@ public class CellDto
     public bool IsScratched { get; set; }
     public bool SummonTrail { get; set; }
     public bool IsBurnResistMarked { get; set; }
+    public bool IsDodgeMarked { get; set; }
 }
 
 public class ShipDto
@@ -1530,6 +1564,8 @@ public class ShipDto
     public List<string> Upgrades { get; set; } = new();
     public int Speed { get; set; }
     public int Space { get; set; }
+    public List<string> Regions { get; set; } = new();
+    public bool HasManeuvered { get; set; }
     public List<DeckDto> Decks { get; set; } = new();
     public List<WeaponDto> Weapons { get; set; } = new();
 }

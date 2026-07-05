@@ -737,11 +737,11 @@ export type BattleshipPlayerState = {
   isReady: boolean
   summonSlotsUsed: number
   maxSummonSlots: number
+  branderUsed: boolean
   selectedShotType: string
   revealedCellCount: number
   stunShotExpiry: number
   hasPenalty: boolean
-  maneuveringDoubleUsed: boolean
   hasShotThisTurn: boolean
   summonCooldownRemaining: number
   fleet: BattleshipShip[] | null
@@ -778,6 +778,7 @@ export type BattleshipCell = {
   isScratched: boolean
   summonTrail?: boolean
   isBurnResistMarked?: boolean
+  isDodgeMarked?: boolean
   isDestroyed?: boolean
   isFrozen?: boolean
   isDevastated?: boolean
@@ -796,12 +797,14 @@ export type BattleshipShip = {
   isDestroyed: boolean
   isPlaced: boolean
   isSummon: boolean
+  hasManeuvered: boolean
   range: string
   cost: number
   abilities: string[]
   upgrades: string[]
   speed: number
   space: number
+  regions: string[]
   decks: BattleshipDeck[]
   weapons: BattleshipWeapon[]
 }

@@ -696,8 +696,6 @@ public static class BattleshipBotAI
     public static (SummonType type, int col)? ChooseSummonDeploy(
         BattleshipGame game, BattleshipPlayer bot)
     {
-        if (bot.SummonSlotsUsed >= bot.MaxSummonSlots) return null;
-
         var opponent = game.GetOpponent(bot.DiscordId);
         if (opponent == null) return null;
 
@@ -712,14 +710,19 @@ public static class BattleshipBotAI
         var aliveSummons = bot.Summons.Count(s => s.IsAlive);
         if (aliveSummons >= 2) return null;
 
-        // Determine available summon types based on fleet regions
+        // Determine available summon types based on fleet regions.
+        // Regular summons need a free slot; Brander is outside the slot limit, 1 per match (ТЗ #10)
+        var slotsFull = bot.SummonSlotsUsed >= bot.MaxSummonSlots;
         var regions = bot.Fleet.SelectMany(s => s.Regions).Distinct().ToHashSet();
         var available = new List<SummonType>();
 
-        if (regions.Contains(Region.West)) available.Add(SummonType.Ram);
-        if (regions.Contains(Region.East)) available.Add(SummonType.Scout);
-        if (regions.Contains(Region.South)) available.Add(SummonType.PirateBoat);
-        if (bot.Fleet.Any(s => !s.IsDestroyed && s.Abilities.Contains("brander_summon")))
+        if (!slotsFull)
+        {
+            if (regions.Contains(Region.West)) available.Add(SummonType.Ram);
+            if (regions.Contains(Region.East)) available.Add(SummonType.Scout);
+            if (regions.Contains(Region.South)) available.Add(SummonType.PirateBoat);
+        }
+        if (!bot.BranderUsed && bot.Fleet.Any(s => !s.IsDestroyed && s.Abilities.Contains("brander_summon")))
             available.Add(SummonType.Brander);
 
         if (available.Count == 0) return null;
@@ -770,14 +773,6 @@ public static class BattleshipBotAI
             return shipCols.ElementAt(Rng.Next(shipCols.Count));
 
         return Rng.Next(10);
-    }
-
-    /// <summary>
-    /// Returns true if bot should deploy a summon. Simplified check for backward compatibility.
-    /// </summary>
-    public static bool ShouldDeploySummon(BattleshipPlayer bot)
-    {
-        return bot.SummonSlotsUsed < bot.MaxSummonSlots && bot.Summons.Count(s => s.IsAlive) < 2;
     }
 
     // ── Pending Summon Deployment ────────────────────────────────────

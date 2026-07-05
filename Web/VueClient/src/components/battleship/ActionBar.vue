@@ -21,7 +21,6 @@ const props = defineProps<{
   shotResult: { message: string } | null
   shotResultClass: Record<string, boolean>
   isMyTurn: boolean
-  maneuveringDoubleUsed: boolean
 }>()
 
 const emit = defineEmits<{
@@ -37,8 +36,8 @@ function emitManualMove(shipId: string, direction: string) {
 </script>
 
 <template>
-  <!-- Manual Move (Maneuvering Double) -->
-  <template v-if="isMyTurn && !maneuveringDoubleUsed">
+  <!-- Manual Move (Maneuvering Double) — per-ship activation (ТЗ #21) -->
+  <template v-if="isMyTurn">
     <div
       v-for="ship in maneuverableShips"
       :key="ship.id"

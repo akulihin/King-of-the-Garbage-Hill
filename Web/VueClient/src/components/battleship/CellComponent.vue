@@ -42,13 +42,15 @@ const cellClass = computed(() => {
   else if (props.cell.isScratched) classes.push('cell-scratched')
   else if (props.cell.isHit && props.cell.hasShip) classes.push('cell-hit')
   else if (props.cell.isHit) classes.push('cell-hit-empty')
-  else if (props.cell.hasSummon) {
-    classes.push(props.cell.summonOwnerId && props.isEnemy ? 'cell-summon-enemy' : 'cell-summon')
-  }
+  else if (props.cell.isDodgeMarked) classes.push('cell-dodge-mark')
   else if (props.cell.isMiss) classes.push('cell-miss')
   else if (props.cell.hasShip && !props.isEnemy) classes.push('cell-ship')
   else if (!props.cell.isRevealed && props.isEnemy) classes.push('cell-fog')
   else classes.push('cell-empty')
+
+  // ТЗ #17: creatures render as an orange icon overlay — the base class above keeps
+  // showing the cell's own status (hit/miss/fire/…) underneath
+  if (props.cell.hasSummon) classes.push('cell-has-summon')
 
   if (props.clickable) {
     classes.push('cell-clickable')
@@ -95,14 +97,7 @@ const cellClass = computed(() => {
 
 const cellIconHtml = computed(() => {
   if (!props.cell) return ''
-  if (props.cell.isDestroyed) return renderIcon('destroyed', 16)
-  if (props.cell.isDevastated) return renderIcon('devastated', 16)
-  if (props.cell.isFirePermanent) return renderIcon('firePermanent', 14)
-  if (props.cell.isBurning) return renderIcon('burning', 14)
-  if (props.cell.isFrozen) return renderIcon('frozen', 14)
-  if (props.cell.isCaptured) return renderIcon('captured', 14)
-  if (props.cell.isScratched) return renderIcon('scratched', 14)
-  if (props.cell.isHit && props.cell.hasShip) return renderIcon('hit', 14)
+  // ТЗ #17: the creature icon always wins — the cell status shows through the background
   if (props.cell.hasSummon) {
     switch (props.cell.summonType) {
       case 'Ram': return renderIcon('ram', 14)
@@ -113,6 +108,14 @@ const cellIconHtml = computed(() => {
       default: return renderIcon('anchor', 14)
     }
   }
+  if (props.cell.isDestroyed) return renderIcon('destroyed', 16)
+  if (props.cell.isDevastated) return renderIcon('devastated', 16)
+  if (props.cell.isFirePermanent) return renderIcon('firePermanent', 14)
+  if (props.cell.isBurning) return renderIcon('burning', 14)
+  if (props.cell.isFrozen) return renderIcon('frozen', 14)
+  if (props.cell.isCaptured) return renderIcon('captured', 14)
+  if (props.cell.isScratched) return renderIcon('scratched', 14)
+  if (props.cell.isHit && props.cell.hasShip) return renderIcon('hit', 14)
   if (props.cell.isMiss) return renderIcon('miss', 10)
   if (props.blocked) return ''
   return ''
@@ -137,7 +140,12 @@ const cellTooltip = computed(() => {
   const ship = props.shipName ? ` — ${props.shipName}` : ''
 
   let base = ''
-  if (props.cell.isDestroyed) base = `Уничтожено${ship}`
+  if (props.cell.hasSummon) {
+    base = (props.cell.summonType && summonNames[props.cell.summonType]) ?? 'Призыв'
+    // ТЗ #1: enemy creature in the penalty zone (rows 1-3 of the own board)
+    if (!props.isEnemy && props.cell.row <= 2) base = `Штраф за убийство суммона в этой зоне | ${base}`
+  }
+  else if (props.cell.isDestroyed) base = `Уничтожено${ship}`
   else if (props.cell.isDevastated) base = `Опустошено`
   else if (props.cell.isBurning || props.cell.isFirePermanent) base = `Горит${ship}`
   else if (props.cell.isBurnResistMarked) base = `Огнеупорный корабль — устоял против огня${ship}`
@@ -145,7 +153,7 @@ const cellTooltip = computed(() => {
   else if (props.cell.isCaptured) base = `Захвачено`
   else if (props.cell.isScratched) base = `Поцарапано — можно стрелять повторно`
   else if (props.cell.isHit && props.cell.hasShip) base = `Попадание${ship}`
-  else if (props.cell.hasSummon) base = (props.cell.summonType && summonNames[props.cell.summonType]) ?? 'Призыв'
+  else if (props.cell.isDodgeMarked) base = `Юркая единичка увернулась — баллиста бессильна`
   else if (props.cell.isMiss) base = `Промах`
   else if (props.cell.hasShip && !props.isEnemy) base = `Корабль${ship}`
   else if (props.isEnemy && !props.cell.isRevealed) base = `Неизведано`
@@ -251,17 +259,20 @@ const cellTooltip = computed(() => {
   animation: burn-pulse 0.8s ease-in-out infinite alternate;
 }
 
-.cell-summon {
-  background: rgba(212, 168, 71, 0.3);
-  color: var(--bs-gold, #d4a847);
-  border: 1px solid var(--bs-gold, #d4a847);
+/* ТЗ #17: creature = orange icon overlay, no background fill — cell statuses stay visible */
+.cell-has-summon {
+  color: var(--bs-fire-orange, #e67e22);
   font-size: 0.7rem;
 }
-.cell-summon-enemy {
-  background: rgba(192, 57, 43, 0.3);
-  color: var(--bs-fire-red, #c0392b);
-  border: 1px solid var(--bs-fire-red, #c0392b);
-  font-size: 0.7rem;
+.cell-has-summon :deep(svg) {
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
+}
+
+/* ТЗ #6: Юркая единичка dodged a ballista here — static салатовый mark */
+.cell-dodge-mark {
+  background: rgba(0, 204, 102, 0.35);
+  box-shadow: inset 0 0 0 2px rgba(0, 204, 102, 0.55);
+  color: #00cc66;
 }
 
 .cell-destroyed {

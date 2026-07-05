@@ -83,6 +83,19 @@ const hasBranderUpgrade = computed(() => {
   return myPlayer.value?.fleet?.some(s => !s.isDestroyed && s.abilities?.includes('brander_summon')) ?? false
 })
 
+// ТЗ #11/#12: summon availability is gated by fleet regions (Таран⇒Запад, Разведчик⇒Восток,
+// Пират⇒Юг); Brander needs the boiler upgrade and is once per match (ТЗ #10)
+const availableSummons = computed<string[]>(() => {
+  const regions = new Set(myPlayer.value?.fleet?.flatMap(s => s.regions ?? []) ?? [])
+  const list: string[] = []
+  if (regions.has('West')) list.push('Ram')
+  if (regions.has('East')) list.push('Scout')
+  if (regions.has('South')) list.push('PirateBoat')
+  const hasWaitingBrander = myPlayer.value?.summons?.some(s => s.type === 'Brander' && s.waitingForTurnBack) ?? false
+  if (hasBranderUpgrade.value && (!myPlayer.value?.branderUsed || hasWaitingBrander)) list.push('Brander')
+  return list
+})
+
 const hasEnemySummonOnMyBoard = computed(() => {
   if (phase.value !== 'Combat' && phase.value !== 'Boarding') return false
   const myId = store.gameState?.myPlayerId
@@ -102,7 +115,9 @@ const penaltyZoneRows = computed<number[]>(() => {
 const canDeploySummon = computed(() => {
   if (!myPlayer.value || !enemyPlayer.value) return false
   const p = myPlayer.value
-  if (p.summonSlotsUsed >= p.maxSummonSlots) return false
+  if (!availableSummons.value.includes(summonType.value)) return false
+  // ТЗ #10: Brander is outside the 4-slot limit
+  if (summonType.value !== 'Brander' && p.summonSlotsUsed >= p.maxSummonSlots) return false
   const threshold = 5 * (p.summonSlotsUsed + 1)
   if (phase.value !== 'Boarding' && enemyPlayer.value.revealedCellCount < threshold) return false
   if (phase.value !== 'Boarding' && p.summonCooldownRemaining > 0) return false
@@ -429,10 +444,20 @@ const myLastShot = computed(() => {
   return { row: c.row, col: c.col }
 })
 
-const enemySummonTrails = computed(() => store.getSummonTrailCells('enemy'))
-const mySummonTrails = computed(() => {
+// ТЗ #2: trails are viewer-relative. MY summons sail on the ENEMY board — their trail renders
+// there; ENEMY summons sail on MY board — their trail (incl. spawn cell) renders there.
+const enemySummonTrails = computed(() => {
   const trails = store.getSummonTrailCells('my')
-  // Also include server-side summon trails on own board (#5)
+  for (const cell of store.enemyBoard?.cells ?? []) {
+    if (cell.summonTrail) {
+      const key = `${cell.row},${cell.col}`
+      if (!trails.has(key)) trails.set(key, 'Ram') // generic trail marker
+    }
+  }
+  return trails
+})
+const mySummonTrails = computed(() => {
+  const trails = store.getSummonTrailCells('enemy')
   for (const cell of store.myBoard?.cells ?? []) {
     if (cell.summonTrail) {
       const key = `${cell.row},${cell.col}`
@@ -575,9 +600,10 @@ function getOccupiedCells(ship: { row: number; col: number; deckCount: number; o
 
 // ── Maneuverable ships for ActionBar ─────────────────────────
 const maneuverableShips = computed(() => {
-  if (!isMyTurn.value || !myPlayer.value || myPlayer.value.maneuveringDoubleUsed) return []
+  if (!isMyTurn.value || !myPlayer.value) return []
+  // ТЗ #21: activation is per ship — each Maneuvering Double moves once
   return myFleet.value
-    .filter(s => s.abilities.includes('manual_move_after_hit') && !s.isDestroyed && s.decks.some(d => d.isDestroyed))
+    .filter(s => s.abilities.includes('manual_move_after_hit') && !s.isDestroyed && !s.hasManeuvered && s.decks.some(d => d.isDestroyed))
     .map(s => ({ id: s.id, name: s.name, orientation: s.orientation }))
 })
 
@@ -898,7 +924,7 @@ watch(phase, (val) => {
         :phase="phase"
         :shot-count="store.shotCount"
         :can-deploy-summon="canDeploySummon"
-        :has-brander-upgrade="hasBranderUpgrade"
+        :available-summons="availableSummons"
         :summon-deploy-mode="summonDeployMode"
         @enter-deploy="enterSummonDeployMode"
         @enter-pending-deploy="enterPendingSummonDeployMode"
@@ -913,7 +939,6 @@ watch(phase, (val) => {
         :shot-result="store.lastShotResult"
         :shot-result-class="shotResultClass"
         :is-my-turn="isMyTurn"
-        :maneuvering-double-used="myPlayer?.maneuveringDoubleUsed ?? true"
         @manual-move="handleManualMove"
         @set-cursed-direction="(id: string, dir: string) => store.setCursedBoatDirection(id, dir)"
       />

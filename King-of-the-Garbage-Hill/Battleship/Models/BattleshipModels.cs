@@ -76,6 +76,7 @@ public class BattleshipPlayer
     public bool IsReady { get; set; }
     public int SummonSlotsUsed { get; set; }
     public int MaxSummonSlots { get; set; } = 4;
+    public bool BranderUsed { get; set; } // ТЗ #10: Brander is outside the 4-slot limit, max 1 per match
     public List<Summon> Summons { get; set; } = new();
     public Weapon SelectedWeapon { get; set; }
     public ShotType SelectedShotType { get; set; } = ShotType.Ballista;
@@ -83,7 +84,6 @@ public class BattleshipPlayer
     public int StunShotExpiry { get; set; } = -1; // Shot# when stun expires (-1=none)
     public bool HasPenalty { get; set; } // Skip next turn
     public int LastSummonDeployShotCount { get; set; } = -10; // For 2-shot cooldown
-    public bool ManeuveringDoubleUsed { get; set; } // One-time manual move
     public bool HasShotThisTurn { get; set; } // For manual move before-shot restriction
     public List<PendingSummonDeploy> PendingSummons { get; set; } = new(); // Delayed summon abilities (pirate/cursed boat death, boarding)
     public double DamageMultiplier { get; set; } = 1.0; // Modifiable damage multiplier (GDD: "множитель")
@@ -120,8 +120,9 @@ public class Cell
     public Summon SummonRef { get; set; }
     public bool WasShipHit { get; set; } // Snapshot: a ship was present when this cell was hit (persists after ship moves)
     public bool WasScratched { get; set; } // Snapshot: hit damaged but didn't destroy a deck (persists after ship moves)
-    public bool SummonTrail { get; set; } // Enemy summon passed through this cell
+    public bool SummonTrail { get; set; } // Enemy summon passed through this cell (incl. its spawn cell, ТЗ #2)
     public bool BurnResistMarked { get; set; } // BurnResist ship survived fire/explosion here — shown dark-green to both players (ТЗ #4)
+    public bool WasDodge { get; set; } // Юркая единичка dodged a ballista shot here — static салатовый mark for both players (ТЗ #6)
 }
 
 public class Ship
@@ -148,6 +149,7 @@ public class Ship
     public List<string> Abilities { get; set; } = new();
     public bool IsHome { get; set; } // "Домашний" unit — used for first-turn tiebreaker
     public bool HasExploded { get; set; } // Idempotency guard: explode_on_hit fires once (death paths re-enter via HandleShipDeath)
+    public bool HasManeuvered { get; set; } // ТЗ #21: manual_move_after_hit is once PER SHIP, not per player
 
     public List<(int row, int col)> GetOccupiedCells()
     {

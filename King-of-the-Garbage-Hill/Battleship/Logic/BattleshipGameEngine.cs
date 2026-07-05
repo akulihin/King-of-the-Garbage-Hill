@@ -264,8 +264,9 @@ public static class BattleshipGameEngine
             var deadSummon = cell.SummonRef;
             deadSummon.IsAlive = false;
             cell.SummonRef = null;
+            // Brander never consumed a slot (ТЗ #10) — no refund
             var summonOwner = game.GetOpponent(shooter.DiscordId);
-            if (summonOwner != null && summonOwner.SummonSlotsUsed > 0)
+            if (deadSummon.Type != SummonType.Brander && summonOwner != null && summonOwner.SummonSlotsUsed > 0)
                 summonOwner.SummonSlotsUsed--;
             game.AddLog($"Греческий огонь сжёг призванное существо! ({(char)('A' + col)}{row + 1})");
             // ТЗ #13/#10.4: fire detonates the Brander — on the shooter's own board
@@ -363,9 +364,9 @@ public static class BattleshipGameEngine
         summon.IsAlive = false;
         cell.SummonRef = null;
 
-        // Free up opponent's summon slot
+        // Free up opponent's summon slot (Brander never consumed one, ТЗ #10)
         var opponent = game.GetOpponent(shooter.DiscordId);
-        if (opponent != null && opponent.SummonSlotsUsed > 0)
+        if (summon.Type != SummonType.Brander && opponent != null && opponent.SummonSlotsUsed > 0)
             opponent.SummonSlotsUsed--;
 
         game.AddLog($"{shooter.Username} уничтожил вражеский призыв на своём поле ({(char)('A' + col)}{row + 1})");
@@ -502,6 +503,7 @@ public static class BattleshipGameEngine
                 }
 
                 var deck = ship.Decks[deckIndex];
+                var wasAlive = !deck.IsDestroyed;
                 deck.CurrentHp -= 1; // buckshot damage
                 if (deck.CurrentHp <= 0) deck.CurrentHp = 0;
                 anyHit = true;
@@ -509,6 +511,12 @@ public static class BattleshipGameEngine
                 {
                     anyDestroyed = true;
                     cell.WasScratched = false; // No longer scratched — deck is destroyed (ТЗ #9)
+                    // ТЗ #20: shooter's mast spots the Maneuvering Double (same rule as ProcessShipHit)
+                    if (wasAlive && ship.Abilities.Contains("manual_move_after_hit") &&
+                        shooter.Board.PlacedShips.Any(s => !s.IsDestroyed && s.Decks.Any(d => d.Module == "mast" && !d.ModuleDestroyed)))
+                    {
+                        game.AddLogFor(shooter.DiscordId, "[Мачта] Даёт по вёслам!");
+                    }
                 }
                 else cell.WasScratched = true;
 
@@ -619,6 +627,7 @@ public static class BattleshipGameEngine
             cell.IsHit = false;
             cell.WasShipHit = false;
             cell.IsRevealed = true;
+            cell.WasDodge = true; // ТЗ #6: static салатовый mark for both players
             var nimbleMsg = Random.Shared.Next(2) == 0
                 ? "Юркая единичка! Опять увернулась!"
                 : "Ну и юркая же она! Камней бы ей на голову!";
@@ -703,13 +712,14 @@ public static class BattleshipGameEngine
             // Deck destroyed but ship survives
             game.AddLog($"{shooter.Username} уничтожил палубу {ship.Name}! ({(char)('A' + col)}{row + 1})");
 
-            // Mast warning for Maneuvering Double deck destruction — signals move ability activation
+            // ТЗ #20: the SHOOTER's mast spots the Maneuvering Double preparing to row away —
+            // personal message, gated on the shooter's own mast
             if (ship.Abilities.Contains("manual_move_after_hit"))
             {
-                var opponentHasMast = opponent.Board.PlacedShips.Any(s =>
+                var shooterHasMast = shooter.Board.PlacedShips.Any(s =>
                     !s.IsDestroyed && s.Decks.Any(d => d.Module == "mast" && !d.ModuleDestroyed));
-                if (opponentHasMast)
-                    game.AddLog("[Мачта] Даёт по вёслам!");
+                if (shooterHasMast)
+                    game.AddLogFor(shooter.DiscordId, "[Мачта] Даёт по вёслам!");
             }
 
             return new ShotResult
@@ -754,6 +764,13 @@ public static class BattleshipGameEngine
                 return i;
         }
         return -1;
+    }
+
+    /// <summary>The ship deck at this cell is still alive (ТЗ #15: summons pass through 0-HP decks).</summary>
+    private static bool HasAliveDeckAt(Ship ship, int row, int col)
+    {
+        var idx = GetDeckIndexAtCell(ship, row, col);
+        return idx >= 0 && idx < ship.Decks.Count && ship.Decks[idx].CurrentHp > 0;
     }
 
     // ── Reveal Helpers ────────────────────────────────────────────────
@@ -1261,9 +1278,9 @@ public static class BattleshipGameEngine
                         break;
                     }
 
-                    // Check collision with opponent's ships
+                    // Check collision with opponent's ships — only LIVE decks block (ТЗ #15)
                     var targetCell = opponent.Board.GetCell(newRow, newCol);
-                    if (targetCell?.ShipRef != null && !targetCell.ShipRef.IsDestroyed)
+                    if (targetCell?.ShipRef != null && HasAliveDeckAt(targetCell.ShipRef, newRow, newCol))
                     {
                         // Check Drakkar freeze aura (ТЗ #7: owner sees only their mast message,
                         // Drakkar owner sees only the Drakkar message; IsInFreezeZone ⇒ Drakkar is alive)
@@ -1277,7 +1294,8 @@ public static class BattleshipGameEngine
                         }
 
                         HandleSummonCollision(game, summon, targetCell.ShipRef, opponent, newRow, newCol);
-                        // CursedBoat, Brander, and boarding ships that devastated 1-2 deckers continue
+                        // CursedBoat and boarding ships that devastated 1-2 deckers continue;
+                        // Brander no longer passes through live decks (ТЗ #16) — dies via the else below
                         if (summon.Type == SummonType.CursedBoat)
                         {
                             // CursedBoat applies Devastated, then waits for owner to choose direction
@@ -1285,13 +1303,6 @@ public static class BattleshipGameEngine
                             summon.Col = newCol;
                             summon.WaitingForDirectionChoice = true;
                             break;
-                        }
-                        else if (summon.Type == SummonType.Brander)
-                        {
-                            // Brander passes through (урон от тарана = 0), continues
-                            summon.Row = newRow;
-                            summon.Col = newCol;
-                            continue;
                         }
                         else if (summon.IsBoardingShip && summon.IsAlive)
                         {
@@ -1523,10 +1534,8 @@ public static class BattleshipGameEngine
                 break;
 
             case SummonType.Brander:
-                // Brander does NOT auto-detonate on collision — passes through (урон от тарана = 0)
-                // Owner must shoot Brander's cell to detonate it
-                summon.IsAlive = true; // don't die on collision
-                game.AddLog($"Брандер проплывает мимо {targetShip.Name}.");
+                // ТЗ #16: Brander cannot pass live decks — разбивается без детонации (решение дизайнера)
+                game.AddLog($"Брандер разбился о {targetShip.Name}! {coord}");
                 break;
         }
     }
@@ -1872,8 +1881,10 @@ public static class BattleshipGameEngine
             _ => (0, 0)
         };
 
+        var oldCells = ship.GetOccupiedCells();
+
         // Remove from current position
-        foreach (var (r, c) in ship.GetOccupiedCells())
+        foreach (var (r, c) in oldCells)
             player.Board.Grid[r, c].ShipRef = null;
 
         var newRow = ship.Row + dr * distance;
@@ -1906,6 +1917,12 @@ public static class BattleshipGameEngine
                 return false;
             }
         }
+
+        // Clear the own-view hit flag from vacated cells — deck damage lives on the Ship
+        // (ТЗ #19/#22); fog snapshots WasShipHit/WasScratched deliberately stay (the opponent
+        // keeps seeing the OLD hit spot, not the new position).
+        foreach (var (r, c) in oldCells)
+            player.Board.Grid[r, c].IsHit = false;
 
         ship.Row = newRow;
         ship.Col = newCol;

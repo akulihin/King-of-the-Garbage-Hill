@@ -11,7 +11,7 @@ const props = defineProps<{
   phase: string
   shotCount: number
   canDeploySummon: boolean
-  hasBranderUpgrade: boolean
+  availableSummons: string[]
   summonDeployMode: { type: string; pendingId?: string; pendingCols?: number[] } | null
 }>()
 
@@ -29,11 +29,17 @@ watch(summonType, (val) => {
   emit('setSummonType', val)
 })
 
+// Keep the selection valid when availability changes (ТЗ #11/#12)
+watch(() => props.availableSummons, (list) => {
+  if (list.length > 0 && !list.includes(summonType.value)) summonType.value = list[0]
+}, { immediate: true })
+
 // ── Summon descriptions ─────────────────────────────────────────
 const summonDescriptions: Record<string, string> = {
   Ram: 'Таран — скорость 2, урон 4, погибает при столкновении, разведка пути',
   Scout: 'Разведчик — скорость 1, отложенная разведка в Space, не открывает при заморозке',
-  Brander: 'Брандер — скорость 1, проходит сквозь корабли, стреляйте в него для подрыва (ожог зоны)',
+  PirateBoat: 'Пират — скорость 1, захватывает 1-2-палубные корабли, разбивается о 3-4-палубные',
+  Brander: 'Брандер — скорость 1, вне лимита призывов (1 за матч), не проходит сквозь живые палубы, стреляйте в него для подрыва',
 }
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -79,9 +85,10 @@ function posLabel(row: number, col: number): string {
         @mousemove="moveTip"
         @mouseleave="hideTip"
       >
-        <option value="Ram">Таран</option>
-        <option value="Scout">Разведчик</option>
-        <option v-if="hasBranderUpgrade" value="Brander">Брандер</option>
+        <option v-if="availableSummons.includes('Ram')" value="Ram">Таран</option>
+        <option v-if="availableSummons.includes('Scout')" value="Scout">Разведчик</option>
+        <option v-if="availableSummons.includes('PirateBoat')" value="PirateBoat">Пират</option>
+        <option v-if="availableSummons.includes('Brander')" value="Brander">Брандер</option>
       </select>
       <button
         class="btn-pirate sb-deploy-btn"
@@ -94,7 +101,10 @@ function posLabel(row: number, col: number): string {
         Разместить на карте
       </button>
       <span v-if="!canDeploySummon && myPlayer" class="sb-hint">
-        <template v-if="myPlayer.summonSlotsUsed >= (myPlayer.maxSummonSlots ?? 4)">
+        <template v-if="summonType === 'Brander' && myPlayer.branderUsed">
+          Брандер уже использован
+        </template>
+        <template v-else-if="summonType !== 'Brander' && myPlayer.summonSlotsUsed >= (myPlayer.maxSummonSlots ?? 4)">
           Все слоты заняты
         </template>
         <template v-else-if="myPlayer.summonCooldownRemaining > 0">
