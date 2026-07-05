@@ -167,7 +167,7 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 - **Раскинуть щупальца** — +1 regular per new leaderboard place visited (rounds 2+) (`CP:5866-5876`).
 - **Чернильная завеса** — defensive would-be-wins flip into attacker wins; the ledger records ±(round value): attacker (or the Еврей who stole the point) −1×mult, Octopus +1×mult (`DoomsdayMachine.cs:700-703`, `CP:6673-6741`). DeepList's first-fight-loss phase is exempt. Round 11: everyone's real score restored via bonus points — **but a victim's debit is skipped if they're under an Итачи Цукуеми** (D11: that point is repaid once, to Итачи; Octopus still keeps its own +N credit, so both receivers get it) (`CP:4765-4796`).
 - **Неуязвимость** — attackers' Strength is 0 for the fight (`CP:423-425`); each *attack* Octopus loses: +1 counter → +1 bonus each at round 11 (`CP:1848-1850, 4777`).
-- **Привет со дна** — Мораль interceptor: any non-button moral change becomes exactly +4, losses ignored (`CharacterClass.cs:1143-1153`); +1 bonus per block/skip event in the game each round (`CP:3605-3609`).
+- **Привет со дна** — Мораль interceptor: any non-button moral change becomes exactly +4, losses ignored (`CharacterClass.cs:1143-1153`); +1 bonus per block/skip **event** in the game each round (`CP:3605-3609`) — skips are counted per skipped *fight* (two attackers into one skipper = 2) plus one per blocking player; per-event is intended (m18, verdict ОК).
 
 ---
 

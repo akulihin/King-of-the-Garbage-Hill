@@ -141,6 +141,7 @@
 
 ### m18. "Привет со дна" counts skip *events*, not skipping players
 - `CP:3606`: bonus = `game.SkipPlayersThisRound` (incremented once per skipped **fight**, `DoomsdayMachine.cs:530` — two attackers into one skipper = 2) + count of blockers. Mildly inflated vs "когда кто-то пропускает ход".
+- **Confirmed intended** 2026-07-04 (designer verdict «ОК — по событиям»: каждый сорванный бой = очко). No code change; exact per-event behavior documented in CHARACTERS.md.
 
 ### m22. Latin "Saitama" vs JSON "Сайтама" — dead "👑 King" flair
 - `GameUpdateMess.cs:713`: Saitama's leaderboard view should mark the current #1 as "👑 King", but the check is `Name == "Saitama"` while the character is named "Сайтама" — never renders. Same bug family as C1/m1. *(Found by `tools/audit-passives.sh` on its first run.)*
@@ -156,6 +157,10 @@
 - The backend and contract fully support web ARAM picks: `AramReroll`/`AramConfirm` on the hub (`GameHub.cs:332-352`) and REST (`GameController.cs:159-177`), `isAramPickPhase` + reroll counters serialized (`GameStateMapper.cs:945-963`), store wrappers wired (`game.ts:439-447`) — but **no Vue component calls them**; Game.vue's phase branches cover only the Draft overlay.
 - During an ARAM game a web-preferring player sees only the waiting screen and must reroll/confirm from the Discord ARAM page (`GameUpdateMess.cs:1612-1636`). *(Found 2026-07-04 during the interface-docs audit; docs/WEB-CLIENT.md §13.)*
 - **Fix direction**: an ARAM overlay in Game.vue mirroring the draft overlay (buttons → the store's `aramReroll` slots 1-5 / `aramConfirm`), or suppress the web-link DM during ARAM picks.
+
+### m25. audit-passives.sh truncated PASSIVE-MAP.md when killed by the hook timeout
+- The script wrote the report **directly into `docs/PASSIVE-MAP.md` while generating it**, and its per-passive greps took ~90 s on a `/mnt/*` (WSL2 9P) checkout — longer than the 60 s `PostToolUse` hook timeout (`.claude/settings.json`; the hook re-runs the audit after every edit to a passive-bearing file, `tools/hook-post-edit.sh`). A killed hook run left a clean-looking but truncated map (committed history oscillates: 171 → 119 → 171 → 118 table rows across `a17d86e`/`c6762f0`/`ce6a772`/`e0f7384`) and silently dropped the GHOST/BAD-NAME sections — which also broke the hook's own new-warning diff on the next edit. *(Found 2026-07-04 when the user noticed ~53 rows vanish from the map.)*
+- **Fixed:** 2026-07-04 — two changes to `tools/audit-passives.sh`: (1) **atomic write** — the report is generated into `$OUT.tmp.$$` and `mv`-ed over the map at the end, so a killed run can never leave a partial file; (2) **single-pass indexing** — owners (one `jq`), CP case counts (one `grep -oP | uniq -c`) and cross-file refs (one `grep -HoF -f patterns` over the code list) are pre-computed into assoc arrays instead of ~350 per-passive greps. Runtime 86 s → **2.3 s**; output verified byte-identical to the last complete map (`ce6a772`) modulo the m6 deletions, and deterministic across runs.
 
 ### m21. `SecureRandom` is not secure (naming hazard)
 - `Helpers/SecureRandom.cs:25-45`: the crypto implementation is commented out; the service is a plain `System.Random` wrapper. Fine for a game, but the name misleads — and `PassivesClass` carries a private copy that *does* use `RandomNumberGenerator` (`PassivesClass.cs:277-296`), so trigger schedules are crypto-random while combat rolls aren't. Unify or rename.
@@ -264,7 +269,7 @@ Worth stating because they're easy to suspect: Saitama's Неприметнос�
 
 ## Summary count
 
-**1 Critical** (C1) · **16 Major** (M1–M16) · **24 Minor** (m1–m24) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13/M14/M15/M16 fixed 2026-07-03; m5/m6/m7/m21/m23 fixed 2026-07-04. Still open: m12, m17, m18, m19, m20, m24.)
+**1 Critical** (C1) · **16 Major** (M1–M16) · **25 Minor** (m1–m25) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13/M14/M15/M16 fixed 2026-07-03; m5/m6/m7/m21/m23/m25 fixed 2026-07-04; m18 confirmed intended 2026-07-04. Still open: m12, m17, m19, m20, m24.)
 
 ## Verification addendum (second pass, 2026-07-01)
 
