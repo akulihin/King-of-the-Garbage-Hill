@@ -1335,9 +1335,6 @@ public class BotsBehavior : IServiceSingleton
                                 // Passive income: maximize Vision procs (+4 pts each)
                                 if (attackersOnDopaTarget > 0 && dopaVisionAtk.Cooldown == 0)
                                     target.AttackPreference += 10;
-                                // Vision triggers on block too
-                                if (target.Player.Status.WhoToAttackThisTurn.Count == 0 && dopaVisionAtk.Cooldown == 0)
-                                    target.AttackPreference += 6;
                                 // Safe fights preferred
                                 if (target.Player.GameCharacter.GetStrength() < bot.GameCharacter.GetStrength())
                                     target.AttackPreference += 3;

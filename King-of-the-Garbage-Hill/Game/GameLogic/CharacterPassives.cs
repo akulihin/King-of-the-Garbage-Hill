@@ -4171,8 +4171,6 @@ public class CharacterPassives : IServiceSingleton
                     bool visionProc = false;
                     if (t1.Status.WhoToAttackThisTurn.Contains(t2Id)) visionProc = true;
                     if (t2.Status.WhoToAttackThisTurn.Contains(t1Id)) visionProc = true;
-                    if (t1.Status.IsBlock) visionProc = true;
-                    if (t2.Status.IsBlock) visionProc = true;
 
                     if (visionProc)
                     {

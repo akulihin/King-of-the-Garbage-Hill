@@ -44,7 +44,7 @@ public class BotGameFactory : IServiceSingleton
     /// (caller owns line-up validity: LeCrisp/Толя apart, ≤1 Tier-4, no TeamModeOnly).
     /// </summary>
     public async Task<GameClass> CreateBotGameAsync(ulong creatorId, string mode = "Bot",
-        uint testFightNumber = 0, List<string> forcedCharacters = null, int aiDifficulty = 1)
+        uint testFightNumber = 0, List<string> forcedCharacters = null, int aiDifficulty = 3)
     {
         var players = new List<IUser>
         {

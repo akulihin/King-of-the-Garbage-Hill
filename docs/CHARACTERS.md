@@ -111,7 +111,7 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 
 - **Макро** — two actions per turn: two attacks, or block+attack (self-id placeholder in `WhoToAttackThisTurn`, `GameReactions.cs:326-349, 718-734`); the second fight is hidden from others' logs (`CP:1417-1421`); idle second action auto-moves (`CheckIfReady.cs:1101-1108`).
 - **Пассивный импакт** — +1 bonus each round with ≥1 win (`CP:2090-2093, 4141-4148`).
-- **Взгляд в будущее** — needs both targets: procs if one target attacked the other **or either blocked** (slightly wider than the description), +2 regular (+4 with Фарм) +50 Skill, cd 1 (`CP:4150-4177`).
+- **Взгляд в будущее** — needs both targets: procs when one of the two targets actually attacked the other, +2 regular (+4 with Фарм) +50 Skill, cd 1 (`CP:4150-4175`).
 - **Законодатель меты** — pick 1 of 4 at game start (web `WebGameService.cs:797-813`; bots random `CP:5461-5467`): Стомп +9 Str +99 Skill (then both passives removed, `CP:5728-5747`); Фарм doubles Взгляд; Доминация +20 Skill/win, victim −1 bonus, 33% −1 Psyche (`CP:2095-2104`); Роум wins vs non-adjacent: steal 1 bonus + 3 Мораль (`CP:2145-2159`).
 
 ## Salldorum — Tier 2, Int 6 / Str 1 / Speed 2 / Psyche 8
@@ -128,8 +128,11 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 - **Медитация** — his skip becomes block (`DoomsdayMachine.cs:238-245`, `CheckIfReady.cs:1163-1168`); blocking applies oils, reveals one enemy's monster hint (AI-generated via Haiku for humans, static fallback; `CP:4337-4393`), **10%** one-time Lambert fumble (m16 fixed): loses **all** Skill for the next round (`CP:4395-4402, 688-693, 1590-1595`). Геральт gains no Мораль at all (`CharacterClass.cs:1132-1134`).
 - **Масло** — level-ups craft oils (first gives tier 1 vs all types) (`GameReactions.cs:837-893`); active after a meditation, attack-only, vs the target's type: T1 −1 enemy Justice, T2 +2 Str, T3 ×3 Skill (`CP:1503-1535`).
 - **Шевелись, Плотва** — first contract fight per round vs a higher-placed target: +Speed = place gap, +1 contract per typed player in between (`CP:1550-1587`).
-- **Чеканная монета** (hidden demand economy) — after each round the demand UI offers to bill the villagers based on an invoice of the round's contract fights (`GeraltContractDemand`, snapshot at `CP:4429-4452`); taking an advance pays +2 regular but adds Displeasure when the invoice was weak (`CP:4454-4480`); **Displeasure ≥ 11 = death by pitchforks, −500** (`CP:4483-4490`). Undocumented anywhere (finding m20).
-- Геральт at place 6 at game end = pitchfork *log only* (`CheckIfReady.cs:270-276`); the design note's "психует when a contract holder is killed" is not implemented (m20).
+- **Чеканная монета** (hidden demand economy — **web + bot only, no Discord UI**) — in the post-round ready phase the web demand panel (`PlayerCard.vue:1018-1047` → hub `DemandContractReward` → `WebGameService.cs:577-663`) offers two billings off an **invoice** of the previous round's per-target contract fights (`ContractDemandClass.CalculateInvoice`, `Geralt.cs:165-290` — scores wins/losses, target positions, Lambert/meditation penalties and reputation into a 0-2 **coin** / 0-3 **Displeasure** tier; snapshot at `CP:4429-4452`):
+  - **За прошлый** (immediate) — pays the invoice's coins as regular points (+1 "Благодарность" when the tier is ≥ 2 coins), adds its Displeasure; "Выжил чудом" (losses > wins > 0) adds +1 coin and +3 Displeasure. Once per phase; needs a contract fought last round.
+  - **За следующий** (advance) — +2 regular next round, resolved end-of-round (`CP:4454-4491`) with an invoice-based Displeasure swing (weak +5/+3/+2/+1, strong −1). Blocked at Displeasure ≥ 5.
+  Bots auto-resolve both (`BotsBehavior.cs:154-182`). **Displeasure 0-11; ≥ 11 ⇒ death by pitchforks** (IsDead, −500 bonus "Вилы разъяренной толпы", global log), checked in both the web handler (`WebGameService.cs:652-660`) and the advance resolution (`CP:4483-4490`) (m20).
+- Геральт at place 6 at game end = pitchfork **log line only** (`CheckIfReady.cs:270-276`, no death/points); the design note's "психует when a contract holder is killed" is **not implemented**. Both left as-is — m20 documents current behavior; wiring either up is a separate design decision.
 
 ## Котики — Tier 1, Int 3 / Str 2 / Speed 8 / Psyche 6
 

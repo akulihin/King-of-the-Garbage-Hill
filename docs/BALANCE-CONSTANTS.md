@@ -133,7 +133,7 @@
 | Продавец | Закуп | level-up +10 | GR:1007-1011 |
 | Продавец | Сделка | +1 bonus & +5 Moral per deal; round-10 debt steal ⌈debt/2⌉ | CP:2328-2340, 4128-4138, 1638-1649 |
 | Продавец | Куш | 10% → attacker steals 2 bonus | CP:2343-2354 |
-| Dopa | Взгляд | +2 regular (+4 Фарм) +50 Skill, cd 1 | CP:4150-4177 |
+| Dopa | Взгляд | +2 regular (+4 Фарм) +50 Skill, cd 1 | CP:4150-4175 |
 | Dopa | Тактики | Стомп +9 Str +99 Skill; Доминация +20 Skill/−1 bonus/33% −1 Psyche; Роум steal 1 bonus + 3 Moral | CP:5728-5747, 2134-2159 |
 | Napoleon | Союз | joint attack: can't lose, +3 Moral; Завоеватель +1 bonus | CP:1394-1409, 2122-2145 |
 | Суппорт | Premade | ±1 regular per carry result; Stakes every 3rd round +1; Protect +1 J | CP:2356-2371, 2944-2953, 4217-4224 |
@@ -165,11 +165,11 @@
 
 ## Bot AI difficulty (`BB` = BotsBehavior.cs, `GC` = GameClass.cs, `CP` = CharacterPassives.cs, `SR` = SimulationRunner.cs)
 
-Per-game `AiDifficulty` (1/2/3). Set **only** by the headless sim's `--ai-difficulty N` flag (default 1); Discord `*st`/`*stb` and web games always run 1. **L1 = legacy, bit-for-bit unchanged** (every L2/L3 hunk is gated behind `Smart()` `BB:38` / `Omni()` `BB:39`, an unreachable `else if`, or a ternary whose false branch is the old literal). **L2 = smarter, same decision skeleton.** **L3 = omniscient predictions from `AiFullKnowledgeRound`, cumulative over L2.** Design rationale per rule is in the approved plan; each rule below is one `L2-*`/`L3-*` id.
+Per-game `AiDifficulty` (1/2/3). **Default 3 everywhere** — Discord `*st`/`*stb`, web games, and the headless sim (changed from 1 on 2026-07-05); the sim's `--ai-difficulty N` flag overrides per-run. **L1 = legacy, bit-for-bit unchanged** (every L2/L3 hunk is gated behind `Smart()` `BB:38` / `Omni()` `BB:39`, an unreachable `else if`, or a ternary whose false branch is the old literal). **L2 = smarter, same decision skeleton.** **L3 = omniscient predictions from `AiFullKnowledgeRound`, cumulative over L2.** Design rationale per rule is in the approved plan; each rule below is one `L2-*`/`L3-*` id.
 
 | Constant | Value | Meaning | Anchor |
 |---|---|---|---|
-| `AiDifficulty` | **1** | per-game bot AI level (1 legacy / 2 smart / 3 omniscient); echoed to report JSON options.aiDifficulty | GC:69; parse+validate SR:76/88; echo `AiDifficulty` SimReport.cs:40; helpers BB:38-39 |
+| `AiDifficulty` | **3** | per-game bot AI level (1 legacy / 2 smart / 3 omniscient), default 3; echoed to report JSON options.aiDifficulty | GC:69; parse+validate SR:76/88; echo `AiDifficulty` SimReport.cs:40; helpers BB:38-39 |
 | `AiFullKnowledgeRound` | **3** | round from which L3 bots know every enemy's character (tunable; may become 2 or 1) | GC:72 |
 | `SmartTargetTaretNumberEarly` (L2-1) | 3 | early (round ≤ 4) Мишень-target attack weight (L1: 1) | BB:41, 593 |
 | `SmartKnownClassNemesisNumber` (L2-2) | ±2 | class-tell (`KnownPlayerClass`) nemesis target / avoid weight | BB:42, 708 |

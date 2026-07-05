@@ -63,10 +63,10 @@ public class GameClass
     public List<TeamPlay> Teams { get; set; }
     public uint TestFightNumber { get; set; }
 
-    /// <summary>Bot AI difficulty. 1 = legacy (default everywhere), 2 = smarter heuristics (same
-    /// skeleton), 3 = omniscient predictions from AiFullKnowledgeRound. Set only by the sim
-    /// harness (--ai-difficulty); Discord/web games always run 1.</summary>
-    public int AiDifficulty { get; set; } = 1;
+    /// <summary>Bot AI difficulty. 1 = legacy, 2 = smarter heuristics (same skeleton),
+    /// 3 = omniscient predictions from AiFullKnowledgeRound. Default 3 everywhere, incl.
+    /// Discord/web games; the sim harness can override per-run via --ai-difficulty.</summary>
+    public int AiDifficulty { get; set; } = 3;
 
     /// <summary>Round from which AiDifficulty-3 bots know every enemy's character (tunable; may become 2 or 1).</summary>
     public int AiFullKnowledgeRound { get; set; } = 3;

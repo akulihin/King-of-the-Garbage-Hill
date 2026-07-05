@@ -73,7 +73,7 @@ public class SimulationRunner : IServiceSingleton
         var coverage = GetIntArg(args, "--coverage", 0);
         var timeoutMin = GetIntArg(args, "--timeout-min", 10);
         var charactersArg = GetStringArg(args, "--characters");
-        var aiDifficulty = GetIntArg(args, "--ai-difficulty", 1);
+        var aiDifficulty = GetIntArg(args, "--ai-difficulty", 3);
         var reportPath = GetStringArg(args, "--report")
                          ?? Path.Combine("DataBase", "Simulations", $"sim-{DateTime.Now:yyyyMMdd-HHmmss}.json");
 

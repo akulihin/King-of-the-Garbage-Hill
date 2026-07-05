@@ -138,6 +138,7 @@
 
 ### m17. Dopa "Взгляд в будущее" also procs on blocks
 - Proc condition (`CP:4163-4167`): either dual-target attacked the other **or either target blocked**. The description only promises the "attacked his next target" case. Lenient in Dopa's favor.
+- **Fixed:** 2026-07-05 — removed the two `IsBlock` proc lines (`CP:4174-4175`); Vision now fires only when one of Dopa's two targets actually attacked the other, matching the description. Also removed the stale "Vision triggers on block too" Фарм bot heuristic (`BotsBehavior.cs:1338-1340`). CHARACTERS.md / BALANCE-CONSTANTS.md re-anchored `CP:4150-4177` → `CP:4150-4175`.
 
 ### m18. "Привет со дна" counts skip *events*, not skipping players
 - `CP:3606`: bonus = `game.SkipPlayersThisRound` (incremented once per skipped **fight**, `DoomsdayMachine.cs:530` — two attackers into one skipper = 2) + count of blockers. Mildly inflated vs "когда кто-то пропускает ход".
@@ -237,6 +238,7 @@ The Ziggurat copies any `Standalone: true` passive from the last attacked enemy 
 ### m20. Geralt's "Чеканная монета" demand economy is entirely undocumented
 - A full hidden system: post-round demand/advance buttons, invoice totals, a Displeasure ledger, +2 regular per advance, and **death by pitchforks with −500 at Displeasure ≥ 11** (`CP:4454-4491`). Neither `characters.json` nor `GameDesign.txt` mentions displeasure or the death. (The design note's *other* hidden Geralt mechanics: "психует when a contract holder is killed" — **not implemented** anywhere; "dies on place 6" — implemented as a log line only, `CheckIfReady.cs:270-276`.)
 - Also of note: the meditation hint calls the Anthropic API synchronously inside the round pipeline (`CP:4365-4381`).
+- **Fixed:** 2026-07-05 (documentation-only) — the full demand economy is now documented in `docs/CHARACTERS.md` (Геральт's «Чеканная монета» entry): the two web/bot-only billings (immediate «За прошлый» + deferred «За следующий» advance), the `CalculateInvoice` coin/Displeasure tiers, and the pitchfork death checked in **both** the web handler (`WebGameService.cs:652-660`) and the end-of-round advance resolution (`CP:4483-4490`), plus the place-6 pitchfork *log-only* line. Web plumbing was already covered (WEB-BACKEND.md hub/service rows, WEB-CLIENT.md widget rows, BALANCE-CONSTANTS row, INTERACTION-MATRIX kill-source, GAME-DESIGN end-game). **Two design-note mechanics were deliberately left unimplemented and flagged for a designer decision, not built here:** "психует when a contract holder is killed" (absent anywhere) and "dies on place 6" (log line only). `characters.json`/`GameDesign.txt` are the designer's surface — not edited (CLAUDE.md).
 
 ### Plumbing checks that passed
 Every `PassiveAbilityStatesDto` member is mapped and rendered (no dead DTO/TS fields); mapper `case` strings all exist in `characters.json` (the only orphans are the legacy Saldorum combat cases, m6); per-player marks (SellerMark, virus, cancer, cat, pawn, monster-type, sup) all follow the SellerMark pattern end-to-end; `Sakura`/`Кратос` intentionally have no widgets; `Баг` state rides on `PlayerDto` (ExploitState) by design.
@@ -274,7 +276,7 @@ Worth stating because they're easy to suspect: Saitama's Неприметнос�
 
 ## Summary count
 
-**1 Critical** (C1) · **16 Major** (M1–M16) · **26 Minor** (m1–m26) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13/M14/M15/M16 fixed 2026-07-03; m5/m6/m7/m21/m23/m25 fixed 2026-07-04; m18 confirmed intended 2026-07-04. Still open: m12, m17, m19, m20, m24, m26.)
+**1 Critical** (C1) · **16 Major** (M1–M16) · **26 Minor** (m1–m26) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13/M14/M15/M16 fixed 2026-07-03; m5/m6/m7/m21/m23/m25 fixed 2026-07-04; m18 confirmed intended 2026-07-04; m17 fixed 2026-07-05; m20 documented 2026-07-05. Still open: m12, m19, m24, m26.)
 
 ## Verification addendum (second pass, 2026-07-01)
 
