@@ -50,6 +50,13 @@ public class BotsBehavior : IServiceSingleton
     private const int OmniPredictConfidence = 2;
     private const int OmniReverseNemesisNumber = 3;
     private const int OmniVersatilityNumber = 2;
+    // ── Phase 1: universal global-mechanic mastery (all Smart/Omni-gated; L1 frozen) ──
+    private const int SmartTargetTaretNumberLate = 2;   // L2: value the Мишень capture late-game too (early stays 3)
+    private const int SmartNemesisBonus = 2;            // L2: nemesis is a big real edge (+2 weigh, ×1.5 skill, justice ×mult)
+    private const int OmniDominateNumber = 3;           // L3: dominating all 3 offensive stats reaches TooGOOD → near-certain crush
+    private const int SmartMoralWaitLeader = 8;         // L2: leaders convert moral→points at the 8-tier, not the wasteful 5-tier (L1: 5)
+    private const int SmartPsycheFloor = 4;             // L2: generic level-up keeps ≥4 Psyche (pool guard vs moral-break / tilt) before over-stacking
+    private const int SmartCommitMultiplier = 2;        // L2: commit harder to a clearly-best target (weighted-random otherwise dilutes good heuristics)
 
     public async Task HandleBotBehavior(GamePlayerBridgeClass player, GameClass game)
     {
@@ -232,6 +239,12 @@ public class BotsBehavior : IServiceSingleton
                 return;
             //если бот на 3м месте то ждет 5 (L2-7: smart bots wait 8)
             if (bot.Status.GetPlaceAtLeaderBoard() == 3 && bot.GameCharacter.GetMoral() < (Smart(bot, game) ? SmartMoralWaitPlace3 : 5) && !overwrite)
+                return;
+            // L2-10: leaders (place ≤ 2) waste the 5-tier (5 moral → +1). moral→score is UNMULTIPLIED
+            // (AddBonusPoints) and round 10 force-dumps leftovers, so waiting for the 8-tier (→ +2) pays 2× —
+            // L1 leaders still dump at 5, which the while-loop below does.
+            if (Smart(bot, game) && bot.Status.GetPlaceAtLeaderBoard() <= 2
+                && bot.GameCharacter.GetMoral() < SmartMoralWaitLeader && !overwrite)
                 return;
         }
         //end логика до 10го раунда
@@ -604,8 +617,9 @@ public class BotsBehavior : IServiceSingleton
             var justiceDifference = 0;
             //
 
-            // L2-1: early Мишень capture is worth ~3× a late one (reward decay 10,9,…,1 + Main+Extra double-dip)
-            if (Smart(bot, game) && game.RoundNo <= 4) isTargetTaretNumber = SmartTargetTaretNumberEarly;
+            // L2-1: Мишень capture is the biggest repeatable skill faucet (ladder 10,9,…,1 granted ×2 as
+            // Main+Extra) — smart bots value it, most in the early rounds where the ladder is highest.
+            if (Smart(bot, game)) isTargetTaretNumber = game.RoundNo <= 4 ? SmartTargetTaretNumberEarly : SmartTargetTaretNumberLate;
 
             //calculation Tens
             foreach (var target in allTargets)
@@ -716,6 +730,9 @@ public class BotsBehavior : IServiceSingleton
                     if (bot.GameCharacter.HasNemesisOver(target.Player.GameCharacter))
                     {
                         target.AttackPreference += isTargetNemesisNumber;
+                        // L2 (Phase 1): nemesis is a big real edge (+2 weighing, ×1.5 skill, amplified justice
+                        // window) — smart bots weight class-counter targets harder as a first-class driver.
+                        if (Smart(bot, game)) target.AttackPreference += SmartNemesisBonus;
                         isTargetNemesis = true;
                     }
 
@@ -751,6 +768,10 @@ public class BotsBehavior : IServiceSingleton
                         target.AttackPreference += OmniVersatilityNumber;
                     else if (statWins == 0)
                         target.AttackPreference -= OmniVersatilityNumber;
+                    // L3 (Phase 1): dominating all three offensive stats reaches TooGOOD (weighing ≥13, the
+                    // enemy's roll-window collapses to 30) — a near-certain crush, so hunt it hard.
+                    if (statWins == 3 && target.AttackPreference >= 5)
+                        target.AttackPreference += OmniDominateNumber;
                 }
 
                 //justice diff
@@ -1847,6 +1868,26 @@ public class BotsBehavior : IServiceSingleton
                         if (predicted.CharacterName == "Толя"
                             && allTargets.Any(x => x.Player.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId())))
                             target.AttackPreference -= SmartPredictAvoidNumber * predictWeight;
+
+                        // ── Phase 1: opponent-awareness — don't feed the enemy's kit (per opposing character) ──
+                        // Осьминожка «Неуязвимость»: a slippery/invulnerable target — attacking wastes the turn
+                        // and the win can be flipped away from you.
+                        if (predicted.CharacterName == "Осьминожка")
+                            target.AttackPreference -= SmartPredictAvoidNumber * predictWeight;
+
+                        // Монстр без имени: attacking feeds his Близнец justice-steal and his drop economy.
+                        if (predicted.CharacterName == "Монстр без имени")
+                            target.AttackPreference -= SmartPredictAvoidNumber * predictWeight;
+
+                        // Toxic Mate: beating him hands him Intelligence (lose-to-win) — don't feed a beatable one.
+                        if (predicted.CharacterName == "Toxic Mate")
+                            target.AttackPreference -= SmartPredictAvoidNumber * predictWeight;
+
+                        // mylorik: attacking-and-losing him plants a revenge mark on you (he then hunts you) —
+                        // avoid handing him the first mark.
+                        if (predicted.CharacterName == "mylorik"
+                            && !target.Player.Status.WhoToLostEveryRound.Any(x => x.EnemyId == bot.GetPlayerId()))
+                            target.AttackPreference -= SmartPredictAvoidNumber * predictWeight;
                     }
                 }
 
@@ -1861,6 +1902,10 @@ public class BotsBehavior : IServiceSingleton
                         .All(x => x.AttackPreference < target2.AttackPreference))
                     {
                         target2.AttackPreference += 2;
+                        // L2-12 (bolder targeting): the cumulative weighted-random pick dilutes good heuristics —
+                        // commit harder to a clearly-best target by amplifying its share, so smart bots reliably
+                        // take the strongest fight the nemesis/versatility/Мишень/crush terms already identified.
+                        if (Smart(bot, game)) target2.AttackPreference *= SmartCommitMultiplier;
                     }
                 }
 
@@ -2555,6 +2600,33 @@ public class BotsBehavior : IServiceSingleton
                 minimumRandomNumberForBlock = 2;
             }
 
+            // L2-13 (block economics): leader under fire. A place-1/2 smart bot with ≥2 known incoming
+            // attackers and no crush of its own gains more from BLOCKING — it cancels those fights (no drop,
+            // denies each attacker their win + a bonus point) and banks +1 justice — than from a marginal
+            // attack. Rounds 2-9 only (round 10 is L2-6); only the untouched-generic block case.
+            if (Smart(bot, game) && game.RoundNo is >= 2 and <= 9
+                && bot.Status.GetPlaceAtLeaderBoard() <= 2
+                && isBlock != noBlock && isBlock != yesBlock
+                && minimumRandomNumberForBlock == 1 && maximumRandomNumberForBlock == 4
+                && allTargets.Count(x => x.Player.Status.WhoToAttackThisTurn.Contains(bot.GetPlayerId())) >= 2
+                && allTargets.All(x => x.AttackPreference < 8))
+            {
+                minimumRandomNumberForBlock = 3;
+            }
+
+            // L2-14 (block economics): losing + low justice with no good fight — bank justice for a comeback.
+            // A place ≥4 bot at justice ≤ 1 with no target ≥ 6 gains more from blocking (+1 justice next round,
+            // the underdog tiebreak/roll-window fuel) than from a coin-flip attack it will likely lose. Extends
+            // L2-8 (which only covers justice == 0) to the losing-low-justice case.
+            if (Smart(bot, game) && game.RoundNo is >= 2 and <= 9
+                && bot.Status.GetPlaceAtLeaderBoard() >= 4 && botJustice is > 0 and <= 1
+                && isBlock != noBlock && isBlock != yesBlock
+                && minimumRandomNumberForBlock == 1 && maximumRandomNumberForBlock == 4
+                && allTargets.All(x => x.AttackPreference < 6))
+            {
+                minimumRandomNumberForBlock = 2;
+            }
+
             //end custom behaviour After calculation Tens
 
 
@@ -2784,6 +2856,13 @@ public class BotsBehavior : IServiceSingleton
             else if (stats[3].StatCount < 10)
                 skillNumber = stats[3].StatIndex;
             else
+                skillNumber = 4;
+
+            // L2-11: keep a minimum Psyche before over-stacking one offensive stat — a broken Psyche pool
+            // costs −20% Мораль and low Psyche invites tilt/skip passives + loses the ±psyche fight term.
+            // Only nudges the generic pick (the per-character builds below still win) and only once the
+            // top stat is already tall, so it doesn't slow a character's core stat race.
+            if (Smart(player, game) && psyche < SmartPsycheFloor && stats.First().StatCount >= 8)
                 skillNumber = 4;
 
             //game.RoundNo is 3 or 5 or 7 or 9
