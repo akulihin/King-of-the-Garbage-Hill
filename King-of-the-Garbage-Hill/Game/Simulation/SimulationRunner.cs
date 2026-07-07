@@ -8,7 +8,9 @@ using System.Text.Json;
 using System.Text.Unicode;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
+using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
 namespace King_of_the_Garbage_Hill.Game.Simulation;
@@ -36,15 +38,17 @@ public class SimulationRunner : IServiceSingleton
     private readonly CharactersPull _charactersPull;
     private readonly Global _global;
     private readonly UserAccounts _accounts;
-    private readonly Random _random = new();
+    private readonly CheckIfReady _checkIfReady;
+    private Random _random = new();
 
     public SimulationRunner(Global global, BotGameFactory botGameFactory, CharactersPull charactersPull,
-        UserAccounts accounts)
+        UserAccounts accounts, CheckIfReady checkIfReady)
     {
         _global = global;
         _botGameFactory = botGameFactory;
         _charactersPull = charactersPull;
         _accounts = accounts;
+        _checkIfReady = checkIfReady;
     }
 
     public Task InitializeAsync()
@@ -74,6 +78,14 @@ public class SimulationRunner : IServiceSingleton
         var timeoutMin = GetIntArg(args, "--timeout-min", 10);
         var charactersArg = GetStringArg(args, "--characters");
         var aiDifficulty = GetIntArg(args, "--ai-difficulty", 3);
+        var aiProbe = GetIntArg(args, "--ai-probe", -1);                 // -1 = no probe (whole field on --ai-difficulty)
+        var aiProbeChar = GetStringArg(args, "--ai-probe-char");         // probe by character name (else slot 0)
+        var seed = GetIntArg(args, "--seed", int.MinValue);              // omitted = unseeded (crypto RNG)
+        var seeded = seed != int.MinValue;
+        var abChar = GetStringArg(args, "--ab-char");                    // in-process paired A/B on this character
+        var abTest = GetIntArg(args, "--ab-test", 3);                    // probe level for the test arm
+        var abControl = GetIntArg(args, "--ab-control", 1);              // probe level for the control arm
+        if (abChar != null && !seeded) { seed = 1; seeded = true; }      // A/B is meaningless unpaired — default seed 1
         var reportPath = GetStringArg(args, "--report")
                          ?? Path.Combine("DataBase", "Simulations", $"sim-{DateTime.Now:yyyyMMdd-HHmmss}.json");
 
@@ -83,11 +95,27 @@ public class SimulationRunner : IServiceSingleton
             return 2;
         }
 
-        if (aiDifficulty is < 1 or > 3)
+        if (aiDifficulty is < 0 or > 3)
         {
-            Console.WriteLine("[SIM] Invalid arguments: --ai-difficulty must be 1, 2 or 3.");
+            Console.WriteLine("[SIM] Invalid arguments: --ai-difficulty must be 0, 1, 2 or 3.");
             return 2;
         }
+
+        if (aiProbe is < -1 or > 3)
+        {
+            Console.WriteLine("[SIM] Invalid arguments: --ai-probe must be 0, 1, 2 or 3 (or omitted).");
+            return 2;
+        }
+
+        if (abChar != null && (abTest is < 0 or > 3 || abControl is < 0 or > 3))
+        {
+            Console.WriteLine("[SIM] Invalid arguments: --ab-test / --ab-control must be 0, 1, 2 or 3.");
+            return 2;
+        }
+
+        // --seed: deterministic sequential A/B. Seed the line-up planner now so the matchup
+        // plan is identical across runs; the per-game SecureRandom reseed happens at creation.
+        if (seeded) _random = new Random(seed);
 
         // Pool used for coverage generation AND matchup validation
         var pool = _charactersPull.GetRollableCharacters().Where(x => !x.TeamModeOnly).ToList();
@@ -136,7 +164,9 @@ public class SimulationRunner : IServiceSingleton
             : coverage > 0 ? "coverage"
             : "smoke";
 
-        Console.WriteLine($"[SIM] Mode: {mode}; games: {lineupPlan.Count}; report: {reportPath}; ai-difficulty: {aiDifficulty}");
+        var probeEcho = aiProbe >= 0 ? $"; ai-probe: {aiProbe}{(aiProbeChar != null ? $" ({aiProbeChar})" : " (slot 0)")}" : "";
+        var seedEcho = seeded ? $"; seed: {seed} (deterministic sequential)" : "";
+        Console.WriteLine($"[SIM] Mode: {mode}; games: {lineupPlan.Count}; report: {reportPath}; ai-difficulty: {aiDifficulty}{probeEcho}{seedEcho}");
 
         // ── Fresh bots (comparable runs + recovery after killed runs) ─
         var botAccounts = 0;
@@ -170,24 +200,81 @@ public class SimulationRunner : IServiceSingleton
             StackTrace = exception.StackTrace,
         });
 
-        // ── Create games (they start running as created) ─────────────
+        // ── Create games ─────────────────────────────────────────────
         var startedAt = DateTime.UtcNow;
         var myGameIds = new List<ulong>();
         string gameVersion = null;
+        var stuckGames = new List<SimStuckDto>();
 
-        foreach (var lineup in lineupPlan)
+        if (abChar != null)
+            return await RunAbModeAsync(lineupPlan, seed, aiDifficulty, abChar, abTest, abControl,
+                errors, lineups, reportPath);
+
+        if (seeded)
         {
-            var game = await _botGameFactory.CreateBotGameAsync(creatorId: 0, mode: "Bot",
-                forcedCharacters: lineup, aiDifficulty: aiDifficulty);
-            myGameIds.Add(game.GameId);
-            lineups[game.GameId] = game.PlayersList.Select(x => x.GameCharacter.Name).ToList();
-            gameVersion ??= game.GameVersion;
+            // Deterministic run: disable the background timer and drive each game to completion on
+            // THIS thread via TickAsync, reseeding SecureRandom per game. Single-threaded → the RNG
+            // stream is reproducible, so a fixed --seed replays the batch bit-for-bit and the
+            // L1-probe vs L3-probe runs differ ONLY by the probe player's decisions (common random
+            // numbers). A running timer thread would race the seeded loop on the (non-thread-safe)
+            // seeded RNG and destroy determinism. The unseeded bulk path (below) is untouched.
+            _checkIfReady.SetTimerEnabled(false);
+            try
+            {
+                for (var gi = 0; gi < lineupPlan.Count; gi++)
+                {
+                    SecureRandom.SetSeed(seed + gi);
+                    var game = await _botGameFactory.CreateBotGameAsync(creatorId: 0, mode: "Bot",
+                        forcedCharacters: lineupPlan[gi], aiDifficulty: aiDifficulty, aiProbe: aiProbe, aiProbeChar: aiProbeChar);
+                    myGameIds.Add(game.GameId);
+                    lineups[game.GameId] = game.PlayersList.Select(x => x.GameCharacter.Name).ToList();
+                    gameVersion ??= game.GameVersion;
+
+                    // Pump this one game to completion (≈11 round passes). The guard caps a
+                    // pathological non-advancing game so a bug can't hang the whole batch.
+                    var guard = 0;
+                    while (!records.ContainsKey(game.GameId)
+                           && _global.GamesList.Any(g => g.GameId == game.GameId)
+                           && guard++ < 5000)
+                        await _checkIfReady.TickAsync();
+
+                    if (!records.ContainsKey(game.GameId))
+                    {
+                        var g = _global.GamesList.Find(x => x.GameId == game.GameId);
+                        stuckGames.Add(new SimStuckDto
+                        {
+                            GameId = game.GameId,
+                            Round = g?.RoundNo ?? -1,
+                            Lineup = lineups.TryGetValue(game.GameId, out var lu) ? lu : null,
+                            SecondsStalled = 0,
+                        });
+                        if (g != null) _global.GamesList.Remove(g);
+                    }
+                }
+            }
+            finally
+            {
+                SecureRandom.ClearSeed();
+                _checkIfReady.SetTimerEnabled(true);
+            }
+
+            Console.WriteLine($"[SIM] Ran {myGameIds.Count} seeded games sequentially in {(DateTime.UtcNow - startedAt).TotalSeconds:0.#}s.");
+        }
+        else
+        {
+            foreach (var lineup in lineupPlan)
+            {
+                var game = await _botGameFactory.CreateBotGameAsync(creatorId: 0, mode: "Bot",
+                    forcedCharacters: lineup, aiDifficulty: aiDifficulty, aiProbe: aiProbe, aiProbeChar: aiProbeChar);
+                myGameIds.Add(game.GameId);
+                lineups[game.GameId] = game.PlayersList.Select(x => x.GameCharacter.Name).ToList();
+                gameVersion ??= game.GameVersion;
+            }
+
+            Console.WriteLine($"[SIM] Created {myGameIds.Count} games in {(DateTime.UtcNow - startedAt).TotalSeconds:0.#}s.");
         }
 
-        Console.WriteLine($"[SIM] Created {myGameIds.Count} games in {(DateTime.UtcNow - startedAt).TotalSeconds:0.#}s.");
-
-        // ── Wait loop with watchdog ──────────────────────────────────
-        var stuckGames = new List<SimStuckDto>();
+        // ── Wait loop with watchdog (bulk concurrent mode; seeded already waited per-game) ──
         var handled = new HashSet<ulong>();
         var lastProgress = new Dictionary<ulong, (int Round, DateTime At)>();
         var lastAnyProgressUtc = DateTime.UtcNow;
@@ -195,7 +282,7 @@ public class SimulationRunner : IServiceSingleton
         var recordedLastLoop = 0;
         var loops = 0;
 
-        while (true)
+        while (!seeded)
         {
             await Task.Delay(1000);
             loops++;
@@ -295,7 +382,7 @@ public class SimulationRunner : IServiceSingleton
             DurationSeconds = Math.Round((DateTime.UtcNow - startedAt).TotalSeconds, 1),
             Options = new SimOptionsDto
                 { Games = games, Coverage = coverage, Characters = matchup, TimeoutMin = timeoutMin,
-                  AiDifficulty = aiDifficulty },
+                  AiDifficulty = aiDifficulty, AiProbe = aiProbe, AiProbeChar = aiProbeChar },
             GamesRequested = myGameIds.Count,
             GamesFinished = records.Count,
             GamesStuck = stuckGames.Count,
@@ -311,6 +398,146 @@ public class SimulationRunner : IServiceSingleton
 
         PrintSummary(report, reportPath);
         return report.ExitCode;
+    }
+
+    // In-process paired A/B: runs the seeded line-up plan twice in ONE process — control arm
+    // (abChar at controlLevel) then test arm (abChar at testLevel), with the SAME per-game seeds —
+    // so both arms share the process's string/reference hash seed and are genuinely paired
+    // game-by-game (the only difference is abChar's difficulty). This removes the cross-process
+    // hash-ordering noise a two-invocation A/B suffers on hash-order-sensitive characters. Games
+    // are driven single-threaded via TickAsync (timer off) so the seeded RNG stream is deterministic.
+    private async Task<int> RunAbModeAsync(
+        List<List<string>> lineupPlan, int seed, int fieldDifficulty, string abChar, int testLevel, int controlLevel,
+        ConcurrentBag<SimErrorDto> errors, ConcurrentDictionary<ulong, List<string>> lineups, string reportPath)
+    {
+        var startedAt = DateTime.UtcNow;
+        Console.WriteLine($"[SIM][AB] {abChar}: L{testLevel} (test) vs L{controlLevel} (control); field L{fieldDifficulty}; " +
+                          $"{lineupPlan.Count} line-ups; seed {seed}; same-process paired.");
+
+        _global.SimErrorSink = (gameId, round, ex) => errors.Add(new SimErrorDto
+        {
+            GameId = gameId, Round = round,
+            Lineup = lineups.TryGetValue(gameId, out var lu) ? lu : null,
+            Message = ex.Message, StackTrace = ex.StackTrace,
+        });
+
+        async Task<List<SimGameRecordDto>> RunArm(int probeLevel)
+        {
+            // Start each arm from the same bot-account state so the two arms are paired: arm 1 must
+            // not leave dirtied accounts (TierPity/MatchHistory/CharacterPlayedLastTime) for arm 2.
+            foreach (var account in _accounts.GetAllAccount().Where(a => a.DiscordId <= BotAccountIdCeiling))
+            {
+                account.IsPlaying = false;
+                account.TierPity.Clear();
+                account.MatchHistory.Clear();
+                account.CharacterPlayedLastTime = null;
+            }
+
+            var arm = new List<SimGameRecordDto>();
+            _global.OnGameFinished = g => { arm.Add(BuildRecord(g)); return Task.CompletedTask; };
+            _checkIfReady.SetTimerEnabled(false);
+            try
+            {
+                for (var gi = 0; gi < lineupPlan.Count; gi++)
+                {
+                    SecureRandom.SetSeed(seed + gi);
+                    var game = await _botGameFactory.CreateBotGameAsync(creatorId: 0, mode: "Bot",
+                        forcedCharacters: lineupPlan[gi], aiDifficulty: fieldDifficulty,
+                        aiProbe: probeLevel, aiProbeChar: abChar);
+                    lineups[game.GameId] = game.PlayersList.Select(x => x.GameCharacter.Name).ToList();
+
+                    var startCount = arm.Count;
+                    var guard = 0;
+                    while (arm.Count == startCount
+                           && _global.GamesList.Any(x => x.GameId == game.GameId)
+                           && guard++ < 5000)
+                        await _checkIfReady.TickAsync();
+
+                    _global.GamesList.RemoveAll(x => x.GameId == game.GameId);
+                }
+            }
+            finally
+            {
+                SecureRandom.ClearSeed();
+                _checkIfReady.SetTimerEnabled(true);
+            }
+
+            return arm;
+        }
+
+        var control = await RunArm(controlLevel);
+        var test = await RunArm(testLevel);
+        _global.OnGameFinished = null;
+        _global.SimErrorSink = null;
+
+        // Pair by index — control[i] and test[i] share lineupPlan[i] and seed+i.
+        var placeDiffs = new List<double>();
+        var scoreDiffs = new List<double>();
+        int winT = 0, winC = 0, paired = 0;
+        double placeT = 0, placeC = 0, scoreT = 0, scoreC = 0;
+        var n = Math.Min(control.Count, test.Count);
+        for (var i = 0; i < n; i++)
+        {
+            var pc = control[i].Players.Find(p => p.Character == abChar);
+            var pt = test[i].Players.Find(p => p.Character == abChar);
+            if (pc == null || pt == null) continue;
+            if (!control[i].Players.Select(p => p.Character).OrderBy(x => x)
+                    .SequenceEqual(test[i].Players.Select(p => p.Character).OrderBy(x => x)))
+                continue;
+
+            paired++;
+            winC += pc.Place == 1 ? 1 : 0;
+            winT += pt.Place == 1 ? 1 : 0;
+            placeC += pc.Place; placeT += pt.Place;
+            scoreC += (double)pc.Score; scoreT += (double)pt.Score;
+            placeDiffs.Add(pc.Place - pt.Place);            // >0 => test placed higher (better)
+            scoreDiffs.Add((double)(pt.Score - pc.Score));  // >0 => test scored more
+        }
+
+        double Mean(List<double> xs) => xs.Count == 0 ? 0 : xs.Sum() / xs.Count;
+        double Se(List<double> xs)
+        {
+            if (xs.Count < 2) return 0;
+            var m = Mean(xs);
+            return Math.Sqrt(xs.Sum(x => (x - m) * (x - m)) / (xs.Count - 1) / xs.Count);
+        }
+
+        if (paired == 0)
+        {
+            Console.WriteLine($"[SIM][AB] {abChar}: no paired games — is the character in the line-ups?");
+            return 2;
+        }
+
+        var placeD = Mean(placeDiffs); var placeSe = Se(placeDiffs);
+        var scoreD = Mean(scoreDiffs); var scoreSe = Se(scoreDiffs);
+        var verdict = placeD - 1.96 * placeSe > 0 ? $"L{testLevel} STRONGER than L{controlLevel} (place CI excludes 0)"
+            : placeD + 1.96 * placeSe < 0 ? $"L{testLevel} WEAKER than L{controlLevel} (regression — place CI below 0)"
+            : "inconclusive (place CI spans 0 — raise --coverage)";
+        var identical = control.Count == test.Count && placeDiffs.All(d => d == 0) && scoreDiffs.All(d => d == 0);
+
+        Console.WriteLine($"[SIM][AB] paired games: {paired}  (ran {control.Count}+{test.Count} in {(DateTime.UtcNow - startedAt).TotalSeconds:0.#}s)");
+        Console.WriteLine($"[SIM][AB]   win%:  test {100.0 * winT / paired:0.0}  control {100.0 * winC / paired:0.0}  Δ {100.0 * (winT - winC) / paired:+0.0;-0.0}pp");
+        Console.WriteLine($"[SIM][AB]   place: test {placeT / paired:0.00}  control {placeC / paired:0.00}  Δ {placeD:+0.000;-0.000} (95% CI ±{1.96 * placeSe:0.000})  [>0 = test better]");
+        Console.WriteLine($"[SIM][AB]   score: test {scoreT / paired:0.00}  control {scoreC / paired:0.00}  Δ {scoreD:+0.00;-0.00} (95% CI ±{1.96 * scoreSe:0.00})");
+        if (testLevel == controlLevel)
+            Console.WriteLine($"[SIM][AB]   self-test (equal levels): arms {(identical ? "IDENTICAL ✓ (deterministic pairing)" : "DIFFER — residual nondeterminism")}.");
+        Console.WriteLine($"[SIM][AB]   Verdict: {verdict}");
+
+        var abReport = new
+        {
+            Char = abChar, TestLevel = testLevel, ControlLevel = controlLevel, FieldDifficulty = fieldDifficulty,
+            Seed = seed, PairedGames = paired,
+            WinPercentTest = 100.0 * winT / paired, WinPercentControl = 100.0 * winC / paired,
+            PlaceDelta = placeD, PlaceCi95 = 1.96 * placeSe,
+            ScoreDelta = scoreD, ScoreCi95 = 1.96 * scoreSe,
+            Verdict = verdict, ArmsIdentical = identical,
+            ControlGames = control, TestGames = test,
+        };
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(reportPath))!);
+        await File.WriteAllTextAsync(reportPath, JsonSerializer.Serialize(abReport, JsonOptions));
+        Console.WriteLine($"[SIM][AB] Report: {reportPath}");
+
+        return errors.Count > 0 ? 1 : 0;
     }
 
     // ── Helpers ──────────────────────────────────────────────────────

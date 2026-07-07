@@ -12,6 +12,12 @@
 #   bash tools/sweep.sh 20000          # 20 000 games, 1 000 per batch
 #   bash tools/sweep.sh 20000 500      # 20 000 games, 500 per batch
 #
+# Any args AFTER [total] [batch] are forwarded verbatim to every batch's simulate.sh —
+# use it for --ai-difficulty / --ai-probe / --ai-probe-char / --characters, e.g. a low-noise probe:
+#   bash tools/sweep.sh 50000 1000 --ai-difficulty 1 --ai-probe 3 --ai-probe-char "Продавец Сомнительных Тактик"
+# (Don't pass --games/--coverage/--report/--timeout-min here — sweep.sh owns those; use the positional
+#  total/batch and KOTGH_SWEEP_COVERAGE. Flags must come after both positionals.)
+#
 # Smoke roll (natural tier-skewed bot-meta population) PLUS coverage line-ups so every rollable
 # non-team character appears — each batch runs --coverage ${KOTGH_SWEEP_COVERAGE:-1} (set =0 for the
 # old smoke-only sweep). Bots skip Tier<4 except Кира, so smoke alone only covers ~22 of 36; coverage
@@ -24,15 +30,17 @@
 #       2 = build/harness failure. Ctrl-C finishes the current batch, then merges what ran.
 # Don't run while a dev server shares the same DataBase/.
 #
-# Run from anywhere: bash tools/sweep.sh [total] [batch-size]
+# Run from anywhere: bash tools/sweep.sh [total] [batch-size] [-- extra simulate.sh flags]
 
 set -u
 cd "$(dirname "$0")/.." || exit 2
 
 TOTAL=${1:-100000}
 BATCH=${2:-1000}
+EXTRA=("${@:3}")   # forwarded verbatim to each batch's simulate.sh (e.g. --ai-difficulty/--ai-probe)
 if ! [[ "$TOTAL" =~ ^[0-9]+$ ]] || ! [[ "$BATCH" =~ ^[0-9]+$ ]] || [ "$TOTAL" -lt 1 ] || [ "$BATCH" -lt 1 ]; then
-    echo "[sweep] usage: bash tools/sweep.sh [total-games] [batch-size] (positive integers)"
+    echo "[sweep] usage: bash tools/sweep.sh [total-games] [batch-size] [extra simulate.sh flags]"
+    echo "[sweep]        (positive integers; extra flags like --ai-probe come AFTER both positionals)"
     exit 2
 fi
 
@@ -69,6 +77,7 @@ for i in $(seq 1 "$BATCHES"); do
     printf '[sweep] batch %d/%d (%d games)… ' "$i" "$BATCHES" "$n"
     KOTGH_SIM_NO_BUILD=1 bash tools/simulate.sh --games "$n" --timeout-min 30 \
         --coverage "${KOTGH_SWEEP_COVERAGE:-1}" \
+        ${EXTRA[@]+"${EXTRA[@]}"} \
         --report "$SWEEP_REL/batch-$(printf '%03d' "$i").json" >> "$SWEEP_ABS/sweep.log" 2>&1
     rc=$?
 

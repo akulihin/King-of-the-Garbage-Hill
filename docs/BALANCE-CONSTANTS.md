@@ -165,22 +165,24 @@
 
 ## Bot AI difficulty (`BB` = BotsBehavior.cs, `GC` = GameClass.cs, `CP` = CharacterPassives.cs, `SR` = SimulationRunner.cs)
 
-Per-game `AiDifficulty` (1/2/3). **Default 3 everywhere** — Discord `*st`/`*stb`, web games, and the headless sim (changed from 1 on 2026-07-05); the sim's `--ai-difficulty N` flag overrides per-run. **L1 = legacy, bit-for-bit unchanged** (every L2/L3 hunk is gated behind `Smart()` `BB:38` / `Omni()` `BB:39`, an unreachable `else if`, or a ternary whose false branch is the old literal). **L2 = smarter, same decision skeleton.** **L3 = omniscient predictions from `AiFullKnowledgeRound`, cumulative over L2.** Design rationale per rule is in the approved plan; each rule below is one `L2-*`/`L3-*` id.
+Per-game `AiDifficulty` (0/1/2/3). **Default 3 everywhere** — Discord `*st`/`*stb`, web games, and the headless sim (changed from 1 on 2026-07-05); the sim's `--ai-difficulty N` flag overrides per-run (**0-3**, sim-only); `--ai-probe N [--ai-probe-char "Name"]` runs one bot at a different level than the field for A/B measurement (per-player `GamePlayerBridgeClass.AiDifficulty`, resolved by `EffectiveDifficulty` `BB:39`). **L0 = pure-random baseline** (experiment control; see the `Dumb` row). **L1 = legacy, bit-for-bit unchanged** (every L2/L3 hunk is gated behind `Smart()` `BB:42` / `Omni()` `BB:43`, an unreachable `else if`, or a ternary whose false branch is the old literal). **L2 = smarter, same decision skeleton.** **L3 = omniscient predictions from `AiFullKnowledgeRound`, cumulative over L2.** Design rationale per rule is in the approved plan; each rule below is one `L2-*`/`L3-*` id.
 
 | Constant | Value | Meaning | Anchor |
 |---|---|---|---|
-| `AiDifficulty` | **3** | per-game bot AI level (1 legacy / 2 smart / 3 omniscient), default 3; echoed to report JSON options.aiDifficulty | GC:69; parse+validate SR:76/88; echo `AiDifficulty` SimReport.cs:40; helpers BB:38-39 |
+| `AiDifficulty` | **3** | per-game bot AI level (0 random / 1 legacy / 2 smart / 3 omniscient), default 3; echoed to report JSON options.aiDifficulty | GC:69; parse+validate SR:76/86-90; clamp 0-3 BotGameFactory.cs:82; echo `AiDifficulty` SimReport.cs:40; helpers BB:39-43 |
+| `--ai-probe` (measurement) | 0-3 | one bot at a different level than the field (A/B; per-player `GamePlayerBridgeClass.AiDifficulty`, -1 = inherit); optional `--ai-probe-char "Name"` | parse SR:77-78/94; set BotGameFactory.cs:88; report `AiProbe`/`AiProbeChar` SimReport.cs |
+| `Dumb` (L0) | ≤ 0 | pure-random experiment baseline: random legal-stat level-up + random attack/block; **skips** the moral & Kira sub-AIs; respects cannot-block (`Спарта`/`Aggress`), invalid-target retry (`HandleAttack` false), and the Макро two-attack rule | helper BB:41; dispatch BB:73/80; lvl-up branch BB:2742; attack branch BB:550 → `HandleBotAttackRandom` BB:2676 |
 | `AiFullKnowledgeRound` | **3** | round from which L3 bots know every enemy's character (tunable; may become 2 or 1) | GC:72 |
-| `SmartTargetTaretNumberEarly` (L2-1) | 3 | early (round ≤ 4) Мишень-target attack weight (L1: 1) | BB:41, 593 |
-| `SmartKnownClassNemesisNumber` (L2-2) | ±2 | class-tell (`KnownPlayerClass`) nemesis target / avoid weight | BB:42, 708 |
-| L2-3 justice gradient | +(botJ − targetJ) | per-target justice-advantage reward (L1 rewards only when **all** targets are below) | BB:748 |
-| L2-4 fight-history horizon | −5 | extend the stat-loss penalty to round − 3 (reuses `isLostLastRoundAndTargetIsBetterNumber`) | BB:666 |
-| `SmartPredictAvoidNumber` (L2-5) | −2 (×2 at L3) | avoid attacking into predicted Краборак «Панцирь» / Толя «Раммус» | BB:43, 1822 |
-| L2-6 round-10 economics | block / attack | leader force-blocks, everyone else force-attacks on the ×4 round | BB:2528 |
-| `SmartMoralWaitPlace3` / `Place4` (L2-7) | 8 / 13 | place-3 / place-4 moral→points hoard threshold (L1: 5 / 8) | BB:44-45, 227/224 |
-| L2-8 zero-justice block bias | min-roll 2 | at 0 justice with no target ≥ 6, raise block-roll floor 1→2 (rounds 2-9) | BB:2537 |
-| `OmniPredictConfidence` (L3-1) | ×2 | L3 weight multiplier applied to L2-5 | BB:46, 1822 |
-| `OmniReverseNemesisNumber` (L3-2) | −3 | avoid enemies who counter the bot (true-read reverse nemesis) | BB:47, 725 |
-| `OmniVersatilityNumber` (L3-3) | ±2 | true-stat versatility: ≥ 2 stat-wins → +, 0 stat-wins → − | BB:48, 729 |
-| L3-4 true justice read | real justice | omniscient bots read `GetRealJusticeNow()` (incl. hidden skill-justice) instead of seen | BB:599 |
+| `SmartTargetTaretNumberEarly` (L2-1) | 3 | early (round ≤ 4) Мишень-target attack weight (L1: 1) | BB:45, 608 |
+| `SmartKnownClassNemesisNumber` (L2-2) | ±2 | class-tell (`KnownPlayerClass`) nemesis target / avoid weight | BB:46, 733 |
+| L2-3 justice gradient | +(botJ − targetJ) | per-target justice-advantage reward (L1 rewards only when **all** targets are below) | BB:763 |
+| L2-4 fight-history horizon | −5 | extend the stat-loss penalty to round − 3 (reuses `isLostLastRoundAndTargetIsBetterNumber`) | BB:682 |
+| `SmartPredictAvoidNumber` (L2-5) | −2 (×2 at L3) | avoid attacking into predicted Краборак «Панцирь» / Толя «Раммус» | BB:47, 1836 |
+| L2-6 round-10 economics | block / attack | leader force-blocks, everyone else force-attacks on the ×4 round | BB:2541 |
+| `SmartMoralWaitPlace3` / `Place4` (L2-7) | 8 / 13 | place-3 / place-4 moral→points hoard threshold (L1: 5 / 8) | BB:48-49, 234/231 |
+| L2-8 zero-justice block bias | min-roll 2 | at 0 justice with no target ≥ 6, raise block-roll floor 1→2 (rounds 2-9) | BB:2550 |
+| `OmniPredictConfidence` (L3-1) | ×2 | L3 weight multiplier applied to L2-5 | BB:50, 1836 |
+| `OmniReverseNemesisNumber` (L3-2) | −3 | avoid enemies who counter the bot (true-read reverse nemesis) | BB:51, 740 |
+| `OmniVersatilityNumber` (L3-3) | ±2 | true-stat versatility: ≥ 2 stat-wins → +, 0 stat-wins → − | BB:52, 751 |
+| L3-4 true justice read | real justice | omniscient bots read `GetRealJusticeNow()` (incl. hidden skill-justice) instead of seen | BB:614 |
 | L3-0 prediction auto-fill | true characters | strict bots (`PlayerType == 404`) predict every enemy's real character except Монстр без имени | CP:6290 |

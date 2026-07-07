@@ -280,11 +280,9 @@ public class CharacterPassives : IServiceSingleton
                 // TheBoys — Francie: shuffle opponents and assign first order (окно 3 хода)
                 case "Francie":
                     var francie = player.Passives.TheBoysFrancie;
-                    var opponents = playersList
+                    var opponents = SecureRandom.Shuffle(playersList
                         .Where(x => x.GetPlayerId() != player.GetPlayerId())
-                        .Select(x => x.GetPlayerId())
-                        .OrderBy(_ => Guid.NewGuid())
-                        .ToList();
+                        .Select(x => x.GetPlayerId()));
                     francie.RemainingTargets = opponents;
                     if (francie.RemainingTargets.Count > 0)
                     {
@@ -5812,12 +5810,10 @@ public class CharacterPassives : IServiceSingleton
                     var candidates = enemies
                         .Where(x => !x.Passives.TheBoysSupMark && x.GetPlayerId() != butcherOrderTarget)
                         .ToList();
-                    var byTarget = candidates
-                        .Where(x => player.GameCharacter.HasSkillTargetOn(x.GameCharacter))
-                        .OrderBy(_ => Guid.NewGuid());
-                    var rest = candidates
-                        .Where(x => !player.GameCharacter.HasSkillTargetOn(x.GameCharacter))
-                        .OrderBy(_ => Guid.NewGuid());
+                    var byTarget = SecureRandom.Shuffle(candidates
+                        .Where(x => player.GameCharacter.HasSkillTargetOn(x.GameCharacter)));
+                    var rest = SecureRandom.Shuffle(candidates
+                        .Where(x => !player.GameCharacter.HasSkillTargetOn(x.GameCharacter)));
                     foreach (var enemy in byTarget.Concat(rest).Take(2))
                         enemy.Passives.TheBoysSupMark = true;
                     break;
@@ -6285,8 +6281,10 @@ public class CharacterPassives : IServiceSingleton
                 // Kira uses Death Note, not predictions
                 if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Тетрадь смерти")) continue;
 
-                // L3: strict bots (never AFK humans — IsBot() also matches disconnected players) know everyone
-                if (game.AiDifficulty >= 3 && game.RoundNo >= game.AiFullKnowledgeRound && player.PlayerType == 404)
+                // L3: strict bots (never AFK humans — IsBot() also matches disconnected players) know everyone.
+                // Effective difficulty honors a per-player --ai-probe override (≥0), else the game default.
+                var effAiDifficulty = player.AiDifficulty >= 0 ? player.AiDifficulty : game.AiDifficulty;
+                if (effAiDifficulty >= 3 && game.RoundNo >= game.AiFullKnowledgeRound && player.PlayerType == 404)
                 {
                     foreach (var enemy in game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()))
                     {

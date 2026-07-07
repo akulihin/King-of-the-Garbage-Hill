@@ -35,9 +35,13 @@ public class BotsBehavior : IServiceSingleton
     }
 
     // ── AI difficulty (docs/BALANCE-CONSTANTS.md → "Bot AI difficulty") ──
-    private static bool Smart(GameClass game) => game.AiDifficulty >= 2;                        // L2+
-    private static bool Omni(GameClass game)  => game.AiDifficulty >= 3
-                                                 && game.RoundNo >= game.AiFullKnowledgeRound;  // L3 window
+    // The acting bot's effective AI level: a per-player --ai-probe override (≥0) wins over the game default.
+    private static int EffectiveDifficulty(GamePlayerBridgeClass p, GameClass game)
+        => p.AiDifficulty >= 0 ? p.AiDifficulty : game.AiDifficulty;
+    private static bool Dumb(GamePlayerBridgeClass p, GameClass game)  => EffectiveDifficulty(p, game) <= 0;   // L0: pure random
+    private static bool Smart(GamePlayerBridgeClass p, GameClass game) => EffectiveDifficulty(p, game) >= 2;   // L2+
+    private static bool Omni(GamePlayerBridgeClass p, GameClass game)  => EffectiveDifficulty(p, game) >= 3
+                                                                          && game.RoundNo >= game.AiFullKnowledgeRound;  // L3 window
     private const int SmartTargetTaretNumberEarly = 3;
     private const int SmartKnownClassNemesisNumber = 2;
     private const int SmartPredictAvoidNumber = 2;
@@ -64,13 +68,16 @@ public class BotsBehavior : IServiceSingleton
         //    return;
         //}
 
-        await HandleBotMoral(player, game);
+        // L0 (Dumb): pure-random baseline — skip the strategic moral + Kira sub-AIs entirely.
+        // Moral auto-cashes at round 10 (CheckIfReady force-dump); level-up + attack branch to random internally.
+        if (!Dumb(player, game))
+            await HandleBotMoral(player, game);
 
         if (player.Status.LvlUpPoints > 0)
             await HandleLvlUpBot(player, game);
 
         // Kira bot: write Death Note and use Shinigami Eyes
-        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Тетрадь смерти"))
+        if (!Dumb(player, game) && player.GameCharacter.Passive.Any(x => x.PassiveName == "Тетрадь смерти"))
             HandleBotKira(player, game);
 
         await HandleBotAttack(player, game);
@@ -221,10 +228,10 @@ public class BotsBehavior : IServiceSingleton
             if (bot.Status.GetPlaceAtLeaderBoard() == 5 && bot.GameCharacter.GetMoral() < 13 && !overwrite)
                 return;
             //если бот на 4м месте то ждет 8 (L2-7: smart bots wait 13 — higher conversion tiers pay strictly more per moral)
-            if (bot.Status.GetPlaceAtLeaderBoard() == 4 && bot.GameCharacter.GetMoral() < (Smart(game) ? SmartMoralWaitPlace4 : 8) && !overwrite)
+            if (bot.Status.GetPlaceAtLeaderBoard() == 4 && bot.GameCharacter.GetMoral() < (Smart(bot, game) ? SmartMoralWaitPlace4 : 8) && !overwrite)
                 return;
             //если бот на 3м месте то ждет 5 (L2-7: smart bots wait 8)
-            if (bot.Status.GetPlaceAtLeaderBoard() == 3 && bot.GameCharacter.GetMoral() < (Smart(game) ? SmartMoralWaitPlace3 : 5) && !overwrite)
+            if (bot.Status.GetPlaceAtLeaderBoard() == 3 && bot.GameCharacter.GetMoral() < (Smart(bot, game) ? SmartMoralWaitPlace3 : 5) && !overwrite)
                 return;
         }
         //end логика до 10го раунда
@@ -539,6 +546,13 @@ public class BotsBehavior : IServiceSingleton
                 }
             }
 
+            // L0 (Dumb): pure-random attack/block, respecting real cannot-block / cannot-attack rules.
+            if (Dumb(bot, game))
+            {
+                await HandleBotAttackRandom(bot, game, allTargets);
+                return;
+            }
+
             decimal maxRandomNumber = 0;
             var isBlock = allTargets.Count;
             var minimumRandomNumberForBlock = 1;
@@ -591,13 +605,13 @@ public class BotsBehavior : IServiceSingleton
             //
 
             // L2-1: early Мишень capture is worth ~3× a late one (reward decay 10,9,…,1 + Main+Extra double-dip)
-            if (Smart(game) && game.RoundNo <= 4) isTargetTaretNumber = SmartTargetTaretNumberEarly;
+            if (Smart(bot, game) && game.RoundNo <= 4) isTargetTaretNumber = SmartTargetTaretNumberEarly;
 
             //calculation Tens
             foreach (var target in allTargets)
             {
                 // L3-4: omniscient bots read the justice that actually enters the fight math
-                var targetJustice = Omni(game)
+                var targetJustice = Omni(bot, game)
                     ? target.Player.GameCharacter.Justice.GetRealJusticeNow()
                     : target.Player.GameCharacter.Justice.GetSeenJusticeNow();
 
@@ -664,7 +678,7 @@ public class BotsBehavior : IServiceSingleton
                     isLostLastRoundAndTargetIsBetter = true;
                 }
                 // L2-4: stat-decided losses stay valid one more round (stats only move on level-ups)
-                else if (Smart(game) && bot.Status.WhoToLostEveryRound.Any(x =>
+                else if (Smart(bot, game) && bot.Status.WhoToLostEveryRound.Any(x =>
                              x.RoundNo == game.RoundNo - 3 && x.EnemyId == target.GetPlayerId() &&
                              x.IsStatsBetterEnemy))
                 {
@@ -706,7 +720,7 @@ public class BotsBehavior : IServiceSingleton
                     }
 
                 // L2-2: use the legitimately-known class tells (KnownPlayerClass) for nemesis targeting
-                if (Smart(game))
+                if (Smart(bot, game))
                 {
                     var knownTell = bot.Status.KnownPlayerClass.Find(x => x.EnemyId == target.GetPlayerId());
                     if (knownTell != null)
@@ -723,11 +737,11 @@ public class BotsBehavior : IServiceSingleton
                 }
 
                 // L3-2: omniscient bots avoid enemies who counter them (reverse nemesis is a true-read = cheat)
-                if (Omni(game) && target.Player.GameCharacter.HasNemesisOver(bot.GameCharacter))
+                if (Omni(bot, game) && target.Player.GameCharacter.HasNemesisOver(bot.GameCharacter))
                     target.AttackPreference -= OmniReverseNemesisNumber;
 
                 // L3-3: true-stat versatility check (Step-1 ±5 term, CalculateRounds versatility, on real stats)
-                if (Omni(game))
+                if (Omni(bot, game))
                 {
                     var statWins =
                         (bot.GameCharacter.GetIntelligence() > target.Player.GameCharacter.GetIntelligence() ? 1 : 0) +
@@ -746,7 +760,7 @@ public class BotsBehavior : IServiceSingleton
                     target.AttackPreference += justiceDifference;
                 }
                 // L2-3: per-target justice gradient (L1 only rewards it when ALL targets are below the bot)
-                else if (Smart(game) && botJustice > targetJustice)
+                else if (Smart(bot, game) && botJustice > targetJustice)
                 {
                     target.AttackPreference += botJustice - targetJustice;
                 }
@@ -1817,9 +1831,9 @@ public class BotsBehavior : IServiceSingleton
                 }
 
                 // L2-5: avoid attacking into predicted punish-passives (uses bot.Predict beyond the Братишка rule)
-                if (Smart(game))
+                if (Smart(bot, game))
                 {
-                    var predictWeight = Omni(game) ? OmniPredictConfidence : 1;   // L3-1: predictions are certain
+                    var predictWeight = Omni(bot, game) ? OmniPredictConfidence : 1;   // L3-1: predictions are certain
                     var predicted = bot.Predict.Find(x => x.PlayerId == target.GetPlayerId());
                     if (predicted != null)
                     {
@@ -2524,7 +2538,7 @@ public class BotsBehavior : IServiceSingleton
 
             // L2-6: round-10 block economics — leader defends the crown, everyone else attacks (×4 round,
             // justice is worthless now). Untouched-generic guard preserves every bespoke round-10 block rule.
-            if (Smart(game) && game.RoundNo == 10 && isBlock != noBlock && isBlock != yesBlock
+            if (Smart(bot, game) && game.RoundNo == 10 && isBlock != noBlock && isBlock != yesBlock
                 && minimumRandomNumberForBlock == 1 && maximumRandomNumberForBlock == 4)
             {
                 if (bot.Status.GetPlaceAtLeaderBoard() == 1) isBlock = yesBlock;   // defend the crown
@@ -2533,7 +2547,7 @@ public class BotsBehavior : IServiceSingleton
 
             // L2-8: at 0 justice you lose every tiebreak and get milked by Умный attackers; if no target
             // scored ≥6 the heuristics found no good fight — raise the block-roll floor 1→2 (rounds 2-9).
-            if (Smart(game) && game.RoundNo is >= 2 and <= 9 && botJustice == 0
+            if (Smart(bot, game) && game.RoundNo is >= 2 and <= 9 && botJustice == 0
                 && isBlock != noBlock && isBlock != yesBlock
                 && minimumRandomNumberForBlock == 1 && maximumRandomNumberForBlock == 4
                 && allTargets.All(x => x.AttackPreference < 6))
@@ -2656,6 +2670,60 @@ public class BotsBehavior : IServiceSingleton
         }
     }
 
+    // L0 (Dumb): pure-random attack/block baseline for experiments. No strategy — but respects every
+    // genuine constraint: characters that literally can't block, targets that can't be attacked, and the
+    // Макро two-attack rule (so games never freeze).
+    private async Task HandleBotAttackRandom(GamePlayerBridgeClass bot, GameClass game, List<Nanobot> allTargets)
+    {
+        // No valid target (all dead / round-10 banned) → block (mirrors the M14 empty-target fallback).
+        if (allTargets.Count == 0)
+        {
+            await _gameReaction.HandleAttack(bot, null, -10);
+            return;
+        }
+
+        // "cannot block" = the two hard passives the block button itself rejects (GameReactions.cs:316-326).
+        // Монстр-marked players are force-attacked by the engine regardless (CheckIfReady.cs:1266-1289) —
+        // legal either way — so no extra guard is needed for that case.
+        var canBlock = !bot.GameCharacter.Passive.Any(x =>
+            x.PassiveName == "Спарта" || x.PassiveName == "Aggress");
+
+        // Uniform over {N targets, +1 block slot if allowed}: ~1/(N+1) block chance.
+        var slots = allTargets.Count + (canBlock ? 1 : 0);
+        if (canBlock && _rand.Random(1, slots) == slots)
+        {
+            await _gameReaction.HandleAttack(bot, null, -10);
+            return;
+        }
+
+        // Attack a random target; if HandleAttack rejects it (pet pair / Vampyr re-attack / round-10 ban)
+        // drop it and retry another. HandleAttack returning false = "cannot attack this target".
+        var pool = allTargets.ToList();
+        var attacked = false;
+        while (pool.Count > 0 && !attacked)
+        {
+            var i = _rand.Random(0, pool.Count - 1);
+            var pick = pool[i];
+            pool.RemoveAt(i);
+            attacked = await AttackPlayer(bot, pick.PlaceAtLeaderBoard());
+        }
+
+        // Макро (Dopa): the first attack returns true but does NOT set IsReady — without a second attack the
+        // turn never completes and the round can freeze. Replicate the smart path's second-attack safeguard.
+        if (attacked && !bot.Status.IsReady
+            && bot.GameCharacter.Passive.Any(x => x.PassiveName == "Макро"))
+        {
+            var second = allTargets
+                .Where(x => !bot.Status.WhoToAttackThisTurn.Contains(x.GetPlayerId())).ToList();
+            if (second.Count > 0)
+                await AttackPlayer(bot, second[_rand.Random(0, second.Count - 1)].PlaceAtLeaderBoard());
+        }
+
+        // Nothing attackable → block (engine force-attacks anyway if the bot legitimately can't block).
+        if (!attacked)
+            await _gameReaction.HandleAttack(bot, null, -10);
+    }
+
     public async Task<bool> AttackPlayer(GamePlayerBridgeClass bot, int whoToAttack)
     {
         return await _gameReaction.HandleAttack(bot, null, whoToAttack);
@@ -2669,6 +2737,25 @@ public class BotsBehavior : IServiceSingleton
 
     public async Task HandleLvlUpBot(GamePlayerBridgeClass player, GameClass game)
     {
+        // L0 (Dumb): random level-up among legal (non-maxed) stats. Mirrors the smart path's <10 filter
+        // and all-maxed →4 fallback (so no new infinite-loop risk), just without the character heuristics.
+        if (Dumb(player, game))
+        {
+            while (player.Status.LvlUpPoints > 0)
+            {
+                var options = new List<int>();
+                if (player.GameCharacter.GetIntelligence() < 10) options.Add(1);
+                if (player.GameCharacter.GetStrength() < 10) options.Add(2);
+                if (player.GameCharacter.GetSpeed() < 10) options.Add(3);
+                if (player.GameCharacter.GetPsyche() < 10) options.Add(4);
+                var pick = options.Count > 0 ? options[_rand.Random(0, options.Count - 1)] : 4;
+                await _gameReaction.HandleLvlUp(player, null, pick);
+            }
+
+            player.Status.MoveListPage = 1;
+            return;
+        }
+
         do
         {
             int skillNumber;

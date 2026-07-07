@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
@@ -27,13 +28,13 @@ public class InGameStatus
         InGamePersonalLogsAll = "";
         ScoreSource = "";
         WhoToLostEveryRound = new List<WhoToLostPreviousRoundClass>();
-        PlayerId = Guid.NewGuid();
+        PlayerId = SecureRandom.NextGuid();   // deterministic under a seeded sim (unique either way)
         KnownPlayerClass = new List<KnownPlayerClassClass>();
         ConfirmedPredict = true;
         ConfirmedSkip = true;
         IsAbleToChangeMind = true;
-        IsTargetSkipped = Guid.NewGuid();
-        IsTargetBlocked = Guid.NewGuid();
+        IsTargetSkipped = SecureRandom.NextGuid();
+        IsTargetBlocked = SecureRandom.NextGuid();
 
         PlaceAtLeaderBoardHistory = new List<PlaceAtLeaderBoardHistoryClass>();
         ChangeMindWhat = "";

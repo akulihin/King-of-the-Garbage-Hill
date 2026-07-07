@@ -44,7 +44,8 @@ public class BotGameFactory : IServiceSingleton
     /// (caller owns line-up validity: LeCrisp/Толя apart, ≤1 Tier-4, no TeamModeOnly).
     /// </summary>
     public async Task<GameClass> CreateBotGameAsync(ulong creatorId, string mode = "Bot",
-        uint testFightNumber = 0, List<string> forcedCharacters = null, int aiDifficulty = 3)
+        uint testFightNumber = 0, List<string> forcedCharacters = null, int aiDifficulty = 3,
+        int aiProbe = -1, string aiProbeChar = null)
     {
         var players = new List<IUser>
         {
@@ -68,8 +69,11 @@ public class BotGameFactory : IServiceSingleton
             forcedCharacters: forcedCharacters);
 
 
-        //тасуем игроков
-        playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
+        //тасуем игроков — seeded sim uses the deterministic RNG shuffle so a fixed --seed
+        //reproduces seating; real games keep the Guid.NewGuid() shuffle untouched.
+        playersList = SecureRandom.IsSeeded
+            ? SecureRandom.Shuffle(playersList)
+            : playersList.OrderBy(_ => Guid.NewGuid()).ToList();
         playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
         playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
 
@@ -79,7 +83,18 @@ public class BotGameFactory : IServiceSingleton
 
         //создаем игру
         var game = new GameClass(playersList, gameId, creatorId, 300, mode) { IsCheckIfReady = false };
-        game.AiDifficulty = Math.Clamp(aiDifficulty, 1, 3);
+        game.AiDifficulty = Math.Clamp(aiDifficulty, 0, 3);
+
+        // --ai-probe: run one bot at a different level than the field (A/B measurement). By character name
+        // if given (so it aggregates across coverage games), else the first slot. -1 leaves the whole field
+        // on the game default.
+        if (aiProbe >= 0)
+        {
+            var probe = aiProbeChar != null
+                ? playersList.Find(p => p.GameCharacter.Name == aiProbeChar)
+                : playersList.ElementAtOrDefault(0);
+            if (probe != null) probe.AiDifficulty = Math.Clamp(aiProbe, 0, 3);
+        }
 
         //отправить меню игры
         foreach (var player in playersList) await _upd.WaitMess(player, game);

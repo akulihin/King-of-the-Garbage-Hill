@@ -80,7 +80,7 @@ public class StartGameLogic : IServiceSingleton
         var playersList = new List<GamePlayerBridgeClass>();
 
 
-        players = players.OrderBy(_ => Guid.NewGuid()).ToList();
+        players = SecureRandom.Shuffle(players);   // single game RNG (seeded-sim deterministic)
 
         //handle custom selected character part #1 (uses unfiltered pool so admins can force TeamModeOnly characters)
         var unfilteredCharacters = _charactersPull.GetRollableCharacters();
@@ -330,7 +330,7 @@ public class StartGameLogic : IServiceSingleton
     {
         var playersList = new List<GamePlayerBridgeClass>();
         var passives = _charactersPull.GetAramPassives();
-        passives = passives.OrderBy(_ => Guid.NewGuid()).ToList();
+        passives = SecureRandom.Shuffle(passives);   // single game RNG (seeded-sim deterministic)
 
         foreach (var account in players.Select(player =>
                      player != null ? _accounts.GetAccount(player.Id) : _helperFunctions.GetFreeBot(playersList)))

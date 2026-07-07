@@ -73,6 +73,15 @@ public class CheckIfReady : IServiceSingleton
         return Task.CompletedTask;
     }
 
+    // The seeded sequential sim (--seed) disables the background timer and pumps TickAsync itself,
+    // so all game processing — and thus the RNG stream — runs on one thread and is deterministic.
+    // (A running timer thread would race the seeded loop on the non-thread-safe seeded RNG.)
+    public void SetTimerEnabled(bool enabled)
+    {
+        if (LoopingTimer != null)
+            LoopingTimer.Enabled = enabled;
+    }
+
     private void HandlePostGameEvents(GameClass game)
     {
         var playerWhoWon = game.PlayersList.Where(x => !x.Passives.IsDead).FirstOrDefault()
@@ -943,7 +952,13 @@ public class CheckIfReady : IServiceSingleton
         return "Not Ready";
     }
 
-    private async void CheckIfEveryoneIsReady(object sender, ElapsedEventArgs e)
+    private async void CheckIfEveryoneIsReady(object sender, ElapsedEventArgs e) => await TickAsync();
+
+    // One round-advance pass over all ready games. Normally driven by LoopingTimer; the seeded
+    // sim disables the timer and awaits this directly on its own thread, so game processing (and
+    // the RNG stream) is single-threaded and deterministic. The _looping guard still prevents any
+    // overlap with a stray timer tick.
+    public async Task TickAsync()
     {
         if (System.Threading.Interlocked.CompareExchange(ref _looping, 1, 0) != 0) return;
         try

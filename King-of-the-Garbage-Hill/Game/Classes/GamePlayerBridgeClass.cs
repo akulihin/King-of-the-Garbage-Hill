@@ -48,6 +48,12 @@ public class GamePlayerBridgeClass
 404 == Bot
 */
     public int PlayerType { get; set; }
+
+    /// <summary>Per-player bot AI difficulty override (sim measurement probe only). -1 = inherit the game's
+    /// AiDifficulty. Set by the sim's --ai-probe to run one bot at a different level than the rest of the
+    /// field, so a character's piloting can be A/B-measured in an otherwise-identical line-up.</summary>
+    public int AiDifficulty { get; set; } = -1;
+
     public List<DeleteMessagesClass> DeleteMessages { get; set; } = new();
     public List<PredictClass> Predict { get; set; } = new();
 

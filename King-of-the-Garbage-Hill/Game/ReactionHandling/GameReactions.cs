@@ -457,7 +457,7 @@ public sealed class GameReaction : IServiceSingleton
         player.Status.AramRerolledPassivesTimes++;
 
         var passives = _charactersPull.GetAramPassives();
-        passives = passives.OrderBy(_ => Guid.NewGuid()).ToList();
+        passives = SecureRandom.Shuffle(passives);   // single game RNG (seeded-sim deterministic)
 
 
 

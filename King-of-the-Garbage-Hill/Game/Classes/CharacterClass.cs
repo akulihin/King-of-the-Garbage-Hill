@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
@@ -828,7 +829,10 @@ public class CharacterClass
         if (CurrentSkillTarget == "Ничего")
         {
             SkillClassType[] initial = { SkillClassType.Intelligence, SkillClassType.Speed, SkillClassType.Strength };
-            CurrentSkillTarget = ClassToString(initial[new Random().Next(0, 3)]);
+            // Route through the single game RNG (SecureRandom): the old `new Random()` was
+            // time-seeded, so the 6 players created in one tight loop could roll correlated
+            // starting Мишень targets; it also broke seeded-sim determinism. Next is inclusive.
+            CurrentSkillTarget = ClassToString(initial[SecureRandom.Next(0, 2)]);
             return;
         }
 
@@ -1654,12 +1658,11 @@ public class JusticeClass
         //Болевой порог
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Болевой порог"))
         {
-            var rand = new Random();
             var max = howMuchToAdd;
             var extraPoints = 0;
             for (var i = 0; i < max; i++)
             {
-                var result = rand.Next(0, 2);
+                var result = SecureRandom.Next(0, 1);   // single game RNG (was new Random())
                 if (result != 0) continue;
                 howMuchToAdd--;
                 extraPoints++;
@@ -1681,7 +1684,7 @@ public class JusticeClass
             RealJusticeNow = 5;
 
         if (howMuchToAdd > 0) {
-            var justicePhrase = justricePhrases[new Random().Next(0, justricePhrases.Count)];
+            var justicePhrase = justricePhrases[SecureRandom.Next(0, justricePhrases.Count - 1)];
             Status.AddInGamePersonalLogs($"*Справедливость*: ***+ {howMuchToAdd}!***<:e_:562879579694301184>{justicePhrase}\n");
             return true;
         }
