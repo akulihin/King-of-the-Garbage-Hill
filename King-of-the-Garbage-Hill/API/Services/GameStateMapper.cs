@@ -118,8 +118,8 @@ public static class GameStateMapper
             MyPlayerId = requestingPlayer?.GetPlayerId(),
             MyPlayerType = requestingPlayer?.PlayerType ?? 0,
             PreferWeb = requestingPlayer?.PreferWeb ?? false,
-            AllCharacterNames = _allCharacterNames,
-            AllCharacters = _allCharacters,
+            AllCharacterNames = requestingPlayer?.GameCharacter.DoomRollMode == true ? new List<string>() : _allCharacterNames,
+            AllCharacters = requestingPlayer?.GameCharacter.DoomRollMode == true ? new List<CharacterInfoDto>() : _allCharacters,
         };
 
         // Map structured fight log for web animation (scoped: only own fights get full details)
@@ -346,6 +346,38 @@ public static class GameStateMapper
             {
                 switch (passive.PassiveName)
                 {
+                    case "Rune":
+                        if (player.GameCharacter.Name == DoomGuy.CharacterName)
+                        {
+                            var doom = player.Passives.DoomGuy;
+                            var stage = player.Status.LvlUpPoints > 0 ? DoomGuy.StageForRound(game.RoundNo) : "";
+                            pas.DoomGuy = new DoomGuyStateDto
+                            {
+                                RollMode = doom.RollMode,
+                                RollAvailable = game.RoundNo == 1 && !doom.RollMode,
+                                CurrentStage = stage,
+                                CurrentOptions = DoomGuy.GetOptions(doom, stage).Select(x => new DoomModuleDto
+                                {
+                                    Name = x.Name,
+                                    Stage = x.Stage,
+                                    Description = x.Description,
+                                    Reward = x.Reward,
+                                }).ToList(),
+                                ActiveModules = new Dictionary<string, string>(doom.ActiveModules),
+                                DemonNestNames = doom.DemonNests
+                                    .Select(id => game.PlayersList.Find(x => x.GetPlayerId() == id)?.DiscordUsername ?? "")
+                                    .Where(x => x.Length > 0).ToList(),
+                                BfgCharged = doom.BfgCharged,
+                                ChainsawChoices = doom.ChainsawChoices.Select(x => new DoomCopiedPassiveDto
+                                {
+                                    Name = x.PassiveName,
+                                    Description = x.PassiveDescription,
+                                }).ToList(),
+                                CopiedPassiveName = doom.CopiedPassiveName,
+                            };
+                            anySet = true;
+                        }
+                        break;
                     case "Буль":
                         var psyche = player.GameCharacter.GetPsyche();
                         pas.Bulk = new BulkStateDto

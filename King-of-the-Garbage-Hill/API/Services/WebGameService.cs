@@ -230,6 +230,7 @@ public class WebGameService
         botToReplace.PlayerType = creatorAccount.PlayerType;
         botToReplace.IsWebPlayer = true;
         botToReplace.PreferWeb = true;
+        DoomGuy.InitializeForGame(botToReplace, creatorAccount);
         creatorAccount.IsPlaying = true;
 
         // Create game
@@ -244,7 +245,17 @@ public class WebGameService
             var originalCharacter = botToReplace.GameCharacter;
             var excludedCharacters = playersList.Select(x => x.GameCharacter).ToList();
             var draftOptions = _startGameLogic.RollDraftOptions(creatorAccount, excludedCharacters, 2);
-            draftOptions.Insert(0, originalCharacter);
+            var newcomerDoom = draftOptions.Find(x => x.Name == DoomGuy.CharacterName);
+            if (newcomerDoom != null)
+            {
+                draftOptions.Remove(newcomerDoom);
+                draftOptions.Insert(0, newcomerDoom);
+                draftOptions.Add(originalCharacter);
+            }
+            else
+            {
+                draftOptions.Insert(0, originalCharacter);
+            }
             game.DraftOptions[botToReplace.GetPlayerId()] = draftOptions;
             game.IsDraftPickPhase = true;
 
@@ -304,6 +315,7 @@ public class WebGameService
         bot.IsWebPlayer = true;
         bot.PreferWeb = true;
         bot.DiscordStatus.SocketGameMessage = null;
+        DoomGuy.InitializeForGame(bot, playerAccount);
         playerAccount.IsPlaying = true;
 
         Console.WriteLine($"[WebAPI] Player {playerUsername} ({playerId}) joined game {gameId}");
@@ -364,9 +376,11 @@ public class WebGameService
         // Update account's last played character and mastery
         var account = _userAccounts.GetAccount(discordId);
         if (account != null)
+        {
             newBridge.CharacterMasteryPoints = account.CharacterMastery.GetValueOrDefault(selected.Name, 0);
-        if (account != null)
+            DoomGuy.InitializeForGame(newBridge, account);
             account.CharacterPlayedLastTime = selected.Name;
+        }
 
         return Task.FromResult((true, (string)null));
     }
@@ -545,9 +559,13 @@ public class WebGameService
 
         // Use the existing HandleLvlUp with botChoice parameter
         var wasAutoMove = player.Status.IsAutoMove;
+        var pointsBefore = player.Status.LvlUpPoints;
         player.Status.IsAutoMove = true;
         await _gameReaction.HandleLvlUp(player, null, statIndex);
         player.Status.IsAutoMove = wasAutoMove;
+
+        if (player.Status.LvlUpPoints == pointsBefore)
+            return (false, "Invalid level-up/module choice");
 
         return (true, null);
     }
@@ -557,6 +575,7 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return (false, "Game not found");
         if (player == null) return (false, "Player not in this game");
+        if (player.GameCharacter.DoomRollMode) return (false, "Moral is disabled by Let's Roll!");
         if (player.GameCharacter.GetMoral() < 5) return (false, "Not enough moral");
 
         await _gameReaction.HandleMoralForScore(player);
@@ -568,6 +587,7 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return (false, "Game not found");
         if (player == null) return (false, "Player not in this game");
+        if (player.GameCharacter.DoomRollMode) return (false, "Moral is disabled by Let's Roll!");
         if (player.GameCharacter.GetMoral() < 1) return (false, "Not enough moral");
 
         await _gameReaction.HandleMoralForSkill(player);
@@ -667,6 +687,8 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (player.GameCharacter.DoomRollMode)
+            return Task.FromResult((false, "Predictions are disabled by Let's Roll!"));
 
         var target = game.PlayersList.Find(p => p.GetPlayerId() == targetPlayerId);
         if (target == null) return Task.FromResult((false, "Target player not found"));
@@ -843,6 +865,26 @@ public class WebGameService
         player.Status.ClearInGamePersonalLogs();
 
         return Task.FromResult((true, (string)null));
+    }
+
+    public Task<(bool success, string error)> DoomRoll(ulong gameId, ulong discordId)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId);
+        if (game == null) return Task.FromResult((false, "Game not found"));
+        if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (game.RoundNo != 1) return Task.FromResult((false, "Let's Roll! is only available on round 1"));
+        return Task.FromResult(DoomGuy.ActivateRollMode(player)
+            ? (true, (string)null)
+            : (false, "Let's Roll! is not available"));
+    }
+
+    public Task<(bool success, string error)> DoomChainsaw(ulong gameId, ulong discordId, string passiveName)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId);
+        if (game == null) return Task.FromResult((false, "Game not found"));
+        if (player == null) return Task.FromResult((false, "Player not in this game"));
+        var result = DoomGuy.CopyChainsawPassive(player, passiveName);
+        return Task.FromResult((result.Success, result.Error));
     }
 
     // ── Leave / Finish ────────────────────────────────────────────────
@@ -1023,6 +1065,8 @@ public class WebGameService
             botNewBridge.TeamId = conflictingBot.TeamId;
             botNewBridge.DiscordStatus = conflictingBot.DiscordStatus;
             botNewBridge.Status.IsDraftPickConfirmed = true;
+            var conflictAccount = _userAccounts.GetAccount(conflictingBot.DiscordId);
+            if (conflictAccount != null) DoomGuy.InitializeForGame(botNewBridge, conflictAccount);
             var botIdx = game.PlayersList.IndexOf(conflictingBot);
             if (botIdx >= 0) game.PlayersList[botIdx] = botNewBridge;
         }
@@ -1052,6 +1096,7 @@ public class WebGameService
         if (account != null)
         {
             newBridge.CharacterMasteryPoints = account.CharacterMastery.GetValueOrDefault(selectedChar.Name, 0);
+            DoomGuy.InitializeForGame(newBridge, account);
             account.CharacterPlayedLastTime = selectedChar.Name;
         }
 

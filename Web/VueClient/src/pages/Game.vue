@@ -43,6 +43,9 @@ import {
   pauseGeraltGameStartTheme,
   resumeGeraltGameStartTheme,
   stopGeraltGameStartTheme,
+  playDoomGameStartTheme,
+  stopDoomGameStartTheme,
+  playDoomGameWinTheme,
   playGeraltQuestCompleted,
   playGeraltLevelUpAvailable,
   playGeraltOilLevelUp,
@@ -125,6 +128,7 @@ onUnmounted(() => {
   stopPortalGunCharged()
   stopKiraGameStartTheme()
   stopGeraltGameStartTheme()
+  stopDoomGameStartTheme()
   clearPrevLogTimer()
   if (store.isConnected && gameIdNum.value) {
     store.leaveGame(gameIdNum.value)
@@ -194,9 +198,28 @@ watch(() => store.gameState?.isFinished, (finished, prevFinished) => {
     const rickWon = store.gameState.players.some(p => p.character.name === 'Рик Санчез' && p.status.place === 1)
     if (rickWon) playRickGameWinTheme()
 
+    const doomWon = store.gameState.players.some(p => p.character.name === 'DooM Guy' && p.status.place === 1)
+    if (doomWon) playDoomGameWinTheme()
+
     // Stop game start themes on finish
     stopKiraGameStartTheme()
     stopGeraltGameStartTheme()
+    stopDoomGameStartTheme()
+  }
+})
+
+// DooM Guy: owner-only opening theme, stopped after the first committed action.
+const doomThemePlaying = ref(false)
+watch(() => store.myPlayer?.character.name, (name) => {
+  if (name === 'DooM Guy' && !doomThemePlaying.value && (store.gameState?.roundNo ?? 0) <= 1) {
+    doomThemePlaying.value = true
+    playDoomGameStartTheme()
+  }
+})
+watch(() => store.myPlayer?.status.isReady, (ready) => {
+  if (ready && doomThemePlaying.value) {
+    doomThemePlaying.value = false
+    stopDoomGameStartTheme()
   }
 })
 
@@ -1133,6 +1156,12 @@ const charTint = computed(() => {
           <div v-if="me?.youngGlebAvailable" class="act-group">
             <button class="act-btn young-gleb" title="Трансформироваться в Молодого Глеба" @click="store.youngGleb()">
               Вспомнить Молодость
+            </button>
+          </div>
+
+          <div v-if="me?.passiveAbilityStates?.doomGuy?.rollAvailable" class="act-group">
+            <button class="act-btn doom-roll" title="Отключить Мораль и Предположения; получать случайные модули и +2 очка" @click="store.doomRoll()">
+              Let's Roll!
             </button>
           </div>
 

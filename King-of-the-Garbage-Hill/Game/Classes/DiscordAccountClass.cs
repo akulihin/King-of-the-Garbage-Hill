@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using King_of_the_Garbage_Hill.Game.Characters;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
@@ -37,6 +38,7 @@ public class DiscordAccountClass
     public Dictionary<string, int> CharacterMastery { get; set; } = new();
     public List<string> ReplayHashes { get; set; } = new();
     public int PendingLootBoxes { get; set; }
+    public DoomFortressData DoomFortress { get; set; } = new();
 
     /*
     0 == Normal

@@ -4,17 +4,17 @@
 
 ## 1. Forced-fight sources × untargetable / no-fight states
 
-Forced-fight sources: **Монстр** no-escape (`CIR:1266-1289`), **Шэн** below-position pull (`CIR:1184-1199`), **Штормяк** taunt (`CIR:1217-1251`), **Aggress** self auto-attack (`CIR:1171-1182`), **Геральт** contract multi-fight injection (`DM:293-348`).
+Forced-fight sources: **Монстр** no-escape (`CIR:1266-1289`), **Шэн** below-position pull (`CIR:1184-1199`), **Штормяк** taunt (`CIR:1217-1251`), **Aggress** self auto-attack (`CIR:1171-1182`), **Геральт** contract multi-fight injection (`DM:293-348`), DooM Guy **BFG** wave injection (`DM:756-769`).
 
-| State ↓ / Source → | Монстр | Шэн | Штормяк | Aggress (self) | Геральт inject |
-|---|---|---|---|---|---|
-| Dead player | ✓ excluded | ✓ excluded | ✓ excluded | ✓ targets exclude dead | n/a (dead don't fight) |
-| Тигр round-10 ban | ✓ carve-out `CIR:1293` | ✓ carve-out (M11 fixed, `CIR:1213`) | ✓ carve-out (M11 fixed, `CIR:1247`) | n/a | targeting already blocked (`GR:702-707`) |
-| Огурчик Рик (pickle) | ✓ unaffected (no IsBlock/IsSkip) | pulls him, but pickle can't lose | can taunt him; he can't lose | n/a | injection works; pickle still can't lose |
-| Block | overridden (stripped) | fight happens anyway (forced list bypasses block-skip `DM:393-407`) | taunt bypasses own block (`DM:471-474`) | Aggress can't block at all | blocked Геральт = no injection (`DM:303,326`) |
-| Skip (sleep/tilt/ban) | overridden (stripped) | fight happens anyway | fight happens anyway | Aggress can't skip | skipping Геральт = no injection |
-| Ziggurat lock | position only — fights unaffected | position only | position only | n/a | n/a |
-| Premade Carry | n/a | n/a | n/a | n/a | anti-skip now exempts the round-10 Тигр ban (M10 fixed, `CP:5689-5704`) |
+| State ↓ / Source → | Монстр | Шэн | Штормяк | Aggress (self) | Геральт inject | BFG wave |
+|---|---|---|---|---|---|---|
+| Dead player | ✓ excluded | ✓ excluded | ✓ excluded | ✓ targets exclude dead | n/a (dead don't fight) | ✓ excluded `DM:765` |
+| Тигр round-10 ban | ✓ carve-out `CIR:1293` | ✓ carve-out (M11 fixed, `CIR:1213`) | ✓ carve-out (M11 fixed, `CIR:1247`) | n/a | targeting already blocked (`GR:702-707`) | not special-cased; ordinary block/skip still applies |
+| Огурчик Рик (pickle) | ✓ unaffected (no IsBlock/IsSkip) | pulls him, but pickle can't lose | can taunt him; he can't lose | n/a | injection works; pickle still can't lose | injected normally; pickle still can't lose |
+| Block | overridden (stripped) | fight happens anyway (forced list bypasses block-skip `DM:393-407`) | taunt bypasses own block (`DM:471-474`) | Aggress can't block at all | blocked Геральт = no injection (`DM:303,326`) | block stops that branch; normal penalty applies |
+| Skip (sleep/tilt/ban) | overridden (stripped) | fight happens anyway | fight happens anyway | Aggress can't skip | skipping Геральт = no injection | skip stops that branch |
+| Ziggurat lock | position only — fights unaffected | position only | position only | n/a | n/a | position only — wave follows current board order |
+| Premade Carry | n/a | n/a | n/a | n/a | anti-skip now exempts the round-10 Тигр ban (M10 fixed, `CP:5689-5704`) | n/a |
 
 ## 2. Kill sources × immunities
 
@@ -51,6 +51,7 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 | Premade | **copies** Carry fight-moral (intended — D9) | — | `CP:2366-2369` |
 | Кошачья засада (cats) | physically moves passives to enemy | Минька/Штормяк vs owner | transferred cat won't buff/taunt against Котики (`CP:3010-3013`, `CIR:1229`) |
 | Ziggurat learn | copies a `Standalone` passive | everything | see §6 |
+| Бензопила (DooM Guy) | replaces Gun with one victim passive | copied passive dispatch/state | offers the victim's first four non-admin passives; explicit first-charge priming exists for Portal Gun, Шэн, Изанаги and Глаза Итачи (`DoomGuy.cs:198-225`); ordinary name-gated/game-start-only passives retain their native gates |
 | Rick Most wanted | redirects random marks to Rick | Спартанец marks, L, Сверхразум, Комментатор, hunts, tea odds | `CP:118-128, 233-236, 3780-3783, 5175-5181, 3511-3515, 1088-1094, 5036-5038`; hunters follow portal swaps `CP:2069-2084` |
 | Portal Gun swap | swaps positions + remaining attackers mid-round | Тetradь targets etc. | attacker lists rewritten `CP:2060-2067` |
 
@@ -67,9 +68,11 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 | Безумие | psyche bypasses the 0-floor (can go negative) | CC:1295, 1344 |
 | Boole Family | immune to Harm entirely | CC:199 |
 | Kimiko active | TheBoys immune to Harm | CC:202-210 |
+| Маневры (DooM Guy) | after otherwise successful Harm, −1 persistent Speed | CC:204-208 |
 | Испанец | Harm → +1 Moral instead | CC:213-221 |
 | Много выебывается | Harm from higher-skill enemy while #1 → self-Drop | CC:223-229 |
 | Минька (winner) | deals no Harm and no fight-moral loss | DM:750, 805-806 |
+| Let's Roll! (DooM Guy) | Moral is set to 0 and all later Moral mutations/conversions are rejected; predictions are cleared/disabled | DoomGuy.cs:113-126, CC:1136-1137, GameStateMapper.cs:121-122 |
 
 ## 6. Ziggurat-copyable inventory (`Standalone: true`)
 
@@ -89,5 +92,6 @@ Copy rule: random Standalone passive from the **last attacked** enemy, no duplic
 ## 7. Same-target stacking notes
 
 - Two attackers on one defender resolve **sequentially in leaderboard order** — the first fight's ForOneFight effects are reset before the second (`DM:388-411`, ResetFight per fight).
+- BFG branches are appended to that same sequential target queue. The primary random-stage win fans out to both neighbours; only a win continues a branch, and a target is visited at most once (`DM:756-769`).
 - Со-attack interactions verified: Еврей steal (needs the Jew to also attack the target), Сайтама deferral (needs a co-attacker), Наполеон joint-attack auto-win (needs the ally to attack the same target).
 - Round-10 settlement order (who claws back first): Пейзаж deaths & Saitama banking happen in round-10 `HandleEndOfRound`; Чернильная завеса restore and Ищет достойного (One Punch) at round-11 `HandleNextRound`; Запах мусора at round-11 after-sorting; then `HandleLastRound`: predictions → M.M. ×компромат → TheBoys virus → Цукуеми deduction → sort → AWDKA → Premade → Sakura (GAME-DESIGN §8E).

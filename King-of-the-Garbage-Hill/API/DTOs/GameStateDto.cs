@@ -606,6 +606,7 @@ public class PassiveAbilityStatesDto
     public bool TheBoysMoralBlocked { get; set; }
     public SalldorumStateDto Salldorum { get; set; }
     public GeraltStateDto Geralt { get; set; }
+    public DoomGuyStateDto DoomGuy { get; set; }
     /// <summary>Shown on any player who has Geralt monster type assigned.</summary>
     public GeraltMonsterOnMeDto GeraltMonsterOnMe { get; set; }
 }
@@ -1025,6 +1026,47 @@ public class GeraltMonsterOnMeDto
     public string MonsterColor { get; set; }
     public string MonsterEmoji { get; set; }
     public int ContractsOnType { get; set; }
+}
+
+public class DoomGuyStateDto
+{
+    public bool RollMode { get; set; }
+    public bool RollAvailable { get; set; }
+    public string CurrentStage { get; set; }
+    public List<DoomModuleDto> CurrentOptions { get; set; } = new();
+    public Dictionary<string, string> ActiveModules { get; set; } = new();
+    public List<string> DemonNestNames { get; set; } = new();
+    public bool BfgCharged { get; set; }
+    public List<DoomCopiedPassiveDto> ChainsawChoices { get; set; } = new();
+    public string CopiedPassiveName { get; set; }
+}
+
+public class DoomModuleDto
+{
+    public string Name { get; set; }
+    public string Stage { get; set; }
+    public string Description { get; set; }
+    public bool Reward { get; set; }
+}
+
+public class DoomCopiedPassiveDto
+{
+    public string Name { get; set; }
+    public string Description { get; set; }
+}
+
+public class DoomFortressStateDto
+{
+    public List<DoomFortressStageDto> Stages { get; set; } = new();
+}
+
+public class DoomFortressStageDto
+{
+    public string Name { get; set; }
+    public List<string> Slots { get; set; } = new();
+    public List<DoomModuleDto> UnlockedModules { get; set; } = new();
+    public int RewardModulesRemaining { get; set; }
+    public double CurrentDropChance { get; set; }
 }
 
 // ── Quest & Loot Box DTOs ────────────────────────────────────────────

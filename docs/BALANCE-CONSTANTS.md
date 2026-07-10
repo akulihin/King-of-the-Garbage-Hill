@@ -162,34 +162,48 @@
 | Геральт | Медитация | Lambert 10% once (skill 0 next round; m16); демандна экономика: advance +2 regular, смерть при Displeasure ≥ 11 (−500) | CP:4395-4402, 4454-4491 |
 | Баг | Exploit | pot = losses of exploitable players; claim on patch | DM:73-76, CP:1613-1625 |
 | Sakura | — | top-3 = narrative win | CIR:496-508 |
+| DooM Guy | base / newcomer | Int 2, Str 5, Speed 5, Psyche 5, Tier 4; exact 30% protected roll while TotalPlays < 10 | characters.json:1383-1413, StartGameLogic.cs:177-205 |
+| DooM Guy | stages / random mode | Rune r3, Shield r5, Mission r7, Gun r9; Let's Roll random pick pays +2 regular each stage | DoomGuy.cs:53-60, 170-175 |
+| DooM Guy | Rune | Вознесение +8 Int, −1/loss; Маневры +5 Speed, −1/Harm; Истребление +1 all stats + max(0, 10−round) bonus | DoomGuy.cs:141-149, CP:2431-2454, CharacterClass.cs:204-208 |
+| DooM Guy | Shield | Щит-пила block penalty −3; Шоковый щит 1 use; Адский блок +666 Skill once after 2 blocked attacks | DoomsdayMachine.cs:500-515, CP:708-722 |
+| DooM Guy | Mission | 1 new nest/setup, overflow >3 → −20 bonus + clear; nest kill +1 regular; every resolved fight +1 regular; flawless no-block mission +20 bonus | DoomGuy.cs:178-196, CP:2460-2476, 3416-3427 |
+| DooM Guy | Gun | BFG 1 charge; Кулаки Str=0 and +2 regular/win; Бензопила 1 victim, up to 4 passive choices | DoomGuy.cs:155-160, 198-225, DM:705-726 |
+| DooM Guy | module reward | place 4/3/2/1 ceiling = Rune/Shield/Mission/Gun; fallback downward; chance = 0 complete, 5% last, otherwise `5 + 75×(remaining−1)/(total−1)` | DoomGuy.cs:227-260 |
 
 ## Bot AI difficulty (`BB` = BotsBehavior.cs, `GC` = GameClass.cs, `CP` = CharacterPassives.cs, `SR` = SimulationRunner.cs)
 
-Per-game `AiDifficulty` (0/1/2/3). **Default 3 everywhere** — Discord `*st`/`*stb`, web games, and the headless sim (changed from 1 on 2026-07-05); the sim's `--ai-difficulty N` flag overrides per-run (**0-3**, sim-only); `--ai-probe N [--ai-probe-char "Name"]` runs one bot at a different level than the field for A/B measurement (per-player `GamePlayerBridgeClass.AiDifficulty`, resolved by `EffectiveDifficulty` `BB:39`). **L0 = pure-random baseline** (experiment control; see the `Dumb` row). **L1 = legacy, bit-for-bit unchanged** (every L2/L3 hunk is gated behind `Smart()` `BB:42` / `Omni()` `BB:43`, an unreachable `else if`, or a ternary whose false branch is the old literal). **L2 = smarter, same decision skeleton.** **L3 = omniscient predictions from `AiFullKnowledgeRound`, cumulative over L2.** Design rationale per rule is in the approved plan; each rule below is one `L2-*`/`L3-*` id.
+Per-game `AiDifficulty` (0/1/2/3). **Default 3 everywhere** — Discord `*st`/`*stb`, web games, and the headless sim (changed from 1 on 2026-07-05); the sim's `--ai-difficulty N` flag overrides per-run (**0-3**, sim-only); `--ai-probe N [--ai-probe-char "Name"]` runs one bot at a different level than the field for A/B measurement (per-player `GamePlayerBridgeClass.AiDifficulty`, resolved by `EffectiveDifficulty` `BB:45`). **L0 = pure-random baseline** (experiment control; see the `Dumb` row). **L1 = legacy, bit-for-bit unchanged** (every L2/L3 branch is gated by `Smart()` `BB:48` / `Omni()` `BB:49-50`, or retains the old false branch). **L2 = smarter, same decision skeleton plus a persistent character plan.** **L3 = omniscient predictions from `AiFullKnowledgeRound`, cumulative over L2, plus a composite fight-edge estimate.** Exact-stat/real-Justice reads are L3-only; L2 character plans use visible state and the legacy preference model.
 
 | Constant | Value | Meaning | Anchor |
 |---|---|---|---|
-| `AiDifficulty` | **3** | per-game bot AI level (0 random / 1 legacy / 2 smart / 3 omniscient), default 3; echoed to report JSON options.aiDifficulty | GC:69; parse+validate SR:76/86-90; clamp 0-3 BotGameFactory.cs:82; echo `AiDifficulty` SimReport.cs:40; helpers BB:39-43 |
-| `--ai-probe` (measurement) | 0-3 | one bot at a different level than the field (A/B; per-player `GamePlayerBridgeClass.AiDifficulty`, -1 = inherit); optional `--ai-probe-char "Name"` | parse SR:77-78/94; set BotGameFactory.cs:88; report `AiProbe`/`AiProbeChar` SimReport.cs |
-| `Dumb` (L0) | ≤ 0 | pure-random experiment baseline: random legal-stat level-up + random attack/block; **skips** the moral & Kira sub-AIs; respects cannot-block (`Спарта`/`Aggress`), invalid-target retry (`HandleAttack` false), and the Макро two-attack rule | helper BB:41; dispatch BB:73/80; lvl-up branch BB:2742; attack branch BB:550 → `HandleBotAttackRandom` BB:2676 |
+| `AiDifficulty` | **3** | per-game bot AI level (0 random / 1 legacy / 2 smart / 3 omniscient), default 3; echoed to report JSON `options.aiDifficulty` | GC:69; parse+validate SR:79-112; clamp 0-3 BotGameFactory.cs:87; echo `AiDifficulty` SimReport.cs:40; helpers BB:45-50 |
+| `--ai-probe` / `--ab-char` (measurement) | 0-3 | one bot at a different level than the L1 field; paired A/B runs identical seeded line-ups twice and stores both arms | parse `--ai-probe` SimulationRunner.cs:81; parse `--ab-char` SimulationRunner.cs:85; paired runner SR:405-542; set BotGameFactory.cs:92-97 |
+| `AiPlaystyle` | once/match | strict L2/L3 bots roll one persistent plan and keep it for the match; recorded per player in sim/A-B JSON for plan-level analysis | GamePlayerBridgeClass.cs:57-59; BB:84-86, 107-175; SimReport.cs:91-98; SR:630-643 |
+| `Dumb` (L0) | ≤ 0 | pure-random experiment baseline: random legal-stat level-up + random attack/block; **skips** the moral & Kira sub-AIs; respects cannot-block (`Спарта`/`Aggress`), invalid-target retry (`HandleAttack` false), and the Макро two-attack rule | helper BB:47; dispatch BB:93-105/798-803; lvl-up BB:3418-3434; random attack BB:3349-3409 |
 | `AiFullKnowledgeRound` | **3** | round from which L3 bots know every enemy's character (tunable; may become 2 or 1) | GC:72 |
-| `SmartTargetTaretNumberEarly` / `…Late` (L2-1) | 3 / 2 | Мишень-target attack weight — early (round ≤ 4) / late; the biggest repeatable skill faucet (L1: 1 always) | BB:45/54, 613 |
-| `SmartKnownClassNemesisNumber` (L2-2) | ±2 | class-tell (`KnownPlayerClass`) nemesis target / avoid weight | BB:46, 733 |
-| L2-3 justice gradient | +(botJ − targetJ) | per-target justice-advantage reward (L1 rewards only when **all** targets are below) | BB:763 |
-| L2-4 fight-history horizon | −5 | extend the stat-loss penalty to round − 3 (reuses `isLostLastRoundAndTargetIsBetterNumber`) | BB:682 |
-| `SmartPredictAvoidNumber` (L2-5) | −2 (×2 at L3) | opponent-awareness — avoid moves that feed the enemy's kit: Краборак «Панцирь», Толя «Раммус», Осьминожка «Неуязвимость», Монстр без имени (justice-steal), Toxic Mate (lose-to-win), mylorik (first revenge mark) | BB:47, 1857-1878 |
-| `SmartNemesisBonus` (L2-9) | +2 | extra class-counter weight on top of the ungated +3 (nemesis = +2 weigh, ×1.5 skill, justice ×mult) | BB:55, 726 |
-| L2-6 round-10 economics | block / attack | leader force-blocks, everyone else force-attacks on the ×4 round | BB:2541 |
-| `SmartMoralWaitPlace3` / `Place4` (L2-7) | 8 / 13 | place-3 / place-4 moral→points hoard threshold (L1: 5 / 8) | BB:48-49, 238/235 |
-| L2-8 zero-justice block bias | min-roll 2 | at 0 justice with no target ≥ 6, raise block-roll floor 1→2 (rounds 2-9) | BB:2550 |
-| `SmartMoralWaitLeader` (L2-10) | 8 | leaders (place ≤ 2) convert moral→points at the 8-tier, not the wasteful 5-tier (moral→score is **unmultiplied**, so only the super-linear tier ratio matters; round 10 force-dumps leftovers). L1 leaders dump at 5. | BB:57, 246 |
-| `SmartPsycheFloor` (L2-11) | 4 | generic level-up keeps ≥ 4 Psyche once the top stat ≥ 8 — pool guard vs the −20% moral-break and tilt/skip passives + keeps the ±psyche fight term; per-character build overrides still win | BB:58, 2833 |
-| `SmartCommitMultiplier` (L2-12) | ×2 | commit harder to a clearly-best target — amplify the unique-max's share of the weighted-random pick so smart bots reliably take the strongest fight the heuristics found | BB:59, 1908 |
-| L2-13 leader-under-fire block | min-roll 3 | place ≤ 2 with ≥ 2 known incoming attackers and no crush (all targets < 8) → lean block: cancels the fights (no drop, denies each attacker their win + a bonus point) and banks +1 justice (rounds 2-9) | BB:2603 |
-| L2-14 comeback justice bank | min-roll 2 | place ≥ 4 at justice 1 with no target ≥ 6 → lean block to bank +1 justice for a comeback (extends L2-8's 0-justice case) | BB:2617 |
-| `OmniPredictConfidence` (L3-1) | ×2 | L3 weight multiplier applied to L2-5 | BB:50, 1836 |
-| `OmniReverseNemesisNumber` (L3-2) | −3 | avoid enemies who counter the bot (true-read reverse nemesis) | BB:51, 740 |
-| `OmniVersatilityNumber` (L3-3) | ±2 | true-stat versatility: ≥ 2 stat-wins → +, 0 stat-wins → − | BB:52, 758 |
-| `OmniDominateNumber` (L3-5) | +3 | dominating all 3 offensive stats (reaches TooGOOD, enemy roll-window → 30) = near-certain crush → hunt it | BB:56, 764 |
-| L3-4 true justice read | real justice | omniscient bots read `GetRealJusticeNow()` (incl. hidden skill-justice) instead of seen | BB:614 |
+| `SmartTargetTaretNumberEarly` / `…Late` (L2-1) | 3 / 2 | Мишень-target attack weight — early (round ≤ 4) / late; the biggest repeatable skill faucet (L1: 1 always) | BB:51/60, 858-860 |
+| `SmartKnownClassNemesisNumber` (L2-2) | ±2 | class-tell (`KnownPlayerClass`) nemesis target / avoid weight | BB:52, 978-991 |
+| L2-3 justice gradient | +(botJ − targetJ) | per-target seen-Justice advantage reward (L1 rewards only when **all** targets are below) | BB:1015-1025 |
+| L2-4 fight-history horizon | −5 | extend the stat-loss penalty to round − 3 | BB:932-939 |
+| `SmartPredictAvoidNumber` (L2-5) | −2 (×2 at L3) | avoid feeding predicted Краборак/Толя/Осьминожка/Монстр/Toxic Mate/mylorik mechanics | BB:53, 2387-2421 |
+| L2-6 round-10 economics | block / attack | leader force-blocks, everyone else force-attacks on the ×4 round | BB:3188-3195 |
+| `SmartMoralWaitPlace3` / `Place4` (L2-7) | 8 / 13 | place-3 / place-4 moral→points hoard threshold (L1: 5 / 8) | BB:54-55, 473-476 |
+| L2-8 zero-justice block bias | min-roll 2 | at 0 Justice with no target ≥ 6, raise block-roll floor 1→2 (rounds 2-9) | BB:3197-3205 |
+| `SmartNemesisBonus` (L2-9) | +2 | extra class-counter weight (nemesis = +2 weigh, ×1.5 skill, amplified Justice) | BB:61, 965-975 |
+| `SmartMoralWaitLeader` (L2-10) | 8 | leaders wait for the efficient 8-Moral score tier instead of dumping at 5 | BB:63, 479-483 |
+| `SmartPsycheFloor` (L2-11) | 4 | generic build keeps ≥4 Psyche once its top stat is ≥8; character builds override it | BB:64, 3464-3470 |
+| `SmartCommitMultiplier` (L2-12) | ×2 | double the unique-best target's weighted share (Толя exempt because its bespoke inversion already commits) | BB:65, 2428-2445 |
+| L2-13 leader-under-fire block | min-roll 3 | place ≤2, ≥2 known incoming attackers, no target ≥8 → defend (rounds 2-9) | BB:3207-3219 |
+| L2-14 comeback Justice bank | min-roll 2 | place ≥4 at Justice 1 with no target ≥6 → defend for next-round Justice | BB:3221-3233 |
+| `SmartSellerMarkFloor` (L2-15) | 20 | unmarked Seller targets get a dominant floor because Впарить говна applies on attack, not on win | BB:70, 2164-2174 |
+| known defense (L2-16) | −10 / +8 / −2 | avoid visible Block/Skip; instead exploit Armor/SkipBreak (+8), while mark/reveal/buff attacks that still progress take only −2 | BB:66-67, 214-252, 1027-1038 |
+| Harm/Drop (L2-17) | +1 / +4 | prefer in-range Harm; +4 more when the target's Strength pool is primed to break and Drop (Butcher Poker adds more) | BB:68, 255-267, 1040-1060 |
+| persistent character plans (L2-18) | random once | Dopa 4 tactics; Darksci Stable/Unstable; Глеб Classic/Young; TheBoys 4 members; Goblins 4 builds; Rick, Itachi, Kratos, Cats, Tolya, Monster and Support each have 2 plans. Each plan owns targeting, block/moral policy and level-up path. | BB:107-209, 1260-1380, 1580-1745, 1800-2300, 2700-3140, 3470-3670 |
+| special objective pilots (L2-19) | character-specific | Kira preserves Eyes from L/Monster; Saitama seeks solo Мишень fights; Seller spreads marks; Bug farms PointFunnel and cashes Exploit on round 10; Sakura protects only a threatened top-3 | BB:1105-1133, 1690-1725, 2160-2180, 2248-2283, 3091-3130 |
+| `OmniPredictConfidence` (L3-1) | ×2 | L3 multiplier applied to L2-5 prediction-aware avoidance | BB:56, 2387 |
+| `OmniReverseNemesisNumber` (L3-2) | −3 | avoid enemies who counter the bot (true-read reverse nemesis) | BB:57, 993-997 |
+| `OmniVersatilityNumber` (L3-3) | ±2 | true-stat versatility: ≥2 stat-wins → +, 0 stat-wins → − | BB:58, 998-1009 |
+| L3-4 true Justice read | real Justice | use `GetRealJusticeNow()` (including hidden skill-Justice) instead of seen Justice | BB:865-868 |
+| `OmniDominateNumber` (L3-5) | +3 | dominating all 3 offensive stats reaches TooGOOD territory → hunt it | BB:62, 1010-1013 |
+| composite fight edge (L3-6) | thresholds ±5 / ±13 | approximate Step 1 from nemesis, scale, versatility, Psyche, skill and real Justice; lose-to-win/special-objective kits opt out | BB:270-325, 1063-1080 |
 | L3-0 prediction auto-fill | true characters | strict bots (`PlayerType == 404`) predict every enemy's real character except Монстр без имени | CP:6290 |

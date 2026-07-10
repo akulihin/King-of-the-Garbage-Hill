@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Timers;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Game.Services;
@@ -304,6 +305,7 @@ public class CheckIfReady : IServiceSingleton
         if (game.PlayersList.Count == 6 && game.PlayersList.Count(x => x.IsBot()) <= 5)
             foreach (var player in from player in game.PlayersList
                      where !player.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти")
+                     where !player.GameCharacter.DoomRollMode
                      from predict in player.Predict
                      let enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId)
                      where enemy!.GameCharacter.Name == predict.CharacterName
@@ -660,6 +662,20 @@ public class CheckIfReady : IServiceSingleton
             if (!player.Passives.IsDead)
                 account.CharacterMastery[player.GameCharacter.Name] =
                     account.CharacterMastery.GetValueOrDefault(player.GameCharacter.Name, 0) + masteryPointsToAdd;
+
+            if (player.GameCharacter.Name == DoomGuy.CharacterName)
+            {
+                var moduleReward = DoomGuy.TryAwardModule(account, player.Status.GetPlaceAtLeaderBoard());
+                if (moduleReward.Awarded)
+                {
+                    var rewardText = $"Fortress of Doom: получен модуль {moduleReward.Stage} — {moduleReward.ModuleName}!";
+                    player.WebMessages.Add(rewardText);
+                    player.Status.AddInGamePersonalLogs(rewardText + "\n");
+                    if (!player.IsBot() && !player.IsWebPlayer && !player.PreferWeb
+                                        && player.DiscordStatus.SocketGameMessage?.Channel != null)
+                        await player.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync(rewardText);
+                }
+            }
 
             /*
             account.ZbsPoints += (player.Status.GetPlaceAtLeaderBoard() - 6) * -1 + 1;

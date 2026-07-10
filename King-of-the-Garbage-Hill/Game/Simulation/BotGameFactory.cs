@@ -41,7 +41,8 @@ public class BotGameFactory : IServiceSingleton
     /// <summary>
     /// Creates one 6-bot game and adds it to Global.GamesList (running: IsCheckIfReady = true).
     /// <paramref name="forcedCharacters"/> assigns characters by list order instead of rolling
-    /// (caller owns line-up validity: LeCrisp/Толя apart, ≤1 Tier-4, no TeamModeOnly).
+    /// (caller owns line-up validity: LeCrisp/Толя apart, ≤1 Tier-4; explicit admin/sim line-ups
+    /// may include TeamModeOnly characters).
     /// </summary>
     public async Task<GameClass> CreateBotGameAsync(ulong creatorId, string mode = "Bot",
         uint testFightNumber = 0, List<string> forcedCharacters = null, int aiDifficulty = 3,

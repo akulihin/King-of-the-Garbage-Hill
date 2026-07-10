@@ -80,10 +80,14 @@ Composed by `GetGameButtons` (`GameUpdateMess.cs:1544-1610`): row 0 — Блок
 | `debug_info` | `Дебаг` | `GameUpdateMess.cs:1737-1740` | `GameReactions.cs:308-312` (toggles the dead page 4) |
 | `stable-Darksci` / `not-stable-Darksci` | `Мне никогда не везёт...` / `Мне сегодня повезёт!` (round 1, + hint DM) | `GameUpdateMess.cs:1582-1593` | `GameReactions.cs:226-254` |
 | `yong-gleb` | `Вспомнить Молодость` (round 1) | `GameUpdateMess.cs:1596-1600` | `GameReactions.cs:256-288` (in-place transform to Молодой Глеб) |
+| `doom-roll` | `Let's Roll!` (DooM Guy, round 1) | `GameUpdateMess.cs:1633-1636` | `GameReactions.cs:292-300` (disables Moral/predictions; later stages randomize) |
+| `doom-chainsaw` | `Бензопила: выбрать пассивку` (pending after the first Chainsaw win) | `GameUpdateMess.cs:1639-1650` | `GameReactions.cs:301-307` |
 | `aram_reroll_1..4` / `aram_reroll_5` / `aram_roll_confirm` | `Reroll #N` (max 4 passive rerolls) / `Reroll Stats` (max 1) / `Confirm` → disabled `Wait for other players` | `GameUpdateMess.cs:1612-1636` | `GameReactions.cs:393-416` |
 | `draft_pick_0` / `draft_pick_1` / `draft_pick_2` | `{Name} (FREE)` / `{Name} (cost 5 ZBS points)`; after pick `Ожидаем остальных` (`draft_pick_wait`, no handler) | `GameUpdateMess.cs:1676-1701` | `GameReactions.cs:417-421` → HandleDraftPick |
 
 Attack-menu placeholder states (`GameUpdateMess.cs:1299-1360`): `Что-то заставило тебя скипнуть...`, `Вы поставили блок!`, `Вы использовали Авто Ход!`, `gg wp` (round > 10), Kratos event `УБИТЬ!` / `ЭТО БОГ ВОЙНЫ! БЕГИ!`, `Вы напали на {name}`, `Подтвердите свои предложение перед атакой!`, Butcher-ban `Обжаловать бан...` (`GameUpdateMess.cs:1350-1355`); empty menu → option `ТЫ ВСЕХ УБИЛ` (`GameUpdateMess.cs:1373`).
+
+DooM Guy replaces the normal `lvl-up` options with the current stage's up-to-four configured modules (`GameUpdateMess.cs:1435-1455`; selection still reaches `HandleLvlUp`, whose DooM branch maps the selected index to that module, `GameReactions.cs:801-814`). In Let's Roll mode that menu is never shown: the stage point is consumed automatically after sorting. Moral buttons and prediction menus are disabled/omitted (`GameUpdateMess.cs:1423-1427, 1491-1495, 1523-1527, 1599`). Demon nests appear as public leaderboard markers (`GameUpdateMess.cs:235-239`).
 
 ## 6. Dispatch & round resolution
 
@@ -109,12 +113,12 @@ Message edits are serialized per player through an embed queue with 200 ms spins
 ## 8. End of game
 
 - `Завершить Игру` mid-game: `EndGame` swaps the leaver for a bot and DMs the multiplayer nudge `Спасибо за игру!…` (`GameUpdateMess.cs:774-785`; seat swap `SubstituteUserWithBot`, `HelperFunctions.cs:337`).
-- Natural end (`HandleLastRound`, `CheckIfReady.cs:266`): sole winner gets `__**Победа! Теперь вы Король этой Мусорной Горы. Пока-что...**__` + a gif (`CheckIfReady.cs:608-618`); then per player (`CheckIfReady.cs:625-723`): final `UpdateMessage`, account reset (`IsPlaying` false, GameId parked), match history, **mastery points 10/7/5/3/2/1 by place** (`CheckIfReady.cs:646-653`), **ZBS Points 100/50/40/30/20/10** with score-tie = 100, team override 100/50, dead = 0 (`CheckIfReady.cs:661-696`), quest tracking (`CheckIfReady.cs:699`), **loot box for alive top-2** (`CheckIfReady.cs:701-705`), achievement evaluation (`CheckIfReady.cs:707-716`), tier-pity counters (`CheckIfReady.cs:718-723`).
+- Natural end (`HandleLastRound`, `CheckIfReady.cs:266`): sole winner gets `__**Победа! Теперь вы Король этой Мусорной Горы. Пока-что...**__` + a gif (`CheckIfReady.cs:608-618`); then per player: final render/account/history/mastery/ZBS/loot/achievement payout. A DooM Guy account additionally rolls its place-gated persistent module reward before the ordinary currency payout; a successful Discord-human drop is sent as a separate Fortress reward DM (`CheckIfReady.cs:625-708`, module block `CheckIfReady.cs:666-678`).
 - The finish path also triggers the web-side callbacks (final broadcast, replay save, AI story — WEB-BACKEND.md §6).
 
 ## 9. Accounts & meta surfaces
 
-- Accounts are created lazily on first contact (`UserAccounts.GetAccount` → `CreateUserAccount`, `UserAccounts.cs:78-158`); key fields on `DiscordAccountClass`: `MyPrefix`/`IsPlaying`/`PlayerType` (`DiscordAccountClass.cs:21-22` `DiscordAccountClass.cs:47`), `ZbsPoints` (`DiscordAccountClass.cs:26`), `CharacterMastery` + `ReplayHashes` + `PendingLootBoxes` (`DiscordAccountClass.cs:37-39`), `Achievements` (`DiscordAccountClass.cs:28`), `MatchHistory` + `CharacterStatistics` (`DiscordAccountClass.cs:9-10`), `WidgetAuthorized` (`DiscordAccountClass.cs:14`).
+- Accounts are created lazily on first contact (`UserAccounts.GetAccount` → `CreateUserAccount`, `UserAccounts.cs:78-158`); account meta includes the persistent DooM Fortress unlock/loadout field (`DiscordAccountClass.cs:41`) in addition to the existing profile, currency, mastery, replay, loot, achievement and history fields. Fortress editing itself is web-Home-only; Discord consumes the saved loadout in-game.
 - The `stats` embed (`General.cs:191-204`) renders ZBS Points / Тип Пользователя / Всего Игр and the rest of the profile (`StartGameLogic.cs:405-407`).
 - **Shop** — the `магазин` command (`Store.cs:24-25`, components in StoreReactions): select `store-select-character` placeholder `Выбрать персонажа` (`StoreReactions.cs:41-42`), buttons `Поднять шанс на 1%`/`на 10%`, `Опустить шанс на 1%`/`на 10%`, `Сбросить все изменения`, `Сбросить все изменения за всех персонажей` with ids store-up-1/store-up-10/store-down-1/store-down-10/store-return-character/store-return-all-characters (`StoreReactions.cs:55-60`); dispatched in `ReactionAddedStore`, guarded by custom-id containing "store" (`StoreReactions.cs:150-154`, cases from `StoreReactions.cs:188`). Spends ZBS to bias per-character roll chances.
 - Quests/loot boxes/achievements accrue here but their **browsing UI is the web lobby** (WEB-CLIENT.md §7); Discord only banks them (§8).

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.API.Services;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 using Microsoft.AspNetCore.SignalR;
 
@@ -388,6 +389,24 @@ public class GameHub : Hub
         if (success) await PushStateToPlayer(gameId, discordId);
     }
 
+    public async Task DoomRoll(ulong gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var (success, error) = await _gameService.DoomRoll(gameId, discordId);
+        await Clients.Caller.SendAsync("ActionResult", new { action = "doomRoll", success, error });
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
+    public async Task DoomChainsaw(ulong gameId, string passiveName)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var (success, error) = await _gameService.DoomChainsaw(gameId, discordId, passiveName);
+        await Clients.Caller.SendAsync("ActionResult", new { action = "doomChainsaw", success, error });
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
     public async Task DopaChoice(ulong gameId, string tactic)
     {
         var discordId = GetDiscordId();
@@ -539,6 +558,74 @@ public class GameHub : Hub
     }
 
     // ── Quests ─────────────────────────────────────────────────────────
+
+    public async Task RequestDoomFortress()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var account = _userAccounts.GetAccount(discordId);
+        if (account == null) { await Clients.Caller.SendAsync("Error", "Account not found."); return; }
+        await Clients.Caller.SendAsync("DoomFortressState", BuildDoomFortressState(account));
+    }
+
+    public async Task EquipDoomModule(string stage, int slotIndex, string moduleName)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var account = _userAccounts.GetAccount(discordId);
+        if (account == null) { await Clients.Caller.SendAsync("Error", "Account not found."); return; }
+
+        account.DoomFortress ??= new DoomFortressData();
+        DoomGuy.EnsureFortress(account.DoomFortress);
+        var module = DoomGuy.FindModule(moduleName);
+        if (!DoomGuy.StageOrder.Contains(stage) || module == null || module.Stage != stage
+            || !account.DoomFortress.UnlockedModules.Contains(moduleName) || slotIndex is < 0 or > 3)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "equipDoomModule", success = false, error = "Invalid module or slot" });
+            return;
+        }
+
+        var slots = account.DoomFortress.EquippedSlots[stage];
+        var oldIndex = slots.IndexOf(moduleName);
+        if (oldIndex >= 0 && oldIndex != slotIndex)
+        {
+            // Moving an equipped module into an empty slot would create a new empty slot, which is forbidden.
+            // A filled target swaps; an empty target leaves the existing valid loadout unchanged.
+            if (!string.IsNullOrEmpty(slots[slotIndex]))
+                (slots[oldIndex], slots[slotIndex]) = (slots[slotIndex], slots[oldIndex]);
+        }
+        else
+            slots[slotIndex] = moduleName;
+
+        await Clients.Caller.SendAsync("ActionResult", new { action = "equipDoomModule", success = true, error = (string)null });
+        await Clients.Caller.SendAsync("DoomFortressState", BuildDoomFortressState(account));
+    }
+
+    private static DTOs.DoomFortressStateDto BuildDoomFortressState(Game.Classes.DiscordAccountClass account)
+    {
+        account.DoomFortress ??= new DoomFortressData();
+        DoomGuy.EnsureFortress(account.DoomFortress);
+        var dto = new DTOs.DoomFortressStateDto();
+        foreach (var stage in DoomGuy.StageOrder)
+        {
+            var rewardModules = DoomGuy.Modules.Where(x => x.Stage == stage && x.Reward).ToList();
+            var remaining = rewardModules.Count(x => !account.DoomFortress.UnlockedModules.Contains(x.Name));
+            dto.Stages.Add(new DTOs.DoomFortressStageDto
+            {
+                Name = stage,
+                Slots = account.DoomFortress.EquippedSlots[stage].ToList(),
+                UnlockedModules = DoomGuy.Modules
+                    .Where(x => x.Stage == stage && account.DoomFortress.UnlockedModules.Contains(x.Name))
+                    .Select(x => new DTOs.DoomModuleDto
+                    {
+                        Name = x.Name, Stage = x.Stage, Description = x.Description, Reward = x.Reward,
+                    }).ToList(),
+                RewardModulesRemaining = remaining,
+                CurrentDropChance = DoomGuy.RewardChance(rewardModules.Count, remaining),
+            });
+        }
+        return dto;
+    }
 
     public async Task RequestQuests()
     {

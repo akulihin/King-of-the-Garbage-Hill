@@ -58,6 +58,7 @@ resolve() {
     LoginProcess.vue|LoginSuccess.vue) echo "$V/components/Login/$1";;
     PlayerCard.vue|SkillsPanel.vue|Leaderboard.vue|FightAnimation.vue|DeathNote.vue|RoundTimer.vue|MediaMessages.vue|BattleLog.vue|ActionPanel.vue|AchievementBoard.vue|AchievementPopup.vue|LootBox.vue|ScoreOdometer.vue)
       echo "$V/components/$1";;
+    FortressOfDoom.vue) echo "$V/components/Home/$1";;
     *.cs) f=$(find $B/Game/Characters -name "$1" 2>/dev/null | head -1); echo "$f";;
     *) echo "";;
   esac

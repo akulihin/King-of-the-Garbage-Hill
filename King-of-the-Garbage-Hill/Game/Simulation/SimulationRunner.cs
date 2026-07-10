@@ -117,8 +117,10 @@ public class SimulationRunner : IServiceSingleton
         // plan is identical across runs; the per-game SecureRandom reseed happens at creation.
         if (seeded) _random = new Random(seed);
 
-        // Pool used for coverage generation AND matchup validation
-        var pool = _charactersPull.GetRollableCharacters().Where(x => !x.TeamModeOnly).ToList();
+        // Natural coverage excludes team-only characters, but an explicit matchup may force them
+        // through the same admin/test path used by StartGameLogic.
+        var matchupPool = _charactersPull.GetRollableCharacters();
+        var coveragePool = matchupPool.Where(x => !x.TeamModeOnly).ToList();
 
         List<string> matchup = null;
         if (charactersArg != null)
@@ -130,11 +132,11 @@ public class SimulationRunner : IServiceSingleton
             }
 
             matchup = charactersArg.Split(',').Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
-            var problem = ValidateMatchup(matchup, pool);
+            var problem = ValidateMatchup(matchup, matchupPool);
             if (problem != null)
             {
                 Console.WriteLine($"[SIM] Invalid --characters: {problem}");
-                Console.WriteLine($"[SIM] Valid names: {string.Join(", ", pool.Select(x => x.Name))}");
+                Console.WriteLine($"[SIM] Valid names: {string.Join(", ", matchupPool.Select(x => x.Name))}");
                 return 2;
             }
         }
@@ -148,7 +150,7 @@ public class SimulationRunner : IServiceSingleton
         else
         {
             for (var pass = 0; pass < coverage; pass++)
-                lineupPlan.AddRange(BuildCoveragePass(pool));
+                lineupPlan.AddRange(BuildCoveragePass(coveragePool));
             for (var i = 0; i < games; i++)
                 lineupPlan.Add(null);
         }
@@ -633,6 +635,7 @@ public class SimulationRunner : IServiceSingleton
                 {
                     Character = x.GameCharacter.Name,
                     BotName = x.DiscordUsername,
+                    AiPlaystyle = x.AiPlaystyle,
                     Score = x.Status.GetScore(),
                     Place = x.Status.GetPlaceAtLeaderBoard(),
                     IsDead = x.Passives.IsDead,

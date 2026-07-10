@@ -232,6 +232,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (player2.Passives.IsJohanPawn)
             customString += "♟️";
 
+        // DooM Guy demon nests are public leaderboard objectives.
+        if (game.PlayersList.Any(x => x.GameCharacter.Name == DoomGuy.CharacterName
+                                      && x.Passives.DoomGuy.DemonNests.Contains(player2.GetPlayerId())))
+            customString += "🔥";
+
         // Salldorum Shen active indicator
         if (player2.GameCharacter.Name == "Salldorum" && player2.Passives.SalldorumShen.ActiveThisTurn)
             customString += "🛡️";
@@ -1415,6 +1420,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             predictMenu.WithDisabled(true);
             predictMenu.WithPlaceholder("Бууууууль");
         }
+        if (player.GameCharacter.DoomRollMode)
+        {
+            predictMenu.WithDisabled(true);
+            predictMenu.WithPlaceholder("Let's Roll!");
+        }
         
         return predictMenu;
     }
@@ -1422,6 +1432,21 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public async Task<SelectMenuBuilder> GetLvlUpMenu(GamePlayerBridgeClass player, GameClass game)
     {
+        if (player.GameCharacter.Name == DoomGuy.CharacterName)
+        {
+            var stage = DoomGuy.StageForRound(game.RoundNo);
+            var modules = DoomGuy.GetOptions(player.Passives.DoomGuy, stage);
+            var doomMenu = new SelectMenuBuilder()
+                .WithMinValues(1)
+                .WithMaxValues(1)
+                .WithCustomId("lvl-up")
+                .WithPlaceholder($"{stage}: выбрать модуль");
+            for (var i = 0; i < modules.Count; i++)
+                doomMenu.AddOption(modules[i].Name, (i + 1).ToString(),
+                    modules[i].Description.Length > 90 ? modules[i].Description[..90] : modules[i].Description);
+            return doomMenu;
+        }
+
         var placeholderText = "Выбор прокачки";
         if (player.GameCharacter.Name == "Вампур")
             placeholderText = _vampyrGarlic[_random.Random(0, _vampyrGarlic.Count - 1)];
@@ -1463,6 +1488,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public ButtonBuilder GetMoralToPointsButton(GamePlayerBridgeClass player, GameClass game)
     {
+        if (player.GameCharacter.DoomRollMode)
+            return new ButtonBuilder("Let's Roll!: Мораль отключена", "moral", ButtonStyle.Secondary, isDisabled: true);
         var disabled = game is not { RoundNo: <= 10 };
         if (game.IsKratosEvent)
             disabled = false;
@@ -1493,6 +1520,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public ButtonBuilder GetMoralToSkillButton(GamePlayerBridgeClass player, GameClass game)
     {
+        if (player.GameCharacter.DoomRollMode)
+            return new ButtonBuilder("Let's Roll!: Мораль отключена", "skill", ButtonStyle.Secondary, isDisabled: true);
         if (!player.Status.ConfirmedPredict)
             return new ButtonBuilder("Я подтверждаю свои предположения", "confirm-prefict", ButtonStyle.Primary,
                 isDisabled: false, emote: Emote.Parse("<a:bratishka:900962522276958298>"));
@@ -1567,7 +1596,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             if (player.Status.ConfirmedPredict && player.Status.ConfirmedSkip)
                 components.WithButton(GetMoralToPointsButton(player, game), 2);
 
-        if (game.GameMode != "Aram")
+        if (game.GameMode != "Aram" && !player.GameCharacter.DoomRollMode)
         {
             if (player.GameCharacter.Passive.All(x => x.PassiveName != "AdminPlayerType"))
             {
@@ -1599,9 +1628,28 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         components.WithButton(new ButtonBuilder("Вспомнить Молодость", "yong-gleb"), 4);
                     }
                     break;
+
+                case "Rune":
+                    if (player.GameCharacter.Name == DoomGuy.CharacterName && game.RoundNo == 1
+                        && !player.Passives.DoomGuy.RollMode)
+                        components.WithButton(new ButtonBuilder("Let's Roll!", "doom-roll", ButtonStyle.Danger), 4);
+                    break;
             }
 
-        if (game.RoundNo == 1 && !player.IsMobile)
+        if (player.GameCharacter.Name == DoomGuy.CharacterName
+            && player.Passives.DoomGuy.ChainsawChoices.Count > 0)
+        {
+            var sawMenu = new SelectMenuBuilder()
+                .WithMinValues(1).WithMaxValues(1)
+                .WithCustomId("doom-chainsaw")
+                .WithPlaceholder("Бензопила: выбрать пассивку");
+            foreach (var choice in player.Passives.DoomGuy.ChainsawChoices)
+                sawMenu.AddOption(choice.PassiveName, choice.PassiveName,
+                    choice.PassiveDescription.Length > 90 ? choice.PassiveDescription[..90] : choice.PassiveDescription);
+            components.WithSelectMenu(sawMenu, 4);
+        }
+
+        if (game.RoundNo == 1 && !player.IsMobile && player.Passives.DoomGuy.ChainsawChoices.Count == 0)
         {
             components.WithButton(GetMobileButton(), 4);
         }

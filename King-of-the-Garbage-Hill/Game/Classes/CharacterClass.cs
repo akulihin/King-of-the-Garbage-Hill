@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
@@ -61,6 +62,7 @@ public class CharacterClass
     public int Tier { get; set; }
     public string StoryAgent { get; set; }
     public bool TeamModeOnly { get; set; }
+    public bool DoomRollMode { get; set; }
 
 
     // PRIVATE
@@ -198,6 +200,11 @@ public class CharacterClass
         var howMuch = 1;
         if (game.RoundNo == 1) return;
         if(Status.GameCharacter.Passive.Any(x => x.PassiveName == "Boole Family")) return;
+
+        // DooM Guy — Маневры: every received Harm burns one point of the granted Speed.
+        if (target.GameCharacter.Name == DoomGuy.CharacterName
+            && target.Passives.DoomGuy.GetActive(DoomGuy.Rune) == DoomGuy.Maneuvers)
+            target.GameCharacter.AddSpeed(-1, DoomGuy.Maneuvers);
 
         //Kimiko — пока активна, Пацанам не наносится Вред (СуперМудень отключает; Живое Оружие держит защиту всегда)
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Kimiko"))
@@ -1124,6 +1131,13 @@ public class CharacterClass
         if (skillName != "Обмен Морали" && skillName != "Победа" && skillName != "Поражение")
         {
             skillName = $"|>Stat<|{skillName}";
+        }
+
+        if (Status.GameCharacter.DoomRollMode)
+        {
+            Moral = 0;
+            ResetMoralBonus();
+            return;
         }
 
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))

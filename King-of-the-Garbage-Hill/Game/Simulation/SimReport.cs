@@ -92,6 +92,7 @@ public class SimGamePlayerDto
 {
     public string Character { get; set; }
     public string BotName { get; set; }
+    public string AiPlaystyle { get; set; }
     public decimal Score { get; set; }
     public int Place { get; set; }
     public bool IsDead { get; set; }

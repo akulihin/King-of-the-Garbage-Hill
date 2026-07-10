@@ -282,6 +282,9 @@ public class CharactersUniquePhrase
     public PhraseClass GeraltAttackMonster;
     public PhraseClass GeraltWin;
 
+    // DooM Guy
+    public PhraseClass DoomGuyModule;
+
     // Монстр без имени
     public PhraseClass MonsterDeath;
     public PhraseClass MonsterDrop;
@@ -1584,6 +1587,9 @@ public class CharactersUniquePhrase
         GeraltWin.PassiveLogRus.Add("*вытирает меч об траву*");
         GeraltWin.PassiveLogRus.Add("Может, теперь сыграем в гвинт?");
         //end Геральт
+
+        DoomGuyModule = new PhraseClass("DooM Guy");
+        DoomGuyModule.PassiveLogRus.Add("Rip and tear. Until it is done.");
 
         //not in the game
 

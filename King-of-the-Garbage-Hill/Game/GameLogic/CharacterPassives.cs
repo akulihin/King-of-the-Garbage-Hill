@@ -706,6 +706,19 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in target.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case "Shield":
+                    if (target.GameCharacter.Name != DoomGuy.CharacterName || !target.Status.IsBlock
+                        || me.Status.IsTargetBlocked != target.GetPlayerId()) break;
+                    var doomShield = target.Passives.DoomGuy;
+                    doomShield.BlocksThisRound++;
+                    if (doomShield.GetActive(DoomGuy.Shield) == DoomGuy.HellBlock
+                        && !doomShield.HellBlockUsed && doomShield.BlocksThisRound >= 2)
+                    {
+                        doomShield.HellBlockUsed = true;
+                        target.GameCharacter.AddExtraSkill(666, DoomGuy.HellBlock);
+                    }
+                    break;
+
                 // Napoleon — Мирный договор: register treaty when enemy attacks Napoleon's block
                 case "Мирный договор":
                     if (target.Status.IsBlock)
@@ -2413,6 +2426,78 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in player.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case "Rune":
+                {
+                    if (player.GameCharacter.Name != DoomGuy.CharacterName) break;
+                    var doom = player.Passives.DoomGuy;
+                    if (player.Status.IsLostThisCalculation != Guid.Empty)
+                    {
+                        doom.EverLost = true;
+                        if (doom.GetActive(DoomGuy.Rune) == DoomGuy.Ascension)
+                            player.GameCharacter.AddIntelligence(-1, DoomGuy.Ascension);
+                    }
+
+                    if (player.Status.IsWonThisCalculation != Guid.Empty
+                        && doom.GetActive(DoomGuy.Rune) == DoomGuy.Extermination
+                        && !doom.ExterminationAwarded)
+                    {
+                        if (!doom.ExterminationVictories.Contains(player.Status.IsWonThisCalculation))
+                            doom.ExterminationVictories.Add(player.Status.IsWonThisCalculation);
+                        if (doom.ExterminationVictories.Count >= game.PlayersList.Count - 1)
+                        {
+                            doom.ExterminationAwarded = true;
+                            player.GameCharacter.AddIntelligence(1, DoomGuy.Extermination);
+                            player.GameCharacter.AddStrength(1, DoomGuy.Extermination);
+                            player.GameCharacter.AddSpeed(1, DoomGuy.Extermination);
+                            player.GameCharacter.AddPsyche(1, DoomGuy.Extermination);
+                            player.Status.AddBonusPoints(Math.Max(0, 10 - game.RoundNo), DoomGuy.Extermination);
+                        }
+                    }
+                    break;
+                }
+
+                case "Mission":
+                {
+                    if (player.GameCharacter.Name != DoomGuy.CharacterName) break;
+                    var doom = player.Passives.DoomGuy;
+                    var resolvedFight = player.Status.IsWonThisCalculation != Guid.Empty
+                                        || player.Status.IsLostThisCalculation != Guid.Empty;
+                    if (resolvedFight && doom.GetActive(DoomGuy.Mission) == DoomGuy.MakeAMess)
+                        player.Status.AddRegularPoints(1, DoomGuy.MakeAMess);
+
+                    if (attack && player.Status.IsFighting != Guid.Empty
+                               && doom.GetActive(DoomGuy.Mission) == DoomGuy.DemonNests
+                               && doom.DemonNests.Remove(player.Status.IsFighting))
+                    {
+                        player.Status.AddRegularPoints(1, DoomGuy.DemonNests);
+                        player.Status.AddInGamePersonalLogs("Адеские гнезда: гнездо уничтожено! +1 очко.\n");
+                    }
+                    break;
+                }
+
+                case "Gun":
+                {
+                    if (player.GameCharacter.Name != DoomGuy.CharacterName
+                        || player.Status.IsWonThisCalculation == Guid.Empty) break;
+                    var doom = player.Passives.DoomGuy;
+                    if (doom.GetActive(DoomGuy.Gun) == DoomGuy.Fists)
+                        player.Status.AddRegularPoints(2, DoomGuy.Fists);
+
+                    if (doom.GetActive(DoomGuy.Gun) == DoomGuy.Chainsaw && !doom.ChainsawSpent)
+                    {
+                        var defeated = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation);
+                        if (defeated != null)
+                        {
+                            doom.ChainsawSpent = true;
+                            doom.ChainsawChoices = defeated.GameCharacter.Passive
+                                .Where(x => x.PassiveName != "AdminPlayerType")
+                                .Take(4).Select(x => x.DeepCopy()).ToList();
+                            player.Status.AddInGamePersonalLogs($"Бензопила: {defeated.DiscordUsername} распилен. Выбери пассивку.\n");
+                        }
+                    }
+                    break;
+                }
+
                 case "Возвращение из мертвых":
                     //failed
                     if (game.RoundNo > 10 && game.IsKratosEvent && player.Status.IsLostThisCalculation != Guid.Empty)
@@ -3323,6 +3408,25 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in player.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case "Shield":
+                    if (player.GameCharacter.Name == DoomGuy.CharacterName)
+                        player.Passives.DoomGuy.BlocksThisRound = 0;
+                    break;
+
+                case "Mission":
+                    if (player.GameCharacter.Name == DoomGuy.CharacterName)
+                    {
+                        var doom = player.Passives.DoomGuy;
+                        if (player.Status.IsBlock) doom.EverBlocked = true;
+                        if (game.RoundNo == 10 && doom.GetActive(DoomGuy.Mission) == DoomGuy.BecomeGod
+                            && !doom.EverBlocked && !doom.EverLost && !doom.BecomeGodAwarded)
+                        {
+                            doom.BecomeGodAwarded = true;
+                            player.Status.AddBonusPoints(20, DoomGuy.BecomeGod);
+                        }
+                    }
+                    break;
+
                 // TheBoys — M.M.: базовая психика команды (+1 если не проиграли ни разу; -1 и психует если проиграли все бои)
                 case "M.M.":
                 {
@@ -4615,6 +4719,36 @@ public class CharacterPassives : IServiceSingleton
             foreach (var passive in player.GameCharacter.Passive.ToList())
                 switch (passive.PassiveName)
                 {
+                    case "Rune":
+                        if (player.GameCharacter.Name == DoomGuy.CharacterName && player.IsBot()
+                            && game.RoundNo == 1 && !player.Passives.DoomGuy.RollMode)
+                            DoomGuy.ActivateRollMode(player);
+                        break;
+
+                    case "Shield":
+                        if (player.GameCharacter.Name == DoomGuy.CharacterName)
+                        {
+                            var doom = player.Passives.DoomGuy;
+                            if (doom.ShockSkipRound == game.RoundNo && doom.ShockSkipTarget != Guid.Empty)
+                            {
+                                var shocked = game.PlayersList.Find(x => x.GetPlayerId() == doom.ShockSkipTarget);
+                                if (shocked != null && !shocked.Passives.IsDead)
+                                {
+                                    shocked.Status.IsSkip = true;
+                                    shocked.Status.ConfirmedSkip = false;
+                                    shocked.Status.AddInGamePersonalLogs("Шоковый щит: следующий ход пропущен.\n");
+                                }
+                                doom.ShockSkipTarget = Guid.Empty;
+                            }
+                        }
+                        break;
+
+                    case "Mission":
+                        if (player.GameCharacter.Name == DoomGuy.CharacterName
+                            && player.Passives.DoomGuy.GetActive(DoomGuy.Mission) == DoomGuy.DemonNests)
+                            DoomGuy.SpawnDemonNest(player, game);
+                        break;
+
                     case "Коммуникация":
                         if (game.RoundNo == 6)
                         {

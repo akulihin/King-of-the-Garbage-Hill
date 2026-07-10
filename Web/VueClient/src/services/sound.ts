@@ -5,7 +5,7 @@ const FIGHT_TAB_ATTR = 'data-sfx-fight-tab'
 const PREDICT_CLICK_ATTR = 'data-sfx-predict'
 
 type StatKey = 'intelligence' | 'strength' | 'speed' | 'psyche'
-type PlaybackChannel = 'lvl-up-extra' | 'rick-theme' | 'portal-gun' | 'kira-theme' | 'geralt-theme'
+type PlaybackChannel = 'lvl-up-extra' | 'rick-theme' | 'portal-gun' | 'kira-theme' | 'geralt-theme' | 'doom-theme'
 
 // ── Volume config types ──────────────────────────────────────────────
 
@@ -873,6 +873,21 @@ export function playMonsterGameWinTheme(): void {
 export function playRickGameWinTheme(): void {
   void playClip('character_passives/rick/rick_game_win_theme.mp3', { group: 'winTheme' })
   duckFightGroups(8000)
+}
+
+export function playDoomGameWinTheme(): void {
+  void playClip('character_passives/doom/doom_game_win_theme.mp3', { group: 'winTheme' })
+  duckFightGroups(8000)
+}
+
+export function playDoomGameStartTheme(): void {
+  void playClip('character_passives/doom/doom_game_start_theme.mp3', {
+    group: 'characterTheme', channel: 'doom-theme', loop: true,
+  })
+}
+
+export function stopDoomGameStartTheme(): void {
+  stopChannel('doom-theme')
 }
 
 // ── Kira Game Start Theme (Req 2) ──────────────────────────────────────

@@ -170,6 +170,7 @@ export type PassiveAbilityStates = {
   salldorum?: SalldorumState
   geralt?: GeraltState
   geraltMonsterOnMe?: GeraltMonsterOnMe
+  doomGuy?: DoomGuyState
 }
 
 export type BulkState = { drownChance: number; isBuffed: boolean }
@@ -664,6 +665,36 @@ export type LootBoxResult = {
   zbsAmount: number
 }
 
+export type DoomModule = {
+  name: string
+  stage: string
+  description: string
+  reward: boolean
+}
+
+export type DoomCopiedPassive = { name: string; description: string }
+
+export type DoomGuyState = {
+  rollMode: boolean
+  rollAvailable: boolean
+  currentStage: string
+  currentOptions: DoomModule[]
+  activeModules: Record<string, string>
+  demonNestNames: string[]
+  bfgCharged: boolean
+  chainsawChoices: DoomCopiedPassive[]
+  copiedPassiveName: string
+}
+
+export type DoomFortressState = { stages: DoomFortressStage[] }
+export type DoomFortressStage = {
+  name: string
+  slots: string[]
+  unlockedModules: DoomModule[]
+  rewardModulesRemaining: number
+  currentDropChance: number
+}
+
 // ── Achievement Types ────────────────────────────────────────────────
 
 export type AchievementBoard = {
@@ -991,6 +1022,7 @@ class SignalRService {
   onLootBoxOpened: ((result: LootBoxResult) => void) | null = null
   onAchievementBoard: ((board: AchievementBoard) => void) | null = null
   onCharacterList: ((list: CharacterListEntry[]) => void) | null = null
+  onDoomFortressState: ((state: DoomFortressState) => void) | null = null
   onBattleshipLobby: ((state: BattleshipLobbyState) => void) | null = null
   onBattleshipState: ((state: BattleshipGameState) => void) | null = null
   onBattleshipGameCreated: ((data: { gameId: string }) => void) | null = null
@@ -1067,6 +1099,10 @@ class SignalRService {
 
     this.connection.on('CharacterList', (list: CharacterListEntry[]) => {
       this.onCharacterList?.(list)
+    })
+
+    this.connection.on('DoomFortressState', (state: DoomFortressState) => {
+      this.onDoomFortressState?.(state)
     })
 
     this.connection.on('BattleshipLobby', (state: BattleshipLobbyState) => {
@@ -1226,6 +1262,14 @@ class SignalRService {
     await this.connection?.invoke('YoungGleb', gameId)
   }
 
+  async doomRoll(gameId: number): Promise<void> {
+    await this.connection?.invoke('DoomRoll', gameId)
+  }
+
+  async doomChainsaw(gameId: number, passiveName: string): Promise<void> {
+    await this.connection?.invoke('DoomChainsaw', gameId, passiveName)
+  }
+
   async dopaChoice(gameId: number, tactic: string): Promise<void> {
     await this.connection?.invoke('DopaChoice', gameId, tactic)
   }
@@ -1320,6 +1364,14 @@ class SignalRService {
 
   async clearNewAchievements(): Promise<void> {
     await this.connection?.invoke('ClearNewAchievements')
+  }
+
+  async requestDoomFortress(): Promise<void> {
+    await this.connection?.invoke('RequestDoomFortress')
+  }
+
+  async equipDoomModule(stage: string, slotIndex: number, moduleName: string): Promise<void> {
+    await this.connection?.invoke('EquipDoomModule', stage, slotIndex, moduleName)
   }
 
   // ── Battleship (Sea Battle) ───────────────────────────────────────

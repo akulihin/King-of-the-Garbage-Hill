@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
@@ -146,6 +147,7 @@ public class StartGameLogic : IServiceSingleton
                     account.PlayerType));
                 playersList.Last().CharacterMasteryPoints =
                     account.CharacterMastery.GetValueOrDefault(forcedName, 0);
+                DoomGuy.InitializeForGame(playersList.Last(), account);
                 account.CharacterPlayedLastTime = forcedName;
                 continue;
             }
@@ -163,6 +165,7 @@ public class StartGameLogic : IServiceSingleton
                         account.PlayerType)
                 );
                 playersList.Last().CharacterMasteryPoints = account.CharacterMastery.GetValueOrDefault(account.CharacterToGiveNextTime, 0);
+                DoomGuy.InitializeForGame(playersList.Last(), account);
                 account.CharacterPlayedLastTime = account.CharacterToGiveNextTime;
                 account.CharacterToGiveNextTime = null;
                 continue;
@@ -171,9 +174,17 @@ public class StartGameLogic : IServiceSingleton
 
             var allAvailableCharacters = new List<DiscordAccountClass.CharacterRollClass>();
             var totalPool = 1;
+            var newcomerDoom = allCharacters.Find(x => x.Name == DoomGuy.CharacterName);
+            var newcomerDoomEligible = !account.IsBot() && account.TotalPlays < 10
+                                      && account.CharacterPlayedLastTime != DoomGuy.CharacterName
+                                      && newcomerDoom != null;
+            var newcomerDoomWon = newcomerDoomEligible && _secureRandom.Luck(30);
 
             foreach (var character in allCharacters.Where(x => x.Name != account.CharacterPlayedLastTime).ToList())
             {
+                // The newcomer roll is an exact 30% branch. Do not leave DooM Guy in the
+                // weighted fallback pool when that branch misses, or the real chance exceeds 30%.
+                if (newcomerDoomEligible && character.Name == DoomGuy.CharacterName) continue;
                 var range = GetRangeFromTier(character.Tier);
                 if (character.Tier == 4 && account.IsBot()) range *= 3;
                 if (character.Tier < 4 && account.IsBot() && character.Name != "Кира") continue;
@@ -188,10 +199,18 @@ public class StartGameLogic : IServiceSingleton
                 totalPool = temp + 1;
             }
 
-            var randomIndex = _secureRandom.Random(1, totalPool - 1);
-            var rolledCharacter = allAvailableCharacters.Find(x =>
-                randomIndex >= x.CharacterRangeMin && randomIndex <= x.CharacterRangeMax);
-            var characterToAssign = allCharacters.Find(x => x.Name == rolledCharacter!.CharacterName);
+            CharacterClass characterToAssign;
+            if (newcomerDoomWon)
+            {
+                characterToAssign = newcomerDoom;
+            }
+            else
+            {
+                var randomIndex = _secureRandom.Random(1, totalPool - 1);
+                var rolledCharacter = allAvailableCharacters.Find(x =>
+                    randomIndex >= x.CharacterRangeMin && randomIndex <= x.CharacterRangeMax);
+                characterToAssign = allCharacters.Find(x => x.Name == rolledCharacter!.CharacterName);
+            }
 
             if (characterToAssign.Passive.Any(x => x.PassiveName == "Top Laner"))
             {
@@ -234,6 +253,7 @@ public class StartGameLogic : IServiceSingleton
                 account.PlayerType
             ));
             playersList.Last().CharacterMasteryPoints = account.CharacterMastery.GetValueOrDefault(characterToAssign.Name, 0);
+            DoomGuy.InitializeForGame(playersList.Last(), account);
             account.CharacterPlayedLastTime = characterToAssign.Name;
             allCharacters.Remove(characterToAssign);
         }
@@ -277,7 +297,17 @@ public class StartGameLogic : IServiceSingleton
 
         var result = new List<CharacterClass>();
 
-        for (var pick = 0; pick < count && allCharacters.Count > 0; pick++)
+        // Newcomer protection: DooM Guy occupies the first alternative with an exact 30% roll.
+        var newcomerDoom = allCharacters.Find(x => x.Name == DoomGuy.CharacterName);
+        if (account.TotalPlays < 10 && newcomerDoom != null && _secureRandom.Luck(30))
+        {
+            result.Add(newcomerDoom);
+            allCharacters.Remove(newcomerDoom);
+            if (newcomerDoom.Tier == 4)
+                allCharacters = allCharacters.Where(x => x.Tier != 4).ToList();
+        }
+
+        for (var pick = result.Count; pick < count && allCharacters.Count > 0; pick++)
         {
             var allAvailableCharacters = new List<DiscordAccountClass.CharacterRollClass>();
             var totalPool = 1;

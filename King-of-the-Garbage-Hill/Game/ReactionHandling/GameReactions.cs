@@ -44,6 +44,7 @@ public sealed class GameReaction : IServiceSingleton
 
     public async Task HandleMoralForSkill(GamePlayerBridgeClass player)
     {
+        if (player.GameCharacter.DoomRollMode) return;
         var extraText = "";
 
         if (player.GameCharacter.GetMoral() >= 20)
@@ -101,6 +102,7 @@ public sealed class GameReaction : IServiceSingleton
 
     public async Task HandleMoralForScore(GamePlayerBridgeClass player)
     {
+        if (player.GameCharacter.DoomRollMode) return;
         var extraText = "";
 
         if (player.GameCharacter.GetMoral() >= 20)
@@ -285,6 +287,21 @@ public sealed class GameReaction : IServiceSingleton
 
                         await _upd.UpdateCharacterMessage(player);
                         await _help.ModifyGameMessage(player, embed, components);
+                        break;
+
+                    case "doom-roll":
+                        if (game.RoundNo == 1 && DoomGuy.ActivateRollMode(player))
+                        {
+                            embed = _upd.FightPage(player);
+                            components = await _upd.GetGameButtons(player, game);
+                            await _help.ModifyGameMessage(player, embed, components);
+                        }
+                        break;
+
+                    case "doom-chainsaw":
+                        var copied = DoomGuy.CopyChainsawPassive(player, string.Join("", button.Data.Values));
+                        if (copied.Success)
+                            await _upd.UpdateMessage(player);
                         break;
 
                     case "confirm-prefict":
@@ -529,6 +546,7 @@ public sealed class GameReaction : IServiceSingleton
         newBridge.Status.IsDraftPickConfirmed = true;
         newBridge.Status.MoveListPage = 6;
         newBridge.CharacterMasteryPoints = account?.CharacterMastery.GetValueOrDefault(selected.Name, 0) ?? 0;
+        if (account != null) DoomGuy.InitializeForGame(newBridge, account);
 
         // Replace in the players list
         var idx = game.PlayersList.IndexOf(player);
@@ -555,6 +573,7 @@ public sealed class GameReaction : IServiceSingleton
 
     public async Task HandlePredic1(GamePlayerBridgeClass player, SocketMessageComponent button)
     {
+        if (player.GameCharacter.DoomRollMode) return;
         var account = _accounts.GetAccount(player.DiscordId);
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
@@ -584,6 +603,7 @@ public sealed class GameReaction : IServiceSingleton
 
     public async Task HandlePredic2(GamePlayerBridgeClass player, SocketMessageComponent button)
     {
+        if (player.GameCharacter.DoomRollMode) return;
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
         var embed  = _upd.FightPage(player);
@@ -777,6 +797,19 @@ public sealed class GameReaction : IServiceSingleton
     private async Task GetLvlUp(GamePlayerBridgeClass player, int skillNumber)
     {
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+
+        // DooM Guy — each normal level-up selects one configured module for the current stage.
+        if (player.GameCharacter.Name == DoomGuy.CharacterName)
+        {
+            var stage = DoomGuy.StageForRound(game?.RoundNo ?? 0);
+            var options = DoomGuy.GetOptions(player.Passives.DoomGuy, stage);
+            if (player.IsBot() && options.Count > 0 && (skillNumber < 1 || skillNumber > options.Count))
+                skillNumber = _random.Random(1, options.Count);
+            if (skillNumber < 1 || skillNumber > options.Count) return;
+            if (DoomGuy.ApplySelectedModule(player, game, options[skillNumber - 1].Name, false))
+                player.Status.LvlUpPoints--;
+            return;
+        }
 
         // Стая Гоблинов — custom level-up
         if (player.GameCharacter.Name == "Стая Гоблинов")

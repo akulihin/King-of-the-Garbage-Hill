@@ -408,10 +408,19 @@ public class DoomsdayMachine : IServiceSingleton
                 // else fall through to process forced fights
             }
 
-            foreach (var playerIamAttacking in player.Status.WhoToAttackThisTurn
-                         .Where(t => t != player.GetPlayerId())
-                         .Select(t => game.PlayersList.Find(x => x.GetPlayerId() == t)).ToList())
+            var targetsToFight = player.Status.WhoToAttackThisTurn
+                .Where(t => t != player.GetPlayerId())
+                .Select(t => game.PlayersList.Find(x => x.GetPlayerId() == t))
+                .Where(x => x != null)
+                .Select(x => (Target: x, BfgDirection: 0))
+                .ToList();
+            var bfgWaveVisited = new HashSet<Guid> { player.GetPlayerId() };
+            foreach (var initialTarget in targetsToFight) bfgWaveVisited.Add(initialTarget.Target.GetPlayerId());
+
+            for (var fightTargetIndex = 0; fightTargetIndex < targetsToFight.Count; fightTargetIndex++)
             {
+                var playerIamAttacking = targetsToFight[fightTargetIndex].Target;
+                var bfgWaveDirection = targetsToFight[fightTargetIndex].BfgDirection;
                 // Snapshot GlobalLogs length before this fight (for hidden-fight mechanism)
                 var globalLogsLenBefore = game.GetGlobalLogs().Length;
 
@@ -488,7 +497,21 @@ public class DoomsdayMachine : IServiceSingleton
                     game.AddGlobalLogs(logMess);
 
 
-                    player.Status.AddBonusPoints(-1, "Блок");
+                    var blockPenalty = playerIamAttacking.GameCharacter.Name == DoomGuy.CharacterName
+                                       && playerIamAttacking.Passives.DoomGuy.GetActive(DoomGuy.Shield) == DoomGuy.SawShield
+                        ? -3
+                        : -1;
+                    player.Status.AddBonusPoints(blockPenalty, "Блок");
+
+                    var doomShield = playerIamAttacking.Passives.DoomGuy;
+                    if (playerIamAttacking.GameCharacter.Name == DoomGuy.CharacterName
+                        && doomShield.GetActive(DoomGuy.Shield) == DoomGuy.ShockShield
+                        && !doomShield.ShockShieldUsed)
+                    {
+                        doomShield.ShockShieldUsed = true;
+                        doomShield.ShockSkipTarget = player.GetPlayerId();
+                        doomShield.ShockSkipRound = game.RoundNo + 1;
+                    }
 
                     playerIamAttacking.GameCharacter.Justice.AddJusticeForNextRoundFromFight();
 
@@ -679,19 +702,34 @@ public class DoomsdayMachine : IServiceSingleton
 
                 //round 3 (Random)
                 var usedRandomRoll = false;
+                var bfgTriggeredThisFight = false;
                 var step3RandomNumber = 0;
                 var step3MaxRandom = 0m;
                 decimal justiceRandomChange = 0;
                 decimal nemesisRandomChange = 0;
                 if (pointsWined == 0)
                 {
-                    var (step3Points, rndNum, rndMax, justiceRandomChangeL, nemesisRandomChangeL) = _calculateRounds.CalculateStep3(player, playerIamAttacking, randomForPoint, nemesisMultiplier, true);
-                    pointsWined += step3Points;
-                    usedRandomRoll = true;
-                    step3RandomNumber = rndNum;
-                    step3MaxRandom = rndMax;
-                    justiceRandomChange = justiceRandomChangeL;
-                    nemesisRandomChange = nemesisRandomChangeL;
+                    var doomGun = player.Passives.DoomGuy;
+                    if (player.GameCharacter.Name == DoomGuy.CharacterName && bfgWaveDirection == 0
+                        && doomGun.GetActive(DoomGuy.Gun) == DoomGuy.Bfg && doomGun.BfgCharged)
+                    {
+                        doomGun.BfgCharged = false;
+                        bfgTriggeredThisFight = true;
+                        usedRandomRoll = true;
+                        pointsWined = 1;
+                        player.Status.AddInGamePersonalLogs("BFG: этап рандома уничтожен. Победа гарантирована.\n");
+                        game.AddGlobalLogs($"BFG накрыла бой {player.DiscordUsername} против {playerIamAttacking.DiscordUsername}!");
+                    }
+                    else
+                    {
+                        var (step3Points, rndNum, rndMax, justiceRandomChangeL, nemesisRandomChangeL) = _calculateRounds.CalculateStep3(player, playerIamAttacking, randomForPoint, nemesisMultiplier, true);
+                        pointsWined += step3Points;
+                        usedRandomRoll = true;
+                        step3RandomNumber = rndNum;
+                        step3MaxRandom = rndMax;
+                        justiceRandomChange = justiceRandomChangeL;
+                        nemesisRandomChange = nemesisRandomChangeL;
+                    }
                 }
                 //end round 3
 
@@ -714,6 +752,22 @@ public class DoomsdayMachine : IServiceSingleton
                     game.Phrases.ItachiIzanagi.SendLog(playerIamAttacking, false);
                 }
                 //end izanagi
+
+                // BFG wave: a guaranteed primary win starts two outward branches. Each branch
+                // advances one leaderboard neighbour only while its previous fight was won.
+                if (pointsWined >= 1 && (bfgTriggeredThisFight || bfgWaveDirection != 0))
+                {
+                    var targetIndexOnBoard = game.PlayersList.IndexOf(playerIamAttacking);
+                    var directions = bfgTriggeredThisFight ? new[] { -1, 1 } : new[] { bfgWaveDirection };
+                    foreach (var direction in directions)
+                    {
+                        var nextIndex = targetIndexOnBoard + direction;
+                        if (nextIndex < 0 || nextIndex >= game.PlayersList.Count) continue;
+                        var nextTarget = game.PlayersList[nextIndex];
+                        if (nextTarget.Passives.IsDead || !bfgWaveVisited.Add(nextTarget.GetPlayerId())) continue;
+                        targetsToFight.Add((nextTarget, direction));
+                    }
+                }
 
 
                 //team
@@ -1393,6 +1447,13 @@ public class DoomsdayMachine : IServiceSingleton
             {
                 game.PlayersList[i].Status.LvlUpPoints++;
                 game.PlayersList[i].Status.MoveListPage = 3;
+                if (game.PlayersList[i].GameCharacter.Name == DoomGuy.CharacterName
+                    && game.PlayersList[i].Passives.DoomGuy.RollMode
+                    && DoomGuy.ApplyRandomModule(game.PlayersList[i], game, _rand))
+                {
+                    game.PlayersList[i].Status.LvlUpPoints--;
+                    game.PlayersList[i].Status.MoveListPage = 1;
+                }
             }
             game.PlayersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
             game.PlayersList[i].GameCharacter.RollSkillTargetForNextRound();

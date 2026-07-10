@@ -13,6 +13,7 @@ import {
   type AchievementBoard,
   type AchievementEntry,
   type CharacterListEntry,
+  type DoomFortressState,
 } from 'src/services/signalr'
 import {
   playBlockSound,
@@ -79,6 +80,7 @@ export const useGameStore = defineStore('game', () => {
   const accountPlayerType = ref(0)
   const lastPlayedCharacter = ref('')
   const characterList = ref<CharacterListEntry[]>([])
+  const doomFortressState = ref<DoomFortressState | null>(null)
 
   // ── Derived State ─────────────────────────────────────────────────
 
@@ -303,6 +305,10 @@ export const useGameStore = defineStore('game', () => {
         characterList.value = list
       }
 
+      signalrService.onDoomFortressState = (state) => {
+        doomFortressState.value = state
+      }
+
       signalrService.onConnectionChanged = (connected) => {
         isConnected.value = connected
       }
@@ -456,6 +462,16 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.youngGleb(gameState.value.gameId)
   }
 
+  async function doomRoll() {
+    if (!gameState.value) return
+    await signalrService.doomRoll(gameState.value.gameId)
+  }
+
+  async function doomChainsaw(passiveName: string) {
+    if (!gameState.value) return
+    await signalrService.doomChainsaw(gameState.value.gameId, passiveName)
+  }
+
   async function dopaChoice(tactic: string) {
     if (!gameState.value) return
     await signalrService.dopaChoice(gameState.value.gameId, tactic)
@@ -551,6 +567,14 @@ export const useGameStore = defineStore('game', () => {
     newlyUnlockedAchievements.value = []
   }
 
+  async function requestDoomFortress() {
+    await signalrService.requestDoomFortress()
+  }
+
+  async function equipDoomModule(stage: string, slotIndex: number, moduleName: string) {
+    await signalrService.equipDoomModule(stage, slotIndex, moduleName)
+  }
+
   function dismissAchievements() {
     newlyUnlockedAchievements.value = []
     if (gameState.value) {
@@ -603,6 +627,7 @@ export const useGameStore = defineStore('game', () => {
     accountPlayerType,
     lastPlayedCharacter,
     characterList,
+    doomFortressState,
     isKira,
     myPortalGun,
     isBug,
@@ -633,6 +658,8 @@ export const useGameStore = defineStore('game', () => {
     aramConfirm,
     darksciChoice,
     youngGleb,
+    doomRoll,
+    doomChainsaw,
     dopaChoice,
     deathNoteWrite,
     shinigamiEyes,
@@ -654,6 +681,8 @@ export const useGameStore = defineStore('game', () => {
     requestAchievements,
     clearNewAchievements,
     dismissAchievements,
+    requestDoomFortress,
+    equipDoomModule,
     restoreWebSession,
   }
 })

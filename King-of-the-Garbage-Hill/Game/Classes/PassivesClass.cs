@@ -261,6 +261,9 @@ public class PassivesClass
     public Geralt.MeditationClass GeraltMeditation { get; set; } = new();
     public Geralt.ContractDemandClass GeraltContractDemand { get; set; } = new();
 
+    // DooM Guy — owner-only module/loadout state
+    public DoomGuyState DoomGuy { get; set; } = new();
+
     // Геральт — per-player: any player gets assigned a monster type
     public Geralt.MonsterType? GeraltMonsterType { get; set; } = null;
 

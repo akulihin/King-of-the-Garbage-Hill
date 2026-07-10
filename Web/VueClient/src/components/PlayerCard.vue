@@ -60,6 +60,7 @@ const levelUpQuotes: Record<string, string[]> = {
   'Geralt': ['Ветер воет...', 'Место Силы...'],
   'Молодой Глеб': ['Опять нерфят...', 'Сколько можно?!', 'Риоты совсем...', 'Да как так?!'],
   'TheBoys': ['Diabolical.', 'Работаем, пацаны.', 'Oi! Кого качаем?', 'Voilà!'],
+  'DooM Guy': ['Rip and tear.', 'Until it is done.'],
 }
 
 const levelUpQuip = computed(() => {
@@ -87,6 +88,7 @@ const levelUpTintColors: Record<string, string> = {
   'Баг': 'rgba(0,255,65,0.05)',
   'Молодой Глеб': 'rgba(239,80,80,0.05)',
   'TheBoys': 'rgba(220,40,40,0.06)',
+  'DooM Guy': 'rgba(214,54,30,0.08)',
 }
 
 const levelUpTint = computed(() => {
@@ -195,10 +197,12 @@ const isGoblin = computed(() => props.player?.character.name === 'Стая Го�
 const isGeralt = computed(() => props.player?.character.name === 'Геральт')
 const isKotiki = computed(() => props.player?.character.name === 'Котики')
 const isTheBoys = computed(() => props.player?.character.name === 'TheBoys')
+const isDoomGuy = computed(() => props.player?.character.name === 'DooM Guy')
 const isIrelia = computed(() => props.player?.character.passives.some((p: { name: string }) => p.name === 'Main Ирелия') ?? false)
 const goblin = computed(() => passiveStates.value?.goblinSwarm ?? null)
 const geralt = computed(() => passiveStates.value?.geralt ?? null)
 const theBoys = computed(() => passiveStates.value?.theBoys ?? null)
+const doomGuy = computed(() => passiveStates.value?.doomGuy ?? null)
 
 // TheBoys member level-up buttons (goblin-style label). Each member maxes at 4 → unlocks an ultimate.
 const theBoysMembers = computed(() => {
@@ -602,6 +606,10 @@ function handleMoralToPoints() {
 function handleMoralToSkill() {
   void store.moralToSkill()
 }
+
+function handleDoomChainsaw(passiveName: string) {
+  void store.doomChainsaw(passiveName)
+}
 </script>
 
 <template>
@@ -619,8 +627,31 @@ function handleMoralToSkill() {
         <span v-if="levelUpQuip" class="lvl-up-quip">{{ levelUpQuip }}</span>
       </div>
 
+      <!-- DooM Guy module stage (replaces normal stat upgrades) -->
+      <template v-if="isDoomGuy && hasLvlUpPoints && doomGuy">
+      <div class="goblin-lvlup doom-lvlup">
+        <button
+          v-for="(module, idx) in doomGuy.currentOptions"
+          :key="module.name"
+          class="goblin-lvlup-btn doom-lvlup-btn"
+          data-sfx-skip-default="true"
+          @click="handleLevelUp((idx + 1) as LevelUpStatIndex)"
+        >
+          <span class="goblin-lvlup-name">{{ module.reward ? '◆' : '◈' }} {{ module.name }}</span>
+          <span class="goblin-lvlup-desc">{{ module.description }}</span>
+        </button>
+      </div>
+      <div v-for="stat in ([['INT', 'intelligence'], ['STR', 'strength'], ['SPD', 'speed'], ['PSY', 'psyche']] as const)" :key="stat[1]" class="stat-block">
+        <div class="stat-row">
+          <span class="gi gi-lg" :class="`gi-${stat[0].toLowerCase()}`">{{ stat[0] }}</span>
+          <div class="stat-bar-bg"><div class="stat-bar" :class="stat[1]" :style="{ width: `${player.character[stat[1]] * 10}%` }" /></div>
+          <span class="stat-val">{{ player.character[stat[1]] }}</span>
+        </div>
+      </div>
+      </template>
+
       <!-- Goblin level-up upgrades (replaces stat +buttons but shows read-only stats) -->
-      <template v-if="isGoblin && hasLvlUpPoints && goblin">
+      <template v-else-if="isGoblin && hasLvlUpPoints && goblin">
       <div class="goblin-lvlup">
         <button class="goblin-lvlup-btn" data-sfx-skip-default="true" @click="handleLevelUp(1)">
           <span class="goblin-lvlup-name">Правильное питание</span>
@@ -897,7 +928,7 @@ function handleMoralToSkill() {
             <div class="stat-bar psyche" :style="{ width: `${player.character.psyche * 10}%` }" />
           </div>
           <span class="stat-val stat-psyche">{{ player.character.psyche }}</span>
-          <button v-if="hasLvlUpPoints && !isGeralt" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Psyche' : '+1 Psyche'" @click="handleLevelUp(4)">{{ isIrelia ? '−' : '+' }}</button>
+          <button v-if="hasLvlUpPoints && !isGeralt && !isDoomGuy" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Psyche' : '+1 Psyche'" @click="handleLevelUp(4)">{{ isIrelia ? '−' : '+' }}</button>
         </div>
         <div v-if="isMe" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.psycheResist }}</span>
@@ -982,7 +1013,7 @@ function handleMoralToSkill() {
     </div><!-- /pc-top-grid -->
 
     <!-- Moral exchange -->
-    <div v-if="hasMoral" class="pc-moral-actions">
+    <div v-if="hasMoral && !doomGuy?.rollMode" class="pc-moral-actions">
       <div v-if="isLastRound" class="moral-last-round">Последний шанс!</div>
       <!-- Булькает: both disabled -->
       <template v-if="hasBulkaet">
@@ -1102,6 +1133,27 @@ function handleMoralToSkill() {
       </div>
       <div class="tsukuyomi-bar-bg">
         <div class="tsukuyomi-bar-fill" :style="{ width: `${(tsukuyomiState.chargeCounter / 2) * 100}%` }" />
+      </div>
+    </div>
+
+    <!-- DooM Guy module controller -->
+    <div v-if="doomGuy" class="pc-passive-widget doom-widget">
+      <div class="pw-header">
+        <span class="pw-title doom-title">FORTRESS LINK</span>
+        <span class="pw-status" :class="doomGuy.rollMode ? 'doom-roll-active' : ''">{{ doomGuy.rollMode ? "LET'S ROLL" : 'MANUAL' }}</span>
+      </div>
+      <div class="doom-module-list">
+        <div v-for="stage in ['Rune', 'Shield', 'Mission', 'Gun']" :key="stage" class="doom-module-row">
+          <span>{{ stage }}</span><strong>{{ doomGuy.activeModules[stage] || 'LOCKED' }}</strong>
+        </div>
+      </div>
+      <div v-if="doomGuy.demonNestNames.length" class="doom-nests">🔥 {{ doomGuy.demonNestNames.join(', ') }}</div>
+      <div v-if="doomGuy.bfgCharged" class="doom-bfg">BFG CHARGED</div>
+      <div v-if="doomGuy.chainsawChoices.length" class="doom-chainsaw-choice">
+        <span>Бензопила: забрать пассивку</span>
+        <button v-for="choice in doomGuy.chainsawChoices" :key="choice.name" @click="handleDoomChainsaw(choice.name)">
+          {{ choice.name }}
+        </button>
       </div>
     </div>
 
@@ -4310,4 +4362,19 @@ function handleMoralToSkill() {
 .theboys-onme-virus { border-color: rgba(120, 200, 90, 0.5) !important; color: #c5e1a5; background: rgba(120, 200, 90, 0.08); animation: theboys-pulse 1.4s ease-in-out infinite; }
 .theboys-onme-moral { border-color: rgba(180, 180, 180, 0.5) !important; color: #cfcfcf; background: rgba(120, 120, 120, 0.1); }
 .theboys-onme-icon { font-size: 1.1em; }
+
+/* DooM Guy */
+.doom-lvlup-btn { border-left: 3px solid #bd3f25; background: linear-gradient(90deg, rgba(126, 28, 15, .2), rgba(20, 20, 20, .75)); }
+.doom-widget { border-color: rgba(210, 62, 35, .55) !important; background: linear-gradient(135deg, rgba(72, 17, 10, .24), rgba(14, 14, 14, .94)) !important; }
+.doom-title { color: #ef7954; }
+.doom-roll-active { color: #ffb36b; text-shadow: 0 0 8px rgba(255, 76, 30, .7); }
+.doom-module-list { display: grid; gap: 3px; margin-top: 6px; }
+.doom-module-row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 5px; background: rgba(255,255,255,.035); font-size: .68em; }
+.doom-module-row span { color: #a87362; }
+.doom-module-row strong { color: #e8c6ae; text-align: right; }
+.doom-nests, .doom-bfg { margin-top: 6px; color: #f18a55; font-size: .7em; font-weight: 800; }
+.doom-bfg { color: #9cff78; letter-spacing: .12em; animation: doom-charge 1s ease-in-out infinite alternate; }
+.doom-chainsaw-choice { display: grid; gap: 4px; margin-top: 8px; color: #efb094; font-size: .7em; }
+.doom-chainsaw-choice button { padding: 5px; color: #f5d7c7; border: 1px solid #743324; background: #24120e; cursor: pointer; }
+@keyframes doom-charge { to { text-shadow: 0 0 9px #59ff37; } }
 </style>

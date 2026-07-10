@@ -54,6 +54,10 @@ public class GamePlayerBridgeClass
     /// field, so a character's piloting can be A/B-measured in an otherwise-identical line-up.</summary>
     public int AiDifficulty { get; set; } = -1;
 
+    /// <summary>Persistent L2/L3 bot plan selected once per match. Empty for legacy L1 bots and
+    /// humans; the simulation report records it so individual builds can be measured.</summary>
+    public string AiPlaystyle { get; set; } = "";
+
     public List<DeleteMessagesClass> DeleteMessages { get; set; } = new();
     public List<PredictClass> Predict { get; set; } = new();
 
