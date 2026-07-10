@@ -23,6 +23,8 @@ public class DiscordAccountClass
     public bool IsPlaying { get; set; }
     public bool IsNewPlayer { get; set; }
     public bool PassedTutorial { get; set; }
+    /// <summary>Player-facing locale. Russian remains the canonical internal language.</summary>
+    public string Language { get; set; } = "ru";
 
     public int ZbsPoints { get; set; }
     public QuestData Quests { get; set; }

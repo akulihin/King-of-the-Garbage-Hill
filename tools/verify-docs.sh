@@ -30,7 +30,7 @@ resolve() {
       echo "$B/Game/ReactionHandling/$1";;
     CharacterClass.cs|InGameStatusClass.cs|GamePlayerBridgeClass.cs|PassivesClass.cs|GameClass.cs|DiscordAccountClass.cs|InGameDiscordStatus.cs)
       echo "$B/Game/Classes/$1";;
-    SecureRandom.cs|ClaudeHaikuService.cs|HelperFunctions.cs) echo "$B/Helpers/$1";;
+    SecureRandom.cs|ClaudeHaikuService.cs|HelperFunctions.cs|GameLocalization.cs) echo "$B/Helpers/$1";;
     SimulationRunner.cs|BotGameFactory.cs|SimReport.cs) echo "$B/Game/Simulation/$1";;
     Program.cs|Global.cs|Config.cs) echo "$B/$1";;
     General.cs|AdminPanel.cs|HelpModule.cs|Lore.cs|Store.cs|Tutorial.cs|DiceRoll.cs|ServerManagement.cs)
@@ -46,11 +46,11 @@ resolve() {
     ModuleBaseCustom.cs) echo "$B/DiscordFramework/Extensions/$1";;
     GameUpdateMess.cs) echo "$B/Game/DiscordMessages/$1";;
     CharactersPhrases.cs|CharactersPull.cs) echo "$B/Game/MemoryStorage/$1";;
-    characters.json) echo "$B/DataBase/$1";;
+    characters.json|localization.en.json) echo "$B/DataBase/$1";;
     GameDesign.txt) echo "$B/Game/$1";;
     signalr.ts|sound.ts) echo "$V/services/$1";;
     game.ts|replay.ts|battleship.ts) echo "$V/store/$1";;
-    router.ts|main.ts|App.vue) echo "$V/$1";;
+    router.ts|main.ts|App.vue|i18n.ts) echo "$V/$1";;
     vite.config.ts) echo "Web/VueClient/$1";;
     useTip.ts|useVfx.ts) echo "$V/composables/$1";;
     Game.vue|Lobby.vue|Spectate.vue|Replay.vue|Widget.vue|Home.vue|BattleshipLobby.vue|BattleshipGame.vue|BattleshipSpectate.vue)
@@ -75,7 +75,7 @@ DRIFTS=$(mktemp)
 trap 'rm -f "$DRIFTS"' EXIT
 export LC_ALL=C
 declare -A LINECOUNT   # file → wc -l cache (biggest win: avoid re-stat'ing the same file per anchor)
-for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDIT-FINDINGS.md docs/BALANCE-CONSTANTS.md docs/INTERACTION-MATRIX.md docs/WEB-BACKEND.md docs/WEB-CLIENT.md docs/DISCORD-INTERFACE.md; do
+for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDIT-FINDINGS.md docs/BALANCE-CONSTANTS.md docs/INTERACTION-MATRIX.md docs/WEB-BACKEND.md docs/WEB-CLIENT.md docs/DISCORD-INTERFACE.md docs/LOCALIZATION.md; do
   [ -f "$doc" ] || continue
   # Group all anchors per citing doc line so drift is judged against their COMBINED context
   while IFS='|' read -r docline anchors; do

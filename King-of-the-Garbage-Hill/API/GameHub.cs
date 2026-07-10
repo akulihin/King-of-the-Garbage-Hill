@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.API.Services;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
+using King_of_the_Garbage_Hill.Helpers;
 using Microsoft.AspNetCore.SignalR;
 
 namespace King_of_the_Garbage_Hill.API;
@@ -76,6 +77,21 @@ public class GameHub : Hub
         var lastPlayedCharacter = account?.CharacterPlayedLastTime ?? "";
         await Clients.Caller.SendAsync("Authenticated", new { success = true, discordId = discordIdStr, playerType, lastPlayedCharacter });
         Console.WriteLine($"[WebAPI] Connection {Context.ConnectionId} authenticated as Discord user {discordId}");
+    }
+
+    /// <summary>Persist the viewer locale without changing canonical gameplay strings.</summary>
+    public async Task SetLanguage(string language)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var normalized = GameLocalization.Normalize(language);
+        var account = _userAccounts.GetAccount(discordId);
+        if (account != null) account.Language = normalized;
+        GameLocalization.SetUserLanguage(discordId, normalized);
+        await Clients.Caller.SendAsync("LanguageChanged", new { language = normalized });
+        if (Context.Items.TryGetValue("gameId", out var gameIdValue) && gameIdValue is ulong gameId)
+            await PushStateToPlayer(gameId, discordId);
     }
 
     // ── Game Room Management ──────────────────────────────────────────

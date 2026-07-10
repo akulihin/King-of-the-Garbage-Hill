@@ -25,7 +25,7 @@ public class GameStoryService
 
     private const string ApiUrl = "https://api.anthropic.com/v1/messages";
     private const string Model = "claude-haiku-4-5-20251001";
-    private const int MaxTokens = 1024;
+    private const int MaxTokens = 1800;
     private const int MaxStoredStories = 50;
 
     /// <summary>Callback invoked when a story is generated, for backfilling into replay files.</summary>
@@ -64,8 +64,13 @@ public class GameStoryService
 
                 if (!string.IsNullOrWhiteSpace(story))
                 {
-                    // Convert markdown-style formatting to HTML for web display
-                    var html = FormatStoryHtml(story);
+                    // One shared artifact carries both variants; CSS shows the viewer's locale.
+                    var russian = ExtractLanguageBlock(story, "ru");
+                    var english = ExtractLanguageBlock(story, "en");
+                    var html = !string.IsNullOrWhiteSpace(russian) && !string.IsNullOrWhiteSpace(english)
+                        ? $"<div class=\"story-locale story-ru\">{FormatStoryHtml(russian)}</div>" +
+                          $"<div class=\"story-locale story-en\">{FormatStoryHtml(english)}</div>"
+                        : FormatStoryHtml(story);
 
                     // Store for later retrieval (e.g. on reconnect/rejoin)
                     StoreStory(gameId, html);
@@ -188,6 +193,9 @@ public class GameStoryService
         sb.AppendLine("- Не выдумывай ничего своего, используй только информацию из логов.");
         sb.AppendLine("- Чем больше очков за раунд, тем более важен этот раунд для истории.");
         sb.AppendLine("- Твоя цель - пересказать историю каждого раунда.");
+        sb.AppendLine("- Верни ДВЕ адаптированные версии одной истории: сначала русскую внутри <ru>...</ru>, затем английскую внутри <en>...</en>.");
+        sb.AppendLine("- English version must read like native, funny game commentary, not a literal translation. Preserve the same facts and character jokes.");
+        sb.AppendLine("- Теги <ru> и <en> обязательны. Внутри каждой версии 8-15 строк; никаких других заголовков.");
         sb.AppendLine("</instructions>");
 
         // ── Characters / Results ──
@@ -309,6 +317,14 @@ public class GameStoryService
         text = text.Trim();
 
         return text;
+    }
+
+    private static string ExtractLanguageBlock(string text, string language)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var match = Regex.Match(text, $@"<{language}>\s*(.*?)\s*</{language}>",
+            RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        return match.Success ? match.Groups[1].Value.Trim() : null;
     }
 
     private static string StripDiscordEmoji(string text)

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
+using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 
@@ -18,6 +19,8 @@ public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
 
     protected virtual async Task SendMessageAsync(EmbedBuilder embed, int delete = 0, MessageComponent components = null)
     {
+        embed = GameLocalization.EmbedForUser(Context.User.Id, embed);
+        components = GameLocalization.ComponentsForUser(Context.User.Id, components);
         if (Context.SlashCommand != null)
         {
             await Context.SlashCommand.RespondAsync(embed: embed.Build(), ephemeral: true);
@@ -72,6 +75,8 @@ public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
 
     protected virtual async Task<IUserMessage> SendMessageAsync([Remainder] string regularMess = null, int delete = 0, MessageComponent components = null)
     {
+        regularMess = GameLocalization.TextForUser(Context.User.Id, regularMess);
+        components = GameLocalization.ComponentsForUser(Context.User.Id, components);
         if (Context.SlashCommand != null)
         {
             await Context.SlashCommand.RespondAsync(regularMess, components: components, ephemeral: true);
@@ -130,6 +135,7 @@ public class ModuleBaseCustom : ModuleBase<SocketCommandContextCustom>
 
     protected virtual async Task<IUserMessage> SendMessageAsync([Remainder] string regularMess, SocketCommandContextCustom context)
     {
+        regularMess = GameLocalization.TextForUser(context.User.Id, regularMess);
         if (context.SlashCommand != null)
         {
             await context.SlashCommand.RespondAsync(regularMess, ephemeral: true);

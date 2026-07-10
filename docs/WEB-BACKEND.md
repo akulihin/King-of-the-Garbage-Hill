@@ -207,7 +207,13 @@ Two independent callers, both model `claude-haiku-4-5-20251001` (`GameStoryServi
 - `SyncAsync` PATCHes the user's Discord profile identity (application ClientId `901706293977432124`, `DiscordWidgetService.cs:18`, bot-token auth) with the 4 most recent characters' avatars and win rates from `CharacterStatistics` (`DiscordWidgetService.cs:36-114`). A 403 clears `WidgetAuthorized` (`DiscordWidgetService.cs:95-100`).
 - Unrelated to the `SetPreferWeb` toggle (`GameHub.cs:523`) despite the shared "widget/web" vocabulary.
 
-## 13. Known quirks & pitfalls (backend)
+## 13. Per-account localization
+
+`GameHub.SetLanguage` normalizes/persists `ru` or `en`, updates the process locale registry and immediately re-pushes the current personalized state (`GameHub.cs:83-96`). The mapper translates only viewer-owned logs, score sources, direct messages and media after the existing privacy gates; canonical `GameClass` logs and opponents' hidden state are not mutated (`GameStateMapper.cs:1159-1171`). Character/passive DTO text remains canonical until the Vue presentation boundary so prediction/draft values stay valid.
+
+The English catalog is copied to the deployed `DataBase` output and loaded lazily by `GameLocalization` (`GameLocalization.cs:225-258`). Game stories now request paired native RU/EN tagged adaptations (max 1800 tokens) and store both in one replay-safe HTML value (`GameStoryService.cs:26-29, 68-77, 172-196`). Geralt's hint request receives the owner's locale and uses matching static dictionaries on failure (`ClaudeHaikuService.cs:37-65`, `CP:4657-4688`). Full contract: [LOCALIZATION.md](LOCALIZATION.md).
+
+## 14. Known quirks & pitfalls (backend)
 
 - **Asserted-ID auth**: any client can claim any Discord ID (§2). Never build features assuming web identity is verified; the only verified flag is `WidgetAuthorized` (`DiscordWidgetService.cs:141`).
 - **REST is a subset** — new player-facing actions must be added to the hub (and usually only the hub); adding them to GameController is optional parity.

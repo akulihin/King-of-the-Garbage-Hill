@@ -116,7 +116,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (player.IsWebPlayer || player.PreferWeb) return;
         user ??= _global.Client.GetUser(player.DiscordId);
         var embed = GetCharacterMessage(player);
-        var message = await user.SendMessageAsync("", false, embed.Build());
+        var message = await user.SendMessageAsync("", false, GameLocalization.EmbedForUser(player.DiscordId, embed).Build());
         player.DiscordStatus.SocketCharacterMessage = message;
     }
 
@@ -128,7 +128,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var embed = GetCharacterMessage(player);
         await player.DiscordStatus.SocketCharacterMessage.ModifyAsync(message =>
         {
-            message.Embed = embed.Build();
+            message.Embed = GameLocalization.EmbedForUser(player.DiscordId, embed).Build();
             message.Components = null;
         });
     }
@@ -153,7 +153,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         mainPage.AddField("Game is being ready", "**Please wait for the main menu**");
 
 
-        var socketMessage = await globalAccount.SendMessageAsync("", false, mainPage.Build());
+        var socketMessage = await globalAccount.SendMessageAsync("", false,
+            GameLocalization.EmbedForUser(player.DiscordId, mainPage).Build());
         //var socketSecondaryMessage = await globalAccount.SendMessageAsync("Раунд #1");
 
         player.DiscordStatus.SocketGameMessage = socketMessage;

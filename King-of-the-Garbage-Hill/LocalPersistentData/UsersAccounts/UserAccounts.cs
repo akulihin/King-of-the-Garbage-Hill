@@ -6,6 +6,7 @@ using System.Timers;
 using Discord;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -28,6 +29,8 @@ public sealed class UserAccounts : IServiceSingleton
         _client = client;
         _usersDataStorage = usersDataStorage;
         _userAccountsDictionary = _usersDataStorage.LoadAllAccounts();
+        foreach (var (userId, account) in _userAccountsDictionary)
+            GameLocalization.SetUserLanguage(userId, account.Language);
         ClearPlayingStatus();
         SaveAllAccountsTimer();
         _executionPath = System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location);
@@ -139,7 +142,8 @@ public sealed class UserAccounts : IServiceSingleton
             ZbsPoints = 0,
             IsNewPlayer = true,
             PassedTutorial = false,
-            MyPrefix = "*"
+            MyPrefix = "*",
+            Language = GameLocalization.Russian,
         };
 
         if (newAccount.DiscordUserName.Contains("<:war:561287719838547981>"))
@@ -168,7 +172,8 @@ public sealed class UserAccounts : IServiceSingleton
             ZbsPoints = 0,
             IsNewPlayer = true,
             PassedTutorial = false,
-            MyPrefix = "*"
+            MyPrefix = "*",
+            Language = GameLocalization.Russian,
         };
 
         _userAccountsDictionary.GetOrAdd(newAccount.DiscordId, newAccount);
@@ -193,7 +198,8 @@ public sealed class UserAccounts : IServiceSingleton
             ZbsPoints = 0,
             IsNewPlayer = true,
             PassedTutorial = false,
-            MyPrefix = "*"
+            MyPrefix = "*",
+            Language = GameLocalization.Russian,
         };
 
         _userAccountsDictionary.GetOrAdd(newAccount.DiscordId, newAccount);

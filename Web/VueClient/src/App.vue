@@ -4,6 +4,7 @@ import { useGameStore } from './store/game'
 import LoginProcess from 'src/components/Login/LoginProcess.vue'
 import LoginSuccess from 'src/components/Login/LoginSuccess.vue'
 import { installGlobalButtonSound } from 'src/services/sound'
+import { currentLocale, setLocale, type AppLocale } from './i18n'
 
 const store = useGameStore()
 
@@ -54,6 +55,7 @@ async function connectAndAuth(id: string) {
   if (!id || !/^\d+$/.test(id)) return
   await store.connect()
   await store.authenticate(id)
+  await store.setLanguage(currentLocale.value)
   localStorage.setItem('discordId', id)
   loggedInUsername.value = `ID: ${id}`
   loginSuccess.value = true
@@ -62,6 +64,7 @@ async function connectAndAuth(id: string) {
 async function connectAndAuthWeb(webId: string, username: string) {
   await store.connect()
   await store.authenticate(webId)
+  await store.setLanguage(currentLocale.value)
   store.webUsername = username
   store.isWebAccount = true
   loggedInUsername.value = username
@@ -75,6 +78,7 @@ async function handleLogin(discordId: string) {
 async function handleWebLogin(username: string) {
   await store.connect()
   await store.registerWebAccount(username)
+  await store.setLanguage(currentLocale.value)
   loggedInUsername.value = username
   loginSuccess.value = true
 }
@@ -94,10 +98,19 @@ function handleLogout() {
   store.isWebAccount = false
   store.webUsername = ''
 }
+
+async function changeLocale(language: AppLocale) {
+  setLocale(language)
+  if (store.isAuthenticated) await store.setLanguage(language)
+}
 </script>
 
 <template>
   <div class="app">
+    <div class="language-switcher" role="group" aria-label="Language / Язык">
+      <button :class="{ active: currentLocale === 'ru' }" @click="changeLocale('ru')">RU</button>
+      <button :class="{ active: currentLocale === 'en' }" @click="changeLocale('en')">EN</button>
+    </div>
     <!-- Login screen (designer's layout) -->
     <div v-if="showLogin && !store.isAuthenticated" class="logins">
       <LoginProcess
@@ -235,6 +248,39 @@ function handleLogout() {
   flex-direction: column;
   min-height: 100vh;
   width: 100%;
+}
+
+.language-switcher {
+  position: fixed;
+  z-index: 10020;
+  top: 10px;
+  right: 12px;
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow);
+}
+
+.language-switcher button {
+  min-width: 34px;
+  padding: 6px 8px;
+  border: 0;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  font: 700 11px/1 var(--font-mono);
+}
+
+.language-switcher button.active {
+  color: var(--bg-primary);
+  background: var(--accent-gold);
+}
+
+html[lang='ru'] .story-en,
+html[lang='en'] .story-ru {
+  display: none !important;
 }
 
 /* ── Login screen ─────────────────────────────────────────────────── */

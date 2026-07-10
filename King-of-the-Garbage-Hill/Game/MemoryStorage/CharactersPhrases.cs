@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Helpers;
 
 //using Discord;
 
@@ -1794,7 +1795,8 @@ public class CharactersUniquePhrase
             if (player.IsWebPlayer || player.PreferWeb) return;
             try
             {
-                var mess2 = await player.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync(description);
+                var mess2 = await player.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync(
+                    GameLocalization.PhraseForUser(player.DiscordId, PassiveNameRus, description));
                 player.DeleteMessages.Add(new GamePlayerBridgeClass.DeleteMessagesClass(mess2.Id, delayMs));
             }
             catch (Exception exception)
@@ -1899,7 +1901,8 @@ public class CharactersUniquePhrase
             if (player.IsWebPlayer || player.PreferWeb) return;
             try
             {
-                var mess2 = await player.DiscordStatus.SocketGameMessage.Channel.SendFileAsync(filePath, description);
+                var mess2 = await player.DiscordStatus.SocketGameMessage.Channel.SendFileAsync(filePath,
+                    GameLocalization.PhraseForUser(player.DiscordId, PassiveNameRus, description));
                 if (clearNextRound)
                     player.DeleteMessages.Add(new GamePlayerBridgeClass.DeleteMessagesClass(mess2.Id, delayMs));
             }

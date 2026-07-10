@@ -328,6 +328,10 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.authenticate(id)
   }
 
+  async function setLanguage(language: 'ru' | 'en') {
+    await signalrService.setLanguage(language)
+  }
+
   async function joinGame(gameId: number) {
     gameStory.value = null
     lootBoxResult.value = null
@@ -638,6 +642,7 @@ export const useGameStore = defineStore('game', () => {
     // Actions
     connect,
     authenticate,
+    setLanguage,
     joinGame,
     leaveGame,
     refreshLobby,

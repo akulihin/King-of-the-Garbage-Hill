@@ -4657,7 +4657,8 @@ public class CharacterPassives : IServiceSingleton
                                     hint = _haikuService.GenerateWitcherHintAsync(
                                         hintTarget.GameCharacter.Name,
                                         hintTarget.GameCharacter.Description,
-                                        monsterTypeName
+                                        monsterTypeName,
+                                        GameLocalization.GetUserLanguage(player.DiscordId)
                                     ).GetAwaiter().GetResult();
                                 }
                                 catch
@@ -4672,10 +4673,15 @@ public class CharacterPassives : IServiceSingleton
 
                             // Fallback to static dictionary
                             if (string.IsNullOrWhiteSpace(hint))
-                                hint = Geralt.WitcherSensesHints.TryGetValue(hintTarget.GameCharacter.Name, out var h)
-                                    ? h : "Что-то странное. Неизвестный зверь.";
+                            {
+                                var english = GameLocalization.GetUserLanguage(player.DiscordId) == GameLocalization.English;
+                                var hints = english ? Geralt.WitcherSensesHintsEnglish : Geralt.WitcherSensesHints;
+                                hint = hints.TryGetValue(hintTarget.GameCharacter.Name, out var h)
+                                    ? h : english ? "Something strange. An unknown beast." : "Что-то странное. Неизвестный зверь.";
+                            }
 
-                            player.Status.AddInGamePersonalLogs($"Чутьё: {hint} ({hintTarget.DiscordUsername})\n");
+                            player.Status.AddInGamePersonalLogs(
+                                $"{(GameLocalization.GetUserLanguage(player.DiscordId) == GameLocalization.English ? "Witcher senses" : "Чутьё")}: {hint} ({hintTarget.DiscordUsername})\n");
                         }
 
                         // Lambert: 10% chance, one-time per game (m16)

@@ -1190,6 +1190,10 @@ class SignalRService {
     await this.connection?.invoke('Authenticate', discordId)
   }
 
+  async setLanguage(language: 'ru' | 'en'): Promise<void> {
+    await this.connection?.invoke('SetLanguage', language)
+  }
+
   async joinGame(gameId: number): Promise<void> {
     this._currentGameId = gameId
     await this.connection?.invoke('JoinGame', gameId)

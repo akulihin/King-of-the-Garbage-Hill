@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using King_of_the_Garbage_Hill.API.DTOs;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.API.Services;
 
@@ -115,8 +116,14 @@ public static class GameStateMapper
                 }).ToList()
                 : null,
             IsKratosEvent = game.IsKratosEvent,
-            GlobalLogs = isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game),
-            AllGlobalLogs = isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game),
+            GlobalLogs = requestingPlayer == null
+                ? (isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game))
+                : GameLocalization.TextForUser(requestingPlayer.DiscordId,
+                    isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game)),
+            AllGlobalLogs = requestingPlayer == null
+                ? (isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game))
+                : GameLocalization.TextForUser(requestingPlayer.DiscordId,
+                    isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game)),
             MyPlayerId = requestingPlayer?.GetPlayerId(),
             MyPlayerType = requestingPlayer?.PlayerType ?? 0,
             PreferWeb = requestingPlayer?.PreferWeb ?? false,
@@ -1149,15 +1156,15 @@ public static class GameStateMapper
             ConfirmedSkip = status.ConfirmedSkip,
             LvlUpPoints = isMe ? status.LvlUpPoints : 0,
             MoveListPage = isMe ? status.MoveListPage : 1,
-            PersonalLogs = isMe ? status.GetInGamePersonalLogs() : "",
-            PreviousRoundLogs = previousRoundLogs,
-            AllPersonalLogs = isMe ? status.InGamePersonalLogsAll : "",
-            ScoreSource = isMe ? status.ScoreSource : "",
-            DirectMessages = isMe ? new List<string>(player.WebMessages) : new List<string>(),
+            PersonalLogs = isMe ? GameLocalization.TextForUser(player.DiscordId, status.GetInGamePersonalLogs()) : "",
+            PreviousRoundLogs = isMe ? GameLocalization.TextForUser(player.DiscordId, previousRoundLogs) : previousRoundLogs,
+            AllPersonalLogs = isMe ? GameLocalization.TextForUser(player.DiscordId, status.InGamePersonalLogsAll) : "",
+            ScoreSource = isMe ? GameLocalization.TextForUser(player.DiscordId, status.ScoreSource) : "",
+            DirectMessages = isMe ? player.WebMessages.Select(x => GameLocalization.TextForUser(player.DiscordId, x)).ToList() : new List<string>(),
             MediaMessages = isMe ? player.WebMediaMessages.Select(m => new MediaMessageDto
             {
-                PassiveName = m.PassiveName,
-                Text = m.Text,
+                PassiveName = GameLocalization.TextForUser(player.DiscordId, m.PassiveName),
+                Text = GameLocalization.PhraseForUser(player.DiscordId, m.PassiveName, m.Text),
                 FileUrl = m.FileUrl,
                 FileType = m.FileType,
                 RoundsToPlay = m.RoundsToPlay,

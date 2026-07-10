@@ -235,8 +235,8 @@ public sealed class HelperFunctions : IServiceSingleton
 
             await player.DiscordStatus.SocketGameMessage.ModifyAsync(message =>
             {
-                message.Embed = embed.Build();
-                message.Components = components.Build();
+                message.Embed = GameLocalization.EmbedForUser(player.DiscordId, embed).Build();
+                message.Components = GameLocalization.ComponentsForUser(player.DiscordId, components).Build();
             });
 
             if (extraText.Length > 0)
@@ -279,7 +279,8 @@ public sealed class HelperFunctions : IServiceSingleton
             }
             _messageQueue.Add(player.GetPlayerId());
 
-            var mess2 = await player.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync(msg);
+            var mess2 = await player.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync(
+                GameLocalization.TextForUser(player.DiscordId, msg));
             player.DeleteMessages.Add(new GamePlayerBridgeClass.DeleteMessagesClass(mess2.Id, delayMs));
 
             _messageQueue.Remove(player.GetPlayerId());

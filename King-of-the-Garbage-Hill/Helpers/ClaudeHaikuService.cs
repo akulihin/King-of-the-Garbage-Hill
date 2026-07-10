@@ -34,17 +34,25 @@ public class ClaudeHaikuService : IServiceSingleton
     /// Generates a Geralt-style one-liner hint about a target character.
     /// Returns null on failure (caller should fall back to static hints).
     /// </summary>
-    public async Task<string> GenerateWitcherHintAsync(string characterName, string description, string monsterType)
+    public async Task<string> GenerateWitcherHintAsync(string characterName, string description, string monsterType,
+        string language = GameLocalization.Russian)
     {
         if (Disabled || string.IsNullOrWhiteSpace(_apiKey))
             return null;
 
-        var prompt = $"Ты - Геральт из ёбанной Ривии. Ты медитируешь и чувствуешь след монстра.\n" +
-                     $"Монстр: {characterName}" +
-                     (string.IsNullOrWhiteSpace(description) ? "" : $" ({description})") +
-                     $"\nТип монстра: {monsterType}\n" +
-                     $"Напиши одну-две короткую фразу (максимум 15 слов) в стиле ведьмачьего расследования - что ты нашёл на месте." +
-                     $"Без кавычек, без пояснений. Только фраза/две. Никогда не упоминай имя персонажа в фразе, но нужена подсказка, чтобы можно было догадаться имя Монста. Шутки приветствуются.";
+        var prompt = language == GameLocalization.English
+            ? $"You are Geralt of Rivia, meditating over a monster's trail.\n" +
+              $"Monster: {characterName}" +
+              (string.IsNullOrWhiteSpace(description) ? "" : $" ({description})") +
+              $"\nMonster type: {monsterType}\n" +
+              "Write one or two short lines (15 words maximum) like a dry, funny witcher investigation clue. " +
+              "Never say the character's name, but make the clue guessable. No quotation marks or explanation. English only."
+            : $"Ты - Геральт из ёбанной Ривии. Ты медитируешь и чувствуешь след монстра.\n" +
+              $"Монстр: {characterName}" +
+              (string.IsNullOrWhiteSpace(description) ? "" : $" ({description})") +
+              $"\nТип монстра: {monsterType}\n" +
+              "Напиши одну-две короткие фразы (максимум 15 слов) в стиле ведьмачьего расследования — что ты нашёл на месте. " +
+              "Без кавычек и пояснений. Никогда не упоминай имя персонажа, но оставь догадку. Шутки приветствуются.";
 
         try
         {

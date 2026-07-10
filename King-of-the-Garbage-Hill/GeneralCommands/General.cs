@@ -122,6 +122,25 @@ public class General : ModuleBaseCustom
         }
     }
 
+    [Command("язык")]
+    [Alias("language", "lang")]
+    [Summary("Switches the bot between Russian and English.")]
+    public async Task ChangeLanguage(string language = null)
+    {
+        var account = _accounts.GetAccount(Context.User);
+        var next = language?.Trim().ToLowerInvariant() switch
+        {
+            "en" or "eng" or "english" => GameLocalization.English,
+            "ru" or "rus" or "russian" or "русский" => GameLocalization.Russian,
+            _ => account.Language == GameLocalization.English ? GameLocalization.Russian : GameLocalization.English,
+        };
+        account.Language = next;
+        GameLocalization.SetUserLanguage(account.DiscordId, next);
+        await SendMessageAsync(next == GameLocalization.English
+            ? "Language changed to **English**. Use `*lang ru` to switch back."
+            : "Язык изменён на **русский**. Используйте `*lang en`, чтобы переключиться обратно.");
+    }
+
     [Command("время")]
     [Alias("uptime")]
     [Summary("Статистика бота")]

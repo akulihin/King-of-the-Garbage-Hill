@@ -133,7 +133,13 @@ Message edits are serialized per player through an embed queue with 200 ms spins
 
 When a **human** Geralt blocks/meditates, the passive resolves a not-yet-revealed enemy and asks `ClaudeHaikuService.GenerateWitcherHintAsync` for a one-line Russian witcher-style hint (`CP:4373`); on null (no API key, 5 s timeout, HTTP error, or the simulation kill-switch) it falls back to the static `WitcherSensesHints` dictionary (`CP:4391`, table at `Geralt.cs:336`); the result lands in personal logs as `Чутьё: {hint} ({username})` (`CP:4394`). Service internals in WEB-BACKEND.md §11.
 
-## 11. Known quirks
+## 11. Russian / English presentation
+
+The persisted account locale defaults to Russian; the commands **\*язык**, **\*language** and **\*lang** toggle or explicitly select `ru`/`en` (`DiscordAccountClass.cs:27`, `General.cs:128-149`). Ordinary command responses pass through `ModuleBaseCustom`; in-game embeds, transient text and component labels/options are localized at send time (`ModuleBaseCustom.cs:14-18, 61-65`, `HelperFunctions.cs:237-244`). Custom ids and select option values remain canonical.
+
+Character/passive names and descriptions use the shared adapted catalog. Historical phrase pools remain fully intact in Russian; English uses a direct translation where available and otherwise a passive-aware adapted quip rather than exposing untranslated Cyrillic (`GameLocalization.cs:63-178`, `CharactersPhrases.cs:1799,1905`). Geralt's AI/static hint path is locale-aware (`CP:4657-4688`). Full rules: [LOCALIZATION.md](LOCALIZATION.md).
+
+## 12. Known quirks
 
 - The slash/context-menu subsystem and the reaction pipeline are dead code (§1) — the handler names still say "Reaction" but take components.
 - `confirm-prefict` is a load-bearing typo (`GameUpdateMess.cs:1496-1498`); the `stats` case toggles the empty page 2 but no button builds it anymore (`GameReactions.cs:302-306`). (Dopa's dead `dopa-attack-select` menu was removed 2026-07-04 — finding **m23**; his Макро second action runs through the normal attack/block branches, `GameReactions.cs:329-352` `GameReactions.cs:730-737`.)
