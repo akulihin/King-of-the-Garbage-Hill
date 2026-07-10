@@ -120,6 +120,11 @@
 | Молодой Глеб | Мета | up to 3 targets/round; +1 bonus per hit | CP:4627-4667 |
 | Сайтама | Лысина | +1000 Skill | CP:210-213 |
 | Сайтама | Неприметность | serious = top-2 by Skill (recomputed each round); off at r10 | CP:242-251, 3933-3942 |
+| Мадара | base / rarity | Int 7, Str 9, Speed 10, Psyche 9; Tier 5 | characters.json:1449-1484 |
+| Мадара | Бог шиноби thresholds | >1 unique attacker: TooGOOD; >2: TooSTONK; >3: fight Skill = 100 | Madara.cs:55-110; CP:419-425,1019-1025 |
+| Мадара | Второй метеорит | blocked attack: no −1 bonus; +2 regular | DM:519-544 |
+| Мадара | Клоны Сусано | round 8; +1 live Justice at >2 unique attackers; seal at all 5 unique + ≥5 losses | Madara.cs:77-110,134-194; CIR:1376-1397 |
+| Мадара | Вечное Цукуеми | arm at all 5 unique attackers in one turn or place 1 entering r10; viewer bonus = max living score − viewer score + 1 (0 if sole winner) | Madara.cs:96-102,219-259; CP:6139-6140 |
 | Рик | Пушка | invention Int ≥ 30; +1 charge/lvl-up; fired round ×2 regular points | GR:1155-1165, CP:3952-3975 |
 | Рик | Бобы | stack: −1 Str/Speed/Psyche, Int = base×stacks; ≤3 ingredients per lvl-up | CP:2033-2049, GR:1174-1202 |
 | Рик | Огурчик | 2 pickle turns; +1 penalty turn if never attacked | CP:3978-3985 |
@@ -175,7 +180,7 @@
 | Эрен Йегер | Дрочун mutual attack | +2 regular once per mutual enemy per round | CP:2489-2500 |
 | Эрен Йегер | Атакующий Титан | block removed; +5 each stat per fight for the turn; no incoming target → −2 Psyche | DM:271-281; CP:62-72,443-447,1002-1006,3545-3555 |
 | Эрен Йегер | Titan audio roll | `use_most` 50%; files 1–3 split the other 50% uniformly | sound.ts:894-900 |
-| Эрен Йегер | Rumbling gate / reach | round 10; fewer than 2 total losses; kills projected places strictly between Eren and place 6 | CP:2505-2509,3484-3528; ErenYeager.cs:37-76 |
+| Эрен Йегер | Rumbling gate / reach | round 10; fewer than 2 total losses; kills projected places strictly between Eren and place 6 | CP:2505-2509,3484-3528; ErenYeager.cs:37-71 |
 
 ## Bot AI difficulty (`BB` = BotsBehavior.cs, `GC` = GameClass.cs, `CP` = CharacterPassives.cs, `SR` = SimulationRunner.cs)
 

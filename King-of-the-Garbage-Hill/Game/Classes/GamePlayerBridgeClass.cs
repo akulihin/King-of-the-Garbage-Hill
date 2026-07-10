@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using King_of_the_Garbage_Hill.Game.Characters;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
@@ -100,6 +101,10 @@ public class GamePlayerBridgeClass
 
     public void MinusPsycheLog(CharacterClass playerCharacter, GameClass game, int howMuchToRemove, string skillName)
     {
+        if (Madara.HasReanimatedBody(playerCharacter))
+        {
+            return;
+        }
         if (playerCharacter.Passive.Any(x => x.PassiveName == "Спокойствие"))
         {
             return;

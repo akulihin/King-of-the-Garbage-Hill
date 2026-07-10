@@ -90,7 +90,7 @@ Sentinels from the server: stats −1 and name "???" for masked opponents, score
 
 | Component | Renders | User actions → store | Anchor |
 |---|---|---|---|
-| `PlayerCard.vue` | own stats/resists/justice/moral/skill/class, score, level-up UI, all §9 widgets | includes DooM module selection through the ordinary `levelUp(1-4)` path and Chainsaw choice (`PlayerCard.vue:630-651, 1139-1158`) | |
+| `PlayerCard.vue` | own stats/resists/justice/moral/skill/class, score, level-up UI, all §9 widgets | includes DooM module selection through the ordinary `levelUp(1-4)` path and Chainsaw choice; Madara renders stats/Justice/Class but no resist, Moral, Skill or target rows (`PlayerCard.vue:100-108,856-1041`) | |
 | `Leaderboard.vue` | hill-tiered rows, avatars, masked mini-stats, predictions, attack cursors | row click → emit attack with target place (`Leaderboard.vue:199`); predict picker → emit predict (`Leaderboard.vue:143`) | |
 | `FightAnimation.vue` | 4 tabs `Бои раунда` / `Все бои` / `Летопись` / `История` (`FightAnimation.vue:1266-1269`), step-by-step fight replay in 3 styles (v3 default, v2 `FightArenaCards`, v1 `FightArenaClassic`, `FightAnimation.vue:1404` `FightAnimation.vue:1462`) | playback controls; emits drive PlayerCard sounds | |
 | `SkillsPanel.vue` | collapsible passive cards; TheBoys locked ultimates show `Скрытая способность` + `Заблокировано` (`SkillsPanel.vue:140-143`) | reveal/unlock cinematics watch theBoys revealSerial/unlockSerial (`SkillsPanel.vue:102` `SkillsPanel.vue:117`) | |
@@ -108,12 +108,13 @@ Sentinels from the server: stats −1 and name "???" for masked opponents, score
 Widgets render **only for the owning player**: `passiveStates` computed returns the player's `passiveAbilityStates` (`PlayerCard.vue:153`), which the server only populates for isMe (WEB-BACKEND.md §7). Standard shell class pc-passive-widget with pw-header/pw-value markup.
 
 - **Level-up overrides** replace the stat + buttons per character. DooM Guy renders the current stage's configured module cards and keeps all four stats read-only (`PlayerCard.vue:630-651`); the owner widget shows active stages, nests, BFG charge and pending Chainsaw choices (`PlayerCard.vue:1139-1158`). Let's Roll is a round-1 inline game action (`Game.vue:1162-1165`), and its state hides Moral controls.
+- **Madara has no widget DTO**: the normal card branches on character name and omits all four resist/quality rows plus Moral, Skill, target and Moral exchange; the server never supplies level-up points or prediction catalogs. The standalone round-8 prediction-confirm button is also omitted (`PlayerCard.vue:100-108,856-1041`; `Game.vue:406-408,1201-1206`).
 - **Action-hosting widgets**: Geralt contract-demand panel `Потребовать больше монет за заказ` → previous/next (`PlayerCard.vue:1018-1047`), Kira Shinigami-eyes button (`PlayerCard.vue:1010`). Moral exchange rates are computed client-side to mirror backend formulas (`PlayerCard.vue:282-310`).
 - **Widget blocks** keyed on `passiveStates` members (each renders when its key is present): Eren's Rumbling/hatred panel `PlayerCard.vue:1205-1224`, then the existing pickleRick, giantBeans, bulk, tea, jew, hardKitty, training, dragon, garbage, copycat, inkScreen, tigerTop, jaws, privilege, vampirism, weed, saitama, shinigamiEyes, seller, dopa, sellerMark, goblinSwarm, kotiki, monster, tolyaCount, impact, darksci, deepList, craboRack, napoleon, support, toxicMate, yongGleb, theBoys, salldorum and geralt widgets. Special top-level (non-passiveStates) blocks remain Portal Gun / Exploit / Tsukuyomi.
 
 ## 10. Logs & real-time UX
 
-- Two log panels in Game.vue: current-round merged personal+global and previous-round; entries are parsed and color-classified by `parsePrevLogs` with a Russian keyword filter (`Game.vue:667-737`); gold point entries feed PlayerCard's combo feed instead of the panel.
+- Two log panels in Game.vue: current-round merged personal+global and previous-round; entries are parsed and color-classified by `parsePrevLogs` with a Russian keyword filter (`Game.vue:717-786`); gold point entries feed PlayerCard's combo feed instead of the panel. Madara's exact `Я - Учиха. Мадара.` fragment is wrapped without changing its text and rendered with a bright pulsing red glow (`Game.vue:749-785,2790-2810`).
 - `Летопись` (chronicle) uses server `fullChronicle` when the game is finished (`Game.vue:620-626`); the `История` tab shows the AI story when present (`FightAnimation.vue:1269`).
 - Discord custom emoji in server-rendered strings are mapped to local /art/emojis images via `discordEmojiMap` (`Game.vue:530-559`).
 - Round countdown: `RoundTimer` re-derives from `roundTimeLeft` each second (§8) — the server pushes time every ≤0.5 s drift (WEB-BACKEND.md §6).
@@ -126,6 +127,7 @@ Widgets render **only for the owning player**: `passiveStates` computed returns 
 - `setSoundContext('game'|'menu')` gates ambient themes (`sound.ts:114`); a global click-SFX listener is installed by App.vue (`sound.ts:361` `App.vue:29`); opt-out/re-skin per button via data attributes data-sfx-skip-default / data-sfx-utility / data-sfx-fight-tab / data-sfx-predict (`sound.ts:2-5`).
 - DooM Guy's owner-only opening loop plays until the first committed action; if he wins, the victory theme plays for every connected viewer (`Game.vue:181-224`; paths/playback `sound.ts:878-890`).
 - Eren's Tatake and Attack-Titan sounds are owner-only and driven by monotonic DTO serials so batched updates can replay every event; `use_most` has a 50% client roll and files 1–3 split the rest. The round-10 warning starts both Rumbling tracks together for all viewers, and Eren's win theme is global (`Game.vue:180-228`; `sound.ts:884-905`).
+- Madara's round-8 `madara_tsukuemi_theme.mp3` is delivered to every player as an ordinary `MediaMessage`; `MediaMessages.vue` preserves playback across 300 ms state refreshes, and the server removes the entry as soon as round-8 fights finish (`CharacterPassives.cs:4890-4920`; `DoomsdayMachine.cs:189-197,1251-1257`).
 - Character avatars come from the R2 CDN or local /art/avatars when present (server rewrites, WEB-BACKEND.md §7); emojis always local /art/emojis (§10).
 
 ## 12. Battleship client

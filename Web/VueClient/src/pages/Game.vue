@@ -404,6 +404,7 @@ function goToLobby() {
 
 // ── Header status (moved from ActionPanel) ──────────────────────────
 const me = computed(() => store.myPlayer)
+const isMadara = computed(() => me.value?.character.name === 'Мадара')
 
 // ── Avatar / identity (rendered in game-right) ────────────────────
 const placeTier = computed(() => {
@@ -748,7 +749,9 @@ function parsePrevLogs(raw: string): PrevLogEntry[] {
     let type: PrevLogColor = 'muted'
     let comboCount = 0
 
-    if (isPhrase) {
+    if (clean.includes('Я - Учиха. Мадара.')) {
+      type = 'red'
+    } else if (isPhrase) {
       type = 'purple'
     } else if (/[Сс]килла/i.test(clean) || /Справедливость/i.test(clean) || /Cкилла/i.test(clean) || /Морали/i.test(clean)) {
       type = 'green'
@@ -777,6 +780,7 @@ muted	(Grey)
       .replace(/__(.*?)__/g, '<u>$1</u>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/~~(.*?)~~/g, '<del>$1</del>')
+      .replace('Я - Учиха. Мадара.', '<span class="madara-callout">Я - Учиха. Мадара.</span>')
 
     return { raw: clean, html, type, comboCount, isPhrase }
   })
@@ -1198,7 +1202,7 @@ const charTint = computed(() => {
             <button class="act-btn dopa-roam" title="Роум: Steal from non-adjacent" @click="store.dopaChoice('Роум')">Роум</button>
           </div>
 
-          <div v-if="(store.gameState.roundNo ?? 0) >= 8 && !store.isKira && !me?.status.confirmedPredict" class="act-group">
+          <div v-if="(store.gameState.roundNo ?? 0) >= 8 && !store.isKira && !isMadara && !me?.status.confirmedPredict" class="act-group">
             <button class="act-btn predict-confirm" title="Confirm Predictions" @click="store.confirmPredict()">
               Confirm Prediction
             </button>
@@ -2792,6 +2796,16 @@ const charTint = computed(() => {
 .prev-log-text :deep(strong) { color: var(--accent-gold); }
 .prev-log-text :deep(em) { color: var(--accent-blue); }
 .prev-log-text :deep(u) { color: var(--accent-green); }
+.prev-log-text :deep(.madara-callout) {
+  color: #ff3535;
+  font-weight: 900;
+  text-shadow: 0 0 5px #ff1f1f, 0 0 14px rgba(255, 31, 31, 0.95), 0 0 28px rgba(255, 31, 31, 0.7);
+  animation: madara-callout-pulse 0.9s ease-in-out infinite alternate;
+}
+@keyframes madara-callout-pulse {
+  from { filter: brightness(1); }
+  to { filter: brightness(1.7); }
+}
 .prev-log-text :deep(.lb-emoji) {
   width: 20px;
   height: 20px;

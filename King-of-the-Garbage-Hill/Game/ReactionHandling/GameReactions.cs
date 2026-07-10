@@ -677,6 +677,25 @@ public sealed class GameReaction : IServiceSingleton
             if (whoToAttack == null) 
                 return false;
 
+            if (Madara.IsSealed(player))
+            {
+                await _help.SendMsgAndDeleteItAfterRound(player, "Игрок запечатан", 0);
+                return false;
+            }
+
+            if (Madara.IsMadara(player) && game.RoundNo == 8)
+            {
+                await _help.SendMsgAndDeleteItAfterRound(player, "Мадара ждёт, кто осмелится бросить ему вызов.", 0);
+                return false;
+            }
+
+            if (Madara.IsSealed(whoToAttack))
+            {
+                status.WhoToAttackThisTurn = new List<Guid>();
+                await _help.SendMsgAndDeleteItAfterRound(player, "Игрок запечатан", 0);
+                return false;
+            }
+
             status.WhoToAttackThisTurn.Add(whoToAttack.GetPlayerId());
 
             // Pickle Rick: firing the Portal Gun (i.e. choosing a target while pickled) counts as

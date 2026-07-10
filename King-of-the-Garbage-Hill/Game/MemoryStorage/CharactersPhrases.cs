@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 
 //using Discord;
@@ -98,6 +99,15 @@ public class CharactersUniquePhrase
     public PhraseClass TigrThreeZero;
     public PhraseClass TigrTop;
     public PhraseClass TigrTwoBetter;
+
+    public PhraseClass MadaraIntro;
+    public PhraseClass MadaraFirstFight;
+    public PhraseClass MadaraSecondFight;
+    public PhraseClass MadaraTopOne;
+    public PhraseClass MadaraSecondMeteorite;
+    public PhraseClass MadaraItachiStole;
+    public PhraseClass MadaraItachiPrediction;
+    public PhraseClass MadaraRoundEightTheme;
 
     public PhraseClass TolyaCountPhrase;
     public PhraseClass TolyaCountReadyPhrase;
@@ -338,6 +348,15 @@ public class CharactersUniquePhrase
         TigrThreeZero = new PhraseClass("3-0 обоссан");
         TigrTop = new PhraseClass("Тигр топ, а ты холоп");
         TigrSnipe = new PhraseClass("Стримснайпят и банят и банят и банят");
+
+        MadaraIntro = new PhraseClass(Madara.GodOfShinobi);
+        MadaraFirstFight = new PhraseClass(Madara.GodOfShinobi);
+        MadaraSecondFight = new PhraseClass(Madara.GodOfShinobi);
+        MadaraTopOne = new PhraseClass(Madara.GodOfShinobi);
+        MadaraSecondMeteorite = new PhraseClass(Madara.SecondMeteorite);
+        MadaraItachiStole = new PhraseClass(Madara.GodOfShinobi);
+        MadaraItachiPrediction = new PhraseClass(Madara.SusanooClones);
+        MadaraRoundEightTheme = new PhraseClass(Madara.SusanooClones);
 
         DeepListMadnessPhrase = new PhraseClass("Безумие");
 
@@ -989,6 +1008,17 @@ public class CharactersUniquePhrase
         SaitamaHoldsBack.PassiveLogRus.Add("Скучно. Пойду домой.");
 
         SaitamaSerious.PassiveLogRus.Add("Серьёзная серия ударов.");
+
+        // ── Мадара ──
+
+        MadaraIntro.PassiveLogRus.Add("Ха? В каком я мире? Хм... \nЯ не знаю, кто такой этот Король Мусорной Горы, но я хочу его видеть! Смог ли этот Король достичь мира?");
+        MadaraFirstFight.PassiveLogRus.Add("Похоже, ни в одной вселенной я так и не найду спокойствия и мира... Всюду война преследует меня, словно тень.");
+        MadaraSecondFight.PassiveLogRus.Add("Кажется, это всего лишь еще один мир, где детишки играют в сражения. Ну что же, я покажу им, что такое война.");
+        MadaraTopOne.PassiveLogRus.Add("Это и есть вершина вашей Мусорный Горы? Чего еще ждать от отбросов, вроде вас.");
+        MadaraSecondMeteorite.PassiveLogRus.Add("Остановил метеорит..? А что будешь делать со вторым?");
+        MadaraItachiStole.PassiveLogRus.Add("Итачи? Твои глаза далеки от завершения. Тебе никогда не познать силу Бога.");
+        MadaraItachiPrediction.PassiveLogRus.Add("Я думал, Мадара - это другой человек... Кем же тогда он был?");
+        MadaraRoundEightTheme.PassiveLogRus.Add("Мадара: Oi - oi, чего ждать! Кто из этого мусорного мира осмелится бросить мне вызов?! Я - Учиха. Мадара.");
 
         // ── Рик Санчез ──
 

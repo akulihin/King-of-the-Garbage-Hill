@@ -168,6 +168,8 @@ public class PassivesClass
 
     public Saitama.UnnoticedClass SaitamaUnnoticed { get; set; } = new();
 
+    public Madara.State Madara { get; set; } = new();
+
     public RickSanchez.GiantBeansClass RickGiantBeans { get; set; } = new();
     public RickSanchez.PickleRickClass RickPickle { get; set; } = new();
     public RickSanchez.PortalGunClass RickPortalGun { get; set; } = new();

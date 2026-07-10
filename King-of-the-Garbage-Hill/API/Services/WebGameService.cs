@@ -171,7 +171,8 @@ public class WebGameService
 
         // Pre-compute harm range data for the viewing player
         var showHarmRange = game.RoundNo > 1
-            && !viewingPlayer.GameCharacter.Passive.Any(x => x.PassiveName == "Минька");
+            && !viewingPlayer.GameCharacter.Passive.Any(x => x.PassiveName == "Минька")
+            && viewingPlayer.GameCharacter.Name != Madara.CharacterName;
         var myRange = viewingPlayer.GameCharacter.GetSpeedQualityResistInt();
         var myPlace = viewingPlayer.Status.GetPlaceAtLeaderBoard();
 
@@ -506,6 +507,7 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (Madara.IsSealed(player)) return Task.FromResult((false, "Игрок запечатан"));
         if (player.Status.IsSkip || !player.Status.IsReady)
             return Task.FromResult((false, "Cannot change mind right now"));
 
@@ -554,6 +556,7 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return (false, "Game not found");
         if (player == null) return (false, "Player not in this game");
+        if (Madara.IsMadara(player)) return (false, "У Мадары нет прокачки");
         if (player.Status.LvlUpPoints <= 0) return (false, "No level-up points available");
         if (statIndex < 1 || statIndex > 4) return (false, "Invalid stat index (1-4)");
 
@@ -687,6 +690,8 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (Madara.IsMadara(player))
+            return Task.FromResult((false, "У Мадары нет предположений"));
         if (player.GameCharacter.DoomRollMode)
             return Task.FromResult((false, "Predictions are disabled by Let's Roll!"));
 

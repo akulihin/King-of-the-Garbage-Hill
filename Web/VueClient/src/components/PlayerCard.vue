@@ -102,7 +102,8 @@ const moral = computed(() => {
   return Number.parseFloat(props.player.character.moralDisplay) || 0
 })
 
-const hasMoral = computed(() => props.isMe && moral.value >= 1)
+const isMadara = computed(() => props.player?.character.name === 'Мадара')
+const hasMoral = computed(() => props.isMe && !isMadara.value && moral.value >= 1)
 
 const roundNo = computed(() => store.gameState?.roundNo ?? 0)
 const isLastRound = computed(() => roundNo.value === 10)
@@ -863,7 +864,7 @@ function handleDoomChainsaw(passiveName: string) {
           <span class="stat-val stat-intelligence">{{ player.character.intelligence }}</span>
           <button v-if="hasLvlUpPoints" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Intelligence' : (isEren ? '+1 Злость' : '+1 Intelligence')" @click="handleLevelUp(1)">{{ isIrelia ? '−' : '+' }}</button>
         </div>
-        <div v-if="isMe" class="resist-row">
+        <div v-if="isMe && !isMadara" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.intelligenceResist }}</span>
           <span v-if="player.character.intelligenceBonusText" class="resist-bonus">{{ player.character.intelligenceBonusText }}</span>
         </div>
@@ -879,7 +880,7 @@ function handleDoomChainsaw(passiveName: string) {
           <span class="stat-val stat-strength">{{ player.character.strength }}</span>
           <button v-if="hasLvlUpPoints" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Strength' : '+1 Strength'" @click="handleLevelUp(2)">{{ isIrelia ? '−' : '+' }}</button>
         </div>
-        <div v-if="isMe" class="resist-row">
+        <div v-if="isMe && !isMadara" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.strengthResist }}</span>
           <span v-if="player.character.strengthBonusText" class="resist-bonus">{{ player.character.strengthBonusText }}</span>
         </div>
@@ -895,7 +896,7 @@ function handleDoomChainsaw(passiveName: string) {
           <span class="stat-val stat-speed">{{ player.character.speed }}</span>
           <button v-if="hasLvlUpPoints" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Speed' : '+1 Speed'" @click="handleLevelUp(3)">{{ isIrelia ? '−' : '+' }}</button>
         </div>
-        <div v-if="isMe" class="resist-row">
+        <div v-if="isMe && !isMadara" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.speedResist }}</span>
           <span v-if="player.character.speedBonusText" class="resist-bonus">{{ player.character.speedBonusText }}</span>
         </div>
@@ -931,7 +932,7 @@ function handleDoomChainsaw(passiveName: string) {
           <span class="stat-val stat-psyche">{{ player.character.psyche }}</span>
           <button v-if="hasLvlUpPoints && !isGeralt && !isDoomGuy" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Psyche' : (isEren ? '+1 Самоуверенность' : '+1 Psyche')" @click="handleLevelUp(4)">{{ isIrelia ? '−' : '+' }}</button>
         </div>
-        <div v-if="isMe" class="resist-row">
+        <div v-if="isMe && !isMadara" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.psycheResist }}</span>
           <span v-if="player.character.psycheBonusText" class="resist-bonus">{{ player.character.psycheBonusText }}</span>
         </div>
@@ -961,14 +962,14 @@ function handleDoomChainsaw(passiveName: string) {
 
     <!-- Moral / Skill / Class / Target -->
     <div class="pc-meta">
-      <div class="meta-box"
+      <div v-if="!isMadara" class="meta-box"
         @mouseenter="showTip($event, 'You can exchange moral for Skill or Points. Gain it by winning and lose it when you\'re defeated')"
         @mousemove="moveTip" @mouseleave="hideTip">
         <span class="meta-label">Moral</span>
         <span class="meta-value stat-moral">{{ player.character.moralDisplay }}</span>
       </div>
 
-      <div class="meta-box"
+      <div v-if="!isMadara" class="meta-box"
         @mouseenter="showTip($event, 'Skill influences your fighting power. Gain it by attacking your TARGET')"
         @mousemove="moveTip" @mouseleave="hideTip">
         <span class="meta-label">Skill</span>
@@ -981,7 +982,7 @@ function handleDoomChainsaw(passiveName: string) {
         <span class="meta-value stat-class">{{ classLabel }}</span>
       </div>
 
-      <div v-if="isMe && player.character.skillTarget" class="meta-box"
+      <div v-if="isMe && !isMadara && player.character.skillTarget" class="meta-box"
         @mouseenter="showTip($event, skillTargetTooltip(player.character.skillTarget))" @mousemove="moveTip" @mouseleave="hideTip">
         <span class="meta-label">Target</span>
         <span class="meta-value"><span :class="skillTargetBadge(player.character.skillTarget).cls" style="font-size:14px">{{ skillTargetBadge(player.character.skillTarget).label }}</span></span>

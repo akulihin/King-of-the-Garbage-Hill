@@ -118,9 +118,9 @@ Every game-action method starts with `GetDiscordId()` (`GameHub.cs:1211-1216`) a
 
 1. **Per-action**: the hub pushes to the **acting player's connections only** right after each action (`PushStateToPlayer`, `GameHub.cs:1223-1232`).
 2. **Timer**: GameNotificationService polls every 300 ms (`GameNotificationService.cs:97-103`) and broadcasts a game when the round number changed, elapsed time moved > 0.5 s, or any player's `IsReady` flipped (`PushUpdates`, `GameNotificationService.cs:218-269`; triggers at `GameNotificationService.cs:242-247`); a `RoundChanged` event accompanies round flips (`GameNotificationService.cs:258-261`). **Finished games are skipped by the timer** (`GameNotificationService.cs:236-240`) — their final state would race the lootbox/achievement stamping in the finish path.
-3. **On finish**: the game loop fires `OnGameFinished`, which does the final broadcast, emits `GameFinished`, kicks off story generation, and drops snapshots/room tracking (kept while a Blackjack table is still open) (`GameNotificationService.cs:78-95`).
+3. **On finish**: the game loop fires `OnGameFinished`, which does the final personalized broadcast, emits `GameFinished`, conditionally kicks off story generation, and drops snapshots/room tracking (kept while a Blackjack table is still open) (`GameNotificationService.cs:78-96`). An active Madara `Вечное Цукуеми` skips the shared story because it would reveal the real ending (`GameNotificationService.cs:82-88`).
 4. **Broadcast shape**: `BroadcastGameState` sends a **personalized DTO to every player with a web connection**, then one **spectator DTO** to the remaining connections in the room (`GameNotificationService.cs:178-208`). `SendGameStateToPlayer` is the single-player variant used by game logic (`GameNotificationService.cs:163-171`).
-5. Replay saving rides the same finish path: `OnReplaySave` builds + persists the replay and appends its hash to each human's `ReplayHashes` (`GameNotificationService.cs:50-67`).
+5. Replay saving rides the same finish path: `OnReplaySave` builds + persists the replay and appends its hash to each human's `ReplayHashes` (`GameNotificationService.cs:50-67`). Activated `Вечное Цукуеми` games never invoke that shared callback (`CheckIfReady.cs:795-807`).
 
 ## 7. State mapping & hidden information (`GameStateMapper`)
 
@@ -132,25 +132,27 @@ Visibility rules (the exact reason the web can't leak hidden info):
 |---|---|---|
 | Opponent character | non-admin, unfinished → name "???", unknown-avatar, stats −1 sentinels, skill/moral "?", empty passives | `GameStateMapper.cs:842-867` |
 | Own/admin/finished character | real stats + resists and quality-bonus texts (own only) | `GameStateMapper.cs:869-899` |
-| Passive list | owner sees all; other viewers only `Visible` ones (reachable for admin/finished viewers) | `GameStateMapper.cs:902-913` |
+| Passive list | owner sees all; other viewers only `Visible` ones (reachable for admin/finished viewers); `Вечное Цукуеми` is omitted for **every** viewer, including Madara/admin | `GameStateMapper.cs:980-993` |
 | Score | −1 unless isMe/admin/finished (`canSeeScore`); `Place` always visible | `GameStateMapper.cs:922` `GameStateMapper.cs:937-938` |
 | Personal logs, `ScoreSource`, `LvlUpPoints`, `MoveListPage`, `DirectMessages` (from `WebMessages`), `MediaMessages`, ARAM reroll counters | isMe-gated | `GameStateMapper.cs:945-963` |
 | `ScoreBreakdown` (multipliers + per-source entries) | isMe/admin/finished | `GameStateMapper.cs:967-980` |
-| Predictions | owner always; **everyone at game end** with correctness + actual character/avatar | `GameStateMapper.cs:209-234` |
+| Predictions | owner always; **everyone at game end** with correctness + actual character/avatar; Madara's owner list is always empty | `GameStateMapper.cs:213-237` |
 | `DeathNote` / `PortalGun` / `ExploitState` / `TsukuyomiState`, Darksci/Gleb/Dopa choice flags | isMe-gated blocks on the player DTO | `GameStateMapper.cs:236-330` |
 | Баг viewer | sees `IsExploitable` / `IsExploitFixed` markers on every player | `GameStateMapper.cs:133-134` `GameStateMapper.cs:333-337` |
 | Widget states (`PassiveAbilityStates`) | entire per-passive switch runs only for isMe; keyed on `PassiveName` | `GameStateMapper.cs:340-347` |
 | DooM Guy state | owner-only widget contains active/options/nests/BFG/Chainsaw; Let's Roll viewers receive empty character catalogs so predictions cannot be reconstructed client-side | `GameStateMapper.cs:121-122, 350-369` |
 | Эрен state | owner-only `ErenStateDto`: gained Rage, total losses, Titan/Tatake audio serials, Rumbling result, and an aggregation of all per-player hatred marks | `GameStateDto.cs:775-793` `GameStateMapper.cs:349-370` |
+| Мадара normal state | empty prediction catalogs/list, empty Skill/Moral/target and zero resist/quality texts; no character-specific DTO was added | `GameStateMapper.cs:123-126,215-239,965-978` |
+| Вечное Цукуеми final state | final player-scoped DTO only: non-Madara requester becomes alive/place 1 with projected place history, exactly-needed bonus source + one synthetic win; Madara gets real standings and five synthetic skips. A spectator gets only `Результат игры скрыт.` with scores/places/history/fights/predictions cleared. Real game state is untouched | `GameStateMapper.cs:998-1123`; `Madara.cs:219-259` |
 | Marks on me (`SellerMark`, TheBoys sup/virus/moral-block, cancer, cat, Johan pawn, Geralt monster type) | mapped after the switch **onto the affected player's own card** | `GameStateMapper.cs:748-836` |
 | Global logs | admin raw; others get `StripHiddenLogs` (removes `HiddenGlobalLogSnippets`; additionally strips Kira-related snippets for viewers with passive "Гений") | `GameStateMapper.cs:116-117` `GameStateMapper.cs:1118-1138` |
 | Fight log | hidden-from-non-admin entries filtered out; non-participants get `ScopeFightEntry` — outcome/participants/drops kept, every numeric zeroed, `TotalPointsWon` reduced to sign | `GameStateMapper.cs:127-131` `GameStateMapper.cs:1051-1114` |
 | Full chronicle (Летопись) | built only when finished; usernames replaced by character names | `GameStateMapper.cs:155-158` `GameStateMapper.cs:1145-1192` |
 | Newly unlocked achievements | requesting player only, finished games | `GameStateMapper.cs:161-186` |
 
-Draft options are serialized only for the requesting player during the draft phase; first option cost 0, others 5 (`GameStateMapper.cs:94-114`). Avatars are rewritten to local /art/avatars when the file exists (`GetLocalAvatarUrl`, `GameStateMapper.cs:998-1019`). The character catalog for prediction dropdowns loads once from characters.json, excluding negative tiers and "Выдуманный персонаж" (`GameStateMapper.cs:49-68`).
+Draft options are serialized only for the requesting player during the draft phase; first option cost 0, others 5, and Madara's hidden passive is filtered before the option DTO is built (`GameStateMapper.cs:94-115`). Avatars are rewritten to local /art/avatars when the file exists (`GetLocalAvatarUrl`). The character catalog for prediction dropdowns loads once from characters.json, excluding negative tiers and "Выдуманный персонаж" (`GameStateMapper.cs:49-68`).
 
-After mapping, `PopulateCustomLeaderboard` adds the per-viewer leaderboard annotations: the same `CustomLeaderBoardAfterPlayer` / `CustomLeaderBoardBeforeNumber` strings the Discord leaderboard renders, converted from Discord markdown/emoji to HTML, plus the `IsInMyHarmRange` flag from speed-quality range vs place distance (`WebGameService.cs:167-198`; emoji map `WebGameService.cs:99-137`; `ConvertDiscordToWeb` `WebGameService.cs:140-161`). Both REST (`WebGameService.cs:86`) and SignalR (`GameNotificationService.cs:169` `GameNotificationService.cs:189`) run it.
+After mapping, `PopulateCustomLeaderboard` adds the per-viewer leaderboard annotations: the same `CustomLeaderBoardAfterPlayer` / `CustomLeaderBoardBeforeNumber` strings the Discord leaderboard renders, converted from Discord markdown/emoji to HTML, plus the `IsInMyHarmRange` flag from speed-quality range vs place distance (`WebGameService.cs:167-199`; emoji map `WebGameService.cs:99-137`; `ConvertDiscordToWeb` `WebGameService.cs:140-161`). Madara never receives a Harm-range flag (`WebGameService.cs:171-176`). Both REST (`WebGameService.cs:86`) and SignalR (`GameNotificationService.cs:169` `GameNotificationService.cs:189`) run it.
 
 ## 8. `WebGameService` — the bridge into game logic
 
@@ -174,12 +176,15 @@ Web actions operate on the **same objects and mostly the same handlers as Discor
 | FinishGame | `EndGame` (bot substitution — same as the Discord Завершить Игру button) | `WebGameService.cs:853-862` |
 | ActivateShen / DeactivateShen / RewriteHistory | direct Salldorum state writes (rewrite steals 1 point per round-loser, +2 psyche, +2 buffered justice, cola time-travel pickup) | `WebGameService.cs:866-976` |
 
+Madara action gates are enforced server-side, not only hidden in Vue: round-8/sealed attack attempts and targeting sealed Madara are rejected by the shared `HandleAttack` path (`GameReactions.cs:677-708`); `ChangeMind` rejects sealed Madara; `LevelUp` and `Predict` reject every Madara request (`WebGameService.cs:505-515,553-562,687-699`).
+
 **Game creation** (`CreateGame`, `WebGameService.cs:206-275`): rolls a full 6-bot game via `HandleCharacterRoll`, replaces the first bot with the creator and re-snapshots a possible DooM Guy loadout from the creator account (`WebGameService.cs:224-235`), then creates `GameClass` + Nanobot. Draft mode places a newcomer-protected DooM Guy option first/free (`WebGameService.cs:242-260`). `JoinWebGame` likewise reinitializes a DooM seat from the joining account (`WebGameService.cs:280-313`); `DraftSelect` always builds a fresh bridge and initializes the selected account loadout (`WebGameService.cs:317-381`). `CreateTestGame` = `CreateGame` + forced character, swapping conflicts if needed (`WebGameService.cs:995-1111`).
 
 ## 9. Replays
 
 - **Capture**: `CaptureRound` snapshots every round — global logs, deep-copied fight log, and **each player's own full-visibility DTO** plus the leaderboard as that player saw it (`ReplayService.cs:41-84`).
 - **Finalize**: on game end `BuildReplayData` assembles `ReplayDataDto` (8-char `ReplayHash`, player summaries, all rounds, full chronicle) (`ReplayService.cs:88-133`; DTO shapes `ReplayDto.cs:8-63`), saved as camelCase JSON into the Replays folder (`ReplayService.cs:20` `ReplayService.cs:137-144`).
+- **Madara privacy exception**: an active `Вечное Цукуеми` has six incompatible final views, so finalization/save is skipped rather than storing one viewer's projection or the authoritative ending (`CheckIfReady.cs:795-807`).
 - **Serve**: REST endpoints in §3; the AI story is backfilled into the replay file when generated (`AttachStory`, `ReplayService.cs:173-188`).
 
 ## 10. Mini-games

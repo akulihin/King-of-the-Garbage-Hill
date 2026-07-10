@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
@@ -81,7 +82,8 @@ public class GameNotificationService
             {
                 await BroadcastGameState(game);
                 await SendGameEvent(game.GameId, "GameFinished");
-                _storyService.GenerateStoryAsync(game);
+                if (!Madara.IsEternalTsukuyomiActive(game))
+                    _storyService.GenerateStoryAsync(game);
                 _lastSnapshot.TryRemove(game.GameId, out _);
 
                 // Preserve game connections if Blackjack table is still active

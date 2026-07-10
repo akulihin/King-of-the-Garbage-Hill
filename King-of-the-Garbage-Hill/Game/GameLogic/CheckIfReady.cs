@@ -795,9 +795,13 @@ public class CheckIfReady : IServiceSingleton
         // but HandleLastRound skips that path, so the last round's fights would be missing)
         ReplayService.CaptureRound(game, _gameUpdateMess);
 
-        // Save replay before removing the game
-        try { _global.OnReplaySave?.Invoke(game); }
-        catch (Exception ex) { _logs.Critical($"Replay save failed: {ex.Message}"); }
+        // A shared replay has one authoritative result and therefore cannot represent six
+        // viewer-specific Eternal Tsukuyomi endings without revealing the hidden result.
+        if (!Madara.IsEternalTsukuyomiActive(game))
+        {
+            try { _global.OnReplaySave?.Invoke(game); }
+            catch (Exception ex) { _logs.Critical($"Replay save failed: {ex.Message}"); }
+        }
 
         // Broadcast final state to web clients BEFORE removing the game.
         // Without this, PreferWeb players never see the last round's results because
@@ -1147,7 +1151,8 @@ public class CheckIfReady : IServiceSingleton
                 foreach (var t in players.Where(t =>
                              !t.IsBot() && !t.Status.IsAutoMove && t.Status.WhoToAttackThisTurn.Count == 0 &&
                              t.Status.IsBlock == false && t.Status.IsSkip == false &&
-                             t.Passives.RickPickle.PickleTurnsRemaining == 0))
+                             t.Passives.RickPickle.PickleTurnsRemaining == 0 &&
+                             !(Madara.IsMadara(t) && (game.RoundNo == 8 || t.Passives.Madara.Sealed))))
                 {
                     _logs.Warning($"\nWARN: {t.DiscordUsername} didn't do anything - Auto Move!\n");
                     t.Status.IsAutoMove = true;
@@ -1196,6 +1201,11 @@ public class CheckIfReady : IServiceSingleton
                         _logs.Critical(exception.Message);
                         _logs.Critical(exception.StackTrace);
                     }
+
+                var madara = Madara.Find(game);
+                if (madara != null && game.RoundNo == 8 && !madara.Passives.Madara.Sealed)
+                    Madara.SetUnableToAct(madara);
+                Madara.SanitizeSealedActions(game);
 
 
                 //Никому не нужен
@@ -1326,7 +1336,8 @@ public class CheckIfReady : IServiceSingleton
 
                 foreach (var t in players.Where(t =>
                              t.Status.WhoToAttackThisTurn.Count == 0 && t.Status.IsBlock == false &&
-                             t.Status.IsSkip == false))
+                             t.Status.IsSkip == false
+                             && !(Madara.IsMadara(t) && (game.RoundNo == 8 || t.Passives.Madara.Sealed))))
                 {
                     t.Status.IsBlock = true;
                     t.Status.IsReady = true;
@@ -1362,6 +1373,29 @@ public class CheckIfReady : IServiceSingleton
                             "Монстр: Ты не можешь сбежать от того, кто уже внутри.\n");
                     }
                 }
+
+                // Клоны Сусано: every locked, correct round-eight Madara prediction becomes a
+                // second visible attack. Duplicates are intentional when the player also attacked
+                // Madara normally (5 ordinary attacks + 5 prediction attacks is the maximum).
+                madara = Madara.Find(game);
+                if (game.RoundNo == 8 && madara != null && !madara.Passives.Madara.Sealed)
+                {
+                    foreach (var predictor in players.Where(p =>
+                                 p.GetPlayerId() != madara.GetPlayerId()
+                                 && p.Status.ConfirmedPredict
+                                 && p.Predict.Any(prediction =>
+                                     prediction.PlayerId == madara.GetPlayerId()
+                                     && prediction.CharacterName == Madara.CharacterName)))
+                    {
+                        predictor.Status.WhoToAttackThisTurn.Add(madara.GetPlayerId());
+                        if (predictor.GameCharacter.Name == "Итачи")
+                            game.Phrases.MadaraItachiPrediction.SendLog(
+                                predictor, false, isRandomOrder: false);
+                    }
+
+                    Madara.SetUnableToAct(madara);
+                }
+                Madara.SanitizeSealedActions(game);
 
                 //delete messages from prev round. No await.
                 foreach (var player in game.PlayersList)

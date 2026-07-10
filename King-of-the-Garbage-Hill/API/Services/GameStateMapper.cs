@@ -104,12 +104,14 @@ public static class GameStateMapper
                     Description = c.Description,
                     Tier = c.Tier,
                     Cost = i == 0 ? 0 : 5,
-                    Passives = c.Passive.Select(p => new PassiveDto
-                    {
-                        Name = p.PassiveName,
-                        Description = p.PassiveDescription,
-                        Visible = p.Visible,
-                    }).ToList(),
+                    Passives = c.Passive
+                        .Where(p => p.PassiveName != Madara.EternalTsukuyomi)
+                        .Select(p => new PassiveDto
+                        {
+                            Name = p.PassiveName,
+                            Description = p.PassiveDescription,
+                            Visible = p.Visible,
+                        }).ToList(),
                 }).ToList()
                 : null,
             IsKratosEvent = game.IsKratosEvent,
@@ -118,8 +120,10 @@ public static class GameStateMapper
             MyPlayerId = requestingPlayer?.GetPlayerId(),
             MyPlayerType = requestingPlayer?.PlayerType ?? 0,
             PreferWeb = requestingPlayer?.PreferWeb ?? false,
-            AllCharacterNames = requestingPlayer?.GameCharacter.DoomRollMode == true ? new List<string>() : _allCharacterNames,
-            AllCharacters = requestingPlayer?.GameCharacter.DoomRollMode == true ? new List<CharacterInfoDto>() : _allCharacters,
+            AllCharacterNames = requestingPlayer?.GameCharacter.DoomRollMode == true || Madara.IsMadara(requestingPlayer)
+                ? new List<string>() : _allCharacterNames,
+            AllCharacters = requestingPlayer?.GameCharacter.DoomRollMode == true || Madara.IsMadara(requestingPlayer)
+                ? new List<CharacterInfoDto>() : _allCharacters,
         };
 
         // Map structured fight log for web animation (scoped: only own fights get full details)
@@ -185,6 +189,8 @@ public static class GameStateMapper
             }
         }
 
+        ApplyEternalTsukuyomiProjection(dto, game, requestingPlayer);
+
         return dto;
     }
 
@@ -208,7 +214,7 @@ public static class GameStateMapper
 
         // Predictions — visible to the owning player, and to everyone at game end
         var isFinished = game?.IsFinished ?? false;
-        if (isMe || isFinished)
+        if ((isMe || isFinished) && !(isMe && Madara.IsMadara(player)))
         {
             dto.Predictions = player.Predict
                 .Select(p =>
@@ -956,9 +962,25 @@ public static class GameStateMapper
             PsycheBonusText = isMe ? GetPsycheBonusText(character) : "",
         };
 
+        if (Madara.HasReanimatedBody(character))
+        {
+            dto.SkillDisplay = "";
+            dto.MoralDisplay = "";
+            dto.SkillTarget = "";
+            dto.IntelligenceResist = 0;
+            dto.StrengthResist = 0;
+            dto.SpeedResist = 0;
+            dto.PsycheResist = 0;
+            dto.IntelligenceBonusText = "";
+            dto.StrengthBonusText = "";
+            dto.SpeedBonusText = "";
+            dto.PsycheBonusText = "";
+        }
+
         // Show all passives to the owning player, only visible ones to opponents (admin)
         foreach (var passive in character.Passive)
         {
+            if (passive.PassiveName == Madara.EternalTsukuyomi) continue;
             if (isMe || passive.Visible)
             {
                 dto.Passives.Add(new PassiveDto
@@ -971,6 +993,133 @@ public static class GameStateMapper
         }
 
         return dto;
+    }
+
+    private static void ApplyEternalTsukuyomiProjection(
+        GameStateDto dto, GameClass game, GamePlayerBridgeClass requestingPlayer)
+    {
+        if (!game.IsFinished || !Madara.IsEternalTsukuyomiActive(game))
+            return;
+
+        if (requestingPlayer == null)
+        {
+            const string hiddenResult = "Результат игры скрыт.";
+            dto.GlobalLogs = hiddenResult;
+            dto.AllGlobalLogs = hiddenResult;
+            dto.FullChronicle = hiddenResult;
+            dto.FightLog.Clear();
+            foreach (var player in dto.Players)
+            {
+                player.Status.Score = 0;
+                player.Status.Place = 0;
+                player.Status.ScoreBreakdown = null;
+                player.Status.PlaceHistory.Clear();
+                player.Predictions.Clear();
+            }
+            return;
+        }
+
+        var projectedLogs = Madara.GetProjectedFinalLogs(game, requestingPlayer);
+        dto.GlobalLogs = projectedLogs;
+        dto.AllGlobalLogs = projectedLogs;
+        dto.FullChronicle = projectedLogs;
+
+        var madara = Madara.Find(game);
+        if (madara == null) return;
+
+        if (Madara.IsMadara(requestingPlayer))
+        {
+            dto.FightLog = game.PlayersList
+                .Where(player => player.GetPlayerId() != madara.GetPlayerId())
+                .Select(player => new FightEntryDto
+                {
+                    AttackerName = player.DiscordUsername,
+                    AttackerCharName = player.GameCharacter.Name,
+                    AttackerAvatar = GetLocalAvatarUrl(player.GameCharacter.AvatarCurrent ?? player.GameCharacter.Avatar),
+                    DefenderName = madara.DiscordUsername,
+                    DefenderCharName = madara.GameCharacter.Name,
+                    DefenderAvatar = GetLocalAvatarUrl(madara.GameCharacter.AvatarCurrent ?? madara.GameCharacter.Avatar),
+                    Outcome = "skip",
+                    WinnerName = "",
+                })
+                .ToList();
+            return;
+        }
+
+        var illusoryBonus = Madara.GetIllusoryBonus(game, requestingPlayer);
+        var projectedOrder = Madara.GetIllusoryOrder(game, requestingPlayer);
+        for (var i = 0; i < projectedOrder.Count; i++)
+        {
+            var projectedPlayer = dto.Players.Find(player => player.PlayerId == projectedOrder[i].GetPlayerId());
+            if (projectedPlayer == null) continue;
+            projectedPlayer.Status.Place = i + 1;
+            if (projectedPlayer.PlayerId != requestingPlayer.GetPlayerId())
+                projectedPlayer.Status.ScoreBreakdown = null;
+            if (projectedPlayer.Status.PlaceHistory.Count == 0
+                || projectedPlayer.Status.PlaceHistory[^1].Round != game.RoundNo)
+                projectedPlayer.Status.PlaceHistory.Add(new PlaceHistoryDto { Round = game.RoundNo, Place = i + 1 });
+            else
+                projectedPlayer.Status.PlaceHistory[^1].Place = i + 1;
+        }
+
+        var viewerDto = dto.Players.Find(player => player.PlayerId == requestingPlayer.GetPlayerId());
+        if (viewerDto != null)
+        {
+            viewerDto.IsDead = false;
+            viewerDto.DeathSource = "";
+            viewerDto.Status.Score += illusoryBonus;
+            viewerDto.Status.ScoreBreakdown ??= new ScoreBreakdownDto();
+            viewerDto.Status.ScoreBreakdown.Entries.Add(new ScoreEntryDto
+            {
+                Source = Madara.EternalTsukuyomi,
+                Points = illusoryBonus,
+                IsBonus = true,
+            });
+        }
+
+        var ownFight = dto.FightLog.FirstOrDefault(fight =>
+            fight.AttackerName == requestingPlayer.DiscordUsername
+            || fight.DefenderName == requestingPlayer.DiscordUsername);
+        if (ownFight != null)
+        {
+            var viewerAttacked = ownFight.AttackerName == requestingPlayer.DiscordUsername;
+            dto.FightLog = new List<FightEntryDto>
+            {
+                new()
+                {
+                    AttackerName = ownFight.AttackerName,
+                    AttackerCharName = ownFight.AttackerCharName,
+                    AttackerAvatar = ownFight.AttackerAvatar,
+                    DefenderName = ownFight.DefenderName,
+                    DefenderCharName = ownFight.DefenderCharName,
+                    DefenderAvatar = ownFight.DefenderAvatar,
+                    Outcome = viewerAttacked ? "win" : "loss",
+                    WinnerName = requestingPlayer.DiscordUsername,
+                    TotalPointsWon = viewerAttacked ? 1 : -1,
+                    Round1PointsWon = viewerAttacked ? 1 : -1,
+                }
+            };
+        }
+        else
+        {
+            dto.FightLog = new List<FightEntryDto>
+            {
+                new()
+                {
+                    AttackerName = requestingPlayer.DiscordUsername,
+                    AttackerCharName = requestingPlayer.GameCharacter.Name,
+                    AttackerAvatar = GetLocalAvatarUrl(
+                        requestingPlayer.GameCharacter.AvatarCurrent ?? requestingPlayer.GameCharacter.Avatar),
+                    DefenderName = madara.DiscordUsername,
+                    DefenderCharName = madara.GameCharacter.Name,
+                    DefenderAvatar = GetLocalAvatarUrl(madara.GameCharacter.AvatarCurrent ?? madara.GameCharacter.Avatar),
+                    Outcome = "win",
+                    WinnerName = requestingPlayer.DiscordUsername,
+                    TotalPointsWon = 1,
+                    Round1PointsWon = 1,
+                }
+            };
+        }
     }
 
     private static PlayerStatusDto MapStatus(GamePlayerBridgeClass player, bool isMe, bool isAdmin, bool isFinished = false)

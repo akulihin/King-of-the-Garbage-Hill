@@ -16,6 +16,8 @@ Forced-fight sources: **Монстр** no-escape (`CIR:1266-1289`), **Шэн** b
 | Ziggurat lock | position only — fights unaffected | position only | position only | n/a | n/a | position only — wave follows current board order |
 | Premade Carry | n/a | n/a | n/a | n/a | anti-skip now exempts the round-10 Тигр ban (M10 fixed, `CP:5689-5704`) | n/a |
 | Эрен: Атакующий Титан | no block remains to strip; forced target still resolves with +5 stats | forced target resolves with +5 stats | taunt target resolves with +5 stats | n/a | injection resolves each fight with +5 stats | wave branches resolve with +5 stats | Block is cleared in `DM:271-281`; boost is reapplied per fight `CP:62-72,443-447,1002-1006` |
+| Мадара round 8 | targetable; own action is cleared after forced-action injection | targetable | targetable | own auto-action cleared | contract fights resolve normally | wave resolves normally | Correct locked predictions add another ordinary queued fight (`CIR:1376-1397`); Madara cannot attack (`Madara.cs:197-205`) |
+| Мадара sealed | all queued targets sanitized | all queued targets sanitized | all queued targets sanitized | cannot act | pre-fight targets sanitized | ✓ excluded `DM:793-799` | `Madara.SanitizeSealedActions` runs after forced injections; direct targeting says `Игрок запечатан` (`Madara.cs:189-217`; `CIR:1395-1397`) |
 
 ## 2. Kill sources × immunities
 
@@ -26,6 +28,7 @@ Kill sources: Кира's Тетрадь (`CP:3988-4066`), Кира's L-arrest (s
 | Стая Гоблинов ("нельзя убить") | ✓ `CP:4009` | ✓ `CP:1660` (+arrest `CP:4686`) | ✗ **die here — intended** (M12, ОК) | ✗ die `CP:3501-3512` | design: GameDesign.txt:509; Rumbling says all strictly-between players |
 | Глаз Шусуи (Итачи) | revives next round | revives next round | revives next round | revives next round | one-time, any source (`CP:5365-5374`) |
 | Боги мне не указ (Кратос) | ✓ revives +228 Skill | n/a | ✗ not covered (source ≠ "Kira") | ✗ not covered | source-check is `== "Kira"` only (`CP:5377-5386`) |
+| Воскрешенное тело (Мадара) | ✓ `CP:4287-4300` | ✓ `CP:1725-1734` | ✓ `CP:4583-4594` | ✓ `CP:3527-3541` | unconditional external-kill immunity; sealing is an unable-to-act state, not death |
 | Dead state effects | — | — | — | already dead excluded `CP:3506` | auto-block/ready, 0 ZBS, no mastery, excluded from forced pools (`CIR:1032-1037, 622-665`) |
 
 ## 3. Position movers × position locks
@@ -45,6 +48,7 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 | Еврей (`HandleJews`, `CP:6594-6672`) | steals fight win point | Октопус ink | ink debits the Jew instead of the attacker (`CP:6691-6708`); Napoleon & fellow Евреи immune victims |
 | PointFunnel (Баг) | copies regular points | Еврей | funnel copies only `AddWinPoints` — Jew's stolen points not funneled |
 | Цукуеми (Итачи) | copies round earnings, deducts at end | Октопус ink | victim pays once: the round-11 ink restore **skips** its debit for a victim under Цукуеми (Итачи deducts instead); both Итачи and Octopus still get their point (D11 fixed, `CP:4773-4790`) |
+| Цукуеми (Итачи) → Мадара | copies ordinary round earnings | Воскрешенное тело | score theft works normally; Madara receives the supplied personal reaction, labeled `Бог шиноби` so the hidden passive name is not leaked (`CP:4385-4397`; `CharactersPhrases.cs:352-359`) |
 | Октопус ink | fake-win now, restore at r11 | DeepList first-fight | suppressed until DeepList's scripted loss happens (`CP:6678-6685`) |
 | Kimiko Живое Оружие | **drains** attacker Justice | — | real transfer (`CP:744-755`) |
 | Близнец (Монстр) | **drains** attacker Justice on block + bonus | — | real transfer (`CP:875-890`) |
@@ -75,6 +79,7 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 | Много выебывается | Harm from higher-skill enemy while #1 → self-Drop | CC:223-229 |
 | Минька (winner) | deals no Harm and no fight-moral loss | DM:750, 805-806 |
 | Let's Roll! (DooM Guy) | Moral is set to 0 and all later Moral mutations/conversions are rejected; predictions are cleared/disabled | DoomGuy.cs:113-126, CC:1136-1137, GameStateMapper.cs:121-122 |
+| Воскрешенное тело (Мадара) | Skill/Moral/Psyche loss, Harm, negative stat mutations and predictions are rejected; Madara also deals no Harm | Madara.cs:34-39; CC:198-203,781-846,911-1167,1239-1605; GamePlayerBridgeClass.cs:102-108; DM:831-935 |
 
 ## 6. Ziggurat-copyable inventory (`Standalone: true`)
 
@@ -90,6 +95,7 @@ Copy rule: random Standalone passive from the **last attacked** enemy, no duplic
 | Булькает | self-brick: kills own moral & skill incl. Ziggurat income — **left as-is** (D10, intended; only «Еврей» is excluded — D2) |
 | Лысина / Первая кровь / Похищение души | dead copies (game-start-only hooks) |
 | Ведьмачьи заказы | dead copy (all hooks gated `Name == "Геральт"`) |
+| Madara's first four passives | dead copies: every mechanic is gated by `Name == "Мадара"`; none is `Standalone`, and Chainsaw cannot offer the fifth hidden passive (`Madara.cs:34-45`; `DoomGuy.cs:198-225`) |
 
 ## 7. Same-target stacking notes
 
@@ -97,5 +103,6 @@ Copy rule: random Standalone passive from the **last attacked** enemy, no duplic
 - BFG branches are appended to that same sequential target queue. The primary random-stage win fans out to both neighbours; only a win continues a branch, and a target is visited at most once (`DM:756-769`).
 - Со-attack interactions verified: Еврей steal (needs the Jew to also attack the target), Сайтама deferral (needs a co-attacker), Наполеон joint-attack auto-win (needs the ally to attack the same target).
 - Эрен mutual attack is direction-safe: only Eren's own attack branch awards +2 regular, and a per-round enemy list prevents contract/BFG repeats from paying twice (`CP:2489-2500`). An attacking enemy's hatred mark is upgraded to 2 before resolution; a later ordinary Eren loss never downgrades it to 1 (`CP:438-441,2470-2478`).
+- Мадара round 8 deliberately keeps same-target duplicates: a normal/hidden/second action and the correct-prediction clone each remain separate fights. Thresholds use **unique attackers**, including fights injected during resolution, while the sealing loss requirement counts resolved defense losses (`CIR:1376-1397`; `Madara.cs:64-131`; `DM:461`).
 - Round-10 pre-settlement: Rumbling runs immediately after the fight loop and before every `HandleEndOfRound` passive; it ranks projected post-multiplier ordinary score, kills strict-between places, then later passives proceed (`DM:1235-1236`; `CP:3484-3528`).
 - Round-10 settlement order (who claws back first): Пейзаж deaths & Saitama banking happen in round-10 `HandleEndOfRound`; Чернильная завеса restore and Ищет достойного (One Punch) at round-11 `HandleNextRound`; Запах мусора at round-11 after-sorting; then `HandleLastRound`: predictions → M.M. ×компромат → TheBoys virus → Цукуеми deduction → sort → AWDKA → Premade → Sakura (GAME-DESIGN §8E).

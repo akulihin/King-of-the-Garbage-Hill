@@ -81,6 +81,12 @@ public class BotsBehavior : IServiceSingleton
         if (player.Passives.IsDead)
             return;
 
+        if (Madara.IsMadara(player) && (game.RoundNo == 8 || player.Passives.Madara.Sealed))
+        {
+            Madara.SetUnableToAct(player);
+            return;
+        }
+
         // L2/L3 only: choose one coherent plan once and keep it for the entire match. Several kits
         // expose mutually-exclusive choices/builds; L1 remains untouched and therefore has no plan.
         EnsureBotPlaystyle(player, game);

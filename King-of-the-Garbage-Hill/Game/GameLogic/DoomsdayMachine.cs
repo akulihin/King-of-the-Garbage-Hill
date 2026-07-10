@@ -186,6 +186,11 @@ public class DoomsdayMachine : IServiceSingleton
             for (var mi = p.WebMediaMessages.Count - 1; mi >= 0; mi--)
             {
                 var entry = p.WebMediaMessages[mi];
+                // Madara's round-eight theme starts while players choose actions and must survive this
+                // cleanup until the fights finish. It is removed explicitly after the fight loop below.
+                if (game.RoundNo == 8 && entry.PassiveName == Madara.SusanooClones
+                    && entry.FileUrl?.EndsWith("madara_tsukuemi_theme.mp3", StringComparison.OrdinalIgnoreCase) == true)
+                    continue;
                 entry.RoundsPlayed++;
                 if (entry.RoundsPlayed >= entry.RoundsToPlay)
                     p.WebMediaMessages.RemoveAt(mi);
@@ -234,6 +239,7 @@ public class DoomsdayMachine : IServiceSingleton
         //FightCharacter == READ ONLY
         //GameCharacter == WRITE ONLY
         //FightCharacter writes cans happens only "for one fight" not for the whole round!
+        Madara.PrepareIncomingAttackers(game);
         DeepCopyGameCharacterToFightCharacter(game);
 
         // Геральт — Медитация: skip works as block
@@ -452,6 +458,8 @@ public class DoomsdayMachine : IServiceSingleton
                 playerIamAttacking.Status.IsFighting = player.GetPlayerId();
                 player.Status.IsFighting = playerIamAttacking.GetPlayerId();
 
+                Madara.RegisterIncomingAttacker(game, playerIamAttacking, player);
+
 
                 // Clear ForOneFight mod tracking for both players
                 player.Status.ForOneFightMods.Clear();
@@ -514,7 +522,16 @@ public class DoomsdayMachine : IServiceSingleton
                                        && playerIamAttacking.Passives.DoomGuy.GetActive(DoomGuy.Shield) == DoomGuy.SawShield
                         ? -3
                         : -1;
-                    player.Status.AddBonusPoints(blockPenalty, "Блок");
+                    if (player.GameCharacter.Name == Madara.CharacterName
+                        && player.GameCharacter.Passive.Any(x => x.PassiveName == Madara.SecondMeteorite))
+                    {
+                        player.Status.AddRegularPoints(2, Madara.SecondMeteorite);
+                        game.Phrases.MadaraSecondMeteorite.SendLog(player, false, isRandomOrder: false);
+                    }
+                    else
+                    {
+                        player.Status.AddBonusPoints(blockPenalty, "Блок");
+                    }
 
                     var doomShield = playerIamAttacking.Passives.DoomGuy;
                     if (playerIamAttacking.GameCharacter.Name == DoomGuy.CharacterName
@@ -777,7 +794,8 @@ public class DoomsdayMachine : IServiceSingleton
                         var nextIndex = targetIndexOnBoard + direction;
                         if (nextIndex < 0 || nextIndex >= game.PlayersList.Count) continue;
                         var nextTarget = game.PlayersList[nextIndex];
-                        if (nextTarget.Passives.IsDead || !bfgWaveVisited.Add(nextTarget.GetPlayerId())) continue;
+                        if (nextTarget.Passives.IsDead || Madara.IsSealed(nextTarget)
+                            || !bfgWaveVisited.Add(nextTarget.GetPlayerId())) continue;
                         targetsToFight.Add((nextTarget, direction));
                     }
                 }
@@ -817,6 +835,7 @@ public class DoomsdayMachine : IServiceSingleton
                 {
                     // Минька: winner never deals harm — skip quality damage and moral loss on opponent
                     var isHarmless = player.GameCharacter.Passive.Any(x => x.PassiveName == "Минька");
+                    var dealsHarm = player.GameCharacter.Name != Madara.CharacterName;
 
                     var point = 1;
                     //сильный
@@ -904,7 +923,7 @@ public class DoomsdayMachine : IServiceSingleton
                     resistPsycheBefore = playerIamAttacking.GameCharacter.GetPsycheQualityResistInt();
                     dropsBefore = playerIamAttacking.GameCharacter.GetStrengthQualityDropTimes();
 
-                    if (placeDiff <= range && !isHarmless)
+                    if (placeDiff <= range && !isHarmless && dealsHarm)
                     {
                         // TheBoys Butcher — кочерга умножает Вред (СуперМудень удваивает)
                         var harmRepeat = 1;
@@ -1232,6 +1251,14 @@ public class DoomsdayMachine : IServiceSingleton
             }
         }
 
+        if (game.RoundNo == 8)
+        {
+            foreach (var participant in game.PlayersList)
+                participant.WebMediaMessages.RemoveAll(entry =>
+                    entry.PassiveName == Madara.SusanooClones
+                    && entry.FileUrl?.EndsWith("madara_tsukuemi_theme.mp3", StringComparison.OrdinalIgnoreCase) == true);
+        }
+
         // Rumbling is deliberately the first post-fight passive settlement on round 10.
         _characterPassives.HandleRumblingAfterFights(game);
 
@@ -1469,7 +1496,8 @@ public class DoomsdayMachine : IServiceSingleton
         //sort
         for (var i = 0; i < game.PlayersList.Count; i++)
         {
-            if (game.RoundNo is 3 or 5 or 7 or 9)
+            if (game.RoundNo is 3 or 5 or 7 or 9
+                && game.PlayersList[i].GameCharacter.Name != Madara.CharacterName)
             {
                 game.PlayersList[i].Status.LvlUpPoints++;
                 game.PlayersList[i].Status.MoveListPage = 3;

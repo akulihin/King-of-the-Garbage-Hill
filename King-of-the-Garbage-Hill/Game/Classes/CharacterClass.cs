@@ -199,6 +199,7 @@ public class CharacterClass
     {
         var howMuch = 1;
         if (game.RoundNo == 1) return;
+        if (Madara.HasReanimatedBody(this)) return;
         if(Status.GameCharacter.Passive.Any(x => x.PassiveName == "Boole Family")) return;
 
         // DooM Guy — Маневры: every received Harm burns one point of the granted Speed.
@@ -780,6 +781,7 @@ public class CharacterClass
 
     public bool HasSkillTargetOn(CharacterClass target)
     {
+        if (Madara.HasReanimatedBody(this)) return false;
         return CurrentSkillTarget == target.GetSkillClass();
     }
 
@@ -833,6 +835,12 @@ public class CharacterClass
 
     public void RollSkillTargetForNextRound()
     {
+        if (Madara.HasReanimatedBody(this))
+        {
+            CurrentSkillTarget = "Ничего";
+            return;
+        }
+
         if (CurrentSkillTarget == "Ничего")
         {
             SkillClassType[] initial = { SkillClassType.Intelligence, SkillClassType.Speed, SkillClassType.Strength };
@@ -905,6 +913,8 @@ public class CharacterClass
         if (SkillForOneFight != -228)
             return SkillForOneFight;
 
+        if (Madara.HasReanimatedBody(this)) return 0;
+
         var skillFightMultiplier = GetSkillFightMultiplier();
         var intelligenceQualitySkillBonus = GetIntelligenceQualitySkillBonus();
 
@@ -922,6 +932,8 @@ public class CharacterClass
     {
         if (SkillForOneFight != -228)
             return SkillForOneFight;
+
+        if (Madara.HasReanimatedBody(this)) return 0;
 
         return (SkillMain + SkillExtra) * GetIntelligenceQualitySkillBonus();
     }
@@ -957,6 +969,13 @@ public class CharacterClass
 
     public void SetMainSkill(decimal howMuchToSet, string skillName, bool isLog = true)
     {
+        if (Madara.HasReanimatedBody(this))
+        {
+            SkillMain = 0;
+            SkillExtra = 0;
+            return;
+        }
+
         if (isLog)
         {
             var diff = howMuchToSet - GetSkill();
@@ -971,6 +990,7 @@ public class CharacterClass
 
     public decimal AddMainSkill(string skillName, bool isLog = true)
     {
+        if (Madara.HasReanimatedBody(this)) return 0;
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
             return 0;
         decimal howMuchToAdd = SkillMain switch
@@ -1012,6 +1032,7 @@ public class CharacterClass
 
     public decimal AddExtraSkill(decimal howMuchToAdd, string skillName, bool isLog = true)
     {
+        if (Madara.HasReanimatedBody(this)) return 0;
         var skillText = "Cкилла";
         if (skillName != "Обмен Морали" && skillName != "Класс")
         {
@@ -1105,11 +1126,19 @@ public class CharacterClass
 
     public decimal GetMoral()
     {
+        if (Madara.HasReanimatedBody(this)) return 0;
         return Math.Round(Moral + MoralBonus);
     }
 
     public void SetMoral(decimal howMuchToSet, string skillName, bool isLog = true)
     {
+        if (Madara.HasReanimatedBody(this))
+        {
+            Moral = 0;
+            MoralBonus = 0;
+            return;
+        }
+
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1128,6 +1157,13 @@ public class CharacterClass
 
     public void AddMoral(decimal howMuchToAdd, string skillName, bool isLog = true, bool isMoralPoints = false, bool isFightMoral = false)
     {
+        if (Madara.HasReanimatedBody(this))
+        {
+            Moral = 0;
+            MoralBonus = 0;
+            return;
+        }
+
         if (skillName != "Обмен Морали" && skillName != "Победа" && skillName != "Поражение")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1202,6 +1238,7 @@ public class CharacterClass
     
     public void AddIntelligence(int howMuchToAdd, string skillName, bool isLog = true)
     {
+        if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1243,6 +1280,7 @@ public class CharacterClass
 
     public void SetIntelligence(int howMuchToSet, string skillName, bool isLog = true)
     {
+        if (howMuchToSet < GetIntelligence() && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1271,6 +1309,7 @@ public class CharacterClass
 
     public void SetIntelligenceForOneFight(int howMuchToSet, string skillName)
     {
+        if (howMuchToSet < GetIntelligence() && Madara.HasReanimatedBody(this)) return;
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
@@ -1293,6 +1332,7 @@ public class CharacterClass
 
     public void AddPsyche(int howMuchToAdd, string skillName, bool isLog = true)
     {
+        if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1341,6 +1381,7 @@ public class CharacterClass
 
     public void SetPsyche(int howMuchToSet, string skillName, bool isLog = true)
     {
+        if (howMuchToSet < GetPsyche() && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1380,6 +1421,7 @@ public class CharacterClass
 
     public void SetPsycheForOneFight(int howMuchToSet, string skillName)
     {
+        if (howMuchToSet < GetPsyche() && Madara.HasReanimatedBody(this)) return;
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
@@ -1403,6 +1445,7 @@ public class CharacterClass
 
     public void AddSpeed(int howMuchToAdd, string skillName, bool isLog = true)
     {
+        if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1436,6 +1479,7 @@ public class CharacterClass
 
     public void SetSpeed(int howMuchToSet, string skillName, bool isLog = true)
     {
+        if (howMuchToSet < GetSpeed() && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1462,6 +1506,7 @@ public class CharacterClass
 
     public void AddSpeedForOneFight(int howMuchToAdd, string source = "")
     {
+        if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
         //Add delta to current speed for one fight only
         var current = GetSpeed();
         var newVal = Math.Max(0, current + howMuchToAdd);
@@ -1472,6 +1517,7 @@ public class CharacterClass
 
     public void SetSpeedForOneFight(int howMuchToSet, string skillName)
     {
+        if (howMuchToSet < GetSpeed() && Madara.HasReanimatedBody(this)) return;
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
@@ -1494,6 +1540,7 @@ public class CharacterClass
 
     public void AddStrength(int howMuchToAdd, string skillName, bool isLog = true)
     {
+        if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1527,6 +1574,7 @@ public class CharacterClass
 
     public void SetStrength(int howMuchToSet, string skillName, bool isLog = true)
     {
+        if (howMuchToSet < GetStrength() && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1553,6 +1601,7 @@ public class CharacterClass
 
     public void SetStrengthForOneFight(int howMuchToSet, string skillName)
     {
+        if (howMuchToSet < GetStrength() && Madara.HasReanimatedBody(this)) return;
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 

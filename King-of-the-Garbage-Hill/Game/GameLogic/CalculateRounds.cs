@@ -1,6 +1,7 @@
 using King_of_the_Garbage_Hill.Game.Classes;
 using System;
 using System.Threading.Tasks;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic
@@ -227,7 +228,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             var rfpBefore = randomForPoint;
             switch (weighingMachine)
             {
-                case >= 13:
+                case >= 13 when Madara.CanUseTooGood(player):
                     if (isLog)
                     {
                         player.Status.AddFightingData($"WhoIsTooGood: Me");
@@ -238,7 +239,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     randomForPoint = 70;
 
                     break;
-                case <= -13:
+                case <= -13 when Madara.CanUseTooGood(playerIamAttacking):
                     if (isLog)
                     {
                         player.Status.AddFightingData($"WhoIsTooGood: Enemy");
@@ -302,7 +303,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             rfpBefore = randomForPoint;
             switch (weighingMachine)
             {
-                case >= 30:
+                case >= 30 when Madara.CanUseTooStronk(player):
                     if (isLog)
                     {
                         player.Status.AddFightingData($"**WhoIsTooSTONK: Me**");
@@ -320,7 +321,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                     randomForPoint += tooStronkAdd;
                     break;
 
-                case <= -30:
+                case <= -30 when Madara.CanUseTooStronk(playerIamAttacking):
                     if (isLog)
                     {
                         player.Status.AddFightingData($"**WhoIsTooSTONK: Enemy**");

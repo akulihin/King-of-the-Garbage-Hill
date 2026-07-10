@@ -78,6 +78,21 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in player.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case Madara.GodOfShinobi:
+                    if (player.GameCharacter.Name == Madara.CharacterName)
+                    {
+                        player.GameCharacter.SetMainSkill(0, Madara.ReanimatedBody, false);
+                        player.GameCharacter.SetMoral(0, Madara.ReanimatedBody, false);
+                        player.GameCharacter.RollSkillTargetForNextRound();
+                        player.Predict.Clear();
+                        player.Status.LvlUpPoints = 0;
+                        player.Status.ConfirmedPredict = true;
+                        player.Status.AddInGamePersonalLogs(
+                            $"|>Phrase<|{Madara.GodOfShinobi}: Ха? В каком я мире? Хм... \n"
+                            + "Я не знаю, кто такой этот Король Мусорной Горы, но я хочу его видеть! Смог ли этот Король достичь мира?\n");
+                    }
+                    break;
+
                 case "God Of War":
                     player.Status.AddInGamePersonalLogs("**Zeus! Your son has returned. I bring the destruction of Olympus!**\n");
                     break;
@@ -404,6 +419,11 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in target.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case Madara.GodOfShinobi:
+                    if (Madara.ShouldUseHundredSkill(target))
+                        target.FightCharacter.SetSkillForOneFight(100, Madara.GodOfShinobi);
+                    break;
+
                 case "Следит за игрой":
                     foreach (var metaPlayer in target.Passives.YongGlebMetaClass)
                     {
@@ -999,6 +1019,11 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in me.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case Madara.GodOfShinobi:
+                    if (Madara.ShouldUseHundredSkill(me))
+                        me.FightCharacter.SetSkillForOneFight(100, Madara.GodOfShinobi);
+                    break;
+
                 case ErenYeager.AttackTitan:
                     if (me.GameCharacter.Name == ErenYeager.CharacterName
                         && me.Passives.Eren.AttackTitanActiveThisRound)
@@ -1701,8 +1726,8 @@ public class CharacterPassives : IServiceSingleton
                     if (game.IsKratosEvent && game.RoundNo > 10)
                         if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                         {
-                            // Goblins are immune to kill effects
-                            if (target.GameCharacter.Name == "Стая Гоблинов") break;
+                            // Goblins and Madara are immune to kill effects.
+                            if (target.GameCharacter.Name == "Стая Гоблинов" || Madara.IsMadara(target)) break;
                             game.AddGlobalLogs($"{me.GameCharacter.Name} **УБИЛ** {target.GameCharacter.Name}!");
                             game.AddGlobalLogs($"Они скинули **{target.DiscordUsername}**! Сволочи!");
                             game.Phrases.KratosEventKill.SendLog(me, true, isRandomOrder:false);
@@ -2335,6 +2360,7 @@ public class CharacterPassives : IServiceSingleton
     public async Task HandleCharacterAfterFight(GamePlayerBridgeClass player, GameClass game, bool attack, bool defense)
     {
         TheBoysSpreadVirus(player, game);
+        Madara.RecordResolvedFight(player, game, defense);
 
         foreach (var p in game.PlayersList)
         foreach (var passive in p.GameCharacter.Passive.ToList())
@@ -3502,7 +3528,7 @@ public class CharacterPassives : IServiceSingleton
         var victims = projected
             .Skip(erenIndex + 1)
             .Take(Math.Max(0, projected.Count - erenIndex - 2))
-            .Where(player => !player.Passives.IsDead)
+            .Where(player => !player.Passives.IsDead && !Madara.IsMadara(player))
             .ToList();
 
         foreach (var victim in victims)
@@ -4262,8 +4288,8 @@ public class CharacterPassives : IServiceSingleton
                             var actualName = dnTarget.GameCharacter.Name;
                             if (string.Equals(writtenName, actualName, StringComparison.OrdinalIgnoreCase))
                             {
-                                // Goblins are immune to kill effects
-                                if (dnTarget.GameCharacter.Name == "Стая Гоблинов") break;
+                                // Goblins and Madara are immune to kill effects.
+                                if (dnTarget.GameCharacter.Name == "Стая Гоблинов" || Madara.IsMadara(dnTarget)) break;
                                 // Correct — target dies
                                 dnTarget.Passives.IsDead = true;
                                 dnTarget.Passives.DeathSource = "Kira";
@@ -4366,6 +4392,8 @@ public class CharacterPassives : IServiceSingleton
                                     tsukuyomi.StolenFromPlayers[tsukuyomi.TsukuyomiActiveTarget] = 0;
                                 tsukuyomi.StolenFromPlayers[tsukuyomi.TsukuyomiActiveTarget] += stolenPoints;
                                 game.Phrases.ItachiTsukuyomiSteal.SendLog(player, false);
+                                if (Madara.IsMadara(tsukuyomiVictim))
+                                    game.Phrases.MadaraItachiStole.SendLog(tsukuyomiVictim, false, isRandomOrder: false);
                             }
                         }
                         tsukuyomi.TsukuyomiActiveTarget = Guid.Empty;
@@ -4556,7 +4584,7 @@ public class CharacterPassives : IServiceSingleton
                             !x.Passives.IsDead))
                         {
                             // Pawns who blocked or skipped survive
-                            if (pawn.Status.IsBlock || pawn.Status.IsSkip) continue;
+                            if (pawn.Status.IsBlock || pawn.Status.IsSkip || Madara.IsMadara(pawn)) continue;
                             pawn.Passives.IsDead = true;
                             pawn.Passives.DeathSource = "Monster";
                             deadNames.Add(pawn.GameCharacter.Name);
@@ -4861,6 +4889,32 @@ public class CharacterPassives : IServiceSingleton
 
     public async Task HandleNextRound(GameClass game)
     {
+        var madara = Madara.Find(game);
+        if (madara != null)
+        {
+            madara.GameCharacter.SetMainSkill(0, Madara.ReanimatedBody, false);
+            madara.GameCharacter.SetMoral(0, Madara.ReanimatedBody, false);
+            madara.Predict.Clear();
+            madara.Status.LvlUpPoints = 0;
+            madara.Status.ConfirmedPredict = true;
+
+            if (game.RoundNo == 8 && !madara.Passives.Madara.ThemeStarted)
+            {
+                madara.Passives.Madara.ThemeStarted = true;
+                Madara.SetUnableToAct(madara);
+                game.AddGlobalLogs(game.Phrases.MadaraRoundEightTheme.PassiveLogRus[0]);
+                foreach (var listener in game.PlayersList)
+                    await game.Phrases.MadaraRoundEightTheme.SendLogSeparateWithFile(
+                        listener, false, Madara.ThemeFile, false, 0, isRandomOrder: false, roundsToPlay: 1);
+            }
+
+            if (game.RoundNo == 9)
+                Madara.ResolveRoundNine(madara, game);
+
+            if (madara.Passives.Madara.Sealed)
+                Madara.SetUnableToAct(madara);
+        }
+
         foreach (var player in game.PlayersList)
         {
             foreach (var passive in player.GameCharacter.Passive.ToList())
@@ -6074,6 +6128,21 @@ public class CharacterPassives : IServiceSingleton
 
     public void HandleNextRoundAfterSorting(GameClass game)
     {
+        var madara = Madara.Find(game);
+        if (madara != null)
+        {
+            var state = madara.Passives.Madara;
+            if (state.ResolvedFights > 0 && !state.TopOnePhraseSent
+                && madara.Status.GetPlaceAtLeaderBoard() == 1)
+            {
+                state.TopOnePhraseSent = true;
+                game.Phrases.MadaraTopOne.SendLog(madara, false, isRandomOrder: false);
+            }
+
+            if (game.RoundNo == 10 && madara.Status.GetPlaceAtLeaderBoard() == 1 && !state.Sealed)
+                state.EternalTsukuyomiActive = true;
+        }
+
         foreach (var player in game.PlayersList)
         foreach (var passive in player.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
@@ -6590,6 +6659,12 @@ public class CharacterPassives : IServiceSingleton
                 if (game.RoundNo >= 9) continue;
                 // Kira uses Death Note, not predictions
                 if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Тетрадь смерти")) continue;
+                if (Madara.IsMadara(player))
+                {
+                    player.Predict.Clear();
+                    player.Status.ConfirmedPredict = true;
+                    continue;
+                }
 
                 // L3: strict bots (never AFK humans — IsBot() also matches disconnected players) know everyone.
                 // Effective difficulty honors a per-player --ai-probe override (≥0), else the game default.

@@ -164,6 +164,26 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     {
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         if (game == null) return "ERROR 404";
+
+        if (game.RoundNo >= 11 && Madara.IsEternalTsukuyomiActive(game))
+        {
+            var projected = Madara.GetIllusoryOrder(game, player)
+                .Where(x => !x.Passives.IsDead || x.GetPlayerId() == player.GetPlayerId())
+                .ToList();
+            var projectedBoard = "";
+            for (var i = 0; i < projected.Count; i++)
+            {
+                var shown = projected[i];
+                var shownScore = shown.GetPlayerId() == player.GetPlayerId() && !Madara.IsMadara(player)
+                    ? shown.Status.GetScore() + Madara.GetIllusoryBonus(game, player)
+                    : shown.Status.GetScore();
+                var username = shown.DiscordUsername.Replace("_", "\\_")
+                    .Replace("*", "\\*").Replace("~", "\\~").Replace("`", "\\`");
+                projectedBoard += $"{i + 1}. {username} (as **{shown.GameCharacter.Name}**) = {shownScore} Score\n\n";
+            }
+            return projectedBoard;
+        }
+
         var players = "";
         var playersList = game.PlayersList.Where(x => !x.Passives.IsDead).ToList();
 
@@ -231,6 +251,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         if (game.RoundNo == 10 && player2.GameCharacter.Passive.Any(
             x => x.PassiveName == "Стримснайпят и банят и банят и банят"))
+            customString += "🚫";
+
+        if (Madara.IsSealed(player2))
             customString += "🚫";
 
         // Pawn icon for Johan pawns
@@ -1085,6 +1108,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
         var globalLogs = game!.GetGlobalLogs();
+        if (game.RoundNo >= 11 && Madara.IsEternalTsukuyomiActive(game))
+            globalLogs = Madara.GetProjectedFinalLogs(game, player);
         // Hide fight logs from non-admin players
         if (player.PlayerType != 2)
             foreach (var snippet in game.HiddenGlobalLogSnippets)
@@ -1118,19 +1143,29 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (player.GameCharacter.GetTargetSkillMultiplier() > 0) targetExtraText = $" (Множитель: **x{player.GameCharacter.GetTargetSkillMultiplier() + 1}**)";
         */
 
+        var isMadara = Madara.IsMadara(player);
+        var statLines = isMadara
+            ? $"**{intStr}:** {character.GetIntelligenceString()}\n"
+              + $"**{strStr}:** {character.GetStrengthString()}\n"
+              + $"**{speStr}:** {character.GetSpeedString()}\n"
+              + $"**{psyStr}:** {character.GetPsycheString()}\n"
+            : $"**{intStr}:** {character.GetIntelligenceString()}{character.GetIntelligenceQualityResist()}\n"
+              + $"**{strStr}:** {character.GetStrengthString()}{character.GetStrengthQualityResist()}\n"
+              + $"**{speStr}:** {character.GetSpeedString()}{character.GetSpeedQualityResist()}\n"
+              + $"**{psyStr}:** {character.GetPsycheString()}{character.GetPsycheQualityResist()}\n";
+        var resourceLines = isMadara
+            ? $"*Справедливость: **{character.Justice.GetRealJusticeNow()}***\n"
+              + $"*Класс:* {character.GetClassStatDisplayText()}\n"
+            : $"*Справедливость: **{character.Justice.GetRealJusticeNow()}***\n"
+              + $"*Мораль: {character.GetMoralString()}*\n"
+              + $"*Скилл: {character.GetSkillDisplay()} (Мишень: **{character.GetCurrentSkillClassTarget()}**)*\n"
+              + $"*Класс:* {character.GetClassStatDisplayText()}\n";
+
         embed.WithDescription($"{desc}" +
                               $"**{splitter}**\n" +
-                              $"**{intStr}:** {character.GetIntelligenceString()}{character.GetIntelligenceQualityResist()}\n" +
-                              $"**{strStr}:** {character.GetStrengthString()}{character.GetStrengthQualityResist()}\n" +
-                              $"**{speStr}:** {character.GetSpeedString()}{character.GetSpeedQualityResist()}\n" +
-                              $"**{psyStr}:** {character.GetPsycheString()}{character.GetPsycheQualityResist()}\n" +
+                              statLines +
                               $"**{splitter}**\n" +
-                              $"*Справедливость: **{character.Justice.GetRealJusticeNow()}***\n" +
-                              $"*Мораль: {character.GetMoralString()}*\n" +
-                              $"*Скилл: {character.GetSkillDisplay()} (Мишень: **{character.GetCurrentSkillClassTarget()}**)*\n" +
-                              //$"*Скилл: {character.GetSkillDisplay()}{skillExtraText}*\n" +
-                              //$"*Мишень: **{character.GetCurrentSkillClassTarget()}**{targetExtraText}*\n" +
-                              $"*Класс:* {character.GetClassStatDisplayText()}\n" +
+                              resourceLines +
                               $"**{splitter}**\n" +
                               $"Множитель очков: **x{multiplier}**\n" +
                               "<:e_:562879579694301184>\n" +
@@ -1310,6 +1345,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         for (var i = 0; i < player.GameCharacter.Passive.Count; i++)
         {
             var passive = player.GameCharacter.Passive[i];
+            if (passive.PassiveName == Madara.EternalTsukuyomi) continue;
             embed.AddField($"{i+1}. {passive.PassiveName}", passive.PassiveDescription);
         }
 
@@ -1388,7 +1424,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         {
             var playerToAttack = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == i + 1);
             if (playerToAttack == null) continue;
-            if (playerToAttack.DiscordId != player.DiscordId && !playerToAttack.Passives.IsDead)
+            if (playerToAttack.DiscordId != player.DiscordId && !playerToAttack.Passives.IsDead
+                && !Madara.IsSealed(playerToAttack))
                 attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, playerToAttack.GetPlayerId().ToString(), emote: _playerChoiceAttackList[i]);
         }
 
@@ -1609,13 +1646,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         components.WithSelectMenu(GetAttackMenu(player, game), 1);
 
-        components.WithButton(GetMoralToSkillButton(player, game), 2);
+        if (!Madara.IsMadara(player))
+            components.WithButton(GetMoralToSkillButton(player, game), 2);
 
-        if (player.GameCharacter.GetMoral() >= 3)
+        if (!Madara.IsMadara(player) && player.GameCharacter.GetMoral() >= 3)
             if (player.Status.ConfirmedPredict && player.Status.ConfirmedSkip)
                 components.WithButton(GetMoralToPointsButton(player, game), 2);
 
-        if (game.GameMode != "Aram" && !player.GameCharacter.DoomRollMode)
+        if (game.GameMode != "Aram" && !player.GameCharacter.DoomRollMode && !Madara.IsMadara(player))
         {
             if (player.GameCharacter.Passive.All(x => x.PassiveName != "AdminPlayerType"))
             {
