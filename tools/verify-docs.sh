@@ -8,8 +8,15 @@
 #     longer appears within ±3 lines of the cited location (advisory — eyeball them)
 #
 # Known/accepted DRIFT candidates live in tools/known-drift.txt — only NEW ones are
-# printed. After reviewing new candidates (and fixing real drift), accept the rest
-# with --baseline-update.
+# printed. Candidate identity uses the nearest Markdown heading rather than the doc
+# line number, so inserting prose does not invalidate the whole baseline. After
+# reviewing new candidates (and fixing real drift), accept the rest with
+# --baseline-update.
+#
+# The script also hard-fails when the hand-maintained catalogs lose coverage of a
+# character definition, public GameHub method, REST route, Vue route, or Discord
+# command. These exact inventory checks complement (but do not replace) semantic
+# review of prose and tunable values.
 #
 # --changed limits the check to anchors pointing into files currently modified in
 # the working tree (fast post-edit mode; /fix-finding runs this).
@@ -116,12 +123,79 @@ for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDI
       esac
       probe=$token
       case "$token" in *.*) probe=${token##*.};; esac   # Class.Member → match Member
-      printf '%s' "$ctx" | grep -qF -- "$probe" || \
-        echo "DRIFT?: \`$token\` at $doc:$docline not found near its cited lines" >> "$DRIFTS"
+      if ! printf '%s' "$ctx" | grep -qF -- "$probe"; then
+        heading=$(awk -v n="$docline" 'NR>n {exit} /^#{1,6} / {h=$0} END {print h}' "$doc")
+        [ -z "$heading" ] && heading="# (document start)"
+        echo "DRIFT?: \`$token\` in $doc [$heading] not found near its cited lines" >> "$DRIFTS"
+      fi
     done < <(printf '%s\n' "$tokens")
   done < <(grep -noE "([A-Za-z_.]+\.(cs|ts|json|txt|vue)|CP):[0-9]+(-[0-9]+)?" "$doc" \
             | sed 's/:/|/' | awk -F'|' '{a[$1]=a[$1]" "$2} END{for (l in a) print l "|" a[l]}' | sort -n)
 done
+
+# Exact catalog coverage. These checks intentionally ask only whether every source
+# entry has a documented counterpart; the prose still needs human semantic review.
+catalog_fail=0
+JSON="$B/DataBase/characters.json"
+expected_characters=$(jq 'length' "$JSON")
+documented_characters=$(( $(grep -c '^## ' docs/CHARACTERS.md) - 1 )) # exclude "## Index"
+if [ "$documented_characters" -ne "$expected_characters" ]; then
+  echo "CATALOG-MISMATCH: CHARACTERS.md has $documented_characters character headings; characters.json has $expected_characters."
+  catalog_fail=1
+fi
+while IFS= read -r name; do
+  grep -qF -- "## $name" docs/CHARACTERS.md || {
+    echo "CATALOG-MISSING: character heading \`$name\` in docs/CHARACTERS.md"
+    catalog_fail=1
+  }
+done < <(jq -r '.[].Name' "$JSON")
+
+hub_methods=0
+while IFS= read -r method; do
+  [ -z "$method" ] && continue
+  hub_methods=$((hub_methods + 1))
+  grep -qF -- "$method" docs/WEB-BACKEND.md || {
+    echo "CATALOG-MISSING: public GameHub method \`$method\` in docs/WEB-BACKEND.md"
+    catalog_fail=1
+  }
+done < <(grep -oP '^\s*public async Task \K[A-Za-z0-9_]+' "$B/API/GameHub.cs")
+
+rest_routes=0
+while IFS= read -r route; do
+  [ -z "$route" ] && continue
+  rest_routes=$((rest_routes + 1))
+  grep -qF -- "$route" docs/WEB-BACKEND.md || {
+    echo "CATALOG-MISSING: REST route \`$route\` in docs/WEB-BACKEND.md"
+    catalog_fail=1
+  }
+done < <(grep -hoP '\[Http(?:Get|Post|Put|Delete)\("\K[^"]+' "$B/API/Controllers/"*.cs)
+
+vue_routes=0
+while IFS= read -r route; do
+  [ -z "$route" ] && continue
+  vue_routes=$((vue_routes + 1))
+  grep -qF -- "\`$route\`" docs/WEB-CLIENT.md || {
+    echo "CATALOG-MISSING: Vue route \`$route\` in docs/WEB-CLIENT.md"
+    catalog_fail=1
+  }
+done < <(grep -oP "path:\s*'\K[^']+" "$V/router.ts")
+
+discord_commands=0
+while IFS= read -r command; do
+  [ -z "$command" ] && continue
+  discord_commands=$((discord_commands + 1))
+  grep -qF -- "$command" docs/DISCORD-INTERFACE.md || {
+    echo "CATALOG-MISSING: Discord command \`$command\` in docs/DISCORD-INTERFACE.md"
+    catalog_fail=1
+  }
+done < <(grep -rhoP '\[Command\("\K[^"]+' "$B/GeneralCommands" | sort -u)
+
+if [ "$catalog_fail" -eq 0 ]; then
+  echo "verify-docs: exact catalogs cover $expected_characters characters, $hub_methods hub methods, $rest_routes REST routes, $vue_routes Vue routes, and $discord_commands Discord commands."
+else
+  fail=1
+fi
+
 BASELINE=tools/known-drift.txt
 sort -u "$DRIFTS" > "$DRIFTS.sorted"
 if [ "$MODE" = "--baseline-update" ]; then

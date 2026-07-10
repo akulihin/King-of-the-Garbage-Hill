@@ -1,6 +1,6 @@
 # King of the Garbage Hill — Web Client (Vue 3 SPA)
 
-> Code-verified against the working tree of 2026-07-04 (v4.1.8). Companion docs: [WEB-BACKEND.md](WEB-BACKEND.md) (the server this SPA talks to), [ARCHITECTURE.md](ARCHITECTURE.md) (§6 state→screen, §7 the per-character 14-file pattern — steps 13-14 land here), [DISCORD-INTERFACE.md](DISCORD-INTERFACE.md). Client root: `Web/VueClient/`. All anchors below are into `Web/VueClient/src/` unless the file name says otherwise.
+> Code-verified against the working tree of 2026-07-10 (v4.1.8). Companion docs: [WEB-BACKEND.md](WEB-BACKEND.md) (the server this SPA talks to), [ARCHITECTURE.md](ARCHITECTURE.md) (§6 state→screen, §7 the per-character 14-file pattern — steps 13-14 land here), [DISCORD-INTERFACE.md](DISCORD-INTERFACE.md). Client root: `Web/VueClient/`. All anchors below are into `Web/VueClient/src/` unless the file name says otherwise.
 
 ## 1. Stack & build
 

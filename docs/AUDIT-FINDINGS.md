@@ -1,6 +1,6 @@
 # Design-vs-Code Audit — Findings
 
-> Audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the code, working tree of 2026-07-01 (v4.1.8). Every finding was verified by reading the cited code, not inferred. No code was changed — this is a report for triage. `CP` = `Game/GameLogic/CharacterPassives.cs`.
+> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-07-10. Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
 >
 > Severity: **Critical** = player-visible wrong outcome / broken kit promise; **Major** = mechanic silently missing/misfiring or balance-relevant hidden behavior; **Minor** = cosmetic, flavor, dead code, small numeric drift; **Design question** = code self-consistent but intent ambiguous.
 

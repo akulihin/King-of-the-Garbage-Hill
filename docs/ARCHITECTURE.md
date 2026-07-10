@@ -1,6 +1,6 @@
 # King of the Garbage Hill — Architecture
 
-> Code-verified against the working tree of 2026-07-01 (v4.1.8). Companion docs: [GAME-DESIGN.md](GAME-DESIGN.md), [CHARACTERS.md](CHARACTERS.md), [AUDIT-FINDINGS.md](AUDIT-FINDINGS.md); interface deep-dives: [WEB-BACKEND.md](WEB-BACKEND.md), [WEB-CLIENT.md](WEB-CLIENT.md), [DISCORD-INTERFACE.md](DISCORD-INTERFACE.md).
+> Code-verified against the working tree of 2026-07-10 (v4.1.8). Companion docs: [GAME-DESIGN.md](GAME-DESIGN.md), [CHARACTERS.md](CHARACTERS.md), [AUDIT-FINDINGS.md](AUDIT-FINDINGS.md); interface deep-dives: [WEB-BACKEND.md](WEB-BACKEND.md), [WEB-CLIENT.md](WEB-CLIENT.md), [DISCORD-INTERFACE.md](DISCORD-INTERFACE.md).
 
 ## 1. Process topology
 
@@ -82,7 +82,7 @@ classDiagram
 Each bridge holds **two** `CharacterClass` instances (`GamePlayerBridgeClass.cs:30-31`):
 
 - **`GameCharacter`** — persistent truth. All lasting changes (`AddIntelligence`, `AddExtraSkill`, `AddMoral`…) go here.
-- **`FightCharacter`** — snapshot taken **once per round** at the start of calculation (`DeepCopyGameCharacterToFightCharacter`, `DoomsdayMachine.cs:135-141, 235`). The fight engine (`CalculateRounds.cs`) reads **only** `FightCharacter`.
+- **`FightCharacter`** — snapshot taken **once per round** at the start of calculation (`DeepCopyGameCharacterToFightCharacter`, `DoomsdayMachine.cs:135-141,243`). The fight engine (`CalculateRounds.cs`) reads **only** `FightCharacter`.
 
 `DeepCopy` is `MemberwiseClone` + explicit deep-copy of the `Passive` list (`CharacterClass.cs:36-48`). Consequences:
 - Value-type stats are independent per copy.
@@ -98,27 +98,27 @@ Rules of thumb (violations are real bugs — see CLAUDE.md):
 
 ## 3. Passive hook execution order
 
-All hooks live in `CharacterPassives.cs` (~6.9k lines) as `switch (passive.PassiveName)` dispatchers. Call sites verified:
+All hooks live in `CharacterPassives.cs` (~7.3k lines) as `switch (passive.PassiveName)` dispatchers. Call sites verified:
 
 | # | Hook | Called from | When / notes |
 |---|---|---|---|
-| 1 | `HandleEventsBeforeFirstRound` (63) | game creation / draft & ARAM confirm | initial marks, L assignment, stat rewrites |
-| 2 | `HandleDefenseBeforeFight` (379) | fight loop, defender first (`DoomsdayMachine.cs:440`) | defensive ForOneFight overrides |
-| 3 | `HandleAttackBeforeFight` (976) | fight loop, after defense (`:451`) | offensive overrides — sees defender's mods |
-| 4 | block path | `:474-518` | attacker −1 bonus, defender justice, then hooks 8/9 for defender |
-| 5 | skip path | `:527-560` | hook 9 for defender |
-| 6 | `HandleDefenseAfterFight` (788) | after resolution (`:1078`) | defender-only reactions (counter effects) |
-| 7 | `HandleAttackAfterFight` (1638) | `:1083` | attacker-only rewards/steals |
-| 8 | `HandleDefenseAfterBlockOrFight` (708) | fight `:1079` + block `:512` | block-inclusive defensive effects |
-| 9 | `HandleDefenseAfterBlockOrFightOrSkip` (771) | fight `:1080` + block `:513` + skip `:555` | always-trigger defensive effects |
-| 10 | `HandleCharacterAfterFight` (2372) | both sides, all outcomes incl. own block/skip (`:402, 510-511, 553-554, 1086-1087`) | per-interaction cleanup/rewards |
-| 11 | `HandleShark` (6668) | after each fight (`:1089`) | "Лежит на дне" neighbor check |
-| 12 | `HandleEndOfRound` (3408) | once per round (`:1205`) | flags still set; round-end effects |
-| 13 | `HandleNextRound` (4707) | after `RoundNo++` (`:1266`) | per-round setup, trigger rolls |
-| 14 | `HandleNextRoundAfterSorting` (5842) | after sort/swaps/drops (`:1502`) | position-dependent effects |
-| 15 | `HandleBotPredict` (6353) | `:1503` | bot prediction heuristics |
+| 1 | `HandleEventsBeforeFirstRound` (75) | game creation / draft & ARAM confirm | initial marks, L assignment, stat rewrites |
+| 2 | `HandleDefenseBeforeFight` (409) | fight loop, defender first (`DoomsdayMachine.cs:472`) | defensive ForOneFight overrides |
+| 3 | `HandleAttackBeforeFight` (1007) | fight loop, after defense (`:483`) | offensive overrides — sees defender's mods |
+| 4 | block path | `:500-568` | attacker −1 bonus, defender justice, then hooks 8/9 for defender |
+| 5 | skip path | `:575-610` | hook 9 for defender |
+| 6 | `HandleDefenseAfterFight` (848) | after resolution (`:1212`) | defender-only reactions (counter effects) |
+| 7 | `HandleAttackAfterFight` (1671) | `:1217` | attacker-only rewards/steals |
+| 8 | `HandleDefenseAfterBlockOrFight` (754) | fight `:1213` + block `:567` | block-inclusive defensive effects |
+| 9 | `HandleDefenseAfterBlockOrFightOrSkip` (831) | fight `:1214` + block `:568` + skip `:610` | always-trigger defensive effects |
+| 10 | `HandleCharacterAfterFight` (2368) | both sides, all outcomes incl. own block/skip (`:423,565-566,608-609,1220-1221`) | per-interaction cleanup/rewards |
+| 11 | `HandleShark` (7012) | after each fight (`:1223`) | "Лежит на дне" neighbor check |
+| 12 | `HandleEndOfRound` (3569) | once per round (`:1350`) | flags still set; round-end effects |
+| 13 | `HandleNextRound` (4905) | after `RoundNo++` (`:1403-1411`) | per-round setup, trigger rolls |
+| 14 | `HandleNextRoundAfterSorting` (6150) | after sort/swaps/drops (`:1654`) | position-dependent effects |
+| 15 | `HandleBotPredict` (6675) | `:1655` | bot prediction heuristics |
 
-Special dispatchers outside the table: `HandleJews` (win-point stealing, `:6688`), `HandleOctopus` (defensive fake-loss, `:6767`), `HandleEventsBeforeCalculation` (PointFunnel, `DoomsdayMachine.cs:143`), and `HandleRumblingAfterFights` (`CharacterPassives.cs:3484-3528`) — called at `DoomsdayMachine.cs:1235-1236` as the first post-fight settlement, before `HandleEndOfRound`. Further per-character logic is embedded in `CheckIfReady` (forced attacks, last-round scoring), `GameReactions` (level-up overrides), `BotsBehavior`, `GameUpdateMess` (leaderboard icons), `CharacterClass` (moral/harm interceptors/display aliases), `InGameStatusClass` (PointFunnel), `GamePlayerBridgeClass` (psyche immunity).
+Special dispatchers outside the table: `HandleJews` (win-point stealing, `:7032`), `HandleOctopus` (defensive fake-loss, `:7111`), `HandleEventsBeforeCalculation` (PointFunnel, `DoomsdayMachine.cs:143-166`), and `HandleRumblingAfterFights` (`CharacterPassives.cs:3519-3567`) — called at `DoomsdayMachine.cs:1293-1294` as the first post-fight settlement, before `HandleEndOfRound`. Further per-character logic is embedded in `CheckIfReady` (forced attacks, last-round scoring), `GameReactions` (level-up overrides), `BotsBehavior`, `GameUpdateMess` (leaderboard icons), `CharacterClass` (moral/harm interceptors/display aliases), `InGameStatusClass` (PointFunnel), `GamePlayerBridgeClass` (psyche immunity).
 
 **Passive-matching convention**: logic keys on **exact `PassiveName` strings** from `characters.json`; some places key on **character `Name`** instead. Both are stringly-typed — renames in JSON silently orphan code branches (this has happened; see AUDIT-FINDINGS C1, m1, m3 and D4).
 

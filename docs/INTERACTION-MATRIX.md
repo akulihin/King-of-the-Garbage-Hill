@@ -1,6 +1,6 @@
 # Interaction Matrix — cross-character rules
 
-> Hand-maintained; verified 2026-07-01. **When adding/changing a character, add or update its row in every applicable table** — the M10–M12 bugs happened precisely at holes in these matrices. ⚠ = known hole (see AUDIT-FINDINGS). `CP` = CharacterPassives.cs, `CIR` = CheckIfReady.cs, `DM` = DoomsdayMachine.cs.
+> Hand-maintained; verified 2026-07-10. **When adding/changing a character, add or update its row in every applicable table** — the M10–M12 bugs happened precisely at holes in these matrices. ⚠ = known hole (see AUDIT-FINDINGS). `CP` = CharacterPassives.cs, `CIR` = CheckIfReady.cs, `DM` = DoomsdayMachine.cs.
 
 ## 1. Forced-fight sources × untargetable / no-fight states
 
@@ -105,5 +105,5 @@ Copy rule: random Standalone passive from the **last attacked** enemy, no duplic
 - Со-attack interactions verified: Еврей steal (needs the Jew to also attack the target), Сайтама deferral (needs a co-attacker), Наполеон joint-attack auto-win (needs the ally to attack the same target).
 - Эрен mutual attack is direction-safe: only Eren's own attack branch awards +2 regular, and a per-round enemy list prevents contract/BFG repeats from paying twice (`CP:2489-2500`). An attacking enemy's hatred mark is upgraded to 2 before resolution; a later ordinary Eren loss never downgrades it to 1 (`CP:438-441,2470-2478`).
 - Мадара round 8 deliberately keeps same-target duplicates: a normal/hidden/second action and the correct-prediction clone each remain separate fights. Thresholds use **unique attackers**, including fights injected during resolution, while the sealing loss requirement counts resolved defense losses (`CIR:1376-1397`; `Madara.cs:64-131`; `DM:461`).
-- Round-10 pre-settlement: Rumbling runs immediately after the fight loop and before every `HandleEndOfRound` passive; it ranks projected post-multiplier ordinary score, kills strict-between places, then later passives proceed (`DM:1235-1236`; `CP:3484-3528`).
+- Round-10 pre-settlement: Rumbling runs immediately after the fight loop and before every `HandleEndOfRound` passive; it ranks projected post-multiplier ordinary score, kills strict-between places, then later passives proceed (`DM:1293-1294`; `CP:3519-3567`).
 - Round-10 settlement order (who claws back first): Пейзаж deaths & Saitama banking happen in round-10 `HandleEndOfRound`; Чернильная завеса restore and Ищет достойного (One Punch) at round-11 `HandleNextRound`; Запах мусора at round-11 after-sorting; then `HandleLastRound`: predictions → active M.M. ×компромат → active Francie virus → Цукуеми deduction → sort → AWDKA → Premade → Sakura. СуперМудень skips both disabled-member settlements (`CheckIfReady.cs:320-375`; GAME-DESIGN §8E).

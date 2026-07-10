@@ -1,6 +1,6 @@
 # Character Reference — all mechanics as implemented
 
-> Code-verified against the working tree of 2026-07-01 (v4.1.8). For each passive: the player-facing description is in `DataBase/characters.json`; here we document **what the code actually does**, with file:line anchors. `CP` = `Game/GameLogic/CharacterPassives.cs`. ⚠ marks divergences — details in [AUDIT-FINDINGS.md](AUDIT-FINDINGS.md).
+> Code-verified against the working tree of 2026-07-10 (v4.1.8). For each passive: the player-facing description is in `DataBase/characters.json`; here we document **what the code actually does**, with file:line anchors. `CP` = `Game/GameLogic/CharacterPassives.cs`. ⚠ marks divergences — details in [AUDIT-FINDINGS.md](AUDIT-FINDINGS.md).
 >
 > Hook names refer to the execution order table in [ARCHITECTURE.md](ARCHITECTURE.md) §3.
 
