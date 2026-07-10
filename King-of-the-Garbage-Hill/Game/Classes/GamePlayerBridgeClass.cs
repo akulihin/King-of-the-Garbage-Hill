@@ -109,8 +109,8 @@ public class GamePlayerBridgeClass
         {
             return;
         }
-        // TheBoys — Оковы Правосудия: M.M. спокоен, иммунен к любой потере психики
-        if (Passives.TheBoysMM.IsCalm)
+        // TheBoys — after M.M.'s first upgrade he is calm; СуперМудень disables M.M. entirely.
+        if (Passives.TheBoysMM.IsCalm && !Passives.TheBoysButcher.SuperDickActive)
         {
             return;
         }

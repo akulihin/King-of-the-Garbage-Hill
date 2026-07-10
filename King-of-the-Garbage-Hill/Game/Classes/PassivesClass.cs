@@ -241,7 +241,6 @@ public class PassivesClass
 
     // TheBoys — per-player marks (on ANY player)
     public bool TheBoysSupMark { get; set; } = false;          // Бучер: помечен как "суп" в этом ходу
-    public bool TheBoysSupIsSuperhero { get; set; } = false;   // это супергерой (Сайтама/Кратос/Спартанец/Кира) — метка всегда
     public bool TheBoysVirus { get; set; } = false;            // Francie: заражён смертельным вирусом
     public Guid TheBoysVirusSource { get; set; } = Guid.Empty; // кто из Пацанов создал вирус (для кражи очков в конце)
     public bool TheBoysMoralBlockedByMM { get; set; } = false; // Оковы Правосудия: мораль заблокирована, кнопка недоступна

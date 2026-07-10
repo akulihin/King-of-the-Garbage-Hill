@@ -179,9 +179,10 @@ public class CharacterClass
         WonTimes = howMuchToSet;
     }
 
-    public void HandleDrop(string discordUsername, GameClass game)
+    public bool HandleDrop(string discordUsername, GameClass game, bool allowAtLastPlace = false)
     {
-        if (Status.GetPlaceAtLeaderBoard() == 6) return;
+        if (Status.GetPlaceAtLeaderBoard() == 6 && !allowAtLastPlace) return false;
+        if (allowAtLastPlace && Status.GetScore() <= 0) return false;
 
         StrengthQualityDropTimes++;
         Status.AddBonusPoints(-1, "DROP");
@@ -193,14 +194,21 @@ public class CharacterClass
             mp.Status.AddBonusPoints(1, "Монстр");
             game.Phrases.MonsterDrop.SendLog(mp, false);
         }
+
+        return true;
     }
 
-    public void LowerQualityResist(GamePlayerBridgeClass target, GameClass game, GamePlayerBridgeClass me)
+    public int LowerQualityResist(GamePlayerBridgeClass target, GameClass game, GamePlayerBridgeClass me,
+        int maxDrops = int.MaxValue)
     {
         var howMuch = 1;
-        if (game.RoundNo == 1) return;
-        if (Madara.HasReanimatedBody(this)) return;
-        if(Status.GameCharacter.Passive.Any(x => x.PassiveName == "Boole Family")) return;
+        var resistBreaks = 0;
+        var superDickBypassesHarm = me.Passives.TheBoysButcher.SuperDickActive
+                                    && me.GameCharacter.Passive.Any(x => x.PassiveName == "Butcher");
+        if (game.RoundNo == 1) return 0;
+        if (superDickBypassesHarm && target.Status.GetScore() <= 0) return 0;
+        if (Madara.HasReanimatedBody(this) && !superDickBypassesHarm) return 0;
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Boole Family") && !superDickBypassesHarm) return 0;
 
         // DooM Guy — Маневры: every received Harm burns one point of the granted Speed.
         if (target.GameCharacter.Name == DoomGuy.CharacterName
@@ -211,21 +219,22 @@ public class CharacterClass
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Kimiko"))
         {
             var kimikoGuard = target.Passives.TheBoysKimiko;
-            if (!target.Passives.TheBoysButcher.SuperDickActive && (kimikoGuard.LivingWeapon || !kimikoGuard.IsDisabled))
+            if (!superDickBypassesHarm && !target.Passives.TheBoysButcher.SuperDickActive
+                && (kimikoGuard.LivingWeapon || !kimikoGuard.IsDisabled))
             {
                 Status.AddInGamePersonalLogs("Kimiko: Вред не причинён — Пацаны под защитой.\n");
-                return;
+                return 0;
             }
         }
         //end Kimiko
 
         //Испанец
-        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Испанец"))
+        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Испанец") && !superDickBypassesHarm)
         {
             var mylorik = game.PlayersList.Find(x => x.GetPlayerId() == Status.PlayerId);
             mylorik!.GameCharacter.AddMoral(howMuch, "Испанец", false);
             mylorik.Status.AddInGamePersonalLogs($"Испанец: То, что мертво, умереть не может! +{howMuch} *Мораль*\n");
-            return;
+            return 0;
         }
         //end Испанец
 
@@ -297,12 +306,14 @@ public class CharacterClass
         {
             SetIntelligenceResist();
             IntelligenceQualitySkillBonus--;
+            resistBreaks++;
         }
 
         if (PsycheQualityResist < 0)
         {
             SetPsycheResist();
             PsycheQualityMoralBonus--;
+            resistBreaks++;
         }
 
         if (StrengthQualityResist < 0)
@@ -325,12 +336,18 @@ public class CharacterClass
                 }
             }
 
-            for (var i = 0; i < drops; i++)
+            var appliedDrops = 0;
+            for (var i = 0; i < drops && appliedDrops < maxDrops; i++)
             {
-                HandleDrop(target.DiscordUsername, game);
+                if (HandleDrop(target.DiscordUsername, game, allowAtLastPlace: superDickBypassesHarm))
+                {
+                    resistBreaks++;
+                    appliedDrops++;
+                }
             }
         }
 
+        return resistBreaks;
     }
 
 

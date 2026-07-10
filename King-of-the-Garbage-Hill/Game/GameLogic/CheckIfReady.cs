@@ -319,7 +319,8 @@ public class CheckIfReady : IServiceSingleton
 
         // TheBoys — M.M. (Компромат): multiply prediction bonus by kompromat count
         foreach (var boysPlayer in game.PlayersList.Where(x =>
-                     x.GameCharacter.Passive.Any(p => p.PassiveName == "M.M.")))
+                     x.GameCharacter.Passive.Any(p => p.PassiveName == "M.M.")
+                     && !x.Passives.TheBoysButcher.SuperDickActive))
         {
             var kompromatCount = boysPlayer.Passives.TheBoysMM.KompromatTargets.Count;
             if (kompromatCount > 1)
@@ -356,6 +357,8 @@ public class CheckIfReady : IServiceSingleton
         {
             var src = infected.Passives.TheBoysVirusSource;
             if (infected.GetPlayerId() == src) continue;
+            var virusSource = game.PlayersList.Find(x => x.GetPlayerId() == src);
+            if (virusSource?.Passives.TheBoysButcher.SuperDickActive == true) continue;
             infected.Status.AddBonusPoints(-2, "Смертельный вирус");
             infected.Status.AddInGamePersonalLogs("☣️ Смертельный вирус Француза: -2 бонусных очка\n");
             virusStolen.TryGetValue(src, out var cur);

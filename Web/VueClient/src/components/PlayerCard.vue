@@ -618,6 +618,11 @@ function handleDoomChainsaw(passiveName: string) {
   <div class="player-card" :class="{ 'is-me': isMe, 'is-bug': isBug, 'is-dragon': passiveStates?.dragon, 'is-awakened': passiveStates?.dragon?.isAwakened, 'is-last-place': isMe && (player?.status?.place ?? 0) >= 6 }"
     :style="passiveStates?.privilege && passiveStates.privilege.markedCount > 0 ? { borderColor: 'rgba(205, 127, 50, 0.5)', boxShadow: '0 0 12px rgba(205, 127, 50, 0.2)' } : {}"
   >
+    <div v-if="player.isTheBoysSupTarget" class="theboys-sup-target-badge" title="Супер — цель Бучера">
+      <span aria-hidden="true">🦸</span>
+      <span>СУПЕР</span>
+    </div>
+
     <!-- Top grid: if not isMe, show avatar on right; if isMe, avatar lives in game-right -->
     <div class="pc-top-grid" :class="{ 'pc-top-no-avatar': isMe }">
     <div class="pc-top-left">
@@ -1808,27 +1813,13 @@ function handleDoomChainsaw(passiveName: string) {
         <span v-if="passiveStates.theBoys.livingWeapon" class="theboys-ult-badge theboys-ult-livingweapon">⚔️ Живое Оружие</span>
         <span v-if="passiveStates.theBoys.virusArmed" class="theboys-ult-badge theboys-ult-virus">☣️ Вирус готов</span>
       </div>
-      <!-- Sup marks & infected (owner view) -->
-      <div v-if="passiveStates.theBoys.supMarks?.length" class="theboys-marks-row">
-        <span class="theboys-marks-label">🎯</span>
-        <span
-          v-for="s in passiveStates.theBoys.supMarks"
-          :key="s.name"
-          class="theboys-mark-chip"
-          :class="{ 'theboys-mark-hero': s.isSuperhero }"
-        >{{ s.name }}</span>
-      </div>
+      <!-- Infected players (owner view) -->
       <div v-if="passiveStates.theBoys.virusNames?.length" class="theboys-marks-row">
         <span class="theboys-marks-label">☣️</span>
         <span v-for="v in passiveStates.theBoys.virusNames" :key="v" class="theboys-mark-chip theboys-mark-virus">{{ v }}</span>
       </div>
     </div>
 
-    <!-- TheBoys marks shown on ANY affected player's own card -->
-    <div v-if="passiveStates?.theBoysSupOnMe" class="pc-passive-widget theboys-onme theboys-onme-sup">
-      <span class="theboys-onme-icon">🎯</span>
-      <span class="theboys-onme-text">{{ passiveStates.theBoysSupOnMe.isSuperhero ? 'Супергерой — цель Бучера' : 'Помечен как «суп»' }}</span>
-    </div>
     <div v-if="passiveStates?.theBoysVirusOnMe" class="pc-passive-widget theboys-onme theboys-onme-virus">
       <span class="theboys-onme-icon">☣️</span>
       <span class="theboys-onme-text">Заражён Смертельным вирусом</span>
@@ -2003,6 +1994,7 @@ function handleDoomChainsaw(passiveName: string) {
 
 <style scoped>
 .player-card {
+  position: relative;
   background: var(--glass-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -4352,6 +4344,25 @@ function handleDoomChainsaw(passiveName: string) {
 .theboys-ult-superdick { background: rgba(150, 0, 0, 0.3); color: #ff5252; border: 1px solid rgba(255, 60, 60, 0.5); animation: theboys-pulse 1.2s ease-in-out infinite; }
 .theboys-ult-livingweapon { background: rgba(120, 40, 160, 0.28); color: #ce93d8; border: 1px solid rgba(206, 147, 216, 0.5); }
 .theboys-ult-virus { background: rgba(60, 140, 40, 0.28); color: #aed581; border: 1px solid rgba(174, 213, 129, 0.5); }
+.theboys-sup-target-badge {
+  position: absolute;
+  top: -9px;
+  right: 12px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 205, 64, 0.8);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(104, 22, 148, 0.97), rgba(198, 42, 64, 0.97));
+  color: #fff2a8;
+  box-shadow: 0 0 12px rgba(255, 80, 100, 0.55), inset 0 0 8px rgba(255, 220, 90, 0.18);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
 .theboys-marks-row {
   display: flex;
   flex-wrap: wrap;
@@ -4368,7 +4379,6 @@ function handleDoomChainsaw(passiveName: string) {
   border-radius: 3px;
   font-weight: 600;
 }
-.theboys-mark-hero { background: rgba(255, 180, 0, 0.22); color: #ffd54f; box-shadow: 0 0 6px rgba(255, 180, 0, 0.4); }
 .theboys-mark-virus { background: rgba(120, 200, 90, 0.2); color: #c5e1a5; }
 
 /* TheBoys — "on me" mark widgets (any affected player) */
@@ -4380,7 +4390,6 @@ function handleDoomChainsaw(passiveName: string) {
   font-weight: 700;
   margin-top: 4px;
 }
-.theboys-onme-sup { border-color: rgba(255, 80, 80, 0.5) !important; color: #ffab91; background: rgba(255, 80, 80, 0.08); }
 .theboys-onme-virus { border-color: rgba(120, 200, 90, 0.5) !important; color: #c5e1a5; background: rgba(120, 200, 90, 0.08); animation: theboys-pulse 1.4s ease-in-out infinite; }
 .theboys-onme-moral { border-color: rgba(180, 180, 180, 0.5) !important; color: #cfcfcf; background: rgba(120, 120, 120, 0.1); }
 .theboys-onme-icon { font-size: 1.1em; }

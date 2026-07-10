@@ -103,6 +103,9 @@ public class PlayerDto
     /// <summary>Whether this player's exploit has been permanently fixed by Баг.</summary>
     public bool IsExploitFixed { get; set; }
 
+    /// <summary>Butcher sup marker, serialized only when the viewing player is TheBoys.</summary>
+    public bool IsTheBoysSupTarget { get; set; }
+
     /// <summary>Tsukuyomi state (only populated for the Itachi player viewing their own state).</summary>
     public TsukuyomiStateDto TsukuyomiState { get; set; }
 
@@ -598,8 +601,6 @@ public class PassiveAbilityStatesDto
     public ToxicMateCancerOnMeDto ToxicMateCancerOnMe { get; set; }
     public YongGlebStateDto YongGleb { get; set; }
     public TheBoysStateDto TheBoys { get; set; }
-    /// <summary>Shown on any player marked as a "sup" by Butcher.</summary>
-    public TheBoysSupOnMeDto TheBoysSupOnMe { get; set; }
     /// <summary>Shown on any player infected by Francie's Смертельный вирус.</summary>
     public TheBoysVirusOnMeDto TheBoysVirusOnMe { get; set; }
     /// <summary>Set on any player whose Moral is blocked by M.M.'s Оковы Правосудия.</summary>
@@ -944,8 +945,7 @@ public class TheBoysStateDto
     public int RevealSerial { get; set; }
     public string LastUnlockedUltimate { get; set; }
     public int UnlockSerial { get; set; }
-    // Enemies the Boys player currently sees marked/infected (owner view)
-    public List<TheBoysMarkDto> SupMarks { get; set; }
+    // Enemies the Boys player currently sees infected (owner view)
     public List<string> VirusNames { get; set; }
 }
 
@@ -953,17 +953,6 @@ public class TheBoysKompromatEntryDto
 {
     public string TargetName { get; set; }
     public string Hint { get; set; }
-}
-
-public class TheBoysMarkDto
-{
-    public string Name { get; set; }
-    public bool IsSuperhero { get; set; }
-}
-
-public class TheBoysSupOnMeDto
-{
-    public bool IsSuperhero { get; set; }
 }
 
 public class TheBoysVirusOnMeDto

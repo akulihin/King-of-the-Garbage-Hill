@@ -50,7 +50,7 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 | Цукуеми (Итачи) | copies round earnings, deducts at end | Октопус ink | victim pays once: the round-11 ink restore **skips** its debit for a victim under Цукуеми (Итачи deducts instead); both Итачи and Octopus still get their point (D11 fixed, `CP:4773-4790`) |
 | Цукуеми (Итачи) → Мадара | copies ordinary round earnings | Воскрешенное тело | score theft works normally; Madara receives the supplied personal reaction, labeled `Бог шиноби` so the hidden passive name is not leaked (`CP:4385-4397`; `CharactersPhrases.cs:352-359`) |
 | Октопус ink | fake-win now, restore at r11 | DeepList first-fight | suppressed until DeepList's scripted loss happens (`CP:6678-6685`) |
-| Kimiko Живое Оружие | **drains** attacker Justice | — | real transfer (`CP:744-755`) |
+| Kimiko Живое Оружие | **drains** attacker Justice | regular score | real transfer plus +1 regular point per Justice drained (`CP:802-815`) |
 | Близнец (Монстр) | **drains** attacker Justice on block + bonus | — | real transfer (`CP:875-890`) |
 | Вампуризм | **copies** victim Justice (intended — D6) | Падальщик | +1 extra from the ignored point (`CP:1842-1846`) |
 | Premade | **copies** Carry fight-moral (intended — D9) | — | `CP:2366-2369` |
@@ -70,16 +70,17 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 | BlockMoralGain (cancer, Оковы) | blocks positive moral | CC:1137-1141 |
 | Привет со дна | ignores losses; any gain becomes +4 (`isMoralPoints` exempt) | CC:1143-1153 |
 | Спокойствие | ignores moral losses; immune to MinusPsycheLog | CC:1156-1160, GamePlayerBridgeClass.cs:93 |
-| M.M. IsCalm (Оковы) | immune to MinusPsycheLog | GamePlayerBridgeClass.cs:97-100 |
+| M.M. IsCalm (first M.M. upgrade) | immune to MinusPsycheLog; disabled by СуперМудень | GamePlayerBridgeClass.cs:102-116; `GameReactions.cs:1021-1029` |
 | Безумие | psyche bypasses the 0-floor (can go negative) | CC:1295, 1344 |
-| Boole Family | immune to Harm entirely | CC:199 |
-| Kimiko active | TheBoys immune to Harm | CC:202-210 |
+| Boole Family | immune to ordinary Harm; СуперМудень bypasses | CC:205-210 |
+| Kimiko active | TheBoys immune to ordinary Harm; СуперМудень bypasses | CC:217-228 |
 | Маневры (DooM Guy) | after otherwise successful Harm, −1 persistent Speed | CC:204-208 |
-| Испанец | Harm → +1 Moral instead | CC:213-221 |
+| Испанец | ordinary Harm → +1 Moral instead; СуперМудень bypasses | CC:231-238 |
 | Много выебывается | Harm from higher-skill enemy while #1 → self-Drop | CC:223-229 |
 | Минька (winner) | deals no Harm and no fight-moral loss | DM:750, 805-806 |
 | Let's Roll! (DooM Guy) | Moral is set to 0 and all later Moral mutations/conversions are rejected; predictions are cleared/disabled | DoomGuy.cs:113-126, CC:1136-1137, GameStateMapper.cs:121-122 |
-| Воскрешенное тело (Мадара) | Skill/Moral/Psyche loss, Harm, negative stat mutations and predictions are rejected; Madara also deals no Harm | Madara.cs:34-39; CC:198-203,781-846,911-1167,1239-1605; GamePlayerBridgeClass.cs:102-108; DM:831-935 |
+| Воскрешенное тело (Мадара) | Skill/Moral/Psyche loss, negative stat mutations and predictions are rejected; ordinary Harm is rejected but СуперМудень bypasses it; Madara deals no Harm | Madara.cs:34-39; CC:205-210,781-846,911-1167,1239-1605; GamePlayerBridgeClass.cs:102-108; DM:831-935 |
+| СуперМудень attacker | ignores every enemy Harm interceptor above; every applied Int/Str/Psyche break recursively queues Harm | CC:182-345; DM:928-984 |
 
 ## 6. Ziggurat-copyable inventory (`Standalone: true`)
 
@@ -105,4 +106,4 @@ Copy rule: random Standalone passive from the **last attacked** enemy, no duplic
 - Эрен mutual attack is direction-safe: only Eren's own attack branch awards +2 regular, and a per-round enemy list prevents contract/BFG repeats from paying twice (`CP:2489-2500`). An attacking enemy's hatred mark is upgraded to 2 before resolution; a later ordinary Eren loss never downgrades it to 1 (`CP:438-441,2470-2478`).
 - Мадара round 8 deliberately keeps same-target duplicates: a normal/hidden/second action and the correct-prediction clone each remain separate fights. Thresholds use **unique attackers**, including fights injected during resolution, while the sealing loss requirement counts resolved defense losses (`CIR:1376-1397`; `Madara.cs:64-131`; `DM:461`).
 - Round-10 pre-settlement: Rumbling runs immediately after the fight loop and before every `HandleEndOfRound` passive; it ranks projected post-multiplier ordinary score, kills strict-between places, then later passives proceed (`DM:1235-1236`; `CP:3484-3528`).
-- Round-10 settlement order (who claws back first): Пейзаж deaths & Saitama banking happen in round-10 `HandleEndOfRound`; Чернильная завеса restore and Ищет достойного (One Punch) at round-11 `HandleNextRound`; Запах мусора at round-11 after-sorting; then `HandleLastRound`: predictions → M.M. ×компромат → TheBoys virus → Цукуеми deduction → sort → AWDKA → Premade → Sakura (GAME-DESIGN §8E).
+- Round-10 settlement order (who claws back first): Пейзаж deaths & Saitama banking happen in round-10 `HandleEndOfRound`; Чернильная завеса restore and Ищет достойного (One Punch) at round-11 `HandleNextRound`; Запах мусора at round-11 after-sorting; then `HandleLastRound`: predictions → active M.M. ×компромат → active Francie virus → Цукуеми deduction → sort → AWDKA → Premade → Sakura. СуперМудень skips both disabled-member settlements (`CheckIfReady.cs:320-375`; GAME-DESIGN §8E).

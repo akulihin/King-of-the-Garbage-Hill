@@ -807,6 +807,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             me.FightCharacter.Justice.SetRealJusticeNow(0, "Живое Оружие");
                             target.FightCharacter.Justice.AddRealJusticeNow(stolenJustice);
+                            target.Status.AddRegularPoints(stolenJustice, "Живое Оружие");
                             kimikoAfter.TotalJusticeBlocked += stolenJustice;
                             target.Status.AddInGamePersonalLogs(
                                 $"Живое Оружие: Kimiko забрала {stolenJustice} Справедливости у {me.DiscordUsername}\n");
@@ -952,6 +953,7 @@ public class CharacterPassives : IServiceSingleton
                 case "Kimiko":
                     if (!target.Passives.TheBoysKimiko.LivingWeapon
                         && !target.Passives.TheBoysButcher.SuperDickActive
+                        && target.Passives.TheBoysKimiko.RegenLevel > 0
                         && target.Status.IsLostThisCalculation != Guid.Empty)
                     {
                         target.Passives.TheBoysKimiko.DisabledNextRound = true;
@@ -1563,8 +1565,8 @@ public class CharacterPassives : IServiceSingleton
                     var pokerCount = butcherAtk.PokerCount;
                     if (pokerCount > 0)
                     {
-                        var pokerMult = butcherAtk.SuperDickActive ? pokerCount * 2 : pokerCount;
-                        me.FightCharacter.SetSkillFightMultiplier(1 + pokerMult);
+                        var pokerMult = 1 + pokerCount;
+                        me.FightCharacter.SetSkillFightMultiplier(butcherAtk.SuperDickActive ? pokerMult * 2 : pokerMult);
                         game.Phrases.TheBoysPoker.SendLog(me, false);
                     }
                     break;
@@ -2339,6 +2341,12 @@ public class CharacterPassives : IServiceSingleton
 
         var opp = game.PlayersList.Find(x => x.GetPlayerId() == oppId);
         if (opp == null) return;
+
+        var virusSourceId = player.Passives.TheBoysVirus
+            ? player.Passives.TheBoysVirusSource
+            : opp.Passives.TheBoysVirusSource;
+        var virusSource = game.PlayersList.Find(x => x.GetPlayerId() == virusSourceId);
+        if (virusSource?.Passives.TheBoysButcher.SuperDickActive == true) return;
 
         // Источник (Француз) вирусом не заражается.
         if (player.Passives.TheBoysVirus && !opp.Passives.TheBoysVirus
@@ -3401,8 +3409,9 @@ public class CharacterPassives : IServiceSingleton
                     if (attack && player.Status.IsWonThisCalculation != Guid.Empty)
                     {
                         // Заказ выполнен?
-                        if (francieAfter.OrderTarget == player.Status.IsWonThisCalculation
-                            && francieAfter.OrderRoundsLeft > 0)
+                        // Completion is settled in the fight hook before the round-transition expiry.
+                        // OrderTarget is authoritative; the display counter must never cancel a final-turn win.
+                        if (francieAfter.OrderTarget == player.Status.IsWonThisCalculation)
                         {
                             francieAfter.OrdersCompleted++;
                             player.Passives.AchievementTracker.TheBoysOrdersCompleted++;
@@ -3494,10 +3503,10 @@ public class CharacterPassives : IServiceSingleton
                             if (fightTarget != null && !mmData.KompromatTargets.Contains(fightTargetId))
                             {
                                 mmData.KompromatTargets.Add(fightTargetId);
-                                var hint = GetKompromatHint(fightTarget.GameCharacter.Name);
+                                var hint = GetKompromatHint(fightTarget, game);
                                 mmData.KompromatHints[fightTargetId] = hint;
                                 player.Status.AddInGamePersonalLogs(
-                                    $"Компромат М.М.: Досье на {fightTarget.DiscordUsername}: \"{hint}\"\n");
+                                    $"Компромат М.М.: Досье на {fightTarget.DiscordUsername}: {hint}\n");
                                 game.Phrases.TheBoysKompromatGathered.SendLog(player, false);
                             }
                             mmData.NextAttackGathersKompromat = false;
@@ -3604,7 +3613,7 @@ public class CharacterPassives : IServiceSingleton
                 case "M.M.":
                 {
                     var mmBase = player.Passives.TheBoysMM;
-                    if (!mmBase.IsCalm && !player.Passives.TheBoysButcher.SuperDickActive)
+                    if (!player.Passives.TheBoysButcher.SuperDickActive)
                     {
                         if (mmBase.LostThisRound == 0)
                         {
@@ -3613,7 +3622,7 @@ public class CharacterPassives : IServiceSingleton
                                 if (mate.GetPlayerId() != player.GetPlayerId() && player.IsTeamMember(game, mate.GetPlayerId()))
                                     mate.GameCharacter.AddPsyche(1, "M.M.");
                         }
-                        else if (mmBase.WonThisRound == 0)
+                        else if (mmBase.WonThisRound == 0 && !mmBase.IsCalm)
                         {
                             player.MinusPsycheLog(player.GameCharacter, game, -1, "M.M.");
                         }
@@ -5908,7 +5917,7 @@ public class CharacterPassives : IServiceSingleton
                         if (game.RoundNo is 4 or 7 or 10)
                         {
                             // Провалить текущий заказ, если ещё активен
-                            if (francieNR.OrderTarget != Guid.Empty && francieNR.OrderRoundsLeft > 0)
+                            if (francieNR.OrderTarget != Guid.Empty)
                             {
                                 francieNR.OrdersFailed++;
                                 player.Status.AddBonusPoints(-1, "Заказ Француза");
@@ -5937,6 +5946,12 @@ public class CharacterPassives : IServiceSingleton
                     // TheBoys — Kimiko: recovery/disable state (Живое Оружие — иммунитет)
                     case "Kimiko":
                         var kimikoNR = player.Passives.TheBoysKimiko;
+                        if (player.Passives.TheBoysButcher.SuperDickActive || kimikoNR.RegenLevel == 0)
+                        {
+                            kimikoNR.IsDisabled = false;
+                            kimikoNR.DisabledNextRound = false;
+                            break;
+                        }
                         if (kimikoNR.LivingWeapon)
                         {
                             kimikoNR.IsDisabled = false;
@@ -6165,23 +6180,25 @@ public class CharacterPassives : IServiceSingleton
                 // TheBoys — Butcher: назначить метки супов на этот ход (2 ротационные + супергерои всегда)
                 case "Butcher":
                 {
+                    player.Passives.TheBoysButcher.SuperDickDropsThisTurn = 0;
+
                     // Сброс старых меток на всех игроках
                     foreach (var pl in game.PlayersList)
                     {
                         pl.Passives.TheBoysSupMark = false;
-                        pl.Passives.TheBoysSupIsSuperhero = false;
                     }
 
-                    var butcherOrderTarget = player.Passives.TheBoysFrancie.OrderTarget;
+                    var butcherOrderTarget = player.Passives.TheBoysButcher.SuperDickActive
+                        ? Guid.Empty
+                        : player.Passives.TheBoysFrancie.OrderTarget;
                     var enemies = game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()).ToList();
 
                     // 1) супергерои помечаются всегда (бесплатная метка)
                     foreach (var enemy in enemies)
                     {
-                        if (TheBoys.Superheroes.Contains(enemy.GameCharacter.Name))
+                        if (TheBoys.IsPermanentSup(enemy, game.RoundNo))
                         {
                             enemy.Passives.TheBoysSupMark = true;
-                            enemy.Passives.TheBoysSupIsSuperhero = true;
                         }
                     }
 
@@ -7156,30 +7173,107 @@ public class CharacterPassives : IServiceSingleton
     }
 
     // TheBoys — M.M. kompromat hints per character
-    private string GetKompromatHint(string characterName)
+    private string GetKompromatHint(GamePlayerBridgeClass target, GameClass game)
     {
-        var hints = new Dictionary<string, List<string>>
+        var characterName = target.GameCharacter.Name;
+        var highInTable = target.Status.GetPlaceAtLeaderBoard() < 4;
+        List<string> suppliedHints = characterName switch
+        {
+            "DeepList" => highInTable
+                ? new() { "Йо, этот безумец явно что-то замышляет!" }
+                : new() { "Он просто сидит и стебётся над всеми. Никакой угрозы." },
+            "mylorik" => highInTable
+                ? new() { "Этот чувак явно повернут на мести... Мы можем это использовать?" }
+                : new() { "Я читал о нем в новостях: \"Человек был найден утопленным\". Тогда почему он всё еще жив!?" },
+            "Глеб" when target.Passives.GlebChallengerList.RoundItTriggered == game.RoundNo
+                            || target.Passives.GlebChallengerTriggeredWhen.WhenToTrigger.Contains(game.RoundNo)
+                => new() { "Он слишком опасен! Да я вижу, что он старик! Но у него все статы на 9!!! Валим нахер!" },
+            "Глеб" => highInTable
+                ? new() { "Нет! Не бери его cup of chay! В него что-то... намешано!" }
+                : new()
+                {
+                    "Старикан явно скрывает свое прошлое... Похоже, когда-то он был звездой.",
+                    "Просто спящий старпёр. Думаешь, он что-то затевает?",
+                    "Этот дед официально числится спящим с 2018 года.",
+                },
+            "LeCrisp" => highInTable
+                ? new() { "Участник перестрелки. Лицензии на оружие нихера. Тогда откуда он высрал винтовку?" }
+                : new()
+                {
+                    "Нихера не пойму... Гражданство израиля есть, а ведет себя как нищий. Видать, арабские ассассины виноваты...",
+                    "Нарыл. Он оформил страховку против \"булинга\". Походу не помогло.",
+                },
+            "Толя" => highInTable
+                ? new()
+                {
+                    "Меня ЗАЕБАЛИ его разговоры. Чур в следующией раз Хьюи на прослушке.",
+                    "Сидит на жопе ровно, но деньги плывут только так. Просчетливый, сука.",
+                }
+                : new() { "Этот круглик - просто непробиваемая голова." },
+            "HardKitty" => new()
+            {
+                "С ним аккуратно... Он сам неприметный, но у него тысячи друзей.",
+                "Фу блять, знал я одного любителя молока.",
+            },
+            "Sirinoks" => highInTable
+                ? new() { "Чувак, я в ахере. Смотри на нее! С одной стороны девка, с другой..." }
+                : new() { "Обычная девушка, заводит друзей, никакой активности." },
+            "Злой Школьник" => highInTable
+                ? new() { "Он деградирует как настоящий царь горы, если бы та состояла из мусора." }
+                : new() { "Этот лох нам не опасен. Залупается, но не кусается." },
+            "AWDKA" => highInTable
+                ? new() { "Не, к нему я не полезу. У этого извращенца фетиш, ты знаешь на что? На медведей. Ты вдумайся." }
+                : new() { "Что за хач? Написано, \"мечтает стать pro\". Это троллинг какой-то?" },
+            "Осьминожка" => highInTable
+                ? new() { "Щупальца?! Ну нахер, я не япошка." }
+                : new()
+                {
+                    "Мелкий моллюск. Думаешь, он в чем-то замешан?",
+                    "Он притворяется нищим, но толкает свои чернила на черночернильном рынке. Ублюдок.",
+                },
+            "Darksci" => highInTable
+                ? new()
+                {
+                    "Находится в черных списках всех казино. Однажды он разозлился и разъебал крупье одним лишь криком. Походу супер...",
+                    "Я накопал, что у этого перца долг в казино.",
+                }
+                : new() { "Невезучий говнюк, проебал все деньги на ставках. Используем?" },
+            "Тигр" => highInTable
+                ? new() { "Бля, чел. У этого пидора стояк на золотой дождь. С меня хватит, я ухожу!" }
+                : new() { "Этот неадекват состоит в клане. Да блять, как добланный ниндзя. Причем настолько древнем, что в нем осталось всего три засранца." },
+            "Братишка" => highInTable
+                ? new()
+                {
+                    "Выглядит акулой, но знаешь что? Я видел, как в этого шалуна засовывают плюш.",
+                    "Лучше не лезть к этой акуле бизнеса. Хер оттяпает. Будет короче на -1.\nFrancie: \"У тебя хер и так уже -1\"",
+                }
+                : new()
+                {
+                    "По документам... Он на дне. Причем уже давно.",
+                    "Нихуя я не нашел. Пришлось нырять на дно морское. Я тебе не Гидрант.",
+                },
+            _ => null,
+        };
+
+        if (suppliedHints != null)
+            return suppliedHints[_rand.Random(0, suppliedHints.Count - 1)];
+
+        var existingHints = new Dictionary<string, List<string>>
         {
             ["Кратос"] = new() { "Этот парень явно любит кого-то душить. Вместе с его проблемами.", "Бородатый мужик с цепями. Очень злой." },
-            ["Глеб"] = new() { "Подозреваемый, кажется, постоянно спит... или делает вид.", "Цель пьёт чай в подозрительных количествах." },
-            ["DeepList"] = new() { "Мой источник утверждает, что цель ведёт сомнительную тактику.", "Этот тип постоянно что-то считает." },
             ["Стая Гоблинов"] = new() { "Судя по запаху, целей как минимум двадцать.", "Они строят что-то подозрительное." },
             ["Котики"] = new() { "Повсюду шерсть... и подозрительное мурчание.", "Один из них точно невиновен. Другой — нет." },
             ["Vampyr"] = new() { "Следы укусов на шее. Чесноком не пахнет.", "Подозреваемый избегает солнечного света." },
             ["Загадочный Спартанец в маске"] = new() { "У цели обнаружен комплекс бога. И копьё.", "THIS. IS... подозрительно." },
             ["Weedwick"] = new() { "Цель пахнет... травами. Лечебными, конечно.", "Подозреваемый подозрительно расслаблен." },
-            ["Saitama"] = new() { "Лысый. Один удар. Больше данных нет.", "Цель скучает. Это опасно." },
-            ["HardKitty"] = new() { "Подозреваемый мьютит всех вокруг.", "Не могу найти информацию — цель заблокировала доступ." },
-            ["Осьминожка"] = new() { "Щупальца повсюду. Буквально.", "Цель прячется за чернильной завесой." },
+            ["Сайтама"] = new() { "Лысый. Один удар. Больше данных нет.", "Цель скучает. Это опасно." },
             ["Dopa"] = new() { "Ранг: Претендент. Подозрительно высокий.", "Цель выбирает мету. Всегда." },
-            ["LeCrisp"] = new() { "Цель делает вид, что она кто-то другой.", "Подозреваемый хрустит. Подозрительно." },
-            ["mylorik"] = new() { "Админ. Все данные засекречены.", "Подозреваемый знает слишком много." },
-            ["Kira"] = new() { "У цели обнаружена подозрительная тетрадь.", "Подозреваемый пишет имена. Много имён." },
+            ["Кира"] = new() { "У цели обнаружена подозрительная тетрадь.", "Подозреваемый пишет имена. Много имён." },
             ["Монстр без имени"] = new() { "Нет данных. Нет имени. Нет лица.", "Этого человека не существует в базах данных." },
             ["Итачи"] = new() { "Глаза... красные глаза. Не смотри в них.", "Подозреваемый — мастер иллюзий." },
         };
 
-        if (hints.TryGetValue(characterName, out var list))
+        if (existingHints.TryGetValue(characterName, out var list))
             return list[_rand.Random(0, list.Count - 1)];
 
         // Generic hint for characters not in the dictionary

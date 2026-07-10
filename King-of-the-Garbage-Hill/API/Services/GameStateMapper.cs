@@ -136,11 +136,13 @@ public static class GameStateMapper
 
         var viewerIsBug = requestingPlayer != null
             && requestingPlayer.GameCharacter.Passive.Any(p => p.PassiveName == "Exploit");
+        var viewerIsTheBoys = requestingPlayer != null
+            && requestingPlayer.GameCharacter.Passive.Any(p => p.PassiveName == "Пацаны");
 
         foreach (var player in game.PlayersList)
         {
             var isMe = requestingPlayer != null && player.GetPlayerId() == requestingPlayer.GetPlayerId();
-            dto.Players.Add(MapPlayer(player, isMe, isAdmin, game.PlayersList, game, viewerIsBug));
+            dto.Players.Add(MapPlayer(player, isMe, isAdmin, game.PlayersList, game, viewerIsBug, viewerIsTheBoys));
         }
 
         foreach (var team in game.Teams)
@@ -194,7 +196,9 @@ public static class GameStateMapper
         return dto;
     }
 
-    private static PlayerDto MapPlayer(GamePlayerBridgeClass player, bool isMe, bool isAdmin, List<GamePlayerBridgeClass> allPlayers, GameClass game = null, bool viewerIsBug = false)
+    private static PlayerDto MapPlayer(GamePlayerBridgeClass player, bool isMe, bool isAdmin,
+        List<GamePlayerBridgeClass> allPlayers, GameClass game = null, bool viewerIsBug = false,
+        bool viewerIsTheBoys = false)
     {
         var hasDeathNote = player.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти");
 
@@ -341,6 +345,10 @@ public static class GameStateMapper
             dto.IsExploitable = player.Passives.IsExploitable;
             dto.IsExploitFixed = player.Passives.IsExploitFixed;
         }
+
+        // Butcher marks are secret: only the TheBoys viewer sees the icon on marked enemy rows.
+        if (viewerIsTheBoys && !isMe)
+            dto.IsTheBoysSupTarget = player.Passives.TheBoysSupMark;
 
         // Passive ability widgets — only visible to the owning player
         if (isMe && game != null)
@@ -723,10 +731,6 @@ public static class GameStateMapper
                             RevealSerial = player.Passives.TheBoysRevealSerial,
                             LastUnlockedUltimate = player.Passives.TheBoysLastUnlockedUltimate,
                             UnlockSerial = player.Passives.TheBoysUnlockSerial,
-                            SupMarks = game.PlayersList
-                                .Where(x => x.GetPlayerId() != player.GetPlayerId() && x.Passives.TheBoysSupMark)
-                                .Select(x => new TheBoysMarkDto { Name = x.DiscordUsername, IsSuperhero = x.Passives.TheBoysSupIsSuperhero })
-                                .ToList(),
                             VirusNames = game.PlayersList
                                 .Where(x => x.Passives.TheBoysVirus && x.Passives.TheBoysVirusSource == player.GetPlayerId())
                                 .Select(x => x.DiscordUsername)
@@ -822,12 +826,6 @@ public static class GameStateMapper
                 anySet = true;
             }
 
-            // TheBoys — per-player marks shown on the affected player's own card
-            if (player.Passives.TheBoysSupMark)
-            {
-                pas.TheBoysSupOnMe = new TheBoysSupOnMeDto { IsSuperhero = player.Passives.TheBoysSupIsSuperhero };
-                anySet = true;
-            }
             if (player.Passives.TheBoysVirus)
             {
                 var virusSource = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.TheBoysVirusSource);

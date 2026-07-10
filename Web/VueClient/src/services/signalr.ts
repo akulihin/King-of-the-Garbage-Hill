@@ -67,6 +67,8 @@ export type Player = {
   isExploitable?: boolean
   /** Whether this player's exploit has been fixed by Баг. */
   isExploitFixed?: boolean
+  /** Butcher's secret sup marker; only supplied to the TheBoys viewer. */
+  isTheBoysSupTarget?: boolean
   /** True when Darksci needs to choose stable/unstable (round 1). */
   darksciChoiceNeeded?: boolean
   /** True when Gleb can transform to Young Gleb (round 1). */
@@ -164,7 +166,6 @@ export type PassiveAbilityStates = {
   toxicMateCancerOnMe?: ToxicMateCancerOnMe
   yongGleb?: YongGlebState
   theBoys?: TheBoysState
-  theBoysSupOnMe?: TheBoysSupOnMe
   theBoysVirusOnMe?: TheBoysVirusOnMe
   theBoysMoralBlocked?: boolean
   salldorum?: SalldorumState
@@ -297,11 +298,9 @@ export type TheBoysState = {
   revealSerial: number
   lastUnlockedUltimate: string
   unlockSerial: number
-  supMarks: { name: string; isSuperhero: boolean }[]
   virusNames: string[]
 }
 
-export type TheBoysSupOnMe = { isSuperhero: boolean }
 export type TheBoysVirusOnMe = { sourceName: string }
 
 export type SalldorumState = {

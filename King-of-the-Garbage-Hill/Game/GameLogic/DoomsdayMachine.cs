@@ -925,35 +925,62 @@ public class DoomsdayMachine : IServiceSingleton
 
                     if (placeDiff <= range && !isHarmless && dealsHarm)
                     {
-                        // TheBoys Butcher — кочерга умножает Вред (СуперМудень удваивает)
-                        var harmRepeat = 1;
-                        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Butcher"))
+                        // TheBoys Butcher — normal Кочерга is (1 + poker) Harm; СуперМудень doubles
+                        // the complete result, not only the poker bonus: Кочерга #4 = 5 → 10 Harm.
+                        var isButcher = player.GameCharacter.Passive.Any(x => x.PassiveName == "Butcher");
+                        var butcherState = player.Passives.TheBoysButcher;
+                        var superDick = isButcher && butcherState.SuperDickActive;
+                        var harmRepeat = isButcher ? 1 + butcherState.PokerCount : 1;
+                        if (superDick) harmRepeat *= 2;
+
+                        var queuedExtraHarms = 0;
+                        var extraHarmsApplied = 0;
+
+                        int ApplyButcherHarm()
                         {
-                            var pk = player.Passives.TheBoysButcher.PokerCount;
-                            harmRepeat = 1 + (player.Passives.TheBoysButcher.SuperDickActive ? pk * 2 : pk);
+                            if (superDick && (butcherState.SuperDickDropsThisTurn >= 50
+                                              || playerIamAttacking.Status.GetScore() <= 0))
+                                return 0;
+
+                            var dropsBeforeHit = playerIamAttacking.GameCharacter.GetStrengthQualityDropTimes();
+                            var brokenResists = playerIamAttacking.GameCharacter
+                                .LowerQualityResist(playerIamAttacking, game, player,
+                                    superDick ? 50 - butcherState.SuperDickDropsThisTurn : int.MaxValue);
+                            if (superDick)
+                            {
+                                var dropsAfterHit = playerIamAttacking.GameCharacter.GetStrengthQualityDropTimes();
+                                butcherState.SuperDickDropsThisTurn += Math.Max(0, dropsAfterHit - dropsBeforeHit);
+                            }
+                            return brokenResists;
                         }
 
                         for (var h = 0; h < harmRepeat; h++)
-                            playerIamAttacking.GameCharacter.LowerQualityResist(playerIamAttacking, game, player);
-
-                        // СуперМудень: за каждое пробитие Резиста — ещё один Вред (с предохранителем от вечного цикла)
-                        if (player.Passives.TheBoysButcher.SuperDickActive)
                         {
-                            var safety = 0;
-                            var baselineDrops = dropsBefore;
-                            var prevDrops = playerIamAttacking.GameCharacter.GetStrengthQualityDropTimes();
-                            while (prevDrops > baselineDrops && safety < 50)
-                            {
-                                baselineDrops = prevDrops;
-                                playerIamAttacking.GameCharacter.LowerQualityResist(playerIamAttacking, game, player);
-                                prevDrops = playerIamAttacking.GameCharacter.GetStrengthQualityDropTimes();
-                                safety++;
-                            }
-                            if (safety > 0)
-                            {
-                                game.AddGlobalLogs($"**{playerIamAttacking.DiscordUsername}**: Что это?! Что он со мной сделал?!");
-                                game.AddGlobalLogs("**Butcher**: Отправил на больничную койку.");
-                            }
+                            if (superDick && (butcherState.SuperDickDropsThisTurn >= 50
+                                              || playerIamAttacking.Status.GetScore() <= 0))
+                                break;
+                            if (superDick)
+                                queuedExtraHarms += ApplyButcherHarm();
+                            else
+                                ApplyButcherHarm();
+                        }
+
+                        // Every actual negative resist effect (Skill −10%, Moral −20%, or Drop) queues
+                        // one more Harm. New breaks recurse. Only 50 Drops may land per turn, and zero
+                        // score stops the chain; the counter resets when the next turn is prepared.
+                        while (superDick && queuedExtraHarms > 0
+                               && butcherState.SuperDickDropsThisTurn < 50
+                               && playerIamAttacking.Status.GetScore() > 0)
+                        {
+                            queuedExtraHarms--;
+                            queuedExtraHarms += ApplyButcherHarm();
+                            extraHarmsApplied++;
+                        }
+
+                        if (extraHarmsApplied > 0)
+                        {
+                            game.AddGlobalLogs($"**{playerIamAttacking.DiscordUsername}**: Что это?! Что он со мной сделал?!");
+                            game.AddGlobalLogs("**Butcher**: Отправил на больничную койку.");
                         }
 
                         qualityDamageApplied = true;
@@ -967,13 +994,17 @@ public class DoomsdayMachine : IServiceSingleton
                     intellectualDamage = qualityDamageApplied && resistIntelAfter > resistIntelBefore;
                     emotionalDamage = qualityDamageApplied && resistPsycheAfter > resistPsycheBefore;
 
-                    // TheBoys Butcher — +1 bonus (×2 SuperDick) for DROPPING a marked sup while attacking
-                    // (finding M7: the point is for a Drop — "если удалось его Скинуть" — not any win).
+                    // TheBoys Butcher — +1 regular point (×2 SuperDick) for EACH Drop of a marked sup.
+                    // (finding M7: the point is for every "Скинуть", not merely one payout per fight).
                     // The +10 Skill for hunting a sup stays in the CP "Butcher" case (win or loss).
                     if (dropsAfter > dropsBefore
                         && player.GameCharacter.Passive.Any(x => x.PassiveName == "Butcher")
                         && playerIamAttacking.Passives.TheBoysSupMark)
-                        player.Status.AddBonusPoints(player.Passives.TheBoysButcher.SuperDickActive ? 2 : 1, "Butcher");
+                    {
+                        var dropReward = (dropsAfter - dropsBefore)
+                                         * (player.Passives.TheBoysButcher.SuperDickActive ? 2 : 1);
+                        player.Status.AddRegularPoints(dropReward, "Butcher");
+                    }
 
                     // Justice: loser (defender) gains +1 justice
                     if (!teamMate) fightJusticeChange = 1;

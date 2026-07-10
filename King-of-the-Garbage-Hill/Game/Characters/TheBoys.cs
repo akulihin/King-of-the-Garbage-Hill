@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using King_of_the_Garbage_Hill.Game.Classes;
 
 namespace King_of_the_Garbage_Hill.Game.Characters;
 
@@ -13,7 +15,7 @@ public class TheBoys
     public const string KimikoUpgradeLine =
         "\n\n✦ **Регенерация**: При прокачке повышает волю к жизни и регенерацию: игнорирует всё больше вражеской справедливости при обороне.";
     public const string MMUpgradeLine =
-        "\n\n✦ **Компромат**: Следующая атака после прокачки позволяет M.M. добыть компромат на цель. Если на 8м ходу весь компромат сработал, М.М. успокаивается и получает +5 **Морали** за каждый. В конце игры очки за верные предположения увеличиваются за каждый собранный компромат.";
+        "\n\n✦ **Компромат**: Теперь M.M. занят делом и он __спокоен__! Следующая атака после прокачки позволяет M.M. добыть компромат на цель. Если на 8м ходу весь компромат сработал, М.М. доволен и получает +5 **Морали** за каждый.\nВ конце игры очки за верные предположения увеличиваются за каждый собранный компромат.";
 
     // Имена членов, их ультимейтов и текста прокачки — единая таблица для UI/анлока.
     public const string FrancieName = "Francie";
@@ -27,6 +29,18 @@ public class TheBoys
 
     // Супергерои, которых Бучер помечает всегда (см. решение по спеке).
     public static readonly string[] Superheroes = { "Сайтама", "Кратос", "Загадочный Спартанец в маске", "Кира" };
+
+    public static bool IsPermanentSup(GamePlayerBridgeClass enemy, int roundNo)
+    {
+        if (Superheroes.Contains(enemy.GameCharacter.Name)) return true;
+
+        // Молодой Глеб deliberately keeps Name == "Глеб" after transforming; Main Ирелия is his identity marker.
+        if (enemy.GameCharacter.Passive.Any(passive => passive.PassiveName == "Main Ирелия")) return true;
+
+        return enemy.GameCharacter.Passive.Any(passive => passive.PassiveName == "Претендент русского сервера")
+               && (enemy.Passives.GlebChallengerList.RoundItTriggered == roundNo
+                   || enemy.Passives.GlebChallengerTriggeredWhen.WhenToTrigger.Contains(roundNo));
+    }
 
     public class FrancieClass
     {
@@ -49,6 +63,7 @@ public class TheBoys
 
         // Ультимейт: СуперМудень (Butcher x4)
         public bool SuperDickActive { get; set; } = false; // отключает Francie/Kimiko/M.M., x2 бонусы, пробитие резистов
+        public int SuperDickDropsThisTurn { get; set; } = 0; // общий лимит 50 дропов за ход
     }
 
     public class KimikoClass

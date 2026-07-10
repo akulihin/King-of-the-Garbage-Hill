@@ -966,6 +966,13 @@ public sealed class GameReaction : IServiceSingleton
             var kimiko = player.Passives.TheBoysKimiko;
             var mm = player.Passives.TheBoysMM;
 
+            if (butcher.SuperDickActive)
+            {
+                player.Status.AddInGamePersonalLogs("СуперМудень: Бучер работает один — остальные Пацаны не могут его найти.\n");
+                player.Status.LvlUpPoints--;
+                return;
+            }
+
             switch (skillNumber)
             {
                 case 1: // Intelligence → Француз (Хим.оружие)
@@ -1016,7 +1023,10 @@ public sealed class GameReaction : IServiceSingleton
                     mm.NextAttackGathersKompromat = true;
                     player.Status.AddInGamePersonalLogs($"M.M. x{mm.UpgradeLevel}: следующая атака соберёт компромат!\n");
                     if (mm.UpgradeLevel == 1)
+                    {
+                        mm.IsCalm = true;
                         TheBoysRevealUpgrade(player, TheBoys.MMName, TheBoys.MMUpgradeLine);
+                    }
                     if (mm.UpgradeLevel == 4)
                     {
                         TheBoysUnlockUltimate(player, TheBoys.ShacklesUltimate);
@@ -1037,7 +1047,6 @@ public sealed class GameReaction : IServiceSingleton
                         }
                         if (stolenMoral > 0)
                             player.GameCharacter.AddMoral(stolenMoral, "Оковы Правосудия");
-                        mm.IsCalm = true;
                     }
                     break;
             }

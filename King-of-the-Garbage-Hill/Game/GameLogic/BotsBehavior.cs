@@ -1048,7 +1048,7 @@ public class BotsBehavior : IServiceSingleton
                 // and pushes the victim down (except place 6). Butcher's repeated Harm makes this stronger.
                 if (Smart(bot, game) && game.RoundNo > 1
                     && !bot.GameCharacter.Passive.Any(x => x.PassiveName == "Минька")
-                    && !IsHarmImmune(target.Player))
+                    && (!IsHarmImmune(target.Player) || bot.Passives.TheBoysButcher.SuperDickActive))
                 {
                     var harmRange = bot.GameCharacter.GetSpeedQualityResistInt()
                                     - target.Player.GameCharacter.GetSpeedQualityKiteBonus();
@@ -1061,7 +1061,11 @@ public class BotsBehavior : IServiceSingleton
                         {
                             target.AttackPreference += SmartDropReadyBonus;
                             if (bot.GameCharacter.Name == "TheBoys")
-                                target.AttackPreference += bot.Passives.TheBoysButcher.PokerCount;
+                            {
+                                var butcherHarms = 1 + bot.Passives.TheBoysButcher.PokerCount;
+                                if (bot.Passives.TheBoysButcher.SuperDickActive) butcherHarms *= 2;
+                                target.AttackPreference += butcherHarms - 1;
+                            }
                         }
                     }
                 }

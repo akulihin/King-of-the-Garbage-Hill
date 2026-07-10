@@ -157,11 +157,13 @@
 | Монстр | Пейзаж | pawn deaths +1 regular each; attackers +7 regular (×4!) +10 bonus (⚠ D8) | CP:4300-4333 |
 | Монстр | Близнец | steals all attacker J on block (+bonus = J) | CP:875-890 |
 | Монстр | Выдуманный | +3 bonus on r9 if guessed-at | CP:5471-5498 |
-| TheBoys | Члены | +2 stat per lvl-up; ultimates at ×4 | GR:907-991 |
-| TheBoys | Francie | orders r1/4/7, window 3, ±1 bonus; chem +level bonus per fair win | CP:283-300, 5528-5558, 3221-3230 |
-| TheBoys | Butcher | 2 sup marks (+superheroes always); +10/20 Skill, +1/2 bonus on win (⚠ M7); poker ×(1+n) skill & Harm | CP:5770-5804, 3256-3274, 1491-1499 |
-| TheBoys | Kimiko | −RegenLevel attacker J; +10/+20 Skill; virus steals 2/infected | CP:659-676, 735-741, CIR:341-360 |
-| TheBoys | M.M. | ±1 team Psyche; r8 kompromat +5 Moral each; predictions ×kompromat | CP:3321-3353, CIR:310-338 |
+| TheBoys | Члены | +2 stat per lvl-up; ultimates at ×4; post-СуперМудень upgrades inert/consumed | GR:968-1057 |
+| TheBoys | Francie | orders r1/4/7, window 3, completion/expiry ±1 bonus; chem `level × (1 + harder-tier)` per eligible win | CP:314-330, 3405-3437, 5914-5943 |
+| TheBoys | Butcher | 2 rotating sup marks + permanent heroes/Young Gleb/Challenger Gleb; hunt Skill +10/+20; **+1/+2 regular per actual Drop**; poker Skill/Harm ×`(1+n)` / exact SD ×`2(1+n)`; recursive any-pool breaks, 50 Drops/turn | CP:1561-1571,3464-3483,6181-6215; DM:928-1006 |
+| TheBoys | Kimiko | Regen x1+ ignores up to level Justice and enables disable/recovery; base defense +10/+20 Skill; Living Weapon drains Justice + same regular points | CP:704-723,793-816,951-961,5947-5972 |
+| TheBoys | M.M. | ±1 team Psyche; calm immunity from x1; r8 kompromat +5 Moral each; predictions ×kompromat; x4 steals/blocks Moral | CP:3612-3649,7176-7308; GR:1021-1050; CIR:320-350 |
+| TheBoys | Смертельный вирус | −2/+2 bonus per infected at game end; disabled under СуперМудень | CIR:353-375 |
+| TheBoys | СуперМудень | exact ×2 Butcher Skill/Harm/drop payout; one extra Harm per applied pool break; cap 50 Drops per turn; score-0 stop | DM:928-1006; CC:182-345 |
 | Salldorum | Шэн/капсула/летописец | +1 charge/lvl-up; capsule +2 bonus +5 Speed after 3 rounds; rewrite −1/+1 per winner (⚠ m15), +2 Psyche +2 J; ×3 skill vs 3-rounds-ago winner | GR:1168-1172, CP:5700-5720, WebGameService.cs:908-967, CP:2148-2176 |
 | Геральт | Заказы | +1 contract/round; +20 Skill per contract fight; oils T1 −1 J / T2 +2 Str / T3 ×3 Skill | CP:5582-5595, 2204-2214, 1503-1535 |
 | Геральт | Медитация | Lambert 10% once (skill 0 next round; m16); демандна экономика: advance +2 regular, смерть при Displeasure ≥ 11 (−500) | CP:4395-4402, 4454-4491 |

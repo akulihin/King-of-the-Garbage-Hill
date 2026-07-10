@@ -712,6 +712,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         else if (tbKimiko.IsDisabled) customString += " | ❌Kimiko";
                         if (tbMM.IsCalm) customString += " | 🧘Спокоен";
                     }
+                    else if (other.Passives.TheBoysSupMark)
+                    {
+                        customString += " 🦸";
+                    }
                     break;
 
                 case "Шэн":
