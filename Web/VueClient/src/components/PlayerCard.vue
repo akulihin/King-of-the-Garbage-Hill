@@ -198,6 +198,7 @@ const isGeralt = computed(() => props.player?.character.name === 'Геральт
 const isKotiki = computed(() => props.player?.character.name === 'Котики')
 const isTheBoys = computed(() => props.player?.character.name === 'TheBoys')
 const isDoomGuy = computed(() => props.player?.character.name === 'DooM Guy')
+const isEren = computed(() => props.player?.character.name === 'Эрен Йегер')
 const isIrelia = computed(() => props.player?.character.passives.some((p: { name: string }) => p.name === 'Main Ирелия') ?? false)
 const goblin = computed(() => passiveStates.value?.goblinSwarm ?? null)
 const geralt = computed(() => passiveStates.value?.geralt ?? null)
@@ -854,13 +855,13 @@ function handleDoomChainsaw(passiveName: string) {
       <!-- Intelligence -->
       <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('intelligence'), 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('intelligence') }">
         <div class="stat-row">
-          <span class="gi gi-lg gi-int">INT</span>
+          <span class="gi gi-lg gi-int">{{ isEren ? 'Злость' : 'INT' }}</span>
           <div class="stat-bar-bg">
             <div v-if="showGhost.has('intelligence')" class="stat-bar-ghost intelligence" :style="{ width: `${(ghostStats?.int ?? 0) * 10}%` }" :key="'ghost-int-' + (ghostStats?.int ?? 0)" />
             <div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" />
           </div>
           <span class="stat-val stat-intelligence">{{ player.character.intelligence }}</span>
-          <button v-if="hasLvlUpPoints" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Intelligence' : '+1 Intelligence'" @click="handleLevelUp(1)">{{ isIrelia ? '−' : '+' }}</button>
+          <button v-if="hasLvlUpPoints" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Intelligence' : (isEren ? '+1 Злость' : '+1 Intelligence')" @click="handleLevelUp(1)">{{ isIrelia ? '−' : '+' }}</button>
         </div>
         <div v-if="isMe" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.intelligenceResist }}</span>
@@ -913,7 +914,7 @@ function handleDoomChainsaw(passiveName: string) {
             Math.abs(fn.delta) >= 3 ? 'float-big' : '',
           ]"
         >
-          {{ fn.delta > 0 ? '+' : '' }}{{ fn.delta }} <span class="float-stat-label">{{ { intelligence: 'INT', strength: 'STR', speed: 'SPD', psyche: 'PSY' }[fn.stat] }}</span>
+          {{ fn.delta > 0 ? '+' : '' }}{{ fn.delta }} <span class="float-stat-label">{{ isEren && fn.stat === 'intelligence' ? 'Злость' : { intelligence: 'INT', strength: 'STR', speed: 'SPD', psyche: 'PSY' }[fn.stat] }}</span>
         </span>
       </TransitionGroup>
     </div>
@@ -922,13 +923,13 @@ function handleDoomChainsaw(passiveName: string) {
     <div v-if="!(isKotiki && hasLvlUpPoints)" class="pc-psyche-box">
       <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('psyche'), 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('psyche') }">
         <div class="stat-row">
-          <span class="gi gi-lg gi-psy">PSY</span>
+          <span class="gi gi-lg gi-psy">{{ isEren ? 'Самоуверенность' : 'PSY' }}</span>
           <div class="stat-bar-bg">
             <div v-if="showGhost.has('psyche')" class="stat-bar-ghost psyche" :style="{ width: `${(ghostStats?.psy ?? 0) * 10}%` }" :key="'ghost-psy-' + (ghostStats?.psy ?? 0)" />
             <div class="stat-bar psyche" :style="{ width: `${player.character.psyche * 10}%` }" />
           </div>
           <span class="stat-val stat-psyche">{{ player.character.psyche }}</span>
-          <button v-if="hasLvlUpPoints && !isGeralt && !isDoomGuy" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Psyche' : '+1 Psyche'" @click="handleLevelUp(4)">{{ isIrelia ? '−' : '+' }}</button>
+          <button v-if="hasLvlUpPoints && !isGeralt && !isDoomGuy" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Psyche' : (isEren ? '+1 Самоуверенность' : '+1 Psyche')" @click="handleLevelUp(4)">{{ isIrelia ? '−' : '+' }}</button>
         </div>
         <div v-if="isMe" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.psycheResist }}</span>
@@ -943,7 +944,7 @@ function handleDoomChainsaw(passiveName: string) {
           class="floating-number"
           :class="[fn.delta > 0 ? 'float-positive' : 'float-negative', 'float-psyche', Math.abs(fn.delta) >= 3 ? 'float-big' : '']"
         >
-          {{ fn.delta > 0 ? '+' : '' }}{{ fn.delta }} <span class="float-stat-label">PSY</span>
+          {{ fn.delta > 0 ? '+' : '' }}{{ fn.delta }} <span class="float-stat-label">{{ isEren ? 'Самоуверенность' : 'PSY' }}</span>
         </span>
       </TransitionGroup>
     </div>
@@ -1200,6 +1201,26 @@ function handleDoomChainsaw(passiveName: string) {
     </div>
 
     <!-- ── Passive Ability Widgets ── -->
+
+    <!-- Эрен Йегер -->
+    <div v-if="passiveStates?.eren" class="pc-passive-widget eren-widget">
+      <div class="pw-header">
+        <span class="pw-title eren-title">RUMBLING</span>
+        <span class="pw-status" :class="passiveStates.eren.losses < 2 ? 'eren-ready' : 'eren-failed'">
+          {{ passiveStates.eren.losses }}/2 поражений
+        </span>
+      </div>
+      <div class="pw-body eren-stats">
+        <span>Злость +{{ passiveStates.eren.rageGained }}</span>
+        <span v-if="passiveStates.eren.attackTitanActive">⚡ Атакующий Титан</span>
+        <span v-if="passiveStates.eren.rumblingTriggered">🌋 место {{ passiveStates.eren.rumblingPlace }}</span>
+      </div>
+      <div v-if="passiveStates.eren.hatredMarks.length" class="eren-marks">
+        <span v-for="mark in passiveStates.eren.hatredMarks" :key="mark.playerName" class="eren-mark">
+          🔥 {{ mark.playerName }} ×{{ mark.marks }}
+        </span>
+      </div>
+    </div>
 
     <!-- 1. Буль (Drowning) -->
     <div v-if="passiveStates?.bulk" class="pc-passive-widget bulk-widget">
@@ -4364,6 +4385,14 @@ function handleDoomChainsaw(passiveName: string) {
 .theboys-onme-icon { font-size: 1.1em; }
 
 /* DooM Guy */
+.eren-widget { border-color: rgba(185, 63, 45, .62) !important; background: linear-gradient(135deg, rgba(88, 28, 20, .3), rgba(17, 14, 13, .96)) !important; }
+.eren-title { color: #ff8068; letter-spacing: .13em; }
+.eren-ready { color: #ffb36b; }
+.eren-failed { color: #8f8f8f; }
+.eren-stats { display: flex; flex-wrap: wrap; gap: 5px 10px; color: #f0c3aa; font-size: .72em; }
+.eren-marks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+.eren-mark { padding: 2px 6px; border: 1px solid rgba(255, 91, 55, .35); border-radius: 4px; background: rgba(160, 38, 18, .2); color: #ffad8e; font-size: .68em; }
+
 .doom-lvlup-btn { border-left: 3px solid #bd3f25; background: linear-gradient(90deg, rgba(126, 28, 15, .2), rgba(20, 20, 20, .75)); }
 .doom-widget { border-color: rgba(210, 62, 35, .55) !important; background: linear-gradient(135deg, rgba(72, 17, 10, .24), rgba(14, 14, 14, .94)) !important; }
 .doom-title { color: #ef7954; }

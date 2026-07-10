@@ -171,6 +171,7 @@ export type PassiveAbilityStates = {
   geralt?: GeraltState
   geraltMonsterOnMe?: GeraltMonsterOnMe
   doomGuy?: DoomGuyState
+  eren?: ErenState
 }
 
 export type BulkState = { drownChance: number; isBuffed: boolean }
@@ -232,6 +233,22 @@ export type MonsterState = {
 
 export type MonsterPawnOnMe = {
   pawnOwnerName: string
+}
+
+export type ErenState = {
+  rageGained: number
+  losses: number
+  attackTitanActive: boolean
+  attackTitanSoundSerial: number
+  tatakeSoundSerial: number
+  rumblingTriggered: boolean
+  rumblingPlace: number
+  hatredMarks: ErenHatredMark[]
+}
+
+export type ErenHatredMark = {
+  playerName: string
+  marks: number
 }
 
 export type PickleRickState = {

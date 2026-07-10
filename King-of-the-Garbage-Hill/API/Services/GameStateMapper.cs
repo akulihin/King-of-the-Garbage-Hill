@@ -346,6 +346,32 @@ public static class GameStateMapper
             {
                 switch (passive.PassiveName)
                 {
+                    case ErenYeager.Sheep:
+                        if (player.GameCharacter.Name == ErenYeager.CharacterName)
+                        {
+                            var eren = player.Passives.Eren;
+                            pas.Eren = new ErenStateDto
+                            {
+                                RageGained = eren.RageGained,
+                                Losses = eren.Losses,
+                                AttackTitanActive = eren.AttackTitanActiveThisRound,
+                                AttackTitanSoundSerial = eren.AttackTitanSoundSerial,
+                                TatakeSoundSerial = eren.TatakeSoundSerial,
+                                RumblingTriggered = eren.RumblingTriggered,
+                                RumblingPlace = eren.RumblingPlace,
+                                HatredMarks = game.PlayersList
+                                    .Where(enemy => enemy.Passives.ErenHatredMark > 0)
+                                    .Select(enemy => new ErenHatredMarkDto
+                                    {
+                                        PlayerName = enemy.DiscordUsername,
+                                        Marks = enemy.Passives.ErenHatredMark,
+                                    })
+                                    .ToList(),
+                            };
+                            anySet = true;
+                        }
+                        break;
+
                     case "Rune":
                         if (player.GameCharacter.Name == DoomGuy.CharacterName)
                         {

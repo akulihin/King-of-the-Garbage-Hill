@@ -141,6 +141,7 @@ Visibility rules (the exact reason the web can't leak hidden info):
 | Баг viewer | sees `IsExploitable` / `IsExploitFixed` markers on every player | `GameStateMapper.cs:133-134` `GameStateMapper.cs:333-337` |
 | Widget states (`PassiveAbilityStates`) | entire per-passive switch runs only for isMe; keyed on `PassiveName` | `GameStateMapper.cs:340-347` |
 | DooM Guy state | owner-only widget contains active/options/nests/BFG/Chainsaw; Let's Roll viewers receive empty character catalogs so predictions cannot be reconstructed client-side | `GameStateMapper.cs:121-122, 350-369` |
+| Эрен state | owner-only `ErenStateDto`: gained Rage, total losses, Titan/Tatake audio serials, Rumbling result, and an aggregation of all per-player hatred marks | `GameStateDto.cs:775-793` `GameStateMapper.cs:349-370` |
 | Marks on me (`SellerMark`, TheBoys sup/virus/moral-block, cancer, cat, Johan pawn, Geralt monster type) | mapped after the switch **onto the affected player's own card** | `GameStateMapper.cs:748-836` |
 | Global logs | admin raw; others get `StripHiddenLogs` (removes `HiddenGlobalLogSnippets`; additionally strips Kira-related snippets for viewers with passive "Гений") | `GameStateMapper.cs:116-117` `GameStateMapper.cs:1118-1138` |
 | Fight log | hidden-from-non-admin entries filtered out; non-participants get `ScopeFightEntry` — outcome/participants/drops kept, every numeric zeroed, `TotalPointsWon` reduced to sign | `GameStateMapper.cs:127-131` `GameStateMapper.cs:1051-1114` |

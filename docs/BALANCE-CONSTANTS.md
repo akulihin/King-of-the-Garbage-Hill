@@ -169,6 +169,13 @@
 | DooM Guy | Mission | 1 new nest/setup, overflow >3 → −20 bonus + clear; nest kill +1 regular; every resolved fight +1 regular; flawless no-block mission +20 bonus | DoomGuy.cs:178-196, CP:2460-2476, 3416-3427 |
 | DooM Guy | Gun | BFG 1 charge; Кулаки Str=0 and +2 regular/win; Бензопила 1 victim, up to 4 passive choices | DoomGuy.cs:155-160, 198-225, DM:705-726 |
 | DooM Guy | module reward | place 4/3/2/1 ceiling = Rune/Shield/Mission/Gun; fallback downward; chance = 0 complete, 5% last, otherwise `5 + 75×(remaining−1)/(total−1)` | DoomGuy.cs:227-260 |
+| Эрен Йегер | base / rarity / exclusion | Злость(Int) 0, Str 3, Speed 3, Самоуверенность(Psyche) 8; Tier 6; cannot naturally coexist with HardKitty | characters.json:1416-1446, StartGameLogic.cs:245-250 |
+| Эрен Йегер | Овца в загоне | forced place 6 through r8; +1 Int at starts r2-8; gain cap 8 (normal interval yields 7) | CP:182-186,4869-4883; CIR:1215-1223; DM:1458-1465 |
+| Эрен Йегер | Дрочун marks / cash-in | loss mark 1; attacking-Eren mark 2; cap 2; victory cashes target mark as 1/2 bonus | PassivesClass.cs:270-271, CP:438-441,2465-2486 |
+| Эрен Йегер | Дрочун mutual attack | +2 regular once per mutual enemy per round | CP:2489-2500 |
+| Эрен Йегер | Атакующий Титан | block removed; +5 each stat per fight for the turn; no incoming target → −2 Psyche | DM:271-281; CP:62-72,443-447,1002-1006,3545-3555 |
+| Эрен Йегер | Titan audio roll | `use_most` 50%; files 1–3 split the other 50% uniformly | sound.ts:894-900 |
+| Эрен Йегер | Rumbling gate / reach | round 10; fewer than 2 total losses; kills projected places strictly between Eren and place 6 | CP:2505-2509,3484-3528; ErenYeager.cs:37-76 |
 
 ## Bot AI difficulty (`BB` = BotsBehavior.cs, `GC` = GameClass.cs, `CP` = CharacterPassives.cs, `SR` = SimulationRunner.cs)
 

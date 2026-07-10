@@ -15,27 +15,28 @@ Forced-fight sources: **Монстр** no-escape (`CIR:1266-1289`), **Шэн** b
 | Skip (sleep/tilt/ban) | overridden (stripped) | fight happens anyway | fight happens anyway | Aggress can't skip | skipping Геральт = no injection | skip stops that branch |
 | Ziggurat lock | position only — fights unaffected | position only | position only | n/a | n/a | position only — wave follows current board order |
 | Premade Carry | n/a | n/a | n/a | n/a | anti-skip now exempts the round-10 Тигр ban (M10 fixed, `CP:5689-5704`) | n/a |
+| Эрен: Атакующий Титан | no block remains to strip; forced target still resolves with +5 stats | forced target resolves with +5 stats | taunt target resolves with +5 stats | n/a | injection resolves each fight with +5 stats | wave branches resolve with +5 stats | Block is cleared in `DM:271-281`; boost is reapplied per fight `CP:62-72,443-447,1002-1006` |
 
 ## 2. Kill sources × immunities
 
-Kill sources: Кира's Тетрадь (`CP:3988-4066`), Кира's L-arrest (self-kill, `CP:4670-4711`), Кратос event kills (`CP:1655-1675, 2420-2436`), Монстр Пейзаж pawn deaths (`CP:4300-4333`), Геральт pitchfork displeasure (self, `CP:4483-4490`).
+Kill sources: Кира's Тетрадь (`CP:3988-4066`), Кира's L-arrest (self-kill, `CP:4670-4711`), Кратос event kills (`CP:1655-1675, 2420-2436`), Монстр Пейзаж pawn deaths (`CP:4300-4333`), Геральт pitchfork displeasure (self, `CP:4483-4490`), Эрен's Rumbling (`CP:3484-3528`).
 
-| Immunity ↓ / Source → | Тетрадь | Кратос kill | Пейзаж pawns | Notes |
-|---|---|---|---|---|
-| Стая Гоблинов ("нельзя убить") | ✓ `CP:4009` | ✓ `CP:1660` (+arrest `CP:4686`) | ✗ **die here — intended** (M12, ОК) | design: GameDesign.txt:509 |
-| Глаз Шусуи (Итачи) | revives next round | revives next round | revives next round | one-time, any source (`CP:5365-5374`) |
-| Боги мне не указ (Кратос) | ✓ revives +228 Skill | n/a | ✗ not covered (source ≠ "Kira") | source-check is `== "Kira"` only (`CP:5377-5386`) |
-| Dead state effects | — | — | — | auto-block/ready, 0 ZBS, no mastery, excluded from forced pools (`CIR:1032-1037, 622-665`) |
+| Immunity ↓ / Source → | Тетрадь | Кратос kill | Пейзаж pawns | Rumbling | Notes |
+|---|---|---|---|---|---|
+| Стая Гоблинов ("нельзя убить") | ✓ `CP:4009` | ✓ `CP:1660` (+arrest `CP:4686`) | ✗ **die here — intended** (M12, ОК) | ✗ die `CP:3501-3512` | design: GameDesign.txt:509; Rumbling says all strictly-between players |
+| Глаз Шусуи (Итачи) | revives next round | revives next round | revives next round | revives next round | one-time, any source (`CP:5365-5374`) |
+| Боги мне не указ (Кратос) | ✓ revives +228 Skill | n/a | ✗ not covered (source ≠ "Kira") | ✗ not covered | source-check is `== "Kira"` only (`CP:5377-5386`) |
+| Dead state effects | — | — | — | already dead excluded `CP:3506` | auto-block/ready, 0 ZBS, no mastery, excluded from forced pools (`CIR:1032-1037, 622-665`) |
 
 ## 3. Position movers × position locks
 
 Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKitty forced last → place assignment → **Ziggurat restore** → Storm-bite restore/swap → Quality Drop (`DM:1295-1499`). Mid-turn movers: AWDKA forced last (intended — M3, ОК) (`CIR:1112-1127`), HardKitty forced last (`CIR:1141-1151`), Шэн post-sort swap (`CP:6117-6142`).
 
-| Lock ↓ / Mover → | Тигр-топ | Portal Gun | Quality Drop | Storm bite | Шэн |
-|---|---|---|---|---|---|
-| Ziggurat (`IsInZiggurat`) | ✓ blocked `DM:1313` | ✓ blocked `DM:1338` | ✓ can't drop onto/out `DM:1458-1469` | ✓ blocked `DM:1413,1438` | ✓ blocked `CP:6128` |
-| HardKitty at place 6 | n/a | n/a | ✓ can't drop onto `DM:1465` | n/a | n/a |
-| Тигр ban (round 10) | ✓ swap suppressed `DM:1304-1306` | n/a | n/a | n/a | ✓ pull now respects the ban (M11 fixed, `CIR:1213`) |
+| Lock ↓ / Mover → | Тигр-топ | Portal Gun | Quality Drop | Storm bite | Шэн | Овца forced-last |
+|---|---|---|---|---|---|---|
+| Ziggurat (`IsInZiggurat`) | ✓ blocked `DM:1313` | ✓ blocked `DM:1338` | ✓ can't drop onto/out `DM:1458-1469` | ✓ blocked `DM:1413,1438` | ✓ blocked `CP:6128` | n/a: Eren passives are not Standalone and name-gated |
+| HardKitty at place 6 | n/a | n/a | ✓ can't drop onto `DM:1465` | n/a | n/a | mutually exclusive in natural games `StartGameLogic.cs:245-250` |
+| Тигр ban (round 10) | ✓ swap suppressed `DM:1304-1306` | n/a | n/a | n/a | ✓ pull now respects the ban (M11 fixed, `CIR:1213`) | inactive after round 8 |
 
 ## 4. Steal / copy / redirect chains
 
@@ -52,6 +53,7 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 | Кошачья засада (cats) | physically moves passives to enemy | Минька/Штормяк vs owner | transferred cat won't buff/taunt against Котики (`CP:3010-3013`, `CIR:1229`) |
 | Ziggurat learn | copies a `Standalone` passive | everything | see §6 |
 | Бензопила (DooM Guy) | replaces Gun with one victim passive | copied passive dispatch/state | offers the victim's first four non-admin passives; explicit first-charge priming exists for Portal Gun, Шэн, Изанаги and Глаза Итачи (`DoomGuy.cs:198-225`); ordinary name-gated/game-start-only passives retain their native gates |
+| Eren passive copy | Eren's four passives are non-Standalone; Chainsaw may still offer one | DooM Guy Chainsaw | all four cases are `Name == "Эрен Йегер"` gated, so a Chainsaw copy is inert |
 | Rick Most wanted | redirects random marks to Rick | Спартанец marks, L, Сверхразум, Комментатор, hunts, tea odds | `CP:118-128, 233-236, 3780-3783, 5175-5181, 3511-3515, 1088-1094, 5036-5038`; hunters follow portal swaps `CP:2069-2084` |
 | Portal Gun swap | swaps positions + remaining attackers mid-round | Тetradь targets etc. | attacker lists rewritten `CP:2060-2067` |
 
@@ -94,4 +96,6 @@ Copy rule: random Standalone passive from the **last attacked** enemy, no duplic
 - Two attackers on one defender resolve **sequentially in leaderboard order** — the first fight's ForOneFight effects are reset before the second (`DM:388-411`, ResetFight per fight).
 - BFG branches are appended to that same sequential target queue. The primary random-stage win fans out to both neighbours; only a win continues a branch, and a target is visited at most once (`DM:756-769`).
 - Со-attack interactions verified: Еврей steal (needs the Jew to also attack the target), Сайтама deferral (needs a co-attacker), Наполеон joint-attack auto-win (needs the ally to attack the same target).
+- Эрен mutual attack is direction-safe: only Eren's own attack branch awards +2 regular, and a per-round enemy list prevents contract/BFG repeats from paying twice (`CP:2489-2500`). An attacking enemy's hatred mark is upgraded to 2 before resolution; a later ordinary Eren loss never downgrades it to 1 (`CP:438-441,2470-2478`).
+- Round-10 pre-settlement: Rumbling runs immediately after the fight loop and before every `HandleEndOfRound` passive; it ranks projected post-multiplier ordinary score, kills strict-between places, then later passives proceed (`DM:1235-1236`; `CP:3484-3528`).
 - Round-10 settlement order (who claws back first): Пейзаж deaths & Saitama banking happen in round-10 `HandleEndOfRound`; Чернильная завеса restore and Ищет достойного (One Punch) at round-11 `HandleNextRound`; Запах мусора at round-11 after-sorting; then `HandleLastRound`: predictions → M.M. ×компромат → TheBoys virus → Цукуеми deduction → sort → AWDKA → Premade → Sakura (GAME-DESIGN §8E).

@@ -880,6 +880,27 @@ export function playDoomGameWinTheme(): void {
   duckFightGroups(8000)
 }
 
+export function playErenGameWinTheme(): void {
+  void playClip('character_passives/eren/eren_game_win_theme.mp3', { group: 'winTheme' })
+  duckFightGroups(8000)
+}
+
+export function playErenTatake(): void {
+  void playClip('character_passives/eren/fighter/eren_tatake.mp3', { group: 'characterPassives' })
+}
+
+export function playErenAttackTitan(): void {
+  const file = Math.random() < 0.5
+    ? 'eren_attack_on_titan_use_most.mp3'
+    : `eren_attack_on_titan_use_${Math.floor(Math.random() * 3) + 1}.mp3`
+  void playClip(`character_passives/eren/attack_on_titan/${file}`, { group: 'characterPassives' })
+}
+
+export function playErenRumblingWarning(): void {
+  void playClip('character_passives/eren/rumbling/eren_final_attack_theme.mp3', { group: 'characterPassives' })
+  void playClip('character_passives/eren/rumbling/eren_rumbling.mp3', { group: 'characterPassives' })
+}
+
 export function playDoomGameStartTheme(): void {
   void playClip('character_passives/doom/doom_game_start_theme.mp3', {
     group: 'characterTheme', channel: 'doom-theme', loop: true,

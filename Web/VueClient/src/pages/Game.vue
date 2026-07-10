@@ -46,6 +46,10 @@ import {
   playDoomGameStartTheme,
   stopDoomGameStartTheme,
   playDoomGameWinTheme,
+  playErenGameWinTheme,
+  playErenTatake,
+  playErenAttackTitan,
+  playErenRumblingWarning,
   playGeraltQuestCompleted,
   playGeraltLevelUpAvailable,
   playGeraltOilLevelUp,
@@ -201,11 +205,33 @@ watch(() => store.gameState?.isFinished, (finished, prevFinished) => {
     const doomWon = store.gameState.players.some(p => p.character.name === 'DooM Guy' && p.status.place === 1)
     if (doomWon) playDoomGameWinTheme()
 
+    const erenWon = store.gameState.players.some(p =>
+      p.character.name === 'Эрен Йегер' && p.status.place === 1 && !p.isDead)
+    if (erenWon) playErenGameWinTheme()
+
     // Stop game start themes on finish
     stopKiraGameStartTheme()
     stopGeraltGameStartTheme()
     stopDoomGameStartTheme()
   }
+})
+
+// Eren: owner-only event sounds, keyed by monotonic server serials.
+watch(() => store.myPlayer?.passiveAbilityStates?.eren, (eren, previous) => {
+  if (!eren || !previous) return
+  for (let i = previous.tatakeSoundSerial; i < eren.tatakeSoundSerial; i++) playErenTatake()
+  for (let i = previous.attackTitanSoundSerial; i < eren.attackTitanSoundSerial; i++) playErenAttackTitan()
+}, { deep: true })
+
+// Rumbling warning is global: both tracks start together for every connected player.
+const rumblingAudioGameId = ref<number | null>(null)
+watch(() => store.gameState, (state) => {
+  if (!state || state.roundNo !== 10 || rumblingAudioGameId.value === state.gameId) return
+  const livingEren = state.players.some(player =>
+    player.character.name === 'Эрен Йегер' && !player.isDead)
+  if (!livingEren) return
+  rumblingAudioGameId.value = state.gameId
+  playErenRumblingWarning()
 })
 
 // DooM Guy: owner-only opening theme, stopped after the first committed action.

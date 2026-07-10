@@ -264,6 +264,12 @@ public class PassivesClass
     // DooM Guy — owner-only module/loadout state
     public DoomGuyState DoomGuy { get; set; } = new();
 
+    // Эрен Йегер — owner-only state
+    public ErenYeager.State Eren { get; set; } = new();
+
+    // Эрен Йегер — per-player hatred mark (0 = none, 1 = loss, 2 = attacked Eren)
+    public int ErenHatredMark { get; set; } = 0;
+
     // Геральт — per-player: any player gets assigned a monster type
     public Geralt.MonsterType? GeraltMonsterType { get; set; } = null;
 

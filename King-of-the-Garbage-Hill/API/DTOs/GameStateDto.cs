@@ -607,6 +607,7 @@ public class PassiveAbilityStatesDto
     public SalldorumStateDto Salldorum { get; set; }
     public GeraltStateDto Geralt { get; set; }
     public DoomGuyStateDto DoomGuy { get; set; }
+    public ErenStateDto Eren { get; set; }
     /// <summary>Shown on any player who has Geralt monster type assigned.</summary>
     public GeraltMonsterOnMeDto GeraltMonsterOnMe { get; set; }
 }
@@ -769,6 +770,26 @@ public class MonsterStateDto
 public class MonsterPawnOnMeDto
 {
     public string PawnOwnerName { get; set; }
+}
+
+// ── Эрен Йегер DTOs ─────────────────────────────────────────────────
+
+public class ErenStateDto
+{
+    public int RageGained { get; set; }
+    public int Losses { get; set; }
+    public bool AttackTitanActive { get; set; }
+    public int AttackTitanSoundSerial { get; set; }
+    public int TatakeSoundSerial { get; set; }
+    public bool RumblingTriggered { get; set; }
+    public int RumblingPlace { get; set; }
+    public List<ErenHatredMarkDto> HatredMarks { get; set; } = new();
+}
+
+public class ErenHatredMarkDto
+{
+    public string PlayerName { get; set; }
+    public int Marks { get; set; }
 }
 
 // ── Rick Sanchez Passive DTOs ────────────────────────────────────────

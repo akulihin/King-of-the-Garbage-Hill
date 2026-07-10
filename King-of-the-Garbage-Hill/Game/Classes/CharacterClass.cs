@@ -1206,9 +1206,10 @@ public class CharacterClass
         {
             skillName = $"|>Stat<|{skillName}";
         }
+        var intelligenceName = Name == "Эрен Йегер" ? "Злость" : "Интеллект";
         if (howMuchToAdd > 0 && isLog)
-            Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Интеллект\n");
-        else if (howMuchToAdd < 0 && isLog) Status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} Интеллект\n");
+            Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} {intelligenceName}\n");
+        else if (howMuchToAdd < 0 && isLog) Status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} {intelligenceName}\n");
 
         var intelligenceOld = GetIntelligence();
         Intelligence += howMuchToAdd;
@@ -1249,9 +1250,10 @@ public class CharacterClass
         if (isLog)
         {
             var diff = howMuchToSet - GetIntelligence();
+            var intelligenceName = Name == "Эрен Йегер" ? "Злость" : "Интеллект";
             if (diff > 0)
-                Status.AddInGamePersonalLogs($"{skillName}: +{diff} Интеллект\n");
-            else if (diff < 0) Status.AddInGamePersonalLogs($"{skillName}: {diff} Интеллект\n");
+                Status.AddInGamePersonalLogs($"{skillName}: +{diff} {intelligenceName}\n");
+            else if (diff < 0) Status.AddInGamePersonalLogs($"{skillName}: {diff} {intelligenceName}\n");
         }
 
         var intelligenceOld = GetIntelligence();
@@ -1295,9 +1297,10 @@ public class CharacterClass
         {
             skillName = $"|>Stat<|{skillName}";
         }
+        var psycheName = Name == "Эрен Йегер" ? "Самоуверенность" : "Психика";
         if (howMuchToAdd > 0 && isLog)
-            Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Психика\n");
-        else if (howMuchToAdd < 0 && isLog) Status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} Психика\n");
+            Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} {psycheName}\n");
+        else if (howMuchToAdd < 0 && isLog) Status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} {psycheName}\n");
 
 
         var psycheOld = GetPsyche();
@@ -1345,9 +1348,10 @@ public class CharacterClass
         if (isLog)
         {
             var diff = howMuchToSet - GetPsyche();
+            var psycheName = Name == "Эрен Йегер" ? "Самоуверенность" : "Психика";
             if (diff > 0)
-                Status.AddInGamePersonalLogs($"{skillName}: +{diff} Психика\n");
-            else if (diff < 0) Status.AddInGamePersonalLogs($"{skillName}: {diff} Психика\n");
+                Status.AddInGamePersonalLogs($"{skillName}: +{diff} {psycheName}\n");
+            else if (diff < 0) Status.AddInGamePersonalLogs($"{skillName}: {diff} {psycheName}\n");
         }
 
         var psycheOld = GetPsyche();

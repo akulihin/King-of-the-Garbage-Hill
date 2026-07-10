@@ -59,6 +59,18 @@ public class CharacterPassives : IServiceSingleton
         return jew?.GetPlayerId() ?? naturalRecipientId;
     }
 
+    private static void ApplyAttackTitanBoost(GamePlayerBridgeClass eren)
+    {
+        eren.FightCharacter.SetIntelligenceForOneFight(
+            eren.FightCharacter.GetIntelligence() + 5, ErenYeager.AttackTitan);
+        eren.FightCharacter.SetStrengthForOneFight(
+            eren.FightCharacter.GetStrength() + 5, ErenYeager.AttackTitan);
+        eren.FightCharacter.SetSpeedForOneFight(
+            eren.FightCharacter.GetSpeed() + 5, ErenYeager.AttackTitan);
+        eren.FightCharacter.SetPsycheForOneFight(
+            eren.FightCharacter.GetPsyche() + 5, ErenYeager.AttackTitan);
+    }
+
 
     public List<GamePlayerBridgeClass> HandleEventsBeforeFirstRound(List<GamePlayerBridgeClass> playersList)
     {
@@ -165,6 +177,13 @@ public class CharacterPassives : IServiceSingleton
                         playersList[i] = playersList[i + 1];
 
                     playersList[^1] = player;
+                    break;
+
+                case ErenYeager.Sheep:
+                    if (player.GameCharacter.Name != ErenYeager.CharacterName) break;
+                    ErenYeager.MoveToLast(playersList, player);
+                    player.Status.AddInGamePersonalLogs(
+                        $"|>Phrase<|{ErenYeager.Sheep}: {CharactersUniquePhrase.ErenSheepRoundPhrases[0]}\n");
                     break;
 
                 case "Тигр топ, а ты холоп":
@@ -414,6 +433,17 @@ public class CharacterPassives : IServiceSingleton
 
                     if (!deep.FriendList.Contains(me.GetPlayerId()))
                         target.Status.IsAbleToWin = false;
+                    break;
+
+                case ErenYeager.Fighter:
+                    if (target.GameCharacter.Name == ErenYeager.CharacterName)
+                        me.Passives.ErenHatredMark = 2;
+                    break;
+
+                case ErenYeager.AttackTitan:
+                    if (target.GameCharacter.Name == ErenYeager.CharacterName
+                        && target.Passives.Eren.AttackTitanActiveThisRound)
+                        ApplyAttackTitanBoost(target);
                     break;
 
                 case "Неуязвимость":
@@ -969,6 +999,12 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in me.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case ErenYeager.AttackTitan:
+                    if (me.GameCharacter.Name == ErenYeager.CharacterName
+                        && me.Passives.Eren.AttackTitanActiveThisRound)
+                        ApplyAttackTitanBoost(me);
+                    break;
+
                 case "AutoWin":
                     target.Status.IsAbleToWin = false;
                     me.Status.IsArmorBreak = true;
@@ -2426,6 +2462,52 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in player.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case ErenYeager.Fighter:
+                {
+                    if (player.GameCharacter.Name != ErenYeager.CharacterName) break;
+                    var eren = player.Passives.Eren;
+
+                    if (player.Status.IsLostThisCalculation != Guid.Empty)
+                    {
+                        var winner = game.PlayersList.Find(x =>
+                            x.GetPlayerId() == player.Status.IsLostThisCalculation);
+                        if (winner != null)
+                            winner.Passives.ErenHatredMark = Math.Max(1, winner.Passives.ErenHatredMark);
+                    }
+
+                    if (player.Status.IsWonThisCalculation != Guid.Empty)
+                    {
+                        var loser = game.PlayersList.Find(x =>
+                            x.GetPlayerId() == player.Status.IsWonThisCalculation);
+                        if (loser?.Passives.ErenHatredMark > 0)
+                        {
+                            player.Status.AddBonusPoints(loser.Passives.ErenHatredMark, ErenYeager.Fighter);
+                            loser.Passives.ErenHatredMark = 0;
+                        }
+                    }
+
+                    if (attack && player.Status.IsFighting != Guid.Empty)
+                    {
+                        var enemy = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsFighting);
+                        if (enemy != null
+                            && enemy.Status.WhoToAttackThisTurn.Contains(player.GetPlayerId())
+                            && !eren.MutualAttackRewardsThisRound.Contains(enemy.GetPlayerId()))
+                        {
+                            eren.MutualAttackRewardsThisRound.Add(enemy.GetPlayerId());
+                            eren.TatakeSoundSerial++;
+                            player.Status.AddRegularPoints(2, ErenYeager.Fighter);
+                        }
+                    }
+
+                    break;
+                }
+
+                case ErenYeager.Rumbling:
+                    if (player.GameCharacter.Name == ErenYeager.CharacterName
+                        && player.Status.IsLostThisCalculation != Guid.Empty)
+                        player.Passives.Eren.Losses++;
+                    break;
+
                 case "Rune":
                 {
                     if (player.GameCharacter.Name != DoomGuy.CharacterName) break;
@@ -3398,6 +3480,53 @@ public class CharacterPassives : IServiceSingleton
                     break;
             }
     }
+
+    public void HandleRumblingAfterFights(GameClass game)
+    {
+        if (game.RoundNo != 10) return;
+
+        var eren = game.PlayersList.Find(player =>
+            player.GameCharacter.Name == ErenYeager.CharacterName
+            && player.GameCharacter.Passive.Any(passive => passive.PassiveName == ErenYeager.Rumbling)
+            && !player.Passives.IsDead);
+        if (eren == null || eren.Passives.Eren.RumblingTriggered || eren.Passives.Eren.Losses >= 2) return;
+
+        var projected = ErenYeager.ProjectRoundEndLeaderboard(game);
+        var erenIndex = projected.IndexOf(eren);
+        if (erenIndex < 0) return;
+
+        eren.Passives.Eren.RumblingTriggered = true;
+        eren.Passives.Eren.RumblingPlace = erenIndex + 1;
+
+        // Eldia is the sixth position itself: only players strictly between Eren and place 6 die.
+        var victims = projected
+            .Skip(erenIndex + 1)
+            .Take(Math.Max(0, projected.Count - erenIndex - 2))
+            .Where(player => !player.Passives.IsDead)
+            .ToList();
+
+        foreach (var victim in victims)
+        {
+            victim.Passives.IsDead = true;
+            victim.Passives.DeathSource = "Rumbling";
+        }
+
+        if (victims.Count == 0)
+        {
+            game.AddGlobalLogs($"Rumbling: Эрен остался на {erenIndex + 1} месте. Между ним и Элдией никого нет.");
+            return;
+        }
+
+        game.AddGlobalLogs(
+            $"Rumbling: Колоссальные титаны уничтожили {string.Join(", ", victims.Select(x => x.DiscordUsername))}!");
+
+        foreach (var monster in game.PlayersList.Where(x =>
+                     x.GameCharacter.Passive.Any(passive => passive.PassiveName == "Монстр")))
+        {
+            monster.Status.AddRegularPoints(victims.Count, "Монстр");
+            game.Phrases.MonsterDeath.SendLog(monster, false);
+        }
+    }
     //end handle during fight
 
 
@@ -3408,6 +3537,24 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in player.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case ErenYeager.Fighter:
+                    if (player.GameCharacter.Name == ErenYeager.CharacterName)
+                        player.Passives.Eren.MutualAttackRewardsThisRound.Clear();
+                    break;
+
+                case ErenYeager.AttackTitan:
+                    if (player.GameCharacter.Name == ErenYeager.CharacterName
+                        && player.Passives.Eren.AttackTitanActiveThisRound)
+                    {
+                        var wasAttacked = game.PlayersList.Any(enemy =>
+                            enemy.GetPlayerId() != player.GetPlayerId()
+                            && enemy.Status.WhoToAttackThisTurn.Contains(player.GetPlayerId()));
+                        if (!wasAttacked)
+                            player.MinusPsycheLog(player.GameCharacter, game, -2, ErenYeager.AttackTitan);
+                        player.Passives.Eren.AttackTitanActiveThisRound = false;
+                    }
+                    break;
+
                 case "Shield":
                     if (player.GameCharacter.Name == DoomGuy.CharacterName)
                         player.Passives.DoomGuy.BlocksThisRound = 0;
@@ -4719,6 +4866,35 @@ public class CharacterPassives : IServiceSingleton
             foreach (var passive in player.GameCharacter.Passive.ToList())
                 switch (passive.PassiveName)
                 {
+                    case ErenYeager.Sheep:
+                        if (player.GameCharacter.Name == ErenYeager.CharacterName
+                            && game.RoundNo is >= 2 and <= 8)
+                        {
+                            var eren = player.Passives.Eren;
+                            if (eren.RageGained < 8)
+                            {
+                                player.GameCharacter.AddIntelligence(1, ErenYeager.Sheep);
+                                eren.RageGained++;
+                            }
+
+                            player.Status.AddInGamePersonalLogs(
+                                $"|>Phrase<|{ErenYeager.Sheep}: "
+                                + $"{CharactersUniquePhrase.ErenSheepRoundPhrases[game.RoundNo - 1]}\n");
+                        }
+                        break;
+
+                    case ErenYeager.Rumbling:
+                        if (player.GameCharacter.Name == ErenYeager.CharacterName
+                            && game.RoundNo == 10
+                            && !player.Passives.IsDead
+                            && !player.Passives.Eren.RumblingWarningPlayed)
+                        {
+                            player.Passives.Eren.RumblingWarningPlayed = true;
+                            game.AddGlobalLogs(
+                                "Армин: **Внимание!** Нам всем скоро конец! Поэтому... Весь мир должен объединиться и убить... Эрена Йегера!");
+                        }
+                        break;
+
                     case "Rune":
                         if (player.GameCharacter.Name == DoomGuy.CharacterName && player.IsBot()
                             && game.RoundNo == 1 && !player.Passives.DoomGuy.RollMode)

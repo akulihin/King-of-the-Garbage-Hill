@@ -1212,6 +1212,16 @@ public class CheckIfReady : IServiceSingleton
 
 
                 //end Никому не нужен
+                // Овца в загоне — Eren stays last through the end of round 8.
+                if (game.RoundNo <= 8)
+                {
+                    var eren = game.PlayersList.Find(x =>
+                        x.GameCharacter.Name == ErenYeager.CharacterName
+                        && x.GameCharacter.Passive.Any(y => y.PassiveName == ErenYeager.Sheep));
+                    if (eren != null)
+                        ErenYeager.MoveToLast(game.PlayersList, eren);
+                }
+
                 //выдаем место в таблице
                 for (var k = 0; k < game.PlayersList.Count; k++)
                     game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);

@@ -89,6 +89,8 @@ Attack-menu placeholder states (`GameUpdateMess.cs:1299-1360`): `Что-то з�
 
 DooM Guy replaces the normal `lvl-up` options with the current stage's up-to-four configured modules (`GameUpdateMess.cs:1435-1455`; selection still reaches `HandleLvlUp`, whose DooM branch maps the selected index to that module, `GameReactions.cs:801-814`). In Let's Roll mode that menu is never shown: the stage point is consumed automatically after sorting. Moral buttons and prediction menus are disabled/omitted (`GameUpdateMess.cs:1423-1427, 1491-1495, 1523-1527, 1599`). Demon nests appear as public leaderboard markers (`GameUpdateMess.cs:235-239`).
 
+Эрен keeps the ordinary stat/level-up mechanics, but his character card, fight page and level-up menu display Intelligence as `Злость` and Psyche as `Самоуверенность` (`GameUpdateMess.cs:59-77, 1098-1112, 1240-1248, 1476-1487`). To Eren, enemies with hatred carry a public-in-his-DM `🔥1/2` leaderboard suffix (`GameUpdateMess.cs:443-446`). `Овца в загоне` also moves him to the last leaderboard row before every fight calculation through round 8 (`CheckIfReady.cs:1215-1223`); on block, the calculation clears the block into `Атакующий Титан`, so the normal block acknowledgement is only the submitted action, never a resolved shield (`DoomsdayMachine.cs:271-281`).
+
 ## 6. Dispatch & round resolution
 
 All in-game components land in `GameReaction.ReactionAddedGameWindow` (`GameReactions.cs:135-426`):

@@ -268,6 +268,19 @@ public class DoomsdayMachine : IServiceSingleton
             }
         }
 
+        // Эрен Йегер — block becomes Attack Titan for the whole round snapshot.
+        foreach (var player in game.PlayersList.Where(x =>
+                     x.GameCharacter.Name == ErenYeager.CharacterName
+                     && x.GameCharacter.Passive.Any(y => y.PassiveName == ErenYeager.AttackTitan)
+                     && x.Status.IsBlock).ToList())
+        {
+            player.Status.IsBlock = false;
+            player.Passives.Eren.AttackTitanActiveThisRound = true;
+            player.Passives.Eren.AttackTitanSoundSerial++;
+            player.Status.AddInGamePersonalLogs(
+                $"{ErenYeager.AttackTitan}: +5 всех статов на этот ход.\n");
+        }
+
         // Portal Gun — override external skip/block if Rick wants to attack
         foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Портальная пушка")).ToList())
         {
@@ -1219,6 +1232,9 @@ public class DoomsdayMachine : IServiceSingleton
             }
         }
 
+        // Rumbling is deliberately the first post-fight passive settlement on round 10.
+        _characterPassives.HandleRumblingAfterFights(game);
+
 
 
 
@@ -1438,6 +1454,16 @@ public class DoomsdayMachine : IServiceSingleton
             game.PlayersList[^1] = player;
         }
         //end Никому не нужен
+
+        // Овца в загоне: Eren remains at the foot of the hill through round 8.
+        if (game.RoundNo <= 8)
+        {
+            var eren = game.PlayersList.Find(x =>
+                x.GameCharacter.Name == ErenYeager.CharacterName
+                && x.GameCharacter.Passive.Any(y => y.PassiveName == ErenYeager.Sheep));
+            if (eren != null)
+                ErenYeager.MoveToLast(game.PlayersList, eren);
+        }
 
 
         //sort

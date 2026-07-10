@@ -96,6 +96,10 @@ public class StartGameLogic : IServiceSingleton
             reservedCharacters.Add(character);
             allCharacters.RemoveAll(x => x.Name == character.Name);
         }
+        if (reservedCharacters.Any(x => x.Name == ErenYeager.CharacterName))
+            allCharacters.RemoveAll(x => x.Name == "HardKitty");
+        if (reservedCharacters.Any(x => x.Name == "HardKitty"))
+            allCharacters.RemoveAll(x => x.Name == ErenYeager.CharacterName);
         //end
 
 
@@ -149,6 +153,10 @@ public class StartGameLogic : IServiceSingleton
                     account.CharacterMastery.GetValueOrDefault(forcedName, 0);
                 DoomGuy.InitializeForGame(playersList.Last(), account);
                 account.CharacterPlayedLastTime = forcedName;
+                if (forcedName == ErenYeager.CharacterName)
+                    allCharacters.RemoveAll(x => x.Name == "HardKitty");
+                if (forcedName == "HardKitty")
+                    allCharacters.RemoveAll(x => x.Name == ErenYeager.CharacterName);
                 continue;
             }
             //end forced line-up
@@ -234,6 +242,12 @@ public class StartGameLogic : IServiceSingleton
                     allCharacters.Remove(characterToRemove);
                     break;
                 }
+                case ErenYeager.CharacterName:
+                    allCharacters.RemoveAll(x => x.Name == "HardKitty");
+                    break;
+                case "HardKitty":
+                    allCharacters.RemoveAll(x => x.Name == ErenYeager.CharacterName);
+                    break;
             }
 
             switch (characterToAssign.Tier)
@@ -283,6 +297,10 @@ public class StartGameLogic : IServiceSingleton
         // Remove already-assigned characters
         foreach (var excluded in excludedCharacters)
             allCharacters.RemoveAll(x => x.Name == excluded.Name);
+        if (excludedCharacters.Any(x => x.Name == ErenYeager.CharacterName))
+            allCharacters.RemoveAll(x => x.Name == "HardKitty");
+        if (excludedCharacters.Any(x => x.Name == "HardKitty"))
+            allCharacters.RemoveAll(x => x.Name == ErenYeager.CharacterName);
 
         // Remove character played last time
         allCharacters = allCharacters.Where(x => x.Name != account.CharacterPlayedLastTime).ToList();

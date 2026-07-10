@@ -11,6 +11,18 @@ namespace King_of_the_Garbage_Hill.Game.MemoryStorage;
 
 public class CharactersUniquePhrase
 {
+    public static readonly IReadOnlyList<string> ErenSheepRoundPhrases = new List<string>
+    {
+        "Ах, хорошо живем. Отец дома, мать жива, сводная сестра застревает в стиральном корыте. Кайфы...",
+        "Они... сожрали маму...",
+        "Я их убью... Я ВСЕХ ИХ УБЬЮ!",
+        "Почему... люди просто умирают... это... ад..?",
+        "Энни... ты ведь пошутила, так? Мы ведь друзья...",
+        "Вы же были мне... как братья... ЧЕРТОВЫ ПРИДАТЕЛИ!",
+        "Мой отец... он не мог так поступить...",
+        "Я не буду сидеть взаперти как проклятый скот! Я ДОБЕРУСЬ ДО НИХ И УБЬЮ КАЖДОГО!",
+    };
+
     //initialize variables 
     public PhraseClass AwdkaAfk;
     public PhraseClass AwdkaTeachToPlay;

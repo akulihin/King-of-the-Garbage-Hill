@@ -69,6 +69,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             speStr = "Скорость";
             psyStr = "Нытье";
         }
+        else if (character.Name == ErenYeager.CharacterName)
+        {
+            intStr = "Злость";
+            psyStr = "Самоуверенность";
+        }
 
         var sakuraText = "";
         if (player.GameCharacter.Passive.Count == 0) sakuraText = "\nИх... нет...\n";
@@ -433,6 +438,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                             }
                     }
 
+                    break;
+
+                case ErenYeager.Fighter:
+                    if (other.GetPlayerId() != me.GetPlayerId() && other.Passives.ErenHatredMark > 0)
+                        customString += $" 🔥{other.Passives.ErenHatredMark}";
                     break;
 
                 case "Обучение":
@@ -1094,6 +1104,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             speStr = "Скорость";
             psyStr = "Нытье";
         }
+        else if (character.Name == ErenYeager.CharacterName)
+        {
+            intStr = "Злость";
+            psyStr = "Самоуверенность";
+        }
 
         var splitter = "▬▬▬▬▬▬▬▬▬▬▬▬▬";
         /*
@@ -1222,12 +1237,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         embed.WithColor(Color.Blue);
         embed.WithFooter($"{GetTimeLeft(player)}");
         //embed.WithCurrentTimestamp();
+        var intelligenceName = character.Name == ErenYeager.CharacterName ? "Злость" : "Интеллект";
+        var psycheName = character.Name == ErenYeager.CharacterName ? "Самоуверенность" : "Психика";
         embed.AddField("_____",
             $"{text2}\n \n" +
-            $"1. **Интеллект:** {character.GetIntelligence()}\n" +
+            $"1. **{intelligenceName}:** {character.GetIntelligence()}\n" +
             $"2. **Сила:** {character.GetStrength()}\n" +
             $"3. **Скорость:** {character.GetSpeed()}\n" +
-            $"4. **Психика:** {character.GetPsyche()}\n");
+            $"4. **{psycheName}:** {character.GetPsyche()}\n");
 
 
         embed.WithThumbnailUrl(character.AvatarCurrent);
@@ -1456,15 +1473,17 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             placeholderText = "Выбор нерфа";
         }
 
+        var intelligenceName = player.GameCharacter.Name == ErenYeager.CharacterName ? "Злость" : "Интеллект";
+        var psycheName = player.GameCharacter.Name == ErenYeager.CharacterName ? "Самоуверенность" : "Психика";
         var charMenu = new SelectMenuBuilder()
             .WithMinValues(1)
             .WithMaxValues(1)
             .WithCustomId("lvl-up")
             .WithPlaceholder(placeholderText)
-            .AddOption("Интеллект", "1")
+            .AddOption(intelligenceName, "1")
             .AddOption("Сила", "2")
             .AddOption("Скорость", "3")
-            .AddOption("Психика", "4");
+            .AddOption(psycheName, "4");
 
 
         //Да всё нахуй эту игру Part #4
