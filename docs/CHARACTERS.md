@@ -85,7 +85,7 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 - **Изанаги** — 2 uses; defending a lost fight auto-converts to a win (`DoomsdayMachine.cs:705-714`).
 - **Аматерасу** — attacking an enemy **adjacent on the leaderboard** with less Speed than Итачи: they can't win (`CP:1350-1360`).
 - **Глаза Итачи** (Цукуеми) — charge +1/round to 2 (`CP:4119-4125`); attacking with full charge marks the target (this round + next) (`CP:2919-2941`); each end-of-round the victim's earnings (regular×multiplier + bonus earned) are **copied** to Итачи as bonus points and recorded (`CP:4089-4117`); the victim only *loses* them at game end (`CheckIfReady.cs:363-379`). If the stolen earnings include a fake Осьминожка point, the ink restore skips its own debit so the victim pays it once — to Итачи (D11). Re-attacking the marked target cancels the effect. Recharge after use is 4 rounds (counter set to −2); the description's "2" is no bug — confirmed intended (m9, ОК).
-- **Глаз Шусуи** — one-time self-resurrect at next round (`CP:5365-5374`).
+- **Глаз Шусуи** — hidden until used; one-time self-resurrect at next round, then the passive becomes visible in the web panel (`CP:5756-5767`).
 - Web: only Tsukuyomi state is surfaced (`PlayerDto.TsukuyomiState`); crows/Izanagi are not shown to the owner (finding).
 
 ---
@@ -96,7 +96,7 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 - **Похищение души** — `ClassSkillMultiplier = 2` from game start (`CP:73-75`): class skill perks pay double (Сильный +8/win, etc.). ×4 during the resurrection event (`CP:2446`).
 - **Охота на богов** — vs his Мишень-class target: fight-skill ×2 (×4 during event) (`CP:1047-1056`), reset after each fight (`CP:2451-2453`).
 - **Возвращение из мертвых** — losing any round-10 fight starts the event (`CP:2439-2447`): global warning, Kratos music (5 rounds), class mult ×4. Extra rounds 11–16: everyone else is forced to auto-block (`CheckIfReady.cs:1020-1026`), Kratos ignores blocks/skips (`CP:1038-1044`); every enemy he defeats **dies** (Goblins immune) and drops off (`CP:1655-1675`); a Kratos loss = his final death (`CP:2420-2436`); event ends at round ≥16 or when 5 players are dead (`CP:3360-3374`, `DoomsdayMachine.cs:1249-1255`; hard cap `RoundNo ≥ 20`).
-- **Боги мне не указ** — one-time resurrection if killed by Kira, +228 Skill (`CP:5377-5386`).
+- **Боги мне не указ** — hidden until used; one-time resurrection if killed by Kira, +228 Skill, then revealed in the web panel (`CP:5770-5782`).
 - **God Of War** — hidden, flavor only: the "Zeus! Your son has returned" intro log (`CP:69-71`).
 
 ## Кира — Tier 1, Int 5+4 / Str 3 / Speed 6 / Psyche 4
@@ -317,7 +317,7 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 ## Sakura — Tier −1 (secret, rollable), Int 6 / Str 10 / Speed 6 / Psyche 10
 
 - Tier −1 = secret: rollable by humans at range 40 (bots never roll tier <4), hidden from the predictions menu and character lists (`CharactersPull.cs:34-50`, `GameStateMapper.cs:54`) — so nobody can score a prediction on her.
-- **Одна из трех** (hidden) — game end: if top-3 and alive, she's declared the winner (`top3Player`, `CheckIfReady.cs:514-524`). Her real place / leaderboard / MatchHistory stand **by fact**, but she is paid **first-place stats & rewards** — TotalWins +1, character-Wins +1, mastery 10, ZBS 100, top-2 loot box — via a `rewardPlace` of 1 in the payout loop (`CheckIfReady.cs:631-728`; D3 fixed: "статы и награды как за первое место").
+- **Одна из трех** (hidden) — game end: if top-3 and alive, she's declared the winner and the passive is revealed in the final web state (`top3Player`, `CheckIfReady.cs:533-543`). Her real place / leaderboard / MatchHistory stand **by fact**, but she is paid **first-place stats & rewards** — TotalWins +1, character-Wins +1, mastery 10, ZBS 100, top-2 loot box — via a `rewardPlace` of 1 in the payout loop (`CheckIfReady.cs:649-726`; D3 fixed: "статы и награды как за первое место").
 
 ## Баг — Tier −1 (secret, rollable; humans only), Int 1 / Str 3 / Speed 3 / Psyche 7 (no state file)
 

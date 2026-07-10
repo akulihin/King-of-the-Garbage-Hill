@@ -242,10 +242,6 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             if (goblinPlayer.Passives.GoblinZiggurat.BuiltPositions.Contains(number)) customString += "🏛️";
         }
 
-        // Cat icon — visible to all when Котики cat is sitting on a player
-        if (player2.Passives.KotikiCatType != "")
-            customString += "🐱";
-
         // Protection indicators — visible to all players
         if (player2.Passives.GoblinZiggurat.IsInZiggurat)
             customString += "🛡️";
@@ -256,10 +252,6 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         if (Madara.IsSealed(player2))
             customString += "🚫";
-
-        // Pawn icon for Johan pawns
-        if (player2.Passives.IsJohanPawn)
-            customString += "♟️";
 
         // DooM Guy demon nests are public leaderboard objectives.
         if (game.PlayersList.Any(x => x.GameCharacter.Name == DoomGuy.CharacterName
@@ -687,11 +679,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     break;
 
                 case "Монстр":
-                    // Show pawn count to Monster owner
                     if (other.GetPlayerId() == me.GetPlayerId())
                     {
                         var pawnCount = game.PlayersList.Count(x => x.Passives.IsJohanPawn && x.Passives.JohanPawnOwnerId == me.GetPlayerId());
                         if (pawnCount > 0) customString += $" ♟️{pawnCount}";
+                    }
+                    else if (other.Passives.IsJohanPawn && other.Passives.JohanPawnOwnerId == me.GetPlayerId())
+                    {
+                        customString += " ♟️";
                     }
                     break;
 

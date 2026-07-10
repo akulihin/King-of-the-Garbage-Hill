@@ -52,6 +52,7 @@ const showDetails = computed(() => props.showDetailedFactors || props.isAdmin)
 const emit = defineEmits<{
   (e: 'resist-flash', stats: string[]): void
   (e: 'justice-reset'): void
+  (e: 'justice-transfer'): void
   (e: 'justice-up'): void
   (e: 'replay-ended'): void
   (e: 'update:fightIndex', idx: number): void
@@ -98,6 +99,7 @@ const speed = ref(1)
 const skippedToEnd = ref(false)
 const lastAnimatedRound = ref<string>('')
 let timer: ReturnType<typeof setTimeout> | null = null
+const justiceUpTimers = new Set<ReturnType<typeof setTimeout>>()
 
 // ── Fight result glow + screen shake ──────────────────────────────
 const fightResult = ref<'win' | 'loss' | null>(null)
@@ -491,7 +493,12 @@ watch(showFinalResult, (show: boolean) => {
     }
     // Justice up: only if change > 0 AND we weren't already at max (5)
     if (f.justiceChange > 0 && ourPreFightJustice < 5) {
-      emit('justice-up')
+      emit('justice-transfer')
+      const justiceTimer = setTimeout(() => {
+        justiceUpTimers.delete(justiceTimer)
+        emit('justice-up')
+      }, 1000)
+      justiceUpTimers.add(justiceTimer)
     }
   }
 
@@ -630,6 +637,8 @@ watch(() => props.fights, () => {
 
 onUnmounted(() => {
   clearTimer()
+  justiceUpTimers.forEach(clearTimeout)
+  justiceUpTimers.clear()
   if (weighingAnimFrame) cancelAnimationFrame(weighingAnimFrame)
   if (needleAnimFrame) cancelAnimationFrame(needleAnimFrame)
   clearSlamTimers()

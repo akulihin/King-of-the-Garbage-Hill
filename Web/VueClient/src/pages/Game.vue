@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from 'src/store/game'
 import Leaderboard from 'src/components/Leaderboard.vue'
@@ -7,6 +7,7 @@ import DeathNote from 'src/components/DeathNote.vue'
 import PlayerCard from 'src/components/PlayerCard.vue'
 // ActionPanel removed — action buttons now live under PlayerCard in game-left
 import SkillsPanel from 'src/components/SkillsPanel.vue'
+import { formatPassiveDescription } from 'src/services/textFormatting'
 import FightAnimation from 'src/components/FightAnimation.vue'
 import MediaMessages from 'src/components/MediaMessages.vue'
 import RoundTimer from 'src/components/RoundTimer.vue'
@@ -90,6 +91,49 @@ function onJusticeUp() {
   playJusticeUpSound()
   justiceUpFlash.value = true
   setTimeout(() => { justiceUpFlash.value = false }, 2000)
+}
+
+type JusticeDustParticle = {
+  id: number
+  x: number
+  y: number
+  dx: number
+  dy: number
+  delay: number
+  size: number
+}
+
+const fightPanelRef = ref<HTMLElement | null>(null)
+const justiceDustParticles = ref<JusticeDustParticle[]>([])
+let justiceDustId = 0
+
+function onJusticeTransfer() {
+  void nextTick(() => {
+    const source = fightPanelRef.value?.getBoundingClientRect()
+    const target = document.querySelector<HTMLElement>('[data-justice-target]')?.getBoundingClientRect()
+    if (!source || !target) return
+
+    const burst = ++justiceDustId
+    const startX = source.left + source.width * 0.18
+    const startY = source.top + source.height * 0.55
+    const endX = target.left + target.width * 0.5
+    const endY = target.top + target.height * 0.5
+    const particles = Array.from({ length: 11 }, (_, index) => ({
+      id: burst * 100 + index,
+      x: startX + (Math.random() - 0.5) * 18,
+      y: startY + (Math.random() - 0.5) * 14,
+      dx: endX - startX + (Math.random() - 0.5) * 12,
+      dy: endY - startY + (Math.random() - 0.5) * 10,
+      delay: index * 24 + Math.random() * 40,
+      size: 2 + Math.random() * 2.5,
+    }))
+    justiceDustParticles.value.push(...particles)
+    setTimeout(() => {
+      justiceDustParticles.value = justiceDustParticles.value.filter(
+        particle => particle.id < burst * 100 || particle.id >= burst * 100 + 100,
+      )
+    }, 1250)
+  })
 }
 
 /** Fight replay ended — trigger score combo animation */
@@ -865,20 +909,20 @@ watch(() => store.myPlayer?.status.previousRoundLogs, (newVal: string | undefine
   lastAnimatedRound = roundNo
 
   if (isNewRound) {
-    // Round transition: animate left→right
+    // Round transition: current shared log (right) moves into ordinary history (left).
 
-    // 1. Right panel: fade out old content in place (no slide)
+    // 1. Left panel: fade out old content in place (no slide)
     prevPanelExiting.value = true
     prevLogVisibleCount.value = 0
     prevPanelSwiping.value = false
 
-    // 2. Left panel: capture current items for exit-right animation
+    // 2. Right panel: capture current items for exit-left animation
     const currentItems = currentLogEntries.value
     if (currentItems.length > 0) {
       exitingLogEntries.value = [...currentItems]
       currentPanelExiting.value = true
 
-      // 3. After exit animation: show right panel content all at once
+      // 3. After exit animation: show left panel content all at once
       setTimeout(() => {
         currentPanelExiting.value = false
         exitingLogEntries.value = []
@@ -891,7 +935,7 @@ watch(() => store.myPlayer?.status.previousRoundLogs, (newVal: string | undefine
         }
       }, 400)
     } else {
-      // No left panel items to exit — show right panel immediately
+      // No right panel items to exit — show left panel immediately
       prevPanelExiting.value = false
       if (val) {
         prevPanelSwiping.value = true
@@ -900,7 +944,7 @@ watch(() => store.myPlayer?.status.previousRoundLogs, (newVal: string | undefine
       }
     }
   } else {
-    // Mid-round update: just show right panel content, no animation
+    // Mid-round update: just show the left history panel, no animation
     prevLogVisibleCount.value = 999
   }
 }, { immediate: true })
@@ -1094,7 +1138,7 @@ const charTint = computed(() => {
               <div class="draft-center-passives">
                 <div v-for="passive in store.gameState.draftOptions[0].passives" :key="passive.name" class="draft-passive">
                   <strong>{{ passive.name }}</strong>
-                  <span v-if="passive.description">: {{ passive.description }}</span>
+                  <span v-if="passive.description">: <span v-html="formatPassiveDescription(passive.description)" /></span>
                 </div>
               </div>
             </div>
@@ -1316,7 +1360,7 @@ const charTint = computed(() => {
 
         <!-- Fight Panel + Blackjack -->
         <div class="center-section fight-section" :class="{ 'fight-section-fixed': fightPanelFixed || fightStyle !== 'v3' }" :style="{ order: panelOrder.fight }">
-          <div class="log-panel card fight-panel" :class="{ 'fight-panel-fixed': fightPanelFixed }" :data-style="fightStyle">
+          <div ref="fightPanelRef" class="log-panel card fight-panel" :class="{ 'fight-panel-fixed': fightPanelFixed }" :data-style="fightStyle">
             <!-- Kira: Death Note above fight animation -->
             <DeathNote
               v-if="store.isKira && store.myPlayer?.deathNote && !store.gameState.isFinished"
@@ -1343,6 +1387,7 @@ const charTint = computed(() => {
               :fight-style="fightStyle"
               @resist-flash="onResistFlash"
               @justice-reset="onJusticeReset"
+              @justice-transfer="onJusticeTransfer"
               @justice-up="onJusticeUp"
               @replay-ended="onReplayEnded"
             />
@@ -1359,10 +1404,35 @@ const charTint = computed(() => {
         <div class="center-section" :style="{ order: panelOrder.logs }">
           <div class="logs-row-top">
 
+            <div class="log-panel card events-panel prev-logs-panel">
+
+              <div v-if="prevLogEntries.length" class="prev-logs" :class="{ 'slide-enter': prevPanelSwiping }">
+                <div
+                  v-for="(entry, idx) in prevLogEntries"
+                  :key="idx"
+                  class="prev-log-item"
+                  :class="[
+                    'prev-log-' + entry.type,
+                    { 'prev-log-visible': idx < prevLogVisibleCount },
+                    { 'prev-log-fade-exit': prevPanelExiting },
+                    { 'prev-log-combo': entry.type === 'gold' && entry.comboCount > 0 },
+                    { 'prev-log-phrase': entry.isPhrase }
+                  ]"
+                >
+                  <span class="prev-log-text" v-html="entry.html"></span>
+                  <span v-if="entry.type === 'gold' && entry.comboCount > 0" class="prev-log-combo-badge">
+                    x{{ entry.comboCount + 1 }} combo
+                  </span>
+                </div>
+              </div>
+
+              <div v-else class="log-empty">В прошлом раунде ничего не произошло.</div>
+            </div>
+
             <div class="log-panel card events-panel">
 
-              <!-- Exiting items: old logs sliding right toward prev panel -->
-              <div v-if="currentPanelExiting && exitingLogEntries.length" class="prev-logs slide-exit-right">
+              <!-- Exiting items: current shared log slides left into the ordinary-log panel -->
+              <div v-if="currentPanelExiting && exitingLogEntries.length" class="prev-logs slide-exit-left">
                 <div
                   v-for="(entry, idx) in exitingLogEntries"
                   :key="'exit-'+idx"
@@ -1396,31 +1466,6 @@ const charTint = computed(() => {
               <div v-else class="log-empty">Еще ничего не произошло. Наверное...</div>
             </div>
 
-            <div class="log-panel card events-panel prev-logs-panel">
-
-              <div v-if="prevLogEntries.length" class="prev-logs" :class="{ 'slide-enter': prevPanelSwiping }">
-                <div
-                  v-for="(entry, idx) in prevLogEntries"
-                  :key="idx"
-                  class="prev-log-item"
-                  :class="[
-                    'prev-log-' + entry.type,
-                    { 'prev-log-visible': idx < prevLogVisibleCount },
-                    { 'prev-log-fade-exit': prevPanelExiting },
-                    { 'prev-log-combo': entry.type === 'gold' && entry.comboCount > 0 },
-                    { 'prev-log-phrase': entry.isPhrase }
-                  ]"
-                >
-                  <span class="prev-log-text" v-html="entry.html"></span>
-                  <span v-if="entry.type === 'gold' && entry.comboCount > 0" class="prev-log-combo-badge">
-                    x{{ entry.comboCount + 1 }} combo
-                  </span>
-                </div>
-              </div>
-
-              <div v-else class="log-empty">В прошлом раунде ничего не произошло.</div>
-            </div>
-
           </div>
         </div>
 
@@ -1451,6 +1496,25 @@ const charTint = computed(() => {
               v-html="formatLogs(msg.text)"
             />
           </TransitionGroup>
+        </Teleport>
+
+        <Teleport to="body">
+          <div class="justice-dust-layer" aria-hidden="true">
+            <span
+              v-for="particle in justiceDustParticles"
+              :key="particle.id"
+              class="justice-dust-particle"
+              :style="{
+                left: `${particle.x}px`,
+                top: `${particle.y}px`,
+                width: `${particle.size}px`,
+                height: `${particle.size}px`,
+                '--justice-dx': `${particle.dx}px`,
+                '--justice-dy': `${particle.dy}px`,
+                '--justice-delay': `${particle.delay}ms`,
+              }"
+            />
+          </div>
         </Teleport>
 
         <!-- Character Phrase Media Messages (text, audio, images) -->
@@ -2434,6 +2498,31 @@ const charTint = computed(() => {
 
 /* ── VFX Message Popup ────────────────────────────────────────────── */
 
+.justice-dust-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 2400;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.justice-dust-particle {
+  position: fixed;
+  display: block;
+  border-radius: 50%;
+  opacity: 0;
+  background: rgba(164, 116, 255, 0.68);
+  box-shadow: 0 0 5px rgba(139, 92, 246, 0.38);
+  animation: justice-dust-flight 920ms cubic-bezier(0.3, 0.08, 0.3, 1) var(--justice-delay) forwards;
+}
+
+@keyframes justice-dust-flight {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.55); }
+  18% { opacity: 0.5; }
+  72% { opacity: 0.32; }
+  100% { opacity: 0; transform: translate(var(--justice-dx), var(--justice-dy)) scale(0.15); }
+}
+
 /* ── Logs ────────────────────────────────────────────────────────── */
 .logs-row-top {
   display: grid;
@@ -2744,12 +2833,12 @@ const charTint = computed(() => {
   100% { box-shadow: inset 0 0 0 transparent; }
 }
 
-/* Right panel items slide from further left (content "arriving" from left panel) */
+/* Left history items arrive from the current shared-log panel on the right. */
 .prev-logs-panel .prev-log-item:not(.prev-log-visible) {
-  transform: translateX(-60px) scale(0.95);
+  transform: translateX(60px) scale(0.95);
 }
 
-/* Right panel exit: fade out in place without sliding left */
+/* History panel exit: fade out in place. */
 .prev-log-item.prev-log-fade-exit {
   transform: translateX(0) !important;
 }
@@ -2760,15 +2849,15 @@ const charTint = computed(() => {
   to { transform: translateX(0); opacity: 1; }
 }
 
-@keyframes slide-from-left-far {
-  from { transform: translateX(-60px); opacity: 0.2; }
+@keyframes slide-from-right-far {
+  from { transform: translateX(60px); opacity: 0.2; }
   to { transform: translateX(0); opacity: 1; }
 }
 
-/* Exit animation: left panel items slide right toward the prev panel */
-@keyframes slide-to-right {
+/* Exit animation: right-panel items slide left toward ordinary history. */
+@keyframes slide-to-left {
   0% { transform: translateX(0); opacity: 1; }
-  100% { transform: translateX(60px); opacity: 0; }
+  100% { transform: translateX(-60px); opacity: 0; }
 }
 
 .events-panel:not(.prev-logs-panel) .prev-logs.slide-enter {
@@ -2776,14 +2865,14 @@ const charTint = computed(() => {
 }
 
 .prev-logs-panel .prev-logs.slide-enter {
-  animation: slide-from-left-far 0.5s ease-out;
+  animation: slide-from-right-far 0.5s ease-out;
 }
 
-.slide-exit-right {
-  animation: slide-to-right 0.35s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+.slide-exit-left {
+  animation: slide-to-left 0.35s cubic-bezier(0.4, 0, 0.6, 1) forwards;
   pointer-events: none;
 }
-.slide-exit-right .prev-log-item {
+.slide-exit-left .prev-log-item {
   transition: none;
 }
 

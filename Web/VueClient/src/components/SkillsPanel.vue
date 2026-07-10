@@ -2,6 +2,7 @@
 import { ref, watch, nextTick, computed } from 'vue'
 import type { Player } from 'src/services/signalr'
 import { playTheBoysReveal, playTheBoysUnlock } from 'src/services/sound'
+import { formatPassiveDescription } from 'src/services/textFormatting'
 
 const props = defineProps<{
   player: Player
@@ -10,7 +11,6 @@ const props = defineProps<{
 const expandedSet = ref<Set<number>>(new Set())
 const skillCardRefs = ref<(HTMLElement | null)[]>([])
 
-const isTheBoys = computed(() => props.player.character.name === 'TheBoys')
 const theBoys = computed(() => props.player.passiveAbilityStates?.theBoys ?? null)
 
 function toggleSkill(idx: number) {
@@ -24,11 +24,6 @@ function toggleSkill(idx: number) {
 
 function isExpanded(idx: number): boolean {
   return expandedSet.value.has(idx)
-}
-
-// A TheBoys invisible passive is a not-yet-unlocked ultimate → render as a padlock card, name masked.
-function isLockedUltimate(passive: { visible: boolean }): boolean {
-  return isTheBoys.value && !passive.visible
 }
 
 function passiveIndexByName(name: string): number {
@@ -130,25 +125,20 @@ watch(
       :key="idx"
       :ref="(el) => { skillCardRefs[idx] = el as HTMLElement | null }"
       class="skill-card"
-      :class="{ hidden: !passive.visible, expanded: isExpanded(idx), 'tb-locked': isLockedUltimate(passive) }"
-      @click="isLockedUltimate(passive) ? null : toggleSkill(idx)"
+      :class="{ expanded: isExpanded(idx) }"
+      @click="toggleSkill(idx)"
     >
       <div class="skill-header">
         <div class="skill-header-left">
-          <span v-if="isLockedUltimate(passive)" class="skill-lock">🔒</span>
-          <span v-else class="skill-dot" :class="passive.visible ? 'dot-active' : 'dot-inactive'" />
-          <span class="skill-name">{{ isLockedUltimate(passive) ? 'Скрытая способность' : passive.name }}</span>
+          <span class="skill-dot dot-active" />
+          <span class="skill-name">{{ passive.name }}</span>
         </div>
         <div class="skill-header-right">
-          <span v-if="isLockedUltimate(passive)" class="hidden-badge tb-locked-badge">Заблокировано</span>
-          <span v-else-if="!passive.visible" class="hidden-badge">Hidden</span>
-          <span v-if="!isLockedUltimate(passive)" class="skill-chevron" :class="{ 'chevron-open': isExpanded(idx) }">▾</span>
+          <span class="skill-chevron" :class="{ 'chevron-open': isExpanded(idx) }">▾</span>
         </div>
       </div>
       <Transition name="expand">
-        <div v-if="isExpanded(idx) && !isLockedUltimate(passive)" class="skill-desc">
-          {{ passive.description }}
-        </div>
+        <div v-if="isExpanded(idx)" class="skill-desc" v-html="formatPassiveDescription(passive.description)" />
       </Transition>
     </div>
 
@@ -212,50 +202,6 @@ watch(
   border-color: rgba(180, 150, 255, 0.2);
 }
 
-.skill-card.hidden {
-  opacity: 0.45;
-  border-style: dashed;
-  border-left-style: solid;
-  border-color: var(--border-subtle);
-  border-left-color: var(--text-dim);
-}
-
-.skill-card.hidden:hover {
-  opacity: 0.6;
-}
-
-/* TheBoys locked ultimate — padlock card, name masked */
-.skill-card.tb-locked {
-  opacity: 0.7;
-  cursor: default;
-  border-style: dashed;
-  border-left: 3px solid #7a1f1f;
-  border-color: rgba(220, 40, 40, 0.35);
-  background: repeating-linear-gradient(
-    45deg,
-    rgba(120, 20, 20, 0.06),
-    rgba(120, 20, 20, 0.06) 8px,
-    rgba(0, 0, 0, 0) 8px,
-    rgba(0, 0, 0, 0) 16px
-  );
-}
-.skill-card.tb-locked:hover {
-  transform: none;
-}
-.skill-lock {
-  font-size: 12px;
-  filter: drop-shadow(0 0 4px rgba(255, 80, 80, 0.4));
-}
-.tb-locked .skill-name {
-  color: var(--text-dim);
-  font-style: italic;
-  letter-spacing: 1px;
-}
-.tb-locked-badge {
-  background: #7a1f1f;
-  color: #ffd7d7;
-}
-
 .skill-header {
   display: flex;
   align-items: center;
@@ -293,10 +239,6 @@ watch(
   50% { box-shadow: 0 0 8px rgba(63, 167, 61, 0.7); }
 }
 
-.dot-inactive {
-  background: var(--text-dim);
-}
-
 .skill-name {
   font-weight: 800;
   font-size: 12px;
@@ -317,25 +259,17 @@ watch(
   color: var(--accent-purple);
 }
 
-.hidden-badge {
-  font-size: 8px;
-  padding: 1px 6px;
-  border-radius: 3px;
-  background: var(--text-dim);
-  color: var(--bg-primary);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
 .skill-desc {
   font-size: 11px;
   line-height: 1.5;
   color: var(--text-secondary);
   padding-top: 6px;
   padding-left: 12px;
-  white-space: pre-line;
 }
+
+.skill-desc :deep(strong) { color: var(--text-primary); font-weight: 800; }
+.skill-desc :deep(em) { color: var(--accent-blue); font-style: italic; }
+.skill-desc :deep(u) { text-decoration-thickness: 1px; text-underline-offset: 2px; }
 
 /* Expand transition */
 .expand-enter-active {

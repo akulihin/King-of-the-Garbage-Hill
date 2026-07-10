@@ -391,6 +391,16 @@ const allAnimHits = computed<AnimHit[]>(() => {
   return hits
 })
 
+function comboHeatStyle(combo: number) {
+  const hue = Math.max(0, 52 - Math.max(0, combo - 2) * 7)
+  return {
+    color: `hsl(${hue} 92% 64%)`,
+    backgroundColor: `hsl(${hue} 82% 48% / 0.16)`,
+    borderColor: `hsl(${hue} 82% 58% / 0.32)`,
+    textShadow: `0 0 9px hsl(${hue} 90% 55% / 0.45)`,
+  }
+}
+
 const hitVisibleCount = ref(0)
 const hitActiveIdx = ref(-1)
 const animatedScoreDelta = ref(0)
@@ -956,7 +966,7 @@ function handleDoomChainsaw(passiveName: string) {
     </div>
 
     <!-- Justice: highlighted, own row -->
-    <div class="pc-justice-row" :class="{ 'justice-reset-flash': justiceReset, 'justice-up-sparkle': justiceUp }"
+    <div class="pc-justice-row" data-justice-target :class="{ 'justice-reset-flash': justiceReset, 'justice-up-sparkle': justiceUp }"
       @mouseenter="showTip($event, 'Justice allows you to win Round 2 and influences Round 1. You gain it when you\'re defeated and it is fully reset on victory')"
       @mousemove="moveTip" @mouseleave="hideTip">
       <span class="justice-icon">⚖</span>
@@ -1500,24 +1510,6 @@ function handleDoomChainsaw(passiveName: string) {
       </div>
     </div>
 
-    <!-- 18. Впарили говна (Seller Mark on marked player — visible to all) -->
-    <div v-if="passiveStates?.sellerMark" class="pc-passive-widget seller-mark-widget">
-      <div class="pw-header">
-        <span class="pw-title seller-mark-title">ВПАРИЛИ</span>
-        <span v-if="passiveStates.sellerMark.sellerName" class="pw-status seller-mark-source">{{ passiveStates.sellerMark.sellerName }}</span>
-      </div>
-      <div class="pw-body">
-        <div v-if="passiveStates.sellerMark.roundsRemaining > 0" class="pw-stat-pair">
-          <span class="pw-value">{{ passiveStates.sellerMark.roundsRemaining }}</span>
-          <span class="pw-label">rounds left</span>
-        </div>
-        <div v-if="passiveStates.sellerMark.debt" class="pw-stat-pair">
-          <span class="pw-value">{{ passiveStates.sellerMark.debt }}</span>
-          <span class="pw-label">debt</span>
-        </div>
-      </div>
-    </div>
-
     <!-- 20. Стая Гоблинов (Goblin Swarm) -->
     <div v-if="passiveStates?.goblinSwarm" class="pc-passive-widget goblin-widget">
       <div class="pw-header">
@@ -1596,18 +1588,6 @@ function handleDoomChainsaw(passiveName: string) {
       </div>
     </div>
 
-    <!-- 21b. Котики cat-on-me (shown to ANY player who has a cat sitting on them) -->
-    <div v-if="passiveStates?.kotikiCatOnMe" class="pc-passive-widget kotiki-cat-on-me-widget">
-      <div class="kotiki-cat-card" :class="passiveStates.kotikiCatOnMe.catType === 'Минька' ? 'kotiki-cat-minka' : 'kotiki-cat-storm'">
-        <div class="kotiki-cat-header">
-          <span class="kotiki-cat-icon">🐱</span>
-          <span class="kotiki-cat-name">{{ passiveStates.kotikiCatOnMe.catType }}</span>
-          <span v-if="passiveStates.kotikiCatOnMe.roundsDeployed > 0" class="kotiki-cat-rounds">{{ passiveStates.kotikiCatOnMe.roundsDeployed }} р.</span>
-        </div>
-        <div class="kotiki-cat-target">от {{ passiveStates.kotikiCatOnMe.catOwnerName }}</div>
-      </div>
-    </div>
-
     <!-- 22. Монстр без имени (owner widget) -->
     <div v-if="passiveStates?.monster" class="pc-passive-widget monster-widget">
       <div class="pw-header">
@@ -1618,17 +1598,6 @@ function handleDoomChainsaw(passiveName: string) {
           <span class="monster-label">Пешки:</span>
           <span class="monster-val">{{ passiveStates.monster.pawnCount }}</span>
         </div>
-      </div>
-    </div>
-
-    <!-- 22b. Monster pawn indicator (shown to ANY player who is a Johan pawn) -->
-    <div v-if="passiveStates?.monsterPawnOnMe" class="pc-passive-widget monster-pawn-on-me-widget">
-      <div class="monster-pawn-card">
-        <div class="monster-pawn-header">
-          <span class="monster-pawn-icon">♟️</span>
-          <span class="monster-pawn-name">Пешка Йохана</span>
-        </div>
-        <div class="monster-pawn-target">от {{ passiveStates.monsterPawnOnMe.pawnOwnerName }}</div>
       </div>
     </div>
 
@@ -1730,14 +1699,6 @@ function handleDoomChainsaw(passiveName: string) {
       </div>
     </div>
 
-    <!-- 30b. Toxic Mate cancer on me (per-player) -->
-    <div v-if="passiveStates?.toxicMateCancerOnMe" class="pc-passive-widget toxic-on-me-widget">
-      <div class="pw-header">
-        <span class="pw-title toxic-on-me-title">INFECTED</span>
-        <span class="pw-status toxic-on-me-source">{{ passiveStates.toxicMateCancerOnMe.sourceName }}</span>
-      </div>
-    </div>
-
     <!-- 31. Молодой Глеб (Tea) -->
     <div v-if="passiveStates?.yongGleb" class="pc-passive-widget yonggleb-widget">
       <div class="pw-header">
@@ -1820,15 +1781,6 @@ function handleDoomChainsaw(passiveName: string) {
       </div>
     </div>
 
-    <div v-if="passiveStates?.theBoysVirusOnMe" class="pc-passive-widget theboys-onme theboys-onme-virus">
-      <span class="theboys-onme-icon">☣️</span>
-      <span class="theboys-onme-text">Заражён Смертельным вирусом</span>
-    </div>
-    <div v-if="passiveStates?.theBoysMoralBlocked" class="pc-passive-widget theboys-onme theboys-onme-moral">
-      <span class="theboys-onme-icon">🔒</span>
-      <span class="theboys-onme-text">Оковы Правосудия: Мораль заблокирована</span>
-    </div>
-
     <!-- 33. Salldorum -->
     <div v-if="passiveStates?.salldorum" class="pc-passive-widget salldorum-widget">
       <div class="pw-header">
@@ -1888,17 +1840,6 @@ function handleDoomChainsaw(passiveName: string) {
       </div>
     </div>
 
-    <!-- 25b. Геральт monster-on-me (shown to ANY player with assigned type) -->
-    <div v-if="passiveStates?.geraltMonsterOnMe" class="pc-passive-widget geralt-monster-on-me-widget"
-         :style="{ borderLeftColor: passiveStates.geraltMonsterOnMe.monsterColor, background: passiveStates.geraltMonsterOnMe.monsterColor + '12' }">
-      <div class="pw-header">
-        <span class="pw-title" :style="{ color: passiveStates.geraltMonsterOnMe.monsterColor }">
-          {{ passiveStates.geraltMonsterOnMe.monsterEmoji }} {{ passiveStates.geraltMonsterOnMe.monsterType }}
-        </span>
-        <span class="pw-badge" :style="{ color: passiveStates.geraltMonsterOnMe.monsterColor }">x{{ passiveStates.geraltMonsterOnMe.contractsOnType }}</span>
-      </div>
-    </div>
-
     <!-- Score + animated delta -->
     <div class="pc-score-row" :class="{ 'confetti-burst': showConfetti }">
       <ScoreOdometer :value="player.status.score" size="lg" :flash-color="animatedScoreDelta > 0 ? '#5ba85b' : animatedScoreDelta < 0 ? '#e05545' : null" class="pc-score" />
@@ -1906,7 +1847,8 @@ function handleDoomChainsaw(passiveName: string) {
       <span v-if="animatedScoreDelta !== 0" class="pc-score-delta" :class="{ 'delta-big': allAnimHits.length >= 4, 'delta-huge': allAnimHits.length >= 6, 'delta-negative': animatedScoreDelta < 0 }" :key="animatedScoreDelta">
         {{ animatedScoreDelta > 0 ? '+' : '' }}{{ animatedScoreDelta }}
       </span>
-      <span v-if="hitActiveIdx >= 0 && allAnimHits[hitActiveIdx]?.comboIndex > 0" class="combo-multiplier" :key="hitActiveIdx">
+      <span v-if="hitActiveIdx >= 0 && allAnimHits[hitActiveIdx]?.comboIndex > 0" class="combo-multiplier" :key="hitActiveIdx"
+        :style="comboHeatStyle(allAnimHits[hitActiveIdx].comboIndex + 1)">
         COMBO {{ allAnimHits[hitActiveIdx].comboIndex + 1 }}
       </span>
       <!-- Confetti particles for big score gains -->
@@ -1951,11 +1893,11 @@ function handleDoomChainsaw(passiveName: string) {
               }
             ]"
           >
-            <span class="combo-hit-pts" :class="{ 'combo-hit-negative': hit.basePts < 0 }">
-              {{ hit.basePts > 0 ? '+' : '' }}{{ hit.basePts }}
+            <span class="combo-hit-pts" :class="{ 'combo-hit-negative': hit.pointsEarned < 0 }">
+              {{ hit.pointsEarned > 0 ? '+' : '' }}{{ hit.pointsEarned }}
             </span>
             <span class="combo-hit-label">{{ hit.name }}</span>
-            <span v-if="hit.comboIndex > 0" class="combo-badge">COMBO {{ hit.comboIndex + 1 }}</span>
+            <span v-if="hit.comboIndex > 0" class="combo-badge" :style="comboHeatStyle(hit.comboIndex + 1)">COMBO {{ hit.comboIndex + 1 }}</span>
           </div>
 
           <!-- Section total -->
@@ -2980,6 +2922,7 @@ function handleDoomChainsaw(passiveName: string) {
   padding: 1px 5px;
   border-radius: 3px;
   background: rgba(233, 219, 61, 0.15);
+  border: 1px solid transparent;
   color: var(--accent-gold);
   letter-spacing: 0.5px;
   margin-left: auto;
@@ -3523,15 +3466,6 @@ function handleDoomChainsaw(passiveName: string) {
   50% { opacity: 1; }
 }
 
-/* 18. Впарили говна (Seller Mark) */
-.seller-mark-widget {
-  background: linear-gradient(135deg, rgba(139, 69, 19, 0.08), rgba(139, 69, 19, 0.02));
-  border-color: rgba(139, 69, 19, 0.25);
-}
-.seller-mark-title { color: #8b4513; text-shadow: 0 0 4px rgba(139, 69, 19, 0.4); }
-.seller-mark-widget .pw-value { color: #8b4513; text-shadow: 0 0 8px rgba(139, 69, 19, 0.4); }
-.seller-mark-widget .pw-label { color: rgba(139, 69, 19, 0.5); }
-
 /* 20. Goblin Swarm */
 .goblin-widget {
   background: linear-gradient(135deg, rgba(76, 153, 0, 0.08), rgba(76, 153, 0, 0.02));
@@ -3734,12 +3668,6 @@ function handleDoomChainsaw(passiveName: string) {
 }
 .kotiki-cat-target { font-size: 10px; color: rgba(255, 255, 255, 0.6); }
 
-/* 21b. Cat-on-me widget (non-Котики players) */
-.kotiki-cat-on-me-widget {
-  background: linear-gradient(135deg, rgba(255, 165, 0, 0.06), rgba(255, 165, 0, 0.01));
-  border-color: rgba(255, 165, 0, 0.2);
-}
-
 /* 22. Монстр без имени */
 .monster-widget {
   background: linear-gradient(135deg, rgba(100, 0, 0, 0.12), rgba(100, 0, 0, 0.04));
@@ -3750,25 +3678,6 @@ function handleDoomChainsaw(passiveName: string) {
 .monster-row { display: flex; align-items: center; gap: 6px; }
 .monster-label { font-size: 10px; color: rgba(255, 255, 255, 0.5); min-width: 50px; }
 .monster-val { font-size: 11px; font-weight: 700; color: #cc3333; }
-
-/* 22b. Monster pawn-on-me widget */
-.monster-pawn-on-me-widget {
-  background: linear-gradient(135deg, rgba(100, 0, 0, 0.08), rgba(100, 0, 0, 0.02));
-  border-color: rgba(180, 0, 0, 0.2);
-}
-.monster-pawn-card {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  border: 1px solid rgba(180, 0, 0, 0.3);
-  background: linear-gradient(135deg, rgba(180, 0, 0, 0.1), rgba(180, 0, 0, 0.03));
-}
-.monster-pawn-header { display: flex; align-items: center; gap: 4px; }
-.monster-pawn-icon { font-size: 14px; }
-.monster-pawn-name { font-size: 11px; font-weight: 700; color: #cc3333; }
-.monster-pawn-target { font-size: 10px; color: rgba(255, 255, 255, 0.6); }
 
 /* 23. Подсчет (Tolya Count) */
 .tolya-widget {
@@ -3840,14 +3749,6 @@ function handleDoomChainsaw(passiveName: string) {
 .toxic-active { color: #00dd00; text-shadow: 0 0 6px rgba(0, 255, 0, 0.5); animation: tsukuyomi-pulse 1.5s ease-in-out infinite; }
 .toxic-inactive { color: rgba(0, 255, 0, 0.4); }
 
-/* 30b. Toxic Mate cancer on me */
-.toxic-on-me-widget {
-  background: linear-gradient(135deg, rgba(0, 255, 0, 0.06), rgba(0, 255, 0, 0.01));
-  border-color: rgba(0, 255, 0, 0.2);
-}
-.toxic-on-me-title { color: #00dd00; text-shadow: 0 0 4px rgba(0, 255, 0, 0.4); }
-.toxic-on-me-source { color: rgba(0, 255, 0, 0.7); }
-
 /* 31. Молодой Глеб (Tea/Calm) */
 .yonggleb-widget {
   background: linear-gradient(135deg, rgba(150, 210, 180, 0.08), rgba(150, 210, 180, 0.02));
@@ -3915,9 +3816,6 @@ function handleDoomChainsaw(passiveName: string) {
 /* ── Toxic Mate holder ── */
 .toxic-holder { font-size: 11px; color: #a0e050; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ── Seller mark source ── */
-.seller-mark-source { color: rgba(200, 160, 60, 0.8); font-size: 10px; }
-
 /* ── Geralt ── */
 .geralt-widget { border-color: rgba(100, 80, 40, 0.5); }
 .geralt-title { color: #C8A050; text-shadow: 0 0 6px rgba(200, 160, 80, 0.25); }
@@ -3925,8 +3823,6 @@ function handleDoomChainsaw(passiveName: string) {
 .geralt-row { display: flex; justify-content: space-between; gap: 6px; padding: 3px 6px; border-left: 3px solid transparent; border-radius: 3px; }
 .geralt-oil-tier { color: rgba(180, 180, 180, 0.6); font-size: 10px; min-width: 50px; text-align: right; }
 .geralt-status-row { display: flex; gap: 8px; font-size: 10px; color: rgba(180, 180, 180, 0.5); margin-top: 2px; }
-.geralt-monster-on-me-widget { border-left: 3px solid transparent; border-radius: 3px; }
-
 /* ── Geralt demand mechanic ── */
 .pc-geralt-demand {
   padding: 6px 10px;
@@ -4150,6 +4046,9 @@ function handleDoomChainsaw(passiveName: string) {
   pointer-events: none;
   letter-spacing: 0.5px;
   font-family: var(--font-mono);
+  padding: 1px 5px;
+  border: 1px solid transparent;
+  border-radius: 4px;
 }
 @keyframes combo-pop-scale {
   0% { transform: scale(0.5); opacity: 0; }
@@ -4380,19 +4279,6 @@ function handleDoomChainsaw(passiveName: string) {
   font-weight: 600;
 }
 .theboys-mark-virus { background: rgba(120, 200, 90, 0.2); color: #c5e1a5; }
-
-/* TheBoys — "on me" mark widgets (any affected player) */
-.theboys-onme {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.72em;
-  font-weight: 700;
-  margin-top: 4px;
-}
-.theboys-onme-virus { border-color: rgba(120, 200, 90, 0.5) !important; color: #c5e1a5; background: rgba(120, 200, 90, 0.08); animation: theboys-pulse 1.4s ease-in-out infinite; }
-.theboys-onme-moral { border-color: rgba(180, 180, 180, 0.5) !important; color: #cfcfcf; background: rgba(120, 120, 120, 0.1); }
-.theboys-onme-icon { font-size: 1.1em; }
 
 /* DooM Guy */
 .eren-widget { border-color: rgba(185, 63, 45, .62) !important; background: linear-gradient(135deg, rgba(88, 28, 20, .3), rgba(17, 14, 13, .96)) !important; }

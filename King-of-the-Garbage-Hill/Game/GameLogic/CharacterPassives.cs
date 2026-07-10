@@ -5760,6 +5760,8 @@ public class CharacterPassives : IServiceSingleton
                             player.Passives.IsDead = false;
                             player.Passives.DeathSource = "";
                             player.Passives.ItachiShisuiUsed = true;
+                            var shisui = player.GameCharacter.Passive.Find(x => x.PassiveName == "Глаз Шусуи");
+                            if (shisui != null) shisui.Visible = true;
                             player.Passives.AchievementTracker.WasRevived = true;
                             game.AddGlobalLogs($"**Изанаги!**\n**{player.GameCharacter.Name}** вернулся к жизни\n\"Я планировал приберечь глаз Шисуи для кое-чего другого... но ладно.\"");
                         }
@@ -5772,6 +5774,8 @@ public class CharacterPassives : IServiceSingleton
                             player.Passives.IsDead = false;
                             player.Passives.DeathSource = "";
                             player.Passives.KratosGodSlayerUsed = true;
+                            var godsCannotCommandMe = player.GameCharacter.Passive.Find(x => x.PassiveName == "Боги мне не указ");
+                            if (godsCannotCommandMe != null) godsCannotCommandMe.Visible = true;
                             player.Passives.AchievementTracker.WasRevived = true;
                             player.Passives.AchievementTracker.SurvivedKiraAttempt = true;
                             player.GameCharacter.AddExtraSkill(228, "Боги мне не указ");

@@ -578,15 +578,10 @@ public class PassiveAbilityStatesDto
     public SaitamaStateDto Saitama { get; set; }
     public ShinigamiEyesWidgetDto ShinigamiEyes { get; set; }
     public SellerStateDto Seller { get; set; }
-    public SellerMarkStateDto SellerMark { get; set; }
     public DopaStateDto Dopa { get; set; }
     public GoblinSwarmStateDto GoblinSwarm { get; set; }
     public KotikiStateDto Kotiki { get; set; }
-    /// <summary>Shown on any player who has a Котики cat sitting on them.</summary>
-    public KotikiCatOnMeDto KotikiCatOnMe { get; set; }
     public MonsterStateDto Monster { get; set; }
-    /// <summary>Shown on any player who is a Johan pawn.</summary>
-    public MonsterPawnOnMeDto MonsterPawnOnMe { get; set; }
     public PickleRickStateDto PickleRick { get; set; }
     public GiantBeansStateDto GiantBeans { get; set; }
     public TolyaCountStateDto TolyaCount { get; set; }
@@ -597,20 +592,12 @@ public class PassiveAbilityStatesDto
     public NapoleonStateDto Napoleon { get; set; }
     public SupportStateDto Support { get; set; }
     public ToxicMateStateDto ToxicMate { get; set; }
-    /// <summary>Shown on any player who has Toxic Mate cancer.</summary>
-    public ToxicMateCancerOnMeDto ToxicMateCancerOnMe { get; set; }
     public YongGlebStateDto YongGleb { get; set; }
     public TheBoysStateDto TheBoys { get; set; }
-    /// <summary>Shown on any player infected by Francie's Смертельный вирус.</summary>
-    public TheBoysVirusOnMeDto TheBoysVirusOnMe { get; set; }
-    /// <summary>Set on any player whose Moral is blocked by M.M.'s Оковы Правосудия.</summary>
-    public bool TheBoysMoralBlocked { get; set; }
     public SalldorumStateDto Salldorum { get; set; }
     public GeraltStateDto Geralt { get; set; }
     public DoomGuyStateDto DoomGuy { get; set; }
     public ErenStateDto Eren { get; set; }
-    /// <summary>Shown on any player who has Geralt monster type assigned.</summary>
-    public GeraltMonsterOnMeDto GeraltMonsterOnMe { get; set; }
 }
 
 public class BulkStateDto
@@ -714,13 +701,6 @@ public class SellerStateDto
     public decimal SecretBuildSkill { get; set; }
 }
 
-public class SellerMarkStateDto
-{
-    public int RoundsRemaining { get; set; }
-    public decimal Debt { get; set; }
-    public string SellerName { get; set; }
-}
-
 public class DopaStateDto
 {
     public bool VisionReady { get; set; }
@@ -754,23 +734,11 @@ public class KotikiStateDto
     public int MinkaRoundsOnEnemy { get; set; }
 }
 
-public class KotikiCatOnMeDto
-{
-    public string CatType { get; set; }         // "Минька" or "Штормяк"
-    public string CatOwnerName { get; set; }    // Name of the Котики player
-    public int RoundsDeployed { get; set; }     // How many rounds the cat has been here
-}
-
 // ── Монстр без имени DTOs ────────────────────────────────────────────
 
 public class MonsterStateDto
 {
     public int PawnCount { get; set; }
-}
-
-public class MonsterPawnOnMeDto
-{
-    public string PawnOwnerName { get; set; }
 }
 
 // ── Эрен Йегер DTOs ─────────────────────────────────────────────────
@@ -854,11 +822,6 @@ public class ToxicMateStateDto
     public bool CancerActive { get; set; }
     public int TransferCount { get; set; }
     public string CurrentHolderName { get; set; }
-}
-
-public class ToxicMateCancerOnMeDto
-{
-    public string SourceName { get; set; }
 }
 
 public class YongGlebStateDto
@@ -955,11 +918,6 @@ public class TheBoysKompromatEntryDto
     public string Hint { get; set; }
 }
 
-public class TheBoysVirusOnMeDto
-{
-    public string SourceName { get; set; }
-}
-
 // ── Salldorum DTOs ──────────────────────────────────────────────────
 
 public class SalldorumStateDto
@@ -1028,14 +986,6 @@ public class GeraltStateDto
     public int? InvoicePredictedDispleasure { get; set; }
     public bool QuestCompletedThisRound { get; set; }
     public bool RareLootFoundThisRound { get; set; }
-}
-
-public class GeraltMonsterOnMeDto
-{
-    public string MonsterType { get; set; }
-    public string MonsterColor { get; set; }
-    public string MonsterEmoji { get; set; }
-    public int ContractsOnType { get; set; }
 }
 
 public class DoomGuyStateDto

@@ -124,34 +124,34 @@ Every game-action method starts with `GetDiscordId()` (`GameHub.cs:1314-1319`) a
 
 ## 7. State mapping & hidden information (`GameStateMapper`)
 
-`GameStateMapper.ToDto(game, requestingPlayer = null)` (`GameStateMapper.cs:79-189`) produces the per-viewer projection; null = spectator; `isAdmin` means PlayerType 2 (`GameStateMapper.cs:81`). Top-level shape: `GameStateDto.cs:8-58`; per-player `PlayerDto`: `GameStateDto.cs:62-133`.
+`GameStateMapper.ToDto(game, requestingPlayer = null)` (`GameStateMapper.cs:80-204`) produces the per-viewer projection; null = spectator; `isAdmin` means PlayerType 2 (`GameStateMapper.cs:82`). Top-level shape: `GameStateDto.cs:8-58`; per-player `PlayerDto`: `GameStateDto.cs:62-133`.
 
 Visibility rules (the exact reason the web can't leak hidden info):
 
 | Data | Rule | Anchor |
 |---|---|---|
-| Opponent character | non-admin, unfinished → name "???", unknown-avatar, stats −1 sentinels, skill/moral "?", empty passives | `GameStateMapper.cs:842-867` |
-| Own/admin/finished character | real stats + resists and quality-bonus texts (own only) | `GameStateMapper.cs:869-899` |
-| Passive list | owner sees all; other viewers only `Visible` ones (reachable for admin/finished viewers); `Вечное Цукуеми` is omitted for **every** viewer, including Madara/admin | `GameStateMapper.cs:980-993` |
-| Score | −1 unless isMe/admin/finished (`canSeeScore`); `Place` always visible | `GameStateMapper.cs:922` `GameStateMapper.cs:937-938` |
-| Personal logs, `ScoreSource`, `LvlUpPoints`, `MoveListPage`, `DirectMessages` (from `WebMessages`), `MediaMessages`, ARAM reroll counters | isMe-gated | `GameStateMapper.cs:945-963` |
-| `ScoreBreakdown` (multipliers + per-source entries) | isMe/admin/finished | `GameStateMapper.cs:967-980` |
-| Predictions | owner always; **everyone at game end** with correctness + actual character/avatar; Madara's owner list is always empty | `GameStateMapper.cs:213-237` |
-| `DeathNote` / `PortalGun` / `ExploitState` / `TsukuyomiState`, Darksci/Gleb/Dopa choice flags | isMe-gated blocks on the player DTO | `GameStateMapper.cs:236-330` |
-| Баг viewer | sees `IsExploitable` / `IsExploitFixed` markers on every player | `GameStateMapper.cs:133-134` `GameStateMapper.cs:333-337` |
-| TheBoys viewer | marked enemy `PlayerDto`s alone receive `IsTheBoysSupTarget=true`; a marked target's own projection and spectators receive false, so Butcher's choice stays secret | `GameStateMapper.cs:137-145,345-351`; `GameStateDto.cs:100-108` |
-| Widget states (`PassiveAbilityStates`) | entire per-passive switch runs only for isMe; keyed on `PassiveName` | `GameStateMapper.cs:340-347` |
-| DooM Guy state | owner-only widget contains active/options/nests/BFG/Chainsaw; Let's Roll viewers receive empty character catalogs so predictions cannot be reconstructed client-side | `GameStateMapper.cs:121-122, 350-369` |
-| Эрен state | owner-only `ErenStateDto`: gained Rage, total losses, Titan/Tatake audio serials, Rumbling result, and an aggregation of all per-player hatred marks | `GameStateDto.cs:775-793` `GameStateMapper.cs:349-370` |
-| Мадара normal state | empty prediction catalogs/list, empty Skill/Moral/target and zero resist/quality texts; no character-specific DTO was added | `GameStateMapper.cs:123-126,215-239,965-978` |
-| Вечное Цукуеми final state | final player-scoped DTO only: non-Madara requester becomes alive/place 1 with projected place history, exactly-needed bonus source + one synthetic win; Madara gets real standings and five synthetic skips. A spectator gets only `Результат игры скрыт.` with scores/places/history/fights/predictions cleared. Real game state is untouched | `GameStateMapper.cs:998-1123`; `Madara.cs:219-259` |
-| Marks on me (`SellerMark`, TheBoys virus/moral-block, cancer, cat, Johan pawn, Geralt monster type) | mapped after the switch **onto the affected player's own card**; Butcher sup is deliberately excluded (owner-only row marker above) | `GameStateMapper.cs:817-893` |
-| Global logs | admin raw; others get `StripHiddenLogs` (removes `HiddenGlobalLogSnippets`; additionally strips Kira-related snippets for viewers with passive "Гений") | `GameStateMapper.cs:116-117` `GameStateMapper.cs:1118-1138` |
-| Fight log | hidden-from-non-admin entries filtered out; non-participants get `ScopeFightEntry` — outcome/participants/drops kept, every numeric zeroed, `TotalPointsWon` reduced to sign | `GameStateMapper.cs:127-131` `GameStateMapper.cs:1051-1114` |
-| Full chronicle (Летопись) | built only when finished; usernames replaced by character names | `GameStateMapper.cs:155-158` `GameStateMapper.cs:1145-1192` |
-| Newly unlocked achievements | requesting player only, finished games | `GameStateMapper.cs:161-186` |
+| Opponent character | non-admin, unfinished → name "???", unknown-avatar, stats −1 sentinels, skill/moral "?", empty passives | `GameStateMapper.cs:828-853` |
+| Own/admin/finished character | real stats + resists and quality-bonus texts (resists/bonuses remain own-only) | `GameStateMapper.cs:855-900` |
+| Passive list | every viewer, including the owner/admin/finished view, receives only `Visible` passives; a hidden passive is absent until its mechanic sets `Visible=true` (TheBoys/DooM unlocks, Итачи/Кратос resurrection, Sakura top-3 win). `Вечное Цукуеми` is omitted permanently | `GameStateMapper.cs:902-915`; reveals `CharacterPassives.cs:5757-5782`, `CheckIfReady.cs:533-543` |
+| Score | −1 unless isMe/admin/finished (`canSeeScore`); `Place` always visible | `GameStateMapper.cs:1047-1075` |
+| Personal logs, `ScoreSource`, `LvlUpPoints`, `MoveListPage`, `DirectMessages` (from `WebMessages`), `MediaMessages`, ARAM reroll counters | isMe-gated | `GameStateMapper.cs:1053-1093` |
+| `ScoreBreakdown` (multipliers + per-source entries) | isMe/admin/finished; the finished projection appends still-current entries created after the round snapshot, so final Mitsuki/Осьминожка debits are not lost | `GameStateMapper.cs:1095-1114` |
+| Predictions | owner always; **everyone at game end** with correctness + actual character/avatar; Madara's owner list is always empty | `GameStateMapper.cs:226-251` |
+| `DeathNote` / `PortalGun` / `ExploitState` / `TsukuyomiState`, Darksci/Gleb/Dopa choice flags | isMe-gated blocks on the player DTO | `GameStateMapper.cs:253-347` |
+| Баг viewer | sees `IsExploitable` / `IsExploitFixed` markers on every player | `GameStateMapper.cs:349-354` |
+| TheBoys viewer | marked enemy `PlayerDto`s alone receive `IsTheBoysSupTarget=true`; a marked target's own projection and spectators receive false, so Butcher's choice stays secret | `GameStateMapper.cs:356-358`; `GameStateDto.cs:100-113` |
+| Widget states (`PassiveAbilityStates`) | entire per-passive switch runs only for isMe; keyed on `PassiveName`; contains owner state only, no generic target-facing `…OnMe` fields | `GameStateMapper.cs:360-823`; DTO `GameStateDto.cs:562-603` |
+| DooM Guy state | owner-only widget contains active/options/nests/BFG/Chainsaw; Let's Roll viewers receive empty character catalogs so predictions cannot be reconstructed client-side | `GameStateMapper.cs:130-133,396-425` |
+| Эрен state | owner-only `ErenStateDto`: gained Rage, total losses, Titan/Tatake audio serials, Rumbling result, and an aggregation of all per-player hatred marks | `GameStateDto.cs:746-764` `GameStateMapper.cs:370-394` |
+| Мадара normal state | empty prediction catalogs/list, empty Skill/Moral/target and zero resist/quality texts; no character-specific DTO was added | `GameStateMapper.cs:130-133,226-251,887-900` |
+| Вечное Цукуеми final state | final player-scoped DTO only: non-Madara requester becomes alive/place 1 with projected place history, exactly-needed bonus source + one synthetic win; Madara gets real standings and five synthetic skips. A spectator gets only `Результат игры скрыт.` with scores/places/history/fights/predictions cleared. Real game state is untouched | `GameStateMapper.cs:920-1045`; `Madara.cs:219-259` |
+| Cross-character marks | not serialized to the affected player's card. Seller/Kотики/TheBoys/Toxic Mate/Йохан/Геральт owners see their own targets through owner widgets or viewer-scoped leaderboard annotations; only explicitly public objects (e.g. Ziggurat, DooM nests) remain global | `GameStateMapper.cs:349-358,360-823`; `GameUpdateMess.cs:219-811` |
+| Global logs | admin raw; others get `StripHiddenLogs` (removes `HiddenGlobalLogSnippets`; additionally strips Kira-related snippets for viewers with passive "Гений") | `GameStateMapper.cs:119-126,1251-1273` |
+| Fight log | hidden-from-non-admin entries filtered out; non-participants get `ScopeFightEntry` — outcome/participants/drops kept, every numeric zeroed, `TotalPointsWon` reduced to sign | `GameStateMapper.cs:136-142,1182-1249` |
+| Full chronicle (Летопись) | built only when finished; usernames replaced by character names | `GameStateMapper.cs:167-171,1275-1327` |
+| Newly unlocked achievements | requesting player only, finished games | `GameStateMapper.cs:173-199` |
 
-Draft options are serialized only for the requesting player during the draft phase; first option cost 0, others 5, and Madara's hidden passive is filtered before the option DTO is built (`GameStateMapper.cs:94-115`). Avatars are rewritten to local /art/avatars when the file exists (`GetLocalAvatarUrl`). The character catalog for prediction dropdowns loads once from characters.json, excluding negative tiers and "Выдуманный персонаж" (`GameStateMapper.cs:49-68`).
+Draft options are serialized only for the requesting player during the draft phase; first option cost 0, others 5, and every hidden passive is filtered before the option DTO is built (`GameStateMapper.cs:95-117`). Avatars are rewritten to local /art/avatars when the file exists (`GetLocalAvatarUrl`). The character catalog for prediction dropdowns loads once from characters.json, excluding negative tiers and "Выдуманный персонаж" (`GameStateMapper.cs:45-68`).
 
 After mapping, `PopulateCustomLeaderboard` adds the per-viewer leaderboard annotations: the same `CustomLeaderBoardAfterPlayer` / `CustomLeaderBoardBeforeNumber` strings the Discord leaderboard renders, converted from Discord markdown/emoji to HTML, plus the `IsInMyHarmRange` flag from speed-quality range vs place distance (`WebGameService.cs:167-199`; emoji map `WebGameService.cs:99-137`; `ConvertDiscordToWeb` `WebGameService.cs:140-161`). Madara never receives a Harm-range flag (`WebGameService.cs:171-176`). Both REST (`WebGameService.cs:86`) and SignalR (`GameNotificationService.cs:169` `GameNotificationService.cs:189`) run it.
 
@@ -197,7 +197,7 @@ Madara action gates are enforced server-side, not only hidden in Vue: round-8/se
 
 Two independent callers, both model `claude-haiku-4-5-20251001` (`GameStoryService.cs:27` `ClaudeHaikuService.cs:20`), key from `AnthropicApiKey` (`Config.cs:28`):
 
-- **`GameStoryService`** (`GameStoryService.cs:19-39`; limits `GameStoryService.cs:26-29`): fire-and-forget post-game narrative, max 1024 tokens. Triggered from the finish path (§6); skips missing key and **bot-only games** (`GameStoryService.cs:45-52`); renders markdown→HTML, keeps the latest 50 stories in memory (`StoreStory`, `GameStoryService.cs:95-109`), pushes eventType `GameStory` to the room (`GameStoryService.cs:76-77`), re-serves on join via `GetStory` (`GameHub.cs:134-137`), and backfills the replay file (`OnStoryGenerated`, `GameNotificationService.cs:70-74`). Raw API call: `CallClaudeApi` (`GameStoryService.cs:327-361`).
+- **`GameStoryService`** (`GameStoryService.cs:19-39`; limits `GameStoryService.cs:26-29`): fire-and-forget post-game narrative, max 1800 tokens. Triggered from the finish path (§6); skips missing key and **bot-only games** (`GameStoryService.cs:45-52`); renders markdown→HTML, keeps the latest 50 stories in memory (`StoreStory`, `GameStoryService.cs:95-110`), pushes eventType `GameStory` to the room (`GameStoryService.cs:81-82`), re-serves on join via `GetStory` (`GameHub.cs:134-137`), and backfills the replay file (`OnStoryGenerated`, `GameNotificationService.cs:70-74`). Raw API call: `CallClaudeApi` (`GameStoryService.cs:343-370`).
 - **`ClaudeHaikuService`** (`ClaudeHaikuService.cs:14-29`): single method `GenerateWitcherHintAsync` — a Russian Geralt-flavored hint about a hidden enemy, max 100 tokens, 5 s timeout, returns null on any failure so the caller falls back to static hints (`ClaudeHaikuService.cs:37-90`). Called from Geralt's Медитация passive for human players only (see DISCORD-INTERFACE.md §10). `Disabled` is forced true in `--sim` (`Program.cs:61-66`) so simulations never spend credits.
 
 ## 12. Discord profile widget (the one OAuth-verified flow)

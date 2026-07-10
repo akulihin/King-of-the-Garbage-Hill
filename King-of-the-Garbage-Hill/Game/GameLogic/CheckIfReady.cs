@@ -537,6 +537,8 @@ public class CheckIfReady : IServiceSingleton
             !x.Passives.IsDead);
         if (top3Player != null)
         {
+            var oneOfThree = top3Player.GameCharacter.Passive.Find(x => x.PassiveName == "Одна из трех");
+            if (oneOfThree != null) oneOfThree.Visible = true;
             game.AddGlobalLogs("**Sakura:** Я одна из легендарной тройки. И этого вполне достаточно!");
         }
 

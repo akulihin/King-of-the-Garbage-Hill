@@ -247,8 +247,12 @@ The Ziggurat copies any `Standalone: true` passive from the last attacked enemy 
 - Also of note: the meditation hint calls the Anthropic API synchronously inside the round pipeline (`CP:4365-4381`).
 - **Fixed:** 2026-07-05 (documentation-only) — the full demand economy is now documented in `docs/CHARACTERS.md` (Геральт's «Чеканная монета» entry): the two web/bot-only billings (immediate «За прошлый» + deferred «За следующий» advance), the `CalculateInvoice` coin/Displeasure tiers, and the pitchfork death checked in **both** the web handler (`WebGameService.cs:652-660`) and the end-of-round advance resolution (`CP:4483-4490`), plus the place-6 pitchfork *log-only* line. Web plumbing was already covered (WEB-BACKEND.md hub/service rows, WEB-CLIENT.md widget rows, BALANCE-CONSTANTS row, INTERACTION-MATRIX kill-source, GAME-DESIGN end-game). **Two design-note mechanics were deliberately left unimplemented and flagged for a designer decision, not built here:** "психует when a contract holder is killed" (absent anywhere) and "dies on place 6" (log line only). `characters.json`/`GameDesign.txt` are the designer's surface — not edited (CLAUDE.md).
 
+### m28. Final Mitsuki/Осьминожка point debits are absent from the web score feed
+- `CombineRoundScoreAndGameScore` snapshots `ScoreEntries` into `PreviousRoundScoreEntries` before the round-11 passive hooks (`InGameStatusClass.cs:238-286`). `Запах мусора` and Осьминожка's `Чернильная завеса` repayment then call `AddBonusPoints(-N)` after that snapshot (`CP:6262-6282,5142-5167`). The score itself changes, but `MapStatus` used only `PreviousRoundScoreEntries`, so the final web combo showed no negative row.
+- **Fixed:** 2026-07-10 — the finished `ScoreBreakdown` now concatenates still-current post-snapshot entries after `PreviousRoundScoreEntries` (`GameStateMapper.cs:1095-1114`). In-progress rounds keep the old snapshot-only timing, and the Vue feed renders the signed actual/multiplied value (`PlayerCard.vue:1885-1900`).
+
 ### Plumbing checks that passed
-Every `PassiveAbilityStatesDto` member is mapped and rendered (no dead DTO/TS fields); mapper `case` strings all exist in `characters.json` (the only orphans are the legacy Saldorum combat cases, m6); per-player marks (SellerMark, virus, cancer, cat, pawn, monster-type, sup) all follow the SellerMark pattern end-to-end; `Sakura`/`Кратос` intentionally have no widgets; `Баг` state rides on `PlayerDto` (ExploitState) by design.
+Every remaining `PassiveAbilityStatesDto` member is mapped and rendered (no dead DTO/TS fields); mapper `case` strings all exist in `characters.json`; cross-character target marks are deliberately absent from the affected player's DTO and remain visible only to the passive owner (or explicitly public by design); `Баг` state rides on `PlayerDto` (ExploitState) by design.
 
 ## Verified-consistent highlights (no finding)
 
@@ -290,7 +294,7 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 
 ## Summary count
 
-**1 Critical** (C1) · **17 Major** (M1–M17) · **27 Minor** (m1–m27) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7/M17 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13–M17 fixed; m5/m6/m7/m17/m21/m23/m25/m27 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26.)
+**1 Critical** (C1) · **17 Major** (M1–M17) · **28 Minor** (m1–m28) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7/M17 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13–M17 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26.)
 
 ## Verification addendum (second pass, 2026-07-01)
 

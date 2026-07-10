@@ -106,7 +106,7 @@ public static class GameStateMapper
                     Tier = c.Tier,
                     Cost = i == 0 ? 0 : 5,
                     Passives = c.Passive
-                        .Where(p => p.PassiveName != Madara.EternalTsukuyomi)
+                        .Where(p => p.Visible && p.PassiveName != Madara.EternalTsukuyomi)
                         .Select(p => new PassiveDto
                         {
                             Name = p.PassiveName,
@@ -819,89 +819,6 @@ public static class GameStateMapper
                 }
             }
 
-            // Per-player marks — only visible to the affected player on their own card
-            if (player.Passives.SellerVparitGovnaRoundsLeft > 0 || player.Passives.SellerTacticBonusEarned > 0)
-            {
-                var seller = game.PlayersList.Find(x =>
-                    x.Passives.SellerVparitGovna.MarkedPlayers.Contains(player.GetPlayerId()));
-                pas.SellerMark = new SellerMarkStateDto
-                {
-                    RoundsRemaining = player.Passives.SellerVparitGovnaRoundsLeft,
-                    Debt = player.Passives.SellerTacticBonusEarned,
-                    SellerName = seller?.DiscordUsername ?? "",
-                };
-                anySet = true;
-            }
-
-            if (player.Passives.TheBoysVirus)
-            {
-                var virusSource = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.TheBoysVirusSource);
-                pas.TheBoysVirusOnMe = new TheBoysVirusOnMeDto { SourceName = virusSource?.DiscordUsername ?? "" };
-                anySet = true;
-            }
-            if (player.Passives.TheBoysMoralBlockedByMM)
-            {
-                pas.TheBoysMoralBlocked = true;
-                anySet = true;
-            }
-
-            // Show cancer widget to the infected player
-            if (player.Passives.HasToxicMateCancer)
-            {
-                var cancerSource = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.ToxicMateCancerSourceId);
-                pas.ToxicMateCancerOnMe = new ToxicMateCancerOnMeDto
-                {
-                    SourceName = cancerSource?.DiscordUsername ?? "",
-                };
-                anySet = true;
-            }
-
-            // Show cat widget to the player who has a cat on them
-            if (player.Passives.KotikiCatType != "")
-            {
-                var catOwner = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.KotikiCatOwnerId);
-                var roundsDeployed = 0;
-                if (catOwner != null)
-                {
-                    var ownerAmbush = catOwner.Passives.KotikiAmbush;
-                    if (player.Passives.KotikiCatType == "Минька")
-                        roundsDeployed = ownerAmbush.MinkaRoundsOnEnemy;
-                }
-                pas.KotikiCatOnMe = new KotikiCatOnMeDto
-                {
-                    CatType = player.Passives.KotikiCatType,
-                    CatOwnerName = catOwner?.DiscordUsername ?? "",
-                    RoundsDeployed = roundsDeployed,
-                };
-                anySet = true;
-            }
-
-            // Show pawn widget to the player who is a Johan pawn
-            if (player.Passives.IsJohanPawn)
-            {
-                var pawnOwner = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.JohanPawnOwnerId);
-                pas.MonsterPawnOnMe = new MonsterPawnOnMeDto
-                {
-                    PawnOwnerName = pawnOwner?.DiscordUsername ?? "",
-                };
-                anySet = true;
-            }
-
-            // Show Geralt monster type widget to affected player
-            if (player.Passives.GeraltMonsterType != null)
-            {
-                var geraltPlayer = game.PlayersList.Find(x => x.GameCharacter.Name == "Геральт");
-                var mType = player.Passives.GeraltMonsterType.Value;
-                pas.GeraltMonsterOnMe = new GeraltMonsterOnMeDto
-                {
-                    MonsterType = mType.ToString(),
-                    MonsterColor = Geralt.GetMonsterColor(mType),
-                    MonsterEmoji = Geralt.GetMonsterEmoji(mType),
-                    ContractsOnType = geraltPlayer?.Passives.GeraltContracts.GetCount(mType) ?? 0,
-                };
-                anySet = true;
-            }
-
             if (anySet) dto.PassiveAbilityStates = pas;
         }
 
@@ -982,11 +899,11 @@ public static class GameStateMapper
             dto.PsycheBonusText = "";
         }
 
-        // Show all passives to the owning player, only visible ones to opponents (admin)
+        // Hidden passives stay absent until their mechanic explicitly reveals them by setting Visible=true.
         foreach (var passive in character.Passive)
         {
             if (passive.PassiveName == Madara.EternalTsukuyomi) continue;
-            if (isMe || passive.Visible)
+            if (passive.Visible)
             {
                 dto.Passives.Add(new PassiveDto
                 {
@@ -1175,14 +1092,20 @@ public static class GameStateMapper
             AramRerolledStatsTimes = isMe ? status.AramRerolledStatsTimes : 0,
         };
 
-        // Structured score breakdown (owner/admin/finished only)
+        // Structured score breakdown (owner/admin/finished only). Final-round mechanics such as
+        // Запах мусора and Осьминожка can add bonus entries after the normal round snapshot, so the
+        // finished projection includes those still-current entries as well.
         if (isMe || isAdmin || isFinished)
         {
+            var entries = status.PreviousRoundScoreEntries.AsEnumerable();
+            if (isFinished && status.ScoreEntries.Count > 0)
+                entries = entries.Concat(status.ScoreEntries);
+
             dto.ScoreBreakdown = new ScoreBreakdownDto
             {
                 RoundMultiplier = status.ActualRoundMultiplier,
                 ExpectedRoundMultiplier = status.ExpectedRoundMultiplier,
-                Entries = status.PreviousRoundScoreEntries.Select(e => new ScoreEntryDto
+                Entries = entries.Select(e => new ScoreEntryDto
                 {
                     Source = e.Source,
                     Points = e.Points,

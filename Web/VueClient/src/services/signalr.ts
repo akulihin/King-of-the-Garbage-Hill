@@ -146,13 +146,10 @@ export type PassiveAbilityStates = {
   saitama?: SaitamaState
   shinigamiEyes?: ShinigamiEyesWidgetState
   seller?: SellerState
-  sellerMark?: SellerMarkState
   dopa?: DopaState
   goblinSwarm?: GoblinSwarmState
   kotiki?: KotikiState
-  kotikiCatOnMe?: KotikiCatOnMe
   monster?: MonsterState
-  monsterPawnOnMe?: MonsterPawnOnMe
   pickleRick?: PickleRickState
   giantBeans?: GiantBeansState
   tolyaCount?: TolyaCountState
@@ -163,14 +160,10 @@ export type PassiveAbilityStates = {
   napoleon?: NapoleonState
   support?: SupportState
   toxicMate?: ToxicMateState
-  toxicMateCancerOnMe?: ToxicMateCancerOnMe
   yongGleb?: YongGlebState
   theBoys?: TheBoysState
-  theBoysVirusOnMe?: TheBoysVirusOnMe
-  theBoysMoralBlocked?: boolean
   salldorum?: SalldorumState
   geralt?: GeraltState
-  geraltMonsterOnMe?: GeraltMonsterOnMe
   doomGuy?: DoomGuyState
   eren?: ErenState
 }
@@ -192,7 +185,6 @@ export type WeedState = { totalWeedAvailable: number; lastHarvestRound: number }
 export type SaitamaState = { deferredPoints: number; deferredMoral: number }
 export type ShinigamiEyesWidgetState = { isActive: boolean }
 export type SellerState = { cooldown: number; markedCount: number; secretBuildSkill: number }
-export type SellerMarkState = { roundsRemaining: number; debt: number; sellerName: string }
 export type DopaState = {
   visionReady: boolean
   visionCooldown: number
@@ -222,18 +214,8 @@ export type KotikiState = {
   minkaRoundsOnEnemy: number
 }
 
-export type KotikiCatOnMe = {
-  catType: string
-  catOwnerName: string
-  roundsDeployed: number
-}
-
 export type MonsterState = {
   pawnCount: number
-}
-
-export type MonsterPawnOnMe = {
-  pawnOwnerName: string
 }
 
 export type ErenState = {
@@ -272,7 +254,6 @@ export type CraboRackState = { shellsUsed: number }
 export type NapoleonState = { allyName: string; treatyCount: number }
 export type SupportState = { carryName: string }
 export type ToxicMateState = { cancerActive: boolean; transferCount: number; currentHolderName: string }
-export type ToxicMateCancerOnMe = { sourceName: string }
 export type YongGlebState = { teaReady: boolean; teaCooldown: number }
 
 export type TheBoysState = {
@@ -300,8 +281,6 @@ export type TheBoysState = {
   unlockSerial: number
   virusNames: string[]
 }
-
-export type TheBoysVirusOnMe = { sourceName: string }
 
 export type SalldorumState = {
   shenCharges: number
@@ -344,13 +323,6 @@ export type GeraltState = {
   invoicePredictedDispleasure?: number
   questCompletedThisRound: boolean
   rareLootFoundThisRound: boolean
-}
-
-export type GeraltMonsterOnMe = {
-  monsterType: string
-  monsterColor: string
-  monsterEmoji: string
-  contractsOnType: number
 }
 
 // ── Blackjack Types ───────────────────────────────────────────────

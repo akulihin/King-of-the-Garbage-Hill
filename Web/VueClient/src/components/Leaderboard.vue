@@ -1528,4 +1528,26 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 .drop-overlay-leave-active { transition: opacity 0.5s 3s; }
 .drop-overlay-enter-from { opacity: 0; }
 .drop-overlay-leave-to { opacity: 0; }
+
+/* Names and numbers must remain crisp above every row-wide shimmer/sweep effect. */
+.lb-row > :not(.pink-ward-shimmer):not(.drop-overlay) {
+  position: relative;
+  z-index: 10;
+}
+.lb-row > .pink-ward-shimmer,
+.lb-row > .drop-overlay {
+  z-index: 2;
+}
+.lb-place > *,
+.lb-info > *,
+.lb-stats > *,
+.lb-score-area > * {
+  position: relative;
+  z-index: 2;
+}
+.lb-row.on-fire .lb-place::before,
+.lb-row.on-fire .lb-place::after,
+.lb-row.on-fire .lb-score-area::before {
+  z-index: 1;
+}
 </style>
