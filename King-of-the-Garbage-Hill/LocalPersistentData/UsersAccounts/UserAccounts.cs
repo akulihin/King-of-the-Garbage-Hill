@@ -18,7 +18,7 @@ public sealed class UserAccounts : IServiceSingleton
     private readonly ConcurrentDictionary<ulong, DiscordAccountClass> _userAccountsDictionary;
     private readonly UserAccountsDataStorage _usersDataStorage;
     private Timer _loopingTimer;
-    private bool _saving;
+    private int _saving;
     private string _executionPath;
 
     private static ulong _nextWebId = 9_000_000_000_000_000_000;
@@ -110,17 +110,32 @@ public sealed class UserAccounts : IServiceSingleton
     }
 
 
+    public void SaveAccount(DiscordAccountClass account)
+    {
+        if (account == null) return;
+
+        lock (account)
+        {
+            _usersDataStorage.SaveAccountSettings(account, account.DiscordId);
+        }
+    }
+
     private void SaveAllAccounts(object sender, ElapsedEventArgs e)
     {
-        
         if("F:\\git\\King-of-the-Garbage-Hill\\King-of-the-Garbage-Hill\\bin\\Debug\\net6.0" == _executionPath) 
             return;
-        if (_saving) 
+        if (System.Threading.Interlocked.Exchange(ref _saving, 1) != 0)
             return;
-        _saving = true;
-        foreach (var a in _userAccountsDictionary)
-            _usersDataStorage.SaveAccountSettings(a.Value, a.Key);
-        _saving = false;
+
+        try
+        {
+            foreach (var account in _userAccountsDictionary.Values)
+                SaveAccount(account);
+        }
+        finally
+        {
+            System.Threading.Volatile.Write(ref _saving, 0);
+        }
     }
 
 

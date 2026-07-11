@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.API.Services;
 using King_of_the_Garbage_Hill.Game.Characters;
+using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 using King_of_the_Garbage_Hill.Helpers;
 using Microsoft.AspNetCore.SignalR;
@@ -655,23 +658,37 @@ public class GameHub : Hub
             return;
         }
 
-        Game.Classes.QuestService.EnsureQuestsInitialized(account);
-        var questState = new DTOs.QuestStateDto
+        DTOs.QuestStateDto questState;
+        lock (account)
         {
-            ZbsPoints = account.ZbsPoints,
-            StreakDays = account.Quests.StreakDays,
-            AllCompletedToday = account.Quests.ActiveDay?.AllCompleted ?? false,
-            PendingLootBoxes = account.PendingLootBoxes,
-            Quests = account.Quests.ActiveDay?.Quests.Select(q => new DTOs.QuestProgressDto
+            Game.Classes.QuestService.EnsureQuestsInitialized(account);
+            var lootBoxPity = Math.Clamp(
+                account.Quests.LootBoxPity,
+                0,
+                Game.Classes.QuestService.RarePityLimit - 1);
+            var lastUnacknowledgedLootBox = Game.Classes.QuestService.GetLastUnacknowledgedLootBox(account);
+
+            questState = new DTOs.QuestStateDto
             {
-                Id = q.QuestId,
-                Description = q.Description,
-                Current = q.Current,
-                Target = q.Target,
-                IsCompleted = q.IsCompleted,
-                ZbsReward = q.ZbsReward,
-            }).ToList() ?? new()
-        };
+                ZbsPoints = account.ZbsPoints,
+                StreakDays = account.Quests.StreakDays,
+                AllCompletedToday = account.Quests.ActiveDay?.AllCompleted ?? false,
+                PendingLootBoxes = account.PendingLootBoxes,
+                LootBoxPity = lootBoxPity,
+                GuaranteedRareIn = Game.Classes.QuestService.GetGuaranteedRareIn(lootBoxPity),
+                LootBoxOdds = MapLootBoxOdds(),
+                LastUnacknowledgedLootBox = MapLootBoxResult(lastUnacknowledgedLootBox),
+                Quests = account.Quests.ActiveDay?.Quests.Select(q => new DTOs.QuestProgressDto
+                {
+                    Id = q.QuestId,
+                    Description = q.Description,
+                    Current = q.Current,
+                    Target = q.Target,
+                    IsCompleted = q.IsCompleted,
+                    ZbsReward = q.ZbsReward,
+                }).ToList() ?? new()
+            };
+        }
 
         await Clients.Caller.SendAsync("QuestState", questState);
     }
@@ -690,20 +707,37 @@ public class GameHub : Hub
             return;
         }
 
-        if (account.PendingLootBoxes <= 0)
+        var outcome = Game.Classes.QuestService.OpenLootBox(account, 0);
+        if (outcome.Result == null)
         {
-            await Clients.Caller.SendAsync("Error", "No loot boxes available.");
+            await Clients.Caller.SendAsync("Error", outcome.Error ?? "Unable to open loot box.");
             return;
         }
 
-        account.PendingLootBoxes--;
-        var lootResult = Game.Classes.QuestService.GenerateLootBox(account, 0);
+        DTOs.LootBoxResultDto resultDto;
+        lock (account)
+            resultDto = MapLootBoxResult(outcome.Result);
 
-        await Clients.Caller.SendAsync("LootBoxOpened", new DTOs.LootBoxResultDto
+        // Persist the debit, reward, pity and resumable opening before the client sees it.
+        _userAccounts.SaveAccount(account);
+        await Clients.Caller.SendAsync("LootBoxOpened", resultDto);
+    }
+
+    public async Task AcknowledgeLootBox(string openingId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        if (account == null)
         {
-            Rarity = lootResult.Rarity,
-            ZbsAmount = lootResult.ZbsAmount,
-        });
+            await Clients.Caller.SendAsync("Error", "Account not found.");
+            return;
+        }
+
+        // A stale or mismatched acknowledgement is intentionally a safe no-op.
+        if (Game.Classes.QuestService.AcknowledgeLootBox(account, openingId))
+            _userAccounts.SaveAccount(account);
     }
 
     // ── Achievements ──────────────────────────────────────────────────
@@ -720,33 +754,35 @@ public class GameHub : Hub
             return;
         }
 
-        Game.Classes.AchievementService.EnsureInitialized(account);
-
-        var board = new DTOs.AchievementBoardDto
+        var definitions = Game.Classes.AchievementService.AllAchievements;
+        var liveIds = definitions.Select(x => x.Id).ToHashSet(StringComparer.Ordinal);
+        DTOs.AchievementBoardDto board;
+        lock (account)
         {
-            TotalAchievements = Game.Classes.AchievementService.AllAchievements.Count,
-            TotalUnlocked = account.Achievements.Progress.Count(p => p.IsUnlocked),
-            NewlyUnlocked = account.Achievements.NewlyUnlocked.ToList(),
-        };
+            Game.Classes.AchievementService.EnsureInitialized(account);
+            var unlockedDefinitions = definitions.Where(def =>
+                account.Achievements.Progress.Any(progress =>
+                    progress.AchievementId == def.Id && progress.IsUnlocked)).ToList();
 
-        foreach (var def in Game.Classes.AchievementService.AllAchievements)
-        {
-            var progress = account.Achievements.Progress.Find(p => p.AchievementId == def.Id);
-            board.Achievements.Add(new DTOs.AchievementEntryDto
+            board = new DTOs.AchievementBoardDto
             {
-                Id = def.Id,
-                Name = def.IsSecret && (progress == null || !progress.IsUnlocked) ? "???" : def.Name,
-                Description = def.IsSecret && (progress == null || !progress.IsUnlocked) ? def.SecretHint : def.Description,
-                SecretHint = def.SecretHint,
-                Category = def.Category.ToString(),
-                IsSecret = def.IsSecret,
-                Icon = def.Icon,
-                Rarity = def.Rarity,
-                Target = def.Target,
-                Current = progress?.Current ?? 0,
-                IsUnlocked = progress?.IsUnlocked ?? false,
-                UnlockedAt = progress?.UnlockedAt?.ToString("o"),
-            });
+                TotalAchievements = definitions.Count,
+                TotalUnlocked = unlockedDefinitions.Count,
+                NewlyUnlocked = account.Achievements.NewlyUnlocked
+                    .Where(liveIds.Contains)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList(),
+                EarnedRewardZbs = unlockedDefinitions.Sum(x => x.RewardZbs),
+                TotalRewardZbs = definitions.Sum(x => x.RewardZbs),
+                EarnedRewardLootBoxes = unlockedDefinitions.Sum(x => x.RewardLootBoxes),
+                TotalRewardLootBoxes = definitions.Sum(x => x.RewardLootBoxes),
+            };
+
+            foreach (var def in definitions)
+            {
+                var progress = account.Achievements.Progress.Find(p => p.AchievementId == def.Id);
+                board.Achievements.Add(MapAchievementEntry(def, progress));
+            }
         }
 
         await Clients.Caller.SendAsync("AchievementBoard", board);
@@ -758,8 +794,53 @@ public class GameHub : Hub
         if (discordId == 0) return;
 
         var account = _userAccounts.GetAccount(discordId);
-        if (account?.Achievements != null)
-            account.Achievements.NewlyUnlocked.Clear();
+        if (account == null) return;
+
+        var cleared = false;
+        lock (account)
+        {
+            if (account.Achievements?.NewlyUnlocked?.Count > 0)
+            {
+                account.Achievements.NewlyUnlocked.Clear();
+                cleared = true;
+            }
+        }
+
+        if (cleared)
+            _userAccounts.SaveAccount(account);
+    }
+
+    public async Task AcknowledgeAchievements(List<string> achievementIds)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        if (account == null)
+        {
+            await Clients.Caller.SendAsync("Error", "Account not found.");
+            return;
+        }
+
+        var liveIds = Game.Classes.AchievementService.AllAchievements
+            .Select(definition => definition.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        var acknowledgedIds = (achievementIds ?? new List<string>())
+            .Where(liveIds.Contains)
+            .Distinct(StringComparer.Ordinal)
+            .ToHashSet(StringComparer.Ordinal);
+        if (acknowledgedIds.Count == 0) return;
+
+        var removed = false;
+        lock (account)
+        {
+            var queue = account.Achievements?.NewlyUnlocked;
+            if (queue != null)
+                removed = queue.RemoveAll(acknowledgedIds.Contains) > 0;
+        }
+
+        if (removed)
+            _userAccounts.SaveAccount(account);
     }
 
     // ── Request State ─────────────────────────────────────────────────
@@ -1310,6 +1391,72 @@ public class GameHub : Hub
     }
 
     // ── Private helpers ───────────────────────────────────────────────
+
+    private static List<DTOs.LootBoxOddsDto> MapLootBoxOdds()
+    {
+        return Game.Classes.QuestService.LootBoxOdds.Select(tier => new DTOs.LootBoxOddsDto
+        {
+            Rarity = tier.Rarity,
+            Chance = tier.Chance,
+            MinZbs = tier.MinZbs,
+            MaxZbs = tier.MaxZbs,
+        }).ToList();
+    }
+
+    private static DTOs.LootBoxResultDto MapLootBoxResult(LootBoxResult result)
+    {
+        if (result == null) return null;
+
+        return new DTOs.LootBoxResultDto
+        {
+            OpeningId = result.OpeningId,
+            Rarity = result.Rarity,
+            ZbsAmount = result.ZbsAmount,
+            ZbsBalance = result.ZbsBalance,
+            RemainingLootBoxes = result.RemainingLootBoxes,
+            OpenedAt = result.Timestamp.ToString("o"),
+            WasPityUpgrade = result.WasPityUpgrade,
+            LootBoxPity = result.LootBoxPity,
+            GuaranteedRareIn = result.GuaranteedRareIn,
+        };
+    }
+
+    private static DTOs.AchievementEntryDto MapAchievementEntry(
+        AchievementDefinition definition, AchievementProgress progress)
+    {
+        var isUnlocked = progress?.IsUnlocked ?? false;
+        var maskSecret = definition.IsSecret && !isUnlocked;
+
+        return new DTOs.AchievementEntryDto
+        {
+            Id = maskSecret ? GetOpaqueAchievementId(definition.Id) : definition.Id,
+            Name = maskSecret ? "???" : definition.Name,
+            NameRu = maskSecret ? "???" : definition.NameRu,
+            Description = maskSecret ? definition.SecretHint : definition.Description,
+            DescriptionRu = maskSecret ? definition.SecretHintRu : definition.DescriptionRu,
+            SecretHint = definition.SecretHint,
+            SecretHintRu = definition.SecretHintRu,
+            Category = definition.Category.ToString(),
+            IsSecret = definition.IsSecret,
+            Icon = definition.Icon,
+            Rarity = definition.Rarity,
+            CharacterNames = maskSecret
+                ? new List<string>()
+                : definition.CharacterNames?.ToList() ?? new List<string>(),
+            RewardZbs = definition.RewardZbs,
+            RewardLootBoxes = definition.RewardLootBoxes,
+            Target = definition.Target,
+            Current = progress?.Current ?? 0,
+            IsUnlocked = isUnlocked,
+            UnlockedAt = progress?.UnlockedAt?.ToString("o"),
+        };
+    }
+
+    private static string GetOpaqueAchievementId(string achievementId)
+    {
+        var digest = SHA256.HashData(Encoding.UTF8.GetBytes($"kotgh:hidden-achievement:{achievementId}"));
+        return $"hidden-{Convert.ToHexString(digest.AsSpan(0, 8)).ToLowerInvariant()}";
+    }
 
     private ulong GetDiscordId()
     {

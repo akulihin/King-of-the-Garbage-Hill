@@ -637,6 +637,10 @@ export type QuestState = {
   streakDays: number
   zbsPoints: number
   pendingLootBoxes: number
+  lootBoxPity: number
+  guaranteedRareIn: number
+  lootBoxOdds: LootBoxOdds[]
+  lastUnacknowledgedLootBox: LootBoxResult | null
 }
 
 export type QuestProgress = {
@@ -651,6 +655,20 @@ export type QuestProgress = {
 export type LootBoxResult = {
   rarity: string
   zbsAmount: number
+  openingId: string
+  zbsBalance: number
+  remainingLootBoxes: number
+  openedAt: string
+  wasPityUpgrade: boolean
+  lootBoxPity: number
+  guaranteedRareIn: number
+}
+
+export type LootBoxOdds = {
+  rarity: string
+  chance: number
+  minZbs: number
+  maxZbs: number
 }
 
 export type DoomModule = {
@@ -690,6 +708,10 @@ export type AchievementBoard = {
   totalUnlocked: number
   totalAchievements: number
   newlyUnlocked: string[]
+  earnedRewardZbs: number
+  totalRewardZbs: number
+  earnedRewardLootBoxes: number
+  totalRewardLootBoxes: number
 }
 
 export type AchievementEntry = {
@@ -705,6 +727,12 @@ export type AchievementEntry = {
   current: number
   isUnlocked: boolean
   unlockedAt: string | null
+  nameRu: string
+  descriptionRu: string
+  secretHintRu: string
+  characterNames: string[]
+  rewardZbs: number
+  rewardLootBoxes: number
 }
 
 export type ActionResult = {
@@ -1146,11 +1174,22 @@ class SignalRService {
   }
 
   async disconnect(): Promise<void> {
-    if (this.connection) {
-      await this.connection.stop()
-      this.connection = null
-      this._isConnected = false
-      this.onConnectionChanged?.(false)
+    const connection = this.connection
+
+    // A deliberate disconnect is also a session boundary. Clear these before
+    // stopping so an in-flight reconnect can never authenticate the old user.
+    this.connection = null
+    this._lastDiscordId = null
+    this._currentGameId = null
+    this._isConnected = false
+    this.onConnectionChanged?.(false)
+
+    if (!connection) return
+    try {
+      await connection.stop()
+    }
+    catch {
+      // Local logout must still complete when the transport is already gone.
     }
   }
 
@@ -1350,12 +1389,20 @@ class SignalRService {
     await this.connection?.invoke('OpenLootBox')
   }
 
+  async acknowledgeLootBox(openingId: string): Promise<void> {
+    await this.connection?.invoke('AcknowledgeLootBox', openingId)
+  }
+
   async requestAchievements(): Promise<void> {
     await this.connection?.invoke('RequestAchievements')
   }
 
   async clearNewAchievements(): Promise<void> {
     await this.connection?.invoke('ClearNewAchievements')
+  }
+
+  async acknowledgeAchievements(achievementIds: string[]): Promise<void> {
+    await this.connection?.invoke('AcknowledgeAchievements', achievementIds)
   }
 
   async requestDoomFortress(): Promise<void> {

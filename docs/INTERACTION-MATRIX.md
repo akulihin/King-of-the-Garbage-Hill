@@ -10,7 +10,7 @@ Forced-fight sources: **Монстр** no-escape (`CIR:1266-1289`), **Шэн** b
 |---|---|---|---|---|---|---|
 | Dead player | ✓ excluded | ✓ excluded | ✓ excluded | ✓ targets exclude dead | n/a (dead don't fight) | ✓ excluded `DM:765` |
 | Тигр round-10 ban | ✓ carve-out `CIR:1293` | ✓ carve-out (M11 fixed, `CIR:1213`) | ✓ carve-out (M11 fixed, `CIR:1247`) | n/a | targeting already blocked (`GR:702-707`) | not special-cased; ordinary block/skip still applies |
-| Огурчик Рик (pickle) | ✓ unaffected (no IsBlock/IsSkip) | pulls him, but pickle can't lose | can taunt him; he can't lose | n/a | injection works; pickle still can't lose | injected normally; pickle still can't lose |
+| Огурчик Рик (pickle) | ✓ active pickle strips IsBlock/IsSkip and wins (`DM:261-278,486-499`; M18) | pulls him; pickle accepts and wins | can taunt him; he accepts and wins | n/a | injection works; pickle accepts and wins | injected normally; pickle accepts and wins |
 | Block | overridden (stripped) | fight happens anyway (forced list bypasses block-skip `DM:393-407`) | taunt bypasses own block (`DM:471-474`) | Aggress can't block at all | blocked Геральт = no injection (`DM:303,326`) | block stops that branch; normal penalty applies |
 | Skip (sleep/tilt/ban) | overridden (stripped) | fight happens anyway | fight happens anyway | Aggress can't skip | skipping Геральт = no injection | skip stops that branch |
 | Ziggurat lock | position only — fights unaffected | position only | position only | n/a | n/a | position only — wave follows current board order |
@@ -107,3 +107,19 @@ Copy rule: random Standalone passive from the **last attacked** enemy, no duplic
 - Мадара round 8 deliberately keeps same-target duplicates: a normal/hidden/second action and the correct-prediction clone each remain separate fights. Thresholds use **unique attackers**, including fights injected during resolution, while the sealing loss requirement counts resolved defense losses (`CIR:1376-1397`; `Madara.cs:64-131`; `DM:461`).
 - Round-10 pre-settlement: Rumbling runs immediately after the fight loop and before every `HandleEndOfRound` passive; it ranks projected post-multiplier ordinary score, kills strict-between places, then later passives proceed (`DM:1293-1294`; `CP:3519-3567`).
 - Round-10 settlement order (who claws back first): Пейзаж deaths & Saitama banking happen in round-10 `HandleEndOfRound`; Чернильная завеса restore and Ищет достойного (One Punch) at round-11 `HandleNextRound`; Запах мусора at round-11 after-sorting; then `HandleLastRound`: predictions → active M.M. ×компромат → active Francie virus → Цукуеми deduction → sort → AWDKA → Premade → Sakura. СуперМудень skips both disabled-member settlements (`CheckIfReady.cs:320-375`; GAME-DESIGN §8E).
+
+## 8. Achievement V2 interaction observations
+
+These hooks are **observational**: they record an already-resolved interaction and do not add a win, death, Harm, position change or resource effect. All seven cards are secret until unlocked; exact copy/rewards are catalogued in [ACHIEVEMENTS.md](ACHIEVEMENTS.md) §4.
+
+| Achievement | Required characters | Observation point | Account(s) that earn it |
+|---|---|---|---|
+| `x_spartan_dragon` Dragon Slayer | Загадочный Спартанец в маске × Sirinoks/Дракон | DragonSlayer armed in the round-10 before-fight hook, then the Spartan actually wins that fight (`CP:1191-1202`; `DoomsdayMachine.cs:1307-1312`) | Spartan only (`AchievementClass.cs:528-533`) |
+| `x_kira_kratos` Gods Don’t Tell Me What to Do | Кира × Кратос | Kira's correct Тетрадь смерти kill reaches Kratos, then Боги мне не указ revives him (`CP:5768-5790`) | Kratos only (`AchievementClass.cs:536-537`) |
+| `x_itachi_madara` Eyes Meet Eyes | Итачи × Мадара | round-8 correct locked prediction grants the extra Клоны Сусано attack (`CheckIfReady.cs:1392-1402`) | Itachi only (`AchievementClass.cs:539-541`) |
+| `x_deeplist_weedwick` Pet Project | DeepList × Weedwick | final authoritative board has both alive at places 1–3 (`AchievementClass.cs:543-551`) | both accounts |
+| `x_spartan_mylorik` Mutual Respect | Загадочный Спартанец в маске × mylorik | mutual-Psyche respect is recorded, then a later resolved fight is won by the Spartan (`CP:1207-1218`; `DoomsdayMachine.cs:1382-1393`) | Spartan only (`AchievementClass.cs:529-533`) |
+| `x_boys_madara` Nothing Is Immune | TheBoys/СуперМудень × Мадара/Воскрешенное тело | an actual Super Harm application passes the resurrected-body immunity (`DoomsdayMachine.cs:1003-1015`) | TheBoys only (`AchievementClass.cs:554-556`) |
+| `x_monster_witness` I Saw the Beast | any non-pawn attacker × Монстр без имени | round-10 attacker receives the non-pawn Пейзаж конца света payout (`CP:4615-4626`) | that attacker (`AchievementClass.cs:558-559`) |
+
+Active Вечное Цукуеми is a global privacy exception: game-end evaluation returns before every non-Madara achievement, including these interactions, so the real authoritative result cannot contradict the viewer-specific ending (`AchievementClass.cs:426-439`).

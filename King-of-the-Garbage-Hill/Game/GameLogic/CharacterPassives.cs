@@ -1194,6 +1194,7 @@ public class CharacterPassives : IServiceSingleton
                                 break;
                             }
 
+                            me.Passives.AchievementTracker.SpartanDragonSlayerTriggered = true;
                             target.Status.IsAbleToWin = false;
                             game.AddGlobalLogs("**Я DRAGONSLAYER!**\n" +
                                                $"{me.DiscordUsername} побеждает дракона и забирает **1000 голды**!");
@@ -1212,6 +1213,8 @@ public class CharacterPassives : IServiceSingleton
 
                     if (target.GameCharacter.Name == "mylorik" && !spartan.FriendList.Contains(target.GetPlayerId()))
                     {
+                        me.Passives.AchievementTracker.SpartanRespectTriggeredThisFight = target.GetPlayerId();
+                        me.Passives.AchievementTracker.SpartanRespectedOpponentIds.Add(target.GetPlayerId());
                         spartan.FriendList.Add(target.GetPlayerId());
                         me.GameCharacter.AddPsyche(1, "ОН уважает военное искусство!");
                         target.GameCharacter.AddPsyche(1, "ОН уважает военное искусство!");
@@ -1736,6 +1739,7 @@ public class CharacterPassives : IServiceSingleton
                             target.Passives.IsDead = true;
                             target.Passives.DeathSource = "Kratos";
                             // Achievement: Kratos kill
+                            me.Passives.AchievementTracker.KratosEventVictimIds.Add(target.GetPlayerId());
                             me.Passives.AchievementTracker.EnemiesKilledAsKratos++;
                             target.Passives.AchievementTracker.WasKilledByKratos = true;
                             // Монстр без имени: +1 regular point per death
@@ -1857,6 +1861,7 @@ public class CharacterPassives : IServiceSingleton
                         if (placeDiff <= range && game.RoundNo > 1)
                         {
                             //обычный дроп (его тут нет, просто так тут это написал)
+                            var achievementDropsBefore = target.GameCharacter.GetStrengthQualityDropTimes();
                             var harm = 0;
 
                             // 1/место в таблице.
@@ -1885,6 +1890,9 @@ public class CharacterPassives : IServiceSingleton
 
                             if (harm > 0)
                             {
+                                var achievementDropsAfter = target.GameCharacter.GetStrengthQualityDropTimes();
+                                me.Passives.AchievementTracker.DropsCaused +=
+                                    Math.Max(0, achievementDropsAfter - achievementDropsBefore);
                                 var bongs = $"Вы нанесли {harm} дополнительного вреда по {target.DiscordUsername} ";
                                 for (var i = 0; i < harm; i++) bongs += "<:bong:1046462826539130950>";
                                 me.Status.AddInGamePersonalLogs($"*{bongs}*\n");
@@ -2126,6 +2134,7 @@ public class CharacterPassives : IServiceSingleton
                     if (gunAfter.Invented && gunAfter.Charges > 0 && me.Status.IsWonThisCalculation == target.GetPlayerId())
                     {
                         gunAfter.Charges--;
+                        me.Passives.AchievementTracker.PortalGunFires++;
                         gunAfter.SwapActive = true;
                         gunAfter.SwappedWith = target.GetPlayerId();
                         gunAfter.FiredThisRound = true;
@@ -2621,9 +2630,6 @@ public class CharacterPassives : IServiceSingleton
                         player.Passives.IsDead = true;
                         player.Passives.DeathSource = "Kratos";
                         player.Passives.AchievementTracker.WasKilledByKratos = true;
-                        // Track Kratos kills for the Kratos player
-                        var kratosPlayer = game.PlayersList.Find(x => x.GameCharacter.Name == "Кратос");
-                        if (kratosPlayer != null) kratosPlayer.Passives.AchievementTracker.EnemiesKilledAsKratos++;
                         // Монстр без имени: +1 regular point per death
                         foreach (var mp in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
                         {
@@ -3281,6 +3287,9 @@ public class CharacterPassives : IServiceSingleton
                                 game.Phrases.KotikiCatReturn.SendLog(player, false);
                                 var isVictory = player.Status.IsWonThisCalculation == fightEnemyId;
 
+                                if (isVictory && catType is "Минька" or "Штормяк")
+                                    player.Passives.AchievementTracker.KotikiCatsReclaimed.Add(catType);
+
                                 if (catType == "Минька")
                                 {
                                     if (isVictory)
@@ -3544,6 +3553,7 @@ public class CharacterPassives : IServiceSingleton
         {
             victim.Passives.IsDead = true;
             victim.Passives.DeathSource = "Rumbling";
+            eren.Passives.AchievementTracker.RumblingVictimIds.Add(victim.GetPlayerId());
         }
 
         if (victims.Count == 0)
@@ -4302,8 +4312,6 @@ public class CharacterPassives : IServiceSingleton
                                 // Correct — target dies
                                 dnTarget.Passives.IsDead = true;
                                 dnTarget.Passives.DeathSource = "Kira";
-                                // Achievement tracking: Kira kill
-                                player.Passives.AchievementTracker.KiraKills++;
                                 dnTarget.Passives.AchievementTracker.WasKilledByKira = true;
                                 if (dnTarget.GameCharacter.Name == "Кира")
                                     player.Passives.AchievementTracker.SurvivedKiraAttempt = false; // killer gets "kill_a_god" tracked at game end
@@ -4331,8 +4339,6 @@ public class CharacterPassives : IServiceSingleton
                                 // Kira killed L — special dialogue
                                 if (isL)
                                 {
-                                    // Achievement: kira_kills_l
-                                    player.Passives.AchievementTracker.KiraKills++; // extra count for L kill
                                     game.AddGlobalLogs(
                                         $"В связи с загадочными обстоятельствами, известный детектив по кличке **L** мертв. Его настоящее имя было {dnTarget.DiscordUsername}\n" +
                                         "**Kira:** Ну и что LLLLLLL???!?! КТО ТЕПЕРЬ... КТО ТЕПЕРЬ... эм... КТО ИЗ НАС ПОБЕДИЛ???!?! ХАХХХАХАХАХ! ГАВ ГАВ ГАВ");
@@ -4596,6 +4602,7 @@ public class CharacterPassives : IServiceSingleton
                             if (pawn.Status.IsBlock || pawn.Status.IsSkip || Madara.IsMadara(pawn)) continue;
                             pawn.Passives.IsDead = true;
                             pawn.Passives.DeathSource = "Monster";
+                            player.Passives.AchievementTracker.MonsterPawnExecutions++;
                             deadNames.Add(pawn.GameCharacter.Name);
                             player.Status.AddRegularPoints(1, "Монстр");
                         }
@@ -4614,6 +4621,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             fighter.Status.AddRegularPoints(7, "Пейзаж конца света");
                             fighter.Status.AddBonusPoints(10, "Пейзаж конца света");
+                            fighter.Passives.AchievementTracker.WitnessedMonsterApocalypse = true;
                             game.AddGlobalLogs("Я увидел... Зверя... с семью головами и десятью рогами! Я выстрелил!");
                         }
                     }

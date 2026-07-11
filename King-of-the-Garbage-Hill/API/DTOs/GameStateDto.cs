@@ -1038,6 +1038,10 @@ public class QuestStateDto
     public int StreakDays { get; set; }
     public int ZbsPoints { get; set; }
     public int PendingLootBoxes { get; set; }
+    public int LootBoxPity { get; set; }
+    public int GuaranteedRareIn { get; set; }
+    public List<LootBoxOddsDto> LootBoxOdds { get; set; } = new();
+    public LootBoxResultDto LastUnacknowledgedLootBox { get; set; }
 }
 
 public class QuestProgressDto
@@ -1052,8 +1056,23 @@ public class QuestProgressDto
 
 public class LootBoxResultDto
 {
+    public string OpeningId { get; set; }
     public string Rarity { get; set; }
     public int ZbsAmount { get; set; }
+    public int ZbsBalance { get; set; }
+    public int RemainingLootBoxes { get; set; }
+    public string OpenedAt { get; set; }
+    public bool WasPityUpgrade { get; set; }
+    public int LootBoxPity { get; set; }
+    public int GuaranteedRareIn { get; set; }
+}
+
+public class LootBoxOddsDto
+{
+    public string Rarity { get; set; }
+    public double Chance { get; set; }
+    public int MinZbs { get; set; }
+    public int MaxZbs { get; set; }
 }
 
 // ── Achievement DTOs ─────────────────────────────────────────────────
@@ -1064,18 +1083,28 @@ public class AchievementBoardDto
     public int TotalUnlocked { get; set; }
     public int TotalAchievements { get; set; }
     public List<string> NewlyUnlocked { get; set; } = new();
+    public int EarnedRewardZbs { get; set; }
+    public int TotalRewardZbs { get; set; }
+    public int EarnedRewardLootBoxes { get; set; }
+    public int TotalRewardLootBoxes { get; set; }
 }
 
 public class AchievementEntryDto
 {
     public string Id { get; set; }
     public string Name { get; set; }
+    public string NameRu { get; set; }
     public string Description { get; set; }
+    public string DescriptionRu { get; set; }
     public string SecretHint { get; set; }
+    public string SecretHintRu { get; set; }
     public string Category { get; set; }
     public bool IsSecret { get; set; }
     public string Icon { get; set; }
     public string Rarity { get; set; }
+    public List<string> CharacterNames { get; set; } = new();
+    public int RewardZbs { get; set; }
+    public int RewardLootBoxes { get; set; }
     public int Target { get; set; }
     public int Current { get; set; }
     public bool IsUnlocked { get; set; }

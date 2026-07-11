@@ -129,6 +129,7 @@ public class DoomsdayMachine : IServiceSingleton
             player.Status.IsTargetSkipped = Guid.Empty;
             player.Status.IsTargetBlocked = Guid.Empty;
             player.Status.IsAbleToWin = true;
+            player.Passives.AchievementTracker.SpartanRespectTriggeredThisFight = Guid.Empty;
         }
     }
 
@@ -258,19 +259,22 @@ public class DoomsdayMachine : IServiceSingleton
 
 
 
-        // Pickle Rick — convert block to pickle form
+        // Pickle Rick — convert block to pickle form and keep the active pickle fightable.
         foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Огурчик Рик")).ToList())
         {
-            if (player.Status.IsBlock)
+            var pickle = player.Passives.RickPickle;
+            if (pickle.PickleTurnsRemaining > 0)
             {
-                var pickle = player.Passives.RickPickle;
-                if (pickle.PickleTurnsRemaining == 0 && pickle.PenaltyTurnsRemaining == 0)
-                {
-                    player.Status.IsBlock = false;
-                    pickle.PickleTurnsRemaining = 2;
-                    pickle.WasAttackedAsPickle = false;
-                    game.Phrases.RickPickleTransform.SendLog(player, false);
-                }
+                player.Status.IsBlock = false;
+                player.Status.IsSkip = false;
+            }
+            else if (player.Status.IsBlock && pickle.PenaltyTurnsRemaining == 0)
+            {
+                player.Status.IsBlock = false;
+                player.Status.IsSkip = false;
+                pickle.PickleTurnsRemaining = 2;
+                pickle.WasAttackedAsPickle = false;
+                game.Phrases.RickPickleTransform.SendLog(player, false);
             }
         }
 
@@ -318,6 +322,8 @@ public class DoomsdayMachine : IServiceSingleton
         if (geraltPlayer != null)
         {
             var geraltContracts = geraltPlayer.Passives.GeraltContracts;
+            var geraltAchievements = geraltPlayer.Passives.AchievementTracker;
+            geraltAchievements.GeraltContractFightsRemaining.Clear();
             var geraltId = geraltPlayer.GetPlayerId();
 
             // Attack side: Geralt attacks someone — inject extra fights for Geralt
@@ -338,6 +344,8 @@ public class DoomsdayMachine : IServiceSingleton
                         geraltContracts.SetCount(monsterType.Value, 0);
                         geraltContracts.ContractProcsOnEnemy.TryAdd(targetId, 0);
                         geraltContracts.ContractProcsOnEnemy[targetId] += count;
+                        if (count > 0)
+                            geraltAchievements.GeraltContractFightsRemaining[targetId] = count;
                     }
                 }
             }
@@ -365,6 +373,7 @@ public class DoomsdayMachine : IServiceSingleton
                 geraltContracts.SetCount(monsterType.Value, 0);
                 geraltContracts.ContractProcsOnEnemy.TryAdd(attacker.GetPlayerId(), 0);
                 geraltContracts.ContractProcsOnEnemy[attacker.GetPlayerId()] += count;
+                geraltAchievements.GeraltContractFightsRemaining[attacker.GetPlayerId()] = count;
             }
         }
 
@@ -481,6 +490,19 @@ public class DoomsdayMachine : IServiceSingleton
                 playerIamAttacking.Status.ForOneFightMods.Clear();
 
                 _characterPassives.HandleAttackBeforeFight(player, playerIamAttacking, game);
+
+                // This is the authoritative Pickle Rick outcome, applied after both before-fight
+                // dispatchers: the active pickle always accepts the fight and always wins it, even
+                // when a later attacker passive tried to restore block/skip or disable his victory.
+                if (playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Огурчик Рик")
+                    && playerIamAttacking.Passives.RickPickle.PickleTurnsRemaining > 0)
+                {
+                    playerIamAttacking.Passives.RickPickle.WasAttackedAsPickle = true;
+                    playerIamAttacking.Status.IsBlock = false;
+                    playerIamAttacking.Status.IsSkip = false;
+                    player.Status.IsAbleToWin = false;
+                    playerIamAttacking.Status.IsAbleToWin = true;
+                }
 
                 // Snapshot: mods from attack passives belong to attacker
                 var attackerPassiveMods = player.Status.ForOneFightMods
@@ -622,6 +644,8 @@ public class DoomsdayMachine : IServiceSingleton
                     var (text1, text2) = CharacterClass.ClassToFlavorText(playerIamAttacking.FightCharacter.GetSkillClassType());
 
                     skillGainedFromTarget = player.GameCharacter.AddMainSkill(text1);
+                    if (skillGainedFromTarget > 0)
+                        player.Passives.AchievementTracker.TargetSkillRounds.Add(game.RoundNo);
 
                     var known = player.Status.KnownPlayerClass.Find(x => x.EnemyId == playerIamAttacking.GetPlayerId());
                     if (known != null)
@@ -935,6 +959,7 @@ public class DoomsdayMachine : IServiceSingleton
 
                         var queuedExtraHarms = 0;
                         var extraHarmsApplied = 0;
+                        var appliedHarmCalls = 0;
 
                         int ApplyButcherHarm()
                         {
@@ -942,6 +967,7 @@ public class DoomsdayMachine : IServiceSingleton
                                               || playerIamAttacking.Status.GetScore() <= 0))
                                 return 0;
 
+                            appliedHarmCalls++;
                             var dropsBeforeHit = playerIamAttacking.GameCharacter.GetStrengthQualityDropTimes();
                             var brokenResists = playerIamAttacking.GameCharacter
                                 .LowerQualityResist(playerIamAttacking, game, player,
@@ -983,6 +1009,8 @@ public class DoomsdayMachine : IServiceSingleton
                             game.AddGlobalLogs("**Butcher**: Отправил на больничную койку.");
                         }
 
+                        if (superDick && appliedHarmCalls > 0 && Madara.IsMadara(playerIamAttacking))
+                            player.Passives.AchievementTracker.DamagedReanimatedMadaraWithSuperDick = true;
                         qualityDamageApplied = true;
                     }
 
@@ -990,6 +1018,8 @@ public class DoomsdayMachine : IServiceSingleton
                     resistStrAfter = playerIamAttacking.GameCharacter.GetStrengthQualityResistInt();
                     resistPsycheAfter = playerIamAttacking.GameCharacter.GetPsycheQualityResistInt();
                     dropsAfter = playerIamAttacking.GameCharacter.GetStrengthQualityDropTimes();
+                    player.Passives.AchievementTracker.DropsCaused +=
+                        Math.Max(0, dropsAfter - dropsBefore);
                     // Detect if intel/psyche resist broke (went below 0 and was reset)
                     intellectualDamage = qualityDamageApplied && resistIntelAfter > resistIntelBefore;
                     emotionalDamage = qualityDamageApplied && resistPsycheAfter > resistPsycheBefore;
@@ -1257,6 +1287,39 @@ public class DoomsdayMachine : IServiceSingleton
                 }
 
                 // ── Achievement tracking: fight wins/losses (before ResetFight clears flags) ──
+                var achievementAttackerWon = player.Status.IsWonThisCalculation == playerIamAttacking.GetPlayerId();
+                var achievementDefenderWon = playerIamAttacking.Status.IsWonThisCalculation == player.GetPlayerId();
+
+                if (achievementAttackerWon)
+                {
+                    var attackerTracker = player.Passives.AchievementTracker;
+                    if (player.Status.GetPlaceAtLeaderBoard() == 6
+                        && playerIamAttacking.Status.GetPlaceAtLeaderBoard() == 1)
+                        attackerTracker.BottomFeederWins++;
+                    if (player.FightCharacter.HasNemesisOver(playerIamAttacking.FightCharacter))
+                        attackerTracker.NemesisAdvantageWins++;
+                    if (justiceMe >= 5)
+                        attackerTracker.WonFightWithMaxJustice = true;
+                    if (bfgTriggeredThisFight || bfgWaveDirection != 0)
+                        attackerTracker.BfgWaveVictimIds.Add(playerIamAttacking.GetPlayerId());
+
+                    if (player.GameCharacter.Name == "Загадочный Спартанец в маске"
+                        && game.RoundNo == 10
+                        && playerIamAttacking.GameCharacter.Name == "Sirinoks"
+                        && playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Дракон")
+                        && attackerTracker.SpartanDragonSlayerTriggered)
+                        attackerTracker.SpartanDragonSlayerDefeated = true;
+                }
+
+                if (achievementDefenderWon)
+                {
+                    var defenderTracker = playerIamAttacking.Passives.AchievementTracker;
+                    if (playerIamAttacking.FightCharacter.HasNemesisOver(player.FightCharacter))
+                        defenderTracker.NemesisAdvantageWins++;
+                    if (justiceTarget >= 5)
+                        defenderTracker.WonFightWithMaxJustice = true;
+                }
+
                 foreach (var fightParticipant in new[] { player, playerIamAttacking })
                 {
                     var t = fightParticipant.Passives.AchievementTracker;
@@ -1269,13 +1332,62 @@ public class DoomsdayMachine : IServiceSingleton
                         var defeatedId = fightParticipant.Status.IsWonThisCalculation;
                         var defeated = game.PlayersList.Find(x => x.GetPlayerId() == defeatedId);
                         if (defeated != null)
+                        {
                             t.DefeatedPlayerNames.Add(defeated.DiscordUsername);
+                            t.DefeatedPlayerIds.Add(defeated.GetPlayerId());
+                            t.DefeatedCharacterNames.Add(defeated.GameCharacter.Name);
+                        }
                     }
                     if (fightParticipant.Status.IsLostThisCalculation != Guid.Empty)
                     {
                         t.TotalFightsLost++;
                         t.ConsecutiveWins = 0;
                     }
+                }
+
+                // Consume only actual resolved contract fights. The remaining budget was captured
+                // when Geralt's contracts injected the fight queue, so blocks/skips never count.
+                if (achievementAttackerWon || achievementDefenderWon)
+                {
+                    var geralt = player.GameCharacter.Name == "Геральт"
+                        ? player
+                        : playerIamAttacking.GameCharacter.Name == "Геральт"
+                            ? playerIamAttacking
+                            : null;
+                    if (geralt != null)
+                    {
+                        var opponentId = geralt.GetPlayerId() == player.GetPlayerId()
+                            ? playerIamAttacking.GetPlayerId()
+                            : player.GetPlayerId();
+                        var geraltTracker = geralt.Passives.AchievementTracker;
+                        if (geraltTracker.GeraltContractFightsRemaining.TryGetValue(opponentId, out var remaining)
+                            && remaining > 0)
+                        {
+                            geraltTracker.GeraltContractFightsRemaining[opponentId] = remaining - 1;
+                            geraltTracker.GeraltContractFightsResolved++;
+                        }
+                    }
+                }
+
+                // The mutual-Psyche scene happens before its first fight. A victory in that same
+                // fight is not "later"; the opponent becomes eligible only after this reset point.
+                var spartanParticipant = player.GameCharacter.Name == "Загадочный Спартанец в маске"
+                    ? player
+                    : playerIamAttacking.GameCharacter.Name == "Загадочный Спартанец в маске"
+                        ? playerIamAttacking
+                        : null;
+                var mylorikParticipant = player.GameCharacter.Name == "mylorik"
+                    ? player
+                    : playerIamAttacking.GameCharacter.Name == "mylorik"
+                        ? playerIamAttacking
+                        : null;
+                if (spartanParticipant != null && mylorikParticipant != null)
+                {
+                    var spartanTracker = spartanParticipant.Passives.AchievementTracker;
+                    if (spartanParticipant.Status.IsWonThisCalculation == mylorikParticipant.GetPlayerId()
+                        && spartanTracker.SpartanRespectedOpponentIds.Contains(mylorikParticipant.GetPlayerId())
+                        && spartanTracker.SpartanRespectTriggeredThisFight != mylorikParticipant.GetPlayerId())
+                        spartanTracker.SpartanDefeatedMylorikAfterRespect = true;
                 }
 
                 ResetFight(game, player, playerIamAttacking);
@@ -1381,7 +1493,11 @@ public class DoomsdayMachine : IServiceSingleton
                 game.Phrases.JusticePhrase.SendLogSeparateWeb(player, delete:false, isEvent:false);
             }
 
+            var scoreBeforeRoundSettlement = player.Status.GetScore();
             player.Status.CombineRoundScoreAndGameScore(game);
+            if (game.RoundNo == 10)
+                player.Passives.AchievementTracker.RoundTenRegularPoints =
+                    player.Status.GetScore() - scoreBeforeRoundSettlement;
             player.Status.ClearInGamePersonalLogs();
             player.Status.InGamePersonalLogsAll += "|||";
 
@@ -1652,6 +1768,12 @@ public class DoomsdayMachine : IServiceSingleton
 
         SortGameLogs(game);
         _characterPassives.HandleNextRoundAfterSorting(game);
+        if (game.RoundNo == 10)
+        {
+            var roundTenLast = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == 6);
+            if (roundTenLast != null)
+                roundTenLast.Passives.AchievementTracker.OpenedRoundTenAtLast = true;
+        }
         _characterPassives.HandleBotPredict(game);
         game.RollExploit();
         game.TimePassed.Reset();

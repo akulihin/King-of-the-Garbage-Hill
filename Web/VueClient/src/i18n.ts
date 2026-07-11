@@ -25,10 +25,9 @@ for (const character of characters) {
   }
 }
 const localeKey = 'kotgh_locale'
-const browserLocale: AppLocale = navigator.language.toLowerCase().startsWith('ru') ? 'ru' : 'en'
 const savedLocale = localStorage.getItem(localeKey)
 
-export const currentLocale = ref<AppLocale>(savedLocale === 'ru' || savedLocale === 'en' ? savedLocale : browserLocale)
+export const currentLocale = ref<AppLocale>(savedLocale === 'ru' || savedLocale === 'en' ? savedLocale : 'en')
 
 const cyrillicPattern = /[А-Яа-яЁё]/
 const regexSpecialCharacters = /[.*+?^${}()|[\]\\]/g

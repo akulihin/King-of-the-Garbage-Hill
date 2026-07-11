@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { Gift, PackageOpen, ShieldCheck, Sparkles, Trophy } from 'lucide-vue-next'
 import { useGameStore } from 'src/store/game'
 import { signalrService, type ReplayListEntry, type CharacterListEntry } from 'src/services/signalr'
-import AchievementBoard from 'src/components/AchievementBoard.vue'
 import LootBox from 'src/components/LootBox.vue'
+import { currentLocale } from 'src/i18n'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 
@@ -12,7 +13,6 @@ const store = useGameStore()
 const router = useRouter()
 
 const isCreatingGame = ref(false)
-const showAchievements = ref(false)
 const showCharacterPicker = ref(false)
 const characterSearch = ref('')
 const recentReplays = ref<ReplayListEntry[]>([])
@@ -28,18 +28,89 @@ const streakDays = computed(() => store.questState?.streakDays ?? 0)
 const allDone = computed(() => store.questState?.allCompletedToday ?? false)
 const zbsPoints = computed(() => store.questState?.zbsPoints ?? 0)
 const pendingLootBoxes = computed(() => store.questState?.pendingLootBoxes ?? 0)
+const lootBoxPity = computed(() => store.questState?.lootBoxPity ?? 0)
+const guaranteedRareIn = computed(() => store.questState?.guaranteedRareIn ?? 0)
+const lootBoxOdds = computed(() => store.questState?.lootBoxOdds ?? [])
+const achievementProgress = computed(() => {
+  const board = store.achievementBoard
+  if (!board || board.totalAchievements <= 0) return 0
+  return Math.round((board.totalUnlocked / board.totalAchievements) * 100)
+})
+const legendaryChance = computed(() => lootBoxOdds.value.find(entry => entry.rarity.toLocaleLowerCase() === 'legendary')?.chance ?? 0)
+const pityThreshold = computed(() => Math.max(1, lootBoxPity.value + guaranteedRareIn.value))
+const pityPercent = computed(() => Math.max(0, Math.min(100, (lootBoxPity.value / pityThreshold.value) * 100)))
 const isOpeningLootBox = ref(false)
+const showLootBoxOverlay = ref(false)
+const isAcknowledgingLootBox = ref(false)
+const lootBoxSaveError = ref<string | null>(null)
+
+function t(english: string, russian: string): string {
+  return currentLocale.value === 'ru' ? russian : english
+}
 
 async function openLootBox() {
   if (isOpeningLootBox.value || pendingLootBoxes.value <= 0) return
   isOpeningLootBox.value = true
-  await store.openLootBox()
-  isOpeningLootBox.value = false
+  lootBoxSaveError.value = null
+  showLootBoxOverlay.value = true
+  try {
+    await store.openLootBox()
+    window.setTimeout(() => {
+      if (!store.lootBoxResult) {
+        isOpeningLootBox.value = false
+        showLootBoxOverlay.value = false
+      }
+    }, 1200)
+  }
+  catch {
+    isOpeningLootBox.value = false
+    showLootBoxOverlay.value = false
+  }
 }
 
-function dismissLootBox() {
-  store.dismissLootBox()
+async function continueLootBox(openingId: string) {
+  if (isAcknowledgingLootBox.value) return
+  isAcknowledgingLootBox.value = true
+  lootBoxSaveError.value = null
+  try {
+    await store.acknowledgeLootBox(openingId)
+    showLootBoxOverlay.value = false
+    store.clearLootBoxResult(openingId)
+  }
+  catch (error) {
+    lootBoxSaveError.value = error instanceof Error ? error.message : String(error)
+  }
+  finally {
+    isAcknowledgingLootBox.value = false
+  }
 }
+
+async function openAnotherLootBox(openingId: string) {
+  if (isAcknowledgingLootBox.value) return
+  isAcknowledgingLootBox.value = true
+  lootBoxSaveError.value = null
+  try {
+    await store.acknowledgeLootBox(openingId)
+  }
+  catch (error) {
+    lootBoxSaveError.value = error instanceof Error ? error.message : String(error)
+    return
+  }
+  finally {
+    isAcknowledgingLootBox.value = false
+  }
+
+  showLootBoxOverlay.value = false
+  store.clearLootBoxResult(openingId)
+  await nextTick()
+  await openLootBox()
+}
+
+watch(() => store.lootBoxResult, (result) => {
+  if (!result) return
+  isOpeningLootBox.value = false
+  showLootBoxOverlay.value = true
+}, { immediate: true })
 
 let pollInterval: ReturnType<typeof setInterval> | null = null
 
@@ -57,6 +128,7 @@ onMounted(() => {
   store.refreshLobby()
   if (store.isAuthenticated) {
     store.requestQuests()
+    store.requestAchievements()
     fetchReplays()
   }
   pollInterval = setInterval(() => {
@@ -112,6 +184,10 @@ function spectateGame(gameId: number) {
 function viewReplay(hash: string) {
   router.push(`/replay/${hash}`)
 }
+
+function viewAchievements() {
+  router.push('/achievements')
+}
 </script>
 
 <template>
@@ -125,6 +201,123 @@ function viewReplay(hash: string) {
         Create a new game, join an existing one, or spectate ongoing games.
       </p>
     </div>
+
+    <!-- Rewards hub -->
+    <section v-if="store.isAuthenticated" class="section rewards-section" aria-labelledby="rewards-title">
+      <div class="rewards-heading">
+        <div>
+          <span class="rewards-kicker"><Sparkles :size="14" aria-hidden="true" /> {{ t('Progress & collection', 'Прогресс и коллекция') }}</span>
+          <h2 id="rewards-title">{{ t('Rewards', 'Награды') }}</h2>
+        </div>
+        <span class="wallet-pill">
+          <img :src="'/art/emojis/zbs.png'" alt="ZBS">
+          <strong>{{ zbsPoints }}</strong>
+          <span>ZBS</span>
+        </span>
+      </div>
+
+      <div class="rewards-grid">
+        <article class="reward-hub-card loot-hub-card" :class="{ 'has-boxes': pendingLootBoxes > 0 }">
+          <div class="hub-card-glow" aria-hidden="true" />
+          <header class="hub-card-header">
+            <span class="hub-card-icon loot-hub-icon">
+              <PackageOpen :size="29" :stroke-width="1.65" aria-hidden="true" />
+              <strong>{{ pendingLootBoxes }}</strong>
+            </span>
+            <span class="hub-card-title">
+              <small>{{ t('Reward inventory', 'Инвентарь наград') }}</small>
+              <h3>{{ t('Loot boxes', 'Лутбоксы') }}</h3>
+            </span>
+          </header>
+
+          <p v-if="pendingLootBoxes > 0">
+            {{ t(
+              `${pendingLootBoxes} ${pendingLootBoxes === 1 ? 'box is' : 'boxes are'} ready to open.`,
+              `Готово к открытию: ${pendingLootBoxes}.`,
+            ) }}
+          </p>
+          <p v-else>
+            {{ t(
+              'Finish in the top two while alive to bring a new box home.',
+              'Финишируйте в топ-2 живым, чтобы получить новый лутбокс.',
+            ) }}
+          </p>
+
+          <div class="hub-pity">
+            <div class="hub-pity-label">
+              <span><ShieldCheck :size="14" aria-hidden="true" /> {{ t('Rare+ guarantee', 'Гарантия редкой+') }}</span>
+              <strong>{{ guaranteedRareIn > 0 ? t(`${guaranteedRareIn} boxes`, `${guaranteedRareIn} лутб.`) : t('Next box', 'Следующий') }}</strong>
+            </div>
+            <div class="hub-pity-track" role="progressbar" :aria-valuenow="Math.round(pityPercent)" aria-valuemin="0" aria-valuemax="100">
+              <span :style="{ width: `${pityPercent}%` }" />
+            </div>
+            <div class="hub-odds-line">
+              <span>{{ t(`Pity counter: ${lootBoxPity}`, `Счётчик удачи: ${lootBoxPity}`) }}</span>
+              <span v-if="legendaryChance > 0">{{ t('Legendary', 'Легендарная') }} {{ legendaryChance }}%</span>
+            </div>
+          </div>
+
+          <button
+            class="btn hub-primary-action"
+            :class="{ pulse: pendingLootBoxes > 0 }"
+            :disabled="isOpeningLootBox || pendingLootBoxes <= 0"
+            type="button"
+            @click="openLootBox"
+          >
+            <Gift :size="17" aria-hidden="true" />
+            {{ isOpeningLootBox ? t('Opening…', 'Открываем…') : pendingLootBoxes > 0 ? t('Open loot box', 'Открыть лутбокс') : t('No boxes yet', 'Лутбоксов пока нет') }}
+          </button>
+        </article>
+
+        <article class="reward-hub-card achievements-hub-card">
+          <div class="hub-card-glow" aria-hidden="true" />
+          <header class="hub-card-header">
+            <span class="hub-card-icon achievement-hub-icon">
+              <Trophy :size="29" :stroke-width="1.65" aria-hidden="true" />
+            </span>
+            <span class="hub-card-title">
+              <small>{{ t('Hall of Feats', 'Зал подвигов') }}</small>
+              <h3>{{ t('Achievements', 'Достижения') }}</h3>
+            </span>
+            <span v-if="store.achievementBoard?.newlyUnlocked.length" class="new-achievement-badge">
+              +{{ store.achievementBoard.newlyUnlocked.length }} {{ t('new', 'новых') }}
+            </span>
+          </header>
+
+          <div v-if="store.achievementBoard" class="achievement-hub-progress">
+            <span class="hub-progress-ring" :style="{ '--hub-progress': `${achievementProgress * 3.6}deg` }">
+              <strong>{{ achievementProgress }}%</strong>
+            </span>
+            <span class="hub-progress-copy">
+              <strong>{{ store.achievementBoard.totalUnlocked }} / {{ store.achievementBoard.totalAchievements }}</strong>
+              <span>{{ t('feats completed', 'подвигов выполнено') }}</span>
+            </span>
+          </div>
+          <div v-else class="achievement-hub-loading">
+            <span />
+            <span />
+          </div>
+
+          <div v-if="store.achievementBoard" class="hub-reward-totals">
+            <span>
+              <img :src="'/art/emojis/zbs.png'" alt="ZBS">
+              <strong>{{ store.achievementBoard.earnedRewardZbs }}</strong>
+              <small>/ {{ store.achievementBoard.totalRewardZbs }} ZBS</small>
+            </span>
+            <span>
+              <Gift :size="17" aria-hidden="true" />
+              <strong>{{ store.achievementBoard.earnedRewardLootBoxes }}</strong>
+              <small>/ {{ store.achievementBoard.totalRewardLootBoxes }} {{ t('boxes', 'лутб.') }}</small>
+            </span>
+          </div>
+
+          <button class="btn hub-secondary-action" type="button" @click="viewAchievements">
+            <Trophy :size="16" aria-hidden="true" />
+            {{ t('Explore achievements', 'Открыть достижения') }}
+          </button>
+        </article>
+      </div>
+    </section>
 
     <!-- Daily Quests -->
     <div v-if="store.isAuthenticated && quests.length > 0" class="section">
@@ -172,36 +365,20 @@ function viewReplay(hash: string) {
       </div>
     </div>
 
-    <!-- Loot Boxes -->
-    <div v-if="store.isAuthenticated && pendingLootBoxes > 0" class="section lootbox-section">
-      <button
-        class="btn lootbox-btn"
-        :class="{ pulse: pendingLootBoxes > 0 }"
-        :disabled="isOpeningLootBox"
-        @click="openLootBox"
-      >
-        <span class="lootbox-icon">&#x1F4E6;</span>
-        Open Loot Box
-        <span class="lootbox-count">{{ pendingLootBoxes }}</span>
-      </button>
-    </div>
-
-    <!-- Loot Box Result Overlay -->
+    <!-- Loot Box opening and result overlay -->
     <LootBox
-      v-if="store.lootBoxResult"
+      v-if="showLootBoxOverlay"
       :result="store.lootBoxResult"
-      @dismiss="dismissLootBox()"
+      :odds="lootBoxOdds"
+      :zbs-balance="zbsPoints"
+      :pending-loot-boxes="pendingLootBoxes"
+      :loot-box-pity="lootBoxPity"
+      :guaranteed-rare-in="guaranteedRareIn"
+      :is-saving="isAcknowledgingLootBox"
+      :save-error="lootBoxSaveError"
+      @continue="continueLootBox"
+      @open-another="openAnotherLootBox"
     />
-
-    <!-- Achievements Button -->
-    <div v-if="store.isAuthenticated" class="section achievements-section">
-      <button class="btn btn-ghost achievements-btn" @click="showAchievements = true">
-        View Achievements
-      </button>
-    </div>
-
-    <!-- Achievement Board Overlay -->
-    <AchievementBoard v-if="showAchievements" @close="showAchievements = false" />
 
     <!-- Active Games -->
     <div class="section">
@@ -789,79 +966,79 @@ function viewReplay(hash: string) {
   font-size: 14px;
 }
 
-/* Loot Box */
-.lootbox-section {
-  text-align: center;
+/* Rewards hub */
+.rewards-section { margin-bottom: 36px; }
+.rewards-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 11px; }
+.rewards-heading h2 { margin-top: 1px; color: var(--text-primary); font-size: 20px; font-weight: 900; letter-spacing: -0.3px; }
+.rewards-kicker { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-gold); font-size: 9px; font-weight: 850; letter-spacing: 1.5px; text-transform: uppercase; }
+.wallet-pill { display: inline-flex; align-items: center; gap: 5px; min-height: 34px; padding: 5px 10px; color: var(--accent-green); border: 1px solid rgba(63, 167, 61, 0.2); border-radius: 17px; background: rgba(63, 167, 61, 0.08); }
+.wallet-pill img { width: 20px; height: 20px; object-fit: contain; }
+.wallet-pill strong { font: 900 14px/1 var(--font-mono); }
+.wallet-pill span { color: var(--text-muted); font-size: 8px; font-weight: 850; }
+.rewards-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+.reward-hub-card {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  overflow: hidden;
+  padding: 17px;
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.025), transparent 45%), var(--glass-bg);
+  box-shadow: var(--shadow), inset 0 1px 0 var(--glass-highlight);
 }
+.reward-hub-card::after { content: ''; position: absolute; z-index: -2; inset: 0; pointer-events: none; background-image: radial-gradient(1px 1px at 20% 35%, rgba(255,255,255,.14), transparent), radial-gradient(1px 1px at 74% 22%, rgba(255,255,255,.12), transparent), radial-gradient(1px 1px at 88% 76%, rgba(255,255,255,.1), transparent); }
+.hub-card-glow { position: absolute; z-index: -1; width: 210px; height: 210px; top: -125px; right: -85px; border-radius: 50%; filter: blur(35px); opacity: .28; }
+.loot-hub-card .hub-card-glow { background: var(--accent-purple); }
+.achievements-hub-card .hub-card-glow { background: var(--accent-gold); }
+.loot-hub-card.has-boxes { border-color: rgba(180, 150, 255, 0.22); }
+.hub-card-header { display: flex; align-items: center; gap: 11px; min-height: 48px; }
+.hub-card-icon { position: relative; width: 47px; height: 47px; display: grid; place-items: center; flex: 0 0 47px; border-radius: 12px; }
+.loot-hub-icon { color: var(--accent-purple); border: 1px solid rgba(180, 150, 255, 0.22); background: rgba(180, 150, 255, 0.1); }
+.loot-hub-icon strong { position: absolute; right: -5px; bottom: -5px; min-width: 21px; height: 21px; display: grid; place-items: center; padding: 0 4px; color: #17151c; border: 2px solid var(--bg-card); border-radius: 11px; background: var(--accent-purple); font: 900 10px/1 var(--font-mono); }
+.achievement-hub-icon { color: var(--accent-gold); border: 1px solid rgba(240, 200, 80, 0.22); background: rgba(240, 200, 80, 0.09); }
+.hub-card-title { min-width: 0; flex: 1; }
+.hub-card-title small { display: block; color: var(--text-dim); font-size: 8px; font-weight: 850; letter-spacing: 1px; text-transform: uppercase; }
+.hub-card-title h3 { color: var(--text-primary); font-size: 16px; font-weight: 850; line-height: 1.2; }
+.reward-hub-card > p { min-height: 35px; color: var(--text-muted); font-size: 10px; line-height: 1.55; }
+.hub-pity { padding: 9px 10px; border: 1px solid var(--glass-border); border-radius: 10px; background: rgba(0, 0, 0, 0.13); }
+.hub-pity-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.hub-pity-label span { display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: 9px; font-weight: 750; }
+.hub-pity-label strong { color: var(--accent-purple); font: 800 9px/1 var(--font-mono); }
+.hub-pity-track { height: 4px; overflow: hidden; border-radius: 3px; background: var(--bg-inset); }
+.hub-pity-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent-purple), var(--accent-gold)); transition: width .5s ease; }
+.hub-odds-line { display: flex; justify-content: space-between; margin-top: 5px; color: var(--text-dim); font-size: 8px; }
+.hub-primary-action,
+.hub-secondary-action { min-height: 41px; width: 100%; margin-top: auto; }
+.hub-primary-action { color: #17151c; background: linear-gradient(135deg, #d4b7ff, var(--accent-purple)); box-shadow: 0 7px 20px rgba(180, 150, 255, 0.12); }
+.hub-primary-action:hover:not(:disabled) { filter: brightness(1.08); box-shadow: var(--glow-purple); }
+.hub-primary-action:disabled { color: var(--text-dim); border: 1px solid var(--glass-border); background: rgba(255,255,255,.035); box-shadow: none; }
+.hub-primary-action.pulse { animation: reward-button-pulse 2.1s ease-in-out infinite; }
+.hub-secondary-action { color: var(--accent-gold); border: 1px solid rgba(240, 200, 80, 0.25); background: rgba(240, 200, 80, 0.08); }
+.hub-secondary-action:hover { background: rgba(240, 200, 80, 0.14); box-shadow: var(--glow-gold); }
+.new-achievement-badge { padding: 3px 7px; color: var(--accent-gold); border: 1px solid rgba(240, 200, 80, 0.24); border-radius: 8px; background: rgba(240, 200, 80, 0.09); font-size: 8px; font-weight: 850; white-space: nowrap; }
+.achievement-hub-progress { display: flex; align-items: center; gap: 13px; padding: 3px 0; }
+.hub-progress-ring { --hub-progress: 0deg; width: 66px; height: 66px; display: grid; place-items: center; flex: 0 0 66px; border-radius: 50%; background: radial-gradient(circle at center, var(--bg-card) 56%, transparent 58%), conic-gradient(var(--accent-gold) var(--hub-progress), rgba(255,255,255,.07) 0deg); box-shadow: 0 0 18px rgba(240,200,80,.08); }
+.hub-progress-ring strong { color: var(--text-primary); font: 900 13px/1 var(--font-mono); }
+.hub-progress-copy { display: flex; flex-direction: column; }
+.hub-progress-copy strong { color: var(--text-primary); font: 900 20px/1.25 var(--font-mono); }
+.hub-progress-copy span { color: var(--text-muted); font-size: 9px; }
+.hub-reward-totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.hub-reward-totals > span { min-width: 0; display: flex; align-items: center; gap: 5px; padding: 7px 8px; border: 1px solid var(--glass-border); border-radius: 8px; background: rgba(0,0,0,.12); }
+.hub-reward-totals img { width: 18px; height: 18px; object-fit: contain; }
+.hub-reward-totals > span:first-child { color: var(--accent-green); }
+.hub-reward-totals > span:last-child { color: var(--accent-purple); }
+.hub-reward-totals strong { font: 850 12px/1 var(--font-mono); }
+.hub-reward-totals small { overflow: hidden; color: var(--text-dim); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.achievement-hub-loading { display: flex; flex-direction: column; gap: 7px; padding: 8px 0; }
+.achievement-hub-loading span { height: 18px; border-radius: 5px; background: linear-gradient(90deg, var(--bg-inset), var(--bg-card), var(--bg-inset)); background-size: 200% 100%; animation: hub-skeleton 1.4s linear infinite; }
+.achievement-hub-loading span:last-child { width: 66%; }
 
-.lootbox-btn {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  padding: 10px 28px;
-  border: 2px solid var(--accent-gold);
-  color: var(--accent-gold);
-  background: rgba(233, 219, 61, 0.08);
-  border-radius: var(--radius);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: background 0.2s, transform 0.2s;
-}
-
-.lootbox-btn:hover {
-  background: rgba(233, 219, 61, 0.15);
-  transform: scale(1.02);
-}
-
-.lootbox-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.lootbox-btn.pulse {
-  animation: lootboxPulse 2s ease-in-out infinite;
-}
-
-@keyframes lootboxPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(233, 219, 61, 0.3); }
-  50% { box-shadow: 0 0 12px 4px rgba(233, 219, 61, 0.2); }
-}
-
-.lootbox-icon {
-  font-size: 18px;
-}
-
-.lootbox-count {
-  background: var(--accent-gold);
-  color: var(--bg-base, #1a1a2e);
-  font-size: 11px;
-  font-weight: 800;
-  padding: 1px 7px;
-  border-radius: 10px;
-  min-width: 20px;
-  text-align: center;
-}
-
-/* Achievements */
-.achievements-section {
-  text-align: center;
-}
-
-.achievements-btn {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  padding: 8px 24px;
-  border: 1px solid var(--accent-gold);
-  color: var(--accent-gold);
-}
-.achievements-btn:hover {
-  background: rgba(233, 219, 61, 0.1);
-}
+@keyframes reward-button-pulse { 0%, 100% { box-shadow: 0 7px 20px rgba(180,150,255,.1); } 50% { box-shadow: 0 7px 26px rgba(180,150,255,.3), 0 0 0 3px rgba(180,150,255,.05); } }
+@keyframes hub-skeleton { to { background-position: -200% 0; } }
 
 /* Replay Cards */
 .replay-card {
@@ -1078,6 +1255,13 @@ function viewReplay(hash: string) {
 
 /* ── Mobile responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
+  .rewards-grid {
+    grid-template-columns: 1fr;
+  }
+  .hub-primary-action,
+  .hub-secondary-action {
+    min-height: 44px;
+  }
   .games-grid {
     grid-template-columns: 1fr;
     gap: 8px;
@@ -1089,8 +1273,31 @@ function viewReplay(hash: string) {
 }
 
 @media (max-width: 480px) {
+  .rewards-heading {
+    align-items: center;
+  }
+  .reward-hub-card {
+    padding: 14px;
+  }
+  .quest-info,
+  .section-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
   .games-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-primary-action.pulse,
+  .achievement-hub-loading span,
+  .quest-complete {
+    animation: none;
+  }
+  .hub-pity-track span {
+    transition: none;
   }
 }
 </style>

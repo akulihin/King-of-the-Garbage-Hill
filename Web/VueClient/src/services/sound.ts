@@ -5,7 +5,9 @@ const FIGHT_TAB_ATTR = 'data-sfx-fight-tab'
 const PREDICT_CLICK_ATTR = 'data-sfx-predict'
 
 type StatKey = 'intelligence' | 'strength' | 'speed' | 'psyche'
-type PlaybackChannel = 'lvl-up-extra' | 'rick-theme' | 'portal-gun' | 'kira-theme' | 'geralt-theme' | 'doom-theme'
+type PlaybackChannel =
+  | 'lvl-up-extra' | 'rick-theme' | 'portal-gun' | 'kira-theme' | 'geralt-theme' | 'doom-theme'
+  | 'achievement-unlock' | 'loot-box' | 'loot-box-points'
 
 // ── Volume config types ──────────────────────────────────────────────
 
@@ -443,6 +445,28 @@ export function playTheBoysReveal(): void {
 // TheBoys — ultimate-unlock fanfare (reuse the strongest "maxed" lvl-up cue)
 export function playTheBoysUnlock(): void {
   void playClip('buttons/lvl_up/lvl_up_str_max.mp3', { channel: 'tb-unlock', group: 'levelUp' })
+}
+
+/** Achievement celebration cue, scaled by rarity while reusing the established level-up palette. */
+export function playAchievementUnlockSound(rarity: string): void {
+  const paths: Record<string, string> = {
+    common: 'buttons/lvl_up/lvl_up_default.mp3',
+    uncommon: 'buttons/lvl_up/lvl_up_spd.mp3',
+    rare: 'buttons/lvl_up/lvl_up_int_max.mp3',
+    epic: 'buttons/lvl_up/lvl_up_psy_max.mp3',
+    legendary: 'buttons/lvl_up/lvl_up_str_max.mp3',
+  }
+  const path = paths[rarity.toLowerCase()] ?? paths.common
+  void playClip(path, { channel: 'achievement-unlock', group: 'levelUp' })
+}
+
+export function playLootBoxOpeningSound(): void {
+  void playClip('buttons/lvl_up/lvl_up_default.mp3', { channel: 'loot-box', group: 'levelUp' })
+}
+
+export function playLootBoxRevealSound(rarity: string): void {
+  playAchievementUnlockSound(rarity)
+  void playClip('ui_ux/points/points_up_10_plus.mp3', { channel: 'loot-box-points', group: 'points' })
 }
 
 export function playMoralForPointsSound(): void {

@@ -12,7 +12,7 @@ This allows one match to contain Russian- and English-speaking players without d
 
 - `DiscordAccountClass.Language` persists `ru` or `en`; missing/unknown values normalize to Russian (`DiscordAccountClass.cs:27`, `GameLocalization.cs:45-51`). Existing account JSON needs no migration because the property initializer supplies `ru`.
 - Discord users switch with the commands **\*язык**, **\*language** or **\*lang** (`General.cs:128-149`).
-- The Vue selector auto-defaults from `navigator.language`, persists `kotgh_locale`, and remains available on login and authenticated screens (`Web/VueClient/src/i18n.ts`, `App.vue:110-113`).
+- The Vue RU/ENG selector defaults to English when there is no saved choice, persists `kotgh_locale`, and remains available on login and authenticated screens (`Web/VueClient/src/i18n.ts`, `App.vue:110-123`).
 - `GameHub.SetLanguage` persists the web choice and immediately re-pushes personalized state when the connection is in a game (`GameHub.cs:83-96`). Reconnect authentication is followed by the client setting its current locale again.
 
 ## 3. Shared catalog
@@ -29,6 +29,8 @@ This allows one match to contain Russian- and English-speaking players without d
 
 At startup, the backend joins `characters`/`passives` to the canonical source text from `characters.json`, adding those source texts to its exact catalog (`GameLocalization.cs:225-285`). The client performs the same join while bundling (`Web/VueClient/src/i18n.ts`). The Russian player text in `characters.json` remains untouched.
 
+Achievement V2 is a separate, typed bilingual catalog: every definition carries `Name`/`NameRu`, `Description`/`DescriptionRu`, and paired secret hints in `AchievementClass.cs`, and those pairs cross the achievement DTO unchanged (`AchievementClass.cs:12-88`; `GameStateDto.cs:1092-1112`). This copy does not belong in `characters.json` or passive descriptions. Locked-secret masking is applied symmetrically to both languages before the DTO leaves the server (`GameHub.cs:1394-1426`).
+
 ## 4. Backend boundaries
 
 - All ordinary Discord command text and embeds pass through `ModuleBaseCustom` before sending (`ModuleBaseCustom.cs:14-18`, `ModuleBaseCustom.cs:61-65`).
@@ -42,6 +44,8 @@ Do not localize inside `CharacterPassives`, `GameReactions`, `DoomsdayMachine` o
 
 The client keeps canonical state values in Pinia and localizes rendered text/accessible attributes through a DOM observer (`Web/VueClient/src/i18n.ts`). It records the original Vue-rendered value, so RU↔EN switching is reversible and later reactive updates are re-localized. It never touches input values, select values, ids, object properties or SignalR action arguments.
 
+Reward components select achievement pairs directly from `currentLocale` rather than passing dynamic DTO strings through gameplay-state translation (`AchievementBoard.vue:114-132`; `AchievementPopup.vue:47-59`). Loot rarity, pity, actions and accessibility labels are likewise explicit EN/RU component copy (`LootBox.vue:129-165`). `CharacterNames` in an achievement stay canonical so portrait lookup remains stable (`AchievementClass.cs:29-35`; DTO mapping `GameHub.cs:1410-1412`).
+
 Development builds warn in the console when an English-rendered node still contains Cyrillic (`Web/VueClient/src/i18n.ts`). When adding UI copy:
 
 1. Add an exact catalog entry in both directions when the source surface is English-first.
@@ -50,7 +54,7 @@ Development builds warn in the console when an English-rendered node still conta
 
 ## 6. Generated text
 
-- Game stories ask the LLM for paired RU and EN tagged adaptations and store both in one replay-safe HTML artifact. CSS shows only the active locale; a malformed legacy/single-language response still renders through the old fallback (`GameStoryService.cs:45-77`, `GameStoryService.cs:322-329`, `App.vue:282-285`).
+- Game stories ask the LLM for paired RU and EN tagged adaptations and store both in one replay-safe HTML artifact. CSS shows only the active locale; a malformed legacy/single-language response still renders through the old fallback (`GameStoryService.cs:45-77`, `GameStoryService.cs:322-329`, `App.vue:301-304`).
 - Geralt hints ask in the owning player's locale. Failures select from matching static Russian/English dictionaries (`ClaudeHaikuService.cs:37-65`, `Geralt.cs:336-402`, `CP:4657-4688`).
 
 ## 7. Verification checklist

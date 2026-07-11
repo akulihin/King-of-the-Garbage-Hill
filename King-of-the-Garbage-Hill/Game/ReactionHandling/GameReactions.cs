@@ -109,6 +109,7 @@ public sealed class GameReaction : IServiceSingleton
         {
             player.GameCharacter.AddMoral(-20, "Обмен Морали", true, true);
             player.GameCharacter.AddBonusPointsFromMoral(10);
+            player.Passives.AchievementTracker.MoralBankruptcyTriggered = true;
             extraText = "Мораль: Я БОГ ЭТОГО МИРА +10 __бонунсых__ очков";
         }
         else if (player.GameCharacter.GetMoral() >= 13)

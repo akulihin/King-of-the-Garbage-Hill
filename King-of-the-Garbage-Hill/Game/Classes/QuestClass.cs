@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
@@ -90,13 +91,44 @@ public class QuestData
     public string LastStreakDate { get; set; } // yyyy-MM-dd
     public LootBoxResult LastLootBox { get; set; }
     public ulong LastLootBoxGameId { get; set; }
+    /// <summary>Consecutive loot boxes below Rare. Nine means the next box is guaranteed Rare+.</summary>
+    public int LootBoxPity { get; set; }
 }
 
 public class LootBoxResult
 {
+    public string OpeningId { get; set; }
     public string Rarity { get; set; }
     public int ZbsAmount { get; set; }
     public DateTimeOffset Timestamp { get; set; }
+    public bool Acknowledged { get; set; }
+    public bool WasPityUpgrade { get; set; }
+    public int ZbsBalance { get; set; }
+    public int RemainingLootBoxes { get; set; }
+    public int LootBoxPity { get; set; }
+    public int GuaranteedRareIn { get; set; }
+}
+
+public class LootBoxOddsTier
+{
+    public string Rarity { get; set; }
+    public double Chance { get; set; }
+    public int MinZbs { get; set; }
+    public int MaxZbs { get; set; }
+
+    public LootBoxOddsTier(string rarity, double chance, int minZbs, int maxZbs)
+    {
+        Rarity = rarity;
+        Chance = chance;
+        MinZbs = minZbs;
+        MaxZbs = maxZbs;
+    }
+}
+
+public class LootBoxOpenOutcome
+{
+    public LootBoxResult Result { get; set; }
+    public string Error { get; set; }
 }
 
 public static class QuestService
@@ -112,7 +144,16 @@ public static class QuestService
         new("score50", QuestType.Score50Plus, "Score 50+ points in a game", 1),
     };
 
-    private static readonly Random Rng = new();
+    public const int RarePityLimit = 10;
+
+    public static readonly IReadOnlyList<LootBoxOddsTier> LootBoxOdds = new List<LootBoxOddsTier>
+    {
+        new("Common", 60.0, 15, 30),
+        new("Uncommon", 25.0, 40, 75),
+        new("Rare", 12.0, 100, 175),
+        new("Epic", 2.5, 300, 450),
+        new("Legendary", 0.5, 750, 750),
+    };
 
     public static void EnsureQuestsInitialized(DiscordAccountClass account)
     {
@@ -253,57 +294,129 @@ public static class QuestService
         }
     }
 
-    public static LootBoxResult GenerateLootBox(DiscordAccountClass account, ulong gameId)
+    public static int GetGuaranteedRareIn(int pity)
     {
-        var roll = Rng.NextDouble() * 100;
-        string rarity;
-        int minZbs, maxZbs;
+        return RarePityLimit - Math.Clamp(pity, 0, RarePityLimit - 1);
+    }
 
-        if (roll < 0.5)
-        {
-            rarity = "Legendary";
-            minZbs = 500;
-            maxZbs = 500;
-        }
-        else if (roll < 3.0)
-        {
-            rarity = "Epic";
-            minZbs = 250;
-            maxZbs = 400;
-        }
-        else if (roll < 15.0)
-        {
-            rarity = "Rare";
-            minZbs = 75;
-            maxZbs = 150;
-        }
-        else if (roll < 40.0)
-        {
-            rarity = "Uncommon";
-            minZbs = 20;
-            maxZbs = 50;
-        }
-        else
-        {
-            rarity = "Common";
-            minZbs = 5;
-            maxZbs = 15;
-        }
+    public static LootBoxResult GetLastUnacknowledgedLootBox(DiscordAccountClass account)
+    {
+        if (account == null) return null;
 
-        var zbsAmount = minZbs == maxZbs ? minZbs : Rng.Next(minZbs, maxZbs + 1);
-
-        var result = new LootBoxResult
+        lock (account)
         {
-            Rarity = rarity,
-            ZbsAmount = zbsAmount,
-            Timestamp = DateTimeOffset.UtcNow
-        };
+            account.Quests ??= new QuestData();
+            NormalizeLootBoxPity(account.Quests);
+            var last = account.Quests.LastLootBox;
+            return last != null
+                   && !string.IsNullOrWhiteSpace(last.OpeningId)
+                   && !last.Acknowledged
+                ? last
+                : null;
+        }
+    }
 
+    /// <summary>
+    /// Atomically opens one pending box. Repeated calls return the same unacknowledged
+    /// opening without consuming or crediting another box.
+    /// </summary>
+    public static LootBoxOpenOutcome OpenLootBox(DiscordAccountClass account, ulong gameId)
+    {
+        if (account == null)
+            return new LootBoxOpenOutcome { Error = "Account not found." };
+
+        lock (account)
+        {
+            account.Quests ??= new QuestData();
+            NormalizeLootBoxPity(account.Quests);
+
+            var unacknowledged = account.Quests.LastLootBox;
+            if (unacknowledged != null
+                && !string.IsNullOrWhiteSpace(unacknowledged.OpeningId)
+                && !unacknowledged.Acknowledged)
+            {
+                return new LootBoxOpenOutcome { Result = unacknowledged };
+            }
+
+            if (account.PendingLootBoxes <= 0)
+                return new LootBoxOpenOutcome { Error = "No loot boxes available." };
+
+            account.PendingLootBoxes--;
+            var result = GenerateLootBox(account);
+            account.Quests.LastLootBox = result;
+            account.Quests.LastLootBoxGameId = gameId;
+
+            return new LootBoxOpenOutcome { Result = result };
+        }
+    }
+
+    public static bool AcknowledgeLootBox(DiscordAccountClass account, string openingId)
+    {
+        if (account == null || string.IsNullOrWhiteSpace(openingId)) return false;
+
+        lock (account)
+        {
+            var last = account.Quests?.LastLootBox;
+            if (last == null
+                || string.IsNullOrWhiteSpace(last.OpeningId)
+                || last.Acknowledged
+                || !string.Equals(last.OpeningId, openingId, StringComparison.Ordinal))
+                return false;
+
+            last.Acknowledged = true;
+            return true;
+        }
+    }
+
+    private static LootBoxResult GenerateLootBox(DiscordAccountClass account)
+    {
+        var pityBefore = Math.Clamp(account.Quests.LootBoxPity, 0, RarePityLimit - 1);
+        var tier = RollLootBoxTier();
+        var wasPityUpgrade = pityBefore == RarePityLimit - 1 && IsBelowRare(tier.Rarity);
+        if (wasPityUpgrade)
+            tier = LootBoxOdds.First(x => x.Rarity == "Rare");
+
+        account.Quests.LootBoxPity = IsBelowRare(tier.Rarity) ? pityBefore + 1 : 0;
+
+        var zbsAmount = tier.MinZbs == tier.MaxZbs
+            ? tier.MinZbs
+            : SecureRandom.Next(tier.MinZbs, tier.MaxZbs);
         account.ZbsPoints += zbsAmount;
-        account.Quests ??= new QuestData();
-        account.Quests.LastLootBox = result;
-        account.Quests.LastLootBoxGameId = gameId;
 
-        return result;
+        return new LootBoxResult
+        {
+            OpeningId = Guid.NewGuid().ToString("N"),
+            Rarity = tier.Rarity,
+            ZbsAmount = zbsAmount,
+            Timestamp = DateTimeOffset.UtcNow,
+            Acknowledged = false,
+            WasPityUpgrade = wasPityUpgrade,
+            ZbsBalance = account.ZbsPoints,
+            RemainingLootBoxes = account.PendingLootBoxes,
+            LootBoxPity = account.Quests.LootBoxPity,
+            GuaranteedRareIn = GetGuaranteedRareIn(account.Quests.LootBoxPity),
+        };
+    }
+
+    private static LootBoxOddsTier RollLootBoxTier()
+    {
+        // SecureRandom.Next is inclusive. Ten thousand equally likely outcomes preserve the
+        // advertised 0.5 / 2.5 / 12 / 25 / 60 percent base distribution exactly.
+        var roll = SecureRandom.Next(1, 10_000);
+        if (roll <= 50) return LootBoxOdds.First(x => x.Rarity == "Legendary");
+        if (roll <= 300) return LootBoxOdds.First(x => x.Rarity == "Epic");
+        if (roll <= 1_500) return LootBoxOdds.First(x => x.Rarity == "Rare");
+        if (roll <= 4_000) return LootBoxOdds.First(x => x.Rarity == "Uncommon");
+        return LootBoxOdds.First(x => x.Rarity == "Common");
+    }
+
+    private static bool IsBelowRare(string rarity)
+    {
+        return rarity is "Common" or "Uncommon";
+    }
+
+    private static void NormalizeLootBoxPity(QuestData quests)
+    {
+        quests.LootBoxPity = Math.Clamp(quests.LootBoxPity, 0, RarePityLimit - 1);
     }
 }

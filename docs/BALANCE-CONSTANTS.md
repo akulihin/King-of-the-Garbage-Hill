@@ -42,7 +42,26 @@
 | Class perks | Умный +6 (vs 0-J), Быстрый +2, Сильный +4 — ×ClassSkillMultiplier | DM:591-601, 754-755 |
 | ZBS payout | 100/50/40/30/20/10 by place (ties with winner = 100; team 100/50) | CIR:632-667 |
 | Mastery payout | 10/7/5/3/2/1 by place (alive only) | CIR:618-624 |
-| Loot boxes | top-2 alive | CIR:673-676 |
+| Loot-box inventory award | reward-place top-2 and alive (Sakura top-3 soft win uses reward place 1) | CIR:648-651,730-732 |
+
+## Achievement & loot-box rewards
+
+Achievement progress targets and the complete 33-entry rule catalog are in [ACHIEVEMENTS.md](ACHIEVEMENTS.md). Reward values are centralized by rarity; the live catalog totals **2,925 ZBS + 21 boxes** (`AchievementClass.cs:65-76,184-347`).
+
+| Constant | Value | Anchor |
+|---|---|---|
+| Common achievement reward | 10 ZBS | AchievementClass.cs:65-76 |
+| Uncommon achievement reward | 25 ZBS | AchievementClass.cs:65-76 |
+| Rare achievement reward | 50 ZBS | AchievementClass.cs:65-76 |
+| Epic achievement reward | 100 ZBS + 1 loot box | AchievementClass.cs:65-76 |
+| Legendary achievement reward | 228 ZBS + 2 loot boxes | AchievementClass.cs:65-76 |
+| Loot Common | 60%; 15–30 ZBS inclusive | QuestClass.cs:132-140 |
+| Loot Uncommon | 25%; 40–75 ZBS inclusive | QuestClass.cs:132-140 |
+| Loot Rare | 12%; 100–175 ZBS inclusive | QuestClass.cs:132-140 |
+| Loot Epic | 2.5%; 300–450 ZBS inclusive | QuestClass.cs:132-140 |
+| Loot Legendary | 0.5%; 750 ZBS | QuestClass.cs:132-140 |
+| Loot rarity RNG | `SecureRandom.Next(1,10000)` inclusive; exact cumulative cutoffs 50/300/1500/4000 | QuestClass.cs:401-410 |
+| Rare+ pity | after 9 consecutive below-Rare results, box 10 preserves natural Rare+ or upgrades Common/Uncommon to Rare; Rare+ resets counter | QuestClass.cs:296-299,370-417 |
 
 ## Quality / resists / Harm
 
@@ -181,7 +200,7 @@
 | Эрен Йегер | Дрочун marks / cash-in | loss mark 1; attacking-Eren mark 2; cap 2; victory cashes target mark as 1/2 bonus | PassivesClass.cs:270-271, CP:438-441,2465-2486 |
 | Эрен Йегер | Дрочун mutual attack | +2 regular once per mutual enemy per round | CP:2489-2500 |
 | Эрен Йегер | Атакующий Титан | block removed; +5 each stat per fight for the turn; no incoming target → −2 Psyche | DM:271-281; CP:62-72,443-447,1002-1006,3545-3555 |
-| Эрен Йегер | Titan audio roll | `use_most` 50%; files 1–3 split the other 50% uniformly | sound.ts:894-900 |
+| Эрен Йегер | Titan audio roll | `use_most` 50%; files 1–3 split the other 50% uniformly | sound.ts:914-923 |
 | Эрен Йегер | Rumbling gate / reach | round 10; fewer than 2 total losses; kills projected places strictly between Eren and place 6 | CP:2505-2509,3484-3528; ErenYeager.cs:37-71 |
 
 ## Bot AI difficulty (`BB` = BotsBehavior.cs, `GC` = GameClass.cs, `CP` = CharacterPassives.cs, `SR` = SimulationRunner.cs)

@@ -1,45 +1,72 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using King_of_the_Garbage_Hill.Game.Characters;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
 public enum AchievementCategory
 {
-    Combat,
-    Victory,
-    Score,
+    Global,
     Character,
-    Secret,
-    Mastery,
-    Social
+    Interaction
 }
 
 public class AchievementDefinition
 {
     public string Id { get; set; }
     public string Name { get; set; }
+    public string NameRu { get; set; }
     public string Description { get; set; }
-    public string SecretHint { get; set; } // shown before unlock for secret achievements
+    public string DescriptionRu { get; set; }
+    public string SecretHint { get; set; }
+    public string SecretHintRu { get; set; }
     public AchievementCategory Category { get; set; }
     public bool IsSecret { get; set; }
-    public int Target { get; set; } = 1; // for progress-based achievements
-    public string Icon { get; set; } // CSS class or emoji
-    public string Rarity { get; set; } // "common", "uncommon", "rare", "epic", "legendary"
+    public int Target { get; set; } = 1;
+    public string Icon { get; set; }
+    public string Rarity { get; set; }
+    public List<string> CharacterNames { get; set; } = new();
+    public int RewardZbs { get; set; }
+    public int RewardLootBoxes { get; set; }
 
-    public AchievementDefinition(string id, string name, string description, AchievementCategory category,
-        string icon = "star", string rarity = "common", int target = 1,
-        bool isSecret = false, string secretHint = "???")
+    public AchievementDefinition(
+        string id,
+        string name,
+        string nameRu,
+        string description,
+        string descriptionRu,
+        AchievementCategory category,
+        string icon,
+        string rarity,
+        int target = 1,
+        bool isSecret = false,
+        string secretHint = "",
+        string secretHintRu = "",
+        params string[] characterNames)
     {
         Id = id;
         Name = name;
+        NameRu = nameRu;
         Description = description;
+        DescriptionRu = descriptionRu;
         Category = category;
         Icon = icon;
-        Rarity = rarity;
-        Target = target;
+        Rarity = rarity.ToLowerInvariant();
+        Target = Math.Max(1, target);
         IsSecret = isSecret;
         SecretHint = secretHint;
+        SecretHintRu = secretHintRu;
+        CharacterNames = characterNames?.ToList() ?? new List<string>();
+
+        (RewardZbs, RewardLootBoxes) = Rarity switch
+        {
+            "uncommon" => (25, 0),
+            "rare" => (50, 0),
+            "epic" => (100, 1),
+            "legendary" => (228, 2),
+            _ => (10, 0),
+        };
     }
 }
 
@@ -55,28 +82,59 @@ public class AchievementProgress
     public AchievementProgress(string id)
     {
         AchievementId = id;
-        Current = 0;
-        IsUnlocked = false;
     }
 }
 
 public class AchievementData
 {
     public List<AchievementProgress> Progress { get; set; } = new();
-    public List<string> NewlyUnlocked { get; set; } = new(); // cleared after client reads them
+
+    // An unacknowledged queue. It is cleared only by ClearNewAchievements, not at match end.
+    public List<string> NewlyUnlocked { get; set; } = new();
 }
 
 /// <summary>
-/// Tracks in-game stats for achievement evaluation at game end.
-/// Set on PassivesClass during gameplay, read at game end.
+/// Match-local observations used by Achievement V2. Nothing in this tracker is persisted as a
+/// cumulative counter; account progress stores only the best result achieved in one match.
 /// </summary>
 public class InGameAchievementTracker
 {
     public int TotalFightsWon { get; set; }
     public int TotalFightsLost { get; set; }
-    public int TotalBlocksUsed { get; set; }
+    public HashSet<Guid> DefeatedPlayerIds { get; set; } = new();
+    public HashSet<string> DefeatedCharacterNames { get; set; } = new();
+    public int BottomFeederWins { get; set; }
+    public int NemesisAdvantageWins { get; set; }
+    public HashSet<int> TargetSkillRounds { get; set; } = new();
+    public bool WonFightWithMaxJustice { get; set; }
+    public int DropsCaused { get; set; }
+    public bool MoralBankruptcyTriggered { get; set; }
+    public bool OpenedRoundTenAtLast { get; set; }
+    public decimal RoundTenRegularPoints { get; set; }
+
+    public int PortalGunFires { get; set; }
+    public HashSet<Guid> KratosEventVictimIds { get; set; } = new();
+    public int GeraltContractFightsResolved { get; set; }
+    public Dictionary<Guid, int> GeraltContractFightsRemaining { get; set; } = new();
+    public HashSet<string> KotikiCatsReclaimed { get; set; } = new();
+    public HashSet<Guid> RumblingVictimIds { get; set; } = new();
+    public HashSet<Guid> BfgWaveVictimIds { get; set; } = new();
+    public int MonsterPawnExecutions { get; set; }
+
+    public bool SpartanDragonSlayerTriggered { get; set; }
+    public bool SpartanDragonSlayerDefeated { get; set; }
+    public Guid SpartanRespectTriggeredThisFight { get; set; }
+    public HashSet<Guid> SpartanRespectedOpponentIds { get; set; } = new();
+    public bool SpartanDefeatedMylorikAfterRespect { get; set; }
+    public bool ItachiMadaraCloneAttackGranted { get; set; }
+    public bool DamagedReanimatedMadaraWithSuperDick { get; set; }
+    public bool WitnessedMonsterApocalypse { get; set; }
+
+    // Legacy fields are intentionally tolerated because old server snapshots and older hooks may
+    // still populate them. Achievement V2 never evaluates these counters.
     public int ConsecutiveWins { get; set; }
     public int MaxConsecutiveWins { get; set; }
+    public int TotalBlocksUsed { get; set; }
     public int RoundsAtFirst { get; set; }
     public int RoundsAtLast { get; set; }
     public int DifferentPlayersDefeated { get; set; }
@@ -125,476 +183,405 @@ public static class AchievementService
 {
     public static readonly List<AchievementDefinition> AllAchievements = new()
     {
-        // ══════════════════════════════════════════════════════════════
-        // VICTORY achievements
-        // ══════════════════════════════════════════════════════════════
-        new("first_win", "First Blood", "Win your first game", AchievementCategory.Victory, "crown", "common"),
-        new("wins_10", "Veteran", "Win 10 games", AchievementCategory.Victory, "crown", "uncommon", 10),
-        new("wins_50", "Champion", "Win 50 games", AchievementCategory.Victory, "crown", "rare", 50),
-        new("wins_100", "Legend", "Win 100 games", AchievementCategory.Victory, "crown", "epic", 100),
-        new("top3_25", "Consistent", "Finish top 3 in 25 games", AchievementCategory.Victory, "medal", "uncommon", 25),
-        new("play_100", "Dedicated", "Play 100 games", AchievementCategory.Victory, "games", "uncommon", 100),
-        new("play_500", "Addicted", "Play 500 games", AchievementCategory.Victory, "games", "epic", 500),
-        new("comeback_king", "Comeback King", "Win after being 6th place at any point", AchievementCategory.Victory,
-            "rocket", "rare"),
-        new("flawless", "Flawless Victory", "Win without losing a single fight", AchievementCategory.Victory,
-            "shield", "epic"),
+        // Global mechanics
+        new("g_bottom_feeder", "Bottom Feeder", "Со дна",
+            "As the attacker in 6th place, defeat the current player in 1st place.",
+            "Атакуя с 6-го места, победите текущего лидера на 1-м месте.",
+            AchievementCategory.Global, "rocket", "uncommon"),
+        new("g_class_advantage", "Rock, Paper, Crown", "Камень, ножницы, корона",
+            "Win 3 resolved fights while holding the Nemesis class advantage, on attack or defence.",
+            "Победите в 3 состоявшихся боях, имея преимущество анти-класса — в атаке или защите.",
+            AchievementCategory.Global, "crown", "rare", 3),
+        new("g_target_routine", "Bullseye", "В яблочко",
+            "Gain Main Skill from Мишень in 3 different rounds.",
+            "Получите основной Скилл от Мишени в 3 разных раундах.",
+            AchievementCategory.Global, "target", "common", 3),
+        new("g_maximum_sentence", "Maximum Sentence", "Высшая мера",
+            "Win a resolved fight while holding 5 live Justice.",
+            "Победите в состоявшемся бою, имея 5 действующей Справедливости.",
+            AchievementCategory.Global, "balance", "uncommon"),
+        new("g_three_drops", "Down the Chute", "Вниз по жёлобу",
+            "Personally cause 3 Drops in one match.",
+            "Лично вызовите 3 Скидывания за один матч.",
+            AchievementCategory.Global, "falling", "rare", 3),
+        new("g_twenty_moral", "Moral Bankruptcy", "Моральное банкротство",
+            "Convert 20 Moral into 10 bonus points in a single exchange.",
+            "Одним обменом превратите 20 Морали в 10 бонусных очков.",
+            AchievementCategory.Global, "heart", "uncommon"),
+        new("g_open_book", "Open Book", "Открытая книга",
+            "Correctly predict every eligible opponent, with at least 3 eligible targets.",
+            "Верно предскажите каждого доступного соперника; доступных целей должно быть не меньше 3.",
+            AchievementCategory.Global, "eye", "rare"),
+        new("g_clean_sweep", "Garbage Collector", "Сборщик мусора",
+            "In solo mode, defeat all 5 opponents at least once.",
+            "В одиночном режиме победите каждого из 5 соперников хотя бы раз.",
+            AchievementCategory.Global, "swords", "rare", 5),
+        new("g_round10_comeback", "From Sixth to King", "Из шестого — в короли",
+            "Open round 10 in 6th place, then finish alive in 1st place in solo mode.",
+            "Начните 10-й раунд на 6-м месте, а завершите одиночный матч живым лидером.",
+            AchievementCategory.Global, "crown", "epic"),
+        new("g_untouchable", "Untouchable", "Неприкасаемый",
+            "Win a solo match with at least 5 resolved wins and no resolved losses.",
+            "Победите в одиночном матче, выиграв не меньше 5 состоявшихся боёв и не проиграв ни одного.",
+            AchievementCategory.Global, "shield", "epic", 5),
+        new("g_quad_damage", "Quad Damage", "Четверной урон",
+            "Receive at least 20 net regular points from round 10 after the real multiplier.",
+            "Получите не меньше 20 чистых обычных очков за 10-й раунд после реального множителя.",
+            AchievementCategory.Global, "bolt", "rare", 20),
 
-        // ══════════════════════════════════════════════════════════════
-        // SCORE achievements
-        // ══════════════════════════════════════════════════════════════
-        new("score_50", "Half Century", "Score 50+ points in a single game", AchievementCategory.Score, "fire", "common"),
-        new("score_100", "Centurion", "Score 100+ points in a single game", AchievementCategory.Score, "fire", "uncommon"),
-        new("score_150", "Dominator", "Score 150+ points in a single game", AchievementCategory.Score, "fire", "rare"),
-        new("score_200", "Unstoppable Force", "Score 200+ points in a single game", AchievementCategory.Score, "fire", "epic"),
-        new("score_250", "Beyond Limits", "Score 250+ points in a single game", AchievementCategory.Score, "fire", "legendary"),
+        // Character stories
+        new("c_boys_orders", "French Connection", "Французская связь",
+            "As TheBoys, complete all 3 Francie orders.",
+            "Играя за TheBoys, выполните все 3 заказа Francie.",
+            AchievementCategory.Character, "badge", "uncommon", 3, characterNames: new[] { "TheBoys" }),
+        new("c_goblin_summit", "Built Different", "Особая постройка",
+            "As Стая Гоблинов, finish with a Ziggurat at place 1 and receive its enforced win.",
+            "Играя за Стая Гоблинов, завершите матч с Зиккуратом на 1-м месте и получите его гарантированную победу.",
+            AchievementCategory.Character, "pyramid", "legendary", characterNames: new[] { "Стая Гоблинов" }),
+        new("c_rick_portals", "Portal Authority", "Портальная власть",
+            "As Рик Санчез, successfully fire Портальная пушка twice in one match.",
+            "Играя за Рик Санчез, дважды успешно примените Портальная пушка за матч.",
+            AchievementCategory.Character, "portal", "rare", 2, characterNames: new[] { "Рик Санчез" }),
+        new("c_saitama_one_punch", "One Punch", "Один удар",
+            "As Сайтама, reclaim at least 20 deferred points through Ищет достойного противника.",
+            "Играя за Сайтама, верните не меньше 20 отложенных очков через Ищет достойного противника.",
+            AchievementCategory.Character, "fist", "epic", 20, characterNames: new[] { "Сайтама" }),
+        new("c_madara_tsukuyomi", "Wake Up to Reality", "Очнись и вернись в реальность",
+            "As Мадара, finish with Вечное Цукуеми active and without being sealed.",
+            "Играя за Мадара, завершите матч с активным Вечное Цукуеми и не будьте запечатаны.",
+            AchievementCategory.Character, "eye-glow", "legendary", isSecret: true,
+            secretHint: "Let the whole world sleep without allowing it to seal you away.",
+            secretHintRu: "Погрузите весь мир в сон и не позвольте ему запечатать вас.",
+            characterNames: new[] { "Мадара" }),
+        new("c_tigr_six_zero", "Six–Zero", "Шесть — ноль",
+            "As Тигр, complete 3-0 обоссан against 2 different enemies.",
+            "Играя за Тигр, завершите 3-0 обоссан против 2 разных соперников.",
+            AchievementCategory.Character, "trophy", "epic", 2, characterNames: new[] { "Тигр" }),
+        new("c_itachi_tax", "Tax Collector", "Сборщик налогов",
+            "As Итачи, copy at least 20 total points through Глаза Итачи.",
+            "Играя за Итачи, скопируйте не меньше 20 очков через Глаза Итачи.",
+            AchievementCategory.Character, "eye", "rare", 20, characterNames: new[] { "Итачи" }),
+        new("c_kratos_olympus", "Ghost of Sparta", "Призрак Спарты",
+            "As Кратос, personally kill all 5 enemies during Возвращение из мертвых.",
+            "Играя за Кратос, лично убейте всех 5 врагов во время Возвращение из мертвых.",
+            AchievementCategory.Character, "swords", "legendary", 5, characterNames: new[] { "Кратос" }),
+        new("c_kira_perfect_crime", "Perfect Crime", "Идеальное преступление",
+            "As Кира, record 3 successful Тетрадь смерти kills on different victims.",
+            "Играя за Кира, совершите 3 успешных убийства разных жертв через Тетрадь смерти.",
+            AchievementCategory.Character, "notebook", "epic", 3, characterNames: new[] { "Кира" }),
+        new("c_monster_apocalypse", "Beautiful Apocalypse", "Прекрасный апокалипсис",
+            "As Монстр без имени, execute at least 2 pawns through Пейзаж конца света.",
+            "Играя за Монстр без имени, казните не меньше 2 пешек через Пейзаж конца света.",
+            AchievementCategory.Character, "radiation", "epic", 2, characterNames: new[] { "Монстр без имени" }),
+        new("c_geralt_contracts", "Witcher’s Payday", "Ведьмачья получка",
+            "As Геральт, resolve 3 contract fights in one match.",
+            "Играя за Геральт, завершите 3 контрактных боя за один матч.",
+            AchievementCategory.Character, "medallion", "uncommon", 3, characterNames: new[] { "Геральт" }),
+        new("c_kotiki_reunion", "The Cats Came Back", "Котики вернулись",
+            "As Котики, reclaim both Минька and Штормяк by winning their return attacks.",
+            "Играя за Котики, верните и Минька, и Штормяк, победив в обеих атаках за возвращение.",
+            AchievementCategory.Character, "cat", "rare", 2, characterNames: new[] { "Котики" }),
+        new("c_darksci_unstable", "Against All Odds", "Вопреки всему",
+            "As Darksci, choose unstable, trigger Повезло, and finish in 1st place.",
+            "Играя за Darksci, выберите нестабильность, активируйте Повезло и завершите матч на 1-м месте.",
+            AchievementCategory.Character, "dice-six", "epic", characterNames: new[] { "Darksci" }),
+        new("c_eren_rumbling", "The Rumbling", "Гул Земли",
+            "As Эрен Йегер, kill at least 2 players with Rumbling.",
+            "Играя за Эрен Йегер, убейте не меньше 2 игроков с помощью Rumbling.",
+            AchievementCategory.Character, "falling", "epic", 2, characterNames: new[] { "Эрен Йегер" }),
+        new("c_doom_bfg", "BFG Division", "Дивизия BFG",
+            "As DooM Guy, defeat at least 3 players in one BFG wave, including its primary target.",
+            "Играя за DooM Guy, победите не меньше 3 игроков одной волной BFG, включая основную цель.",
+            AchievementCategory.Character, "bolt", "epic", 3, characterNames: new[] { "DooM Guy" }),
 
-        // ══════════════════════════════════════════════════════════════
-        // COMBAT achievements
-        // ══════════════════════════════════════════════════════════════
-        new("fights_won_5", "Brawler", "Win 5 fights in a single game", AchievementCategory.Combat, "sword", "common"),
-        new("fights_won_8", "Gladiator", "Win 8 fights in a single game", AchievementCategory.Combat, "sword", "uncommon"),
-        new("fights_won_10", "Destroyer", "Win 10+ fights in a single game", AchievementCategory.Combat, "sword", "rare"),
-        new("beat_everyone", "Beat Them All", "Defeat all 5 opponents at least once in a game", AchievementCategory.Combat,
-            "swords", "rare"),
-        new("win_streak_5", "On Fire", "Win 5 consecutive fights in a game", AchievementCategory.Combat, "flame", "rare"),
-        new("block_master", "Fortress", "Block 5+ times in a single game", AchievementCategory.Combat, "shield", "common"),
-        new("pacifist", "Pacifist", "Never attack in an entire game (block/skip every round)", AchievementCategory.Combat,
-            "peace", "rare"),
-        new("no_blocks", "All In", "Win a game without blocking once", AchievementCategory.Combat, "dice", "uncommon"),
-        new("justice_max", "Scales of Justice", "Reach 5 Justice in a game", AchievementCategory.Combat, "balance", "uncommon"),
-
-        // ══════════════════════════════════════════════════════════════
-        // CHARACTER-SPECIFIC achievements (visible)
-        // ══════════════════════════════════════════════════════════════
-        new("play_chars_5", "Explorer", "Play 5 different characters", AchievementCategory.Character, "compass", "common", 5),
-        new("play_chars_10", "Versatile", "Play 10 different characters", AchievementCategory.Character, "compass", "uncommon", 10),
-        new("play_chars_20", "Shapeshifter", "Play 20 different characters", AchievementCategory.Character, "compass", "rare", 20),
-        new("play_chars_30", "Collector", "Play 30+ different characters", AchievementCategory.Character, "compass", "epic", 30),
-        new("win_3_chars", "Multi-Talented", "Win with 3 different characters", AchievementCategory.Character, "stars", "uncommon", 3),
-        new("win_10_chars", "True Master", "Win with 10 different characters", AchievementCategory.Character, "stars", "rare", 10),
-
-        // ══════════════════════════════════════════════════════════════
-        // MASTERY achievements
-        // ══════════════════════════════════════════════════════════════
-        new("max_stat", "Maxed Out", "Reach 10 in any stat during a game", AchievementCategory.Mastery, "sparkle", "common"),
-        new("all_stats_8", "Well Rounded", "Have all 4 stats at 8+ simultaneously", AchievementCategory.Mastery,
-            "circle", "rare"),
-        new("high_skill", "Skill Ceiling", "Reach 100+ Skill in a game", AchievementCategory.Mastery, "bolt", "uncommon"),
-        new("moral_master", "Morale Boost", "Use Moral for Points 3+ times in a game", AchievementCategory.Mastery,
-            "heart", "common"),
-        new("lvlup_all", "Balanced Growth", "Level up each stat at least once in a game", AchievementCategory.Mastery,
-            "arrows", "uncommon"),
-        new("psyche_zero_win", "Berserker", "Win a game with 0 Psyche", AchievementCategory.Mastery, "skull", "rare"),
-        new("max_psyche_win", "Zen Master", "Win with 10 Psyche", AchievementCategory.Mastery, "lotus", "uncommon"),
-
-        // ══════════════════════════════════════════════════════════════
-        // SOCIAL / META achievements
-        // ══════════════════════════════════════════════════════════════
-        new("predict_correct_3", "Mind Reader", "Get 3+ correct predictions in a game", AchievementCategory.Social,
-            "eye", "uncommon"),
-        new("predict_correct_5", "Oracle", "Get 5 correct predictions in a game", AchievementCategory.Social,
-            "crystal", "rare"),
-        new("win_from_web", "Digital Warrior", "Win a game from the web client", AchievementCategory.Social, "globe", "common"),
-
-        // ══════════════════════════════════════════════════════════════
-        // SECRET achievements — hidden until unlocked
-        // ══════════════════════════════════════════════════════════════
-
-        // --- Kira secrets ---
-        new("kill_a_god", "Kill a God", "Kill Kira with the Death Note",
-            AchievementCategory.Secret, "skull-crossbones", "legendary",
-            isSecret: true, secretHint: "The irony of divine justice..."),
-        new("kira_perfect", "Perfect Crime", "Kill 3+ players with Death Note in one game",
-            AchievementCategory.Secret, "notebook", "epic",
-            isSecret: true, secretHint: "According to keikaku..."),
-        new("survive_death_note", "Plot Armor", "Survive a Death Note kill attempt (Kratos revival or Goblin immunity)",
-            AchievementCategory.Secret, "shield-cross", "rare",
-            isSecret: true, secretHint: "Not even death can stop some..."),
-        new("kira_kills_l", "Justice Prevails?", "As Kira, successfully kill L",
-            AchievementCategory.Secret, "detective", "epic",
-            isSecret: true, secretHint: "The world's greatest detective meets their match"),
-
-        // --- Kratos secrets ---
-        new("destroy_olympus", "Destroy Olympus", "Kill all living opponents as Kratos",
-            AchievementCategory.Secret, "mountain", "legendary",
-            isSecret: true, secretHint: "When one god isn't enough..."),
-        new("kratos_revive", "Boy, I'm Not Done", "Survive Kira's Death Note as Kratos (God Slayer revival)",
-            AchievementCategory.Secret, "axe", "epic",
-            isSecret: true, secretHint: "Death is merely an inconvenience"),
-
-        // --- Rick secrets ---
-        new("pickle_rick", "I'm Pickle Rick!", "Transform into Pickle Rick",
-            AchievementCategory.Secret, "pickle", "uncommon",
-            isSecret: true, secretHint: "The funniest thing I've ever seen"),
-        new("portal_master", "Interdimensional", "Use Portal Gun swap 3+ times in a game",
-            AchievementCategory.Secret, "portal", "rare",
-            isSecret: true, secretHint: "Wubba lubba dub dub!"),
-
-        // --- Saitama secrets ---
-        new("one_punch", "One Punch", "As Saitama, have 20+ deferred points restored in round 10",
-            AchievementCategory.Secret, "fist", "epic",
-            isSecret: true, secretHint: "The hero nobody noticed..."),
-
-        // --- Goblin secrets ---
-        new("goblin_victory", "Ziggurat Ascension", "Win as Goblins with Ziggurat at position 1 on round 10",
-            AchievementCategory.Secret, "pyramid", "legendary",
-            isSecret: true, secretHint: "A monument to cunning"),
-
-        // --- Dragon secrets ---
-        new("dragon_awakening", "Dragon Unleashed", "Trigger Dragon form on round 10 (all stats = 10)",
-            AchievementCategory.Secret, "dragon", "rare",
-            isSecret: true, secretHint: "Dormant power awakens..."),
-
-        // --- Vampire secrets ---
-        new("blood_feast", "Blood Feast", "Steal stats from 4+ different opponents as Vampire",
-            AchievementCategory.Secret, "bat", "rare",
-            isSecret: true, secretHint: "An insatiable thirst..."),
-
-        // --- Monster secrets ---
-        new("apocalypse_survivor", "Apocalypse Survivor", "Survive round 10 when Monster triggers their end-game effect",
-            AchievementCategory.Secret, "radiation", "rare",
-            isSecret: true, secretHint: "The world ends, but you remain"),
-        new("monster_pawn", "Puppet Master", "As Monster, convert a player into your pawn",
-            AchievementCategory.Secret, "puppet", "uncommon",
-            isSecret: true, secretHint: "Everyone is a piece on the board"),
-
-        // --- Itachi secrets ---
-        new("itachi_revive", "Izanagi", "Come back from the dead as Itachi (use Shisui's eye)",
-            AchievementCategory.Secret, "eye-glow", "epic",
-            isSecret: true, secretHint: "Forbidden technique..."),
-
-        // --- DeepList secrets ---
-        new("mockery_master", "Supreme Troll", "Trigger DeepList's mockery 5+ times in a game",
-            AchievementCategory.Secret, "jester", "rare",
-            isSecret: true, secretHint: "200 IQ plays"),
-
-        // --- Geralt secrets ---
-        new("witcher_contracts", "Professional", "Complete 3+ Witcher contracts in a game as Geralt",
-            AchievementCategory.Secret, "medallion", "rare",
-            isSecret: true, secretHint: "Wind's howling..."),
-
-        // --- Salldorum secrets ---
-        new("rewrite_history", "Temporal Paradox", "Use Salldorum's history rewrite ability",
-            AchievementCategory.Secret, "hourglass", "uncommon",
-            isSecret: true, secretHint: "Time is merely a suggestion"),
-
-        // --- Napoleon secrets ---
-        new("grand_alliance", "Grand Alliance", "Form 3+ treaties as Napoleon in a game",
-            AchievementCategory.Secret, "handshake", "rare",
-            isSecret: true, secretHint: "Diplomacy is war by other means"),
-
-        // --- Kotiki secrets ---
-        new("cat_army", "Cat Army", "Taunt 4+ enemies with Kotiki in a game",
-            AchievementCategory.Secret, "cat", "rare",
-            isSecret: true, secretHint: "Meow meow meow meow"),
-
-        // --- TheBoys secrets ---
-        new("boys_orders", "Following Orders", "Complete 3+ orders as TheBoys in a game",
-            AchievementCategory.Secret, "badge", "rare",
-            isSecret: true, secretHint: "Diabolical!"),
-
-        // --- Bug/Exploit secrets ---
-        new("exploit_chain", "Zero Day", "Exploit 3+ players in a single game as Bug",
-            AchievementCategory.Secret, "bug", "rare",
-            isSecret: true, secretHint: "The system has vulnerabilities"),
-
-        // --- Seller secrets ---
-        new("shady_dealer", "Black Market", "Place marks on 4+ players as Seller in a game",
-            AchievementCategory.Secret, "briefcase", "rare",
-            isSecret: true, secretHint: "Everyone has a price"),
-
-        // --- Darksci secrets ---
-        new("lucky_gambler", "Against All Odds", "Win as Darksci after choosing unstable",
-            AchievementCategory.Secret, "dice-six", "rare",
-            isSecret: true, secretHint: "Fortune favors the bold"),
-
-        // --- Rare game states ---
-        new("last_to_first", "From Ashes", "Go from last place to first place in a single game",
-            AchievementCategory.Secret, "phoenix", "epic",
-            isSecret: true, secretHint: "The ultimate reversal"),
-        new("first_to_last", "How The Mighty Fall", "Go from first place to last place",
-            AchievementCategory.Secret, "falling", "rare",
-            isSecret: true, secretHint: "Pride comes before the fall..."),
-        new("died_but_won", "Ghost Victory", "Die during the game but still finish 1st",
-            AchievementCategory.Secret, "ghost", "legendary",
-            isSecret: true, secretHint: "Victory transcends mortality"),
-        new("zero_score", "Participation Trophy", "Finish a game with 0 or negative score",
-            AchievementCategory.Secret, "trophy-broken", "uncommon",
-            isSecret: true, secretHint: "At least you tried..."),
-        new("all_blocked", "Turtle Strategy", "Block every single round of a game (10 blocks)",
-            AchievementCategory.Secret, "turtle", "epic",
-            isSecret: true, secretHint: "The best offense is... no offense"),
-        new("round1_lead", "Early Bird", "Hold 1st place from round 1 through the end",
-            AchievementCategory.Secret, "bird", "rare",
-            isSecret: true, secretHint: "The one who never fell"),
+        // Secret interactions
+        new("x_spartan_dragon", "Dragon Slayer", "Убийца драконов",
+            "As Загадочный Спартанец в маске, trigger DragonSlayer against round-10 Sirinoks/Дракон and defeat her.",
+            "Играя за Загадочный Спартанец в маске, активируйте DragonSlayer против Sirinoks/Дракон в 10-м раунде и победите её.",
+            AchievementCategory.Interaction, "dragon", "epic", isSecret: true,
+            secretHint: "A masked warrior has one very specific round-ten rival.",
+            secretHintRu: "У воина в маске есть одна очень особенная соперница в десятом раунде.",
+            characterNames: new[] { "Загадочный Спартанец в маске", "Sirinoks" }),
+        new("x_kira_kratos", "Gods Don’t Tell Me What to Do", "Боги мне не указ",
+            "As Кратос, die to Kira’s Тетрадь смерти and revive through Боги мне не указ.",
+            "Играя за Кратос, умрите от Тетрадь смерти Киры и воскресните через Боги мне не указ.",
+            AchievementCategory.Interaction, "shield-cross", "legendary", isSecret: true,
+            secretHint: "A name written down is not always enough to kill a god.",
+            secretHintRu: "Иногда записанного имени недостаточно, чтобы убить бога.",
+            characterNames: new[] { "Кира", "Кратос" }),
+        new("x_itachi_madara", "Eyes Meet Eyes", "Глаза встретились",
+            "As Итачи, correctly lock Мадара in round 8 and receive the extra Клоны Сусано attack.",
+            "Играя за Итачи, верно зафиксируйте Мадара в 8-м раунде и получите дополнительную атаку Клоны Сусано.",
+            AchievementCategory.Interaction, "eye-glow", "rare", isSecret: true,
+            secretHint: "Two pairs of eyes must meet in round eight.",
+            secretHintRu: "Две пары глаз должны встретиться в восьмом раунде.",
+            characterNames: new[] { "Итачи", "Мадара" }),
+        new("x_deeplist_weedwick", "Pet Project", "Любимый проект",
+            "As DeepList or Weedwick, finish with both characters alive in the final top 3. Both players earn this achievement.",
+            "Играя за DeepList или Weedwick, завершите матч так, чтобы оба были живы и находились в финальном топ-3. Достижение получат оба.",
+            AchievementCategory.Interaction, "heart", "epic", isSecret: true,
+            secretHint: "An unlikely pet project must reach the podium.",
+            secretHintRu: "Необычный любимый проект должен добраться до пьедестала.",
+            characterNames: new[] { "DeepList", "Weedwick" }),
+        new("x_spartan_mylorik", "Mutual Respect", "Взаимное уважение",
+            "As Загадочный Спартанец в маске, trigger the mutual-Psyche interaction with mylorik, then defeat him in a later fight.",
+            "Играя за Загадочный Спартанец в маске, активируйте взаимное усиление Психики с mylorik, а затем победите его в следующем бою.",
+            AchievementCategory.Interaction, "handshake", "rare", isSecret: true,
+            secretHint: "Respect must come before rivalry.",
+            secretHintRu: "Уважение должно появиться раньше соперничества.",
+            characterNames: new[] { "Загадочный Спартанец в маске", "mylorik" }),
+        new("x_boys_madara", "Nothing Is Immune", "Нет неприкасаемых",
+            "As TheBoys with СуперМудень, successfully deal Harm through Мадара’s Воскрешенное тело.",
+            "Играя за TheBoys с СуперМудень, успешно нанесите Вред сквозь Воскрешенное тело Мадары.",
+            AchievementCategory.Interaction, "swords", "legendary", isSecret: true,
+            secretHint: "Even a resurrected body can meet something super.",
+            secretHintRu: "Даже воскрешённое тело однажды встречает нечто суперское.",
+            characterNames: new[] { "TheBoys", "Мадара" }),
+        new("x_monster_witness", "I Saw the Beast", "Я видел Зверя",
+            "As a non-pawn, attack Монстр без имени in round 10 and receive the Пейзаж конца света payout.",
+            "Не будучи пешкой, атакуйте Монстр без имени в 10-м раунде и получите награду Пейзаж конца света.",
+            AchievementCategory.Interaction, "eye", "rare", isSecret: true,
+            secretHint: "Witness the end from too close.",
+            secretHintRu: "Узрите конец света с опасно близкого расстояния.",
+            characterNames: new[] { "Монстр без имени" }),
     };
 
-    private static readonly Dictionary<string, AchievementDefinition> _byId =
-        AllAchievements.ToDictionary(a => a.Id);
+    private static readonly Dictionary<string, AchievementDefinition> ById =
+        AllAchievements.ToDictionary(achievement => achievement.Id);
 
-    public static AchievementDefinition GetDefinition(string id)
-    {
-        return _byId.TryGetValue(id, out var def) ? def : null;
-    }
+    public static AchievementDefinition GetDefinition(string id) =>
+        id != null && ById.TryGetValue(id, out var definition) ? definition : null;
 
     public static void EnsureInitialized(DiscordAccountClass account)
     {
         account.Achievements ??= new AchievementData();
+        account.Achievements.Progress ??= new List<AchievementProgress>();
+        account.Achievements.NewlyUnlocked ??= new List<string>();
     }
 
     /// <summary>
-    /// Try to unlock an achievement. Returns true if newly unlocked.
+    /// Stores the best result from a single match. Unlocking is based only on this attempt, never
+    /// on the persisted best from an earlier match, so separate partial runs cannot combine.
     /// </summary>
-    public static bool TryUnlock(DiscordAccountClass account, string achievementId, int progress = 1)
+    public static bool SetBestProgress(
+        DiscordAccountClass account,
+        string achievementId,
+        int value,
+        bool conditionEligible = true)
     {
-        EnsureInitialized(account);
+        var definition = GetDefinition(achievementId);
+        if (definition == null || account == null || !conditionEligible) return false;
 
-        var def = GetDefinition(achievementId);
-        if (def == null) return false;
-
-        var existing = account.Achievements.Progress.Find(p => p.AchievementId == achievementId);
-        if (existing == null)
+        lock (account)
         {
-            existing = new AchievementProgress(achievementId);
-            account.Achievements.Progress.Add(existing);
-        }
+            EnsureInitialized(account);
+            var progress = account.Achievements.Progress.Find(x => x.AchievementId == achievementId);
+            if (progress == null)
+            {
+                progress = new AchievementProgress(achievementId);
+                account.Achievements.Progress.Add(progress);
+            }
 
-        if (existing.IsUnlocked) return false;
+            if (progress.IsUnlocked) return false;
 
-        existing.Current += progress;
-        if (existing.Current >= def.Target)
-        {
-            existing.Current = def.Target;
-            existing.IsUnlocked = true;
-            existing.UnlockedAt = DateTimeOffset.UtcNow;
-            account.Achievements.NewlyUnlocked.Add(achievementId);
+            var attempt = Math.Clamp(value, 0, definition.Target);
+            progress.Current = Math.Max(progress.Current, attempt);
+
+            // Use this match's attempt, not progress.Current: the latter may come from another match.
+            if (attempt < definition.Target) return false;
+
+            progress.Current = definition.Target;
+            progress.IsUnlocked = true;
+            progress.UnlockedAt = DateTimeOffset.UtcNow;
+            if (!account.Achievements.NewlyUnlocked.Contains(achievementId))
+                account.Achievements.NewlyUnlocked.Add(achievementId);
+
+            account.ZbsPoints += definition.RewardZbs;
+            account.PendingLootBoxes += definition.RewardLootBoxes;
             return true;
         }
-
-        return false;
     }
 
-    /// <summary>
-    /// Set progress to specific value (for "play X different characters" style achievements).
-    /// </summary>
-    public static bool SetProgress(DiscordAccountClass account, string achievementId, int value)
-    {
-        EnsureInitialized(account);
+    // Compatibility helpers remain monotonic and treat the supplied value as this match's attempt.
+    public static bool SetProgress(DiscordAccountClass account, string achievementId, int value) =>
+        SetBestProgress(account, achievementId, value);
 
-        var def = GetDefinition(achievementId);
-        if (def == null) return false;
+    public static bool TryUnlock(DiscordAccountClass account, string achievementId, int progress = 1) =>
+        SetBestProgress(account, achievementId, progress);
 
-        var existing = account.Achievements.Progress.Find(p => p.AchievementId == achievementId);
-        if (existing == null)
-        {
-            existing = new AchievementProgress(achievementId);
-            account.Achievements.Progress.Add(existing);
-        }
-
-        if (existing.IsUnlocked) return false;
-
-        existing.Current = value;
-        if (existing.Current >= def.Target)
-        {
-            existing.Current = def.Target;
-            existing.IsUnlocked = true;
-            existing.UnlockedAt = DateTimeOffset.UtcNow;
-            account.Achievements.NewlyUnlocked.Add(achievementId);
-            return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Evaluate all achievements at game end based on in-game tracker + account history.
-    /// </summary>
-    public static void TrackGameEnd(DiscordAccountClass account, GamePlayerBridgeClass player, GameClass game)
+    public static void TrackGameEnd(
+        DiscordAccountClass account,
+        GamePlayerBridgeClass player,
+        GameClass game,
+        int rewardPlace)
     {
         EnsureInitialized(account);
         var tracker = player.Passives.AchievementTracker ?? new InGameAchievementTracker();
+        var characterName = player.GameCharacter.Name;
+        var actualPlace = player.Status.GetPlaceAtLeaderBoard();
+        var alive = !player.Passives.IsDead;
+        var solo = game.Teams.Count == 0;
+        var rewardWin = rewardPlace == 1 && alive;
 
-        var place = player.Status.GetPlaceAtLeaderBoard();
-        var score = player.Status.GetScore();
-        var isWin = place == 1;
-        var charName = player.GameCharacter.Name;
-
-        // ── Victory achievements ──
-        if (isWin) TryUnlock(account, "first_win");
-        if (isWin) TryUnlock(account, "wins_10");
-        if (isWin) TryUnlock(account, "wins_50");
-        if (isWin) TryUnlock(account, "wins_100");
-        if (place <= 3) TryUnlock(account, "top3_25");
-        TryUnlock(account, "play_100");
-        TryUnlock(account, "play_500");
-
-        if (isWin && tracker.CameFromLastToFirst) TryUnlock(account, "comeback_king");
-        if (isWin && tracker.TotalFightsLost == 0 && tracker.TotalFightsWon > 0) TryUnlock(account, "flawless");
-
-        // ── Score achievements ──
-        if (score >= 50) TryUnlock(account, "score_50");
-        if (score >= 100) TryUnlock(account, "score_100");
-        if (score >= 150) TryUnlock(account, "score_150");
-        if (score >= 200) TryUnlock(account, "score_200");
-        if (score >= 250) TryUnlock(account, "score_250");
-
-        // ── Combat achievements ──
-        if (tracker.TotalFightsWon >= 5) TryUnlock(account, "fights_won_5");
-        if (tracker.TotalFightsWon >= 8) TryUnlock(account, "fights_won_8");
-        if (tracker.TotalFightsWon >= 10) TryUnlock(account, "fights_won_10");
-        if (tracker.DefeatedPlayerNames.Count >= 5) TryUnlock(account, "beat_everyone");
-        if (tracker.MaxConsecutiveWins >= 5) TryUnlock(account, "win_streak_5");
-        if (tracker.TotalBlocksUsed >= 5) TryUnlock(account, "block_master");
-        if (tracker.NeverAttacked) TryUnlock(account, "pacifist");
-        if (isWin && tracker.NeverBlocked) TryUnlock(account, "no_blocks");
-        if (tracker.JusticeReached >= 5) TryUnlock(account, "justice_max");
-
-        // ── Character diversity achievements ──
-        var uniqueCharsPlayed = account.CharacterStatistics.Select(c => c.CharacterName).Distinct().Count();
-        SetProgress(account, "play_chars_5", uniqueCharsPlayed);
-        SetProgress(account, "play_chars_10", uniqueCharsPlayed);
-        SetProgress(account, "play_chars_20", uniqueCharsPlayed);
-        SetProgress(account, "play_chars_30", uniqueCharsPlayed);
-        var uniqueCharsWon = account.CharacterStatistics.Where(c => c.Wins > 0).Select(c => c.CharacterName).Distinct().Count();
-        SetProgress(account, "win_3_chars", uniqueCharsWon);
-        SetProgress(account, "win_10_chars", uniqueCharsWon);
-
-        // ── Mastery achievements ──
-        var gc = player.GameCharacter;
-        if (gc.GetIntelligence() >= 10 || gc.GetStrength() >= 10 || gc.GetSpeed() >= 10 || gc.GetPsyche() >= 10)
-            TryUnlock(account, "max_stat");
-        if (gc.GetIntelligence() >= 8 && gc.GetStrength() >= 8 && gc.GetSpeed() >= 8 && gc.GetPsyche() >= 8)
-            TryUnlock(account, "all_stats_8");
-        if (gc.GetSkill() >= 100) TryUnlock(account, "high_skill");
-        if (tracker.MoralToPointsUsed >= 3) TryUnlock(account, "moral_master");
-        if (isWin && tracker.FinishedWithZeroPsyche) TryUnlock(account, "psyche_zero_win");
-        if (isWin && tracker.FinishedWithMaxPsyche) TryUnlock(account, "max_psyche_win");
-
-        // ── Social achievements ──
-        var correctPredictions = player.Predict.Count(p =>
+        // Вечное Цукуеми projects a different final result to every non-Madara viewer. Evaluating
+        // real-result achievements here would leak or contradict that private ending, so V2 is
+        // deliberately suppressed for everyone except Madara's own hidden-ending achievement.
+        if (Madara.IsEternalTsukuyomiActive(game))
         {
-            var target = game.PlayersList.Find(x => x.GetPlayerId() == p.PlayerId);
-            return target != null && target.GameCharacter.Name == p.CharacterName;
-        });
-        if (correctPredictions >= 3) TryUnlock(account, "predict_correct_3");
-        if (correctPredictions >= 5) TryUnlock(account, "predict_correct_5");
-        if (isWin && (player.IsWebPlayer || player.PreferWeb)) TryUnlock(account, "win_from_web");
-
-        // ── Secret achievements ──
-
-        // Kira-related
-        if (tracker.KiraKills >= 3) TryUnlock(account, "kira_perfect");
-        if (tracker.SurvivedKiraAttempt) TryUnlock(account, "survive_death_note");
-        // "kill_a_god" — player used Death Note to kill Kira (the character)
-        // Check if any of the dead players was Kira and was killed by this player's Death Note
-        if (charName == "Кира")
-        {
-            foreach (var victim in game.PlayersList.Where(p => p.Passives.IsDead && p.Passives.DeathSource == "Kira" && p.GameCharacter.Name == "Кира"))
+            if (Madara.IsMadara(player))
             {
-                // Kira killed another Kira (shouldn't happen in normal game, but handle edge case)
-                TryUnlock(account, "kill_a_god");
+                var state = player.Passives.Madara;
+                SetBestProgress(account, "c_madara_tsukuyomi",
+                    state.EternalTsukuyomiActive ? 1 : 0,
+                    state.EternalTsukuyomiActive && !state.Sealed);
             }
-            // Check if L was killed (KiraKills > standard implies L kill with extra count)
-            if (tracker.KiraKills > game.PlayersList.Count(p => p.Passives.IsDead && p.Passives.DeathSource == "Kira"))
-            {
-                // L kill happened (we added extra count for L kill)
-                TryUnlock(account, "kira_kills_l");
-            }
-        }
-        // Anyone who kills Kira character gets "kill_a_god" (e.g., through Death Note, Kratos, Monster)
-        foreach (var victim in game.PlayersList.Where(p => p.Passives.IsDead && p.GameCharacter.Name == "Кира"))
-        {
-            if (victim.Passives.DeathSource == "Kira" && charName == "Кира")
-            {
-                // Already handled above
-            }
-            else if (victim.Passives.DeathSource == "Kratos" && charName == "Кратос")
-            {
-                TryUnlock(account, "kill_a_god");
-            }
+            return;
         }
 
-        // Kratos — check if all non-Kratos players are dead
-        if (charName == "Кратос")
+        // Global mechanics
+        SetBestProgress(account, "g_bottom_feeder", tracker.BottomFeederWins > 0 ? 1 : 0);
+        SetBestProgress(account, "g_class_advantage", tracker.NemesisAdvantageWins);
+        SetBestProgress(account, "g_target_routine", tracker.TargetSkillRounds.Count);
+        SetBestProgress(account, "g_maximum_sentence", tracker.WonFightWithMaxJustice ? 1 : 0);
+        SetBestProgress(account, "g_three_drops", tracker.DropsCaused);
+        SetBestProgress(account, "g_twenty_moral", tracker.MoralBankruptcyTriggered ? 1 : 0);
+        SetBestProgress(account, "g_open_book", HasOpenBook(player, game) ? 1 : 0);
+        SetBestProgress(account, "g_clean_sweep", tracker.DefeatedPlayerIds.Count, solo);
+        SetBestProgress(account, "g_round10_comeback", tracker.OpenedRoundTenAtLast ? 1 : 0,
+            solo && alive && actualPlace == 1);
+
+        var undefeatedWins = tracker.TotalFightsLost == 0 ? tracker.TotalFightsWon : 0;
+        SetBestProgress(account, "g_untouchable", undefeatedWins, solo && rewardWin);
+        SetBestProgress(account, "g_quad_damage",
+            (int)Math.Floor(Math.Max(0, tracker.RoundTenRegularPoints)));
+
+        // Character stories
+        if (characterName == "TheBoys")
+            SetBestProgress(account, "c_boys_orders", player.Passives.TheBoysFrancie.OrdersCompleted);
+
+        if (characterName == "Стая Гоблинов")
         {
-            var allOthersDead = game.PlayersList
-                .Where(p => p.GameCharacter.Name != "Кратос")
-                .All(p => p.Passives.IsDead);
-            if (allOthersDead && tracker.EnemiesKilledAsKratos > 0)
-                TryUnlock(account, "destroy_olympus");
+            var summit = player.Passives.GoblinZiggurat.BuiltPositions.Contains(1);
+            SetBestProgress(account, "c_goblin_summit", summit ? 1 : 0,
+                summit && rewardWin && actualPlace == 1);
         }
-        if (tracker.WasRevived && charName == "Кратос") TryUnlock(account, "kratos_revive");
 
-        // Rick
-        if (tracker.PickleRickTriggered) TryUnlock(account, "pickle_rick");
-        if (tracker.PortalGunSwaps >= 3) TryUnlock(account, "portal_master");
+        if (characterName == "Рик Санчез")
+            SetBestProgress(account, "c_rick_portals", tracker.PortalGunFires);
 
-        // Saitama
-        if (tracker.SaitamaDeferredPoints >= 20) TryUnlock(account, "one_punch");
+        if (characterName == "Сайтама")
+            SetBestProgress(account, "c_saitama_one_punch", tracker.SaitamaDeferredPoints);
 
-        // Goblin
-        if (tracker.BuiltZiggurat && isWin && charName == "Стая Гоблинов") TryUnlock(account, "goblin_victory");
+        if (characterName == Madara.CharacterName)
+        {
+            var state = player.Passives.Madara;
+            SetBestProgress(account, "c_madara_tsukuyomi",
+                state.EternalTsukuyomiActive ? 1 : 0,
+                state.EternalTsukuyomiActive && !state.Sealed);
+        }
 
-        // Dragon
-        if (tracker.WasDragonForm) TryUnlock(account, "dragon_awakening");
+        if (characterName == "Тигр")
+            SetBestProgress(account, "c_tigr_six_zero",
+                player.Passives.TigrThreeZeroList.FriendList.Count(entry => !entry.IsUnique));
 
-        // Vampire
-        if (tracker.VampireFeedCount >= 4) TryUnlock(account, "blood_feast");
+        if (characterName == "Итачи")
+            SetBestProgress(account, "c_itachi_tax",
+                (int)Math.Floor(player.Passives.ItachiTsukuyomi.TotalStolenPoints));
 
-        // Monster
-        if (tracker.MonsterPawnUsed) TryUnlock(account, "monster_pawn");
+        if (characterName == "Кратос")
+            SetBestProgress(account, "c_kratos_olympus", tracker.KratosEventVictimIds.Count);
 
-        // Itachi
-        if (tracker.WasRevived && charName == "Итачи") TryUnlock(account, "itachi_revive");
+        if (characterName == "Кира")
+        {
+            var successfulVictims = player.Passives.KiraDeathNote.Entries
+                .Where(entry => entry.WasCorrect)
+                .Select(entry => entry.TargetPlayerId)
+                .Distinct()
+                .Count();
+            SetBestProgress(account, "c_kira_perfect_crime", successfulVictims);
+        }
 
-        // DeepList
-        if (tracker.DeepListMockeries >= 5) TryUnlock(account, "mockery_master");
+        if (characterName == "Монстр без имени")
+            SetBestProgress(account, "c_monster_apocalypse", tracker.MonsterPawnExecutions);
 
-        // Geralt
-        if (tracker.GeraltContractsCompleted >= 3) TryUnlock(account, "witcher_contracts");
+        if (characterName == "Геральт")
+            SetBestProgress(account, "c_geralt_contracts", tracker.GeraltContractFightsResolved);
 
-        // Salldorum
-        if (tracker.SalldorumHistoryRewrites > 0) TryUnlock(account, "rewrite_history");
+        if (characterName == "Котики")
+            SetBestProgress(account, "c_kotiki_reunion", tracker.KotikiCatsReclaimed.Count);
 
-        // Napoleon
-        if (tracker.NapoleonTreaties >= 3) TryUnlock(account, "grand_alliance");
+        if (characterName == "Darksci")
+        {
+            var unstableLucky = player.Passives.DarksciTypeList.Triggered
+                                && !player.Passives.DarksciTypeList.IsStableType
+                                && player.Passives.DarksciLuckyList.Triggered;
+            SetBestProgress(account, "c_darksci_unstable", unstableLucky ? 1 : 0,
+                unstableLucky && alive && actualPlace == 1);
+        }
 
-        // Kotiki
-        if (tracker.KotikiTaunts >= 4) TryUnlock(account, "cat_army");
+        if (characterName == ErenYeager.CharacterName)
+            SetBestProgress(account, "c_eren_rumbling", tracker.RumblingVictimIds.Count);
 
-        // TheBoys
-        if (tracker.TheBoysOrdersCompleted >= 3) TryUnlock(account, "boys_orders");
+        if (characterName == DoomGuy.CharacterName)
+            SetBestProgress(account, "c_doom_bfg", tracker.BfgWaveVictimIds.Count);
 
-        // Bug
-        if (tracker.ExploitsFired >= 3) TryUnlock(account, "exploit_chain");
+        // Secret interactions
+        if (characterName == "Загадочный Спартанец в маске")
+        {
+            SetBestProgress(account, "x_spartan_dragon", tracker.SpartanDragonSlayerDefeated ? 1 : 0);
+            SetBestProgress(account, "x_spartan_mylorik",
+                tracker.SpartanDefeatedMylorikAfterRespect ? 1 : 0);
+        }
 
-        // Seller
-        if (tracker.SellerMarksPlaced >= 4) TryUnlock(account, "shady_dealer");
+        if (characterName == "Кратос")
+            SetBestProgress(account, "x_kira_kratos", player.Passives.KratosGodSlayerUsed ? 1 : 0);
 
-        // Darksci (character name in Russian)
-        if (isWin && !tracker.DarksciChosenStable && charName == "Darksci") TryUnlock(account, "lucky_gambler");
+        if (characterName == "Итачи")
+            SetBestProgress(account, "x_itachi_madara",
+                tracker.ItachiMadaraCloneAttackGranted ? 1 : 0);
 
-        // Rare game states
-        if (tracker.CameFromLastToFirst) TryUnlock(account, "last_to_first");
-        if (tracker.WentFromFirstToLast) TryUnlock(account, "first_to_last");
-        if (player.Passives.IsDead && isWin) TryUnlock(account, "died_but_won");
-        if (score <= 0) TryUnlock(account, "zero_score");
-        if (tracker.TotalBlocksUsed >= 10) TryUnlock(account, "all_blocked");
-        if (tracker.RoundsAtFirst >= 10 && isWin) TryUnlock(account, "round1_lead");
+        if (characterName is "DeepList" or "Weedwick")
+        {
+            var partnerName = characterName == "DeepList" ? "Weedwick" : "DeepList";
+            var partner = game.PlayersList.Find(candidate => candidate.GameCharacter.Name == partnerName);
+            var bothOnPodium = alive && actualPlace <= 3 && partner is
+            {
+                Passives.IsDead: false
+            } && partner.Status.GetPlaceAtLeaderBoard() <= 3;
+            SetBestProgress(account, "x_deeplist_weedwick", bothOnPodium ? 1 : 0);
+        }
 
+        if (characterName == "TheBoys")
+            SetBestProgress(account, "x_boys_madara",
+                tracker.DamagedReanimatedMadaraWithSuperDick ? 1 : 0);
+
+        SetBestProgress(account, "x_monster_witness",
+            tracker.WitnessedMonsterApocalypse ? 1 : 0);
     }
 
-    /// <summary>
-    /// Check for achievements unlocked by specific kill events during the game.
-    /// Called from CharacterPassives when a death note kill happens.
-    /// </summary>
-    public static void TrackKiraKill(InGameAchievementTracker tracker, string victimCharName, string killerCharName)
+    private static bool HasOpenBook(GamePlayerBridgeClass player, GameClass game)
     {
-        tracker.KiraKills++;
-        if (victimCharName == "Кира") // Kira killed Kira or someone killed Kira
-        {
-            // "kill_a_god" tracked separately
-        }
+        // Kira uses the Death Note, Madara cannot predict, Let's Roll clears predictions, and admins
+        // receive automatic answers. None are legitimate Open Book attempts.
+        if (player.PlayerType == 2
+            || player.GameCharacter.DoomRollMode
+            || Madara.IsMadara(player)
+            || player.GameCharacter.Passive.Any(passive =>
+                passive.PassiveName is "Тетрадь смерти" or "AdminPlayerType"))
+            return false;
+
+        var eligibleTargets = game.PlayersList.Where(target =>
+                target.GetPlayerId() != player.GetPlayerId()
+                && target.PlayerType != 2
+                && target.GameCharacter.Tier >= 0
+                && !target.GameCharacter.Passive.Any(passive =>
+                    passive.PassiveName is "Выдуманный персонаж" or "AdminPlayerType"))
+            .ToList();
+
+        return eligibleTargets.Count >= 3 && eligibleTargets.All(target =>
+            player.Predict.Any(prediction =>
+                prediction.PlayerId == target.GetPlayerId()
+                && string.Equals(prediction.CharacterName, target.GameCharacter.Name,
+                    StringComparison.OrdinalIgnoreCase)));
     }
 }

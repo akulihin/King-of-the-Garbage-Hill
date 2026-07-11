@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useGameStore } from './store/game'
 import LoginProcess from 'src/components/Login/LoginProcess.vue'
 import LoginSuccess from 'src/components/Login/LoginSuccess.vue'
+import AchievementPopup from 'src/components/AchievementPopup.vue'
 import { installGlobalButtonSound } from 'src/services/sound'
 import { currentLocale, setLocale, type AppLocale } from './i18n'
 
 const store = useGameStore()
+const route = useRoute()
+const showRecoveredAchievementCelebration = computed(() =>
+  store.isAuthenticated && store.newlyUnlockedAchievements.length > 0 && route.name !== 'game',
+)
 
 const showLogin = ref(true)
 const loginSuccess = ref(false)
@@ -87,16 +93,11 @@ function handleContinue() {
   showLogin.value = false
 }
 
-function handleLogout() {
-  localStorage.removeItem('discordId')
-  localStorage.removeItem('kotgh_web_id')
-  localStorage.removeItem('kotgh_web_username')
-  showLogin.value = true
+async function handleLogout() {
   loginSuccess.value = false
-  store.discordId = ''
-  store.isAuthenticated = false
-  store.isWebAccount = false
-  store.webUsername = ''
+  loggedInUsername.value = ''
+  await store.logout()
+  showLogin.value = true
 }
 
 async function changeLocale(language: AppLocale) {
@@ -108,8 +109,18 @@ async function changeLocale(language: AppLocale) {
 <template>
   <div class="app">
     <div class="language-switcher" role="group" aria-label="Language / Язык">
-      <button :class="{ active: currentLocale === 'ru' }" @click="changeLocale('ru')">RU</button>
-      <button :class="{ active: currentLocale === 'en' }" @click="changeLocale('en')">EN</button>
+      <button
+        :class="{ active: currentLocale === 'ru' }"
+        :aria-pressed="currentLocale === 'ru'"
+        title="Русский"
+        @click="changeLocale('ru')"
+      >RU</button>
+      <button
+        :class="{ active: currentLocale === 'en' }"
+        :aria-pressed="currentLocale === 'en'"
+        title="English"
+        @click="changeLocale('en')"
+      >ENG</button>
     </div>
     <!-- Login screen (designer's layout) -->
     <div v-if="showLogin && !store.isAuthenticated" class="logins">
@@ -136,13 +147,14 @@ async function changeLocale(language: AppLocale) {
         <div class="top-bar-left">
           <img class="logo-icon" src="https://r2.ozvmusic.com/kotgh/art/avatars/game_v2.png" alt="KOTGH" />
           <RouterLink to="/" class="logo-text">KOTGH</RouterLink>
-
-          <nav class="top-nav">
-            <RouterLink to="/games">Lobby</RouterLink>
-            <RouterLink to="/battleship">Морской Бой - minigame</RouterLink>
-            <RouterLink to="/home">Home</RouterLink>
-          </nav>
         </div>
+
+        <nav class="top-nav" aria-label="Primary navigation / Основная навигация">
+          <RouterLink to="/games">Lobby</RouterLink>
+          <RouterLink to="/battleship">Морской Бой - minigame</RouterLink>
+          <RouterLink to="/home">Home</RouterLink>
+          <RouterLink to="/achievements">{{ currentLocale === 'ru' ? 'Достижения' : 'Achievements' }}</RouterLink>
+        </nav>
 
         <div class="top-bar-right">
           <span
@@ -174,6 +186,12 @@ async function changeLocale(language: AppLocale) {
       <main class="main-content">
         <RouterView />
       </main>
+
+      <AchievementPopup
+        v-if="showRecoveredAchievementCelebration"
+        :achievements="store.newlyUnlockedAchievements"
+        @dismiss="store.dismissAchievements()"
+      />
     </template>
   </div>
 </template>
@@ -276,6 +294,16 @@ async function changeLocale(language: AppLocale) {
 .language-switcher button.active {
   color: var(--bg-primary);
   background: var(--accent-gold);
+}
+
+.language-switcher button:hover:not(.active) {
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+}
+
+.language-switcher button:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: -2px;
 }
 
 html[lang='ru'] .story-en,
@@ -408,6 +436,7 @@ html[lang='en'] .story-ru {
 .top-bar-left {
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 0.75rem;
 }
 
@@ -423,12 +452,20 @@ html[lang='en'] .story-ru {
 }
 
 .top-nav {
+  min-width: 0;
   display: flex;
+  overflow-x: auto;
   gap: 2px;
   margin-left: 1rem;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
+.top-nav::-webkit-scrollbar { display: none; }
+
 .top-nav a {
+  flex: 0 0 auto;
   padding: 0.375rem 0.75rem;
   color: var(--text-muted);
   text-decoration: none;
@@ -436,6 +473,7 @@ html[lang='en'] .story-ru {
   font-weight: 600;
   border-radius: var(--radius);
   transition: all 0.15s;
+  white-space: nowrap;
 }
 
 .top-nav a:hover {
@@ -451,7 +489,10 @@ html[lang='en'] .story-ru {
 .top-bar-right {
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 0.75rem;
+  margin-left: auto;
+  margin-right: 78px;
 }
 
 .connection-dot {
@@ -471,9 +512,13 @@ html[lang='en'] .story-ru {
 }
 
 .user-info {
+  max-width: 160px;
+  overflow: hidden;
   color: var(--text-muted);
   font-size: 0.8rem;
   font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .top-btn {
@@ -679,11 +724,33 @@ html[lang='en'] .story-ru {
     padding: 0.5rem;
   }
   .top-bar {
-    height: 40px;
-    padding: 0 0.5rem;
+    height: auto;
+    min-height: 40px;
+    flex-wrap: wrap;
+    padding: 4px 0.5rem 3px;
+  }
+  .top-bar-left {
+    min-width: 0;
+  }
+  .top-nav {
+    order: 3;
+    width: 100%;
+    flex: 1 0 100%;
+    overflow-x: auto;
+    margin: 2px 0 0;
+    padding-bottom: 1px;
+    scrollbar-width: none;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .top-nav::-webkit-scrollbar {
+    display: none;
   }
   .top-nav a {
-    padding: 0.25rem 0.5rem;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.65rem;
     font-size: 0.75rem;
   }
   .logo-text {
@@ -694,6 +761,9 @@ html[lang='en'] .story-ru {
   }
   .theme-select {
     display: none;
+  }
+  .top-bar-right {
+    margin-right: 78px;
   }
   .card {
     padding: 0.625rem;
@@ -713,10 +783,10 @@ html[lang='en'] .story-ru {
     padding: 0.375rem;
   }
   .top-bar {
-    height: 36px;
+    height: auto;
   }
   .top-nav {
-    margin-left: 0.5rem;
+    margin-left: 0;
     gap: 0;
   }
   .top-nav a {

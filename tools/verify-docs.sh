@@ -35,7 +35,7 @@ resolve() {
       echo "$B/Game/GameLogic/$1";;
     GameReactions.cs|StoreReactions.cs|LoreReactions.cs|TutorialReactions.cs)
       echo "$B/Game/ReactionHandling/$1";;
-    CharacterClass.cs|InGameStatusClass.cs|GamePlayerBridgeClass.cs|PassivesClass.cs|GameClass.cs|DiscordAccountClass.cs|InGameDiscordStatus.cs)
+    CharacterClass.cs|InGameStatusClass.cs|GamePlayerBridgeClass.cs|PassivesClass.cs|GameClass.cs|DiscordAccountClass.cs|InGameDiscordStatus.cs|AchievementClass.cs|QuestClass.cs)
       echo "$B/Game/Classes/$1";;
     SecureRandom.cs|ClaudeHaikuService.cs|HelperFunctions.cs|GameLocalization.cs) echo "$B/Helpers/$1";;
     SimulationRunner.cs|BotGameFactory.cs|SimReport.cs) echo "$B/Game/Simulation/$1";;
@@ -60,11 +60,12 @@ resolve() {
     router.ts|main.ts|App.vue|i18n.ts) echo "$V/$1";;
     vite.config.ts) echo "Web/VueClient/$1";;
     useTip.ts|useVfx.ts) echo "$V/composables/$1";;
-    Game.vue|Lobby.vue|Spectate.vue|Replay.vue|Widget.vue|Home.vue|BattleshipLobby.vue|BattleshipGame.vue|BattleshipSpectate.vue)
+    Game.vue|Lobby.vue|Spectate.vue|Replay.vue|Widget.vue|Home.vue|Achievements.vue|BattleshipLobby.vue|BattleshipGame.vue|BattleshipSpectate.vue)
       echo "$V/pages/$1";;
     LoginProcess.vue|LoginSuccess.vue) echo "$V/components/Login/$1";;
     PlayerCard.vue|SkillsPanel.vue|Leaderboard.vue|FightAnimation.vue|DeathNote.vue|RoundTimer.vue|MediaMessages.vue|BattleLog.vue|ActionPanel.vue|AchievementBoard.vue|AchievementPopup.vue|LootBox.vue|ScoreOdometer.vue)
       echo "$V/components/$1";;
+    AchievementIcon.vue) echo "$V/components/achievements/$1";;
     FortressOfDoom.vue) echo "$V/components/Home/$1";;
     *.cs) f=$(find $B/Game/Characters -name "$1" 2>/dev/null | head -1); echo "$f";;
     *) echo "";;
@@ -82,7 +83,7 @@ DRIFTS=$(mktemp)
 trap 'rm -f "$DRIFTS"' EXIT
 export LC_ALL=C
 declare -A LINECOUNT   # file → wc -l cache (biggest win: avoid re-stat'ing the same file per anchor)
-for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDIT-FINDINGS.md docs/BALANCE-CONSTANTS.md docs/INTERACTION-MATRIX.md docs/WEB-BACKEND.md docs/WEB-CLIENT.md docs/DISCORD-INTERFACE.md docs/LOCALIZATION.md; do
+for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDIT-FINDINGS.md docs/BALANCE-CONSTANTS.md docs/INTERACTION-MATRIX.md docs/WEB-BACKEND.md docs/WEB-CLIENT.md docs/DISCORD-INTERFACE.md docs/LOCALIZATION.md docs/ACHIEVEMENTS.md; do
   [ -f "$doc" ] || continue
   # Group all anchors per citing doc line so drift is judged against their COMBINED context
   while IFS='|' read -r docline anchors; do

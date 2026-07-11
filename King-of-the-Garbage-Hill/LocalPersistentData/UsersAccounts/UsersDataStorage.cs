@@ -30,7 +30,7 @@ public sealed class UserAccountsDataStorage : IServiceSingleton
         var filePath = $@"DataBase/UserAccounts/discordAccount-{idString}.json";
         try
         {
-            File.WriteAllText(filePath, json);
+            WriteJsonAtomically(filePath, json);
         }
         catch (Exception exception)
         {
@@ -46,7 +46,7 @@ public sealed class UserAccountsDataStorage : IServiceSingleton
         try
         {
             var json = JsonConvert.SerializeObject(accounts, Formatting.Indented);
-            File.WriteAllText(filePath, json);
+            WriteJsonAtomically(filePath, json);
         }
         catch (Exception exception)
         {
@@ -55,16 +55,42 @@ public sealed class UserAccountsDataStorage : IServiceSingleton
         }
     }
 
+    private static void WriteJsonAtomically(string filePath, string json)
+    {
+        var directory = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrWhiteSpace(directory))
+            Directory.CreateDirectory(directory);
+
+        var tempPath = Path.Combine(
+            directory ?? ".",
+            $".{Path.GetFileName(filePath)}.{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            File.WriteAllText(tempPath, json);
+            File.Move(tempPath, filePath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+                File.Delete(tempPath);
+        }
+    }
+
 
     public ConcurrentDictionary<ulong, DiscordAccountClass> LoadAllAccounts()
     {
         var dick = new ConcurrentDictionary<ulong, DiscordAccountClass>();
-        var filePaths = Directory.GetFiles(@"DataBase/UserAccounts");
+        var filePaths = Directory.GetFiles(@"DataBase/UserAccounts", "discordAccount-*.json");
 
         foreach (var file in filePaths)
         {
-            var id = Convert.ToUInt64(file.Split("-")[1].Split(".")[0]);
-            if (id == 0) continue;
+            const string prefix = "discordAccount-";
+            var fileName = Path.GetFileNameWithoutExtension(file);
+            if (!fileName.StartsWith(prefix, StringComparison.Ordinal)
+                || !ulong.TryParse(fileName.AsSpan(prefix.Length), out var id)
+                || id == 0)
+                continue;
 
             var json = File.ReadAllText(file);
 
@@ -79,7 +105,7 @@ public sealed class UserAccountsDataStorage : IServiceSingleton
                 _logs.Critical(exception.Message);
                 _logs.Critical(exception.StackTrace);
 
-                var newList = new DiscordAccountClass();
+                var newList = new DiscordAccountClass { DiscordId = id };
                 SaveAccountSettings(newList, $"{id}-BACK_UP", json);
                 dick.GetOrAdd(id, _ => newList);
             }

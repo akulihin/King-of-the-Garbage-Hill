@@ -643,44 +643,18 @@ public class CheckIfReady : IServiceSingleton
             await _gameUpdateMess.UpdateMessage(player);
 
             var account = _accounts.GetAccount(player.DiscordId);
-            account.IsPlaying = false;
             player.GameId = 1000000;
-
-
-            account.TotalPlays++;
-            if (account.TotalPlays > 10) account.IsNewPlayer = false;
 
             // D3: Sakura's "Одна из трех" top-3 win pays FIRST-PLACE stats & rewards while her real place stands
             // (place/MatchHistory stay by fact; TotalWins/mastery/ZBS/lootbox/character-Wins count as 1st).
             var sakuraSoftWin = top3Player != null && player.GetPlayerId() == top3Player.GetPlayerId();
             var rewardPlace = sakuraSoftWin ? 1 : player.Status.GetPlaceAtLeaderBoard();
 
-            account.TotalWins += rewardPlace == 1 ? 1 : (ulong)0;
-            account.MatchHistory.Add(new DiscordAccountClass.MatchHistoryClass(player.GameCharacter.Name,
-                player.Status.GetScore(), player.Status.GetPlaceAtLeaderBoard()));
-
             // Character mastery points
             var masteryPointsToAdd = rewardPlace switch
             {
                 1 => 10, 2 => 7, 3 => 5, 4 => 3, 5 => 2, 6 => 1, _ => 0
             };
-            if (!player.Passives.IsDead)
-                account.CharacterMastery[player.GameCharacter.Name] =
-                    account.CharacterMastery.GetValueOrDefault(player.GameCharacter.Name, 0) + masteryPointsToAdd;
-
-            if (player.GameCharacter.Name == DoomGuy.CharacterName)
-            {
-                var moduleReward = DoomGuy.TryAwardModule(account, player.Status.GetPlaceAtLeaderBoard());
-                if (moduleReward.Awarded)
-                {
-                    var rewardText = $"Fortress of Doom: получен модуль {moduleReward.Stage} — {moduleReward.ModuleName}!";
-                    player.WebMessages.Add(rewardText);
-                    player.Status.AddInGamePersonalLogs(rewardText + "\n");
-                    if (!player.IsBot() && !player.IsWebPlayer && !player.PreferWeb
-                                        && player.DiscordStatus.SocketGameMessage?.Channel != null)
-                        await player.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync(rewardText);
-                }
-            }
 
             /*
             account.ZbsPoints += (player.Status.GetPlaceAtLeaderBoard() - 6) * -1 + 1;
@@ -723,66 +697,98 @@ public class CheckIfReady : IServiceSingleton
 
             if (player.Passives.IsDead) zbsPointsToGive = 0;
 
-            account.ZbsPoints += zbsPointsToGive;
-
-            // Quest progress tracking
-            QuestService.TrackGameEnd(account, player, game);
-
-            // Loot box for top 2 (alive players only) — deferred to lobby
-            if (rewardPlace <= 2 && !player.Passives.IsDead)
-            {
-                account.PendingLootBoxes++;
-            }
-
-            // Achievement tracking
-            // Clear previous newly-unlocked list so only this game's achievements show
-            account.Achievements ??= new AchievementData();
-            account.Achievements.NewlyUnlocked.Clear();
-            // Set final state before evaluation
             var tracker = player.Passives.AchievementTracker;
             tracker.FinishedWithZeroPsyche = player.GameCharacter.GetPsyche() <= 0;
             tracker.FinishedWithMaxPsyche = player.GameCharacter.GetPsyche() >= 10;
-            AchievementService.TrackGameEnd(account, player, game);
-            player.Passives.AchievementDataRef = account.Achievements;
+            DoomGuy.ModuleRewardResult moduleReward = null;
 
-            // Pity system: increment counters for tiers not played this game
-            foreach (var tier in new[] { 1, 2, 3, 4, 5, 6 })
+            // OpenLootBox, achievement/quest requests and periodic persistence use this same
+            // account monitor. Keep the complete match settlement atomic, then persist it before
+            // publishing the final web state so rewards cannot be lost on a restart.
+            lock (account)
             {
-                if (tier != player.GameCharacter.Tier)
-                    account.TierPity[tier] = account.TierPity.GetValueOrDefault(tier, 0) + 1;
+                account.IsPlaying = false;
+                account.TotalPlays++;
+                if (account.TotalPlays > 10) account.IsNewPlayer = false;
+
+                account.TotalWins += rewardPlace == 1 ? 1 : (ulong)0;
+                account.MatchHistory.Add(new DiscordAccountClass.MatchHistoryClass(player.GameCharacter.Name,
+                    player.Status.GetScore(), player.Status.GetPlaceAtLeaderBoard()));
+
+                if (!player.Passives.IsDead)
+                    account.CharacterMastery[player.GameCharacter.Name] =
+                        account.CharacterMastery.GetValueOrDefault(player.GameCharacter.Name, 0) + masteryPointsToAdd;
+
+                if (player.GameCharacter.Name == DoomGuy.CharacterName)
+                    moduleReward = DoomGuy.TryAwardModule(account, player.Status.GetPlaceAtLeaderBoard());
+
+                account.ZbsPoints += zbsPointsToGive;
+
+                // Quest progress tracking
+                QuestService.TrackGameEnd(account, player, game);
+
+                // Loot box for top 2 (alive players only) — deferred to lobby
+                if (rewardPlace <= 2 && !player.Passives.IsDead)
+                    account.PendingLootBoxes++;
+
+                // Achievement tracking (SetBestProgress re-enters this monitor).
+                account.Achievements ??= new AchievementData();
+                AchievementService.TrackGameEnd(account, player, game, rewardPlace);
+                player.Passives.AchievementDataRef = account.Achievements;
+
+                // Pity system: increment counters for tiers not played this game
+                foreach (var tier in new[] { 1, 2, 3, 4, 5, 6 })
+                {
+                    if (tier != player.GameCharacter.Tier)
+                        account.TierPity[tier] = account.TierPity.GetValueOrDefault(tier, 0) + 1;
+                }
+
+                var characterStatistics =
+                    account.CharacterStatistics.Find(x =>
+                        x.CharacterName == player.GameCharacter.Name);
+
+                if (characterStatistics == null)
+                {
+                    var newStat = new DiscordAccountClass.CharacterStatisticsClass(player.GameCharacter.Name,
+                        rewardPlace == 1 ? 1 : (ulong)0);
+                    newStat.LastPlayedAt = DateTime.UtcNow;
+                    account.CharacterStatistics.Add(newStat);
+                }
+                else
+                {
+                    characterStatistics.Plays++;
+                    characterStatistics.Wins += rewardPlace == 1 ? 1 : (ulong)0;
+                    characterStatistics.LastPlayedAt = DateTime.UtcNow;
+                }
+
+                var performanceStatistics =
+                    account.PerformanceStatistics.Find(x =>
+                        x.Place == player.Status.GetPlaceAtLeaderBoard());
+
+                if (performanceStatistics == null)
+                    account.PerformanceStatistics.Add(
+                        new DiscordAccountClass.PerformanceStatisticsClass(player.Status.GetPlaceAtLeaderBoard()));
+                else
+                    performanceStatistics.Times++;
             }
 
-            var characterStatistics =
-                account.CharacterStatistics.Find(x =>
-                    x.CharacterName == player.GameCharacter.Name);
+            // Bot accounts are disposable simulation/runtime state; real account rewards are durable now.
+            if (!account.IsBot())
+                _accounts.SaveAccount(account);
 
-            if (characterStatistics == null)
+            if (moduleReward?.Awarded == true)
             {
-                var newStat = new DiscordAccountClass.CharacterStatisticsClass(player.GameCharacter.Name,
-                    rewardPlace == 1 ? 1 : (ulong)0);
-                newStat.LastPlayedAt = DateTime.UtcNow;
-                account.CharacterStatistics.Add(newStat);
-            }
-            else
-            {
-                characterStatistics.Plays++;
-                characterStatistics.Wins += rewardPlace == 1 ? 1 : (ulong)0;
-                characterStatistics.LastPlayedAt = DateTime.UtcNow;
+                var rewardText = $"Fortress of Doom: получен модуль {moduleReward.Stage} — {moduleReward.ModuleName}!";
+                player.WebMessages.Add(rewardText);
+                player.Status.AddInGamePersonalLogs(rewardText + "\n");
+                if (!player.IsBot() && !player.IsWebPlayer && !player.PreferWeb
+                                    && player.DiscordStatus.SocketGameMessage?.Channel != null)
+                    await player.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync(rewardText);
             }
 
             // Fire-and-forget: update Discord widget for authorized users.
             // Service silently no-ops if WidgetAuthorized is false (e.g. bots, unauthorized users).
             _ = _widgetService.SyncAsync(account.DiscordId);
-
-            var performanceStatistics =
-                account.PerformanceStatistics.Find(x =>
-                    x.Place == player.Status.GetPlaceAtLeaderBoard());
-
-            if (performanceStatistics == null)
-                account.PerformanceStatistics.Add(
-                    new DiscordAccountClass.PerformanceStatisticsClass(player.Status.GetPlaceAtLeaderBoard()));
-            else
-                performanceStatistics.Times++;
             try
             {
                 if (!player.IsBot() && !player.IsWebPlayer && !player.PreferWeb)
@@ -1394,8 +1400,11 @@ public class CheckIfReady : IServiceSingleton
                     {
                         predictor.Status.WhoToAttackThisTurn.Add(madara.GetPlayerId());
                         if (predictor.GameCharacter.Name == "Итачи")
+                        {
+                            predictor.Passives.AchievementTracker.ItachiMadaraCloneAttackGranted = true;
                             game.Phrases.MadaraItachiPrediction.SendLog(
                                 predictor, false, isRandomOrder: false);
+                        }
                     }
 
                     Madara.SetUnableToAct(madara);

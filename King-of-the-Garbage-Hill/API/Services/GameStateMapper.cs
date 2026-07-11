@@ -177,22 +177,31 @@ public static class GameStateMapper
             var achData = requestingPlayer.Passives?.AchievementDataRef;
             if (achData?.NewlyUnlocked != null && achData.NewlyUnlocked.Count > 0)
             {
-                foreach (var achId in achData.NewlyUnlocked)
+                foreach (var achId in achData.NewlyUnlocked.Distinct(StringComparer.Ordinal))
                 {
                     var def = AchievementService.GetDefinition(achId);
                     if (def == null) continue;
+                    var progress = achData.Progress?.Find(x => x.AchievementId == achId);
                     dto.NewlyUnlockedAchievements.Add(new AchievementEntryDto
                     {
                         Id = def.Id,
                         Name = def.Name,
+                        NameRu = def.NameRu,
                         Description = def.Description,
+                        DescriptionRu = def.DescriptionRu,
+                        SecretHint = def.SecretHint,
+                        SecretHintRu = def.SecretHintRu,
                         Category = def.Category.ToString(),
                         IsSecret = def.IsSecret,
                         Icon = def.Icon,
                         Rarity = def.Rarity,
+                        CharacterNames = def.CharacterNames?.ToList() ?? new List<string>(),
+                        RewardZbs = def.RewardZbs,
+                        RewardLootBoxes = def.RewardLootBoxes,
                         Target = def.Target,
                         Current = def.Target,
                         IsUnlocked = true,
+                        UnlockedAt = progress?.UnlockedAt?.ToString("o"),
                     });
                 }
             }

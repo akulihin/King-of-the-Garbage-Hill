@@ -1479,7 +1479,7 @@ const charTint = computed(() => {
 
         <!-- Achievement unlock popup -->
         <AchievementPopup
-          v-if="store.newlyUnlockedAchievements.length > 0 && store.gameState.isFinished"
+          v-if="store.newlyUnlockedAchievements.length > 0 && store.gameState.isFinished && !showGameOverOverlay"
           :achievements="store.newlyUnlockedAchievements"
           @dismiss="store.dismissAchievements()"
         />

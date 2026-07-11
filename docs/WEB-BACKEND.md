@@ -35,7 +35,7 @@ IDs travel as **strings** over SignalR because Discord snowflakes exceed JS safe
 
 `PlayerType` semantics: 0 Normal, 1 Casual, 2 Admin, 404 Bot (comment at `UserAccounts.cs:138`). Admin unlocks raw logs, full fight math, unmasked opponents (§7) and `CreateTestGame` (`GameHub.cs:510-535`).
 
-**Persistence**: accounts live in a `ConcurrentDictionary` (`UserAccounts.cs:17`) loaded at construction and flushed to flat JSON every 60 s by timer (`UserAccounts.cs:49-59`); `IsPlaying` is force-reset for everyone at startup (`ClearPlayingStatus`, `UserAccounts.cs:61-65`).
+**Persistence**: accounts live in a `ConcurrentDictionary` (`UserAccounts.cs:17`) loaded at construction; `IsPlaying` is force-reset for everyone at startup (`ClearPlayingStatus`, `UserAccounts.cs:61-65`). The guarded 60 s fallback flush and reward-critical writes both route through `SaveAccount`, which locks the account across serialization/write (`UserAccounts.cs:113-139`). Storage writes a unique same-directory temporary file then atomically replaces the canonical file; startup loads only `discordAccount-{numericId}.json`, ignoring temporary/backup artifacts (`UsersDataStorage.cs:28-76,81-110`).
 
 ## 3. REST endpoints (api/game, api/widget)
 
@@ -65,9 +65,9 @@ Request DTOs: `GameStateDto.cs:271-292`. `WidgetController` has the single endpo
 
 ## 4. SignalR hub `/gamehub` — client-callable methods
 
-`GameHub` (`GameHub.cs:20`). Connection life-cycle: `OnConnectedAsync` logs only (`GameHub.cs:41-45`); `OnDisconnectedAsync` unregisters the connection (`GameHub.cs:47-55`). Rooms: SignalR group `game-{gameId}` joined in `JoinGame` (`GameHub.cs:99-105`), battleship group `bs-{gameId}` (`GameHub.cs:982-993`). Connection→player and connection→game maps live in GameNotificationService, not the hub (`GameNotificationService.cs:32-35`).
+`GameHub` (`GameHub.cs:20`). Connection life-cycle: `OnConnectedAsync` logs only (`GameHub.cs:41-45`); `OnDisconnectedAsync` unregisters the connection (`GameHub.cs:47-55`). Rooms: SignalR group `game-{gameId}` joined in `JoinGame` (`GameHub.cs:99-105`), battleship group `bs-{gameId}` (`GameHub.cs:999-1079`). Connection→player and connection→game maps live in GameNotificationService, not the hub (`GameNotificationService.cs:32-35`).
 
-Every game-action method starts with `GetDiscordId()` (`GameHub.cs:1314-1319`) and replies event `Error` = "Not authenticated. Call Authenticate first." if unset (`SendNotAuthenticated`, `GameHub.cs:1321-1324`). Action methods reply `ActionResult {action, success, error}` and then push fresh personal state via `PushStateToPlayer` (`GameHub.cs:1326-1335`) — on success only, **except `Attack` which pushes unconditionally** (`GameHub.cs:228-235`).
+Every game-action method starts with `GetDiscordId()` (`GameHub.cs:1461-1466`) and replies event `Error` = "Not authenticated. Call Authenticate first." if unset (`SendNotAuthenticated`, `GameHub.cs:1468-1470`). Action methods reply `ActionResult {action, success, error}` and then push fresh personal state via `PushStateToPlayer` (`GameHub.cs:1473-1481`) — on success only, **except `Attack` which pushes unconditionally** (`GameHub.cs:228-235`).
 
 **Session / lobby / rooms:**
 
@@ -83,44 +83,46 @@ Every game-action method starts with `GetDiscordId()` (`GameHub.cs:1314-1319`) a
 | `GetCharacterList()` | replies `CharacterList` (name/avatar/tier of rollable characters) | `GameHub.cs:501-505` |
 | `FinishGame(gameId)` | leave mid-game → replaced by bot via `EndGame` (`WebGameService.cs:900-908`) | `GameHub.cs:543-550` |
 | `SetPreferWeb(gameId, preferWeb)` | sets `player.PreferWeb` directly — suppresses the player's Discord DMs (see DISCORD-INTERFACE.md §4) | `GameHub.cs:558-573` |
-| `RequestGameState(gameId)` | on-demand push (player-scoped, falls back to spectator) | `GameHub.cs:767-787` |
-| `RequestLobbyState()` | replies `LobbyState` | `GameHub.cs:789-793` |
+| `RequestGameState(gameId)` | on-demand push (player-scoped, falls back to spectator) | `GameHub.cs:848-868` |
+| `RequestLobbyState()` | replies `LobbyState` | `GameHub.cs:870-874` |
 
 **Core round actions** (all delegate to WebGameService, §8): `Attack(gameId, targetPlace)` `GameHub.cs:228-235`; `Block` `GameHub.cs:239-246`; `DoAutoMove` `GameHub.cs:250-257`; `ChangeMind` `GameHub.cs:261-268`; `ConfirmSkip` `GameHub.cs:272-279`; `ConfirmPredict` `GameHub.cs:283-290`; `LevelUp(gameId, statIndex)` `GameHub.cs:294-301`; `MoralToPoints` `GameHub.cs:305-312`; `MoralToSkill` `GameHub.cs:316-323`; `DemandContractReward(gameId, demandType)` (Geralt; demandType = previous|next) `GameHub.cs:327-334`; `Predict(gameId, targetPlayerId, characterName)` `GameHub.cs:338-345`; `AramReroll(gameId, slot)` `GameHub.cs:349-356`; `AramConfirm` `GameHub.cs:360-367`; `DraftSelect(gameId, characterName)` `GameHub.cs:373-380`.
 
 **Character-specific actions:** `DarksciChoice(gameId, isStable)`; `YoungGleb(gameId)`; DooM Guy `DoomRoll(gameId)` / `DoomChainsaw(gameId, passiveName)` (`GameHub.cs:386-423`); `DopaChoice(gameId, tactic)`; `DeathNoteWrite(gameId, targetPlayerId, characterName)` (Kira); `ShinigamiEyes(gameId)`; Salldorum's `ActivateShen(gameId, position)`, `DeactivateShen(gameId)`, `RewriteHistory(gameId, roundNumber)` (`GameHub.cs:426-492`).
 
-**Meta (account-level, no game):** DooM Guy `RequestDoomFortress()` → `DoomFortressState` and `EquipDoomModule(stage, slotIndex, moduleName)` → validates category, ownership and 0–3 slot, then swaps/sets without permitting a user-created empty slot (`GameHub.cs:578-644`); `RequestQuests()` → `QuestState`; `OpenLootBox()` → decrements `PendingLootBoxes`, rolls loot, replies `LootBoxOpened`; `RequestAchievements()` → full board with secret achievements masked as `"???"` until unlocked; `ClearNewAchievements()` (`GameHub.cs:646-763`).
+**Meta (account-level, no game):** DooM Guy `RequestDoomFortress()` → `DoomFortressState` and `EquipDoomModule(stage, slotIndex, moduleName)` → validates category, ownership and 0–3 slot, then swaps/sets without permitting a user-created empty slot (`GameHub.cs:578-646`). `RequestQuests()` snapshots quests/ZBS/box inventory, Rare+ pity, base odds and any resumable opening → `QuestState` (`GameHub.cs:649-694`). `OpenLootBox()` atomically resumes an unacknowledged result or consumes/credits exactly one box, persists it, then emits `LootBoxOpened`; `AcknowledgeLootBox(openingId)` persists acknowledgement of only the matching current result (`GameHub.cs:696-741`). `RequestAchievements()` snapshots the 33-entry board, progress, queue and current-catalog reward totals; locked secret names/descriptions/characters and semantic IDs are masked. `AcknowledgeAchievements(achievementIds)` removes only supplied live queued IDs and persists; `ClearNewAchievements()` is the legacy clear-all path (`GameHub.cs:743-844`). Full semantics: [ACHIEVEMENTS.md](ACHIEVEMENTS.md).
 
-**Blackjack (dead-player mini-game, §10):** `BlackjackJoin` `GameHub.cs:797-813`; `BlackjackHit` `GameHub.cs:815-828`; `BlackjackStand` `GameHub.cs:830-843`; `BlackjackNewRound` `GameHub.cs:845-858`; `BlackjackSendMessage(gameId, words[])` `GameHub.cs:860-878` — the composed message is injected into the **main game's global logs** as `[Шинигами] {author}: "{message}"` and broadcast (`InjectGlobalLogMessage`, `GameHub.cs:898-916`). State pushes are personalized per seated player (`PushBlackjackState`, `GameHub.cs:880-896`).
+**Blackjack (dead-player mini-game, §10):** `BlackjackJoin` `GameHub.cs:878-894`; `BlackjackHit` `GameHub.cs:896-909`; `BlackjackStand` `GameHub.cs:911-924`; `BlackjackNewRound` `GameHub.cs:926-939`; `BlackjackSendMessage(gameId, words[])` `GameHub.cs:941-958` — the composed message is injected into the **main game's global logs** as `[Шинигами] {author}: "{message}"` and broadcast (`InjectGlobalLogMessage`, `GameHub.cs:979-995`). State pushes are personalized per seated player (`PushBlackjackState`, `GameHub.cs:961-977`).
 
-**Battleship (standalone mini-game, §10):** `RequestBattleshipLobby` `GameHub.cs:918-922`; `CreateBattleshipGame` `GameHub.cs:924-944`; `JoinBattleshipWebGame` `GameHub.cs:946-964`; `LeaveBattleshipWebGame` `GameHub.cs:966-980`; `JoinBattleshipGame` (room + state, spectator-capable) `GameHub.cs:982-994`; `LeaveBattleshipGame` `GameHub.cs:996-999`; `BattleshipConfirmReady` `GameHub.cs:1001-1014`; `BattleshipSelectArmy(gameId, faction)` `GameHub.cs:1016-1029`; `BattleshipSelectFleet(gameId, selections)` `GameHub.cs:1031-1052`; `BattleshipPlaceShip(gameId, shipId, row, col, orientation)` `GameHub.cs:1054-1067`; `BattleshipRemoveShip` `GameHub.cs:1069-1082`; `BattleshipConfirmPlacement` `GameHub.cs:1084-1097`; `BattleshipShoot(gameId, row, col)` `GameHub.cs:1099-1132`; `BattleshipShootOwnBoard` `GameHub.cs:1134-1166`; `BattleshipSelectWeapon(gameId, weaponType, shotType)` `GameHub.cs:1168-1175`; `BattleshipDeploySummon(gameId, summonType, col)` `GameHub.cs:1177-1190`; `BattleshipDeployPendingSummon` `GameHub.cs:1192-1205`; `BattleshipManualMove(gameId, shipId, direction, distance)` `GameHub.cs:1207-1220`; `BattleshipSetCursedBoatDirection` `GameHub.cs:1222-1235`; `BattleshipForfeit` `GameHub.cs:1237-1250`; `RequestBattleshipState` `GameHub.cs:1252-1262`; `RequestShipCatalog` `GameHub.cs:1264-1268`. Note battleship game IDs are **strings**. Pushes: personalized to both players + spectator DTO to the room minus players (`PushBattleshipStateToAll`, `GameHub.cs:1270-1310`).
+**Battleship (standalone mini-game, §10):** `RequestBattleshipLobby` `GameHub.cs:999-1003`; `CreateBattleshipGame` `GameHub.cs:1005-1025`; `JoinBattleshipWebGame` `GameHub.cs:1027-1045`; `LeaveBattleshipWebGame` `GameHub.cs:1047-1061`; `JoinBattleshipGame` (room + state, spectator-capable) `GameHub.cs:1063-1075`; `LeaveBattleshipGame` `GameHub.cs:1077-1080`; `BattleshipConfirmReady` `GameHub.cs:1082-1095`; `BattleshipSelectArmy(gameId, faction)` `GameHub.cs:1097-1110`; `BattleshipSelectFleet(gameId, selections)` `GameHub.cs:1112-1133`; `BattleshipPlaceShip(gameId, shipId, row, col, orientation)` `GameHub.cs:1135-1148`; `BattleshipRemoveShip` `GameHub.cs:1150-1163`; `BattleshipConfirmPlacement` `GameHub.cs:1165-1178`; `BattleshipShoot(gameId, row, col)` `GameHub.cs:1180-1213`; `BattleshipShootOwnBoard` `GameHub.cs:1215-1247`; `BattleshipSelectWeapon(gameId, weaponType, shotType)` `GameHub.cs:1249-1256`; `BattleshipDeploySummon(gameId, summonType, col)` `GameHub.cs:1258-1271`; `BattleshipDeployPendingSummon` `GameHub.cs:1273-1286`; `BattleshipManualMove(gameId, shipId, direction, distance)` `GameHub.cs:1288-1301`; `BattleshipSetCursedBoatDirection` `GameHub.cs:1303-1316`; `BattleshipForfeit` `GameHub.cs:1318-1331`; `RequestBattleshipState` `GameHub.cs:1333-1343`; `RequestShipCatalog` `GameHub.cs:1345-1349`. Note battleship game IDs are **strings**. Pushes: personalized to both players + spectator DTO to the room minus players (`PushBattleshipStateToAll`, `GameHub.cs:1351-1391`).
 
 ## 5. Server→client events
 
 | Event | Payload | Emitted when | Anchor |
 |---|---|---|---|
-| `Authenticated` | success, discordId (string), playerType, lastPlayedCharacter | after `Authenticate` | `GameHub.cs:76` |
+| `Authenticated` | success, discordId (string), playerType, lastPlayedCharacter | after `Authenticate` | `GameHub.cs:66-81` |
 | `WebAccountCreated` | discordId (string), username | after `RegisterWebAccount` | `GameHub.cs:152-167` |
 | `GameCreated` / `GameJoined` | gameId | create/join | `GameHub.cs:194` `GameHub.cs:220` `GameHub.cs:535` |
-| `GameState` | full GameStateDto (§6, shape `GameStateDto.cs:8-58`) | on join/request, after each action (actor only), timer broadcast, finish | `GameHub.cs:113` `GameHub.cs:1326-1335` `GameNotificationService.cs:165-172` |
+| `GameState` | full GameStateDto (§6, shape `GameStateDto.cs:8-58`) | on join/request, after each action (actor only), timer broadcast, finish | `GameHub.cs:113` `GameHub.cs:1473-1481` `GameNotificationService.cs:165-172` |
 | `ActionResult` | action, success, error | after every hub action | e.g. `GameHub.cs:234` |
-| `Error` | string | invalid input / not authenticated / not found | `GameHub.cs:67` `GameHub.cs:1321-1324` |
-| `GameEvent` | envelope `{eventType, data}` | eventType `RoundChanged` on round flip (`GameNotificationService.cs:258-261`); `GameFinished` (`GameNotificationService.cs:83`); `GameStory` (`GameStoryService.cs:76-77`; re-sent on join, `GameHub.cs:134-137`); `BlackjackMessage` (`GameHub.cs:914`) | |
-| `LobbyState` | LobbyStateDto | on request | `GameHub.cs:789-792` |
-| `QuestState` / `LootBoxOpened` / `AchievementBoard` | quest / loot / achievement DTOs | on request/open | `GameHub.cs:646-676` `GameHub.cs:681-706` `GameHub.cs:711-752` |
+| `Error` | string | invalid input / not authenticated / not found | `GameHub.cs:66-71` `GameHub.cs:1468-1470` |
+| `GameEvent` | envelope `{eventType, data}` | eventType `RoundChanged` on round flip (`GameNotificationService.cs:258-261`); `GameFinished` (`GameNotificationService.cs:83`); `GameStory` (`GameStoryService.cs:76-77`; re-sent on join, `GameHub.cs:134-137`); `BlackjackMessage` (`GameHub.cs:979-995`) | |
+| `LobbyState` | LobbyStateDto | on request | `GameHub.cs:870-874` |
+| `QuestState` | quests, streak/ZBS/inventory, pity + `GuaranteedRareIn`, base odds, optional `LastUnacknowledgedLootBox` | on request | `GameHub.cs:649-694`; DTO `GameStateDto.cs:1032-1055` |
+| `LootBoxOpened` | immutable opening result: ID, rarity/ZBS, post-open balance/inventory/pity and pity-upgrade flag | new open or retry before acknowledgement | `GameHub.cs:698-724`; DTO `GameStateDto.cs:1057-1076` |
+| `AchievementBoard` | all live entries plus unlocked/catalog totals and unacknowledged live IDs | on request | `GameHub.cs:745-788`; DTO `GameStateDto.cs:1078-1112` |
 | `CharacterList` | name/avatar/tier list | on request | `GameHub.cs:501-504` |
 | `DoomFortressState` | four stages: slots, unlocked module definitions, remaining reward count/chance | request or successful equip | `GameHub.cs:578-644` |
 | `BlackjackState` | personalized table state | after any blackjack action | `GameHub.cs:880-896` |
-| `BattleshipLobby`, `BattleshipGameCreated`, `BattleshipGameJoined`, `BattleshipState`, `BattleshipEvent` (eventType `ShotResult`), `ShipCatalog` | battleship DTOs | battleship flow | `GameHub.cs:918-922` `GameHub.cs:924-944` `GameHub.cs:946-964` `GameHub.cs:982-994` `GameHub.cs:1099-1132` `GameHub.cs:1264-1268` |
+| `BattleshipLobby`, `BattleshipGameCreated`, `BattleshipGameJoined`, `BattleshipState`, `BattleshipEvent` (eventType `ShotResult`), `ShipCatalog` | battleship DTOs | battleship flow | `GameHub.cs:999-1043` `GameHub.cs:1063-1075` `GameHub.cs:1192-1196` `GameHub.cs:1345-1348` |
 
 ## 6. Push model — who sends `GameState` when
 
-1. **Per-action**: the hub pushes to the **acting player's connections only** right after each action (`PushStateToPlayer`, `GameHub.cs:1326-1335`).
+1. **Per-action**: the hub pushes to the **acting player's connections only** right after each action (`PushStateToPlayer`, `GameHub.cs:1473-1481`).
 2. **Timer**: GameNotificationService polls every 300 ms (`GameNotificationService.cs:97-103`) and broadcasts a game when the round number changed, elapsed time moved > 0.5 s, or any player's `IsReady` flipped (`PushUpdates`, `GameNotificationService.cs:218-269`; triggers at `GameNotificationService.cs:242-247`); a `RoundChanged` event accompanies round flips (`GameNotificationService.cs:258-261`). **Finished games are skipped by the timer** (`GameNotificationService.cs:236-240`) — their final state would race the lootbox/achievement stamping in the finish path.
 3. **On finish**: the game loop fires `OnGameFinished`, which does the final personalized broadcast, emits `GameFinished`, conditionally kicks off story generation, and drops snapshots/room tracking (kept while a Blackjack table is still open) (`GameNotificationService.cs:78-96`). An active Madara `Вечное Цукуеми` skips the shared story because it would reveal the real ending (`GameNotificationService.cs:82-88`).
 4. **Broadcast shape**: `BroadcastGameState` sends a **personalized DTO to every player with a web connection**, then one **spectator DTO** to the remaining connections in the room (`GameNotificationService.cs:178-208`). `SendGameStateToPlayer` is the single-player variant used by game logic (`GameNotificationService.cs:163-171`).
-5. Replay saving rides the same finish path: `OnReplaySave` builds + persists the replay and appends its hash to each human's `ReplayHashes` (`GameNotificationService.cs:50-67`). Activated `Вечное Цукуеми` games never invoke that shared callback (`CheckIfReady.cs:795-807`).
+5. Replay saving rides the same finish path: `OnReplaySave` builds + persists the replay and appends its hash to each human's `ReplayHashes` (`GameNotificationService.cs:50-67`). Activated `Вечное Цукуеми` games never invoke that shared callback (`CheckIfReady.cs:811-819`).
 
 ## 7. State mapping & hidden information (`GameStateMapper`)
 
@@ -138,7 +140,7 @@ Visibility rules (the exact reason the web can't leak hidden info):
 | `ScoreBreakdown` (multipliers + per-source entries) | isMe/admin/finished; the finished projection appends still-current entries created after the round snapshot, so final Mitsuki/Осьминожка debits are not lost | `GameStateMapper.cs:1095-1114` |
 | Predictions | owner always; **everyone at game end** with correctness + actual character/avatar; Madara's owner list is always empty | `GameStateMapper.cs:226-251` |
 | `DeathNote` / `PortalGun` / `ExploitState` / `TsukuyomiState`, Darksci/Gleb/Dopa choice flags | isMe-gated blocks on the player DTO | `GameStateMapper.cs:253-347` |
-| Баг viewer | sees `IsExploitable` / `IsExploitFixed` markers on every player | `GameStateMapper.cs:349-354` |
+| Баг viewer | sees `IsExploitable` / `IsExploitFixed` markers on every player | `GameStateMapper.cs:358-363` |
 | TheBoys viewer | marked enemy `PlayerDto`s alone receive `IsTheBoysSupTarget=true`; a marked target's own projection and spectators receive false, so Butcher's choice stays secret | `GameStateMapper.cs:356-358`; `GameStateDto.cs:100-113` |
 | Widget states (`PassiveAbilityStates`) | entire per-passive switch runs only for isMe; keyed on `PassiveName`; contains owner state only, no generic target-facing `…OnMe` fields | `GameStateMapper.cs:360-823`; DTO `GameStateDto.cs:562-603` |
 | DooM Guy state | owner-only widget contains active/options/nests/BFG/Chainsaw; Let's Roll viewers receive empty character catalogs so predictions cannot be reconstructed client-side | `GameStateMapper.cs:130-133,396-425` |
@@ -149,7 +151,8 @@ Visibility rules (the exact reason the web can't leak hidden info):
 | Global logs | admin raw; others get `StripHiddenLogs` (removes `HiddenGlobalLogSnippets`; additionally strips Kira-related snippets for viewers with passive "Гений") | `GameStateMapper.cs:119-126,1251-1273` |
 | Fight log | hidden-from-non-admin entries filtered out; non-participants get `ScopeFightEntry` — outcome/participants/drops kept, every numeric zeroed, `TotalPointsWon` reduced to sign | `GameStateMapper.cs:136-142,1182-1249` |
 | Full chronicle (Летопись) | built only when finished; usernames replaced by character names | `GameStateMapper.cs:167-171,1275-1327` |
-| Newly unlocked achievements | requesting player only, finished games | `GameStateMapper.cs:173-199` |
+| Newly unlocked achievements | requesting player only, finished games; full paired metadata/rewards for queued live IDs | `GameStateMapper.cs:173-208` |
+| Locked secret achievement board entries | name/nameRu = `???`, exact descriptions replaced by hints, character list empty, ID changed to stable SHA-256-derived opaque `hidden-…`; full metadata after unlock | `GameHub.cs:1394-1426` |
 
 Draft options are serialized only for the requesting player during the draft phase; first option cost 0, others 5, and every hidden passive is filtered before the option DTO is built (`GameStateMapper.cs:95-117`). Avatars are rewritten to local /art/avatars when the file exists (`GetLocalAvatarUrl`). The character catalog for prediction dropdowns loads once from characters.json, excluding negative tiers and "Выдуманный персонаж" (`GameStateMapper.cs:45-68`).
 
@@ -213,7 +216,19 @@ Two independent callers, both model `claude-haiku-4-5-20251001` (`GameStoryServi
 
 The English catalog is copied to the deployed `DataBase` output and loaded lazily by `GameLocalization` (`GameLocalization.cs:225-258`). Game stories now request paired native RU/EN tagged adaptations (max 1800 tokens) and store both in one replay-safe HTML value (`GameStoryService.cs:26-29, 68-77, 172-196`). Geralt's hint request receives the owner's locale and uses matching static dictionaries on failure (`ClaudeHaikuService.cs:37-65`, `CP:4657-4688`). Full contract: [LOCALIZATION.md](LOCALIZATION.md).
 
-## 14. Known quirks & pitfalls (backend)
+## 14. Achievement/loot transaction boundary
+
+All reward and loot operations synchronize on the `DiscordAccountClass` instance: the finish path settles all account/history/mastery/ZBS/quest/top-two-box/achievement/statistics changes together, loot opening performs debit+roll+credit as one operation, and hub reads/queue acknowledgements use the same monitor (`CheckIfReady.cs:705-773`; `QuestClass.cs:318-368`; `GameHub.cs:649-844`). This prevents a lobby open from losing a simultaneous game-end box or ZBS increment.
+
+Loot results are retry-safe rather than client-animated randomness. `QuestData.LastLootBox` persists the last `OpeningId`; until acknowledged, every open returns it without another debit/credit. `RequestQuests` returns that unacknowledged record for reload/reconnect recovery (`QuestClass.cs:301-368`; `GameHub.cs:649-694`). The reveal animation never determines the reward.
+
+New results use `SecureRandom`: reward amounts use its inclusive bounds and rarity rolls use 10,000 equally likely outcomes with cumulative cutoffs 50/300/1500/4000, exactly preserving the published 0.5/2.5/12/25/60% base distribution (`QuestClass.cs:371-410`; RNG implementation `SecureRandom.cs:17-25`). Pity upgrades only a tenth consecutive below-Rare natural result; it does not replace a natural Rare+.
+
+Account economy writes are durable before the corresponding result is sent: real-player game-end settlement, open, loot acknowledgement and achievement-queue acknowledgement call the account save boundary, which serializes under the account monitor and replaces the JSON through a same-directory temporary file (`CheckIfReady.cs:705-777`; `GameHub.cs:721-740`; `GameHub.cs:799-843`; `UserAccounts.cs:113-139`; `UsersDataStorage.cs:28-76`). Bot accounts deliberately skip the immediate game-end disk write; the periodic fallback still covers in-memory accounts.
+
+Achievement V2 intentionally filters old IDs rather than migrating them. Unknown legacy progress remains deserializable in account JSON but cannot enter board totals or the unlock queue; no retroactive reward is inferred from match history (`AchievementClass.cs:133-179,355-360`; `GameHub.cs:757-785`).
+
+## 15. Known quirks & pitfalls (backend)
 
 - **Asserted-ID auth**: any client can claim any Discord ID (§2). Never build features assuming web identity is verified; the only verified flag is `WidgetAuthorized` (`DiscordWidgetService.cs:141`).
 - **REST is a subset** — new player-facing actions must be added to the hub (and usually only the hub); adding them to GameController is optional parity.
