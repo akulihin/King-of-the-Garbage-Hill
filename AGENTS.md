@@ -40,6 +40,7 @@ Every change-set that touches gameplay MUST update the docs in the same change:
 5. Interface change → update the matching interface doc: web API/hub/DTO/mapper/push → `docs/WEB-BACKEND.md`; Vue client → `docs/WEB-CLIENT.md`; Discord commands/in-game UI → `docs/DISCORD-INTERFACE.md`. (New docs must also be added to the scan list + `resolve()` map in `tools/verify-docs.sh`.)
 6. Fixed a finding → mark it in `docs/AUDIT-FINDINGS.md` (don't delete; note the fix) and remove its line from `tools/known-warnings.txt`.
 7. New bug discovered → add a finding with the next free ID.
+8. After every finished implementation task, increment the patch component of `GameVersion` sequentially in `Game/Classes/GameClass.cs` (for example, `4.3.0` → `4.3.1`).
 
 Docs drift is a bug. The audit files exist so changes can be made *and verified* without re-reading the codebase.
 
