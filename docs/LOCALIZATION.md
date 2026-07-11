@@ -29,7 +29,7 @@ This allows one match to contain Russian- and English-speaking players without d
 
 At startup, the backend joins `characters`/`passives` to the canonical source text from `characters.json`, adding those source texts to its exact catalog (`GameLocalization.cs:225-285`). The client performs the same join while bundling (`Web/VueClient/src/i18n.ts`). The Russian player text in `characters.json` remains untouched.
 
-Achievement V2 is a separate, typed bilingual catalog: every definition carries `Name`/`NameRu`, `Description`/`DescriptionRu`, and paired secret hints in `AchievementClass.cs`, and those pairs cross the achievement DTO unchanged (`AchievementClass.cs:12-88`; `GameStateDto.cs:1092-1112`). This copy does not belong in `characters.json` or passive descriptions. Locked-secret masking is applied symmetrically to both languages before the DTO leaves the server (`GameHub.cs:1394-1426`).
+Achievements and Daily Quests use separate typed bilingual catalogs. Achievement definitions carry paired names/descriptions/secret hints (`AchievementClass.cs:12-88`; DTO `GameStateDto.cs:1119-1139`); Daily Quest definitions carry paired names/descriptions plus stable nonlocalized lane/icon/aggregation metadata (`QuestClass.cs:26-68,208-260`; DTO `GameStateDto.cs:1064-1082`). This copy does not belong in `characters.json` or passive descriptions. Locked Achievement masking is applied symmetrically before the DTO leaves the server (`GameHub.cs:1645-1679`).
 
 ## 4. Backend boundaries
 
@@ -44,7 +44,7 @@ Do not localize inside `CharacterPassives`, `GameReactions`, `DoomsdayMachine` o
 
 The client keeps canonical state values in Pinia and localizes rendered text/accessible attributes through a DOM observer (`Web/VueClient/src/i18n.ts`). It records the original Vue-rendered value, so RU↔EN switching is reversible and later reactive updates are re-localized. It never touches input values, select values, ids, object properties or SignalR action arguments.
 
-Reward components select achievement pairs directly from `currentLocale` rather than passing dynamic DTO strings through gameplay-state translation (`AchievementBoard.vue:114-132`; `AchievementPopup.vue:47-59`). Loot rarity, pity, actions and accessibility labels are likewise explicit EN/RU component copy (`LootBox.vue:129-165`). `CharacterNames` in an achievement stay canonical so portrait lookup remains stable (`AchievementClass.cs:29-35`; DTO mapping `GameHub.cs:1410-1412`).
+Reward components select typed Achievement/Daily Quest pairs directly from `currentLocale` rather than passing dynamic DTO strings through gameplay-state translation (`AchievementBoard.vue:114-132`; `AchievementPopup.vue:47-59`; `DailyQuestBoard.vue:98-166`). Loot rarity, pity, actions and accessibility labels are likewise explicit EN/RU component copy (`LootBox.vue:129-165`). Achievement `CharacterNames` and Daily Quest IDs stay canonical so portrait lookup and reroll actions remain stable (`AchievementClass.cs:29-35`; quest mapping `GameHub.cs:775-803`).
 
 Development builds warn in the console when an English-rendered node still contains Cyrillic (`Web/VueClient/src/i18n.ts`). When adding UI copy:
 

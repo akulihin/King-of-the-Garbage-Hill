@@ -11,7 +11,7 @@ Progress has two layers:
 - `InGameAchievementTracker` records match-local observations only; its sets use player/character IDs where uniqueness matters (`AchievementClass.cs:94-134`).
 - `AchievementProgress.Current` is the **best result achieved in one match**, not a cumulative total. `SetBestProgress` compares the current attempt with the stored best for display, but tests the **current attempt** against the target before unlocking; two partial matches can never combine (`AchievementClass.cs:362-403`).
 - An unlock is permanent and exactly-once. Under the account monitor it stamps `UnlockedAt`, queues the ID in `NewlyUnlocked`, credits the rarity reward immediately, and refuses later credits once `IsUnlocked` is true (`AchievementClass.cs:375-401`).
-- Game-end evaluation runs after final place/reward-place and match facts are known, in the same account-locked settlement that pays ZBS, quests and top-two loot boxes (`CheckIfReady.cs:705-737`; evaluator `AchievementClass.cs:412-560`).
+- Game-end evaluation runs after final place/reward-place and match facts are known, in the same account-locked settlement that pays ZBS, Daily Quests and top-two loot boxes (`CheckIfReady.cs:711-743`; evaluator `AchievementClass.cs:412-560`).
 
 Unless a row says otherwise, a target greater than 1 means “within one match.” Solo gates are explicit: team mode cannot unlock `g_clean_sweep`, `g_round10_comeback`, or `g_untouchable` (`AchievementClass.cs:421-456`).
 
@@ -79,13 +79,13 @@ These seven relationships are also indexed by subsystem in [INTERACTION-MATRIX.m
 | Epic | 100 ZBS + 1 loot box | 11 |
 | Legendary | 228 ZBS + 2 loot boxes | 5 |
 
-The reward switch is centralized in the definition constructor (`AchievementClass.cs:65-76`). Completing the current catalog awards **2,925 ZBS and 21 loot boxes** in total. `AchievementBoard` reports earned/current-catalog totals by summing live unlocked definitions; these numbers are a catalog summary, not a historical transaction ledger (`GameHub.cs:811-839`).
+The reward switch is centralized in the definition constructor (`AchievementClass.cs:65-76`). Completing the current catalog awards **2,925 ZBS and 21 loot boxes** in total. `AchievementBoard` reports earned/current-catalog totals by summing live unlocked definitions; these numbers are a catalog summary, not a historical transaction ledger (`GameHub.cs:903-947`).
 
 ## 6. Secrets, queues, and Вечное Цукуеми
 
-- A locked secret's exact name, descriptions and character list are not sent to the client; only its hint, category, rarity, target/reward framing and a stable SHA-256-derived opaque public ID are exposed. Once unlocked, the real ID and full paired metadata are returned (`GameHub.cs:797-839,1539-1576`; DTO `GameStateDto.cs:1080-1112`).
-- `NewlyUnlocked` is an acknowledgement queue, not a match-local toast flag. Match completion does not clear it. `AcknowledgeAchievements` removes only the live IDs actually shown; both it and legacy `ClearNewAchievements` snapshot/restore the queue and reject retryably if saving fails. This selective acknowledgement prevents a concurrent unlock from being erased with an older popup (`AchievementClass.cs:89-92`; `GameHub.cs:843-910`).
-- The finished personalized game-state DTO carries full entries for that player's queued live IDs so the in-game UI can celebrate them; spectators and other players receive none. The finish path attaches a detached progress/queue snapshot, so a second tab acknowledging the persistent queue cannot invalidate enumeration during the final broadcast (`CheckIfReady.cs:734-737`; `AchievementClass.cs:592-608`; `GameStateMapper.cs:173-208`).
+- A locked secret's exact name, descriptions and character list are not sent to the client; only its hint, category, rarity, target/reward framing and a stable SHA-256-derived opaque public ID are exposed. Once unlocked, the real ID and full paired metadata are returned (`GameHub.cs:903-947,1645-1679`; DTO `GameStateDto.cs:1105-1139`).
+- `NewlyUnlocked` is an acknowledgement queue, not a match-local toast flag. Match completion does not clear it. `AcknowledgeAchievements` removes only the live IDs actually shown; both it and legacy `ClearNewAchievements` snapshot/restore the queue and reject retryably if saving fails. This selective acknowledgement prevents a concurrent unlock from being erased with an older popup (`AchievementClass.cs:89-92`; `GameHub.cs:949-1018`).
+- The finished personalized game-state DTO carries full entries for that player's queued live IDs so the in-game UI can celebrate them; spectators and other players receive none. The finish path attaches a detached progress/queue snapshot, so a second tab acknowledging the persistent queue cannot invalidate enumeration during the final broadcast (`CheckIfReady.cs:740-743`; `AchievementClass.cs:592-608`; `GameStateMapper.cs:173-208`).
 - While Вечное Цукуеми is active, evaluating real-result achievements for non-Madara accounts would reveal or contradict their private projected ending. Achievement V2 therefore evaluates only Madara's own hidden-ending achievement and returns without evaluating anything else for any player (`AchievementClass.cs:426-439`).
 
 ## 7. V1 migration and compatibility
@@ -93,7 +93,7 @@ The reward switch is centralized in the definition constructor (`AchievementClas
 V2 is an intentional fresh catalog. Its 33 `g_…` / `c_…` / `x_…` IDs are disjoint from the legacy achievement IDs, so old unlocks do **not** grant V2 rewards or appear as V2 completions. Existing account JSON remains readable:
 
 - `EnsureInitialized` null-fills the account containers without deleting unknown legacy progress rows (`AchievementClass.cs:355-360`).
-- Board totals and detached entries are built only from `AllAchievements`, under the account monitor, and queued IDs are filtered to the live set (`GameHub.cs:811-839`).
+- Board totals and detached entries are built only from `AllAchievements`, under the account monitor, and queued IDs are filtered to the live set (`GameHub.cs:903-947`).
 - Legacy match-tracker fields remain deserializable for old snapshots/hooks but are explicitly not evaluated by V2 (`AchievementClass.cs:133-179`).
 
 There is no retroactive reconstruction from match history because most requirements need per-fight/per-passive facts that history never stored. A player's V2 bests and unlocks therefore begin with matches completed after deployment.
@@ -110,31 +110,31 @@ There is no retroactive reconstruction from match history because most requireme
 | Epic | 2.5% | 300–450 |
 | Legendary | 0.5% | 750 |
 
-The server owns both the table and roll; the client receives the table only for explanation. Rarity uses `SecureRandom` over 10,000 equally likely outcomes with exact cumulative thresholds, and variable rewards use its inclusive bounds (`QuestClass.cs:147-156`; `QuestClass.cs:371-410`). A box is earned by finishing alive in the reward top 2, including Sakura's first-place reward treatment; Epic/Legendary achievements add boxes to the same inventory (`CheckIfReady.cs:648-651`; `CheckIfReady.cs:730-737`). Existing pending inventory is preserved and uses the V2 table when opened.
+The server owns both the table and roll; the client receives the table only for explanation. Rarity uses the shared cryptographic RNG over 10,000 equally likely outcomes with exact cumulative thresholds, and variable rewards use its inclusive bounds (`QuestClass.cs:268-274,873-912`). A box is earned by finishing alive in the reward top 2, including Sakura's first-place reward treatment; Epic/Legendary achievements and Daily Quest 3/3 mastery add boxes to the same inventory (`CheckIfReady.cs:648-651,736-743`; quest mastery `QuestClass.cs:663-668`). Existing pending inventory is preserved and uses the V2 table when opened.
 
 ### Rare+ pity
 
-`LootBoxPity` counts consecutive final Common/Uncommon results. After 9 such boxes, the 10th opening is guaranteed Rare+: a natural Rare/Epic/Legendary is preserved, while a natural Common/Uncommon is upgraded to Rare. Any Rare+ result resets the counter to 0 (`QuestClass.cs:296-299`; `QuestClass.cs:371-379`; `QuestClass.cs:413-420`). `GuaranteedRareIn` is server-derived and both the lobby and reveal screen visualize the remaining distance.
+The loot-box pity counter records consecutive final Common/Uncommon results. After 9 such boxes, the 10th opening is guaranteed Rare+: a natural Rare/Epic/Legendary is preserved, while a natural Common/Uncommon is upgraded to Rare. Any Rare+ result resets the counter to 0 (`QuestClass.cs:799-801,873-881,915-922`). `GuaranteedRareIn` is server-derived and both the lobby and reveal screen visualize the remaining distance.
 
 The displayed chances are **base odds**. On the guaranteed opening, pity changes only the below-Rare outcomes as described above; it does not reroll or downgrade a natural Rare+.
 
 ### Atomic open, acknowledgement, reconnect
 
-- Opening is serialized on the account monitor. If a prior result has not been acknowledged, repeated `OpenLootBoxV2` calls return that same `OpeningId` and do not consume another box or grant ZBS again (`QuestClass.cs:318-350`; hub transaction `GameHub.cs:698-763`).
-- A new open decrements exactly one pending box, rolls and credits the result, and stores a result snapshot containing rarity, amount, balance, remaining inventory, pity state, timestamp and `WasPityUpgrade` (`QuestClass.cs:343-397`).
-- `AcknowledgeLootBox(openingId)` marks only the matching current result; stale/mismatched IDs are safe no-ops (`QuestClass.cs:352-368`).
-- `RequestQuests` snapshots under the account monitor and includes `LastUnacknowledgedLootBox`, odds and pity fields. After a disconnect/reload, the client resumes that already-determined reveal, with current account balance/inventory mapped over the historical result snapshot, rather than rolling again (`GameHub.cs:649-696`; `GameStateDto.cs:1032-1076`).
-- V2 opens and loot/achievement acknowledgements save before confirming; write failure restores the exact affected account snapshot and returns a retryable hub error. Cached pre-V2 clients still call legacy `OpenLootBox`, which acknowledges inside the same durable transaction so they can advance without the new acknowledgement call (`GameHub.cs:698-793,843-910,1493-1537`). Paid draft/shop operations share the account monitor too. `SaveAccount` reports atomic-replace success; game-end save failure is critical-logged with its settled in-memory state retained for the periodic retry (`UserAccounts.cs:113-139`; `UsersDataStorage.cs:28-80`; `CheckIfReady.cs:773-779`).
+- Opening is serialized on the account monitor. If a prior result has not been acknowledged, repeated `OpenLootBoxV2` calls return that same `OpeningId` and do not consume another box or grant ZBS again (`QuestClass.cs:804-852`; hub transaction `GameHub.cs:811-869`).
+- A new open decrements exactly one pending box, rolls and credits the result, and stores a result snapshot containing rarity, amount, balance, remaining inventory, pity state, timestamp and `WasPityUpgrade` (`QuestClass.cs:844-901`).
+- `AcknowledgeLootBox(openingId)` marks only the matching current result; stale/mismatched IDs are safe no-ops (`QuestClass.cs:855-871`).
+- `RequestQuests` snapshots under the account monitor and includes `LastUnacknowledgedLootBox`, odds and pity fields alongside Daily Quest V2. After a disconnect/reload, the client resumes that already-determined reveal, with current account balance/inventory mapped over the historical result snapshot, rather than rolling again (`GameHub.cs:649-803`; `GameStateDto.cs:1032-1103`).
+- V2 opens and loot/achievement acknowledgements save before confirming; write failure restores the exact affected account snapshot and returns a retryable hub error. Cached pre-V2 clients still call legacy `OpenLootBox`, which acknowledges inside the same durable transaction so they can advance without the new acknowledgement call (`GameHub.cs:811-1018,1599-1643`). Paid draft/shop operations share the account monitor too. `SaveAccount` reports atomic-replace success; game-end save failure is critical-logged with its settled in-memory state retained for the periodic retry (`UserAccounts.cs:113-139`; `UsersDataStorage.cs:28-80`; `CheckIfReady.cs:779-785`).
 
 ## 9. Web experience and accessibility
 
-The reward experience has three coordinated surfaces:
+The reward experience shares the lobby with Daily Quest V2, whose full contract is [DAILY-QUESTS.md](DAILY-QUESTS.md). Achievement/Loot has three coordinated surfaces:
 
-1. **Rewards hub in `/games`** — always-visible ZBS balance, pending-box inventory, Rare+ distance/base legendary chance, achievement completion ring, new badge and earned/current-catalog reward totals. Authentication/reconnect and lobby mount hydrate both reward states; an unacknowledged reveal is restored (`router.ts:24-28`; `game.ts:302-324`; `Lobby.vue:43-176,233-343`).
+1. **Rewards hub in `/games`** — always-visible ZBS balance, pending-box inventory, Rare+ distance/base legendary chance, achievement completion ring, new badge and earned/current-catalog reward totals. Authentication/reconnect and lobby mount hydrate both reward families; an unacknowledged reveal is restored (`router.ts:24-28`; `game.ts:313-335`; `Lobby.vue:41-177,248-358`).
 2. **Dedicated `/achievements` page** — an achievement center with overall completion/reward summaries, nearest visible completions, category/status/rarity filters, bilingual search, character portraits, progress bars, secret hints and responsive rarity treatments (`router.ts:49-57`; `Achievements.vue:1-22`; `AchievementBoard.vue:22-193,196-430`). Icons are real Lucide components selected through one controlled mapping (`AchievementIcon.vue:1-55`).
-3. **Celebrations** — unlocks appear sequentially after the game-over podium, with rarity color/audio, particles, character portraits and explicit ZBS/box rewards. The focus-isolated modal supports Escape/Skip all and restores focus; final dismissal stays busy and visible until acknowledgement succeeds, with inline retry on failure (`AchievementPopup.vue:20-166,195-301`; `game.ts:742-774`). Ordinary motion gives the podium priority, while reduced-motion users bypass its five-second gate and animations (`Game.vue:609-632,1491-1497,3122-3132`). `App.vue` globally recovers the queue on non-game routes unless the loot flow currently owns modal priority (`App.vue:13-17,249-255`).
+3. **Celebrations** — unlocks appear sequentially after the game-over podium, with rarity color/audio, particles, character portraits and explicit ZBS/box rewards. The focus-isolated modal supports Escape/Skip all and restores focus; final dismissal stays busy and visible until acknowledgement succeeds, with inline retry on failure (`AchievementPopup.vue:20-166,195-301`; `game.ts:788-820`). Ordinary motion gives the podium priority, while reduced-motion users bypass its five-second gate and animations (`Game.vue:609-632,1491-1497,3122-3132`). `App.vue` globally recovers the queue on non-game routes unless the loot flow currently owns modal priority (`App.vue:13-17,249-255`).
 
-The loot-box dialog is staged: anticipation/opening first, then the already server-determined result; rarity-specific treatment, current balance/inventory/pity, odds disclosure, pity-upgrade badge and “Open another” share one modal (`LootBox.vue:35-210,225-387`). The store owns reward-modal priority: Lobby asserts it, waits one render tick for any achievement focus trap to unmount, then shows loot; handoff back also waits a tick (`Lobby.vue:43-146`). A bounded server/reveal wait becomes bilingual Retry reveal / Return to lobby UI, and a late result safely reopens; acknowledgement errors likewise remain inline and retryable (`game.ts:666-704`; `LootBox.vue:129-201,267-387`). Keyboard isolation/restoration, Escape behavior, ARIA semantics, compact mobile layout and reduced-motion fallbacks remain part of the contract.
+The loot-box dialog is staged: anticipation/opening first, then the already server-determined result; rarity-specific treatment, current balance/inventory/pity, odds disclosure, pity-upgrade badge and “Open another” share one modal (`LootBox.vue:35-210,225-387`). The store owns reward-modal priority: Lobby asserts it, waits one render tick for any achievement focus trap to unmount, then shows loot; handoff back also waits a tick (`Lobby.vue:41-144`). A bounded server/reveal wait becomes bilingual Retry reveal / Return to lobby UI, and a late result safely reopens; acknowledgement errors likewise remain inline and retryable (`game.ts:719-757`; `LootBox.vue:129-201,267-387`). Keyboard isolation/restoration, Escape behavior, ARIA semantics, compact mobile layout and reduced-motion fallbacks remain part of the contract. Daily Quest completion stays inline and therefore never adds another focus trap; reroll explicitly announces and focuses its replacement (`DailyQuestBoard.vue:227-303,515-604`).
 
 ## 10. Verification
 
@@ -142,6 +142,7 @@ Run all of the following for changes to this system:
 
 ```bash
 bash tools/audit-achievements.sh
+bash tools/audit-quests.sh
 bash tools/verify-docs.sh --changed
 dotnet build King-of-the-Garbage-Hill/King-of-the-Garbage-Hill.csproj
 pnpm --dir Web/VueClient build

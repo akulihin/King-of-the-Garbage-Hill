@@ -5,6 +5,7 @@ import { Gift, PackageOpen, ShieldCheck, Sparkles, Trophy } from 'lucide-vue-nex
 import { useGameStore } from 'src/store/game'
 import { signalrService, type ReplayListEntry, type CharacterListEntry } from 'src/services/signalr'
 import LootBox from 'src/components/LootBox.vue'
+import DailyQuestBoard from 'src/components/DailyQuestBoard.vue'
 import { currentLocale } from 'src/i18n'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
@@ -23,9 +24,6 @@ const filteredCharacters = computed(() => {
   return store.characterList.filter((c: CharacterListEntry) => c.name.toLowerCase().includes(q))
 })
 
-const quests = computed(() => store.questState?.quests ?? [])
-const streakDays = computed(() => store.questState?.streakDays ?? 0)
-const allDone = computed(() => store.questState?.allCompletedToday ?? false)
 const zbsPoints = computed(() => store.questState?.zbsPoints ?? 0)
 const pendingLootBoxes = computed(() => store.questState?.pendingLootBoxes ?? 0)
 const lootBoxPity = computed(() => store.questState?.lootBoxPity ?? 0)
@@ -152,6 +150,7 @@ async function fetchReplays() {
 }
 
 onMounted(() => {
+  document.addEventListener('visibilitychange', handleVisibilityChange)
   store.refreshLobby()
   if (store.isAuthenticated) {
     store.requestQuests()
@@ -172,6 +171,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
   if (pollInterval) clearInterval(pollInterval)
   store.setLootBoxFlowActive(false)
   signalrService.onGameCreated = null
@@ -215,6 +215,21 @@ function viewReplay(hash: string) {
 
 function viewAchievements() {
   router.push('/achievements')
+}
+
+function refreshDailyQuests() {
+  if (!store.isAuthenticated) return
+  void store.requestQuests()
+}
+
+function rerollDailyQuest(questId: string) {
+  void store.rerollDailyQuest(questId)
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible' && store.isAuthenticated && store.isConnected) {
+    refreshDailyQuests()
+  }
 }
 </script>
 
@@ -347,51 +362,16 @@ function viewAchievements() {
       </div>
     </section>
 
-    <!-- Daily Quests -->
-    <div v-if="store.isAuthenticated && quests.length > 0" class="section">
-      <div class="section-header">
-        <h2 class="section-title">
-          Daily Quests
-          <span v-if="allDone" class="badge badge-done">Complete!</span>
-        </h2>
-        <div class="quest-meta">
-          <span class="streak-badge" :class="{ active: streakDays > 0 }">
-            Streak: {{ streakDays }}/7
-          </span>
-          <span class="zbs-badge">{{ zbsPoints }} ZBS</span>
-        </div>
-      </div>
-
-      <div class="quests-grid">
-        <div
-          v-for="quest in quests"
-          :key="quest.id"
-          class="quest-card card"
-          :class="{ completed: quest.isCompleted, 'quest-complete': quest.current >= quest.target }"
-        >
-          <div class="quest-info">
-            <span class="quest-desc">{{ quest.description }}</span>
-            <span class="quest-reward">+{{ quest.zbsReward }} ZBS</span>
-          </div>
-          <div class="quest-progress">
-            <div class="progress-bar">
-              <div
-                class="progress-fill"
-                :style="{ width: `${Math.min(100, (quest.current / quest.target) * 100)}%` }"
-              />
-            </div>
-            <span class="progress-text">{{ quest.current }} / {{ quest.target }}</span>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="allDone" class="quest-bonus">
-        All quests complete! +25 bonus ZBS
-      </div>
-      <div v-if="streakDays >= 7 && streakDays % 7 === 0" class="streak-bonus">
-        7-day streak! +500 ZBS bonus!
-      </div>
-    </div>
+    <DailyQuestBoard
+      v-if="store.isAuthenticated"
+      :state="store.questState"
+      :loading="store.isQuestsLoading"
+      :error="store.questsError"
+      :rerolling-quest-id="store.rerollingQuestId"
+      @retry="refreshDailyQuests"
+      @reroll="rerollDailyQuest"
+      @reset="refreshDailyQuests"
+    />
 
     <!-- Loot Box opening and result overlay -->
     <LootBox
@@ -860,143 +840,6 @@ function viewAchievements() {
   line-height: 1.5;
 }
 
-/* Quest Widget */
-.quest-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.streak-badge {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: var(--radius);
-  background: var(--bg-card);
-  color: var(--text-muted);
-  border: 1px solid var(--border-subtle);
-}
-
-.streak-badge.active {
-  background: var(--kh-c-secondary-warning-500, rgba(255, 170, 0, 0.15));
-  color: var(--accent-gold);
-  border-color: var(--accent-gold);
-}
-
-.zbs-badge {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: var(--radius);
-  background: var(--kh-c-secondary-success-500, rgba(0, 200, 100, 0.15));
-  color: var(--accent-green);
-  border: 1px solid var(--accent-green);
-}
-
-.badge-done {
-  background: var(--kh-c-secondary-success-500, rgba(0, 200, 100, 0.15));
-  color: var(--accent-green);
-  border-color: var(--accent-green);
-}
-
-.quests-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.quest-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
-  transition: opacity 0.3s ease;
-}
-
-.quest-card.completed {
-  opacity: 0.6;
-}
-
-.quest-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.quest-desc {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.quest-card.completed .quest-desc {
-  text-decoration: line-through;
-  color: var(--text-muted);
-}
-
-.quest-reward {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--accent-gold);
-  font-family: var(--font-mono);
-}
-
-.quest-progress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.progress-bar {
-  flex: 1;
-  height: 6px;
-  background: var(--bg-elevated);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--accent-gold);
-  border-radius: 3px;
-  transition: width 0.4s ease;
-}
-
-.quest-card.completed .progress-fill {
-  background: var(--accent-green);
-}
-
-.progress-text {
-  font-size: 11px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-  min-width: 40px;
-  text-align: right;
-}
-
-.quest-bonus, .streak-bonus {
-  text-align: center;
-  padding: 8px;
-  margin-top: 8px;
-  border-radius: var(--radius);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.quest-bonus {
-  background: var(--kh-c-secondary-success-500, rgba(0, 200, 100, 0.15));
-  color: var(--accent-green);
-  border: 1px solid var(--accent-green);
-}
-
-.streak-bonus {
-  background: var(--kh-c-secondary-warning-500, rgba(255, 170, 0, 0.15));
-  color: var(--accent-gold);
-  border: 1px solid var(--accent-gold);
-  font-size: 14px;
-}
-
 /* Rewards hub */
 .rewards-section { margin-bottom: 36px; }
 .rewards-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 11px; }
@@ -1274,16 +1117,6 @@ function viewAchievements() {
   color: var(--accent-gold);
 }
 
-/* Quest Completion Celebration */
-.quest-complete {
-  animation: quest-celebrate 0.6s var(--ease-spring);
-}
-@keyframes quest-celebrate {
-  0% { transform: scale(1); }
-  30% { transform: scale(1.08); box-shadow: 0 0 20px rgba(240, 200, 80, 0.4); }
-  100% { transform: scale(1); }
-}
-
 /* ── Mobile responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
   .rewards-grid {
@@ -1310,7 +1143,6 @@ function viewAchievements() {
   .reward-hub-card {
     padding: 14px;
   }
-  .quest-info,
   .section-header {
     align-items: flex-start;
     flex-direction: column;
@@ -1323,8 +1155,7 @@ function viewAchievements() {
 
 @media (prefers-reduced-motion: reduce) {
   .hub-primary-action.pulse,
-  .achievement-hub-loading span,
-  .quest-complete {
+  .achievement-hub-loading span {
     animation: none;
   }
   .hub-pity-track span {

@@ -1034,8 +1034,25 @@ public class DoomFortressStageDto
 public class QuestStateDto
 {
     public List<QuestProgressDto> Quests { get; set; } = new();
+    public string ActiveDate { get; set; }
+    public string ServerNow { get; set; }
+    public string ResetsAt { get; set; }
     public bool AllCompletedToday { get; set; }
+    public bool DailyCompleted { get; set; }
+    public int CompletedQuestCount { get; set; }
+    public int DailyQuestRequirement { get; set; }
+    public int DailyBonusZbs { get; set; }
+    public bool DailyBonusGranted { get; set; }
+    public int MasteryBonusLootBoxes { get; set; }
+    public bool MasteryBonusGranted { get; set; }
+    public int RerollsRemaining { get; set; }
     public int StreakDays { get; set; }
+    public int BestStreakDays { get; set; }
+    public int WeeklyCompletedDays { get; set; }
+    public int WeeklyTargetDays { get; set; }
+    public int WeeklyRewardZbs { get; set; }
+    public bool WeeklyRewardGranted { get; set; }
+    public string WeekEndsAt { get; set; }
     public int ZbsPoints { get; set; }
     public int PendingLootBoxes { get; set; }
     public int LootBoxPity { get; set; }
@@ -1047,11 +1064,21 @@ public class QuestStateDto
 public class QuestProgressDto
 {
     public string Id { get; set; }
+    public string Name { get; set; }
+    public string NameRu { get; set; }
     public string Description { get; set; }
+    public string DescriptionRu { get; set; }
+    public string Lane { get; set; }
+    public string Icon { get; set; }
+    public string Aggregation { get; set; }
     public int Current { get; set; }
     public int Target { get; set; }
     public bool IsCompleted { get; set; }
     public int ZbsReward { get; set; }
+    public int RewardLootBoxes { get; set; }
+    public bool RewardGranted { get; set; }
+    public string CompletedAt { get; set; }
+    public bool CanReroll { get; set; }
 }
 
 public class LootBoxResultDto

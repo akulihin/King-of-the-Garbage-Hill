@@ -1,6 +1,6 @@
 # Balance Constants — every tunable number with its code anchor
 
-> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-10. `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
+> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-11. `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
 >
 > RNG note: `Luck(x)` ≈ x%, `Luck(a,b)` ≈ a-in-b (rounded to whole %); see `Helpers/SecureRandom.cs:35-45`.
 
@@ -44,6 +44,20 @@
 | Mastery payout | 10/7/5/3/2/1 by place (alive only) | CIR:618-624 |
 | Loot-box inventory award | reward-place top-2 and alive (Sakura top-3 soft win uses reward place 1) | CIR:648-651,730-732 |
 
+## Daily Quest rewards
+
+The full 12-contract catalog, selection, privacy and migration rules are in [DAILY-QUESTS.md](DAILY-QUESTS.md). The three lanes always pay at most 80 card ZBS; completing the daily and weekly paths brings the direct full-board total to 100 ZBS/day plus the optional mastery box (`QuestClass.cs:200-260,638-678`).
+
+| Constant | Value | Anchor |
+|---|---|---|
+| Anchor card | fixed finish-one-match goal; 20 ZBS | QuestClass.cs:208-213 |
+| Skirmish card | one of 5 personalized goals; 30 ZBS | QuestClass.cs:215-234 |
+| Ambition card | one of 6 personalized goals; 30 ZBS | QuestClass.cs:236-260 |
+| Daily completion | any 2/3; +20 ZBS, streak + weekly stamp | QuestClass.cs:200-206,651-661 |
+| Daily mastery | 3/3; +1 loot box | QuestClass.cs:200-206,663-668 |
+| Weekly journey | any 5 UTC daily completions in one ISO week; +100 ZBS | QuestClass.cs:200-206,670-675,690-723 |
+| Free reroll | 1 per UTC day; unfinished Skirmish/Ambition only | QuestClass.cs:414-474,510-540 |
+
 ## Achievement & loot-box rewards
 
 Achievement progress targets and the complete 33-entry rule catalog are in [ACHIEVEMENTS.md](ACHIEVEMENTS.md). Reward values are centralized by rarity; the live catalog totals **2,925 ZBS + 21 boxes** (`AchievementClass.cs:65-76,184-347`).
@@ -55,13 +69,13 @@ Achievement progress targets and the complete 33-entry rule catalog are in [ACHI
 | Rare achievement reward | 50 ZBS | AchievementClass.cs:65-76 |
 | Epic achievement reward | 100 ZBS + 1 loot box | AchievementClass.cs:65-76 |
 | Legendary achievement reward | 228 ZBS + 2 loot boxes | AchievementClass.cs:65-76 |
-| Loot Common | 60%; 15–30 ZBS inclusive | QuestClass.cs:132-140 |
-| Loot Uncommon | 25%; 40–75 ZBS inclusive | QuestClass.cs:132-140 |
-| Loot Rare | 12%; 100–175 ZBS inclusive | QuestClass.cs:132-140 |
-| Loot Epic | 2.5%; 300–450 ZBS inclusive | QuestClass.cs:132-140 |
-| Loot Legendary | 0.5%; 750 ZBS | QuestClass.cs:132-140 |
-| Loot rarity RNG | `SecureRandom.Next(1,10000)` inclusive; exact cumulative cutoffs 50/300/1500/4000 | QuestClass.cs:401-410 |
-| Rare+ pity | after 9 consecutive below-Rare results, box 10 preserves natural Rare+ or upgrades Common/Uncommon to Rare; Rare+ resets counter | QuestClass.cs:296-299,370-417 |
+| Loot Common | 60%; 15–30 ZBS inclusive | QuestClass.cs:268-274 |
+| Loot Uncommon | 25%; 40–75 ZBS inclusive | QuestClass.cs:268-274 |
+| Loot Rare | 12%; 100–175 ZBS inclusive | QuestClass.cs:268-274 |
+| Loot Epic | 2.5%; 300–450 ZBS inclusive | QuestClass.cs:268-274 |
+| Loot Legendary | 0.5%; 750 ZBS | QuestClass.cs:268-274 |
+| Loot rarity RNG | `SecureRandom.Next(1,10000)` inclusive; exact cumulative cutoffs 50/300/1500/4000 | QuestClass.cs:903-912 |
+| Rare+ pity | after 9 consecutive below-Rare results, box 10 preserves natural Rare+ or upgrades Common/Uncommon to Rare; Rare+ resets counter | QuestClass.cs:799-801,873-922 |
 
 ## Quality / resists / Harm
 

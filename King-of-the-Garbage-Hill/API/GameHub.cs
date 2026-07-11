@@ -658,42 +658,148 @@ public class GameHub : Hub
             return;
         }
 
-        DTOs.QuestStateDto questState;
+        var now = DateTimeOffset.UtcNow;
+        DTOs.QuestStateDto questState = null;
+        var persistenceFailed = false;
         lock (account)
         {
-            Game.Classes.QuestService.EnsureQuestsInitialized(account);
-            var lootBoxPity = Math.Clamp(
-                account.Quests.LootBoxPity,
-                0,
-                Game.Classes.QuestService.RarePityLimit - 1);
-            var lastUnacknowledgedLootBox = Game.Classes.QuestService.GetLastUnacknowledgedLootBox(account);
-
-            questState = new DTOs.QuestStateDto
+            var snapshot = Game.Classes.QuestService.CaptureAccountState(account);
+            var changed = Game.Classes.QuestService.EnsureQuestsInitialized(account, now);
+            if (changed && !_userAccounts.SaveAccount(account))
             {
-                ZbsPoints = account.ZbsPoints,
-                StreakDays = account.Quests.StreakDays,
-                AllCompletedToday = account.Quests.ActiveDay?.AllCompleted ?? false,
-                PendingLootBoxes = account.PendingLootBoxes,
-                LootBoxPity = lootBoxPity,
-                GuaranteedRareIn = Game.Classes.QuestService.GetGuaranteedRareIn(lootBoxPity),
-                LootBoxOdds = MapLootBoxOdds(),
-                LastUnacknowledgedLootBox = MapLootBoxResult(
-                    lastUnacknowledgedLootBox,
-                    account.ZbsPoints,
-                    account.PendingLootBoxes),
-                Quests = account.Quests.ActiveDay?.Quests.Select(q => new DTOs.QuestProgressDto
-                {
-                    Id = q.QuestId,
-                    Description = q.Description,
-                    Current = q.Current,
-                    Target = q.Target,
-                    IsCompleted = q.IsCompleted,
-                    ZbsReward = q.ZbsReward,
-                }).ToList() ?? new()
-            };
+                Game.Classes.QuestService.RestoreAccountState(account, snapshot);
+                persistenceFailed = true;
+            }
+            else
+            {
+                questState = BuildQuestState(account, now);
+            }
         }
 
+        if (persistenceFailed)
+            throw new HubException("Daily quests could not be saved. Please try again.");
+
         await Clients.Caller.SendAsync("QuestState", questState);
+    }
+
+    public async Task RerollDailyQuest(string questId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        if (account == null)
+        {
+            await Clients.Caller.SendAsync("Error", "Account not found.");
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        DTOs.QuestStateDto questState = null;
+        string rerollError = null;
+        var persistenceFailed = false;
+        lock (account)
+        {
+            var snapshot = Game.Classes.QuestService.CaptureAccountState(account);
+            if (!Game.Classes.QuestService.TryRerollDailyQuest(account, questId, now, out rerollError))
+            {
+                // Validation may have lazily initialized a new UTC day; an unsuccessful reroll
+                // must not leave that unsaved mutation behind.
+                Game.Classes.QuestService.RestoreAccountState(account, snapshot);
+            }
+            else if (!_userAccounts.SaveAccount(account))
+            {
+                Game.Classes.QuestService.RestoreAccountState(account, snapshot);
+                persistenceFailed = true;
+            }
+            else
+            {
+                questState = BuildQuestState(account, now);
+            }
+        }
+
+        if (rerollError != null) throw new HubException(rerollError);
+        if (persistenceFailed)
+            throw new HubException("The daily quest reroll could not be saved. Nothing changed; please try again.");
+
+        await Clients.Caller.SendAsync("QuestState", questState);
+    }
+
+    /// <summary>The caller must hold the account monitor.</summary>
+    private static DTOs.QuestStateDto BuildQuestState(DiscordAccountClass account, DateTimeOffset now)
+    {
+        var data = account.Quests;
+        var active = data.ActiveDay;
+        var weekly = data.WeeklyJourney;
+        var lootBoxPity = Math.Clamp(data.LootBoxPity, 0, Game.Classes.QuestService.RarePityLimit - 1);
+        var lastUnacknowledgedLootBox = Game.Classes.QuestService.GetLastUnacknowledgedLootBox(account);
+        var completedQuestCount = active.Quests.Count(quest => quest.IsCompleted);
+
+        return new DTOs.QuestStateDto
+        {
+            ActiveDate = active.Date,
+            ServerNow = now.ToUniversalTime().ToString("o"),
+            ResetsAt = Game.Classes.QuestService.GetResetAt(now).ToString("o"),
+            AllCompletedToday = active.AllCompleted,
+            DailyCompleted = active.DailyCompleted || active.BonusClaimed,
+            CompletedQuestCount = completedQuestCount,
+            DailyQuestRequirement = Game.Classes.QuestService.DailyQuestRequirement,
+            DailyBonusZbs = Game.Classes.QuestService.DailyBonusZbs,
+            DailyBonusGranted = active.DailyBonusGranted,
+            MasteryBonusLootBoxes = Game.Classes.QuestService.MasteryBonusLootBoxes,
+            MasteryBonusGranted = active.MasteryBonusGranted,
+            RerollsRemaining = active.RerollsRemaining,
+            StreakDays = data.StreakDays,
+            BestStreakDays = data.BestStreakDays,
+            WeeklyCompletedDays = weekly?.CompletedDates?.Distinct(StringComparer.Ordinal).Count() ?? 0,
+            WeeklyTargetDays = Game.Classes.QuestService.WeeklyTargetDays,
+            WeeklyRewardZbs = Game.Classes.QuestService.WeeklyRewardZbs,
+            WeeklyRewardGranted = weekly?.RewardGranted ?? false,
+            WeekEndsAt = Game.Classes.QuestService.GetWeekEndsAt(now).ToString("o"),
+            ZbsPoints = account.ZbsPoints,
+            PendingLootBoxes = account.PendingLootBoxes,
+            LootBoxPity = lootBoxPity,
+            GuaranteedRareIn = Game.Classes.QuestService.GetGuaranteedRareIn(lootBoxPity),
+            LootBoxOdds = MapLootBoxOdds(),
+            LastUnacknowledgedLootBox = MapLootBoxResult(
+                lastUnacknowledgedLootBox,
+                account.ZbsPoints,
+                account.PendingLootBoxes),
+            Quests = active.Quests
+                .Select(quest => MapDailyQuestProgress(quest, active))
+                .Where(quest => quest != null)
+                .ToList(),
+        };
+    }
+
+    private static DTOs.QuestProgressDto MapDailyQuestProgress(
+        QuestProgress progress,
+        DailyQuestState active)
+    {
+        var definition = Game.Classes.QuestService.GetDefinition(progress?.QuestId);
+        if (definition == null) return null;
+
+        return new DTOs.QuestProgressDto
+        {
+            Id = definition.Id,
+            Name = definition.Name,
+            NameRu = definition.NameRu,
+            Description = definition.Description,
+            DescriptionRu = definition.DescriptionRu,
+            Lane = definition.Lane.ToString(),
+            Icon = definition.Icon,
+            Aggregation = definition.Aggregation.ToString(),
+            Current = progress.Current,
+            Target = progress.Target,
+            IsCompleted = progress.IsCompleted,
+            ZbsReward = progress.ZbsReward,
+            RewardLootBoxes = progress.LootBoxReward,
+            RewardGranted = progress.RewardGranted,
+            CompletedAt = progress.CompletedAt?.ToString("o"),
+            CanReroll = !progress.IsCompleted
+                        && definition.Lane != QuestLane.Anchor
+                        && active.RerollsRemaining > 0,
+        };
     }
 
     // ── Loot Boxes ──────────────────────────────────────────────────

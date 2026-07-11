@@ -1,94 +1,151 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
-public enum QuestType
+public enum QuestLane
 {
-    PlayGames,
-    WinGame,
-    Top3Finish,
-    PlayDifferentCharacters,
-    Play5Games,
-    Score50Plus
+    Anchor,
+    Skirmish,
+    Ambition,
+}
+
+public enum QuestAggregation
+{
+    DailySum,
+    BestMatch,
 }
 
 public class QuestDefinition
 {
     public string Id { get; set; }
-    public QuestType Type { get; set; }
+    public string Name { get; set; }
+    public string NameRu { get; set; }
     public string Description { get; set; }
+    public string DescriptionRu { get; set; }
+    public QuestLane Lane { get; set; }
+    public string Icon { get; set; }
+    public QuestAggregation Aggregation { get; set; }
     public int Target { get; set; }
+    public int ZbsReward { get; set; }
+    public int LootBoxReward { get; set; }
+    public Func<DailyQuestMetrics, int> MetricValue { get; set; }
 
-    public QuestDefinition(string id, QuestType type, string description, int target)
+    public QuestDefinition(
+        string id,
+        string name,
+        string nameRu,
+        string description,
+        string descriptionRu,
+        QuestLane lane,
+        string icon,
+        QuestAggregation aggregation,
+        int target,
+        int zbsReward,
+        Func<DailyQuestMetrics, int> metricValue,
+        int lootBoxReward = 0)
     {
         Id = id;
-        Type = type;
+        Name = name;
+        NameRu = nameRu;
         Description = description;
+        DescriptionRu = descriptionRu;
+        Lane = lane;
+        Icon = icon;
+        Aggregation = aggregation;
         Target = target;
+        ZbsReward = zbsReward;
+        LootBoxReward = lootBoxReward;
+        MetricValue = metricValue;
     }
 }
 
 public class QuestProgress
 {
     public string QuestId { get; set; }
-    public QuestType Type { get; set; }
+    // Retained as a persisted snapshot for compatibility with cached/legacy clients. Evaluation
+    // always uses QuestId against the server-owned catalog.
     public string Description { get; set; }
     public int Target { get; set; }
     public int Current { get; set; }
     public bool IsCompleted { get; set; }
-    public int ZbsReward { get; set; } = 25;
+    public int ZbsReward { get; set; }
+    public int LootBoxReward { get; set; }
+    public bool RewardGranted { get; set; }
+    public DateTimeOffset? CompletedAt { get; set; }
 
     public QuestProgress() { }
 
     public QuestProgress(QuestDefinition def)
     {
         QuestId = def.Id;
-        Type = def.Type;
         Description = def.Description;
         Target = def.Target;
+        ZbsReward = def.ZbsReward;
+        LootBoxReward = def.LootBoxReward;
         Current = 0;
         IsCompleted = false;
     }
+}
 
-    public void Increment(int amount = 1)
-    {
-        if (IsCompleted) return;
-        Current += amount;
-        if (Current >= Target)
-        {
-            Current = Target;
-            IsCompleted = true;
-        }
-    }
-
-    public void SetProgress(int value)
-    {
-        if (IsCompleted) return;
-        Current = value;
-        if (Current >= Target)
-        {
-            Current = Target;
-            IsCompleted = true;
-        }
-    }
+/// <summary>
+/// Every daily metric is recorded even when its quest is not selected, allowing the one free
+/// reroll to recompute the replacement quest from already-finished matches without replaying them.
+/// </summary>
+public class DailyQuestMetrics
+{
+    public int EligibleMatches { get; set; }
+    public int ResolvedFights { get; set; }
+    public int FightWins { get; set; }
+    public int UniqueOpponentsBest { get; set; }
+    public int ConsecutiveWinsBest { get; set; }
+    public int NemesisWins { get; set; }
+    public int FinishedAliveBest { get; set; }
+    public int PodiumAliveBest { get; set; }
+    public int PlacesClimbedBest { get; set; }
+    public int RoundsAtFirstBest { get; set; }
+    public int JusticeReachedBest { get; set; }
+    public int MatchWins { get; set; }
 }
 
 public class DailyQuestState
 {
+    public int CatalogVersion { get; set; }
     public string Date { get; set; } // yyyy-MM-dd format
     public List<QuestProgress> Quests { get; set; } = new();
-    public bool AllCompleted => Quests.Count > 0 && Quests.All(q => q.IsCompleted);
+    public DailyQuestMetrics Metrics { get; set; } = new();
+    public bool AllCompleted => Quests?.Count > 0 && Quests.All(q => q.IsCompleted);
+    public bool DailyCompleted { get; set; }
+    /// <summary>Legacy compatibility alias; V2 sets this with DailyCompleted at two of three quests.</summary>
     public bool BonusClaimed { get; set; }
+    public bool DailyBonusGranted { get; set; }
+    public bool MasteryBonusGranted { get; set; }
+    public int RerollsRemaining { get; set; } = 1;
+    public List<string> RerolledQuestIds { get; set; } = new();
+}
+
+public class WeeklyQuestState
+{
+    public string WeekKey { get; set; }
+    public List<string> CompletedDates { get; set; } = new();
+    public bool RewardGranted { get; set; }
 }
 
 public class QuestData
 {
+    public int SchemaVersion { get; set; }
     public DailyQuestState ActiveDay { get; set; }
     public int StreakDays { get; set; }
+    public int BestStreakDays { get; set; }
     public string LastStreakDate { get; set; } // yyyy-MM-dd
+    public WeeklyQuestState WeeklyJourney { get; set; }
     public LootBoxResult LastLootBox { get; set; }
     public ulong LastLootBoxGameId { get; set; }
     /// <summary>Consecutive loot boxes below Rare. Nine means the next box is guaranteed Rare+.</summary>
@@ -131,18 +188,80 @@ public class LootBoxOpenOutcome
     public string Error { get; set; }
 }
 
+public sealed class QuestAccountStateSnapshot
+{
+    public int ZbsPoints { get; init; }
+    public int PendingLootBoxes { get; init; }
+    public QuestData Quests { get; init; }
+}
+
 public static class QuestService
 {
-    private static readonly List<QuestDefinition> QuestPool = new()
+    public const int CurrentSchemaVersion = 2;
+    public const int CurrentCatalogVersion = 2;
+    public const int DailyQuestRequirement = 2;
+    public const int DailyBonusZbs = 20;
+    public const int MasteryBonusLootBoxes = 1;
+    public const int WeeklyTargetDays = 5;
+    public const int WeeklyRewardZbs = 100;
+
+    public static readonly IReadOnlyList<QuestDefinition> DailyQuestCatalog = new List<QuestDefinition>
     {
-        new("play1", QuestType.PlayGames, "Finish any game", 1),
-        new("play3", QuestType.PlayGames, "Finish 3 games in a day", 3),
-        new("win1", QuestType.WinGame, "Finish 1st place", 1),
-        new("top3", QuestType.Top3Finish, "Finish in top 3", 1),
-        new("chars3", QuestType.PlayDifferentCharacters, "Play 3 different characters", 3),
-        new("play5", QuestType.Play5Games, "Finish 5 games in a day", 5),
-        new("score50", QuestType.Score50Plus, "Score 50+ points in a game", 1),
+        new("dq_clock_in", "Clock In", "На смену",
+            "Finish a match.", "Завершите матч.",
+            QuestLane.Anchor, "hourglass", QuestAggregation.DailySum, 1, 20,
+            metrics => metrics.EligibleMatches),
+
+        new("dq_thick_of_it", "In the Thick of It", "В гуще событий",
+            "Take part in 4 resolved fights.", "Примите участие в 4 завершённых боях.",
+            QuestLane.Skirmish, "swords", QuestAggregation.DailySum, 4, 30,
+            metrics => metrics.ResolvedFights),
+        new("dq_throw_hands", "Throw Hands", "Распустить руки",
+            "Win 2 fights.", "Победите в 2 боях.",
+            QuestLane.Skirmish, "fist", QuestAggregation.DailySum, 2, 30,
+            metrics => metrics.FightWins),
+        new("dq_rival_tour", "Rival Tour", "Тур по соперникам",
+            "Defeat 2 different opponents in one match.", "Победите 2 разных соперников за один матч.",
+            QuestLane.Skirmish, "target", QuestAggregation.BestMatch, 2, 30,
+            metrics => metrics.UniqueOpponentsBest),
+        new("dq_hot_streak", "Hot Streak", "Горячая серия",
+            "Win 2 fights in a row in one match.", "Победите в 2 боях подряд за один матч.",
+            QuestLane.Skirmish, "flame", QuestAggregation.BestMatch, 2, 30,
+            metrics => metrics.ConsecutiveWinsBest),
+        new("dq_counterplay", "Counterplay", "Контригра",
+            "Win a fight with class advantage.", "Победите в бою с преимуществом класса.",
+            QuestLane.Skirmish, "balance", QuestAggregation.DailySum, 1, 30,
+            metrics => metrics.NemesisWins),
+
+        new("dq_still_standing", "Still Standing", "Остаться в строю",
+            "Finish a match alive.", "Завершите матч в живых.",
+            QuestLane.Ambition, "shield", QuestAggregation.BestMatch, 1, 30,
+            metrics => metrics.FinishedAliveBest),
+        new("dq_podium", "Podium Finish", "На пьедестале",
+            "Finish in the top 3 while alive.", "Завершите матч в топ-3 и останьтесь в живых.",
+            QuestLane.Ambition, "medal", QuestAggregation.BestMatch, 1, 30,
+            metrics => metrics.PodiumAliveBest),
+        new("dq_claw_back", "Claw Back", "Выкарабкаться",
+            "Finish 2 places above your lowest position.", "Завершите матч на 2 места выше своей худшей позиции.",
+            QuestLane.Ambition, "arrows", QuestAggregation.BestMatch, 2, 30,
+            metrics => metrics.PlacesClimbedBest),
+        new("dq_top_seat", "Top Seat", "Первое кресло",
+            "Spend 2 rounds in 1st place in one match.", "Проведите 2 раунда на 1-м месте за один матч.",
+            QuestLane.Ambition, "crown", QuestAggregation.BestMatch, 2, 30,
+            metrics => metrics.RoundsAtFirstBest),
+        new("dq_balanced_scales", "Balanced Scales", "Равные весы",
+            "Reach 3 Justice in one match.", "Достигните 3 Справедливости за один матч.",
+            QuestLane.Ambition, "balance", QuestAggregation.BestMatch, 3, 30,
+            metrics => metrics.JusticeReachedBest),
+        new("dq_take_hill", "Take the Hill", "Взять гору",
+            "Earn a winning result in solo or play for the winning team.",
+            "Добейтесь победного результата в одиночной игре или сыграйте за победившую команду.",
+            QuestLane.Ambition, "mountain", QuestAggregation.BestMatch, 1, 30,
+            metrics => metrics.MatchWins),
     };
+
+    private static readonly IReadOnlyDictionary<string, QuestDefinition> QuestById =
+        DailyQuestCatalog.ToDictionary(definition => definition.Id, StringComparer.Ordinal);
 
     public const int RarePityLimit = 10;
 
@@ -155,143 +274,526 @@ public static class QuestService
         new("Legendary", 0.5, 750, 750),
     };
 
-    public static void EnsureQuestsInitialized(DiscordAccountClass account)
+    public static QuestDefinition GetDefinition(string questId)
     {
-        var today = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd");
-
-        account.Quests ??= new QuestData();
-
-        if (account.Quests.ActiveDay == null || account.Quests.ActiveDay.Date != today)
-        {
-            // Check streak before resetting
-            if (account.Quests.ActiveDay != null)
-            {
-                var yesterday = DateTimeOffset.UtcNow.AddDays(-1).ToString("yyyy-MM-dd");
-                if (account.Quests.ActiveDay.AllCompleted && account.Quests.LastStreakDate == yesterday)
-                {
-                    // Streak continues
-                }
-                else if (account.Quests.ActiveDay.AllCompleted && account.Quests.ActiveDay.Date == yesterday)
-                {
-                    // Yesterday's quests were all completed — streak was maintained
-                }
-                else if (account.Quests.LastStreakDate != yesterday && account.Quests.LastStreakDate != today)
-                {
-                    // Streak broken
-                    account.Quests.StreakDays = 0;
-                }
-            }
-
-            // Roll new quests for today
-            account.Quests.ActiveDay = new DailyQuestState
-            {
-                Date = today,
-                Quests = RollDailyQuests(today)
-            };
-        }
+        return questId != null && QuestById.TryGetValue(questId, out var definition)
+            ? definition
+            : null;
     }
 
-    private static List<QuestProgress> RollDailyQuests(string dateSeed)
+    public static bool EnsureQuestsInitialized(DiscordAccountClass account)
     {
-        // Use date as seed for deterministic daily quests (same for all players)
-        var seed = dateSeed.GetHashCode();
-        var rng = new Random(seed);
-        var pool = new List<QuestDefinition>(QuestPool);
-
-        var selected = new List<QuestProgress>();
-        for (var i = 0; i < 3 && pool.Count > 0; i++)
-        {
-            var idx = rng.Next(pool.Count);
-            selected.Add(new QuestProgress(pool[idx]));
-            pool.RemoveAt(idx);
-        }
-
-        return selected;
+        return EnsureQuestsInitialized(account, DateTimeOffset.UtcNow);
     }
 
-    public static void TrackGameEnd(DiscordAccountClass account, GamePlayerBridgeClass player, GameClass game)
+    public static bool EnsureQuestsInitialized(DiscordAccountClass account, DateTimeOffset now)
     {
-        EnsureQuestsInitialized(account);
+        if (account == null) throw new ArgumentNullException(nameof(account));
+        now = now.ToUniversalTime();
+        var today = DateKey(now);
+        var yesterday = DateKey(now.AddDays(-1));
+        var changed = false;
 
-        var quests = account.Quests.ActiveDay.Quests;
-        var place = player.Status.GetPlaceAtLeaderBoard();
-        var score = player.Status.GetScore();
-        var characterName = player.GameCharacter.Name;
-
-        foreach (var quest in quests)
+        if (account.Quests == null)
         {
-            if (quest.IsCompleted) continue;
+            account.Quests = new QuestData();
+            changed = true;
+        }
 
-            switch (quest.Type)
+        var data = account.Quests;
+        if (data.SchemaVersion != CurrentSchemaVersion)
+        {
+            data.SchemaVersion = CurrentSchemaVersion;
+            changed = true;
+        }
+
+        if (data.BestStreakDays < data.StreakDays)
+        {
+            data.BestStreakDays = data.StreakDays;
+            changed = true;
+        }
+
+        changed |= EnsureWeeklyJourney(data, now);
+
+        var oldDay = data.ActiveDay;
+        var legacyToday = oldDay?.Date == today && oldDay.CatalogVersion != CurrentCatalogVersion;
+        var legacyTodayWasSettled = legacyToday && oldDay.BonusClaimed;
+        var needsNewDay = oldDay == null
+                          || oldDay.Date != today
+                          || oldDay.CatalogVersion != CurrentCatalogVersion;
+
+        if (needsNewDay)
+        {
+            if (data.LastStreakDate != yesterday && data.LastStreakDate != today && data.StreakDays != 0)
+                data.StreakDays = 0;
+
+            data.ActiveDay = CreateDailyState(today, account.DiscordId);
+            changed = true;
+
+            // A paid legacy board is represented as fully settled for the rest of its UTC day.
+            // This prevents a deployment from paying the same day twice while keeping loot state intact.
+            if (legacyTodayWasSettled)
             {
-                case QuestType.PlayGames:
-                case QuestType.Play5Games:
-                    quest.Increment();
-                    break;
-                case QuestType.WinGame:
-                    if (place == 1) quest.Increment();
-                    break;
-                case QuestType.Top3Finish:
-                    if (place <= 3) quest.Increment();
-                    break;
-                case QuestType.PlayDifferentCharacters:
-                    // Count unique characters played today from match history
-                    var today = DateTimeOffset.UtcNow.Date;
-                    var uniqueChars = account.MatchHistory
-                        .Where(m => m.Date.Date == today)
-                        .Select(m => m.CharacterName)
-                        .Distinct()
-                        .Count();
-                    // Include current game character
-                    var todayChars = account.MatchHistory
-                        .Where(m => m.Date.Date == today)
-                        .Select(m => m.CharacterName)
-                        .Append(characterName)
-                        .Distinct()
-                        .Count();
-                    quest.SetProgress(todayChars);
-                    break;
-                case QuestType.Score50Plus:
-                    if (score >= 50) quest.Increment();
-                    break;
+                foreach (var quest in data.ActiveDay.Quests)
+                {
+                    quest.Current = quest.Target;
+                    quest.IsCompleted = true;
+                    quest.RewardGranted = true;
+                    quest.CompletedAt = now;
+                }
+
+                data.ActiveDay.DailyCompleted = true;
+                data.ActiveDay.BonusClaimed = true;
+                data.ActiveDay.DailyBonusGranted = true;
+                data.ActiveDay.MasteryBonusGranted = true;
+                data.ActiveDay.RerollsRemaining = 0;
+                AddWeeklyCompletion(data, today, now);
             }
         }
 
-        // Check if all quests completed — award bonuses
-        var allDone = quests.All(q => q.IsCompleted);
-        if (allDone && !account.Quests.ActiveDay.BonusClaimed)
+        changed |= NormalizeActiveDay(data.ActiveDay, account.DiscordId, now);
+        changed |= GrantAvailableRewards(account, now);
+        return changed;
+    }
+
+    public static void TrackGameEnd(
+        DiscordAccountClass account,
+        GamePlayerBridgeClass player,
+        GameClass game,
+        bool isMatchWinner)
+    {
+        TrackGameEnd(account, player, game, isMatchWinner, DateTimeOffset.UtcNow);
+    }
+
+    public static void TrackGameEnd(
+        DiscordAccountClass account,
+        GamePlayerBridgeClass player,
+        GameClass game,
+        bool isMatchWinner,
+        DateTimeOffset now)
+    {
+        now = now.ToUniversalTime();
+        EnsureQuestsInitialized(account, now);
+        var day = account.Quests.ActiveDay;
+        var metrics = day.Metrics;
+        var tracker = player.Passives.AchievementTracker ?? new InGameAchievementTracker();
+
+        metrics.EligibleMatches++;
+        metrics.ResolvedFights += Math.Max(0, tracker.TotalFightsWon + tracker.TotalFightsLost);
+
+        // Every non-Madara viewer receives a private projected ending under Eternal Tsukuyomi.
+        // Participation remains safe to count; real outcome/result facts would contradict that view.
+        var suppressResultFacts = Madara.IsEternalTsukuyomiActive(game) && !Madara.IsMadara(player);
+        if (!suppressResultFacts)
         {
-            // Award individual quest rewards + all-complete bonus
-            var totalReward = quests.Sum(q => q.ZbsReward) + 25; // 25 bonus for all 3
-            account.ZbsPoints += totalReward;
-            account.Quests.ActiveDay.BonusClaimed = true;
+            metrics.FightWins += Math.Max(0, tracker.TotalFightsWon);
+            metrics.UniqueOpponentsBest = Math.Max(metrics.UniqueOpponentsBest, tracker.DefeatedPlayerIds?.Count ?? 0);
+            metrics.ConsecutiveWinsBest = Math.Max(metrics.ConsecutiveWinsBest, tracker.MaxConsecutiveWins);
+            metrics.NemesisWins += Math.Max(0, tracker.NemesisAdvantageWins);
 
-            // Update streak
-            var today = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd");
-            var yesterday = DateTimeOffset.UtcNow.AddDays(-1).ToString("yyyy-MM-dd");
+            var alive = !player.Passives.IsDead;
+            var finalPlace = player.Status.GetPlaceAtLeaderBoard();
+            metrics.FinishedAliveBest = Math.Max(metrics.FinishedAliveBest, alive ? 1 : 0);
+            metrics.PodiumAliveBest = Math.Max(metrics.PodiumAliveBest, alive && finalPlace <= 3 ? 1 : 0);
 
-            if (account.Quests.LastStreakDate == yesterday || account.Quests.StreakDays == 0)
-                account.Quests.StreakDays++;
-            else if (account.Quests.LastStreakDate != today)
-                account.Quests.StreakDays = 1;
-
-            account.Quests.LastStreakDate = today;
-
-            // 7-day streak bonus
-            if (account.Quests.StreakDays >= 7 && account.Quests.StreakDays % 7 == 0)
-            {
-                account.ZbsPoints += 500;
-            }
+            var lowestPlace = player.Status.PlaceAtLeaderBoardHistory?
+                .Where(entry => entry.Place > 0)
+                .Select(entry => entry.Place)
+                .Append(finalPlace)
+                .DefaultIfEmpty(finalPlace)
+                .Max() ?? finalPlace;
+            metrics.PlacesClimbedBest = Math.Max(metrics.PlacesClimbedBest, Math.Max(0, lowestPlace - finalPlace));
+            metrics.RoundsAtFirstBest = Math.Max(metrics.RoundsAtFirstBest, tracker.RoundsAtFirst);
+            metrics.JusticeReachedBest = Math.Max(metrics.JusticeReachedBest, tracker.JusticeReached);
+            if (isMatchWinner) metrics.MatchWins++;
         }
-        else if (!allDone)
+
+        RecomputeSelectedQuests(day, now);
+        GrantAvailableRewards(account, now);
+    }
+
+    public static bool TryRerollDailyQuest(
+        DiscordAccountClass account,
+        string questId,
+        DateTimeOffset now,
+        out string error)
+    {
+        error = null;
+        now = now.ToUniversalTime();
+        EnsureQuestsInitialized(account, now);
+
+        var day = account.Quests.ActiveDay;
+        var index = day.Quests.FindIndex(quest => string.Equals(quest.QuestId, questId, StringComparison.Ordinal));
+        if (index < 0)
         {
-            // Award individual completed quest rewards immediately
-            foreach (var quest in quests.Where(q => q.IsCompleted))
-            {
-                // Rewards are given as lump sum when all complete, or we can track per-quest
-                // For simplicity, individual quest rewards are part of the all-complete bonus
-            }
+            error = "Daily quest not found.";
+            return false;
         }
+
+        var current = day.Quests[index];
+        var currentDefinition = GetDefinition(current.QuestId);
+        if (currentDefinition == null || currentDefinition.Lane == QuestLane.Anchor)
+        {
+            error = "The anchor quest cannot be rerolled.";
+            return false;
+        }
+        if (current.IsCompleted)
+        {
+            error = "A completed quest cannot be rerolled.";
+            return false;
+        }
+        if (day.RerollsRemaining <= 0)
+        {
+            error = "No daily rerolls remaining.";
+            return false;
+        }
+
+        var selectedIds = day.Quests.Select(quest => quest.QuestId).ToHashSet(StringComparer.Ordinal);
+        var candidates = DailyQuestCatalog
+            .Where(definition => definition.Lane == currentDefinition.Lane
+                                 && !selectedIds.Contains(definition.Id)
+                                 && !(day.RerolledQuestIds?.Contains(definition.Id) ?? false))
+            .ToList();
+        if (candidates.Count == 0)
+        {
+            error = "No replacement quest is available.";
+            return false;
+        }
+
+        var replacementIndex = StableIndex(
+            $"reroll:{current.QuestId}", day.Date, account.DiscordId, currentDefinition.Lane, candidates.Count);
+        var replacement = new QuestProgress(candidates[replacementIndex]);
+        day.Quests[index] = replacement;
+        day.RerollsRemaining--;
+        day.RerolledQuestIds ??= new List<string>();
+        if (!day.RerolledQuestIds.Contains(current.QuestId, StringComparer.Ordinal))
+            day.RerolledQuestIds.Add(current.QuestId);
+
+        RecomputeQuest(replacement, candidates[replacementIndex], day.Metrics, now);
+        GrantAvailableRewards(account, now);
+        return true;
+    }
+
+    public static DateTimeOffset GetResetAt(DateTimeOffset now)
+    {
+        now = now.ToUniversalTime();
+        return new DateTimeOffset(now.UtcDateTime.Date.AddDays(1), TimeSpan.Zero);
+    }
+
+    public static DateTimeOffset GetWeekEndsAt(DateTimeOffset now)
+    {
+        now = now.ToUniversalTime();
+        var date = now.UtcDateTime.Date;
+        var daysUntilNextMonday = ((int)DayOfWeek.Monday - (int)date.DayOfWeek + 7) % 7;
+        if (daysUntilNextMonday == 0) daysUntilNextMonday = 7;
+        return new DateTimeOffset(date.AddDays(daysUntilNextMonday), TimeSpan.Zero);
+    }
+
+    /// <summary>The caller must hold the account monitor.</summary>
+    public static QuestAccountStateSnapshot CaptureAccountState(DiscordAccountClass account)
+    {
+        return new QuestAccountStateSnapshot
+        {
+            ZbsPoints = account.ZbsPoints,
+            PendingLootBoxes = account.PendingLootBoxes,
+            Quests = CloneQuestData(account.Quests),
+        };
+    }
+
+    /// <summary>The caller must hold the account monitor.</summary>
+    public static void RestoreAccountState(DiscordAccountClass account, QuestAccountStateSnapshot snapshot)
+    {
+        account.ZbsPoints = snapshot.ZbsPoints;
+        account.PendingLootBoxes = snapshot.PendingLootBoxes;
+        account.Quests = snapshot.Quests;
+    }
+
+    private static DailyQuestState CreateDailyState(string date, ulong accountId)
+    {
+        var anchor = DailyQuestCatalog.Single(definition => definition.Lane == QuestLane.Anchor);
+        return new DailyQuestState
+        {
+            CatalogVersion = CurrentCatalogVersion,
+            Date = date,
+            Quests = new List<QuestProgress>
+            {
+                new(anchor),
+                new(SelectLaneQuest(QuestLane.Skirmish, date, accountId)),
+                new(SelectLaneQuest(QuestLane.Ambition, date, accountId)),
+            },
+            Metrics = new DailyQuestMetrics(),
+            RerollsRemaining = 1,
+            RerolledQuestIds = new List<string>(),
+        };
+    }
+
+    private static QuestDefinition SelectLaneQuest(QuestLane lane, string date, ulong accountId)
+    {
+        var candidates = DailyQuestCatalog.Where(definition => definition.Lane == lane).ToList();
+        return candidates[StableIndex("daily", date, accountId, lane, candidates.Count)];
+    }
+
+    private static int StableIndex(string purpose, string date, ulong accountId, QuestLane lane, int count)
+    {
+        var input = $"kotgh:daily-quests:v{CurrentCatalogVersion}:{date}:{accountId}:{lane}:{purpose}";
+        var digest = SHA256.HashData(Encoding.UTF8.GetBytes(input));
+        return (int)(BinaryPrimitives.ReadUInt32BigEndian(digest) % (uint)count);
+    }
+
+    private static bool NormalizeActiveDay(DailyQuestState day, ulong accountId, DateTimeOffset now)
+    {
+        var changed = false;
+        if (day.Metrics == null) { day.Metrics = new DailyQuestMetrics(); changed = true; }
+        if (day.Quests == null) { day.Quests = new List<QuestProgress>(); changed = true; }
+        if (day.RerolledQuestIds == null) { day.RerolledQuestIds = new List<string>(); changed = true; }
+        var clampedRerolls = Math.Clamp(day.RerollsRemaining, 0, 1);
+        if (day.RerollsRemaining != clampedRerolls) { day.RerollsRemaining = clampedRerolls; changed = true; }
+
+        var normalized = new List<QuestProgress>();
+        var lanes = new HashSet<QuestLane>();
+        foreach (var quest in day.Quests)
+        {
+            var definition = GetDefinition(quest?.QuestId);
+            if (definition == null || !lanes.Add(definition.Lane)) { changed = true; continue; }
+            changed |= ApplyDefinitionSnapshot(quest, definition);
+            normalized.Add(quest);
+        }
+
+        foreach (var lane in Enum.GetValues<QuestLane>())
+        {
+            if (lanes.Contains(lane)) continue;
+            var definition = lane == QuestLane.Anchor
+                ? DailyQuestCatalog.Single(candidate => candidate.Lane == QuestLane.Anchor)
+                : SelectLaneQuest(lane, day.Date, accountId);
+            var replacement = new QuestProgress(definition);
+            // Corrupt/missing progress on an already-settled day must never reopen an economy payout.
+            replacement.RewardGranted = day.DailyCompleted || day.BonusClaimed;
+            if (day.MasteryBonusGranted)
+            {
+                replacement.Current = replacement.Target;
+                replacement.IsCompleted = true;
+                replacement.CompletedAt = now;
+            }
+            normalized.Add(replacement);
+            lanes.Add(lane);
+            changed = true;
+        }
+
+        if (!day.Quests.SequenceEqual(normalized))
+        {
+            day.Quests = normalized.OrderBy(quest => GetDefinition(quest.QuestId).Lane).ToList();
+            changed = true;
+        }
+
+        foreach (var quest in day.Quests)
+        {
+            var before = (quest.Current, quest.IsCompleted, quest.CompletedAt);
+            RecomputeQuest(quest, GetDefinition(quest.QuestId), day.Metrics, now);
+            if (before != (quest.Current, quest.IsCompleted, quest.CompletedAt)) changed = true;
+        }
+
+        if (day.DailyBonusGranted && (!day.DailyCompleted || !day.BonusClaimed))
+        {
+            day.DailyCompleted = true;
+            day.BonusClaimed = true;
+            changed = true;
+        }
+        return changed;
+    }
+
+    private static bool ApplyDefinitionSnapshot(QuestProgress quest, QuestDefinition definition)
+    {
+        var changed = false;
+        if (quest.Description != definition.Description) { quest.Description = definition.Description; changed = true; }
+        if (quest.Target != definition.Target) { quest.Target = definition.Target; changed = true; }
+        if (quest.ZbsReward != definition.ZbsReward) { quest.ZbsReward = definition.ZbsReward; changed = true; }
+        if (quest.LootBoxReward != definition.LootBoxReward) { quest.LootBoxReward = definition.LootBoxReward; changed = true; }
+        var normalizedCurrent = Math.Clamp(quest.Current, 0, quest.Target);
+        if (quest.IsCompleted) normalizedCurrent = quest.Target;
+        if (quest.Current != normalizedCurrent) { quest.Current = normalizedCurrent; changed = true; }
+        if (quest.Current >= quest.Target && !quest.IsCompleted) { quest.IsCompleted = true; changed = true; }
+        return changed;
+    }
+
+    private static void RecomputeSelectedQuests(DailyQuestState day, DateTimeOffset now)
+    {
+        foreach (var quest in day.Quests)
+            RecomputeQuest(quest, GetDefinition(quest.QuestId), day.Metrics, now);
+    }
+
+    private static void RecomputeQuest(
+        QuestProgress quest,
+        QuestDefinition definition,
+        DailyQuestMetrics metrics,
+        DateTimeOffset now)
+    {
+        if (quest == null || definition == null || metrics == null) return;
+        var value = Math.Clamp(definition.MetricValue(metrics), 0, definition.Target);
+        quest.Current = Math.Max(quest.Current, value);
+        if (quest.Current < quest.Target) return;
+        if (!quest.IsCompleted) quest.IsCompleted = true;
+        quest.CompletedAt ??= now;
+    }
+
+    private static bool GrantAvailableRewards(DiscordAccountClass account, DateTimeOffset now)
+    {
+        var changed = false;
+        var data = account.Quests;
+        var day = data.ActiveDay;
+        foreach (var quest in day.Quests.Where(quest => quest.IsCompleted && !quest.RewardGranted))
+        {
+            account.ZbsPoints += quest.ZbsReward;
+            account.PendingLootBoxes += quest.LootBoxReward;
+            quest.RewardGranted = true;
+            changed = true;
+        }
+
+        var completed = day.Quests.Count(quest => quest.IsCompleted);
+        if (completed >= DailyQuestRequirement && !day.DailyBonusGranted)
+        {
+            account.ZbsPoints += DailyBonusZbs;
+            day.DailyCompleted = true;
+            day.BonusClaimed = true;
+            day.DailyBonusGranted = true;
+            AdvanceStreak(data, day.Date, now);
+            AddWeeklyCompletion(data, day.Date, now);
+            changed = true;
+        }
+
+        if (completed == day.Quests.Count && day.Quests.Count > 0 && !day.MasteryBonusGranted)
+        {
+            account.PendingLootBoxes += MasteryBonusLootBoxes;
+            day.MasteryBonusGranted = true;
+            changed = true;
+        }
+
+        var weekly = data.WeeklyJourney;
+        if (weekly.CompletedDates.Count >= WeeklyTargetDays && !weekly.RewardGranted)
+        {
+            account.ZbsPoints += WeeklyRewardZbs;
+            weekly.RewardGranted = true;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private static void AdvanceStreak(QuestData data, string today, DateTimeOffset now)
+    {
+        if (data.LastStreakDate == today) return;
+        var yesterday = DateKey(now.AddDays(-1));
+        data.StreakDays = data.LastStreakDate == yesterday ? data.StreakDays + 1 : 1;
+        data.BestStreakDays = Math.Max(data.BestStreakDays, data.StreakDays);
+        data.LastStreakDate = today;
+    }
+
+    private static bool EnsureWeeklyJourney(QuestData data, DateTimeOffset now)
+    {
+        var weekKey = WeekKey(now);
+        if (data.WeeklyJourney?.WeekKey == weekKey)
+        {
+            var changed = false;
+            if (data.WeeklyJourney.CompletedDates == null)
+            {
+                data.WeeklyJourney.CompletedDates = new List<string>();
+                changed = true;
+            }
+            var normalizedDates = data.WeeklyJourney.CompletedDates
+                .Where(date => !string.IsNullOrWhiteSpace(date))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            if (!data.WeeklyJourney.CompletedDates.SequenceEqual(normalizedDates, StringComparer.Ordinal))
+            {
+                data.WeeklyJourney.CompletedDates = normalizedDates;
+                changed = true;
+            }
+            return changed;
+        }
+
+        data.WeeklyJourney = new WeeklyQuestState { WeekKey = weekKey };
+        return true;
+    }
+
+    private static void AddWeeklyCompletion(QuestData data, string date, DateTimeOffset now)
+    {
+        data.WeeklyJourney ??= new WeeklyQuestState { WeekKey = WeekKey(now) };
+        data.WeeklyJourney.CompletedDates ??= new List<string>();
+        if (!data.WeeklyJourney.CompletedDates.Contains(date, StringComparer.Ordinal))
+            data.WeeklyJourney.CompletedDates.Add(date);
+    }
+
+    private static string DateKey(DateTimeOffset now) =>
+        now.ToUniversalTime().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private static string WeekKey(DateTimeOffset now)
+    {
+        var date = now.ToUniversalTime().UtcDateTime.Date;
+        return $"{ISOWeek.GetYear(date):D4}-W{ISOWeek.GetWeekOfYear(date):D2}";
+    }
+
+    private static QuestData CloneQuestData(QuestData source)
+    {
+        if (source == null) return null;
+        return new QuestData
+        {
+            SchemaVersion = source.SchemaVersion,
+            ActiveDay = CloneDailyState(source.ActiveDay),
+            StreakDays = source.StreakDays,
+            BestStreakDays = source.BestStreakDays,
+            LastStreakDate = source.LastStreakDate,
+            WeeklyJourney = source.WeeklyJourney == null ? null : new WeeklyQuestState
+            {
+                WeekKey = source.WeeklyJourney.WeekKey,
+                CompletedDates = source.WeeklyJourney.CompletedDates?.ToList() ?? new List<string>(),
+                RewardGranted = source.WeeklyJourney.RewardGranted,
+            },
+            LastLootBox = source.LastLootBox,
+            LastLootBoxGameId = source.LastLootBoxGameId,
+            LootBoxPity = source.LootBoxPity,
+        };
+    }
+
+    private static DailyQuestState CloneDailyState(DailyQuestState source)
+    {
+        if (source == null) return null;
+        return new DailyQuestState
+        {
+            CatalogVersion = source.CatalogVersion,
+            Date = source.Date,
+            Quests = source.Quests?.Select(quest => new QuestProgress
+            {
+                QuestId = quest.QuestId,
+                Description = quest.Description,
+                Target = quest.Target,
+                Current = quest.Current,
+                IsCompleted = quest.IsCompleted,
+                ZbsReward = quest.ZbsReward,
+                LootBoxReward = quest.LootBoxReward,
+                RewardGranted = quest.RewardGranted,
+                CompletedAt = quest.CompletedAt,
+            }).ToList() ?? new List<QuestProgress>(),
+            Metrics = source.Metrics == null ? null : new DailyQuestMetrics
+            {
+                EligibleMatches = source.Metrics.EligibleMatches,
+                ResolvedFights = source.Metrics.ResolvedFights,
+                FightWins = source.Metrics.FightWins,
+                UniqueOpponentsBest = source.Metrics.UniqueOpponentsBest,
+                ConsecutiveWinsBest = source.Metrics.ConsecutiveWinsBest,
+                NemesisWins = source.Metrics.NemesisWins,
+                FinishedAliveBest = source.Metrics.FinishedAliveBest,
+                PodiumAliveBest = source.Metrics.PodiumAliveBest,
+                PlacesClimbedBest = source.Metrics.PlacesClimbedBest,
+                RoundsAtFirstBest = source.Metrics.RoundsAtFirstBest,
+                JusticeReachedBest = source.Metrics.JusticeReachedBest,
+                MatchWins = source.Metrics.MatchWins,
+            },
+            DailyCompleted = source.DailyCompleted,
+            BonusClaimed = source.BonusClaimed,
+            DailyBonusGranted = source.DailyBonusGranted,
+            MasteryBonusGranted = source.MasteryBonusGranted,
+            RerollsRemaining = source.RerollsRemaining,
+            RerolledQuestIds = source.RerolledQuestIds?.ToList() ?? new List<string>(),
+        };
     }
 
     public static int GetGuaranteedRareIn(int pity)

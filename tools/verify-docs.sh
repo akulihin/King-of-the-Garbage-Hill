@@ -63,7 +63,7 @@ resolve() {
     Game.vue|Lobby.vue|Spectate.vue|Replay.vue|Widget.vue|Home.vue|Achievements.vue|BattleshipLobby.vue|BattleshipGame.vue|BattleshipSpectate.vue)
       echo "$V/pages/$1";;
     LoginProcess.vue|LoginSuccess.vue) echo "$V/components/Login/$1";;
-    PlayerCard.vue|SkillsPanel.vue|Leaderboard.vue|FightAnimation.vue|DeathNote.vue|RoundTimer.vue|MediaMessages.vue|BattleLog.vue|ActionPanel.vue|AchievementBoard.vue|AchievementPopup.vue|LootBox.vue|ScoreOdometer.vue)
+    PlayerCard.vue|SkillsPanel.vue|Leaderboard.vue|FightAnimation.vue|DeathNote.vue|RoundTimer.vue|MediaMessages.vue|BattleLog.vue|ActionPanel.vue|AchievementBoard.vue|AchievementPopup.vue|LootBox.vue|DailyQuestBoard.vue|ScoreOdometer.vue)
       echo "$V/components/$1";;
     AchievementIcon.vue) echo "$V/components/achievements/$1";;
     FortressOfDoom.vue) echo "$V/components/Home/$1";;
@@ -83,7 +83,7 @@ DRIFTS=$(mktemp)
 trap 'rm -f "$DRIFTS"' EXIT
 export LC_ALL=C
 declare -A LINECOUNT   # file → wc -l cache (biggest win: avoid re-stat'ing the same file per anchor)
-for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDIT-FINDINGS.md docs/BALANCE-CONSTANTS.md docs/INTERACTION-MATRIX.md docs/WEB-BACKEND.md docs/WEB-CLIENT.md docs/DISCORD-INTERFACE.md docs/LOCALIZATION.md docs/ACHIEVEMENTS.md; do
+for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDIT-FINDINGS.md docs/BALANCE-CONSTANTS.md docs/INTERACTION-MATRIX.md docs/WEB-BACKEND.md docs/WEB-CLIENT.md docs/DISCORD-INTERFACE.md docs/LOCALIZATION.md docs/ACHIEVEMENTS.md docs/DAILY-QUESTS.md; do
   [ -f "$doc" ] || continue
   # Group all anchors per citing doc line so drift is judged against their COMBINED context
   while IFS='|' read -r docline anchors; do

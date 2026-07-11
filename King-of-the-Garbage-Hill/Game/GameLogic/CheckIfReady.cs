@@ -284,7 +284,7 @@ public class CheckIfReady : IServiceSingleton
         {
             game.AddGlobalLogs("Крестьяне с вилами настигли Ведьмака... Работа неблагодарная.");
         }
-
+        var questSettlementNow = DateTimeOffset.UtcNow;
         foreach (var player in game.PlayersList)
         {
             player.Status.ConfirmedSkip = true;
@@ -696,6 +696,11 @@ public class CheckIfReady : IServiceSingleton
             }
 
             if (player.Passives.IsDead) zbsPointsToGive = 0;
+            var isMatchWinner = isTeam
+                ? wonTeam > 0 && game.Teams.Any(team =>
+                    team.TeamId == wonTeam && team.TeamPlayers.Contains(player.Status.PlayerId))
+                : !player.Passives.IsDead
+                  && (rewardPlace == 1 || player.Status.GetScore() == playerWhoWon.Status.GetScore());
 
             var tracker = player.Passives.AchievementTracker;
             tracker.FinishedWithZeroPsyche = player.GameCharacter.GetPsyche() <= 0;
@@ -725,7 +730,7 @@ public class CheckIfReady : IServiceSingleton
                 account.ZbsPoints += zbsPointsToGive;
 
                 // Quest progress tracking
-                QuestService.TrackGameEnd(account, player, game);
+                QuestService.TrackGameEnd(account, player, game, isMatchWinner, questSettlementNow);
 
                 // Loot box for top 2 (alive players only) — deferred to lobby
                 if (rewardPlace <= 2 && !player.Passives.IsDead)

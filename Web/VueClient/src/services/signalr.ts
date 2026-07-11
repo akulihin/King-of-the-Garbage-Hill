@@ -632,9 +632,26 @@ export type ForOneFightMod = {
 // ── Quest & Loot Box Types ──────────────────────────────────────────
 
 export type QuestState = {
+  activeDate: string
+  serverNow: string
+  resetsAt: string
   quests: QuestProgress[]
   allCompletedToday: boolean
+  dailyCompleted: boolean
+  completedQuestCount: number
+  dailyQuestRequirement: number
+  dailyBonusZbs: number
+  dailyBonusGranted: boolean
+  masteryBonusLootBoxes: number
+  masteryBonusGranted: boolean
+  rerollsRemaining: number
   streakDays: number
+  bestStreakDays: number
+  weeklyCompletedDays: number
+  weeklyTargetDays: number
+  weeklyRewardZbs: number
+  weeklyRewardGranted: boolean
+  weekEndsAt: string
   zbsPoints: number
   pendingLootBoxes: number
   lootBoxPity: number
@@ -645,11 +662,21 @@ export type QuestState = {
 
 export type QuestProgress = {
   id: string
+  name: string
+  nameRu: string
   description: string
+  descriptionRu: string
+  lane: string
+  icon: string
+  aggregation: string
   current: number
   target: number
   isCompleted: boolean
   zbsReward: number
+  rewardLootBoxes: number
+  rewardGranted: boolean
+  completedAt: string | null
+  canReroll: boolean
 }
 
 export type LootBoxResult = {
@@ -1444,6 +1471,10 @@ class SignalRService {
 
   async requestQuests(): Promise<void> {
     await this.requireConnected().invoke('RequestQuests')
+  }
+
+  async rerollDailyQuest(questId: string): Promise<void> {
+    await this.requireConnected().invoke('RerollDailyQuest', questId)
   }
 
   async openLootBoxV2(): Promise<void> {

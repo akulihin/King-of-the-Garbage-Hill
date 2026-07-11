@@ -73,6 +73,10 @@ export const useGameStore = defineStore('game', () => {
   const gameStory = ref<string | null>(null)
   const blackjackState = ref<BlackjackTableState | null>(null)
   const questState = ref<QuestState | null>(null)
+  const isQuestsLoading = ref(false)
+  const questsError = ref<string | null>(null)
+  const rerollingQuestId = ref<string | null>(null)
+  let questsRefreshPending = false
   const lootBoxResult = ref<LootBoxResult | null>(null)
   const isLootBoxFlowActive = ref(false)
   const achievementBoard = ref<AchievementBoard | null>(null)
@@ -238,10 +242,16 @@ export const useGameStore = defineStore('game', () => {
       }
 
       signalrService.onQuestState = (state) => {
+        const refreshAgain = questsRefreshPending
+        questsRefreshPending = false
         questState.value = state
+        isQuestsLoading.value = false
+        questsError.value = null
+        rerollingQuestId.value = null
         if (state.lastUnacknowledgedLootBox && !lootBoxResult.value) {
           lootBoxResult.value = state.lastUnacknowledgedLootBox
         }
+        if (refreshAgain) void requestQuests()
       }
 
       signalrService.onLootBoxOpened = (result) => {
@@ -293,6 +303,11 @@ export const useGameStore = defineStore('game', () => {
 
       signalrService.onError = (error) => {
         errorMessage.value = error
+        if (isQuestsLoading.value || rerollingQuestId.value) {
+          isQuestsLoading.value = false
+          rerollingQuestId.value = null
+          questsError.value = error
+        }
         if (isAchievementsLoading.value) {
           isAchievementsLoading.value = false
           achievementsError.value = error
@@ -399,6 +414,10 @@ export const useGameStore = defineStore('game', () => {
     blackjackState.value = null
 
     questState.value = null
+    isQuestsLoading.value = false
+    questsError.value = null
+    rerollingQuestId.value = null
+    questsRefreshPending = false
     lootBoxResult.value = null
     isLootBoxFlowActive.value = false
     achievementBoard.value = null
@@ -664,7 +683,37 @@ export const useGameStore = defineStore('game', () => {
   }
 
   async function requestQuests() {
-    await signalrService.requestQuests()
+    if (isQuestsLoading.value) {
+      questsRefreshPending = true
+      return
+    }
+    isQuestsLoading.value = true
+    questsError.value = null
+    try {
+      await signalrService.requestQuests()
+    }
+    catch (error) {
+      const refreshAgain = questsRefreshPending
+      questsRefreshPending = false
+      isQuestsLoading.value = false
+      questsError.value = error instanceof Error ? error.message : String(error)
+      if (refreshAgain && isAuthenticated.value && isConnected.value) void requestQuests()
+    }
+  }
+
+  async function rerollDailyQuest(questId: string) {
+    if (!questId || rerollingQuestId.value) return
+    rerollingQuestId.value = questId
+    questsError.value = null
+    try {
+      await signalrService.rerollDailyQuest(questId)
+    }
+    catch (error) {
+      questsError.value = error instanceof Error ? error.message : String(error)
+    }
+    finally {
+      rerollingQuestId.value = null
+    }
   }
 
   async function openLootBox() {
@@ -799,6 +848,9 @@ export const useGameStore = defineStore('game', () => {
     gameStory,
     blackjackState,
     questState,
+    isQuestsLoading,
+    questsError,
+    rerollingQuestId,
     lootBoxResult,
     isLootBoxFlowActive,
     achievementBoard,
@@ -870,6 +922,7 @@ export const useGameStore = defineStore('game', () => {
     fetchCharacterList,
     createTestGame,
     requestQuests,
+    rerollDailyQuest,
     openLootBox,
     acknowledgeLootBox,
     clearLootBoxResult,
