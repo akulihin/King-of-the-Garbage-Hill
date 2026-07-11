@@ -1,0 +1,4 @@
+interface:
+  display_name: "Replay Review"
+  short_description: "Inspect replay data and player-facing UI"
+  default_prompt: "Use $replay-review to investigate this game replay for bugs."
