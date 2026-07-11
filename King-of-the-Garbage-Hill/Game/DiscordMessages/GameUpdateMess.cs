@@ -831,21 +831,20 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public string SortLogs(string textOriginal, GamePlayerBridgeClass player, GameClass game)
     {
-        var text = textOriginal;
-        if (player.PlayerType == 0)
-            text = game.PlayersList.Where(p => p.GetPlayerId() != player.GetPlayerId()).Aggregate(text,
-                (current1, p) => p.GameCharacter.Passive
-                    .Where(passive =>
-                        passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса" &&
-                        passive.PassiveName != "Еврей" && passive.PassiveName != "2kxaoc").Aggregate(current1,
-                        (current, passive) => current.Replace($"{passive.PassiveName}", "Неизвестно")));
-        else
-            text = game.PlayersList.Where(p => p.GetPlayerId() != player.GetPlayerId()).Aggregate(text,
-                (current1, p) => p.GameCharacter.Passive
-                    .Where(passive =>
-                        passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса" &&
-                        passive.PassiveName != "Еврей" && passive.PassiveName != "2kxaoc").Aggregate(current1,
-                        (current, passive) => current.Replace($"{passive.PassiveName}", $"❓ {passive.PassiveName}")));
+        var hiddenPassiveNames = game.PlayersList
+            .Where(other => other.GetPlayerId() != player.GetPlayerId())
+            .SelectMany(other => other.GameCharacter.Passive)
+            .Where(passive =>
+                passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса" &&
+                passive.PassiveName != "Еврей" && passive.PassiveName != "2kxaoc")
+            .Select(passive => passive.PassiveName)
+            .ToHashSet(StringComparer.Ordinal);
+        var text = hiddenPassiveNames.Aggregate(textOriginal, (current, passiveName) =>
+            current.Replace(passiveName,
+                player.PlayerType == 0 ? "Неизвестно" : $"❓ {passiveName}",
+                StringComparison.Ordinal));
+        text = PhrasePayload.MaskPassiveNames(text, hiddenPassiveNames, player.PlayerType == 0);
+        text = PhrasePayload.Resolve(text, GameLocalization.GetUserLanguage(player.DiscordId));
 
         var separationLine = false;
         var orderedList = new List<string>

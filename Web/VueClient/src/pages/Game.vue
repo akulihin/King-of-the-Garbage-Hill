@@ -8,6 +8,7 @@ import PlayerCard from 'src/components/PlayerCard.vue'
 // ActionPanel removed — action buttons now live under PlayerCard in game-left
 import SkillsPanel from 'src/components/SkillsPanel.vue'
 import { formatPassiveDescription } from 'src/services/textFormatting'
+import { translateText } from 'src/i18n'
 import FightAnimation from 'src/components/FightAnimation.vue'
 import MediaMessages from 'src/components/MediaMessages.vue'
 import RoundTimer from 'src/components/RoundTimer.vue'
@@ -668,7 +669,7 @@ function convertDiscordEmoji(text: string): string {
 }
 
 function formatLogs(text: string): string {
-  return convertDiscordEmoji(text)
+  return convertDiscordEmoji(translateText(text))
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/__(.*?)__/g, '<u>$1</u>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -771,6 +772,7 @@ function cleanDiscord(text: string): string {
 function parsePrevLogs(raw: string): PrevLogEntry[] {
   if (!raw) return []
   if (raw.length < 3) return []
+  raw = translateText(raw)
   
   // Lines to hide (already shown elsewhere in the UI)
   const hiddenPatterns: ((line: string) => boolean)[] = [

@@ -128,7 +128,7 @@ Special dispatchers outside the table: `HandleJews` (win-point stealing, `:7042`
 
 - **Personal logs** (`Status.AddInGamePersonalLogs`, auto-called by most stat mutators): visible to that player only. Stat methods log by default — pass `isLog: false` to suppress; do **not** double-log.
 - **Global logs** (`game.AddGlobalLogs`): all players; per-round buffer is re-sorted at end of round (`SortGameLogs`) then reset. `HiddenGlobalLogSnippets`/`KiraHiddenLogSnippets` strip fight lines for non-admins per feature.
-- **Phrases** (`Game/MemoryStorage/CharactersPhrases.cs`): `PhraseClass` objects with `.SendLog(player, delete)` / web variants; media via `WebMediaMessages` (audio/images, round-scoped).
+- **Phrases** (`Game/MemoryStorage/CharactersPhrases.cs`): `PhraseClass` objects with index-paired canonical `PassiveLogRus` and authored `PassiveLogEng` arrays loaded from `DataBase/phrases.en.json`. `.SendLog` stores both selected renderings in a replay-safe payload; media stores paired fields; consumed variants are removed from both arrays together (`Helpers/PhraseLocalization.cs`).
 - **FightingData** (`Status.AddFightingData`): verbose per-fight numeric trace (admin/debug view + web fight animation source).
 
 ## 5. Score plumbing

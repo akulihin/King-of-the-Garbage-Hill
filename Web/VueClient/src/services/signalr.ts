@@ -509,6 +509,8 @@ export type DraftOptionDto = {
 export type MediaMessage = {
   passiveName: string
   text: string
+  passiveNameEnglish?: string | null
+  textEnglish?: string | null
   fileUrl: string | null
   /** "text" | "audio" | "image" */
   fileType: string

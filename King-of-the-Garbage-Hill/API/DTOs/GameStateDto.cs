@@ -261,6 +261,10 @@ public class MediaMessageDto
     public string PassiveName { get; set; }
     /// <summary>The text/phrase content.</summary>
     public string Text { get; set; }
+    /// <summary>Authored English ability name. Null in legacy replay snapshots.</summary>
+    public string PassiveNameEnglish { get; set; }
+    /// <summary>Authored English phrase. Null in legacy replay snapshots.</summary>
+    public string TextEnglish { get; set; }
     /// <summary>URL to the media file (e.g. /art/events/kratos_death.jpg, /sound/Kratos_PLAY_ME.mp3). Null for text-only.</summary>
     public string FileUrl { get; set; }
     /// <summary>One of: "text", "audio", "image"</summary>

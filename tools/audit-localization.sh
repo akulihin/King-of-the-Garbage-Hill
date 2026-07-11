@@ -2,6 +2,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+tools/audit-phrases.sh
 characters=King-of-the-Garbage-Hill/DataBase/characters.json
 catalog=King-of-the-Garbage-Hill/DataBase/localization.en.json
 tmp=$(mktemp -d)

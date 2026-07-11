@@ -83,6 +83,8 @@ public class GamePlayerBridgeClass
     {
         public string PassiveName { get; set; }
         public string Text { get; set; }
+        public string PassiveNameEnglish { get; set; }
+        public string TextEnglish { get; set; }
         /// <summary>URL path to the file (e.g. /art/events/kratos_death.jpg or /sound/Kratos_PLAY_ME.mp3). Null for text-only.</summary>
         public string FileUrl { get; set; }
         /// <summary>One of: "text", "audio", "image"</summary>

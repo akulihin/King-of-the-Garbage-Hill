@@ -25,6 +25,18 @@ public class CharactersUniquePhrase
         "Я не буду сидеть взаперти как проклятый скот! Я ДОБЕРУСЬ ДО НИХ И УБЬЮ КАЖДОГО!",
     };
 
+    public static readonly IReadOnlyList<string> ErenSheepRoundPhrasesEnglish = new List<string>
+    {
+        "Ah, the good life. Dad's home, Mom's alive, my stepsister is stuck in the wash tub. Perfect...",
+        "They... ate my mother...",
+        "I'll kill them... I'LL KILL EVERY LAST ONE!",
+        "Why... do people just die... Is this... hell?",
+        "Annie... you're joking, right? We're friends...",
+        "You were... like brothers to me... YOU DAMN TRAITORS!",
+        "My father... he couldn't have done this...",
+        "I won't stay penned up like cursed cattle! I'LL REACH THEM AND KILL EVERY LAST ONE!",
+    };
+
     //initialize variables 
     public PhraseClass AwdkaAfk;
     public PhraseClass AwdkaTeachToPlay;
@@ -1640,6 +1652,8 @@ public class CharactersUniquePhrase
         //SaitamaWorthyFound.PassiveLogRus.Add("Три года я ждал этого момента!");
         //SaitamaWorthyFound.PassiveLogRus.Add("**ONE PUUUUUUNCH!!!**");
 
+        PhraseLocalization.Populate(this);
+
         //end
     }
 
@@ -1679,114 +1693,69 @@ public class CharactersUniquePhrase
             PassiveNameEng = passiveNameEng;
         }
 
+        private (string Russian, string English) SelectPhrase(
+            bool consume, bool isRandomOrder, string personalLogs = "")
+        {
+            if (PassiveLogRus.Count == 0 || PassiveLogRus.Count != PassiveLogEng.Count)
+                throw new InvalidOperationException(
+                    $"Phrase '{PassiveNameRus}' has {PassiveLogRus.Count} RU and {PassiveLogEng.Count} EN variants.");
+
+            var index = isRandomOrder ? Random(0, PassiveLogRus.Count - 1) : 0;
+            if (!consume && !string.IsNullOrEmpty(personalLogs))
+            {
+                var attempts = 0;
+                while (attempts++ < 20 &&
+                       PhrasePayload.ContainsRussianPhrase(personalLogs, PassiveLogRus[index]))
+                    index = isRandomOrder ? Random(0, PassiveLogRus.Count - 1) : 0;
+            }
+
+            var selected = (PassiveLogRus[index], PassiveLogEng[index]);
+            if (consume && PassiveLogRus.Count > 1)
+            {
+                PassiveLogRus.RemoveAt(index);
+                PassiveLogEng.RemoveAt(index);
+            }
+
+            return selected;
+        }
+
+        private string BuildPayload(string russian, string english) =>
+            PhrasePayload.Encode(PassiveNameRus, russian, PassiveNameEng, english);
+
         public void SendLog(GamePlayerBridgeClass player, bool delete, string prefix = "", bool isRandomOrder = true, string suffix = "")
         {
-            var description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
-            if (!isRandomOrder)
-            {
-                description = PassiveLogRus.First();
-            }
-
-            if (delete)
-            {
-                if (PassiveLogRus.Count > 1)
-                    PassiveLogRus.Remove(description);
-            }
-            else
-            {
-                var personalLogs = player.Status.GetInGamePersonalLogs();
-                var i = 0;
-                while (i < 20)
-                {
-                    i++;
-                    if (!personalLogs.Contains(description))
-                        break;
-                    description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
-
-                    if (!isRandomOrder)
-                    {
-                        description = PassiveLogRus.First();
-                    }
-                }
-            }
-
-            player.Status.AddInGamePersonalLogs($"|>Phrase<|{PassiveNameRus}: {prefix}{description}{suffix}\n");
+            var selected = SelectPhrase(delete, isRandomOrder, player.Status.GetInGamePersonalLogs());
+            var englishPrefix = GameLocalization.Text(prefix, GameLocalization.English);
+            var englishSuffix = GameLocalization.Text(suffix, GameLocalization.English);
+            player.Status.AddInGamePersonalLogs(BuildPayload(
+                $"{prefix}{selected.Russian}{suffix}",
+                $"{englishPrefix}{selected.English}{englishSuffix}") + "\n");
         }
 
         public void SendLog(GamePlayerBridgeClass player, GamePlayerBridgeClass player2, bool delete, bool isRandomOrder = true)
         {
-            var description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
-            if (!isRandomOrder)
-            {
-                description = PassiveLogRus.First();
-            }
-            if (delete)
-            {
-                if (PassiveLogRus.Count > 1)
-                    PassiveLogRus.Remove(description);
-            }
-            else
-            {
-                var personalLogs = player.Status.GetInGamePersonalLogs();
-                var i = 0;
-                while (i < 20)
-                {
-                    i++;
-                    if (!personalLogs.Contains(description))
-                        break;
-                    description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
-                    if (!isRandomOrder)
-                    {
-                        description = PassiveLogRus.First();
-                    }
-                }
-            }
-
-            description += $"{player2.DiscordUsername} - {player2.GameCharacter.Name}";
-
-
-            player.Status.AddInGamePersonalLogs($"|>Phrase<|{PassiveNameRus}: {description}\n");
+            var selected = SelectPhrase(delete, isRandomOrder, player.Status.GetInGamePersonalLogs());
+            var russianTarget = $"{player2.DiscordUsername} - {player2.GameCharacter.Name}";
+            var englishTarget = $"{player2.DiscordUsername} - " +
+                                GameLocalization.Text(player2.GameCharacter.Name, GameLocalization.English);
+            player.Status.AddInGamePersonalLogs(BuildPayload(
+                selected.Russian + russianTarget,
+                selected.English + englishTarget) + "\n");
         }
 
         public async Task SendLogSeparate(GamePlayerBridgeClass player, bool delete, int delayMs, bool isRandomOrder = true)
         {
             if (player.IsBot()) return;
 
-            var description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
-            if (!isRandomOrder)
-            {
-                description = PassiveLogRus.First();
-            }
-            if (delete)
-            {
-                if (PassiveLogRus.Count > 1)
-                    PassiveLogRus.Remove(description);
-            }
-            else
-            {
-                var personalLogs = player.Status.GetInGamePersonalLogs();
-                var i = 0;
-                while (i < 20)
-                {
-                    i++;
-                    if (!personalLogs.Contains(description))
-                        break;
-                    description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
-                    if (!isRandomOrder)
-                    {
-                        description = PassiveLogRus.First();
-                    }
-                }
-            }
-
-            if (PassiveLogRus.Count > 1)
-                PassiveLogRus.Remove(description);
+            var selected = SelectPhrase(true, isRandomOrder, player.Status.GetInGamePersonalLogs());
 
             // Always store for web display
             player.WebMediaMessages.Add(new GamePlayerBridgeClass.WebMediaEntry
             {
                 PassiveName = PassiveNameRus,
-                Text = description,
+                Text = selected.Russian,
+                PassiveNameEnglish = PassiveNameEng,
+                TextEnglish = selected.English,
                 FileUrl = null,
                 FileType = "text"
             });
@@ -1796,7 +1765,9 @@ public class CharactersUniquePhrase
             try
             {
                 var mess2 = await player.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync(
-                    GameLocalization.PhraseForUser(player.DiscordId, PassiveNameRus, description));
+                    GameLocalization.GetUserLanguage(player.DiscordId) == GameLocalization.English
+                        ? selected.English
+                        : selected.Russian);
                 player.DeleteMessages.Add(new GamePlayerBridgeClass.DeleteMessagesClass(mess2.Id, delayMs));
             }
             catch (Exception exception)
@@ -1807,47 +1778,22 @@ public class CharactersUniquePhrase
         }
         public void SendLogSeparateWeb(GamePlayerBridgeClass player, bool delete, bool isRandomOrder = true, bool isEvent = true)
         {
-            var description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
-            if (!isRandomOrder)
-            {
-                description = PassiveLogRus.First();
-            }
-            if (delete)
-            {
-                if (PassiveLogRus.Count > 1)
-                    PassiveLogRus.Remove(description);
-            }
-            else
-            {
-                var personalLogs = player.Status.GetInGamePersonalLogs();
-                var i = 0;
-                while (i < 20)
-                {
-                    i++;
-                    if (!personalLogs.Contains(description))
-                        break;
-                    description = PassiveLogRus[Random(0, PassiveLogRus.Count-1)];
-                    if (!isRandomOrder)
-                    {
-                        description = PassiveLogRus.First();
-                    }
-                }
-            }
-
-            if (PassiveLogRus.Count > 1)
-                PassiveLogRus.Remove(description);
+            var selected = SelectPhrase(true, isRandomOrder, player.Status.GetInGamePersonalLogs());
 
             if (isEvent){
             player.WebMediaMessages.Add(new GamePlayerBridgeClass.WebMediaEntry
             {
                 PassiveName = PassiveNameRus,
-                Text = description,
+                Text = selected.Russian,
+                PassiveNameEnglish = PassiveNameEng,
+                TextEnglish = selected.English,
                 FileUrl = null,
                 FileType = "text"
             });
             }
             else{
-                player.WebMessages.Add($"{PassiveNameRus}: {description}");
+                player.WebMessages.Add(PhrasePayload.EncodeText(
+                    PassiveNameRus, selected.Russian, PassiveNameEng, selected.English));
             }
         }
 
@@ -1855,35 +1801,7 @@ public class CharactersUniquePhrase
         {
             if (player.IsBot()) return;
 
-            var description = PassiveLogRus[Random(0, PassiveLogRus.Count - 1)];
-            if (!isRandomOrder)
-            {
-                description = PassiveLogRus.First();
-            }
-            if (delete)
-            {
-                if (PassiveLogRus.Count > 1)
-                    PassiveLogRus.Remove(description);
-            }
-            else
-            {
-                var personalLogs = player.Status.GetInGamePersonalLogs();
-                var i = 0;
-                while (i < 20)
-                {
-                    i++;
-                    if (!personalLogs.Contains(description))
-                        break;
-                    description = PassiveLogRus[Random(0, PassiveLogRus.Count - 1)];
-                    if (!isRandomOrder)
-                    {
-                        description = PassiveLogRus.First();
-                    }
-                }
-            }
-
-            if (PassiveLogRus.Count > 1)
-                PassiveLogRus.Remove(description);
+            var selected = SelectPhrase(true, isRandomOrder, player.Status.GetInGamePersonalLogs());
 
             // Always store for web display - convert DataBase path to web URL
             var webUrl = FilePathToWebUrl(filePath);
@@ -1891,7 +1809,9 @@ public class CharactersUniquePhrase
             player.WebMediaMessages.Add(new GamePlayerBridgeClass.WebMediaEntry
             {
                 PassiveName = PassiveNameRus,
-                Text = description,
+                Text = selected.Russian,
+                PassiveNameEnglish = PassiveNameEng,
+                TextEnglish = selected.English,
                 FileUrl = webUrl,
                 FileType = fileType,
                 RoundsToPlay = roundsToPlay,
@@ -1902,7 +1822,9 @@ public class CharactersUniquePhrase
             try
             {
                 var mess2 = await player.DiscordStatus.SocketGameMessage.Channel.SendFileAsync(filePath,
-                    GameLocalization.PhraseForUser(player.DiscordId, PassiveNameRus, description));
+                    GameLocalization.GetUserLanguage(player.DiscordId) == GameLocalization.English
+                        ? selected.English
+                        : selected.Russian);
                 if (clearNextRound)
                     player.DeleteMessages.Add(new GamePlayerBridgeClass.DeleteMessagesClass(mess2.Id, delayMs));
             }

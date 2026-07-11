@@ -11,6 +11,7 @@ import SkillsPanel from 'src/components/SkillsPanel.vue'
 import FightAnimation from 'src/components/FightAnimation.vue'
 import MediaMessages from 'src/components/MediaMessages.vue'
 import DeathNote from 'src/components/DeathNote.vue'
+import { translateText } from 'src/i18n'
 
 const props = defineProps<{ gameId: string }>()
 const store = useGameStore()
@@ -57,7 +58,7 @@ function convertDiscordEmoji(text: string): string {
 }
 
 function formatLogs(text: string): string {
-  return convertDiscordEmoji(text)
+  return convertDiscordEmoji(translateText(text))
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/__(.*?)__/g, '<u>$1</u>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -231,6 +232,7 @@ function cleanDiscord(text: string): string {
 function parsePrevLogs(raw: string): PrevLogEntry[] {
   if (!raw) return []
   if (raw.length < 3) return []
+  raw = translateText(raw)
 
   const hiddenPatterns: ((line: string) => boolean)[] = [
     l => l.includes('Мишень'),

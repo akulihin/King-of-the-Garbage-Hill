@@ -70,6 +70,16 @@ public static class GameLocalization
 
     public static string TextForUser(ulong userId, string text) => Text(text, GetUserLanguage(userId));
 
+    /// <summary>
+    /// Localizes ordinary text for the web client while preserving replay-safe bilingual phrase
+    /// records for Vue to resolve whenever the viewer changes language.
+    /// </summary>
+    public static string TextForClient(ulong userId, string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+        return Translate(text, GetUserLanguage(userId), EnglishCatalog.Value, true, false);
+    }
+
     public static string Text(string text, string language)
     {
         if (string.IsNullOrEmpty(text))
@@ -86,8 +96,19 @@ public static class GameLocalization
         return TranslatePhrase(passiveName, phrase, EnglishCatalog.Value);
     }
 
-    private static string Translate(string text, string language, Catalog catalog, bool translatePhraseMarkers)
+    private static string Translate(
+        string text, string language, Catalog catalog, bool translatePhraseMarkers,
+        bool resolveBilingualPhrases = true)
     {
+        if (resolveBilingualPhrases &&
+            (text.Contains(PhrasePayload.Marker, StringComparison.Ordinal) ||
+             text.Contains(PhrasePayload.TextMarker, StringComparison.Ordinal)))
+        {
+            var protectedText = PhrasePayload.Protect(text, language, out var renderedPhrases);
+            return PhrasePayload.Restore(
+                Translate(protectedText, language, catalog, translatePhraseMarkers, false),
+                renderedPhrases);
+        }
         if (language == English && !Regex.IsMatch(text, "[А-Яа-яЁё]"))
             return text;
         if (language == Russian && !Regex.IsMatch(text, "[A-Za-z]"))

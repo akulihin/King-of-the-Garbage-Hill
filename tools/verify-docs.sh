@@ -37,7 +37,7 @@ resolve() {
       echo "$B/Game/ReactionHandling/$1";;
     CharacterClass.cs|InGameStatusClass.cs|GamePlayerBridgeClass.cs|PassivesClass.cs|GameClass.cs|DiscordAccountClass.cs|InGameDiscordStatus.cs|AchievementClass.cs|QuestClass.cs)
       echo "$B/Game/Classes/$1";;
-    SecureRandom.cs|ClaudeHaikuService.cs|HelperFunctions.cs|GameLocalization.cs) echo "$B/Helpers/$1";;
+    SecureRandom.cs|ClaudeHaikuService.cs|HelperFunctions.cs|GameLocalization.cs|PhraseLocalization.cs) echo "$B/Helpers/$1";;
     SimulationRunner.cs|BotGameFactory.cs|SimReport.cs) echo "$B/Game/Simulation/$1";;
     Program.cs|Global.cs|Config.cs) echo "$B/$1";;
     General.cs|AdminPanel.cs|HelpModule.cs|Lore.cs|Store.cs|Tutorial.cs|DiceRoll.cs|ServerManagement.cs)
@@ -53,7 +53,7 @@ resolve() {
     ModuleBaseCustom.cs) echo "$B/DiscordFramework/Extensions/$1";;
     GameUpdateMess.cs) echo "$B/Game/DiscordMessages/$1";;
     CharactersPhrases.cs|CharactersPull.cs) echo "$B/Game/MemoryStorage/$1";;
-    characters.json|localization.en.json) echo "$B/DataBase/$1";;
+    characters.json|localization.en.json|phrases.en.json) echo "$B/DataBase/$1";;
     GameDesign.txt) echo "$B/Game/$1";;
     signalr.ts|sound.ts|textFormatting.ts) echo "$V/services/$1";;
     game.ts|replay.ts|replay.spec.ts|battleship.ts) echo "$V/store/$1";;

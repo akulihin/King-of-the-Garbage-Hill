@@ -37,6 +37,7 @@ export const currentLocale = ref<AppLocale>(savedLocale === 'ru' || savedLocale 
 
 const cyrillicPattern = /[А-Яа-яЁё]/
 const regexSpecialCharacters = /[.*+?^${}()|[\]\\]/g
+const bilingualPhrasePattern = /\|>Phrase(Text)?V2<\|([A-Za-z0-9_-]+)/g
 
 type ReplacementEntry = {
   source: string
@@ -152,8 +153,37 @@ function phraseFallback(passiveName: string): string {
   return canonicalName ? (catalog.phraseFallbacks[canonicalName] ?? 'Ability triggered.') : 'Ability triggered.'
 }
 
+function decodeBilingualPhrase(token: string, textOnly: boolean): string {
+  try {
+    const base64 = token.replace(/-/g, '+').replace(/_/g, '/')
+      .padEnd(token.length + (4 - token.length % 4) % 4, '=')
+    const bytes = Uint8Array.from(atob(base64), char => char.charCodeAt(0))
+    const values = JSON.parse(new TextDecoder().decode(bytes)) as [string, string, string, string]
+    const english = currentLocale.value === 'en'
+    const name = english ? values[2] : values[0]
+    const phrase = english ? values[3] : values[1]
+    return `${textOnly ? '' : '|>Phrase<|'}${name}: ${phrase}`
+  } catch (error) {
+    console.warn('[i18n] Invalid bilingual phrase payload:', error)
+    return textOnly ? 'Ability: Ability triggered.' : '|>Phrase<|Ability: Ability triggered.'
+  }
+}
+
 function translate(value: string | null | undefined, translatePhraseMarkers: boolean): string {
   if (!value) return ''
+
+  // Keep authored phrase variants opaque while ordinary surrounding logs are translated. This
+  // prevents deliberate English words in a Russian meme (or vice versa) from being rewritten.
+  const protectedPhrases: string[] = []
+  const protectedValue = value.replace(bilingualPhrasePattern, (_match, textOnly: string | undefined, token: string) => {
+    const index = protectedPhrases.push(decodeBilingualPhrase(token, Boolean(textOnly))) - 1
+    return `\uE000${index}\uE001`
+  })
+  const translated = translateCore(protectedValue, translatePhraseMarkers)
+  return translated.replace(/\uE000(\d+)\uE001/g, (_match, index: string) => protectedPhrases[Number(index)] ?? '')
+}
+
+function translateCore(value: string, translatePhraseMarkers: boolean): string {
   if (currentLocale.value === 'en' && !cyrillicPattern.test(value)) return value
   if (currentLocale.value === 'ru' && !/[A-Za-z]/.test(value)) return value
 

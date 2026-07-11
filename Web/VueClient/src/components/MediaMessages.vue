@@ -1,10 +1,21 @@
 <script setup lang="ts">
 import { ref, watch, onBeforeUnmount } from 'vue'
 import type { MediaMessage } from 'src/services/signalr'
+import { currentLocale } from 'src/i18n'
 
 const props = defineProps<{
   messages: MediaMessage[]
 }>()
+
+function passiveName(msg: MediaMessage): string {
+  return currentLocale.value === 'en' && msg.passiveNameEnglish
+    ? msg.passiveNameEnglish
+    : msg.passiveName
+}
+
+function phraseText(msg: MediaMessage): string {
+  return currentLocale.value === 'en' && msg.textEnglish ? msg.textEnglish : msg.text
+}
 
 // ── Audio playback state ──────────────────────────────────────────
 // Audio objects are managed IMPERATIVELY (not via <audio> DOM elements)
@@ -165,12 +176,12 @@ function getMediaIcon(fileType: string): string {
       >
         <div class="media-card-header">
           <span class="media-icon">{{ getMediaIcon(msg.fileType) }}</span>
-          <span class="passive-name">{{ msg.passiveName }}</span>
+          <span class="passive-name">{{ passiveName(msg) }}</span>
         </div>
 
         <div class="media-card-body">
           <!-- Text content -->
-          <p class="phrase-text">{{ msg.text }}</p>
+          <p class="phrase-text">{{ phraseText(msg) }}</p>
 
           <!-- Audio player (imperative Audio objects, no <audio> in DOM) -->
           <div v-if="msg.fileType === 'audio' && msg.fileUrl" class="audio-player">
@@ -187,7 +198,7 @@ function getMediaIcon(fileType: string): string {
 
           <!-- Image/GIF display -->
           <div v-if="msg.fileType === 'image' && msg.fileUrl" class="image-container">
-            <img :src="msg.fileUrl" :alt="msg.text" class="media-image" loading="lazy" />
+            <img :src="msg.fileUrl" :alt="phraseText(msg)" class="media-image" loading="lazy" />
           </div>
         </div>
       </div>

@@ -30,6 +30,7 @@
   <ItemGroup>
     <None Include="DataBase\blackjack_words.json" CopyToOutputDirectory="PreserveNewest" LinkBase="DataBase" />
     <None Include="DataBase\localization.en.json" CopyToOutputDirectory="PreserveNewest" LinkBase="DataBase" />
+    <None Include="DataBase\phrases.en.json" CopyToOutputDirectory="PreserveNewest" LinkBase="DataBase" />
   </ItemGroup>
 
   <ProjectExtensions><VisualStudio><UserProperties /></VisualStudio></ProjectExtensions>

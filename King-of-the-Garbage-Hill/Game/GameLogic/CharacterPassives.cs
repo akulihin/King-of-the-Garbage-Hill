@@ -87,9 +87,11 @@ public class CharacterPassives : IServiceSingleton
                         player.Predict.Clear();
                         player.Status.LvlUpPoints = 0;
                         player.Status.ConfirmedPredict = true;
-                        player.Status.AddInGamePersonalLogs(
-                            $"|>Phrase<|{Madara.GodOfShinobi}: Ха? В каком я мире? Хм... \n"
-                            + "Я не знаю, кто такой этот Король Мусорной Горы, но я хочу его видеть! Смог ли этот Король достичь мира?\n");
+                        player.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
+                            Madara.GodOfShinobi,
+                            "Ха? В каком я мире? Хм... \nЯ не знаю, кто такой этот Король Мусорной Горы, но я хочу его видеть! Смог ли этот Король достичь мира?",
+                            "God of Shinobi",
+                            "Huh? What world is this? Hmm...\nI don't know who this King of the Garbage Hill is, but I want to see him. Has this king achieved peace?") + "\n");
                     }
                     break;
 
@@ -152,7 +154,14 @@ public class CharacterPassives : IServiceSingleton
                             "Вся вселенная гоняется за рецептом моего особого топлива...",
                             "Боже! Может умнейший человек во вселенной просто спокойно провести время с внуком?!"
                         };
-                        rickMw1.Status.AddInGamePersonalLogs($"|>Phrase<|Most wanted: {mwPhrases[_rand.Random(0, mwPhrases.Length - 1)]}\n");
+                        var mwPhrasesEnglish = new[] {
+                            "What the hell do these Feds want from me?!",
+                            "The whole universe is chasing the formula for my special fuel...",
+                            "Jeez! Can the smartest man in the universe spend one quiet day with his grandson?!"
+                        };
+                        var mwIndex = _rand.Random(0, mwPhrases.Length - 1);
+                        rickMw1.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
+                            "Most wanted", mwPhrases[mwIndex], "Most Wanted", mwPhrasesEnglish[mwIndex]) + "\n");
                     }
                     else if (candidates.Count > 0)
                     {
@@ -197,8 +206,11 @@ public class CharacterPassives : IServiceSingleton
                 case ErenYeager.Sheep:
                     if (player.GameCharacter.Name != ErenYeager.CharacterName) break;
                     ErenYeager.MoveToLast(playersList, player);
-                    player.Status.AddInGamePersonalLogs(
-                        $"|>Phrase<|{ErenYeager.Sheep}: {CharactersUniquePhrase.ErenSheepRoundPhrases[0]}\n");
+                    player.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
+                        ErenYeager.Sheep,
+                        CharactersUniquePhrase.ErenSheepRoundPhrases[0],
+                        GameLocalization.Text(ErenYeager.Sheep, GameLocalization.English),
+                        CharactersUniquePhrase.ErenSheepRoundPhrasesEnglish[0]) + "\n");
                     break;
 
                 case "Тигр топ, а ты холоп":
@@ -4933,7 +4945,12 @@ public class CharacterPassives : IServiceSingleton
             {
                 madara.Passives.Madara.ThemeStarted = true;
                 Madara.SetUnableToAct(madara);
-                game.AddGlobalLogs(game.Phrases.MadaraRoundEightTheme.PassiveLogRus[0]);
+                var themePhrase = game.Phrases.MadaraRoundEightTheme;
+                game.AddGlobalLogs(PhrasePayload.Encode(
+                    themePhrase.PassiveNameRus,
+                    themePhrase.PassiveLogRus[0],
+                    themePhrase.PassiveNameEng,
+                    themePhrase.PassiveLogEng[0]));
                 foreach (var listener in game.PlayersList)
                     await game.Phrases.MadaraRoundEightTheme.SendLogSeparateWithFile(
                         listener, false, Madara.ThemeFile, false, 0, isRandomOrder: false, roundsToPlay: 1);
@@ -4962,9 +4979,11 @@ public class CharacterPassives : IServiceSingleton
                                 eren.RageGained++;
                             }
 
-                            player.Status.AddInGamePersonalLogs(
-                                $"|>Phrase<|{ErenYeager.Sheep}: "
-                                + $"{CharactersUniquePhrase.ErenSheepRoundPhrases[game.RoundNo - 1]}\n");
+                            player.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
+                                ErenYeager.Sheep,
+                                CharactersUniquePhrase.ErenSheepRoundPhrases[game.RoundNo - 1],
+                                GameLocalization.Text(ErenYeager.Sheep, GameLocalization.English),
+                                CharactersUniquePhrase.ErenSheepRoundPhrasesEnglish[game.RoundNo - 1]) + "\n");
                         }
                         break;
 

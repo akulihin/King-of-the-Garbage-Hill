@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Helpers;
 using Microsoft.AspNetCore.SignalR;
 
 namespace King_of_the_Garbage_Hill.API.Services;
@@ -270,7 +271,8 @@ public class GameStoryService
 
         sb.AppendLine("</game-commentary>");
 
-        return sb.ToString().Replace("|>Stat<|", "").Replace("|>Phrase<|", "").Replace("*", "").Replace("_", "");
+        return PhrasePayload.Resolve(sb.ToString(), GameLocalization.Russian)
+            .Replace("|>Stat<|", "").Replace("|>Phrase<|", "").Replace("*", "").Replace("_", "");
     }
 
     /// <summary>

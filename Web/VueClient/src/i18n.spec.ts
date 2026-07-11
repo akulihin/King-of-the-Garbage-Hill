@@ -3,6 +3,13 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { setLocale, translateText } from './i18n'
 
+function phrasePayload(values: [string, string, string, string], textOnly = false): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(values))
+  const binary = Array.from(bytes, byte => String.fromCharCode(byte)).join('')
+  const token = btoa(binary).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
+  return `|>Phrase${textOnly ? 'Text' : ''}V2<|${token}`
+}
+
 describe('English presentation localization', () => {
   beforeEach(() => setLocale('en'))
 
@@ -33,6 +40,37 @@ describe('English presentation localization', () => {
   it('repairs phrase records partially translated by older projections', () => {
     expect(translateText('|>Phrase<|Party of One: Как дела?'))
       .toBe('|>Phrase<|Party of One: Look at all my friends not answering.')
+  })
+
+  it('renders the exact authored variant from bilingual live and replay records', () => {
+    const awdka = phrasePayload([
+      'Научите играть',
+      'Два игнайта на вуконга!',
+      'Teach Me to Play',
+      'Two Ignites on Wukong! Peak esports.',
+    ])
+    const mylorik = phrasePayload([
+      'Месть',
+      'ВЬЕТНАМСКАЯ ТРИСТАНА!!!',
+      'Vengeance',
+      '**VIETNAMESE TRISTANA!!!**',
+    ])
+
+    expect(translateText(`${awdka}\n${mylorik}`)).toBe(
+      '|>Phrase<|Teach Me to Play: Two Ignites on Wukong! Peak esports.\n'
+      + '|>Phrase<|Vengeance: **VIETNAMESE TRISTANA!!!**',
+    )
+
+    setLocale('ru')
+    expect(translateText(`${awdka}\n${mylorik}`)).toBe(
+      '|>Phrase<|Научите играть: Два игнайта на вуконга!\n'
+      + '|>Phrase<|Месть: ВЬЕТНАМСКАЯ ТРИСТАНА!!!',
+    )
+  })
+
+  it('renders bilingual direct-message records without a log marker', () => {
+    const payload = phrasePayload(['Авто Ход', 'Ты что, бот?', 'Auto Move', 'What are you, a bot?'], true)
+    expect(translateText(payload)).toBe('Auto Move: What are you, a bot?')
   })
 
   it('translates class labels and their split tooltip fragments', () => {

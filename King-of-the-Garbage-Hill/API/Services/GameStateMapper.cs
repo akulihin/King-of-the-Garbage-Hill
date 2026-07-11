@@ -118,11 +118,11 @@ public static class GameStateMapper
             IsKratosEvent = game.IsKratosEvent,
             GlobalLogs = requestingPlayer == null
                 ? (isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game))
-                : GameLocalization.TextForUser(requestingPlayer.DiscordId,
+                : GameLocalization.TextForClient(requestingPlayer.DiscordId,
                     isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game)),
             AllGlobalLogs = requestingPlayer == null
                 ? (isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game))
-                : GameLocalization.TextForUser(requestingPlayer.DiscordId,
+                : GameLocalization.TextForClient(requestingPlayer.DiscordId,
                     isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game)),
             MyPlayerId = requestingPlayer?.GetPlayerId(),
             MyPlayerType = requestingPlayer?.PlayerType ?? 0,
@@ -1086,15 +1086,19 @@ public static class GameStateMapper
             ConfirmedSkip = status.ConfirmedSkip,
             LvlUpPoints = isMe ? status.LvlUpPoints : 0,
             MoveListPage = isMe ? status.MoveListPage : 1,
-            PersonalLogs = isMe ? GameLocalization.TextForUser(player.DiscordId, status.GetInGamePersonalLogs()) : "",
-            PreviousRoundLogs = isMe ? GameLocalization.TextForUser(player.DiscordId, previousRoundLogs) : previousRoundLogs,
-            AllPersonalLogs = isMe ? GameLocalization.TextForUser(player.DiscordId, status.InGamePersonalLogsAll) : "",
+            PersonalLogs = isMe ? GameLocalization.TextForClient(player.DiscordId, status.GetInGamePersonalLogs()) : "",
+            PreviousRoundLogs = isMe ? GameLocalization.TextForClient(player.DiscordId, previousRoundLogs) : previousRoundLogs,
+            AllPersonalLogs = isMe ? GameLocalization.TextForClient(player.DiscordId, status.InGamePersonalLogsAll) : "",
             ScoreSource = isMe ? GameLocalization.TextForUser(player.DiscordId, status.ScoreSource) : "",
-            DirectMessages = isMe ? player.WebMessages.Select(x => GameLocalization.TextForUser(player.DiscordId, x)).ToList() : new List<string>(),
+            DirectMessages = isMe ? player.WebMessages.Select(x => GameLocalization.TextForClient(player.DiscordId, x)).ToList() : new List<string>(),
             MediaMessages = isMe ? player.WebMediaMessages.Select(m => new MediaMessageDto
             {
-                PassiveName = GameLocalization.TextForUser(player.DiscordId, m.PassiveName),
-                Text = GameLocalization.PhraseForUser(player.DiscordId, m.PassiveName, m.Text),
+                // Keep the canonical and authored English variants together. Replay snapshots are
+                // language-neutral; MediaMessages.vue chooses the viewer's current locale.
+                PassiveName = m.PassiveName,
+                Text = m.Text,
+                PassiveNameEnglish = m.PassiveNameEnglish,
+                TextEnglish = m.TextEnglish,
                 FileUrl = m.FileUrl,
                 FileType = m.FileType,
                 RoundsToPlay = m.RoundsToPlay,
