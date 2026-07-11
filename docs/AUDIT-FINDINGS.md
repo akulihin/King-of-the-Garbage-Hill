@@ -272,12 +272,12 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Fixed:** 2026-07-03 — added null-safe `Global.TrySendServiceMessage(string)`, routed the bot fallbacks through it (`BotsBehavior.cs:3283-3302`), and reordered the catch to `_logs.Critical` + `SimErrorSink?.Invoke(...)` before the guarded send (`BotsBehavior.cs:3342-3345`). Verified: previously-freezing line-up 0 stuck; 5000-game natural sim 0 errors/0 stuck.
 
 ### M14. Bot `HandleBotAttack` throws IndexOutOfRange when it has no valid targets
-- The random fallback builds `players = allTargets.ToList()` (`BotsBehavior.cs:3271`). When the pool was empty after deaths/late-round filters (`:773-790`), indexing it threw an argument-out-of-range exception. Кира-correlated; observed rounds 8–10.
+- The random fallback builds `players = allTargets.ToList()` (`BotsBehavior.cs:3299`). When the pool was empty after deaths/late-round filters (`:794-819`), indexing it threw an argument-out-of-range exception. Кира-correlated; observed rounds 8–10.
 - **Impact**: the bot's turn crashes. Post-M13 it is recorded as a per-game sim error; in production the bot fails its action and auto-blocks (`CheckIfReady.cs:1253` fallback) plus debug-channel spam.
-- **Fixed:** 2026-07-03 — `if (players.Count == 0)` blocks, resets preferences and returns (`BotsBehavior.cs:3271-3280`). Verified: Kira line-up 500 games → 0 errors/0 stuck. (The early `allTargets.First()` remains round-<5 guarded at `:1280`.) **See M16** — its sibling `Братишка` branch (`BotsBehavior.cs:2734-2755`) runs earlier.
+- **Fixed:** 2026-07-03 — `if (players.Count == 0)` blocks, resets preferences and returns (`BotsBehavior.cs:3299-3308`). Verified: Kira line-up 500 games → 0 errors/0 stuck. (The early `allTargets.First()` remains round-<5 guarded.) **See M16** — its sibling `Братишка` branch (`BotsBehavior.cs:2766-2782`) runs earlier.
 
 ### M15. WebUI let players bank level-up points instead of spending before continuing
-- On Discord a granted level-up (rounds 3/5/7/9, `DoomsdayMachine.cs:1392-1396`) flips `Status.MoveListPage` to 3, so only the level-up menu renders. The web action handlers originally set readiness regardless of `LvlUpPoints`; a web player could act while carrying points into a later round. Bot/auto-move spending occurs before action at `BotsBehavior.cs:93-105` (called by `CheckIfReady.cs:1172-1184`).
+- On Discord a granted level-up (rounds 3/5/7/9, `DoomsdayMachine.cs:1392-1396`) flips `Status.MoveListPage` to 3, so only the level-up menu renders. The web action handlers originally set readiness regardless of `LvlUpPoints`; a web player could act while carrying points into a later round. Bot/auto-move spending occurs before action at `BotsBehavior.cs:110-128` (called by `CheckIfReady.cs:1172-1223`).
 - **Impact**: platform inconsistency and a real advantage — banking points to dump on demand, and dodging the round-9 Дизмораль −5 Psyche (see D1). Discord-impossible; WebUI-only.
 - **Fixed:** 2026-07-03 — generalized the `Main Ирелия` guard into `WebGameService.LevelUpGate` (blocks any `LvlUpPoints > 0` from the four turn-ending actions; Ирелия keeps "Риоты не прощают, нерфа не избежать", everyone else gets "Остались очки прокачки — потрать их!"). Mirrored client-side: `store/game.ts` adds a `mustSpendLevelUp` computed + early-returns in `attack/block/autoMove/confirmSkip`; `pages/Game.vue` disables Block/Auto/Skip, tightens the Leaderboard `:can-attack`, and shows the same prompt. No soft-lock: every character always has an enabled level-up button in `PlayerCard.vue` while points remain, and the round-end auto-move force-spends any leftover.
 
@@ -362,6 +362,13 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Actual before the fix:** the primary spent the charge and forced `pointsWined = 1`, but secondary direction-marked wave fights called ordinary `CalculateStep3`; a random loss could stop a branch.
 - **Fixed:** 2026-07-11 — direction-marked BFG fights now use the same Step-3 override without trying to spend the already-consumed charge (`DoomsdayMachine.cs:764-797`). Decisive pre-random losses, blocks and skips still stop a branch, while random-stage wave fights win and continue through the existing queue logic (`:809-827`).
 
+### M32. Bot Darksci can attack after round-9 Дизмораль sets his Psyche to 0 and skips him
+- **Intended:** spending Darksci's mandatory round-9 level-up applies −5 Psyche; if that leaves him at 0 Psyche, «Да всё нахуй эту игру» clears his action and the turn remains skipped.
+- **Actual before the fix:** `HandleBotBehavior` checked `IsSkip` only on entry, then spent the pending level-up (`BotsBehavior.cs:72-128`). `GetLvlUp` subsequently set `IsSkip` and cleared the target list (`GameReactions.cs:854-1346`), but bot processing continued into `HandleBotAttack`, which queued a new ordinary target. The fight loop deliberately processes a skipped player with a non-empty queue for legitimate forced fights (`DoomsdayMachine.cs:423-447`), so the illegal bot action resolved. Against Геральт, the contract injector rejected the skipped attacker and added no repeats (`DoomsdayMachine.cs:352-375`), producing the reported signature of exactly one real fight.
+- **Impact:** bot and auto-moved Darksci can act on the round where 0 Psyche is supposed to remove their action; the same missing post-level-up gate can turn any future level-up-triggered forced skip into an ordinary bot attack.
+- **Fix direction:** re-run the existing bot forced-skip completion immediately after pending level-ups, before any character sub-action or attack selection. Keep the fight-loop forced-action behavior unchanged.
+- **Fixed:** 2026-07-11 — extracted the existing skip finalization into `CompleteForcedSkip` and invoke it both on bot entry and immediately after pending level-ups (`BotsBehavior.cs:84-128,3706-3715`). A Дизмораль-triggered Skip now returns before attack selection; later readiness-stage forced-fight injection remains unchanged.
+
 ### m29. Three V2 achievement descriptions do not match their evaluators
 - `x_spartan_mylorik` RU copy says the **next** fight, while the tracker intentionally accepts any later fight (`AchievementClass.cs:326-332`; `DoomsdayMachine.cs:1372-1390`). `c_darksci_unstable` requires finishing alive at actual place 1 but omits “alive” in both languages (`AchievementClass.cs:284-287,513-519`). `c_kratos_olympus` says five “enemies,” although team mode counts every other player, including teammates (`AchievementClass.cs:264-267,491-492`; `CharacterPassives.cs:1730-1744`).
 - **Impact:** the achievement center can tell players a stricter, looser, or team-inaccurate requirement than the code actually evaluates.
@@ -375,7 +382,7 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 
 ## Summary count
 
-**1 Critical** (C1) · **31 Major** (M1–M31) · **29 Minor** (m1–m29) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7/M17 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13–M31 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28/m29 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26.)
+**1 Critical** (C1) · **32 Major** (M1–M32) · **29 Minor** (m1–m29) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7/M17 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13–M32 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28/m29 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26.)
 
 ## Verification addendum (second pass, 2026-07-01)
 

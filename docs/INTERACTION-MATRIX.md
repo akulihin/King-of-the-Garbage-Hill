@@ -19,6 +19,8 @@ Forced-fight sources: **Монстр** two-turn no-escape (`CP:1024-1031`; `CIR:
 | Мадара round 8 | targetable; own action is cleared after forced-action injection | targetable | targetable | own auto-action cleared | contract fights resolve normally | wave resolves normally | Correct locked predictions add another ordinary queued fight (`CIR:1376-1397`); Madara cannot attack (`Madara.cs:197-205`) |
 | Мадара sealed | all queued targets sanitized | all queued targets sanitized | all queued targets sanitized | cannot act | pre-fight targets sanitized | ✓ excluded `DM:835-841` | `Madara.SanitizeSealedActions` runs after forced injections; direct targeting says `Игрок запечатан` (`Madara.cs:231-240`; `CIR:1419-1421`) |
 
+Bot and auto-move action selection finalizes an existing Skip both on entry and again after pending level-ups (`BotsBehavior.cs:84-128,3706-3715`). The second gate is required for Darksci's round-9 Дизмораль (M32): it cannot become an ordinary bot attack, while the forced-fight sources above still work because they inject their targets later in the readiness/fight pipeline.
+
 ## 2. Kill sources × immunities
 
 Kill sources: Кира's Тетрадь (`CP:3988-4066`), Кира's L-arrest (self-kill, `CP:4670-4711`), Кратос event kills (`CP:1655-1675, 2420-2436`), Монстр Пейзаж pawn deaths (`CP:4300-4333`), Геральт pitchfork displeasure (self, `CP:4483-4490`), Эрен's Rumbling (`CP:3484-3528`).

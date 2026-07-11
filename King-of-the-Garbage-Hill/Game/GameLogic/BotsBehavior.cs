@@ -83,13 +83,8 @@ public class BotsBehavior : IServiceSingleton
 
         // Forced skips are already complete actions. In particular, Шоковый щит must not let a
         // bot immediately replace the skip with its ordinary attack decision.
-        if (player.Status.IsSkip)
-        {
-            player.Status.WhoToAttackThisTurn.Clear();
-            player.Status.IsReady = true;
-            player.Status.ConfirmedPredict = true;
+        if (CompleteForcedSkip(player))
             return;
-        }
 
         if (Madara.IsMadara(player) && (game.RoundNo == 8 || player.Passives.Madara.Sealed))
         {
@@ -120,12 +115,19 @@ public class BotsBehavior : IServiceSingleton
         if (player.Status.LvlUpPoints > 0)
             await HandleLvlUpBot(player, game);
 
+        // A level-up can create the skip itself: Darksci's round-9 Дизмораль may reduce Psyche to
+        // zero after the entry guard above. Do not let the remaining bot pipeline replace it with
+        // an ordinary attack; real forced attacks are injected later by the readiness/fight pipeline.
+        if (CompleteForcedSkip(player))
+            return;
+
         // Kira bot: write Death Note and use Shinigami Eyes
         if (!Dumb(player, game) && player.GameCharacter.Passive.Any(x => x.PassiveName == "Тетрадь смерти"))
             HandleBotKira(player, game);
 
         await HandleBotAttack(player, game);
     }
+
     private void EnsureBotPlaystyle(GamePlayerBridgeClass player, GameClass game)
     {
         if (!Smart(player, game) || player.PlayerType != 404 || player.AiPlaystyle.Length > 0)
@@ -3699,6 +3701,17 @@ public class BotsBehavior : IServiceSingleton
         } while (player.Status.LvlUpPoints > 0);
 
         player.Status.MoveListPage = 1;
+    }
+
+    private static bool CompleteForcedSkip(GamePlayerBridgeClass player)
+    {
+        if (!player.Status.IsSkip)
+            return false;
+
+        player.Status.WhoToAttackThisTurn.Clear();
+        player.Status.IsReady = true;
+        player.Status.ConfirmedPredict = true;
+        return true;
     }
 
     public class BiggestStatClass

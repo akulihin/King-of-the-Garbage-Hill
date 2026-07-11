@@ -1,6 +1,6 @@
 # Character Reference — all mechanics as implemented
 
-> Code-verified against the working tree of 2026-07-11 (v4.3.5). For each passive: the player-facing description is in `DataBase/characters.json`; here we document **what the code actually does**, with file:line anchors. `CP` = `Game/GameLogic/CharacterPassives.cs`. ⚠ marks divergences — details in [AUDIT-FINDINGS.md](AUDIT-FINDINGS.md).
+> Code-verified against the working tree of 2026-07-11 (v4.3.6). For each passive: the player-facing description is in `DataBase/characters.json`; here we document **what the code actually does**, with file:line anchors. `CP` = `Game/GameLogic/CharacterPassives.cs`. ⚠ marks divergences — details in [AUDIT-FINDINGS.md](AUDIT-FINDINGS.md).
 >
 > Hook names refer to the execution order table in [ARCHITECTURE.md](ARCHITECTURE.md) §3.
 
@@ -266,8 +266,8 @@ State: `Itachi.cs` (crow counts per enemy, Izanagi 2 uses, Tsukuyomi charge/targ
 
 - **Мне (не)везет** — game-start choice (web/button): stable = +20 Skill +2 Мораль immediately **and every round** (`CP:5897-5906`); unstable = doubles Повезло.
 - **Повезло** — after his attacks have touched all 5 enemies: stable +100% of current score (+2 Psyche +2 Мораль), unstable +200% (+4/+4), once (`CP:1913-1938`). ⚠ only his own attacks count toward "touching" (defensive fights don't, JSON says "состоявшегося боя").
-- **Не повезло** — −1 Psyche per loss (`CP:2721-2726`); psyche 0 ⇒ forced skip each round (split across `CP:5944-5964` and the level-up path).
-- **Дизмораль** — round 9: −5 Psyche, fired from inside `GetLvlUp` (dodgeable by hoarding the round-9 point — **intended** tech; D1, ОК) (`GameReactions.cs:1226-1243`).
+- **Не повезло** — −1 Psyche per loss (`CP:2932-2938`); Psyche 0 ⇒ forced skip each round (split across `CP:6382-6404` and the level-up path).
+- **Дизмораль** — spending the mandatory round-9 level-up applies −5 Psyche; Psyche 0 immediately clears the action and sets the turn to Skip (`GameReactions.cs:1329-1346`). Bot/auto-move processing re-checks that skip after spending pending level-ups and returns before attack selection, while genuine forced attacks remain injected later in the readiness pipeline (`BotsBehavior.cs:115-128,3706-3715`; M32 fixed). Web/Discord players cannot bank the level-up past round 9 (D1/M15).
 
 ## Братишка — Tier 4, Int 0 / Str 0 / Speed 0 / Psyche 10 (file `Shark.cs`, class `Shark`)
 
