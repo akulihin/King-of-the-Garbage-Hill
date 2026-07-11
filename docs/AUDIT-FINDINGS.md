@@ -315,6 +315,12 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Impact:** the board could be monotonous or effectively blocked by random character assignment; players were given false reward feedback and a missed/unlucky goal destroyed both the day and the old 500-ZBS seven-day cliff.
 - **Fixed:** 2026-07-11 — Daily Quest V2 now assigns a fixed Anchor plus personalized SHA-256-stable Skirmish/Ambition lanes from 12 bilingual, character-neutral contracts (`QuestClass.cs:200-260,510-540`). Cards auto-pay 20/30/30 exactly once; any 2/3 pays +20 and advances streak/week, 3/3 adds one loot box, and any 5/7 completed days pays +100 (`QuestClass.cs:638-723`). One unfinished random card can be rerolled from persisted all-day metrics with save-before-send rollback (`QuestClass.cs:414-508`; `GameHub.cs:685-725`). Non-Madara Цукуеми views count only privacy-safe participation (`QuestClass.cs:380-408`). The inline Daily Quest board adds paired copy, reset countdown, receipts, free-swap announcement/focus recovery, clearly labelled weekly stamps, controlled icons, ARIA progress/loading/error states, mobile and reduced-motion support without adding a competing modal; in-flight refreshes queue one trailing request so UTC rollover is not dropped (`Lobby.vue:8,365-375`; `DailyQuestBoard.vue:1-604,1490-1621`; `game.ts:244-255,685-717`). `tools/audit-quests.sh` enforces the catalog and character neutrality. Full spec: [DAILY-QUESTS.md](DAILY-QUESTS.md).
 
+### M23. Public replay links are hidden behind an unrelated account login
+- **Intended:** replay files are shareable and the single-replay REST action is anonymous (`GameController.cs:179-186`); `Replay.vue` needs only that public payload through `replay.ts:164-186`.
+- **Actual before the fix:** the app-wide login branch rendered for every unauthenticated route, including the `/replay/:gameId` route (`router.ts:42-47`; `App.vue:180-188`), so a recipient had to create a throwaway web account before the already-public replay UI could mount.
+- **Impact:** shared replay URLs could not be watched anonymously, adding account friction to replay review and player support even though no protected data or authenticated operation was involved.
+- **Fixed:** 2026-07-11 — `App.vue` now recognizes the named replay route as public and suppresses only the login overlay there (`App.vue:11-18,180-188`). All other routes retain the existing authentication screen; replay loading continues to use the anonymous endpoint unchanged.
+
 ### m29. Three V2 achievement descriptions do not match their evaluators
 - `x_spartan_mylorik` RU copy says the **next** fight, while the tracker intentionally accepts any later fight (`AchievementClass.cs:326-332`; `DoomsdayMachine.cs:1372-1390`). `c_darksci_unstable` requires finishing alive at actual place 1 but omits “alive” in both languages (`AchievementClass.cs:284-287,513-519`). `c_kratos_olympus` says five “enemies,” although team mode counts every other player, including teammates (`AchievementClass.cs:264-267,491-492`; `CharacterPassives.cs:1730-1744`).
 - **Impact:** the achievement center can tell players a stricter, looser, or team-inaccurate requirement than the code actually evaluates.
@@ -328,7 +334,7 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 
 ## Summary count
 
-**1 Critical** (C1) · **22 Major** (M1–M22) · **29 Minor** (m1–m29) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7/M17 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13–M22 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28/m29 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26.)
+**1 Critical** (C1) · **23 Major** (M1–M23) · **29 Minor** (m1–m29) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7/M17 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13–M23 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28/m29 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26.)
 
 ## Verification addendum (second pass, 2026-07-01)
 

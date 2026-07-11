@@ -10,6 +10,7 @@ import { currentLocale, setLocale, type AppLocale } from './i18n'
 
 const store = useGameStore()
 const route = useRoute()
+const isPublicReplay = computed(() => route.name === 'replay')
 const showRecoveredAchievementCelebration = computed(() =>
   store.isAuthenticated
   && store.newlyUnlockedAchievements.length > 0
@@ -177,7 +178,7 @@ async function changeLocale(language: AppLocale) {
       >ENG</button>
     </div>
     <!-- Login screen (designer's layout) -->
-    <div v-if="showLogin && !store.isAuthenticated" class="logins">
+    <div v-if="showLogin && !store.isAuthenticated && !isPublicReplay" class="logins">
       <LoginProcess
         version="1.0"
         :loading="loginBusy || store.isLoading"
