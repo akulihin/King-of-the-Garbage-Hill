@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue'
-import { Check, ChevronRight, Gift, Sparkles, X } from 'lucide-vue-next'
+import { Check, ChevronRight, CircleAlert, Gift, LoaderCircle, Sparkles, X } from 'lucide-vue-next'
 import AchievementIcon from 'src/components/achievements/AchievementIcon.vue'
 import { currentLocale } from 'src/i18n'
 import type { AchievementEntry } from 'src/services/signalr'
@@ -9,6 +9,8 @@ import { useGameStore } from 'src/store/game'
 
 const props = defineProps<{
   achievements: AchievementEntry[]
+  isSaving: boolean
+  saveError: string | null
 }>()
 
 const emit = defineEmits<{ dismiss: [] }>()
@@ -93,6 +95,12 @@ watch(() => current.value?.id, async () => {
   focusFirstControl()
 }, { immediate: true })
 
+watch(() => props.isSaving, async (isSaving) => {
+  await nextTick()
+  if (isSaving) dialogRef.value?.focus({ preventScroll: true })
+  else focusFirstControl()
+})
+
 function t(english: string, russian: string): string {
   return currentLocale.value === 'ru' ? russian : english
 }
@@ -129,18 +137,20 @@ function characterAvatar(name: string): string {
 }
 
 function next(): void {
+  if (props.isSaving) return
   if (hasNext.value) currentIndex.value++
   else emit('dismiss')
 }
 
 function skipAll(): void {
+  if (props.isSaving) return
   emit('dismiss')
 }
 
 function onDialogKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
     event.preventDefault()
-    skipAll()
+    if (!props.isSaving) skipAll()
     return
   }
   if (event.key !== 'Tab' || !dialogRef.value) return
@@ -185,6 +195,7 @@ function particleStyle(index: number): CSSProperties {
           :class="`rarity-${rarityKey(current.rarity)}`"
           role="dialog"
           aria-modal="true"
+          :aria-busy="isSaving"
           :aria-labelledby="`achievement-title-${current.id}`"
           :aria-describedby="`achievement-description-${current.id}`"
           tabindex="-1"
@@ -200,6 +211,7 @@ function particleStyle(index: number): CSSProperties {
             class="skip-button"
             type="button"
             :aria-label="total > 1 ? t('Skip all achievement celebrations', 'Пропустить все поздравления') : t('Close', 'Закрыть')"
+            :disabled="isSaving"
             @click="skipAll"
           >
             <X :size="18" aria-hidden="true" />
@@ -261,12 +273,27 @@ function particleStyle(index: number): CSSProperties {
               <strong>{{ currentIndex + 1 }} / {{ total }}</strong>
             </div>
 
+            <div v-if="isSaving" class="acknowledge-feedback saving" role="status" aria-live="polite">
+              <LoaderCircle :size="17" aria-hidden="true" />
+              <span>{{ t('Saving this celebration…', 'Сохраняем это поздравление…') }}</span>
+            </div>
+            <div v-else-if="saveError" class="acknowledge-feedback error" role="alert">
+              <CircleAlert :size="17" aria-hidden="true" />
+              <span>
+                <strong>{{ t(
+                  'Could not confirm this celebration. Your reward is safe — try again.',
+                  'Не удалось подтвердить поздравление. Награда сохранена — попробуйте ещё раз.',
+                ) }}</strong>
+                <small>{{ saveError }}</small>
+              </span>
+            </div>
+
             <div class="celebration-actions">
-              <button v-if="total > 1" class="btn btn-ghost skip-all" type="button" @click="skipAll">
+              <button v-if="total > 1" class="btn btn-ghost skip-all" type="button" :disabled="isSaving" @click="skipAll">
                 {{ t('Skip all', 'Пропустить все') }}
               </button>
-              <button class="btn celebration-next" type="button" @click="next">
-                {{ hasNext ? t('Next achievement', 'Следующее достижение') : t('Continue', 'Продолжить') }}
+              <button class="btn celebration-next" type="button" :disabled="isSaving" @click="next">
+                {{ isSaving ? t('Saving…', 'Сохраняем…') : hasNext ? t('Next achievement', 'Следующее достижение') : t('Continue', 'Продолжить') }}
                 <ChevronRight :size="17" aria-hidden="true" />
               </button>
             </div>
@@ -356,6 +383,7 @@ function particleStyle(index: number): CSSProperties {
   background: rgba(0, 0, 0, 0.2);
 }
 .skip-button:hover { color: var(--text-primary); border-color: var(--border-color); background: rgba(255, 255, 255, 0.05); }
+.skip-button:disabled { opacity: 0.45; cursor: wait; }
 
 .celebration-content { position: relative; z-index: 2; display: flex; align-items: center; flex-direction: column; text-align: center; }
 .unlock-kicker { display: inline-flex; align-items: center; gap: 8px; color: var(--rarity); font-size: 11px; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; animation: content-rise 0.45s ease 0.2s both; }
@@ -387,6 +415,13 @@ function particleStyle(index: number): CSSProperties {
 .celebration-progress > span { width: 19px; max-width: 42px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.08); }
 .celebration-progress > span.active { background: var(--rarity); box-shadow: 0 0 7px color-mix(in srgb, var(--rarity) 50%, transparent); }
 .celebration-progress strong { margin-left: 5px; color: var(--text-dim); font: 700 9px/1 var(--font-mono); }
+.acknowledge-feedback { width: 100%; min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 13px; padding: 8px 10px; border: 1px solid var(--glass-border); border-radius: 10px; font-size: 9px; font-weight: 750; }
+.acknowledge-feedback.saving { color: var(--rarity); background: color-mix(in srgb, var(--rarity) 7%, transparent); }
+.acknowledge-feedback.saving svg { animation: acknowledge-spin 0.85s linear infinite; }
+.acknowledge-feedback.error { align-items: flex-start; color: var(--accent-red); border-color: rgba(239, 128, 128, 0.22); background: rgba(239, 128, 128, 0.07); text-align: left; }
+.acknowledge-feedback.error > span { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.acknowledge-feedback.error strong { color: var(--text-secondary); font-size: 9px; font-weight: 800; }
+.acknowledge-feedback.error small { overflow-wrap: anywhere; color: var(--text-dim); font-size: 8px; line-height: 1.4; }
 .celebration-actions { display: flex; justify-content: center; gap: 8px; width: 100%; margin-top: 17px; animation: content-rise 0.45s ease 0.72s both; }
 .celebration-actions .btn { min-height: 42px; }
 .celebration-next { min-width: 190px; color: #17151b; background: linear-gradient(135deg, color-mix(in srgb, var(--rarity) 78%, white), var(--rarity)); box-shadow: 0 7px 22px color-mix(in srgb, var(--rarity) 20%, transparent); }
@@ -403,6 +438,7 @@ function particleStyle(index: number): CSSProperties {
 @keyframes aurora-breathe { 0%, 100% { opacity: 0.5; transform: scale(0.9); } 50% { opacity: 0.9; transform: scale(1.08); } }
 @keyframes rays-turn { to { transform: translateX(-50%) rotate(360deg); } }
 @keyframes particle-burst { from { opacity: 1; transform: rotate(var(--particle-angle)) translateX(30px) scale(1); } to { opacity: 0; transform: rotate(var(--particle-angle)) translateX(var(--particle-distance)) scale(0); } }
+@keyframes acknowledge-spin { to { transform: rotate(360deg); } }
 
 .achievement-celebration-enter-active { transition: opacity 0.3s ease; }
 .achievement-celebration-leave-active { transition: opacity 0.25s ease; }
@@ -433,6 +469,7 @@ function particleStyle(index: number): CSSProperties {
   .celebration-actions,
   .icon-orbit,
   .celebration-particles i { animation: none; }
+  .acknowledge-feedback.saving svg { animation: none; }
   .celebration-particles { display: none; }
   .achievement-celebration-enter-active,
   .achievement-celebration-leave-active { transition: none; }

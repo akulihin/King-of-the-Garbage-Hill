@@ -734,7 +734,7 @@ public class CheckIfReady : IServiceSingleton
                 // Achievement tracking (SetBestProgress re-enters this monitor).
                 account.Achievements ??= new AchievementData();
                 AchievementService.TrackGameEnd(account, player, game, rewardPlace);
-                player.Passives.AchievementDataRef = account.Achievements;
+                player.Passives.AchievementDataRef = AchievementService.CreateSnapshot(account.Achievements);
 
                 // Pity system: increment counters for tiers not played this game
                 foreach (var tier in new[] { 1, 2, 3, 4, 5, 6 })
@@ -773,8 +773,10 @@ public class CheckIfReady : IServiceSingleton
             }
 
             // Bot accounts are disposable simulation/runtime state; real account rewards are durable now.
-            if (!account.IsBot())
-                _accounts.SaveAccount(account);
+            if (!account.IsBot() && !_accounts.SaveAccount(account))
+                _logs.Critical(
+                    $"Account settlement for {account.DiscordId} could not be persisted; " +
+                    "the in-memory result is retained for the periodic save retry.");
 
             if (moduleReward?.Awarded == true)
             {

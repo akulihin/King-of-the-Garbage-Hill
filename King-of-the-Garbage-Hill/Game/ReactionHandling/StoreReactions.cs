@@ -168,7 +168,17 @@ public class StoreReactions : IServiceSingleton
             if (title.First() != "Магазин") return;
 
             var account = _userAccounts.GetAccount(button.User.Id);
-            var character = account.CharacterChance.Find(x => x.CharacterName == title[1]);
+            if (account == null)
+            {
+                await button.Channel.SendMessageAsync("ERROR: account was not found");
+                return;
+            }
+
+            DiscordAccountClass.CharacterChances character;
+            lock (account)
+            {
+                character = account.CharacterChance.Find(x => x.CharacterName == title[1]);
+            }
 
             if (character == null)
             {
@@ -176,161 +186,341 @@ public class StoreReactions : IServiceSingleton
                 return;
             }
 
-            var cost = _basePrice + character.Changes;
-            var cost10 = 0;
-            for (var i = 0; i < 10; i++)
-            {
-                cost10 += _basePrice + character.Changes + i;
-            }
-
             switch (button.Data.CustomId)
             {
                 case "store-select-character":
-                    character = account.CharacterChance.Find(
-                        x => x.CharacterName == string.Join("", button.Data.Values));
+                    lock (account)
+                    {
+                        character = account.CharacterChance.Find(
+                            x => x.CharacterName == string.Join("", button.Data.Values));
+                    }
+                    if (character == null)
+                    {
+                        await button.Channel.SendMessageAsync("ERROR: selected character was not found");
+                        return;
+                    }
                     await ModifyStoreMessage(button, character, account);
                     break;
                 //Уменьшить шанс на 1% - 20 ZP
                 case "store-down-1":
-
-                    if (character.Multiplier <= 0.5)
+                {
+                    string error = null;
+                    lock (account)
                     {
-                        await button.Channel.SendMessageAsync(
-                            $"У персонажа {character.CharacterName} и так минимальный бонусный шанс - {character.Multiplier}");
+                        character = account.CharacterChance.Find(x => x.CharacterName == title[1]);
+                        if (character == null)
+                        {
+                            error = $"ERROR: character named {title[1]} was not found";
+                        }
+                        else if (character.Multiplier <= 0.5)
+                        {
+                            error =
+                                $"У персонажа {character.CharacterName} и так минимальный бонусный шанс - {character.Multiplier}";
+                        }
+                        else
+                        {
+                            var cost = _basePrice + character.Changes;
+                            if (account.ZbsPoints < cost)
+                            {
+                                error = $"У тебя недостаточно ZBS Points, нужно {cost}.";
+                            }
+                            else
+                            {
+                                var previousMultiplier = character.Multiplier;
+                                var previousChanges = character.Changes;
+                                var previousBalance = account.ZbsPoints;
+                                character.Multiplier -= 0.01;
+                                character.Changes++;
+                                account.ZbsPoints -= cost;
+
+                                if (!_userAccounts.SaveAccount(account))
+                                {
+                                    character.Multiplier = previousMultiplier;
+                                    character.Changes = previousChanges;
+                                    account.ZbsPoints = previousBalance;
+                                    error =
+                                        "Не удалось сохранить покупку. ZBS Points не списаны; попробуй ещё раз.";
+                                }
+                            }
+                        }
+                    }
+                    if (error != null)
+                    {
+                        await button.Channel.SendMessageAsync(error);
                         return;
                     }
-
-                    if (account.ZbsPoints < cost)
-                    {
-                        await button.Channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
-                        return;
-                    }
-
-                    character.Multiplier -= 0.01;
-                    character.Changes++;
-                    account.ZbsPoints -= cost;
-
                     await ModifyStoreMessage(button, character, account);
                     break;
+                }
 
                 case "store-down-10":
-
-                    if (character.Multiplier <= 0.5)
+                {
+                    string error = null;
+                    lock (account)
                     {
-                        await button.Channel.SendMessageAsync(
-                            $"У персонажа {character.CharacterName} и так минимальный бонусный шанс - {character.Multiplier}");
+                        character = account.CharacterChance.Find(x => x.CharacterName == title[1]);
+                        if (character == null)
+                        {
+                            error = $"ERROR: character named {title[1]} was not found";
+                        }
+                        else if (character.Multiplier <= 0.5)
+                        {
+                            error =
+                                $"У персонажа {character.CharacterName} и так минимальный бонусный шанс - {character.Multiplier}";
+                        }
+                        else
+                        {
+                            var cost10 = 0;
+                            for (var i = 0; i < 10; i++)
+                                cost10 += _basePrice + character.Changes + i;
+
+                            if (account.ZbsPoints < cost10)
+                            {
+                                error = $"У тебя недостаточно ZBS Points, нужно {cost10}.";
+                            }
+                            else
+                            {
+                                var previousMultiplier = character.Multiplier;
+                                var previousChanges = character.Changes;
+                                var previousBalance = account.ZbsPoints;
+                                character.Multiplier -= 0.1;
+                                character.Changes += 10;
+                                account.ZbsPoints -= cost10;
+
+                                if (!_userAccounts.SaveAccount(account))
+                                {
+                                    character.Multiplier = previousMultiplier;
+                                    character.Changes = previousChanges;
+                                    account.ZbsPoints = previousBalance;
+                                    error =
+                                        "Не удалось сохранить покупку. ZBS Points не списаны; попробуй ещё раз.";
+                                }
+                            }
+                        }
+                    }
+                    if (error != null)
+                    {
+                        await button.Channel.SendMessageAsync(error);
                         return;
                     }
-
-                    if (account.ZbsPoints < cost10)
-                    {
-                        await button.Channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost10}.");
-                        return;
-                    }
-
-                    character.Multiplier -= 0.1;
-                    character.Changes += 10;
-                    account.ZbsPoints -= cost10;
-
                     await ModifyStoreMessage(button, character, account);
                     break;
+                }
 
                 //Увеличить шанс на 1% - 20 ZP
                 case "store-up-1":
-
-                    if (character.Multiplier >= 2.0)
+                {
+                    string error = null;
+                    lock (account)
                     {
-                        await button.Channel.SendMessageAsync(
-                            $"У персонажа {character.CharacterName} и так максимальный бонусный шанс - {character.Multiplier}");
+                        character = account.CharacterChance.Find(x => x.CharacterName == title[1]);
+                        if (character == null)
+                        {
+                            error = $"ERROR: character named {title[1]} was not found";
+                        }
+                        else if (character.Multiplier >= 2.0)
+                        {
+                            error =
+                                $"У персонажа {character.CharacterName} и так максимальный бонусный шанс - {character.Multiplier}";
+                        }
+                        else
+                        {
+                            var cost = _basePrice + character.Changes;
+                            if (account.ZbsPoints < cost)
+                            {
+                                error = $"У тебя недостаточно ZBS Points, нужно {cost}.";
+                            }
+                            else
+                            {
+                                var previousMultiplier = character.Multiplier;
+                                var previousChanges = character.Changes;
+                                var previousBalance = account.ZbsPoints;
+                                character.Multiplier += 0.01;
+                                character.Changes++;
+                                account.ZbsPoints -= cost;
+
+                                if (!_userAccounts.SaveAccount(account))
+                                {
+                                    character.Multiplier = previousMultiplier;
+                                    character.Changes = previousChanges;
+                                    account.ZbsPoints = previousBalance;
+                                    error =
+                                        "Не удалось сохранить покупку. ZBS Points не списаны; попробуй ещё раз.";
+                                }
+                            }
+                        }
+                    }
+                    if (error != null)
+                    {
+                        await button.Channel.SendMessageAsync(error);
                         return;
                     }
-
-                    if (account.ZbsPoints < cost)
-                    {
-                        await button.Channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
-                        return;
-                    }
-
-                    character.Multiplier += 0.01;
-                    character.Changes++;
-                    account.ZbsPoints -= cost;
-
                     await ModifyStoreMessage(button, character, account);
                     break;
+                }
                 //Увеличить шанс на 10% - 20 ZP
                 case "store-up-10":
-                    if (character.Multiplier >= 2.0)
+                {
+                    string error = null;
+                    lock (account)
                     {
-                        await button.Channel.SendMessageAsync(
-                            $"У персонажа {character.CharacterName} и так максимальный бонусный шанс - {character.Multiplier}");
+                        character = account.CharacterChance.Find(x => x.CharacterName == title[1]);
+                        if (character == null)
+                        {
+                            error = $"ERROR: character named {title[1]} was not found";
+                        }
+                        else if (character.Multiplier >= 2.0)
+                        {
+                            error =
+                                $"У персонажа {character.CharacterName} и так максимальный бонусный шанс - {character.Multiplier}";
+                        }
+                        else
+                        {
+                            var cost10 = 0;
+                            for (var i = 0; i < 10; i++)
+                                cost10 += _basePrice + character.Changes + i;
+
+                            if (account.ZbsPoints < cost10)
+                            {
+                                error = $"У тебя недостаточно ZBS Points, нужно {cost10}.";
+                            }
+                            else
+                            {
+                                var previousMultiplier = character.Multiplier;
+                                var previousChanges = character.Changes;
+                                var previousBalance = account.ZbsPoints;
+                                character.Multiplier += 0.1;
+                                character.Changes += 10;
+                                account.ZbsPoints -= cost10;
+
+                                if (!_userAccounts.SaveAccount(account))
+                                {
+                                    character.Multiplier = previousMultiplier;
+                                    character.Changes = previousChanges;
+                                    account.ZbsPoints = previousBalance;
+                                    error =
+                                        "Не удалось сохранить покупку. ZBS Points не списаны; попробуй ещё раз.";
+                                }
+                            }
+                        }
+                    }
+                    if (error != null)
+                    {
+                        await button.Channel.SendMessageAsync(error);
                         return;
                     }
-
-
-                    
-                    if (account.ZbsPoints < cost10)
-                    {
-                        await button.Channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost10}.");
-                        return;
-                    }
-
-                    character.Multiplier += 0.1;
-                    character.Changes += 10;
-                    account.ZbsPoints -= cost10;
-
                     await ModifyStoreMessage(button, character, account);
                     break;
+                }
 
                 //Вернуть все ZBS Points за этого персонажа - 10 ZP
                 case "store-return-character":
-
-                    if (account.ZbsPoints < cost)
+                {
+                    string error = null;
+                    lock (account)
                     {
-                        await button.Channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
+                        character = account.CharacterChance.Find(x => x.CharacterName == title[1]);
+                        if (character == null)
+                        {
+                            error = $"ERROR: character named {title[1]} was not found";
+                        }
+                        else
+                        {
+                            var cost = _basePrice + character.Changes;
+                            if (account.ZbsPoints < cost)
+                            {
+                                error = $"У тебя недостаточно ZBS Points, нужно {cost}.";
+                            }
+                            else
+                            {
+                                var zbsPointsToReturn = 0;
+                                for (var i = 1; i < character.Changes + 1; i++)
+                                    zbsPointsToReturn += _basePrice + character.Changes - i;
+
+                                var previousMultiplier = character.Multiplier;
+                                var previousChanges = character.Changes;
+                                var previousBalance = account.ZbsPoints;
+                                character.Multiplier = 1.0;
+                                character.Changes = 0;
+                                account.ZbsPoints += zbsPointsToReturn;
+
+                                if (!_userAccounts.SaveAccount(account))
+                                {
+                                    character.Multiplier = previousMultiplier;
+                                    character.Changes = previousChanges;
+                                    account.ZbsPoints = previousBalance;
+                                    error =
+                                        "Не удалось сохранить возврат. Изменения отменены; попробуй ещё раз.";
+                                }
+                            }
+                        }
+                    }
+                    if (error != null)
+                    {
+                        await button.Channel.SendMessageAsync(error);
                         return;
                     }
-
-                    var zbsPointsToReturn = 0;
-
-                    for (var i = 1; i < character.Changes+1; i++)
-                    {
-                        zbsPointsToReturn += _basePrice + character.Changes - i;
-                    }
-
-                    character.Multiplier = 1.0;
-                    character.Changes = 0;
-                    account.ZbsPoints += zbsPointsToReturn;
-
-
                     await ModifyStoreMessage(button, character, account);
                     break;
+                }
 
                 //Вернуть все ZBS Points за ВСЕХ персонажей - 50 ZP
                 case "store-return-all-characters":
-
-                    if (account.ZbsPoints < cost)
+                {
+                    string error = null;
+                    lock (account)
                     {
-                        await button.Channel.SendMessageAsync($"У тебя недостаточно ZBS Points, нужно {cost}.");
+                        character = account.CharacterChance.Find(x => x.CharacterName == title[1]);
+                        if (character == null)
+                        {
+                            error = $"ERROR: character named {title[1]} was not found";
+                        }
+                        else
+                        {
+                            var cost = _basePrice + character.Changes;
+                            if (account.ZbsPoints < cost)
+                            {
+                                error = $"У тебя недостаточно ZBS Points, нужно {cost}.";
+                            }
+                            else
+                            {
+                                var previousBalance = account.ZbsPoints;
+                                var previousChances = account.CharacterChance
+                                    .Select(chance => (Chance: chance, chance.Multiplier, chance.Changes))
+                                    .ToList();
+                                var zbsPointsToReturn = 0;
+
+                                foreach (var chance in account.CharacterChance)
+                                {
+                                    for (var i = 1; i < chance.Changes + 1; i++)
+                                        zbsPointsToReturn += _basePrice + chance.Changes - i;
+                                    chance.Multiplier = 1.0;
+                                    chance.Changes = 0;
+                                }
+
+                                account.ZbsPoints += zbsPointsToReturn;
+                                if (!_userAccounts.SaveAccount(account))
+                                {
+                                    foreach (var previous in previousChances)
+                                    {
+                                        previous.Chance.Multiplier = previous.Multiplier;
+                                        previous.Chance.Changes = previous.Changes;
+                                    }
+                                    account.ZbsPoints = previousBalance;
+                                    error =
+                                        "Не удалось сохранить возврат. Изменения отменены; попробуй ещё раз.";
+                                }
+                            }
+                        }
+                    }
+                    if (error != null)
+                    {
+                        await button.Channel.SendMessageAsync(error);
                         return;
                     }
-
-                    zbsPointsToReturn = 0;
-
-                    foreach (var c in account.CharacterChance)
-                    {
-                        for (var i = 1; i < c.Changes + 1; i++)
-                        {
-                            zbsPointsToReturn += _basePrice + c.Changes - i;
-                        }
-                        c.Multiplier = 1.0;
-                        c.Changes = 0;
-                    }
-
-                    account.ZbsPoints += zbsPointsToReturn;
-
-
                     await ModifyStoreMessage(button, character, account);
                     break;
+                }
             }
         }
         catch (Exception exception)

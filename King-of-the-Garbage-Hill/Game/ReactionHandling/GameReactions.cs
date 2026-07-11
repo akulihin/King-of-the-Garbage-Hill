@@ -511,59 +511,96 @@ public sealed class GameReaction : IServiceSingleton
 
     public async Task HandleDraftPick(GamePlayerBridgeClass player, GameClass game, int optionIndex)
     {
-        if (!game.IsDraftPickPhase) return;
-        if (player.Status.IsDraftPickConfirmed) return;
-        if (!game.DraftOptions.TryGetValue(player.GetPlayerId(), out var options)) return;
-        if (optionIndex < 0 || optionIndex >= options.Count) return;
+        GamePlayerBridgeClass newBridge = null;
+        string persistenceError = null;
 
-        // Side characters (index > 0) cost 5 ZBS points
-        var account = _accounts.GetAccount(player.DiscordId);
-        if (optionIndex > 0)
+        // Serialize Discord picks with web picks. In particular, a duplicate rejection must happen
+        // before the optional account debit.
+        lock (game)
         {
-            if (account == null || account.ZbsPoints < 5) return;
-            account.ZbsPoints -= 5;
+            if (!game.IsDraftPickPhase) return;
+            if (!game.PlayersList.Contains(player)) return;
+            if (player.Status.IsDraftPickConfirmed) return;
+            if (!game.DraftOptions.TryGetValue(player.GetPlayerId(), out var options)) return;
+            if (optionIndex < 0 || optionIndex >= options.Count) return;
+
+            var selected = options[optionIndex];
+            if (game.PlayersList.Any(p => p != player && p.GameCharacter.Name == selected.Name))
+                return;
+
+            var idx = game.PlayersList.IndexOf(player);
+            if (idx < 0) return;
+
+            var account = _accounts.GetAccount(player.DiscordId);
+            if (optionIndex > 0 && account == null) return;
+
+            // Construct every match-side object before accepting a paid transaction.
+            newBridge = new GamePlayerBridgeClass(
+                selected,
+                new InGameStatus(),
+                player.DiscordId,
+                player.GameId,
+                player.DiscordUsername,
+                player.PlayerType
+            );
+            newBridge.IsWebPlayer = player.IsWebPlayer;
+            newBridge.PreferWeb = player.PreferWeb;
+            newBridge.TeamId = player.TeamId;
+            newBridge.Predict = player.Predict;
+            newBridge.DiscordStatus = player.DiscordStatus;
+            newBridge.Status.IsDraftPickConfirmed = true;
+            newBridge.Status.MoveListPage = 6;
+
+            if (account != null)
+            {
+                lock (account)
+                {
+                    if (optionIndex > 0 && account.ZbsPoints < 5)
+                    {
+                        newBridge = null;
+                        return;
+                    }
+
+                    newBridge.CharacterMasteryPoints =
+                        account.CharacterMastery.GetValueOrDefault(selected.Name, 0);
+                    DoomGuy.InitializeForGame(newBridge, account);
+
+                    var previousCharacter = account.CharacterPlayedLastTime;
+                    account.CharacterPlayedLastTime = selected.Name;
+                    if (optionIndex > 0)
+                    {
+                        var previousBalance = account.ZbsPoints;
+                        account.ZbsPoints -= 5;
+                        if (!_accounts.SaveAccount(account))
+                        {
+                            account.ZbsPoints = previousBalance;
+                            account.CharacterPlayedLastTime = previousCharacter;
+                            persistenceError =
+                                "Не удалось сохранить покупку. ZBS Points не списаны; попробуй ещё раз.";
+                            newBridge = null;
+                        }
+                    }
+                }
+            }
+
+            if (newBridge != null)
+            {
+                game.PlayersList[idx] = newBridge;
+
+                // Update ExploitPlayersList so it references the new bridge.
+                var exploitIdx = game.ExploitPlayersList.IndexOf(player);
+                if (exploitIdx >= 0 && selected.Passive.All(p => p.PassiveName != "Exploit"))
+                    game.ExploitPlayersList[exploitIdx] = newBridge;
+                else if (exploitIdx >= 0)
+                    game.ExploitPlayersList.RemoveAt(exploitIdx);
+            }
         }
 
-        var selected = options[optionIndex];
-
-        // Prevent duplicate characters in the game
-        if (game.PlayersList.Any(p => p != player && p.GameCharacter.Name == selected.Name))
+        if (persistenceError != null)
+        {
+            await _upd.UpdateMessage(player, persistenceError);
             return;
-
-        // Replace the player's character with the selected one
-        var newBridge = new GamePlayerBridgeClass(
-            selected,
-            new InGameStatus(),
-            player.DiscordId,
-            player.GameId,
-            player.DiscordUsername,
-            player.PlayerType
-        );
-        newBridge.IsWebPlayer = player.IsWebPlayer;
-        newBridge.PreferWeb = player.PreferWeb;
-        newBridge.TeamId = player.TeamId;
-        newBridge.Predict = player.Predict;
-        newBridge.DiscordStatus = player.DiscordStatus;
-        newBridge.Status.IsDraftPickConfirmed = true;
-        newBridge.Status.MoveListPage = 6;
-        newBridge.CharacterMasteryPoints = account?.CharacterMastery.GetValueOrDefault(selected.Name, 0) ?? 0;
-        if (account != null) DoomGuy.InitializeForGame(newBridge, account);
-
-        // Replace in the players list
-        var idx = game.PlayersList.IndexOf(player);
-        if (idx >= 0)
-            game.PlayersList[idx] = newBridge;
-
-        // Update ExploitPlayersList so it references the new bridge
-        var exploitIdx = game.ExploitPlayersList.IndexOf(player);
-        if (exploitIdx >= 0 && selected.Passive.All(p => p.PassiveName != "Exploit"))
-            game.ExploitPlayersList[exploitIdx] = newBridge;
-        else if (exploitIdx >= 0)
-            game.ExploitPlayersList.RemoveAt(exploitIdx);
-
-        // Update account's last played character
-        if (account != null)
-            account.CharacterPlayedLastTime = selected.Name;
+        }
 
         // Only show "waiting for others" if not everyone has picked yet.
         // When all are confirmed, CheckIfReady handles the transition to avoid

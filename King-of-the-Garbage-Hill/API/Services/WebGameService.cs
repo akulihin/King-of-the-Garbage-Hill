@@ -330,60 +330,82 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
-        if (!game.IsDraftPickPhase) return Task.FromResult((false, "Not in draft pick phase"));
-        if (player.Status.IsDraftPickConfirmed) return Task.FromResult((false, "Already confirmed"));
 
-        if (!game.DraftOptions.TryGetValue(player.GetPlayerId(), out var options))
-            return Task.FromResult((false, "No draft options found"));
-
-        var selected = options.Find(c => c.Name == characterName);
-        if (selected == null) return Task.FromResult((false, "Character not in your draft options"));
-
-        // Prevent duplicate characters in the game
-        if (game.PlayersList.Any(p => p != player && p.GameCharacter.Name == characterName))
-            return Task.FromResult((false, "Character already taken by another player"));
-
-        // Side characters (not first option) cost 5 ZBS points
-        var selectedIndex = options.IndexOf(selected);
-        if (selectedIndex > 0)
+        // Web and Discord draft picks share this monitor so duplicate validation, a paid pick and
+        // the bridge replacement form one serialized decision.
+        lock (game)
         {
-            var acc = _userAccounts.GetAccount(discordId);
-            if (acc == null || acc.ZbsPoints < 5)
-                return Task.FromResult((false, "Not enough ZBS points (need 5)"));
-            acc.ZbsPoints -= 5;
-        }
+            if (!game.IsDraftPickPhase) return Task.FromResult((false, "Not in draft pick phase"));
+            if (!game.PlayersList.Contains(player)) return Task.FromResult((false, "Player not in this game"));
+            if (player.Status.IsDraftPickConfirmed) return Task.FromResult((false, "Already confirmed"));
 
-        // Replace the player's character with the selected one
-        var newBridge = new GamePlayerBridgeClass(
-            selected,
-            new InGameStatus(),
-            player.DiscordId,
-            player.GameId,
-            player.DiscordUsername,
-            player.PlayerType
-        );
-        newBridge.IsWebPlayer = player.IsWebPlayer;
-        newBridge.PreferWeb = player.PreferWeb;
-        newBridge.TeamId = player.TeamId;
-        newBridge.Predict = player.Predict;
-        newBridge.DiscordStatus = player.DiscordStatus;
-        newBridge.Status.IsDraftPickConfirmed = true;
+            if (!game.DraftOptions.TryGetValue(player.GetPlayerId(), out var options))
+                return Task.FromResult((false, "No draft options found"));
 
-        // Replace in the players list
-        var idx = game.PlayersList.IndexOf(player);
-        if (idx >= 0)
+            var selected = options.Find(c => c.Name == characterName);
+            if (selected == null) return Task.FromResult((false, "Character not in your draft options"));
+
+            // Validate the shared game constraint before touching the account economy.
+            if (game.PlayersList.Any(p => p != player && p.GameCharacter.Name == characterName))
+                return Task.FromResult((false, "Character already taken by another player"));
+
+            var idx = game.PlayersList.IndexOf(player);
+            if (idx < 0) return Task.FromResult((false, "Player not in this game"));
+
+            var selectedIndex = options.IndexOf(selected);
+            var account = _userAccounts.GetAccount(discordId);
+            if (selectedIndex > 0 && account == null)
+                return Task.FromResult((false, "Account not found"));
+
+            // Build the replacement before a paid transaction so construction cannot strand a debit.
+            var newBridge = new GamePlayerBridgeClass(
+                selected,
+                new InGameStatus(),
+                player.DiscordId,
+                player.GameId,
+                player.DiscordUsername,
+                player.PlayerType
+            );
+            newBridge.IsWebPlayer = player.IsWebPlayer;
+            newBridge.PreferWeb = player.PreferWeb;
+            newBridge.TeamId = player.TeamId;
+            newBridge.Predict = player.Predict;
+            newBridge.DiscordStatus = player.DiscordStatus;
+            newBridge.Status.IsDraftPickConfirmed = true;
+
+            if (account != null)
+            {
+                lock (account)
+                {
+                    if (selectedIndex > 0 && account.ZbsPoints < 5)
+                        return Task.FromResult((false, "Not enough ZBS points (need 5)"));
+
+                    newBridge.CharacterMasteryPoints =
+                        account.CharacterMastery.GetValueOrDefault(selected.Name, 0);
+                    DoomGuy.InitializeForGame(newBridge, account);
+
+                    var previousCharacter = account.CharacterPlayedLastTime;
+                    account.CharacterPlayedLastTime = selected.Name;
+
+                    if (selectedIndex > 0)
+                    {
+                        var previousBalance = account.ZbsPoints;
+                        account.ZbsPoints -= 5;
+                        if (!_userAccounts.SaveAccount(account))
+                        {
+                            account.ZbsPoints = previousBalance;
+                            account.CharacterPlayedLastTime = previousCharacter;
+                            return Task.FromResult((false,
+                                "Could not save your draft purchase. No ZBS was spent; please try again."));
+                        }
+                    }
+
+                }
+            }
+
             game.PlayersList[idx] = newBridge;
-
-        // Update account's last played character and mastery
-        var account = _userAccounts.GetAccount(discordId);
-        if (account != null)
-        {
-            newBridge.CharacterMasteryPoints = account.CharacterMastery.GetValueOrDefault(selected.Name, 0);
-            DoomGuy.InitializeForGame(newBridge, account);
-            account.CharacterPlayedLastTime = selected.Name;
+            return Task.FromResult((true, (string)null));
         }
-
-        return Task.FromResult((true, (string)null));
     }
 
     // ── Find helpers ──────────────────────────────────────────────────

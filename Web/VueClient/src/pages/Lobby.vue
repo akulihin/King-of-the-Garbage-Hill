@@ -43,29 +43,51 @@ const isOpeningLootBox = ref(false)
 const showLootBoxOverlay = ref(false)
 const isAcknowledgingLootBox = ref(false)
 const lootBoxSaveError = ref<string | null>(null)
+const lootBoxOpenError = ref<string | null>(null)
 
 function t(english: string, russian: string): string {
   return currentLocale.value === 'ru' ? russian : english
 }
 
-async function openLootBox() {
-  if (isOpeningLootBox.value || pendingLootBoxes.value <= 0) return
+async function performLootBoxOpen(isRetry: boolean) {
+  if (isOpeningLootBox.value || (!isRetry && pendingLootBoxes.value <= 0)) return
   isOpeningLootBox.value = true
   lootBoxSaveError.value = null
+  lootBoxOpenError.value = null
+  store.setLootBoxFlowActive(true)
+  await nextTick()
   showLootBoxOverlay.value = true
   try {
     await store.openLootBox()
-    window.setTimeout(() => {
-      if (!store.lootBoxResult) {
-        isOpeningLootBox.value = false
-        showLootBoxOverlay.value = false
-      }
-    }, 1200)
   }
-  catch {
+  catch (error) {
     isOpeningLootBox.value = false
-    showLootBoxOverlay.value = false
+    if (!store.lootBoxResult) {
+      lootBoxOpenError.value = error instanceof Error ? error.message : String(error)
+    }
   }
+}
+
+async function openLootBox() {
+  await performLootBoxOpen(false)
+}
+
+async function retryLootBoxOpening() {
+  await performLootBoxOpen(true)
+}
+
+async function returnFromLootBoxOpening() {
+  if (store.lootBoxResult) return
+  isOpeningLootBox.value = false
+  lootBoxOpenError.value = null
+  showLootBoxOverlay.value = false
+  await nextTick()
+  if (store.lootBoxResult) {
+    store.setLootBoxFlowActive(true)
+    showLootBoxOverlay.value = true
+    return
+  }
+  store.setLootBoxFlowActive(false)
 }
 
 async function continueLootBox(openingId: string) {
@@ -76,6 +98,8 @@ async function continueLootBox(openingId: string) {
     await store.acknowledgeLootBox(openingId)
     showLootBoxOverlay.value = false
     store.clearLootBoxResult(openingId)
+    await nextTick()
+    store.setLootBoxFlowActive(false)
   }
   catch (error) {
     lootBoxSaveError.value = error instanceof Error ? error.message : String(error)
@@ -103,13 +127,16 @@ async function openAnotherLootBox(openingId: string) {
   showLootBoxOverlay.value = false
   store.clearLootBoxResult(openingId)
   await nextTick()
-  await openLootBox()
+  await performLootBoxOpen(true)
 }
 
-watch(() => store.lootBoxResult, (result) => {
+watch(() => store.lootBoxResult, async (result) => {
   if (!result) return
   isOpeningLootBox.value = false
-  showLootBoxOverlay.value = true
+  lootBoxOpenError.value = null
+  store.setLootBoxFlowActive(true)
+  await nextTick()
+  if (store.lootBoxResult) showLootBoxOverlay.value = true
 }, { immediate: true })
 
 let pollInterval: ReturnType<typeof setInterval> | null = null
@@ -146,6 +173,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (pollInterval) clearInterval(pollInterval)
+  store.setLootBoxFlowActive(false)
   signalrService.onGameCreated = null
   signalrService.onGameJoined = null
 })
@@ -376,8 +404,11 @@ function viewAchievements() {
       :guaranteed-rare-in="guaranteedRareIn"
       :is-saving="isAcknowledgingLootBox"
       :save-error="lootBoxSaveError"
+      :opening-error="lootBoxOpenError"
       @continue="continueLootBox"
       @open-another="openAnotherLootBox"
+      @retry-opening="retryLootBoxOpening"
+      @return-to-lobby="returnFromLootBoxOpening"
     />
 
     <!-- Active Games -->

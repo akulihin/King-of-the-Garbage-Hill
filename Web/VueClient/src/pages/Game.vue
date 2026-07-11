@@ -63,6 +63,7 @@ const store = useGameStore()
 const router = useRouter()
 
 const gameIdNum = computed(() => Number(props.gameId))
+let gameOverOverlayTimer: ReturnType<typeof setTimeout> | null = null
 
 const roundMultiplier = computed(() => {
   const r = store.gameState?.roundNo ?? 0
@@ -178,6 +179,7 @@ onUnmounted(() => {
   stopGeraltGameStartTheme()
   stopDoomGameStartTheme()
   clearPrevLogTimer()
+  if (gameOverOverlayTimer) clearTimeout(gameOverOverlayTimer)
   if (store.isConnected && gameIdNum.value) {
     store.leaveGame(gameIdNum.value)
   }
@@ -615,8 +617,16 @@ const gameOverPodium = computed(() => {
 
 watch(() => store.gameState?.isFinished, (finished, prev) => {
   if (finished && !prev) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      showGameOverOverlay.value = false
+      return
+    }
     showGameOverOverlay.value = true
-    setTimeout(() => { showGameOverOverlay.value = false }, 5000)
+    if (gameOverOverlayTimer) clearTimeout(gameOverOverlayTimer)
+    gameOverOverlayTimer = setTimeout(() => {
+      showGameOverOverlay.value = false
+      gameOverOverlayTimer = null
+    }, 5000)
   }
 })
 
@@ -1479,8 +1489,10 @@ const charTint = computed(() => {
 
         <!-- Achievement unlock popup -->
         <AchievementPopup
-          v-if="store.newlyUnlockedAchievements.length > 0 && store.gameState.isFinished && !showGameOverOverlay"
+          v-if="store.newlyUnlockedAchievements.length > 0 && store.gameState.isFinished && !showGameOverOverlay && !store.isLootBoxFlowActive"
           :achievements="store.newlyUnlockedAchievements"
+          :is-saving="store.isAcknowledgingAchievements"
+          :save-error="store.achievementAcknowledgeError"
           @dismiss="store.dismissAchievements()"
         />
 
@@ -3105,5 +3117,16 @@ const charTint = computed(() => {
     font-size: 11px;
     letter-spacing: 4px;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gameover-title,
+  .gameover-entry,
+  .gameover-confetti,
+  .confetti-piece {
+    animation: none !important;
+  }
+  .gameover-entry { opacity: 1; }
+  .gameover-confetti { display: none; }
 }
 </style>

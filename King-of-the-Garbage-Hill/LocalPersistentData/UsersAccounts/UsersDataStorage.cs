@@ -25,33 +25,37 @@ public sealed class UserAccountsDataStorage : IServiceSingleton
     }
 
 
-    public void SaveAccountSettings(DiscordAccountClass accounts, string idString, string json)
+    public bool SaveAccountSettings(DiscordAccountClass accounts, string idString, string json)
     {
         var filePath = $@"DataBase/UserAccounts/discordAccount-{idString}.json";
         try
         {
             WriteJsonAtomically(filePath, json);
+            return true;
         }
         catch (Exception exception)
         {
             _logs.Critical(exception.Message);
             _logs.Critical(exception.StackTrace);
+            return false;
         }
     }
 
 
-    public void SaveAccountSettings(DiscordAccountClass accounts, ulong userId)
+    public bool SaveAccountSettings(DiscordAccountClass accounts, ulong userId)
     {
         var filePath = $@"DataBase/UserAccounts/discordAccount-{userId}.json";
         try
         {
             var json = JsonConvert.SerializeObject(accounts, Formatting.Indented);
             WriteJsonAtomically(filePath, json);
+            return true;
         }
         catch (Exception exception)
         {
             _logs.Critical(exception.Message);
             _logs.Critical(exception.StackTrace);
+            return false;
         }
     }
 

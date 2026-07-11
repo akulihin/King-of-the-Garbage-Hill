@@ -677,7 +677,10 @@ public class GameHub : Hub
                 LootBoxPity = lootBoxPity,
                 GuaranteedRareIn = Game.Classes.QuestService.GetGuaranteedRareIn(lootBoxPity),
                 LootBoxOdds = MapLootBoxOdds(),
-                LastUnacknowledgedLootBox = MapLootBoxResult(lastUnacknowledgedLootBox),
+                LastUnacknowledgedLootBox = MapLootBoxResult(
+                    lastUnacknowledgedLootBox,
+                    account.ZbsPoints,
+                    account.PendingLootBoxes),
                 Quests = account.Quests.ActiveDay?.Quests.Select(q => new DTOs.QuestProgressDto
                 {
                     Id = q.QuestId,
@@ -695,7 +698,18 @@ public class GameHub : Hub
 
     // ── Loot Boxes ──────────────────────────────────────────────────
 
-    public async Task OpenLootBox()
+    /// <summary>
+    /// Legacy one-shot opening used by cached pre-V2 clients, which have no acknowledgement call.
+    /// The result is acknowledged in the same durable transaction so a second legacy open advances.
+    /// </summary>
+    public Task OpenLootBox() => OpenLootBoxCore(acknowledgeImmediately: true);
+
+    /// <summary>
+    /// Resumable V2 opening. The stored result remains pending until AcknowledgeLootBox succeeds.
+    /// </summary>
+    public Task OpenLootBoxV2() => OpenLootBoxCore(acknowledgeImmediately: false);
+
+    private async Task OpenLootBoxCore(bool acknowledgeImmediately)
     {
         var discordId = GetDiscordId();
         if (discordId == 0) { await SendNotAuthenticated(); return; }
@@ -707,19 +721,44 @@ public class GameHub : Hub
             return;
         }
 
-        var outcome = Game.Classes.QuestService.OpenLootBox(account, 0);
-        if (outcome.Result == null)
+        DTOs.LootBoxResultDto resultDto = null;
+        string openError = null;
+        var persistenceFailed = false;
+
+        lock (account)
         {
-            await Clients.Caller.SendAsync("Error", outcome.Error ?? "Unable to open loot box.");
+            var snapshot = CaptureLootBoxAccountState(account);
+            var outcome = Game.Classes.QuestService.OpenLootBox(account, 0);
+            if (outcome.Result == null)
+            {
+                openError = outcome.Error ?? "Unable to open loot box.";
+            }
+            else
+            {
+                resultDto = MapLootBoxResult(outcome.Result);
+
+                if (acknowledgeImmediately)
+                    Game.Classes.QuestService.AcknowledgeLootBox(account, outcome.Result.OpeningId);
+
+                // Do not publish a debit/reward until its complete account state is durable.
+                if (!_userAccounts.SaveAccount(account))
+                {
+                    RestoreLootBoxAccountState(account, snapshot);
+                    resultDto = null;
+                    persistenceFailed = true;
+                }
+            }
+        }
+
+        if (openError != null)
+        {
+            await Clients.Caller.SendAsync("Error", openError);
             return;
         }
 
-        DTOs.LootBoxResultDto resultDto;
-        lock (account)
-            resultDto = MapLootBoxResult(outcome.Result);
+        if (persistenceFailed)
+            throw new HubException("The loot box could not be saved. Nothing was consumed; please try again.");
 
-        // Persist the debit, reward, pity and resumable opening before the client sees it.
-        _userAccounts.SaveAccount(account);
         await Clients.Caller.SendAsync("LootBoxOpened", resultDto);
     }
 
@@ -735,9 +774,22 @@ public class GameHub : Hub
             return;
         }
 
-        // A stale or mismatched acknowledgement is intentionally a safe no-op.
-        if (Game.Classes.QuestService.AcknowledgeLootBox(account, openingId))
-            _userAccounts.SaveAccount(account);
+        var persistenceFailed = false;
+        lock (account)
+        {
+            var snapshot = CaptureLootBoxAccountState(account);
+
+            // A stale or mismatched acknowledgement is intentionally a safe no-op.
+            if (Game.Classes.QuestService.AcknowledgeLootBox(account, openingId)
+                && !_userAccounts.SaveAccount(account))
+            {
+                RestoreLootBoxAccountState(account, snapshot);
+                persistenceFailed = true;
+            }
+        }
+
+        if (persistenceFailed)
+            throw new HubException("The loot-box acknowledgement could not be saved. Please try again.");
     }
 
     // ── Achievements ──────────────────────────────────────────────────
@@ -796,18 +848,24 @@ public class GameHub : Hub
         var account = _userAccounts.GetAccount(discordId);
         if (account == null) return;
 
-        var cleared = false;
+        var persistenceFailed = false;
         lock (account)
         {
-            if (account.Achievements?.NewlyUnlocked?.Count > 0)
+            var queue = account.Achievements?.NewlyUnlocked;
+            if (queue?.Count > 0)
             {
-                account.Achievements.NewlyUnlocked.Clear();
-                cleared = true;
+                var snapshot = queue.ToList();
+                queue.Clear();
+                if (!_userAccounts.SaveAccount(account))
+                {
+                    queue.AddRange(snapshot);
+                    persistenceFailed = true;
+                }
             }
         }
 
-        if (cleared)
-            _userAccounts.SaveAccount(account);
+        if (persistenceFailed)
+            throw new HubException("The achievement acknowledgement could not be saved. Please try again.");
     }
 
     public async Task AcknowledgeAchievements(List<string> achievementIds)
@@ -831,16 +889,25 @@ public class GameHub : Hub
             .ToHashSet(StringComparer.Ordinal);
         if (acknowledgedIds.Count == 0) return;
 
-        var removed = false;
+        var persistenceFailed = false;
         lock (account)
         {
             var queue = account.Achievements?.NewlyUnlocked;
             if (queue != null)
-                removed = queue.RemoveAll(acknowledgedIds.Contains) > 0;
+            {
+                var snapshot = queue.ToList();
+                if (queue.RemoveAll(acknowledgedIds.Contains) > 0
+                    && !_userAccounts.SaveAccount(account))
+                {
+                    queue.Clear();
+                    queue.AddRange(snapshot);
+                    persistenceFailed = true;
+                }
+            }
         }
 
-        if (removed)
-            _userAccounts.SaveAccount(account);
+        if (persistenceFailed)
+            throw new HubException("The achievement acknowledgement could not be saved. Please try again.");
     }
 
     // ── Request State ─────────────────────────────────────────────────
@@ -1403,7 +1470,10 @@ public class GameHub : Hub
         }).ToList();
     }
 
-    private static DTOs.LootBoxResultDto MapLootBoxResult(LootBoxResult result)
+    private static DTOs.LootBoxResultDto MapLootBoxResult(
+        LootBoxResult result,
+        int? currentZbsBalance = null,
+        int? currentPendingLootBoxes = null)
     {
         if (result == null) return null;
 
@@ -1412,13 +1482,58 @@ public class GameHub : Hub
             OpeningId = result.OpeningId,
             Rarity = result.Rarity,
             ZbsAmount = result.ZbsAmount,
-            ZbsBalance = result.ZbsBalance,
-            RemainingLootBoxes = result.RemainingLootBoxes,
+            ZbsBalance = currentZbsBalance ?? result.ZbsBalance,
+            RemainingLootBoxes = currentPendingLootBoxes ?? result.RemainingLootBoxes,
             OpenedAt = result.Timestamp.ToString("o"),
             WasPityUpgrade = result.WasPityUpgrade,
             LootBoxPity = result.LootBoxPity,
             GuaranteedRareIn = result.GuaranteedRareIn,
         };
+    }
+
+    private sealed class LootBoxAccountState
+    {
+        public int ZbsPoints { get; init; }
+        public int PendingLootBoxes { get; init; }
+        public QuestData Quests { get; init; }
+        public LootBoxResult LastLootBox { get; init; }
+        public bool LastLootBoxAcknowledged { get; init; }
+        public ulong LastLootBoxGameId { get; init; }
+        public int LootBoxPity { get; init; }
+    }
+
+    /// <summary>The caller must hold the account monitor.</summary>
+    private static LootBoxAccountState CaptureLootBoxAccountState(DiscordAccountClass account)
+    {
+        var quests = account.Quests;
+        return new LootBoxAccountState
+        {
+            ZbsPoints = account.ZbsPoints,
+            PendingLootBoxes = account.PendingLootBoxes,
+            Quests = quests,
+            LastLootBox = quests?.LastLootBox,
+            LastLootBoxAcknowledged = quests?.LastLootBox?.Acknowledged ?? false,
+            LastLootBoxGameId = quests?.LastLootBoxGameId ?? 0,
+            LootBoxPity = quests?.LootBoxPity ?? 0,
+        };
+    }
+
+    /// <summary>The caller must hold the account monitor.</summary>
+    private static void RestoreLootBoxAccountState(
+        DiscordAccountClass account,
+        LootBoxAccountState snapshot)
+    {
+        account.ZbsPoints = snapshot.ZbsPoints;
+        account.PendingLootBoxes = snapshot.PendingLootBoxes;
+        account.Quests = snapshot.Quests;
+
+        if (snapshot.Quests == null) return;
+
+        snapshot.Quests.LastLootBox = snapshot.LastLootBox;
+        snapshot.Quests.LastLootBoxGameId = snapshot.LastLootBoxGameId;
+        snapshot.Quests.LootBoxPity = snapshot.LootBoxPity;
+        if (snapshot.LastLootBox != null)
+            snapshot.LastLootBox.Acknowledged = snapshot.LastLootBoxAcknowledged;
     }
 
     private static DTOs.AchievementEntryDto MapAchievementEntry(

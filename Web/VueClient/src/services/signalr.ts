@@ -1019,6 +1019,7 @@ export type GameEvent = {
 class SignalRService {
   private connection: signalR.HubConnection | null = null
   private _isConnected = false
+  private _isSessionReady = false
   private _lastDiscordId: string | null = null
   private _currentGameId: number | null = null
 
@@ -1050,8 +1051,37 @@ class SignalRService {
     return this._isConnected
   }
 
+  private requireConnected(): signalR.HubConnection {
+    if (
+      !this.connection
+      || this.connection.state !== signalR.HubConnectionState.Connected
+      || !this._isSessionReady
+    ) {
+      throw new Error('Connection unavailable. Wait for reconnection, then try again.')
+    }
+    return this.connection
+  }
+
   async connect(): Promise<void> {
-    if (this.connection) return
+    if (this.connection) {
+      if (
+        this.connection.state === signalR.HubConnectionState.Connected
+        || this.connection.state === signalR.HubConnectionState.Connecting
+        || this.connection.state === signalR.HubConnectionState.Reconnecting
+      ) return
+
+      // A failed start (or an exhausted reconnect policy) leaves a disconnected
+      // HubConnection object behind. Dispose it so an explicit login retry can
+      // build a fresh transport instead of returning early forever.
+      const staleConnection = this.connection
+      this.connection = null
+      try {
+        await staleConnection.stop()
+      }
+      catch {
+        // It is already disconnected; the important part is releasing it.
+      }
+    }
 
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(HUB_URL)
@@ -1082,10 +1112,12 @@ class SignalRService {
     })
 
     this.connection.on('Authenticated', (data: { success: boolean; discordId: string; playerType: number; lastPlayedCharacter: string }) => {
+      this._isSessionReady = data.success
       this.onAuthenticated?.(data)
     })
 
     this.connection.on('WebAccountCreated', (data: { discordId: string; username: string }) => {
+      this._isSessionReady = true
       this.onWebAccountCreated?.(data)
     })
 
@@ -1148,6 +1180,7 @@ class SignalRService {
     this.connection.onreconnecting(() => {
       console.log('[SignalR] Reconnecting...')
       this._isConnected = false
+      this._isSessionReady = false
       this.onConnectionChanged?.(false)
     })
 
@@ -1161,16 +1194,35 @@ class SignalRService {
       if (this._currentGameId) await this.joinGame(this._currentGameId)
     })
 
+    const startedConnection = this.connection
+
     this.connection.onclose(() => {
       console.log('[SignalR] Connection closed')
       this._isConnected = false
+      this._isSessionReady = false
       this.onConnectionChanged?.(false)
+      if (this.connection === startedConnection) this.connection = null
     })
 
-    await this.connection.start()
-    this._isConnected = true
-    this.onConnectionChanged?.(true)
-    console.log('[SignalR] Connected')
+    try {
+      await startedConnection.start()
+      this._isConnected = true
+      this.onConnectionChanged?.(true)
+      console.log('[SignalR] Connected')
+    }
+    catch (error) {
+      if (this.connection === startedConnection) this.connection = null
+      this._isConnected = false
+      this._isSessionReady = false
+      this.onConnectionChanged?.(false)
+      try {
+        await startedConnection.stop()
+      }
+      catch {
+        // start() may fail before a transport exists.
+      }
+      throw error
+    }
   }
 
   async disconnect(): Promise<void> {
@@ -1182,6 +1234,7 @@ class SignalRService {
     this._lastDiscordId = null
     this._currentGameId = null
     this._isConnected = false
+    this._isSessionReady = false
     this.onConnectionChanged?.(false)
 
     if (!connection) return
@@ -1198,7 +1251,11 @@ class SignalRService {
   async authenticate(discordId: string): Promise<void> {
     // Send as string to avoid JS number precision loss on large snowflake IDs
     this._lastDiscordId = discordId
-    await this.connection?.invoke('Authenticate', discordId)
+    this._isSessionReady = false
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      throw new Error('Connection unavailable. Try connecting again.')
+    }
+    await this.connection.invoke('Authenticate', discordId)
   }
 
   async setLanguage(language: 'ru' | 'en'): Promise<void> {
@@ -1362,7 +1419,11 @@ class SignalRService {
   // ── Web Game Creation ──────────────────────────────────────────
 
   async registerWebAccount(username: string): Promise<void> {
-    await this.connection?.invoke('RegisterWebAccount', username)
+    this._isSessionReady = false
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      throw new Error('Connection unavailable. Try connecting again.')
+    }
+    await this.connection.invoke('RegisterWebAccount', username)
   }
 
   async createWebGame(): Promise<void> {
@@ -1382,19 +1443,19 @@ class SignalRService {
   }
 
   async requestQuests(): Promise<void> {
-    await this.connection?.invoke('RequestQuests')
+    await this.requireConnected().invoke('RequestQuests')
   }
 
-  async openLootBox(): Promise<void> {
-    await this.connection?.invoke('OpenLootBox')
+  async openLootBoxV2(): Promise<void> {
+    await this.requireConnected().invoke('OpenLootBoxV2')
   }
 
   async acknowledgeLootBox(openingId: string): Promise<void> {
-    await this.connection?.invoke('AcknowledgeLootBox', openingId)
+    await this.requireConnected().invoke('AcknowledgeLootBox', openingId)
   }
 
   async requestAchievements(): Promise<void> {
-    await this.connection?.invoke('RequestAchievements')
+    await this.requireConnected().invoke('RequestAchievements')
   }
 
   async clearNewAchievements(): Promise<void> {
@@ -1402,7 +1463,7 @@ class SignalRService {
   }
 
   async acknowledgeAchievements(achievementIds: string[]): Promise<void> {
-    await this.connection?.invoke('AcknowledgeAchievements', achievementIds)
+    await this.requireConnected().invoke('AcknowledgeAchievements', achievementIds)
   }
 
   async requestDoomFortress(): Promise<void> {

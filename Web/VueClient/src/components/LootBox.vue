@@ -25,11 +25,14 @@ const props = defineProps<{
   guaranteedRareIn: number
   isSaving: boolean
   saveError: string | null
+  openingError: string | null
 }>()
 
 const emit = defineEmits<{
   continue: [openingId: string]
   openAnother: [openingId: string]
+  retryOpening: []
+  returnToLobby: []
 }>()
 
 const phase = ref<'opening' | 'reveal'>('opening')
@@ -126,6 +129,12 @@ watch(() => props.isSaving, async (isSaving) => {
   else focusFirstControl()
 })
 
+watch(() => props.openingError, async (openingError, previousError) => {
+  if (previousError && !openingError && !props.result) playLootBoxOpeningSound()
+  await nextTick()
+  focusFirstControl()
+})
+
 function t(english: string, russian: string): string {
   return currentLocale.value === 'ru' ? russian : english
 }
@@ -175,6 +184,11 @@ function openAnother(): void {
 }
 
 function onDialogKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape' && phase.value === 'opening' && props.openingError) {
+    event.preventDefault()
+    emit('returnToLobby')
+    return
+  }
   if (event.key === 'Escape' && phase.value === 'reveal' && !props.isSaving) {
     event.preventDefault()
     continueFlow()
@@ -217,10 +231,10 @@ function sparkStyle(index: number): CSSProperties {
         <section
           ref="dialogRef"
           class="lootbox-dialog"
-          :class="[`rarity-${rarityClass}`, `phase-${phase}`]"
+          :class="[`rarity-${rarityClass}`, `phase-${phase}`, { 'has-opening-error': openingError }]"
           role="dialog"
           aria-modal="true"
-          :aria-busy="isSaving"
+          :aria-busy="isSaving || (phase === 'opening' && !openingError)"
           :aria-labelledby="phase === 'opening' ? 'loot-opening-title' : 'loot-result-title'"
           tabindex="-1"
           @keydown="onDialogKeydown"
@@ -252,6 +266,24 @@ function sparkStyle(index: number): CSSProperties {
               <div class="opening-meta">
                 <span><PackageOpen :size="15" aria-hidden="true" /> {{ t(`${pendingLootBoxes} available`, `Доступно: ${pendingLootBoxes}`) }}</span>
                 <span><ShieldCheck :size="15" aria-hidden="true" /> {{ t(`Rare+ in ${Math.max(1, guaranteedRareIn)}`, `Редкая+ через ${Math.max(1, guaranteedRareIn)}`) }}</span>
+              </div>
+
+              <div v-if="openingError" class="opening-error" role="alert">
+                <CircleAlert :size="20" aria-hidden="true" />
+                <span>
+                  <strong>{{ t('Your loot box is safe', 'Ваш лутбокс в безопасности') }}</strong>
+                  <small>{{ openingError }}</small>
+                </span>
+              </div>
+
+              <div v-if="openingError" class="opening-error-actions">
+                <button class="btn btn-ghost" type="button" @click="emit('returnToLobby')">
+                  {{ t('Return to lobby', 'Вернуться в лобби') }}
+                </button>
+                <button class="btn retry-opening" type="button" @click="emit('retryOpening')">
+                  <LoaderCircle :size="17" aria-hidden="true" />
+                  {{ t('Retry reveal', 'Повторить показ') }}
+                </button>
               </div>
             </div>
 
@@ -417,8 +449,19 @@ function sparkStyle(index: number): CSSProperties {
 .reveal-sparks { position: absolute; top: 50%; left: 50%; width: 1px; height: 1px; }
 .opening-sparks i,
 .reveal-sparks i { --spark-angle: 0deg; --spark-distance: 90px; --spark-delay: 0ms; position: absolute; width: 5px; height: 5px; border-radius: 50%; background: var(--rarity); box-shadow: 0 0 7px var(--rarity); animation: opening-spark 1.15s ease-out var(--spark-delay) infinite; }
+.has-opening-error .loot-crate,
+.has-opening-error .crate-orbit,
+.has-opening-error .crate-shadow { animation: none; }
+.has-opening-error .opening-sparks { display: none; }
 .opening-meta { display: flex; justify-content: center; flex-wrap: wrap; gap: 7px; }
 .opening-meta span { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; color: var(--text-muted); border: 1px solid var(--glass-border); border-radius: 8px; background: rgba(255, 255, 255, 0.03); font-size: 9px; font-weight: 750; }
+.opening-error { width: 100%; display: flex; align-items: flex-start; gap: 9px; margin-top: 13px; padding: 10px 11px; color: var(--accent-red); border: 1px solid rgba(239, 128, 128, 0.24); border-radius: 10px; background: rgba(239, 128, 128, 0.08); text-align: left; }
+.opening-error > span { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.opening-error strong { color: var(--text-secondary); font-size: 10px; font-weight: 850; }
+.opening-error small { overflow-wrap: anywhere; color: var(--text-dim); font-size: 8px; line-height: 1.45; }
+.opening-error-actions { width: 100%; display: flex; gap: 8px; margin-top: 10px; }
+.opening-error-actions .btn { min-height: 43px; flex: 1; }
+.retry-opening { color: #17161c; background: linear-gradient(135deg, #d8c3f5, var(--accent-purple)); }
 
 .reveal-icon-stage { position: relative; width: 170px; height: 150px; display: grid; place-items: center; margin: 5px 0 -2px; }
 .reveal-halo { position: absolute; width: 124px; height: 124px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--rarity) 28%, transparent), transparent 68%); box-shadow: 0 0 45px color-mix(in srgb, var(--rarity) 25%, transparent); animation: reveal-halo 1.8s ease-in-out infinite; }
@@ -492,7 +535,9 @@ function sparkStyle(index: number): CSSProperties {
   .reward-summary > div:nth-child(2) { border-right: 0; }
   .reward-summary > div:last-child { grid-column: 1 / -1; border-bottom: 0; }
   .loot-actions { flex-direction: column-reverse; }
-  .loot-actions .btn { min-height: 46px; width: 100%; }
+  .loot-actions .btn,
+  .opening-error-actions .btn { min-height: 46px; width: 100%; }
+  .opening-error-actions { flex-direction: column-reverse; }
 }
 
 @media (prefers-reduced-motion: reduce) {

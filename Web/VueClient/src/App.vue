@@ -11,7 +11,10 @@ import { currentLocale, setLocale, type AppLocale } from './i18n'
 const store = useGameStore()
 const route = useRoute()
 const showRecoveredAchievementCelebration = computed(() =>
-  store.isAuthenticated && store.newlyUnlockedAchievements.length > 0 && route.name !== 'game',
+  store.isAuthenticated
+  && store.newlyUnlockedAchievements.length > 0
+  && !store.isLootBoxFlowActive
+  && route.name !== 'game',
 )
 
 /** Unobtrusive corner version label — live games show the current server
@@ -26,6 +29,7 @@ const gameVersion = computed(() => {
 const showLogin = ref(true)
 const loginSuccess = ref(false)
 const loggedInUsername = ref('')
+const loginBusy = ref(false)
 let removeGlobalButtonSound: (() => void) | null = null
 
 const currentTheme = ref(localStorage.getItem('kotgh_theme') || '')
@@ -67,23 +71,50 @@ onUnmounted(() => {
 })
 
 async function connectAndAuth(id: string) {
-  if (!id || !/^\d+$/.test(id)) return
-  await store.connect()
-  await store.authenticate(id)
-  await store.setLanguage(currentLocale.value)
-  localStorage.setItem('discordId', id)
-  loggedInUsername.value = `ID: ${id}`
-  loginSuccess.value = true
+  if (loginBusy.value || !id || !/^\d+$/.test(id)) return
+  loginBusy.value = true
+  loginSuccess.value = false
+  try {
+    await store.connect()
+    await store.authenticate(id)
+    try { await store.setLanguage(currentLocale.value) }
+    catch { /* Authentication succeeded; locale sync can retry on reconnect. */ }
+    localStorage.setItem('discordId', id)
+    loggedInUsername.value = `ID: ${id}`
+    loginSuccess.value = true
+  }
+  catch (error) {
+    if (!store.errorMessage) {
+      store.errorMessage = error instanceof Error ? error.message : String(error)
+    }
+  }
+  finally {
+    loginBusy.value = false
+  }
 }
 
 async function connectAndAuthWeb(webId: string, username: string) {
-  await store.connect()
-  await store.authenticate(webId)
-  await store.setLanguage(currentLocale.value)
-  store.webUsername = username
-  store.isWebAccount = true
-  loggedInUsername.value = username
-  loginSuccess.value = true
+  if (loginBusy.value) return
+  loginBusy.value = true
+  loginSuccess.value = false
+  try {
+    await store.connect()
+    await store.authenticate(webId)
+    try { await store.setLanguage(currentLocale.value) }
+    catch { /* Authentication succeeded; locale sync can retry on reconnect. */ }
+    store.webUsername = username
+    store.isWebAccount = true
+    loggedInUsername.value = username
+    loginSuccess.value = true
+  }
+  catch (error) {
+    if (!store.errorMessage) {
+      store.errorMessage = error instanceof Error ? error.message : String(error)
+    }
+  }
+  finally {
+    loginBusy.value = false
+  }
 }
 
 async function handleLogin(discordId: string) {
@@ -91,11 +122,25 @@ async function handleLogin(discordId: string) {
 }
 
 async function handleWebLogin(username: string) {
-  await store.connect()
-  await store.registerWebAccount(username)
-  await store.setLanguage(currentLocale.value)
-  loggedInUsername.value = username
-  loginSuccess.value = true
+  if (loginBusy.value) return
+  loginBusy.value = true
+  loginSuccess.value = false
+  try {
+    await store.connect()
+    await store.registerWebAccount(username)
+    try { await store.setLanguage(currentLocale.value) }
+    catch { /* Account creation succeeded; locale sync can retry on reconnect. */ }
+    loggedInUsername.value = username
+    loginSuccess.value = true
+  }
+  catch (error) {
+    if (!store.errorMessage) {
+      store.errorMessage = error instanceof Error ? error.message : String(error)
+    }
+  }
+  finally {
+    loginBusy.value = false
+  }
 }
 
 function handleContinue() {
@@ -135,6 +180,8 @@ async function changeLocale(language: AppLocale) {
     <div v-if="showLogin && !store.isAuthenticated" class="logins">
       <LoginProcess
         version="1.0"
+        :loading="loginBusy || store.isLoading"
+        :error="store.errorMessage"
         @login="handleLogin"
         @web-login="handleWebLogin"
       />
@@ -202,6 +249,8 @@ async function changeLocale(language: AppLocale) {
       <AchievementPopup
         v-if="showRecoveredAchievementCelebration"
         :achievements="store.newlyUnlockedAchievements"
+        :is-saving="store.isAcknowledgingAchievements"
+        :save-error="store.achievementAcknowledgeError"
         @dismiss="store.dismissAchievements()"
       />
     </template>

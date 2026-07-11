@@ -1,12 +1,16 @@
 <template>
   <div>
     <div class="loginGlow"></div>
-    <div class="loginBox">
+    <div class="loginBox" :aria-busy="props.loading">
       <div class="crownIcon">&#128081;</div>
       <div class="version">kotgh-{{ version }}</div>
       <div class="info">
         King of the Garbage Hill — a turn-based tactical game.
         Sign in with Discord or create a web account to play.
+      </div>
+
+      <div v-if="props.error" class="loginError" role="alert">
+        {{ props.error }}
       </div>
 
       <!-- Discord login -->
@@ -20,8 +24,8 @@
             placeholder="Discord User ID"
             @keyup.enter="handleLogin"
           >
-          <button class="loginButton" :disabled="loading" @click="handleLogin">
-            {{ loading ? 'Connecting...' : 'Login with Discord' }}
+          <button class="loginButton" :disabled="props.loading" @click="handleLogin">
+            {{ props.loading ? 'Connecting...' : 'Login with Discord' }}
           </button>
         </div>
         <div class="hint">
@@ -44,8 +48,8 @@
             maxlength="32"
             @keyup.enter="handleWebLogin"
           >
-          <button class="loginButton webButton" :disabled="loading" @click="handleWebLogin">
-            {{ loading ? 'Creating...' : 'Create Web Account' }}
+          <button class="loginButton webButton" :disabled="props.loading" @click="handleWebLogin">
+            {{ props.loading ? 'Creating...' : 'Create Web Account' }}
           </button>
         </div>
       </div>
@@ -56,9 +60,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-defineProps<{
+const props = withDefaults(defineProps<{
   version?: string
-}>()
+  loading?: boolean
+  error?: string | null
+}>(), {
+  loading: false,
+  error: null,
+})
 
 const emit = defineEmits<{
   login: [discordId: string]
@@ -67,19 +76,18 @@ const emit = defineEmits<{
 
 const discordIdInput = ref(localStorage.getItem('discordId') || '')
 const webUsernameInput = ref('')
-const loading = ref(false)
 
 function handleLogin() {
+  if (props.loading) return
   const id = discordIdInput.value.trim()
   if (!id || !/^\d+$/.test(id)) return
-  loading.value = true
   emit('login', id)
 }
 
 function handleWebLogin() {
+  if (props.loading) return
   const name = webUsernameInput.value.trim()
   if (!name || name.length > 32) return
-  loading.value = true
   emit('webLogin', name)
 }
 </script>
@@ -160,6 +168,17 @@ function handleWebLogin() {
   color: var(--kh-c-text-primary-600);
   font-size: 0.85rem;
   line-height: 1.5;
+}
+
+.loginError {
+  padding: 0.75rem 0.875rem;
+  color: var(--kh-c-secondary-danger-200);
+  border: 1px solid rgba(239, 128, 128, 0.35);
+  border-radius: 6px;
+  background: rgba(239, 128, 128, 0.08);
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.45;
 }
 
 .version {

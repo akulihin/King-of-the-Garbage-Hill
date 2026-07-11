@@ -74,11 +74,14 @@ export const useGameStore = defineStore('game', () => {
   const blackjackState = ref<BlackjackTableState | null>(null)
   const questState = ref<QuestState | null>(null)
   const lootBoxResult = ref<LootBoxResult | null>(null)
+  const isLootBoxFlowActive = ref(false)
   const achievementBoard = ref<AchievementBoard | null>(null)
   const newlyUnlockedAchievements = ref<AchievementEntry[]>([])
   const achievementsDismissedForGame = ref<string>('')
   const isAchievementsLoading = ref(false)
   const achievementsError = ref<string | null>(null)
+  const isAcknowledgingAchievements = ref(false)
+  const achievementAcknowledgeError = ref<string | null>(null)
   const accountPlayerType = ref(0)
   const lastPlayedCharacter = ref('')
   const characterList = ref<CharacterListEntry[]>([])
@@ -147,6 +150,7 @@ export const useGameStore = defineStore('game', () => {
 
   async function connect() {
     isLoading.value = true
+    errorMessage.value = null
     try {
       // Set up event handlers before connecting
       signalrService.onGameState = (state) => {
@@ -224,6 +228,7 @@ export const useGameStore = defineStore('game', () => {
 
         // Detect newly unlocked achievements from finished game state (only once per game)
         if (state.isFinished && state.newlyUnlockedAchievements?.length && achievementsDismissedForGame.value !== String(state.gameId)) {
+          achievementAcknowledgeError.value = null
           newlyUnlockedAchievements.value = state.newlyUnlockedAchievements
         }
       }
@@ -250,6 +255,7 @@ export const useGameStore = defineStore('game', () => {
         // not reduced to a small badge on the achievements page.
         if (newlyUnlockedAchievements.value.length === 0 && board.newlyUnlocked.length > 0) {
           const unseenIds = new Set(board.newlyUnlocked)
+          achievementAcknowledgeError.value = null
           newlyUnlockedAchievements.value = board.achievements.filter(
             achievement => achievement.isUnlocked && unseenIds.has(achievement.id),
           )
@@ -296,11 +302,12 @@ export const useGameStore = defineStore('game', () => {
       signalrService.onAuthenticated = (data) => {
         if (data.success) {
           isAuthenticated.value = true
+          errorMessage.value = null
           // Keep as string to preserve precision on large snowflake IDs
           discordId.value = String(data.discordId)
           accountPlayerType.value = data.playerType ?? 0
           lastPlayedCharacter.value = data.lastPlayedCharacter ?? ''
-          void requestAchievements()
+          void Promise.allSettled([requestAchievements(), requestQuests()])
         }
       }
 
@@ -312,7 +319,8 @@ export const useGameStore = defineStore('game', () => {
         // Persist for session restoration
         localStorage.setItem('kotgh_web_id', data.discordId)
         localStorage.setItem('kotgh_web_username', data.username)
-        void requestAchievements()
+        errorMessage.value = null
+        void Promise.allSettled([requestAchievements(), requestQuests()])
       }
 
       signalrService.onGameCreated = (_data) => {
@@ -339,6 +347,7 @@ export const useGameStore = defineStore('game', () => {
     }
     catch (err) {
       errorMessage.value = `Failed to connect: ${err}`
+      throw err
     }
     finally {
       isLoading.value = false
@@ -350,8 +359,24 @@ export const useGameStore = defineStore('game', () => {
       resetAccountState()
       isConnected.value = signalrService.isConnected
     }
+    isLoading.value = true
+    errorMessage.value = null
     discordId.value = id
-    await signalrService.authenticate(id)
+    try {
+      await signalrService.authenticate(id)
+      if (!isAuthenticated.value || discordId.value !== id) {
+        throw new Error(errorMessage.value ?? 'Authentication failed. Check the account ID and try again.')
+      }
+    }
+    catch (error) {
+      if (!errorMessage.value) {
+        errorMessage.value = error instanceof Error ? error.message : String(error)
+      }
+      throw error
+    }
+    finally {
+      isLoading.value = false
+    }
   }
 
   function resetAccountState() {
@@ -375,11 +400,14 @@ export const useGameStore = defineStore('game', () => {
 
     questState.value = null
     lootBoxResult.value = null
+    isLootBoxFlowActive.value = false
     achievementBoard.value = null
     newlyUnlockedAchievements.value = []
     achievementsDismissedForGame.value = ''
     isAchievementsLoading.value = false
     achievementsError.value = null
+    isAcknowledgingAchievements.value = false
+    achievementAcknowledgeError.value = null
     accountPlayerType.value = 0
     lastPlayedCharacter.value = ''
     doomFortressState.value = null
@@ -600,7 +628,23 @@ export const useGameStore = defineStore('game', () => {
   }
 
   async function registerWebAccount(username: string) {
-    await signalrService.registerWebAccount(username)
+    isLoading.value = true
+    errorMessage.value = null
+    try {
+      await signalrService.registerWebAccount(username)
+      if (!isAuthenticated.value) {
+        throw new Error(errorMessage.value ?? 'Web account creation failed. Try again.')
+      }
+    }
+    catch (error) {
+      if (!errorMessage.value) {
+        errorMessage.value = error instanceof Error ? error.message : String(error)
+      }
+      throw error
+    }
+    finally {
+      isLoading.value = false
+    }
   }
 
   async function createWebGame() {
@@ -625,7 +669,34 @@ export const useGameStore = defineStore('game', () => {
 
   async function openLootBox() {
     lootBoxResult.value = null
-    await signalrService.openLootBox()
+    const waitForResult = new Promise<void>((resolve, reject) => {
+      const startedAt = Date.now()
+      const timer = window.setInterval(() => {
+        if (lootBoxResult.value) {
+          window.clearInterval(timer)
+          resolve()
+        }
+        else if (Date.now() - startedAt >= 12_000) {
+          window.clearInterval(timer)
+          reject(new Error('The reward server took too long to respond. Retry this same opening or return to the lobby.'))
+        }
+      }, 50)
+    })
+
+    const invocation = signalrService.openLootBoxV2()
+    await Promise.race([invocation, waitForResult])
+
+    // SignalR normally delivers LootBoxOpened before the invocation completion,
+    // but allow a short delivery window without leaving the opening screen stuck.
+    if (!lootBoxResult.value) {
+      await Promise.race([
+        waitForResult,
+        new Promise<never>((_, reject) => window.setTimeout(
+          () => reject(new Error('The opening was accepted, but its reveal did not arrive. Retry safely to recover it.')),
+          1_500,
+        )),
+      ])
+    }
   }
 
   async function acknowledgeLootBox(openingId: string) {
@@ -637,6 +708,10 @@ export const useGameStore = defineStore('game', () => {
     if (lootBoxResult.value?.openingId === openingId) {
       lootBoxResult.value = null
     }
+  }
+
+  function setLootBoxFlowActive(active: boolean) {
+    isLootBoxFlowActive.value = active
   }
 
   async function requestAchievements() {
@@ -664,16 +739,34 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.equipDoomModule(stage, slotIndex, moduleName)
   }
 
-  function dismissAchievements() {
+  async function dismissAchievements() {
+    if (isAcknowledgingAchievements.value) return
     const acknowledgedIds = newlyUnlockedAchievements.value.map(achievement => achievement.id)
-    newlyUnlockedAchievements.value = []
-    if (gameState.value) {
-      achievementsDismissedForGame.value = String(gameState.value.gameId)
+    if (acknowledgedIds.length === 0) return
+
+    isAcknowledgingAchievements.value = true
+    achievementAcknowledgeError.value = null
+    try {
+      await signalrService.acknowledgeAchievements(acknowledgedIds)
+      const acknowledged = new Set(acknowledgedIds)
+      newlyUnlockedAchievements.value = newlyUnlockedAchievements.value.filter(
+        achievement => !acknowledged.has(achievement.id),
+      )
+      if (achievementBoard.value) {
+        achievementBoard.value = {
+          ...achievementBoard.value,
+          newlyUnlocked: achievementBoard.value.newlyUnlocked.filter(id => !acknowledged.has(id)),
+        }
+      }
+      if (gameState.value) {
+        achievementsDismissedForGame.value = String(gameState.value.gameId)
+      }
     }
-    if (acknowledgedIds.length > 0) {
-      void signalrService.acknowledgeAchievements(acknowledgedIds).catch((error) => {
-        errorMessage.value = error instanceof Error ? error.message : String(error)
-      })
+    catch (error) {
+      achievementAcknowledgeError.value = error instanceof Error ? error.message : String(error)
+    }
+    finally {
+      isAcknowledgingAchievements.value = false
     }
   }
 
@@ -707,10 +800,13 @@ export const useGameStore = defineStore('game', () => {
     blackjackState,
     questState,
     lootBoxResult,
+    isLootBoxFlowActive,
     achievementBoard,
     newlyUnlockedAchievements,
     isAchievementsLoading,
     achievementsError,
+    isAcknowledgingAchievements,
+    achievementAcknowledgeError,
     // Computed
     myPlayer,
     opponents,
@@ -777,6 +873,7 @@ export const useGameStore = defineStore('game', () => {
     openLootBox,
     acknowledgeLootBox,
     clearLootBoxResult,
+    setLootBoxFlowActive,
     requestAchievements,
     clearNewAchievements,
     dismissAchievements,

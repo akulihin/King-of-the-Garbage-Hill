@@ -262,8 +262,8 @@ public static class AchievementService
             "Играя за Итачи, скопируйте не меньше 20 очков через Глаза Итачи.",
             AchievementCategory.Character, "eye", "rare", 20, characterNames: new[] { "Итачи" }),
         new("c_kratos_olympus", "Ghost of Sparta", "Призрак Спарты",
-            "As Кратос, personally kill all 5 enemies during Возвращение из мертвых.",
-            "Играя за Кратос, лично убейте всех 5 врагов во время Возвращение из мертвых.",
+            "As Кратос, personally kill all 5 other players during Возвращение из мертвых.",
+            "Играя за Кратос, лично убейте всех 5 остальных игроков во время Возвращение из мертвых.",
             AchievementCategory.Character, "swords", "legendary", 5, characterNames: new[] { "Кратос" }),
         new("c_kira_perfect_crime", "Perfect Crime", "Идеальное преступление",
             "As Кира, record 3 successful Тетрадь смерти kills on different victims.",
@@ -282,8 +282,8 @@ public static class AchievementService
             "Играя за Котики, верните и Минька, и Штормяк, победив в обеих атаках за возвращение.",
             AchievementCategory.Character, "cat", "rare", 2, characterNames: new[] { "Котики" }),
         new("c_darksci_unstable", "Against All Odds", "Вопреки всему",
-            "As Darksci, choose unstable, trigger Повезло, and finish in 1st place.",
-            "Играя за Darksci, выберите нестабильность, активируйте Повезло и завершите матч на 1-м месте.",
+            "As Darksci, choose unstable, trigger Повезло, and finish alive in 1st place.",
+            "Играя за Darksci, выберите нестабильность, активируйте Повезло, останьтесь в живых и завершите матч на 1-м месте.",
             AchievementCategory.Character, "dice-six", "epic", characterNames: new[] { "Darksci" }),
         new("c_eren_rumbling", "The Rumbling", "Гул Земли",
             "As Эрен Йегер, kill at least 2 players with Rumbling.",
@@ -325,7 +325,7 @@ public static class AchievementService
             characterNames: new[] { "DeepList", "Weedwick" }),
         new("x_spartan_mylorik", "Mutual Respect", "Взаимное уважение",
             "As Загадочный Спартанец в маске, trigger the mutual-Psyche interaction with mylorik, then defeat him in a later fight.",
-            "Играя за Загадочный Спартанец в маске, активируйте взаимное усиление Психики с mylorik, а затем победите его в следующем бою.",
+            "Играя за Загадочный Спартанец в маске, активируйте взаимное усиление Психики с mylorik, а затем победите его в более позднем бою.",
             AchievementCategory.Interaction, "handshake", "rare", isSecret: true,
             secretHint: "Respect must come before rivalry.",
             secretHintRu: "Уважение должно появиться раньше соперничества.",
@@ -583,5 +583,26 @@ public static class AchievementService
                 prediction.PlayerId == target.GetPlayerId()
                 && string.Equals(prediction.CharacterName, target.GameCharacter.Name,
                     StringComparison.OrdinalIgnoreCase)));
+    }
+
+    /// <summary>
+    /// Creates a detached account-achievement snapshot for finished-game DTO mapping. The caller
+    /// must hold the account monitor while reading the persistent source.
+    /// </summary>
+    public static AchievementData CreateSnapshot(AchievementData source)
+    {
+        if (source == null) return new AchievementData();
+
+        return new AchievementData
+        {
+            Progress = source.Progress?.Select(progress => new AchievementProgress
+            {
+                AchievementId = progress.AchievementId,
+                Current = progress.Current,
+                IsUnlocked = progress.IsUnlocked,
+                UnlockedAt = progress.UnlockedAt,
+            }).ToList() ?? new List<AchievementProgress>(),
+            NewlyUnlocked = source.NewlyUnlocked?.ToList() ?? new List<string>(),
+        };
     }
 }

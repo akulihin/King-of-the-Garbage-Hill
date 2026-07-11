@@ -110,13 +110,13 @@ public sealed class UserAccounts : IServiceSingleton
     }
 
 
-    public void SaveAccount(DiscordAccountClass account)
+    public bool SaveAccount(DiscordAccountClass account)
     {
-        if (account == null) return;
+        if (account == null) return false;
 
         lock (account)
         {
-            _usersDataStorage.SaveAccountSettings(account, account.DiscordId);
+            return _usersDataStorage.SaveAccountSettings(account, account.DiscordId);
         }
     }
 
