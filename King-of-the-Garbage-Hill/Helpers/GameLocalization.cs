@@ -36,6 +36,7 @@ public static class GameLocalization
         (new Regex(@"Игрок\s+(.+?)\s+победил", RegexOptions.IgnoreCase), "Player $1 won"),
         (new Regex(@"Ожидаем других игроков", RegexOptions.IgnoreCase), "Waiting for other players"),
         (new Regex(@"Вы не походили\. Использовался Авто Ход", RegexOptions.IgnoreCase), "You did not act. Auto Move was used"),
+        (new Regex(@"#life:\s*Я прокачал (Интеллект|Силу|Скорость|Психику) на (-?\d+)!", RegexOptions.IgnoreCase), "#life: I upgraded $1 to $2!"),
         (new Regex(@"Подтвердите свои предложения перед атакой", RegexOptions.IgnoreCase), "Confirm your predictions before attacking"),
         (new Regex(@"Напасть на\s+", RegexOptions.IgnoreCase), "Attack "),
         (new Regex(@"Победа:\s*", RegexOptions.IgnoreCase), "Victory: "),
@@ -129,72 +130,16 @@ public static class GameLocalization
         var translated = Translate(phrase, English, catalog, false);
         if (!Regex.IsMatch(translated, "[А-Яа-яЁё]")) return translated;
 
-        var passive = Translate(passiveName, English, catalog, false);
-        var adapted = passiveName switch
-        {
-            "Авто Ход" => "No hands on the keyboard? Fine. I'll do it myself.",
-            "Справедливость" => "Justice is on our side. Probably.",
-            "Вампуризм" or "Гематофагия" => "Just a tiny bite. You will barely notice.",
-            "СОсиновый кол" => "Garlic, stakes... people take all the fun out of dinner.",
-            "Тигр топ, а ты холоп" => "Tiger on top. Everyone else knows their place.",
-            "Стримснайпят и банят и банят и банят" => "Banned again. Worth it.",
-            "Безумие" => "The plan makes perfect sense if you stop thinking about it.",
-            "Стёб" or "__Стёб__" => "All according to the plan inside the plan.",
-            "Сомнительная тактика" => "Trust me: this terrible idea is secretly brilliant.",
-            "Месть" => "Revenge tastes better than victory.",
-            "Буль" => "Blub. The water is perfectly safe.",
-            "Испанец" => "The bull is angry. The Spaniard is louder.",
-            "Спящее хуйло" => "Five more minutes... then Challenger.",
-            "Претендент русского сервера" => "The old Challenger has opened one eye.",
-            "Я щас приду" => "Be right there. Any minute now.",
-            "Я за чаем" => "Tea is ready. Staying awake is optional.",
-            "Еврей" => "A perfectly legitimate redistribution of points.",
-            "Булинг" => "Why are you bullying me?",
-            "Гребанные ассассины" => "Goddamn assassins. Every single time.",
-            "Импакт" => "Impact secured. Nobody saw it, naturally.",
-            "Подсчет" => "I calculated everything. The numbers owe me money.",
-            "Раммус мейн" => "Okay.",
-            "Одиночество" => "Look at all my friends not answering.",
-            "Доебаться" => "You have 37 unread messages.",
-            "Заводить друзей" => "Congratulations. We are friends now.",
-            "Дракон" => "ROAR. No, louder: ROAR!",
-            "Много выебывается" => "Big talk from the top of the hill.",
-            "Запах мусора" => "Something smells like free points.",
-            "Научите играть" => "Wait, which button makes me good?",
-            "Произошел троллинг" => "An unfortunate amount of trolling occurred.",
-            "АФКА" => "AFK. Spiritually and mechanically.",
-            "Мне (не)везет" or "Повезло" or "Не повезло" => "Luck is a skill. Bad luck is the team's fault.",
-            "Лежит на дне" => "Rock bottom has excellent visibility.",
-            "Челюсти" => "The shark has remembered it has teeth.",
-            "Клинки хаоса" or "Охота на богов" => "If Olympus denies my vengeance, Olympus will fall.",
-            "Лысина" => "Serious Series: one very ordinary punch.",
-            "Огурчик Рик" => "I'M PICKLE RIIIICK!",
-            "Портальная пушка" => "Portal open, Morty. Try not to touch reality.",
-            "Тетрадь смерти" => "Delete. Delete. Delete.",
-            "Гений" => "Everything is going according to plan, Ryuk.",
-            "Вороны" => "There is always another crow up the sleeve.",
-            "Аматерасу" => "Black flames do not ask twice.",
-            "Глаза Итачи" => "You were already inside the illusion.",
-            "Впарить говна" => "Heh heh... today only, no refunds.",
-            "Закуп" or "Выгодная сделка" => "A fine investment. For me.",
-            "Макро" or "Взгляд в будущее" => "The next two turns were decided three turns ago.",
-            "Тоннели Гоблинов" => "Run away! Tactically!",
-            "Гоблины" => "More Goblins for the Goblin god!",
-            "Отличный рудник" => "A fine mine! Definitely ours now.",
-            "Гоблины тупые, но не идиоты" => "The Ziggurat works. Nobody ask how.",
-            "Минька" => "*purrs with complete innocence*",
-            "Штормяк" or "Кошачья засада" => "MEOW! *chooses violence*",
-            "Монстр" or "Пейзаж конца света" => "Look at the monster inside you.",
-            "Пацаны" => "The Boys are back in business.",
-            "Временная капсула" => "The cola is still cold. History checks out.",
-            "Великий летописец" => "History is written by whoever edits last.",
-            "Ведьмачьи заказы" => "Another monster, another coin.",
-            "Медитация" => "Wind's howling. Garbage too.",
-            "Шевелись, Плотва" => "Roach! How did you get on that roof?",
-            "DooM Guy" => "Rip and tear. Until it is done.",
-            _ => $"{passive}: ability triggered.",
-        };
-        return adapted;
+        if (catalog.PhraseFallbacks.TryGetValue(passiveName, out var adapted))
+            return adapted;
+
+        // Old replay snapshots can contain a passive title that an earlier projection translated
+        // while leaving its phrase canonical. Resolve that display name back to the shared fallback.
+        var canonicalPassive = catalog.PhraseFallbacks.Keys.FirstOrDefault(key =>
+            string.Equals(Translate(key, English, catalog, false), passiveName, StringComparison.Ordinal));
+        return canonicalPassive != null
+            ? catalog.PhraseFallbacks[canonicalPassive]
+            : "Ability triggered.";
     }
 
     private static string ReplaceCatalogEntries(
@@ -324,6 +269,7 @@ public static class GameLocalization
         public Dictionary<string, string> Exact { get; set; } = new(StringComparer.Ordinal);
         public Dictionary<string, string> Terms { get; set; } = new(StringComparer.Ordinal);
         public Dictionary<string, string> RussianExact { get; set; } = new(StringComparer.Ordinal);
+        public Dictionary<string, string> PhraseFallbacks { get; set; } = new(StringComparer.Ordinal);
         public Dictionary<string, string> Characters { get; set; } = new(StringComparer.Ordinal);
         public Dictionary<string, string> Passives { get; set; } = new(StringComparer.Ordinal);
         public List<KeyValuePair<string, string>> SortedExact { get; private set; } = new();

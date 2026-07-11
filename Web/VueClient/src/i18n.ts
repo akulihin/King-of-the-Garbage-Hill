@@ -8,20 +8,26 @@ type EnglishCatalog = {
   exact: Record<string, string>
   terms: Record<string, string>
   russianExact: Record<string, string>
+  phraseFallbacks: Record<string, string>
   characters: Record<string, string>
   passives: Record<string, string>
 }
 
 const catalog = englishCatalog as EnglishCatalog
 const contentExact = new Map<string, string>()
+const contentRussianExact = new Map<string, string>()
 for (const character of characters) {
   const characterTranslation = catalog.characters[character.Name]
-  if (characterTranslation && character.Description)
+  if (characterTranslation && character.Description) {
     contentExact.set(character.Description, characterTranslation)
+    contentRussianExact.set(characterTranslation, character.Description)
+  }
   for (const passive of character.Passive) {
     const passiveTranslation = catalog.passives[passive.PassiveName]
-    if (passiveTranslation && passive.PassiveDescription)
+    if (passiveTranslation && passive.PassiveDescription) {
       contentExact.set(passive.PassiveDescription, passiveTranslation)
+      contentRussianExact.set(passiveTranslation, passive.PassiveDescription)
+    }
   }
 }
 const localeKey = 'kotgh_locale'
@@ -63,6 +69,8 @@ const phraseRules: Array<[RegExp, string]> = [
   [/(\d+)\s+очко/gi, '$1 point'],
   [/Обменять\s+(\d+)\s+Морали\s+на\s+(\d+)\s+бонусных очков/gi, 'Trade $1 Moral for $2 bonus points'],
   [/Обменять\s+(\d+)\s+Морали\s+на\s+(\d+)\s+[CС]килла/gi, 'Trade $1 Moral for $2 Skill'],
+  [/Вы не походили\. Использовался Авто Ход/gi, 'You did not act. Auto Move was used'],
+  [/#life:\s*Я прокачал (Интеллект|Силу|Скорость|Психику) на (-?\d+)!/gi, '#life: I upgraded $1 to $2!'],
   [/Первый ход:\s*(.+)/gi, 'First turn: $1'],
   [/Не размещено:\s*(.+)/gi, 'Not deployed: $1'],
   [/Нужно ещё\s+(\d+)\s+монет/gi, 'Need $1 more coins'],
@@ -135,18 +143,39 @@ function replaceCatalogEntries(value: string, entries: ReplacementEntry[]): stri
   return translated
 }
 
-/** Translate canonical, player-facing Russian text without ever changing action values or state keys. */
-export function translateText(value: string | null | undefined): string {
+function phraseFallback(passiveName: string): string {
+  const direct = catalog.phraseFallbacks[passiveName]
+  if (direct) return direct
+
+  const canonicalName = Object.entries(catalog.terms)
+    .find(([, englishName]) => englishName === passiveName)?.[0]
+  return canonicalName ? (catalog.phraseFallbacks[canonicalName] ?? 'Ability triggered.') : 'Ability triggered.'
+}
+
+function translate(value: string | null | undefined, translatePhraseMarkers: boolean): string {
   if (!value) return ''
   if (currentLocale.value === 'en' && !cyrillicPattern.test(value)) return value
   if (currentLocale.value === 'ru' && !/[A-Za-z]/.test(value)) return value
+
+  if (translatePhraseMarkers && currentLocale.value === 'en' && value.includes('|>Phrase<|')) {
+    value = value.replace(/\|>Phrase<\|([^:\r\n]+):\s*([^\r\n]*)/g, (_match, passiveName: string, phrase: string) => {
+      const translatedPhrase = translate(phrase, false)
+      const adaptedPhrase = cyrillicPattern.test(translatedPhrase)
+        ? phraseFallback(passiveName)
+        : translatedPhrase
+      return `|>Phrase<|${translate(passiveName, false)}: ${adaptedPhrase}`
+    })
+  }
 
   const leading = value.match(/^\s*/)?.[0] ?? ''
   const trailing = value.match(/\s*$/)?.[0] ?? ''
   const core = value.slice(leading.length, value.length - trailing.length)
   if (currentLocale.value === 'ru') {
     const russian = catalog.russianExact[core]
-    return russian ? `${leading}${russian}${trailing}` : replaceCatalogEntries(value, russianExactEntries)
+    const russianContent = contentRussianExact.get(core)
+    if (russian || russianContent)
+      return `${leading}${russian ?? russianContent}${trailing}`
+    return replaceCatalogEntries(value, russianExactEntries)
   }
   const exact = catalog.exact[core]
   if (exact) return `${leading}${exact}${trailing}`
@@ -160,6 +189,11 @@ export function translateText(value: string | null | undefined): string {
   translated = replaceCatalogEntries(translated, termEntries)
 
   return translated
+}
+
+/** Translate canonical, player-facing Russian text without ever changing action values or state keys. */
+export function translateText(value: string | null | undefined): string {
+  return translate(value, true)
 }
 
 export function setLocale(nextLocale: AppLocale): void {

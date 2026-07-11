@@ -219,7 +219,7 @@ Legacy/dead code is catalogued in AUDIT-FINDINGS; the m6 batch (2026-07-04) dele
 
 ### 9.1 Localization boundary
 
-Russian character/passive/action strings remain canonical, load-bearing state. Per-account RU/EN translation happens only at Discord/web presentation boundaries through `GameLocalization`; the Vue layer likewise changes rendered text without mutating Pinia values (`GameLocalization.cs:16-20`; see `Web/VueClient/src/i18n.ts`). Both presentation engines apply dynamic rules plus longest-first exact fragments inside composite/multi-line values, so localization does not depend on a whole log or DOM node matching one catalog key (`GameLocalization.cs:88-124`; `Web/VueClient/src/i18n.ts:41-55,138-163`). The catalog contains every character biography and unique passive description, keyed by the canonical Russian identifiers. Full contract and extension workflow: [LOCALIZATION.md](LOCALIZATION.md).
+Russian character/passive/action strings remain canonical, load-bearing state. Per-account RU/EN translation happens only at Discord/web presentation boundaries through `GameLocalization`; the Vue layer likewise changes rendered text without mutating Pinia values (`GameLocalization.cs:16-20`; see `Web/VueClient/src/i18n.ts`). Both presentation engines apply dynamic rules plus longest-first exact fragments inside composite/multi-line values, so localization does not depend on a whole log or DOM node matching one catalog key (`GameLocalization.cs:89-142`; `Web/VueClient/src/i18n.ts:47-61,155-196`). The catalog contains every character biography and unique passive description, keyed by the canonical Russian identifiers. Full contract and extension workflow: [LOCALIZATION.md](LOCALIZATION.md).
 
 ## 10. Simulation harness (headless bot games)
 

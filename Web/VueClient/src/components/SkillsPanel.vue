@@ -3,6 +3,7 @@ import { ref, watch, nextTick, computed } from 'vue'
 import type { Player } from 'src/services/signalr'
 import { playTheBoysReveal, playTheBoysUnlock } from 'src/services/sound'
 import { formatPassiveDescription } from 'src/services/textFormatting'
+import { translateText } from 'src/i18n'
 
 const props = defineProps<{
   player: Player
@@ -138,7 +139,7 @@ watch(
         </div>
       </div>
       <Transition name="expand">
-        <div v-if="isExpanded(idx)" class="skill-desc" v-html="formatPassiveDescription(passive.description)" />
+        <div v-if="isExpanded(idx)" class="skill-desc" v-html="formatPassiveDescription(translateText(passive.description))" />
       </Transition>
     </div>
 
