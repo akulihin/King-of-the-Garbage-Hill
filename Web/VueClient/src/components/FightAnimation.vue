@@ -19,6 +19,7 @@ import {
   getMemeLoseSoundPath,
   getGeraltVocalWinLayerPath,
   playClipsBatched,
+  preloadDoomsDayTimingSounds,
   type SyncClip,
 } from 'src/services/sound'
 
@@ -100,6 +101,8 @@ const skippedToEnd = ref(false)
 const lastAnimatedRound = ref<string>('')
 let timer: ReturnType<typeof setTimeout> | null = null
 const justiceUpTimers = new Set<ReturnType<typeof setTimeout>>()
+const STEP_DELAY_MS = 800
+const R3_RESULT_HOLD_MS = 450
 
 // ── Fight result glow + screen shake ──────────────────────────────
 const fightResult = ref<'win' | 'loss' | null>(null)
@@ -339,13 +342,14 @@ const round1Factors = computed<Factor[]>(() => {
 })
 
 // ── Step counting for animation ─────────────────────────────────────
-// For MY fights: intro(0) → R1 factors(1..N) → R1 result(N+1) → R2(N+2) → [R3(N+3)] → result(last)
+// For MY fights: intro(0) → R1 factors(1..N) → R1 result(N+1) → R2(N+2)
+// → [R3 modifiers(N+3) → R3 roll(N+4)] → result(last)
 // For ENEMY fights: intro(0) → result(1) (just 2 steps)
 const totalSteps = computed(() => {
   if (isSpecialOutcome.value) return 2
   if (!isMyFight.value) return 2 // enemy: intro + result
   let steps = 1 + round1Factors.value.length + 1 + 1 + 1 // intro + R1factors + R1result + R2 + finalResult
-  if (fight.value?.usedRandomRoll) steps += 1 // R3 (modifiers + roll together)
+  if (fight.value?.usedRandomRoll) steps += 2 // R3 modifiers, then the timed roll
   return steps
 })
 
@@ -436,8 +440,12 @@ const showR3 = computed(() => {
   return currentStep.value > round1Factors.value.length + 2
 })
 
-/** Show the animated roll bar (same step as R3 modifiers) */
-const showR3Roll = computed(() => showR3.value)
+/** Show the animated roll bar one step after its modifiers. */
+const showR3Roll = computed(() => {
+  if (!fight.value?.usedRandomRoll) return false
+  if (skippedToEnd.value || !isMyFight.value) return true
+  return currentStep.value > round1Factors.value.length + 3
+})
 
 const showFinalResult = computed(() => {
   if (skippedToEnd.value || !isMyFight.value) return true
@@ -527,7 +535,7 @@ function clearTimer() {
 function stepDelay(): number {
   // Enemy fights are quick — short delay just to show the card briefly
   if (!isMyFight.value) return 200 / speed.value
-  return 800 / speed.value
+  return STEP_DELAY_MS / speed.value
 }
 function betweenFightDelay(): number {
   // Short pause between enemy fights, longer for own fights
@@ -537,7 +545,9 @@ function betweenFightDelay(): number {
 
 function proceedToNextFight() {
   const delay = betweenFightDelay()
-  setTimeout(() => {
+  clearTimer()
+  timer = setTimeout(() => {
+    timer = null
     if (!isPlaying.value) return
     if (currentFightIdx.value < myFights.value.length - 1) {
       playDoomsDayScroll()
@@ -567,7 +577,20 @@ function advanceStep() {
   }
 }
 
-function scheduleNext() { clearTimer(); timer = setTimeout(advanceStep, stepDelay()) }
+function isR3RollStep(): boolean {
+  return Boolean(fight.value?.usedRandomRoll)
+    && currentStep.value === round1Factors.value.length + 4
+}
+
+function scheduleNext() {
+  clearTimer()
+  if (isR3RollStep()) {
+    if (!r3NeedleSettled.value) return
+    timer = setTimeout(advanceStep, R3_RESULT_HOLD_MS / speed.value)
+    return
+  }
+  timer = setTimeout(advanceStep, stepDelay())
+}
 function togglePlay() {
   isPlaying.value = !isPlaying.value
   if (isPlaying.value) { skippedToEnd.value = false; scheduleNext() }
@@ -639,6 +662,7 @@ onUnmounted(() => {
   clearTimer()
   justiceUpTimers.forEach(clearTimeout)
   justiceUpTimers.clear()
+  if (needleStartTimer) clearTimeout(needleStartTimer)
   if (weighingAnimFrame) cancelAnimationFrame(weighingAnimFrame)
   if (needleAnimFrame) cancelAnimationFrame(needleAnimFrame)
   clearSlamTimers()
@@ -650,6 +674,8 @@ const fightSoundPool = new FightSoundPool()
 const geraltFightPool = new GeraltFightSoundPool()
 const folkPercussionPool = new FolkPercussionPool()
 const roundResults = ref<('w' | 'l')[]>([])
+
+preloadDoomsDayTimingSounds()
 
 // Watch currentStep to trigger dooms_day sounds during MY fight animation
 watch(currentStep, (step: number) => {
@@ -739,32 +765,14 @@ watch(currentStep, (step: number) => {
   }
 
   if (hasR3) {
-    // Step factorCount+3: R3 modifiers + roll bar together
+    // Step factorCount+3: reveal R3 modifiers and start the roll cue.
     if (step === factorCount + 3) {
       playDoomsDayRndRoll()
-
-      const s = sign.value
-      const attackerWon = f.randomNumber <= f.randomForPoint
-      const weWonR3 = s > 0 ? attackerWon : !attackerWon
-      const r3result: 'w' | 'l' = weWonR3 ? 'w' : 'l'
-      roundResults.value = [...roundResults.value, r3result]
-
-      // R3 special sounds based on needle distance from threshold
-      const thresholdPct = f.randomForPoint / f.maxRandomNumber * 100
-      const needlePct = f.randomNumber / f.maxRandomNumber * 100
-      const distance = Math.abs(needlePct - thresholdPct)
-      const clips: SyncClip[] = [{ path: doomsDayWinLosePath(roundResults.value, false, false), group: 'doomsDayWinLose' }]
-      if (weWonR3 && distance < 1) {
-        clips.push({ path: 'dooms_day/round_3/round_3_win_less_1_percent.mp3', group: 'doomsDay' })
-      } else if (distance < 5) {
-        clips.push({ path: 'dooms_day/round_3/round_3_win_or_lose__less_5_percent.mp3', group: 'doomsDay' })
-      }
-      void playClipsBatched(clips)
       return
     }
   }
 
-  // Final sound deferred to showFinalResult watcher (228ms delay)
+  // R3 result is tied to needle settlement; final sound is tied to final reveal.
 })
 
 // No-fights sound: fights exist but none are mine (play only once per round)
@@ -906,6 +914,31 @@ const phase2Revealed = computed(() => {
 const phase3Revealed = computed(() => {
   if (!isMyFight.value || skippedToEnd.value) return showR3Roll.value
   return r3NeedleSettled.value
+})
+
+watch(r3NeedleSettled, (settled: boolean) => {
+  if (!settled || !fight.value || !isMyFight.value || skippedToEnd.value) return
+  if (!isR3RollStep()) return
+
+  const f = fight.value
+  const s = sign.value
+  const attackerWon = f.randomNumber <= f.randomForPoint
+  const weWonR3 = s > 0 ? attackerWon : !attackerWon
+  const r3result: 'w' | 'l' = weWonR3 ? 'w' : 'l'
+  roundResults.value = [...roundResults.value, r3result]
+
+  const thresholdPct = f.randomForPoint / f.maxRandomNumber * 100
+  const needlePct = f.randomNumber / f.maxRandomNumber * 100
+  const distance = Math.abs(needlePct - thresholdPct)
+  const clips: SyncClip[] = [{ path: doomsDayWinLosePath(roundResults.value, false, false), group: 'doomsDayWinLose' }]
+  if (weWonR3 && distance < 1) {
+    clips.push({ path: 'dooms_day/round_3/round_3_win_less_1_percent.mp3', group: 'doomsDay' })
+  } else if (distance < 5) {
+    clips.push({ path: 'dooms_day/round_3/round_3_win_or_lose__less_5_percent.mp3', group: 'doomsDay' })
+  }
+  void playClipsBatched(clips)
+
+  if (isPlaying.value) scheduleNext()
 })
 
 // ── Final result sound trigger ───────────────────────────────────────
@@ -1062,6 +1095,7 @@ const r3RollPct = computed(() => {
 
 /** Animated needle bounce animation */
 let needleAnimFrame: ReturnType<typeof requestAnimationFrame> | null = null
+let needleStartTimer: ReturnType<typeof setTimeout> | null = null
 
 function animateNeedleBounce(target: number) {
   if (needleAnimFrame) cancelAnimationFrame(needleAnimFrame)
@@ -1094,7 +1128,7 @@ function animateNeedleBounce(target: number) {
     wps[i] = Math.max(0.5, Math.min(99.5, wps[i]))
   }
 
-  const baseDuration = distance < 5 ? 700 : distance < 15 ? 650 : 500
+  const baseDuration = distance < 5 ? 1800 : distance < 15 ? 1650 : 1400
   const duration = baseDuration / speed.value
 
   // Catmull-Rom spline for smooth continuous motion through waypoints
@@ -1151,6 +1185,7 @@ function animateNeedleBounce(target: number) {
 }
 
 watch(showR3Roll, (show: boolean) => {
+  if (needleStartTimer) { clearTimeout(needleStartTimer); needleStartTimer = null }
   if (show) {
     r3NeedlePos.value = 0
     r3NeedleSettled.value = false
@@ -1158,7 +1193,12 @@ watch(showR3Roll, (show: boolean) => {
     if (r3Underflow.value && target <= r3DisplayChance.value) {
       target = r3DisplayChance.value + 1
     }
-    nextTick(() => { setTimeout(() => animateNeedleBounce(target), 50) })
+    nextTick(() => {
+      needleStartTimer = setTimeout(() => {
+        needleStartTimer = null
+        animateNeedleBounce(target)
+      }, 50 / speed.value)
+    })
   } else {
     r3NeedlePos.value = 0
     r3NeedleSettled.value = false
@@ -1369,6 +1409,7 @@ function getDisplayCharName(orig: string, u: string): string {
         :show-r1-result="showR1Result"
         :show-r2="showR2"
         :show-r3="showR3"
+        :show-r3-roll="showR3Roll"
         :show-final-result="showFinalResult"
         :show-details="showDetails"
         :phase1-result="phase1Result"
@@ -1428,6 +1469,7 @@ function getDisplayCharName(orig: string, u: string): string {
         :show-r1-result="showR1Result"
         :show-r2="showR2"
         :show-r3="showR3"
+        :show-r3-roll="showR3Roll"
         :show-final-result="showFinalResult"
         :show-details="showDetails"
         :phase1-result="phase1Result"
@@ -1486,6 +1528,7 @@ function getDisplayCharName(orig: string, u: string): string {
         :show-r1-result="showR1Result"
         :show-r2="showR2"
         :show-r3="showR3"
+        :show-r3-roll="showR3Roll"
         :show-final-result="showFinalResult"
         :show-details="showDetails"
         :phase1-result="phase1Result"

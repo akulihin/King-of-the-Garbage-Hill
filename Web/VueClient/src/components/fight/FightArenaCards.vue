@@ -23,6 +23,7 @@ const props = defineProps<{
   showR1Result: boolean
   showR2: boolean
   showR3: boolean
+  showR3Roll: boolean
   showFinalResult: boolean
   showDetails: boolean
   // Phase results
@@ -464,7 +465,7 @@ function outcomeClass(f: FightEntry): string {
             </div>
           </div>
           <!-- Roll bar with needle -->
-          <div class="fa-roll-bar-wrap" :class="{ 'roll-overflow': props.r3Overflow }">
+          <div v-if="props.showR3Roll" class="fa-roll-bar-wrap" :class="{ 'roll-overflow': props.r3Overflow }">
             <div class="fa-roll-bar-track" :class="{ 'track-overflow': props.r3Overflow }">
               <div class="fa-roll-threshold" :style="{ left: props.r3DisplayChance + '%' }">
                 <span class="fa-roll-threshold-label">{{ props.r3Overflow ? '>100' : props.r3DisplayChance.toFixed(0) }}%</span>

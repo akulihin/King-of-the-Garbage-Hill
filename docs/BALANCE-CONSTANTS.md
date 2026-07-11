@@ -215,7 +215,7 @@ Achievement progress targets and the complete 33-entry rule catalog are in [ACHI
 | Эрен Йегер | Дрочун marks / cash-in | loss mark 1; attacking-Eren mark 2; cap 2; victory cashes target mark as 1/2 bonus | PassivesClass.cs:270-271, CP:438-441,2465-2486 |
 | Эрен Йегер | Дрочун mutual attack | +2 regular once per mutual enemy per round | CP:2489-2500 |
 | Эрен Йегер | Атакующий Титан | block removed; +5 each stat per fight for the turn; no incoming target → −2 Psyche | DM:271-281; CP:62-72,443-447,1002-1006,3545-3555 |
-| Эрен Йегер | Titan audio roll | `use_most` 50%; files 1–3 split the other 50% uniformly | sound.ts:914-923 |
+| Эрен Йегер | Titan audio roll | `use_most` 50%; files 1–3 split the other 50% uniformly | sound.ts:956-960 |
 | Эрен Йегер | Rumbling gate / reach | round 10; fewer than 2 losses **during round 10 only**; kills projected places strictly between Eren and place 6 | CP:2551-2556,3537-3586; ErenYeager.cs:37-71 |
 
 ## Bot AI difficulty (`BB` = BotsBehavior.cs, `GC` = GameClass.cs, `CP` = CharacterPassives.cs, `SR` = SimulationRunner.cs)

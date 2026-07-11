@@ -22,6 +22,7 @@ const props = defineProps<{
   showR1Result: boolean
   showR2: boolean
   showR3: boolean
+  showR3Roll: boolean
   showFinalResult: boolean
   showDetails: boolean
   // Phase results
@@ -468,7 +469,7 @@ const hasEnemyBadges = computed(() => enemyDebuffBadges.value.length > 0)
 
       <!-- R3 Random Roll (Needle) -->
       <template v-if="props.isMyFight && props.fight.usedRandomRoll">
-        <div v-if="props.showR3" class="fa-r3-details">
+        <div v-if="props.showR3Roll" class="fa-r3-details">
           <!-- Roll bar with needle -->
           <div class="fa-roll-bar-wrap" :class="{ 'roll-overflow': props.r3Overflow }">
             <div class="fa-roll-bar-track" :class="{ 'track-overflow': props.r3Overflow }">

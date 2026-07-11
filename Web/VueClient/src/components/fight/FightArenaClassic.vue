@@ -21,6 +21,7 @@ const props = defineProps<{
   showR1Result: boolean
   showR2: boolean
   showR3: boolean
+  showR3Roll: boolean
   showFinalResult: boolean
   showDetails: boolean
   // Phase results
@@ -345,7 +346,7 @@ const justiceUseBlocks = false
               </span>
             </div>
             <!-- Roll result: animated bar -->
-            <div v-if="showR3" class="fa-roll-bar-wrap" :class="{ 'roll-overflow': r3Overflow }">
+            <div v-if="showR3Roll" class="fa-roll-bar-wrap" :class="{ 'roll-overflow': r3Overflow }">
               <div class="fa-roll-bar-track" :class="{ 'track-overflow': r3Overflow }">
                 <!-- Threshold marker at our win chance -->
                 <div class="fa-roll-threshold" :style="{ left: r3DisplayChance + '%' }">

@@ -126,6 +126,7 @@ const audioBufferCache = new Map<string, AudioBuffer>()
 const failedUrls = new Set<string>()
 const pendingBufferResolve = new Map<string, Promise<AudioBuffer | null>>()
 const channelSources = new Map<PlaybackChannel, AudioBufferSourceNode>()
+const BATCH_MAX_START_DELAY_MS = 180
 
 const ALL_VOLUME_GROUPS: VolumeGroup[] = [
   'buttons', 'mainMenu', 'utility', 'attack', 'levelUp', 'moralExchange',
@@ -280,18 +281,31 @@ export interface SyncClip {
 }
 
 /**
- * Fetch all buffers in parallel, then start all sources at the same AudioContext frame.
- * This ensures layered sounds (win_lose + percussion + vocal) are perfectly synchronized.
+ * Start the timing-critical first clip on time and layer only buffers that are already ready.
+ * Missing optional layers continue warming in the background instead of delaying win/lose.
  */
 export async function playClipsBatched(clips: SyncClip[]): Promise<void> {
   if (clips.length === 0) return
   if (getMasterVolume() === 0) return
   try {
     const ctx = ensureAudioContext()
-    const buffers = await Promise.all(
-      clips.map(c => getOrFetchAudioBuffer(toSoundUrl(c.path))),
-    )
-    const now = ctx.currentTime
+    const urls = clips.map(c => toSoundUrl(c.path))
+    const requests = urls.map(url => getOrFetchAudioBuffer(url))
+    void Promise.allSettled(requests)
+
+    const cachedPrimary = audioBufferCache.get(urls[0])
+    let timeout: ReturnType<typeof setTimeout> | null = null
+    const primary = cachedPrimary ?? await Promise.race([
+      requests[0],
+      new Promise<null>(resolve => {
+        timeout = setTimeout(() => resolve(null), BATCH_MAX_START_DELAY_MS)
+      }),
+    ])
+    if (timeout) clearTimeout(timeout)
+    if (!primary) return
+
+    const buffers = clips.map((_, index) => index === 0 ? primary : audioBufferCache.get(urls[index]) ?? null)
+    const now = ctx.currentTime + 0.005
     for (let i = 0; i < clips.length; i++) {
       const buf = buffers[i]
       if (!buf) continue
@@ -310,6 +324,32 @@ export async function playClipsBatched(clips: SyncClip[]): Promise<void> {
       source.start(now)
     }
   } catch { /* ignore */ }
+}
+
+const DOOMSDAY_TIMING_CRITICAL_PATHS = [
+  'dooms_day/round_2/draw.mp3',
+  'dooms_day/round_3/rnd_roll.mp3',
+  'dooms_day/round_3/round_3_win_less_1_percent.mp3',
+  'dooms_day/round_3/round_3_win_or_lose__less_5_percent.mp3',
+  ...['w', 'l'].map(seq => `dooms_day/win_lose/1_${seq}.mp3`),
+  ...['ww', 'wl', 'lw', 'll'].map(seq => `dooms_day/win_lose/2_${seq}.mp3`),
+  ...['www', 'wwl', 'wlw', 'wll', 'lww', 'lwl', 'llw', 'lll'].map(seq => `dooms_day/win_lose/3_${seq}.mp3`),
+  'dooms_day/win_lose/f_ww_absolute.mp3',
+  'dooms_day/win_lose/f_ll_absolute.mp3',
+  'dooms_day/win_lose/f_any_lose.mp3',
+  'dooms_day/win_lose/f_ww.mp3',
+  'dooms_day/win_lose/f_wlw.mp3',
+  'dooms_day/win_lose/f_lww.mp3',
+]
+let doomsDayTimingPreloadStarted = false
+
+/** Warm the small, finite set of clips whose start time is part of the fight timeline. */
+export function preloadDoomsDayTimingSounds(): void {
+  if (doomsDayTimingPreloadStarted) return
+  doomsDayTimingPreloadStarted = true
+  void Promise.allSettled(
+    DOOMSDAY_TIMING_CRITICAL_PATHS.map(path => getOrFetchAudioBuffer(toSoundUrl(path))),
+  )
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────

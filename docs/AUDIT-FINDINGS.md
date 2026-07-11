@@ -369,6 +369,12 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Fix direction:** re-run the existing bot forced-skip completion immediately after pending level-ups, before any character sub-action or attack selection. Keep the fight-loop forced-action behavior unchanged.
 - **Fixed:** 2026-07-11 — extracted the existing skip finalization into `CompleteForcedSkip` and invoke it both on bot entry and immediately after pending level-ups (`BotsBehavior.cs:84-128,3706-3715`). A Дизмораль-triggered Skip now returns before attack selection; later readiness-stage forced-fight injection remains unchanged.
 
+### M33. Fight win/lose audio and the R3 random bar could drift away from the visual timeline
+- **Expected:** each round result starts on its reveal; R3 shows modifiers, visibly rolls to its outcome, announces that settled result, and only then reveals the whole-fight result.
+- **Actual before the fix:** every `playClipsBatched` awaited the slowest primary/percussion/vocal/meme fetch before starting any source, with no lateness bound (`sound.ts:286-313`). A cold optional layer therefore delayed an already-cached win/lose clip and could start it after later visual steps. The 4.0.6 fight-layout extraction also collapsed R3 modifiers and roll into one 800 ms step, ran the needle for only 500–700 ms and announced the R3 result when the roll began rather than when it settled (`FightAnimation.vue`, pre-fix step/sound/needle blocks).
+- **Impact:** the issue appears intermittent after several fights because each result sequence and random decorative layer has its own cache entry; on a cold combination, several voices can arrive late/out of order. R3 itself ends too quickly and pushes final visuals ahead of its audio.
+- **Fixed:** 2026-07-11 — timing-critical result/draw/random clips now preload; batched playback gives the primary a 180 ms maximum start window and never waits on cold optional layers (`sound.ts:287-353`). R3 again has separate modifier and roll steps, the speed-scaled needle lasts 1.4–1.8 s, owns advancement until actual settlement, emits its result sound at settlement and holds 450 ms before the final reveal (`FightAnimation.vue:344-352,580-592,919-960,1096-1207`). The between-fight delay is now tracked by the same cancelable timer (`FightAnimation.vue:531-568`), preventing an old transition from restarting a newer timeline.
+
 ### m29. Three V2 achievement descriptions do not match their evaluators
 - `x_spartan_mylorik` RU copy says the **next** fight, while the tracker intentionally accepts any later fight (`AchievementClass.cs:326-332`; `DoomsdayMachine.cs:1372-1390`). `c_darksci_unstable` requires finishing alive at actual place 1 but omits “alive” in both languages (`AchievementClass.cs:284-287,513-519`). `c_kratos_olympus` says five “enemies,” although team mode counts every other player, including teammates (`AchievementClass.cs:264-267,491-492`; `CharacterPassives.cs:1730-1744`).
 - **Impact:** the achievement center can tell players a stricter, looser, or team-inaccurate requirement than the code actually evaluates.
@@ -388,7 +394,7 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 
 ## Summary count
 
-**1 Critical** (C1) · **32 Major** (M1–M32) · **30 Minor** (m1–m30) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7/M17 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13–M32 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28/m29/m30 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26.)
+**1 Critical** (C1) · **33 Major** (M1–M33) · **30 Minor** (m1–m30) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7/M17 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13–M33 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28/m29/m30 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26.)
 
 ## Verification addendum (second pass, 2026-07-01)
 
