@@ -145,9 +145,11 @@ public static class DoomGuy
         {
             case Ascension:
                 player.GameCharacter.AddIntelligence(8, Ascension);
+                state.AscensionIntelligenceRemaining = 8;
                 break;
             case Maneuvers:
                 player.GameCharacter.AddSpeed(5, Maneuvers);
+                state.ManeuversSpeedRemaining = 5;
                 break;
             case DemonNests:
                 SpawnDemonNest(player, game);
@@ -279,6 +281,8 @@ public class DoomGuyState
     public List<Passive> ChainsawChoices { get; set; } = new();
     public bool RollMode { get; set; }
     public bool BfgCharged { get; set; }
+    public int AscensionIntelligenceRemaining { get; set; }
+    public int ManeuversSpeedRemaining { get; set; }
     public bool ShockShieldUsed { get; set; }
     public Guid ShockSkipTarget { get; set; } = Guid.Empty;
     public int ShockSkipRound { get; set; }

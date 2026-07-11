@@ -933,17 +933,17 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Близнец":
-                    // target = Монстр (defender/blocker), me = attacker
+                    // target = Монстр (defender/blocker), me = attacker. Twin copies (does not
+                    // drain) the highest Justice among all attackers stopped by this round's block.
                     if (target.Status.IsBlock)
                     {
-                        var stolenJustice = me.FightCharacter.Justice.GetRealJusticeNow();
-                        if (stolenJustice > 0)
+                        var copiedJustice = me.FightCharacter.Justice.GetRealJusticeNow();
+                        var previousHighest = target.Passives.MonsterTwinHighestJusticeThisRound;
+                        if (copiedJustice > previousHighest)
                         {
-                            me.GameCharacter.Justice.SetRealJusticeNow(0, "Близнец");
-                            target.GameCharacter.Justice.AddRealJusticeNow(stolenJustice);
-                            target.Status.AddBonusPoints(stolenJustice, "Близнец");
-                            //target.Status.AddInGamePersonalLogs($"Близнец: Украл {stolenJustice} Справедливости у {me.DiscordUsername}. +{stolenJustice} бонусных очков\n");
-                            //me.Status.AddInGamePersonalLogs($"Близнец: {target.DiscordUsername} украл всю твою Справедливость!\n");
+                            target.Passives.MonsterTwinHighestJusticeThisRound = copiedJustice;
+                            target.GameCharacter.Justice.SetRealJusticeNow(copiedJustice, "Близнец");
+                            target.Status.AddBonusPoints(copiedJustice - Math.Max(0, previousHighest), "Близнец");
                             game.Phrases.MonsterTwinSteal.SendLog(target, false);
                         }
                     }
@@ -1021,6 +1021,13 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in me.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case "Монстр":
+                    // The attack itself marks the target, even when Block/Skip prevents a fight.
+                    // An absolute expiry lets different victims keep independent overlapping windows.
+                    target.Passives.MonsterNoEscapeUntilRound = Math.Max(
+                        target.Passives.MonsterNoEscapeUntilRound, game.RoundNo + 2);
+                    break;
+
                 case Madara.GodOfShinobi:
                     if (Madara.ShouldUseHundredSkill(me))
                         me.FightCharacter.SetSkillForOneFight(100, Madara.GodOfShinobi);
@@ -1721,10 +1728,6 @@ public class CharacterPassives : IServiceSingleton
                             me.Status.AddBonusPoints(stolen, "Выгодная сделка");
                         }
                     }
-                    break;
-
-                case "Монстр":
-                    target.Passives.MonsterNoEscape = true;
                     break;
 
                 case "Возвращение из мертвых":
@@ -2547,6 +2550,7 @@ public class CharacterPassives : IServiceSingleton
 
                 case ErenYeager.Rumbling:
                     if (player.GameCharacter.Name == ErenYeager.CharacterName
+                        && game.RoundNo == 10
                         && player.Status.IsLostThisCalculation != Guid.Empty)
                         player.Passives.Eren.Losses++;
                     break;
@@ -2558,8 +2562,12 @@ public class CharacterPassives : IServiceSingleton
                     if (player.Status.IsLostThisCalculation != Guid.Empty)
                     {
                         doom.EverLost = true;
-                        if (doom.GetActive(DoomGuy.Rune) == DoomGuy.Ascension)
+                        if (doom.GetActive(DoomGuy.Rune) == DoomGuy.Ascension
+                            && doom.AscensionIntelligenceRemaining > 0)
+                        {
+                            doom.AscensionIntelligenceRemaining--;
                             player.GameCharacter.AddIntelligence(-1, DoomGuy.Ascension);
+                        }
                     }
 
                     if (player.Status.IsWonThisCalculation != Guid.Empty
@@ -4988,7 +4996,10 @@ public class CharacterPassives : IServiceSingleton
                                 if (shocked != null && !shocked.Passives.IsDead)
                                 {
                                     shocked.Status.IsSkip = true;
-                                    shocked.Status.ConfirmedSkip = false;
+                                    shocked.Status.ConfirmedSkip = true;
+                                    shocked.Status.ConfirmedPredict = true;
+                                    shocked.Status.IsReady = true;
+                                    shocked.Status.WhoToAttackThisTurn.Clear();
                                     shocked.Status.AddInGamePersonalLogs("Шоковый щит: следующий ход пропущен.\n");
                                 }
                                 doom.ShockSkipTarget = Guid.Empty;
@@ -5923,9 +5934,8 @@ public class CharacterPassives : IServiceSingleton
                         }
                         break;
 
-                    case "Монстр":
-                        foreach (var p in game.PlayersList)
-                            p.Passives.MonsterNoEscape = false;
+                    case "Близнец":
+                        player.Passives.MonsterTwinHighestJusticeThisRound = -1;
                         break;
 
                     // TheBoys — Francie: заказы, окно 3 хода (новый заказ на раундах 4, 7)

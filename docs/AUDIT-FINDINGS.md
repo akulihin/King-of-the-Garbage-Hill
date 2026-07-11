@@ -198,7 +198,7 @@
 - Its only special handling: `GameUpdateMess.cs:798-811` masks *other players'* passive names in the stats display ("Неизвестно"/"❓ …"), and "2kxaoc" is one of four names **exempt from masking** (with Запах мусора, Чернильная завеса, Еврей) — the meme is deliberately left readable. No gameplay effect; confirm none is intended. *(Corrected in verification — the original finding described this backwards.)*
 
 ### D6. Вампуризм copies Justice instead of draining it
-- "подсасывает себе **всю** Справедливость цели" — code adds the target's current Justice to Вампур's next-round buffer (`CP:1842-1846`) but never removes it from the target (contrast: Kimiko's Живое Оружие and Близнец, which zero the victim's Justice — `CP:744-755, 875-889`). Confirm copy-vs-drain.
+- "подсасывает себе **всю** Справедливость цели" — code adds the target's current Justice to Вампур's next-round buffer (`CP:1842-1846`) but never removes it from the target (contrast: Kimiko's Живое Оружие, which drains it; Близнец was changed in M26 to copy without draining). Confirm copy-vs-drain.
 
 ### D7. External stat changes on Стая Гоблинов are overwritten every round
 - `CP:6028-6030` re-`Set`s Str/Int/Psyche from population each round end — debuffs like Спартанец's −1 Str vanish; Speed debuffs persist (Speed isn't population-driven). Inherent to the population design; document or special-case.
@@ -327,6 +327,41 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Impact:** shared replay URLs could not be watched anonymously, adding account friction to replay review and player support even though no protected data or authenticated operation was involved.
 - **Fixed:** 2026-07-11 — `App.vue` now recognizes the named replay route as public and suppresses only the login overlay there (`App.vue:11-18,180-188`). All other routes retain the existing authentication screen; replay loading continues to use the anonymous endpoint unchanged.
 
+### M25. Монстр's no-escape mark was tied to a resolved fight and could not represent two overlapping turns
+- **Intended:** every declared Monster attack marks its target even if Block/Skip prevents the fight; that target must attack on its next two turns, and different victims can have overlapping windows.
+- **Actual before the fix:** the mark was a single bool assigned from `HandleAttackAfterFight`, after both no-fight exits, and cleared wholesale by Monster's next-round case. A blocked/skipped target was never marked and the state could not encode an independent two-turn expiry.
+- **Fixed:** 2026-07-11 — marking moved to the attack-before-fight dispatcher, ahead of the Block/Skip gates, and stores an absolute per-victim `MonsterNoEscapeUntilRound = max(old, current+2)` (`CP:1024-1031`; `PassivesClass.cs:277-282`). The readiness pass enforces the attack-only state through the expiry while preserving the round-10 Тигр ban carve-out (`CheckIfReady.cs:1371-1393`).
+
+### M26. Близнец drained and summed every block attacker's Justice and also received generic block Justice
+- **Intended:** Monster gets no ordinary +1 Justice from blocks. He copies, without draining, the highest Justice among enemies attacking that block and receives bonus points equal to that maximum.
+- **Actual before the fix:** every blocked attacker was zeroed and their full Justice was added to Monster immediately; several attackers therefore summed, and the generic block path also buffered +1 Justice.
+- **Fixed:** 2026-07-11 — the block path suppresses generic Justice for a Близнец holder (`DoomsdayMachine.cs:564-568`). A per-round maximum now sets Monster's live Justice without touching the attacker and awards only the incremental difference, so total bonus equals the maximum rather than the sum (`CP:936-960,5936-5939`; state `PassivesClass.cs:280`).
+
+### M27. Round-8 bot games could wait out the turn gate before challenging Мадара
+- **Intended:** strict bots immediately accept the Клоны Сусано challenge on round 8; a game where Madara is the only human must not sit on the ordinary readiness delay.
+- **Actual before the fix:** bot actions were chosen only after the human readiness/timer gate opened. Madara was unable to act, but bot attacks did not exist yet, so bot-heavy games could appear paused until timeout processing.
+- **Fixed:** 2026-07-11 — before readiness counting, every live, non-skipping strict bot is idempotently committed to one ordinary attack on Madara (`Madara.cs:208-230`; `CheckIfReady.cs:1028`). Bot dispatch preserves that forced choice, and round-8 Madara is exempt from the ordinary 50-second readiness floor (`BotsBehavior.cs:94-105`; `CheckIfReady.cs:1155-1157`). Genuine forced skips remain authoritative.
+
+### M28. Rumbling counted Eren's losses from the entire match instead of round 10
+- **Intended:** the fewer-than-two-loss gate considers only resolved losses during round 10.
+- **Actual before the fix:** every resolved loss from rounds 1–10 incremented the same `Eren.State.Losses` counter, so early-game losses could permanently disable Rumbling before its round existed.
+- **Fixed:** 2026-07-11 — the loss hook now requires `game.RoundNo == 10`; the existing post-fight gate therefore reads only round-10 losses (`CP:2551-2556,3537-3545`). The owner DTO shape is unchanged; its loss field now has the intended round-10 meaning.
+
+### M29. Шоковый щит's forced skip could be replaced by bot automation and still waited for confirmation
+- **Intended:** the first attacker stopped by the one-use shield automatically skips their next turn.
+- **Actual before the fix:** the next-round hook set `IsSkip` but left it unconfirmed; bot behavior did not honor attacker-side `IsSkip` and could immediately choose an attack, while a human could remain in the readiness wait.
+- **Fixed:** 2026-07-11 — the shield clears queued attacks and auto-submits the skip (`IsReady`, `ConfirmedSkip`, `ConfirmedPredict`) when it lands (`CP:4991-5010`). Bot behavior now treats an existing forced skip as a complete action and returns without selecting an attack (`BotsBehavior.cs:84-93`).
+
+### M30. DooM Rune penalties consumed base and externally earned stats without a floor
+- **Intended:** Вознесение may take back only its granted +8 Int, and Маневры only its granted +5 Speed.
+- **Actual before the fix:** every later loss/Harm applied another −1 forever, even after all Rune-granted points had already been removed.
+- **Fixed:** 2026-07-11 — module activation seeds remaining-grant counters (`DoomGuy.cs:145-153,281-285`); loss/Harm penalties decrement and apply only while the matching counter is positive (`CP:2561-2571`; `CharacterClass.cs:213-221`). Base and later externally earned stats are no longer consumed by the Rune clawback.
+
+### M31. BFG destroyed Step-3 randomness only for the primary attack
+- **Intended:** every fight in the BFG shockwave that reaches the random stage must destroy that random stage exactly like the primary attack.
+- **Actual before the fix:** the primary spent the charge and forced `pointsWined = 1`, but secondary direction-marked wave fights called ordinary `CalculateStep3`; a random loss could stop a branch.
+- **Fixed:** 2026-07-11 — direction-marked BFG fights now use the same Step-3 override without trying to spend the already-consumed charge (`DoomsdayMachine.cs:764-797`). Decisive pre-random losses, blocks and skips still stop a branch, while random-stage wave fights win and continue through the existing queue logic (`:809-827`).
+
 ### m29. Three V2 achievement descriptions do not match their evaluators
 - `x_spartan_mylorik` RU copy says the **next** fight, while the tracker intentionally accepts any later fight (`AchievementClass.cs:326-332`; `DoomsdayMachine.cs:1372-1390`). `c_darksci_unstable` requires finishing alive at actual place 1 but omits “alive” in both languages (`AchievementClass.cs:284-287,513-519`). `c_kratos_olympus` says five “enemies,” although team mode counts every other player, including teammates (`AchievementClass.cs:264-267,491-492`; `CharacterPassives.cs:1730-1744`).
 - **Impact:** the achievement center can tell players a stricter, looser, or team-inaccurate requirement than the code actually evaluates.
@@ -340,7 +375,7 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 
 ## Summary count
 
-**1 Critical** (C1) · **24 Major** (M1–M24) · **29 Minor** (m1–m29) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7/M17 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13–M24 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28/m29 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26.)
+**1 Critical** (C1) · **31 Major** (M1–M31) · **29 Minor** (m1–m29) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7/M17 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13–M31 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28/m29 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26.)
 
 ## Verification addendum (second pass, 2026-07-01)
 

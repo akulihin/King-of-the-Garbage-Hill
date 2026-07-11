@@ -205,6 +205,29 @@ public static class Madara
         madara.Status.WhoToAttackThisTurn = new List<Guid>();
     }
 
+    public static void PrepareRoundEightBotChallenges(GameClass game)
+    {
+        if (game?.RoundNo != 8) return;
+        var madara = Find(game);
+        if (madara == null || madara.Passives.Madara.Sealed) return;
+
+        foreach (var bot in game.PlayersList.Where(player =>
+                     player.PlayerType == 404
+                     && player.GetPlayerId() != madara.GetPlayerId()
+                     && !player.Passives.IsDead
+                     && !player.Status.IsSkip))
+        {
+            var alreadyChallenging = bot.Status.WhoToAttackThisTurn.Count == 1
+                                     && bot.Status.WhoToAttackThisTurn[0] == madara.GetPlayerId();
+            bot.Status.IsBlock = false;
+            bot.Status.IsReady = true;
+            bot.Status.ConfirmedPredict = true;
+            bot.Status.WhoToAttackThisTurn = new List<Guid> { madara.GetPlayerId() };
+            if (!alreadyChallenging)
+                bot.Status.AddInGamePersonalLogs($"{SusanooClones}: вызов Мадаре принят.\n");
+        }
+    }
+
     public static void SanitizeSealedActions(GameClass game)
     {
         var madara = Find(game);

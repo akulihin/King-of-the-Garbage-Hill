@@ -156,7 +156,7 @@ Achievement progress targets and the complete 33-entry rule catalog are in [ACHI
 | Мадара | base / rarity | Int 7, Str 9, Speed 10, Psyche 9; Tier 5 | characters.json:1449-1484 |
 | Мадара | Бог шиноби thresholds | >1 unique attacker: TooGOOD; >2: TooSTONK; >3: fight Skill = 100 | Madara.cs:55-110; CP:419-425,1019-1025 |
 | Мадара | Второй метеорит | blocked attack: no −1 bonus; +2 regular | DM:519-544 |
-| Мадара | Клоны Сусано | round 8; +1 live Justice at >2 unique attackers; seal at all 5 unique + ≥5 losses | Madara.cs:77-110,134-194; CIR:1376-1397 |
+| Мадара | Клоны Сусано | round 8; live non-skipping strict bots immediately attack; +1 live Justice at >2 unique attackers; seal at all 5 unique + ≥5 losses | Madara.cs:77-110,134-230; CIR:1028,1398-1420 |
 | Мадара | Вечное Цукуеми | arm at all 5 unique attackers in one turn or place 1 entering r10; viewer bonus = max living score − viewer score + 1 (0 if sole winner) | Madara.cs:96-102,219-259; CP:6139-6140 |
 | Рик | Пушка | invention Int ≥ 30; +1 charge/lvl-up; fired round ×2 regular points | GR:1155-1165, CP:3952-3975 |
 | Рик | Бобы | stack: −1 Str/Speed/Psyche, Int = base×stacks; ≤3 ingredients per lvl-up | CP:2033-2049, GR:1174-1202 |
@@ -188,7 +188,8 @@ Achievement progress targets and the complete 33-entry rule catalog are in [ACHI
 | Toxic Mate | Cancer | +2×transfers on return | CP:2390-2398 |
 | Toxic Mate | Tilted | +1 bonus per skip (⚠ M8); +50 if all passive | CP:4226-4242 |
 | Монстр | Пейзаж | pawn deaths +1 regular each; attackers +7 regular (×4!) +10 bonus (⚠ D8) | CP:4300-4333 |
-| Монстр | Близнец | steals all attacker J on block (+bonus = J) | CP:875-890 |
+| Монстр | no-escape | every attack marks before Block/Skip; next 2 turns attack-only; per-target overlapping expiry | CP:1024-1031; CIR:1371-1393 |
+| Монстр | Близнец | no generic block J; copies max attacker J without draining (+total bonus = max J) | CP:936-960; DM:564-568 |
 | Монстр | Выдуманный | +3 bonus on r9 if guessed-at | CP:5471-5498 |
 | TheBoys | Члены | +2 stat per lvl-up; ultimates at ×4; post-СуперМудень upgrades inert/consumed | GR:968-1057 |
 | TheBoys | Francie | orders r1/4/7, window 3, completion/expiry ±1 bonus; chem `level × (1 + harder-tier)` per eligible win | CP:314-330, 3405-3437, 5914-5943 |
@@ -204,10 +205,10 @@ Achievement progress targets and the complete 33-entry rule catalog are in [ACHI
 | Sakura | — | top-3 = narrative win | CIR:496-508 |
 | DooM Guy | base / newcomer | Int 2, Str 5, Speed 5, Psyche 5, Tier 4; exact 30% protected roll while TotalPlays < 10 | characters.json:1383-1413, StartGameLogic.cs:177-205 |
 | DooM Guy | stages / random mode | Rune r3, Shield r5, Mission r7, Gun r9; Let's Roll random pick pays +2 regular each stage | DoomGuy.cs:53-60, 170-175 |
-| DooM Guy | Rune | Вознесение +8 Int, −1/loss; Маневры +5 Speed, −1/Harm; Истребление +1 all stats + max(0, 10−round) bonus | DoomGuy.cs:141-149, CP:2431-2454, CharacterClass.cs:204-208 |
-| DooM Guy | Shield | Щит-пила block penalty −3; Шоковый щит 1 use; Адский блок +666 Skill once after 2 blocked attacks | DoomsdayMachine.cs:500-515, CP:708-722 |
+| DooM Guy | Rune | Вознесение +8 Int, at most 8 × −1/loss; Маневры +5 Speed, at most 5 × −1/Harm; Истребление +1 all stats + max(0, 10−round) bonus | DoomGuy.cs:145-153,281-285; CP:2561-2587; CharacterClass.cs:213-221 |
+| DooM Guy | Shield | Щит-пила block penalty −3; Шоковый щит 1 auto-submitted forced skip (bots respect it); Адский блок +666 Skill once after 2 blocked attacks | DM:541-568; CP:4991-5010; BB:84-93 |
 | DooM Guy | Mission | 1 new nest/setup, overflow >3 → −20 bonus + clear; nest kill +1 regular; every resolved fight +1 regular; flawless no-block mission +20 bonus | DoomGuy.cs:178-196, CP:2460-2476, 3416-3427 |
-| DooM Guy | Gun | BFG 1 charge; Кулаки Str=0 and +2 regular/win; Бензопила 1 victim, up to 4 passive choices | DoomGuy.cs:155-160, 198-225, DM:705-726 |
+| DooM Guy | Gun | BFG 1 charge; primary + every wave Step-3 random auto-wins; Кулаки Str=0 and +2 regular/win; Бензопила 1 victim, up to 4 passive choices | DoomGuy.cs:155-164,202-229; DM:764-827 |
 | DooM Guy | module reward | place 4/3/2/1 ceiling = Rune/Shield/Mission/Gun; fallback downward; chance = 0 complete, 5% last, otherwise `5 + 75×(remaining−1)/(total−1)` | DoomGuy.cs:227-260 |
 | Эрен Йегер | base / rarity / exclusion | Злость(Int) 0, Str 3, Speed 3, Самоуверенность(Psyche) 8; Tier 6; cannot naturally coexist with HardKitty | characters.json:1416-1446, StartGameLogic.cs:245-250 |
 | Эрен Йегер | Овца в загоне | forced place 6 through r8; +1 Int at starts r2-8; gain cap 8 (normal interval yields 7) | CP:182-186,4869-4883; CIR:1215-1223; DM:1458-1465 |
@@ -215,7 +216,7 @@ Achievement progress targets and the complete 33-entry rule catalog are in [ACHI
 | Эрен Йегер | Дрочун mutual attack | +2 regular once per mutual enemy per round | CP:2489-2500 |
 | Эрен Йегер | Атакующий Титан | block removed; +5 each stat per fight for the turn; no incoming target → −2 Psyche | DM:271-281; CP:62-72,443-447,1002-1006,3545-3555 |
 | Эрен Йегер | Titan audio roll | `use_most` 50%; files 1–3 split the other 50% uniformly | sound.ts:914-923 |
-| Эрен Йегер | Rumbling gate / reach | round 10; fewer than 2 total losses; kills projected places strictly between Eren and place 6 | CP:2505-2509,3484-3528; ErenYeager.cs:37-71 |
+| Эрен Йегер | Rumbling gate / reach | round 10; fewer than 2 losses **during round 10 only**; kills projected places strictly between Eren and place 6 | CP:2551-2556,3537-3586; ErenYeager.cs:37-71 |
 
 ## Bot AI difficulty (`BB` = BotsBehavior.cs, `GC` = GameClass.cs, `CP` = CharacterPassives.cs, `SR` = SimulationRunner.cs)
 

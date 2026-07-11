@@ -564,7 +564,8 @@ public class DoomsdayMachine : IServiceSingleton
                         doomShield.ShockSkipRound = game.RoundNo + 1;
                     }
 
-                    playerIamAttacking.GameCharacter.Justice.AddJusticeForNextRoundFromFight();
+                    if (!playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Близнец"))
+                        playerIamAttacking.GameCharacter.Justice.AddJusticeForNextRoundFromFight();
 
                     // Web fight entry for block
                     game.WebFightLog.Add(new FightEntryDto
@@ -763,15 +764,26 @@ public class DoomsdayMachine : IServiceSingleton
                 if (pointsWined == 0)
                 {
                     var doomGun = player.Passives.DoomGuy;
-                    if (player.GameCharacter.Name == DoomGuy.CharacterName && bfgWaveDirection == 0
-                        && doomGun.GetActive(DoomGuy.Gun) == DoomGuy.Bfg && doomGun.BfgCharged)
+                    var isBfgPrimary = player.GameCharacter.Name == DoomGuy.CharacterName
+                                       && bfgWaveDirection == 0
+                                       && doomGun.GetActive(DoomGuy.Gun) == DoomGuy.Bfg
+                                       && doomGun.BfgCharged;
+                    var isBfgWaveFight = player.GameCharacter.Name == DoomGuy.CharacterName
+                                         && bfgWaveDirection != 0
+                                         && doomGun.GetActive(DoomGuy.Gun) == DoomGuy.Bfg;
+                    if (isBfgPrimary || isBfgWaveFight)
                     {
-                        doomGun.BfgCharged = false;
-                        bfgTriggeredThisFight = true;
+                        if (isBfgPrimary)
+                        {
+                            doomGun.BfgCharged = false;
+                            bfgTriggeredThisFight = true;
+                        }
                         usedRandomRoll = true;
                         pointsWined = 1;
-                        player.Status.AddInGamePersonalLogs("BFG: этап рандома уничтожен. Победа гарантирована.\n");
-                        game.AddGlobalLogs($"BFG накрыла бой {player.DiscordUsername} против {playerIamAttacking.DiscordUsername}!");
+                        player.Status.AddInGamePersonalLogs(
+                            $"BFG{(isBfgWaveFight ? " — ударная волна" : "")}: этап рандома уничтожен. Победа гарантирована.\n");
+                        game.AddGlobalLogs(
+                            $"BFG{(isBfgWaveFight ? " — ударная волна" : "")} накрыла бой {player.DiscordUsername} против {playerIamAttacking.DiscordUsername}!");
                     }
                     else
                     {

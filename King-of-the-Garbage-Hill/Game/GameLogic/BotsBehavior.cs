@@ -81,9 +81,25 @@ public class BotsBehavior : IServiceSingleton
         if (player.Passives.IsDead)
             return;
 
+        // Forced skips are already complete actions. In particular, Шоковый щит must not let a
+        // bot immediately replace the skip with its ordinary attack decision.
+        if (player.Status.IsSkip)
+        {
+            player.Status.WhoToAttackThisTurn.Clear();
+            player.Status.IsReady = true;
+            player.Status.ConfirmedPredict = true;
+            return;
+        }
+
         if (Madara.IsMadara(player) && (game.RoundNo == 8 || player.Passives.Madara.Sealed))
         {
             Madara.SetUnableToAct(player);
+            return;
+        }
+
+        if (game.RoundNo == 8 && player.PlayerType == 404 && Madara.Find(game) != null)
+        {
+            Madara.PrepareRoundEightBotChallenges(game);
             return;
         }
 

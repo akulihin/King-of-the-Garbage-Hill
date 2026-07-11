@@ -365,7 +365,7 @@ public class Geralt
     { "Юный Глеб", "Молодой. Много читает. Мета..." },
     { "The Boys", "Супергерои... или нет?" },
     { "Salldorum", "Время... Он его видит иначе." },
-    { "Монстр без имени", "Нет имени... Это плохой знак." },
+    { "Монстр без имени", "Нашел Монстра, но в справочнике не было имени." },
     };
 
     public static readonly Dictionary<string, string> WitcherSensesHintsEnglish = new()
@@ -400,6 +400,6 @@ public class Geralt
         { "Юный Глеб", "Young. Studies the meta obsessively." },
         { "The Boys", "Superheroes... or something hunting them." },
         { "Salldorum", "Time bends strangely around this trail." },
-        { "Монстр без имени", "No name. That is never a good sign." },
+        { "Монстр без имени", "Found a Monster, but the reference book had no name." },
     };
 }

@@ -1,23 +1,23 @@
 # Interaction Matrix — cross-character rules
 
-> Hand-maintained; verified 2026-07-10. **When adding/changing a character, add or update its row in every applicable table** — the M10–M12 bugs happened precisely at holes in these matrices. ⚠ = known hole (see AUDIT-FINDINGS). `CP` = CharacterPassives.cs, `CIR` = CheckIfReady.cs, `DM` = DoomsdayMachine.cs.
+> Hand-maintained; verified 2026-07-11. **When adding/changing a character, add or update its row in every applicable table** — the M10–M12 bugs happened precisely at holes in these matrices. ⚠ = known hole (see AUDIT-FINDINGS). `CP` = CharacterPassives.cs, `CIR` = CheckIfReady.cs, `DM` = DoomsdayMachine.cs.
 
 ## 1. Forced-fight sources × untargetable / no-fight states
 
-Forced-fight sources: **Монстр** no-escape (`CIR:1266-1289`), **Шэн** below-position pull (`CIR:1184-1199`), **Штормяк** taunt (`CIR:1217-1251`), **Aggress** self auto-attack (`CIR:1171-1182`), **Геральт** contract multi-fight injection (`DM:293-348`), DooM Guy **BFG** wave injection (`DM:756-769`).
+Forced-fight sources: **Монстр** two-turn no-escape (`CP:1024-1031`; `CIR:1371-1393`), **Шэн** below-position pull (`CIR:1277-1308`), **Штормяк** taunt (`CIR:1320-1354`), **Aggress** self auto-attack (`CIR:1264-1275`), **Геральт** contract multi-fight injection (`DM:315-370`), DooM Guy **BFG** wave injection (`DM:809-827`).
 
 | State ↓ / Source → | Монстр | Шэн | Штормяк | Aggress (self) | Геральт inject | BFG wave |
 |---|---|---|---|---|---|---|
 | Dead player | ✓ excluded | ✓ excluded | ✓ excluded | ✓ targets exclude dead | n/a (dead don't fight) | ✓ excluded `DM:765` |
 | Тигр round-10 ban | ✓ carve-out `CIR:1293` | ✓ carve-out (M11 fixed, `CIR:1213`) | ✓ carve-out (M11 fixed, `CIR:1247`) | n/a | targeting already blocked (`GR:702-707`) | not special-cased; ordinary block/skip still applies |
 | Огурчик Рик (pickle) | ✓ active pickle strips IsBlock/IsSkip and wins (`DM:261-278,486-499`; M18) | pulls him; pickle accepts and wins | can taunt him; he accepts and wins | n/a | injection works; pickle accepts and wins | injected normally; pickle accepts and wins |
-| Block | overridden (stripped) | fight happens anyway (forced list bypasses block-skip `DM:393-407`) | taunt bypasses own block (`DM:471-474`) | Aggress can't block at all | blocked Геральт = no injection (`DM:303,326`) | block stops that branch; normal penalty applies |
+| Block | attack still marks before the no-fight gate; overridden on each of the next two turns | fight happens anyway (forced list bypasses block-skip `DM:425-439`) | taunt bypasses own block (`DM:503-506`) | Aggress can't block at all | blocked Геральт = no injection (`DM:325,348`) | block stops that branch; normal penalty applies |
 | Skip (sleep/tilt/ban) | overridden (stripped) | fight happens anyway | fight happens anyway | Aggress can't skip | skipping Геральт = no injection | skip stops that branch |
 | Ziggurat lock | position only — fights unaffected | position only | position only | n/a | n/a | position only — wave follows current board order |
 | Premade Carry | n/a | n/a | n/a | n/a | anti-skip now exempts the round-10 Тигр ban (M10 fixed, `CP:5689-5704`) | n/a |
 | Эрен: Атакующий Титан | no block remains to strip; forced target still resolves with +5 stats | forced target resolves with +5 stats | taunt target resolves with +5 stats | n/a | injection resolves each fight with +5 stats | wave branches resolve with +5 stats | Block is cleared in `DM:271-281`; boost is reapplied per fight `CP:62-72,443-447,1002-1006` |
 | Мадара round 8 | targetable; own action is cleared after forced-action injection | targetable | targetable | own auto-action cleared | contract fights resolve normally | wave resolves normally | Correct locked predictions add another ordinary queued fight (`CIR:1376-1397`); Madara cannot attack (`Madara.cs:197-205`) |
-| Мадара sealed | all queued targets sanitized | all queued targets sanitized | all queued targets sanitized | cannot act | pre-fight targets sanitized | ✓ excluded `DM:793-799` | `Madara.SanitizeSealedActions` runs after forced injections; direct targeting says `Игрок запечатан` (`Madara.cs:189-217`; `CIR:1395-1397`) |
+| Мадара sealed | all queued targets sanitized | all queued targets sanitized | all queued targets sanitized | cannot act | pre-fight targets sanitized | ✓ excluded `DM:835-841` | `Madara.SanitizeSealedActions` runs after forced injections; direct targeting says `Игрок запечатан` (`Madara.cs:231-240`; `CIR:1419-1421`) |
 
 ## 2. Kill sources × immunities
 
@@ -51,7 +51,7 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 | Цукуеми (Итачи) → Мадара | copies ordinary round earnings | Воскрешенное тело | score theft works normally; Madara receives the supplied personal reaction, labeled `Бог шиноби` so the hidden passive name is not leaked (`CP:4385-4397`; `CharactersPhrases.cs:352-359`) |
 | Октопус ink | fake-win now, restore at r11 | DeepList first-fight | suppressed until DeepList's scripted loss happens (`CP:6678-6685`) |
 | Kimiko Живое Оружие | **drains** attacker Justice | regular score | real transfer plus +1 regular point per Justice drained (`CP:802-815`) |
-| Близнец (Монстр) | **drains** attacker Justice on block + bonus | — | real transfer (`CP:875-890`) |
+| Близнец (Монстр) | **copies** the highest attacker Justice on block + equal total bonus | generic block Justice | attacker keeps Justice; Monster gets no normal +1; multiple attackers use max, not sum (`CP:936-960`; `DM:564-568`) |
 | Вампуризм | **copies** victim Justice (intended — D6) | Падальщик | +1 extra from the ignored point (`CP:1842-1846`) |
 | Premade | **copies** Carry fight-moral (intended — D9) | — | `CP:2366-2369` |
 | Кошачья засада (cats) | physically moves passives to enemy | Минька/Штормяк vs owner | transferred cat won't buff/taunt against Котики (`CP:3010-3013`, `CIR:1229`) |
@@ -101,11 +101,11 @@ Copy rule: random Standalone passive from the **last attacked** enemy, no duplic
 ## 7. Same-target stacking notes
 
 - Two attackers on one defender resolve **sequentially in leaderboard order** — the first fight's ForOneFight effects are reset before the second (`DM:388-411`, ResetFight per fight).
-- BFG branches are appended to that same sequential target queue. The primary random-stage win fans out to both neighbours; only a win continues a branch, and a target is visited at most once (`DM:756-769`).
+- BFG branches are appended to that same sequential target queue. The primary random-stage win fans out to both neighbours; every wave fight also auto-wins if it reaches Step 3 random, while a decisive pre-random loss/block/skip ends the branch; a target is visited at most once (`DM:764-827`).
 - Со-attack interactions verified: Еврей steal (needs the Jew to also attack the target), Сайтама deferral (needs a co-attacker), Наполеон joint-attack auto-win (needs the ally to attack the same target).
 - Эрен mutual attack is direction-safe: only Eren's own attack branch awards +2 regular, and a per-round enemy list prevents contract/BFG repeats from paying twice (`CP:2489-2500`). An attacking enemy's hatred mark is upgraded to 2 before resolution; a later ordinary Eren loss never downgrades it to 1 (`CP:438-441,2470-2478`).
 - Мадара round 8 deliberately keeps same-target duplicates: a normal/hidden/second action and the correct-prediction clone each remain separate fights. Thresholds use **unique attackers**, including fights injected during resolution, while the sealing loss requirement counts resolved defense losses (`CIR:1376-1397`; `Madara.cs:64-131`; `DM:461`).
-- Round-10 pre-settlement: Rumbling runs immediately after the fight loop and before every `HandleEndOfRound` passive; it ranks projected post-multiplier ordinary score, kills strict-between places, then later passives proceed (`DM:1293-1294`; `CP:3519-3567`).
+- Round-10 pre-settlement: Rumbling runs immediately after the fight loop and before every `HandleEndOfRound` passive; it ranks projected post-multiplier ordinary score, kills strict-between places, then later passives proceed (`DM:1419-1420`; `CP:3536-3584`).
 - Round-10 settlement order (who claws back first): Пейзаж deaths & Saitama banking happen in round-10 `HandleEndOfRound`; Чернильная завеса restore and Ищет достойного (One Punch) at round-11 `HandleNextRound`; Запах мусора at round-11 after-sorting; then `HandleLastRound`: predictions → active M.M. ×компромат → active Francie virus → Цукуеми deduction → sort → AWDKA → Premade → Sakura. СуперМудень skips both disabled-member settlements (`CheckIfReady.cs:320-375`; GAME-DESIGN §8E).
 
 ## 8. Achievement V2 interaction observations

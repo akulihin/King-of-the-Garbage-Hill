@@ -1025,6 +1025,7 @@ public class CheckIfReady : IServiceSingleton
                 }
 
                 var players = _global.GamesList[i].PlayersList;
+                Madara.PrepareRoundEightBotChallenges(game);
                 var readyTargetCount = players.Count(x => !x.IsBot());
                 var readyCount = 0;
 
@@ -1151,7 +1152,8 @@ public class CheckIfReady : IServiceSingleton
                         await _upd.UpdateMessage(player);
                     }
 
-                    if (game.TimePassed.Elapsed.TotalSeconds < 50 && !player.Status.ConfirmedSkip) continue;
+                    if (game.TimePassed.Elapsed.TotalSeconds < 50 && !player.Status.ConfirmedSkip
+                        && !(game.RoundNo == 8 && Madara.IsMadara(player))) continue;
                     if (player.Status.IsReady && player.Status.ConfirmedPredict)
                         readyCount++;
                 }
@@ -1369,7 +1371,7 @@ public class CheckIfReady : IServiceSingleton
 
                 // Монстр: players Monster attacked last round cannot block or skip
                 foreach (var victim in players.Where(v =>
-                    v.Passives.MonsterNoEscape &&
+                    v.Passives.MonsterNoEscapeUntilRound >= game.RoundNo &&
                     !v.Passives.IsDead &&
                     !(game.RoundNo == 10 && v.GameCharacter.Passive.Any(
                         x => x.PassiveName == "Стримснайпят и банят и банят и банят"))))

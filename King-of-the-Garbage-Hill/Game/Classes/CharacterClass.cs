@@ -212,8 +212,12 @@ public class CharacterClass
 
         // DooM Guy — Маневры: every received Harm burns one point of the granted Speed.
         if (target.GameCharacter.Name == DoomGuy.CharacterName
-            && target.Passives.DoomGuy.GetActive(DoomGuy.Rune) == DoomGuy.Maneuvers)
+            && target.Passives.DoomGuy.GetActive(DoomGuy.Rune) == DoomGuy.Maneuvers
+            && target.Passives.DoomGuy.ManeuversSpeedRemaining > 0)
+        {
+            target.Passives.DoomGuy.ManeuversSpeedRemaining--;
             target.GameCharacter.AddSpeed(-1, DoomGuy.Maneuvers);
+        }
 
         //Kimiko — пока активна, Пацанам не наносится Вред (СуперМудень отключает; Живое Оружие держит защиту всегда)
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Kimiko"))

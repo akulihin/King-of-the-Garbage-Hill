@@ -276,7 +276,8 @@ public class PassivesClass
 
     // Монстр без имени — per-player: any player can be a Johan pawn
     public bool IsJohanPawn { get; set; } = false;
-    public bool MonsterNoEscape { get; set; } = false;
+    public int MonsterNoEscapeUntilRound { get; set; } = 0;
+    public int MonsterTwinHighestJusticeThisRound { get; set; } = -1;
     public Guid JohanPawnOwnerId { get; set; } = Guid.Empty;
 
     public Guid PointFunneledTo { get; set; } = Guid.Empty;
