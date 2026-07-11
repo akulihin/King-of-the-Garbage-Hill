@@ -809,9 +809,9 @@ public class CheckIfReady : IServiceSingleton
             }
         }
 
-        // Capture the final round into replay (normally done at start of CalculateAllFights,
-        // but HandleLastRound skips that path, so the last round's fights would be missing)
-        ReplayService.CaptureRound(game, _gameUpdateMess);
+        // Refresh the existing final combat round with prediction/end-game settlement.
+        // Do not append the round-11 boundary as a fake extra fight round (finding M24).
+        ReplayService.CaptureFinalState(game, _gameUpdateMess);
 
         // A shared replay has one authoritative result and therefore cannot represent six
         // viewer-specific Eternal Tsukuyomi endings without revealing the hidden result.

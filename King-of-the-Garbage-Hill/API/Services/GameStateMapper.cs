@@ -1103,12 +1103,13 @@ public static class GameStateMapper
 
         // Structured score breakdown (owner/admin/finished only). Final-round mechanics such as
         // Запах мусора and Осьминожка can add bonus entries after the normal round snapshot, so the
-        // finished projection includes those still-current entries as well.
+        // finished projection includes those still-current awarded bonus entries as well. Pending
+        // regular entries belong to a never-played next round and must not appear in the final feed.
         if (isMe || isAdmin || isFinished)
         {
             var entries = status.PreviousRoundScoreEntries.AsEnumerable();
             if (isFinished && status.ScoreEntries.Count > 0)
-                entries = entries.Concat(status.ScoreEntries);
+                entries = entries.Concat(status.ScoreEntries.Where(entry => entry.IsBonus));
 
             dto.ScoreBreakdown = new ScoreBreakdownDto
             {

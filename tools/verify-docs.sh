@@ -56,7 +56,7 @@ resolve() {
     characters.json|localization.en.json) echo "$B/DataBase/$1";;
     GameDesign.txt) echo "$B/Game/$1";;
     signalr.ts|sound.ts|textFormatting.ts) echo "$V/services/$1";;
-    game.ts|replay.ts|battleship.ts) echo "$V/store/$1";;
+    game.ts|replay.ts|replay.spec.ts|battleship.ts) echo "$V/store/$1";;
     router.ts|main.ts|App.vue|i18n.ts) echo "$V/$1";;
     vite.config.ts) echo "Web/VueClient/$1";;
     useTip.ts|useVfx.ts) echo "$V/composables/$1";;

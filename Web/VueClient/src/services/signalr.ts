@@ -968,6 +968,8 @@ export type BattleshipEvent = {
 export type ReplayData = {
   gameId: number
   replayHash: string
+  /** 0/1 = legacy boundary snapshots; 2 = same-round pre-fight + result snapshots. */
+  replayFormatVersion?: number
   gameVersion: string
   gameMode: string
   story: string | null
@@ -999,12 +1001,19 @@ export type ReplayRound = {
   globalLogs: string
   allGlobalLogs: string
   fightLog: FightEntry[]
+  /** HandleLastRound-only suffixes; round-11 setup logs are deliberately excluded. */
+  finalSettlementGlobalLogs?: string
+  finalSettlementAllGlobalLogs?: string
+  /** Present in replay format v2; legacy files reconstruct this from the preceding boundary. */
+  preFightPlayers?: ReplayRoundPlayer[]
   players: ReplayRoundPlayer[]
 }
 
 export type ReplayRoundPlayer = {
   playerId: string
   playerState: Player
+  /** HandleLastRound-only additions; excludes the already-captured round-11 setup buffer. */
+  finalSettlementLogs?: string
   customLeaderboardView: ReplayCustomLeaderboardEntry[]
 }
 

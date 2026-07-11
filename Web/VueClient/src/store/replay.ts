@@ -10,42 +10,112 @@ import type {
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 
+export type ReplayRoundWindow = {
+  legacy: boolean
+  playableKeys: number[]
+  firstPlayableKey: number
+  lastPlayableKey: number
+  totalRounds: number
+}
+
+export function isLegacyReplay(data: ReplayData): boolean {
+  return (data.replayFormatVersion ?? 0) < 2
+    || data.rounds.some(round => !round.preFightPlayers?.length)
+}
+
+/** Raw URL keys stay unchanged for legacy deep links; display numbers are logical combat rounds. */
+export function getReplayRoundWindow(data: ReplayData): ReplayRoundWindow {
+  const orderedKeys = [...new Set(data.rounds.map(round => round.roundNo))].sort((a, b) => a - b)
+  const legacy = isLegacyReplay(data)
+  const playableKeys = legacy && orderedKeys.length > 1 ? orderedKeys.slice(1) : orderedKeys
+  const firstPlayableKey = playableKeys[0] ?? 1
+  const lastPlayableKey = playableKeys[playableKeys.length - 1] ?? firstPlayableKey
+  const initialBoundary = orderedKeys[0] ?? 1
+  const totalRounds = legacy
+    ? Math.max(1, lastPlayableKey - initialBoundary)
+    : Math.max(1, lastPlayableKey)
+
+  return { legacy, playableKeys, firstPlayableKey, lastPlayableKey, totalRounds }
+}
+
+export function getReplayDisplayRound(data: ReplayData, rawRoundKey: number): number {
+  if (!isLegacyReplay(data)) return rawRoundKey
+  const roundKeys = data.rounds.map(round => round.roundNo)
+  const initialBoundary = roundKeys.length ? Math.min(...roundKeys) : 1
+  return Math.max(1, rawRoundKey - initialBoundary)
+}
+
+export function getReplaySettlementLogs(
+  player: ReplayRoundPlayer,
+  includeLegacyFinalBuffer: boolean,
+): string {
+  if (includeLegacyFinalBuffer) return player.playerState.status.personalLogs
+  return player.finalSettlementLogs ?? ''
+}
+
 /**
- * Builds a player with stats from the previous round (pre-fight) but
- * score/status from the current round. Round 1 returns current as-is.
+ * Combines one round's pre-fight state with its settled result state.
+ * Fight-facing stats/actions come from preFight; score/place/breakdown come from result.
  */
-export function buildShiftedPlayer(current: Player, prev: Player | undefined, roundNo: number): Player {
-  if (roundNo <= 1 || !prev) return current
+export function buildShiftedPlayer(
+  result: Player,
+  preFight: Player | undefined,
+  finalSettlementLogs = '',
+): Player {
+  if (!preFight) return result
+
+  const personalLogs = [
+    result.status.previousRoundLogs,
+    finalSettlementLogs,
+  ].filter(log => log?.trim()).join('\n')
+
   return {
-    // Identity & leaderboard from current round
-    playerId: current.playerId,
-    discordUsername: current.discordUsername,
-    isBot: current.isBot,
-    isWebPlayer: current.isWebPlayer,
-    teamId: current.teamId,
-    customLeaderboardPrefix: current.customLeaderboardPrefix,
-    customLeaderboardText: current.customLeaderboardText,
-    characterMasteryPoints: current.characterMasteryPoints,
-    isInMyHarmRange: current.isInMyHarmRange,
-    // Score/status from current round
-    status: current.status,
-    // Stats & character from previous round (pre-fight state)
-    character: prev.character,
-    isDead: prev.isDead,
-    deathSource: prev.deathSource,
-    isKira: prev.isKira,
-    isBug: prev.isBug,
-    deathNote: prev.deathNote,
-    portalGun: prev.portalGun,
-    exploitState: prev.exploitState,
-    tsukuyomiState: prev.tsukuyomiState,
-    passiveAbilityStates: prev.passiveAbilityStates,
-    isExploitable: prev.isExploitable,
-    isExploitFixed: prev.isExploitFixed,
-    darksciChoiceNeeded: prev.darksciChoiceNeeded,
-    youngGlebAvailable: prev.youngGlebAvailable,
-    dopaChoiceNeeded: prev.dopaChoiceNeeded,
-    predictions: prev.predictions,
+    // Identity and settled leaderboard result.
+    playerId: result.playerId,
+    discordUsername: result.discordUsername,
+    isBot: result.isBot,
+    isWebPlayer: result.isWebPlayer,
+    teamId: result.teamId,
+    customLeaderboardPrefix: result.customLeaderboardPrefix,
+    customLeaderboardText: result.customLeaderboardText,
+    characterMasteryPoints: result.characterMasteryPoints,
+    isInMyHarmRange: preFight.isInMyHarmRange,
+    status: {
+      ...result.status,
+      isReady: preFight.status.isReady,
+      isBlock: preFight.status.isBlock,
+      isSkip: preFight.status.isSkip,
+      isAutoMove: preFight.status.isAutoMove,
+      confirmedPredict: preFight.status.confirmedPredict,
+      confirmedSkip: preFight.status.confirmedSkip,
+      lvlUpPoints: preFight.status.lvlUpPoints,
+      moveListPage: preFight.status.moveListPage,
+      personalLogs,
+      previousRoundLogs: preFight.status.previousRoundLogs,
+      directMessages: preFight.status.directMessages,
+      mediaMessages: preFight.status.mediaMessages,
+      isAramRollConfirmed: preFight.status.isAramRollConfirmed,
+      isDraftPickConfirmed: preFight.status.isDraftPickConfirmed,
+      aramRerolledPassivesTimes: preFight.status.aramRerolledPassivesTimes,
+      aramRerolledStatsTimes: preFight.status.aramRerolledStatsTimes,
+    },
+    // Fight-facing character/passive state.
+    character: preFight.character,
+    isDead: result.isDead,
+    deathSource: result.deathSource,
+    isKira: preFight.isKira,
+    isBug: preFight.isBug,
+    deathNote: preFight.deathNote,
+    portalGun: preFight.portalGun,
+    exploitState: preFight.exploitState,
+    tsukuyomiState: preFight.tsukuyomiState,
+    passiveAbilityStates: preFight.passiveAbilityStates,
+    isExploitable: preFight.isExploitable,
+    isExploitFixed: preFight.isExploitFixed,
+    darksciChoiceNeeded: preFight.darksciChoiceNeeded,
+    youngGlebAvailable: preFight.youngGlebAvailable,
+    dopaChoiceNeeded: preFight.dopaChoiceNeeded,
+    predictions: preFight.predictions,
   }
 }
 
@@ -60,12 +130,40 @@ export const useReplayStore = defineStore('replay', () => {
 
   // ── Derived ───────────────────────────────────────────────────────
 
-  const totalRounds = computed(() => replayData.value?.totalRounds ?? 0)
+  const roundWindow = computed<ReplayRoundWindow>(() => replayData.value
+    ? getReplayRoundWindow(replayData.value)
+    : { legacy: false, playableKeys: [], firstPlayableKey: 1, lastPlayableKey: 1, totalRounds: 0 })
+  const totalRounds = computed(() => roundWindow.value.totalRounds)
+  const displayRound = computed(() => replayData.value
+    ? getReplayDisplayRound(replayData.value, currentRound.value)
+    : 1)
+  const canPreviousRound = computed(() => {
+    const index = roundWindow.value.playableKeys.indexOf(currentRound.value)
+    return index > 0
+  })
+  const canNextRound = computed(() => {
+    const index = roundWindow.value.playableKeys.indexOf(currentRound.value)
+    return index >= 0 && index < roundWindow.value.playableKeys.length - 1
+  })
 
   const currentRoundData = computed<ReplayRound | null>(() => {
     if (!replayData.value) return null
     return replayData.value.rounds.find(r => r.roundNo === currentRound.value) ?? null
   })
+
+  const currentPreFightPlayers = computed<ReplayRoundPlayer[]>(() => {
+    const data = replayData.value
+    const round = currentRoundData.value
+    if (!data || !round) return []
+    if (!roundWindow.value.legacy) return round.preFightPlayers ?? []
+
+    const ordered = [...data.rounds].sort((left, right) => left.roundNo - right.roundNo)
+    const resultIndex = ordered.findIndex(candidate => candidate.roundNo === round.roundNo)
+    return resultIndex > 0 ? ordered[resultIndex - 1].players : []
+  })
+
+  const includeLegacyFinalBuffer = computed(() =>
+    roundWindow.value.legacy && currentRound.value === roundWindow.value.lastPlayableKey)
 
   const currentPlayerId = computed(() => {
     if (!replayData.value || currentPlayerIndex.value >= replayData.value.playerSummaries.length) return null
@@ -86,27 +184,32 @@ export const useReplayStore = defineStore('replay', () => {
     const myRoundPlayer = round.players.find(rp => rp.playerId === playerId)
     if (!myRoundPlayer) return null
 
-    // Look up previous round for stat shifting (show pre-fight stats)
-    const prevRound = data.rounds.find((r: ReplayRound) => r.roundNo === round.roundNo - 1)
-    const prevPlayerMap = new Map<string, ReplayRoundPlayer>(
-      (prevRound?.players ?? []).map((rp: ReplayRoundPlayer) => [rp.playerId, rp] as [string, ReplayRoundPlayer])
+    // Explicit in v2; for legacy files this is reconstructed from the preceding boundary snapshot.
+    const prePlayerMap = new Map<string, ReplayRoundPlayer>(
+      currentPreFightPlayers.value.map((rp: ReplayRoundPlayer) => [rp.playerId, rp] as [string, ReplayRoundPlayer])
     )
 
-    // Build custom leaderboard lookup from the selected player's perspective
+    // Fight-facing annotations use the selected viewer's pre-fight perspective.
+    const preMyRoundPlayer = prePlayerMap.get(playerId)
     const lbView = new Map(
-      (myRoundPlayer.customLeaderboardView ?? []).map(e => [e.playerId, e])
+      (preMyRoundPlayer?.customLeaderboardView ?? myRoundPlayer.customLeaderboardView ?? [])
+        .map(e => [e.playerId, e])
     )
 
     // Build players array: full data for selected player, other players from their own perspective
     const players: Player[] = round.players.map(rp => {
       const lbEntry = lbView.get(rp.playerId)
-      const prevRp = prevPlayerMap.get(rp.playerId)
+      const preRp = prePlayerMap.get(rp.playerId)
       if (rp.playerId === playerId) {
         // Apply own custom leaderboard view to self too
         const base = lbEntry
           ? { ...myRoundPlayer.playerState, customLeaderboardPrefix: lbEntry.customLeaderboardPrefix, customLeaderboardText: lbEntry.customLeaderboardText }
           : myRoundPlayer.playerState
-        return buildShiftedPlayer(base, prevRp?.playerState, round.roundNo)
+        return buildShiftedPlayer(
+          base,
+          preRp?.playerState,
+          getReplaySettlementLogs(rp, includeLegacyFinalBuffer.value),
+        )
       }
       // For other players, use their own playerState but strip private data,
       // then overlay custom leaderboard from the selected player's perspective
@@ -121,8 +224,8 @@ export const useReplayStore = defineStore('replay', () => {
         customLeaderboardPrefix: lbEntry?.customLeaderboardPrefix ?? rp.playerState.customLeaderboardPrefix,
         customLeaderboardText: lbEntry?.customLeaderboardText ?? rp.playerState.customLeaderboardText,
       } as Player
-      const prevOtherBase = prevRp ? {
-        ...prevRp.playerState,
+      const preOtherBase = preRp ? {
+        ...preRp.playerState,
         predictions: undefined,
         deathNote: undefined,
         portalGun: undefined,
@@ -130,12 +233,16 @@ export const useReplayStore = defineStore('replay', () => {
         tsukuyomiState: undefined,
         passiveAbilityStates: undefined,
       } as Player : undefined
-      return buildShiftedPlayer(otherBase, prevOtherBase, round.roundNo)
+      return buildShiftedPlayer(
+        otherBase,
+        preOtherBase,
+        getReplaySettlementLogs(rp, includeLegacyFinalBuffer.value),
+      )
     })
 
     return {
       gameId: data.gameId,
-      roundNo: round.roundNo,
+      roundNo: displayRound.value,
       turnLengthInSecond: 0,
       timePassedSeconds: 0,
       gameVersion: data.gameVersion,
@@ -145,8 +252,10 @@ export const useReplayStore = defineStore('replay', () => {
       isDraftPickPhase: false,
       draftOptions: null,
       isKratosEvent: false,
-      globalLogs: round.globalLogs ?? '',
-      allGlobalLogs: round.allGlobalLogs ?? '',
+      globalLogs: [round.globalLogs, round.finalSettlementGlobalLogs]
+        .filter(log => log?.trim()).join('\n'),
+      allGlobalLogs: [round.allGlobalLogs, round.finalSettlementAllGlobalLogs]
+        .filter(log => log?.trim()).join('\n'),
       fullChronicle: data.fullChronicle ?? undefined,
       myPlayerId: playerId,
       myPlayerType: 2, // admin-level visibility for replays
@@ -173,8 +282,8 @@ export const useReplayStore = defineStore('replay', () => {
       replayData.value = await resp.json()
       // Default to last round, first player
       if (replayData.value) {
-        const maxRound = Math.max(...replayData.value.rounds.map(r => r.roundNo), 1)
-        currentRound.value = maxRound
+        const window = getReplayRoundWindow(replayData.value)
+        currentRound.value = window.lastPlayableKey
         currentPlayerIndex.value = 0
       }
     } catch (e) {
@@ -187,9 +296,23 @@ export const useReplayStore = defineStore('replay', () => {
 
   function setRound(n: number) {
     if (!replayData.value) return
-    const maxRound = Math.max(...replayData.value.rounds.map(r => r.roundNo), 1)
-    currentRound.value = Math.max(1, Math.min(n, maxRound))
+    const keys = getReplayRoundWindow(replayData.value).playableKeys
+    if (!keys.length) return
+    currentRound.value = keys.reduce((closest, key) =>
+      Math.abs(key - n) < Math.abs(closest - n) ? key : closest, keys[0])
     currentFightIndex.value = 0
+  }
+
+  function previousRound() {
+    const keys = roundWindow.value.playableKeys
+    const index = keys.indexOf(currentRound.value)
+    if (index > 0) setRound(keys[index - 1])
+  }
+
+  function nextRound() {
+    const keys = roundWindow.value.playableKeys
+    const index = keys.indexOf(currentRound.value)
+    if (index >= 0 && index < keys.length - 1) setRound(keys[index + 1])
   }
 
   function setPlayer(idx: number) {
@@ -225,11 +348,18 @@ export const useReplayStore = defineStore('replay', () => {
     isLoading,
     error,
     totalRounds,
+    displayRound,
+    canPreviousRound,
+    canNextRound,
     currentRoundData,
+    currentPreFightPlayers,
+    includeLegacyFinalBuffer,
     currentPlayerId,
     computedGameState,
     loadReplay,
     setRound,
+    previousRound,
+    nextRound,
     setPlayer,
     setPlayerById,
     setFight,

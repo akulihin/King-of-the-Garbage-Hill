@@ -198,12 +198,11 @@ public class DoomsdayMachine : IServiceSingleton
             }
         }
 
-        // Capture replay snapshot before clearing fight log
-        ReplayService.CaptureRound(game, _gameUpdateMess);
-
-        // Clear previous round's fight log
+        // A v2 replay round owns matching pre-fight and result state. Clear the prior log first,
+        // then freeze the action-locked state before any fight conversions or passive dispatch.
         game.WebFightLog.Clear();
         game.HiddenGlobalLogSnippets.Clear();
+        var replayRound = ReplayService.BeginRound(game, _gameUpdateMess);
 
         game.TimePassed.Stop();
         var roundNumber = game.RoundNo + 1;
@@ -1515,6 +1514,10 @@ public class DoomsdayMachine : IServiceSingleton
         }
         //end Возвращение из мертвых
 
+        // Freeze the same round's results before RoundNo++ and HandleNextRound can apply a ban,
+        // tilt, score mutation or any other next-turn state to this replay entry (finding M24).
+        ReplayService.CaptureRoundResult(replayRound, game, _gameUpdateMess);
+
         game.SkipPlayersThisRound = 0;
         game.RoundNo++;
 
@@ -1776,6 +1779,7 @@ public class DoomsdayMachine : IServiceSingleton
         }
         _characterPassives.HandleBotPredict(game);
         game.RollExploit();
+        ReplayService.FinalizeRound(replayRound, game, _gameUpdateMess);
         game.TimePassed.Reset();
         game.TimePassed.Start();
 

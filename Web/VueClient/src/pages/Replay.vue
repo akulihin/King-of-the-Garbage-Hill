@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
-import type { FightEntry, Player, ReplayRound } from 'src/services/signalr'
-import { buildShiftedPlayer } from 'src/store/replay'
+import type { FightEntry, Player } from 'src/services/signalr'
+import { buildShiftedPlayer, getReplaySettlementLogs } from 'src/store/replay'
 import { useRouter, useRoute } from 'vue-router'
 import { useGameStore } from 'src/store/game'
 import { useReplayStore } from 'src/store/replay'
@@ -194,8 +194,7 @@ const enemyPlayer = computed<Player | null>(() => {
   const f = currentFight.value
   if (!f || !myPlayer.value) return null
   const round = replayStore.currentRoundData
-  const data = replayStore.replayData
-  if (!round || !data) return null
+  if (!round) return null
   const myName = myPlayer.value.discordUsername
   const enemyName = f.attackerName === myName ? f.defenderName
     : f.defenderName === myName ? f.attackerName
@@ -204,10 +203,12 @@ const enemyPlayer = computed<Player | null>(() => {
   // Get full unstripped player data from replay round
   const enemyRp = round.players.find(rp => rp.playerState.discordUsername === enemyName)
   if (!enemyRp) return null
-  // Apply stat shifting (show pre-fight stats)
-  const prevRound = data.rounds.find((r: ReplayRound) => r.roundNo === round.roundNo - 1)
-  const prevRp = prevRound?.players.find(rp => rp.playerId === enemyRp.playerId)
-  return buildShiftedPlayer(enemyRp.playerState, prevRp?.playerState, round.roundNo)
+  const preFightRp = replayStore.currentPreFightPlayers.find(rp => rp.playerId === enemyRp.playerId)
+  return buildShiftedPlayer(
+    enemyRp.playerState,
+    preFightRp?.playerState,
+    getReplaySettlementLogs(enemyRp, replayStore.includeLegacyFinalBuffer),
+  )
 })
 
 // ── Score combo parsing (replicated from Game.vue) ───────────────
@@ -309,10 +310,10 @@ const prevLogEntries = computed(() => prevLogEntriesAll.value.filter((e: PrevLog
 // ── Round / Player navigation ──────────────────────────────────────
 
 function prevRound() {
-  replayStore.setRound(replayStore.currentRound - 1)
+  replayStore.previousRound()
 }
 function nextRound() {
-  replayStore.setRound(replayStore.currentRound + 1)
+  replayStore.nextRound()
 }
 function selectPlayer(idx: number) {
   replayStore.setPlayer(idx)
@@ -447,13 +448,13 @@ onUnmounted(() => {
 
         <!-- Round navigation -->
         <div class="round-nav">
-          <button class="btn btn-ghost btn-sm" :disabled="replayStore.currentRound <= 1" @click="prevRound">
+          <button class="btn btn-ghost btn-sm" :disabled="!replayStore.canPreviousRound" @click="prevRound">
             ←
           </button>
           <span class="round-badge">
-            Round {{ replayStore.currentRound }} / {{ replayStore.totalRounds }}
+            Round {{ replayStore.displayRound }} / {{ replayStore.totalRounds }}
           </span>
-          <button class="btn btn-ghost btn-sm" :disabled="replayStore.currentRound >= replayStore.totalRounds" @click="nextRound">
+          <button class="btn btn-ghost btn-sm" :disabled="!replayStore.canNextRound" @click="nextRound">
             →
           </button>
         </div>

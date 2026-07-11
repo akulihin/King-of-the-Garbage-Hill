@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace King_of_the_Garbage_Hill.API.DTOs;
 
@@ -9,6 +10,11 @@ public class ReplayDataDto
 {
     public ulong GameId { get; set; }
     public string ReplayHash { get; set; }
+    /// <summary>
+    /// 0/1 = legacy boundary snapshots; 2 = each ReplayRoundDto owns matching pre-fight and result state.
+    /// Kept at the default 0 so old JSON remains distinguishable when deserialized.
+    /// </summary>
+    public int ReplayFormatVersion { get; set; }
     public string GameVersion { get; set; }
     public string GameMode { get; set; }
     public string Story { get; set; }
@@ -42,6 +48,15 @@ public class ReplayRoundDto
     public string GlobalLogs { get; set; }
     public string AllGlobalLogs { get; set; }
     public List<FightEntryDto> FightLog { get; set; } = new();
+    /// <summary>HandleLastRound-only global-log suffix, excluding round-11 setup logs.</summary>
+    public string FinalSettlementGlobalLogs { get; set; } = "";
+    /// <summary>HandleLastRound-only all-global-log suffix, excluding round-11 setup logs.</summary>
+    public string FinalSettlementAllGlobalLogs { get; set; } = "";
+    [JsonIgnore] public string PostSetupGlobalLogs { get; set; }
+    [JsonIgnore] public string PostSetupAllGlobalLogs { get; set; }
+    /// <summary>Per-viewer state captured after actions close but before this round's fight calculation.</summary>
+    public List<ReplayRoundPlayerDto> PreFightPlayers { get; set; } = new();
+    /// <summary>Per-viewer result state captured after this round settles.</summary>
     public List<ReplayRoundPlayerDto> Players { get; set; } = new();
 }
 
@@ -49,6 +64,11 @@ public class ReplayRoundPlayerDto
 {
     public Guid PlayerId { get; set; }
     public PlayerDto PlayerState { get; set; }
+    /// <summary>
+    /// Logs appended by HandleLastRound after the round-11 setup buffer was already captured.
+    /// Kept separate so final settlement remains visible without leaking next-round tilt/ban logs.
+    /// </summary>
+    public string FinalSettlementLogs { get; set; } = "";
     /// <summary>
     /// Custom leaderboard strings as seen by THIS player for all players in the game.
     /// </summary>
