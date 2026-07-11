@@ -34,6 +34,8 @@ At startup, the backend joins `characters`/`passives` to the canonical source te
 
 `exact` and `russianExact` entries are also applied longest-first inside composite text, after dynamic templates. This matters for multi-line logs and Vue nodes split around interpolations: a phrase need not be the entire input to localize (`GameLocalization.cs:89-125`; `Web/VueClient/src/i18n.ts:47-61,155-191`).
 
+Markup may split one grammatical phrase into separate tokens (for example `**обычных** очков`), and older replay projections may already contain English around one remaining Russian token (`Class: +2 Cкилла`). Catalog both the smallest safe mixed-script/markup token and any dynamic sentence fragment needed to finish those records. Justice encouragements, AWDKA troll outcomes and the last-second winner line are the reference cases; their canonical Russian producers are not rewritten.
+
 Achievements and Daily Quests use separate typed bilingual catalogs. Achievement definitions carry paired names/descriptions/secret hints (`AchievementClass.cs:12-88`; DTO `GameStateDto.cs:1119-1139`); Daily Quest definitions carry paired names/descriptions plus stable nonlocalized lane/icon/aggregation metadata (`QuestClass.cs:26-68,208-260`; DTO `GameStateDto.cs:1064-1082`). This copy does not belong in `characters.json` or passive descriptions. Locked Achievement masking is applied symmetrically before the DTO leaves the server (`GameHub.cs:1645-1679`).
 
 ## 4. Backend boundaries

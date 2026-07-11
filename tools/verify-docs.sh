@@ -73,9 +73,13 @@ resolve() {
 }
 
 changed_files=""
+declare -A CHANGED_FILES=()
 if [ "$MODE" = "--changed" ]; then
   changed_files=$(git status --porcelain | awk '{print $2}')
   [ -z "$changed_files" ] && { echo "verify-docs: no working-tree changes; nothing to check."; exit 0; }
+  while IFS= read -r changed_file; do
+    [ -n "$changed_file" ] && CHANGED_FILES["$changed_file"]=1
+  done <<< "$changed_files"
 fi
 
 fail=0
@@ -100,7 +104,7 @@ for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDI
         echo "UNRESOLVED: $fname (at $doc:$docline)"; fail=1; continue
       fi
       if [ "$MODE" = "--changed" ]; then
-        echo "$changed_files" | grep -qF -- "$file" && any_in_changed=1
+        [ -n "${CHANGED_FILES[$file]:-}" ] && any_in_changed=1
       fi
       start=${lines%%-*}; end=${lines##*-}
       if [ -z "${LINECOUNT[$file]:-}" ]; then LINECOUNT[$file]=$(wc -l < "$file"); fi

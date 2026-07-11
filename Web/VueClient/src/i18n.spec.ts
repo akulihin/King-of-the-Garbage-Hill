@@ -26,6 +26,36 @@ describe('English presentation localization', () => {
       .toBe('mylorik won as Darksci')
   })
 
+  it('finishes mixed replay logs instead of leaving Russian fragments', () => {
+    expect(translateText('Последний шанс!')).toBe('Last chance!')
+    expect(translateText("I'm Trying!: +20 Cкилла")).toBe("I'm Trying!: +20 Skill")
+    expect(translateText('Class: +2 Cкилла')).toBe('Class: +2 Skill')
+    expect(translateText('Justice: + 4!Верь в мою веру в тебя!'))
+      .toBe('Justice: + 4! Believe in me believing in you!')
+    expect(translateText('+4 обычных points (Victory)'))
+      .toBe('+4 regular points (Victory)')
+    expect(translateText('Произошел Троллинг: ВампYр Затроллился : +20.5 бонусных points'))
+      .toBe('Trolled Again: Vampoor got trolled : +20.5 bonus points')
+    expect(translateText('Juicy вырывает point на последних секундах!'))
+      .toBe('Juicy snatches a point at the buzzer!')
+  })
+
+  it('translates the canonical formatted forms before replay markdown is rendered', () => {
+    expect(translateText('*Справедливость*: ***+ 4!***<:e_:562879579694301184>Верь в мою веру в тебя!'))
+      .toBe('*Justice*: ***+ 4!***<:e_:562879579694301184> Believe in me believing in you!')
+    expect(translateText('+4 **обычных** очков (Победа)'))
+      .toBe('+4 **regular** points (Victory)')
+    expect(translateText('**Произошел Троллинг:** ВампYр Затроллился : +20.5 __**бонусных**__ очков'))
+      .toBe('**Trolled Again:** Vampoor got trolled : +20.5 __**bonus**__ points')
+    expect(translateText('**Juicy** вырывает **очко** на последних секундах!'))
+      .toBe('**Juicy** snatches **a point** at the buzzer!')
+
+    setLocale('ru')
+    expect(translateText('Trolled Again: Vampoor got trolled : +20.5 bonus points'))
+      .toBe('Произошел Троллинг: ВампYр Затроллился : +20.5 бонусных очков')
+    expect(translateText("I'm Trying!: +20 Skill")).toBe('Я пытаюсь!: +20 Скилл')
+  })
+
   it('adapts canonical character phrase records in Russian replay snapshots', () => {
     expect(translateText('|>Phrase<|Одиночество: Что делаешь?'))
       .toBe('|>Phrase<|Party of One: Look at all my friends not answering.')
