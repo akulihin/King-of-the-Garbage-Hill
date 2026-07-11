@@ -130,7 +130,7 @@ for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDI
         echo "DRIFT?: \`$token\` in $doc [$heading] not found near its cited lines" >> "$DRIFTS"
       fi
     done < <(printf '%s\n' "$tokens")
-  done < <(grep -noE "([A-Za-z_.]+\.(cs|ts|json|txt|vue)|CP):[0-9]+(-[0-9]+)?" "$doc" \
+  done < <(grep -noE "([A-Za-z0-9_.]+\.(cs|ts|json|txt|vue)|CP):[0-9]+(-[0-9]+)?" "$doc" \
             | sed 's/:/|/' | awk -F'|' '{a[$1]=a[$1]" "$2} END{for (l in a) print l "|" a[l]}' | sort -n)
 done
 

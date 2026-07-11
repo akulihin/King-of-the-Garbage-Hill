@@ -167,7 +167,10 @@ public static class GameStateMapper
         // Build full chronicle for Летопись tab when game is finished
         if (game.IsFinished)
         {
-            dto.FullChronicle = BuildFullChronicle(game);
+            var fullChronicle = BuildFullChronicle(game);
+            dto.FullChronicle = requestingPlayer == null
+                ? fullChronicle
+                : GameLocalization.TextForUser(requestingPlayer.DiscordId, fullChronicle);
         }
 
         // Populate newly unlocked achievements for finished games (requesting player only)
@@ -950,7 +953,8 @@ public static class GameStateMapper
             return;
         }
 
-        var projectedLogs = Madara.GetProjectedFinalLogs(game, requestingPlayer);
+        var projectedLogs = GameLocalization.TextForUser(
+            requestingPlayer.DiscordId, Madara.GetProjectedFinalLogs(game, requestingPlayer));
         dto.GlobalLogs = projectedLogs;
         dto.AllGlobalLogs = projectedLogs;
         dto.FullChronicle = projectedLogs;

@@ -135,11 +135,11 @@ Visibility rules (the exact reason the web can't leak hidden info):
 | Opponent character | non-admin, unfinished → name "???", unknown-avatar, stats −1 sentinels, skill/moral "?", empty passives | `GameStateMapper.cs:828-853` |
 | Own/admin/finished character | real stats + resists and quality-bonus texts (resists/bonuses remain own-only) | `GameStateMapper.cs:855-900` |
 | Passive list | every viewer, including the owner/admin/finished view, receives only `Visible` passives; a hidden passive is absent until its mechanic sets `Visible=true` (TheBoys/DooM unlocks, Итачи/Кратос resurrection, Sakura top-3 win). `Вечное Цукуеми` is omitted permanently | `GameStateMapper.cs:902-915`; reveals `CharacterPassives.cs:5757-5782`, `CheckIfReady.cs:533-543` |
-| Score | −1 unless isMe/admin/finished (`canSeeScore`); `Place` always visible | `GameStateMapper.cs:1047-1075` |
+| Score | −1 unless isMe/admin/finished (`canSeeScore`); `Place` always visible | `GameStateMapper.cs:1060-1081` |
 | Personal logs, `ScoreSource`, `LvlUpPoints`, `MoveListPage`, `DirectMessages` (from `WebMessages`), `MediaMessages`, ARAM reroll counters | isMe-gated | `GameStateMapper.cs:1053-1093` |
-| `ScoreBreakdown` (multipliers + per-source entries) | isMe/admin/finished; the finished projection appends still-current entries created after the round snapshot, so final Mitsuki/Осьминожка debits are not lost | `GameStateMapper.cs:1095-1114` |
+| `ScoreBreakdown` (multipliers + per-source entries) | isMe/admin/finished; the finished projection appends still-current entries created after the round snapshot, so final Mitsuki/Осьминожка debits are not lost | `GameStateMapper.cs:1108-1129` |
 | Predictions | owner always; **everyone at game end** with correctness + actual character/avatar; Madara's owner list is always empty | `GameStateMapper.cs:226-251` |
-| `DeathNote` / `PortalGun` / `ExploitState` / `TsukuyomiState`, Darksci/Gleb/Dopa choice flags | isMe-gated blocks on the player DTO | `GameStateMapper.cs:253-347` |
+| `DeathNote` / `PortalGun` / `ExploitState` / `TsukuyomiState`, Darksci/Gleb/Dopa choice flags | isMe-gated blocks on the player DTO | `GameStateMapper.cs:253-359` |
 | Баг viewer | sees `IsExploitable` / `IsExploitFixed` markers on every player | `GameStateMapper.cs:358-363` |
 | TheBoys viewer | marked enemy `PlayerDto`s alone receive `IsTheBoysSupTarget=true`; a marked target's own projection and spectators receive false, so Butcher's choice stays secret | `GameStateMapper.cs:356-358`; `GameStateDto.cs:100-113` |
 | Widget states (`PassiveAbilityStates`) | entire per-passive switch runs only for isMe; keyed on `PassiveName`; contains owner state only, no generic target-facing `…OnMe` fields | `GameStateMapper.cs:360-823`; DTO `GameStateDto.cs:562-603` |
@@ -214,9 +214,9 @@ Two independent callers, both model `claude-haiku-4-5-20251001` (`GameStoryServi
 
 ## 13. Per-account localization
 
-`GameHub.SetLanguage` normalizes/persists `ru` or `en`, updates the process locale registry and immediately re-pushes the current personalized state (`GameHub.cs:83-96`). The mapper translates only viewer-owned logs, score sources, direct messages and media after the existing privacy gates; canonical `GameClass` logs and opponents' hidden state are not mutated (`GameStateMapper.cs:1159-1171`). Character/passive DTO text remains canonical until the Vue presentation boundary so prediction/draft values stay valid.
+`GameHub.SetLanguage` normalizes/persists `ru` or `en`, updates the process locale registry and immediately re-pushes the current personalized state (`GameHub.cs:83-96`). The mapper translates only viewer-owned logs, score sources, direct messages, media and the finished chronicle after the existing privacy gates; canonical `GameClass` logs and opponents' hidden state are not mutated (`GameStateMapper.cs:115-126,167-174,1088-1097`). Eternal Tsukuyomi's final-log replacement is localized for the viewer too (`GameStateMapper.cs:932-960`). Character/passive DTO text remains canonical until the Vue presentation boundary so prediction/draft values stay valid.
 
-The English catalog is copied to the deployed `DataBase` output and loaded lazily by `GameLocalization` (`GameLocalization.cs:225-258`). Game stories now request paired native RU/EN tagged adaptations (max 1800 tokens) and store both in one replay-safe HTML value (`GameStoryService.cs:26-29, 68-77, 172-196`). Geralt's hint request receives the owner's locale and uses matching static dictionaries on failure (`ClaudeHaikuService.cs:37-65`, `CP:4657-4688`). Full contract: [LOCALIZATION.md](LOCALIZATION.md).
+The English catalog is copied to the deployed DataBase output and loaded lazily by `GameLocalization`. Dynamic templates run before longest-first exact/term replacement, and adapting a character phrase no longer short-circuits the rest of its multi-line log block (`GameLocalization.cs:88-124,284-338`). Game stories request paired native RU/EN tagged adaptations (max 1800 tokens) and store both in one replay-safe HTML value (`GameStoryService.cs:26-29,68-77,172-196`). Geralt's hint request receives the owner's locale and uses matching static dictionaries on failure (`ClaudeHaikuService.cs:37-65`, `CP:4657-4688`). Full contract: [LOCALIZATION.md](LOCALIZATION.md).
 
 ## 14. Account-reward transaction boundary
 

@@ -31,15 +31,28 @@ export const currentLocale = ref<AppLocale>(savedLocale === 'ru' || savedLocale 
 
 const cyrillicPattern = /[А-Яа-яЁё]/
 const regexSpecialCharacters = /[.*+?^${}()|[\]\\]/g
-const termEntries = Object.entries(catalog.terms)
-  .sort(([a], [b]) => b.length - a.length)
-  .map(([source, translation]) => ({
-    source,
-    translation,
-    pattern: /^[\p{L}\p{N}_.-]+$/u.test(source)
-      ? new RegExp(`(?<![\\p{L}\\p{N}])${source.replace(regexSpecialCharacters, '\\$&')}(?![\\p{L}\\p{N}])`, 'gu')
-      : null,
-  }))
+
+type ReplacementEntry = {
+  source: string
+  translation: string
+  pattern: RegExp | null
+}
+
+function buildReplacementEntries(values: Record<string, string>): ReplacementEntry[] {
+  return Object.entries(values)
+    .sort(([a], [b]) => b.length - a.length)
+    .map(([source, translation]) => ({
+      source,
+      translation,
+      pattern: /^[\p{L}\p{N}_.-]+$/u.test(source)
+        ? new RegExp(`(?<![\\p{L}\\p{N}])${source.replace(regexSpecialCharacters, '\\$&')}(?![\\p{L}\\p{N}])`, 'gu')
+        : null,
+    }))
+}
+
+const exactEntries = buildReplacementEntries({ ...catalog.exact, ...Object.fromEntries(contentExact) })
+const russianExactEntries = buildReplacementEntries(catalog.russianExact)
+const termEntries = buildReplacementEntries(catalog.terms)
 
 const phraseRules: Array<[RegExp, string]> = [
   [/Раунд\s*#(\d+)/gi, 'Round #$1'],
@@ -89,22 +102,51 @@ const phraseRules: Array<[RegExp, string]> = [
   [/обогнал/gi, 'overtook'],
   [/обманул/gi, 'outsmarted'],
   [/пресанул/gi, 'pressured'],
+  [/Победа:\s*/gi, 'Victory: '],
+  [/Поражение:\s*/gi, 'Defeat: '],
+  [/Вы улучшили\s+(Интеллект|Силу|Скорость|Психику)\s+до\s+(-?\d+)/gi, 'You upgraded $1 to $2'],
+  [/Вам понерфали\s+(Интеллект|Силу|Скорость|Психику)\s+до\s+(-?\d+)/gi, 'Your $1 was nerfed to $2'],
+  [/Получено вреда:\s*(\d+)/gi, 'Harm taken: $1'],
+  [/Команда\s+#(\d+)\s+победила набрав\s+(-?\d+)\s+(?:Очков|points)/gi, 'Team #$1 won with $2 points'],
+  [/Команда\s+#(\d+)\s+Набрала\s+(-?\d+)\s+(?:Очков|points)/gi, 'Team #$1 scored $2 points'],
+  [/Шэн:\s*Активирован на позицию\s+(\d+)\.\s*Зарядов:\s*(\d+)/gi, 'Shen: activated at position $1. Charges: $2'],
+  [/Шэн:\s*Деактивирован\.\s*Заряд возвращён/gi, 'Shen: deactivated. Charge refunded'],
+  [/Великий летописец:\s*История раунда\s+(\d+)\s+переписана!\s*Украдено\s+(-?\d+)\s+(?:очков|points)/gi, 'Great Chronicler: round $1 was rewritten! Stole $2 points'],
+  [/Salldorum переписал историю раунда\s+(\d+)/gi, 'Salldorum rewrote round $1'],
+  [/Заказ Француза:\s*Новая цель\s*[—-]\s*(.+?)\.\s*3 хода/gi, "Frenchie's contract: new target — $1. 3 turns"],
+  [/Тактика выбрана:\s*/gi, 'Strategy selected: '],
+  [/Ты стал пешкой Йохана/gi, "You became Johan's pawn"],
+  [/Штормяк провоцирует вас!\s*Атакуйте\s+/gi, 'Stormy taunts you! Attack '],
+  [/Штормяк провоцирует\s+/gi, 'Stormy taunts '],
+  [/Тетрадь смерти:\s*Ты записал имя\s+/gi, 'Death Note: you wrote the name '],
+  [/Глаза бога смерти:\s*Активированы!\s*Следующая атака раскроет имя врага/gi, "Shinigami Eyes activated! Your next attack will reveal the enemy's name"],
 ]
 
 function replaceAllLiteral(value: string, search: string, replacement: string): string {
   return value.split(search).join(replacement)
 }
 
+function replaceCatalogEntries(value: string, entries: ReplacementEntry[]): string {
+  let translated = value
+  for (const entry of entries)
+    translated = entry.pattern
+      ? translated.replace(entry.pattern, entry.translation)
+      : replaceAllLiteral(translated, entry.source, entry.translation)
+  return translated
+}
+
 /** Translate canonical, player-facing Russian text without ever changing action values or state keys. */
 export function translateText(value: string | null | undefined): string {
   if (!value) return ''
+  if (currentLocale.value === 'en' && !cyrillicPattern.test(value)) return value
+  if (currentLocale.value === 'ru' && !/[A-Za-z]/.test(value)) return value
 
   const leading = value.match(/^\s*/)?.[0] ?? ''
   const trailing = value.match(/\s*$/)?.[0] ?? ''
   const core = value.slice(leading.length, value.length - trailing.length)
   if (currentLocale.value === 'ru') {
     const russian = catalog.russianExact[core]
-    return russian ? `${leading}${russian}${trailing}` : value
+    return russian ? `${leading}${russian}${trailing}` : replaceCatalogEntries(value, russianExactEntries)
   }
   const exact = catalog.exact[core]
   if (exact) return `${leading}${exact}${trailing}`
@@ -114,10 +156,8 @@ export function translateText(value: string | null | undefined): string {
   let translated = value
   for (const [pattern, replacement] of phraseRules)
     translated = translated.replace(pattern, replacement)
-  for (const term of termEntries)
-    translated = term.pattern
-      ? translated.replace(term.pattern, term.translation)
-      : replaceAllLiteral(translated, term.source, term.translation)
+  translated = replaceCatalogEntries(translated, exactEntries)
+  translated = replaceCatalogEntries(translated, termEntries)
 
   return translated
 }

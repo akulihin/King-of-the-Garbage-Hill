@@ -27,7 +27,9 @@ This allows one match to contain Russian- and English-speaking players without d
 | `characters` | English biographies keyed by canonical character name. Contains every character entry. |
 | `passives` | English mechanics text keyed by canonical passive name. Contains every unique passive from `characters.json`. |
 
-At startup, the backend joins `characters`/`passives` to the canonical source text from `characters.json`, adding those source texts to its exact catalog (`GameLocalization.cs:225-285`). The client performs the same join while bundling (`Web/VueClient/src/i18n.ts`). The Russian player text in `characters.json` remains untouched.
+At startup, the backend joins `characters`/`passives` to the canonical source text from `characters.json`, adding those source texts to its exact catalog (`GameLocalization.cs:284-320`). The client performs the same join while bundling (`Web/VueClient/src/i18n.ts`). The Russian player text in `characters.json` remains untouched.
+
+`exact` and `russianExact` entries are also applied longest-first inside composite text, after dynamic templates. This matters for multi-line logs and Vue nodes split around interpolations: a phrase need not be the entire input to localize (`GameLocalization.cs:88-124`; `Web/VueClient/src/i18n.ts:41-55,138-163`).
 
 Achievements and Daily Quests use separate typed bilingual catalogs. Achievement definitions carry paired names/descriptions/secret hints (`AchievementClass.cs:12-88`; DTO `GameStateDto.cs:1119-1139`); Daily Quest definitions carry paired names/descriptions plus stable nonlocalized lane/icon/aggregation metadata (`QuestClass.cs:26-68,208-260`; DTO `GameStateDto.cs:1064-1082`). This copy does not belong in `characters.json` or passive descriptions. Locked Achievement masking is applied symmetrically before the DTO leaves the server (`GameHub.cs:1645-1679`).
 
@@ -35,14 +37,14 @@ Achievements and Daily Quests use separate typed bilingual catalogs. Achievement
 
 - All ordinary Discord command text and embeds pass through `ModuleBaseCustom` before sending (`ModuleBaseCustom.cs:14-18`, `ModuleBaseCustom.cs:61-65`).
 - In-game embeds, transient messages and Discord component labels/options are localized immediately before build/send; component identifiers and select-option values remain canonical (`HelperFunctions.cs:237-244`, `GameLocalization.cs:198-222`).
-- Personalized web logs, score sources, direct messages and media messages are localized in `GameStateMapper`; opponent/spectator visibility gates are unchanged (`GameStateMapper.cs:1159-1171`).
+- Personalized web logs, score sources, direct messages, media messages and the finished chronicle are localized in `GameStateMapper`; opponent/spectator visibility gates are unchanged (`GameStateMapper.cs:115-126,167-174,1088-1097`). Eternal Tsukuyomi's final projection passes through the same viewer-localized boundary before replacing those fields (`GameStateMapper.cs:932-960`).
 - Character flavor has hundreds of historical Russian quips. Exact/adapted text is used when catalogued; otherwise `PhraseForUser` selects a character/passive-aware English fallback so English never depends on understanding the Russian joke (`GameLocalization.cs:63-178`). Russian retains the original full phrase pool.
 
 Do not localize inside `CharacterPassives`, `GameReactions`, `DoomsdayMachine` or similar game-state code unless the text is inherently per-user generated (Geralt's hint is the deliberate exception). Store canonical logs whenever possible and localize the viewer projection.
 
 ## 5. Vue boundary
 
-The client keeps canonical state values in Pinia and localizes rendered text/accessible attributes through a DOM observer (`Web/VueClient/src/i18n.ts`). It records the original Vue-rendered value, so RU↔EN switching is reversible and later reactive updates are re-localized. It never touches input values, select values, ids, object properties or SignalR action arguments.
+The client keeps canonical state values in Pinia and localizes rendered text/accessible attributes through a DOM observer (`Web/VueClient/src/i18n.ts`). It records the original Vue-rendered value, so RU↔EN switching is reversible and later reactive updates are re-localized. Longest-first fragments allow mixed/dynamic nodes (for example a number plus `turns left`) to localize in both directions. It never touches input values, select values, ids, object properties or SignalR action arguments.
 
 Reward components select typed Achievement/Daily Quest pairs directly from `currentLocale` rather than passing dynamic DTO strings through gameplay-state translation (`AchievementBoard.vue:114-132`; `AchievementPopup.vue:47-59`; `DailyQuestBoard.vue:98-166`). Loot rarity, pity, actions and accessibility labels are likewise explicit EN/RU component copy (`LootBox.vue:129-165`). Achievement `CharacterNames` and Daily Quest IDs stay canonical so portrait lookup and reroll actions remain stable (`AchievementClass.cs:29-35`; quest mapping `GameHub.cs:775-803`).
 
@@ -64,7 +66,7 @@ For any player-facing change:
 1. Keep canonical gameplay identifiers unchanged.
 2. Add/adapt English and Russian display text in the shared catalog.
 3. Run `jq empty King-of-the-Garbage-Hill/DataBase/localization.en.json`.
-4. Run `bash tools/audit-localization.sh` (coverage plus English-Cyrillic leak check).
+4. Run `bash tools/audit-localization.sh` (content coverage, character/passive display-name coverage and English-Cyrillic leak checks across exact, terms, character and passive values).
 5. Run `dotnet build` and `pnpm build`.
 6. Run `bash tools/audit-passives.sh` if any passive-bearing source changed.
 7. Run `bash tools/verify-docs.sh --changed` and the standard simulation suite for gameplay-bearing changes.

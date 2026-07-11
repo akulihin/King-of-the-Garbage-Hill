@@ -375,6 +375,12 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Fix direction:** change presentation metadata only: “later fight,” “finish alive,” and “all five other players”; do not change the mechanics or canonical passive strings.
 - **Fixed:** 2026-07-11 — aligned the paired catalog copy with the existing evaluators: “later fight,” “finish alive in 1st,” and “all 5 other players” (`AchievementClass.cs:264-287,326-332`). No gameplay condition or canonical passive identifier changed.
 
+### m30. Localized logs and dynamic UI labels fell through to their source language
+- **Expected:** a viewer's RU/EN choice applies to every presentation string without translating canonical character/passive/action identifiers in game state.
+- **Actual before the fix:** `GameLocalization.Text` tried `exact` only against the entire input and returned immediately after adapting any `|>Phrase<|` entry. Since personal/global logs are multi-line blocks, the presence of one character phrase prevented the remaining system/stat lines from reaching normal rules, while exact translations for individual lines could never match the whole block. The Vue translator had the same whole-node limitation in both directions, so interpolated English widget labels stayed English in RU mode. Finished chronicles and Eternal Tsukuyomi projections also overwrote/bypassed the localized log projection, and four Cyrillic passive titles had descriptions but no English display-name mapping.
+- **Impact:** English players regularly saw Russian passive titles and personal/global/chronicle system text; Russian players saw English widget/status/navigation labels. Gameplay dispatch remained correct because the untranslated values were presentation-only.
+- **Fixed:** 2026-07-11 — both localization engines now run dynamic templates and longest-first exact fragments across composite strings, with character-phrase adaptation continuing into the rest of the log (`GameLocalization.cs:88-124`; `Web/VueClient/src/i18n.ts:41-55,138-163`). The finished chronicle and Eternal Tsukuyomi projection now pass through the viewer locale (`GameStateMapper.cs:167-174,932-960`). The shared catalog fills the four passive-title holes and the reported RU widget/UI labels; `tools/audit-localization.sh` now requires display mappings for every Cyrillic character/passive identifier and scans `terms` values for Cyrillic leaks. Canonical Russian character phrases and all dispatch strings are unchanged.
+
 ### m26. `HandleBotAttack` scoring flags are never reset inside the per-target loop
 - The boolean flags declared once per `HandleBotAttack` invocation (method `BotsBehavior.cs:770`; flags `:836-855`) remain set and are not cleared between targets. Per-character compensations later read them (mylorik `:1380-1410`, Глеб `:1595-1640`) and can therefore compensate a different target.
 - **Impact**: mild bot mis-weighting in mixed line-ups; not player-visible and not exception-producing. Flagged during the AI-difficulty change-set because L2-4 (fight-history horizon) deliberately **reuses** the existing latching flag/number so it stays balance-compatible with those compensations.
@@ -382,7 +388,7 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 
 ## Summary count
 
-**1 Critical** (C1) · **32 Major** (M1–M32) · **29 Minor** (m1–m29) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7/M17 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13–M32 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28/m29 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26.)
+**1 Critical** (C1) · **32 Major** (M1–M32) · **30 Minor** (m1–m30) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7/M17 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13–M32 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28/m29/m30 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26.)
 
 ## Verification addendum (second pass, 2026-07-01)
 

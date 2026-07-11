@@ -38,6 +38,24 @@ public static class GameLocalization
         (new Regex(@"Вы не походили\. Использовался Авто Ход", RegexOptions.IgnoreCase), "You did not act. Auto Move was used"),
         (new Regex(@"Подтвердите свои предложения перед атакой", RegexOptions.IgnoreCase), "Confirm your predictions before attacking"),
         (new Regex(@"Напасть на\s+", RegexOptions.IgnoreCase), "Attack "),
+        (new Regex(@"Победа:\s*", RegexOptions.IgnoreCase), "Victory: "),
+        (new Regex(@"Поражение:\s*", RegexOptions.IgnoreCase), "Defeat: "),
+        (new Regex(@"Вы улучшили\s+(Интеллект|Силу|Скорость|Психику)\s+до\s+(-?\d+)", RegexOptions.IgnoreCase), "You upgraded $1 to $2"),
+        (new Regex(@"Вам понерфали\s+(Интеллект|Силу|Скорость|Психику)\s+до\s+(-?\d+)", RegexOptions.IgnoreCase), "Your $1 was nerfed to $2"),
+        (new Regex(@"Получено вреда:\s*(\d+)", RegexOptions.IgnoreCase), "Harm taken: $1"),
+        (new Regex(@"Команда\s+#(\d+)\s+победила набрав\s+(-?\d+)\s+(?:Очков|points)", RegexOptions.IgnoreCase), "Team #$1 won with $2 points"),
+        (new Regex(@"Команда\s+#(\d+)\s+Набрала\s+(-?\d+)\s+(?:Очков|points)", RegexOptions.IgnoreCase), "Team #$1 scored $2 points"),
+        (new Regex(@"Шэн:\s*Активирован на позицию\s+(\d+)\.\s*Зарядов:\s*(\d+)", RegexOptions.IgnoreCase), "Shen: activated at position $1. Charges: $2"),
+        (new Regex(@"Шэн:\s*Деактивирован\.\s*Заряд возвращён", RegexOptions.IgnoreCase), "Shen: deactivated. Charge refunded"),
+        (new Regex(@"Великий летописец:\s*История раунда\s+(\d+)\s+переписана!\s*Украдено\s+(-?\d+)\s+(?:очков|points)", RegexOptions.IgnoreCase), "Great Chronicler: round $1 was rewritten! Stole $2 points"),
+        (new Regex(@"Salldorum переписал историю раунда\s+(\d+)", RegexOptions.IgnoreCase), "Salldorum rewrote round $1"),
+        (new Regex(@"Заказ Француза:\s*Новая цель\s*[—-]\s*(.+?)\.\s*3 хода", RegexOptions.IgnoreCase), "Frenchie's contract: new target — $1. 3 turns"),
+        (new Regex(@"Тактика выбрана:\s*", RegexOptions.IgnoreCase), "Strategy selected: "),
+        (new Regex(@"Ты стал пешкой Йохана", RegexOptions.IgnoreCase), "You became Johan's pawn"),
+        (new Regex(@"Штормяк провоцирует вас!\s*Атакуйте\s+", RegexOptions.IgnoreCase), "Stormy taunts you! Attack "),
+        (new Regex(@"Штормяк провоцирует\s+", RegexOptions.IgnoreCase), "Stormy taunts "),
+        (new Regex(@"Тетрадь смерти:\s*Ты записал имя\s+", RegexOptions.IgnoreCase), "Death Note: you wrote the name "),
+        (new Regex(@"Глаза бога смерти:\s*Активированы!\s*Следующая атака раскроет имя врага", RegexOptions.IgnoreCase), "Shinigami Eyes activated! Your next attack will reveal the enemy's name"),
     };
 
     public static string Normalize(string language) =>
@@ -69,9 +87,14 @@ public static class GameLocalization
 
     private static string Translate(string text, string language, Catalog catalog, bool translatePhraseMarkers)
     {
+        if (language == English && !Regex.IsMatch(text, "[А-Яа-яЁё]"))
+            return text;
+        if (language == Russian && !Regex.IsMatch(text, "[A-Za-z]"))
+            return text;
+
         if (translatePhraseMarkers && language == English && text.Contains("|>Phrase<|", StringComparison.Ordinal))
         {
-            return Regex.Replace(text, @"\|>Phrase<\|([^:\r\n]+):\s*([^\r\n]*)", match =>
+            text = Regex.Replace(text, @"\|>Phrase<\|([^:\r\n]+):\s*([^\r\n]*)", match =>
                 $"|>Phrase<|{Translate(match.Groups[1].Value, English, catalog, false)}: " +
                 TranslatePhrase(match.Groups[1].Value, match.Groups[2].Value, catalog));
         }
@@ -82,15 +105,20 @@ public static class GameLocalization
         var core = coreLength > 0 ? text.Substring(leadingLength, coreLength) : text.Trim();
         if (Normalize(language) == Russian)
         {
-            if (!catalog.RussianExact.TryGetValue(core, out var russian)) return text;
-            return text[..leadingLength] + russian + (trailingLength > 0 ? text[^trailingLength..] : "");
+            if (catalog.RussianExact.TryGetValue(core, out var russian))
+                return text[..leadingLength] + russian + (trailingLength > 0 ? text[^trailingLength..] : "");
+
+            return ReplaceCatalogEntries(text, catalog.SortedRussianExact);
         }
         if (catalog.Exact.TryGetValue(core, out var exact))
             return text[..leadingLength] + exact + (trailingLength > 0 ? text[^trailingLength..] : "");
 
+        // Logs and dynamic UI strings commonly contain several catalogued phrases in one value.
+        // Match dynamic canonical templates first, then apply longest exact fragments and terms.
         var translated = text;
         foreach (var (pattern, replacement) in PhraseRules)
             translated = pattern.Replace(translated, replacement);
+        translated = ReplaceCatalogEntries(translated, catalog.SortedExact);
         foreach (var (russian, english) in catalog.SortedTerms)
             translated = ReplaceTerm(translated, russian, english);
         return translated;
@@ -167,6 +195,15 @@ public static class GameLocalization
             _ => $"{passive}: ability triggered.",
         };
         return adapted;
+    }
+
+    private static string ReplaceCatalogEntries(
+        string text, IReadOnlyList<KeyValuePair<string, string>> entries)
+    {
+        var translated = text;
+        foreach (var (source, replacement) in entries)
+            translated = ReplaceTerm(translated, source, replacement);
+        return translated;
     }
 
     private static string ReplaceTerm(string text, string source, string translation)
@@ -289,9 +326,16 @@ public static class GameLocalization
         public Dictionary<string, string> RussianExact { get; set; } = new(StringComparer.Ordinal);
         public Dictionary<string, string> Characters { get; set; } = new(StringComparer.Ordinal);
         public Dictionary<string, string> Passives { get; set; } = new(StringComparer.Ordinal);
+        public List<KeyValuePair<string, string>> SortedExact { get; private set; } = new();
+        public List<KeyValuePair<string, string>> SortedRussianExact { get; private set; } = new();
         public List<KeyValuePair<string, string>> SortedTerms { get; private set; } = new();
 
-        public void BuildSortedTerms() => SortedTerms = Terms.OrderByDescending(x => x.Key.Length).ToList();
+        public void BuildSortedTerms()
+        {
+            SortedExact = Exact.OrderByDescending(x => x.Key.Length).ToList();
+            SortedRussianExact = RussianExact.OrderByDescending(x => x.Key.Length).ToList();
+            SortedTerms = Terms.OrderByDescending(x => x.Key.Length).ToList();
+        }
     }
 
     private sealed class CharacterContent
