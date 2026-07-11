@@ -14,6 +14,15 @@ const showRecoveredAchievementCelebration = computed(() =>
   store.isAuthenticated && store.newlyUnlockedAchievements.length > 0 && route.name !== 'game',
 )
 
+/** Unobtrusive corner version label — live games show the current server
+ *  version; replays show the version recorded in the replay file. */
+const gameVersion = computed(() => {
+  if (!['game', 'spectate', 'replay'].includes(route.name as string)) return ''
+  const v = store.gameState?.gameVersion
+  if (!v) return ''
+  return 'v' + v.replace(/^Версия:\s*/, '') // "Версия: 4.1.8" → "v4.1.8"
+})
+
 const showLogin = ref(true)
 const loginSuccess = ref(false)
 const loggedInUsername = ref('')
@@ -182,6 +191,9 @@ async function changeLocale(language: AppLocale) {
           {{ store.errorMessage }}
         </div>
       </Transition>
+
+      <!-- Game version (informational, game/spectate/replay only) -->
+      <div v-if="gameVersion" class="game-version">{{ gameVersion }}</div>
 
       <main class="main-content">
         <RouterView />
@@ -658,6 +670,18 @@ html[lang='en'] .story-ru {
   z-index: 1000;
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--accent-red);
+}
+
+/* ── Game version corner label ────────────────────────────────────── */
+.game-version {
+  position: fixed;
+  bottom: 6px;
+  right: 10px;
+  z-index: 45; /* below timer vignette (90) and cinematic overlays (200+) */
+  font-size: 10px;
+  opacity: 0.35;
+  pointer-events: none;
+  user-select: none;
 }
 
 /* ── Transitions ──────────────────────────────────────────────────── */
