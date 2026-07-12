@@ -461,6 +461,8 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
+        var madaraError = MadaraActionError(game, player);
+        if (madaraError != null) return Task.FromResult((false, madaraError));
         if (!CanAct(player)) return Task.FromResult((false, "Cannot act right now"));
         var (lvlBlocked, lvlError) = LevelUpGate(player);
         if (lvlBlocked) return Task.FromResult((false, lvlError));
@@ -511,6 +513,8 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
+        var madaraError = MadaraActionError(game, player);
+        if (madaraError != null) return Task.FromResult((false, madaraError));
         var (lvlBlocked, lvlError) = LevelUpGate(player);
         if (lvlBlocked) return Task.FromResult((false, lvlError));
 
@@ -529,7 +533,8 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
-        if (Madara.IsSealed(player)) return Task.FromResult((false, "Игрок запечатан"));
+        var madaraError = MadaraActionError(game, player);
+        if (madaraError != null) return Task.FromResult((false, madaraError));
         if (player.Status.IsSkip || !player.Status.IsReady)
             return Task.FromResult((false, "Cannot change mind right now"));
 
@@ -556,6 +561,8 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
+        var madaraError = MadaraActionError(game, player);
+        if (madaraError != null) return Task.FromResult((false, madaraError));
         var (lvlBlocked, lvlError) = LevelUpGate(player);
         if (lvlBlocked) return Task.FromResult((false, lvlError));
 
@@ -1144,6 +1151,15 @@ public class WebGameService
     private static bool CanAct(GamePlayerBridgeClass player)
     {
         return !player.Status.IsReady && !player.Status.IsSkip;
+    }
+
+    private static string MadaraActionError(GameClass game, GamePlayerBridgeClass player)
+    {
+        if (!Madara.IsMadara(player)) return null;
+        if (player.Passives.Madara.Sealed) return "Игрок запечатан";
+        return game.RoundNo == 8
+            ? "Мадара ждёт, кто осмелится бросить ему вызов."
+            : null;
     }
 
     // A pending level-up must be spent before a player can end their turn. Mirrors Discord,

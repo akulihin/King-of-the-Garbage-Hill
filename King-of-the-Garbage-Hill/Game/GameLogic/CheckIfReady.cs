@@ -1025,6 +1025,9 @@ public class CheckIfReady : IServiceSingleton
                 }
 
                 var players = _global.GamesList[i].PlayersList;
+                if (game.RoundNo == 8 && Madara.Find(game) != null)
+                    foreach (var bot in players.Where(player => player.PlayerType == 404))
+                        await _botsBehavior.PrepareStrictBotBeforeReadiness(bot, game);
                 Madara.PrepareRoundEightBotChallenges(game);
                 var readyTargetCount = players.Count(x => !x.IsBot());
                 var readyCount = 0;
@@ -1464,12 +1467,19 @@ public class CheckIfReady : IServiceSingleton
 
                         if (game.RoundNo == 8 && game.GameMode != "Aram")
                         {
-                            t.Status.ConfirmedPredict = false;
-                            extraText = "Это последний раунд, когда можно сделать **предложение**!";
+                            if (Madara.IsMadara(t))
+                            {
+                                Madara.SetUnableToAct(t);
+                            }
+                            else
+                            {
+                                t.Status.ConfirmedPredict = false;
+                                extraText = "Это последний раунд, когда можно сделать **предложение**!";
 
-                            // Kira uses Death Note instead of predictions — auto-confirm
-                            if (t.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти"))
-                                t.Status.ConfirmedPredict = true;
+                                // Kira uses Death Note instead of predictions — auto-confirm
+                                if (t.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти"))
+                                    t.Status.ConfirmedPredict = true;
+                            }
                         }
 
                         if (game.RoundNo == 9) t.Status.ConfirmedPredict = true;

@@ -210,6 +210,9 @@ public static class Madara
         if (game?.RoundNo != 8) return;
         var madara = Find(game);
         if (madara == null || madara.Passives.Madara.Sealed) return;
+        // Reassert the round lock before readiness counting. The post-round human prediction reset
+        // used to overwrite ConfirmedPredict after HandleNextRound had already locked Madara.
+        SetUnableToAct(madara);
 
         foreach (var bot in game.PlayersList.Where(player =>
                      player.PlayerType == 404

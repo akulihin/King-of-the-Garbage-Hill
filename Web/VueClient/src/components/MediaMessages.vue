@@ -2,6 +2,7 @@
 import { ref, watch, onBeforeUnmount } from 'vue'
 import type { MediaMessage } from 'src/services/signalr'
 import { currentLocale } from 'src/i18n'
+import { resolveSoundUrl } from 'src/services/sound'
 
 const props = defineProps<{
   messages: MediaMessage[]
@@ -95,13 +96,13 @@ watch(
     const activeAudioUrls = new Set<string>()
     for (const msg of msgs) {
       if (msg.fileType === 'audio' && msg.fileUrl) {
-        activeAudioUrls.add(msg.fileUrl)
+        const url = resolveSoundUrl(msg.fileUrl)
+        activeAudioUrls.add(url)
         const loop = (msg.roundsToPlay ?? 1) > 1
 
         // Auto-start audio that we haven't started yet
-        if (!autoStartedUrls.has(msg.fileUrl)) {
-          autoStartedUrls.add(msg.fileUrl)
-          const url = msg.fileUrl
+        if (!autoStartedUrls.has(url)) {
+          autoStartedUrls.add(url)
           // Small delay to let the component mount on first render
           setTimeout(() => {
             const audio = getOrCreateAudio(url, loop)
@@ -187,10 +188,10 @@ function getMediaIcon(fileType: string): string {
           <div v-if="msg.fileType === 'audio' && msg.fileUrl" class="audio-player">
             <button
               class="play-btn"
-              :class="{ playing: isPlaying(msg.fileUrl) }"
-              @click="togglePlay(msg.fileUrl, msg.roundsToPlay ?? 1)"
+              :class="{ playing: isPlaying(resolveSoundUrl(msg.fileUrl)) }"
+              @click="togglePlay(resolveSoundUrl(msg.fileUrl), msg.roundsToPlay ?? 1)"
             >
-              {{ isPlaying(msg.fileUrl) ? '⏸' : '▶' }}
+              {{ isPlaying(resolveSoundUrl(msg.fileUrl)) ? '⏸' : '▶' }}
             </button>
             <span class="audio-file">{{ msg.fileUrl?.split('/').pop() }}</span>
             <span v-if="(msg.roundsToPlay ?? 1) > 1" class="loop-badge">LOOP</span>

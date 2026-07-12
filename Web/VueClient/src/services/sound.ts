@@ -167,8 +167,16 @@ function ensureAudioContext(): AudioContext {
   return audioCtx
 }
 
-function toSoundUrl(relativePath: string): string {
+export function resolveSoundUrl(sourcePath: string): string {
+  if (/^https?:\/\//i.test(sourcePath)) return sourcePath
+  const relativePath = sourcePath
+    .replace(/\\/g, '/')
+    .replace(/^\/?(?:sound\/)?/i, '')
   return `${SOUND_BASE_URL}${relativePath}`
+}
+
+function toSoundUrl(relativePath: string): string {
+  return resolveSoundUrl(relativePath)
 }
 
 async function getOrFetchAudioBuffer(sourceUrl: string): Promise<AudioBuffer | null> {
@@ -947,6 +955,19 @@ export function playDoomGameWinTheme(): void {
 export function playErenGameWinTheme(): void {
   void playClip('character_passives/eren/eren_game_win_theme.mp3', { group: 'winTheme' })
   duckFightGroups(8000)
+}
+
+/** Play a game-win theme only when the character has one. */
+export function playCharacterGameWinTheme(characterName: string): void {
+  switch (characterName) {
+    case 'Сайтама': playSaitamaGameWinTheme(); break
+    case 'Геральт': playGeraltGameWinTheme(); break
+    case 'Кира': playKiraGameWinTheme(); break
+    case 'Монстр без имени': playMonsterGameWinTheme(); break
+    case 'Рик Санчез': playRickGameWinTheme(); break
+    case 'DooM Guy': playDoomGameWinTheme(); break
+    case 'Эрен Йегер': playErenGameWinTheme(); break
+  }
 }
 
 export function playErenTatake(): void {

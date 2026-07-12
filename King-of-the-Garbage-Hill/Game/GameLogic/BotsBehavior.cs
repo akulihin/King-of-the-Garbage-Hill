@@ -71,20 +71,26 @@ public class BotsBehavior : IServiceSingleton
 
     public async Task HandleBotBehavior(GamePlayerBridgeClass player, GameClass game)
     {
-        if (game.RoundNo > 10)
-        {
-            await _gameReaction.HandleAttack(player, null, -10);
-            return;
-        }
-
         // Dead bots (killed by Kira, Kratos, etc.) should not act
         if (player.Passives.IsDead)
             return;
+
+        // Spend every pending point before committing any kind of turn action. This must precede
+        // forced-skip confirmation and special fast paths such as the round-eight Madara challenge.
+        EnsureBotPlaystyle(player, game);
+        if (player.Status.LvlUpPoints > 0)
+            await HandleLvlUpBot(player, game);
 
         // Forced skips are already complete actions. In particular, Шоковый щит must not let a
         // bot immediately replace the skip with its ordinary attack decision.
         if (CompleteForcedSkip(player))
             return;
+
+        if (game.RoundNo > 10)
+        {
+            await _gameReaction.HandleAttack(player, null, -10);
+            return;
+        }
 
         if (Madara.IsMadara(player) && (game.RoundNo == 8 || player.Passives.Madara.Sealed))
         {
@@ -98,10 +104,6 @@ public class BotsBehavior : IServiceSingleton
             return;
         }
 
-        // L2/L3 only: choose one coherent plan once and keep it for the entire match. Several kits
-        // expose mutually-exclusive choices/builds; L1 remains untouched and therefore has no plan.
-        EnsureBotPlaystyle(player, game);
-
         //if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых") && game.RoundNo > 10)
         //{
         //    return;
@@ -112,20 +114,21 @@ public class BotsBehavior : IServiceSingleton
         if (!Dumb(player, game))
             await HandleBotMoral(player, game);
 
-        if (player.Status.LvlUpPoints > 0)
-            await HandleLvlUpBot(player, game);
-
-        // A level-up can create the skip itself: Darksci's round-9 Дизмораль may reduce Psyche to
-        // zero after the entry guard above. Do not let the remaining bot pipeline replace it with
-        // an ordinary attack; real forced attacks are injected later by the readiness/fight pipeline.
-        if (CompleteForcedSkip(player))
-            return;
-
         // Kira bot: write Death Note and use Shinigami Eyes
         if (!Dumb(player, game) && player.GameCharacter.Passive.Any(x => x.PassiveName == "Тетрадь смерти"))
             HandleBotKira(player, game);
 
         await HandleBotAttack(player, game);
+    }
+
+    public async Task PrepareStrictBotBeforeReadiness(GamePlayerBridgeClass player, GameClass game)
+    {
+        if (player == null || player.PlayerType != 404 || player.Passives.IsDead)
+            return;
+
+        EnsureBotPlaystyle(player, game);
+        if (player.Status.LvlUpPoints > 0)
+            await HandleLvlUpBot(player, game);
     }
 
     private void EnsureBotPlaystyle(GamePlayerBridgeClass player, GameClass game)

@@ -111,6 +111,7 @@ export const useGameStore = defineStore('game', () => {
 
   const isMyTurn = computed(() => {
     if (!myPlayer.value) return false
+    if (gameState.value?.roundNo === 8 && myPlayer.value.character.name === 'Мадара') return false
     return !myPlayer.value.status.isReady && !myPlayer.value.status.isSkip
   })
 

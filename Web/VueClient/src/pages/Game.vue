@@ -49,6 +49,7 @@ import {
   stopDoomGameStartTheme,
   playDoomGameWinTheme,
   playErenGameWinTheme,
+  playCharacterGameWinTheme,
   playErenTatake,
   playErenAttackTitan,
   playErenRumblingWarning,
@@ -229,32 +230,39 @@ watch(() => store.myPlayer?.deathNote?.isArrested, (arrested, prevArrested) => {
   }
 })
 
-// Game finish: character win themes (play for all players)
+// Game finish: global winner themes, except viewer-private Eternal Tsukuyomi victories.
 watch(() => store.gameState?.isFinished, (finished, prevFinished) => {
   if (finished && !prevFinished && store.gameState) {
-    // Saitama game win theme
-    const saitamaWon = store.gameState.players.some(p => p.character.name === 'Сайтама' && p.status.place === 1)
-    if (saitamaWon) playSaitamaGameWinTheme()
+    const eternalTsukuyomiVictory = store.myPlayer?.status.scoreBreakdown?.entries
+      .some(entry => entry.source === 'Вечное Цукуеми') ?? false
 
-    // Character win themes — only when that character actually won (place 1)
-    const geraltWon = store.gameState.players.some(p => p.character.name === 'Геральт' && p.status.place === 1)
-    if (geraltWon) playGeraltGameWinTheme()
+    if (eternalTsukuyomiVictory && store.myPlayer) {
+      // The ending is private: only this viewer's projected winner theme may play locally.
+      playCharacterGameWinTheme(store.myPlayer.character.name)
+    } else {
+      // Ordinary endings remain global and use the authoritative/projected place-1 list.
+      const saitamaWon = store.gameState.players.some(p => p.character.name === 'Сайтама' && p.status.place === 1)
+      if (saitamaWon) playSaitamaGameWinTheme()
 
-    const kiraWon = store.gameState.players.some(p => p.character.name === 'Кира' && p.status.place === 1)
-    if (kiraWon) playKiraGameWinTheme()
+      const geraltWon = store.gameState.players.some(p => p.character.name === 'Геральт' && p.status.place === 1)
+      if (geraltWon) playGeraltGameWinTheme()
 
-    const monsterWon = store.gameState.players.some(p => p.character.name === 'Монстр без имени' && p.status.place === 1)
-    if (monsterWon) playMonsterGameWinTheme()
+      const kiraWon = store.gameState.players.some(p => p.character.name === 'Кира' && p.status.place === 1)
+      if (kiraWon) playKiraGameWinTheme()
 
-    const rickWon = store.gameState.players.some(p => p.character.name === 'Рик Санчез' && p.status.place === 1)
-    if (rickWon) playRickGameWinTheme()
+      const monsterWon = store.gameState.players.some(p => p.character.name === 'Монстр без имени' && p.status.place === 1)
+      if (monsterWon) playMonsterGameWinTheme()
 
-    const doomWon = store.gameState.players.some(p => p.character.name === 'DooM Guy' && p.status.place === 1)
-    if (doomWon) playDoomGameWinTheme()
+      const rickWon = store.gameState.players.some(p => p.character.name === 'Рик Санчез' && p.status.place === 1)
+      if (rickWon) playRickGameWinTheme()
 
-    const erenWon = store.gameState.players.some(p =>
-      p.character.name === 'Эрен Йегер' && p.status.place === 1 && !p.isDead)
-    if (erenWon) playErenGameWinTheme()
+      const doomWon = store.gameState.players.some(p => p.character.name === 'DooM Guy' && p.status.place === 1)
+      if (doomWon) playDoomGameWinTheme()
+
+      const erenWon = store.gameState.players.some(p =>
+        p.character.name === 'Эрен Йегер' && p.status.place === 1 && !p.isDead)
+      if (erenWon) playErenGameWinTheme()
+    }
 
     // Stop game start themes on finish
     stopKiraGameStartTheme()
@@ -452,6 +460,7 @@ function goToLobby() {
 // ── Header status (moved from ActionPanel) ──────────────────────────
 const me = computed(() => store.myPlayer)
 const isMadara = computed(() => me.value?.character.name === 'Мадара')
+const isMadaraRoundEight = computed(() => isMadara.value && store.gameState?.roundNo === 8)
 
 // ── Avatar / identity (rendered in game-right) ────────────────────
 const placeTier = computed(() => {
@@ -1215,7 +1224,7 @@ const charTint = computed(() => {
           <div v-if="store.mustSpendLevelUp" class="lvlup-gate-hint">
             ⚠ Остались очки прокачки — потрать их!
           </div>
-          <div class="act-group">
+          <div v-if="!isMadaraRoundEight" class="act-group">
             <button class="act-btn shield" :disabled="!store.isMyTurn || store.mustSpendLevelUp" title="Block" @click="store.block()">
               <span class="gi gi-lg gi-def">DEF</span> Block
             </button>

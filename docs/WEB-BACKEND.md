@@ -81,7 +81,7 @@ Every game-action method starts with `GetDiscordId()` (`GameHub.cs:1682-1687`) a
 | `JoinWebGame(gameId)` | replace a bot (§8), auto-join room, `GameJoined` + state push | `GameHub.cs:200-223` |
 | `CreateTestGame(characterName)` | **admin-only**, non-admin gets `Error` (`GameHub.cs:515-519`); forced-character game (§8) | `GameHub.cs:510-535` |
 | `GetCharacterList()` | replies `CharacterList` (name/avatar/tier of rollable characters) | `GameHub.cs:501-505` |
-| `FinishGame(gameId)` | leave mid-game → replaced by bot via `EndGame` (`WebGameService.cs:922-930`) | `GameHub.cs:543-550` |
+| `FinishGame(gameId)` | leave mid-game → replaced by bot via `EndGame` (`WebGameService.cs:929-941`) | `GameHub.cs:543-550` |
 | `SetPreferWeb(gameId, preferWeb)` | sets `player.PreferWeb` directly — suppresses the player's Discord DMs (see DISCORD-INTERFACE.md §4) | `GameHub.cs:558-573` |
 | `RequestGameState(gameId)` | on-demand push (player-scoped, falls back to spectator) | `GameHub.cs:1021-1041` |
 | `RequestLobbyState()` | replies `LobbyState` | `GameHub.cs:1043-1047` |
@@ -165,24 +165,24 @@ Web actions operate on the **same objects and mostly the same handlers as Discor
 | Web action | Path into game logic | Anchor |
 |---|---|---|
 | Attack | `HandleAttack(player, null, targetPlace)` — `IsAutoMove` is temporarily forced so the handler reads the numeric botChoice instead of Discord component data; on refusal the message is popped from `WebMessages` and returned as the error | `WebGameService.cs:427-457` |
-| Block | direct: `Спарта` → "Спартанцы не капитулируют!!", `Aggress` → "I. WONT. STOP."; Dopa `Макро` registers block as one of two actions via `WhoToAttackThisTurn`; else block+ready, log "Вы поставили блок" | `WebGameService.cs:459-507` |
-| AutoMove | direct: auto-move+ready + phrase log | `WebGameService.cs:509-525` |
-| ChangeMind | direct: reset ready/block/targets, strike the previous log line through | `WebGameService.cs:527-552` |
-| ConfirmSkip / ConfirmPredict | set `ConfirmedSkip` / `ConfirmedPredict` | `WebGameService.cs:554-574` |
-| LevelUp | `HandleLvlUp(player, null, statIndex)` (same `IsAutoMove` trick) | `WebGameService.cs:576-596` |
-| MoralToPoints / MoralToSkill | `HandleMoralForScore` / `HandleMoralForSkill` (min 5 / min 1 moral) | `WebGameService.cs:598-620` |
-| DemandContractReward | full Geralt invoice logic inline (coins, displeasure, advance; ≥11 displeasure → death by "Вилы разъяренной толпы", −500) | `WebGameService.cs:622-708` |
-| Predict | upsert into `player.Predict` | `WebGameService.cs:710-730` |
-| AramReroll / AramConfirm | `HandlePassiveRoll` (slots 1-4) / `HandleBasicStatRoll` (slot 5); confirm sets `IsAramRollConfirmed` | `WebGameService.cs:732-766` |
-| DeathNoteWrite / ShinigamiEyes | direct Kira state writes (once per round; eyes cost 25 moral) | `WebGameService.cs:768-815` |
-| DarksciChoice / DopaChoice / YoungGleb | Darksci direct; Dopa validates the tactic (Стомп, Фарм, Доминация, Роум) then `ApplyDopaChoice`; Gleb transform copies the "Молодой Глеб" character sheet in place | `WebGameService.cs:817-895` |
-| DoomRoll / DoomChainsaw | round-1 roll-mode activation / validated pending Chainsaw passive choice | `WebGameService.cs:897-920` |
-| FinishGame | `EndGame` (bot substitution — same as the Discord Завершить Игру button) | `WebGameService.cs:922-933` |
-| ActivateShen / DeactivateShen / RewriteHistory | direct Salldorum state writes (rewrite steals 1 point per round-loser, +2 psyche, +2 buffered justice, cola time-travel pickup) | `WebGameService.cs:935-1050` |
+| Block | direct: `Спарта` → "Спартанцы не капитулируют!!", `Aggress` → "I. WONT. STOP."; Dopa `Макро` registers block as one of two actions via `WhoToAttackThisTurn`; else block+ready, log "Вы поставили блок" | `WebGameService.cs:459-509` |
+| AutoMove | direct: auto-move+ready + phrase log | `WebGameService.cs:511-529` |
+| ChangeMind | direct: reset ready/block/targets, strike the previous log line through | `WebGameService.cs:531-557` |
+| ConfirmSkip / ConfirmPredict | set `ConfirmedSkip` / `ConfirmedPredict` | `WebGameService.cs:559-580` |
+| LevelUp | `HandleLvlUp(player, null, statIndex)` (same `IsAutoMove` trick) | `WebGameService.cs:583-603` |
+| MoralToPoints / MoralToSkill | `HandleMoralForScore` / `HandleMoralForSkill` (min 5 / min 1 moral) | `WebGameService.cs:605-632` |
+| DemandContractReward | full Geralt invoice logic inline (coins, displeasure, advance; ≥11 displeasure → death by "Вилы разъяренной толпы", −500) | `WebGameService.cs:634-715` |
+| Predict | upsert into `player.Predict` | `WebGameService.cs:717-737` |
+| AramReroll / AramConfirm | `HandlePassiveRoll` (slots 1-4) / `HandleBasicStatRoll` (slot 5); confirm sets `IsAramRollConfirmed` | `WebGameService.cs:739-773` |
+| DeathNoteWrite / ShinigamiEyes | direct Kira state writes (once per round; eyes cost 25 moral) | `WebGameService.cs:775-822` |
+| DarksciChoice / DopaChoice / YoungGleb | Darksci direct; Dopa validates the tactic (Стомп, Фарм, Доминация, Роум) then `ApplyDopaChoice`; Gleb transform copies the "Молодой Глеб" character sheet in place | `WebGameService.cs:824-902` |
+| DoomRoll / DoomChainsaw | round-1 roll-mode activation / validated pending Chainsaw passive choice | `WebGameService.cs:904-927` |
+| FinishGame | `EndGame` (bot substitution — same as the Discord Завершить Игру button) | `WebGameService.cs:929-941` |
+| ActivateShen / DeactivateShen / RewriteHistory | direct Salldorum state writes (rewrite steals 1 point per round-loser, +2 psyche, +2 buffered justice, cola time-travel pickup) | `WebGameService.cs:942-1062` |
 
-Madara action gates are enforced server-side, not only hidden in Vue: round-8/sealed attack attempts and targeting sealed Madara are rejected by the shared `HandleAttack` path (`GameReactions.cs:688-735`); `ChangeMind` rejects sealed Madara; `LevelUp` and `Predict` reject every Madara request (`WebGameService.cs:527-552,576-596,710-730`).
+Madara action gates are enforced server-side, not only hidden in Vue: round-8/sealed attack attempts and targeting sealed Madara are rejected by the shared `HandleAttack` path (`GameReactions.cs:688-735`); Block, AutoMove, ChangeMind and ConfirmSkip all reject round-8 or sealed Madara through `MadaraActionError`; `LevelUp` and `Predict` reject every Madara request (`WebGameService.cs:459-580,1151-1163,588-608,722-742`).
 
-**Game creation** (`CreateGame`, `WebGameService.cs:206-275`): rolls a full 6-bot game via `HandleCharacterRoll`, replaces the first bot with the creator and re-snapshots a possible DooM Guy loadout from the creator account (`WebGameService.cs:224-235`), then creates `GameClass` + Nanobot. Draft mode places a newcomer-protected DooM Guy option first/free (`WebGameService.cs:242-260`). `JoinWebGame` likewise reinitializes a DooM seat from the joining account (`WebGameService.cs:280-313`); `DraftSelect` serializes on the game monitor, rejects duplicates before any debit, then validates/persists a paid pick under the account monitor and restores it on failure before replacing the bridge (`WebGameService.cs:328-420`). `CreateTestGame` = `CreateGame` + forced character, swapping conflicts if needed (`WebGameService.cs:1017-1133`).
+**Game creation** (`CreateGame`, `WebGameService.cs:206-275`): rolls a full 6-bot game via `HandleCharacterRoll`, replaces the first bot with the creator and re-snapshots a possible DooM Guy loadout from the creator account (`WebGameService.cs:224-235`), then creates `GameClass` + Nanobot. Draft mode places a newcomer-protected DooM Guy option first/free (`WebGameService.cs:242-260`). `JoinWebGame` likewise reinitializes a DooM seat from the joining account (`WebGameService.cs:280-313`); `DraftSelect` serializes on the game monitor, rejects duplicates before any debit, then validates/persists a paid pick under the account monitor and restores it on failure before replacing the bridge (`WebGameService.cs:328-420`). `CreateTestGame` = `CreateGame` + forced character, swapping conflicts if needed (`WebGameService.cs:1069-1146`).
 
 ## 9. Replays
 
