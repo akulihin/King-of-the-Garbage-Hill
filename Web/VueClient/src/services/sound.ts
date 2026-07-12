@@ -191,7 +191,9 @@ async function getOrFetchAudioBuffer(sourceUrl: string): Promise<AudioBuffer | n
   const ctx = ensureAudioContext()
   const promise = (async () => {
     const response = await fetch(sourceUrl).catch(() => null)
-    if (!response || !response.ok) {
+    // Network-level failure: don't blacklist, so a transient hiccup can retry later
+    if (!response) return null
+    if (!response.ok) {
       failedUrls.add(sourceUrl)
       return null
     }
@@ -341,7 +343,9 @@ const DOOMSDAY_TIMING_CRITICAL_PATHS = [
   'dooms_day/round_3/round_3_win_or_lose__less_5_percent.mp3',
   ...['w', 'l'].map(seq => `dooms_day/win_lose/1_${seq}.mp3`),
   ...['ww', 'wl', 'lw', 'll'].map(seq => `dooms_day/win_lose/2_${seq}.mp3`),
-  ...['www', 'wwl', 'wlw', 'wll', 'lww', 'lwl', 'llw', 'lll'].map(seq => `dooms_day/win_lose/3_${seq}.mp3`),
+  // Round 3 only happens after a 1-1 split, so only these four sequences can occur —
+  // 3_www/3_wwl/3_llw/3_lll files intentionally don't exist.
+  ...['wlw', 'wll', 'lww', 'lwl'].map(seq => `dooms_day/win_lose/3_${seq}.mp3`),
   'dooms_day/win_lose/f_ww_absolute.mp3',
   'dooms_day/win_lose/f_ll_absolute.mp3',
   'dooms_day/win_lose/f_any_lose.mp3',
