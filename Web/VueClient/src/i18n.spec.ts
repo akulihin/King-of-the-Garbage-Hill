@@ -98,6 +98,30 @@ describe('English presentation localization', () => {
       .toBe('Darksci: Всё, у меня горит!')
   })
 
+  it('localizes the remaining UI, character, and dynamic event records', () => {
+    expect(translateText('Нет ваших боев в этом раунде'))
+      .toBe('No fights involving you this round')
+    expect(translateText('В прошлом раунде ничего не произошло.'))
+      .toBe('Nothing happened last round.')
+    expect(translateText('All Talk: Да блять, я не бущенный!'))
+      .toBe("All Talk: For fuck's sake, I'm not boosted!")
+    expect(translateText('Армин: Внимание! Нам всем скоро конец! Поэтому... Весь мир должен объединиться и убить... Эрена Йегера!'))
+      .toBe("Armin: Attention! We're all going to die! So... the whole world must unite and kill... Eren Yeager!")
+    expect(translateText('Армин: **Внимание!** Нам всем скоро конец! Поэтому... Весь мир должен объединиться и убить... Эрена Йегера!'))
+      .toBe("Armin: **Attention!** We're all going to die! So... the whole world must unite and kill... Eren Yeager!")
+    expect(translateText('You поставили блок')).toBe('You blocked')
+    expect(translateText('Блять, суки, че вы меня таким слабым сделали?'))
+      .toBe('Fuck this, why did you make me so weak?')
+    expect(translateText('Rumbling: Эрен остался на 5 месте. Между ним и Элдией никого нет.'))
+      .toBe('Rumbling: Eren remains at place 5. No one stands between him and Eldia.')
+    expect(translateText('Mitsuki отнял в общей сумме 20 points.'))
+      .toBe('Mitsuki took away 20 points in total.')
+    expect(translateText('Dragon: Бля, чо за хуйня со мной происходит!?'))
+      .toBe('Dragon: What the fuck is happening to me!?')
+    expect(translateText('Shock Shield: следующий turn пропущен.'))
+      .toBe('Shock Shield: your next turn is skipped.')
+  })
+
   it('has an exact legacy-replay translation for every authored PhraseClass variant', () => {
     for (const group of Object.values(phrases)) {
       for (const pair of group.phrases) {
