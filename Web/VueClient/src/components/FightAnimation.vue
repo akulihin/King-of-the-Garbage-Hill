@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import type { FightEntry, ForOneFightMod, Player, Prediction, CharacterInfo } from 'src/services/signalr'
+import { translateText } from 'src/i18n'
 import FightArena from './fight/FightArena.vue'
 import FightArenaCards from './fight/FightArenaCards.vue'
 import FightArenaClassic from './fight/FightArenaClassic.vue'
@@ -995,7 +996,7 @@ const discordEmojiMap: Record<string, string> = {
 }
 
 function formatLetopis(text: string): string {
-  return text
+  return translateText(text)
     .replace(/<:(\w+):\d+>/g, (_match, name: string) => {
       const src = discordEmojiMap[name]
       if (src === undefined) return `[${name}]`

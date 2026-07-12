@@ -66,6 +66,38 @@ describe('English presentation localization', () => {
       .toBe("Meditation: Close my eyes... Nope, smell's still here.Meditation: Close my eyes... Nope, smell's still here.")
   })
 
+  it('localizes afffa305 chronicle and dynamic-name records completely', () => {
+    expect(translateText('Ключевые моменты по персонажам')).toBe('Character Highlights')
+    expect(translateText('Поражение: Vampoor вас обманул'))
+      .toBe('Defeat: Vampoor outsmarted you')
+    expect(translateText('Defeat: Vampoor вас outsmarted'))
+      .toBe('Defeat: Vampoor outsmarted you')
+    expect(translateText('Вы использовали Авто Ход')).toBe('You used Auto Move')
+    expect(translateText('You использовали Auto Move')).toBe('You used Auto Move')
+    expect(translateText('Они скинули **Darksci**! Сволочи!'))
+      .toBe('They threw **Darksci** off the hill! Bastards!')
+    expect(translateText('Darksci: Всё, у меня горит!'))
+      .toBe("Darksci: That's it, I'm absolutely tilted!")
+    expect(translateText('Darksci: Всё, у меня is burning!'))
+      .toBe("Darksci: That's it, I'm absolutely tilted!")
+    expect(translateText('Мишень: +20 Skill (за сильного врага)'))
+      .toBe('Target: +20 Skill (for a strong enemy)')
+    expect(translateText('Поражение: -2 Moral. Darksci вас обогнал'))
+      .toBe('Defeat: -2 Moral. Darksci overtook you')
+    expect(translateText('Defeat: -2 Moral. Player.Name-42 вас overtook'))
+      .toBe('Defeat: -2 Moral. Player.Name-42 overtook you')
+    expect(translateText('ПАНЦИРЬ')).toBe('CARAPACE')
+    expect(translateText('Даже имя мое написать нормально не можете'))
+      .toBe("You can't even spell my name right.")
+
+    setLocale('ru')
+    expect(translateText('Defeat: Player.Name-42 overtook you'))
+      .toBe('Поражение: Player.Name-42 вас обогнал')
+    expect(translateText('You used Auto Move')).toBe('Вы использовали Авто Ход')
+    expect(translateText("Darksci: That's it, I'm absolutely tilted!"))
+      .toBe('Darksci: Всё, у меня горит!')
+  })
+
   it('has an exact legacy-replay translation for every authored PhraseClass variant', () => {
     for (const group of Object.values(phrases)) {
       for (const pair of group.phrases) {

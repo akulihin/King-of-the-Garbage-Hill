@@ -36,6 +36,8 @@ At startup, the backend joins `characters`/`passives` to the canonical source te
 
 Markup may split one grammatical phrase into separate tokens (for example `**обычных** очков`), and older replay projections may already contain English around one remaining Russian token (`Class: +2 Cкилла`). Catalog both the smallest safe mixed-script/markup token and any dynamic sentence fragment needed to finish those records. Justice encouragements, AWDKA troll outcomes and the last-second winner line are the reference cases; their canonical Russian producers are not rewritten.
 
+Dynamic templates must also accept already-partially-localized replay forms. Nemesis defeat connectors therefore match both `вас обогнал` and `вас overtook`, then render `overtook you` without matching or rewriting the preceding player name. Auto Move and Darksci's global tilt line use the same idempotent pattern (`GameLocalization.cs:34-49`; `Web/VueClient/src/i18n.ts:104-119`).
+
 Achievements and Daily Quests use separate typed bilingual catalogs. Achievement definitions carry paired names/descriptions/secret hints (`AchievementClass.cs:12-88`; DTO `GameStateDto.cs:1119-1139`); Daily Quest definitions carry paired names/descriptions plus stable nonlocalized lane/icon/aggregation metadata (`QuestClass.cs:26-68,208-260`; DTO `GameStateDto.cs:1064-1082`). This copy does not belong in `characters.json` or passive descriptions. Locked Achievement masking is applied symmetrically before the DTO leaves the server (`GameHub.cs:1645-1679`).
 
 ## 4. Backend boundaries
@@ -58,6 +60,8 @@ Development builds warn in the console when an English-rendered node still conta
 1. Add an exact catalog entry in both directions when the source surface is English-first.
 2. Use `terms` only for names or tokens safe to replace in arbitrary presentation strings.
 3. Test switching both ways after the component has reactively updated.
+
+The Chronicle is a special HTML-rendering boundary: `FightAnimation.formatLetopis` localizes the complete Discord-markdown string before replacing bold/emphasis markers with HTML. This ordering is required for templates that span formatted dynamic names, such as `Они скинули **Darksci**! Сволочи!` and target-class rewards (`FightAnimation.vue:998-1012`).
 
 ## 6. Generated text
 
