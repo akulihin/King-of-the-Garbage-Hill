@@ -37,7 +37,7 @@ resolve() {
       echo "$B/Game/ReactionHandling/$1";;
     CharacterClass.cs|InGameStatusClass.cs|GamePlayerBridgeClass.cs|PassivesClass.cs|GameClass.cs|DiscordAccountClass.cs|InGameDiscordStatus.cs|AchievementClass.cs|QuestClass.cs)
       echo "$B/Game/Classes/$1";;
-    SecureRandom.cs|ClaudeHaikuService.cs|HelperFunctions.cs|GameLocalization.cs|PhraseLocalization.cs) echo "$B/Helpers/$1";;
+    SecureRandom.cs|ClaudeHaikuService.cs|HelperFunctions.cs|GameLocalization.cs|PhraseLocalization.cs|BilingualGeneratedText.cs) echo "$B/Helpers/$1";;
     SimulationRunner.cs|BotGameFactory.cs|SimReport.cs) echo "$B/Game/Simulation/$1";;
     Program.cs|Global.cs|Config.cs) echo "$B/$1";;
     General.cs|AdminPanel.cs|HelpModule.cs|Lore.cs|Store.cs|Tutorial.cs|DiceRoll.cs|ServerManagement.cs)

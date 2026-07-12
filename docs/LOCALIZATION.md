@@ -61,8 +61,8 @@ Development builds warn in the console when an English-rendered node still conta
 
 ## 6. Generated text
 
-- Game stories ask the LLM for paired RU and EN tagged adaptations and store both in one replay-safe HTML artifact. CSS shows only the active locale; a malformed legacy/single-language response still renders through the old fallback (`GameStoryService.cs:45-77`, `GameStoryService.cs:322-329`, `App.vue:301-304`).
-- Geralt hints ask in the owning player's locale. Failures select a canonical Russian hint and project it through the shared exact catalog; there is no second English C# dictionary (`ClaudeHaikuService.cs:37-65`, `Geralt.cs:335-369`, `CP:4657-4713`).
+- Game stories ask the LLM for paired RU and EN tagged adaptations and store both in one replay-safe HTML artifact. The shared parser requires both non-empty blocks; malformed output gets one constrained retry and is discarded if still invalid, so raw single-language prose is never published (`GameStoryService.cs:58-93`; `BilingualGeneratedText.cs:6-32`; `App.vue:371-373`).
+- Geralt hints use the same paired generation contract in one Haiku request. Valid generated adaptations—or a paired static fallback on any failure—are embedded into one `PhraseV2` personal-log record, making arbitrary AI prose switchable in live web, Discord and replays without a client lookup (`ClaudeHaikuService.cs:34-108`; `CP:4678-4712`).
 
 ## 7. Verification checklist
 

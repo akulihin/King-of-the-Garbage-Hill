@@ -142,6 +142,21 @@ describe('English presentation localization', () => {
     expect(translateText(payload)).toBe('Auto Move: What are you, a bot?')
   })
 
+  it('switches an arbitrary AI-generated Witcher hint from its embedded pair', () => {
+    const payload = phrasePayload([
+      'Чутьё',
+      'На камнях пепел. Кто-то слишком зол, чтобы умереть. (Target)',
+      'Witcher senses',
+      'Ash on the stones. Someone is far too angry to die. (Target)',
+    ])
+
+    expect(translateText(payload))
+      .toBe('|>Phrase<|Witcher senses: Ash on the stones. Someone is far too angry to die. (Target)')
+    setLocale('ru')
+    expect(translateText(payload))
+      .toBe('|>Phrase<|Чутьё: На камнях пепел. Кто-то слишком зол, чтобы умереть. (Target)')
+  })
+
   it('translates class labels and their split tooltip fragments', () => {
     expect(translateText('Сильный')).toBe('Strong')
     expect(translateText('Быстрый')).toBe('Fast')

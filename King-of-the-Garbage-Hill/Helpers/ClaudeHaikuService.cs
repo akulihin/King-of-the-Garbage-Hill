@@ -2,6 +2,7 @@ using System;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -31,35 +32,30 @@ public class ClaudeHaikuService : IServiceSingleton
     public Task InitializeAsync() => Task.CompletedTask;
 
     /// <summary>
-    /// Generates a Geralt-style one-liner hint about a target character.
-    /// Returns null on failure (caller should fall back to static hints).
+    /// Generates paired Geralt-style one-liner hints about a target character.
+    /// Returns null on failure or malformed output (caller should fall back to static hints).
     /// </summary>
-    public async Task<string> GenerateWitcherHintAsync(string characterName, string description, string monsterType,
-        string language = GameLocalization.Russian)
+    public async Task<BilingualGeneratedText> GenerateWitcherHintPairAsync(
+        string characterName, string description, string monsterType)
     {
         if (Disabled || string.IsNullOrWhiteSpace(_apiKey))
             return null;
 
-        var prompt = language == GameLocalization.English
-            ? $"You are Geralt of Rivia, meditating over a monster's trail.\n" +
-              $"Monster: {characterName}" +
-              (string.IsNullOrWhiteSpace(description) ? "" : $" ({description})") +
-              $"\nMonster type: {monsterType}\n" +
-              "Write one or two short lines (15 words maximum) like a dry, funny witcher investigation clue. " +
-              "Never say the character's name, but make the clue guessable. No quotation marks or explanation. English only."
-            : $"Ты - Геральт из ёбанной Ривии. Ты медитируешь и чувствуешь след монстра.\n" +
-              $"Монстр: {characterName}" +
-              (string.IsNullOrWhiteSpace(description) ? "" : $" ({description})") +
-              $"\nТип монстра: {monsterType}\n" +
-              "Напиши одну-две короткие фразы (максимум 15 слов) в стиле ведьмачьего расследования — что ты нашёл на месте. " +
-              "Без кавычек и пояснений. Никогда не упоминай имя персонажа, но оставь догадку. Шутки приветствуются.";
+        var prompt = $"Ты — Геральт из ёбанной Ривии. Ты медитируешь и чувствуешь след монстра.\n" +
+                     $"Монстр: {characterName}" +
+                     (string.IsNullOrWhiteSpace(description) ? "" : $" ({description})") +
+                     $"\nТип монстра: {monsterType}\n" +
+                     "Напиши одну короткую улику ведьмачьего расследования (максимум 15 слов) в двух адаптированных версиях. " +
+                     "Обе версии должны описывать одну и ту же находку и шутку. Не упоминай имя персонажа, но оставь догадку. " +
+                     "Русский текст помести строго внутрь <ru>...</ru>. Затем напиши естественную, не дословную английскую адаптацию " +
+                     "строго внутри <en>...</en>. Никаких других тегов, кавычек или пояснений.";
 
         try
         {
             var requestBody = new
             {
                 model = Model,
-                max_tokens = 100,
+                max_tokens = 180,
                 messages = new[]
                 {
                     new { role = "user", content = prompt }
@@ -85,10 +81,24 @@ public class ClaudeHaikuService : IServiceSingleton
                 .GetProperty("text")
                 .GetString()
                 ?.Trim();
-            
-            Console.WriteLine($"[WitcherHint] Generated hint for {characterName}: {text}");
 
-            return string.IsNullOrWhiteSpace(text) ? null : text;
+            if (!BilingualGeneratedTextParser.TryParse(text, out var generated))
+            {
+                Console.WriteLine($"[WitcherHint] Invalid bilingual output for {characterName}: {text}");
+                return null;
+            }
+
+            var russian = BilingualGeneratedTextParser.CollapseToOneLine(generated.Russian);
+            var english = BilingualGeneratedTextParser.CollapseToOneLine(generated.English);
+            if (russian.Length > 300 || english.Length > 300 ||
+                !Regex.IsMatch(russian, "[А-Яа-яЁё]") || Regex.IsMatch(english, "[А-Яа-яЁё]"))
+            {
+                Console.WriteLine($"[WitcherHint] Rejected bilingual output for {characterName}: {text}");
+                return null;
+            }
+
+            Console.WriteLine($"[WitcherHint] Generated paired hint for {characterName}: RU={russian} EN={english}");
+            return new BilingualGeneratedText(russian, english);
         }
         catch (Exception ex)
         {

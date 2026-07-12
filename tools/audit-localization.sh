@@ -75,5 +75,12 @@ grep -q 'SortedExact' King-of-the-Garbage-Hill/Helpers/GameLocalization.cs
 grep -q 'russianExactEntries' Web/VueClient/src/i18n.ts
 grep -q 'PhraseFallbacks' King-of-the-Garbage-Hill/Helpers/GameLocalization.cs
 grep -q 'phraseFallbacks' Web/VueClient/src/i18n.ts
+grep -q 'GenerateWitcherHintPairAsync' King-of-the-Garbage-Hill/Helpers/ClaudeHaikuService.cs
+grep -q 'PhrasePayload.Encode' King-of-the-Garbage-Hill/Game/GameLogic/CharacterPassives.cs
+grep -q 'BilingualGeneratedTextParser.TryParse' King-of-the-Garbage-Hill/API/Services/GameStoryService.cs
+if rg -q 'GenerateWitcherHintAsync' King-of-the-Garbage-Hill; then
+  echo "Legacy single-language Witcher hint generation is still referenced."
+  exit 1
+fi
 
 echo "Localization audit passed: $(wc -l < "$tmp/characters-source") characters, $(wc -l < "$tmp/passives-source") passives, $(wc -l < "$tmp/phrases-source") phrase classes."

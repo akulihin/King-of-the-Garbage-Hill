@@ -4675,18 +4675,17 @@ public class CharacterPassives : IServiceSingleton
 
                             geraltMedEor.RevealedEnemies.Add(hintTarget.GetPlayerId());
 
-                            string hint;
-                            // For human players, generate a unique hint via AI
+                            BilingualGeneratedText hint;
+                            // For human players, generate one replay-safe bilingual hint via AI.
                             if (!player.IsBot())
                             {
                                 var monsterTypeName = Geralt.GetMonsterTypeName(hintTarget.Passives.GeraltMonsterType!.Value);
                                 try
                                 {
-                                    hint = _haikuService.GenerateWitcherHintAsync(
+                                    hint = _haikuService.GenerateWitcherHintPairAsync(
                                         hintTarget.GameCharacter.Name,
                                         hintTarget.GameCharacter.Description,
-                                        monsterTypeName,
-                                        GameLocalization.GetUserLanguage(player.DiscordId)
+                                        monsterTypeName
                                     ).GetAwaiter().GetResult();
                                 }
                                 catch
@@ -4699,18 +4698,18 @@ public class CharacterPassives : IServiceSingleton
                                 hint = null;
                             }
 
-                            // Fallback to static dictionary
-                            if (string.IsNullOrWhiteSpace(hint))
+                            // Fall back as a pair too, so live switching and replays remain bilingual.
+                            if (hint == null)
                             {
-                                var english = GameLocalization.GetUserLanguage(player.DiscordId) == GameLocalization.English;
-                                hint = Geralt.WitcherSensesHints.TryGetValue(hintTarget.GameCharacter.Name, out var h)
+                                var russianHint = Geralt.WitcherSensesHints.TryGetValue(hintTarget.GameCharacter.Name, out var h)
                                     ? h : "Что-то странное. Неизвестный зверь.";
-                                if (english)
-                                    hint = GameLocalization.Text(hint, GameLocalization.English);
+                                hint = new BilingualGeneratedText(
+                                    russianHint, GameLocalization.Text(russianHint, GameLocalization.English));
                             }
 
-                            player.Status.AddInGamePersonalLogs(
-                                $"{(GameLocalization.GetUserLanguage(player.DiscordId) == GameLocalization.English ? "Witcher senses" : "Чутьё")}: {hint} ({hintTarget.DiscordUsername})\n");
+                            player.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
+                                "Чутьё", $"{hint.Russian} ({hintTarget.DiscordUsername})",
+                                "Witcher senses", $"{hint.English} ({hintTarget.DiscordUsername})") + "\n");
                         }
 
                         // Lambert: 10% chance, one-time per game (m16)

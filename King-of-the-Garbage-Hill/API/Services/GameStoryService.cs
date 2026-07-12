@@ -65,13 +65,22 @@ public class GameStoryService
 
                 if (!string.IsNullOrWhiteSpace(story))
                 {
+                    if (!BilingualGeneratedTextParser.TryParse(story, out var generated))
+                    {
+                        Console.WriteLine($"[GameStory] Invalid bilingual output for game {gameId}; retrying once.");
+                        story = await CallClaudeApi(prompt +
+                            "\n<format-reminder>Return exactly one non-empty <ru>...</ru> block and one non-empty <en>...</en> block. No text outside them.</format-reminder>");
+                    }
+
+                    if (!BilingualGeneratedTextParser.TryParse(story, out generated))
+                    {
+                        Console.WriteLine($"[GameStory] Rejected non-bilingual output for game {gameId}.");
+                        return;
+                    }
+
                     // One shared artifact carries both variants; CSS shows the viewer's locale.
-                    var russian = ExtractLanguageBlock(story, "ru");
-                    var english = ExtractLanguageBlock(story, "en");
-                    var html = !string.IsNullOrWhiteSpace(russian) && !string.IsNullOrWhiteSpace(english)
-                        ? $"<div class=\"story-locale story-ru\">{FormatStoryHtml(russian)}</div>" +
-                          $"<div class=\"story-locale story-en\">{FormatStoryHtml(english)}</div>"
-                        : FormatStoryHtml(story);
+                    var html = $"<div class=\"story-locale story-ru\">{FormatStoryHtml(generated.Russian)}</div>" +
+                               $"<div class=\"story-locale story-en\">{FormatStoryHtml(generated.English)}</div>";
 
                     // Store for later retrieval (e.g. on reconnect/rejoin)
                     StoreStory(gameId, html);
@@ -319,14 +328,6 @@ public class GameStoryService
         text = text.Trim();
 
         return text;
-    }
-
-    private static string ExtractLanguageBlock(string text, string language)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return null;
-        var match = Regex.Match(text, $@"<{language}>\s*(.*?)\s*</{language}>",
-            RegexOptions.IgnoreCase | RegexOptions.Singleline);
-        return match.Success ? match.Groups[1].Value.Trim() : null;
     }
 
     private static string StripDiscordEmoji(string text)

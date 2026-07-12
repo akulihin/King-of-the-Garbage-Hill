@@ -131,7 +131,7 @@ Message edits are serialized per player through an embed queue with 200 ms spins
 
 ## 10. Claude integration (Geralt's Медитация)
 
-When a **human** Geralt blocks/meditates, the passive resolves a not-yet-revealed enemy and asks `ClaudeHaikuService.GenerateWitcherHintAsync` for a one-line Russian witcher-style hint (`CP:4373`); on null (no API key, 5 s timeout, HTTP error, or the simulation kill-switch) it falls back to the static `WitcherSensesHints` dictionary (`CP:4391`, table at `Geralt.cs:336`); the result lands in personal logs as `Чутьё: {hint} ({username})` (`CP:4394`). Service internals in WEB-BACKEND.md §11.
+When a **human** Geralt blocks/meditates, the passive resolves a not-yet-revealed enemy and asks `ClaudeHaikuService.GenerateWitcherHintPairAsync` for matching Russian and naturally adapted English clues in one request (`CP:4678-4689`). Missing keys, the 5 s timeout, HTTP/malformed output, or the simulation kill-switch fall back to the canonical `WitcherSensesHints` entry plus its shared-catalog English pair (`CP:4701-4708`; table `Geralt.cs:335-369`). Both generated and static paths enter personal logs as one `PhraseV2` payload, so Discord resolves the current account language without losing the other replay variant (`CP:4710-4712`). Service internals in WEB-BACKEND.md §11.
 
 ## 11. Russian / English presentation
 
