@@ -722,6 +722,9 @@ public class GoblinSwarmStateDto
     public int HobRate { get; set; }
     public int WarriorRate { get; set; }
     public int WorkerRate { get; set; }
+    public int HobUpgradeLevel { get; set; }
+    public int WarriorUpgradeLevel { get; set; }
+    public int WorkerUpgradeLevel { get; set; }
     public List<int> ZigguratPositions { get; set; }
     public bool IsInZiggurat { get; set; }
     public bool FestivalUsed { get; set; }
@@ -1001,6 +1004,17 @@ public class DoomGuyStateDto
     public Dictionary<string, string> ActiveModules { get; set; } = new();
     public List<string> DemonNestNames { get; set; } = new();
     public bool BfgCharged { get; set; }
+    public int AscensionIntelligenceRemaining { get; set; }
+    public int ManeuversSpeedRemaining { get; set; }
+    public int ExterminationVictories { get; set; }
+    public bool ExterminationAwarded { get; set; }
+    public bool ShockShieldUsed { get; set; }
+    public int BlocksThisRound { get; set; }
+    public bool HellBlockUsed { get; set; }
+    public bool EverBlocked { get; set; }
+    public bool EverLost { get; set; }
+    public bool BecomeGodAwarded { get; set; }
+    public bool ChainsawSpent { get; set; }
     public List<DoomCopiedPassiveDto> ChainsawChoices { get; set; } = new();
     public string CopiedPassiveName { get; set; }
 }

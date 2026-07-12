@@ -118,6 +118,7 @@ export const useGameStore = defineStore('game', () => {
   // A pending level-up must be spent before the player can continue — matches Discord, which
   // hides the fight controls until the points are spent. Gates the four turn-ending actions. (M15)
   const mustSpendLevelUp = computed(() => (myPlayer.value?.status.lvlUpPoints ?? 0) > 0)
+  const isLevelingUp = computed(() => pendingLevelUp.value !== null)
 
   const roundTimeLeft = computed(() => {
     if (!gameState.value) return 0
@@ -865,6 +866,7 @@ export const useGameStore = defineStore('game', () => {
     opponents,
     isMyTurn,
     mustSpendLevelUp,
+    isLevelingUp,
     roundTimeLeft,
     isInGame,
     isAdmin,

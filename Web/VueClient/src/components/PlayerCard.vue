@@ -3,6 +3,7 @@ import { computed, ref, watch, onUnmounted } from 'vue'
 import type { Player, PortalGun, ExploitState, TsukuyomiState, PassiveAbilityStates, ScoreBreakdown } from 'src/services/signalr'
 import { useTip } from 'src/composables/useTip'
 import ScoreOdometer from 'src/components/ScoreOdometer.vue'
+import SpecialLevelUpPanel from 'src/components/SpecialLevelUpPanel.vue'
 import { useGameStore } from 'src/store/game'
 import {
   playComboHype,
@@ -194,11 +195,7 @@ const rarityClass = computed(() => {
   }
 })
 
-const isGoblin = computed(() => props.player?.character.name === 'Стая Гоблинов')
 const isGeralt = computed(() => props.player?.character.name === 'Геральт')
-const isKotiki = computed(() => props.player?.character.name === 'Котики')
-const isTheBoys = computed(() => props.player?.character.name === 'TheBoys')
-const isDoomGuy = computed(() => props.player?.character.name === 'DooM Guy')
 const isEren = computed(() => props.player?.character.name === 'Эрен Йегер')
 const isIrelia = computed(() => props.player?.character.passives.some((p: { name: string }) => p.name === 'Main Ирелия') ?? false)
 const goblin = computed(() => passiveStates.value?.goblinSwarm ?? null)
@@ -206,15 +203,38 @@ const geralt = computed(() => passiveStates.value?.geralt ?? null)
 const theBoys = computed(() => passiveStates.value?.theBoys ?? null)
 const doomGuy = computed(() => passiveStates.value?.doomGuy ?? null)
 
-// TheBoys member level-up buttons (goblin-style label). Each member maxes at 4 → unlocks an ultimate.
-const theBoysMembers = computed(() => {
-  const tb = theBoys.value
-  return [
-    { idx: 1 as const, name: 'Francie', icon: '🧪', level: tb?.chemWeaponLevel ?? 0 },
-    { idx: 2 as const, name: 'Butcher', icon: '🔪', level: tb?.pokerCount ?? 0 },
-    { idx: 3 as const, name: 'Kimiko', icon: '💚', level: tb?.regenLevel ?? 0 },
-    { idx: 4 as const, name: 'M.M.', icon: '📋', level: tb?.mmUpgradeLevel ?? 0 },
-  ]
+const hasPassive = (name: string) => props.player?.character.passives.some((passive: { name: string }) => passive.name === name) ?? false
+
+// These mechanics replace the ordinary +1 stat choice entirely. Keeping this list explicit
+// prevents a new special branch from accidentally exposing misleading + buttons.
+const usesSpecialLevelUpPanel = computed(() => {
+  const name = props.player?.character.name
+  return name === 'DooM Guy'
+    || name === 'Стая Гоблинов'
+    || name === 'Геральт'
+    || name === 'TheBoys'
+    || name === 'Котики'
+    || name === 'Вампур'
+    || hasPassive('Vampyr Позорный')
+    || hasPassive('Main Ирелия')
+    || hasPassive('Закуп')
+})
+
+// These characters still choose a normal stat, but level-up also triggers a load-bearing
+// passive consequence. Surface it at the decision point instead of burying it in the log.
+const levelUpConsequences = computed(() => {
+  if (!hasLvlUpPoints.value || usesSpecialLevelUpPanel.value) return []
+  const notes: string[] = []
+  const name = props.player?.character.name
+  if (name === 'Итачи') notes.push('Любой выбор подготовит Ворона: он сядет на цель следующей атаки, даже при поражении.')
+  if (name === 'Salldorum') notes.push('Любой выбор также даст +1 заряд Шэн.')
+  if (name === 'Рик Санчез' && hasPassive('Гигантские бобы')) notes.push('Любой выбор разложит ингредиенты на новых врагов; INT повышает базу Бобов и не ограничен 10.')
+  if (name === 'Рик Санчез' && hasPassive('Портальная пушка')) notes.push('При INT 30 Портальная пушка будет изобретена; после изобретения каждый выбор даёт +1 заряд.')
+  if (name === 'Darksci' && roundNo.value === 9) notes.push('Дизмораль после выбора отнимет 5 Психики. Если она упадёт до 0, этот ход сразу станет пропуском.')
+  if (name === 'Darksci' && roundNo.value !== 9 && props.player.character.psyche <= 0) notes.push('После обязательной прокачки Дизмораль подтвердит пропуск этого хода.')
+  const training = passiveStates.value?.training
+  if (name === 'Sirinoks' && training?.currentStatIndex) notes.push(`Обучение: цель — ${training.statName} ${training.targetStatValue}. Достижение цели даст +3 Морали и +10% Скилла.`)
+  return notes
 })
 
 // Geralt demand progressive color helpers
@@ -622,6 +642,38 @@ function handleMoralToSkill() {
 function handleDoomChainsaw(passiveName: string) {
   void store.doomChainsaw(passiveName)
 }
+
+const doomStages = [
+  { key: 'Rune', icon: 'ᛟ', label: 'РУНА' },
+  { key: 'Shield', icon: '⬡', label: 'ЩИТ' },
+  { key: 'Mission', icon: '⌖', label: 'МИССИЯ' },
+  { key: 'Gun', icon: '▰', label: 'ОРУЖИЕ' },
+] as const
+
+function doomModuleStatus(module: string): { text: string; state: 'live' | 'done' | 'failed' | 'idle' } {
+  const d = doomGuy.value
+  if (!d || !module) return { text: 'Ожидает выбора', state: 'idle' }
+  switch (module) {
+    case 'Вознесение': return { text: `${d.ascensionIntelligenceRemaining}/8 защищённого INT осталось`, state: d.ascensionIntelligenceRemaining > 0 ? 'live' : 'done' }
+    case 'Маневры': return { text: `${d.maneuversSpeedRemaining}/5 защищённой SPD осталось`, state: d.maneuversSpeedRemaining > 0 ? 'live' : 'done' }
+    case 'Истребление': return { text: d.exterminationAwarded ? 'Все пятеро уничтожены' : `${d.exterminationVictories}/5 уникальных побед`, state: d.exterminationAwarded ? 'done' : 'live' }
+    case 'Щит-пила': return { text: 'Блок отнимает у атакующих −3 очка', state: 'live' }
+    case 'Шоковый щит': return { text: d.shockShieldUsed ? 'Разряд уже потрачен' : 'Разряд готов: следующий ход врага будет пропущен', state: d.shockShieldUsed ? 'done' : 'live' }
+    case 'Адский блок': return { text: d.hellBlockUsed ? '666 Скилла получено' : `${Math.min(2, d.blocksThisRound)}/2 атак в текущий блок`, state: d.hellBlockUsed ? 'done' : 'live' }
+    case 'Адеские гнезда': return { text: `${d.demonNestNames.length}/3 активных гнезда`, state: d.demonNestNames.length > 3 ? 'failed' : 'live' }
+    case 'Навести беспорядок': return { text: '+1 очко за каждую реальную битву', state: 'live' }
+    case 'Стань богом':
+      if (d.becomeGodAwarded) return { text: 'Испытание завершено: +20', state: 'done' }
+      if (d.everBlocked || d.everLost) return { text: `Испытание провалено${d.everBlocked ? ': был блок' : ': было поражение'}`, state: 'failed' }
+      return { text: 'Чистый забег: без блоков и поражений', state: 'live' }
+    case 'BFG': return { text: d.bfgCharged ? 'ЗАРЯЖЕНА — ждёт атаки с рандомом' : 'Заряд потрачен', state: d.bfgCharged ? 'live' : 'done' }
+    case 'Кулаки': return { text: 'STR = 0 · каждая победа +2 очка', state: 'live' }
+    case 'Бензопила':
+      if (d.copiedPassiveName) return { text: `Украдено: ${d.copiedPassiveName}`, state: 'done' }
+      return { text: d.chainsawSpent ? 'Жертва распилена — выбери пассивку' : 'Готова к следующей победе', state: 'live' }
+    default: return { text: 'Модуль активен', state: 'live' }
+  }
+}
 </script>
 
 <template>
@@ -640,234 +692,23 @@ function handleDoomChainsaw(passiveName: string) {
     <!-- Stats with bars + resist/quality -->
     <div class="pc-stats">
       <div v-if="hasLvlUpPoints" class="lvl-up-badge" :class="{ 'nerf-badge': isIrelia }" :style="levelUpTint ? { background: levelUpTint } : {}">
-        {{ isIrelia ? `Нерф! Выбери -${lvlUpPoints} стат` : `+${lvlUpPoints} очков` }}
+        {{ usesSpecialLevelUpPanel ? `${lvlUpPoints} особый выбор` : `+${lvlUpPoints} очков` }}
         <span v-if="levelUpQuip" class="lvl-up-quip">{{ levelUpQuip }}</span>
       </div>
 
-      <!-- DooM Guy module stage (replaces normal stat upgrades) -->
-      <template v-if="isDoomGuy && hasLvlUpPoints && doomGuy">
-      <div class="goblin-lvlup doom-lvlup">
-        <button
-          v-for="(module, idx) in doomGuy.currentOptions"
-          :key="module.name"
-          class="goblin-lvlup-btn doom-lvlup-btn"
-          data-sfx-skip-default="true"
-          @click="handleLevelUp((idx + 1) as LevelUpStatIndex)"
-        >
-          <span class="goblin-lvlup-name">{{ module.reward ? '◆' : '◈' }} {{ module.name }}</span>
-          <span class="goblin-lvlup-desc">{{ module.description }}</span>
-        </button>
-      </div>
-      <div v-for="stat in ([['INT', 'intelligence'], ['STR', 'strength'], ['SPD', 'speed'], ['PSY', 'psyche']] as const)" :key="stat[1]" class="stat-block">
-        <div class="stat-row">
-          <span class="gi gi-lg" :class="`gi-${stat[0].toLowerCase()}`">{{ stat[0] }}</span>
-          <div class="stat-bar-bg"><div class="stat-bar" :class="stat[1]" :style="{ width: `${player.character[stat[1]] * 10}%` }" /></div>
-          <span class="stat-val">{{ player.character[stat[1]] }}</span>
-        </div>
-      </div>
-      </template>
+      <SpecialLevelUpPanel
+        v-if="hasLvlUpPoints && usesSpecialLevelUpPanel"
+        :player="player"
+        :round-no="roundNo"
+        :submitting="store.isLevelingUp"
+        @choose="handleLevelUp"
+      />
 
-      <!-- Goblin level-up upgrades (replaces stat +buttons but shows read-only stats) -->
-      <template v-else-if="isGoblin && hasLvlUpPoints && goblin">
-      <div class="goblin-lvlup">
-        <button class="goblin-lvlup-btn" data-sfx-skip-default="true" @click="handleLevelUp(1)">
-          <span class="goblin-lvlup-name">Правильное питание</span>
-          <span class="goblin-lvlup-desc">Больше Хобгоблинов (сейчас каждый {{ goblin.hobRate }}й)</span>
-        </button>
-        <button class="goblin-lvlup-btn" data-sfx-skip-default="true" @click="handleLevelUp(2)">
-          <span class="goblin-lvlup-name">Контрактная армия</span>
-          <span class="goblin-lvlup-desc">Больше Воинов (сейчас каждый {{ goblin.warriorRate }}й)</span>
-        </button>
-        <button class="goblin-lvlup-btn" data-sfx-skip-default="true" @click="handleLevelUp(3)">
-          <span class="goblin-lvlup-name">Трудовые условия</span>
-          <span class="goblin-lvlup-desc">Больше Трудяг (сейчас каждый {{ goblin.workerRate }}й)</span>
-        </button>
-        <button class="goblin-lvlup-btn" :class="{ 'goblin-lvlup-disabled': goblin.festivalUsed }" :disabled="goblin.festivalUsed" data-sfx-skip-default="true" @click="handleLevelUp(4)">
-          <span class="goblin-lvlup-name">Праздник Гоблинов</span>
-          <span v-if="goblin.festivalUsed" class="goblin-lvlup-desc">Уже использовано</span>
-          <span v-else class="goblin-lvlup-desc">Удвоить гоблинов ({{ goblin.totalGoblins }} &rarr; {{ goblin.totalGoblins * 2 }})</span>
-        </button>
+      <div v-if="levelUpConsequences.length" class="special-levelup-notes" aria-live="polite">
+        <strong>Особый эффект этой прокачки</strong>
+        <span v-for="note in levelUpConsequences" :key="note">{{ note }}</span>
       </div>
-      <!-- Read-only stats during goblin lvl-up -->
-      <div class="stat-block">
-        <div class="stat-row">
-          <span class="gi gi-lg gi-int">INT</span>
-          <div class="stat-bar-bg"><div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" /></div>
-          <span class="stat-val stat-intelligence">{{ player.character.intelligence }}</span>
-        </div>
-      </div>
-      <div class="stat-block">
-        <div class="stat-row">
-          <span class="gi gi-lg gi-str">STR</span>
-          <div class="stat-bar-bg"><div class="stat-bar strength" :style="{ width: `${player.character.strength * 10}%` }" /></div>
-          <span class="stat-val stat-strength">{{ player.character.strength }}</span>
-        </div>
-      </div>
-      <div class="stat-block">
-        <div class="stat-row">
-          <span class="gi gi-lg gi-spd">SPD</span>
-          <div class="stat-bar-bg"><div class="stat-bar speed" :style="{ width: `${player.character.speed * 10}%` }" /></div>
-          <span class="stat-val stat-speed">{{ player.character.speed }}</span>
-        </div>
-      </div>
-      </template>
 
-      <!-- TheBoys member upgrades (goblin-style label): Francie / Butcher / Kimiko / M.M. xN -->
-      <template v-else-if="isTheBoys && hasLvlUpPoints && theBoys">
-      <div class="goblin-lvlup theboys-lvlup">
-        <button
-          v-for="m in theBoysMembers"
-          :key="m.idx"
-          class="goblin-lvlup-btn theboys-lvlup-btn"
-          :class="{ 'goblin-lvlup-disabled': m.level >= 4, 'theboys-lvlup-maxed': m.level >= 4 }"
-          :disabled="m.level >= 4"
-          data-sfx-skip-default="true"
-          @click="handleLevelUp(m.idx)"
-        >
-          <span class="goblin-lvlup-name">{{ m.icon }} {{ m.name }} <span class="theboys-lvlup-x">x{{ m.level }}</span></span>
-          <span class="goblin-lvlup-desc">{{ m.level >= 4 ? '★ Максимум — ультимейт открыт' : 'Прокачать (+2 стата)' }}</span>
-        </button>
-      </div>
-      <!-- Read-only stats during TheBoys lvl-up -->
-      <div class="stat-block">
-        <div class="stat-row">
-          <span class="gi gi-lg gi-int">INT</span>
-          <div class="stat-bar-bg"><div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" /></div>
-          <span class="stat-val stat-intelligence">{{ player.character.intelligence }}</span>
-        </div>
-      </div>
-      <div class="stat-block">
-        <div class="stat-row">
-          <span class="gi gi-lg gi-str">STR</span>
-          <div class="stat-bar-bg"><div class="stat-bar strength" :style="{ width: `${player.character.strength * 10}%` }" /></div>
-          <span class="stat-val stat-strength">{{ player.character.strength }}</span>
-        </div>
-      </div>
-      <div class="stat-block">
-        <div class="stat-row">
-          <span class="gi gi-lg gi-spd">SPD</span>
-          <div class="stat-bar-bg"><div class="stat-bar speed" :style="{ width: `${player.character.speed * 10}%` }" /></div>
-          <span class="stat-val stat-speed">{{ player.character.speed }}</span>
-        </div>
-      </div>
-      <div class="stat-block">
-        <div class="stat-row">
-          <span class="gi gi-lg gi-psy">PSY</span>
-          <div class="stat-bar-bg"><div class="stat-bar psyche" :style="{ width: `${player.character.psyche * 10}%` }" /></div>
-          <span class="stat-val stat-psyche">{{ player.character.psyche }}</span>
-        </div>
-      </div>
-      </template>
-
-      <!-- Geralt oil upgrade (replaces stat +buttons but shows read-only stats) -->
-      <template v-else-if="isGeralt && hasLvlUpPoints && geralt">
-      <div class="geralt-lvlup">
-        <!-- First level-up: all tiers are 0 → show all 4 types ghosted with universal overlay -->
-        <template v-if="geralt.drownersOilTier === 0 && geralt.werewolvesOilTier === 0 && geralt.vampiresOilTier === 0 && geralt.dragonsOilTier === 0">
-          <div class="geralt-lvlup-overlay-wrap">
-            <button disabled class="geralt-lvlup-btn geralt-lvlup-ghost" style="--oil-color: #3B82F6;">
-              <span class="geralt-lvlup-name">💀 Утопцы</span>
-              <span class="geralt-lvlup-desc">&mdash; &rarr; Масло</span>
-            </button>
-            <button disabled class="geralt-lvlup-btn geralt-lvlup-ghost" style="--oil-color: #22C55E;">
-              <span class="geralt-lvlup-name">🐺 Волколаки</span>
-              <span class="geralt-lvlup-desc">&mdash; &rarr; Масло</span>
-            </button>
-            <button disabled class="geralt-lvlup-btn geralt-lvlup-ghost" style="--oil-color: #A855F7;">
-              <span class="geralt-lvlup-name">🦇 Вампиры</span>
-              <span class="geralt-lvlup-desc">&mdash; &rarr; Масло</span>
-            </button>
-            <button disabled class="geralt-lvlup-btn geralt-lvlup-ghost" style="--oil-color: #EF4444;">
-              <span class="geralt-lvlup-name">🐉 Драконы</span>
-              <span class="geralt-lvlup-desc">&mdash; &rarr; Масло</span>
-            </button>
-            <button class="geralt-lvlup-overlay" data-sfx-skip-default="true" @click="handleLevelUp(1)">
-              🧪 Масло от любой заразы
-            </button>
-          </div>
-        </template>
-        <!-- Subsequent level-ups: per-type upgrade buttons -->
-        <template v-else>
-        <button class="geralt-lvlup-btn" :class="{ 'geralt-lvlup-maxed': geralt.drownersOilTier >= 3 }" :disabled="geralt.drownersOilTier >= 3" data-sfx-skip-default="true" @click="handleLevelUp(1)" style="--oil-color: #3B82F6;">
-          <span class="geralt-lvlup-name">💀 Утопцы</span>
-          <span v-if="geralt.drownersOilTier >= 3" class="geralt-lvlup-desc">Макс. уровень</span>
-          <span v-else class="geralt-lvlup-desc">{{ geraltOilLabel(geralt.drownersOilTier) }} &rarr; {{ geraltOilLabel(geralt.drownersOilTier + 1) }}</span>
-        </button>
-        <button class="geralt-lvlup-btn" :class="{ 'geralt-lvlup-maxed': geralt.werewolvesOilTier >= 3 }" :disabled="geralt.werewolvesOilTier >= 3" data-sfx-skip-default="true" @click="handleLevelUp(2)" style="--oil-color: #22C55E;">
-          <span class="geralt-lvlup-name">🐺 Волколаки</span>
-          <span v-if="geralt.werewolvesOilTier >= 3" class="geralt-lvlup-desc">Макс. уровень</span>
-          <span v-else class="geralt-lvlup-desc">{{ geraltOilLabel(geralt.werewolvesOilTier) }} &rarr; {{ geraltOilLabel(geralt.werewolvesOilTier + 1) }}</span>
-        </button>
-        <button class="geralt-lvlup-btn" :class="{ 'geralt-lvlup-maxed': geralt.vampiresOilTier >= 3 }" :disabled="geralt.vampiresOilTier >= 3" data-sfx-skip-default="true" @click="handleLevelUp(3)" style="--oil-color: #A855F7;">
-          <span class="geralt-lvlup-name">🦇 Вампиры</span>
-          <span v-if="geralt.vampiresOilTier >= 3" class="geralt-lvlup-desc">Макс. уровень</span>
-          <span v-else class="geralt-lvlup-desc">{{ geraltOilLabel(geralt.vampiresOilTier) }} &rarr; {{ geraltOilLabel(geralt.vampiresOilTier + 1) }}</span>
-        </button>
-        <button class="geralt-lvlup-btn" :class="{ 'geralt-lvlup-maxed': geralt.dragonsOilTier >= 3 }" :disabled="geralt.dragonsOilTier >= 3" data-sfx-skip-default="true" @click="handleLevelUp(4)" style="--oil-color: #EF4444;">
-          <span class="geralt-lvlup-name">🐉 Драконы</span>
-          <span v-if="geralt.dragonsOilTier >= 3" class="geralt-lvlup-desc">Макс. уровень</span>
-          <span v-else class="geralt-lvlup-desc">{{ geraltOilLabel(geralt.dragonsOilTier) }} &rarr; {{ geraltOilLabel(geralt.dragonsOilTier + 1) }}</span>
-        </button>
-        </template>
-      </div>
-      <!-- Read-only stats during Geralt lvl-up -->
-      <div class="stat-block">
-        <div class="stat-row">
-          <span class="gi gi-lg gi-int">INT</span>
-          <div class="stat-bar-bg"><div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" /></div>
-          <span class="stat-val stat-intelligence">{{ player.character.intelligence }}</span>
-        </div>
-      </div>
-      <div class="stat-block">
-        <div class="stat-row">
-          <span class="gi gi-lg gi-str">STR</span>
-          <div class="stat-bar-bg"><div class="stat-bar strength" :style="{ width: `${player.character.strength * 10}%` }" /></div>
-          <span class="stat-val stat-strength">{{ player.character.strength }}</span>
-        </div>
-      </div>
-      <div class="stat-block">
-        <div class="stat-row">
-          <span class="gi gi-lg gi-spd">SPD</span>
-          <div class="stat-bar-bg"><div class="stat-bar speed" :style="{ width: `${player.character.speed * 10}%` }" /></div>
-          <span class="stat-val stat-speed">{{ player.character.speed }}</span>
-        </div>
-      </div>
-      </template>
-
-      <!-- Котики lvl-мяк: single Justice button instead of stat buttons -->
-      <template v-else-if="isKotiki && hasLvlUpPoints">
-      <div class="stat-block lvl-up-available">
-        <div class="stat-row">
-          <span class="justice-icon">⚖</span>
-          <span class="stat-val" style="flex:1; text-align:center; font-size:13px;">lvl-мяк: +1 Справедливость</span>
-          <button class="lvl-btn" data-sfx-skip-default="true" title="+1 Justice" @click="handleLevelUp(1)">+</button>
-        </div>
-      </div>
-      <!-- Still show stats (read-only) with resist flash -->
-      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('intelligence'), 'stat-pulse': pulsingStats.has('intelligence') }">
-        <div class="stat-row">
-          <span class="gi gi-lg gi-int">INT</span>
-          <div class="stat-bar-bg"><div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" /></div>
-          <span class="stat-val stat-intelligence">{{ player.character.intelligence }}</span>
-        </div>
-      </div>
-      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('strength'), 'stat-pulse': pulsingStats.has('strength') }">
-        <div class="stat-row">
-          <span class="gi gi-lg gi-str">STR</span>
-          <div class="stat-bar-bg"><div class="stat-bar strength" :style="{ width: `${player.character.strength * 10}%` }" /></div>
-          <span class="stat-val stat-strength">{{ player.character.strength }}</span>
-        </div>
-      </div>
-      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('speed'), 'stat-pulse': pulsingStats.has('speed') }">
-        <div class="stat-row">
-          <span class="gi gi-lg gi-spd">SPD</span>
-          <div class="stat-bar-bg"><div class="stat-bar speed" :style="{ width: `${player.character.speed * 10}%` }" /></div>
-          <span class="stat-val stat-speed">{{ player.character.speed }}</span>
-        </div>
-      </div>
-      </template>
-
-      <template v-else>
       <!-- Intelligence -->
       <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('intelligence'), 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('intelligence') }">
         <div class="stat-row">
@@ -877,7 +718,7 @@ function handleDoomChainsaw(passiveName: string) {
             <div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" />
           </div>
           <span class="stat-val stat-intelligence">{{ player.character.intelligence }}</span>
-          <button v-if="hasLvlUpPoints" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Intelligence' : (isEren ? '+1 Злость' : '+1 Intelligence')" @click="handleLevelUp(1)">{{ isIrelia ? '−' : '+' }}</button>
+          <button v-if="hasLvlUpPoints && !usesSpecialLevelUpPanel" class="lvl-btn" data-sfx-skip-default="true" :disabled="store.isLevelingUp" :title="isEren ? '+1 Злость' : '+1 Intelligence'" @click="handleLevelUp(1)">+</button>
         </div>
         <div v-if="isMe && !isMadara" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.intelligenceResist }}</span>
@@ -893,7 +734,7 @@ function handleDoomChainsaw(passiveName: string) {
             <div class="stat-bar strength" :style="{ width: `${player.character.strength * 10}%` }" />
           </div>
           <span class="stat-val stat-strength">{{ player.character.strength }}</span>
-          <button v-if="hasLvlUpPoints" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Strength' : '+1 Strength'" @click="handleLevelUp(2)">{{ isIrelia ? '−' : '+' }}</button>
+          <button v-if="hasLvlUpPoints && !usesSpecialLevelUpPanel" class="lvl-btn" data-sfx-skip-default="true" :disabled="store.isLevelingUp" title="+1 Strength" @click="handleLevelUp(2)">+</button>
         </div>
         <div v-if="isMe && !isMadara" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.strengthResist }}</span>
@@ -909,15 +750,13 @@ function handleDoomChainsaw(passiveName: string) {
             <div class="stat-bar speed" :style="{ width: `${player.character.speed * 10}%` }" />
           </div>
           <span class="stat-val stat-speed">{{ player.character.speed }}</span>
-          <button v-if="hasLvlUpPoints" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Speed' : '+1 Speed'" @click="handleLevelUp(3)">{{ isIrelia ? '−' : '+' }}</button>
+          <button v-if="hasLvlUpPoints && !usesSpecialLevelUpPanel" class="lvl-btn" data-sfx-skip-default="true" :disabled="store.isLevelingUp" title="+1 Speed" @click="handleLevelUp(3)">+</button>
         </div>
         <div v-if="isMe && !isMadara" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.speedResist }}</span>
           <span v-if="player.character.speedBonusText" class="resist-bonus">{{ player.character.speedBonusText }}</span>
         </div>
       </div>
-      </template>
-
       <!-- Floating stat change numbers -->
       <TransitionGroup name="float-num" tag="div" class="floating-numbers-container">
         <span
@@ -936,7 +775,7 @@ function handleDoomChainsaw(passiveName: string) {
     </div>
 
     <!-- Psyche (separated — different stat type, hidden during kotiki lvl-up) -->
-    <div v-if="!(isKotiki && hasLvlUpPoints)" class="pc-psyche-box">
+    <div class="pc-psyche-box">
       <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('psyche'), 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('psyche') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-psy">{{ isEren ? 'Самоуверенность' : 'PSY' }}</span>
@@ -945,7 +784,7 @@ function handleDoomChainsaw(passiveName: string) {
             <div class="stat-bar psyche" :style="{ width: `${player.character.psyche * 10}%` }" />
           </div>
           <span class="stat-val stat-psyche">{{ player.character.psyche }}</span>
-          <button v-if="hasLvlUpPoints && !isGeralt && !isDoomGuy" class="lvl-btn" :class="{ 'nerf-btn': isIrelia }" data-sfx-skip-default="true" :title="isIrelia ? '-1 Psyche' : (isEren ? '+1 Самоуверенность' : '+1 Psyche')" @click="handleLevelUp(4)">{{ isIrelia ? '−' : '+' }}</button>
+          <button v-if="hasLvlUpPoints && !usesSpecialLevelUpPanel" class="lvl-btn" data-sfx-skip-default="true" :disabled="store.isLevelingUp" :title="isEren ? '+1 Самоуверенность' : '+1 Psyche'" @click="handleLevelUp(4)">+</button>
         </div>
         <div v-if="isMe && !isMadara" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.psycheResist }}</span>
@@ -1156,20 +995,34 @@ function handleDoomChainsaw(passiveName: string) {
     <!-- DooM Guy module controller -->
     <div v-if="doomGuy" class="pc-passive-widget doom-widget">
       <div class="pw-header">
-        <span class="pw-title doom-title">FORTRESS LINK</span>
-        <span class="pw-status" :class="doomGuy.rollMode ? 'doom-roll-active' : ''">{{ doomGuy.rollMode ? "LET'S ROLL" : 'MANUAL' }}</span>
+        <div>
+          <span class="pw-title doom-title">FORTRESS OF DOOM</span>
+          <span class="doom-subtitle">COMBAT LOADOUT</span>
+        </div>
+        <span class="pw-status doom-mode" :class="doomGuy.rollMode ? 'doom-roll-active' : ''">{{ doomGuy.rollMode ? "LET'S ROLL" : 'MANUAL' }}</span>
       </div>
-      <div class="doom-module-list">
-        <div v-for="stage in ['Rune', 'Shield', 'Mission', 'Gun']" :key="stage" class="doom-module-row">
-          <span>{{ stage }}</span><strong>{{ doomGuy.activeModules[stage] || 'LOCKED' }}</strong>
+      <div class="doom-module-list" :class="{ 'doom-module-list--selecting': hasLvlUpPoints }">
+        <div v-for="stage in doomStages" :key="stage.key" class="doom-module-card" :class="`doom-module-card--${doomModuleStatus(doomGuy.activeModules[stage.key] || '').state}`">
+          <span class="doom-module-icon">{{ stage.icon }}</span>
+          <span class="doom-module-copy">
+            <small>{{ stage.label }}</small>
+            <strong>{{ doomGuy.activeModules[stage.key] || 'Не выбран' }}</strong>
+            <span v-if="doomGuy.activeModules[stage.key]">{{ doomModuleStatus(doomGuy.activeModules[stage.key]).text }}</span>
+            <span v-else>Откроется на ходу {{ { Rune: 3, Shield: 5, Mission: 7, Gun: 9 }[stage.key] }}</span>
+          </span>
         </div>
       </div>
-      <div v-if="doomGuy.demonNestNames.length" class="doom-nests">🔥 {{ doomGuy.demonNestNames.join(', ') }}</div>
-      <div v-if="doomGuy.bfgCharged" class="doom-bfg">BFG CHARGED</div>
+      <div v-if="doomGuy.demonNestNames.length" class="doom-nests">
+        <strong>🔥 ГНЕЗДА ДЕМОНОВ</strong>
+        <span v-for="name in doomGuy.demonNestNames" :key="name">{{ name }}</span>
+      </div>
+      <div v-if="doomGuy.bfgCharged" class="doom-bfg"><span>●</span> BFG CHARGED</div>
       <div v-if="doomGuy.chainsawChoices.length" class="doom-chainsaw-choice">
-        <span>Бензопила: забрать пассивку</span>
-        <button v-for="choice in doomGuy.chainsawChoices" :key="choice.name" @click="handleDoomChainsaw(choice.name)">
-          {{ choice.name }}
+        <strong>БЕНЗОПИЛА: ВЫБЕРИ ТРОФЕЙ</strong>
+        <span>Gun будет навсегда заменён выбранной пассивкой.</span>
+        <button v-for="choice in doomGuy.chainsawChoices" :key="choice.name" :title="choice.description" @click="handleDoomChainsaw(choice.name)">
+          <b>{{ choice.name }}</b>
+          <small>{{ choice.description }}</small>
         </button>
       </div>
     </div>
@@ -3495,135 +3348,26 @@ function handleDoomChainsaw(passiveName: string) {
 .goblin-zig-badge { font-size: 10px; font-weight: 700; color: #daa520; background: rgba(218, 165, 32, 0.12); border: 1px solid rgba(218, 165, 32, 0.3); border-radius: 4px; padding: 1px 4px; }
 .goblin-festival-used { font-size: 9px; color: rgba(255, 255, 255, 0.4); font-style: italic; }
 
-/* Goblin level-up panel */
-.goblin-lvlup {
-  display: flex;
-  flex-direction: column;
+.special-levelup-notes {
+  display: grid;
   gap: 4px;
-  padding: 4px 0;
+  margin: 5px 0 9px;
+  padding: 9px 10px;
+  border: 1px solid rgba(99, 184, 255, .28);
+  border-left: 3px solid #63b8ff;
+  border-radius: 8px;
+  background: linear-gradient(110deg, rgba(45, 119, 181, .13), rgba(17, 22, 29, .25));
+  color: rgba(226, 241, 255, .72);
+  font-size: 9px;
+  line-height: 1.4;
 }
-.goblin-lvlup-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  padding: 6px 10px;
-  background: linear-gradient(135deg, rgba(76, 153, 0, 0.12), rgba(76, 153, 0, 0.04));
-  border: 1px solid rgba(76, 153, 0, 0.3);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: left;
-  color: inherit;
-  font-family: inherit;
+.special-levelup-notes strong {
+  color: #83c7ff;
+  font-size: 9px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
 }
-.goblin-lvlup-btn:hover {
-  background: linear-gradient(135deg, rgba(76, 153, 0, 0.25), rgba(76, 153, 0, 0.1));
-  border-color: rgba(76, 153, 0, 0.6);
-  box-shadow: 0 0 8px rgba(76, 153, 0, 0.3);
-}
-.goblin-lvlup-btn:active {
-  transform: scale(0.98);
-}
-.goblin-lvlup-name {
-  font-size: 11px;
-  font-weight: 700;
-  color: #4c9900;
-  text-shadow: 0 0 4px rgba(76, 153, 0, 0.3);
-}
-.goblin-lvlup-desc {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.6);
-}
-.goblin-lvlup-disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-.goblin-lvlup-disabled .goblin-lvlup-name {
-  color: rgba(76, 153, 0, 0.4);
-}
-
-/* Geralt oil level-up panel */
-.geralt-lvlup {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 4px 0;
-}
-.geralt-lvlup-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  padding: 6px 10px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--oil-color) 12%, transparent), color-mix(in srgb, var(--oil-color) 4%, transparent));
-  border: 1px solid color-mix(in srgb, var(--oil-color) 30%, transparent);
-  border-left: 3px solid var(--oil-color);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: left;
-  color: inherit;
-  font-family: inherit;
-}
-.geralt-lvlup-btn:hover {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--oil-color) 25%, transparent), color-mix(in srgb, var(--oil-color) 10%, transparent));
-  border-color: color-mix(in srgb, var(--oil-color) 60%, transparent);
-  border-left-color: var(--oil-color);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--oil-color) 30%, transparent);
-}
-.geralt-lvlup-btn:active {
-  transform: scale(0.98);
-}
-.geralt-lvlup-name {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--oil-color);
-}
-.geralt-lvlup-desc {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.6);
-}
-.geralt-lvlup-maxed {
-  opacity: 0.4;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-.geralt-lvlup-maxed .geralt-lvlup-name {
-  opacity: 0.5;
-}
-.geralt-lvlup-overlay-wrap {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.geralt-lvlup-ghost {
-  opacity: 0.3;
-  pointer-events: none;
-}
-.geralt-lvlup-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(245, 158, 11, 0.15);
-  backdrop-filter: blur(2px);
-  border: 1px solid rgba(245, 158, 11, 0.5);
-  border-radius: 6px;
-  color: #F59E0B;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.2s, box-shadow 0.2s;
-  text-shadow: 0 0 6px rgba(245, 158, 11, 0.5);
-}
-.geralt-lvlup-overlay:hover {
-  background: rgba(245, 158, 11, 0.25);
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
-}
+.special-levelup-notes span::before { content: '◆'; margin-right: 6px; color: #63b8ff; font-size: 7px; }
 
 /* 21. Котики */
 .kotiki-widget {
@@ -4206,23 +3950,6 @@ function handleDoomChainsaw(passiveName: string) {
   font-style: italic;
 }
 
-/* TheBoys — member level-up label (goblin-style) */
-.theboys-lvlup-btn {
-  border-color: rgba(220, 40, 40, 0.35) !important;
-}
-.theboys-lvlup-btn:hover:not(:disabled) {
-  border-color: rgba(255, 60, 60, 0.7) !important;
-  box-shadow: 0 0 12px rgba(220, 40, 40, 0.3);
-}
-.theboys-lvlup-x {
-  color: #ff5252;
-  font-weight: 900;
-}
-.theboys-lvlup-maxed .theboys-lvlup-x {
-  color: #ffd54f;
-  text-shadow: 0 0 8px rgba(255, 213, 79, 0.6);
-}
-
 /* TheBoys — widget extras */
 .theboys-kompromat-count { color: #ffb347; font-size: 0.85em; }
 .theboys-calm { color: #9ccc65 !important; animation: none !important; }
@@ -4289,17 +4016,45 @@ function handleDoomChainsaw(passiveName: string) {
 .eren-marks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
 .eren-mark { padding: 2px 6px; border: 1px solid rgba(255, 91, 55, .35); border-radius: 4px; background: rgba(160, 38, 18, .2); color: #ffad8e; font-size: .68em; }
 
-.doom-lvlup-btn { border-left: 3px solid #bd3f25; background: linear-gradient(90deg, rgba(126, 28, 15, .2), rgba(20, 20, 20, .75)); }
-.doom-widget { border-color: rgba(210, 62, 35, .55) !important; background: linear-gradient(135deg, rgba(72, 17, 10, .24), rgba(14, 14, 14, .94)) !important; }
-.doom-title { color: #ef7954; }
+.doom-widget {
+  position: relative;
+  overflow: hidden;
+  padding: 10px !important;
+  border-color: rgba(226, 74, 42, .62) !important;
+  background:
+    linear-gradient(115deg, rgba(82, 19, 10, .34), transparent 52%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.018) 0 1px, transparent 1px 7px),
+    #0d0d0f !important;
+  box-shadow: inset 0 0 28px rgba(143, 28, 12, .12);
+}
+.doom-widget::after { content: ''; position: absolute; top: 0; right: 0; width: 42px; height: 2px; background: #ef6545; box-shadow: 0 0 12px #ef6545; }
+.doom-title { display: block; color: #ff8264; letter-spacing: .1em; }
+.doom-subtitle { display: block; margin-top: 2px; color: #74483e; font-size: 7px; font-weight: 900; letter-spacing: .16em; }
+.doom-mode { padding: 3px 6px; border: 1px solid rgba(239, 101, 69, .25); border-radius: 3px; background: rgba(239, 101, 69, .07); color: #a66b5e; font-size: 8px; }
 .doom-roll-active { color: #ffb36b; text-shadow: 0 0 8px rgba(255, 76, 30, .7); }
-.doom-module-list { display: grid; gap: 3px; margin-top: 6px; }
-.doom-module-row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 5px; background: rgba(255,255,255,.035); font-size: .68em; }
-.doom-module-row span { color: #a87362; }
-.doom-module-row strong { color: #e8c6ae; text-align: right; }
-.doom-nests, .doom-bfg { margin-top: 6px; color: #f18a55; font-size: .7em; font-weight: 800; }
-.doom-bfg { color: #9cff78; letter-spacing: .12em; animation: doom-charge 1s ease-in-out infinite alternate; }
-.doom-chainsaw-choice { display: grid; gap: 4px; margin-top: 8px; color: #efb094; font-size: .7em; }
-.doom-chainsaw-choice button { padding: 5px; color: #f5d7c7; border: 1px solid #743324; background: #24120e; cursor: pointer; }
+.doom-module-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin-top: 8px; }
+.doom-module-list--selecting { opacity: .58; }
+.doom-module-card { display: grid; grid-template-columns: 25px minmax(0, 1fr); gap: 6px; min-height: 55px; padding: 7px; border: 1px solid rgba(255,255,255,.07); border-radius: 6px; background: rgba(255,255,255,.025); }
+.doom-module-card--live { border-color: rgba(239, 101, 69, .24); background: linear-gradient(135deg, rgba(130, 34, 19, .13), rgba(255,255,255,.02)); }
+.doom-module-card--done { border-color: rgba(102, 203, 89, .22); }
+.doom-module-card--failed { border-color: rgba(150, 150, 150, .18); filter: grayscale(.62); opacity: .62; }
+.doom-module-icon { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 4px; color: #ef7954; background: rgba(239, 101, 69, .09); font-size: 13px; }
+.doom-module-card--done .doom-module-icon { color: #8fda7e; background: rgba(102, 203, 89, .08); }
+.doom-module-copy { display: flex; min-width: 0; flex-direction: column; gap: 1px; }
+.doom-module-copy small { color: #7f5045; font-size: 7px; font-weight: 900; letter-spacing: .08em; }
+.doom-module-copy strong { overflow: hidden; color: #f0c9ba; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.doom-module-copy > span { color: rgba(255,255,255,.48); font-size: 8px; line-height: 1.3; }
+.doom-nests { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 7px; padding: 6px; border: 1px solid rgba(239, 101, 69, .16); border-radius: 5px; background: rgba(108, 24, 12, .1); color: #d78c72; font-size: 8px; }
+.doom-nests strong { margin-right: 2px; color: #f18a55; }
+.doom-nests span { padding: 2px 5px; border-radius: 3px; background: rgba(239, 101, 69, .1); }
+.doom-bfg { display: flex; align-items: center; gap: 6px; margin-top: 7px; padding: 5px 7px; border: 1px solid rgba(123, 255, 92, .25); border-radius: 4px; color: #9cff78; background: rgba(69, 135, 39, .08); font-size: 9px; font-weight: 900; letter-spacing: .12em; animation: doom-charge 1s ease-in-out infinite alternate; }
+.doom-bfg span { color: #70ff4d; font-size: 8px; }
+.doom-chainsaw-choice { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(239, 101, 69, .2); color: #efb094; font-size: 9px; }
+.doom-chainsaw-choice > strong, .doom-chainsaw-choice > span { grid-column: 1 / -1; }
+.doom-chainsaw-choice > span { color: rgba(255,255,255,.46); font-size: 8px; }
+.doom-chainsaw-choice button { display: flex; min-width: 0; flex-direction: column; gap: 2px; padding: 7px; color: #f5d7c7; text-align: left; border: 1px solid #743324; border-radius: 5px; background: #24120e; cursor: pointer; transition: border-color .15s, transform .15s; }
+.doom-chainsaw-choice button:hover { transform: translateY(-1px); border-color: #e86543; }
+.doom-chainsaw-choice button b { font-size: 9px; }
+.doom-chainsaw-choice button small { overflow: hidden; color: rgba(255,255,255,.45); font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
 @keyframes doom-charge { to { text-shadow: 0 0 9px #59ff37; } }
 </style>

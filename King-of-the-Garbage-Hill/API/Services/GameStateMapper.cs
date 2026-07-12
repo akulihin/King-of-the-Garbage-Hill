@@ -427,6 +427,17 @@ public static class GameStateMapper
                                     .Select(id => game.PlayersList.Find(x => x.GetPlayerId() == id)?.DiscordUsername ?? "")
                                     .Where(x => x.Length > 0).ToList(),
                                 BfgCharged = doom.BfgCharged,
+                                AscensionIntelligenceRemaining = doom.AscensionIntelligenceRemaining,
+                                ManeuversSpeedRemaining = doom.ManeuversSpeedRemaining,
+                                ExterminationVictories = doom.ExterminationVictories.Count,
+                                ExterminationAwarded = doom.ExterminationAwarded,
+                                ShockShieldUsed = doom.ShockShieldUsed,
+                                BlocksThisRound = doom.BlocksThisRound,
+                                HellBlockUsed = doom.HellBlockUsed,
+                                EverBlocked = doom.EverBlocked,
+                                EverLost = doom.EverLost,
+                                BecomeGodAwarded = doom.BecomeGodAwarded,
+                                ChainsawSpent = doom.ChainsawSpent,
                                 ChainsawChoices = doom.ChainsawChoices.Select(x => new DoomCopiedPassiveDto
                                 {
                                     Name = x.PassiveName,
@@ -573,6 +584,9 @@ public static class GameStateMapper
                             HobRate = gobPop.HobRate,
                             WarriorRate = gobPop.WarriorRate,
                             WorkerRate = gobPop.WorkerRate,
+                            HobUpgradeLevel = gobPop.HobUpgradeLevel,
+                            WarriorUpgradeLevel = gobPop.WarriorUpgradeLevel,
+                            WorkerUpgradeLevel = gobPop.WorkerUpgradeLevel,
                             ZigguratPositions = gobZig.BuiltPositions,
                             IsInZiggurat = gobZig.IsInZiggurat,
                             FestivalUsed = gobPop.FestivalUsed,

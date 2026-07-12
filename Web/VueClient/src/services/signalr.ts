@@ -199,6 +199,9 @@ export type GoblinSwarmState = {
   hobRate: number
   warriorRate: number
   workerRate: number
+  hobUpgradeLevel: number
+  warriorUpgradeLevel: number
+  workerUpgradeLevel: number
   zigguratPositions: number[]
   isInZiggurat: boolean
   festivalUsed: boolean
@@ -717,6 +720,17 @@ export type DoomGuyState = {
   activeModules: Record<string, string>
   demonNestNames: string[]
   bfgCharged: boolean
+  ascensionIntelligenceRemaining: number
+  maneuversSpeedRemaining: number
+  exterminationVictories: number
+  exterminationAwarded: boolean
+  shockShieldUsed: boolean
+  blocksThisRound: number
+  hellBlockUsed: boolean
+  everBlocked: boolean
+  everLost: boolean
+  becomeGodAwarded: boolean
+  chainsawSpent: boolean
   chainsawChoices: DoomCopiedPassive[]
   copiedPassiveName: string
 }

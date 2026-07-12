@@ -107,8 +107,16 @@ public static class DoomGuy
     public static List<ModuleDefinition> GetOptions(DoomGuyState state, string stage)
     {
         if (state == null || string.IsNullOrEmpty(stage)) return new List<ModuleDefinition>();
-        if (!state.LoadoutSlots.TryGetValue(stage, out var slots)) return new List<ModuleDefinition>();
-        return slots.Select(FindModule).Where(x => x != null).ToList();
+        var configured = state.LoadoutSlots.TryGetValue(stage, out var slots)
+            ? slots.Select(FindModule).Where(x => x != null).ToList()
+            : new List<ModuleDefinition>();
+
+        // A stale/pre-Fortress account snapshot must not strand a human behind the mandatory
+        // level-up gate. Every valid Fortress contains both starter modules for each stage, so
+        // this is the same safe baseline EnsureFortress would have supplied on re-authentication.
+        return configured.Count > 0
+            ? configured
+            : Modules.Where(x => x.Stage == stage && !x.Reward).ToList();
     }
 
     public static bool ActivateRollMode(GamePlayerBridgeClass player)
