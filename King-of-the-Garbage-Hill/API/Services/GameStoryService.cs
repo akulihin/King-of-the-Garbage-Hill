@@ -133,9 +133,9 @@ public class GameStoryService
     private static string GetOutputReminder(StoryLanguage language) => language switch
     {
         StoryLanguage.Russian =>
-            "\n<format-reminder>Верни непустую историю только на русском языке, без тегов, заголовков и пояснений.</format-reminder>",
+            "\n<format-reminder>Верни непустую историю только на русском языке: максимум 250 слов и 1700 символов, без тегов, заголовков и пояснений.</format-reminder>",
         _ =>
-            "\n<format-reminder>Return a non-empty story in English only, with no tags, headings, or explanations.</format-reminder>"
+            "\n<format-reminder>Return a non-empty English-only story: at most 250 words and 1700 characters, with no tags, headings, or explanations.</format-reminder>"
     };
 
     private static string StoryStatus(string story) => string.IsNullOrWhiteSpace(story) ? "unavailable" : "ok";
@@ -452,16 +452,20 @@ public class GameStoryService
             sb.AppendLine("Ты — русскоязычный комментатор игры 'King of the Garbage Hill' (Король Мусорной Горы).");
             sb.AppendLine("Это тактическая пошаговая игра на 6 игроков с уникальными персонажами.");
             sb.AppendLine();
-            sb.AppendLine("ЗАДАНИЕ: напиши на русском хаотичную, но фактически точную историю этой партии: 6-10 коротких абзацев, собранных из 4-7 ярких сцен.");
+            sb.AppendLine("ЗАДАНИЕ: напиши весёлую историю-пересказ этой партии в 8-15 очень коротких строках.");
             sb.AppendLine("ПРАВИЛА:");
-            sb.AppendLine("- Большинство абзацев должны сталкивать минимум двух названных персонажей: действие → ответ → последствие.");
-            sb.AppendLine("- Ищи повторные дуэли, месть, случайные союзы, общую жертву и цепочки A → B → C; если факты позволяют, покажи хотя бы одну трёхперсонажную цепочку.");
-            sb.AppendLine("- НЕ пересказывай каждый раунд. Выбирай самые важные столкновения и поворотные моменты; номер раунда упоминай только когда он помогает шутке или причинно-следственной связи.");
+            sb.AppendLine("- Максимум 250 слов И 1700 символов. Пиши быстро и без воды.");
+            sb.AppendLine("- Главная цель — весёлые связи МЕЖДУ персонажами: кто кого бил, кто кому мстил, как способности сработали друг против друга.");
+            sb.AppendLine("- Выдели только 3-5 самых ярких столкновений, связей и поворотных моментов; НЕ пересказывай каждый раунд.");
+            sb.AppendLine("- Привязывай важные события к раундам (например, «в раунде #3...»), только когда это делает связь понятнее или смешнее.");
+            sb.AppendLine("- Стиль неформальный: юмор, сленг и короткие цитаты персонажей из логов. Каждый момент — отдельная строка.");
+            sb.AppendLine("- Чем больше очков разыграно в событии, тем важнее оно для отбора, но очки не важнее смешной связи персонажей.");
+            sb.AppendLine("- Ищи повторные дуэли, месть, случайные союзы, общую жертву и цепочки A → B → C ...; если факты позволяют, покажи хотя бы одну цепочку если она смешная.");
             sb.AppendLine("- Элементы <round> — единственные сыгранные раунды. <final-settlement> — эпилог после последнего раунда; никогда не называй его новым раундом.");
             sb.AppendLine("- <fights> — точные связи атакующий/защитник/исход. Прозаические логи добавляют контекст способностей и реплик.");
-            sb.AppendLine("- Можно придумывать метафоры, преувеличенные реакции, перебивки и реплики в характере. Нельзя придумывать атаки, исходы, способности, смерти или изменения очков.");
+            sb.AppendLine("- Не выдумывай события: используй только факты из <fights> и логов. Можно менять только подачу, метафоры и шутливые реакции.");
             sb.AppendLine("- Шутки должны соответствовать характерам персонажей и опираться на personality, способности и фактические события.");
-            sb.AppendLine("- Не используй названия способностей дословно как сухой список; вплетай их смысл в сцену.");
+            sb.AppendLine("- Не используй названия способностей дословно как сухой список; немного адаптируй их в контексте шутки или истории.");
             sb.AppendLine("- Используй Markdown **жирный** для имён персонажей и ключевых моментов.");
             sb.AppendLine("- Верни только русскую историю, без языковых тегов, заголовков, нумерации и пояснений.");
             return;
@@ -470,16 +474,19 @@ public class GameStoryService
         sb.AppendLine("You are the English-language commentator for 'King of the Garbage Hill', a six-player turn-based tactical game with unique characters.");
         sb.AppendLine("The supplied logs, abilities, and director card may be written in Russian; understand them, but write the result only in natural English.");
         sb.AppendLine();
-        sb.AppendLine("TASK: write a chaotic but factually accurate story of this match in 6-10 short paragraphs built from 4-7 vivid scenes.");
+        sb.AppendLine("TASK: write a funny recap of this match in 8-15 very short lines.");
         sb.AppendLine("RULES:");
-        sb.AppendLine("- Most paragraphs should bring at least two named characters into the same action → response → consequence chain.");
-        sb.AppendLine("- Look for repeat duels, revenge, accidental alliances, shared victims, and A → B → C chains; include at least one three-character chain when the facts support it.");
-        sb.AppendLine("- Do NOT recap every round. Select the most important clashes and turning points; mention a round number only when it helps the joke or causal link.");
+        sb.AppendLine("- Maximum 250 words AND 1700 characters. Keep it fast and cut filler.");
+        sb.AppendLine("- The main goal is funny connections BETWEEN characters: who attacked whom, who took revenge, and how abilities collided.");
+        sb.AppendLine("- Select only the 3-5 brightest clashes, connections, and turning points; do NOT recap every round.");
+        sb.AppendLine("- Tie important events to rounds (for example, 'in round #3...') only when it makes the connection clearer or funnier.");
+        sb.AppendLine("- Keep the voice informal: humor, slang, and short character quotes from the logs. Put each moment on its own line.");
+        sb.AppendLine("- Events worth more points deserve more attention, but never at the expense of a fun character connection.");
         sb.AppendLine("- <round> elements are the only rounds that were played. <final-settlement> is an epilogue after the last round; never describe it as another round.");
         sb.AppendLine("- <fights> contains exact attacker/defender/outcome relationships. Prose logs add ability and dialogue context.");
-        sb.AppendLine("- You may invent metaphors, heightened reactions, interruptions, and in-character dialogue. Do not invent attacks, outcomes, abilities, deaths, or score changes.");
+        sb.AppendLine("- Do not invent events: use only facts from <fights> and the logs. Only the presentation, metaphors, and comic reactions may be adapted.");
         sb.AppendLine("- Jokes must be in character, based on personality, abilities, and recorded events.");
-        sb.AppendLine("- Do not recite ability names as a dry list; weave their meaning into each scene.");
+        sb.AppendLine("- Do not recite ability names as a dry list; adapt them slightly to fit the joke or story context.");
         sb.AppendLine("- Use Markdown **bold** for character names and key moments.");
         sb.AppendLine("- Return only the English story, with no language tags, headings, numbering, or explanations.");
     }
