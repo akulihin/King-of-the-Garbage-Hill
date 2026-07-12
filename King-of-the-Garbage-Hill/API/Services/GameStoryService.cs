@@ -23,6 +23,7 @@ public class GameStoryService
     private readonly IHubContext<GameHub> _hubContext;
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
+    private readonly bool _englishStoryEnabled;
     private readonly ConcurrentDictionary<ulong, string> _stories = new();
 
     private const string ApiUrl = "https://api.anthropic.com/v1/messages";
@@ -38,6 +39,7 @@ public class GameStoryService
         _hubContext = hubContext;
         _httpClient = httpClient;
         _apiKey = config.AnthropicApiKey ?? "";
+        _englishStoryEnabled = config.GameStoryEnglishEnabled;
     }
 
     /// <summary>
@@ -60,39 +62,37 @@ public class GameStoryService
         {
             try
             {
-                var prompt = BuildPrompt(snapshot);
-                Console.WriteLine($"[GameStory] Prompt for game {gameId}:\n{prompt}");
-                var story = await CallClaudeApi(prompt);
+                var russianTask = GenerateLanguageStoryAsync(snapshot, StoryLanguage.Russian);
+                var englishTask = _englishStoryEnabled
+                    ? GenerateLanguageStoryAsync(snapshot, StoryLanguage.English)
+                    : Task.FromResult<string>(null);
 
-                if (!string.IsNullOrWhiteSpace(story))
+                if (!_englishStoryEnabled)
+                    Console.WriteLine($"[GameStory] English API call disabled for game {gameId}.");
+
+                await Task.WhenAll(russianTask, englishTask);
+                var russianStory = await russianTask;
+                var englishStory = await englishTask;
+
+                if (string.IsNullOrWhiteSpace(russianStory) && string.IsNullOrWhiteSpace(englishStory))
                 {
-                    if (!BilingualGeneratedTextParser.TryParse(story, out var generated))
-                    {
-                        Console.WriteLine($"[GameStory] Invalid bilingual output for game {gameId}; retrying once.");
-                        story = await CallClaudeApi(prompt +
-                            "\n<format-reminder>Return exactly one non-empty <ru>...</ru> block and one non-empty <en>...</en> block. No text outside them.</format-reminder>");
-                    }
-
-                    if (!BilingualGeneratedTextParser.TryParse(story, out generated))
-                    {
-                        Console.WriteLine($"[GameStory] Rejected non-bilingual output for game {gameId}.");
-                        return;
-                    }
-
-                    // One shared artifact carries both variants; CSS shows the viewer's locale.
-                    var html = $"<div class=\"story-locale story-ru\">{FormatStoryHtml(generated.Russian)}</div>" +
-                               $"<div class=\"story-locale story-en\">{FormatStoryHtml(generated.English)}</div>";
-
-                    // Store for later retrieval (e.g. on reconnect/rejoin)
-                    StoreStory(gameId, html);
-
-                    // Backfill story into replay file
-                    OnStoryGenerated?.Invoke(gameId, html);
-
-                    await _hubContext.Clients.Group($"game-{gameId}")
-                        .SendAsync("GameEvent", new { eventType = "GameStory", data = new { story = html } });
-                    Console.WriteLine($"[GameStory] Story delivered for game {gameId} ({html.Length} chars)");
+                    Console.WriteLine($"[GameStory] No story generated for game {gameId}.");
+                    return;
                 }
+
+                // One shared artifact carries both independently generated variants; CSS shows the viewer's locale.
+                var html = BuildLocalizedStoryHtml(russianStory, englishStory);
+
+                // Store for later retrieval (e.g. on reconnect/rejoin)
+                StoreStory(gameId, html);
+
+                // Backfill story into replay file
+                OnStoryGenerated?.Invoke(gameId, html);
+
+                await _hubContext.Clients.Group($"game-{gameId}")
+                    .SendAsync("GameEvent", new { eventType = "GameStory", data = new { story = html } });
+                Console.WriteLine($"[GameStory] Story delivered for game {gameId} " +
+                                  $"(ru={StoryStatus(russianStory)}, en={StoryStatus(englishStory)}, {html.Length} chars)");
             }
             catch (Exception ex)
             {
@@ -100,6 +100,45 @@ public class GameStoryService
             }
         });
     }
+
+    private async Task<string> GenerateLanguageStoryAsync(GameStorySnapshot snapshot, StoryLanguage language)
+    {
+        var gameId = snapshot.GameId;
+        var label = language == StoryLanguage.Russian ? "Russian" : "English";
+
+        try
+        {
+            var prompt = BuildPrompt(snapshot, language);
+            Console.WriteLine($"[GameStory] {label} prompt for game {gameId}:\n{prompt}");
+            var story = await CallClaudeApi(prompt, language);
+
+            if (!string.IsNullOrWhiteSpace(story))
+                return story.Trim();
+
+            Console.WriteLine($"[GameStory] Empty {label} output for game {gameId}; retrying once.");
+            story = await CallClaudeApi(prompt + GetOutputReminder(language), language);
+            if (!string.IsNullOrWhiteSpace(story))
+                return story.Trim();
+
+            Console.WriteLine($"[GameStory] Rejected empty {label} output for game {gameId}.");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[GameStory] Error generating {label} story for game {gameId}: {ex.Message}");
+            return null;
+        }
+    }
+
+    private static string GetOutputReminder(StoryLanguage language) => language switch
+    {
+        StoryLanguage.Russian =>
+            "\n<format-reminder>Верни непустую историю только на русском языке, без тегов, заголовков и пояснений.</format-reminder>",
+        _ =>
+            "\n<format-reminder>Return a non-empty story in English only, with no tags, headings, or explanations.</format-reminder>"
+    };
+
+    private static string StoryStatus(string story) => string.IsNullOrWhiteSpace(story) ? "unavailable" : "ok";
 
     // ── Story Storage ─────────────────────────────────────────────────
 
@@ -293,7 +332,7 @@ public class GameStoryService
 
     // ── Prompt ────────────────────────────────────────────────────────
 
-    private static string BuildPrompt(GameStorySnapshot snapshot)
+    private static string BuildPrompt(GameStorySnapshot snapshot, StoryLanguage language)
     {
         var sb = new StringBuilder();
         var director = SelectDirectorCard(snapshot.GameId);
@@ -302,24 +341,7 @@ public class GameStoryService
 
         // ── Instructions ──
         sb.AppendLine("<instructions>");
-        sb.AppendLine("Ты — комментатор игры 'King of the Garbage Hill' (Король Мусорной Горы).");
-        sb.AppendLine("Это тактическая пошаговая игра на 6 игроков с уникальными персонажами.");
-        sb.AppendLine();
-        sb.AppendLine("ЗАДАНИЕ: напиши хаотичную, но фактически точную историю этой партии: 6-10 коротких абзацев, собранных из 4-7 ярких сцен.");
-        sb.AppendLine("ПРАВИЛА:");
-        sb.AppendLine("- Большинство абзацев должны сталкивать минимум двух названных персонажей: действие → ответ → последствие.");
-        sb.AppendLine("- Ищи повторные дуэли, месть, случайные союзы, общую жертву и цепочки A → B → C; если факты позволяют, покажи хотя бы одну трёхперсонажную цепочку.");
-        sb.AppendLine("- НЕ пересказывай каждый раунд. Выбирай самые важные столкновения и поворотные моменты; номер раунда упоминай только когда он помогает шутке или причинно-следственной связи.");
-        sb.AppendLine("- Элементы <round> — единственные сыгранные раунды. <final-settlement> — эпилог после последнего раунда; никогда не называй его новым раундом.");
-        sb.AppendLine("- <fights> — точные связи атакующий/защитник/исход. Прозаические логи добавляют контекст способностей и реплик.");
-        sb.AppendLine("- Можно придумывать метафоры, преувеличенные реакции, перебивки и реплики в характере. Нельзя придумывать атаки, исходы, способности, смерти или изменения очков.");
-        sb.AppendLine("- Шутки должны быть in character — основаны на personality, способностях и фактических событиях.");
-        sb.AppendLine("- Не используй названия способностей дословно как сухой список; вплетай их смысл в сцену.");
-        sb.AppendLine("- Используй Markdown **жирный** для имён персонажей и ключевых моментов.");
-        sb.AppendLine("- Напиши только историю, без заголовков, нумерации и пояснений.");
-        sb.AppendLine("- Верни ДВЕ адаптированные версии одной истории: сначала русскую внутри <ru>...</ru>, затем английскую внутри <en>...</en>.");
-        sb.AppendLine("- English version must read like native, funny game commentary, not a literal translation. Preserve the same facts and character jokes.");
-        sb.AppendLine("- Теги <ru> и <en> обязательны. Внутри каждой версии 6-10 коротких абзацев; никаких других заголовков.");
+        AppendLanguageInstructions(sb, language);
         sb.AppendLine("</instructions>");
 
         sb.AppendLine("<director-card>");
@@ -421,6 +443,45 @@ public class GameStoryService
         sb.AppendLine("</game-commentary>");
 
         return sb.ToString();
+    }
+
+    private static void AppendLanguageInstructions(StringBuilder sb, StoryLanguage language)
+    {
+        if (language == StoryLanguage.Russian)
+        {
+            sb.AppendLine("Ты — русскоязычный комментатор игры 'King of the Garbage Hill' (Король Мусорной Горы).");
+            sb.AppendLine("Это тактическая пошаговая игра на 6 игроков с уникальными персонажами.");
+            sb.AppendLine();
+            sb.AppendLine("ЗАДАНИЕ: напиши на русском хаотичную, но фактически точную историю этой партии: 6-10 коротких абзацев, собранных из 4-7 ярких сцен.");
+            sb.AppendLine("ПРАВИЛА:");
+            sb.AppendLine("- Большинство абзацев должны сталкивать минимум двух названных персонажей: действие → ответ → последствие.");
+            sb.AppendLine("- Ищи повторные дуэли, месть, случайные союзы, общую жертву и цепочки A → B → C; если факты позволяют, покажи хотя бы одну трёхперсонажную цепочку.");
+            sb.AppendLine("- НЕ пересказывай каждый раунд. Выбирай самые важные столкновения и поворотные моменты; номер раунда упоминай только когда он помогает шутке или причинно-следственной связи.");
+            sb.AppendLine("- Элементы <round> — единственные сыгранные раунды. <final-settlement> — эпилог после последнего раунда; никогда не называй его новым раундом.");
+            sb.AppendLine("- <fights> — точные связи атакующий/защитник/исход. Прозаические логи добавляют контекст способностей и реплик.");
+            sb.AppendLine("- Можно придумывать метафоры, преувеличенные реакции, перебивки и реплики в характере. Нельзя придумывать атаки, исходы, способности, смерти или изменения очков.");
+            sb.AppendLine("- Шутки должны соответствовать характерам персонажей и опираться на personality, способности и фактические события.");
+            sb.AppendLine("- Не используй названия способностей дословно как сухой список; вплетай их смысл в сцену.");
+            sb.AppendLine("- Используй Markdown **жирный** для имён персонажей и ключевых моментов.");
+            sb.AppendLine("- Верни только русскую историю, без языковых тегов, заголовков, нумерации и пояснений.");
+            return;
+        }
+
+        sb.AppendLine("You are the English-language commentator for 'King of the Garbage Hill', a six-player turn-based tactical game with unique characters.");
+        sb.AppendLine("The supplied logs, abilities, and director card may be written in Russian; understand them, but write the result only in natural English.");
+        sb.AppendLine();
+        sb.AppendLine("TASK: write a chaotic but factually accurate story of this match in 6-10 short paragraphs built from 4-7 vivid scenes.");
+        sb.AppendLine("RULES:");
+        sb.AppendLine("- Most paragraphs should bring at least two named characters into the same action → response → consequence chain.");
+        sb.AppendLine("- Look for repeat duels, revenge, accidental alliances, shared victims, and A → B → C chains; include at least one three-character chain when the facts support it.");
+        sb.AppendLine("- Do NOT recap every round. Select the most important clashes and turning points; mention a round number only when it helps the joke or causal link.");
+        sb.AppendLine("- <round> elements are the only rounds that were played. <final-settlement> is an epilogue after the last round; never describe it as another round.");
+        sb.AppendLine("- <fights> contains exact attacker/defender/outcome relationships. Prose logs add ability and dialogue context.");
+        sb.AppendLine("- You may invent metaphors, heightened reactions, interruptions, and in-character dialogue. Do not invent attacks, outcomes, abilities, deaths, or score changes.");
+        sb.AppendLine("- Jokes must be in character, based on personality, abilities, and recorded events.");
+        sb.AppendLine("- Do not recite ability names as a dry list; weave their meaning into each scene.");
+        sb.AppendLine("- Use Markdown **bold** for character names and key moments.");
+        sb.AppendLine("- Return only the English story, with no language tags, headings, numbering, or explanations.");
     }
 
     private static DirectorCard SelectDirectorCard(ulong gameId)
@@ -566,6 +627,19 @@ public class GameStoryService
         return text;
     }
 
+    private static string BuildLocalizedStoryHtml(string russianStory, string englishStory)
+    {
+        var russian = string.IsNullOrWhiteSpace(russianStory)
+            ? "История на русском языке недоступна."
+            : russianStory;
+        var english = string.IsNullOrWhiteSpace(englishStory)
+            ? "The English story is unavailable."
+            : englishStory;
+
+        return $"<div class=\"story-locale story-ru\">{FormatStoryHtml(russian)}</div>" +
+               $"<div class=\"story-locale story-en\">{FormatStoryHtml(english)}</div>";
+    }
+
     private static string StripDiscordEmoji(string text)
     {
         return Regex.Replace(text, @"<:\w+:\d+>", "");
@@ -579,7 +653,7 @@ public class GameStoryService
 
     // ── API Call ──────────────────────────────────────────────────────
 
-    private async Task<string> CallClaudeApi(string prompt)
+    private async Task<string> CallClaudeApi(string prompt, StoryLanguage language)
     {
         var requestBody = new
         {
@@ -602,7 +676,7 @@ public class GameStoryService
 
         if (!response.IsSuccessStatusCode)
         {
-            Console.WriteLine($"[GameStory] API error {response.StatusCode}: {responseBody}");
+            Console.WriteLine($"[GameStory] {language} API error {response.StatusCode}: {responseBody}");
             return null;
         }
 
@@ -616,6 +690,12 @@ public class GameStoryService
     }
 
     // ── Data Classes ─────────────────────────────────────────────────
+
+    private enum StoryLanguage
+    {
+        Russian,
+        English
+    }
 
     private class GameStorySnapshot
     {

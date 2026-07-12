@@ -67,7 +67,7 @@ The Chronicle is a special HTML-rendering boundary: `FightAnimation.formatLetopi
 
 ## 6. Generated text
 
-- Game stories ask the LLM for paired RU and EN tagged adaptations and store both in one replay-safe HTML artifact. The shared parser requires both non-empty blocks; malformed output gets one constrained retry and is discarded if still invalid, so raw single-language prose is never published (`GameStoryService.cs:58-93`; `BilingualGeneratedText.cs:6-32`; `App.vue:371-373`).
+- Game stories make independent RU and EN requests and store the results in one replay-safe HTML artifact. Each prompt requests plain prose in exactly one language, so Story does not depend on model-authored wrapper tags; empty/error results are isolated and cannot discard a successful sibling (`GameStoryService.cs:65-141,335-485`). Both locale containers are always present: a failed or configuration-disabled side contains a localized unavailable message, and `html[lang]` selects the visible side (`GameStoryService.cs:630-640`; `App.vue:371-373`). `GameStoryEnglishEnabled=false` is the explicit testing exception to generating both full stories; it skips the English API call without changing the Russian path (`Config.cs:27-29`; `GameStoryService.cs:65-71`).
 - Geralt hints use the same paired generation contract in one Haiku request. Valid generated adaptations—or a paired static fallback on any failure—are embedded into one `PhraseV2` personal-log record, making arbitrary AI prose switchable in live web, Discord and replays without a client lookup (`ClaudeHaikuService.cs:34-108`; `CP:4678-4712`).
 
 ## 7. Verification checklist

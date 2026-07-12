@@ -164,7 +164,7 @@ The global RU/ENG control is visible even during login, defaults to English when
 
 Achievement and Daily Quest metadata are deliberate typed exceptions: both DTOs carry paired names/descriptions, and their reward components select fields directly from `currentLocale` rather than translating identifiers (`signalr.ts:634-689,744-762`; `DailyQuestBoard.vue:98-166`; `AchievementBoard.vue:73-130`; `AchievementPopup.vue:100-108`). Related Achievement character names and Daily Quest IDs remain canonical identifiers.
 
-Generated game stories carry validated paired RU/EN blocks in one artifact; `html[lang]` selects the visible block (`App.vue:371-373`). The backend retries malformed tagged output once and never sends a raw single-language response (`GameStoryService.cs:58-93`). Development builds warn on Cyrillic left in an English-rendered DOM node (see `Web/VueClient/src/i18n.ts`).
+Generated game stories carry separate RU/EN locale containers in one artifact; `html[lang]` selects the visible block (`App.vue:371-373`). The backend requests each language independently and fills a failed or configuration-disabled side with a localized unavailable message, so one API failure cannot hide the other story or produce a blank locale view (`GameStoryService.cs:65-141,630-640`). Development builds warn on Cyrillic left in an English-rendered DOM node (see `Web/VueClient/src/i18n.ts`).
 
 ## 14. Known gaps & dead surface
 
